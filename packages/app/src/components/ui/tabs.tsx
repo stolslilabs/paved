@@ -40,9 +40,11 @@ export function Tabs({ className, value, defaultValue, onValueChange, rememberAs
 }
 
 /**
- * Equal columns (`auto-cols-fr`): in a `w-fit` list each column takes the widest label, in a `w-full` list the width is
- * shared. The indicator is placed on the active trigger by measure (its left and width), then moved with a transform
- * transition (section 3.2); the first placement, a resize and reduced motion have none.
+ * Equal columns (`1fr`): in a `w-fit` list each column takes the widest label, in a `w-full` list the width is
+ * shared. A column never shrinks below its own label (a plain `1fr` keeps its `auto` minimum, where `auto-cols-fr` is
+ * `minmax(0, 1fr)`; no `min-w-0` on a trigger), so a narrow screen widens the long label's column rather than letting
+ * the text spill over its neighbours. The indicator is placed on the active trigger by measure (its left and width),
+ * then moved with a transform transition (section 3.2); the first placement, a resize and reduced motion have none.
  */
 export function TabsList({ className, children, ref, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
   const { value, rememberAs } = useContext(TabsContext);
@@ -105,7 +107,7 @@ export function TabsList({ className, children, ref, ...props }: ComponentProps<
       ref={setList}
       data-slot="tabs-list"
       className={cn(
-        "relative inline-grid h-10 w-fit auto-cols-fr grid-flow-col items-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground",
+        "relative inline-grid h-10 w-fit auto-cols-[1fr] grid-flow-col items-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground",
         className,
       )}
       {...props}
@@ -132,7 +134,7 @@ export function TabsTrigger({ className, value, children, ...props }: ComponentP
       data-value={value}
       value={value}
       className={cn(
-        "relative inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium state-layer whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground data-[state=active]:not-active:[--layer:transparent]",
+        "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium state-layer whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground data-[state=active]:not-active:[--layer:transparent]",
         className,
       )}
       {...props}

@@ -57,26 +57,48 @@ export const HoverBesideActive: Story = {
   ),
 };
 
-/** Labels of unequal length: every column takes the widest one, so switching never changes the list's footprint. */
+const UnequalLabels = () => (
+  <Tabs defaultValue="a">
+    <TabsList>
+      <TabsTrigger value="a">Tiles</TabsTrigger>
+      <TabsTrigger value="b">Milestones and more</TabsTrigger>
+      <TabsTrigger value="c">Themes</TabsTrigger>
+    </TabsList>
+  </Tabs>
+);
+
+/** Each label inside its trigger (no text over a neighbour), and the list's footprint unchanged by a switch. */
+const containedAndStable = async (canvasElement: HTMLElement) => {
+  const list = within(canvasElement).getByRole("tablist");
+  const tabs = within(canvasElement).getAllByRole("tab");
+  for (const tab of tabs) await expect(tab.scrollWidth).toBeLessThanOrEqual(tab.clientWidth);
+  const before = list.getBoundingClientRect().width;
+  await userEvent.click(tabs[1]!);
+  await expect(list.getBoundingClientRect().width).toBe(before);
+};
+
+/** Labels of unequal length, with room: every column takes the widest one, so switching never changes the footprint. */
 export const SameSize: Story = {
-  render: () => (
-    <Tabs defaultValue="a">
-      <TabsList>
-        <TabsTrigger value="a">Tiles</TabsTrigger>
-        <TabsTrigger value="b">Milestones and more</TabsTrigger>
-        <TabsTrigger value="c">Themes</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  ),
+  render: () => <UnequalLabels />,
   play: async ({ canvasElement }) => {
+    // Equal only with room for three columns of the widest label; narrower, SameSizeMobile's rule applies.
     const list = within(canvasElement).getByRole("tablist");
-    const tabs = within(canvasElement).getAllByRole("tab");
-    const widths = tabs.map((t) => t.getBoundingClientRect().width);
-    await expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1);
-    const before = list.getBoundingClientRect().width;
-    await userEvent.click(tabs[1]!);
-    await expect(list.getBoundingClientRect().width).toBe(before);
+    if (list.getBoundingClientRect().width < list.parentElement!.clientWidth - 1) {
+      const widths = within(canvasElement).getAllByRole("tab").map((t) => t.getBoundingClientRect().width);
+      await expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1);
+    }
+    await containedAndStable(canvasElement);
   },
+};
+
+/**
+ * The same on a phone, without room for three columns of the widest label: the long label's column keeps its label's
+ * width and the others share the rest. The text never spills over a neighbour, and the footprint still never changes.
+ */
+export const SameSizeMobile: Story = {
+  globals: { viewport: { value: "mobile", isRotated: false } },
+  render: () => <UnequalLabels />,
+  play: async ({ canvasElement }) => containedAndStable(canvasElement),
 };
 
 /** Full width (a phone): the columns share the width equally. */
