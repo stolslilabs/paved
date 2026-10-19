@@ -25,7 +25,7 @@ export interface StorySceneProps {
 /**
  * Story mode (`/story`, #546): the campaigns, each with its levels, their stars and locks. A level opens once the one before
  * it is finished; a campaign once the campaigns before it hold 2 stars per level on average. One column on a phone, the
- * levels in a grid from `tablet` up.
+ * levels in a grid of three from `tablet` up.
  */
 export function StoryScene({ campaigns, progress, storageOff, onBack, onLevel }: StorySceneProps) {
   return (
@@ -60,7 +60,7 @@ export function StoryScene({ campaigns, progress, storageOff, onBack, onLevel }:
                   Earn {requirement.needed} stars over the campaigns before this one (2 per level on average) to open it. You have {requirement.held(progress)}.
                 </Notice>
               )}
-              <ol className="grid grid-cols-1 gap-2 mobile:grid-cols-2 tablet:grid-cols-3">
+              <ol className="grid grid-cols-1 gap-2 tablet:grid-cols-3">
                 {campaign.levels.map((level) => {
                   const unlocked = levelUnlocked(progress, campaigns, campaign, level.id);
                   const done = levelProgress(progress, campaign.id, level.id);

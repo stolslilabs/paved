@@ -33,10 +33,10 @@ export const IntroBestKnown: Story = {
     title: "A full road",
     intro: "This is a full game: 38 tiles, like a Challenge, but you know the deck. Use the deck sheet, and go for the best score there is.",
     tiles: 38,
-    target: 11800,
-    twoStars: 8260,
+    target: 14106,
+    twoStars: 9875,
     bestKnown: true,
-    best: { score: 9120, stars: 2 },
+    best: { score: 10200, stars: 2 },
   },
 };
 
@@ -72,5 +72,5 @@ export const EndOneStarLast: Story = { args: TUTORIAL_1, render: () => <StoryEnd
 /** A score above a best-known target: the player is told the target was a search's, and theirs is better. */
 export const EndBeatsBestKnown: Story = {
   args: TUTORIAL_1,
-  render: () => <StoryEnd {...END} title="A full road" target={11800} twoStars={8260} bestKnown score={11950} stars={3} beatsTarget previousBest={11200} />,
+  render: () => <StoryEnd {...END} title="A full road" target={14106} twoStars={9875} bestKnown score={14250} stars={3} beatsTarget previousBest={12900} />,
 };

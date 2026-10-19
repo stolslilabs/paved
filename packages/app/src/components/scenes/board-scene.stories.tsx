@@ -219,7 +219,7 @@ export const StoryCoachDiscard: Story = {
   },
 };
 
-/** A Story level's end over its board: the stars, the score against a best-known target, Replay and Next. */
+/** A Story level's end over its board: the stars, the score against a best-known target, Replay (the last level: no Next). */
 export const StoryEndOnBoard: Story = {
   args: {
     ...BOARD.placing,
@@ -227,7 +227,10 @@ export const StoryEndOnBoard: Story = {
     gameId: undefined,
     expiresAt: null,
     title: "Open Country 11: A full road",
+    score: 9120,
+    remaining: 0,
     readOnly: true,
-    notices: <StoryEnd title="A full road" score={9120} stars={2} target={11800} twoStars={8260} bestKnown previousBest={8400} onReplay={fn()} onNext={fn()} onLevels={fn()} />,
+    // The campaign's last level: no Next.
+    notices: <StoryEnd title="A full road" score={9120} stars={2} target={14106} twoStars={9875} bestKnown previousBest={8400} onReplay={fn()} onLevels={fn()} />,
   },
 };
