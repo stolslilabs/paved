@@ -105,85 +105,7 @@ jobs:
               - '.githooks/**'
               - '.github/workflows/test.yaml'
             # The starknet.js signer that signs with the deployer key on Sepolia (P-40): its unit tests gate a merge.
-            # The Training battle test (P-79, packages/app/e2e): complete games played by a bot in headless Chromium on the plan
-  # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. Apart
-  # from the client job so that the two run side by side: this one builds only the workspace packages the dev server
-  # imports (their dist/), not the app's production build.
-  e2e:
-    needs: changes
-    if: needs.changes.outputs.e2e == 'true'
-    runs-on: ubuntu-latest
-    name: Training e2e (headless)
-    # About 1 min of tests locally for the default 2 games; the setup and the build come on top.
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    env:
-      # 1.5x the run's measured peak (709 MB, the largest process of the tree), rounded up to 64 MB.
-      NODE_OPTIONS: --max-old-space-size=1088
-      PAVED_E2E_GAMES: "2"
-      PAVED_E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      # actions/setup-node v7.0.0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: 24
-      # oven-sh/setup-bun v2.2.0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-        with:
-          bun-version: 1.4.2
-      # The same modules cache and key as the client job: the same files, so one job's save serves the other.
-      - name: Runner image
-        id: image
-        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
-      # actions/cache v4.2.4
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        id: modules
-        with:
-          path: |
-            node_modules
-            packages/*/node_modules
-            !node_modules/.cache
-            !packages/*/node_modules/.cache
-            !packages/*/node_modules/.vite
-          key: node-modules-${{ runner.os }}-${{ steps.image.outputs.os }}-${{ runner.arch }}-node-24-bun-1.4.2-${{ hashFiles('bun.lock', 'package.json', 'packages/*/package.json') }}
-      - name: Install
-        if: steps.modules.outputs.cache-hit != 'true'
-        run: bun install --frozen-lockfile
-      # The packages the app imports resolve to their dist/: game-core, chain and renderer, built as the client job builds them.
-      - name: Build the app's workspace packages
-        run: bun run build --filter='@paved/app^...'
-      # The browser of the wrap sweep: the one the app's playwright-core names, under the same cache key.
-      - name: Playwright version
-        id: playwright
-        working-directory: packages/app
-        run: echo "version=$(bun -e 'console.log(require("playwright-core/package.json").version)')" >> "$GITHUB_OUTPUT"
-        shell: bash
-      # actions/cache v4.2.4
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
-      - name: Install the browser
-        working-directory: packages/app
-        run: bunx playwright-core install --with-deps chromium-headless-shell
-        shell: bash
-      # Every seed is in the log and in the artifact: a failing game replays locally with PAVED_E2E_SEED (e2e/training.e2e.ts).
-      - name: Training e2e
-        run: bun run --filter @paved/app e2e
-      # The seeds and the page's last screenshot of a failed test.
-      # actions/upload-artifact v4.6.2
-      - name: Upload the seeds and screenshots
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: e2e-artifacts
-          path: e2e-artifacts
-          retention-days: 7
-          if-no-files-found: ignore
-
-  signer:
+            signer:
               - 'scripts/signer/**'
               - '.github/workflows/test.yaml'
 
@@ -376,6 +298,84 @@ jobs:
           if [ -z "$(find packages/app/dist -name '*.map' -print -quit)" ]; then echo "No source map in dist/: the check would miss them"; exit 1; fi
           if grep -rlF "$VITE_PLAYER_PRIVATE_KEY" packages/app/dist; then echo "The burner key is in the Sepolia build"; exit 1; fi
         shell: bash
+
+  # The Training battle test (P-79, packages/app/e2e): complete games played by a bot in headless Chromium on the plan
+  # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. Apart
+  # from the client job so that the two run side by side: this one builds only the workspace packages the dev server
+  # imports (their dist/), not the app's production build.
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    name: Training e2e (headless)
+    # About 1 min of tests locally for the default 2 games; the setup and the build come on top.
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      # 1.5x the run's measured peak (709 MB, the largest process of the tree), rounded up to 64 MB.
+      NODE_OPTIONS: --max-old-space-size=1088
+      PAVED_E2E_GAMES: "2"
+      PAVED_E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # actions/setup-node v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      # oven-sh/setup-bun v2.2.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.2
+      # The same modules cache and key as the client job: the same files, so one job's save serves the other.
+      - name: Runner image
+        id: image
+        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+      # actions/cache v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        id: modules
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            !node_modules/.cache
+            !packages/*/node_modules/.cache
+            !packages/*/node_modules/.vite
+          key: node-modules-${{ runner.os }}-${{ steps.image.outputs.os }}-${{ runner.arch }}-node-24-bun-1.4.2-${{ hashFiles('bun.lock', 'package.json', 'packages/*/package.json') }}
+      - name: Install
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: bun install --frozen-lockfile
+      # The packages the app imports resolve to their dist/: game-core, chain and renderer, built as the client job builds them.
+      - name: Build the app's workspace packages
+        run: bun run build --filter='@paved/app^...'
+      # The browser of the wrap sweep: the one the app's playwright-core names, under the same cache key.
+      - name: Playwright version
+        id: playwright
+        working-directory: packages/app
+        run: echo "version=$(bun -e 'console.log(require("playwright-core/package.json").version)')" >> "$GITHUB_OUTPUT"
+        shell: bash
+      # actions/cache v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+      - name: Install the browser
+        working-directory: packages/app
+        run: bunx playwright-core install --with-deps chromium-headless-shell
+        shell: bash
+      # Every seed is in the log and in the artifact: a failing game replays locally with PAVED_E2E_SEED (e2e/training.e2e.ts).
+      - name: Training e2e
+        run: bun run --filter @paved/app e2e
+      # The seeds and the page's last screenshot of a failed test.
+      # actions/upload-artifact v4.6.2
+      - name: Upload the seeds and screenshots
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: e2e-artifacts
+          path: e2e-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
 
   signer:
     needs: changes
