@@ -1,7 +1,7 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
 import { MSAA_SAMPLES } from "./Effects";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
-import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightSettings } from "./daynight-settings";
+import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightInput, type DayNightSettings } from "./daynight-settings";
 import { DEFAULT_PLACEMENT_SETTINGS, resolvePlacementSettings, type PlacementSettings, type PlacementSettingsInput } from "./placement";
 import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings, type VoxelDropSettings, type VoxelDropSettingsInput } from "./voxel-drop-settings";
 import {
@@ -100,7 +100,7 @@ export interface RendererSettingsInput {
   /** The placement visuals: each group's fields over the defaults'. */
   placement?: PlacementSettingsInput;
   /** The day and night cycle: its fields over the defaults'. */
-  dayNight?: Partial<DayNightSettings>;
+  dayNight?: DayNightInput;
   /** The voxel drop: its fields over the defaults'. */
   voxelDrop?: VoxelDropSettingsInput;
 }

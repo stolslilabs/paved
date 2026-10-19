@@ -23,7 +23,7 @@ import {
   startSeason,
   sunAt,
 } from "../src/core/daynight";
-import { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, SEASONS, resolveDayNightSettings } from "../src/core/daynight-settings";
+import { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, resolveDayNightSettings, resolveWindowLight } from "../src/core/daynight-settings";
 import { resolveRendererSettings } from "../src/core/settings";
 import { Effects } from "../src/core/Effects";
 import { LOOK_PRESETS } from "../src/core/look";
@@ -193,6 +193,17 @@ describe("the night lights' source (NIGHT-WINDOWS, #513)", () => {
     expect(resolveDayNightSettings({ lights: "windows" }).lights).toBe("windows");
     expect(resolveDayNightSettings({ lights: "lasers" as never }).lights).toBe("columns");
     expect(resolveDayNightSettings({ enabled: true }, resolveDayNightSettings({ lights: "windows" })).lights).toBe("windows");
+  });
+
+  it("#571: the windows' own light, stronger and longer than the first pass's, set field by field; the columns' unchanged", () => {
+    expect(DEFAULT_WINDOW_LIGHT).toEqual({ intensity: 1, reach: 10, falloff: 1.2, margin: 8, stagger: 1, rule: "structures" });
+    expect(DEFAULT_DAYNIGHT_SETTINGS.windowLight).toEqual(DEFAULT_WINDOW_LIGHT);
+    expect(DEFAULT_DAYNIGHT_SETTINGS.nightLightIntensity).toBe(0.4);
+    expect(resolveDayNightSettings({ windowLight: { margin: 0 } }).windowLight).toEqual({ ...DEFAULT_WINDOW_LIGHT, margin: 0 });
+    expect(resolveWindowLight({ intensity: -1, reach: 0, falloff: Number.NaN, margin: 99, stagger: 0, rule: "lasers" as never })).toEqual(DEFAULT_WINDOW_LIGHT);
+    expect(resolveWindowLight({ margin: 3.6, rule: "columns" })).toMatchObject({ margin: 4, rule: "columns" });
+    // A later partial keeps what an earlier one set.
+    expect(resolveDayNightSettings({ enabled: true }, resolveDayNightSettings({ windowLight: { reach: 14 } })).windowLight.reach).toBe(14);
   });
 });
 
