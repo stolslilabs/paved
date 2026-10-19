@@ -171,9 +171,6 @@ const MARK_LABELS: Record<OpeningKind | "unlit", string> = {
 
 const FACING = ["N", "E", "S", "W"] as const;
 
-/** A readout cell's padding (inline: the stories add no class to the app's CSS). */
-const CELL = { paddingRight: "0.75rem" } as const;
-
 /** How many items each key has. */
 function countBy<T>(items: readonly T[], key: (item: T) => string): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -373,31 +370,16 @@ export function NightWindowsTile(props: NightWindowsTileProps) {
             <div>light volume {volume.sizeX} x {volume.sizeY} x {volume.layers} cells, RG8 {(volume.bytes / 1024).toFixed(1)} KB; spill {volume.spill.size} x {volume.spill.size} ({(volume.spill.data.byteLength / 1024).toFixed(1)} KB, margin {volume.spill.margin})</div>
             <div>{volume.sources.length} sources, {new Set(volume.owners).size} owners (a room's windows share one), {method}, build {volume.buildMs.toFixed(2)} ms</div>
             <div>switch-on at level {nightLevel.toFixed(2)} (stagger {stagger}) on cell {cellX}, {cellY}</div>
-            <table className="mt-2" style={{ borderSpacing: 0, textAlign: "left" }}>
-              <caption style={{ textAlign: "left" }}>Structures (numbered on the view): windows kept / dropped per wall, lit at full night and at the level</caption>
-              <thead>
-                <tr>
-                  <th style={CELL}>#</th>
-                  <th style={CELL}>box</th>
-                  {FACING.map((f) => <th key={f} style={CELL}>{f}</th>)}
-                  <th style={CELL}>lit night</th>
-                  <th style={CELL}>lit now</th>
-                  <th>dropped</th>
-                </tr>
-              </thead>
-              <tbody>
-                {structures.slice(0, STRUCTURE_ROWS).map((s) => (
-                  <tr key={s.label}>
-                    <td style={CELL}>#{s.label}</td>
-                    <td style={CELL}>{s.size} at {s.x},{s.y}</td>
-                    {FACING.map((f, i) => <td key={f} style={CELL}>{s.kept[i]}{s.dropped[i] ? `/${s.dropped[i]}` : ""}</td>)}
-                    <td style={CELL}>{s.litNight}/{s.windows}</td>
-                    <td style={CELL}>{s.litNow}/{s.windows}</td>
-                    <td>{s.reasons}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/* One line a structure, wrapping on a phone (a table would not fit 320 px). */}
+            <div className="mt-2">Structures (numbered on the view): windows kept per wall N E S W (/dropped), lit at full night and at the level</div>
+            <ul className="flex flex-col gap-1">
+              {structures.slice(0, STRUCTURE_ROWS).map((s) => (
+                <li key={s.label} className="break-words">
+                  #{s.label} {s.size} at {s.x},{s.y} · {FACING.map((f, i) => `${f} ${s.kept[i]}${s.dropped[i] ? `/${s.dropped[i]}` : ""}`).join(" ")} · lit {s.litNight}/{s.windows} night, {s.litNow}/{s.windows} now
+                  {s.reasons && ` · dropped ${s.reasons}`}
+                </li>
+              ))}
+            </ul>
             {structures.length > STRUCTURE_ROWS && <div>and {structures.length - STRUCTURE_ROWS} more</div>}
             <ul className="mt-2 flex flex-col gap-1">
               {(Object.keys(MARK_COLORS) as Array<keyof typeof MARK_COLORS>).map((kind) => (
