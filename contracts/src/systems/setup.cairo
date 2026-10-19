@@ -58,6 +58,11 @@ pub const WEEKLY: u8 = 2;
 /// The kinds of a cobble claim (`CobblesClaimed.kind`).
 pub const CLAIM_QUEST: u8 = 1;
 pub const CLAIM_ACHIEVEMENT: u8 = 2;
+/// A star of a Story level (#548): `id` the level, `(campaign_id << 8) | level_id`; `period` the
+/// star, 1 to 3. Paid once per star, level and account (`ISetupStory::credit_story`).
+pub const CLAIM_STORY: u8 = 3;
+/// The cobbles of the first, second and third star of a Story level (#548): 30 per level at most.
+pub const STAR_COBBLES: u8 = 5;
 /// The ids that can carry cobbles: 1 to 63, one bit each in the claim bitmaps (`u64`).
 pub const MAX_COBBLE_ID: u32 = 63;
 /// The most quests of one kind with cobbles: the ids of a list are 15 `u16` in one slot.
@@ -624,6 +629,25 @@ pub trait ISetupPacks<TContractState> {
     fn pack(self: @TContractState, pack_id: u8) -> Pack;
 }
 
+/// Story mode (#548, `docs/architecture/story-mode.md`): the cobbles of the stars of a level, paid
+/// from this ledger for the `Story` system, an allowlisted reporter.
+#[starknet::interface]
+pub trait ISetupStory<TContractState> {
+    /// Credits `player_id` the cobbles of the stars `paid + 1` to `stars` of a Story level
+    /// (`paid` < `stars` <= 3): star `k` is worth `k x STAR_COBBLES` (5, 10, 15). An allowlisted
+    /// reporter only (`'Quest: not reporter'`); it trusts the reporter for whom and for which
+    /// stars (`Story` pays a star once: the best stars it keeps). Emits one `CobblesClaimed` per
+    /// star (`kind` 3, `id` `(campaign_id << 8) | level_id`, `period` the star); returns the sum.
+    fn credit_story(
+        ref self: TContractState,
+        player_id: felt252,
+        campaign_id: u8,
+        level_id: u8,
+        paid: u8,
+        stars: u8,
+    ) -> u32;
+}
+
 /// Cobbles v1, part 3 (P-61, `docs/architecture/cobbles-v1.md`, 5): the skins of the tile plans,
 /// priced by the owner, bought with cobbles by the player for itself, and the set the player shows.
 #[starknet::interface]
@@ -673,11 +697,11 @@ pub mod Setup {
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, MAX_ACHIEVEMENT_TOTAL,
-        MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, Progress, ProgressTrait,
-        QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress,
-        QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, WEEKLY, Wiring, active_themes,
-        bit, list_ids, list_word, schedule_kind, week_of,
+        CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, ISetupStory,
+        MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, Progress,
+        ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait,
+        QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES,
+        WEEKLY, Wiring, active_themes, bit, list_ids, list_word, schedule_kind, week_of,
     };
 
     // Errors
@@ -714,6 +738,7 @@ pub mod Setup {
         pub const SKIN_NOT_FOR_SALE: felt252 = 'Setup: skin not for sale';
         pub const SKIN_OWNED: felt252 = 'Setup: skin owned';
         pub const NOT_ENOUGH_COBBLES: felt252 = 'Setup: not enough cobbles';
+        pub const INVALID_STARS: felt252 = 'Setup: invalid stars';
         pub const SKIN_NOT_OWNED: felt252 = 'Setup: skin not owned';
     }
 
@@ -882,7 +907,8 @@ pub mod Setup {
     }
 
     /// A player's claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an
-    /// achievement (`period` 0); `balance`, the player's cobbles after it.
+    /// achievement (`period` 0), 3 a star of a Story level (`id` `(campaign_id << 8) | level_id`,
+    /// `period` the star, 1 to 3); `balance`, the player's cobbles after it.
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct CobblesClaimed {
         #[key]
@@ -1334,6 +1360,46 @@ pub mod Setup {
 
         fn achievement_cobbles(self: @ContractState, achievement_id: u32) -> AchievementCobbles {
             self.achievement_cobbles.read(achievement_id)
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupStoryImpl of ISetupStory<ContractState> {
+        fn credit_story(
+            ref self: ContractState,
+            player_id: felt252,
+            campaign_id: u8,
+            level_id: u8,
+            paid: u8,
+            stars: u8,
+        ) -> u32 {
+            // [Check] Caller is a reporter (`Story`), stars to pay
+            self.quest.assert_reporter(get_caller_address());
+            assert(paid < stars && stars <= 3, errors::INVALID_STARS);
+            // [Effect] Each star credited, one claim each, in one write of the account
+            let id: u32 = campaign_id.into() * 0x100 + level_id.into();
+            let mut account = self.accounts.read(player_id);
+            let mut total: u32 = 0;
+            let mut star = paid + 1;
+            while star <= stars {
+                let cobbles = star * STAR_COBBLES;
+                account.cobbles += cobbles.into();
+                total += cobbles.into();
+                self
+                    .emit(
+                        CobblesClaimed {
+                            player_id,
+                            kind: CLAIM_STORY,
+                            id,
+                            period: star.into(),
+                            cobbles,
+                            balance: account.cobbles,
+                        },
+                    );
+                star += 1;
+            }
+            self.accounts.write(player_id, account);
+            total
         }
     }
 

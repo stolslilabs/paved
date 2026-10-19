@@ -1,0 +1,906 @@
+[
+  {
+    "type": "impl",
+    "name": "StoryImpl",
+    "interface_name": "paved::systems::story::IStory"
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<core::integer::u8>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<core::integer::u8>"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::story::StoryTile",
+    "members": [
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<paved::systems::story::StoryTile>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<paved::systems::story::StoryTile>"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::story::StoryMove",
+    "members": [
+      {
+        "name": "discard",
+        "type": "core::bool"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<paved::systems::story::StoryMove>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<paved::systems::story::StoryMove>"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::story::StoryCampaign",
+    "members": [
+      {
+        "name": "level_count",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "unlock_average",
+        "type": "core::integer::u8"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::story::StoryLevel",
+    "members": [
+      {
+        "name": "plans",
+        "type": "core::array::Array::<core::integer::u8>"
+      },
+      {
+        "name": "starter",
+        "type": "paved::systems::story::StoryTile"
+      },
+      {
+        "name": "placed",
+        "type": "core::array::Array::<paved::systems::story::StoryTile>"
+      },
+      {
+        "name": "target",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::story::StoryProgress",
+    "members": [
+      {
+        "name": "stars",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "total",
+        "type": "core::integer::u16"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::story::IStory",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_campaign",
+        "inputs": [
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "level_count",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "unlock_average",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_level",
+        "inputs": [
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "level_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "plans",
+            "type": "core::array::Span::<core::integer::u8>"
+          },
+          {
+            "name": "starter",
+            "type": "paved::systems::story::StoryTile"
+          },
+          {
+            "name": "placed",
+            "type": "core::array::Span::<paved::systems::story::StoryTile>"
+          },
+          {
+            "name": "target",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "submit_run",
+        "inputs": [
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "level_index",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "moves",
+            "type": "core::array::Span::<paved::systems::story::StoryMove>"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "campaign",
+        "inputs": [
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::story::StoryCampaign"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "level",
+        "inputs": [
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "level_id",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::story::StoryLevel"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "progress",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::story::StoryProgress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "stars",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "level_id",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "best_score",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "campaign_id",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "level_id",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "StorySetupImpl",
+    "interface_name": "paved::systems::story::IStorySetup"
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::story::IStorySetup",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_setup",
+        "inputs": [
+          {
+            "name": "setup",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "setup",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "UpgradeableImpl",
+    "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
+  },
+  {
+    "type": "interface",
+    "name": "openzeppelin_interfaces::upgrades::IUpgradeable",
+    "items": [
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "new_class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "OwnableImpl",
+    "interface_name": "paved::components::ownable::IOwnable"
+  },
+  {
+    "type": "interface",
+    "name": "paved::components::ownable::IOwnable",
+    "items": [
+      {
+        "type": "function",
+        "name": "owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "pending_owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "transfer_ownership",
+        "inputs": [
+          {
+            "name": "new_owner",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "accept_ownership",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "setup_address",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::GameSpawned",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "day_id",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "price",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Built",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Discarded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Scored",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "category",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "size",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::GameOver",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "day_id",
+        "type": "core::integer::u64",
+        "kind": "key"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "end_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "GameSpawned",
+        "type": "paved::events::GameSpawned",
+        "kind": "nested"
+      },
+      {
+        "name": "Built",
+        "type": "paved::events::Built",
+        "kind": "nested"
+      },
+      {
+        "name": "Discarded",
+        "type": "paved::events::Discarded",
+        "kind": "nested"
+      },
+      {
+        "name": "Scored",
+        "type": "paved::events::Scored",
+        "kind": "nested"
+      },
+      {
+        "name": "GameOver",
+        "type": "paved::events::GameOver",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "OwnershipTransferStarted",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+        "kind": "nested"
+      },
+      {
+        "name": "OwnershipTransferred",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "Upgraded",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::story::Story::SetupSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "setup",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::story::Story::CampaignSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "campaign_id",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "level_count",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "unlock_average",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::story::Story::LevelSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "campaign_id",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "level_id",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "tiles",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "placed",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "target",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::story::Story::RunSubmitted",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "campaign_id",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "level_id",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "stars",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "best_stars",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "gained",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::story::Story::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "PavedEvent",
+        "type": "paved::events::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "OwnableEvent",
+        "type": "paved::components::ownable::OwnableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "UpgradeableEvent",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "SetupSet",
+        "type": "paved::systems::story::Story::SetupSet",
+        "kind": "nested"
+      },
+      {
+        "name": "CampaignSet",
+        "type": "paved::systems::story::Story::CampaignSet",
+        "kind": "nested"
+      },
+      {
+        "name": "LevelSet",
+        "type": "paved::systems::story::Story::LevelSet",
+        "kind": "nested"
+      },
+      {
+        "name": "RunSubmitted",
+        "type": "paved::systems::story::Story::RunSubmitted",
+        "kind": "nested"
+      }
+    ]
+  }
+]

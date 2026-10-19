@@ -73,6 +73,7 @@ COVERAGE_GROUPS=(
   "tests-economy|paved::tests::economy::|"
   "tests-owners|paved::tests::owners|"
   "tests-seed|paved::tests::seed|"
+  "tests-story|paved::tests::story|"
   "tests-walk-cost|paved::tests::walk_cost|"
   "gas|test_gas_|"
   "profile-g7|test_profile_g7_|"
