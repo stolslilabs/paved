@@ -97,7 +97,7 @@ for (let round = 0; round < ROUNDS; round++) {
             if (f >= warm) times.push(ms);
           }
           const counts = particles?.visible
-              particles.children.map((p: any) => (p.visible ? (p.geometry.getAttribute("aSeed")?.count ?? 0) : 0))
+            ? particles.children.map((p: any) => (p.visible ? (p.geometry.getAttribute("aSeed")?.count ?? 0) : 0))
             : [0, 0];
           return { times, calls, tier: s.getQuality(), particles: counts, webgl: s.getWebGL().renderer ?? "unknown", size: [s.renderer.domElement.width, s.renderer.domElement.height] };
         },
