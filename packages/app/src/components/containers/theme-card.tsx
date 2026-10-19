@@ -1,10 +1,16 @@
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { TileChip, type TileArt } from "../elements/tile-chip";
+import { Progress } from "../ui/progress";
+import { ThemeCover, type TileRenders } from "../elements/tile-render";
+import { PLANS } from "./cobble-types";
 
-/** The five themes of the spec (A, "theme"); Default and Forest are playable, the other three come later. */
+/** The five themes of the spec (A, "theme"); Default and Forest are out, the other three come later. */
 export type ThemeId = "default" | "forest" | "snow" | "desert" | "volcano";
+
+/** A theme whose tiles are sold one by one: every theme but Default (the base art, theme 0). */
+export type SkinThemeId = Exclude<ThemeId, "default">;
 
 export interface ThemeOption {
   id: ThemeId;
@@ -12,11 +18,11 @@ export interface ThemeOption {
   /** One line under the name. */
   tagline: string;
   icon: string;
-  /** False: "coming soon", not selectable. */
+  /** False: "coming soon": no art yet, nothing to buy or use. */
   available: boolean;
 }
 
-/** The spec's five, in its order: Default (meadows) and Forest selectable, Snow, Desert and Volcano coming soon. */
+/** The spec's five, in its order: Default (meadows) and Forest out, Snow, Desert and Volcano coming soon. */
 export const THEMES: readonly ThemeOption[] = [
   { id: "default", name: "Default", tagline: "Meadows and stone cities", icon: "sun", available: true },
   { id: "forest", name: "Forest", tagline: "Deep woods: the extended tiles", icon: "tree", available: true },
@@ -26,79 +32,102 @@ export const THEMES: readonly ThemeOption[] = [
 ];
 
 /**
- * How a theme's preview tints the base tiles' art until its own art exists (Forest is Q4's extended tiles, the other three
- * have none yet): a sketch of the mood, said so on the card, never the theme's real art.
+ * The `u8` theme ids of `skins` and `active_skins` (cobbles-v1.md 5: 0 is the default theme). Forest is theme 1, the
+ * high-forest set the fresh deployment prices (CORE #463). Snow, Desert and Volcano have no id on chain yet: the client's
+ * order is used meanwhile, and none of them is read (coming soon).
  */
-export const THEME_TINT: Record<ThemeId, string | undefined> = {
-  default: undefined,
-  forest: "saturate(1.35) hue-rotate(-18deg) brightness(0.78)",
-  snow: "grayscale(0.7) brightness(1.45) contrast(0.9)",
-  desert: "sepia(0.85) saturate(1.5) brightness(1.05)",
-  volcano: "sepia(0.7) hue-rotate(-35deg) saturate(2.2) brightness(0.6)",
-};
+export const THEME_CODES: Record<ThemeId, number> = { default: 0, forest: 1, snow: 2, desert: 3, volcano: 4 };
+
+/** The theme of an `active_skins` entry. */
+export const themeOfCode = (code: number): ThemeId | undefined => (Object.keys(THEME_CODES) as ThemeId[]).find((id) => THEME_CODES[id] === code);
+
+/** The themes whose tiles are on sale and read: the available ones but Default. */
+export const SKIN_THEMES: readonly ThemeOption[] = THEMES.filter((t) => t.available && t.id !== "default");
 
 export interface ThemeCardProps {
   theme: ThemeOption;
-  selected: boolean;
-  /** Eighteen tiles of a recorded board (six by three), drawn with the theme's look. */
-  tiles: readonly { plan: number; orientation: number }[];
-  /** The tiles' images (`useTileArt`); the plans' areas without it. */
-  tileArt?: TileArt;
-  onSelect?: (id: ThemeId) => void;
+  renders?: TileRenders;
+  /** The plans owned in this theme (Default: all 19); null: not known (a guest, the read on its way). */
+  owned: number | null;
+  /** Every owned tile of the theme is active, and nothing else (`themeInUse`). */
+  inUse?: boolean;
+  /** Its `set_skins` is on its way. */
+  applying?: boolean;
+  /** Another write is on its way, or no player: Use waits. */
+  disabled?: boolean;
+  onUse?: () => void;
+  /** To the theme's shop; unset for Default (nothing to buy). */
+  onOpen?: () => void;
   className?: string;
 }
 
 /**
- * One theme: a preview of its tiles, its name and line, selected with a gold ring and a check; locked when not out yet. A
- * tinted preview (every theme but Default) carries a "Preview" label on the card.
+ * One theme: its cover (real tiles, rendered at build time), its name and line, the tiles owned of 19, and Use (every owned
+ * tile of the theme at once) and Shop. A coming-soon theme shows a render under a strong blur and a lock, since its art
+ * does not exist yet.
  */
-export function ThemeCard({ theme, selected, tiles, tileArt, onSelect, className }: ThemeCardProps) {
+export function ThemeCard({ theme, renders, owned, inUse, applying, disabled, onUse, onOpen, className }: ThemeCardProps) {
   const soon = !theme.available;
-  // A tinted sketch, never the theme's art: labelled on its own card (PM, 2026-10-14), so nobody takes it for final art.
-  const tinted = THEME_TINT[theme.id] !== undefined;
+  const code = THEME_CODES[theme.id];
+  const titleId = `theme-${theme.id}`;
+  const none = owned === 0;
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      aria-label={`${theme.name}${soon ? ", coming soon" : ""}`}
-      disabled={soon}
-      onClick={() => onSelect?.(theme.id)}
-      className={cn(
-        "group flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-card text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed",
-        selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-gold-800",
-        className,
-      )}
-    >
-      <span className="relative block aspect-[2/1] overflow-hidden bg-secondary">
-        <span className="absolute inset-0 grid grid-cols-6 gap-0.5 p-0.5" style={{ filter: THEME_TINT[theme.id] }}>
-          {tiles.slice(0, 18).map((t, i) => (
-            <TileChip key={i} plan={t.plan} orientation={t.orientation} art={tileArt} size="sm" className="size-full rounded-sm border-0" />
-          ))}
-        </span>
+    <article aria-labelledby={titleId} className={cn("flex flex-col overflow-hidden rounded-xl border bg-card", inUse ? "border-primary ring-1 ring-primary" : "border-border", className)}>
+      <span className="relative block">
+        {/* A coming-soon theme has no art: Default's render, blurred out of recognition, stands for it. */}
+        <ThemeCover theme={soon ? 0 : code} renders={renders} blurred={soon} alt={`${theme.name}: a few of its tiles`} />
         {soon && (
-          <span className="absolute inset-0 grid place-items-center bg-background/55 backdrop-blur-[1px]">
+          <span className="absolute inset-0 grid place-items-center bg-background/40">
             <Badge variant="secondary" className="gap-1.5">
               <Icon name="lock" size="xs" />
               Coming soon
             </Badge>
           </span>
         )}
-        {tinted && (
-          <Badge variant="outline" data-testid="preview-label" className="absolute top-1.5 left-1.5 z-10 border-gold-700 bg-background/80 text-gold-200 backdrop-blur-sm">
-            <Icon name="eye" size="xs" />
-            Preview
+        {inUse && (
+          <Badge className="absolute top-2 left-2 gap-1">
+            <Icon name="circle-check" size="xs" />
+            In use
           </Badge>
         )}
       </span>
-      <span className="flex items-start gap-3 p-3">
-        <Icon name={theme.icon} size="md" className={selected ? "text-primary" : "text-muted-foreground"} fixedWidth />
-        <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
-          <span className="text-sm font-semibold">{theme.name}</span>
-          <span className="text-xs text-muted-foreground">{theme.tagline}</span>
-        </span>
-        {selected ? <Icon name="circle-check" size="md" className="text-primary" label="Selected" /> : soon ? <Icon name="lock" size="sm" className="text-muted-foreground" /> : null}
-      </span>
-    </button>
+      <div className="flex flex-1 flex-col gap-3 p-3">
+        <div className="flex items-start gap-3">
+          <Icon name={theme.icon} size="md" className={inUse ? "text-primary" : "text-muted-foreground"} fixedWidth />
+          <div className="flex min-w-0 flex-1 flex-col wrap-anywhere">
+            <h3 id={titleId} className="text-sm font-semibold">
+              {theme.name}
+            </h3>
+            <p className="text-xs text-muted-foreground">{theme.tagline}</p>
+          </div>
+          {!soon && owned !== null && (
+            <span className="text-xs whitespace-nowrap text-muted-foreground">
+              <span className="numeric font-semibold text-foreground">{owned}</span> / <span className="numeric">{PLANS}</span> tiles
+            </span>
+          )}
+        </div>
+        {!soon && owned !== null && code !== 0 && <Progress value={(owned / PLANS) * 100} aria-label={`${theme.name} tiles owned`} />}
+        {!soon && (
+          <div className="mt-auto flex gap-2">
+            {onOpen && (
+              <Button variant="outline" className="min-h-11 flex-1" onClick={onOpen} aria-label={`${theme.name} tiles`}>
+                <Icon name="cubes-stacked" size="sm" />
+                {none ? "Buy tiles" : "Tiles"}
+              </Button>
+            )}
+            <Button
+              className="min-h-11 flex-1"
+              variant={inUse ? "secondary" : "default"}
+              disabled={disabled || inUse || none || owned === null}
+              loading={applying}
+              onClick={onUse}
+              aria-label={inUse ? `${theme.name} in use` : `Use ${theme.name}`}
+            >
+              {inUse ? "In use" : "Use"}
+            </Button>
+          </div>
+        )}
+      </div>
+    </article>
   );
 }

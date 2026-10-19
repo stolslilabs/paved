@@ -15,7 +15,9 @@ import { fakeWallet } from "./wallet-fakes";
 import { preloadPages } from "./route-helpers";
 
 // A player id is an address (P8): the page of anything else is not found.
-const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:id/g, "0x1").replace(/:(\w+)/g, "1");
+const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:id/g, "0x1").replace(/:theme/g, "forest").replace(/:(\w+)/g, "1");
+/** A page whose heading is not its route's title: a theme's shop is titled with the theme's name. */
+const HEADING: Record<string, string> = { "settings/theme/:theme": "Forest" };
 
 /** The app on the chain's and indexer's fakes, with a wallet in memory that connects (P6). */
 function open(path: string, wallet = fakeWallet()) {
@@ -47,7 +49,7 @@ describe("the active tab comes from the route's own entry", () => {
   it.each(PAGES.filter((p) => p.nav).map((p) => [p.path || "/", p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
     // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
-    await screen.findByRole("heading", { level: 1, name: page.title }, { timeout: 5000 });
+    await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: 5000 });
     const active = screen.getAllByRole("button", { current: "page" });
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
   });

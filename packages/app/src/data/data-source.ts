@@ -41,4 +41,4 @@ export const MOCKED = DATA_SOURCE === "mock";
  * referral (its earnings and split) and the theme (the skins). The boards, the game-over pages, the leaderboard, the player
  * pages, Training, the tutorial and Settings read only the chain and the indexer.
  */
-export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme"]);
+export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles"]);

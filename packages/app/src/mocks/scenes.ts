@@ -12,9 +12,11 @@ import type { PlayerSceneProps } from "../components/scenes/player-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
 import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
-import type { ThemeSceneProps } from "../components/scenes/theme-scene";
+import type { OwnedSkins, ThemeSceneProps } from "../components/scenes/theme-scene";
+import type { ThemeShopSceneProps, ThemeSkinsData } from "../components/scenes/theme-shop-scene";
+import type { MyTiles, MyTilesSceneProps } from "../components/scenes/my-tiles-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
-import { SOURCE_ASSETS, originalTileArt } from "./assets";
+import { FOREST_VARIANTS, SOURCE_ASSETS, appRenders, originalTileArt } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
@@ -35,7 +37,6 @@ import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, 
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE } from "./quests";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
-import { THEME_TILES } from "./settings";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_ENTRIES, STRESS_GAMES, STRESS_VAULT } from "./stress";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
 
@@ -263,50 +264,96 @@ export const VAULT = {
 export const PREFERENCES: Preferences = { quality: "high", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, showSkins: true };
 
 export const SETTINGS = {
-  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, theme: "forest", autoQuality: "medium", version: "0.1.0" },
-  guest: { preferences: { ...PREFERENCES, quality: "auto", sfxVolume: 0, showSkins: false }, account: null, theme: "forest", version: "0.1.0" },
+  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, autoQuality: "medium", version: "0.1.0" },
+  guest: { preferences: { ...PREFERENCES, quality: "auto", sfxVolume: 0, showSkins: false }, account: null, version: "0.1.0" },
   /** WRAP360: the longest username and a full address beside Disconnect; a long version. */
-  stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, theme: "default", version: "0.1.0-rc.12+build.20261015.abcdef0" },
+  stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, version: "0.1.0-rc.12+build.20261015.abcdef0" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
 
-const themeBase = { selected: "forest", tiles: THEME_TILES, tileArt: originalTileArt(SOURCE_ASSETS) } as const;
 const FOREST = 1;
 const ALL_PLANS = Array.from({ length: 19 }, (_, i) => i + 1);
-const forestSkins: NonNullable<ThemeSceneProps["skins"]> = {
-  theme: "forest",
-  balance: ACCOUNT.gems,
-  prices: SKIN_PRICES,
-  owned: ownedPlans(7, 8, 10, 13),
-  active: activeOn(FOREST, 10, 13),
-  changes: {},
-};
+/** P-61, Forest: four tiles owned (the commonest plans, 75 to 50 Cobbles), two of them active; 240 Cobbles. */
+const ownedSkins: OwnedSkins = { balance: ACCOUNT.gems, owned: { [FOREST]: ownedPlans(7, 8, 10, 13) }, active: activeOn(FOREST, 10, 13) };
+const themesBase = { renders: appRenders } as const;
 
 export const THEME = {
-  defaultSelected: { selected: "default", showSkins: false, tiles: THEME_TILES, tileArt: originalTileArt(SOURCE_ASSETS) },
-  forestSelected: { selected: "forest", showSkins: true, tiles: THEME_TILES, tileArt: originalTileArt(SOURCE_ASSETS) },
-  /** P-61, Forest's skins: four owned (the commonest plans, 75 to 50 Cobbles), two of them active; 240 Cobbles. */
-  skins: { ...themeBase, skins: forestSkins },
-  /** Two switches changed, not saved: Save sends them in one `set_skins` write. */
-  skinsChanged: { ...themeBase, skins: { ...forestSkins, changes: { 7: FOREST, 13: 0 } } },
-  /** The write on its way. */
-  skinsSaving: { ...themeBase, skins: { ...forestSkins, changes: { 7: FOREST, 13: 0 }, save: "saving" } },
-  /** Saved: the switches are the chain's again. */
-  skinsSaved: { ...themeBase, skins: { ...forestSkins, active: activeOn(FOREST, 7, 10), save: "saved" } },
-  /** No Cobbles and nothing owned: every Buy disabled, Get Cobbles. */
-  noCobbles: { ...themeBase, skins: { ...forestSkins, balance: 0, owned: 0, active: activeOn(FOREST) } },
-  /** 60 Cobbles: the two commonest plans (50 and 55) can be bought, the others say how many more. */
-  cantAfford: { ...themeBase, skins: { ...forestSkins, balance: 60, owned: 0, active: activeOn(FOREST) } },
-  /** A skin's `buy_skin` on its way (Great Works' plan, 100 Cobbles): the others wait. */
-  buying: { ...themeBase, skins: { ...forestSkins, buying: 1 } },
-  /** The whole set: 19 of 19 owned and active. */
-  allActive: { ...themeBase, skins: { ...forestSkins, owned: ownedPlans(...ALL_PLANS), active: activeOn(FOREST, ...ALL_PLANS) } },
-  /** Snow: its art is not in, so nothing is priced: coming soon. */
-  comingSoon: { ...themeBase, skins: { ...forestSkins, theme: "snow", prices: NO_PRICES, owned: 0 } },
-  /** Forest withdrawn from sale (every price 0) with four skins owned: they stay, switchable; the others say "Not for sale". */
-  ownedUnpriced: { ...themeBase, skins: { ...forestSkins, prices: NO_PRICES } },
-  /** WRAP360: the largest Cobble balance. */
-  skinsStress: { ...themeBase, skins: { ...forestSkins, balance: BIG_NUMBER, changes: { 1: FOREST } } },
+  /** Four Forest tiles owned, two of them active: a mix chosen tile by tile, so Use asks first. */
+  mixed: { ...themesBase, skins: ownedSkins },
+  /** Every owned Forest tile active: Forest in use. */
+  forestInUse: { ...themesBase, skins: { ...ownedSkins, active: activeOn(FOREST, 7, 8, 10, 13) } },
+  /** No skin owned: Default in use, Forest to buy. */
+  defaultInUse: { ...themesBase, skins: { ...ownedSkins, owned: { [FOREST]: 0 }, active: activeOn(FOREST) } },
+  /** The whole Forest set, in use. */
+  allForest: { ...themesBase, skins: { ...ownedSkins, owned: { [FOREST]: ownedPlans(...ALL_PLANS) }, active: activeOn(FOREST, ...ALL_PLANS) } },
+  /** Use's `set_skins` on its way. */
+  applying: { ...themesBase, skins: ownedSkins, applying: "forest" },
+  /** Use refused by the chain. */
+  refused: { ...themesBase, skins: ownedSkins, refusal: "A skin in this change is not yours: buy it before using it. Nothing was saved." },
+  /** A guest: Connect, the covers alone. */
+  guest: { ...themesBase, skinsStatus: { kind: "guest" } },
+  /** The skins on their way from the chain. */
+  loading: { ...themesBase, skinsStatus: { kind: "loading" } },
+  /** A failed read, with Retry. */
+  error: { ...themesBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
+  /** No render served (a host without the manifest): the covers fall back to the board's backdrop. */
+  noRenders: { skins: ownedSkins },
 } satisfies Record<string, Data<ThemeSceneProps>>;
+
+const forestShop: ThemeSkinsData = { balance: ACCOUNT.gems, prices: SKIN_PRICES, owned: ownedPlans(7, 8, 10, 13), active: activeOn(FOREST, 10, 13) };
+const shopBase = { theme: "forest", renders: appRenders, variants: FOREST_VARIANTS } as const;
+
+export const THEME_SHOP = {
+  /** Forest's 19 tiles: four owned, two active, the rest priced by rarity (50 to 100 Cobbles), with their variant counts. */
+  forest: { ...shopBase, skins: forestShop },
+  /** No Cobbles and nothing owned: every Buy disabled, Get Cobbles. */
+  noCobbles: { ...shopBase, skins: { ...forestShop, balance: 0, owned: 0, active: activeOn(FOREST) } },
+  /** 60 Cobbles: the two commonest plans (50 and 55) can be bought, the others say how many more. */
+  cantAfford: { ...shopBase, skins: { ...forestShop, balance: 60, owned: 0, active: activeOn(FOREST) } },
+  /** A tile's `buy_skin` on its way (plan 1, 100 Cobbles): the others wait. */
+  buying: { ...shopBase, skins: forestShop, buying: 1 },
+  /** The purchase refused (the price changed). */
+  refused: { ...shopBase, skins: forestShop, refusal: "The price of this tile changed to 80 Cobbles: nothing was bought." },
+  /** The whole set owned and active. */
+  allOwned: { ...shopBase, skins: { ...forestShop, owned: ownedPlans(...ALL_PLANS), active: activeOn(FOREST, ...ALL_PLANS) } },
+  /** Forest withdrawn from sale (every price 0) with four owned: they stay, the others are not for sale. */
+  ownedUnpriced: { ...shopBase, skins: { ...forestShop, prices: NO_PRICES } },
+  /** Snow: its art is not in, so nothing is read: coming soon, under a blur. */
+  comingSoon: { theme: "snow", renders: appRenders },
+  /** A guest: Connect. */
+  guest: { ...shopBase, skinsStatus: { kind: "guest" } },
+  /** The reads on their way. */
+  loading: { ...shopBase, skinsStatus: { kind: "loading" } },
+  /** A failed read, with Retry. */
+  error: { ...shopBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
+  /** WRAP360: the largest Cobble balance. */
+  stress: { ...shopBase, skins: { ...forestShop, balance: BIG_NUMBER } },
+} satisfies Record<string, Data<ThemeShopSceneProps>>;
+
+const myTiles: MyTiles = { ...ownedSkins, changes: {} };
+const tilesBase = { renders: appRenders } as const;
+
+export const MY_TILES = {
+  /** Four Forest tiles owned (plans 7, 8, 10, 13), 10 and 13 wearing it: those four rows offer Default and Forest. */
+  owned: { ...tilesBase, skins: myTiles },
+  /** Two picks changed, not saved: Save sends them in one `set_skins`. */
+  changed: { ...tilesBase, skins: { ...myTiles, changes: { 7: FOREST, 13: 0 } } },
+  /** The write on its way. */
+  saving: { ...tilesBase, skins: { ...myTiles, changes: { 7: FOREST, 13: 0 }, save: "saving" } },
+  /** Saved: the picks are the chain's again. */
+  saved: { ...tilesBase, skins: { ...myTiles, active: activeOn(FOREST, 7, 10), save: "saved" } },
+  /** The save refused, the batch kept. */
+  refused: { ...tilesBase, skins: { ...myTiles, changes: { 7: FOREST }, refusal: "A skin in this change is not yours: buy it before using it. Nothing was saved." } },
+  /** No skin owned: every tile on Default, the shop to open. */
+  none: { ...tilesBase, skins: { ...myTiles, owned: { [FOREST]: 0 }, active: activeOn(FOREST) } },
+  /** The whole Forest set. */
+  allForest: { ...tilesBase, skins: { ...myTiles, owned: { [FOREST]: ownedPlans(...ALL_PLANS) }, active: activeOn(FOREST, ...ALL_PLANS) } },
+  /** A guest: Connect. */
+  guest: { ...tilesBase, skinsStatus: { kind: "guest" } },
+  /** The reads on their way. */
+  loading: { ...tilesBase, skinsStatus: { kind: "loading" } },
+  /** A failed read, with Retry. */
+  error: { ...tilesBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
+} satisfies Record<string, Data<MyTilesSceneProps>>;
 
 // Quests and achievements
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SkinPriceChangedError, activeThemes, type CobbleAccount } from "@paved/chain";
 import type { GameSigner } from "../src/data";
 import { cobbleKeys } from "../src/data/cobbles";
-import { applySkinEvents, skinChanges, skinKeys, unpackActive, useSkinWrites, useThemeSkins } from "../src/data/skins";
+import { applySkinEvents, skinChanges, skinKeys, unpackActive, useOwnedSkins, useSkinWrites, useThemeSkins } from "../src/data/skins";
 import { PLAYER_ID } from "../src/mocks/players";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
 import { FOREST_PRICES, FakeSkinWriter } from "./skin-fakes";
@@ -51,6 +51,25 @@ describe("useThemeSkins", () => {
     expect(renderData(() => useThemeSkins(null, 1), sources).result.current.data).toBeUndefined();
     const bare = { ...sources, views: { ...views, skinPrices: undefined } as unknown as typeof views };
     expect(renderData(() => useThemeSkins(PLAYER_ID, 1), bare).result.current.data).toBeNull();
+  });
+});
+
+describe("useOwnedSkins (Themes, My tiles)", () => {
+  it("reads the balance, the active set and the owned word of each theme on sale, and no price", async () => {
+    const { sources, views } = skinsSetup();
+    const { result } = renderData(() => useOwnedSkins(PLAYER_ID), sources);
+    expect(await dataOf(result)).toEqual({ balance: 240, active: Array.from({ length: 19 }, (_, i) => (i === 6 ? 1 : 0)), owned: { 1: 1 << 7 } });
+    expect(views.calls.filter((c) => c.startsWith("skin_price"))).toEqual([]);
+  });
+
+  it("stops pending when a read fails, and is null without the skins views", async () => {
+    const { sources, views } = skinsSetup();
+    views.skinsFail = new Error("rpc down");
+    const { result } = renderData(() => useOwnedSkins(PLAYER_ID), sources);
+    await waitFor(() => expect(result.current.error?.message).toBe("rpc down"));
+    expect(result.current.isPending).toBe(false);
+    const bare = { ...sources, views: { ...views, skinPrices: undefined } as unknown as typeof views };
+    expect(renderData(() => useOwnedSkins(PLAYER_ID), bare).result.current.data).toBeNull();
   });
 });
 
