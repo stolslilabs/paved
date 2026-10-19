@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { useQueryClient } from "@tanstack/react-query";
 import type { GameKey, WriteResult } from "@paved/chain";
 import { PredictedSession, type MoveSenders, type PredictedState } from "@paved/game-core";
-import { refreshPlayerProgress } from "./indexer";
+import { refreshPlayerProgress } from "./progress";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources } from "./sources";
 

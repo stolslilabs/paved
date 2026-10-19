@@ -19,7 +19,7 @@ import { errorDetail } from "../error-detail";
 import { useRoutePage } from "../handle";
 import { useChainClock } from "../../data/clock";
 import { achievementCobbles, questCobbles } from "../../data/cobbles";
-import { useGameCompletions } from "../../data/indexer";
+import { useGameCompletions } from "../../data/progress";
 import { achievementText, questText } from "../../components/containers/quest-text";
 import type { GameMission } from "../../components/containers/game-missions";
 import { Placeholder } from "../Placeholder";
