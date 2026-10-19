@@ -2803,8 +2803,11 @@ calldata. Its policies (`CONTROLLER_ENTRY_POINTS`, `controllerPolicies`) are onl
 Faucet `mint` (Sepolia only); Economy `settle` (with an economy). No call that pulls a token is a policy either: not the paid
 `spawn`, not `buy_pack`, not the Vault's `deposit` (fix loop 1 of the re-check). Each is sent with its approve, which prompts
 anyway, and in the session a bare one could spend a standing allowance that a connect from before P-65 left (the full cap to
-Challenge). `toControllerSessionPolicies` refuses any method whose name holds `approve`, `allowance` or `transfer`
-(`increase_allowance`, `transfer_from`...). A paid entry sends `approve(Challenge, price)` and `spawn(stake, referrer,
+Challenge). `toControllerSessionPolicies` refuses any token method (`isTokenMethod`, VALUE-POLISH): a name with a word (cut
+at `_` and at a capital) that starts with `approv`, `allowance`, `transfer`, `deposit`, `pay` or `mint` (`increase_allowance`,
+`transfer_from`, `set_approval_for_all`, `safe_mint`...), and the paid `spawn` and `buy_pack` by name; the faucet's `mint`
+passes only as `controllerPolicies` builds it. Sessions created before P-65 keep their policies until they expire (release
+note in `docs/client/f-release.md`). A paid entry sends `approve(Challenge, price)` and `spawn(stake, referrer,
 min_out)` in one multicall, which the wallet prompts for once; a pack's approve and `buy_pack`, and the Vault's approve and
 `deposit`, are one multicall each the same way. A capped approve in
 the session may come back only by a new ruling (P-65 is reversed only by a verified enforcement of spender and amount).
@@ -3357,7 +3360,15 @@ Challenge games and the active game (a pack: the Cobbles account and the USDC ba
 held across a reconnect (a new writer, whose own pending flag knows nothing of the hung send) and a reload, until the send's
 late answer arrives in this page (it landed or was refused: the record goes; an unknown hash replaces it, but only while
 the record is still that send's, so a late hash never overwrites a newer send's hold) or the player
-confirms as above. A check that keeps failing (a
+confirms as above. A late answer that arrives while a newer send's hold has the slot (VALUE-POLISH: B's prompt open, or
+another tab's) is kept aside (`paved:purchase-late:v1:<kind>:<player>`, memory when storage is off): when B's hold goes
+(B sent nothing and gives the slot back to A's record, or B settles and the slot empties), A's late hash takes the slot and
+its receipt is checked; a late success or refusal of A only means that A's record does not come back. A failure of the wallet
+or the node that does not show the send was refused before sending (`SendUnconfirmedError`: a timeout, a lost connection, a
+bare `null`; anything but a decline, the node's refusal codes 20, 28, 40, 41, 52 to 58 and 60 to 62, or a revert, estimate or
+validation message, `refusedBeforeSending`) keeps the hash-less hold as a wallet that never answered: the transaction may
+have reached the node with its hash never returned. While a hash-less record is under the limit a failed check offers Retry
+only, not Dismiss (VALUE-POLISH): a dismiss then would forget a send whose wallet may still answer. A check that keeps failing (a
 node without receipts, an outage) offers Dismiss beside Retry, with the warning that buying again may pay twice. The
 notice says how long ago the purchase was sent (the record's `at`). The receipt decides on its own: one that reads (it
 went through, or reverted) clears the record even when a reconciling read failed. The record goes under the player who

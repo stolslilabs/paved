@@ -77,6 +77,45 @@ export function isWalletRejection(error: unknown): boolean {
   return typeof message === "string" && /USER_REFUSED_OP|\bUser rejected\b/i.test(message);
 }
 
+/**
+ * `account.execute` failed in a way that does not show the transaction was refused before sending: a timeout, a lost
+ * connection to the wallet or the node, an answer that could not be read. The node may have received it with its hash
+ * never returned, so the outcome is unknown, without a hash to read a receipt by. A paid write keeps its hold until the
+ * player checks (the purchase page's `heldSend`). The message is the wallet's or the node's.
+ */
+export class SendUnconfirmedError extends WriteError {
+  constructor(readonly detail: string) {
+    super(detail);
+    this.name = "SendUnconfirmedError";
+  }
+}
+
+/**
+ * The JSON-RPC codes a node answers when it refuses a transaction before accepting it (Starknet RPC 0.8): a contract or
+ * class not found (20, 28), a contract or execution error at estimation or simulation (40, 41), an invalid nonce (52),
+ * insufficient resources or balance (53, 54), a failed validation (55), and the declare and version refusals (56 to 58,
+ * 60 to 62). Not 59 (`DUPLICATE_TX`: an earlier copy was accepted) nor 63 (`UNEXPECTED_ERROR`).
+ */
+const REFUSED_CODES = new Set([20, 28, 40, 41, 52, 53, 54, 55, 56, 57, 58, 60, 61, 62]);
+
+/** The messages of a refusal before sending: a revert found by simulation, a failed fee estimation or validation. */
+const REFUSED_TEXT = /revert|execution (error|failed)|validation fail|validate|estimat|insufficient|invalid transaction nonce|failure reason/i;
+
+/**
+ * Whether `account.execute`'s error shows that nothing was sent: the node's refusal (`REFUSED_CODES`, in `code` or in the
+ * starknet.js message "RPC: <method> ... <code>: <text>"), or a refusal's text (`REFUSED_TEXT`). A wallet's decline is told
+ * apart before (`isWalletRejection`). Anything else (a timeout, a lost connection, `null`) may have been sent.
+ */
+export function refusedBeforeSending(error: unknown): boolean {
+  if (error === null || typeof error !== "object") return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  if (typeof code === "number" && REFUSED_CODES.has(code)) return true;
+  if (typeof message !== "string") return false;
+  const rpc = /\b(\d{2}): /.exec(message);
+  if (rpc && REFUSED_CODES.has(Number(rpc[1]))) return true;
+  return REFUSED_TEXT.test(message);
+}
+
 /** True when a revert reason names `reason`: as text, or as the hex of the short string the node may return. */
 export function revertNames(revert: string, reason: string): boolean {
   return revert.includes(reason) || revert.toLowerCase().includes(shortString.encodeShortString(reason).toLowerCase());
@@ -634,12 +673,14 @@ export class PavedWriter {
     const { account, provider, codecs, deployment, tip, receiptPollMs = RECEIPT_POLL_MS, onEvents } = this.options;
     let transaction_hash: string;
     try {
-      // Rejected before sending: fee estimation, a contract assert found by the simulation, or the player's refusal.
+      // Rejected before sending (fee estimation, a contract assert found by the simulation, the player's refusal), or a
+      // failure that may come after sending (`SendUnconfirmedError`).
       ({ transaction_hash } = await account.execute(calls, tip === undefined ? undefined : { tip }));
     } catch (error) {
       const detail = error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String(error.message) : String(error);
       if (isWalletRejection(error)) throw new WalletRejectedError(detail);
-      throw new WriteError(detail);
+      if (refusedBeforeSending(error)) throw new WriteError(detail);
+      throw new SendUnconfirmedError(detail);
     }
     let receipt: Receipt;
     try {

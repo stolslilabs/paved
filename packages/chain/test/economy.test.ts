@@ -8,7 +8,7 @@ import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews, ViewError } from "../src/views";
 import { packReferrer } from "../src/packs";
 import { paidReferrer } from "../src/economy/writer";
-import { WalletRejectedError, WriteError, isWalletRejection } from "../src/writer";
+import { SendUnconfirmedError, WalletRejectedError, WriteError, isWalletRejection, refusedBeforeSending } from "../src/writer";
 import {
   ECONOMY_VIEW_FIELDS,
   PurchaseOutcomeUnknownError,
@@ -389,6 +389,46 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
     expect(error).toBeInstanceOf(WriteError);
     expect(error).not.toBeInstanceOf(WalletRejectedError);
     expect(isWalletRejection(new Error("execution reverted: ERC20: insufficient allowance"))).toBe(false);
+  });
+
+  test("VALUE-POLISH: an execute failure that may come after sending is SendUnconfirmedError, a refusal before sending a plain WriteError", async () => {
+    const request = { stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null };
+    // A timeout, a lost connection, an answer that cannot be read: the node may have the transaction, its hash never returned.
+    const lost = [
+      new Error("fetch failed"),
+      new Error("Request timed out"),
+      { code: 63, message: "RPC: starknet_addInvokeTransaction: 63: An unexpected error occurred" },
+      { code: 59, message: "A transaction with the same hash already exists in the mempool" },
+      null,
+      new Error("Tile: not compatible"),
+    ];
+    for (const failure of lost) {
+      const { econWriter } = setup({ execute: () => Promise.reject(failure) });
+      const error = await econWriter.purchase(request).catch((e: unknown) => e);
+      expect(error, String((failure as { message?: string } | null)?.message ?? failure)).toBeInstanceOf(SendUnconfirmedError);
+      expect((error as WriteError).transactionHash).toBeUndefined();
+      expect(error).not.toBeInstanceOf(PurchaseOutcomeUnknownError);
+    }
+    // The node's refusal before accepting it (by code, or by the starknet.js message), a simulation's revert, a fee estimate.
+    const refused = [
+      { code: 41, message: "Transaction execution error" },
+      { code: 55, message: "Account validation failed" },
+      new Error("RPC: starknet_estimateFee with params {}\n\n 41: Transaction execution error: {}"),
+      new Error("RPC: starknet_addInvokeTransaction with params {}\n\n 52: Invalid transaction nonce"),
+      new Error("Fee estimation failed: insufficient balance"),
+      new Error("execution reverted: ERC20: insufficient allowance"),
+      new Error("Transaction rejected: insufficient max fee"),
+    ];
+    for (const failure of refused) {
+      expect(refusedBeforeSending(failure), failure.message).toBe(true);
+      const { econWriter } = setup({ execute: () => Promise.reject(failure) });
+      const error = await econWriter.purchase(request).catch((e: unknown) => e);
+      expect(error, failure.message).toBeInstanceOf(WriteError);
+      expect(error, failure.message).not.toBeInstanceOf(SendUnconfirmedError);
+    }
+    // A known revert keeps its typed error.
+    const { econWriter } = setup({ execute: () => Promise.reject(new Error("execution reverted: Challenge: spawn paused")) });
+    expect(await econWriter.purchase(request).catch((e: unknown) => e)).toBeInstanceOf(SpawnPausedError);
   });
 
   test("a changed price sends nothing", async () => {

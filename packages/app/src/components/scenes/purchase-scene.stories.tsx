@@ -117,6 +117,21 @@ export const WalletTimedOut: Story = {
 export const OutcomeUnknownCheckFailed: Story = {
   args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, onCheckGames: fn(), onRetryCheck: fn(), onDismissCheck: fn() },
 };
+/**
+ * The check failed while the purchase may still be answered in the wallet (under its 5 minutes, VALUE-POLISH): Retry only, no
+ * Dismiss, so a pending outcome is never forgotten beside an open prompt.
+ */
+export const OutcomeUnknownCheckFailedWaiting: Story = {
+  args: {
+    ...PURCHASE.stake1,
+    refusal: { kind: "unknown", message: "A purchase is waiting in your wallet (sent just now): it may still go through. Answer it there, or wait, before buying again." },
+    checkFailed: true,
+    checkDismissable: false,
+    onCheckGames: fn(),
+    onRetryCheck: fn(),
+    onDismissCheck: fn(),
+  },
+};
 /** Retry is fetching: Retry and Dismiss wait for its answer. */
 export const OutcomeUnknownRetrying: Story = {
   args: { ...PURCHASE.stake1, refusal: UNKNOWN, checkFailed: true, checkRetrying: true, onCheckGames: fn(), onRetryCheck: fn(), onDismissCheck: fn() },
