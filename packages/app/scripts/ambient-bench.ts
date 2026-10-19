@@ -83,7 +83,10 @@ for (let round = 0; round < ROUNDS; round++) {
           info.autoReset = false;
           const times: number[] = [];
           let calls = 0;
+          // One frame per animation frame, as the board draws: a long synchronous loop takes the CPU throttle's pauses inside its
+          // frames (measured: past about 80 frames, every other frame took seconds).
           for (let f = 0; f < warm + frames; f++) {
+            await new Promise((resolve) => requestAnimationFrame(resolve));
             s.ambient.time.value += 1 / 30;
             info.reset();
             const start = performance.now();
@@ -92,7 +95,6 @@ for (let round = 0; round < ROUNDS; round++) {
             const ms = performance.now() - start;
             calls = info.render.calls;
             if (f >= warm) times.push(ms);
-            if (f % 10 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
           }
           const counts = particles?.visible
               particles.children.map((p: any) => (p.visible ? (p.geometry.getAttribute("aSeed")?.count ?? 0) : 0))
