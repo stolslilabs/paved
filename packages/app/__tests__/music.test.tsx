@@ -463,6 +463,30 @@ describe("the Media Session", () => {
     player.destroy();
   });
 
+  it("sends the position again when it jumps: Previous at the start of the history restarts the track", () => {
+    const { player, a } = make();
+    const { session, positions } = fakeSession();
+    let ms = 0;
+    const unbind = bindMediaSession(player, { session, createMetadata: (init) => init as MediaMetadata, onPlay: () => {}, onPause: () => {}, now: () => ms });
+    document.dispatchEvent(new Event("click"));
+    a.duration = 180;
+    vi.advanceTimersByTime(100);
+    const before = positions.length;
+    // Six seconds played, as the OS's clock counts them too: nothing to send.
+    for (let i = 1; i <= 60; i++) {
+      ms += 100;
+      a.currentTime = i / 10;
+      vi.advanceTimersByTime(100);
+    }
+    expect(positions.length).toBe(before);
+    player.previous();
+    expect(a.currentTime).toBe(0);
+    expect(positions.length).toBe(before + 1);
+    expect(positions.at(-1)).toEqual({ duration: 180, position: 0, playbackRate: 1 });
+    unbind();
+    player.destroy();
+  });
+
   it("its actions: play and pause go to the app, previous and next to the player; unbinding clears them", () => {
     const { player } = make();
     const { session, handlers } = fakeSession();

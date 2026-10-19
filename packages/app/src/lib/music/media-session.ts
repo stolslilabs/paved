@@ -28,7 +28,12 @@ export interface MediaSessionOptions {
   onPlay: () => void;
   /** A pause from there: the app turns the music off. */
   onPause: () => void;
+  /** A clock in ms, for the tests; `performance.now` by default. */
+  now?: () => number;
 }
+
+/** A position this far (in seconds) from where the OS's own clock puts it is a jump (a restart, a seek): it is sent again. */
+export const JUMP_S = 1;
 
 const defaultSession = (): SessionLike | null => (globalThis.navigator as Navigator | undefined)?.mediaSession ?? null;
 const defaultMetadata = (init: MediaMetadataInit): MediaMetadata => {
@@ -51,6 +56,7 @@ export function bindMediaSession(player: MusicPlayer, options: MediaSessionOptio
   const session = options.session === undefined ? defaultSession() : options.session;
   if (!session) return () => {};
   const createMetadata = options.createMetadata ?? defaultMetadata;
+  const now = options.now ?? (() => performance.now());
   const handlers: Record<Action, () => void> = {
     play: options.onPlay,
     pause: options.onPause,
@@ -67,19 +73,26 @@ export function bindMediaSession(player: MusicPlayer, options: MediaSessionOptio
 
   let track: string | null = null;
   let shown = "";
+  // The position last sent, and when: while playing, the OS moves it on from there at the rate of 1.
+  let sent: { position: number; at: number; playing: boolean } | null = null;
   const sync = () => {
     const s = player.getState();
     if (s.track !== track) {
       track = s.track;
       session.metadata = s.track && s.title ? createMetadata(trackMetadata(s.track, s.title)) : null;
     }
-    // The state and the position are set when the track, the state or the length changes; the OS moves the position on its
-    // own while it plays.
+    // The state and the position are set when the track, the state or the length changes, or when the position jumps away
+    // from where the OS's clock puts it (Previous at the start of the history restarts the track); the OS moves the position
+    // on its own while it plays.
     const key = `${s.track}|${s.playing}|${s.duration}`;
-    if (key !== shown) {
+    const expected = sent ? sent.position + (sent.playing ? (now() - sent.at) / 1000 : 0) : null;
+    const jumped = expected !== null && Math.abs(s.position - expected) > JUMP_S;
+    if (key !== shown || jumped) {
       shown = key;
       session.playbackState = s.track === null ? "none" : s.playing ? "playing" : "paused";
+      sent = null;
       if (s.duration > 0) {
+        sent = { position: s.position, at: now(), playing: s.playing };
         try {
           session.setPositionState?.({ duration: s.duration, position: Math.min(s.position, s.duration), playbackRate: 1 });
         } catch {
