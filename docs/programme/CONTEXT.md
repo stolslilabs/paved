@@ -79,7 +79,7 @@ at spawn, and the burn/mint helpers.
 
 ### Client
 
-Two clients exist: `app/` (2024, R3F, deprecated) and `packages/` (2026, bun + turbo: game-core,
+Two clients existed (2026-10-06): `app/` (2024, R3F, deprecated; removed in #591 with app-native) and `packages/` (2026, bun + turbo: game-core,
 chain, renderer on imperative Three.js, ui on Tamagui, app-web, app-native). All the 2026 work
 (#179 to #182, plans, PRD) was done by an agent under a human account. Unfulfilled promises: no WebGPU,
 React Native is a shell, the Torii sync is a stub (SQL polling every 2 s). Probable causes of slowness:
