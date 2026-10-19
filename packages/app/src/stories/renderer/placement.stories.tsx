@@ -7,8 +7,9 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
  * The placement visuals (PLACEMENT-TINTS) on the recorded 72-tile board: with a tile in hand, a flat plate on every free
  * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours). Playable (some rotation
  * fits): blue and transparent; invalid (none fits): grey, more transparent. The tile in hand is tinted on the model
- * itself: blue at 50 % opacity on a hover, yellow at 90 % once placed, a temporary green on confirm fading to none.
- * No rim, no aura. Each change eases over 150 ms (at once under reduced
+ * itself: no tint at 50 % opacity on a hover, yellow and opaque once placed (#568, blue and 90 % before), a temporary
+ * green on confirm fading to none. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
+ * the hold on Validate, the voxel drop, then the green. Each change eases over 150 ms (at once under reduced
  * motion). Every setting is a control (colours, strengths, opacities, durations, the plates' radius and opacities; sizes
  * in voxels, a tile is 40); the ring grid is one, off by default.
  */
@@ -21,8 +22,10 @@ const meta = {
       control: "inline-radio",
       options: PLACEMENT_STATES,
       type: { name: "enum", value: [...PLACEMENT_STATES] },
-      description: "idle: no plate; in-hand: the plates; hover: blue, half opacity; placed: yellow; confirm: green tint fading out; tour: hover, placed, confirm in turn",
+      description: "idle: no plate; in-hand: the plates; hover: untinted, half opacity; placed: yellow, opaque; confirm: green tint fading out; tour: hover, placed, confirm in turn; sequence: hover, placed with the bubble, the hold, the drop, the green",
     },
+    holdMs: { control: { type: "range", min: 200, max: 10000, step: 50 }, description: "sequence: Validate's hold, ms (800 in the game)" },
+    dropSpeed: { control: { type: "range", min: 0.05, max: 2, step: 0.05 }, description: "The voxel drop's clock (1 in the game); slowed for a capture played back faster" },
     board: { control: "boolean", description: "The board's tiles under the plates; off, the plates alone" },
     reducedMotion: { control: "boolean", description: "Reduced motion: an instant change of state, a short fade (unset: the device's)" },
     replayMs: { control: { type: "range", min: 0, max: 4000, step: 100 }, description: "The confirm plays again every this many ms (0: once)" },
@@ -63,13 +66,13 @@ export const Idle: Story = { args: { state: "idle" } };
 /** The ring grid of SLOTS2, a setting now off by default, turned on. */
 export const IdleGrid: Story = { args: { state: "idle", gridEnabled: true } };
 
-/** The tile hovering a plate: the model blue at half opacity, no inner face showing through. */
+/** The tile hovering a plate: the model untinted at half opacity, no inner face showing through. */
 export const Hover: Story = { args: { state: "hover" } };
 
 /** Hover, placed, confirm in turn: the states of the owner's feedback, for a capture. */
 export const Tour: Story = { args: { state: "tour" } };
 
-/** The tile placed on a plate its rotation fits: the model yellow at 90 % opacity. */
+/** The tile placed on a plate its rotation fits: the model yellow and opaque. */
 export const Placed: Story = { args: { state: "placed" } };
 
 /** Confirmed: the tile green, then a fade to its own look (played again every 1.6 s). */
@@ -77,3 +80,13 @@ export const ConfirmGreen: Story = { args: { state: "confirm" } };
 
 /** Reduced motion: every change at once, the confirm a short fade. */
 export const ReducedMotion: Story = { args: { state: "placed", reducedMotion: true } };
+
+/**
+ * The game's placement (PLACE-POLISH, #568), at 375 px first: the tile hovers (untinted, half opacity), is placed (yellow,
+ * opaque) with its bubble; hold Validate (about 0.8 s, the ring fills): the tile lands voxel by voxel, then a green tint
+ * fades on it. The next tile hovers again after `replayMs`. Under reduced motion the drop is skipped: straight to the green.
+ */
+export const Sequence: Story = { args: { state: "sequence", replayMs: 3000 } };
+
+/** The sequence under reduced motion: no drop, the green at once. */
+export const SequenceReducedMotion: Story = { args: { state: "sequence", replayMs: 3000, reducedMotion: true } };

@@ -10,12 +10,13 @@ import {
   ORIENTATIONS,
   VIEWPORT,
   bubble,
+  holdToPlace,
   nextValid,
   noWebGL,
   openTraining,
-  placeButton,
   points,
   readHand,
+  readPreview,
   readSave,
   readUi,
   ready,
@@ -23,6 +24,8 @@ import {
   rngOf,
   shownSlots,
   slotName,
+  tapValidate,
+  validateButton,
   type MoveReport,
 } from "./bot";
 
@@ -163,6 +166,8 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
   const rotate = bubble(page).getByRole("button", { name: "Rotate tile" });
   // The rotation in hand: the page's, then followed through the bot's own clicks (a place turns it back to North).
   let orientation = (await readHand(page)).orientation;
+  // Once per call, a short press on Validate before the hold: it must place nothing (the hold guards the move).
+  let tapped = false;
   while (!model.over && out.moves < stopAfter) {
     const legal = model.legalPlacements();
     const at = `seed ${save.seed}, move ${model.built + model.discarded + 1}`;
@@ -171,7 +176,9 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
 
     // The hand holds the engine's tile, in the rotation the bot expects.
     expect(await readHand(page), `${at}: the tile in hand`).toEqual({ plan: model.hand!.plan.toLowerCase(), orientation });
-    expect(await placeButton(page).isDisabled(), `${at}: Place tile is disabled until a slot is picked`).toBe(true);
+    // No tile stands on a slot yet: no bubble, so no Validate, and no points preview over the score.
+    await expect.poll(() => validateButton(page).count(), { message: `${at}: Validate shows only once a slot is picked`, timeout: 10_000 }).toBe(0);
+    expect(await readPreview(page), `${at}: no preview before a slot is picked`).toBeNull();
     if (checkSlots) {
       // Every legal slot of any rotation is a button; those the rotation in hand fits are lit.
       const shown = await shownSlots(page);
@@ -223,14 +230,17 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
     for (let i = 0; i < 4 && orientation !== want; i++) await turn();
     expect(orientation, `${at}: the bubble reaches the rotation wanted`).toBe(want);
     await expect.poll(async () => (await readHand(page)).orientation, { message: `${at}: the rotation in hand`, timeout: 10_000 }).toBe(want);
-    await expect.poll(() => placeButton(page).isEnabled(), { message: `${at}: the page refuses ${JSON.stringify(placement)}`, timeout: 20_000 }).toBe(true);
-    // The preview on Place tile is the engine's points for that placement.
+    await expect.poll(() => validateButton(page).isEnabled(), { message: `${at}: the page refuses ${JSON.stringify(placement)}`, timeout: 20_000 }).toBe(true);
+    // The preview over the header's score is the engine's points for that placement.
     const preview = model.clone().build(placement).points;
-    const shownPreview = /\+([\d,]+)/.exec(await placeButton(page).innerText());
-    expect(shownPreview && points(shownPreview[1]!), `${at}: the preview`).toBe(preview);
+    await expect.poll(() => readPreview(page), { message: `${at}: the preview`, timeout: 10_000 }).toBe(preview);
+    if (!tapped) {
+      tapped = true;
+      expect(await tapValidate(page), `${at}: a tap on Validate places nothing`).toBe(true);
+    }
 
     const t0 = performance.now();
-    await placeButton(page).click();
+    await holdToPlace(page);
     const result = model.build(placement);
     orientation = 1;
     out.moves += 1;

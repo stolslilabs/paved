@@ -73,12 +73,18 @@ function TrainingBoard() {
 
   // Confirm only a placed tile whose rotation fits (red: disabled). The green flash once the session took the move;
   // refused, the tile stays placed (its error in the hand).
+  const [placing, setPlacing] = useState(false);
   const confirm = useCallback(async () => {
     if (!placement.canConfirm || !move || preview === null) return;
     const ghost = placement.ghost;
-    if (await game.place(move)) {
-      placement.accepted(ghost);
-      placement.setOrientation(1);
+    setPlacing(true);
+    try {
+      if (await game.place(move)) {
+        placement.accepted(ghost);
+        placement.setOrientation(1);
+      }
+    } finally {
+      setPlacing(false);
     }
   }, [game, placement, move, preview]);
 
@@ -91,7 +97,9 @@ function TrainingBoard() {
 
   const state = snapshot.state;
   const handState = !hand || board.over ? "empty" : state.writeError ? "refused" : "placing";
-  const bubble = placement.chosen ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear } : null;
+  const bubble = placement.chosen
+    ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: () => void confirm(), canConfirm: placement.canConfirm && preview !== null, busy: placing }
+    : null;
   return (
     <BoardScene
       mode="training"
@@ -136,7 +144,6 @@ function TrainingBoard() {
         ) : undefined
       }
       onBack={onBack}
-      onConfirm={confirm}
       onDiscard={discard}
       onSurrender={surrender}
     />
@@ -285,7 +292,12 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       )}
     </>
   );
-  const bubble = placement.chosen && playable && challengeHand(state, expired) !== "pending" && challengeHand(state, expired) !== "expired" ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear } : null;
+  // The bubble stays while the move is on its way (no prediction, or the queue full): Validate shows its spinner.
+  const handState = challengeHand(state, expired);
+  const bubble =
+    placement.chosen && playable && handState !== "expired" && handState !== "empty"
+      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, busy: handState === "pending" }
+      : null;
   return (
     <BoardScene
       mode="challenge"
@@ -299,7 +311,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       now={now}
       hand={{
         tile: hand && { plan: hand.plan, orientation },
-        state: challengeHand(state, expired),
+        state: handState,
         slotChosen: placement.canConfirm && preview !== null,
         preview,
         error: state.writeError,
@@ -340,7 +352,6 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
         ) : undefined
       }
       onBack={onBack}
-      onConfirm={confirm}
       onDiscard={discard}
       onSurrender={surrender}
     />

@@ -881,7 +881,8 @@ describe("the night lights (DAYNIGHT)", () => {
       expect(tiles.windowVolumeCount).toBe(1);
       expect((tiles as any).windowTextures[0]).toBe(first);
       tiles.dispose();
-    });
+      // About 3.6 s of fixed waits and a build of up to 20 s: the default 5 s deadline fails it on a loaded machine.
+    }, 30_000);
 
     it("builds after a rapid off and on: the skipped request is asked again, not left unbuilt", async () => {
       const { tiles } = renderer();

@@ -7,7 +7,7 @@ import { TRAINING_BEST_KEY, trainingPreviousBest } from "../src/data/training-be
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { holdToPlace, placeTile, preloadPages, validateButton } from "./route-helpers";
 
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
@@ -63,12 +63,12 @@ describe("/training (P3)", () => {
     open("/training", store);
     expect(await tilesOnBoard()).toBe(2);
     await chooseSlot();
-    await userEvent.click(within(hand()).getByRole("button", { name: /Place tile/ }));
+    await holdToPlace();
     expect(await tilesOnBoard()).toBe(3);
     expect(loadGame(() => store)!.moves).toHaveLength(2);
   });
 
-  it("each hand action reaches the session: rotate, choose a slot, place with its preview points, discard", async () => {
+  it("each hand action reaches the session: rotate, choose a slot, place by the bubble's hold with its preview points on the score, discard", async () => {
     const store = memoryStore();
     open("/training", store);
     expect(await tilesOnBoard()).toBe(1);
@@ -78,17 +78,22 @@ describe("/training (P3)", () => {
     expect(chip).toHaveAccessibleName(/north$/);
     expect(within(hand()).queryByRole("button", { name: /Rotate/ })).not.toBeInTheDocument();
 
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    // No Place tile (#568): the bubble's Validate, held, is the only way to place.
+    expect(screen.queryByRole("button", { name: /Place tile/ })).not.toBeInTheDocument();
+    expect(validateButton()).toBeNull();
     await chooseSlot();
     // The bubble: Cancel always; Rotate only with several valid rotations, and only through those.
     await userEvent.click(await screen.findByRole("button", { name: "Cancel placement" }));
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    expect(validateButton()).toBeNull();
+    expect(screen.queryByTestId("score-preview")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel placement" })).not.toBeInTheDocument();
     await chooseSlot();
-    const place = within(hand()).getByRole("button", { name: /Place tile/ });
-    expect(place).toBeEnabled();
-    expect(place).toHaveTextContent(/\+\d+/);
-    await userEvent.click(place);
+    expect(await screen.findByRole("button", { name: "Hold to place the tile" })).toBeEnabled();
+    expect(screen.getByTestId("score-preview")).toHaveTextContent(/^\(\+\d+\)/);
+    // A tap is not a hold: nothing is placed.
+    await userEvent.click(validateButton()!);
+    expect(await tilesOnBoard()).toBe(1);
+    await holdToPlace();
     expect(await tilesOnBoard()).toBe(2);
     expect(tilesLeft()).toBe(left - 1);
     expect(loadGame(() => store)!.moves.map((m) => m.k)).toEqual(["b"]);
@@ -107,7 +112,7 @@ describe("/training (P3)", () => {
       const slots = screen.queryAllByRole("button", { name: /^Slot / });
       if (slots.length) {
         await userEvent.click(slots[0]!);
-        await userEvent.click(within(hand()).getByRole("button", { name: /Place tile/ }));
+        await placeTile();
       } else {
         await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
       }
@@ -190,7 +195,7 @@ describe("/training (P3)", () => {
     await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
     expect(loadGame(() => store)!.moves).toEqual([{ k: "d" }]);
     await chooseSlot();
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Hold to place the tile" })).toBeEnabled();
 
     // The other tab, one move in too, placed a tile instead: its save is written last, so it wins.
     const other = [firstMove([])];
@@ -199,7 +204,7 @@ describe("/training (P3)", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: TRAINING_KEY, newValue: save(other) }));
     });
     expect(await tilesOnBoard()).toBe(2);
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    expect(validateButton()).toBeNull();
     expect(within(hand()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();

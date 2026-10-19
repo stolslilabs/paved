@@ -65,7 +65,7 @@ function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps,
     slots,
     ghost: chosen ? { ...chosen, plan: HAND.plan, orientation, placed: true, fits } : null,
     hand: { tile: { plan: HAND.plan, orientation }, state: "placing", slotChosen: chosen !== null && fits, preview: chosen && fits ? 30 : null },
-    bubble: chosen ? { cell: chosen, rotations: VALID.length, onRotate: fn(), onClose: fn() } : null,
+    bubble: chosen ? { cell: chosen, rotations: VALID.length, onRotate: fn(), onClose: fn(), onConfirm: fn(), canConfirm: fits } : null,
   };
 }
 
@@ -107,7 +107,7 @@ const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, seas
 const meta = {
   title: "Scenes/Board",
   component: BoardScene,
-  args: { onBack: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
+  args: { onBack: fn(), onDiscard: fn(), onSurrender: fn() },
   render: (args) => renderBoard(args),
 } satisfies Meta<typeof BoardScene>;
 export default meta;
@@ -119,7 +119,10 @@ export const Placing: Story = { args: { ...BOARD.placing, ...inHand(HAND.orienta
 /** No tile to place (a move on its way): no plate. */
 export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } };
 
-/** The tile placed on a plate its rotation fits: a yellow tint, Confirm on, the bubble (Rotate when several rotations fit, Close) on its corner. */
+/**
+ * The tile placed on a plate its rotation fits: yellow and opaque, the bubble on its corner (Close, Rotate when several
+ * rotations fit, Validate to hold), the points it would score over the HUD's score: "(+30)".
+ */
 export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
 
 /** The gear opened: the device settings over the board, a bottom sheet on a phone (375 px), a side panel on a desktop (1440 px). */
@@ -146,7 +149,7 @@ export const Plates: StoryObj<PlatesArgs> = {
   render: ({ rotation, placed, ...args }) => renderBoard({ ...args, ...inHand(rotation, placed ? CHOSEN : null) }),
 };
 
-/** A slot chosen: Confirm shows the points. */
+/** A slot chosen (plan view): the bubble above the hand, the points on the HUD's score. */
 export const SlotChosen: Story = { args: BOARD.slotChosen };
 
 /** The last move closed a city and a forest: the points appear over the board. */

@@ -63,6 +63,7 @@ export interface BoardSceneProps {
     tile: { plan: number; orientation: number } | null;
     state: HandState;
     slotChosen?: boolean;
+    /** The points the placed tile would score: on the HUD's score while a slot is chosen ("(+154)" over it, #568). */
     preview?: number | null;
     error?: string | null;
     /** The refusal's detail for support (`InlineError`). */
@@ -94,14 +95,14 @@ export interface BoardSceneProps {
    */
   canvas?: ReactNode;
   /**
-   * The Rotate and Cancel bubble of the tile placed and not yet sent. The page also gives it to the 3D canvas, where it
-   * follows the tile; the scene draws it itself only in the plan view (no `canvas`), above the hand panel.
+   * The bubble of the tile placed and not yet sent: Close, Rotate and Validate, held (#568), the only way to place a tile.
+   * The page also gives it to the 3D canvas, where it follows the tile; the scene draws it itself only in the plan view (no
+   * `canvas`), above the hand panel.
    */
   bubble?: BoardBubble | null;
   /** The season wheel of this game (`useBoardSettings`); none: no wheel (the stories without a cycle). */
   seasonWheel?: BoardWheel;
   onBack?: () => void;
-  onConfirm?: () => void;
   onDiscard?: () => void;
   /** Called once the player confirms in the Surrender dialog the hand's Surrender opens. */
   onSurrender?: () => void;
@@ -166,6 +167,7 @@ export function BoardScene(props: BoardSceneProps) {
           title={title}
           score={props.score}
           delta={props.delta}
+          preview={hand.slotChosen ? hand.preview : null}
           remaining={props.remaining}
           expiresAt={mode === "challenge" ? props.expiresAt : null}
           now={now}
@@ -206,22 +208,26 @@ export function BoardScene(props: BoardSceneProps) {
         <div data-bubble-avoid className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-2 tablet:inset-x-auto tablet:right-4 tablet:bottom-4 tablet:w-96">
           {!props.canvas && props.bubble && (
             <Suspense fallback={null}>
-              <LazyTileBubble rotations={props.bubble.rotations} onRotate={props.bubble.onRotate} onClose={props.bubble.onClose} />
+              <LazyTileBubble
+                rotations={props.bubble.rotations}
+                onRotate={props.bubble.onRotate}
+                onClose={props.bubble.onClose}
+                onConfirm={props.bubble.onConfirm}
+                canConfirm={props.bubble.canConfirm}
+                busy={props.bubble.busy}
+                coach={props.bubble.coach}
+                orientation={props.bubble.orientation}
+              />
             </Suspense>
           )}
           <HandPanel
             tile={hand.tile}
             state={hand.state}
             slotChosen={hand.slotChosen}
-            preview={hand.preview}
             error={hand.error}
             errorDetail={hand.errorDetail}
             tileArt={props.tileArt}
             renderTile={props.renderHandTile}
-            onConfirm={() => {
-              play("place");
-              props.onConfirm?.();
-            }}
             onDiscard={() => {
               play("discard");
               props.onDiscard?.();

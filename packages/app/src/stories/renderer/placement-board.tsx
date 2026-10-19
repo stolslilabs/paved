@@ -1,17 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import { DEFAULT_PLACEMENT_SETTINGS, PLATE_GAP_VOXELS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
-import { toRenderTiles } from "../../components/containers/board-viewport";
+import { toRenderTiles, useDropThenConfirm } from "../../components/containers/board-viewport";
+import { LazyTileBubble } from "../../components/containers/lazy-tile-bubble";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
 
-/** The placement states the story shows (SLOTS, P-68; PLATES, P-74; PLACEMENT-TINTS): `tour` plays hover, placed and confirm in turn. */
-export const PLACEMENT_STATES = ["idle", "in-hand", "hover", "placed", "confirm", "tour"] as const;
+/**
+ * The placement states the story shows (SLOTS, P-68; PLATES, P-74; PLACEMENT-TINTS): `tour` plays hover, placed and confirm
+ * in turn; `sequence` is the game's (PLACE-POLISH, #568): hover, placed with its bubble, the hold on Validate, the voxel drop,
+ * then the green.
+ */
+export const PLACEMENT_STATES = ["idle", "in-hand", "hover", "placed", "confirm", "tour", "sequence"] as const;
 export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
 
 export interface PlacementBoardProps {
-  /** idle: no plate; in-hand: the plates; hover: the tile blue at half opacity; placed: yellow; confirm: green, fading; tour: all three in turn. */
+  /**
+   * idle: no plate; in-hand: the plates; hover: the tile untinted at half opacity; placed: yellow, opaque; confirm: green,
+   * fading; tour: all three in turn; sequence: the game's, with the bubble's hold, the drop and the green.
+   */
   state: PlacementStoryState;
   /** The board's tiles under the plates; off, the plates alone. */
   board?: boolean;
@@ -19,6 +27,10 @@ export interface PlacementBoardProps {
   reducedMotion?: boolean;
   /** The confirm plays again every this many ms (0: once). */
   replayMs?: number;
+  /** sequence: Validate's hold, ms (800 in the game). */
+  holdMs?: number;
+  /** The voxel drop's clock (1 in the game; below 1 slows it, for a slowed capture played back faster). */
+  dropSpeed?: number;
   view: View;
   distance?: number;
   /** Draw every frame even when nothing moves, as the frame-time measures need. */
@@ -132,11 +144,11 @@ export function placementArgTypes(): Record<string, object> {
 
 /**
  * The recorded 72-tile board with the placement visuals in one state (PLACEMENT-TINTS): the plates of a tile in hand
- * (playable, invalid), the tile hovering (blue), placed (yellow), and the confirm
- * (green, fading out); `board` off shows the plates alone. `data-ready` is set once the board is drawn at the
- * held view.
+ * (playable, invalid), the tile hovering (untinted, half opacity), placed (yellow, opaque), and the confirm (green, fading
+ * out); `board` off shows the plates alone. `sequence` plays the game's placement (#568). `data-ready` is set once the board
+ * is drawn at the held view; `data-step` names the sequence's step.
  */
-export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
+export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, holdMs = 800, dropSpeed, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState("");
@@ -144,9 +156,9 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
   // The tour: hover, placed, then the confirm, every `replayMs`.
   const [phase, setPhase] = useState(0);
   const input = placementInput(args);
-  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset]);
+  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset, dropSpeed]);
   const settings = useMemo<RendererSettingsInput>(
-    () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
+    () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, ...(dropSpeed ? { voxelDrop: { speed: dropSpeed } } : {}), placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
     [key], // eslint-disable-line react-hooks/exhaustive-deps
   );
   // The measuring scripts (the GPU flicker check) drive the camera by the scene itself: exact pans and distances.
@@ -207,20 +219,40 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
     return () => clearTimeout(id);
   }, [scene, readout]);
 
+  // The sequence (#568): hover, then placed with its bubble; the hold on Validate lands the tile (the drop, then the green,
+  // as the board plays them: `useDropThenConfirm`), and after `replayMs` the next tile hovers again.
+  const [step, setStep] = useState<"hover" | "placed" | "landed">("hover");
+  const [accepted, setAccepted] = useState<(HoverState & { key: number }) | null>(null);
+  useEffect(() => {
+    if (state !== "sequence" || !ready) return;
+    const id = step === "hover" ? setTimeout(() => setStep("placed"), 1200) : step === "landed" ? setTimeout(() => setStep("hover"), Math.max(2500, replayMs)) : 0;
+    return () => clearTimeout(id);
+  }, [state, ready, step, replayMs]);
+  useEffect(() => {
+    if (state === "sequence" && step === "placed" && scene) void scene.prepareDropAt(PLACED);
+  }, [state, step, scene]);
+  const sequenceTiles = state === "sequence" && step === "landed" ? WITH_PLACED : tiles;
+  const green = useDropThenConfirm(scene, sequenceTiles, accepted, (input.motion?.confirmMs as number | undefined) ?? undefined);
+  const validate = useCallback(() => {
+    setStep("landed");
+    setAccepted((a) => ({ ...PLACED, placed: false, key: (a?.key ?? 0) + 1 }));
+  }, []);
+
   const confirming = state === "confirm" || (state === "tour" && phase === 2);
-  const slots = state === "idle" || confirming ? NO_SLOTS : SLOTS;
+  const slots = state === "idle" || confirming || (state === "sequence" && step === "landed") ? NO_SLOTS : SLOTS;
   const hover = useMemo<HoverState | null>(() => {
     if (!ready) return null;
+    if (state === "sequence") return step === "hover" ? { ...PLACED, placed: false } : step === "placed" ? PLACED : null;
     if (state === "hover" || (state === "tour" && phase === 0)) return { ...PLACED, placed: false };
     if (state === "placed" || (state === "tour" && phase === 1)) return PLACED;
     return null;
-  }, [state, ready, phase]);
-  const confirmed = useMemo(() => (confirming && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [confirming, ready, confirmKey]);
+  }, [state, ready, phase, step]);
+  const confirmed = useMemo(() => (state === "sequence" ? green : confirming && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [state, green, confirming, ready, confirmKey]);
   // Confirmed, the tile is on the board (as the game draws it after a move); the tint fades over it.
-  const shown = !board ? NO_TILES : confirming ? WITH_PLACED : tiles;
+  const shown = !board ? NO_TILES : confirming ? WITH_PLACED : state === "sequence" ? sequenceTiles : tiles;
 
   return (
-    <div className="relative h-full min-h-dvh w-full bg-board" data-ready={ready || undefined}>
+    <div className="relative h-full min-h-dvh w-full overflow-hidden bg-board" data-ready={ready || undefined} data-step={state === "sequence" ? step : undefined}>
       <GameCanvas
         tiles={shown}
         availableSlots={slots}
@@ -231,6 +263,11 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
         onReady={onReady}
         style={{ position: "absolute", inset: 0 }}
       />
+      {state === "sequence" && step === "placed" && scene && (
+        <Suspense fallback={null}>
+          <LazyTileBubble scene={scene} cell={{ x: PLACED.x, y: PLACED.y }} rotations={2} onRotate={() => {}} onClose={() => setStep("hover")} onConfirm={validate} holdMs={holdMs} />
+        </Suspense>
+      )}
       {readout && zoom && (
         <output className="absolute top-3 left-3 rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground numeric" aria-live="off">
           {state} · {zoom}

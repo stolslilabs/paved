@@ -773,7 +773,8 @@ export class GameScene {
 
   /**
    * Drops a tile placed on the board (`TileRenderer.dropTile`): its voxels fall and land layer by layer, then its model is back.
-   * Explicit, for the stories for now: the board does not call it. Resolves when the drop has started, or was skipped.
+   * Explicit, never at a first load: the app calls it when the session accepts a move (PLACE-POLISH, #568). Resolves when
+   * the drop has started, or was skipped.
    */
   async dropTile(tile: { id: number | string; game_id?: number }): Promise<DropResult> {
     const result = await this.tiles.dropTile(`${tile.game_id ?? 1}-${tile.id}`);
@@ -788,6 +789,14 @@ export class GameScene {
   /** Loads the drop's chunk and the grid of a drawn tile's model, so that its `dropTile` begins in the call: true when ready. */
   prepareDrop(tile: { id: number | string; game_id?: number }): Promise<boolean> {
     return this.tiles.prepareDrop(`${tile.game_id ?? 1}-${tile.id}`);
+  }
+
+  /**
+   * Loads the drop's chunk and the grid of the model the tile in hand will draw at its cell (`state.cell`), before it is on
+   * the board: the app calls it once the tile is placed (pre-validated), so that the drop at the confirm begins at once.
+   */
+  prepareDropAt(state: HoverState): Promise<boolean> {
+    return this.tiles.prepareDropAt(state);
   }
 
   /** The placement visuals' settings and reduced motion, from the renderer's settings. */

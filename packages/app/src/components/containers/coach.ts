@@ -1,4 +1,4 @@
-/** A control a Story coach mark points at (#546): the board rings it while the tip names it. */
+/** A control a Story coach mark points at (#546): the board rings it while the tip names it ("place": the bubble's Validate, #568). */
 export type CoachTarget = "place" | "discard" | "deck" | "settings" | "wheel";
 
 /** The ring of a coached control. */

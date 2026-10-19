@@ -127,7 +127,13 @@ const boardBase = {
 
 export const BOARD = {
   placing: { ...boardBase, hand: { tile: hand, state: "placing" } },
-  slotChosen: { ...boardBase, hand: { tile: hand, state: "placing", slotChosen: true, preview: 30 } },
+  // The bubble's callbacks are the page's: no-ops here, the stories and tests pass their own.
+  slotChosen: {
+    ...boardBase,
+    hand: { tile: hand, state: "placing", slotChosen: true, preview: 30 },
+    ghost: { x: BOARD_38.next.x, y: BOARD_38.next.y, ...hand, placed: true, fits: true },
+    bubble: { cell: { x: BOARD_38.next.x, y: BOARD_38.next.y }, rotations: 2, onRotate: () => {}, onClose: () => {}, onConfirm: () => {}, canConfirm: true },
+  },
   closing: { ...boardBase, delta: 370, hand: { tile: hand, state: "placing" }, lastScored: LAST_SCORED },
   pending: { ...boardBase, tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }], hand: { tile: hand, state: "pending", slotChosen: true } },
   refused: { ...boardBase, hand: { tile: hand, state: "refused", slotChosen: true, error: "Move refused by the contract: the edges do not match." } },

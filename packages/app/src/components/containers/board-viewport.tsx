@@ -1,8 +1,8 @@
-import { Suspense, useContext, useEffect, useMemo, useState } from "react";
+import { Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
 import type { GameScene, HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
-import { boardPlates } from "../../data/placement";
+import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
 import { BoardCovered } from "./board-covered";
 import { LazyTileBubble } from "./lazy-tile-bubble";
@@ -76,7 +76,10 @@ export interface BoardViewportProps {
    */
   slots?: { x: number; y: number; fits?: boolean }[];
   ghost?: BoardGhost | null;
-  /** A move just sent (`useConfirmFlash`): a green tint on the tile fades out. A new `key` fades again. */
+  /**
+   * A move the session just accepted (`useConfirmFlash`): the tile drops voxel by voxel, then a green tint on it fades out
+   * (`useDropThenConfirm`). A new `key` plays again.
+   */
   confirmed?: (BoardGhost & { key: number }) | null;
   /**
    * The renderer's settings (`RendererSettingsInput`: the graphics quality). Keep the object between renders while the
@@ -91,7 +94,7 @@ export interface BoardViewportProps {
   onCellClick?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
   onCellHover?: (slot: { x: number; y: number } | null) => void;
-  /** The tile placed and not yet sent: the Rotate and Cancel bubble follows its corner. Unset: none. */
+  /** The tile placed and not yet sent: the bubble (Close, Rotate, Validate) follows its corner. Unset: none. */
   bubble?: BoardBubble | null;
   /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
   onScene?: (scene: GameScene | null) => void;
@@ -106,6 +109,58 @@ export interface BoardBubble {
   rotations: number;
   onRotate: () => void;
   onClose: () => void;
+  /** The end of the hold on Validate: the page sends the move (#568). */
+  onConfirm?: () => void;
+  /** Validate is enabled: the rotation fits and the points are known. */
+  canConfirm?: boolean;
+  /** The move is on its way: Validate's spinner. */
+  busy?: boolean;
+  /** A Story coach mark points at the placement: Validate is ringed. */
+  coach?: boolean;
+  /** The tile's rotation now: a change drops a hold on Validate under way. */
+  orientation?: number;
+}
+
+/**
+ * The confirm on the 3D board (PLACE-POLISH, #568): when the session accepts a move (a new `confirmed.key`), the landed tile
+ * drops voxel by voxel (`GameScene.dropTile`), then the green tint fades on it, for the time `useConfirmFlash` holds it
+ * after the drop. A skipped or failed drop (reduced motion, the model not in, its chunk not downloaded) goes straight to the
+ * green; a tile gone when the drop ends (a refusal rolled the board back, which cuts the drop) gets no green. Nothing plays at the first frame or a reload:
+ * only a key that changes while the board is up. The next tile is never held: the drop plays on while the player places it,
+ * and a newer confirm's green wins over an older drop's.
+ */
+export function useDropThenConfirm(scene: GameScene | null, tiles: TileRenderData[], confirmed: (HoverState & { key: number }) | null | undefined, confirmMs?: number) {
+  const [green, setGreen] = useState<(HoverState & { key: number }) | null>(null);
+  const tilesRef = useRef(tiles);
+  tilesRef.current = tiles;
+  // The key the board opened with is never played (a remount with a confirm still held).
+  const seen = useRef(confirmed?.key ?? null);
+  const latest = useRef(0);
+  const holdMs = confirmHoldMs(confirmMs);
+  useEffect(() => {
+    if (!confirmed || confirmed.key === seen.current || !scene) return;
+    seen.current = confirmed.key;
+    const run = ++latest.current;
+    const at = (t: TileRenderData) => t.worldX === confirmed.x && t.worldZ === confirmed.y;
+    const tile = tilesRef.current.find(at);
+    const toGreen = () => {
+      if (run !== latest.current || !tilesRef.current.some(at)) return;
+      setGreen(confirmed);
+    };
+    if (!tile) return toGreen();
+    // The drop is optional: whatever becomes of it (skipped, cut short, failed), the move still gets its green.
+    void scene
+      .dropTile(tile)
+      .then((drop) => (drop.status === "started" ? drop.finished : undefined))
+      .catch(() => undefined)
+      .then(toGreen);
+  }, [confirmed, scene]);
+  useEffect(() => {
+    if (!green) return;
+    const id = setTimeout(() => setGreen(null), holdMs);
+    return () => clearTimeout(id);
+  }, [green, holdMs]);
+  return green;
 }
 
 /** A ghost as the renderer's hover: its grid cell, its state, and the cell its skin variant is picked for. */
@@ -143,6 +198,13 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
   // preview: a placed tile is always drawn, with its tint (yellow, red: Confirm is disabled, the board says why).
   const hover = useMemo<HoverState | null>(() => (ghost && (tilePreview || ghost.placed) ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
   const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
+  const green = useDropThenConfirm(scene, renderTiles, confirm, settings?.placement?.motion?.confirmMs);
+  // The tile placed and not yet validated: the drop's chunk and its model's voxels load now, so the drop at the confirm
+  // begins in the call (`GameScene.prepareDropAt`).
+  const prepareKey = hover?.placed ? `${hover.planIndex}:${hover.cell?.x}:${hover.cell?.y}` : null;
+  useEffect(() => {
+    if (scene && hover?.placed) void scene.prepareDropAt(hover).catch(() => {});
+  }, [scene, prepareKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     // The canvas owns its pinch, pan and rotate (`touch-none`), and the browser's context menu stays off the board (APP-FEEL, P-69).
     <div className={cn("absolute inset-0 touch-none bg-board", className)} onContextMenu={(e) => e.preventDefault()}>
@@ -154,7 +216,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
         covered={covered}
         availableSlots={gridSlots}
         hover={hover}
-        confirmed={confirm}
+        confirmed={green}
         onReady={setScene}
         onError={onError}
         onTileClick={onCellClick && ((gx, gy) => onCellClick(toChainSlot(gx, gy)))}
@@ -163,7 +225,18 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
       />
       {bubble && scene && (
         <Suspense fallback={null}>
-          <LazyTileBubble scene={scene} cell={toGridSlot(bubble.cell.x, bubble.cell.y)} rotations={bubble.rotations} onRotate={bubble.onRotate} onClose={bubble.onClose} />
+          <LazyTileBubble
+            scene={scene}
+            cell={toGridSlot(bubble.cell.x, bubble.cell.y)}
+            rotations={bubble.rotations}
+            onRotate={bubble.onRotate}
+            onClose={bubble.onClose}
+            onConfirm={bubble.onConfirm}
+            canConfirm={bubble.canConfirm}
+            busy={bubble.busy}
+            coach={bubble.coach}
+            orientation={bubble.orientation}
+          />
         </Suspense>
       )}
     </div>

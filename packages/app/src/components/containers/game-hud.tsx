@@ -12,6 +12,8 @@ export interface GameHudProps {
   score: number;
   /** Points the last move added. */
   delta?: number | null;
+  /** The points the tile placed and not yet validated would score: "(+154)" over the score, in place of its label (#568). */
+  preview?: number | null;
   remaining: number;
   /** `GameView.expiresAt` of a Challenge game (start + 24 h); none for Training and Story. */
   expiresAt?: number | null;
@@ -29,7 +31,7 @@ export interface GameHudProps {
 }
 
 /** The board's header over the scene: Back and the mode, the tiles left, the time left, the score, the settings gear. */
-export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack, onSettings, onDeck, wheel, coach, className }: GameHudProps) {
+export function GameHud({ title, score, delta, preview, remaining, expiresAt, now, onBack, onSettings, onDeck, wheel, coach, className }: GameHudProps) {
   return (
     <header
       className={cn(
@@ -50,7 +52,7 @@ export function GameHud({ title, score, delta, remaining, expiresAt, now, onBack
       </div>
       <TilesLeft remaining={remaining} onClick={onDeck} className={cn(coach === "deck" && COACH_RING)} />
       <div className="mobile:border-l mobile:border-border mobile:pl-3">
-        <Score value={score} delta={delta} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
+        <Score value={score} delta={delta} preview={preview} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
       </div>
       {wheel && (coach === "wheel" ? <span data-coach="wheel" className={COACH_RING}>{wheel}</span> : wheel)}
       {onSettings && (
