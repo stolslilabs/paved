@@ -1,11 +1,11 @@
-import { DEFAULT_RENDERER_SETTINGS } from "@paved/renderer";
+import { DEFAULT_RENDERER_SETTINGS, PLAY_DEFAULT_POLAR_ANGLE, PLAY_MAX_POLAR_ANGLE } from "@paved/renderer";
 
 /**
  * The camera stops of the "Renderer/Outlines" story, and the tour through them: pure functions of the board's bounds
  * and of the elapsed time, so the live story and the before/after captures see the same positions.
  *
- * Distances are those of the `play` camera (`CameraController`: 8 to 300 units, polar angle up to 0.15 PI); the game
- * opens straight down at 240.
+ * Distances are those of the `play` camera (`CameraController`: 10 to 300 units, polar angle up to 0.30 PI, 54
+ * degrees); the game opens at 240, tilted 0.15 PI (27 degrees, TILT-54).
  */
 export interface Bounds {
   minX: number;
@@ -38,7 +38,7 @@ export const MAX_DISTANCE = DEFAULT_RENDERER_SETTINGS.camera.maxDistance;
 export const DEFAULT_DISTANCE = 240;
 /** Close enough that the outlines are on in a small window (a tile about 160 px wide at 500 px high). */
 const TOP_DISTANCE = 50;
-const MAX_POLAR = Math.PI * 0.15;
+const MAX_POLAR = PLAY_MAX_POLAR_ANGLE;
 /** Straight down: the camera's own start has the same tiny offset (no gimbal lock). */
 const DOWN = 0.0001;
 
@@ -55,7 +55,7 @@ interface Stop {
 const STOPS: Record<View, Stop> = {
   top: { distance: TOP_DISTANCE, polar: DOWN, dx: 0, dz: 0 },
   pan: { distance: TOP_DISTANCE, polar: DOWN, dx: 0.45, dz: -0.2 },
-  default: { distance: DEFAULT_DISTANCE, polar: DOWN, dx: 0, dz: 0 },
+  default: { distance: DEFAULT_DISTANCE, polar: PLAY_DEFAULT_POLAR_ANGLE, dx: 0, dz: 0 },
   "zoomed-out": { distance: MAX_DISTANCE, polar: MAX_POLAR, dx: 0, dz: 0 },
   "zoomed-in": { distance: MIN_DISTANCE, polar: MAX_POLAR, dx: 0, dz: 0, onAnchor: true },
 };

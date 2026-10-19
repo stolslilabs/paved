@@ -12,6 +12,7 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
   private boundPointerUp: ((event: PointerEvent) => void) | null = null;
   private boundPointerMove: ((event: PointerEvent) => void) | null = null;
   private boundPointerLeave: (() => void) | null = null;
+  private boundPointerCancel: ((event: PointerEvent) => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -95,11 +96,15 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
     this.boundPointerLeave = () => {
       this.inputHandler?.({ type: "pointerleave", x: 0, y: 0 });
     };
+    this.boundPointerCancel = (event: PointerEvent) => {
+      this.emit("pointercancel", event);
+    };
 
     this.canvas.addEventListener("pointerdown", this.boundPointerDown);
     this.canvas.addEventListener("pointerup", this.boundPointerUp);
     this.canvas.addEventListener("pointermove", this.boundPointerMove);
     this.canvas.addEventListener("pointerleave", this.boundPointerLeave);
+    this.canvas.addEventListener("pointercancel", this.boundPointerCancel);
   }
 
   unbindInput(): void {
@@ -119,6 +124,10 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
       this.canvas.removeEventListener("pointerleave", this.boundPointerLeave);
       this.boundPointerLeave = null;
     }
+    if (this.boundPointerCancel) {
+      this.canvas.removeEventListener("pointercancel", this.boundPointerCancel);
+      this.boundPointerCancel = null;
+    }
     this.inputHandler = null;
   }
 
@@ -135,6 +144,7 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
       button: event.button,
+      pointerId: event.pointerId,
     });
   }
 }

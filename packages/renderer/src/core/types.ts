@@ -38,13 +38,16 @@ export type SurfaceInputEventType =
   | "pointerdown"
   | "pointerup"
   | "pointermove"
-  | "pointerleave";
+  | "pointerleave"
+  | "pointercancel";
 
 export interface SurfaceInputEvent {
   type: SurfaceInputEventType;
   x: number;
   y: number;
   button?: number;
+  /** The pointer's id (`PointerEvent.pointerId`): it tells a second finger from the first. Unset: one pointer. */
+  pointerId?: number;
 }
 
 export interface RenderSurfaceAdapter {
