@@ -424,22 +424,6 @@ export class TileRenderer {
   }
 
   /**
-   * The placed tiles drawn from a model (not a pending tile, a placeholder quad or the strategy view), each with its model id,
-   * the type's shared model and the tile's own copy of it (world matrix set by the caller). Read only: the ambient particles
-   * place their emitters by it (`ambient-particles.ts`).
-   */
-  drawnModels(): Array<{ key: string; type: THREE.Group; tile: THREE.Object3D }> {
-    const drawn: Array<{ key: string; type: THREE.Group; tile: THREE.Object3D }> = [];
-    if (this.strategyMode) return drawn;
-    for (const entry of this.tileMeshes.values()) {
-      const type = entry.model && !entry.pending ? this.tileTypes.get(entry.model) : undefined;
-      const tile = entry.mesh.children[0];
-      if (type && tile && entry.model) drawn.push({ key: entry.model, type, tile });
-    }
-    return drawn;
-  }
-
-  /**
    * The model a tile of `plan` at the contracts' (x, y) of game `gameId` draws from: its plan key (the base model), or the
    * variant of its plan's skin (`setSkins`) that its hash picks. A variant not loaded yet is asked for, and the base model
    * drawn meanwhile when it is in (null when neither is: the tile draws its placeholder quad until one comes in). Null for
