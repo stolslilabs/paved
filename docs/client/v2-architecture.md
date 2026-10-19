@@ -2775,6 +2775,12 @@ maximum, both ways from the default (`core/CameraController.ts`).
 - **The native controller** (`NativeCameraController`, `native-input-mapper.ts`) has the same default and range: it
   opens at 27 degrees, `applyTilt(dy, height)` tilts as OrbitControls does, and the mapper emits a `tilt` event when two
   fingers move up or down together, beside the pinch. Its default `minDistance` is the web's closest zoom (10; 5 before).
+- **Captures** (the "Renderer/Lighting" story, the 72-tile board, headless Chromium on the Mac's GPU, not SwiftShader;
+  the tilt reached by the gesture itself, in `packages/app/src/stories/renderer/captures/`): `tilt54-phone-0.webp`,
+  `tilt54-phone-27.webp` (as it opens), `tilt54-phone-54.webp` at 375 x 812 (DPR 3, stored at 1x);
+  `tilt54-desk-0.webp`, `tilt54-desk-27.webp`, `tilt54-desk-54.webp` at 1440 x 900 (DPR 2, stored at 1x);
+  `tilt54-phone-54-closest.webp`, the closest zoom (10) at 54 degrees, no cut; `tilt54-phone-54-day.webp` and
+  `tilt54-phone-54-night.webp`, the "Renderer/DayNight" story's sky at 54 degrees (summer day, autumn night).
 - **Frame time: not measured.** The bench run (p95 at 27 and 54 degrees, the auto tier and Low, desktop and phone
   profiles) is on the GPU-BENCH-BACKLOG. Estimate: the same draw calls and triangles; at 54 degrees the board covers
   fewer pixels (its depth is foreshortened by about cos 54 / cos 27, 0.66) but more side faces and more outline risers.
