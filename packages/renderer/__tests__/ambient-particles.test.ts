@@ -183,6 +183,12 @@ describe("AmbientParticles: one draw per kind for the board", () => {
       expect(particles.step()).toBe(false);
       particles.setZoom(1);
 
+      // On screen: the world size at the camera's zoom, held between the floor and the cap in device px.
+      particles.setViewport(1624, 50, 5, 2);
+      const u = (points[0]!.material as THREE.ShaderMaterial).uniforms;
+      expect(u.uScale.value).toBeCloseTo((1624 * 5) / (2 * Math.tan(THREE.MathUtils.degToRad(25))));
+      expect(u.uPixels.value.toArray()).toEqual([DEFAULT_AMBIENT_PARTICLES.minPixels * 2, DEFAULT_AMBIENT_PARTICLES.maxPixels * 2]);
+
       // The night glow scales the light and the size, from the day's 1.
       particles.setNight(1);
       expect((points[0]!.material as THREE.ShaderMaterial).uniforms.uGlow.value).toBeCloseTo(1 + DEFAULT_AMBIENT_PARTICLES.nightGlow);

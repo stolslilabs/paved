@@ -34,8 +34,10 @@ export interface AmbientParticlesBoardProps {
   wonderDensity: number;
   wonderPerTile: number;
   boardCap: number;
-  /** A particle's diameter (world units), a multiplier of each kind's default. */
+  /** A particle's diameter (world units), a multiplier of each kind's default, and its floor and cap on screen (CSS px). */
   size: number;
+  minPixels: number;
+  maxPixels: number;
   /** How fast the particles live (1: each kind's default life; 2: twice as fast). */
   speed: number;
   /** A multiplier of each kind's rise and drift. */
@@ -141,13 +143,15 @@ export function AmbientParticlesBoard(props: AmbientParticlesBoardProps) {
             color: props.wonderColor,
           },
           boardCap: props.boardCap,
+          minPixels: props.minPixels,
+          maxPixels: props.maxPixels,
           nightGlow: props.nightGlow,
           zoomFade: props.zoomFade,
         },
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify([props.enabled, props.fps, props.waterDensity, props.waterPerTile, props.wonderDensity, props.wonderPerTile, props.boardCap, props.size, props.speed, props.rise, props.drift, props.opacity, props.waterColor, props.wonderColor, props.nightGlow, props.zoomFade, quality, night])],
+    [JSON.stringify([props.enabled, props.fps, props.waterDensity, props.waterPerTile, props.wonderDensity, props.wonderPerTile, props.boardCap, props.size, props.minPixels, props.maxPixels, props.speed, props.rise, props.drift, props.opacity, props.waterColor, props.wonderColor, props.nightGlow, props.zoomFade, quality, night])],
   );
   const onReady = useCallback((s: GameScene) => {
     setScene(s);

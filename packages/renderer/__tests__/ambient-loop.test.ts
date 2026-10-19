@@ -109,6 +109,8 @@ describe("the ambient settings: one 'Ambient effects' switch, off on Low and und
     expect(s.particles.boardCap).toBe(10);
     expect(s.particles.wonder).toEqual(DEFAULT_AMBIENT_SETTINGS.particles.wonder);
     expect(resolveAmbientSettings({ fps: 0 }).fps).toBe(30);
+    // The cap is never under the floor.
+    expect(resolveAmbientSettings({ particles: { minPixels: 20, maxPixels: 5 } }).particles).toMatchObject({ minPixels: 20, maxPixels: 20 });
   });
 
   it("runs only on, above the Low tier, and without reduced motion", () => {

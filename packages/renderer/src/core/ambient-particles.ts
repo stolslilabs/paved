@@ -128,6 +128,7 @@ const VERTEX = /* glsl */ `
   uniform float uDrift;
   uniform float uSize;
   uniform float uScale;
+  uniform vec2 uPixels;
   uniform float uOpacity;
   uniform float uFade;
   uniform float uGlow;
@@ -150,7 +151,8 @@ const VERTEX = /* glsl */ `
     vAlpha = uOpacity * uFade * fade * uGlow;
     // The size in device px: the world size at this depth (uScale: the drawing buffer's height x zoom over 2 tan(fov / 2)). A particle
     // with no light left is a point of no size: no fragment.
-    gl_PointSize = vAlpha < 0.002 ? 0.0 : uSize * sqrt(uGlow) * uScale / max(-mv.z, 0.001);
+    // Held between the floor and the cap (uPixels, device px): never under a pixel, never a blob.
+    gl_PointSize = vAlpha < 0.002 ? 0.0 : clamp(uSize * uScale / max(-mv.z, 0.001), uPixels.x, uPixels.y) * sqrt(uGlow);
   }
 `;
 
@@ -158,10 +160,10 @@ const FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
   varying float vAlpha;
   void main() {
-    // A soft round sprite: full at the centre, nothing at the rim.
+    // A soft round sprite: a core, then a soft rim to nothing at the edge (a steeper falloff reads as a point of 3 px).
     float d = length(gl_PointCoord - 0.5) * 2.0;
-    float a = 1.0 - smoothstep(0.0, 1.0, d);
-    gl_FragColor = vec4(uColor, a * a * vAlpha);
+    float a = 1.0 - smoothstep(0.15, 1.0, d);
+    gl_FragColor = vec4(uColor, a * vAlpha);
   }
 `;
 
@@ -173,6 +175,7 @@ interface KindUniforms {
   uDrift: THREE.IUniform<number>;
   uSize: THREE.IUniform<number>;
   uScale: THREE.IUniform<number>;
+  uPixels: THREE.IUniform<THREE.Vector2>;
   uOpacity: THREE.IUniform<number>;
   uFade: THREE.IUniform<number>;
   uGlow: THREE.IUniform<number>;
@@ -215,6 +218,7 @@ export class AmbientParticles implements AmbientEffect {
   private sources: ParticleSource[] = [];
   private frame: THREE.Object3D | null = null;
   private night = 0;
+  private pixelRatio = 1;
   private disposed = false;
   /** Called when an emitter build lands and the particles were laid out again: the scene draws a frame. */
   onChange: (() => void) | null = null;
@@ -230,6 +234,7 @@ export class AmbientParticles implements AmbientEffect {
         uDrift: { value: 0 },
         uSize: { value: 0 },
         uScale: { value: 1 },
+        uPixels: { value: new THREE.Vector2(1, 64) },
         uOpacity: { value: 0 },
         uFade: { value: 1 },
         uGlow: { value: 1 },
@@ -280,6 +285,7 @@ export class AmbientParticles implements AmbientEffect {
       u.uSize.value = s.size;
       u.uOpacity.value = s.opacity;
       u.uColor.value.set(s.color);
+      u.uPixels.value.set(this.settings.minPixels * this.pixelRatio, this.settings.maxPixels * this.pixelRatio);
       this.points[kind].visible = s.enabled;
     }
     this.setNight(this.night);
@@ -361,12 +367,16 @@ export class AmbientParticles implements AmbientEffect {
   }
 
   /**
-   * The drawing buffer's height in device px, the camera's vertical field of view in degrees and its zoom (the play camera's is
-   * 5): a particle's size on screen.
+   * The drawing buffer's height in device px, the camera's vertical field of view in degrees, its zoom (the play camera's is
+   * 5) and the pixel ratio: a particle's size on screen, and its floor and cap in device px.
    */
-  setViewport(heightDevicePx: number, fovDegrees: number, zoom = 1): void {
+  setViewport(heightDevicePx: number, fovDegrees: number, zoom = 1, pixelRatio = 1): void {
+    this.pixelRatio = pixelRatio;
     const scale = (heightDevicePx * zoom) / (2 * Math.tan(THREE.MathUtils.degToRad(fovDegrees) / 2));
-    for (const kind of PARTICLE_KINDS) this.uniforms[kind].uScale.value = scale;
+    for (const kind of PARTICLE_KINDS) {
+      this.uniforms[kind].uScale.value = scale;
+      this.uniforms[kind].uPixels.value.set(this.settings.minPixels * pixelRatio, this.settings.maxPixels * pixelRatio);
+    }
   }
 
   /** The particles drawn of each kind, and the draws they take (one per kind with any). */

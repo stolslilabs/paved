@@ -33,6 +33,12 @@ export interface AmbientParticlesSettings {
   /** At most this many particles of one kind on the board. */
   boardCap: number;
   /**
+   * The smallest and the largest a particle is drawn, in CSS px: its world size gives its size on screen in between, so it does
+   * not vanish under a pixel at the play distance nor grow into a blob when zoomed in.
+   */
+  minPixels: number;
+  maxPixels: number;
+  /**
    * The night glow (a proposal for the owner): at night, while the day and night cycle draws the board, the particles are
    * brighter and a little larger, by up to this factor (0: as by day).
    */
@@ -69,9 +75,11 @@ export const AMBIENT_FPS = 30;
  * motes over the water, fewer, slower gold sparkles over the wonders.
  */
 export const DEFAULT_AMBIENT_PARTICLES: AmbientParticlesSettings = {
-  water: { enabled: true, density: 0.2, perTile: 8, size: 0.1, lifeSeconds: 4.5, rise: 0.55, drift: 0.08, opacity: 0.5, color: "#bff4ff" },
-  wonder: { enabled: true, density: 0.025, perTile: 6, size: 0.11, lifeSeconds: 6, rise: 0.8, drift: 0.05, opacity: 0.45, color: "#ffe6a3" },
+  water: { enabled: true, density: 0.2, perTile: 8, size: 0.1, lifeSeconds: 4.5, rise: 0.55, drift: 0.08, opacity: 0.55, color: "#bff4ff" },
+  wonder: { enabled: true, density: 0.025, perTile: 6, size: 0.11, lifeSeconds: 6, rise: 0.8, drift: 0.05, opacity: 0.6, color: "#ffe6a3" },
   boardCap: 240,
+  minPixels: 4,
+  maxPixels: 14,
   nightGlow: 0.8,
   zoomFade: true,
 };
@@ -112,6 +120,8 @@ export function resolveAmbientSettings(input: AmbientSettingsInput = {}, base: A
       water: resolveKind(p.water, base.particles.water),
       wonder: resolveKind(p.wonder, base.particles.wonder),
       boardCap: Math.floor(finite(p.boardCap, base.particles.boardCap)),
+      minPixels: finite(p.minPixels, base.particles.minPixels),
+      maxPixels: Math.max(finite(p.minPixels, base.particles.minPixels), finite(p.maxPixels, base.particles.maxPixels)),
       nightGlow: finite(p.nightGlow, base.particles.nightGlow),
       zoomFade: typeof p.zoomFade === "boolean" ? p.zoomFade : base.particles.zoomFade,
     },
