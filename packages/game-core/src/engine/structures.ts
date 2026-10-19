@@ -170,6 +170,19 @@ export class Board {
     return root;
   }
 
+  /** Every structure of the board (a root), in the order of its first node (tiles by id, then areas): its category code, nodes, tiles and open half-edges. */
+  structures(): { root: number; category: number; size: number; tiles: number; open: number }[] {
+    const seen = new Map<number, { root: number; category: number; size: number; tiles: number; open: number }>();
+    for (const tile of [...this.byId.values()].sort((a, b) => a.id - b.id)) {
+      for (let area = 1; area <= 9; area++) {
+        if (!tile.refs[area]) continue;
+        const { root, record } = this.rootOf(tile, area);
+        if (!seen.has(root)) seen.set(root, { root, category: categoryOf(tile.plan, area), size: record.size, tiles: record.tiles.size, open: record.open });
+      }
+    }
+    return [...seen.values()];
+  }
+
   /**
    * Walks the closed forest of `area` of `tile` and returns whether an adjacent road is still open,
    * the distinct closed roads and the distinct closed cities adjacent to it (`forest::scan`).

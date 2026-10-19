@@ -85,6 +85,8 @@ export {
   withdrawExtra,
   poseidon,
   DECKS as ENGINE_DECKS,
+  gameStats,
+  SCORING_CATEGORIES,
 } from "./engine";
 export type {
   EngineConfig,
@@ -94,6 +96,11 @@ export type {
   MoveResult as EngineMoveResult,
   PlacedTile as EnginePlacedTile,
   Counters as EngineCounters,
+  ClosedStructure,
+  OpenStructure,
+  GameStats,
+  CategoryStats,
+  ScoringCategory,
 } from "./engine";
 // The starter's coordinates on chain (the contracts' `CENTER`)
 export { CENTER } from "./engine";
