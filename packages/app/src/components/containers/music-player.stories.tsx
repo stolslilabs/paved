@@ -1,44 +1,72 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { MusicPlayerControls } from "./music-player";
-import { AudioProvider, useMusic } from "./audio-provider";
+import { LiveMusicPlayer, MusicPlayer } from "./music-player";
+import { AudioProvider } from "./audio-provider";
 import { DEFAULT_SETTINGS } from "../../data/settings";
+import { artOf } from "../../lib/music/track-info";
 import { STORY_TRACKS } from "../../mocks/music";
+
+const TRACK = "/music/09-whispers-of-the-court.m4a";
 
 const meta = {
   title: "Containers/MusicPlayer",
-  component: MusicPlayerControls,
+  component: MusicPlayer,
   parameters: { layout: "padded" },
-  args: { title: "Whispers of the Court", position: 72, duration: 183, enabled: true, playing: true, volume: 0.4, onEnabledChange: fn(), onVolumeChange: fn(), onSkip: fn() },
-  decorators: [(Story) => <div className="max-w-sm"><Story /></div>],
-} satisfies Meta<typeof MusicPlayerControls>;
+  args: {
+    track: TRACK,
+    title: "Whispers of the Court",
+    art: artOf(TRACK, 128),
+    position: 72,
+    duration: 183,
+    enabled: true,
+    unlocked: true,
+    playing: true,
+    loading: false,
+    onPrevious: fn(),
+    onNext: fn(),
+    onPlay: fn(),
+    onPause: fn(),
+  },
+} satisfies Meta<typeof MusicPlayer>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Playing: Story = {};
-/** On, but silent: the page has had no click or key yet (the browser's autoplay rule), or the tab is hidden. */
-export const Waiting: Story = { args: { playing: false, title: null, position: 0, duration: 0 } };
-export const Off: Story = { args: { enabled: false, playing: false } };
-
-function Controls({ enabled, volume, onEnabledChange, onVolumeChange }: { enabled: boolean; volume: number; onEnabledChange: (v: boolean) => void; onVolumeChange: (v: number) => void }) {
-  const m = useMusic();
-  return <MusicPlayerControls title={m.title} position={m.position} duration={m.duration} enabled={enabled} playing={m.playing} volume={volume} onEnabledChange={onEnabledChange} onVolumeChange={onVolumeChange} onSkip={m.skip} />;
-}
+/** The real title, with its apostrophe: the file name reads "the-rivers-path". */
+export const RealTitle: Story = { args: { track: "/music/04-the-rivers-path.m4a", title: "The River's Path", art: artOf("/music/04-the-rivers-path.m4a", 128), position: 12, duration: 201 } };
+/** Before the first gesture: nothing may play until a tap (the browser's autoplay rule); Play is that tap. */
+export const BeforeFirstGesture: Story = { args: { track: null, title: null, art: null, unlocked: false, playing: false, position: 0, duration: 0 } };
+/** The music volume at 0: Play turns it back on, Previous and Next still change the track. */
+export const Muted: Story = { args: { enabled: false, playing: false } };
+/** A new track whose data has not arrived: a spinner over the thumbnail. */
+export const Loading: Story = { args: { track: "/music/03-market-day.m4a", title: "Market Day", art: artOf("/music/03-market-day.m4a", 128), position: 0, duration: 0, playing: false, loading: true } };
+/** The image does not load: a neutral placeholder. */
+export const ImageFailed: Story = { args: { art: "/music-art/128/missing.webp" } };
+/** A title longer than the row: it wraps, whole. */
+export const LongTitle: Story = { args: { title: "Secrets of the Old Kingdom, the extended version for a very long evening" } };
 
 function Live_() {
   const [volume, setVolume] = useState(DEFAULT_SETTINGS.musicVolume);
-  const [on, setOn] = useState(true);
-  // The player's play button is the mute: off is a volume of 0.
+  const [before, setBefore] = useState(DEFAULT_SETTINGS.musicBefore);
   return (
-    <AudioProvider musicVolume={on ? volume : 0} sfxVolume={DEFAULT_SETTINGS.sfxVolume} tracks={STORY_TRACKS}>
-      <Controls enabled={on && volume > 0} volume={volume} onEnabledChange={setOn} onVolumeChange={setVolume} />
+    <AudioProvider
+      musicVolume={volume}
+      musicBefore={before}
+      sfxVolume={DEFAULT_SETTINGS.sfxVolume}
+      tracks={STORY_TRACKS}
+      onMusicVolumeChange={(v) => {
+        if (v > 0) setBefore(v);
+        setVolume(v);
+      }}
+    >
+      <LiveMusicPlayer enabled={volume > 0} />
     </AudioProvider>
   );
 }
 
 /**
- * The real player (two tracks of `public/music/`, streamed: the Storybook carries only these; the shuffle, the 2 s crossfade, paused while the tab is
- * hidden). Nothing loads until you click or press a key; "Next track" jumps to the crossfade.
+ * The real player (two tracks of `public/music/`, streamed: the Storybook carries only these; the shuffle, the 2 s crossfade,
+ * paused while the tab is hidden). Nothing loads until you click or press a key; Next and Previous crossfade, Pause mutes.
  */
 export const Live: Story = { render: () => <Live_ /> };
