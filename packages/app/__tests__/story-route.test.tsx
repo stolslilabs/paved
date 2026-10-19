@@ -138,6 +138,9 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(level.deck.length));
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
     // The starter and the 5 tiles placed at the start are played; the 3 of the deck are all still to come.
+    // A fixed deck: every tile shown comes (not the Challenge's "some never come").
+    expect(await screen.findByText(`This level deals all of these ${1 + level.placed!.length + level.deck.length} tiles, in a fixed order.`, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText(/some never come/)).toBeNull();
     expect(await screen.findByTestId("deck-summary", {}, { timeout: 5000 })).toHaveTextContent(`${1 + level.placed!.length} played, 0 discarded (dashed), ${level.deck.length} not yet.`);
     const road = screen.getByTestId("deck-plans").querySelector('[data-plan="RFRFFFFFR"]')!;
     // One RFRFFFFFR is on the board from the start, the other is the level's second draw: one crossed out, one not.

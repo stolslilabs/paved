@@ -18,6 +18,8 @@ export interface DeckSheetProps {
   tileArt?: TileArt;
   /** Force a side (the stories show both at one width); by the screen's width otherwise. */
   side?: "bottom" | "left";
+  /** A Story level's fixed deck (#546): every tile shown comes, none is withdrawn. */
+  fixed?: boolean;
 }
 
 /**
@@ -25,7 +27,7 @@ export interface DeckSheetProps {
  * the tile in hand highlighted. A bottom sheet on a phone; a panel on the left from `tablet` up, so that the hand panel
  * (bottom right) stays free.
  */
-export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side }: DeckSheetProps) {
+export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side, fixed = false }: DeckSheetProps) {
   const wide = useSidePanel();
   const where = side ?? (wide ? "left" : "bottom");
   return (
@@ -37,7 +39,9 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side 
       >
         <SheetHeader className="pr-10">
           <SheetTitle className="font-display text-lg">Deck</SheetTitle>
-          <SheetDescription id="deck-sheet-note">The deck is drawn from these {counts.total} tiles; some never come.</SheetDescription>
+          <SheetDescription id="deck-sheet-note">
+            {fixed ? `This level deals all of these ${counts.total} tiles, in a fixed order.` : `The deck is drawn from these ${counts.total} tiles; some never come.`}
+          </SheetDescription>
         </SheetHeader>
         <ul className="flex flex-wrap gap-2" data-testid="deck-plans">
           {counts.plans.map((plan) => (
@@ -76,5 +80,5 @@ export default function BoardDeckSheet({
   tileArt,
 }: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt"> & { tiles: readonly BoardTile[]; discardedPlans?: readonly number[]; deck?: readonly PlanType[] }) {
   const counts = deckSheetCounts(deck ?? baseDeckPlans(), tiles.map((t) => t.plan), discardedPlans);
-  return <DeckSheet open={open} onOpenChange={onOpenChange} counts={counts} handPlan={handPlan} tileArt={tileArt} />;
+  return <DeckSheet open={open} onOpenChange={onOpenChange} counts={counts} handPlan={handPlan} tileArt={tileArt} fixed={deck !== undefined} />;
 }

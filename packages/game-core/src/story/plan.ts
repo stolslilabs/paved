@@ -190,7 +190,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     title: "Open country",
     teaches: "Ten tiles, the whole deck on the sheet: planning a few tiles ahead.",
     intro:
-      "Ten tiles this time, and the deck sheet lists every one of them in order. Look ahead before you place: the city you open now may close three tiles later.",
+      "Ten tiles this time, and the deck sheet lists every one of them. Look ahead before you place: the city you open now may close three tiles later.",
     seed: 1,
     deck: [P.FFFFCCCFF, P.FFCFFFFFC, P.FFCFFFFFC, P.FFFFCCCFF, P.CCCCCFRFC, P.RFRFCCCFR, P.RFRFRFCFF, P.SFRFRFCFR, P.FFFFFFCFF],
     target: 2805,

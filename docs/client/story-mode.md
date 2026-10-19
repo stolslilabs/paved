@@ -226,7 +226,7 @@ what the level's deck stresses (roads, wonders, cities, junctions).
 
 ### 2-1, Open country
 
-> Ten tiles this time, and the deck sheet lists every one of them in order. Look ahead before you place: the city you open now may close three tiles later.
+> Ten tiles this time, and the deck sheet lists every one of them. Look ahead before you place: the city you open now may close three tiles later.
 
 Deck (9 drawn after the starter, seed 1):
 
