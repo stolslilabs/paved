@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { TileRenderer } from "../src/core/TileRenderer";
+import { TileDrops } from "../src/core/tile-drops";
 import { DEFAULT_RENDERER_SETTINGS, resolveRendererSettings } from "../src/core/settings";
 import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings } from "../src/core/voxel-drop-settings";
 import { dropDuration, planDrop } from "../src/core/voxel-drop-schedule";
@@ -245,6 +246,26 @@ describe("the drop of a placed tile", () => {
     expect(model.visible).toBe(false);
     expect((await pending).status).toBe("started");
     renderer.dispose();
+  });
+
+  it("skips a drop whose chunk failed to download, keeps no failure, and drops once the chunk comes", async () => {
+    const type = await loadModel("ccccccccc");
+    const container = new THREE.Group();
+    container.add(type.clone());
+    const host = { tile: () => ({ container, model: "ccccccccc" }), type: () => type };
+    const load = vi.fn<() => Promise<typeof import("../src/core/voxel-drop")>>().mockRejectedValueOnce(new Error("Failed to fetch dynamically imported module"));
+    load.mockImplementation(() => import("../src/core/voxel-drop"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const drops = new TileDrops(host, load);
+    // Offline: the drop is skipped (the board confirms without it), and says why.
+    await expect(drops.start("1-1")).resolves.toEqual({ status: "skipped", reason: "load-failed" });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(container.children[0]!.visible).toBe(true);
+    // Back online: the next drop asks for the chunk again, and plays.
+    expect((await drops.start("1-1")).status).toBe("started");
+    expect(load).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+    drops.dispose();
   });
 
   it("plays at the clock's speed: slow motion lasts longer", async () => {

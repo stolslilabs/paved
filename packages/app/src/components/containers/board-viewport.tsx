@@ -123,8 +123,8 @@ export interface BoardBubble {
 /**
  * The confirm on the 3D board (PLACE-POLISH, #568): when the session accepts a move (a new `confirmed.key`), the landed tile
  * drops voxel by voxel (`GameScene.dropTile`), then the green tint fades on it, for the time `useConfirmFlash` holds it
- * after the drop. A skipped drop (reduced motion, the model not in) goes straight to the green; a tile gone when the drop
- * ends (a refusal rolled the board back, which cuts the drop) gets no green. Nothing plays at the first frame or a reload:
+ * after the drop. A skipped or failed drop (reduced motion, the model not in, its chunk not downloaded) goes straight to the
+ * green; a tile gone when the drop ends (a refusal rolled the board back, which cuts the drop) gets no green. Nothing plays at the first frame or a reload:
  * only a key that changes while the board is up. The next tile is never held: the drop plays on while the player places it,
  * and a newer confirm's green wins over an older drop's.
  */
@@ -147,7 +147,12 @@ export function useDropThenConfirm(scene: GameScene | null, tiles: TileRenderDat
       setGreen(confirmed);
     };
     if (!tile) return toGreen();
-    void scene.dropTile(tile).then((drop) => (drop.status === "started" ? drop.finished.then(toGreen) : toGreen()));
+    // The drop is optional: whatever becomes of it (skipped, cut short, failed), the move still gets its green.
+    void scene
+      .dropTile(tile)
+      .then((drop) => (drop.status === "started" ? drop.finished : undefined))
+      .catch(() => undefined)
+      .then(toGreen);
   }, [confirmed, scene]);
   useEffect(() => {
     if (!green) return;

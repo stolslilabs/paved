@@ -37,6 +37,19 @@ describe("useDropThenConfirm", () => {
     await waitFor(() => expect(result.current).toMatchObject({ key: 1 }));
   });
 
+  it("a failed drop (its chunk did not download) still gives the green, this move's and the next's", async () => {
+    const dropTile = vi.fn(async () => {
+      throw new Error("Failed to fetch dynamically imported module");
+    });
+    const scene = { dropTile } as unknown as GameScene;
+    const { result, rerender } = setup(scene, { tiles: [], confirmed: null });
+    rerender({ tiles: [tile(2, 1, 0)], confirmed: confirm(1) });
+    await waitFor(() => expect(result.current).toMatchObject({ key: 1 }));
+    rerender({ tiles: [tile(2, 1, 0), tile(3, 2, 0)], confirmed: confirm(2, 2, 0) });
+    await waitFor(() => expect(result.current).toMatchObject({ key: 2, x: 2 }));
+    expect(dropTile).toHaveBeenCalledTimes(2);
+  });
+
   it("a refused move rolled back while it dropped: no green on the empty cell", async () => {
     const { scene, finish } = fakeScene("started");
     const { result, rerender } = setup(scene, { tiles: [], confirmed: null });
