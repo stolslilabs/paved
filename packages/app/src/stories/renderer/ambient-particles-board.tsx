@@ -195,10 +195,11 @@ export function AmbientParticlesBoard(props: AmbientParticlesBoardProps) {
         times.push(cpuMs);
         stamps.push(performance.now());
         if (times.length > 120) times.shift();
-        while (stamps.length && stamps[0]! < performance.now() - 1000) stamps.shift();
       },
     });
     const timer = window.setInterval(() => {
+      // The frames of the last second, aged here too: an idle board (nothing drawn) reads 0 frames/s.
+      while (stamps.length && stamps[0]! < performance.now() - 1000) stamps.shift();
       const ambient = scene.getAmbient();
       setReadout({
         water: ambient.water,
