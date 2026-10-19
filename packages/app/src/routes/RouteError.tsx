@@ -4,7 +4,7 @@ import { InlineError } from "../components/elements/inline-error";
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { Button } from "../components/ui/button";
 import { TopBar } from "../components/containers/top-bar";
-import { isChunkLoadError, reloadOnStaleChunk } from "../lib/stale-chunk";
+import { isChunkLoadError, recoverStaleChunk } from "../lib/stale-chunk";
 import { errorDetail } from "./error-detail";
 import { useAppNavigate } from "./ref";
 
@@ -15,8 +15,8 @@ function describe(error: unknown): string {
 
 /**
  * A route's `errorElement`: a page that throws (or whose code fails to load) shows this, with a way back home. Code of a
- * build the host no longer serves reloads the page once (#589): the loading scene shows while the host is asked; a second
- * failure, or one that is not a stale build, shows the error with a "Reload" action.
+ * build the host no longer serves reloads the page once (#589): the loading scene shows while the host is asked (at most
+ * `PROBE_TIMEOUT_MS`); a second failure, or one that is not a stale build, shows the error with a "Reload" action.
  */
 export function RouteError() {
   const error = useRouteError();
@@ -26,7 +26,7 @@ export function RouteError() {
   useEffect(() => {
     if (!chunk) return;
     let live = true;
-    void reloadOnStaleChunk(error).then((reloading) => live && !reloading && setChecking(false));
+    void recoverStaleChunk(error).then((outcome) => live && outcome !== "reloading" && setChecking(false));
     return () => {
       live = false;
     };

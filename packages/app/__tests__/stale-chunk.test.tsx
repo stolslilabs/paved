@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { RouteError } from "../src/routes/RouteError";
-import { STALE_RELOAD_KEY, isChunkLoadError, listenForStaleChunks, reloadOnStaleChunk, resetStaleChunkForTests, type StaleChunkDeps } from "../src/lib/stale-chunk";
+import { useDeferred } from "../src/lib/deferred";
+import { PROBE_TIMEOUT_MS, STALE_RELOAD_KEY, isChunkLoadError, listenForStaleChunks, recoverStaleChunk, resetStaleChunkForTests, type StaleChunkDeps } from "../src/lib/stale-chunk";
 
 // A tab opened before a deployment asks for chunks the host no longer serves (#589): it reloads once, never in a loop.
 const asset = (name: string) => `${window.location.origin}/assets/${name}`;
@@ -33,7 +34,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-describe("reloadOnStaleChunk", () => {
+describe("recoverStaleChunk", () => {
   it("tells a failed module from any other error", () => {
     expect(isChunkLoadError(chromium(asset("over-R2jaf3I2.js")))).toBe(true);
     expect(isChunkLoadError(new TypeError("error loading dynamically imported module: x"))).toBe(true);
@@ -46,62 +47,89 @@ describe("reloadOnStaleChunk", () => {
   it("reloads once when the failed chunk answers 404, and shows the error at its second failure", async () => {
     const f = fakes(404);
     // The retry of `reimport` names the same file under a query: one key for both.
-    expect(await reloadOnStaleChunk(chromium(asset("over-R2jaf3I2.js?retry=1")), f.deps)).toBe(true);
+    expect(await recoverStaleChunk(chromium(asset("over-R2jaf3I2.js?retry=1")), f.deps)).toBe("reloading");
     expect(f.asked).toEqual([asset("over-R2jaf3I2.js")]);
     expect(f.store.has(STALE_RELOAD_KEY + asset("over-R2jaf3I2.js"))).toBe(true);
     expect(f.reload).toHaveBeenCalledTimes(1);
     resetStaleChunkForTests(); // The reload: a new page, the same tab's sessionStorage.
-    expect(await reloadOnStaleChunk(chromium(asset("over-R2jaf3I2.js")), f.deps)).toBe(false);
-    expect(f.asked).toHaveLength(1);
+    f.clock.now += 3_600_000;
+    expect(await recoverStaleChunk(chromium(asset("over-R2jaf3I2.js")), f.deps)).toBe("gone");
     expect(f.reload).toHaveBeenCalledTimes(1);
   });
 
   it("does not reload again within 30 s, when the new build's chunk is missing too (an outage), and does after", async () => {
     const f = fakes(404);
-    expect(await reloadOnStaleChunk(chromium(asset("over-OLD.js")), f.deps)).toBe(true);
+    expect(await recoverStaleChunk(chromium(asset("over-OLD.js")), f.deps)).toBe("reloading");
     resetStaleChunkForTests();
     f.clock.now += 5_000;
-    expect(await reloadOnStaleChunk(chromium(asset("over-NEW.js")), f.deps)).toBe(false);
+    expect(await recoverStaleChunk(chromium(asset("over-NEW.js")), f.deps)).toBe("gone");
     expect(f.reload).toHaveBeenCalledTimes(1);
     resetStaleChunkForTests();
     f.clock.now += 3_600_000; // The next deployment, an hour later.
-    expect(await reloadOnStaleChunk(chromium(asset("over-NEW.js")), f.deps)).toBe(true);
+    expect(await recoverStaleChunk(chromium(asset("over-NEW.js")), f.deps)).toBe("reloading");
     expect(f.reload).toHaveBeenCalledTimes(2);
   });
 
   it("does not reload for a chunk the host still serves, an unreachable host or another error", async () => {
     for (const status of [200, 500, "offline"] as const) {
       const f = fakes(status);
-      expect(await reloadOnStaleChunk(chromium(asset("over-R2jaf3I2.js")), f.deps)).toBe(false);
+      expect(await recoverStaleChunk(chromium(asset("over-R2jaf3I2.js")), f.deps)).toBe("other");
       expect(f.reload).not.toHaveBeenCalled();
       expect(f.store.size).toBe(0);
     }
     const f = fakes(404);
-    expect(await reloadOnStaleChunk(new Error("Game 4 not found"), f.deps)).toBe(false);
+    expect(await recoverStaleChunk(new Error("Game 4 not found"), f.deps)).toBe("other");
     expect(f.asked).toEqual([]);
   });
 
   it("asks for the build's entry when the error names no asset of this origin (Safari)", async () => {
     const f = fakes(404);
-    expect(await reloadOnStaleChunk(new TypeError("Importing a module script failed."), f.deps)).toBe(true);
+    expect(await recoverStaleChunk(new TypeError("Importing a module script failed."), f.deps)).toBe("reloading");
     expect(f.asked).toEqual([asset("index-OLD.js")]);
     resetStaleChunkForTests();
     const other = fakes(200);
-    expect(await reloadOnStaleChunk(chromium("https://elsewhere.example/assets/x.js"), other.deps)).toBe(false);
+    expect(await recoverStaleChunk(chromium("https://elsewhere.example/assets/x.js"), other.deps)).toBe("other");
     expect(other.asked).toEqual([asset("index-OLD.js")]);
   });
 
-  it("never reloads without a sessionStorage to guard it", async () => {
+  it("never reloads without a sessionStorage to guard it: the file is gone, the error page offers the Reload", async () => {
     const f = fakes(404);
-    expect(await reloadOnStaleChunk(chromium(asset("over-x.js")), { ...f.deps, storage: () => null })).toBe(false);
+    expect(await recoverStaleChunk(chromium(asset("over-x.js")), { ...f.deps, storage: () => null })).toBe("gone");
     expect(f.reload).not.toHaveBeenCalled();
   });
 
   it("shares one check between the calls made while it runs (Vite's event and the error page)", async () => {
     const f = fakes(404);
-    const [a, b] = await Promise.all([reloadOnStaleChunk(chromium(asset("over-x.js")), f.deps), reloadOnStaleChunk(chromium(asset("over-x.js")), f.deps)]);
-    expect([a, b]).toEqual([true, true]);
+    const [a, b] = await Promise.all([recoverStaleChunk(chromium(asset("over-x.js")), f.deps), recoverStaleChunk(chromium(asset("over-x.js")), f.deps)]);
+    expect([a, b]).toEqual(["reloading", "reloading"]);
     expect(f.reload).toHaveBeenCalledTimes(1);
+    expect(f.asked).toHaveLength(1);
+  });
+
+  it("gives up on a host that does not answer within PROBE_TIMEOUT_MS, and a stalled ask holds no other file's", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fakes(404);
+      const signals: AbortSignal[] = [];
+      const stalled: StaleChunkDeps = {
+        ...f.deps,
+        fetch: (url, init) => {
+          if (url.endsWith("over-x.js")) return new Promise((_, reject) => (signals.push(init.signal!), init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))));
+          return f.deps.fetch(url, init);
+        },
+      };
+      const over = recoverStaleChunk(chromium(asset("over-x.js")), stalled);
+      expect(await recoverStaleChunk(chromium(asset("balances-x.js")), stalled)).toBe("reloading");
+      await vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS);
+      expect(signals[0]!.aborted).toBe(true);
+      expect(await over).toBe("reloading"); // The page is being reloaded already, for the other file.
+      resetStaleChunkForTests();
+      const late = recoverStaleChunk(chromium(asset("over-x.js")), stalled);
+      await vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS);
+      expect(await late).toBe("other");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("listens to Vite's preload error", async () => {
@@ -111,7 +139,7 @@ describe("reloadOnStaleChunk", () => {
     listenForStaleChunks(target);
     const event = Object.assign(new Event("vite:preloadError", { cancelable: true }), { payload: chromium(asset("balances-x.js")) });
     target.dispatchEvent(event);
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith(asset("balances-x.js"), { method: "HEAD", cache: "no-store" }));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith(asset("balances-x.js"), expect.objectContaining({ method: "HEAD", cache: "no-store" })));
     // The import still rejects to its caller.
     expect(event.defaultPrevented).toBe(false);
   });
@@ -141,18 +169,62 @@ describe("RouteError", () => {
     expect(screen.getByRole("button", { name: "Back home" })).toBeTruthy();
   });
 
-  it("shows the error at once, after the reload made for the same chunk", async () => {
+  it("shows the error with Reload when the chunk is still gone after the reload made for it", async () => {
     const fetch = vi.fn(async () => ({ status: 404 }));
     vi.stubGlobal("fetch", fetch);
     sessionStorage.setItem(STALE_RELOAD_KEY + asset("over-R2jaf3I2.js"), "1");
     show(chromium(asset("over-R2jaf3I2.js")));
     expect(await screen.findByRole("button", { name: "Reload" })).toBeTruthy();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Back home" })).toBeTruthy();
+  });
+
+  it("shows the error and its actions when the host does not answer, after PROBE_TIMEOUT_MS at most", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const fetch = vi.fn((_url: string, init: RequestInit) => new Promise((_, reject) => init.signal!.addEventListener("abort", () => reject(new Error("aborted")))));
+      vi.stubGlobal("fetch", fetch);
+      show(chromium(asset("over-R2jaf3I2.js")));
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+      expect(screen.queryByTestId("route-error")).toBeNull();
+      await vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS);
+      expect(await screen.findByRole("button", { name: "Reload" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Back home" })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the other errors as they were: no Reload", async () => {
     show(new Error("Game 4 not found"));
     expect(await screen.findByText("Game 4 not found")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+  });
+});
+
+describe("useDeferred, a chunk loaded on demand (the Surrender dialog, the final board)", () => {
+  function Deferred({ onError }: { onError: (e: unknown) => void }) {
+    const loaded = useDeferred<string>(() => Promise.reject(chromium(asset("surrender-dialog-x.js"))), true, onError);
+    return <p>{loaded ?? "waiting"}</p>;
+  }
+  const show = (onError: (e: unknown) => void) =>
+    render(<RouterProvider router={createMemoryRouter([{ path: "/", element: <Deferred onError={onError} />, errorElement: <RouteError /> }])} />);
+
+  it("shows the route's error page with Reload when the file is still gone after the reload made for it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ status: 404 })));
+    sessionStorage.setItem(STALE_RELOAD_KEY + asset("surrender-dialog-x.js"), "1");
+    const onError = vi.fn();
+    show(onError);
+    expect(await screen.findByRole("button", { name: "Reload" })).toBeTruthy();
+    expect(screen.getByTestId("route-error").textContent).toContain("surrender-dialog-x.js");
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("leaves a file the host still serves to the caller's own error (a new try may work)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ status: 200 })));
+    const onError = vi.fn();
+    show(onError);
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
+    expect(screen.queryByTestId("route-error")).toBeNull();
+    expect(screen.getByText("waiting")).toBeTruthy();
   });
 });

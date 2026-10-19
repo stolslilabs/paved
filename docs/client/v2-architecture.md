@@ -3049,8 +3049,12 @@ latest build.
   `no-store`), or for the build's entry script when the error names none (Safari). A 404 or 410 reloads the tab onto the
   latest build, after a key for that file is set in `sessionStorage`; with the key already set (the file fails again
   after the reload: a real outage), a stale reload of the tab less than 30 s before (the new build's file is missing
-  too), or a host that does not answer, nothing reloads and `RouteError` shows the error with
-  a "Reload" action. A route shows the loading scene while the host is asked.
+  too), or a host that does not answer within 5 s, nothing reloads and `RouteError` shows the error with
+  a "Reload" action. A route shows the loading scene while the host is asked (5 s at most).
+- **Chunks loaded on demand** (`useDeferred`: the Surrender dialog, the settings and deck sheets, the final board)
+  reload the same way. When their file is still gone after that reload, the failure is thrown into the route, whose
+  `RouteError` offers the Reload (a new try cannot fetch it); a file the host still serves, or a silent host, keeps
+  their own error toast, after which a new try may work.
 - **Nothing to save first.** A Training game is saved at each move (`LocalSession`), and a Challenge placement is on
   chain or not; the reload lands on the same URL.
 - **`reimport`** (`lib/reimport.ts`, #539) stays for a transient failure (the same file under a new query); a file that

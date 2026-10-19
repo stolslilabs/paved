@@ -58,44 +58,75 @@ function probeOf(error: unknown, deps: StaleChunkDeps): string | null {
   return entry ? new URL(entry, window.location.href).href : null;
 }
 
-let pending: Promise<boolean> | null = null;
+/** How long the host is asked before the failure is shown as it is: a stalled request never holds the page. */
+export const PROBE_TIMEOUT_MS = 5_000;
 
 /**
- * Reloads the page when `error` is a chunk of a build the host no longer serves (it answers 404 or 410), once per asset
- * and tab, and never twice within 30 s: the keys in `sessionStorage` make a second failure resolve false, so a real outage
- * never loops (an unreachable host, too, resolves false). True when the page is being reloaded. Calls made while one is asking share it.
+ * What a failed load turned out to be: `reloading` (a stale build, the page is being reloaded), `gone` (the file is gone
+ * but the reload was made already: the error page with its Reload action) or `other` (not a chunk, a file the host still
+ * serves, an unreachable or silent host: the caller's own error, with which a new try may work).
  */
-export function reloadOnStaleChunk(error: unknown, deps: StaleChunkDeps = browserDeps): Promise<boolean> {
-  if (!isChunkLoadError(error)) return Promise.resolve(false);
-  pending ??= (async () => {
-    const probe = probeOf(error, deps);
-    const store = deps.storage();
-    if (!probe || !store) return false;
-    const key = STALE_RELOAD_KEY + probe;
-    try {
-      if (store.getItem(key) || deps.now() - Number(store.getItem(LAST_KEY) ?? 0) < RELOAD_GAP_MS) return false;
-      const { status } = await deps.fetch(probe, { method: "HEAD", cache: "no-store" });
-      if (status !== 404 && status !== 410) return false;
-      store.setItem(key, String(deps.now()));
-      store.setItem(LAST_KEY, String(deps.now()));
-    } catch {
-      return false;
-    }
-    deps.reload();
-    return true;
-  })().then((reloading) => {
-    if (!reloading) pending = null;
-    return reloading;
-  });
-  return pending;
+export type StaleOutcome = "reloading" | "gone" | "other";
+
+/** The asks in flight, by asset: the calls made while one runs share it, and a stalled one holds no other. */
+const pending = new Map<string, Promise<StaleOutcome>>();
+let reloading = false;
+
+async function ask(probe: string, deps: StaleChunkDeps): Promise<StaleOutcome> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const { status } = await deps.fetch(probe, { method: "HEAD", cache: "no-store", signal: abort.signal });
+    if (status !== 404 && status !== 410) return reloading ? "reloading" : "other";
+  } catch {
+    return reloading ? "reloading" : "other";
+  } finally {
+    clearTimeout(timer);
+  }
+  const store = deps.storage();
+  const key = STALE_RELOAD_KEY + probe;
+  try {
+    if (reloading) return "reloading";
+    if (!store || store.getItem(key) || deps.now() - Number(store.getItem(LAST_KEY) ?? 0) < RELOAD_GAP_MS) return "gone";
+    store.setItem(key, String(deps.now()));
+    store.setItem(LAST_KEY, String(deps.now()));
+  } catch {
+    return "gone";
+  }
+  reloading = true;
+  deps.reload();
+  return "reloading";
 }
 
-/** Forgets the call in flight: for the tests, which reload more than once in a page. */
+/**
+ * Reloads the page when `error` is a chunk of a build the host no longer serves (it answers 404 or 410 within
+ * `PROBE_TIMEOUT_MS`), once per asset and tab, and never twice within 30 s: the keys in `sessionStorage` make a second
+ * failure resolve `gone`, so a real outage never loops.
+ */
+export function recoverStaleChunk(error: unknown, deps: StaleChunkDeps = browserDeps): Promise<StaleOutcome> {
+  if (!isChunkLoadError(error)) return Promise.resolve("other");
+  if (reloading) return Promise.resolve("reloading");
+  const probe = probeOf(error, deps);
+  if (!probe) return Promise.resolve("other");
+  let asked = pending.get(probe);
+  if (!asked) {
+    asked = ask(probe, deps).finally(() => pending.delete(probe));
+    pending.set(probe, asked);
+  }
+  return asked;
+}
+
+/** Forgets the asks in flight and a reload made: for the tests, which reload more than once in a page. */
 export function resetStaleChunkForTests(): void {
-  pending = null;
+  pending.clear();
+  reloading = false;
 }
 
-/** Vite's event for a failed dynamic import (every chunk of the app and the renderer goes through it); the error still reaches its caller. */
+/**
+ * Vite's event for a failed dynamic import (every chunk of the app and the renderer goes through it): a stale build reloads
+ * from there, a prefetch's failure included. The error still reaches its caller, which shows a `gone` file's error with a
+ * Reload action (`RouteError`, `useDeferred`).
+ */
 export function listenForStaleChunks(target: Window = window): void {
-  target.addEventListener("vite:preloadError", (event) => void reloadOnStaleChunk((event as Event & { payload?: unknown }).payload));
+  target.addEventListener("vite:preloadError", (event) => void recoverStaleChunk((event as Event & { payload?: unknown }).payload));
 }
