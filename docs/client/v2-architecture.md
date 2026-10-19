@@ -1132,7 +1132,7 @@ pass, not a screen-space pass reading the target's depth and normals. No package
   depth precision at every distance. "The camera never comes closer than 5" was the distance to its target, on the
   ground; the tallest tile (`wfffffffr`) stands 2.625 units, so at 5 the near plane would cut its top. The closest zoom
   (`minDistance`, `CLOSEST_DISTANCE`) goes from 5 to **8**: 5 + 2.625 / cos 27 degrees (the play camera's steepest tilt)
-  = 7.95, rounded up. A test reads every tile model's height and checks it. The shadow camera is the light's own
+  = 7.95, rounded up; **10** since TILT-54 (5.10): 5 + 2.625 / cos 54 degrees = 9.47. A test reads every tile model's height and checks it. The shadow camera is the light's own
   orthographic camera (1 to 100), unchanged. The outlines' depth bias (`polygonOffset` -1, -4) is in depth-buffer
   units, so it shrinks in world units as the precision grows; the pan and sweep checks below show no new flicker.
 
@@ -1402,8 +1402,9 @@ zoomed in). The fade follows the tile size S the board opens at on this viewport
 the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized. It is `1 - t^p`
 (OUT-FADE2, owner 2026-10-17: OUT-FADE's range was too short): off at `fadeOffFactor` (0.85) x S, the historic threshold,
 and fully on from `fadeFullFactor`, **the fade's start**, a setting and a story control from 1.5 S up to the closest zoom
-(`CLOSEST_DISTANCE`, 8). The tile size is inversely proportional to the camera distance, so the tile at the closest zoom
-is 240 / 8 = **30 S** (`OUTLINE_CLOSEST_FACTOR`; 1,608 px measured at S = 54 on a 1280 x 800 window). With
+(`CLOSEST_DISTANCE`, 8; 10 since TILT-54, 5.10). The tile size is inversely proportional to the camera distance, so the tile at the closest zoom
+is 240 / 8 = **30 S** (`OUTLINE_CLOSEST_FACTOR`; 1,608 px measured at S = 54 on a 1280 x 800 window); since TILT-54,
+240 / 10 = **24 S**, and the "max zoom-in" start leaves 9.5 % at S with square (8.9 % at 30 S below). With
 `t = ln(full / tile px) / ln(full / off)`: 0 at the start and above, 1 at 0.85 S, on the log of the tile size so every
 wheel step moves t by the same amount; the opacity is clamped to 1 above the start and 0 below 0.85 S, and hidden under
 1/255. The exponent `fadeExponent` p is in [1, 4]; the story's presets are **linear** (p = 1), **square** (p = 2, the
@@ -1453,6 +1454,10 @@ is foreshortened by cos 27 degrees (0.89): at the phone's 0.85 S at DPR 1 it is 
 `segmentFullDevicePx`, so the cut draws it at about 0.96 of its opacity, above the 0.5 px cut. It is faded slightly, never
 dropped, and the factor changes continuously with the zoom, so it does not pop. At DPR 2 and above it is about 2 px or more,
 whole. A merged straight edge is several voxels long, so most such edges are far above the cut.
+**At 54 degrees (TILT-54, 5.10)** an edge along z is foreshortened by cos 54 degrees (0.59): about 0.65 device px at the
+phone's 0.85 S at DPR 1, so the cut draws it at about 0.3 of its opacity, still above the 0.5 px cut; at S, about 0.77 px
+(0.53). At DPR 2 and above it is 1.3 px or more, whole. A voxel's vertical edge grows to sin 54 degrees (0.81) of a voxel
+on screen, so more risers pass the cut than at 27 degrees; the frame time does not grow (measured, 5.10).
 
 **Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
 (`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
@@ -2789,6 +2794,68 @@ The still scene costs what the cycle off costs, within the runs' noise (one shad
 - *The renderer's default* is off: only the app's board turns the cycle on from its row, so the hand's tile, the other stories and the bench keep the look.
 - *Reverse* by turning the row off (or `dayNight.enabled`). The crossfade goes back to one light by `SHADOW_STEP` → 0 and dropping the twin.
 
+
+
+### 5.10 The camera's tilt (TILT-54, owner 2026-10-19)
+
+The board opened straight down and the player could tilt it 27 degrees at most, with the mouse's right button only. The
+owner's decisions: the board **opens at 27 degrees** (`PLAY_DEFAULT_POLAR_ANGLE`, 0.15 PI, the former maximum), the
+maximum is **doubled to 54 degrees** (`PLAY_MAX_POLAR_ANGLE`, 0.30 PI), and the range stays 0 (straight down) to the
+maximum, both ways from the default (`core/CameraController.ts`).
+
+- **The opening.** The camera opens at the opening distance (240) from its target, tilted 27 degrees towards +z (the
+  azimuth stays locked at 0), looking at its target (`tiltedOffset`). OrbitControls saves that position, so `reset()`
+  comes back to it, and `focusBounds` keeps the tilted offset when it frames the board: the board's centre stays at the
+  centre of the screen. The target's clamp to the board (`update()`) is on the target, so it holds at any tilt. The
+  opening tile size S is measured at the target's distance, so the outline fade (OUT-FADE2) is unchanged by the tilt.
+- **The closest zoom** is re-derived for 54 degrees: 5 + 2.625 / cos 54 degrees = 9.47, so `CLOSEST_DISTANCE` is **10**
+  (8 before). It moves `OUTLINE_CLOSEST_FACTOR` from 30 S to 24 S (the "max zoom-in" start of the Outlines story; the
+  default start, 1.5 S, does not move), the default `minDistance` of the settings, and the face antialiasing's test of the
+  near plane on the tallest tile (`face-antialiasing.test.ts`, every model's height read).
+- **The gesture on touch.** In play mode two fingers now pinch to zoom and, dragged up or down together, tilt
+  (`touches.TWO = DOLLY_ROTATE`; the azimuth is locked, so the rotation is only a tilt and a sideways drag does nothing).
+  One finger still pans; desktop keeps the right button. The two-finger pan is gone: one finger pans. The rotate speed
+  doubles with the range (`PLAY_ROTATE_SPEED` 0.2, 0.1 before), so a drag over the surface's full height tilts 72
+  degrees, three quarters of it for the whole range, as before (27 of 36 degrees). Checked in headless
+  Chromium on the Mac's GPU at 375 x 812 with touch: two fingers dragged up 500 px reach 54 degrees, then down 700 px
+  reach 0, the distance unchanged; the right button does the same at 1440 x 900.
+- **The tap stays a tap.** A second finger down before the first comes up makes the gesture a pinch or a tilt: it places
+  nothing, whatever the fingers' travel (before, two fingers lifted in place could pass the 5 px rule). A `pointercancel`
+  forgets the tap. `SurfaceInputEvent` carries the `pointerId` for it (`surface-adapter.test.ts`). The bubble of #544
+  follows the camera through `onCameraChange`, which the tilt fires like a pan or a zoom.
+- **Beyond the board.** With the camera's `zoom` of 5 the vertical field of view is about 10 degrees, so at 54 degrees
+  the steepest ray is about 59 degrees from straight down: the horizon never shows. What the board leaves uncovered is the
+  backdrop (the day and night gradient of 5.9, or the background colour), as at 27 degrees; the fog is distance fog,
+  and at 240 the board's far edge is only a few units farther than its centre. The shadow map is the light's fixed
+  frustum (100 units around the board's origin, 2048 texels), independent of the camera: the same coverage and texel size
+  at any tilt; zoomed in at 54 degrees a texel is seen more obliquely on the tops, an estimate, not measured.
+- **The native controller** (`NativeCameraController`, `native-input-mapper.ts`) has the same default and range: it
+  opens at 27 degrees, `applyTilt(dy, height)` tilts as OrbitControls does, and the mapper emits a `tilt` event when two
+  fingers move up or down together, beside the pinch. Its default `minDistance` is the web's closest zoom (10; 5 before).
+- **Captures** (the "Renderer/Lighting" story, the 72-tile board, headless Chromium on the Mac's GPU, not SwiftShader;
+  the tilt reached by the gesture itself, in `packages/app/src/stories/renderer/captures/`): `tilt54-phone-0.webp`,
+  `tilt54-phone-27.webp` (as it opens), `tilt54-phone-54.webp` at 375 x 812 (DPR 3, stored at 1x);
+  `tilt54-desk-0.webp`, `tilt54-desk-27.webp`, `tilt54-desk-54.webp` at 1440 x 900 (DPR 2, stored at 1x);
+  `tilt54-phone-54-closest.webp`, the closest zoom (10) at 54 degrees, no cut; `tilt54-phone-54-day.webp` and
+  `tilt54-phone-54-night.webp`, the "Renderer/DayNight" story's sky at 54 degrees (summer day, autumn night).
+- **Frame time (measured, TILT-54, on the Mac's GPU, not SwiftShader).** Headless Chromium (new headless mode, never on
+  screen), the "Renderer/Lighting" story on the recorded 72-tile board at distance 240, the slots and ghost off, outlines
+  forced on, `redraw` on. Each configuration ran in a fresh context with 120 warm-up frames and 600 measured frames. Per
+  frame, the CPU time of the loop tick (`setFrameObserver`) plus the GPU time of an `EXT_disjoint_timer_query_webgl2` query
+  around the render (600 of 600 frames timed, no disjoint). Two rounds, the order of the angles alternated; the load
+  average was about 4 to 6. Desktop: 1440 x 900 at DPR 2, unthrottled. Phone: 360 x 780 at DPR 3, CPU throttled 4x (the
+  bench's phone approximation, still on the Mac's GPU). "auto" resolved to Medium on both profiles. CPU + GPU p95 in ms, round 1 / round 2:
+
+  | Profile | Tier | 27 degrees | 54 degrees |
+  |---|---|---|---|
+  | Desktop | Medium (auto) | 5.64 / 5.78 | 5.32 / 5.56 |
+  | Desktop | Low | 5.67 / 5.75 | 5.59 / 5.47 |
+  | Phone | Medium (auto) | 5.31 / 5.18 | 5.11 / 5.40 |
+  | Phone | Low | 5.38 / 5.09 | 5.16 / 4.88 |
+
+  54 degrees costs no more than 27: every pair is within the spread between rounds (at most 0.3 ms), and all are far
+  under the 12 ms desktop and 16.6 ms phone limits. The GPU p95 alone is 3.2 to 4.2 ms and the CPU p95 1.9 to 2.7 ms.
+  The draw calls and triangles were not recorded: `renderer.info` read after the frame counts only the composer's last pass.
 
 ---
 

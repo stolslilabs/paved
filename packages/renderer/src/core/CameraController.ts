@@ -63,15 +63,27 @@ export const CAMERA_NEAR = 5;
  */
 export const TALLEST_TILE_HEIGHT = 2.625;
 
-/** The steepest tilt of the play camera from straight down (`setMode("play")`), in radians: 27 degrees. */
-export const PLAY_MAX_POLAR_ANGLE = Math.PI * 0.15;
+/**
+ * The tilt the play camera opens at, from straight down, in radians: 27 degrees (TILT-54, owner 2026-10-19: the former
+ * steepest tilt). The player tilts from it up to straight down or down to `PLAY_MAX_POLAR_ANGLE`.
+ */
+export const PLAY_DEFAULT_POLAR_ANGLE = Math.PI * 0.15;
+
+/** The steepest tilt of the play camera from straight down (`setMode("play")`), in radians: 54 degrees, twice the default. */
+export const PLAY_MAX_POLAR_ANGLE = Math.PI * 0.3;
 
 /**
  * The closest the camera comes to its target (the default `minDistance`): the near plane plus the tallest tile seen at
- * the play camera's steepest tilt, 5 + 2.625 / cos 27 degrees = 7.95, rounded up. Closer, the near plane would cut the
- * tops of tall tiles: the target distance alone (5 before P4) did not account for them.
+ * the play camera's steepest tilt, 5 + 2.625 / cos 54 degrees = 9.47, rounded up. Closer, the near plane would cut the
+ * tops of tall tiles: the target distance alone (5 before P4) did not account for them (8 at the former 27 degrees).
  */
-export const CLOSEST_DISTANCE = 8;
+export const CLOSEST_DISTANCE = 10;
+
+/**
+ * How fast a drag tilts the play camera (OrbitControls' `rotateSpeed`): a drag over the surface's full height tilts
+ * 2 PI x 0.2 = 72 degrees, so the 54 degree range takes about three quarters of it (0.1 before TILT-54, for 27 degrees).
+ */
+export const PLAY_ROTATE_SPEED = 0.2;
 
 const DEFAULT_CONFIG: Required<CameraConfig> = {
   position: [0, 0, 0],
@@ -107,8 +119,16 @@ function normalizeViewport(input: CameraViewport | HTMLCanvasElement): CameraVie
 
 /** The camera opens at this share of its farthest distance (`DEFAULT_CONFIG.maxDistance`): 240 of 300. */
 export const OPENING_DISTANCE_FACTOR = 0.8;
-/** The distance the camera opens at, straight down. */
+/** The distance the camera opens at, from its target (at `PLAY_DEFAULT_POLAR_ANGLE`). */
 export const OPENING_DISTANCE = DEFAULT_CONFIG.maxDistance * OPENING_DISTANCE_FACTOR;
+
+/**
+ * The camera's offset from its target at `distance`, tilted `polar` radians from straight down towards +z (the azimuth
+ * the play camera is locked to). Straight down keeps a tiny z offset, which avoids the gimbal lock.
+ */
+export function tiltedOffset(distance: number, polar: number): THREE.Vector3 {
+  return new THREE.Vector3(0, distance * Math.cos(polar), Math.max(distance * Math.sin(polar), 0.001));
+}
 
 export class CameraController {
   private static readonly BOARD_MARGIN = 6;
@@ -133,8 +153,9 @@ export class CameraController {
       cfg.near,
       cfg.far
     );
-    // Start straight top-down (tiny Z offset avoids gimbal lock)
-    this.camera.position.set(0, cfg.maxDistance * OPENING_DISTANCE_FACTOR, 0.001);
+    // Open at the default tilt; OrbitControls saves this position, so `reset()` comes back to it.
+    this.camera.position.copy(tiltedOffset(cfg.maxDistance * OPENING_DISTANCE_FACTOR, PLAY_DEFAULT_POLAR_ANGLE));
+    this.camera.lookAt(0, 0, 0);
     this.camera.zoom = cfg.zoom;
     this.camera.updateProjectionMatrix();
 
@@ -198,14 +219,16 @@ export class CameraController {
     this.mode = mode;
     if (mode === "play") {
       this.controls.panSpeed = 0.8;
-      this.controls.rotateSpeed = 0.1;
+      this.controls.rotateSpeed = PLAY_ROTATE_SPEED;
       this.controls.minAzimuthAngle = 0;
       this.controls.maxAzimuthAngle = 0;
       this.controls.minPolarAngle = 0;
       this.controls.maxPolarAngle = PLAY_MAX_POLAR_ANGLE;
+      // One finger pans; two fingers pinch to zoom and, dragged up or down, tilt: the azimuth is locked, so the rotation
+      // is only a tilt (TILT-54). Their midpoint moving sideways does nothing.
       this.controls.touches = {
         ONE: THREE.TOUCH.PAN,
-        TWO: THREE.TOUCH.DOLLY_PAN,
+        TWO: THREE.TOUCH.DOLLY_ROTATE,
       };
       return;
     }
