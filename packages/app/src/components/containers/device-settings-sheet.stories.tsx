@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, screen } from "storybook/test";
+import { dragDown, pause } from "../../stories/sheet-drag";
 import { DeviceSettingsSheet } from "./device-settings-sheet";
 
 const meta = {
@@ -22,3 +23,21 @@ type Story = StoryObj<typeof meta>;
 export const Bottom: Story = { args: { side: "bottom" }, parameters: { viewport: { defaultViewport: "mobile1" } } };
 /** From the tablet width up (1440 px): a side panel. */
 export const Side: Story = { args: { side: "right" } };
+
+/**
+ * Scrolled (#581): the sheet scrolls at 85dvh, so a drag down in its scrolled content is the content's (it scrolls back up),
+ * never a close. The same drag from the top of a sheet not scrolled closes it; the header and the grab bar always do.
+ */
+export const BottomScrolled: Story = {
+  args: { side: "bottom" },
+  parameters: { viewport: { defaultViewport: "mobile1" }, reducedMotion: "never" },
+  play: async ({ args }) => {
+    const panel = await screen.findByRole("dialog");
+    await pause(800); // the slide in
+    panel.scrollTop = 160;
+    await dragDown(screen.getByText("Day/night cycle"), 200);
+    await expect(args.onOpenChange).not.toHaveBeenCalled();
+    await expect(panel.style.translate).toBe("");
+    await expect(panel.scrollTop).toBeGreaterThan(0);
+  },
+};
