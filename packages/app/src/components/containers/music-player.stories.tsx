@@ -4,7 +4,7 @@ import { fn } from "storybook/test";
 import { LiveMusicPlayer, MusicPlayer } from "./music-player";
 import { AudioProvider } from "./audio-provider";
 import { DEFAULT_SETTINGS } from "../../data/settings";
-import { artOf } from "../../lib/music/tracks";
+import { artOf } from "../../lib/music/track-info";
 import { STORY_TRACKS } from "../../mocks/music";
 
 const TRACK = "/music/09-whispers-of-the-court.m4a";

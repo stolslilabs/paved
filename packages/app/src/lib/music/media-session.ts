@@ -1,5 +1,5 @@
 import type { MusicPlayer } from "./player";
-import { ART_SIZES, artOf } from "./tracks";
+import { ART_SIZES, artOf } from "./track-info";
 
 // The Media Session (#569): the phone's lock screen, the notification shade and the headphones show the track (its title, the
 // album "Paved", its image) and control the player: play, pause, previous, next. In the audio engine's chunk, with the player.

@@ -1,4 +1,5 @@
-import { createShuffle, titleOf } from "./tracks";
+import { titleOf } from "./track-info";
+import { createShuffle } from "./tracks";
 
 // The music player (P-81), without React: a playlist streamed by two `<audio>` elements that crossfade, paused while the tab
 // is hidden, and silent until the first user gesture. The levels (the fade, the volume) are written through `route`: by default

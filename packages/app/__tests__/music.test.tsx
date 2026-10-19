@@ -7,7 +7,8 @@ import { MusicPlayer, formatTime, musicStatus } from "../src/components/containe
 import { AudioProvider, useMusic } from "../src/components/containers/audio-provider";
 import { ALBUM, bindMediaSession, type SessionLike } from "../src/lib/music/media-session";
 import { CROSSFADE_S, HISTORY, createMusicPlayer } from "../src/lib/music/player";
-import { ART_SIZES, TRACKS, TRACK_LIST, artOf, createShuffle, titleOf, trackTitle } from "../src/lib/music/tracks";
+import { ART_SIZES, TRACK_LIST, artOf, titleOf, trackTitle } from "../src/lib/music/track-info";
+import { FILES, TRACKS, createShuffle } from "../src/lib/music/tracks";
 import { expected, imageSize, sources, webpSize } from "../scripts/compress-music-art.ts";
 
 // The music player (P-81): nothing loads before a gesture, `preload` is "none", no immediate repeat, a crossfade on the
@@ -115,6 +116,10 @@ describe("the playlist", () => {
     expect(trackTitle("/music/09-whispers-of-the-court.m4a")).toBe("Whispers of the Court");
     expect(trackTitle("/music/00-endless-kingdom.m4a")).toBe("Endless Kingdom");
     expect(trackTitle("/music/01-a-kingdom-awakens.m4a")).toBe("A Kingdom Awakens");
+  });
+
+  it("lists the same files, in the same order, in the playlist and with the titles", () => {
+    expect(TRACK_LIST.map(([file]) => file)).toEqual([...FILES]);
   });
 
   it("carries the album's titles, apostrophes included; trackTitle is only the fallback", () => {
@@ -695,7 +700,7 @@ describe("the bundle", () => {
       expect(text, f).not.toMatch(/url\(\s*["']?[^)]*music-art/);
     }
     const naming = files(SRC).filter((f) => readFileSync(f, "utf8").includes('"/music-art"'));
-    expect(naming.map((f) => f.replace(SRC, ""))).toEqual(["/lib/music/tracks.ts"]);
+    expect(naming.map((f) => f.replace(SRC, ""))).toEqual(["/lib/music/track-info.ts"]);
   });
 
   it("names the tracks by URL only, in one file", () => {

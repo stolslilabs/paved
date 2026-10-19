@@ -4,7 +4,7 @@
  *   node scripts/compress-music-art.ts [--check]
  *
  * Reads `asset-sources/music/<nn> - <Title>.jpeg` (and `00-endless-kingdom.png`), left untouched and never shipped, and writes
- * `public/music-art/<size>/<track>.webp` for each size of `ART_SIZES` (`src/lib/music/tracks.ts`), named after the track
+ * `public/music-art/<size>/<track>.webp` for each size of `ART_SIZES` (`src/lib/music/track-info.ts`), named after the track
  * (`03-market-day.webp`): the source's number picks the track. Each run removes the copies of an earlier one. `--check`
  * encodes nothing and fails when a copy is missing, extra, not a WebP, or not of its size: the bytes depend on the encoder's
  * build, which nothing in the repository pins, so they are not compared.
@@ -19,7 +19,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ART_SIZES, TRACK_LIST } from "../src/lib/music/tracks.ts";
+import { ART_SIZES, TRACK_LIST } from "../src/lib/music/track-info.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SOURCE = resolve(HERE, "../asset-sources/music");

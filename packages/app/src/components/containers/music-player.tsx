@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { artOf } from "../../lib/music/tracks";
+import { artOf } from "../../lib/music/track-info";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
