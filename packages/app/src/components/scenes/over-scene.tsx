@@ -8,6 +8,7 @@ import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import { errorDetail } from "../../routes/error-detail";
 import { toastError } from "../containers/error-toast";
 import type { FinalBoardProps } from "../containers/final-board";
+import { BoardCovered } from "../containers/board-covered";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -164,7 +165,10 @@ export function OverScene(props: OverSceneProps) {
       {board && wanted && (
         <div data-testid="final-board" aria-hidden={!onBoard} className={cn("absolute inset-0 bg-board", !onBoard && "invisible")}>
           {finalBoard ? (
-            <finalBoard.default {...board} />
+            // Kept mounted under the scores: covered there, its ambient effects stop (#572).
+            <BoardCovered.Provider value={!onBoard}>
+              <finalBoard.default {...board} />
+            </BoardCovered.Provider>
           ) : (
             <p role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
               Loading the board…
