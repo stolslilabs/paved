@@ -61,8 +61,8 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
           >
             {/* Upright: turned back by the ring's angle and its own place. */}
             <span
-              className={cn("absolute top-[3px] left-1/2 flex size-4 -translate-x-1/2 items-center justify-center transition-transform ease-linear motion-reduce:transition-none", s === current ? "text-foreground" : "opacity-60")}
-              style={{ transform: `translateX(-50%) rotate(${-(angle.current + i * 90)}deg)`, transitionDuration: `${turnMs}ms` }}
+              className={cn("absolute top-[3px] left-[calc(50%-0.5rem)] flex size-4 items-center justify-center transition-transform ease-linear motion-reduce:transition-none", s === current ? "text-foreground" : "opacity-60")}
+              style={{ transform: `rotate(${-(angle.current + i * 90)}deg)`, transitionDuration: `${turnMs}ms` }}
             >
               <Icon name={SEASON_ICON[s]} size="xs" />
             </span>

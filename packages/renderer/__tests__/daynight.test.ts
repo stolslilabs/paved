@@ -14,6 +14,7 @@ import {
   drawDayNight,
   releaseDayNight,
   hexToLinear,
+  momentOf,
   linearToOklab,
   oklabToLinear,
   pageCycleTime,
@@ -298,5 +299,19 @@ describe("the backdrop pass", () => {
     effects.setBackdrop(false);
     expect(blend().blending).toBe(THREE.AdditiveBlending);
     effects.dispose();
+  });
+});
+
+describe("a still cycle and a frozen moment", () => {
+  const frozen = (freezeAt: number | null) => resolveDayNightSettings({ enabled: true, season: "summer", freezeAt });
+  it("holds a moment frozen in a day as asked (the season wheel's fixed states), still or not", () => {
+    for (const at of [0.3125, 1.3125, 2.3125, 3.3125]) {
+      expect(momentOf(frozen(at), 0, true)).toBe(at);
+      expect(momentOf(frozen(at), 0, false)).toBe(at);
+    }
+  });
+  it("still wins over a frozen night or dawn: a still scene never shows one", () => {
+    expect(momentOf(frozen(1 + DAY_PHASE_AT.night), 0, true)).toBe(DAY_PHASE_AT.day);
+    expect(momentOf(frozen(null), 5000, true)).toBe(DAY_PHASE_AT.day);
   });
 });
