@@ -10,7 +10,7 @@ const meta = {
   args: {
     open: true,
     onOpenChange: fn(),
-    preferences: { quality: "auto", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true },
+    preferences: { quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true },
     autoQuality: "medium",
     onChange: fn(),
     onVolumeChange: fn(),

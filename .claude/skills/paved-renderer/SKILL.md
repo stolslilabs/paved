@@ -20,6 +20,11 @@ with `docs/`, `scripts/` or `packages/`.
 - A frame is requested by `requestRender()`, which every setter calls (`updateTiles`, `setHoveredTile`,
   `setAvailableSlots`, `setStrategyMode`, `setCompassRotation`, `setCameraMode`, `setSettings`), by a resize (`resize()`), and by camera
   damping. A new change to scene state ends with `requestRender()`; never add a loop or a timer that draws.
+- The one exception is the **ambient loop** (`core/ambient-loop.ts`, #572): `GameScene.ambient`, ticked from the same rAF, steps
+  at most `settings.ambient.fps` (30) times a second, and not while the tab is hidden, the board covered (`setCovered`) or the
+  effects off (setting, Low tier, reduced motion: `ambientAllowed`). An ambient effect (#573, #574) is a lazy chunk that
+  implements `AmbientEffect` (`step` returns whether it moved), `register`s on that loop, and reads `ambient.time` as its
+  shader's time uniform. Never a second loop.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel

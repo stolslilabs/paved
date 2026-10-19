@@ -6,6 +6,8 @@ import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
 import { Notice } from "../elements/notice";
 import { BoardMap } from "../containers/board-map";
+import { BoardCovered } from "../containers/board-covered";
+import { useSidePanel } from "../../lib/side-panel";
 import { useDeferred } from "../../lib/deferred";
 import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import type { BoardBubble, BoardGhost } from "../containers/board-viewport";
@@ -118,6 +120,10 @@ export function BoardScene(props: BoardSceneProps) {
   const [surrendering, setSurrendering] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deckOpen, setDeckOpen] = useState(false);
+  // On a phone the sheets come from the bottom and cover the board: its ambient effects stop meanwhile (#572). From tablet up
+  // they are side panels, and the board stays in view.
+  const sidePanels = useSidePanel();
+  const covered = (settingsOpen || deckOpen) && !sidePanels;
   const play = useSfx();
   useBoardSounds({ ghost: props.ghost, error: hand.error, lastScored: props.lastScored });
   const { promptSurrender } = props;
@@ -149,7 +155,11 @@ export function BoardScene(props: BoardSceneProps) {
   });
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
-      {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
+      {props.canvas ? (
+        <BoardCovered.Provider value={covered}>{props.canvas}</BoardCovered.Provider>
+      ) : (
+        <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />
+      )}
 
       <div data-bubble-avoid className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <GameHud

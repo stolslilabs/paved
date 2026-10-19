@@ -19,7 +19,7 @@ describe("the device settings store", () => {
   beforeEach(() => localStorage.clear());
 
   it("starts from the defaults: quality auto, music at 0.4, sound effects at 0.7, preview and highlight on", () => {
-    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true });
+    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true });
     expect(DEFAULT_SETTINGS.quality).toBe("auto");
   });
 
@@ -32,9 +32,9 @@ describe("the device settings store", () => {
 
   it("round-trips under the one versioned key, and a second store reads what the first wrote", () => {
     const a = createSettingsStore();
-    a.set({ quality: "high", dayNight: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
+    a.set({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
     expect(SETTINGS_KEY).toBe("paved.settings.v1");
-    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
     expect(createSettingsStore().get()).toEqual(a.get());
   });
 
@@ -89,6 +89,15 @@ describe("the device settings store", () => {
     expect(parseSettings(JSON.stringify({ quality: "ultra", sound: "yes", music: "yes", sfxVolume: "loud", tilePreview: 0 }))).toEqual(DEFAULT_SETTINGS);
     localStorage.setItem(SETTINGS_KEY, "{broken");
     expect(createSettingsStore().get()).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe("the ambient effects (#572)", () => {
+  it("are on by default, and on for a store written before the setting existed", () => {
+    expect(DEFAULT_SETTINGS.ambient).toBe(true);
+    expect(parseSettings(JSON.stringify({ quality: "low", dayNight: false })).ambient).toBe(true);
+    expect(parseSettings(JSON.stringify({ ambient: false })).ambient).toBe(false);
+    expect(parseSettings(JSON.stringify({ ambient: "no" })).ambient).toBe(true);
   });
 });
 

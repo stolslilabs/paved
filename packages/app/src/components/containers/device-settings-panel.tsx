@@ -15,6 +15,8 @@ export interface DevicePreferences {
   quality: GraphicsQuality;
   /** The board's day and night cycle: a moving sky, the sun's shadows, the city lights at night. */
   dayNight: boolean;
+  /** The ambient effects: the particles over the water and the wonders (#572). Off on the Low tier and under reduced motion. */
+  ambient: boolean;
   /** The music volume, 0 to 1; 0 is muted, and `musicBefore` the level an unmute returns to. */
   musicVolume: number;
   musicBefore: number;
@@ -48,7 +50,7 @@ const QUALITY: { value: GraphicsQuality; label: string }[] = [
 ];
 
 /**
- * The device settings, once (#541): Visuals (quality, the day and night cycle), Sound (the music and sound effects sliders, the
+ * The device settings, once (#541): Visuals (quality, the day and night cycle, the ambient effects), Sound (the music and sound effects sliders, the
  * music player of #569) and Gameplay (tile preview, placement highlight). The Settings page and the sheet over the board both
  * draw this; the account, the theme and the referral stay on the page.
  */
@@ -83,6 +85,13 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
           icon="sun"
           checked={p.dayNight}
           onCheckedChange={(v) => onChange?.("dayNight", v)}
+        />
+        <SettingSwitch
+          label="Ambient effects"
+          hint="Faint motes over the water and the wonders. Off on Low quality and with reduced motion"
+          icon="sparkles"
+          checked={p.ambient}
+          onCheckedChange={(v) => onChange?.("ambient", v)}
         />
         {visualsExtra}
       </SettingsGroup>
