@@ -43,7 +43,7 @@ export const Muted: Story = { args: { enabled: false, playing: false } };
 export const Loading: Story = { args: { track: "/music/03-market-day.m4a", title: "Market Day", art: artOf("/music/03-market-day.m4a", 128), position: 0, duration: 0, playing: false, loading: true } };
 /** The image does not load: a neutral placeholder. */
 export const ImageFailed: Story = { args: { art: "/music-art/128/missing.webp" } };
-/** A title longer than the row: it is cut with an ellipsis. */
+/** A title longer than the row: it wraps, whole. */
 export const LongTitle: Story = { args: { title: "Secrets of the Old Kingdom, the extended version for a very long evening" } };
 
 function Live_() {

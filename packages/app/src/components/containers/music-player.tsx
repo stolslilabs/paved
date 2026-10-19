@@ -102,7 +102,8 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
       <div className="flex min-w-0 items-center gap-3">
         <Thumbnail src={art} loading={loading && on} />
         <div className="flex min-w-0 flex-1 flex-col" aria-live="off">
-          <span className="truncate text-sm font-semibold" data-testid="music-title">
+          {/* A long title wraps, never cut (WRAP360): the whole title stays readable. */}
+          <span className="text-sm font-semibold wrap-anywhere" data-testid="music-title">
             {title ?? "Paved soundtrack"}
           </span>
           <span className="text-xs text-muted-foreground" data-testid="music-status">
