@@ -203,7 +203,7 @@ export function OverScene(props: OverSceneProps) {
             aria-label="Show"
             value={view}
             onValueChange={(next) => next && setView(next as OverView)}
-            className="pointer-events-auto rounded-md bg-card/95 shadow-lg backdrop-blur"
+            className="pointer-events-auto rounded-xl bg-card/95 p-1 shadow-lg backdrop-blur"
           >
             <ToggleGroupItem value="scores" className="min-w-32">
               <Icon name="ranking-star" fixedWidth />

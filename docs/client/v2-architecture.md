@@ -435,7 +435,7 @@ items (`data-highlighted` is hover), the nav items, the mode cards and the rows 
 **Cards.** Rounded 12 px (`rounded-xl`) charcoal with the hairline edge, led by an image where the mockups put one: a render on
 the left of a row (`ModeCard` `art`, the Play list), a banner across the top (`ModeCard` `banner`, the Challenge on Home; the
 final score's board). Settings groups are one card with dividers, titled in the display font. Buttons are 44 px by default
-(`lg` 56 px), 12 px corners; badges are uppercase.
+(`lg` 56 px), 12 px corners.
 
 **Imagery.** Renders of the real board and tiles, drawn once by `packages/app/scripts/direction-renders.ts` (the bench's
 recorded 38- and 72-tile games and the voxel wordmark through the board's own `GameScene`, in headless Chromium; software
@@ -855,9 +855,9 @@ The sidebar follows the tiers:
 | **Board** | the board on recorded boards (the bench fixtures at 38 and 72 tiles), with the outline width control (section 5) |
 | **Scenes** | each page of section 6 on fixtures, one story per state, shown at the full width of the preview by default, and at the width Storybook's own viewport toolbar picks (mobile 360, tablet 640, desktop 1024, wide 1440); no frame, no `viewport` arg |
 
-**The background (spec A):** the board's colour, `--board` = `#07111A`, set as Storybook's only
-background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
-`create({ base: "dark", appBg: "#07111A" })`).
+**The background (spec A):** the board's colour, `--board` = `#0C0D0F` since direction D (section 2.2b; it was `#07111A`),
+set as Storybook's only background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
+`create({ base: "dark", appBg: BOARD })`).
 
 ### 4.2 Hosting at `storybook.paved.bal7hazar.com`
 
