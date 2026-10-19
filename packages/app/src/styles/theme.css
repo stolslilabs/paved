@@ -153,9 +153,11 @@
   --input-surface: var(--color-ink-500); /* --input on --card / --popover: 4.16:1 (ink-600 gives 2.73 there) */
   --ring: var(--accent-scale-400);
   --board: var(--color-board);
-  /* The white of hover and pressed states over a translucent surface (#537, PLACE-POLISH #568): used with an alpha,
-     `hover:bg-overlay/10 active:bg-overlay/20`. */
-  --overlay: var(--color-ink-50);
+  /* The white veil of hover and pressed states over a translucent surface or a fill (#537, PLACE-POLISH #568): ink-50 at
+     10 % and 20 %, `hover:bg-veil active:bg-veil-strong`. Written with their alpha (no `/10` modifier, which costs a
+     fallback and a color-mix rule per use). */
+  --veil: oklch(0.975 0.006 241.7 / 0.1);
+  --veil-strong: oklch(0.975 0.006 241.7 / 0.2);
 }
 
 /* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
@@ -184,7 +186,8 @@
   --color-input: var(--input);
   --color-input-surface: var(--input-surface);
   --color-ring: var(--ring);
-  --color-overlay: var(--overlay);
+  --color-veil: var(--veil);
+  --color-veil-strong: var(--veil-strong);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

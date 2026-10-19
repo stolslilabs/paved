@@ -84,10 +84,9 @@ export interface TileBubbleProps {
  * The bubble's buttons over its translucent card: white with transparency on hover (desktop) and when pressed (touch), and
  * the focus ring of every control (#537, #568).
  */
-const BUBBLE_BUTTON = "size-11 rounded-full hover:bg-overlay/10 active:bg-overlay/20 focus-visible:ring-offset-card";
-/** Validate, the strongest: filled with the primary colour, the same white veil laid over it on hover and when pressed. */
-const BUBBLE_PRIMARY =
-  "size-11 rounded-full shadow-md hover:bg-primary after:pointer-events-none after:absolute after:inset-0 after:rounded-full after:transition-colors hover:after:bg-overlay/10 active:after:bg-overlay/20 focus-visible:ring-offset-card";
+const BUBBLE_BUTTON = "size-11 rounded-full hover:bg-veil active:bg-veil-strong focus-visible:ring-offset-card";
+/** Validate, the strongest: filled with the primary colour; `HoldButton`'s veil lays the same white over it on hover and when pressed. */
+const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md hover:bg-primary focus-visible:ring-offset-card";
 
 /**
  * The bubble on the tile being handled, in this order: Close (cancel), Rotate (clockwise through the valid rotations only,
@@ -166,7 +165,7 @@ export function TileBubble({ rotations, onRotate, onClose, onConfirm, canConfirm
         <Icon name="xmark" size="md" />
       </Button>
       {canRotate && (
-        <Button variant="ghost" size="icon" className={cn(BUBBLE_BUTTON, "bg-overlay/5 hover:text-foreground")} onClick={onRotate} aria-label="Rotate tile" title="Rotate (R)">
+        <Button variant="ghost" size="icon" className={cn(BUBBLE_BUTTON, "hover:text-foreground")} onClick={onRotate} aria-label="Rotate tile" title="Rotate (R)">
           <Icon name="rotate-right" size="md" />
         </Button>
       )}

@@ -32,7 +32,7 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
   /** Points the last move added: shown with the score, then gone when the next move clears it. */
   delta?: number | null;
   /**
-   * The points the tile placed, not yet validated, would score (the engine's preview, PLACE-POLISH #568): "1,000 (+154)",
+   * The points the tile placed, not yet validated, would score (the engine's preview, PLACE-POLISH, issue 568): "1,000 (+154)",
    * beside the value in the primary colour, plain and in brackets, where the gain of a move scored (`delta`) is green on the
    * label's line and moves in. Unset or null: none.
    */

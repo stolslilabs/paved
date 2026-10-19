@@ -121,8 +121,10 @@ describe("the bubble's buttons (#568)", () => {
     const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
     expect(names).toEqual(["Cancel placement", "Rotate tile", "Hold to place the tile"]);
     for (const b of screen.getAllByRole("button")) {
-      expect(b.className).toMatch(/hover:(after:)?bg-overlay\/10/);
-      expect(b.className).toMatch(/active:(after:)?bg-overlay\/20/);
+      // The white veil: on the button itself, or on Validate's veil over its fill.
+      const veil = b.querySelector("[data-veil]")?.className ?? b.className;
+      expect(veil).toMatch(/hover:bg-veil\b/);
+      expect(veil).toMatch(/active:bg-veil-strong/);
       expect(b.className).toMatch(/focus-visible:ring-2/);
     }
     fireEvent.pointerDown(button(), { button: 0 });

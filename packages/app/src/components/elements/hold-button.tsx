@@ -3,7 +3,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 
-/** How long the button is held to act, ms (PLACE-POLISH, #568: about 0.8 s, the usual hold of a sensitive action). */
+/** How long the button is held to act, ms (PLACE-POLISH, issue 568: about 0.8 s, the usual hold of a sensitive action). */
 export const HOLD_MS = 800;
 /** The ring rewinds this fast when the hold is let go before the end, ms. */
 const REWIND_MS = 150;
@@ -42,7 +42,7 @@ const vibrate = () => {
 };
 
 /**
- * A button that acts only when held (PLACE-POLISH, #568): a ring fills around its icon over `holdMs`; letting go, or the
+ * A button that acts only when held (PLACE-POLISH, issue 568): a ring fills around its icon over `holdMs`; letting go, or the
  * pointer leaving it, before the end cancels and the ring rewinds. Completion acts once, with a buzz where the device has
  * one. The same with the mouse, a finger (no callout, no selection, no gesture of the board under it) or the keyboard
  * (hold Enter or Space). An activation with no press before it, as a screen reader's double tap sends, acts at once: the
@@ -137,8 +137,10 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
       onKeyUp={onKeyUp}
       onBlur={release}
       onClick={onClick}
-      className={cn("relative touch-none select-none [-webkit-touch-callout:none] [&_svg[data-ring]]:pointer-events-none", className)}
+      className={cn("group relative touch-none select-none [-webkit-touch-callout:none]", className)}
     >
+      {/* The white veil of the hover (desktop) and the press (touch) over any fill (issues 537 and 568). */}
+      <span aria-hidden data-veil className="absolute inset-0 rounded-[inherit] transition-colors group-hover:bg-veil group-active:bg-veil-strong" />
       {!busy && <Icon name={icon} size="md" />}
       <svg data-ring aria-hidden viewBox="0 0 44 44" className="absolute inset-0 size-full -rotate-90">
         <circle cx="22" cy="22" r={RING_R} fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={3} />
