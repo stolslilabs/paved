@@ -35,8 +35,7 @@ export const BottomScrolled: Story = {
     const panel = await screen.findByRole("dialog");
     await pause(800); // the slide in
     panel.scrollTop = 160;
-    const box = panel.getBoundingClientRect();
-    await dragDown(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)!, 200);
+    await dragDown(screen.getByText("Day/night cycle"), 200);
     await expect(args.onOpenChange).not.toHaveBeenCalled();
     await expect(panel.style.translate).toBe("");
     await expect(panel.scrollTop).toBeGreaterThan(0);
