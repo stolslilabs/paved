@@ -61,6 +61,11 @@ interface Check {
   onOpen?: () => void;
   /** Forget the unknown purchase after a failed check: Pay is offered again, with the warning. */
   onDismiss?: () => void;
+  /**
+   * Dismiss is offered with Retry; false while the purchase may still be answered in the wallet (under its 5 minutes): the
+   * record is not forgotten then, Retry only. Offered when omitted.
+   */
+  dismissable?: boolean;
   /** The check cannot tell: Check again, or confirm that nothing landed. */
   unresolved?: boolean;
   onCheckAgain?: () => void;
@@ -105,9 +110,11 @@ export function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; ch
                 <Button size="sm" onClick={check.onRetry} disabled={check.retrying}>
                   Retry
                 </Button>
-                <Button size="sm" variant="ghost" onClick={check.onDismiss} disabled={check.retrying}>
-                  Dismiss
-                </Button>
+                {check.dismissable !== false && (
+                  <Button size="sm" variant="ghost" onClick={check.onDismiss} disabled={check.retrying}>
+                    Dismiss
+                  </Button>
+                )}
               </>
             )}
             {refusal.kind === "unknown" && check.unresolved && (
@@ -130,7 +137,9 @@ export function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; ch
       <WithHash message={refusal.message} />
       {refusal.kind === "unknown" &&
         check?.failed &&
-        " It could not be checked: Retry. Dismiss only if you are sure it did not go through: buying again may pay twice."}
+        (check.dismissable === false
+          ? " It could not be checked: Retry. Dismiss is offered once your wallet's 5 minutes have passed."
+          : " It could not be checked: Retry. Dismiss only if you are sure it did not go through: buying again may pay twice.")}
     </Notice>
   );
 }
@@ -180,6 +189,8 @@ export interface CobbleShop {
   checkFailed?: boolean;
   /** Retry is fetching: Retry and Dismiss wait for its answer. */
   checkRetrying?: boolean;
+  /** Dismiss is offered beside Retry; false while the purchase may still be answered in the wallet. Offered when omitted. */
+  checkDismissable?: boolean;
   /** The check answered but cannot tell (a receipt still unknown, or a wallet that never answered): Pay stays held. */
   checkUnresolved?: boolean;
   /** The packs are being read (`Setup.pack`). */
@@ -223,6 +234,8 @@ export interface PurchaseSceneProps {
   checkFailed?: boolean;
   /** Retry is fetching: Retry and Dismiss wait for its answer. */
   checkRetrying?: boolean;
+  /** Dismiss is offered beside Retry; false while the purchase may still be answered in the wallet. Offered when omitted. */
+  checkDismissable?: boolean;
   /**
    * The check answered but cannot tell (a receipt still unknown after its re-checks, or a wallet that never answered): Pay
    * stays held; Check again, or the player's confirm that their balance and games show no purchase.
@@ -372,7 +385,7 @@ function GameTab(props: PurchaseSceneProps) {
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} detail={props.balanceErrorDetail} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !buying && !(spawnPaused && refusal.kind === "paused") && (
-          <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames, failed: props.checkFailed, retrying: props.checkRetrying, onRetry: props.onRetryCheck, onOpen: props.onOpenReady, onDismiss: props.onDismissCheck, unresolved: props.checkUnresolved, onCheckAgain: props.onCheckAgain, onConfirmNone: props.onConfirmNone }} />
+          <RefusalNotice refusal={refusal} check={{ label: "Check my games", onCheck: props.onCheckGames, failed: props.checkFailed, retrying: props.checkRetrying, onRetry: props.onRetryCheck, onOpen: props.onOpenReady, onDismiss: props.onDismissCheck, dismissable: props.checkDismissable, unresolved: props.checkUnresolved, onCheckAgain: props.onCheckAgain, onConfirmNone: props.onConfirmNone }} />
         )}
 
         {!connected ? (
@@ -456,7 +469,7 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
         {connected && props.balanceError && <BalanceNotice error={props.balanceError} detail={props.balanceErrorDetail} onRetry={props.onRetryBalance} />}
         {props.referrerDropped && <DroppedReferrerNotice />}
         {refusal && !cobbles.buying && (
-          <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles, failed: cobbles.checkFailed, retrying: cobbles.checkRetrying, onRetry: props.onRetryCheck, onOpen: props.onOpenReady, onDismiss: props.onDismissCheck, unresolved: cobbles.checkUnresolved, onCheckAgain: props.onCheckAgain, onConfirmNone: props.onConfirmNone }} />
+          <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles, failed: cobbles.checkFailed, retrying: cobbles.checkRetrying, onRetry: props.onRetryCheck, onOpen: props.onOpenReady, onDismiss: props.onDismissCheck, dismissable: cobbles.checkDismissable, unresolved: cobbles.checkUnresolved, onCheckAgain: props.onCheckAgain, onConfirmNone: props.onConfirmNone }} />
         )}
         {bought && !refusal && !cobbles.buying && (
           <Notice tone="info" title="Pack bought">

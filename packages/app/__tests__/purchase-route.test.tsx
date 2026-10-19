@@ -12,6 +12,7 @@ import {
   PoolPriceMovedError,
   PoolQuoteBelowFloorError,
   PurchaseOutcomeUnknownError,
+  SendUnconfirmedError,
   SpawnPausedError,
   SwapBelowMinOutError,
   WalletRejectedError,
@@ -29,7 +30,7 @@ import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { DataProvider, type DataSources, type GameSigner } from "../src/data";
 import { purchasesFor } from "../src/data/economy-client";
 import { PURCHASE_RECHECK_MS, PURCHASE_TIMEOUT_MS, PurchaseTimedOutError, purchaseRefusal, referrerParam, setPurchaseRecheckForTests, usePurchase } from "../src/data/purchase";
-import { resetFailedWritesForTests, unknownPurchaseStorageKey, writeUnknownPurchase } from "../src/data/unknown-purchase";
+import { lateAnswerStorageKey, resetAsideForTests, resetFailedWritesForTests, unknownPurchaseStorageKey, writeUnknownPurchase } from "../src/data/unknown-purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
 import { createTestRouter } from "../src/routes/router";
@@ -198,6 +199,7 @@ beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
   resetFailedWritesForTests();
+  resetAsideForTests();
   // The re-checks of an unknown receipt, short on real timers (their own test runs the real ones on fake timers).
   setPurchaseRecheckForTests([10, 10, 10]);
   resetWelcomedForTests();
@@ -840,6 +842,14 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     rerender(wrap(<PurchaseScene {...props} checkRetrying />));
     expect(screen.getByRole("button", { name: "Dismiss" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Retry" })).toBeDisabled();
+  });
+
+  it("the scene offers Retry without Dismiss when the check is not dismissable (VALUE-POLISH 1)", () => {
+    const props = { ...PURCHASE.stake1, refusal: { kind: "unknown" as const, message: "A purchase is waiting." }, checkFailed: true, onRetryCheck: () => {}, onDismissCheck: () => {} };
+    render(wrap(<PurchaseScene {...props} checkDismissable={false} />));
+    expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+    expect(screen.getByText(/Dismiss is offered once your wallet's 5 minutes have passed/)).toBeInTheDocument();
   });
 
   it("says how long ago the purchase was sent, from the record's at", async () => {
@@ -1603,5 +1613,254 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     await userEvent.click(again);
     expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: 3000 })).toBeInTheDocument();
     expect(JSON.parse(stored()!)).toEqual(earlier);
+  });
+});
+
+describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
+  const stored = () => localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"));
+  const request = { playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null };
+  const flush = async (until: () => boolean = () => false) => {
+    for (let i = 0; i < 100 && !until(); i++) await act(() => vi.advanceTimersByTimeAsync(1));
+  };
+  function hook(initial: DataSources) {
+    let current = initial;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <DataProvider sources={current}>{children}</DataProvider>
+      </QueryClientProvider>
+    );
+    const rendered = renderHook(() => usePurchase(PLAYER), { wrapper });
+    const reconnect = (next: DataSources) => {
+      current = next;
+      rendered.rerender();
+    };
+    return { ...rendered, reconnect };
+  }
+
+  it("1: a failed check while the purchase may still be answered in the wallet offers Retry, not Dismiss", async () => {
+    const s = setup();
+    // Another tab's send, 10 s ago: its prompt may be open. The check's reads fail.
+    const young = { hash: null, at: Math.floor(Date.now() / 1000) - 10, id: "other-tab" };
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(young));
+    s.state.balanceFail = "node down";
+    open("/play/challenge", s);
+    // Two Retry: the balance's own, and the check's beside the notice.
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2), { timeout: 3000 });
+    expect(screen.getByText(/A purchase is waiting in your wallet/)).toBeInTheDocument();
+    expect(screen.getByText(/Dismiss is offered once your wallet's 5 minutes have passed/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+    expect(JSON.parse(stored()!)).toEqual(young);
+  });
+
+  it("1: the hold's own Dismiss refuses while waiting, and clears once the limit has passed", async () => {
+    const s = setup();
+    s.state.balanceFail = "node down";
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const young = { hash: null, at: Math.floor(Date.now() / 1000) - 10, id: "other-tab" };
+      localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(young));
+      const { result } = hook(s.sources);
+      await flush(() => result.current.hold.failed);
+      expect(result.current.hold).toMatchObject({ failed: true, waiting: true, dismissable: false });
+      let dismissed = true;
+      act(() => void (dismissed = result.current.hold.dismissFailed()));
+      expect(dismissed).toBe(false);
+      expect(JSON.parse(stored()!)).toEqual(young);
+      // Past the limit: the record is a send the wallet never answered, and Dismiss is the deliberate way out again.
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.hold.dismissable);
+      expect(result.current.hold).toMatchObject({ failed: true, waiting: false, dismissable: true });
+      act(() => void (dismissed = result.current.hold.dismissFailed()));
+      expect(dismissed).toBe(true);
+      expect(stored()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("1: past the limit the page offers Dismiss beside Retry, with its warning", async () => {
+    const s = setup();
+    const old = { hash: null, at: Math.floor(Date.now() / 1000) - PURCHASE_TIMEOUT_MS / 1000 - 1, id: "old" };
+    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(old));
+    s.state.balanceFail = "node down";
+    open("/play/challenge", s);
+    expect(await screen.findByRole("button", { name: "Dismiss" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText(/Dismiss only if you are sure it did not go through/)).toBeInTheDocument();
+  });
+
+  it("2: a wallet that fails after it may have sent (a timeout, a lost connection) keeps the hold; a refusal before sending does not", async () => {
+    for (const lost of [() => new Error("fetch failed"), () => null, () => ({ code: 63, message: "An unexpected error occurred" })]) {
+      cleanup();
+      localStorage.clear();
+      queryClient.clear();
+      const s = setup();
+      s.state.decline = lost;
+      const { router } = open("/play/challenge", s);
+      await userEvent.click(await enabledPay());
+      expect(await screen.findByText(/Your wallet lost track of a purchase while sending it/, undefined, { timeout: 3000 })).toBeInTheDocument();
+      expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number), id: expect.any(String) });
+      expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "It did not land" })).toBeNull();
+      expect(router.state.location.pathname).toBe("/play/challenge");
+    }
+    // The node's refusal before accepting it, a simulation's revert: nothing was sent, the hold goes, Pay is back.
+    for (const refused of [() => ({ code: 41, message: "Transaction execution error" }), () => new Error("Fee estimation failed: insufficient balance")]) {
+      cleanup();
+      localStorage.clear();
+      queryClient.clear();
+      const s = setup();
+      s.state.decline = refused;
+      open("/play/challenge", s);
+      await userEvent.click(await enabledPay());
+      expect(await screen.findByText("Purchase refused", undefined, { timeout: 3000 })).toBeInTheDocument();
+      expect(stored()).toBeNull();
+      expect(await enabledPay()).toBeInTheDocument();
+    }
+  });
+
+  it("2: purchaseRefusal reads a send that may have gone as an unknown outcome", () => {
+    expect(purchaseRefusal(new SendUnconfirmedError("fetch failed"))).toEqual({ kind: "unknown", message: expect.stringContaining("may still go through") });
+  });
+
+  it("2: a late failure that may come after sending keeps a timed-out send's hold", async () => {
+    const s = setup();
+    let fail = (_error: unknown) => {};
+    const writer = s.client.writer({
+      address: PLAYER,
+      execute: (calls: Sent) => (s.sent.push(calls), new Promise<{ transaction_hash: string }>((_resolve, reject) => (fail = reject))),
+    });
+    s.sources.signer = writer as unknown as GameSigner;
+    const { result } = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 1);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      expect(result.current.mutation.error).toBeInstanceOf(PurchaseTimedOutError);
+      const held = JSON.parse(stored()!);
+      fail(new Error("socket hang up"));
+      await flush();
+      expect(JSON.parse(stored()!)).toEqual(held);
+      expect(result.current.hold.held).toBe(true);
+      expect(result.current.mutation.error).toBeInstanceOf(PurchaseTimedOutError);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("3: a late hash of send A that arrives while B's prompt holds is kept, and checked when B is declined", async () => {
+    const s = setup();
+    const { result, reconnect } = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      // A: the wallet hangs past the limit; its hash-less hold stays.
+      let releaseA = () => {};
+      s.state.gate = new Promise<void>((r) => (releaseA = r));
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 1);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      expect(result.current.mutation.error).toBeInstanceOf(PurchaseTimedOutError);
+      const a = JSON.parse(stored()!) as { hash: null; at: number; id: string };
+      // The player reads their balance and games and confirms that A did not land; they reconnect (a new writer) and Buy again.
+      await flush(() => result.current.hold.unresolved);
+      act(() => void result.current.hold.confirmNone());
+      expect(result.current.hold.released).toBe(true);
+      let declineB = () => {};
+      const declined = new Promise<void>((r) => (declineB = r));
+      const writerB = s.client.writer({
+        address: PLAYER,
+        execute: async () => {
+          await declined;
+          throw { code: "CANCELED", message: "Canceled" };
+        },
+      });
+      reconnect({ ...s.sources, signer: writerB as unknown as GameSigner });
+      act(() => result.current.mutation.mutate(request));
+      // B's prompt is open: its own hold has the slot.
+      await flush(() => (JSON.parse(stored() ?? "{}") as { id?: string }).id !== a.id);
+      const b = JSON.parse(stored()!) as { hash: null; id: string };
+      expect(b).toMatchObject({ hash: null });
+      expect(b.id).not.toBe(a.id);
+      // A answers at last, with a hash whose outcome is unknown: B's hold stays, A's hash is kept aside.
+      s.state.gate = null;
+      s.state.noEvents = true;
+      releaseA();
+      await flush(() => localStorage.getItem(lateAnswerStorageKey(PLAYER, "game")) !== null);
+      expect(JSON.parse(stored()!)).toEqual(b);
+      expect(JSON.parse(localStorage.getItem(lateAnswerStorageKey(PLAYER, "game"))!)).toMatchObject({ id: a.id, record: { hash: "0x1" } });
+      // B is declined: nothing was sent, and the slot goes back to A, with its late hash, not its hash-less record.
+      declineB();
+      await flush(() => result.current.mutation.error instanceof WalletRejectedError);
+      expect(result.current.mutation.error).toBeInstanceOf(WalletRejectedError);
+      expect(JSON.parse(stored()!)).toEqual({ hash: "0x1", at: a.at, id: a.id });
+      expect(localStorage.getItem(lateAnswerStorageKey(PLAYER, "game"))).toBeNull();
+      // A's receipt is checked: Pay is held again until it reads.
+      await flush(() => s.state.receiptCalls > 0);
+      expect(s.state.receiptCalls).toBeGreaterThan(0);
+      expect(result.current.hold).toMatchObject({ held: true, released: false });
+      s.state.receipts.set("0x1", "SUCCEEDED");
+      act(() => result.current.hold.checkAgain());
+      await flush(() => result.current.hold.resolved !== null);
+      expect(result.current.hold.resolved).toBe("succeeded");
+      expect(stored()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("3: a late hash of A while B holds surfaces when B settles too (B landed: A may have paid as well)", async () => {
+    const s = setup();
+    const { result } = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      let releaseA = () => {};
+      s.state.gate = new Promise<void>((r) => (releaseA = r));
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 1);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      const a = JSON.parse(stored()!) as { hash: null; at: number; id: string };
+      // B holds the slot (another tab).
+      writeUnknownPurchase(queryClient, PLAYER, "game", { hash: null, at: a.at, id: "tab-b" });
+      s.state.gate = null;
+      s.state.noEvents = true;
+      releaseA();
+      await flush(() => localStorage.getItem(lateAnswerStorageKey(PLAYER, "game")) !== null);
+      expect(JSON.parse(stored()!)).toMatchObject({ id: "tab-b" });
+      // B lands: its hold goes, and A's hash takes the slot to be checked.
+      writeUnknownPurchase(queryClient, PLAYER, "game", null);
+      expect(JSON.parse(stored()!)).toEqual({ hash: "0x1", at: a.at, id: a.id });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("3: a late success of A while B holds: if B is declined, A's record does not come back", async () => {
+    const s = setup();
+    const { result } = hook(s.sources);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      let releaseA = () => {};
+      s.state.gate = new Promise<void>((r) => (releaseA = r));
+      act(() => result.current.mutation.mutate(request));
+      await flush(() => s.sent.length === 1);
+      await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS));
+      await flush(() => result.current.mutation.status === "error");
+      const a = JSON.parse(stored()!) as { hash: null; at: number; id: string };
+      writeUnknownPurchase(queryClient, PLAYER, "game", { hash: null, at: a.at, id: "tab-b" });
+      s.state.gate = null;
+      releaseA();
+      await flush(() => result.current.ready.gameId !== null);
+      expect(result.current.ready.gameId).toBe(GAME_ID);
+      expect(JSON.parse(stored()!)).toMatchObject({ id: "tab-b" });
+      // B sent nothing and gives the slot back to A's record: A is over, so the slot empties.
+      writeUnknownPurchase(queryClient, PLAYER, "game", a);
+      expect(stored()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

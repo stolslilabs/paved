@@ -286,6 +286,13 @@ which the session is meant to avoid. It stays in the table and the JSON, and out
 - **The controller's session is a wildcard.** The controller registers its session key as a wildcard. The keychain filters a
   session call client-side by (target, method), and never by calldata. The client keeps no token approve in the session (P-65),
   so each paid entry prompts once.
+- **Sessions from before P-65 keep their old policies until they expire.** The controller's session is approved once, with the
+  policies of the build that connected, and kept in the browser. A session created before the no-approve change (SESSION-NOAPPROVE,
+  #487) still lists the paid `Challenge.spawn` and `Setup.buy_pack`, and the connect that created it ran the entry's approve to
+  Challenge (up to 10 stakes): until that session expires, it can sign a bare `spawn` or `buy_pack` without a prompt, and a
+  bare `spawn` can spend that standing allowance. The client no longer sends either one bare (each goes with its approve, in one
+  multicall that prompts), so nothing it sends uses them; a player who wants them gone disconnects and connects again, which
+  approves a session with the current policies. The allowance stays on chain until it is spent or set to 0.
 
 ## Release gates
 

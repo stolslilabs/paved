@@ -52,6 +52,87 @@ export function resetFailedWritesForTests(): void {
   failedWrites.clear();
 }
 
+/**
+ * The late answer of a send A whose hold a newer send B had replaced (B's prompt open, or B's own record): A's unknown hash,
+ * or null when A's answer settled it (it landed or was refused). It is kept aside, so B's answer never loses it: when B's
+ * hold goes (B sent nothing and A's record comes back, or B settles and the slot empties), A's answer takes the slot
+ * (`settleAside`). One per player and kind, in storage beside the record (`paved:purchase-late:v1:<kind>:<player>`, so a
+ * reload keeps it) and in memory when storage is off.
+ */
+interface AsideAnswer {
+  id: string;
+  record: UnknownPurchase | null;
+}
+
+/** The storage key of a player's late answer kept aside. */
+export const lateAnswerStorageKey = (playerId: string, kind: PurchaseKind): string => `paved:purchase-late:v1:${kind}:${addressKey(playerId)}`;
+
+const asideInMemory = new Map<string, AsideAnswer>();
+
+/** Forgets the late answers kept aside in memory, between tests. */
+export function resetAsideForTests(): void {
+  asideInMemory.clear();
+}
+
+function readAside(playerId: string, kind: PurchaseKind): AsideAnswer | null {
+  const name = lateAnswerStorageKey(playerId, kind);
+  try {
+    const raw = storage()?.getItem(name);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AsideAnswer>;
+      const record = parsed.record as Partial<UnknownPurchase> | null | undefined;
+      if (typeof parsed.id === "string" && record === null) return { id: parsed.id, record: null };
+      if (typeof parsed.id === "string" && record && typeof record.hash === "string" && /^0x[0-9a-fA-F]+$/.test(record.hash)) {
+        return { id: parsed.id, record: { hash: record.hash, at: Number(record.at ?? 0), id: parsed.id } };
+      }
+    }
+  } catch {
+    // Storage off: the memory's copy.
+  }
+  return asideInMemory.get(name) ?? null;
+}
+
+function writeAside(playerId: string, kind: PurchaseKind, aside: AsideAnswer | null): void {
+  const name = lateAnswerStorageKey(playerId, kind);
+  if (aside) asideInMemory.set(name, aside);
+  else asideInMemory.delete(name);
+  try {
+    const store = storage();
+    if (aside) store?.setItem(name, JSON.stringify(aside));
+    else store?.removeItem(name);
+  } catch {
+    // Storage full or off: the memory's copy holds it for the page's life.
+  }
+}
+
+/**
+ * Keeps A's late answer aside while another send's hold has the slot. A hash is never replaced by a settled answer of
+ * another send: a purchase that may have landed outranks one known to be over.
+ */
+function putAside(playerId: string, kind: PurchaseKind, aside: AsideAnswer): void {
+  const kept = readAside(playerId, kind);
+  if (kept?.record && kept.id !== aside.id && aside.record === null) return;
+  writeAside(playerId, kind, aside);
+}
+
+/**
+ * What the slot takes in place of `record`, given the answer kept aside: A's hash when the slot empties, and A's answer
+ * (its hash, or nothing) when A's own hash-less record comes back. The aside goes once used, or once the slot empties.
+ */
+function settleAside(playerId: string, kind: PurchaseKind, record: UnknownPurchase | null): UnknownPurchase | null {
+  const aside = readAside(playerId, kind);
+  if (!aside) return record;
+  if (record === null) {
+    writeAside(playerId, kind, null);
+    return aside.record;
+  }
+  if (record.hash === null && record.id === aside.id) {
+    writeAside(playerId, kind, null);
+    return aside.record;
+  }
+  return record;
+}
+
 function storage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
@@ -77,8 +158,13 @@ function readStored(playerId: string, kind: PurchaseKind): UnknownPurchase | nul
   }
 }
 
-/** Records (or clears, with null) a player's unknown purchase: in storage when it can be written, always in the cache. */
-export function writeUnknownPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, record: UnknownPurchase | null): void {
+/**
+ * Records (or clears, with null) a player's unknown purchase: in storage when it can be written, always in the cache. A
+ * late answer kept aside (`putAside`) takes the slot when it empties or when its own send's record comes back.
+ */
+export function writeUnknownPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, next: UnknownPurchase | null): void {
+  // A late answer kept aside takes the slot when it empties, or when its own send's record comes back.
+  const record = settleAside(playerId, kind, next);
   const store = storage();
   const name = unknownPurchaseStorageKey(playerId, kind);
   try {
@@ -101,19 +187,26 @@ export function currentRecord(client: QueryClient, playerId: string, kind: Purch
 
 /**
  * Clears the hold of a send the wallet never answered, once its late answer arrives: only the hash-less record of that send
- * (`id`, its identity), never a record with a hash or a later send's.
+ * (`id`, its identity), never a record with a hash or a later send's. While a later send's hold has the slot, the answer is
+ * kept aside: should that send give the slot back to this one's record (it sent nothing), the record goes then.
  */
 export function clearTimedOutPurchase(client: QueryClient, playerId: string, kind: PurchaseKind, id: string): void {
-  restorePurchase(client, playerId, kind, id, null);
+  const current = currentRecord(client, playerId, kind);
+  if (current && current.hash === null && ownedBy(current, id)) writeUnknownPurchase(client, playerId, kind, null);
+  // Another send holds the slot: if it gives the slot back to this send's record, that record is over.
+  else if (current && !ownedBy(current, id)) putAside(playerId, kind, { id, record: null });
 }
 
 /**
  * Writes the record of the send `record.id` (its hash-less hold, or the hash of its unknown outcome) only when the
  * current record is that send's, or there is none: a late answer of an earlier send never overwrites a newer send's hold.
+ * Its hash is kept aside instead, and takes the slot when the newer send's hold goes, so it is still checked.
  */
 export function recordOwnSend(client: QueryClient, playerId: string, kind: PurchaseKind, record: UnknownPurchase): void {
   const current = currentRecord(client, playerId, kind);
   if (current === null || (record.id !== undefined && ownedBy(current, record.id))) writeUnknownPurchase(client, playerId, kind, record);
+  // A late hash while another send holds the slot: kept aside, and checked once that send's hold goes (`settleAside`).
+  else if (record.id !== undefined && record.hash !== null) putAside(playerId, kind, { id: record.id, record });
 }
 
 /**
