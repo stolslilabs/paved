@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { RouterProvider, createMemoryRouter } from "react-router";
+import { act, render, screen } from "@testing-library/react";
+import { Outlet, RouterProvider, createMemoryRouter } from "react-router";
 import { RouteError } from "../src/routes/RouteError";
 import { useDeferred } from "../src/lib/deferred";
+import { StaleChunkGate } from "../src/routes/stale-chunk-gate";
 import { PROBE_TIMEOUT_MS, STALE_RELOAD_KEY, isChunkLoadError, listenForStaleChunks, recoverStaleChunk, resetStaleChunkForTests, type StaleChunkDeps } from "../src/lib/stale-chunk";
 
 // A tab opened before a deployment asks for chunks the host no longer serves (#589): it reloads once, never in a loop.
@@ -226,5 +227,46 @@ describe("useDeferred, a chunk loaded on demand (the Surrender dialog, the final
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(screen.queryByTestId("route-error")).toBeNull();
     expect(screen.getByText("waiting")).toBeTruthy();
+  });
+});
+
+describe("StaleChunkGate, a chunk whose caller keeps its failure (the renderer's, a prefetch)", () => {
+  it("shows the route's error page with Reload when the chunk is still gone after its reload, and Back home clears it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ status: 404 })));
+    sessionStorage.setItem(STALE_RELOAD_KEY + asset("ambient-particles-x.js"), "1");
+    const f = fakes(404);
+    f.store.set(STALE_RELOAD_KEY + asset("ambient-particles-x.js"), "1");
+    const target = new EventTarget() as Window;
+    listenForStaleChunks(target, f.deps);
+    const Layout = () => (
+      <>
+        <StaleChunkGate />
+        <Outlet />
+      </>
+    );
+    const router = createMemoryRouter([
+      { path: "/", element: <Layout />, errorElement: <RouteError />, children: [{ index: true, element: <p>board</p> }, { path: "home", element: <p>home</p> }] },
+    ]);
+    render(<RouterProvider router={router} />);
+    expect(await screen.findByText("board")).toBeTruthy();
+    const event = Object.assign(new Event("vite:preloadError"), { payload: chromium(asset("ambient-particles-x.js")) });
+    act(() => void target.dispatchEvent(event));
+    expect(await screen.findByRole("button", { name: "Reload" })).toBeTruthy();
+    expect(screen.getByTestId("route-error").textContent).toContain("ambient-particles-x.js");
+    expect(f.reload).not.toHaveBeenCalled();
+    await act(() => router.navigate("/home"));
+    expect(await screen.findByText("home")).toBeTruthy();
+  });
+
+  it("leaves a chunk the host still serves to its caller", async () => {
+    const f = fakes(200);
+    const target = new EventTarget() as Window;
+    listenForStaleChunks(target, f.deps);
+    render(<RouterProvider router={createMemoryRouter([{ path: "/", element: <><StaleChunkGate /><p>board</p></>, errorElement: <RouteError /> }])} />);
+    target.dispatchEvent(Object.assign(new Event("vite:preloadError"), { payload: chromium(asset("daynight-x.js")) }));
+    await vi.waitFor(() => expect(f.asked).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByTestId("route-error")).toBeNull();
+    expect(screen.getByText("board")).toBeTruthy();
   });
 });

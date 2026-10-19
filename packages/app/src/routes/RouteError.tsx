@@ -4,7 +4,7 @@ import { InlineError } from "../components/elements/inline-error";
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { Button } from "../components/ui/button";
 import { TopBar } from "../components/containers/top-bar";
-import { isChunkLoadError, recoverStaleChunk } from "../lib/stale-chunk";
+import { clearGoneChunk, isChunkLoadError, recoverStaleChunk } from "../lib/stale-chunk";
 import { errorDetail } from "./error-detail";
 import { useAppNavigate } from "./ref";
 
@@ -26,7 +26,10 @@ export function RouteError() {
   useEffect(() => {
     if (!chunk) return;
     let live = true;
-    void recoverStaleChunk(error).then((outcome) => live && outcome !== "reloading" && setChecking(false));
+    void recoverStaleChunk(error).then((outcome) => {
+      if (outcome !== "reloading") clearGoneChunk();
+      if (live && outcome !== "reloading") setChecking(false);
+    });
     return () => {
       live = false;
     };

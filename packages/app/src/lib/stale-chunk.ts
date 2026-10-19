@@ -120,13 +120,44 @@ export function recoverStaleChunk(error: unknown, deps: StaleChunkDeps = browser
 export function resetStaleChunkForTests(): void {
   pending.clear();
   reloading = false;
+  goneChunk = null;
+}
+
+/**
+ * A chunk still gone after the reload made for it, which its caller kept to itself (the renderer's chunks degrade with a
+ * warning, a prefetch drops its failure): `StaleChunkGate` throws it into the route, whose `RouteError` offers the Reload.
+ */
+let goneChunk: { error: unknown } | null = null;
+const goneListeners = new Set<() => void>();
+
+export function goneChunkError(): { error: unknown } | null {
+  return goneChunk;
+}
+
+export function subscribeGoneChunk(listener: () => void): () => void {
+  goneListeners.add(listener);
+  return () => goneListeners.delete(listener);
+}
+
+function setGoneChunk(next: { error: unknown } | null): void {
+  if (goneChunk === next) return;
+  goneChunk = next;
+  for (const listener of goneListeners) listener();
+}
+
+/** Forgets the gone chunk once `RouteError` shows it, so Back home does not throw it again. */
+export function clearGoneChunk(): void {
+  setGoneChunk(null);
 }
 
 /**
  * Vite's event for a failed dynamic import (every chunk of the app and the renderer goes through it): a stale build reloads
- * from there, a prefetch's failure included. The error still reaches its caller, which shows a `gone` file's error with a
- * Reload action (`RouteError`, `useDeferred`).
+ * from there, a prefetch's failure included. The error still reaches its caller; a `gone` file is also handed to
+ * `StaleChunkGate`, for the callers that keep their failure to themselves (#589).
  */
-export function listenForStaleChunks(target: Window = window): void {
-  target.addEventListener("vite:preloadError", (event) => void recoverStaleChunk((event as Event & { payload?: unknown }).payload));
+export function listenForStaleChunks(target: Window = window, deps: StaleChunkDeps = browserDeps): void {
+  target.addEventListener("vite:preloadError", (event) => {
+    const error = (event as Event & { payload?: unknown }).payload;
+    void recoverStaleChunk(error, deps).then((outcome) => outcome === "gone" && setGoneChunk({ error }));
+  });
 }
