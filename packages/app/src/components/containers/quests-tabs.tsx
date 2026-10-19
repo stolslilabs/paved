@@ -1,4 +1,3 @@
-import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 
@@ -11,16 +10,20 @@ export interface QuestsTabsProps {
   className?: string;
 }
 
-/** Limited (the quests) and Lifetime (the achievements), the two tabs of the Missions destination; the highlight slides between them (F3b's Tabs). */
+/**
+ * Limited (the quests) and Lifetime (the achievements), the two tabs of the Missions destination. One route each, so the
+ * Tabs remember the last tab (`rememberAs`) and the indicator slides across the route change. The list keeps one size on
+ * both pages: full width on a phone, the widest label twice from the tablet on (`w-fit`, never stretched).
+ */
 export function QuestsTabs({ active, onSelect, className }: QuestsTabsProps) {
   return (
-    <Tabs value={active} onValueChange={(v) => onSelect?.(v as QuestsTab)} className={className}>
-      <TabsList className={cn("w-full tablet:w-auto")}>
-        <TabsTrigger value="quests" className="flex-1 gap-2 px-4">
+    <Tabs value={active} rememberAs="missions" onValueChange={(v) => onSelect?.(v as QuestsTab)} className={className}>
+      <TabsList className="w-full tablet:w-fit">
+        <TabsTrigger value="quests" className="gap-2 px-4">
           <Icon name="scroll" size="sm" />
           Limited
         </TabsTrigger>
-        <TabsTrigger value="achievements" className="flex-1 gap-2 px-4">
+        <TabsTrigger value="achievements" className="gap-2 px-4">
           <Icon name="medal" size="sm" />
           Lifetime
         </TabsTrigger>
