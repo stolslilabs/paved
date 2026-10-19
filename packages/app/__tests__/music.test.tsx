@@ -521,7 +521,7 @@ describe("the images", () => {
   const PUBLIC = join(__dirname, "../public");
   const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]));
 
-  it("ships no original: the sources are in asset-sources/, public/ has only the WebP copies", () => {
+  it("ships no original: the sources are in music-sources/, public/ has only the WebP copies", () => {
     expect(readdirSync(join(PUBLIC, "music")).filter((n) => !n.endsWith(".m4a"))).toEqual([]);
     expect(sources()).toHaveLength(TRACK_LIST.length);
     for (const f of walk(PUBLIC)) expect(f.replace(PUBLIC, ""), "a URL-safe name").toMatch(/^[\w/.@-]+$/);
@@ -547,7 +547,7 @@ describe("the images", () => {
   });
 
   it("reads the size of a source JPEG and PNG", () => {
-    const dir = join(__dirname, "../asset-sources/music");
+    const dir = join(__dirname, "../music-sources");
     expect(imageSize(readFileSync(join(dir, "00-endless-kingdom.png")))).toEqual({ width: 1254, height: 1254 });
     expect(imageSize(readFileSync(join(dir, "02 - Fields of Morning Mist.jpeg")))).toEqual({ width: 1152, height: 864 });
   });

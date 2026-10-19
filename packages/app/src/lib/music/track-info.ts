@@ -4,7 +4,7 @@
 
 /**
  * The tracks, in album order (`FILES` of `tracks.ts`, which a test holds to this list): the file name and the real title, as
- * the album's images name them (`asset-sources/music/`): "The River's Path", not the file name's "the-rivers-path".
+ * the album's images name them (`packages/app/music-sources/`): "The River's Path", not the file name's "the-rivers-path".
  */
 export const TRACK_LIST: readonly (readonly [file: string, title: string])[] = [
   ["00-endless-kingdom", "Endless Kingdom"],

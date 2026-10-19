@@ -1,9 +1,10 @@
 /**
- * MUSIC-PLAYER (#569): the tracks' images, small square WebP copies of the originals in `asset-sources/music/`.
+ * MUSIC-PLAYER (#569): the tracks' images, small square WebP copies of the originals in `music-sources/`.
  *
  *   node scripts/compress-music-art.ts [--check]
  *
- * Reads `asset-sources/music/<nn> - <Title>.jpeg` (and `00-endless-kingdom.png`), left untouched and never shipped, and writes
+ * Reads `music-sources/<nn> - <Title>.jpeg` (and `00-endless-kingdom.png`), left untouched and never shipped (not in `public/`,
+ * and not in `asset-sources/`, which the Storybook serves whole), and writes
  * `public/music-art/<size>/<track>.webp` for each size of `ART_SIZES` (`src/lib/music/track-info.ts`), named after the track
  * (`03-market-day.webp`): the source's number picks the track. Each run removes the copies of an earlier one. `--check`
  * encodes nothing and fails when a copy is missing, extra, not a WebP, or not of its size: the bytes depend on the encoder's
@@ -22,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import { ART_SIZES, TRACK_LIST } from "../src/lib/music/track-info.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const SOURCE = resolve(HERE, "../asset-sources/music");
+export const SOURCE = resolve(HERE, "../music-sources");
 export const OUT = resolve(HERE, "../public/music-art");
 
 /** The quality per size: the thumbnail is seen at 64 px, so a lower quality does not show; the lock screen's is larger. */
@@ -119,7 +120,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
         after.set(size, (after.get(size) ?? 0) + statSync(out).size);
       }
     }
-    console.log(`originals: ${list.length} files, ${kib(before)} (asset-sources/, not shipped)`);
+    console.log(`originals: ${list.length} files, ${kib(before)} (music-sources/, not shipped)`);
     for (const [size, total] of after) console.log(`${size} px: ${list.length} files, ${kib(total)}`);
   }
 }

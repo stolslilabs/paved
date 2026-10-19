@@ -3485,7 +3485,7 @@ shell mounts the provider yet: only the stories do.
 Settings page and the board's sheet): the track's thumbnail, its title, a thin progress line with the time, and Previous,
 Play or Pause, Next; the Music slider above it is its volume. The titles are the album's (`TRACK_LIST` in `lib/music/tracks.ts`;
 `trackTitle` reads a file name only for a track not listed). The images' originals are sources in
-`packages/app/asset-sources/music/`, never shipped; `scripts/compress-music-art.ts` writes square WebP copies named after the
+`packages/app/music-sources/`, never shipped (neither by the app nor by the Storybook, which serves `asset-sources/` whole); `scripts/compress-music-art.ts` writes square WebP copies named after the
 tracks, `public/music-art/128/` (the 64 px thumbnail, loaded lazily when the player shows) and `512/` (the lock screen). The
 player keeps a history: `previous()` goes back through it with the crossfade (at its start, to the start of the track) and
 `skip()` forward again before drawing a new track. Pause is the setting, as before: it sets the music volume to 0 (remembered
