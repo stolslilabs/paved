@@ -94,6 +94,24 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     expect(within(again).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "open");
   });
 
+  it("the campaign just opened is the one in view, over a campaign remembered in the address (#592)", async () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
+    const router = createTestRouter("/story?campaign=1");
+    render(<App router={router} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    const opened = within(cards).getByRole("button", { name: /^Open Country/ });
+    expect(opened).toHaveAttribute("data-status", "unlocking");
+    expect(opened).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "Open Country" })).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
+    // A pick after that is the player's: the address keeps it.
+    await userEvent.click(within(cards).getByRole("button", { name: /^Tutorial/ }));
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=1"));
+    expect(screen.getByRole("region", { name: "Tutorial" })).toBeInTheDocument();
+  });
+
   it("plays level 1 to 3 stars on the board, records the run, claims First Stone, and opens level 2", async () => {
     const store = memoryStore();
     const wallet = fakeWallet({ address: PLAYER, claimEvents: CREDITED });
