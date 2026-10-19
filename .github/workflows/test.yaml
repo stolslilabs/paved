@@ -300,15 +300,16 @@ jobs:
         shell: bash
 
   # The Training battle test (P-79, packages/app/e2e): complete games played by a bot in headless Chromium on the plan
-  # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. Apart
-  # from the client job so that the two run side by side: this one builds only the workspace packages the dev server
-  # imports (their dist/), not the app's production build.
+  # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. It needs
+  # the client job: it plays a client that built and passed its tests, and a client that does not fails there first.
+  # Every path of the e2e filter is in the client filter, so the client job runs whenever this one would.
   e2e:
-    needs: changes
+    needs: [changes, client]
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     name: Training e2e (headless)
-    # About 1 min of tests locally for the default 2 games; the setup and the build come on top.
+    # About 1 min of tests locally for the default 2 games; the setup and the build come on top (the client job's time
+    # comes before it).
     timeout-minutes: 15
     permissions:
       contents: read
@@ -345,7 +346,8 @@ jobs:
       - name: Install
         if: steps.modules.outputs.cache-hit != 'true'
         run: bun install --frozen-lockfile
-      # The packages the app imports resolve to their dist/: game-core, chain and renderer, built as the client job builds them.
+      # The packages the app imports resolve to their dist/, which does not reach this runner from the client job's: game-core,
+      # chain and renderer are built again here, as the client job builds them.
       - name: Build the app's workspace packages
         run: bun run build --filter='@paved/app^...'
       # The browser of the wrap sweep: the one the app's playwright-core names, under the same cache key.
