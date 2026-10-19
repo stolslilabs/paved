@@ -10,8 +10,8 @@ import { cellIndex, type VoxelGrid } from "./voxelizer";
  * A window here is an air opening in a wall plane: up to 6 cells in a filled rectangle (1 x 1 to 3 x 2, and 4 x 1), with solid
  * all round it in the wall's plane (sides, lintel, sill), air in front, and behind it either solid (a recess, #513's windows)
  * or a room (#571: the houses and the towers are hollow, their walls one voxel thick, and their windows holes through them).
- * A door is the same opening standing on the ground slab and at least two cells high. The openings on the slab that are not
- * as tall (the gaps between trees and stones) are `gap`s: found, told apart, never lit.
+ * A door is the same opening standing on the ground slab and at least two cells high, lit as a window is (#583). The openings
+ * on the slab that are not as tall (the gaps between trees and stones) are `gap`s: found, told apart, never lit.
  *
  * The light volume holds, per air cell, the light the windows' openings cast on it (channel 0, 0 to 255) and the index of the
  * window that gave the most (channel 1, the window's owner in the list plus one, 0 for none). The light stops at the solid
@@ -67,7 +67,7 @@ export function windowCells(window: Window): Array<readonly [number, number, num
 }
 
 /** Why an opening that has a window's shape is not kept (`OpeningFilter`). */
-export type DropReason = "vegetation" | "unlit column";
+export type DropReason = "vegetation";
 
 export interface Found {
   windows: Window[];
@@ -80,23 +80,16 @@ export interface Found {
 /**
  * Which openings a building keeps (NIGHT-WINDOWS-2, #571). `vegetation`: the palette entries of leaves, trunks and grass
  * (`PaletteClasses.vegetation`); an opening whose wall (the solid ring round it, and its back) is mostly of them is a pocket in a
- * tree, not a window ("vegetation"). `lit`: the columns' lights (`lightColumns`, one byte a column of the 40 x 40 footprint, row
- * by row): when given, an opening is kept only on a lit column, its own or the one behind it ("unlit column"), the first pass's
- * rule, which drops every building farther than 2 columns from a road. A `Uint8Array` alone is `lit`. With neither, every
- * opening is kept.
+ * tree, not a window ("vegetation"). Without it, every opening is kept.
  */
 export interface OpeningFilter {
   readonly vegetation?: readonly number[];
-  readonly lit?: Uint8Array;
   /**
    * Only the recesses (solid behind), as the first pass (#513) found them: no opening through a wall, so no room either.
    * For the stories' comparison with the first pass.
    */
   readonly recessesOnly?: boolean;
 }
-
-/** The rule the renderer keeps windows by: the structures' (`vegetation`), or the first pass's lit columns (`lit`). */
-export type WindowRule = "structures" | "columns";
 
 /**
  * The greys the classifier's vegetation class holds (`#666b6e` to `#8b9194`: the rocks of a forest), which are also the walls of
@@ -107,15 +100,13 @@ const STONE_GREYS = new Set([184, 185, 187, 188]);
 /** The palette entries a window's wall cannot mostly be: a class table's vegetation but its greys. */
 export const plantEntries = (vegetation: readonly number[]): number[] => vegetation.filter((entry) => !STONE_GREYS.has(entry));
 
-const filterOf = (filter?: Uint8Array | OpeningFilter): OpeningFilter => (filter instanceof Uint8Array ? { lit: filter } : (filter ?? {}));
-
 /** Finds the openings of a grid and keeps those `filter` keeps (`OpeningFilter`). */
-export function detectWindows(grid: VoxelGrid, filter?: Uint8Array | OpeningFilter): Window[] {
+export function detectWindows(grid: VoxelGrid, filter?: OpeningFilter): Window[] {
   return findOpenings(grid, filter).windows;
 }
 
-export function findOpenings(grid: VoxelGrid, filter?: Uint8Array | OpeningFilter): Found {
-  const { lit, vegetation, recessesOnly } = filterOf(filter);
+export function findOpenings(grid: VoxelGrid, filter: OpeningFilter = {}): Found {
+  const { vegetation, recessesOnly } = filter;
   const plant = new Uint8Array(256);
   for (const entry of vegetation ?? []) plant[entry] = 1;
   const start = traceStart();
@@ -265,15 +256,6 @@ export function findOpenings(grid: VoxelGrid, filter?: Uint8Array | OpeningFilte
               continue;
             }
           }
-          if (lit) {
-            const column = (px: number, py: number) => (px >= 0 && py >= 0 && px < sizeX && py < sizeY ? lit[py * sizeX + px] : 0);
-            let lights = false;
-            for (let w = 0; w < width; w++) lights ||= column(first[0] + ax * w, first[1] + ay * w) === 1 || column(behindX + ax * w, behindY + ay * w) === 1;
-            if (!lights) {
-              drop("unlit column");
-              continue;
-            }
-          }
           windows.push(found);
         }
       }
@@ -293,7 +275,7 @@ export interface LightVolumeOptions {
   falloff: number;
   /** "flood" walks the air cells step by step; "rays" casts a short ray from the opening to each cell in reach. */
   method: VolumeMethod;
-  /** Which openings cast light: windows always, doors when set (a lit door is a lit door). */
+  /** Which openings cast light: windows always, doors when set (the default, #583: a door lights as a window), gaps never. */
   doors: boolean;
   /**
    * How far past the tile's border the light goes, in voxels (NIGHT-WINDOWS-2, #571): the flood walks on into flat air over
@@ -303,10 +285,10 @@ export interface LightVolumeOptions {
 }
 
 /**
- * The second pass's defaults (#571): a longer reach and a margin past the border (the first: 6, 1.5, 0). The falloff is steeper
- * than the first's: the second pass finds about ten times the windows, and a soft falloff floods a city's ground whole.
+ * The defaults (#583): the first pass's reach and falloff (#513: 6, 1.5), the doors lit with the windows, and the second pass's
+ * margin past the border (#571), as far as the light reaches.
  */
-export const DEFAULT_LIGHT_VOLUME: LightVolumeOptions = { reach: 7, falloff: 2, method: "flood", doors: true, margin: 6 };
+export const DEFAULT_LIGHT_VOLUME: LightVolumeOptions = { reach: 6, falloff: 1.5, method: "flood", doors: true, margin: 6 };
 
 /** The layers above the slab the spill keeps, the brightest of them (`WINDOW_SPILL_LAYERS`). */
 export const SPILL_LAYERS = WINDOW_SPILL_LAYERS;
@@ -566,7 +548,7 @@ function whenIdle(task: () => void): void {
 }
 
 /** Detects and bakes in one go. */
-export function bakeWindows(grid: VoxelGrid, filter?: Uint8Array | OpeningFilter, options: Partial<LightVolumeOptions> = {}): BakedWindows {
+export function bakeWindows(grid: VoxelGrid, filter?: OpeningFilter, options: Partial<LightVolumeOptions> = {}): BakedWindows {
   const began = performance.now();
   const windows = detectWindows(grid, filter);
   const detectMs = performance.now() - began;
@@ -586,7 +568,7 @@ export class WindowCache {
     return this.baked.get(key);
   }
 
-  request(key: string, grid: VoxelGrid, filter?: Uint8Array | OpeningFilter, options: Partial<LightVolumeOptions> = {}, skip?: () => boolean): Promise<BakedWindows | null> {
+  request(key: string, grid: VoxelGrid, filter?: OpeningFilter, options: Partial<LightVolumeOptions> = {}, skip?: () => boolean): Promise<BakedWindows | null> {
     const known = this.baked.get(key);
     if (known) return Promise.resolve(known);
     let pending = this.pending.get(key);

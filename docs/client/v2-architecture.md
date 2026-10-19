@@ -2680,9 +2680,9 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
   - **Only while the cycle moves** (fix loop 1). A still scene (reduced motion, the Low tier), a held moment (`freezeAt`) and the cycle off draw with the key light alone. The twin is not made, or is released and its shadow map disposed, so there is one shadow map and one lookup compiled. `dispose` releases the twin too, with the context kept or not.
   - Cost while it moves: two shadow lookups per fragment. A program recompile happens when the cycle starts or stops moving (the light count changes).
 - **The night lights.**
-  - FEATURE-HL's classifier gives each model a light map beside its label map (`lightColumns`): a city's columns, and the structures labelled none (stops, houses, arches, bridges) within 2 columns (`ROAD_LIGHT_REACH`) of a road column.
-  - The tile shader (`NIGHT_LIGHTS_GLSL`, its own branch, one `texelFetch`, nothing while off) lights a lit column's voxels above the ground. Each window (its column × its voxel level × its tile's cell, by an integer hash) has its own level at which it switches on over 0.15 of the night's ramp. The levels run to 1.6, so about half of the windows are lit at full night.
-  - A wall glows fully and a roof at 0.35. The colour is amber-300 `#ffb57a`, the strength 0.4.
+  - Since NIGHT-WINDOWS-DEFAULT (#583) the night lights are the buildings' windows and doors, the only source: the first build's lit columns (`lightColumns`, `NIGHT_LIGHTS_GLSL`) are removed.
+  - The openings are found in each model's voxel grid (`windows.ts`, NIGHT-WINDOWS #513 and #571): the recesses and the holes through the hollow houses' and towers' walls, on every wall, but the pockets in leaves. The doors (on the slab, two cells high or more) light as the windows do; the gaps (one cell high) never.
+  - Their light is baked per model type into a 3D texture (`NIGHT_WINDOWS_GLSL` reads it at the air cell in front of the face) and past the tile's border into the board's spill map: strength 0.4, reach 6 voxels, falloff 1.5 (the first pass's), margin 6. Each window (its owner × its tile's cell, by an integer hash) switches on over 0.15 of the night's ramp, spread over 0.85 of it, so every window is lit at full night. The colour is amber-300 `#ffb57a`.
   - The level rises with the keyframes: 0 by day, 0.3 to 0.45 at dawn, 0.6 to 0.7 at dusk, 1 at night.
   - Turning the lights on labels the models drawn, once each, in idle slices, as a highlight does.
   - The ghost holds them off, as it holds the highlight.
@@ -2690,7 +2690,7 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
 - **Settings.** `RendererSettings.dayNight` (off in the renderer). The app's Settings has a row, "Day/night cycle", on by default (`paved.settings.v1`, `dayNight`). The board's renderer gets `{ dayNight: { enabled } }`; the hand's tile (`TileView`) does not run the cycle.
 - **Stories.** "Renderer/DayNight":
   - Cycle, Fast (×10), SummerDay, SummerNight, AutumnDusk, WinterDawn, NightNoLights, ReducedMotion, SlotsAtNight, PlacedAtDusk and ForestAtNight.
-  - Controls: the cycle length, a phase to hold, the season, ×1/×10, the lights, their strength, the floor, reduced motion and the tier. The scene is exposed as `window.__dayNightScene`.
+  - Controls: the cycle length, a phase to hold, the season, ×1/×10, the lights, the floor, reduced motion and the tier. The scene is exposed as `window.__dayNightScene`.
   - "Scenes/Board" has DayNight (×10) and DayNightAtNight.
 
 **Measured** (the GPU, Chrome in new headless mode, never on screen; this branch's static Storybook; the recorded 72-tile board; outlines forced on; quality and pixel-ratio cap auto (Medium; 1.75 desktop, 2 phone-like); 1-minute loads 1.3 to 3.3).

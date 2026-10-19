@@ -116,48 +116,10 @@ export interface TileGrid {
   readonly cell: number;
 }
 
-/** A model's column labels and where its grid lies (`labelTileColumns`), and its night lights' columns (`lightColumns`). */
+/** A model's column labels and where its grid lies (`labelTileColumns`). */
 export interface TileColumns {
   readonly columns: ColumnLabels;
   readonly grid: TileGrid;
-  readonly lights: Uint8Array;
-}
-
-/** How far a structure may stand from a road, in columns (8 neighbours), to be one of the road's lit buildings. */
-export const ROAD_LIGHT_REACH = 2;
-
-/**
- * The columns whose voxels light at night (DAYNIGHT), one byte a column, row by row from the north-west corner (1 lit, 0
- * not): a city's columns, and the road's infrastructure, the structures labelled none (a stop, a house, an arch, a
- * bridge) that stand within `ROAD_LIGHT_REACH` columns of a road column. The tile shader lights only their voxels above
- * the ground (`NIGHT_LIGHTS_GLSL`).
- */
-export function lightColumns(tops: ColumnTops, columns: ColumnLabels, classes: PaletteClasses = BASE_PALETTE_CLASSES): Uint8Array {
-  const { size, entry } = tops;
-  const [roadEntries, vegetation] = [new Set(classes.road), new Set(classes.vegetation)];
-  const above = tops.groundTop + ABOVE_GROUND_VOXELS * tops.cell;
-  const lights = new Uint8Array(size * size);
-  for (let k = 0; k < size * size; k++) {
-    const feature = columns.feature[k];
-    if (feature === FEATURE_CODE.city) {
-      lights[k] = 1;
-      continue;
-    }
-    const structure = tops.height[k] > above && !vegetation.has(entry[k]) && !roadEntries.has(entry[k]);
-    if (feature !== FEATURE_CODE.none || !structure) continue;
-    const [x, y] = [k % size, Math.floor(k / size)];
-    search: for (let dy = -ROAD_LIGHT_REACH; dy <= ROAD_LIGHT_REACH; dy++) {
-      for (let dx = -ROAD_LIGHT_REACH; dx <= ROAD_LIGHT_REACH; dx++) {
-        const [nx, ny] = [x + dx, y + dy];
-        if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
-        if (columns.feature[ny * size + nx] === FEATURE_CODE.road) {
-          lights[k] = 1;
-          break search;
-        }
-      }
-    }
-  }
-  return lights;
 }
 
 /** A model's positions in its model's frame (the loaded scene's, Y up), and the footprint of the grid. */
@@ -493,8 +455,7 @@ export function classifyColumns(tops: ColumnTops, layout: PlanLayout, classes: P
 }
 
 /**
- * The column labels of a tile model's mesh (`classifyColumns`), its night lights' columns (`lightColumns`) and where its
- * grid lies in the model's frame: what the tile shader reads per fragment (`packLabels`, `TileRenderer`). `layout` is its plan's (`planLayout`); `toModel` takes the
+ * The column labels of a tile model's mesh (`classifyColumns`) and where its grid lies in the model's frame: what the tile shader reads per fragment (`packLabels`, `TileRenderer`). `layout` is its plan's (`planLayout`); `toModel` takes the
  * geometry's positions to the model's frame (Y up, the north to -Z), as the loaded scene places it.
  */
 export function labelTileColumns(
@@ -508,9 +469,8 @@ export function labelTileColumns(
   const frame = modelFrame(geometry, toModel, size);
   const tops = topsOf(geometry, frame, size);
   const columns = classifyColumns(tops, layout, classes);
-  const lights = lightColumns(tops, columns, classes);
   traceMeasure("labels", start);
-  return { columns, grid: { minX: frame.minX, minY: frame.minY, minZ: frame.minZ, cell: frame.cell }, lights };
+  return { columns, grid: { minX: frame.minX, minY: frame.minY, minZ: frame.minZ, cell: frame.cell } };
 }
 
 /**

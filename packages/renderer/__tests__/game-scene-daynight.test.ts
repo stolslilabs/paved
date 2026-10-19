@@ -112,26 +112,26 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     scene.dispose();
   });
 
-  it("hands the night lights' source to the tiles: windows when set, never while the cycle is still", async () => {
-    const lit = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false, lights: "windows" } });
-    expect(lit.tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", 0.4, "windows", DEFAULT_WINDOW_LIGHT);
+  it("hands the windows' light to the tiles by default (#583), never while the cycle is still", async () => {
+    const lit = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
+    expect(lit.tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", DEFAULT_WINDOW_LIGHT);
     lit.scene.dispose();
-    const still = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: true, lights: "windows" } });
-    expect(still.tiles.setNightLights).toHaveBeenLastCalledWith(false, "#ffb57a", 0.4, "windows", DEFAULT_WINDOW_LIGHT);
+    const still = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: true } });
+    expect(still.tiles.setNightLights).toHaveBeenLastCalledWith(false, "#ffb57a", DEFAULT_WINDOW_LIGHT);
     still.scene.dispose();
     // The windows' own light (#571), field by field over its defaults.
-    const tuned = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false, lights: "windows", windowLight: { margin: 0, intensity: 2 } } });
-    expect(tuned.tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, margin: 0, intensity: 2 });
+    const tuned = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false, windowLight: { margin: 0, intensity: 2 } } });
+    expect(tuned.tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", { ...DEFAULT_WINDOW_LIGHT, margin: 0, intensity: 2 });
     tuned.scene.dispose();
   });
 
-  it("on, draws the backdrop under a transparent scene, and lights the cities at night", async () => {
+  it("on, draws the backdrop under a transparent scene, and lights the windows at night", async () => {
     const { scene, renderer, effects, tiles, key } = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
     expect(scene.scene.background).toBeNull();
     expect(renderer.setClearColor).toHaveBeenLastCalledWith(0x000000, 0);
     const frame = dayNightFrame(2 + DAY_PHASE_AT.night, 0.85);
     expect(effects.setBackdrop).toHaveBeenLastCalledWith(true, frame.backdrop.top, frame.backdrop.bottom);
-    expect(tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", 0.4, "columns", DEFAULT_WINDOW_LIGHT);
+    expect(tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", DEFAULT_WINDOW_LIGHT);
     expect(tiles.setNightLevel).toHaveBeenLastCalledWith(1);
     expect(key().intensity).toBe(0);
     expect(scene.getDayNight()).toMatchObject({ season: "winter", phase: "night" });
@@ -202,7 +202,7 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
       const { scene, tiles, renders, frame } = await createScene(settings);
       expect(scene.getDayNight()).toMatchObject({ season: "spring", phase: "day" });
       expect(scene.getDayNight()!.position).toBe(DAY_PHASE_AT.day);
-      expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), expect.any(Number), "columns", DEFAULT_WINDOW_LIGHT);
+      expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), DEFAULT_WINDOW_LIGHT);
       frame();
       const after = renders.length;
       for (let i = 0; i < 10; i++) frame(50);
@@ -215,7 +215,7 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     const { scene, tiles } = await createScene({ quality: "low", dayNight: { enabled: true, season: "spring", freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
     expect(scene.getDayNight()).toMatchObject({ season: "spring", phase: "day" });
     expect(scene.getDayNight()!.position).toBe(DAY_PHASE_AT.day);
-    expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), expect.any(Number), "columns", DEFAULT_WINDOW_LIGHT);
+    expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), DEFAULT_WINDOW_LIGHT);
     scene.dispose();
   });
 
@@ -225,7 +225,7 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     expect(scene.scene.background).toBeInstanceOf(THREE.Color);
     expect(renderer.setClearColor).toHaveBeenLastCalledWith(0x000000, 1);
     expect(effects.setBackdrop).toHaveBeenLastCalledWith(false);
-    expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), expect.any(Number), "columns", DEFAULT_WINDOW_LIGHT);
+    expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), DEFAULT_WINDOW_LIGHT);
     expect(scene.getDayNight()).toBeNull();
     scene.dispose();
   });

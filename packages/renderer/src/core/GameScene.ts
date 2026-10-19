@@ -550,7 +550,7 @@ export class GameScene {
         this.renderer?.setClearColor(0x000000, 1);
         this.nightLevel = 0;
         this.ambientParticles?.setNight(0);
-        this.tiles.setNightLights(false, settings.nightLightColor, settings.nightLightIntensity, settings.lights, settings.windowLight);
+        this.tiles.setNightLights(false, settings.nightLightColor, settings.windowLight);
       }
       return;
     }
@@ -562,7 +562,7 @@ export class GameScene {
     // The scene is cleared to transparent: the finish pass lays the backdrop under what it leaves uncovered.
     this.scene.background = null;
     this.renderer.setClearColor(0x000000, 0);
-    this.tiles.setNightLights(settings.nightLights && !this.dayNightStill(), settings.nightLightColor, settings.nightLightIntensity, settings.lights, settings.windowLight);
+    this.tiles.setNightLights(settings.nightLights && !this.dayNightStill(), settings.nightLightColor, settings.windowLight);
     const now = performance.now();
     this.dayNightClock ??= new this.dayNight.DayNightClock(now, this.dayNight.pageCycleTime(now, settings.cycleMs));
     this.applyDayNight(this.dayNightSeasons());
