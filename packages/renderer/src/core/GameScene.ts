@@ -165,7 +165,11 @@ export class GameScene {
   /** The renderer's pixel ratio: device px per CSS px of the drawing buffer, the device's capped at `maxPixelRatio`. */
   private pixelRatio = 1;
 
-  private pointerDownPos: { x: number; y: number } | null = null;
+  /**
+   * The pointer a tap may come from: where and which pointer went down. `multi` is set when a second pointer went down
+   * before it came up (a two-finger pinch or tilt): that gesture places nothing, whatever its fingers' travel.
+   */
+  private pointerDownPos: { x: number; y: number; pointerId?: number; multi: boolean } | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
   private onTileHoverCallback: ((gridX: number, gridY: number) => void) | null = null;
   private onHoverLeaveCallback: (() => void) | null = null;
@@ -655,15 +659,25 @@ export class GameScene {
     this.boundInputHandler = (event: SurfaceInputEvent) => {
       if (event.type === "pointerdown") {
         if ((event.button ?? 0) === 0) {
-          this.pointerDownPos = { x: event.x, y: event.y };
+          const down = this.pointerDownPos;
+          if (down && event.pointerId !== undefined && down.pointerId !== undefined && event.pointerId !== down.pointerId) {
+            down.multi = true;
+            return;
+          }
+          this.pointerDownPos = { x: event.x, y: event.y, pointerId: event.pointerId, multi: false };
         }
+        return;
+      }
+
+      if (event.type === "pointercancel") {
+        this.pointerDownPos = null;
         return;
       }
 
       if (event.type === "pointerup") {
         if ((event.button ?? 0) === 0 && this.pointerDownPos) {
           const up = { x: event.x, y: event.y };
-          if (isClick(this.pointerDownPos, up, CLICK_THRESHOLD)) {
+          if (!this.pointerDownPos.multi && isClick(this.pointerDownPos, up, CLICK_THRESHOLD)) {
             const ndc = toNdc(event);
             if (!ndc) {
               this.pointerDownPos = null;

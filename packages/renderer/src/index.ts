@@ -6,7 +6,13 @@ export { TileRenderer } from "./core/TileRenderer";
 export type { LitTile } from "./core/TileRenderer";
 export { FEATURES } from "./core/feature-codes";
 export type { FeatureName } from "./core/feature-codes";
-export { CameraController, OPENING_DISTANCE_FACTOR } from "./core/CameraController";
+export {
+  CameraController,
+  CLOSEST_DISTANCE,
+  OPENING_DISTANCE_FACTOR,
+  PLAY_DEFAULT_POLAR_ANGLE,
+  PLAY_MAX_POLAR_ANGLE,
+} from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";
 export { NativeInputMapper } from "./core/native-input-mapper";

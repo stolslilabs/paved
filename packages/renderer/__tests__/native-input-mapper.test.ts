@@ -35,4 +35,16 @@ describe("NativeInputMapper", () => {
     expect(events[0].type).toBe("pinch");
     expect(events[0]).toMatchObject({ scale: 1.5 });
   });
+
+  it("emits tilt when two touches move up or down together, and no click after", () => {
+    const mapper = new NativeInputMapper();
+
+    mapper.handleStart({ pointerId: 1, x: 10, y: 100 });
+    mapper.handleStart({ pointerId: 2, x: 60, y: 100 });
+
+    expect(mapper.handleMove({ pointerId: 1, x: 10, y: 80 })).toEqual([{ type: "pinch", scale: Math.hypot(50, 20) / 50 }, { type: "tilt", dy: -10 }]);
+    expect(mapper.handleMove({ pointerId: 2, x: 60, y: 80 })).toEqual([{ type: "pinch", scale: 50 / Math.hypot(50, 20) }, { type: "tilt", dy: -10 }]);
+    expect(mapper.handleEnd({ pointerId: 1, x: 10, y: 80 })).toEqual([]);
+    expect(mapper.handleEnd({ pointerId: 2, x: 60, y: 80 })).toEqual([]);
+  });
 });
