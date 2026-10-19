@@ -29,6 +29,8 @@ export interface PlacementBoardProps {
   replayMs?: number;
   /** sequence: Validate's hold, ms (800 in the game). */
   holdMs?: number;
+  /** The voxel drop's clock (1 in the game; below 1 slows it, for a slowed capture played back faster). */
+  dropSpeed?: number;
   view: View;
   distance?: number;
   /** Draw every frame even when nothing moves, as the frame-time measures need. */
@@ -146,7 +148,7 @@ export function placementArgTypes(): Record<string, object> {
  * out); `board` off shows the plates alone. `sequence` plays the game's placement (#568). `data-ready` is set once the board
  * is drawn at the held view; `data-step` names the sequence's step.
  */
-export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, holdMs = 800, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
+export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, holdMs = 800, dropSpeed, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState("");
@@ -154,9 +156,9 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
   // The tour: hover, placed, then the confirm, every `replayMs`.
   const [phase, setPhase] = useState(0);
   const input = placementInput(args);
-  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset]);
+  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset, dropSpeed]);
   const settings = useMemo<RendererSettingsInput>(
-    () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
+    () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, ...(dropSpeed ? { voxelDrop: { speed: dropSpeed } } : {}), placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
     [key], // eslint-disable-line react-hooks/exhaustive-deps
   );
   // The measuring scripts (the GPU flicker check) drive the camera by the scene itself: exact pans and distances.
