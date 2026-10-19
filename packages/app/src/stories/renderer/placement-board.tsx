@@ -6,12 +6,12 @@ import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
 
-/** The placement states the story shows (SLOTS, P-68; PLATES, P-74). */
-export const PLACEMENT_STATES = ["idle", "in-hand", "placed", "placed-red", "confirm"] as const;
+/** The placement states the story shows (SLOTS, P-68; PLATES, P-74; PLACEMENT-TINTS): `tour` plays hover, placed and confirm in turn. */
+export const PLACEMENT_STATES = ["idle", "in-hand", "hover", "placed", "confirm", "tour"] as const;
 export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
 
 export interface PlacementBoardProps {
-  /** idle: no plate; in-hand: the plates; placed: the tile on a plate (a white rim, or red: its rotation does not fit); confirm: green, fading. */
+  /** idle: no plate; in-hand: the plates; hover: the tile blue at half opacity; placed: yellow; confirm: green, fading; tour: all three in turn. */
   state: PlacementStoryState;
   /** The board's tiles under the plates; off, the plates alone. */
   board?: boolean;
@@ -46,8 +46,8 @@ function boundsOf(): Bounds {
 export const BOUNDS = boundsOf();
 
 /**
- * The empty cells next to a tile, each a plate of the tile in hand: about a third valid (the current rotation fits), a
- * third possible (another does), a third invalid (none does). A story's stand-in for the engine's legality.
+ * The empty cells next to a tile, each a plate of the tile in hand: two thirds playable (some rotation fits), a third
+ * invalid (none does). A story's stand-in for the engine's legality.
  */
 export const SLOTS: PlacementSlot[] = (() => {
   const taken = new Set(tiles.map((t) => `${t.worldX},${t.worldZ}`));
@@ -56,7 +56,7 @@ export const SLOTS: PlacementSlot[] = (() => {
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const [x, y] = [t.worldX + dx, t.worldZ + dz];
       const k = (((x * 7 + y * 3) % 3) + 3) % 3;
-      if (!taken.has(`${x},${y}`)) slots.set(`${x},${y}`, k === 0 ? { x, y, fits: false, legal: false } : { x, y, fits: k === 2 });
+      if (!taken.has(`${x},${y}`)) slots.set(`${x},${y}`, k === 0 ? { x, y, legal: false } : { x, y });
     }
   }
   return [...slots.values()];
@@ -66,7 +66,7 @@ export const SLOTS: PlacementSlot[] = (() => {
 export const PLACED: HoverState = (() => {
   const cx = (BOUNDS.minX + BOUNDS.maxX) / 2 / TILE_SIZE;
   const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2 / TILE_SIZE;
-  const slot = SLOTS.filter((s) => s.fits && s.legal !== false).sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0]!;
+  const slot = SLOTS.filter((s) => s.legal !== false).sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0]!;
   return { x: slot.x, y: slot.y, valid: true, idle: true, placed: true, planIndex: BOARD_72.tiles[1].plan, orientation: BOARD_72.tiles[1].orientation };
 })();
 
@@ -99,7 +99,7 @@ export function placementInput(args: Record<string, unknown>): PlacementSettings
   return input as PlacementSettingsInput;
 }
 
-/** Storybook controls for every placement setting, in groups; the plates' and the aura's sizes in voxels. */
+/** Storybook controls for every placement setting, in groups; the plates' sizes in voxels. */
 export function placementArgTypes(): Record<string, object> {
   const types: Record<string, object> = {};
   const range = (min: number, max: number, step: number) => ({ control: { type: "range", min, max, step } });
@@ -109,23 +109,18 @@ export function placementArgTypes(): Record<string, object> {
     widthDevicePx: range(0.5, 3, 0.25),
     farFadeStart: range(0.85, 3, 0.05),
     "plates.gap": range(PLATE_GAP_VOXELS.min, PLATE_GAP_VOXELS.max, 0.5),
-    "plates.height": range(0.5, 8, 0.25),
-    "plates.radius": range(0, 20, 0.5),
-    "plates.bevel": range(0, 4, 0.25),
+        "plates.radius": range(0, 20, 0.5),
     invalidOpacity: range(0, 1, 0.01),
-    "aura.height": range(0, 6, 0.25),
-    falloff: range(0.5, 8, 0.25),
-    intensity: range(0, 1, 0.01),
-    placedFalloff: range(0.5, 10, 0.25),
-    placedIntensity: range(0, 1, 0.01),
     colorMs: range(0, 1000, 10),
+    hoverMs: range(0, 1000, 10),
+    pendingMs: range(0, 1000, 10),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };
-  const units: Record<string, string> = { plates: " voxels", aura: " voxels" };
+  const units: Record<string, string> = { plates: " voxels" };
   for (const [arg, [group, field]] of Object.entries(FIELDS)) {
     const value = (DEFAULT_PLACEMENT_SETTINGS[group] as Record<string, unknown>)[field];
-    const control = typeof value === "boolean" ? { control: "boolean" } : group === "colors" || field === "color" ? { control: "color" } : (spec[`${group}.${field}`] ?? spec[field] ?? { control: "number" });
+    const control = typeof value === "boolean" ? { control: "boolean" } : group === "colors" || /^color$|Color$/.test(field) ? { control: "color" } : (spec[`${group}.${field}`] ?? spec[field] ?? (group === "tints" ? range(0, 1, 0.01) : { control: "number" }));
     const unit = typeof value === "number" && units[group] && !/opacity|intensity/i.test(field) ? units[group] : "";
     types[arg] = { ...control, description: `${group}.${field} (default ${String(value)}${unit})`, table: { category: group } };
   }
@@ -136,9 +131,9 @@ export function placementArgTypes(): Record<string, object> {
 }
 
 /**
- * The recorded 72-tile board with the placement visuals in one state (PLATES, P-74): the plates of a tile in hand (valid
- * under their aura, possible, invalid), the tile placed on one (a white rim, or red when its rotation does not fit), and
- * the confirm (green, fading out); `board` off shows the plates alone. `data-ready` is set once the board is drawn at the
+ * The recorded 72-tile board with the placement visuals in one state (PLACEMENT-TINTS): the plates of a tile in hand
+ * (playable, invalid), the tile hovering (blue), placed (yellow), and the confirm
+ * (green, fading out); `board` off shows the plates alone. `data-ready` is set once the board is drawn at the
  * held view.
  */
 export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
@@ -146,6 +141,8 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState("");
   const [confirmKey, setConfirmKey] = useState(0);
+  // The tour: hover, placed, then the confirm, every `replayMs`.
+  const [phase, setPhase] = useState(0);
   const input = placementInput(args);
   const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset]);
   const settings = useMemo<RendererSettingsInput>(
@@ -170,6 +167,15 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
   }, [scene, view, distance]);
 
   // The confirm again and again, so its fade can be watched (and tuned).
+  useEffect(() => {
+    if (state !== "tour" || !ready) return;
+    const id = setInterval(() => setPhase((p) => (p + 1) % 3), Math.max(600, replayMs));
+    return () => clearInterval(id);
+  }, [state, ready, replayMs]);
+  useEffect(() => {
+    if (state === "tour" && phase === 2) setConfirmKey((k) => k + 1);
+  }, [state, phase]);
+
   useEffect(() => {
     if (state !== "confirm" || !ready) return;
     setConfirmKey((k) => k + 1);
@@ -201,14 +207,17 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
     return () => clearTimeout(id);
   }, [scene, readout]);
 
-  const slots = state === "in-hand" || state === "placed" || state === "placed-red" ? SLOTS : NO_SLOTS;
-  const hover = useMemo<HoverState | null>(
-    () => (!ready ? null : state === "placed" ? PLACED : state === "placed-red" ? { ...PLACED, valid: false } : null),
-    [state, ready],
-  );
-  const confirmed = useMemo(() => (state === "confirm" && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [state, ready, confirmKey]);
-  // Confirmed, the tile is on the board (as the game draws it after a move); the effects fade over it.
-  const shown = !board ? NO_TILES : state === "confirm" ? WITH_PLACED : tiles;
+  const confirming = state === "confirm" || (state === "tour" && phase === 2);
+  const slots = state === "idle" || confirming ? NO_SLOTS : SLOTS;
+  const hover = useMemo<HoverState | null>(() => {
+    if (!ready) return null;
+    if (state === "hover" || (state === "tour" && phase === 0)) return { ...PLACED, placed: false };
+    if (state === "placed" || (state === "tour" && phase === 1)) return PLACED;
+    return null;
+  }, [state, ready, phase]);
+  const confirmed = useMemo(() => (confirming && ready && confirmKey > 0 ? { ...PLACED, key: confirmKey } : null), [confirming, ready, confirmKey]);
+  // Confirmed, the tile is on the board (as the game draws it after a move); the tint fades over it.
+  const shown = !board ? NO_TILES : confirming ? WITH_PLACED : tiles;
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={ready || undefined}>

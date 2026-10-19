@@ -180,6 +180,8 @@ export class EngineGame {
   private _score = 0;
   private _built = 0;
   private _discarded = 0;
+  /** The plans (indexes of `PLANS`) of the discarded tiles, in order. */
+  private _discardedPlans: number[] = [];
   private _over = false;
   private held: { id: number; plan: number } | null = null;
   private counters = { structures: 0, forests: 0, wonders: 0, big: 0 };
@@ -232,6 +234,7 @@ export class EngineGame {
     game.board = this.board.clone();
     game.held = this.held ? { ...this.held } : null;
     game.counters = { ...this.counters };
+    game._discardedPlans = [...this._discardedPlans];
     return game;
   }
 
@@ -254,6 +257,10 @@ export class EngineGame {
   }
   get discarded(): number {
     return this._discarded;
+  }
+  /** The plans (chain plan ids) of the discarded tiles, in order. */
+  get discardedPlans(): readonly number[] {
+    return this._discardedPlans;
   }
   get over(): boolean {
     return this._over;
@@ -466,6 +473,7 @@ export class EngineGame {
       this.draw();
     }
     this._discarded += 1;
+    this._discardedPlans.push(held.plan);
     return {
       action: "discard",
       tileId: held.id,

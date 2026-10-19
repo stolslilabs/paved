@@ -97,15 +97,15 @@ describe("TileRenderer.setHover — position caching", () => {
     expect(getModelSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("rebuilds mesh when valid state changes at same position", () => {
+  it("rebuilds mesh when placed state changes at same position", () => {
     const assets = createMockAssetLoader();
     const getModelSpy = vi.spyOn(assets, "getModel");
     const tr = new TileRenderer(assets as any);
 
-    tr.setHover(makeHoverState({ x: 0, y: 0, valid: true }));
+    tr.setHover(makeHoverState({ x: 0, y: 0 }));
     const first = (tr as any).previewContainer;
 
-    tr.setHover(makeHoverState({ x: 0, y: 0, valid: false }));
+    tr.setHover(makeHoverState({ x: 0, y: 0, placed: true }));
 
     expect((tr as any).previewContainer).not.toBe(first);
     expect(getModelSpy).toHaveBeenCalledTimes(1);

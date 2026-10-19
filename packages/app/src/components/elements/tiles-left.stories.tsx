@@ -10,3 +10,5 @@ export const Default: Story = {};
 export const LastTile: Story = { args: { remaining: 1 } };
 /** WRAP360: the widest count a deck can show. */
 export const Stress: Story = { args: { remaining: 999 } };
+/** As the HUD gives it (#540): a button that opens the deck sheet. */
+export const Button: Story = { args: { onClick: () => {} } };

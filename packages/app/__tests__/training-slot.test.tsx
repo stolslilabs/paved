@@ -58,18 +58,14 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
 
     // The lit slots are the engine's legal placements at the hand's orientation, in the renderer's grid.
     const engine = replayTraining(SEED, []);
-    // The hand starts North: the plates' `fits` are those of that rotation.
     const orientation = 1;
-    const legal = engine.legalPlacements().filter((p) => p.orientation === ORIENTATIONS[orientation]);
     const plates = canvas.props!.availableSlots!;
     const lit = plates.filter((s) => s.legal !== false);
-    // Every legal cell in any rotation is a plate (PLATES); `fits` marks those of the hand's rotation; every other free
+    // Every legal cell in any rotation is a plate (PLATES); every other free
     // cell next to a tile is an invalid plate (`legal` false). `0 - y`, not `-y`: the grid's y is +0 on the starter's row,
     // never -0.
     const cells = (list: { x: number; y: number }[]) => [...new Set(list.map((c) => `${c.x},${c.y}`))].sort();
     expect(cells(lit)).toEqual(cells(engine.legalPlacements().map((p) => ({ x: p.x, y: 0 - p.y }))));
-    expect(lit.filter((s) => s.fits).map(({ x, y }) => ({ x, y }))).toEqual(legal.map((p) => ({ x: p.x, y: 0 - p.y })));
-    expect(plates.filter((s) => s.legal === false).every((s) => !s.fits)).toBe(true);
 
     // The player clicks the last lit slot, as the renderer reports it; the tile is placed on that cell in the first
     // rotation that fits there (the current one when it does), never in one that does not.

@@ -2377,6 +2377,27 @@ around the tile, not the plate's tint alone (reverse: lift the ghost onto its pl
 level, below the tiles' ground (2 voxels against 4); no tile in hand draws no plate; with the player's placement
 highlight off no plate is drawn (the slots stay clickable, as before).
 
+**PLACEMENT-TINTS (#543, the owner's decisions of 2026-10-18).** The halo (the plate's aura and the placed tile's rim) is
+gone, "not satisfying in any circumstance"; the states are filters on the tile model itself. It supersedes the aura, rim and
+plate-state text above where they differ.
+
+- **Tile in hand** (`TileRenderer`, ghost materials; the states and their ease are `PlacementRenderer`'s, `ghostTint`): hover
+  blue at 50 % opacity; pre-validation (placed, waiting for Place tile) yellow at 90 %; confirm a temporary green tint on the
+  tile the board then draws, fading to none over `motion.confirmMs`; placed (after the fade) none. There is no red: the board offers only
+  the rotations that fit (#544). Each look eases over its own time (`tints.hoverMs`, `tints.pendingMs`; the confirm over `motion.confirmMs`).
+  Every colour, strength (how far the model goes to the tint) and opacity is a `placement.tints` setting and a story control.
+- **How it is drawn.** The ghost's material is the tile's own program plus two lines before tone mapping (`mix` to the tint,
+  alpha times the ghost's opacity), a program of its own (`paved-tile-ghost`), tint uniforms shared per role. A translucent
+  voxel model does not sort its own faces, so each ghost mesh has a depth-only copy drawn just before it (`colorWrite` off,
+  `depthWrite` on) and the colour pass writes no depth with `depthFunc` LessEqual: only the nearest face shows, no inner face.
+  The ghost's edge outlines are hidden (opaque lines would read as a frame on a translucent model). The confirm is the same
+  model, translucent and green, laid over the placed tile (polygon offset against z-fighting) and removed when its fade ends.
+- **Plates.** Flat (one face looking up at the tiles' ground top, no side, no bevel), `plates.radius` 3 voxels (5 before),
+  two states (`plateStateOf`): playable (the old valid and possible, one blue, `plates.opacity` 0.6) and invalid (grey,
+  `plates.invalidOpacity` 0.25; 0.9 and 0.45 before). The plate under the tile in hand fades out (`plates.hideUnderTile`, on
+  by default: a translucent tile over a visible plate would show it through; turn it off in the story to judge).
+- **Plan view** (`BoardMap`, DOM): the same states with the palette's tokens; the tint is an overlay on the chip.
+
 ### 5.8 Loading (LOAD-FAST)
 
 **As built (LOAD-FAST, 2026-10-17).** The owner: "in the board scene's story, it takes several seconds before the assets
