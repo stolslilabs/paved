@@ -725,11 +725,13 @@ export function ScoreScreen2() {
 export function TileScreen2() {
   const is = useLook();
   const tile = TILES.cityRoad;
+  // The plan key's spots in game-core's `SpotType` order (centre, NW, N, NE, E, SE, S, SW, W): `cccccfrfc` at orientation 1 is a
+  // city on the north, east and west sides, the road out to the south, forest in the two southern corners.
   const sides = [
     { side: "North", icon: "city", label: "City" },
     { side: "East", icon: "city", label: "City" },
     { side: "South", icon: "road", label: "Road" },
-    { side: "West", icon: "tree", label: "Forest" },
+    { side: "West", icon: "city", label: "City" },
   ];
   return (
     <FlowShell2 title="Tile" realm={{ tall: RENDERS.heroTall, wide: RENDERS.heroWide }}>
