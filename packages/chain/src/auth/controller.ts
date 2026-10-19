@@ -61,9 +61,7 @@ export function controllerPolicies(
   const policies: ControllerPolicy[] = (Object.keys(CONTROLLER_ENTRY_POINTS) as Array<keyof typeof CONTROLLER_ENTRY_POINTS>)
     .filter((contract) => isAddress(deployment.addresses[contract]))
     .flatMap((contract) => CONTROLLER_ENTRY_POINTS[contract].map((method) => ({ target: deployment.addresses[contract], method })));
-  if (isAddress(deployment.faucet)) {
-    policies.push({ target: deployment.faucet, method: "mint", description: "Test USDC faucet" });
-  }
+  if (isAddress(deployment.faucet)) policies.push(faucetPolicy(deployment.faucet));
   if (options.economy && isAddress(options.economy)) policies.push({ target: options.economy, method: ECONOMY_ENTRY_POINT });
   return policies;
 }
@@ -76,19 +74,48 @@ function isAddress(value: string): boolean {
   }
 }
 
-/** A token's approve, allowance or transfer method, refused as a session policy (P-65). */
-const TOKEN_METHOD = /approve|allowance|transfer/i;
+/**
+ * The words of a method name that move a token or pull one from the player (P-65): an approve, an allowance or an
+ * approval (`set_approval_for_all`), a transfer, and the calls that pay with one: a deposit, a pay, a mint. A name is cut
+ * into words at `_` and at a capital (`transfer_from`, `setApprovalForAll`), and a word refused when it starts with one
+ * of these (`payment`, `minted`).
+ */
+const TOKEN_WORD = /^(approv|allowance|transfer|deposit|pay|mint)/i;
+
+/** The paid entry points that pull USDC with their approve (`Challenge.spawn`, `Setup.buy_pack`), by their exact names. */
+const TOKEN_PULLS: readonly string[] = ["spawn", "buy_pack"];
+
+/** Whether `method` moves or pulls a token, so is never a session policy (P-65). */
+export function isTokenMethod(method: string): boolean {
+  const words = method.split(/_|(?=[A-Z])/).filter(Boolean);
+  return TOKEN_PULLS.includes(method) || words.some((word) => TOKEN_WORD.test(word));
+}
+
+/** The faucet's policies built here (`faucetPolicy`): the one `mint` the guard lets through. */
+const faucetPolicies = new WeakSet<ControllerPolicy>();
 
 /**
- * The controller's `SessionPolicies` (`{ contracts: { [address]: { methods } } }`). A token method is refused (P-65): any
- * name with `approve`, `allowance` or `transfer` (`increase_allowance`, `transfer_from`...). The controller would execute an
- * approve policy once at connect, leaving a standing allowance of its cap, and its session key is a wildcard that the
- * keychain filters by (target, method) alone, so such a policy would sign that call to any spender or recipient.
+ * `Faucet.mint` on the deployment's Faucet (Sepolia): it mints test USDC to the caller and pulls nothing, so it is the one
+ * `mint` in the session. Only a policy built by this function passes the guard; a `mint` written by hand is refused.
+ */
+function faucetPolicy(target: string): ControllerPolicy {
+  const policy = { target, method: "mint", description: "Test USDC faucet" };
+  faucetPolicies.add(policy);
+  return policy;
+}
+
+/**
+ * The controller's `SessionPolicies` (`{ contracts: { [address]: { methods } } }`). A token method is refused (P-65,
+ * `isTokenMethod`): an approve, an allowance or an approval (`increase_allowance`, `set_approval_for_all`...), a transfer,
+ * and a call that pays with a token (`deposit`, `pay`, `mint`, the paid `spawn` and `buy_pack`); the faucet's `mint` alone
+ * passes. The controller would execute an approve policy once at connect, leaving a standing allowance of its cap, and its
+ * session key is a wildcard that the keychain filters by (target, method) alone, so such a policy would sign that call to
+ * any spender or recipient, and a pulling call would spend that allowance without a prompt.
  */
 export function toControllerSessionPolicies(policies: ControllerPolicy[]) {
   const contracts: Record<string, { methods: Array<{ entrypoint: string; description?: string }> }> = {};
   for (const p of policies) {
-    if (TOKEN_METHOD.test(p.method)) throw new Error(`No token approve in the session (P-65): ${p.method} prompts with its write`);
+    if (isTokenMethod(p.method) && !faucetPolicies.has(p)) throw new Error(`No token approve in the session (P-65): ${p.method} prompts with its write`);
     const target = getChecksumAddress(p.target);
     const method = { entrypoint: p.method, ...(p.description ? { description: p.description } : {}) };
     (contracts[target] ??= { methods: [] }).methods.push(method);

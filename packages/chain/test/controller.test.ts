@@ -3,8 +3,10 @@ import { describe, expect, test, vi } from "vitest";
 import { createCodecs } from "../src/abis";
 import {
   CONTROLLER_ENTRY_POINTS,
+  ECONOMY_ENTRY_POINT,
   controllerPolicies,
   createControllerConnector,
+  isTokenMethod,
   toControllerSessionPolicies,
   type ControllerModule,
   type ControllerPolicy,
@@ -178,6 +180,43 @@ describe("controllerPolicies against what the writers send (E3)", () => {
   test("P-65: a token method added to the policies (approve, increase_allowance, transfer_from...) is refused", () => {
     for (const method of ["increase_allowance", "transfer_from", "transfer", "increaseAllowance", "transferFrom"]) {
       expect(() => toControllerSessionPolicies([...policies, { target: ECON.usdc, method }]), method).toThrow(/P-65/);
+    }
+  });
+
+  test("P-65: an approval for all, and a call that pays with a token (deposit, pay, mint, the paid spawn and buy_pack), are refused", () => {
+    const refused = [
+      "set_approval_for_all",
+      "setApprovalForAll",
+      "approval",
+      "deposit",
+      "deposit_for",
+      "pay",
+      "payment",
+      "mint",
+      "safe_mint",
+      "mintTo",
+      "spawn",
+      "buy_pack",
+    ];
+    for (const method of refused) {
+      expect(isTokenMethod(method), method).toBe(true);
+      // On any target: the Vault, the Economy, a token, the game's contracts.
+      for (const target of [ECON.vault, ECON.economy, ECON.usdc, "0x2", "0x3"]) {
+        expect(() => toControllerSessionPolicies([...policies, { target, method }]), `${method} on ${target}`).toThrow(/P-65/);
+      }
+    }
+    // The faucet's mint is the one `mint` in the session, and only as `controllerPolicies` builds it: a copy is refused.
+    const faucet = policies.find((p) => p.method === "mint")!;
+    expect(() => toControllerSessionPolicies([faucet])).not.toThrow();
+    expect(() => toControllerSessionPolicies([{ ...faucet }])).toThrow(/P-65/);
+  });
+
+  test("P-65: every entry point of the session passes the token guard, and none is a token method", () => {
+    const listed = [...Object.values(CONTROLLER_ENTRY_POINTS).flat(), ECONOMY_ENTRY_POINT];
+    expect(listed.filter(isTokenMethod)).toEqual([]);
+    for (const ps of [policies, ...onEveryNetwork()]) {
+      const methods = Object.values(toControllerSessionPolicies(ps).contracts).flatMap((c) => c.methods.map((m) => m.entrypoint));
+      expect(methods.filter((m) => m !== "mint" && isTokenMethod(m))).toEqual([]);
     }
   });
 
