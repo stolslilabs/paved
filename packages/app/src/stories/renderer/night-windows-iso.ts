@@ -1,4 +1,4 @@
-import { lightOf, WALL_DIRECTIONS, windowCells, type LightVolume, type OpeningKind, type VoxelGrid, type Window } from "@paved/renderer";
+import { lightOf, spillOf, WALL_DIRECTIONS, windowCells, type LightVolume, type OpeningKind, type VoxelGrid, type Window } from "@paved/renderer";
 
 /**
  * An isometric view of a tile's voxel grid, drawn on a 2D canvas (the stories of NIGHT-WINDOWS, #513): the windows the detection
@@ -26,6 +26,13 @@ export interface IsoOptions {
   /** The light's colour (sRGB hex) and its strength. */
   lightColor: string;
   intensity: number;
+  /**
+   * Each window's switch-on, 0 to 1, by its owner (`LightVolume.owners`, NIGHT-WINDOWS-2): the light of a cell is its owner's
+   * share of it, as the tile shader gates it at a night's level. Unset: every window on.
+   */
+  switchOf?: (owner: number) => number;
+  /** Text drawn over the tile at a cell (x, y, layer): the structures' numbers of the readout. */
+  labels?: ReadonlyArray<{ x: number; y: number; layer: number; text: string }>;
 }
 
 export const MARK_COLORS: Record<OpeningKind | "unlit", string> = { window: "#22d3ee", door: "#e879f9", gap: "#9ca3af", unlit: "#fb923c" };
@@ -53,8 +60,10 @@ export function drawIso(canvas: HTMLCanvasElement, grid: VoxelGrid, options: Iso
   const { rotation, colors, scale, night, light, volume } = options;
   const n = grid.sizeX;
   const [tw, th, vh] = [scale * 2, scale, scale * 1.15];
-  const width = Math.ceil(n * tw + tw * 2);
-  const height = Math.ceil(n * th + grid.layers * vh + th * 4);
+  // The light past the border (#571) is drawn on the ground round the tile: room for it.
+  const pad = light === "volume" && volume ? volume.spill.margin : 0;
+  const width = Math.ceil((n + 2 * pad) * tw + tw * 2);
+  const height = Math.ceil((n + 2 * pad) * th + grid.layers * vh + th * 4);
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext("2d");
@@ -78,7 +87,7 @@ export function drawIso(canvas: HTMLCanvasElement, grid: VoxelGrid, options: Iso
     for (let k = 0; k < (4 - rotation) % 4; k++) [px, py] = [-py, px];
     return [px, py];
   };
-  const [ox, oy] = [width / 2, grid.layers * vh + th * 2];
+  const [ox, oy] = [width / 2, grid.layers * vh + th * 2 + pad * th];
   const project = (x: number, y: number, z: number): [number, number] => [ox + (x - y) * (tw / 2), oy + (x + y) * (th / 2) - z * vh];
 
   const lightRgb = hex(options.lightColor);
@@ -102,8 +111,11 @@ export function drawIso(canvas: HTMLCanvasElement, grid: VoxelGrid, options: Iso
     let lit = 0;
     if (light !== "none") {
       const [fx, fy, fl] = front;
-      if (light === "volume" && volume) lit = lightOf(volume, fx, fy, fl) / 255;
-      else if (windowCell.has(fx + n * (fy + n * fl))) lit = 1;
+      const value = volume ? lightOf(volume, fx, fy, fl) : 0;
+      // The window's (or its room's) owner's switch-on gates the light, as in the shader.
+      const on = volume && options.switchOf && value ? options.switchOf(volume.data[(fx + n * (fy + n * fl)) * 2 + 1]! - 1) : 1;
+      if (light === "volume" && volume) lit = (value / 255) * (value === 255 ? 2 : 1) * on;
+      else if (volume ? value === 255 : windowCell.has(fx + n * (fy + n * fl))) lit = on;
     }
     const k = Math.min(1.5, lit * options.intensity);
     return `rgb(${Math.min(255, Math.round(base[0]! + lightRgb[0] * k))},${Math.min(255, Math.round(base[1]! + lightRgb[1] * k))},${Math.min(255, Math.round(base[2]! + lightRgb[2] * k))})`;
@@ -119,6 +131,25 @@ export function drawIso(canvas: HTMLCanvasElement, grid: VoxelGrid, options: Iso
     context.lineWidth = 0.6;
     context.stroke();
   };
+
+  // The neighbours' ground past the border, lit by the spill: the slab's top, the tile's border dashed.
+  if (pad && volume) {
+    const top = grid.groundTop + 1;
+    const cells: Array<[number, number]> = [];
+    for (let y = -pad; y < n + pad; y++) for (let x = -pad; x < n + pad; x++) if (x < 0 || y < 0 || x >= n || y >= n) cells.push([x, y]);
+    cells.sort((a, b) => turnCell(...a).reduce((p, q) => p + q) - turnCell(...b).reduce((p, q) => p + q));
+    for (const [x, y] of cells) {
+      const value = spillOf(volume, x, y);
+      const on = value && options.switchOf ? options.switchOf(volume.spill.data[((y + pad) * volume.spill.size + x + pad) * 2 + 1]! - 1) : 1;
+      const k = Math.min(1.5, (value / 255) * on * options.intensity);
+      const base = night ? [14, 18, 30] : [200, 205, 210];
+      const [rx, ry] = turnCell(x, y);
+      polygon(
+        [project(rx, ry, top), project(rx + 1, ry, top), project(rx + 1, ry + 1, top), project(rx, ry + 1, top)],
+        `rgb(${Math.min(255, Math.round(base[0]! + lightRgb[0] * k))},${Math.min(255, Math.round(base[1]! + lightRgb[1] * k))},${Math.min(255, Math.round(base[2]! + lightRgb[2] * k))})`,
+      );
+    }
+  }
 
   for (const v of order) {
     const [x, y, l] = [grid.cells[v * 3]!, grid.cells[v * 3 + 1]!, grid.cells[v * 3 + 2]!];
@@ -164,6 +195,17 @@ export function drawIso(canvas: HTMLCanvasElement, grid: VoxelGrid, options: Iso
   };
   for (const w of options.windows) if (options.marks.has(w.kind)) mark(w, MARK_COLORS[w.kind]);
   if (options.marks.has("unlit")) for (const w of options.unlit) mark(w, MARK_COLORS.unlit);
+  context.font = `bold ${Math.max(10, Math.round(scale * 1.3))}px ui-monospace, monospace`;
+  context.textAlign = "center";
+  for (const label of options.labels ?? []) {
+    const [rx, ry] = turnCell(label.x, label.y);
+    const [px, py] = project(rx + 0.5, ry + 0.5, label.layer + 1);
+    context.lineWidth = 3;
+    context.strokeStyle = night ? "#0b1020" : "#ffffff";
+    context.strokeText(label.text, px, py - 4);
+    context.fillStyle = night ? "#f8fafc" : "#111827";
+    context.fillText(label.text, px, py - 4);
+  }
 }
 
 /** One layer of the light volume as a heat map: the light 0 to 255 on a dark ground, the solid cells in grey, the openings ringed. */

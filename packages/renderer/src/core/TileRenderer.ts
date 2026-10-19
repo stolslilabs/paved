@@ -16,7 +16,7 @@ import type { VoxelDropSettings } from "./voxel-drop-settings";
 // The classifier is its own chunk: loaded only once a highlight is first on (`scheduleLabels`), never for a board that
 // does not light anything.
 import type * as Classifier from "./features";
-import type { NightLightSource } from "./daynight-settings";
+import { DEFAULT_WINDOW_LIGHT, WINDOW_SPILL_LAYERS, type NightLightSource, type WindowLightSettings } from "./daynight-settings";
 // The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are set to "windows".
 import type * as Windows from "./windows";
 import type * as Voxelizer from "./voxelizer";
@@ -125,9 +125,12 @@ nightLit = smoothstep(at, at + 0.15, uNightLevel) * (normalize(vGridNormal).y > 
 
 // The night lights from the windows (NIGHT-WINDOWS, #513, `dayNight.lights` "windows"): the light volume baked per model type
 // (`windows.ts`, an RG8 3D texture over the model's grid: the light of the air cell, and the window that gives it the most) is
-// read at the air cell in front of the fragment's face, trilinearly. The window's own switch-on level, from the hash of its
-// index and the tile's cell, gates it, so each window lights up with its pool of light as the night comes; the openings' own
-// faces (light 1) are emissive twice over, so the bloom gives them a halo. A model with no volume yet reads the empty one: dark.
+// read at the air cell in front of the fragment's face, trilinearly. The window's own switch-on level (`windowOn`), from the hash
+// of its owner and the tile's cell, gates it, so each window lights up with its pool of light as the night comes; the openings'
+// own faces and the rooms seen through them (light 1) are emissive twice over, so the bloom gives them a halo. A model with no
+// volume yet reads the empty one: dark. Past a tile's border (#571), the board's spill map (`uWindowSpill`, one texel a voxel
+// of the board, `rebuildWindowSpill`) holds the light the neighbours' windows cast there, with the owner and its tile's cell:
+// the ground and the foot of the walls read it, gated by that window's own switch-on.
 export const NIGHT_WINDOWS_GLSL = /* glsl */ `
 if (uNightOn > 0.5 && uNightWindows > 0.5) {
 vec3 frontCell = vGrid + normalize(vGridNormal) * 0.5;
@@ -137,13 +140,30 @@ vec2 volumeTexel = texture(uWindowLight, volumeAt / vec3(volumeSize)).rg;
 ivec3 cellAt = clamp(ivec3(floor(volumeAt)), ivec3(0), volumeSize - 1);
 float owner = floor(texelFetch(uWindowLight, cellAt, 0).g * 255.0 + 0.5);
 if (volumeTexel.r > 0.0) {
-uvec2 c = uvec2(ivec2(vCell) + 4096);
+nightLit = windowOn(owner, vCell) * volumeTexel.r * (volumeTexel.r > 0.99 ? 2.0 : 1.0);
+}
+vec2 spillAt = vBoardVoxel - uSpillRect.xy;
+if (all(greaterThanEqual(spillAt, vec2(0.0))) && all(lessThan(spillAt, uSpillRect.zw))) {
+vec4 spill = texelFetch(uWindowSpill, ivec2(floor(spillAt)), 0);
+if (spill.r > 0.0) {
+float above = vGrid.y - ${(GROUND_VOXELS + WINDOW_SPILL_LAYERS).toFixed(1)};
+nightLit = max(nightLit, windowOn(floor(spill.g * 255.0 + 0.5), floor(spill.ba * 255.0 + 0.5) + uSpillCell) * spill.r * clamp(1.0 - above / 4.0, 0.0, 1.0));
+}
+}
+}
+`;
+
+// A window's switch-on (NIGHT-WINDOWS): the level of the night at which it lights, a hash of its owner (`windows.ts`: its own index
+// in its model's list, or its room's first window's) and its tile's cell, spread over 0 to 0.85 x `uWindowStagger` (#571: at 1,
+// every window is on by full night, its 0.15 ramp done; the columns' levels spread to 1.6, past the night's 1). Declared before main: the volume and the spill both call it.
+const WINDOW_SWITCH_GLSL = /* glsl */ `
+float windowOn(float owner, vec2 cell) {
+uvec2 c = uvec2(ivec2(cell) + 4096);
 uint h = (uint(owner) * 2654435761u) ^ c.x * 73856093u ^ c.y * 19349663u;
 h = (h ^ h >> 16) * 0x7feb352du;
 h = (h ^ h >> 15) * 0x846ca68bu;
-float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 1.6;
-nightLit = smoothstep(at, at + 0.15, uNightLevel) * volumeTexel.r * (volumeTexel.r > 0.99 ? 2.0 : 1.0);
-}
+float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * uWindowStagger * 0.85;
+return smoothstep(at, at + 0.15, uNightLevel);
 }
 `;
 
@@ -265,6 +285,14 @@ export class TileRenderer {
     uNightGlow: { value: 0 },
     // 1 when the night lights come from the windows' light volumes (`dayNight.lights`), 0 from the columns' map.
     uNightWindows: { value: 0 },
+    // The spread of the windows' switch-on levels (`WindowLightSettings.stagger`).
+    uWindowStagger: { value: DEFAULT_WINDOW_LIGHT.stagger },
+    // The board's spill map (`rebuildWindowSpill`): its first voxel and size (x, z, width, depth, in voxels of the board), the
+    // cell its owners' cells count from, and the voxels a world unit holds.
+    uWindowSpill: { value: emptySpillMap() },
+    uSpillRect: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uSpillCell: { value: new THREE.Vector2(0, 0) },
+    uSpillScale: { value: 0 },
   };
   /** Where the night lights come from (`setNightLights`). */
   private nightSource: NightLightSource = "columns";
@@ -272,8 +300,15 @@ export class TileRenderer {
   private windowsChunk: Promise<{ windows: typeof Windows; voxelizer: typeof Voxelizer }> | null = null;
   private voxelGrids: Voxelizer.VoxelCache | null = null;
   private windowBakes: Windows.WindowCache | null = null;
-  /** What each labelled geometry needs for its windows: its type's key, its geometry-to-model matrix and its lit columns. */
-  private windowSources = new Map<THREE.BufferGeometry, { key: string; toModel: THREE.Matrix4; lights: Uint8Array }>();
+  /**
+   * What each labelled geometry needs for its windows: its type's key, its geometry-to-model matrix, its lit columns (the
+   * "columns" rule) and its palette's vegetation (the "structures" rule).
+   */
+  private windowSources = new Map<THREE.BufferGeometry, { key: string; toModel: THREE.Matrix4; lights: Uint8Array; vegetation: readonly number[] }>();
+  /** The windows' light settings the volumes are baked with (`setNightLights`). */
+  private windowLight: WindowLightSettings = DEFAULT_WINDOW_LIGHT;
+  /** Each model type's baked light, by geometry: its volume's spill past the border, for the board's spill map. */
+  private windowSpills = new Map<THREE.BufferGeometry, Windows.LightVolume>();
   /** The geometries whose volume is asked for (asked once each). */
   private windowAsked = new Set<THREE.BufferGeometry>();
   /** Bumped when the windows' light is no longer wanted: a build asked before it stops at its next step. */
@@ -409,6 +444,7 @@ export class TileRenderer {
     this.placement.setTileCells(tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
     for (const key of this.tileCells.keys()) if (!currentKeys.has(key)) this.tileCells.delete(key);
     this.buildLitMap();
+    if (changed) this.rebuildWindowSpill();
     return changed;
   }
 
@@ -610,7 +646,7 @@ export class TileRenderer {
       const { columns, grid, lights } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
       uniforms.uLabelMap.value = labelMapTexture(classifier.packLabels(columns), columns.size);
       uniforms.uLightMap.value = labelMapTexture(lights, columns.size);
-      this.windowSources.set(child.geometry, { key, toModel, lights });
+      this.windowSources.set(child.geometry, { key, toModel, lights, vegetation: classifier.PALETTE_CLASSES[palette].vegetation });
       uniforms.uGridMatrix.value
         .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
         .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, -grid.minY, -grid.minZ))
@@ -638,13 +674,16 @@ export class TileRenderer {
           "uniform float uTileSize;",
           "uniform mat4 uGridMatrix;",
           "uniform mat4 uBoardInverse;",
+          "uniform float uSpillScale;",
           "varying vec3 vGrid;",
           "varying vec3 vGridNormal;",
           "flat varying vec2 vCell;",
+          "varying vec2 vBoardVoxel;",
           "void main() {",
           "  vGrid = (uGridMatrix * vec4(position, 1.0)).xyz;",
           "  vGridNormal = mat3(uGridMatrix) * normal;",
           "  vCell = floor((uBoardInverse * modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
+          "  vBoardVoxel = (uBoardInverse * modelMatrix * vec4(position, 1.0)).xz * uSpillScale;",
         ].join("\n"),
       );
       shader.fragmentShader = shader.fragmentShader
@@ -671,9 +710,15 @@ export class TileRenderer {
             "uniform sampler2D uLightMap;",
             "uniform float uNightWindows;",
             "uniform highp sampler3D uWindowLight;",
+            "uniform float uWindowStagger;",
+            "uniform sampler2D uWindowSpill;",
+            "uniform vec4 uSpillRect;",
+            "uniform vec2 uSpillCell;",
             "varying vec3 vGrid;",
             "varying vec3 vGridNormal;",
             "flat varying vec2 vCell;",
+            "varying vec2 vBoardVoxel;",
+            WINDOW_SWITCH_GLSL,
             "void main() {",
           ].join("\n"),
         )
@@ -732,17 +777,36 @@ export class TileRenderer {
   /**
    * The night lights of the day and night cycle (DAYNIGHT, `NIGHT_LIGHTS_GLSL`): on, the city voxels and the structures by
    * the roads glow `color` (sRGB hex) at `intensity` as the night's level rises (`setNightLevel`). Turning them on labels
-   * the models drawn, and those drawn later, once each, as a highlight does.
+   * the models drawn, and those drawn later, once each, as a highlight does. From the windows, `windowLight` gives their own
+   * strength and stagger, and what the volumes are baked with: a change of reach, falloff, margin, rule or detection bakes them again.
    */
-  setNightLights(on: boolean, color: string, intensity: number, source: NightLightSource = "columns"): void {
+  setNightLights(on: boolean, color: string, intensity: number, source: NightLightSource = "columns", windowLight: WindowLightSettings = DEFAULT_WINDOW_LIGHT): void {
     this.nightLights = on;
     this.nightSource = source;
     this.nightUniforms.uNightWindows.value = source === "windows" ? 1 : 0;
     this.nightUniforms.uNightOn.value = on ? 1 : 0;
     this.nightUniforms.uNightColor.value.set(color);
-    this.nightUniforms.uNightGlow.value = intensity;
+    this.nightUniforms.uNightGlow.value = source === "windows" ? windowLight.intensity : intensity;
+    this.nightUniforms.uWindowStagger.value = windowLight.stagger;
+    const baked = this.windowLight;
+    this.windowLight = windowLight;
+    if (baked.reach !== windowLight.reach || baked.falloff !== windowLight.falloff || baked.margin !== windowLight.margin || baked.rule !== windowLight.rule || baked.detection !== windowLight.detection) {
+      this.forgetWindowLights();
+    }
     this.applyHighlight();
     this.bakeWindowLights();
+  }
+
+  /** Lets go of every baked volume, its texture and the spill map (the bake's settings changed): the next bake starts over. */
+  private forgetWindowLights(): void {
+    this.windowEpoch++;
+    this.windowAsked.clear();
+    this.windowBakes?.clear();
+    for (const texture of this.windowTextures.splice(0)) texture.dispose();
+    this.windowTextureOf.clear();
+    this.windowSpills.clear();
+    for (const uniforms of this.labelMaps.values()) uniforms.uWindowLight.value = this.emptyWindowLight;
+    this.rebuildWindowSpill();
   }
 
   /**
@@ -782,7 +846,10 @@ export class TileRenderer {
             if (this.voxelGrids.peek(source.key) === undefined) retry();
             return;
           }
-          const baked = await this.windowBakes.request(source.key, grid, source.lights, {}, stale);
+          const { reach, falloff, margin, rule, detection } = this.windowLight;
+          const recessesOnly = detection === "recesses";
+          const filter = rule === "columns" ? { lit: source.lights, recessesOnly } : { vegetation: windows.plantEntries(source.vegetation), recessesOnly };
+          const baked = await this.windowBakes.request(source.key, grid, filter, { reach, falloff, margin }, stale);
           if (stale()) return;
           if (!baked) return retry();
           // One texture per model type, kept across mode switches: a type already uploaded is bound again, not allocated again.
@@ -803,10 +870,80 @@ export class TileRenderer {
           }
           const uniforms = this.labelMaps.get(geometry);
           if (uniforms) uniforms.uWindowLight.value = texture;
+          this.windowSpills.set(geometry, baked.volume);
+          this.rebuildWindowSpill();
           this.labelledListener?.();
         })
         .catch((error: unknown) => console.warn("[TileRenderer] the windows' light did not build:", error));
     }
+  }
+
+  /**
+   * The board's spill map (#571): the light the windows cast past their tile's border, one texel a voxel of the board, from
+   * the cells of the tiles given with a margin round them. Each placed tile whose type is baked writes its spill (`windows.ts`,
+   * `LightVolume.spill`) where it lands on the board, turned with the tile, the brightest winning; each texel holds its light,
+   * its owner and the owner's tile cell (so it switches on with that window). Built again when a type is baked, the tiles
+   * change or the bake's settings change; one texture, freed by `dispose`.
+   */
+  private rebuildWindowSpill(): void {
+    const uniforms = this.nightUniforms;
+    const previous = uniforms.uWindowSpill.value;
+    const clear = () => {
+      if (!uniforms.uSpillRect.value.z) return;
+      previous.dispose();
+      uniforms.uWindowSpill.value = emptySpillMap();
+      uniforms.uSpillRect.value.set(0, 0, 0, 0);
+    };
+    const margin = this.windowLight.margin;
+    if (!this.windowLightsWanted() || !margin || !this.windowSpills.size || !this.tileCells.size) return clear();
+    const cells = [...this.tileCells.values()];
+    const [minX, minZ] = [Math.min(...cells.map((c) => c[0])), Math.min(...cells.map((c) => c[1]))];
+    const [maxX, maxZ] = [Math.max(...cells.map((c) => c[0])), Math.max(...cells.map((c) => c[1]))];
+    const voxels = [...this.windowSpills.values()][0]!.sizeX;
+    const [width, depth] = [(maxX - minX + 1) * voxels + 2 * margin, (maxZ - minZ + 1) * voxels + 2 * margin];
+    // Past this the map would cost more than it shows (a board spread over 50 cells a side): no spill, the light stops at the border.
+    if (width > 2048 || depth > 2048 || maxX - minX > 255 || maxZ - minZ > 255) return clear();
+    const [originX, originZ] = [(minX - 0.5) * voxels - margin, (minZ - 0.5) * voxels - margin];
+    const data = new Uint8Array(width * depth * 4);
+    const scale = voxels / TILE_SIZE;
+    this.tileGroup.updateMatrixWorld(true);
+    const boardInverse = new THREE.Matrix4().copy(this.tileGroup.matrixWorld).invert();
+    const toBoard = new THREE.Matrix4();
+    const at = new THREE.Vector3();
+    for (const [key, entry] of this.tileMeshes) {
+      const cell = this.tileCells.get(key);
+      if (!cell || entry.pending) continue;
+      entry.mesh.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        const volume = this.windowSpills.get(child.geometry);
+        const gridMatrix = this.labelMaps.get(child.geometry)?.uGridMatrix.value;
+        if (!volume || !gridMatrix) return;
+        const { size, margin: own, data: spill } = volume.spill;
+        toBoard.copy(boardInverse).multiply(child.matrixWorld).multiply(new THREE.Matrix4().copy(gridMatrix).invert());
+        for (let sy = 0; sy < size; sy++) {
+          for (let sx = 0; sx < size; sx++) {
+            const i = (sy * size + sx) * 2;
+            const light = spill[i]!;
+            if (!light) continue;
+            // The texel's centre on the grid (x, the height, y), then on the board, in voxels from the map's corner.
+            at.set(sx - own + 0.5, 0, sy - own + 0.5).applyMatrix4(toBoard);
+            const [u, v] = [Math.floor(at.x * scale - originX), Math.floor(at.z * scale - originZ)];
+            if (u < 0 || v < 0 || u >= width || v >= depth) continue;
+            const o = (v * width + u) * 4;
+            if (light <= data[o]!) continue;
+            data[o] = light;
+            data[o + 1] = spill[i + 1]!;
+            data[o + 2] = cell[0] - minX;
+            data[o + 3] = cell[1] - minZ;
+          }
+        }
+      });
+    }
+    previous.dispose();
+    uniforms.uWindowSpill.value = spillMapTexture(data, width, depth);
+    uniforms.uSpillRect.value.set(originX, originZ, width, depth);
+    uniforms.uSpillCell.value.set(minX, minZ);
+    uniforms.uSpillScale.value = scale;
   }
 
   /** Whether the windows' light is wanted now: the night lights on, from the windows, the renderer alive. */
@@ -1312,6 +1449,8 @@ export class TileRenderer {
     for (const texture of this.windowTextures.splice(0)) texture.dispose();
     this.windowTextureOf.clear();
     this.emptyWindowLight.dispose();
+    this.nightUniforms.uWindowSpill.value.dispose();
+    this.windowSpills.clear();
     this.windowBakes?.clear();
     this.voxelGrids?.clear();
     this.windowSources.clear();
@@ -1354,6 +1493,22 @@ function emptyWindowLight(): THREE.Data3DTexture {
   const texture = new THREE.Data3DTexture(new Uint8Array(2), 1, 1, 1);
   texture.format = THREE.RGFormat;
   texture.type = THREE.UnsignedByteType;
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** The board's spill map with no light: one dark texel (the sampler is always bound). */
+function emptySpillMap(): THREE.DataTexture {
+  return spillMapTexture(new Uint8Array(4), 1, 1);
+}
+
+/** The board's spill map (`rebuildWindowSpill`): RGBA8, one texel a voxel, read by `texelFetch` (nearest, no mipmaps). */
+function spillMapTexture(data: Uint8Array, width: number, depth: number): THREE.DataTexture {
+  const texture = new THREE.DataTexture(data, width, depth, THREE.RGBAFormat, THREE.UnsignedByteType);
   texture.minFilter = THREE.NearestFilter;
   texture.magFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
