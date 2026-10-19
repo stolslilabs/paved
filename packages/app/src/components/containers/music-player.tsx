@@ -144,13 +144,13 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="numeric min-w-9 shrink-0 text-xs whitespace-nowrap text-muted-foreground" data-testid="music-position">
+        <span className="numeric min-w-10 shrink-0 text-xs whitespace-nowrap text-muted-foreground" data-testid="music-position">
           {formatTime(position)}
         </span>
         <span className="h-1 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
           <span className="block h-full rounded-full bg-primary" style={{ width: `${progress * 100}%` }} />
         </span>
-        <span className="numeric min-w-9 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground" data-testid="music-duration">
+        <span className="numeric min-w-10 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground" data-testid="music-duration">
           {duration > 0 ? formatTime(duration) : "--:--"}
         </span>
       </div>
