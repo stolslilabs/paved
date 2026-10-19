@@ -3,6 +3,7 @@ import type { GameView, ScoredStructure } from "@paved/chain";
 import { CategoryType, type ClosedStructure, type GameStats, type OpenStructure } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { useDeferred } from "../../lib/deferred";
+import { failedModuleUrl, reimport } from "../../lib/reimport";
 import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import { errorDetail } from "../../routes/error-detail";
 import { toastError } from "../containers/error-toast";
@@ -26,7 +27,18 @@ import { TopBar } from "../containers/top-bar";
 
 // The final board (#539) is its own chunk, with the renderer: loaded at the first "Board", and in the browser's idle time
 // once the scores are up, so the first switch finds it. The scores never wait for it.
-const loadFinalBoard = () => import("../containers/final-board");
+// A failed download is asked for again under another URL (`reimport`): the browser would answer the same `import()` with
+// the same failure, without a request, for the page's life.
+// The load that answered is kept, so a later switch asks for nothing; a failed one is forgotten, and the next tries again.
+type FinalBoardModule = typeof import("../containers/final-board");
+let finalBoardLoad: Promise<FinalBoardModule> | null = null;
+const loadFinalBoard = (): Promise<FinalBoardModule> =>
+  (finalBoardLoad ??= import("../containers/final-board")
+    .catch((e: unknown) => reimport<FinalBoardModule>(e))
+    .catch((e: unknown) => {
+      finalBoardLoad = null;
+      throw e;
+    }));
 const PREFETCH_AFTER_MS = 1500;
 
 /** What the over route shows: the scores, or the final board under them (the toggle switches, one tap each way). */
@@ -141,7 +153,9 @@ export function OverScene(props: OverSceneProps) {
     // Not wanted any more: the next "Board" turns it on again, and `useDeferred` loads again.
     setWanted(false);
     setView("scores");
-    toastError({ title: "Final board", message: "The board could not load. Check your connection and try again.", detail: errorDetail(e) });
+    // Where the failure names no URL (Safari), a new try cannot fetch it again: only a reload can.
+    const message = failedModuleUrl(e) ? "The board could not load. Check your connection and try again." : "The board could not load. Check your connection and reload the page.";
+    toastError({ title: "Final board", message, detail: errorDetail(e) });
   });
 
   const onBoard = view === "board";
