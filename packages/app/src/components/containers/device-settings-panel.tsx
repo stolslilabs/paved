@@ -92,7 +92,7 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
         <VolumeSlider label="Sound effects" value={p.sfxVolume} before={p.sfxBefore} onChange={(v) => onVolumeChange?.("sfx", v)} />
         {/* The music playing (#569), on the app's audio: its volume is the Music slider above. */}
         {/* A row of the card: the player's own card frame goes. */}
-        <LiveMusicPlayer className="rounded-none border-0 bg-transparent px-0 py-3" />
+        <LiveMusicPlayer enabled={p.musicVolume > 0} className="rounded-none border-0 bg-transparent px-0 py-3" />
       </SettingsGroup>
 
       <SettingsGroup title="Gameplay">

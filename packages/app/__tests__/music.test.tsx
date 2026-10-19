@@ -286,6 +286,21 @@ describe("previous, pause and resume", () => {
     player.destroy();
   });
 
+  it("cuts instead of fading when the host cannot seek to the track's last seconds", () => {
+    const { player, a, b } = make({ volume: 0.4 });
+    document.dispatchEvent(new Event("click"));
+    a.duration = 100;
+    a.currentTime = 10;
+    // Only the first 20 s are seekable (a host with no range requests serves none past what it sent).
+    (a as unknown as { seekable: TimeRanges }).seekable = { length: 1, start: () => 0, end: () => 20 } as unknown as TimeRanges;
+    player.skip();
+    expect(a.src).toBe("");
+    expect(b.src).not.toBe("");
+    expect(b.volume).toBeCloseTo(0.4);
+    expect(player.getState().track).toBe(b.src);
+    player.destroy();
+  });
+
   it("at the start of the history, previous goes back to the start of the track", () => {
     const { player, a } = make();
     document.dispatchEvent(new Event("click"));
@@ -625,6 +640,22 @@ describe("the MusicPlayer card", () => {
     expect(screen.getByRole("button", { name: "Play music" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Previous track" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Next track" })).toBeDisabled();
+  });
+
+  it("the first press plays, though the press itself unlocks the audio and Play turns into Pause before the click", () => {
+    vi.useRealTimers();
+    const on = { onPlay: vi.fn(), onPause: vi.fn() };
+    const { rerender } = render(<MusicPlayer {...props} unlocked={false} playing={false} {...on} />);
+    const button = screen.getByRole("button", { name: "Play music" });
+    fireEvent.pointerDown(button);
+    rerender(<MusicPlayer {...props} {...on} />);
+    expect(button).toHaveAccessibleName("Pause music");
+    fireEvent.click(button);
+    expect([on.onPlay.mock.calls.length, on.onPause.mock.calls.length]).toEqual([1, 0]);
+    // The next press reads the button as it is now.
+    fireEvent.pointerDown(button);
+    fireEvent.click(button);
+    expect(on.onPause).toHaveBeenCalledTimes(1);
   });
 
   it("an image that fails turns into the placeholder; the next track tries its own", () => {

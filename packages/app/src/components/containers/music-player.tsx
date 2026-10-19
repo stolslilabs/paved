@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { artOf } from "../../lib/music/tracks";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
@@ -73,6 +73,29 @@ function Thumbnail({ src, loading }: { src: string | null; loading: boolean }) {
  */
 export function MusicPlayer({ track, title, art, position, duration, enabled, unlocked, playing, loading, onPrevious, onNext, onPlay, onPause, className }: MusicPlayerProps) {
   const on = enabled && unlocked;
+  // What the button showed when it was pressed: the first press is also the gesture that unlocks the audio, and the card
+  // re-renders between the press and the click (Play turns into Pause), so the click alone would read the wrong one. The
+  // press is read on `window`, in the capture phase: before the document's listener that unlocks the audio re-renders the card.
+  const intent = useRef<"play" | "pause" | null>(null);
+  const shown = useRef(on);
+  shown.current = on;
+  const button = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const press = (e: Event) => {
+      if (button.current && e.target instanceof Node && button.current.contains(e.target)) intent.current = shown.current ? "pause" : "play";
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("keydown", press, true);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("keydown", press, true);
+    };
+  }, []);
+  const toggle = () => {
+    const action = intent.current ?? (on ? "pause" : "play");
+    intent.current = null;
+    (action === "play" ? onPlay : onPause)?.();
+  };
   const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
   return (
     <section aria-label="Music player" className={cn("flex flex-col gap-3 rounded-xl border border-border bg-card p-3", className)}>
@@ -88,13 +111,13 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="numeric w-9 text-xs text-muted-foreground" data-testid="music-position">
+        <span className="numeric min-w-10 shrink-0 text-xs whitespace-nowrap text-muted-foreground" data-testid="music-position">
           {formatTime(position)}
         </span>
         <span className="h-1 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
           <span className="block h-full rounded-full bg-primary" style={{ width: `${progress * 100}%` }} />
         </span>
-        <span className="numeric w-9 text-right text-xs text-muted-foreground" data-testid="music-duration">
+        <span className="numeric min-w-10 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground" data-testid="music-duration">
           {duration > 0 ? formatTime(duration) : "--:--"}
         </span>
       </div>
@@ -102,15 +125,9 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
         <Button size="icon" variant="ghost" className="size-11" aria-label="Previous track" disabled={!unlocked || track === null} onClick={onPrevious}>
           <Icon name="backward-step" size="md" />
         </Button>
-        {on ? (
-          <Button size="icon" className="size-11 rounded-full" aria-label="Pause music" onClick={onPause}>
-            <Icon name="pause" size="md" />
-          </Button>
-        ) : (
-          <Button size="icon" className="size-11 rounded-full" aria-label="Play music" onClick={onPlay}>
-            <Icon name="play" size="md" />
-          </Button>
-        )}
+        <Button size="icon" className="size-11 rounded-full" aria-label={on ? "Pause music" : "Play music"} ref={button} onClick={toggle}>
+          <Icon name={on ? "pause" : "play"} size="md" />
+        </Button>
         <Button size="icon" variant="ghost" className="size-11" aria-label="Next track" disabled={!unlocked} onClick={onNext}>
           <Icon name="forward-step" size="md" />
         </Button>
@@ -119,8 +136,11 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
   );
 }
 
-/** The player on the app's music (`AudioProvider`): what the settings show, on the page and in the board's sheet. */
-export function LiveMusicPlayer({ className }: { className?: string }) {
+/**
+ * The player on the app's music (`AudioProvider`): what the settings show, on the page and in the board's sheet. `enabled` is the
+ * music volume the settings show above 0, so the card and the Music slider never disagree.
+ */
+export function LiveMusicPlayer({ enabled, className }: { enabled: boolean; className?: string }) {
   const m = useMusic();
   return (
     <MusicPlayer
@@ -129,7 +149,7 @@ export function LiveMusicPlayer({ className }: { className?: string }) {
       art={m.track ? artOf(m.track, 128) : null}
       position={m.position}
       duration={m.duration}
-      enabled={m.volume > 0}
+      enabled={enabled}
       unlocked={m.unlocked}
       playing={m.playing}
       loading={m.loading}

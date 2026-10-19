@@ -134,6 +134,13 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
   const cur = () => elements[current]!;
   const other = () => elements[1 - current]!;
   const wants = () => enabled && unlocked && (!hidden || held) && tracks.length > 0;
+  // Whether the element can jump to `t`; one with no `seekable` (a test's) can.
+  const seekable = (a: HTMLAudioElement, t: number) => {
+    const r = a.seekable as TimeRanges | undefined;
+    if (!r) return true;
+    for (let k = 0; k < r.length; k++) if (r.start(k) <= t && t <= r.end(k)) return true;
+    return false;
+  };
   // An element with no `readyState` (a test's) reads as ready.
   const waiting = (a: HTMLAudioElement) => a.readyState < HAVE_FUTURE_DATA;
 
@@ -220,14 +227,16 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
     if (wants()) start();
   };
 
-  // Track `i` now: a fade on the current track's clock, jumped to its last CROSSFADE_S seconds; a cut when it cannot fade.
+  // Track `i` now: a fade on the current track's clock, jumped to its last CROSSFADE_S seconds; a cut when it cannot fade (no
+  // length known yet, or a host that cannot seek there: the fade would wait for the track's real end).
   const goTo = (i: number) => {
     const a = cur();
-    if (!wants() || index === null || !Number.isFinite(a.duration) || a.duration <= 0) {
+    const target = Math.max(a.currentTime, a.duration - CROSSFADE_S);
+    if (!wants() || index === null || !Number.isFinite(a.duration) || a.duration <= 0 || !seekable(a, target)) {
       cut(i);
       return;
     }
-    if (a.duration > CROSSFADE_S) a.currentTime = Math.max(a.currentTime, a.duration - CROSSFADE_S);
+    if (a.duration > CROSSFADE_S) a.currentTime = target;
     crossfade(i);
   };
 

@@ -60,7 +60,7 @@ function Live_() {
         setVolume(v);
       }}
     >
-      <LiveMusicPlayer />
+      <LiveMusicPlayer enabled={volume > 0} />
     </AudioProvider>
   );
 }
