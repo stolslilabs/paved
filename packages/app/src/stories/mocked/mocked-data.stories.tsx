@@ -3,14 +3,14 @@ import { fn } from "storybook/test";
 import { readPacks, type Definitions } from "@paved/chain";
 import { questCobbles } from "../../data/cobbles";
 import { MockLedger } from "../../data/mock/ledger";
-import { PURCHASE, QUESTS, THEME, VAULT } from "../../mocks/scenes";
+import { PURCHASE, QUESTS, THEME_SHOP, VAULT } from "../../mocks/scenes";
 import { QUEST_DEFINITIONS, QUESTS_TODAY } from "../../mocks/quests";
 import { PLAYER_ID } from "../../mocks/players";
 import { BALANCE_RICH } from "../../mocks/economy";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import { PurchaseScene, type PurchaseSceneProps } from "../../components/scenes/purchase-scene";
 import { QuestsScene, type QuestsSceneProps } from "../../components/scenes/quests-scene";
-import { ThemeScene, type ThemeSceneProps } from "../../components/scenes/theme-scene";
+import { ThemeShopScene, type ThemeShopSceneProps } from "../../components/scenes/theme-shop-scene";
 import { VaultScene, type VaultSceneProps } from "../../components/scenes/vault-scene";
 
 /**
@@ -130,7 +130,7 @@ export const PackBought: Story = {
   render: (_args, { loaded }) => <PurchaseScene {...(loaded.props as PurchaseSceneProps)} />,
 };
 
-/** Forest's skins on the mock after a pack: plan 13 (50 Cobbles) bought and set active, 0 Cobbles left. */
+/** Forest's shop on the mock after a pack: plan 13 (50 Cobbles) bought and set active, 0 Cobbles left. */
 export const SkinBoughtAndSet: Story = {
   loaders: [
     async () => {
@@ -139,14 +139,13 @@ export const SkinBoughtAndSet: Story = {
       await writes.buyPack({ packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null });
       await writes.buySkin({ theme: 1, plan: 13, confirmedPrice: 50 });
       await writes.setSkins([{ plan: 13, theme: 1 }]);
-      const skins = THEME.skins.skins;
-      const props = {
-        ...THEME.skins,
-        ...{ onSelect: fn(), onBack: fn(), onNavigate: fn(), onBrowse: fn(), onBuySkin: fn(), onToggleSkin: fn(), onSaveSkins: fn(), onDiscardSkins: fn(), onBuyCobbles: fn() },
-        skins: { ...skins, balance: (await l.account(PLAYER_ID)).cobbles, prices: await l.skinPrices(1), owned: await l.ownedSkins(PLAYER_ID, 1), active: await l.activeSkins(PLAYER_ID), changes: {} },
-      } as unknown as ThemeSceneProps;
+      const props: ThemeShopSceneProps = {
+        ...THEME_SHOP.forest,
+        ...{ onBack: fn(), onNavigate: fn(), onBuy: fn(), onBuyCobbles: fn(), onMyTiles: fn() },
+        skins: { balance: (await l.account(PLAYER_ID)).cobbles, prices: await l.skinPrices(1), owned: await l.ownedSkins(PLAYER_ID, 1), active: await l.activeSkins(PLAYER_ID) },
+      };
       return { props };
     },
   ],
-  render: (_args, { loaded }) => <ThemeScene {...(loaded.props as ThemeSceneProps)} />,
+  render: (_args, { loaded }) => <ThemeShopScene {...(loaded.props as ThemeShopSceneProps)} />,
 };

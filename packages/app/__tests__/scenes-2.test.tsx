@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
@@ -24,7 +24,7 @@ import { PAGE } from "../src/mocks/leaderboard";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
 import { ACHIEVEMENTS_MIXED, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO, QUESTS_WEEKLY_DONE } from "../src/mocks/quests";
 import { REFERRAL_LINK } from "../src/mocks/referral";
-import { ACHIEVEMENTS, LEADERBOARD, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
+import { ACHIEVEMENTS, LEADERBOARD, MY_TILES, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
@@ -327,7 +327,7 @@ describe("Settings", () => {
     expect(account).toHaveTextContent("bal7hazar");
     expect(account).toHaveTextContent("Connected 0x05f1…6e7f");
     await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
-    await userEvent.click(screen.getByRole("button", { name: /Theme.*Forest/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Themes/ }));
     await userEvent.click(screen.getByRole("button", { name: /Referral/ }));
     expect(onDisconnect).toHaveBeenCalledOnce();
     expect(onOpenTheme).toHaveBeenCalledOnce();
@@ -338,38 +338,81 @@ describe("Settings", () => {
     const onConnect = vi.fn();
     render(wrap(<SettingsScene {...SETTINGS.guest} onConnect={onConnect} />));
     expect(screen.getByRole("region", { name: "Account" })).toHaveTextContent("Guest");
-    expect(screen.getByRole("button", { name: /Theme.*Forest/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Themes/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     expect(onConnect).toHaveBeenCalledOnce();
   });
 });
 
 describe("Theme", () => {
-  it("offers Default and Forest, Snow, Desert and Volcano coming soon, each with its preview", async () => {
-    const onSelect = vi.fn();
-    render(wrap(<ThemeScene {...THEME.defaultSelected} onSelect={onSelect} />));
-    const group = screen.getByRole("radiogroup", { name: "Theme" });
-    expect(within(group).getAllByRole("radio")).toHaveLength(5);
-    expect(screen.getByRole("radio", { name: "Default" })).toHaveAttribute("aria-checked", "true");
-    for (const name of ["Snow", "Desert", "Volcano"]) expect(screen.getByRole("radio", { name: `${name}, coming soon` })).toBeDisabled();
-    expect(within(screen.getByRole("radio", { name: "Default" })).getAllByRole("img", { name: /^Tile / })).toHaveLength(18);
-    await userEvent.click(screen.getByRole("radio", { name: "Forest" }));
-    expect(onSelect).toHaveBeenCalledWith("forest");
-  });
+  const card = (name: string) => screen.getByRole("article", { name });
 
-  it("labels each tinted preview, and not Default's own art", () => {
-    render(wrap(<ThemeScene {...THEME.defaultSelected} />));
-    expect(within(screen.getByRole("radio", { name: "Default" })).queryByText("Preview")).not.toBeInTheDocument();
-    for (const name of ["Forest", "Snow, coming soon", "Desert, coming soon", "Volcano, coming soon"]) {
-      expect(within(screen.getByRole("radio", { name })).getByText("Preview")).toBeInTheDocument();
+  it("shows each theme with its real tiles: Default and Forest to use, Snow, Desert and Volcano coming soon under a blur", () => {
+    const { container } = render(wrap(<ThemeScene {...THEME.mixed} />));
+    expect(within(screen.getByRole("region", { name: "Themes" })).getAllByRole("article")).toHaveLength(5);
+    // The covers are the build-time renders, never tinted chips.
+    expect(within(card("Forest")).getByRole("img", { name: "Forest: a few of its tiles" })).toHaveAttribute("src", expect.stringMatching(/\/renders\/cover\.1\.[0-9a-f]{10}\.webp$/));
+    expect(container.querySelector("[style*=filter]")).toBeNull();
+    for (const name of ["Snow", "Desert", "Volcano"]) {
+      expect(within(card(name)).getByText("Coming soon")).toBeInTheDocument();
+      expect(within(card(name)).queryByRole("button")).not.toBeInTheDocument();
+      expect(within(card(name)).queryByRole("img")).not.toBeInTheDocument();
     }
-    expect(screen.getAllByTestId("preview-label")).toHaveLength(4);
+    expect(container.querySelectorAll("img.blur-xl")).toHaveLength(3);
+    expect(card("Forest")).toHaveTextContent("4 / 19 tiles");
+    expect(card("Default")).toHaveTextContent("19 / 19 tiles");
   });
 
-  it("shows Forest in use", () => {
-    render(wrap(<ThemeScene {...THEME.forestSelected} />));
-    expect(screen.getByRole("radio", { name: "Forest" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("radio", { name: "Default" })).toHaveAttribute("aria-checked", "false");
+  it("uses a theme in one write when no tile-by-tile choice is lost", async () => {
+    const onUse = vi.fn();
+    render(wrap(<ThemeScene {...THEME.forestInUse} onUse={onUse} />));
+    expect(within(card("Forest")).getByRole("button", { name: "Forest in use" })).toBeDisabled();
+    await userEvent.click(within(card("Default")).getByRole("button", { name: "Use Default" }));
+    expect(onUse).toHaveBeenCalledWith("default", { 7: 0, 8: 0, 10: 0, 13: 0 });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("asks first when using a theme replaces a tile-by-tile mix", async () => {
+    const onUse = vi.fn();
+    render(wrap(<ThemeScene {...THEME.mixed} onUse={onUse} />));
+    expect(screen.getByRole("button", { name: /My tiles/ })).toHaveTextContent("Your own mix");
+    await userEvent.click(within(card("Forest")).getByRole("button", { name: "Use Forest" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("This changes 2 tiles");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep my mix" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(onUse).not.toHaveBeenCalled();
+    await userEvent.click(within(card("Forest")).getByRole("button", { name: "Use Forest" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Use Forest" }));
+    expect(onUse).toHaveBeenCalledWith("forest", { 7: 1, 8: 1 });
+  });
+
+  it("with nothing owned, Default is in use and Forest's shop says Buy tiles", async () => {
+    const onOpen = vi.fn();
+    render(wrap(<ThemeScene {...THEME.defaultInUse} onOpen={onOpen} />));
+    expect(within(card("Default")).getByRole("button", { name: "Default in use" })).toBeDisabled();
+    expect(within(card("Forest")).getByRole("button", { name: "Use Forest" })).toBeDisabled();
+    await userEvent.click(within(card("Forest")).getByRole("button", { name: "Forest tiles" }));
+    expect(onOpen).toHaveBeenCalledWith("forest");
+    expect(within(card("Default")).queryByRole("button", { name: "Default tiles" })).not.toBeInTheDocument();
+  });
+
+  it("shows a write on its way, the other Use buttons waiting, and a refusal", () => {
+    const { unmount } = render(wrap(<ThemeScene {...THEME.applying} />));
+    expect(within(card("Forest")).getByRole("button", { name: "Use Forest" })).toHaveAttribute("aria-busy", "true");
+    expect(within(card("Default")).getByRole("button", { name: "Use Default" })).toBeDisabled();
+    unmount();
+    render(wrap(<ThemeScene {...THEME.refused} />));
+    expect(screen.getByText(/is not yours/)).toBeInTheDocument();
+  });
+
+  it("asks a guest to connect, the covers still shown", async () => {
+    const onConnect = vi.fn();
+    render(wrap(<ThemeScene {...THEME.guest} onConnect={onConnect} />));
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onConnect).toHaveBeenCalledOnce();
+    expect(within(card("Forest")).getByRole("button", { name: "Use Forest" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /My tiles/ })).not.toBeInTheDocument();
   });
 });
 
@@ -599,8 +642,8 @@ describe("Referral", () => {
 });
 
 describe("SC2 stories", () => {
-  const fixtures = { leaderboard: LEADERBOARD, player: PLAYER_PAGE, vault: VAULT, settings: SETTINGS, theme: THEME, quests: QUESTS, achievements: ACHIEVEMENTS, referral: REFERRAL };
-  const names = { leaderboard: "LEADERBOARD", player: "PLAYER_PAGE", vault: "VAULT", settings: "SETTINGS", theme: "THEME", quests: "QUESTS", achievements: "ACHIEVEMENTS", referral: "REFERRAL" } as const;
+  const fixtures = { leaderboard: LEADERBOARD, player: PLAYER_PAGE, vault: VAULT, settings: SETTINGS, theme: THEME, "theme-shop": THEME_SHOP, "my-tiles": MY_TILES, quests: QUESTS, achievements: ACHIEVEMENTS, referral: REFERRAL };
+  const names = { leaderboard: "LEADERBOARD", player: "PLAYER_PAGE", vault: "VAULT", settings: "SETTINGS", theme: "THEME", "theme-shop": "THEME_SHOP", "my-tiles": "MY_TILES", quests: "QUESTS", achievements: "ACHIEVEMENTS", referral: "REFERRAL" } as const;
 
   // One story per state (the owner, through the PM, 2026-10-14): the viewport is the toolbar's global (VP), never a story each.
   it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s in one story, at no fixed viewport", (scene) => {

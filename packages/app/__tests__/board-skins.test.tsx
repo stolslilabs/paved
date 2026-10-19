@@ -5,6 +5,7 @@ import { getPlanKey, Plan } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { useBoardSkins } from "../src/data/board-skins";
+import { THEME_KEY } from "../src/data/skins";
 import { GAME_PLAYING } from "../src/mocks/games";
 import { PLAYER_ID } from "../src/mocks/players";
 import { createTestRouter } from "../src/routes/router";
@@ -59,6 +60,19 @@ describe("useBoardSkins", () => {
     fakes.views.skinPlayer(PLAYER_ID).active = active({ 3: 2 });
     const { result } = renderData(() => useBoardSkins(PLAYER_ID), fakes.sources);
     await waitFor(() => expect(result.current).toEqual({ [key(3)]: 2 }));
+  });
+
+  it("a viewer who hides other players' skins still sees their own, and no other player's is read", async () => {
+    localStorage.setItem(THEME_KEY, "default");
+    const fakes = fakeSources({ signer: signer(VIEWER) });
+    fakes.views.skinPlayer(VIEWER).active = active({ 7: 1 });
+    fakes.views.skinPlayer(PLAYER_ID).active = active({ 9: 1 });
+    const own = renderData(() => useBoardSkins(VIEWER), fakes.sources);
+    await waitFor(() => expect(own.result.current).toEqual({ [key(7)]: 1 }));
+    const other = renderData(() => useBoardSkins(PLAYER_ID), fakes.sources);
+    expect(other.result.current).toBe(NO_SKINS);
+    expect(fakes.views.calls).not.toContain(`active_skins ${BigInt(PLAYER_ID)}`);
+    localStorage.removeItem(THEME_KEY);
   });
 
   it("is no skin for a guest, with nothing read", () => {

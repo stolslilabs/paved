@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { NO_SKINS, skinsOf, type TileSkins } from "@paved/renderer";
+import { addressKey } from "./keys";
 import { skinKeys, skinViews, useShowSkins } from "./skins";
 import { useDataSources } from "./sources";
 import type { BoardViewportProps } from "../components/containers/board-viewport";
@@ -13,13 +14,16 @@ import type { TileViewProps } from "../components/containers/tile-view";
  * The tile skins of `playerId` (`active_skins(player)`, as `TileSkins`), for the board to draw: a Challenge game's player
  * (anyone viewing that game sees its player's skins), or the connected player in Training and the tutorial. `NO_SKINS`
  * (every tile on its base model) for a guest (null), without the skins views, while the read is on its way, and when it
- * fails. And `NO_SKINS` for a viewer who opted out on this device (`useShowSkins`), with no read made: the renderer then
- * asks for no variant, so no skin model is downloaded.
+ * fails. And `NO_SKINS` for another player's board when the viewer opted out on this device (`useShowSkins`, "Show other
+ * players' skins"), with no read made: the renderer then asks for no variant, so no skin model is downloaded. The viewer's
+ * own tiles always wear the skins they chose (THEMES-RENDERS: the theme is a choice on chain, not this switch).
  */
 export function useBoardSkins(playerId: string | null): TileSkins {
-  const { views } = useDataSources();
+  const { views, signer } = useDataSources();
   const skins = skinViews(views);
-  const [show] = useShowSkins();
+  const [showOthers] = useShowSkins();
+  const own = playerId !== null && signer?.address != null && addressKey(signer.address) === addressKey(playerId);
+  const show = showOthers || own;
   const read = useQuery({
     queryKey: skinKeys.active(playerId ?? "0x0"),
     queryFn: () => skins!.activeSkins(playerId!),
