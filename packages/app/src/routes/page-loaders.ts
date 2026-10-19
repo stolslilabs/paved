@@ -33,6 +33,8 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   vault: () => import("./pages/vault"),
   referral: () => import("./pages/referral"),
   "settings/theme": () => import("./pages/theme"),
+  "settings/theme/:theme": () => import("./pages/theme-shop"),
+  "settings/tiles": () => import("./pages/my-tiles"),
   "settings/credits": () => import("./pages/credits"),
   settings: () => import("./pages/settings"),
 };
