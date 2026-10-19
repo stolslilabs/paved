@@ -3,6 +3,7 @@ import clsx from "clsx";
 import type { Tab } from "../routes/pages";
 import { NAV_TABS } from "../components/containers/app-nav";
 import { Brand, DButton, Icon, OVERLAY, TileArt, useDir, type Force } from "./kit";
+import { NavD, NavE, NavF } from "./nav-2";
 
 /*
  * The navigation of each direction (#537): own pattern, own states. None of them is the bottom bar with a sliding indicator
@@ -129,7 +130,7 @@ function NavC({ active, force }: NavProps) {
 }
 
 export type { NavProps };
-const NAVS = { a: NavA, b: NavB, c: NavC };
+const NAVS = { a: NavA, b: NavB, c: NavC, d: NavD, e: NavE, f: NavF };
 
 /** The direction's navigation, for the States story and the shells. */
 export function DNav(props: NavProps) {
