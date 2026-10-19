@@ -12,20 +12,13 @@ export type Season = (typeof SEASONS)[number];
 export const DAY_PHASES = ["dawn", "day", "dusk", "night"] as const;
 export type DayPhase = (typeof DAY_PHASES)[number];
 
-/** The sources of the night lights. */
-export const NIGHT_LIGHT_SOURCES = ["columns", "windows"] as const;
-export type NightLightSource = (typeof NIGHT_LIGHT_SOURCES)[number];
-
-/** Which openings light: every structure's ("structures", #571) or only those on the columns lit today ("columns", #513). */
-export const WINDOW_RULES = ["structures", "columns"] as const;
-export type WindowRuleSetting = (typeof WINDOW_RULES)[number];
-
 /**
- * The windows' light (NIGHT-WINDOWS-2, #571), when the night lights come from the windows (`lights` "windows"). The columns keep
- * `nightLightIntensity`; these are the windows' own, so their defaults move nothing on the board as it is.
+ * The windows' light (NIGHT-WINDOWS-2, #571; the board's night lights since NIGHT-WINDOWS-DEFAULT, #583): the windows and the
+ * doors of the buildings, found in the models, and the light they cast. The strength, reach and falloff are the first pass's
+ * (#513); the detection is the second's.
  */
 export interface WindowLightSettings {
-  /** The emissive strength of the windows and of their pools of light (the columns' is `nightLightIntensity`, 0.4). */
+  /** The emissive strength of the windows, the doors and their pools of light. */
   intensity: number;
   /** How far a window's light reaches, in voxels (a tile is 40). */
   reach: number;
@@ -34,12 +27,10 @@ export interface WindowLightSettings {
   /** How far past the tile's border the light goes, in voxels, onto the neighbours' ground (0: it stops at the border). */
   margin: number;
   /**
-   * The spread of the windows' switch-on levels over the night's ramp (the hash of each window, as the columns'): at 1 every
-   * window is on by full night and most of them at dusk; the columns' spread (1.6) leaves about half of them dark all night.
+   * The spread of the windows' switch-on levels over the night's ramp (the hash of each window): at 1 every window is on by
+   * full night and most of them at dusk.
    */
   stagger: number;
-  /** Which openings are kept (`WINDOW_RULES`). */
-  rule: WindowRuleSetting;
   /**
    * Which openings are found: "through" (#571), the recesses and the openings through a wall into a room (lit, its windows
    * switching on together); "recesses", the first pass's (#513), recesses only and no room. For the stories' comparison.
@@ -57,7 +48,11 @@ export type WindowDetection = (typeof WINDOW_DETECTIONS)[number];
  */
 export const WINDOW_SPILL_LAYERS = 4;
 
-export const DEFAULT_WINDOW_LIGHT: WindowLightSettings = { intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures", detection: "through" };
+/**
+ * The first pass's light (#513: 0.4, reach 6, falloff 1.5), now that the second pass finds every window and door (#583). The
+ * margin keeps the light going past the tile's border as far as it reaches, so a pool is not cut at the seam between tiles.
+ */
+export const DEFAULT_WINDOW_LIGHT: WindowLightSettings = { intensity: 0.4, reach: 6, falloff: 1.5, margin: 6, stagger: 1, detection: "through" };
 
 /** `input` over `base`, field by field: a value of the wrong kind or out of range keeps the base's. */
 export function resolveWindowLight(input: Partial<WindowLightSettings> = {}, base: WindowLightSettings = DEFAULT_WINDOW_LIGHT): WindowLightSettings {
@@ -69,7 +64,6 @@ export function resolveWindowLight(input: Partial<WindowLightSettings> = {}, bas
     falloff: at(input.falloff, base.falloff, 0.25, 8),
     margin: Math.round(at(input.margin, base.margin, 0, 20)),
     stagger: at(input.stagger, base.stagger, 0.05, 4),
-    rule: WINDOW_RULES.includes(input.rule!) ? input.rule! : base.rule,
     detection: WINDOW_DETECTIONS.includes(input.detection!) ? input.detection! : base.detection,
   };
 }
@@ -93,18 +87,14 @@ export interface DayNightSettings {
    * an autumn noon (`DAY_PHASE_AT` gives each phase's moment in a cycle). Null: the cycle runs.
    */
   freezeAt: number | null;
-  /** The city and road lights at night (FEATURE-HL's labels): off, the night is lit by the moon and the floor alone. */
-  nightLights: boolean;
   /**
-   * Where the night lights come from (NIGHT-WINDOWS, #513): "columns", every voxel of a lit column picked by a hash (the
-   * default, the board as it is), or "windows", the buildings' windows found in the model, with the light they cast baked per
-   * model type. Only the stories set "windows" for now.
+   * The night lights: the buildings' windows and doors, found in the models, with the light they cast baked per model type
+   * (NIGHT-WINDOWS, #513, #571, #583). Off, the night is lit by the moon and the floor alone.
    */
-  lights: NightLightSource;
-  /** The night lights' colour (sRGB hex) and strength, an emissive radiance added to the lit voxels. */
+  nightLights: boolean;
+  /** The night lights' colour (sRGB hex), an emissive radiance added where the windows' light falls. */
   nightLightColor: string;
-  nightLightIntensity: number;
-  /** The windows' light: strength, reach, margin past the border, stagger and rule (`lights` "windows" only). */
+  /** The windows' light: strength, reach, falloff, margin past the border and stagger. */
   windowLight: WindowLightSettings;
   /**
    * The night's floor: the sky light and the ambient at night are at least this share of the day's, so the board stays
@@ -131,11 +121,8 @@ export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   seed: null,
   freezeAt: null,
   nightLights: true,
-  // The proposal of NIGHT-WINDOWS-2 (#571): "windows" here makes the windows the board's night lights; the owner decides.
-  lights: "columns",
   // amber-300: a warm window.
   nightLightColor: "#ffb57a",
-  nightLightIntensity: 0.4,
   windowLight: DEFAULT_WINDOW_LIGHT,
   brightnessFloor: 0.85,
   frameMs: 33,
@@ -157,9 +144,7 @@ export function resolveDayNightSettings(input: DayNightInput = {}, base: DayNigh
     seed: input.seed === null || Number.isFinite(input.seed) ? (input.seed as number | null) : base.seed,
     freezeAt: input.freezeAt === null || Number.isFinite(input.freezeAt) ? (input.freezeAt as number | null) : base.freezeAt,
     nightLights: typeof input.nightLights === "boolean" ? input.nightLights : base.nightLights,
-    lights: NIGHT_LIGHT_SOURCES.includes(input.lights!) ? input.lights! : base.lights,
     nightLightColor: typeof input.nightLightColor === "string" ? input.nightLightColor : base.nightLightColor,
-    nightLightIntensity: typeof input.nightLightIntensity === "number" && input.nightLightIntensity >= 0 ? input.nightLightIntensity : base.nightLightIntensity,
     windowLight: resolveWindowLight(input.windowLight, base.windowLight),
     brightnessFloor: share(input.brightnessFloor, base.brightnessFloor),
     frameMs: positive(input.frameMs, base.frameMs),
