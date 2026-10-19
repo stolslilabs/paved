@@ -99,3 +99,6 @@ export const Forest: Story = { args: { forest: true } };
 
 /** The setting off: nothing moves, the board draws only when something changes. */
 export const Off: Story = { args: { enabled: false } };
+
+/** The Low tier: the effects are off there, whatever the setting says. */
+export const LowTier: Story = { args: { quality: "low" } };
