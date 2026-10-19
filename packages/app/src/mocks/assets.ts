@@ -18,15 +18,20 @@ export const APP_ASSETS = "/renderer-assets";
 
 /**
  * The manifest the app's build writes for `public/renderer-assets/` (`vite/renderer-assets.ts`, `rendererManifest`), read
- * here from the file names: the base models by plan key, the 256 px tiles by size and plan key, and the Forest variants
- * (theme 1) by plan key in variant order. The globs read the names only: no model or image is imported or bundled.
+ * here from the file names: the base models by plan key, the 256 px tiles by size and plan key, the Forest variants
+ * (theme 1) by plan key in variant order, and the tiles' renders by theme and plan key (`scripts/render-tiles.ts`). The globs read the names only: no model or image is imported or bundled.
  * `renderer-manifest.test.ts` checks it equals the build's.
  */
 const MODEL_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/models/*.glb", { query: "?url" }));
 const FOREST_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/models/forest/*.glb", { query: "?url" }));
 const TILE_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/tiles/*.png", { query: "?url" }));
+const RENDER_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/renders/*.webp", { query: "?url" }));
 const fileName = (file: string) => file.slice(file.lastIndexOf("/") + 1);
-export const APP_MANIFEST: AssetManifest & { tiles: Record<string, Record<string, string>>; themes: Record<string, Record<string, string[]>> } = (() => {
+export const APP_MANIFEST: AssetManifest & {
+  tiles: Record<string, Record<string, string>>;
+  themes: Record<string, Record<string, string[]>>;
+  renders: Record<string, Record<string, string>>;
+} = (() => {
   const models: Record<string, string> = {};
   for (const file of [...MODEL_FILES].sort()) {
     const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
@@ -47,7 +52,12 @@ export const APP_MANIFEST: AssetManifest & { tiles: Record<string, Record<string
     const match = /\/([a-z]{9})\.(\d+)\.[0-9a-f]{10}\.png$/.exec(file);
     if (match) (tiles[match[2]!] ??= {})[match[1]!] = `tiles/${fileName(file)}`;
   }
-  return { models, tiles, themes: { "1": forest } };
+  const renders: Record<string, Record<string, string>> = {};
+  for (const file of [...RENDER_FILES].sort()) {
+    const match = /\/([a-z]{9}|cover)\.(\d+)\.[0-9a-f]{10}\.webp$/.exec(file);
+    if (match) (renders[match[2]!] ??= {})[match[1]!] = `renders/${fileName(file)}`;
+  }
+  return { models, tiles, themes: { "1": forest }, renders };
 })();
 
 /**
