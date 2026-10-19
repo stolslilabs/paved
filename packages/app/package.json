@@ -13,6 +13,7 @@
     "fa-subset-check": "node scripts/fa-subset.ts --check",
     "bundle-budget": "node scripts/bundle-budget.ts",
     "test": "vitest run",
+    "e2e": "tsc -p e2e/tsconfig.json && vitest run --config e2e/vitest.config.ts",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "node scripts/storybook-static-dirs.ts && storybook build -o storybook-static && node scripts/storybook-guard.ts",
