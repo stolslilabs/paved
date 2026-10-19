@@ -1,5 +1,5 @@
 import type { TileArt } from "../elements/tile-chip";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
@@ -11,6 +11,7 @@ import type { BoardBubble, BoardGhost } from "../containers/board-viewport";
 import { LazyTileBubble } from "../containers/lazy-tile-bubble";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
+import type { BoardWheel } from "../../data/board-settings";
 import type { ErrorDetail } from "../elements/inline-error";
 import { useBoardSounds } from "../containers/board-sounds";
 import { useSfx } from "../containers/audio-provider";
@@ -24,6 +25,8 @@ export type BoardMode = "challenge" | "training" | "tutorial";
 const loadSurrenderDialog = () => import("../containers/surrender-dialog");
 // The settings sheet (#541) is its own chunk too: loaded at the first tap on the gear, not with the board.
 const loadSettingsSheet = () => import("../containers/device-settings-sheet");
+// The season wheel (#547) is its own chunk, loaded after the first frame: its slot in the HUD keeps its size meanwhile.
+const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 const PREFETCH_AFTER_MS = 3000;
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", tutorial: "Tutorial" };
@@ -80,6 +83,8 @@ export interface BoardSceneProps {
    * follows the tile; the scene draws it itself only in the plan view (no `canvas`), above the hand panel.
    */
   bubble?: BoardBubble | null;
+  /** The season wheel of this game (`useBoardSettings`); none: no wheel (the stories without a cycle). */
+  seasonWheel?: BoardWheel;
   onBack?: () => void;
   onConfirm?: () => void;
   onDiscard?: () => void;
@@ -137,6 +142,13 @@ export function BoardScene(props: BoardSceneProps) {
           expiresAt={mode === "challenge" ? props.expiresAt : null}
           now={now}
           onBack={props.onBack}
+          wheel={
+            props.seasonWheel && (
+              <Suspense fallback={<span aria-hidden className="size-11 shrink-0" />}>
+                <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
+              </Suspense>
+            )
+          }
           onSettings={() => {
             play("tap");
             setSettingsOpen(true);

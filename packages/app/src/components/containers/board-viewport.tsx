@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
 import type { GameScene, HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
@@ -92,6 +92,8 @@ export interface BoardViewportProps {
   onCellHover?: (slot: { x: number; y: number } | null) => void;
   /** The tile placed and not yet sent: the Rotate and Cancel bubble follows its corner. Unset: none. */
   bubble?: BoardBubble | null;
+  /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
+  onScene?: (scene: GameScene | null) => void;
   /** The renderer could not start (no WebGL, a model that does not load). */
   onError?: (error: unknown) => void;
   className?: string;
@@ -119,8 +121,12 @@ function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
 }
 
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, onCellClick, onCellHover, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
+  useEffect(() => {
+    onScene?.(scene);
+    return () => onScene?.(null);
+  }, [scene, onScene]);
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
   // A plate on every free cell next to a tile: valid, possible or invalid (`boardPlates`), in the renderer's grid.
   const gridSlots = useMemo(
