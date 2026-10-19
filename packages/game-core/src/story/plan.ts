@@ -1,4 +1,4 @@
-// The Story mode plan (#546): campaigns of 11 levels, each level a fixed deck. Every level starts from the usual starter
+// The Story mode plan (#546): campaigns of levels (each campaign its own count), each level a fixed deck. Every level starts from the usual starter
 // tile `RFFFRFCFR` (a city to the north, a road east to west) and plays `deck` in this order (engine deck `story`: no
 // withdrawal, no reseed), so its best score is one number. `docs/client/story-mode.md` describes the plan for the owner;
 // a test keeps both in step and replays every stored line to its target.
@@ -187,9 +187,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Ten tiles this time, and the deck sheet lists every one of them in order. Look ahead before you place: the city you open now may close three tiles later.",
     seed: 1,
     deck: [P.FFFFCCCFF, P.FFCFFFFFC, P.FFCFFFFFC, P.FFFFCCCFF, P.CCCCCFRFC, P.RFRFCCCFR, P.RFRFRFCFF, P.SFRFRFCFR, P.FFFFFFCFF],
-    target: 0,
+    target: 2805,
     method: "best-known",
-    line: "",
+    line: "N0,1 E0,2 S0,3 S1,1 W1,2 E1,3 W2,2 S2,3 E3,2",
   },
   {
     id: 2,
@@ -199,9 +199,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Most of these tiles carry a road. Let a road run before you close it, and use the junctions to finish two roads with one tile.",
     seed: 2,
     deck: [P.RFFFRFFFR, P.RFRFRFCFF, P.RFFFRFCFR, P.RFRFCCCFR, P.RFRFCCCFR, P.CCCCCFFFC, P.RFRFRFCFF, P.SFRFRFFFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFRFFFCFR, P.RFRFFFFFR],
-    target: 0,
+    target: 3126,
     method: "best-known",
-    line: "",
+    line: "N0,-1 N0,1 E-1,1 W-2,1 N-2,2 S0,-2 E-1,2 S0,2 N1,2 E-1,0 N1,0 W1,1",
   },
   {
     id: 3,
@@ -211,9 +211,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Three monasteries come early. Each scores 900 once its eight neighbours are placed, so give them space at the edge of what you build.",
     seed: 3,
     deck: [P.WFFFFFFFF, P.SFRFRFFFR, P.RFFFRFFFR, P.WFFFFFFFF, P.RFRFCCCFR, P.RFRFRFCFF, P.RFRFCCCFR, P.FFFFCCCFF, P.RFRFRFCFF, P.FFFFFFCFF, P.FFCFFFCFF, P.CCCCCFFFC, P.RFFFRFFFR, P.RFFFRFCFR, P.WFFFFFFFF],
-    target: 0,
+    target: 3739,
     method: "best-known",
-    line: "",
+    line: "N0,-1 N-1,0 N0,-2 N-1,-1 N1,0 E-1,-2 W-2,-2 E-2,-1 S1,-2 W-3,-1 N1,-1 E0,1 N-2,0 E2,0 N0,-3",
   },
   {
     id: 4,
@@ -223,9 +223,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "A forest scores for the closed roads and cities around it, but only if they are closed before it is. Finish the walls first, then the fields.",
     seed: 4,
     deck: [P.CFFFCFFFC, P.FFCFFFFFC, P.RFFFRFFFR, P.RFFFRFCFR, P.RFRFFFFFR, P.SFRFRFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFCFR, P.RFRFFFCFR, P.FFCFFFCFF, P.RFRFFFFFR, P.FFFFFFCFF, P.FFFFFFCFF, P.CCCCCFFFC, P.CCCCCFFFC, P.RFRFFFFFR, P.RFFFRFFFR],
-    target: 0,
+    target: 4567,
     method: "best-known",
-    line: "",
+    line: "E0,1 S0,2 E1,1 E1,2 E2,1 W1,0 N1,-1 N1,3 N0,-1 E-1,-1 N0,-2 S-1,0 W-2,-1 S0,-3 W-1,2 N0,3 S2,2 N3,1",
   },
   {
     id: 5,
@@ -235,9 +235,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Everything at once. Keep two or three things open at a time: more, and the last tiles will not be enough to finish them.",
     seed: 5,
     deck: [P.WFFFFFFFR, P.WFFFFFFFF, P.RFRFCCCFR, P.RFRFFFFFR, P.CCCCCFFFC, P.CFFFCFFFC, P.RFRFRFCFF, P.CFFFCFFFC, P.RFRFCCCFR, P.SFRFRFCFR, P.RFRFRFCFF, P.RFRFFFCFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFFFRFFFR, P.SFRFRFFFR, P.CFFFCFFFC, P.FFFFCCCFF, P.RFFFRFFFR, P.WFFFFFFFF, P.RFRFFFFFR],
-    target: 0,
+    target: 7118,
     method: "best-known",
-    line: "",
+    line: "N1,0 N1,1 S-1,0 E-1,-1 E2,0 E0,1 N0,2 E2,1 E2,2 S2,-1 W1,2 E3,0 W2,-2 E3,-2 N1,-1 S0,-1 E-1,1 E-2,1 N1,-2 N-1,-2 E0,-2",
   },
   {
     id: 6,
@@ -247,9 +247,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Monasteries and cities share this deck. A wonder wants to be surrounded, a city wants to be closed: one tile can help both.",
     seed: 6,
     deck: [P.CCCCCFFFC, P.WFFFFFFFF, P.RFFFRFCFR, P.RFRFFFFFR, P.WFFFFFFFF, P.RFRFFFFFR, P.RFRFCCCFR, P.RFRFFFFFR, P.RFRFCCCFR, P.RFFFRFFFR, P.CFFFCFFFC, P.CCCCCCCCC, P.RFFFRFFFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFRFRFCFF, P.FFFFFFCFF, P.FFFFCCCFF, P.FFCFFFCFF, P.FFCFFFFFC, P.CCCCCFFFC, P.WFFFFFFFR, P.FFFFCCCFF, P.CCCCCFRFC],
-    target: 0,
+    target: 6967,
     method: "best-known",
-    line: "",
+    line: "W0,1 N1,1 N0,2 N1,2 N2,1 E2,2 N-1,1 W2,0 S-1,0 N1,0 E3,0 N3,-1 N3,2 W-2,0 N3,1 W2,-1 E4,-1 S3,-2 E2,-2 S1,-2 W0,-2 S1,-1 E0,-1 S-1,-1",
   },
   {
     id: 7,
@@ -259,9 +259,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "This deck is full of junctions. A crossroads ends every road that reaches it, so a short road between two of them scores quickly.",
     seed: 7,
     deck: [P.RFRFRFCFF, P.RFFFRFCFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFFFRFFFR, P.FFFFCCCFF, P.CFFFCFFFC, P.RFRFFFCFR, P.FFFFCCCFF, P.RFRFFFFFR, P.CCCCCFFFC, P.RFFFRFFFR, P.FFCFFFCFF, P.RFRFFFFFR, P.CCCCCFFFC, P.RFRFFFFFR, P.RFFFRFCFR, P.RFRFFFFFR, P.SFRFRFFFR, P.RFFFRFFFR, P.WFFFFFFFF, P.FFCFFFCFF, P.RFFFRFFFR, P.CCCCCCCCC, P.CCCCCFRFC, P.RFFFRFFFR, P.RFRFFFCFR],
-    target: 0,
+    target: 7268,
     method: "best-known",
-    line: "",
+    line: "E0,-1 N0,1 N1,1 E0,2 E1,2 N-1,-1 E-1,-2 S-1,-3 W-1,2 W2,1 W-2,-2 E1,3 N-1,3 W1,4 W-2,2 N2,0 S1,0 E-1,0 S-1,1 N0,4 N0,3 E-3,-2 E3,1 N-3,2 W-1,4 N1,-1 W-4,-2",
   },
   {
     id: 8,
@@ -271,9 +271,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Cities, and more cities. Each tile adds 2.35 % to a structure's value: a city of eight is worth far more than two cities of four.",
     seed: 8,
     deck: [P.RFRFFFCFR, P.SFRFRFCFR, P.RFFFRFFFR, P.CFFFCFFFC, P.FFCFFFCFF, P.FFFFFFCFF, P.RFRFFFFFR, P.RFFFRFCFR, P.RFRFFFCFR, P.RFFFRFFFR, P.RFRFCCCFR, P.CFFFCFFFC, P.RFRFRFCFF, P.RFRFCCCFR, P.RFFFRFFFR, P.CCCCCFFFC, P.SFRFRFFFR, P.FFCFFFFFC, P.RFRFFFFFR, P.RFRFCCCFR, P.RFRFFFFFR, P.RFRFFFFFR, P.FFFFFFCFF, P.RFRFFFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFFFR, P.CCCCCFFFC, P.FFFFCCCFF, P.RFRFFFFFR],
-    target: 0,
+    target: 7594,
     method: "best-known",
-    line: "",
+    line: "N0,1 S1,0 N0,-1 E1,1 N2,1 N2,2 W0,-2 S2,0 N1,2 N2,-1 W3,0 E3,1 N3,2 S4,0 N2,-2 S2,-3 N1,-1 S4,1 N3,-1 S5,1 S-1,0 E-1,-1 N5,2 N-2,0 W-2,-1 N3,-3 N2,3 N5,3 S2,-4 S0,2",
   },
   {
     id: 9,
@@ -283,9 +283,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Three monasteries again, in a much longer deck. Not every one has to score: a discard costs 50, a wonder left open costs 900.",
     seed: 9,
     deck: [P.RFRFCCCFR, P.FFCFFFCFF, P.RFRFFFCFR, P.CCCCCFFFC, P.RFRFCCCFR, P.CCCCCFFFC, P.FFCFFFCFF, P.RFRFRFCFF, P.CFFFCFFFC, P.WFFFFFFFF, P.CFFFCFFFC, P.SFRFRFCFR, P.RFRFCCCFR, P.SFRFRFFFR, P.RFFFRFFFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFFFRFFFR, P.SFRFRFFFR, P.FFFFFFCFF, P.SFRFRFFFR, P.FFFFCCCFF, P.FFFFFFCFF, P.WFFFFFFFR, P.SFRFRFFFR, P.RFFFRFCFR, P.WFFFFFFFF, P.RFFFRFFFR, P.FFFFCCCFF, P.FFFFCCCFF],
-    target: 0,
+    target: 10557,
     method: "best-known",
-    line: "",
+    line: "N0,1 E1,1 E2,1 N1,2 N3,1 S0,-1 N3,0 E4,1 E3,-1 N2,0 E3,-2 S3,-3 W4,-3 E4,-4 E3,-4 E3,-5 W2,-1 W1,0 E3,-6 E3,-7 N4,-7 N5,-7 E5,-3 E5,-6 N4,-2 E5,-2 E4,-5 S5,-4 W5,-5 N4,-6 N2,-3 N1,3 W4,-1",
   },
   {
     id: 10,
@@ -295,9 +295,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Thirty-six tiles and four monasteries. Build the board as a whole: where will the last ten tiles go?",
     seed: 10,
     deck: [P.FFFFCCCFF, P.FFFFFFCFF, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFFFR, P.FFFFCCCFF, P.WFFFFFFFF, P.WFFFFFFFF, P.RFRFFFFFR, P.RFRFCCCFR, P.FFFFCCCFF, P.RFRFFFCFR, P.RFFFRFCFR, P.FFCFFFCFF, P.WFFFFFFFR, P.RFFFRFCFR, P.CFFFCFFFC, P.RFRFFFFFR, P.RFFFRFFFR, P.FFCFFFCFF, P.WFFFFFFFF, P.CFFFCFFFC, P.RFFFRFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFRFFFFFR, P.CCCCCCCCC, P.CCCCCFFFC, P.RFRFCCCFR, P.FFFFFFCFF, P.RFRFFFCFR, P.FFFFFFCFF, P.RFRFCCCFR, P.RFRFFFCFR, P.RFRFFFFFR],
-    target: 0,
+    target: 9573,
     method: "best-known",
-    line: "",
+    line: "N0,1 E1,1 S0,-1 W-1,0 E2,1 S0,2 N1,2 N1,3 S2,3 W-1,2 E0,3 E1,4 W2,2 E0,4 N2,4 E3,2 N-1,4 S1,5 N2,5 E-2,4 N3,4 N-1,5 N3,5 W3,3 E4,5 E4,3 N-2,0 S-1,3 W-3,4 W-2,3 S4,4 N-3,5 N4,6 N5,3 W5,4",
   },
   {
     id: 11,
@@ -307,9 +307,9 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "This is a full game: 38 tiles, like a Challenge, but you know the deck. Use the deck sheet, and go for the best score there is.",
     seed: 11,
     deck: [P.FFFFCCCFF, P.FFCFFFCFF, P.CCCCCFRFC, P.SFRFRFFFR, P.CCCCCFFFC, P.WFFFFFFFF, P.RFFFRFCFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFFFRFFFR, P.WFFFFFFFR, P.RFRFFFCFR, P.SFRFRFRFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFRFRFCFF, P.CCCCCFRFC, P.FFCFFFFFC, P.WFFFFFFFF, P.SFRFRFFFR, P.RFFFRFFFR, P.SFRFRFFFR, P.RFRFCCCFR, P.WFFFFFFFF, P.FFCFFFCFF, P.FFFFCCCFF, P.FFFFCCCFF, P.RFRFCCCFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFRFCCCFR, P.CFFFCFFFC, P.FFFFCCCFF, P.CFFFCFFFC, P.WFFFFFFFR, P.RFRFRFCFF],
-    target: 0,
+    target: 14106,
     method: "best-known",
-    line: "",
+    line: "N0,1 E1,1 W-1,0 S1,0 N1,2 N0,-1 E2,1 E1,-1 W0,-2 N-1,-2 S1,-2 N2,-1 N2,0 N1,-3 N2,-3 E0,-3 S2,-2 N2,2 N-1,-1 N-1,-3 S-2,-2 E-2,-3 W-2,-4 N-2,0 N-1,-4 E-1,-5 N0,-4 W-2,-1 N-2,-5 S-2,-6 N-1,1 S0,-5 N1,-4 E2,-4 E2,-5 S-3,-5 S2,-6",
   },
 ];
 

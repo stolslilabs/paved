@@ -61,10 +61,11 @@ describe("story deck", () => {
 });
 
 describe("story plan", () => {
-  it("has campaigns of 11 levels, numbered from 1", () => {
+  it("has campaigns numbered from 1, each with its own levels numbered from 1 (the Tutorial keeps 11)", () => {
     expect(CAMPAIGNS.map((c) => c.id)).toEqual([1, 2]);
+    expect(TUTORIAL.levels).toHaveLength(11);
     for (const campaign of CAMPAIGNS) {
-      expect(campaign.levels).toHaveLength(11);
+      expect(campaign.levels.length).toBeGreaterThan(0);
       expect(campaign.levels.map((level) => level.id)).toEqual(campaign.levels.map((_, index) => index + 1));
     }
   });

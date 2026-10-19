@@ -93,7 +93,7 @@ export function StoryScene({ campaigns, progress, storageOff, onBack, onLevel }:
             </section>
           );
         })}
-        <p className="text-xs text-muted-foreground">Two more campaigns are on the way: eleven full games of 38 tiles, then eleven of the whole 72-tile deck.</p>
+        <p className="text-xs text-muted-foreground">Two more campaigns are on the way: full games of 38 tiles, then games of the whole 72-tile deck.</p>
       </main>
     </div>
   );
