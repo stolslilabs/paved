@@ -30,7 +30,15 @@ import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { DataProvider, type DataSources, type GameSigner } from "../src/data";
 import { purchasesFor } from "../src/data/economy-client";
 import { PURCHASE_RECHECK_MS, PURCHASE_TIMEOUT_MS, PurchaseTimedOutError, purchaseRefusal, referrerParam, setPurchaseRecheckForTests, usePurchase } from "../src/data/purchase";
-import { lateAnswerStorageKey, resetAsideForTests, resetFailedWritesForTests, unknownPurchaseStorageKey, writeUnknownPurchase } from "../src/data/unknown-purchase";
+import {
+  currentRecord,
+  lateAnswerStorageKey,
+  recordOwnSend,
+  resetAsideForTests,
+  resetFailedWritesForTests,
+  unknownPurchaseStorageKey,
+  writeUnknownPurchase,
+} from "../src/data/unknown-purchase";
 import { queryClient } from "../src/lib/query-client";
 import { PURCHASE } from "../src/mocks/scenes";
 import { createTestRouter } from "../src/routes/router";
@@ -1836,6 +1844,35 @@ describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("3: another tab that settled the late hash is seen: this tab's memory never brings it back", () => {
+    // This tab: B (another tab's send) holds the slot; A's late hash arrives here and is kept aside.
+    writeUnknownPurchase(queryClient, PLAYER, "game", { hash: null, at: 1, id: "tab-b" });
+    recordOwnSend(queryClient, PLAYER, "game", { hash: "0xaa", at: 1, id: "a" });
+    expect(localStorage.getItem(lateAnswerStorageKey(PLAYER, "game"))).not.toBeNull();
+    // The other tab: B settles, A surfaces there, and A's receipt resolves it: both entries are gone from storage.
+    localStorage.removeItem(lateAnswerStorageKey(PLAYER, "game"));
+    localStorage.removeItem(unknownPurchaseStorageKey(PLAYER, "game"));
+    // This tab: send C starts and settles. The slot empties and stays empty; A is not resurrected.
+    writeUnknownPurchase(queryClient, PLAYER, "game", { hash: null, at: 2, id: "c" });
+    writeUnknownPurchase(queryClient, PLAYER, "game", null);
+    expect(currentRecord(queryClient, PLAYER, "game")).toBeNull();
+    expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull();
+  });
+
+  it("3: with storage refusing the aside, this tab's memory keeps it", () => {
+    writeUnknownPurchase(queryClient, PLAYER, "game", { hash: null, at: 1, id: "tab-b" });
+    const setItem = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === lateAnswerStorageKey(PLAYER, "game")) throw new Error("QuotaExceededError");
+      return setItem.call(this, key, value);
+    });
+    recordOwnSend(queryClient, PLAYER, "game", { hash: "0xaa", at: 1, id: "a" });
+    spy.mockRestore();
+    expect(localStorage.getItem(lateAnswerStorageKey(PLAYER, "game"))).toBeNull();
+    writeUnknownPurchase(queryClient, PLAYER, "game", null);
+    expect(currentRecord(queryClient, PLAYER, "game")).toEqual({ hash: "0xaa", at: 1, id: "a" });
   });
 
   it("3: a late success of A while B holds: if B is declined, A's record does not come back", async () => {

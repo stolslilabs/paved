@@ -69,27 +69,42 @@ export const lateAnswerStorageKey = (playerId: string, kind: PurchaseKind): stri
 
 const asideInMemory = new Map<string, AsideAnswer>();
 
+/**
+ * The aside keys whose last storage write failed (storage full or refused) in this page's life: only those, and a storage
+ * that cannot be read at all, are read from memory. Otherwise storage alone is read, so another tab's removal is seen and a
+ * stale copy in this tab's memory never brings a settled answer back.
+ */
+const asideUnsaved = new Set<string>();
+
 /** Forgets the late answers kept aside in memory, between tests. */
 export function resetAsideForTests(): void {
   asideInMemory.clear();
+  asideUnsaved.clear();
+}
+
+/** The stored answer, `undefined` when storage cannot be read, null when there is none (or it is not one). */
+function readStoredAside(name: string): AsideAnswer | null | undefined {
+  const store = storage();
+  if (!store) return undefined;
+  try {
+    const raw = store.getItem(name);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw) as Partial<AsideAnswer>;
+    const record = parsed.record as Partial<UnknownPurchase> | null | undefined;
+    if (typeof parsed.id === "string" && record === null) return { id: parsed.id, record: null };
+    if (typeof parsed.id === "string" && record && typeof record.hash === "string" && /^0x[0-9a-fA-F]+$/.test(record.hash)) {
+      return { id: parsed.id, record: { hash: record.hash, at: Number(record.at ?? 0), id: parsed.id } };
+    }
+    return null;
+  } catch {
+    return undefined;
+  }
 }
 
 function readAside(playerId: string, kind: PurchaseKind): AsideAnswer | null {
   const name = lateAnswerStorageKey(playerId, kind);
-  try {
-    const raw = storage()?.getItem(name);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<AsideAnswer>;
-      const record = parsed.record as Partial<UnknownPurchase> | null | undefined;
-      if (typeof parsed.id === "string" && record === null) return { id: parsed.id, record: null };
-      if (typeof parsed.id === "string" && record && typeof record.hash === "string" && /^0x[0-9a-fA-F]+$/.test(record.hash)) {
-        return { id: parsed.id, record: { hash: record.hash, at: Number(record.at ?? 0), id: parsed.id } };
-      }
-    }
-  } catch {
-    // Storage off: the memory's copy.
-  }
-  return asideInMemory.get(name) ?? null;
+  const stored = asideUnsaved.has(name) ? undefined : readStoredAside(name);
+  return stored === undefined ? (asideInMemory.get(name) ?? null) : stored;
 }
 
 function writeAside(playerId: string, kind: PurchaseKind, aside: AsideAnswer | null): void {
@@ -98,10 +113,13 @@ function writeAside(playerId: string, kind: PurchaseKind, aside: AsideAnswer | n
   else asideInMemory.delete(name);
   try {
     const store = storage();
-    if (aside) store?.setItem(name, JSON.stringify(aside));
-    else store?.removeItem(name);
+    if (!store) throw new Error("no storage");
+    if (aside) store.setItem(name, JSON.stringify(aside));
+    else store.removeItem(name);
+    asideUnsaved.delete(name);
   } catch {
-    // Storage full or off: the memory's copy holds it for the page's life.
+    // Storage full or off: the memory's copy holds it for the page's life, and the stale stored value is not read back.
+    asideUnsaved.add(name);
   }
 }
 
