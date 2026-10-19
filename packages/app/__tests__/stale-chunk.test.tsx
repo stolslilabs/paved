@@ -233,9 +233,9 @@ describe("useDeferred, a chunk loaded on demand (the Surrender dialog, the final
 describe("StaleChunkGate, a chunk whose caller keeps its failure (the renderer's, a prefetch)", () => {
   it("shows the route's error page with Reload when the chunk is still gone after its reload, and Back home clears it", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ status: 404 })));
-    sessionStorage.setItem(STALE_RELOAD_KEY + asset("ambient-particles-x.js"), "1");
+    sessionStorage.setItem(STALE_RELOAD_KEY + asset("daynight-y.js"), "1");
     const f = fakes(404);
-    f.store.set(STALE_RELOAD_KEY + asset("ambient-particles-x.js"), "1");
+    f.store.set(STALE_RELOAD_KEY + asset("daynight-y.js"), "1");
     const target = new EventTarget() as Window;
     listenForStaleChunks(target, f.deps);
     const Layout = () => (
@@ -249,10 +249,10 @@ describe("StaleChunkGate, a chunk whose caller keeps its failure (the renderer's
     ]);
     render(<RouterProvider router={router} />);
     expect(await screen.findByText("board")).toBeTruthy();
-    const event = Object.assign(new Event("vite:preloadError"), { payload: chromium(asset("ambient-particles-x.js")) });
+    const event = Object.assign(new Event("vite:preloadError"), { payload: chromium(asset("daynight-y.js")) });
     act(() => void target.dispatchEvent(event));
     expect(await screen.findByRole("button", { name: "Reload" })).toBeTruthy();
-    expect(screen.getByTestId("route-error").textContent).toContain("ambient-particles-x.js");
+    expect(screen.getByTestId("route-error").textContent).toContain("daynight-y.js");
     expect(f.reload).not.toHaveBeenCalled();
     await act(() => router.navigate("/home"));
     expect(await screen.findByText("home")).toBeTruthy();

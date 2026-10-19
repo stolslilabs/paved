@@ -3055,7 +3055,7 @@ latest build.
   reload the same way. When their file is still gone after that reload, the failure is thrown into the route, whose
   `RouteError` offers the Reload (a new try cannot fetch it); a file the host still serves, or a silent host, keeps
   their own error toast, after which a new try may work.
-- **Chunks whose caller keeps the failure** (the renderer's: ambient particles, day and night, the voxel drop, SMAA;
+- **Chunks whose caller keeps the failure** (the renderer's: day and night, the voxel drop, SMAA;
   the idle prefetches) go through Vite's event as well: when the file is still gone after the reload, the listener hands
   it to `StaleChunkGate` (in `RootLayout`), which throws it into the route, so `RouteError` shows it with the Reload.
   `RouteError` then forgets it, so Back home does not throw it again.
