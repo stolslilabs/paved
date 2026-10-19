@@ -176,14 +176,14 @@ describe("BoardViewport and the tile preview setting", () => {
   const view = (g: typeof ghost & { placed?: boolean; fits?: boolean }) =>
     render(<BoardViewport tiles={[]} slots={[{ x: g.x, y: g.y, fits: false }]} ghost={g} tilePreview={false} />);
 
-  it("off, hides only the hover preview: a placed tile, white or red, is always drawn", () => {
+  it("off, hides only the hover preview: a placed tile, yellow or red, is always drawn", () => {
     view(ghost);
     expect(canvas.props!.hover).toBeNull();
     view({ ...ghost, placed: true, fits: true });
     expect(canvas.props!.hover).toMatchObject({ placed: true, valid: true });
     view({ ...ghost, placed: true, fits: false });
     expect(canvas.props!.hover).toMatchObject({ placed: true, valid: false });
-    // The slot's plate still says whether the rotation fits.
-    expect(canvas.props!.availableSlots).toEqual([{ x: 1, y: 0, fits: false }]);
+    // The slot's plate is playable: one state, whatever the rotation.
+    expect(canvas.props!.availableSlots).toEqual([{ x: 1, y: 0 }]);
   });
 });

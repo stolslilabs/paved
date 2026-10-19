@@ -57,6 +57,6 @@ export const TASK_UNIT: Record<number, string> = {
   10: "tutorial claimed",
 };
 
-export const questText = (id: number) => QUEST_TEXT[id] ?? { title: `Quest #${id}`, description: "", icon: "scroll" };
-export const achievementText = (id: number) => ACHIEVEMENT_TEXT[id] ?? { title: `Achievement #${id}`, description: "", icon: "medal" };
+export const questText = (id: number) => QUEST_TEXT[id] ?? { title: `Mission #${id}`, description: "", icon: "scroll" };
+export const achievementText = (id: number) => ACHIEVEMENT_TEXT[id] ?? { title: `Mission #${id}`, description: "", icon: "medal" };
 export const taskUnit = (taskId: number) => TASK_UNIT[taskId] ?? `task ${taskId}`;

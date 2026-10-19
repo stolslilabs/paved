@@ -65,7 +65,6 @@ export {
   GRID_RINGS,
   PLATE_GAP_VOXELS,
   PlacementRenderer,
-  auraAt,
   colorProgress,
   confirmProgress,
   createPlateGeometry,
@@ -74,15 +73,16 @@ export {
   gridLineOpacityAt,
   gridRingOpacity,
   placementFade,
-  placementTone,
+  tintEaseMs,
+  tintForKind,
+  tintKindOf,
   plateShapeOf,
   plateStateOf,
   prefersReducedMotion,
   resolvePlacementSettings,
   ringField,
-  roundedSquareDistance,
 } from "./core/placement";
-export type { PlacementSettings, PlacementSettingsInput, PlacementSlot, PlacementTone, PlateShape, PlateState, RingField } from "./core/placement";
+export type { PlacementSettings, PlacementSettingsInput, GhostTint, PlacementSlot, PlateShape, PlateState, RingField, TintKind } from "./core/placement";
 // The day and night cycle's settings; the cycle itself (`core/daynight.ts`) is a chunk of its own, loaded by the scene.
 export { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, NIGHT_LIGHT_SOURCES, SEASONS, resolveDayNightSettings } from "./core/daynight-settings";
 export type { DayNightSettings, DayPhase, NightLightSource, Season } from "./core/daynight-settings";

@@ -93,7 +93,7 @@ describe("Home", () => {
     const onResume = vi.fn();
     render(wrap(<HomeScene {...HOME.connected} onResume={onResume} />));
     expect(screen.getAllByText("bal7hazar").length).toBeGreaterThan(0);
-    const podium = screen.getByRole("list", { name: "Today's top 3" });
+    const podium = screen.getByRole("list", { name: "Top 3" });
     expect(within(podium).getAllByRole("listitem")).toHaveLength(4);
     expect(within(podium).getByText("stonemaster")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Resume" }));
@@ -111,7 +111,7 @@ describe("Home", () => {
 
   it("says the podium is empty on a day nobody finished", () => {
     render(wrap(<HomeScene {...HOME.firstOfDay} />));
-    expect(screen.getByText(/No finished game today yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No finished game yet/)).toBeInTheDocument();
   });
 
   it("disables the Challenge while purchases are paused", () => {
@@ -286,10 +286,10 @@ describe("Board", () => {
     const plate = () => screen.getByRole("button", { name: /^Slot / }).querySelector("[data-plate]");
     const { rerender } = render(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-lit", "true");
-    // Possible where the current rotation does not fit, valid where it does (PLATES).
-    expect(plate()).toHaveAttribute("data-plate", "possible");
+    // One playable plate whether or not the current rotation fits (PLACEMENT-TINTS).
+    expect(plate()).toHaveAttribute("data-plate", "playable");
     rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
-    expect(plate()).toHaveAttribute("data-plate", "valid");
+    expect(plate()).toHaveAttribute("data-plate", "playable");
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-fits", "true");
     rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
     const plain = screen.getByRole("button", { name: /^Slot / });

@@ -531,8 +531,10 @@ describe("the feature highlight in the tile shader", () => {
     expect(ghosts[0]).not.toBe(model);
     const [own, its] = [shaderOf(ghosts[0]), shaderOf(model)];
     // The same program and the same water; the highlight's switch its own, and off while the board's is on.
-    expect(ghosts[0].customProgramCacheKey()).toBe("paved-tile");
-    expect(own.fragmentShader).toBe(its.fragmentShader);
+    // (the ghost's own program: the tile's, plus the tint and the opacity at the end of the fragment shader)
+    expect(ghosts[0].customProgramCacheKey()).toBe("paved-tile-ghost");
+    expect(own.fragmentShader).toContain("mix(gl_FragColor.rgb, uTintColor, uTintMix)");
+    expect(own.fragmentShader).toContain(its.fragmentShader.slice(its.fragmentShader.indexOf("void main() {"), its.fragmentShader.indexOf("void main() {") + 40));
     expect(own.uniforms.uWaterOn).toBe(its.uniforms.uWaterOn);
     expect(its.uniforms.uFeatureOn.value).toBe(1);
     expect(own.uniforms.uFeatureOn.value).toBe(0);
@@ -960,7 +962,7 @@ describe("the night lights (DAYNIGHT)", () => {
     tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
     tiles.setNightLights(true, "#ffb57a", 0.4);
     tiles.setHover({ x: 3, y: 0, planIndex: plan, orientation: 1, valid: true, placed: true } as never);
-    const ghosts = [...((tiles as any).ghostMaterials as Map<THREE.Material, THREE.Material>).values()];
+    const ghosts = [...((tiles as any).ghostMaterials.hand as Map<THREE.Material, THREE.Material>).values()];
     expect(ghosts.length).toBeGreaterThan(0);
     for (const ghost of ghosts) expect(shaderOf(ghost).uniforms.uNightOn.value).toBe(0);
     tiles.dispose();

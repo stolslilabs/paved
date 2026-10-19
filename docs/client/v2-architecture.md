@@ -562,6 +562,28 @@ Each hook returns the type its scene's prop takes; where the indexer's type diff
 schedule from the definitions; a new player's null profile as an empty one). A past day's leaderboard and a closed
 economy day have `staleTime: Infinity`. No hook polls; the writes (P5, P7, P10) update these keys from their receipts.
 
+**Mock data (MOCK-FIRST, issue 549).** The reads and writes a network's deployed classes lack are served on the device by a
+mock ledger, behind the same interfaces as the chain path, so the client works end to end before the fresh deployment.
+One switch, `VITE_DATA_SOURCE` (`data/data-source.ts`): `chain` or `mock`; unset, `mock` on Sepolia (`MOCK_BY_DEFAULT`) and
+`chain` everywhere else. Measured on 2026-10-19 against Sepolia's classes: Setup has none of the Cobbles ledger, packs or
+skins; the Vault has none of its ERC4626 views or writes; Challenge has no `spawn_paused`, `guardian`, `spawn_free` or
+`initial_seed`; Economy has no `split_bps` or `seller`; the indexer's definitions carry no Cobbles and it has no referrals
+route.
+
+| Module | What it holds |
+|---|---|
+| `data/mock/ledger.ts` | `MockLedger`: `MockedReads` (`CobbleViews`, `PackViews`, `SkinViews`, `VaultViews`, `spawnPaused`, `guardian`, `split`, `seller`, the balances) and `MockedWrites` (the claims, `buySkin`, `setSkins`, a pack's purchase, deposit, withdraw, withdraw all), with the contracts' checks, their typed refusals and their receipts' events; kept in `localStorage` (`paved.mock.v1`) |
+| `data/mock/overlay.ts` | the overlays: each wraps a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the account's `PavedWriter`, its purchases and Vault writes) and answers only the missing entry points from the ledger |
+
+Applied where the chain path is built: `chain-client.ts` (the game views), `economy-client.ts` (the economy's views and a
+pack's purchase), `vault-client.ts` (the Vault's writes), `wallet/connector.ts` (the claims and the skin writes) and
+`routes/sources.ts` (the indexer). The games, their tiles, the moves, a game's purchase, the settlement and the token
+balances stay the chain's; the mock adjusts the PAVED and USDC balances by its own moves (a player starts with 142.35 mock
+PAVED to try the Vault). The claims trust the indexer's progress, which the page shows. The free spawn is refused in plain
+words (no game can be mocked). The pages that read mocked data show a "Mock data" mark beside their title
+(`MOCKED_PAGES`). When the fresh deployment lands, `VITE_DATA_SOURCE=chain` in the host's environment restores the chain
+path with no code change; `__tests__/data-mock.test.tsx` runs the same hook flows on both.
+
 **Decided for the owner:** React Router 7 (data mode, lazy routes) rather than TanStack Router: already in
 the repository and in both references. Reversed if typed search params become a pain point.
 
@@ -2354,6 +2376,27 @@ default** (`grid.enabled`).
 around the tile, not the plate's tint alone (reverse: lift the ghost onto its plate); the plates stand at the board's
 level, below the tiles' ground (2 voxels against 4); no tile in hand draws no plate; with the player's placement
 highlight off no plate is drawn (the slots stay clickable, as before).
+
+**PLACEMENT-TINTS (#543, the owner's decisions of 2026-10-18).** The halo (the plate's aura and the placed tile's rim) is
+gone, "not satisfying in any circumstance"; the states are filters on the tile model itself. It supersedes the aura, rim and
+plate-state text above where they differ.
+
+- **Tile in hand** (`TileRenderer`, ghost materials; the states and their ease are `PlacementRenderer`'s, `ghostTint`): hover
+  blue at 50 % opacity; pre-validation (placed, waiting for Place tile) yellow at 90 %; confirm a temporary green tint on the
+  tile the board then draws, fading to none over `motion.confirmMs`; placed (after the fade) none. There is no red: the board offers only
+  the rotations that fit (#544). Each look eases over its own time (`tints.hoverMs`, `tints.pendingMs`; the confirm over `motion.confirmMs`).
+  Every colour, strength (how far the model goes to the tint) and opacity is a `placement.tints` setting and a story control.
+- **How it is drawn.** The ghost's material is the tile's own program plus two lines before tone mapping (`mix` to the tint,
+  alpha times the ghost's opacity), a program of its own (`paved-tile-ghost`), tint uniforms shared per role. A translucent
+  voxel model does not sort its own faces, so each ghost mesh has a depth-only copy drawn just before it (`colorWrite` off,
+  `depthWrite` on) and the colour pass writes no depth with `depthFunc` LessEqual: only the nearest face shows, no inner face.
+  The ghost's edge outlines are hidden (opaque lines would read as a frame on a translucent model). The confirm is the same
+  model, translucent and green, laid over the placed tile (polygon offset against z-fighting) and removed when its fade ends.
+- **Plates.** Flat (one face looking up at the tiles' ground top, no side, no bevel), `plates.radius` 3 voxels (5 before),
+  two states (`plateStateOf`): playable (the old valid and possible, one blue, `plates.opacity` 0.6) and invalid (grey,
+  `plates.invalidOpacity` 0.25; 0.9 and 0.45 before). The plate under the tile in hand fades out (`plates.hideUnderTile`, on
+  by default: a translucent tile over a visible plate would show it through; turn it off in the story to judge).
+- **Plan view** (`BoardMap`, DOM): the same states with the palette's tokens; the tint is an overlay on the chip.
 
 ### 5.8 Loading (LOAD-FAST)
 

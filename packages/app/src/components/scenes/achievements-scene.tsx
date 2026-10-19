@@ -55,7 +55,7 @@ export interface AchievementsSceneProps {
 const ORDER = { complete: 0, progress: 1, none: 2 } as const;
 
 /**
- * The achievements (`/achievements`, a tab beside Quests): earned, in progress and locked, earned first; the points of the
+ * The achievements (`/missions/lifetime`, the Lifetime tab of Missions): earned, in progress and locked, earned first; the points of the
  * earned ones, display only.
  */
 export function AchievementsScene(props: AchievementsSceneProps) {
@@ -79,22 +79,22 @@ export function AchievementsScene(props: AchievementsSceneProps) {
   const claimable = list.map((a) => ({ a, r: rewardOf(a) })).filter(({ a, r }) => a.completed && r && !r.claimed);
   const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
   return (
-    <TabPage tab="quests" title="Achievements" onNavigate={props.onNavigate} end={rewards && connected ? <Cobbles value={rewards.balance} /> : undefined}>
+    <TabPage tab="quests" title="Missions" onNavigate={props.onNavigate}>
       <QuestsTabs active="achievements" onSelect={props.onTab} />
 
       {!connected ? (
-        <Notice title="Connect to see your achievements" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
-          Achievements count your games over time: they need an account.
+        <Notice title="Connect to see your missions" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
+          Lifetime missions count your games over time: they need an account.
         </Notice>
       ) : error ? (
         <InlineError
-          title="Could not load the achievements"
+          title="Could not load the lifetime missions"
           message={error}
           detail={props.errorDetail}
           action={<Button size="sm" variant="outline" onClick={props.onRetry}>Retry</Button>}
         />
       ) : achievements === null ? (
-        <div role="status" aria-label="Loading the achievements" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+        <div role="status" aria-label="Loading the lifetime missions" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
@@ -134,10 +134,10 @@ export function AchievementsScene(props: AchievementsSceneProps) {
           </section>
           {rewards && !canClaim && (
             <Notice title="Connect to claim" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
-              Your achievements show; claiming their Cobbles needs your wallet to sign.
+              Your missions show; claiming their Cobbles needs your wallet to sign.
             </Notice>
           )}
-          {rewards && <p className="text-xs text-muted-foreground">An achievement gives as many Cobbles as its points, claimed once. On the Podium gives none in this version.</p>}
+          {rewards && <p className="text-xs text-muted-foreground">A lifetime mission gives as many Cobbles as its points, claimed once. On the Podium gives none in this version.</p>}
           <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
             {list.map((a) => (
               <ProgressCard

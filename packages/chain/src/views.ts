@@ -99,8 +99,17 @@ export const VIEW_FIELDS = {
   "paved::views::PriceView": ["token", "amount"] satisfies (keyof PriceView)[],
 };
 
-/** `abi-mismatch`: the contract answered with another layout than the ABI (an upgrade the client does not follow). */
-export type ViewErrorKind = "game-not-found" | "not-player" | "not-configured" | "abi-mismatch" | "rpc";
+/**
+ * `abi-mismatch`: the contract answered with another layout than the ABI (an upgrade the client does not follow).
+ * `not-available`: the deployed class has no such entrypoint (the client is ahead of the network's deployment; #549).
+ */
+export type ViewErrorKind = "game-not-found" | "not-player" | "not-configured" | "abi-mismatch" | "not-available" | "rpc";
+
+/** What the user reads when a view is not deployed on the network yet; the raw RPC text stays in `cause`. */
+export const NOT_AVAILABLE_MESSAGE = "Not available on this network yet.";
+
+// The node's text for a call to a selector the class does not have (Starknet: ENTRYPOINT_NOT_FOUND).
+const NO_ENTRYPOINT = /entry ?point does not exist|entry ?point .*not found|ENTRYPOINT_NOT_FOUND/i;
 
 /** A view that failed, with the reason the UI shows. */
 export class ViewError extends Error {
@@ -125,6 +134,7 @@ export function toViewError(error: unknown): ViewError {
   if (error instanceof AbiMismatchError) return new ViewError("abi-mismatch", error.message, error);
   const text = error instanceof Error ? error.message : String(error);
   const lower = text.toLowerCase();
+  if (NO_ENTRYPOINT.test(text)) return new ViewError("not-available", NOT_AVAILABLE_MESSAGE, error);
   for (const [message, kind] of REVERTS) {
     // A node may give the revert reason as text or as the hex of its short string.
     const hex = shortString.encodeShortString(message).slice(2).toLowerCase();

@@ -27,6 +27,8 @@ const loadSurrenderDialog = () => import("../containers/surrender-dialog");
 const loadSettingsSheet = () => import("../containers/device-settings-sheet");
 // The season wheel (#547) is its own chunk, loaded after the first frame: its slot in the HUD keeps its size meanwhile.
 const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
+// The deck sheet (#540) too: its own chunk, loaded at the first tap on "Tiles left".
+const loadDeckSheet = () => import("../containers/deck-sheet");
 const PREFETCH_AFTER_MS = 3000;
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", tutorial: "Tutorial" };
@@ -41,6 +43,8 @@ export interface BoardSceneProps {
   delta?: number | null;
   /** `GameView.remainingCount`: discards count against the tiles left (P3), and are not shown. */
   remaining: number;
+  /** Chain plan ids of the tiles discarded: the deck sheet crosses them out too. */
+  discardedPlans?: number[];
   /** `GameView.expiresAt` (S1): a Challenge game's start + 24 h; past it only a surrender is accepted. */
   expiresAt?: number | null;
   now: number;
@@ -104,6 +108,7 @@ export function BoardScene(props: BoardSceneProps) {
   const title = mode === "challenge" && gameId != null ? `Challenge #${gameId}` : TITLES[mode];
   const [surrendering, setSurrendering] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deckOpen, setDeckOpen] = useState(false);
   const play = useSfx();
   useBoardSounds({ ghost: props.ghost, error: hand.error, lastScored: props.lastScored });
   const { promptSurrender } = props;
@@ -129,6 +134,10 @@ export function BoardScene(props: BoardSceneProps) {
     setSettingsOpen(false);
     toastError({ title: "Settings", message: "The settings could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
+  const deckSheet = useDeferred(loadDeckSheet, deckOpen, (e) => {
+    setDeckOpen(false);
+    toastError({ title: "Deck", message: "The deck could not load. Check your connection and try again.", detail: errorDetail(e) });
+  });
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {props.canvas ?? <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />}
@@ -152,6 +161,10 @@ export function BoardScene(props: BoardSceneProps) {
           onSettings={() => {
             play("tap");
             setSettingsOpen(true);
+          }}
+          onDeck={() => {
+            play("tap");
+            setDeckOpen(true);
           }}
           className="pointer-events-auto w-full max-w-2xl"
         />
@@ -198,6 +211,10 @@ export function BoardScene(props: BoardSceneProps) {
             surrenderPending={surrendering && !surrenderDialog}
           />
         </div>
+      )}
+
+      {deckSheet && (
+        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} handPlan={hand.tile?.plan ?? null} tileArt={props.tileArt} />
       )}
 
       {settingsSheet && <settingsSheet.default open={settingsOpen} onOpenChange={setSettingsOpen} />}

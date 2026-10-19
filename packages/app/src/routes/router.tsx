@@ -57,6 +57,8 @@ export const routes: RouteObject[] = [
         return page.path === "" ? { index: true, ...route } : { path: page.path, ...route };
       }),
       { path: "game", loader: gameRedirect },
+      { path: "quests/:day?", loader: ({ request, params }) => to(params.day ? `/missions/${params.day}` : "/missions", request) },
+      { path: "achievements", loader: ({ request }) => to("/missions/lifetime", request) },
       { path: "economy", loader: ({ request }) => to("/vault", request) },
       { path: "*", element: <NotFound />, errorElement: <RouteError /> },
     ],
