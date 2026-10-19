@@ -40,7 +40,16 @@ export interface WindowLightSettings {
   stagger: number;
   /** Which openings are kept (`WINDOW_RULES`). */
   rule: WindowRuleSetting;
+  /**
+   * Which openings are found: "through" (#571), the recesses and the openings through a wall into a room (lit, its windows
+   * switching on together); "recesses", the first pass's (#513), recesses only and no room. For the stories' comparison.
+   */
+  detection: WindowDetection;
 }
+
+/** The detections (`WindowLightSettings.detection`): the second pass's, or the first's. */
+export const WINDOW_DETECTIONS = ["through", "recesses"] as const;
+export type WindowDetection = (typeof WINDOW_DETECTIONS)[number];
 
 /**
  * The layers over the slab whose light the windows' spill keeps past a tile's border (`windows.ts`), the brightest of them: the
@@ -48,7 +57,7 @@ export interface WindowLightSettings {
  */
 export const WINDOW_SPILL_LAYERS = 4;
 
-export const DEFAULT_WINDOW_LIGHT: WindowLightSettings = { intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures" };
+export const DEFAULT_WINDOW_LIGHT: WindowLightSettings = { intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures", detection: "through" };
 
 /** `input` over `base`, field by field: a value of the wrong kind or out of range keeps the base's. */
 export function resolveWindowLight(input: Partial<WindowLightSettings> = {}, base: WindowLightSettings = DEFAULT_WINDOW_LIGHT): WindowLightSettings {
@@ -61,6 +70,7 @@ export function resolveWindowLight(input: Partial<WindowLightSettings> = {}, bas
     margin: Math.round(at(input.margin, base.margin, 0, 20)),
     stagger: at(input.stagger, base.stagger, 0.05, 4),
     rule: WINDOW_RULES.includes(input.rule!) ? input.rule! : base.rule,
+    detection: WINDOW_DETECTIONS.includes(input.detection!) ? input.detection! : base.detection,
   };
 }
 

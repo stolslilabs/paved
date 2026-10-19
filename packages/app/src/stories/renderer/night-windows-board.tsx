@@ -1,5 +1,5 @@
 import { DayNightBoard, freezeAt } from "./daynight-board";
-import type { QualityTier, DayPhase, Season, WindowRuleSetting } from "@paved/renderer";
+import type { QualityTier, DayPhase, Season, WindowDetection, WindowRuleSetting } from "@paved/renderer";
 import type { View } from "./outlines-tour";
 
 export interface NightWindowsBoardProps {
@@ -23,6 +23,8 @@ export interface NightWindowsBoardProps {
   margin: number;
   stagger: number;
   rule: WindowRuleSetting;
+  /** Which openings are found: through the walls into rooms (#571), or the first pass's recesses only (#513). */
+  detection: WindowDetection;
   quality: QualityTier | "auto";
   force: "auto" | "on" | "off";
   /** Every plan on its Forest variants (their windows come from the same detection, through the skin). */
@@ -46,8 +48,8 @@ const MOMENTS: ReadonlyArray<readonly [string, number]> = [
  * at four moments of the evening, at any of the game's views. Held at dusk or at night, or running through the ramp. Software
  * WebGL is marked: a capture there shows layout and colour, never a frame time or the outlines.
  */
-export function NightWindowsBoard({ layout, lights, phase, season, speed, view, distance, nightLightIntensity, windowIntensity, reach, falloff, margin, stagger, rule, quality, force, forest }: NightWindowsBoardProps) {
-  const windowLight = { intensity: windowIntensity, reach, falloff, margin, stagger, rule };
+export function NightWindowsBoard({ layout, lights, phase, season, speed, view, distance, nightLightIntensity, windowIntensity, reach, falloff, margin, stagger, rule, detection, quality, force, forest }: NightWindowsBoardProps) {
+  const windowLight = { intensity: windowIntensity, reach, falloff, margin, stagger, rule, detection };
   const board = (source: "columns" | "windows", label: string, at?: number) => (
     <div className="relative h-full" style={{ minHeight: "50dvh" }}>
       <DayNightBoard
@@ -72,7 +74,7 @@ export function NightWindowsBoard({ layout, lights, phase, season, speed, view, 
       </output>
     </div>
   );
-  const name = (source: "columns" | "windows") => (source === "columns" ? "columns (today's night lights)" : `windows (reach ${reach}, margin ${margin}, x${windowIntensity})`);
+  const name = (source: "columns" | "windows") => (source === "columns" ? "columns (today's night lights)" : `windows (${detection === "recesses" ? "first pass: recesses, " : ""}reach ${reach}, margin ${margin}, x${windowIntensity})`);
   if (layout === "single") return <div className="min-h-dvh">{board(lights, name(lights))}</div>;
   if (layout === "moments") {
     const base = Math.max(0, freezeAt(season, "dawn") - 0.025);

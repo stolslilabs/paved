@@ -100,7 +100,7 @@ describe("the window detection", () => {
   it(
     "finds #513's 84 windows over the 19 plans and those through the walls; the structures keep more than the lit columns",
     async () => {
-      const total = { recesses: 0, all: 0, structures: 0, columns: 0 };
+      const total = { recesses: 0, all: 0, structures: 0, columns: 0, firstPass: 0, firstPassThrough: 0 };
       for (const plan of PLANS) {
         const mesh = await loadMesh(shipped(plan));
         const grid = voxelize(sourceOf(mesh), { name: plan })!;
@@ -110,9 +110,15 @@ describe("the window detection", () => {
         total.all += count(all);
         total.structures += count(detectWindows(grid, { vegetation: plantEntries(PALETTE_CLASSES.base.vegetation) }));
         total.columns += count(detectWindows(grid, litColumnsOf(plan, mesh)));
+        // The first pass's detection and rule together: #523's 65 kept windows, none through a wall.
+        const first = detectWindows(grid, { lit: litColumnsOf(plan, mesh), recessesOnly: true });
+        total.firstPass += count(first);
+        total.firstPassThrough += first.filter((w) => w.through).length;
       }
       expect(PLANS).toHaveLength(19);
       expect(total.recesses).toBe(84);
+      expect(total.firstPass).toBe(65);
+      expect(total.firstPassThrough).toBe(0);
       // Measured on 2026-10-19: 872 windows, 836 kept on the structures, 720 on the lit columns.
       expect(total.all).toBeGreaterThan(800);
       expect(total.structures).toBeLessThanOrEqual(total.all);
@@ -167,6 +173,14 @@ describe("the windows through the walls (#571)", () => {
     // And in front of each window, that window's pool.
     expect(lightOf(volume, 5, 1, 7)).toBeGreaterThan(0);
     expect(lightOf(volume, 10, 5, 7)).toBeGreaterThan(0);
+  });
+
+  it("the first pass's detection (recessesOnly) finds no window through a wall, so no room is lit", () => {
+    const grid = gridOf(hollow, 12, 12);
+    const first = detectWindows(grid, { recessesOnly: true });
+    expect(first.filter((w) => w.kind === "window")).toHaveLength(0);
+    const volume = buildLightVolume(grid, first);
+    expect(lightOf(volume, 5, 5, 7)).toBe(0);
   });
 
   it("a recess keeps its own owner, and a hole through a solid block is no window", () => {

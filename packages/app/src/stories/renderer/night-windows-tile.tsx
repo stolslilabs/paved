@@ -21,6 +21,7 @@ import {
   type VoxelGrid,
   type VolumeMethod,
   type Window,
+  type WindowDetection,
 } from "@paved/renderer";
 import { APP_ASSETS, APP_MANIFEST } from "../../mocks/assets";
 import { MARK_COLORS, drawIso, drawSlice, paletteRgb } from "./night-windows-iso";
@@ -47,6 +48,8 @@ export interface NightWindowsTileProps {
   marks: Array<OpeningKind | "unlit">;
   /** The rule that keeps the openings. */
   rule: StoryRule;
+  /** Which openings are found: the second pass's (through the walls, into rooms), or the first's (recesses only, no room). */
+  detection: WindowDetection;
   /** The light volume (the steps "volume" and "slice"). */
   method: VolumeMethod;
   reach: number;
@@ -114,14 +117,15 @@ function useLoader(wanted: readonly string[] = []): AssetLoader | null {
 const forestIds = (plans: readonly string[]): string[] => plans.flatMap((plan) => Array.from({ length: forestVariantCount(plan) }, (_, i) => modelId(plan, "forest", i + 1)));
 
 /** The filter a rule gives (`findOpenings`): the renderer's, from the model's lit columns or its palette's vegetation. */
-function filterOf(rule: StoryRule, lights: Uint8Array | undefined, plants: number[]): OpeningFilter | undefined {
-  if (rule === "columns") return lights ? { lit: lights } : undefined;
-  if (rule === "structures") return { vegetation: plants };
-  return undefined;
+function filterOf(rule: StoryRule, lights: Uint8Array | undefined, plants: number[], detection: WindowDetection): OpeningFilter {
+  const recessesOnly = detection === "recesses";
+  if (rule === "columns" && lights) return { lit: lights, recessesOnly };
+  if (rule === "structures") return { vegetation: plants, recessesOnly };
+  return { recessesOnly };
 }
 
 /** Loads one model by id (a Forest variant loads on demand) and detects its windows under `rule`; `null` while it comes. */
-function useBaked(loader: AssetLoader | null, id: string, plan: string, rule: StoryRule): Baked | null {
+function useBaked(loader: AssetLoader | null, id: string, plan: string, rule: StoryRule, detection: WindowDetection): Baked | null {
   const [baked, setBaked] = useState<Baked | null>(null);
   useEffect(() => {
     if (!loader) return;
@@ -137,7 +141,7 @@ function useBaked(loader: AssetLoader | null, id: string, plan: string, rule: St
       const lights = classes ? labelTileColumns(source.geometry, planLayout(plan), source.toModel, classes).lights : undefined;
       const plants = plantEntries(classes?.vegetation ?? []);
       const started = performance.now();
-      const found = findOpenings(grid, filterOf(rule, lights, plants));
+      const found = findOpenings(grid, filterOf(rule, lights, plants, detection));
       const detectMs = performance.now() - started;
       if (alive) setBaked({ grid, kept: found.windows, dropped: found.dropped, plants, detectMs, voxelMs, colors: paletteRgb(palette), id });
     };
@@ -154,7 +158,7 @@ function useBaked(loader: AssetLoader | null, id: string, plan: string, rule: St
     return () => {
       alive = false;
     };
-  }, [loader, id, plan, rule]);
+  }, [loader, id, plan, rule, detection]);
   return baked?.id === id ? baked : null;
 }
 
@@ -316,11 +320,11 @@ const STRUCTURE_ROWS = 14;
 
 /** One tile: the isometric view with the marks and the light, the counts, the times, the volume's size and the structures. */
 export function NightWindowsTile(props: NightWindowsTileProps) {
-  const { plan, skin, variant, rotation, step, marks, rule, method, reach, falloff, margin, intensity, lightColor, doorsLight, nightLevel, stagger, cellX, cellY, layer, night } = props;
+  const { plan, skin, variant, rotation, step, marks, rule, detection, method, reach, falloff, margin, intensity, lightColor, doorsLight, nightLevel, stagger, cellX, cellY, layer, night } = props;
   const wanted = useMemo(() => (skin === "forest" ? forestIds([plan]) : []), [plan, skin]);
   const loader = useLoader(wanted);
   const id = modelId(plan, skin, variant);
-  const baked = useBaked(loader, id, plan, rule);
+  const baked = useBaked(loader, id, plan, rule, detection);
   const iso = useRef<HTMLCanvasElement>(null);
   const slice = useRef<HTMLCanvasElement>(null);
 
@@ -362,7 +366,7 @@ export function NightWindowsTile(props: NightWindowsTileProps) {
         {!baked && "loading the model"}
         {baked && counts && volume && (
           <>
-            <div>{id.slice(id.lastIndexOf("/") + 1)}: {baked.grid.sizeX} x {baked.grid.sizeY} x {baked.grid.layers} voxels; rule: {rule}</div>
+            <div>{id.slice(id.lastIndexOf("/") + 1)}: {baked.grid.sizeX} x {baked.grid.sizeY} x {baked.grid.layers} voxels; rule: {rule}; detection: {detection}</div>
             <div>windows {counts.window}, doors {counts.door}, gaps {counts.gap}; dropped: {reasons}</div>
             {summary(baked.kept).map((line) => <div key={line}>{line}</div>)}
             <div>voxelizer {baked.voxelMs.toFixed(1)} ms, detection {baked.detectMs.toFixed(1)} ms</div>
@@ -428,7 +432,7 @@ export interface WindowsTableRow {
 }
 
 /** Every plan, one row each: what the detection found and the cost of the bake in this browser (the readout, #513's item 4). */
-export function NightWindowsTable({ skin, rule = "structures" }: { skin: TileSkin; rule?: StoryRule }) {
+export function NightWindowsTable({ skin, rule = "structures", detection = "through" }: { skin: TileSkin; rule?: StoryRule; detection?: WindowDetection }) {
   const wanted = useMemo(() => (skin === "forest" ? forestIds(VOXELIZER_PLANS) : []), [skin]);
   const loader = useLoader(wanted);
   const [rows, setRows] = useState<WindowsTableRow[] | null>(null);
@@ -456,7 +460,7 @@ export function NightWindowsTable({ skin, rule = "structures" }: { skin: TileSki
           const classes = name ? PALETTE_CLASSES[name] : undefined;
           const lights = classes ? labelTileColumns(source.geometry, planLayout(plan), source.toModel, classes).lights : undefined;
           const detectBegan = performance.now();
-          const found = findOpenings(grid, filterOf(rule, lights, plantEntries(classes?.vegetation ?? [])));
+          const found = findOpenings(grid, filterOf(rule, lights, plantEntries(classes?.vegetation ?? []), detection));
           const detectMs = performance.now() - detectBegan;
           const kept = found.windows;
           const volume = buildLightVolume(grid, kept, { ...DEFAULT_LIGHT_VOLUME, reach: DEFAULT_WINDOW_LIGHT.reach, falloff: DEFAULT_WINDOW_LIGHT.falloff, margin: DEFAULT_WINDOW_LIGHT.margin });
@@ -485,13 +489,13 @@ export function NightWindowsTable({ skin, rule = "structures" }: { skin: TileSki
     return () => {
       alive = false;
     };
-  }, [loader, skin, rule]);
+  }, [loader, skin, rule, detection]);
   const total = rows?.reduce((sum, r) => ({ windows: sum.windows + r.windows, through: sum.through + r.through, doors: sum.doors + r.doors, gaps: sum.gaps + r.gaps }), { windows: 0, through: 0, doors: 0, gaps: 0 });
   return (
     <div className="min-h-dvh bg-background p-6 text-foreground" data-ready={rows ? "" : undefined}>
       {total && (
         <div className="mb-3 font-mono text-xs">
-          {rows!.length} models, rule {rule}: windows {total.windows} ({total.through} through a wall), doors {total.doors}, gaps {total.gaps}
+          {rows!.length} models, rule {rule}, detection {detection}: windows {total.windows} ({total.through} through a wall), doors {total.doors}, gaps {total.gaps}
         </div>
       )}
       <ul className="flex flex-col gap-1 font-mono text-xs">

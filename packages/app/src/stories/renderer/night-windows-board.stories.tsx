@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { DAY_PHASES, DEFAULT_WINDOW_LIGHT, QUALITY_TIERS, SEASONS, WINDOW_RULES } from "@paved/renderer";
+import { DAY_PHASES, DEFAULT_WINDOW_LIGHT, QUALITY_TIERS, SEASONS, WINDOW_DETECTIONS, WINDOW_RULES } from "@paved/renderer";
 import { NightWindowsBoard } from "./night-windows-board";
 import { VIEWS } from "./outlines-tour";
 
@@ -35,6 +35,7 @@ const meta = {
     margin: { control: { type: "range", min: 0, max: 16, step: 1 }, description: `Past the tile's border, in voxels (default ${DEFAULT_WINDOW_LIGHT.margin}; 0: stops at the border)` },
     stagger: { control: { type: "range", min: 0.1, max: 2, step: 0.05 }, description: `The spread of the switch-on levels (default ${DEFAULT_WINDOW_LIGHT.stagger}: every window on by full night)` },
     rule: { control: "inline-radio", options: WINDOW_RULES, description: "Which windows: every structure's (#571), or the lit columns' (#513)" },
+    detection: { control: "inline-radio", options: WINDOW_DETECTIONS, description: "Which windows are found: through the walls into rooms (#571), or the first pass's recesses only (#513)" },
     quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Low is a still noon: no night lights" },
     force: { control: "inline-radio", options: ["auto", "on", "off"] },
     forest: { control: "boolean", description: "Every plan on its Forest variants" },
@@ -53,6 +54,7 @@ const meta = {
     margin: DEFAULT_WINDOW_LIGHT.margin,
     stagger: DEFAULT_WINDOW_LIGHT.stagger,
     rule: DEFAULT_WINDOW_LIGHT.rule,
+    detection: DEFAULT_WINDOW_LIGHT.detection,
     quality: "medium",
     force: "auto",
     forest: false,
@@ -67,8 +69,11 @@ export const SideBySideNight: Story = {};
 /** Both at a held dusk: the first lights. */
 export const SideBySideDusk: Story = { args: { phase: "dusk", season: "autumn" } };
 
-/** The first pass's windows for comparison: the lit columns, reach 6, falloff 1.5, no margin, the columns' strength. */
-export const FirstPass: Story = { args: { layout: "single", rule: "columns", reach: 6, falloff: 1.5, margin: 0, windowIntensity: 0.4, stagger: 1.6 / 0.85 } };
+/**
+ * The first pass for comparison, as #513 shipped it: its detection (recesses only, so no window through a wall and no lit room),
+ * its rule (the lit columns), its light (reach 6, falloff 1.5, no margin, the columns' 0.4) and its switch-on spread (1.6).
+ */
+export const FirstPass: Story = { args: { layout: "single", detection: "recesses", rule: "columns", reach: 6, falloff: 1.5, margin: 0, windowIntensity: 0.4, stagger: 1.6 / 0.85 } };
 
 /** The proposal (#571, item 4): the windows as the board's night lights, one line in the defaults; shown at night. */
 export const Proposal: Story = { args: { layout: "single", lights: "windows" } };

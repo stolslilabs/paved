@@ -778,7 +778,7 @@ export class TileRenderer {
    * The night lights of the day and night cycle (DAYNIGHT, `NIGHT_LIGHTS_GLSL`): on, the city voxels and the structures by
    * the roads glow `color` (sRGB hex) at `intensity` as the night's level rises (`setNightLevel`). Turning them on labels
    * the models drawn, and those drawn later, once each, as a highlight does. From the windows, `windowLight` gives their own
-   * strength and stagger, and what the volumes are baked with: a change of reach, falloff, margin or rule bakes them again.
+   * strength and stagger, and what the volumes are baked with: a change of reach, falloff, margin, rule or detection bakes them again.
    */
   setNightLights(on: boolean, color: string, intensity: number, source: NightLightSource = "columns", windowLight: WindowLightSettings = DEFAULT_WINDOW_LIGHT): void {
     this.nightLights = on;
@@ -790,7 +790,7 @@ export class TileRenderer {
     this.nightUniforms.uWindowStagger.value = windowLight.stagger;
     const baked = this.windowLight;
     this.windowLight = windowLight;
-    if (baked.reach !== windowLight.reach || baked.falloff !== windowLight.falloff || baked.margin !== windowLight.margin || baked.rule !== windowLight.rule) {
+    if (baked.reach !== windowLight.reach || baked.falloff !== windowLight.falloff || baked.margin !== windowLight.margin || baked.rule !== windowLight.rule || baked.detection !== windowLight.detection) {
       this.forgetWindowLights();
     }
     this.applyHighlight();
@@ -846,8 +846,9 @@ export class TileRenderer {
             if (this.voxelGrids.peek(source.key) === undefined) retry();
             return;
           }
-          const { reach, falloff, margin, rule } = this.windowLight;
-          const filter = rule === "columns" ? source.lights : { vegetation: windows.plantEntries(source.vegetation) };
+          const { reach, falloff, margin, rule, detection } = this.windowLight;
+          const recessesOnly = detection === "recesses";
+          const filter = rule === "columns" ? { lit: source.lights, recessesOnly } : { vegetation: windows.plantEntries(source.vegetation), recessesOnly };
           const baked = await this.windowBakes.request(source.key, grid, filter, { reach, falloff, margin }, stale);
           if (stale()) return;
           if (!baked) return retry();

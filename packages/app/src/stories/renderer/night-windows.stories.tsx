@@ -33,6 +33,7 @@ const meta = {
     step: { control: "inline-radio", options: ["found", "glow", "volume", "slice"], description: "Windows found; windows glowing alone; the light volume; the volume with a slice" },
     marks: { control: "check", options: ["window", "door", "gap", "unlit"], description: "Which openings are boxed (unlit: those the rule drops)" },
     rule: { control: "inline-radio", options: ["structures", "columns", "none"], description: "Which openings are kept: every structure's (#571), the lit columns (#513), or all" },
+    detection: { control: "inline-radio", options: ["through", "recesses"], description: "Which openings are found: through the walls into rooms (#571), or the first pass's recesses only (#513)" },
     method: { control: "inline-radio", options: ["flood", "rays"], description: "How the light is cast into the air in front of a window" },
     reach: { control: { type: "range", min: 1, max: 20, step: 0.5 }, description: `How far the light reaches, in voxels (default ${DEFAULT_WINDOW_LIGHT.reach}; the first pass's 6)` },
     falloff: { control: { type: "range", min: 0.5, max: 4, step: 0.1 }, description: `The falloff's exponent (default ${DEFAULT_WINDOW_LIGHT.falloff}; the first pass's 1.5)` },
@@ -55,6 +56,7 @@ const meta = {
     step: "found",
     marks: ["window", "door", "gap", "unlit"],
     rule: "structures",
+    detection: "through",
     method: "flood",
     reach: DEFAULT_WINDOW_LIGHT.reach,
     falloff: DEFAULT_WINDOW_LIGHT.falloff,
@@ -109,8 +111,14 @@ export const TowersAtNight: Story = { args: { plan: "cccccfffc", step: "volume",
 /** The stagger at dusk (level 0.6): some windows still dark, a room's windows on or off together; move `cellX` for another draw. */
 export const Dusk: Story = { args: { step: "volume", marks: [], nightLevel: 0.6 } };
 
-/** The first pass's light for comparison: reach 6, falloff 1.5, no margin. */
-export const FirstPassLight: Story = { args: { step: "volume", marks: [], reach: 6, falloff: 1.5, margin: 0, intensity: 0.4 } };
+/**
+ * The first pass for comparison, as #513 shipped it: its detection (recesses only, so no room), its rule (the lit columns), its
+ * light (reach 6, falloff 1.5, no margin, 0.4) and its switch-on spread (1.6).
+ */
+export const FirstPassLight: Story = { args: { step: "volume", marks: [], detection: "recesses", rule: "columns", reach: 6, falloff: 1.5, margin: 0, intensity: 0.4, stagger: 1.6 / 0.85 } };
+
+/** The first pass's detection on the houses: what #513 found (one window of four at most), for the House story. */
+export const FirstPassHouse: Story = { args: { plan: "ccccccccc", rotation: 1, detection: "recesses", rule: "columns" } };
 
 /** 2c. The same with rays instead of the flood: sharper beams out of the openings. */
 export const LightVolumeRays: Story = { args: { step: "volume", marks: [], method: "rays" } };
@@ -121,8 +129,11 @@ export const VolumeSlice: Story = { args: { step: "slice", marks: ["window"], la
 /** 3. The readout: windows per model, the volume's size and the build time of each step in this browser (the 19 base models). */
 export const Readout: Story = { render: () => <NightWindowsTable skin="base" /> };
 
-/** The same under the first pass's rule (the lit columns). */
+/** The same under the first pass's rule (the lit columns), with the second pass's detection. */
 export const ReadoutColumns: Story = { render: () => <NightWindowsTable skin="base" rule="columns" /> };
+
+/** The first pass as it was: its detection (recesses only) and its rule (the lit columns): #523's 65 windows. */
+export const ReadoutFirstPass: Story = { render: () => <NightWindowsTable skin="base" rule="columns" detection="recesses" /> };
 
 /** The same for the Forest variants, through the skin. */
 export const ReadoutForest: Story = { render: () => <NightWindowsTable skin="forest" /> };

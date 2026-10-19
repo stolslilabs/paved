@@ -88,6 +88,11 @@ export interface Found {
 export interface OpeningFilter {
   readonly vegetation?: readonly number[];
   readonly lit?: Uint8Array;
+  /**
+   * Only the recesses (solid behind), as the first pass (#513) found them: no opening through a wall, so no room either.
+   * For the stories' comparison with the first pass.
+   */
+  readonly recessesOnly?: boolean;
 }
 
 /** The rule the renderer keeps windows by: the structures' (`vegetation`), or the first pass's lit columns (`lit`). */
@@ -110,7 +115,7 @@ export function detectWindows(grid: VoxelGrid, filter?: Uint8Array | OpeningFilt
 }
 
 export function findOpenings(grid: VoxelGrid, filter?: Uint8Array | OpeningFilter): Found {
-  const { lit, vegetation } = filterOf(filter);
+  const { lit, vegetation, recessesOnly } = filterOf(filter);
   const plant = new Uint8Array(256);
   for (const entry of vegetation ?? []) plant[entry] = 1;
   const start = traceStart();
@@ -149,7 +154,7 @@ export function findOpenings(grid: VoxelGrid, filter?: Uint8Array | OpeningFilte
     };
     // A candidate: air with solid behind it (a recess) or a room behind it (`opensOnRoom`), and air in front (the wall's plane
     // seen from outside).
-    const candidate = (x: number, y: number, l: number) => air(x, y, l) && air(x + dx, y + dy, l) && (solid(x - dx, y - dy, l) || opensOnRoom(x, y, l));
+    const candidate = (x: number, y: number, l: number) => air(x, y, l) && air(x + dx, y + dy, l) && (solid(x - dx, y - dy, l) || (!recessesOnly && opensOnRoom(x, y, l)));
     // How enclosed an air cell is: of the rays up and along the four horizontal directions but `away` (toward the opening), the
     // number that meet a solid cell within `INSIDE_REACH`. The inside of a building scores more than the street in front.
     const enclosure = (x: number, y: number, l: number, awayX: number, awayY: number) => {

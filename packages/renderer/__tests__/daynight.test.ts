@@ -196,11 +196,12 @@ describe("the night lights' source (NIGHT-WINDOWS, #513)", () => {
   });
 
   it("#571: the windows' own light, stronger and longer than the first pass's, set field by field; the columns' unchanged", () => {
-    expect(DEFAULT_WINDOW_LIGHT).toEqual({ intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures" });
+    expect(DEFAULT_WINDOW_LIGHT).toEqual({ intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures", detection: "through" });
     expect(DEFAULT_DAYNIGHT_SETTINGS.windowLight).toEqual(DEFAULT_WINDOW_LIGHT);
     expect(DEFAULT_DAYNIGHT_SETTINGS.nightLightIntensity).toBe(0.4);
     expect(resolveDayNightSettings({ windowLight: { margin: 0 } }).windowLight).toEqual({ ...DEFAULT_WINDOW_LIGHT, margin: 0 });
-    expect(resolveWindowLight({ intensity: -1, reach: 0, falloff: Number.NaN, margin: 99, stagger: 0, rule: "lasers" as never })).toEqual(DEFAULT_WINDOW_LIGHT);
+    expect(resolveWindowLight({ intensity: -1, reach: 0, falloff: Number.NaN, margin: 99, stagger: 0, rule: "lasers" as never, detection: "x" as never })).toEqual(DEFAULT_WINDOW_LIGHT);
+    expect(resolveWindowLight({ detection: "recesses" }).detection).toBe("recesses");
     expect(resolveWindowLight({ margin: 3.6, rule: "columns" })).toMatchObject({ margin: 4, rule: "columns" });
     // A later partial keeps what an earlier one set.
     expect(resolveDayNightSettings({ enabled: true }, resolveDayNightSettings({ windowLight: { reach: 14 } })).windowLight.reach).toBe(14);

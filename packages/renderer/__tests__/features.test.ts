@@ -982,6 +982,12 @@ describe("the night lights (DAYNIGHT)", () => {
       tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6, margin: 0 });
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
       expect((uniforms.uSpillRect.value as THREE.Vector4).z).toBe(0);
+      // The first pass's detection is a bake of its own too.
+      const through = (tiles as any).windowTextures[0] as THREE.Data3DTexture;
+      const rebaked = vi.spyOn(through, "dispose");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6, margin: 0, detection: "recesses" });
+      expect(rebaked).toHaveBeenCalled();
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
       const last = uniforms.uWindowSpill.value as THREE.DataTexture;
       const dispose = vi.spyOn(last, "dispose");
       tiles.dispose();
