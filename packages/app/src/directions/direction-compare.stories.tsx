@@ -34,7 +34,7 @@ function Frame({ id, screen, size }: { id: string; screen: ScreenName2; size: Si
         width={width}
         height={height}
         loading="lazy"
-        className="origin-top-left border-0"
+        className="origin-top-left border-0 bg-black"
         style={{ transform: `scale(${scale})` }}
       />
     </div>
