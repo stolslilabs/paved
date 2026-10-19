@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OrientationType, TRAINING_KEY, loadGame, replayTraining, type KeyValueStore, type SavedMove } from "@paved/game-core";
 import { App } from "../src/App";
+import { TRAINING_BEST_KEY, trainingPreviousBest } from "../src/data/training-best";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
@@ -176,7 +177,7 @@ describe("/training (P3)", () => {
     while (router.state.location.pathname === "/training") await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
     expect(router.state.location.pathname).toBe("/training/over");
     expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Tiles placed1");
+    expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Tiles placed0");
     expect(router.state.location.pathname).toBe("/training/over");
     expect(loadGame(() => store)!.moves).toEqual([{ k: "d" }]);
   });
@@ -258,12 +259,43 @@ describe("/training/over (P3)", () => {
     const { router } = open("/training/over", store);
     expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     const metrics = screen.getByRole("region", { name: "Game metrics" });
-    expect(metrics).toHaveTextContent(`Tiles placed${game.built + 1}`);
+    expect(metrics).toHaveTextContent(`Tiles placed${game.built}`);
 
     await userEvent.click(screen.getByRole("button", { name: "Play again" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
     expect(await tilesOnBoard()).toBe(1);
     expect(loadGame(() => store)!.moves).toEqual([]);
+  });
+
+  it("shows the final board and the scores in turn (#539), and New best against this device's best", async () => {
+    const moves: SavedMove[] = [];
+    const game = replayTraining(SEED, []);
+    while (!game.over) {
+      const p = game.legalPlacements()[0];
+      if (p) game.build(p);
+      else game.discard();
+      moves.push(p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" });
+    }
+    expect(game.score).toBeGreaterThan(1);
+    const store = memoryStore({ [TRAINING_KEY]: save(moves), [TRAINING_BEST_KEY]: JSON.stringify({ score: 1, seed: "0x1", previous: null }) });
+    const { router, unmount } = open("/training/over", store);
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByText("New best")).toBeInTheDocument();
+    expect(JSON.parse(store.getItem(TRAINING_BEST_KEY)!)).toEqual({ score: game.score, seed: `0x${SEED.toString(16)}`, previous: 1 });
+
+    const toggle = screen.getByRole("radiogroup", { name: "Show" });
+    await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Final board" })).toBeInTheDocument();
+    expect(await within(screen.getByTestId("final-board")).findByRole("img", { name: `Board of ${game.built + 1} tiles` })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/training/over");
+    await userEvent.click(within(toggle).getByRole("radio", { name: "Scores" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/training/over");
+    unmount();
+
+    // A reload of the same game's end still reads New best: the record keeps the best before it.
+    open("/training/over", store);
+    expect(await screen.findByText("New best", {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it("sends a game still in play back to its board, and a finished game's board to its end", async () => {
@@ -272,5 +304,26 @@ describe("/training/over (P3)", () => {
     playing.unmount();
     const over = open("/training", memoryStore({ [TRAINING_KEY]: save([{ k: "s" }]) }));
     await waitFor(() => expect(over.router.state.location.pathname).toBe("/training/over"));
+  });
+});
+
+describe("the Training best of this device (#539)", () => {
+  it("is null on the first game, records a better game once, and keeps the best before it for that game", () => {
+    const store = memoryStore();
+    expect(trainingPreviousBest(() => store, "0xa", 300)).toBeNull();
+    expect(trainingPreviousBest(() => store, "0xa", 300)).toBeNull();
+    expect(trainingPreviousBest(() => store, "0xb", 200)).toBe(300);
+    expect(trainingPreviousBest(() => store, "0xc", 500)).toBe(300);
+    expect(trainingPreviousBest(() => store, "0xc", 500)).toBe(300);
+    expect(trainingPreviousBest(() => store, "0xd", 100)).toBe(500);
+  });
+
+  it("answers null without storage, and survives a refused write or a broken record", () => {
+    expect(trainingPreviousBest(() => null, "0xa", 300)).toBeNull();
+    expect(trainingPreviousBest(() => { throw new Error("blocked"); }, "0xa", 300)).toBeNull();
+    const broken = memoryStore({ [TRAINING_BEST_KEY]: "{not json" });
+    expect(trainingPreviousBest(() => broken, "0xa", 300)).toBeNull();
+    const full: KeyValueStore = { getItem: () => null, setItem: () => { throw new DOMException("quota", "QuotaExceededError"); }, removeItem: () => {} };
+    expect(trainingPreviousBest(() => full, "0xa", 300)).toBeNull();
   });
 });

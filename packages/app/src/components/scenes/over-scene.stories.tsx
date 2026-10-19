@@ -9,6 +9,12 @@ const meta = { title: "Scenes/Over", component: OverScene, args: { onSettle: fn(
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** The final board (#539): the scores one tap away, the board panned and zoomed, no hand. */
+export const FinalBoard: Story = { args: OVER.finalBoard };
+
+/** No board to show (its tiles could not be read): no toggle, the closings' figures alone. */
+export const NoBoard: Story = { args: OVER.noBoard };
+
 /** Above the threshold, settled: the reward minted; a new best. */
 export const Rewarded: Story = { args: OVER.rewarded };
 

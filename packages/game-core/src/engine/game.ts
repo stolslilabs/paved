@@ -115,6 +115,25 @@ export interface PlacedTile {
   readonly owner: bigint;
 }
 
+/**
+ * A structure the game scored, in move order: its `Scored` event with the distinct tiles D-19 counts (`size` is the
+ * nodes, the areas it spans; a wonder's tiles are the wonder and the 8 around it) and the tile whose move closed it.
+ */
+export interface ClosedStructure extends Scored {
+  readonly tiles: number;
+  readonly tileId: number;
+}
+
+/**
+ * A structure of the board never scored: still open (a half-edge with no tile), or a forest closed while a road along
+ * it is open (the contract never assesses it again). `tiles` counts its distinct tiles.
+ */
+export interface OpenStructure {
+  readonly category: CategoryType;
+  readonly tiles: number;
+  readonly size: number;
+}
+
 export interface Counters {
   /** Roads and cities scored. */
   readonly structures: number;
@@ -182,6 +201,11 @@ export class EngineGame {
   private _discarded = 0;
   /** The plans (indexes of `PLANS`) of the discarded tiles, in order. */
   private _discardedPlans: number[] = [];
+  /** The points the discards took (each at most the score). */
+  private _discardPenalty = 0;
+  /** Every structure scored, in move order, and their roots (a closed root never merges again). */
+  private _closings: ClosedStructure[] = [];
+  private scoredRoots = new Set<number>();
   private _over = false;
   private held: { id: number; plan: number } | null = null;
   private counters = { structures: 0, forests: 0, wonders: 0, big: 0 };
@@ -235,6 +259,8 @@ export class EngineGame {
     game.held = this.held ? { ...this.held } : null;
     game.counters = { ...this.counters };
     game._discardedPlans = [...this._discardedPlans];
+    game._closings = [...this._closings];
+    game.scoredRoots = new Set(this.scoredRoots);
     return game;
   }
 
@@ -262,6 +288,25 @@ export class EngineGame {
   get discardedPlans(): readonly number[] {
     return this._discardedPlans;
   }
+  /** The points the discards took, in all. */
+  get discardPenalty(): number {
+    return this._discardPenalty;
+  }
+  /** Every structure the game scored, in move order (the `Scored` events of its moves, with their tiles). */
+  closings(): readonly ClosedStructure[] {
+    return this._closings;
+  }
+
+  /** The structures of the board never scored, in the order of their first node (tiles by id, then areas). Read only. */
+  openStructures(): OpenStructure[] {
+    return this.board
+      .structures()
+      // A closed road or city not scored is one written closed (`write`, a story's `placed`), not one left open.
+      .filter((s) => [CATEGORY_ROAD, CATEGORY_CITY, CATEGORY_FOREST, CATEGORY_WONDER].includes(s.category))
+      .filter((s) => !this.scoredRoots.has(s.root) && (s.open > 0 || s.category === CATEGORY_FOREST))
+      .map((s) => ({ category: CATEGORIES[s.category] as CategoryType, tiles: s.tiles, size: s.size }));
+  }
+
   get over(): boolean {
     return this._over;
   }
@@ -465,6 +510,7 @@ export class EngineGame {
     }
     const taken = Math.min(this._score, DISCARD_POINTS);
     this._score -= taken;
+    this._discardPenalty += taken;
     this.held = null;
     this.assessOver();
     if (!this._over) {
@@ -536,16 +582,16 @@ export class EngineGame {
       if (record.open !== 0 || done.has(root)) continue;
       done.add(root);
       if (category === CATEGORY_WONDER) {
-        scored.push(this.scoreWonder(tile));
+        scored.push(this.scoreWonder(tile, root, tile.id));
       } else if (category === CATEGORY_FOREST) {
         const { openRoad, roads, cities } = this.board.scan(tile, area);
         if (openRoad) continue;
         const points = formula(roads + cities, FOREST_BASE_POINTS, record.size);
-        scored.push(this.award(CATEGORY_FOREST, record.size, points, record.tiles));
+        scored.push(this.award(CATEGORY_FOREST, record.size, points, record.tiles, root, tile.id));
         this.counters.forests += 1;
       } else {
         const points = formula(record.size, basePoints(category), record.size);
-        scored.push(this.award(category, record.size, points, record.tiles));
+        scored.push(this.award(category, record.size, points, record.tiles, root, tile.id));
         this.counters.structures += 1;
         if (record.size >= BIG_SIZE) this.counters.big += 1;
       }
@@ -559,14 +605,14 @@ export class EngineGame {
       const { root, record } = this.board.rootOf(neighbor, wonder);
       if (record.open === 0 && !done.has(root)) {
         done.add(root);
-        scored.push(this.scoreWonder(neighbor));
+        scored.push(this.scoreWonder(neighbor, root, tile.id));
       }
     }
     return scored;
   }
 
   /** A closed wonder: 900, size 0; its tiles are the wonder and the 8 around it (D-19 ruling 3). */
-  private scoreWonder(wonder: BoardTile): Scored {
+  private scoreWonder(wonder: BoardTile, root: number, closer: number): Scored {
     const tiles = new Set([wonder.id]);
     for (let direction = 1; direction <= 8; direction++) {
       const [x, y] = toward(wonder.x, wonder.y, direction);
@@ -574,14 +620,15 @@ export class EngineGame {
       if (neighbor) tiles.add(neighbor.id);
     }
     this.counters.wonders += 1;
-    return this.award(CATEGORY_WONDER, 0, WONDER_BASE_POINTS, tiles);
+    return this.award(CATEGORY_WONDER, 0, WONDER_BASE_POINTS, tiles, root, closer);
   }
 
   /**
    * D-19: the points go to the owner with the most distinct tiles of the structure; on a tie,
-   * nobody scores (`player` 0, 0 points). The event is emitted either way.
+   * nobody scores (`player` 0, 0 points). The event is emitted either way, and logged with its tiles and `closer`, the
+   * tile whose move closed it.
    */
-  private award(category: number, size: number, points: number, tiles: Set<number>): Scored {
+  private award(category: number, size: number, points: number, tiles: Set<number>, root: number, closer: number): Scored {
     const counts = new Map<bigint, number>();
     for (const id of tiles) {
       const owner = (this.board.byId.get(id) as BoardTile).owner;
@@ -602,6 +649,9 @@ export class EngineGame {
     const player = tie ? 0n : winner;
     const awarded = tie ? 0 : points;
     this._score += awarded;
-    return { category: CATEGORIES[category] as CategoryType, size, points: awarded, player };
+    const scored: Scored = { category: CATEGORIES[category] as CategoryType, size, points: awarded, player };
+    this._closings.push({ ...scored, tiles: tiles.size, tileId: closer });
+    this.scoredRoots.add(root);
+    return scored;
   }
 }

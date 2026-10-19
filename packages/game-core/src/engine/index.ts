@@ -14,7 +14,9 @@ export {
   BIG_SIZE,
   PREPLACED_ID,
 } from "./game";
-export type { EngineConfig, Placement, Scored, MoveResult, PlacedTile, Counters } from "./game";
+export type { EngineConfig, Placement, Scored, MoveResult, PlacedTile, Counters, ClosedStructure, OpenStructure } from "./game";
+export { gameStats, SCORING_CATEGORIES } from "./stats";
+export type { GameStats, CategoryStats, ScoringCategory } from "./stats";
 export { DECKS } from "./decks";
 export type { EngineDeck, DeckRules } from "./decks";
 export { drawFromBitmap, withdrawExtra, poseidon, popcount } from "./draw";
