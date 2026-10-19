@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { GameScene } from "../src/core/GameScene";
+import { CLOSEST_DISTANCE } from "../src/core/CameraController";
 import { DEFAULT_RENDERER_SETTINGS } from "../src/core/settings";
 import { openingTilePixels, tilePixels } from "../src/core/outlines";
 import { placementStubs } from "./helpers/placement-stubs";
@@ -28,9 +29,9 @@ describe("GameScene settings", () => {
     scene.setSettings({ camera: { minDistance: 8, maxDistance: 250 } });
     expect(controls).toMatchObject({ minDistance: 8, maxDistance: 250 });
     scene.setSettings({ camera: { capZoomOut: true, zoomOutCapDistance: 120 } });
-    expect(controls).toMatchObject({ minDistance: 8, maxDistance: 120 });
+    expect(controls).toMatchObject({ minDistance: CLOSEST_DISTANCE, maxDistance: 120 });
     scene.setSettings({});
-    expect(controls).toMatchObject({ minDistance: 8, maxDistance: 300 });
+    expect(controls).toMatchObject({ minDistance: CLOSEST_DISTANCE, maxDistance: 300 });
     expect(requestRender).toHaveBeenCalled();
   });
 

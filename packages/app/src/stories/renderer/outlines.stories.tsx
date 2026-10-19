@@ -34,7 +34,7 @@ const meta = {
       control: { type: "inline-radio", labels: { s1_5: "1.5 S", max_zoom_in: "max zoom-in", custom: "custom" } },
       options: ["s1_5", "max_zoom_in", "custom"],
       mapping: { s1_5: "1.5 S", max_zoom_in: "max zoom-in", custom: "custom" },
-      description: "Where the outlines are fully on: 1.5 S (the default; S is the opening tile size, the readout's \"opens at\"; 0.49 at S with the square curve) or max zoom-in, the closest zoom (30 S, the literal whole-range fade: 0.09 at S). All are off at 0.85 S. Custom: the start control below",
+      description: "Where the outlines are fully on: 1.5 S (the default; S is the opening tile size, the readout's \"opens at\"; 0.49 at S with the square curve) or max zoom-in, the closest zoom (24 S, the literal whole-range fade: 0.09 at S). All are off at 0.85 S. Custom: the start control below",
       table: { category: "Outlines" },
     },
     fadeCurve: {
