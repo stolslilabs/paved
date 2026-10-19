@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { formatInteger } from "@paved/game-core";
-import { DButton, DCard, DCardButton, DChip, DSwitch, DTitle, Icon, Muted, NOTCH, VoxelWordmark, useDir } from "./kit";
+import { DButton, DCard, DCardButton, DChip, DSwitch, DTitle, Icon, Muted, NOTCH, VoxelWordmark, useLook } from "./kit";
 import { RENDERS, TILES, tileRender } from "./renders";
 import { FlowShell2, PageTitle, Picture, Realm, TabShell2 } from "./shells-2";
 
@@ -43,14 +43,14 @@ const MODES = [
 
 /** A render in its frame: a well on D, standing free on E (no frame, its own shadow), a notched slot on F. */
 function Art({ src, className, alt = "" }: { src: string; className?: string; alt?: string }) {
-  const d = useDir();
+  const is = useLook();
   return (
-    <span className={clsx("relative block shrink-0 overflow-hidden", d === "d" && "rounded-lg bg-(--d-raised)", d === "e" && "overflow-visible", d === "f" && clsx(NOTCH, "bg-(--d-bg)"), className)}>
+    <span className={clsx("relative block shrink-0 overflow-hidden", is.d && "rounded-lg bg-(--d-raised)", is.e && "overflow-visible", is.f && clsx(NOTCH, "bg-(--d-bg)"), className)}>
       <img
         src={src}
         alt={alt}
         draggable={false}
-        className={clsx("size-full object-contain", d === "e" && "drop-shadow-[0_10px_8px_rgb(0_0_0/0.5)]")}
+        className={clsx("size-full object-contain", is.e && "drop-shadow-[0_10px_8px_rgb(0_0_0/0.5)]")}
       />
     </span>
   );
@@ -58,12 +58,12 @@ function Art({ src, className, alt = "" }: { src: string; className?: string; al
 
 /** An icon in a small square key, as the mockups set the icon of a row. */
 function IconKey({ name, tone = "primary" }: { name: string; tone?: "primary" | "accent" | "plain" }) {
-  const d = useDir();
+  const is = useLook();
   return (
     <span
       className={clsx(
         "grid size-10 shrink-0 place-items-center bg-(--d-raised)",
-        d === "f" ? NOTCH : d === "e" ? "rounded-xl shadow-[0_3px_0_var(--d-shadow)]" : "rounded-lg",
+        is.f ? NOTCH : is.e ? "rounded-xl shadow-[0_3px_0_var(--d-shadow)]" : "rounded-lg",
         tone === "primary" ? "text-(--d-primary)" : tone === "accent" ? "text-(--d-accent)" : "text-(--d-text)",
       )}
     >
@@ -130,10 +130,10 @@ function HeroF() {
 }
 
 function ResumeCard() {
-  const d = useDir();
+  const is = useLook();
   return (
     <DCard className="flex items-center gap-3 p-3">
-      <Art src={d === "e" ? RENDERS.modeTutorial : RENDERS.modeChallenge} className={d === "e" ? "-my-4 h-16 w-24" : "h-14 w-20 [&_img]:object-cover"} />
+      <Art src={is.e ? RENDERS.modeTutorial : RENDERS.modeChallenge} className={is.e ? "-my-4 h-16 w-24" : "h-14 w-20 [&_img]:object-cover"} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-semibold">Challenge #1042</span>
         <Muted>1,270 pts · 38 tiles left · 18 h</Muted>
@@ -145,8 +145,8 @@ function ResumeCard() {
 
 /** The modes on Home: D lists them as rows (icon, two lines, chevron); E stands them as plinths; F sets them as square slots. */
 function HomeModes() {
-  const d = useDir();
-  if (d === "f")
+  const is = useLook();
+  if (is.f)
     return (
       <div className="grid grid-cols-3 gap-2">
         {MODES.map((m) => (
@@ -159,7 +159,7 @@ function HomeModes() {
         ))}
       </div>
     );
-  if (d === "e")
+  if (is.e)
     return (
       <div className="grid grid-cols-1 gap-x-3 gap-y-5 pt-4 mobile:grid-cols-2">
         {MODES.slice(1).map((m) => (
@@ -188,10 +188,10 @@ function HomeModes() {
 }
 
 function DailyCard() {
-  const d = useDir();
+  const is = useLook();
   return (
-    <DCard className={clsx("flex flex-col gap-3 p-4", d === "e" && "mt-10 pt-0 desktop:mt-0")}>
-      {d === "e" ? (
+    <DCard className={clsx("flex flex-col gap-3 p-4", is.e && "mt-10 pt-0 desktop:mt-0")}>
+      {is.e ? (
         <Art src={RENDERS.theme1} className="mx-auto -mt-12 h-40 w-full max-w-72" />
       ) : (
         <Art src={RENDERS.modeChallenge} className="h-36 w-full [&_img]:object-cover" />
@@ -220,8 +220,8 @@ function DailyCard() {
 }
 
 export function HomeScreen2() {
-  const d = useDir();
-  const hero = d === "d" ? <HeroD /> : d === "e" ? <HeroE /> : <HeroF />;
+  const is = useLook();
+  const hero = is.d ? <HeroD /> : is.e ? <HeroE /> : <HeroF />;
   return (
     <TabShell2 active="home" hero={hero}>
       <h1 className="sr-only">Home</h1>
@@ -243,8 +243,8 @@ export function HomeScreen2() {
 
 /** A mode to pick. D: a row with the render on its left (the mockups' Play list). E: a plinth the render stands on. F: a slab with the render as its banner. */
 function ModeCard({ mode, on, onPick }: { mode: (typeof MODES)[number]; on: boolean; onPick: () => void }) {
-  const d = useDir();
-  if (d === "d")
+  const is = useLook();
+  if (is.d)
     return (
       <DCardButton on={on} onClick={onPick} className="flex items-center gap-3 p-3">
         <Art src={mode.art} className="h-20 w-28 [&_img]:object-cover" />
@@ -258,7 +258,7 @@ function ModeCard({ mode, on, onPick }: { mode: (typeof MODES)[number]; on: bool
         <Icon name="chevron-right" size="sm" className="text-(--d-muted)" />
       </DCardButton>
     );
-  if (d === "e")
+  if (is.e)
     return (
       <DCardButton on={on} onClick={onPick} className="mt-6 flex flex-col items-center gap-1.5 px-4 pb-4 text-center">
         {/* A cropped board has hard edges; E's renders stand free, so the Challenge shows the keyed tiles instead. */}
@@ -333,10 +333,10 @@ export function PlayScreen2() {
 
 /** The podium. D: three cards in a row (the mockups' list style). E: three plinths of different heights, each player's tile standing on top. F: three square slots, the figures large. */
 function Podium() {
-  const d = useDir();
+  const is = useLook();
   const order = [RANKS[1]!, RANKS[0]!, RANKS[2]!];
   return (
-    <div className={clsx("grid grid-cols-3 items-end gap-2", d === "e" && "pt-8")}>
+    <div className={clsx("grid grid-cols-3 items-end gap-2", is.e && "pt-8")}>
       {order.map((r) => {
         const first = r.rank === 1;
         return (
@@ -344,20 +344,20 @@ function Podium() {
             key={r.rank}
             className={clsx(
               "flex min-w-0 flex-col items-center gap-1 px-2 pb-3 text-center",
-              d === "e" ? (first ? "h-44" : r.rank === 2 ? "h-36" : "h-32") : "pt-3",
-              d === "f" && "aspect-square justify-center",
+              is.e ? (first ? "h-44" : r.rank === 2 ? "h-36" : "h-32") : "pt-3",
+              is.f && "aspect-square justify-center",
             )}
           >
-            {d === "e" ? (
+            {is.e ? (
               <Art src={tileRender(r.tile)} className={clsx("-mt-10 shrink-0", first ? "size-24" : "size-20")} />
-            ) : d === "d" ? (
+            ) : is.d ? (
               <Art src={tileRender(r.tile)} className="size-14" />
             ) : null}
-            <Icon name={first ? "crown" : "medal"} size={d === "f" ? "lg" : "sm"} className="text-(--d-primary)" />
+            <Icon name={first ? "crown" : "medal"} size={is.f ? "lg" : "sm"} className="text-(--d-primary)" />
             <span title={r.name} className="w-full truncate text-sm font-semibold">
               {r.name}
             </span>
-            <span title={pts(r.score)} className={clsx("w-full truncate font-mono", d === "f" ? "text-base font-bold text-(color:--d-accent)" : "text-xs text-(color:--d-muted)")}>
+            <span title={pts(r.score)} className={clsx("w-full truncate font-mono", is.f ? "text-base font-bold text-(color:--d-accent)" : "text-xs text-(color:--d-muted)")}>
               {pts(r.score)}
             </span>
           </DCard>
@@ -368,14 +368,14 @@ function Podium() {
 }
 
 export function RanksScreen2() {
-  const d = useDir();
+  const is = useLook();
   return (
     <TabShell2 active="ranks">
       <PageTitle aside={<DChip tone="accent">142 players</DChip>}>Ranks</PageTitle>
       <Segmented label="Period" options={["Today", "Yesterday", "All time"]} value="Today" />
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-[22rem_minmax(0,1fr)] desktop:items-start">
         <Podium />
-        {d === "d" ? (
+        {is.d ? (
           <DCard className="flex flex-col divide-y divide-(--d-line) overflow-hidden">
             {RANKS.slice(3).map((r) => (
               <RankRow key={r.rank} r={r} flat />
@@ -515,24 +515,24 @@ export function SettingsScreen2() {
 // HUD
 
 function HudStat({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
-  const d = useDir();
+  const is = useLook();
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <Muted className="flex items-center gap-1.5">
         <Icon name={icon} size="xs" /> {label}
       </Muted>
-      <span className={clsx("font-mono font-bold", d === "f" ? "text-2xl" : "text-lg")}>{children}</span>
+      <span className={clsx("font-mono font-bold", is.f ? "text-2xl" : "text-lg")}>{children}</span>
     </div>
   );
 }
 
 /** The hand: the tile's render (Rotate under it, as the mockups put it), the points it would bring, Place and Discard. */
 function HandCard() {
-  const d = useDir();
+  const is = useLook();
   return (
-    <DCard className={clsx("flex items-center gap-4 p-3", d === "e" && "pt-3")}>
+    <DCard className={clsx("flex items-center gap-4 p-3", is.e && "pt-3")}>
       <div className="flex shrink-0 flex-col items-center gap-1.5">
-        <Art src={tileRender(TILES.cityRoad.key)} alt={TILES.cityRoad.name} className={d === "e" ? "-mt-12 size-28" : "size-24"} />
+        <Art src={tileRender(TILES.cityRoad.key)} alt={TILES.cityRoad.name} className={is.e ? "-mt-12 size-28" : "size-24"} />
         <DButton variant="secondary" size="sm" aria-label="Rotate" className="px-3">
           <Icon name="rotate-right" size="sm" /> Rotate
         </DButton>
@@ -557,10 +557,10 @@ function HandCard() {
 
 /** The board in play (the real 38-tile game, its free slots and the tile placed, pending), the HUD over it and the hand card. */
 export function HudScreen2() {
-  const d = useDir();
+  const is = useLook();
   return (
     <div className="relative flex h-dvh min-h-[34rem] flex-col overflow-hidden bg-(--d-bg)">
-      {d === "f" ? (
+      {is.f ? (
         <Realm tall={RENDERS.hudTall} wide={RENDERS.hudWide} veil="light" />
       ) : (
         <Picture tall={RENDERS.hudTall} wide={RENDERS.hudWide} className="pointer-events-none absolute inset-0" imgClassName="size-full object-cover" />
@@ -573,7 +573,7 @@ export function HudScreen2() {
         <DButton variant="secondary" size="square" aria-label="Back">
           <Icon name="chevron-left" size="md" />
         </DButton>
-        {d === "d" ? (
+        {is.d ? (
           <>
             <span className="min-w-0 flex-1 truncate text-center font-semibold" title="Daily Challenge">
               Daily Challenge
@@ -596,7 +596,7 @@ export function HudScreen2() {
           </DCard>
         )}
       </header>
-      {d === "d" && (
+      {is.d && (
         <div className="relative grid grid-cols-2 gap-2 px-3 desktop:w-96 desktop:px-6">
           <DCard className="px-3 py-2">
             <HudStat icon="cubes-stacked" label="Tiles left">
@@ -626,8 +626,8 @@ export function HudScreen2() {
 
 /** The categories. D: rows, icon, label, closings and figure (the mockups' list). E: four plinths, the figure large. F: four square slots, an inventory. */
 function Categories() {
-  const d = useDir();
-  if (d === "d")
+  const is = useLook();
+  if (is.d)
     return (
       <DCard className="flex flex-col divide-y divide-(--d-line)">
         {CATEGORIES.map((c) => (
@@ -641,14 +641,14 @@ function Categories() {
       </DCard>
     );
   return (
-    <div className={clsx("grid gap-2.5", d === "e" ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-4")}>
+    <div className={clsx("grid gap-2.5", is.e ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-4")}>
       {CATEGORIES.map((c) => (
-        <DCard key={c.label} className={clsx("flex min-w-0 flex-col gap-1 p-3", d === "f" && "aspect-square items-center justify-center text-center")}>
+        <DCard key={c.label} className={clsx("flex min-w-0 flex-col gap-1 p-3", is.f && "aspect-square items-center justify-center text-center")}>
           <span className="flex items-center gap-2">
-            {d === "e" ? <IconKey name={c.icon} /> : <Icon name={c.icon} size="lg" className="text-(--d-primary)" />}
-            {d === "e" && <span className="font-display text-3xl text-(color:--d-primary)">{pts(c.points)}</span>}
+            {is.e ? <IconKey name={c.icon} /> : <Icon name={c.icon} size="lg" className="text-(--d-primary)" />}
+            {is.e && <span className="font-display text-3xl text-(color:--d-primary)">{pts(c.points)}</span>}
           </span>
-          {d === "f" && <span className="font-display text-2xl text-(color:--d-accent)">{pts(c.points)}</span>}
+          {is.f && <span className="font-display text-2xl text-(color:--d-accent)">{pts(c.points)}</span>}
           <span className="w-full truncate text-sm font-semibold" title={c.label}>
             {c.label}
           </span>
@@ -660,18 +660,18 @@ function Categories() {
 }
 
 export function ScoreScreen2() {
-  const d = useDir();
+  const is = useLook();
   return (
     <FlowShell2 title="Final score">
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-[minmax(0,1fr)_24rem] desktop:items-start">
         <div className="flex flex-col gap-4">
-          {d === "d" && <Art src={RENDERS.scoreWide} className="h-40 w-full desktop:h-64 [&_img]:object-cover" />}
-          {d === "e" && <Art src={RENDERS.scoreWide} className="-mb-2 h-44 w-full desktop:h-72" />}
-          <DCard className={clsx("flex flex-col gap-2 p-4", d !== "d" && "items-center text-center")}>
+          {is.d && <Art src={RENDERS.scoreWide} className="h-40 w-full desktop:h-64 [&_img]:object-cover" />}
+          {is.e && <Art src={RENDERS.scoreWide} className="-mb-2 h-44 w-full desktop:h-72" />}
+          <DCard className={clsx("flex flex-col gap-2 p-4", !is.d && "items-center text-center")}>
             <Muted className="tracking-[0.2em] uppercase">Your score</Muted>
             <span className="flex items-center gap-3">
-              <Icon name="crown" size={d === "d" ? "lg" : "xl"} className="text-(--d-primary)" />
-              <span className={clsx("text-(color:--d-primary)", d === "d" ? "font-mono text-4xl font-bold" : "font-display", d === "e" && "text-6xl", d === "f" && "text-7xl")}>1,820</span>
+              <Icon name="crown" size={is.d ? "lg" : "xl"} className="text-(--d-primary)" />
+              <span className={clsx("text-(color:--d-primary)", is.d ? "font-mono text-4xl font-bold" : "font-display", is.e && "text-6xl", is.f && "text-7xl")}>1,820</span>
             </span>
             <span className="flex flex-wrap items-center gap-2">
               <DChip tone="accent">New high score</DChip>
@@ -690,8 +690,8 @@ export function ScoreScreen2() {
               <span>Threshold, 1,500 pts</span>
               <span className="font-mono font-bold text-(color:--d-accent)">+21%</span>
             </span>
-            <span className={clsx("mt-1 h-2.5 overflow-hidden bg-(--d-raised)", d === "f" ? "" : "rounded-full")} role="progressbar" aria-label="Progress to the next threshold" aria-valuenow={82} aria-valuemin={0} aria-valuemax={100}>
-              <span className={clsx("block h-full w-[82%] bg-(--d-primary)", d === "f" ? "" : "rounded-full")} />
+            <span className={clsx("mt-1 h-2.5 overflow-hidden bg-(--d-raised)", is.f ? "" : "rounded-full")} role="progressbar" aria-label="Progress to the next threshold" aria-valuenow={82} aria-valuemin={0} aria-valuemax={100}>
+              <span className={clsx("block h-full w-[82%] bg-(--d-primary)", is.f ? "" : "rounded-full")} />
             </span>
           </DCard>
           <DCard className="flex items-center gap-3 p-4">
@@ -723,7 +723,7 @@ export function ScoreScreen2() {
 
 /** A tile's detail sheet (the mockups' "Tile details"): its render, what it holds, its sides, and the tiles that fit beside it. */
 export function TileScreen2() {
-  const d = useDir();
+  const is = useLook();
   const tile = TILES.cityRoad;
   const sides = [
     { side: "North", icon: "city", label: "City" },
@@ -734,8 +734,8 @@ export function TileScreen2() {
   return (
     <FlowShell2 title="Tile" realm={{ tall: RENDERS.heroTall, wide: RENDERS.heroWide }}>
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
-        <DCard className={clsx("flex flex-col items-center gap-2 p-4", d === "e" && "mt-10")}>
-          <Art src={tileRender(tile.key)} alt={tile.name} className={clsx("w-full max-w-80", d === "e" ? "-mt-16 aspect-square" : "aspect-square")} />
+        <DCard className={clsx("flex flex-col items-center gap-2 p-4", is.e && "mt-10")}>
+          <Art src={tileRender(tile.key)} alt={tile.name} className={clsx("w-full max-w-80", is.e ? "-mt-16 aspect-square" : "aspect-square")} />
           <span className="font-display text-3xl">{tile.name}</span>
           <span className="flex flex-wrap justify-center gap-2">
             <DChip tone="primary">City</DChip>
@@ -749,7 +749,7 @@ export function TileScreen2() {
             <DTitle>Sides</DTitle>
             <dl className="grid grid-cols-2 gap-2">
               {sides.map((s) => (
-                <div key={s.side} className={clsx("flex items-center gap-2 bg-(--d-raised) px-3 py-2", d === "f" ? NOTCH : "rounded-lg")}>
+                <div key={s.side} className={clsx("flex items-center gap-2 bg-(--d-raised) px-3 py-2", is.f ? NOTCH : "rounded-lg")}>
                   <Icon name={s.icon} size="sm" className="text-(--d-primary)" fixedWidth />
                   <dt className="text-xs text-(color:--d-muted)">{s.side}</dt>
                   <dd className="ml-auto text-sm font-semibold">{s.label}</dd>

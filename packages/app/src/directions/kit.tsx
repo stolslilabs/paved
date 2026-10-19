@@ -16,6 +16,15 @@ import { RENDERS } from "./renders";
 const Dir = createContext<DirectionId>("a");
 export const useDir = () => useContext(Dir);
 
+/**
+ * D, E and F as flags, for the screens that part ways: `is.f` rather than a comparison with a one-letter string, which the Font
+ * Awesome subset's scan (`scripts/fa-subset.ts`) would read as an icon name on a line about an icon.
+ */
+export function useLook() {
+  const id = useDir();
+  return { d: id === "d", e: id === "e", f: id === "f" };
+}
+
 /** The root of a direction: its tokens as CSS variables, the page colour, the font. A story or a screen sits inside one. */
 export function DirectionRoot({ id, children, className }: { id: DirectionId; children: ReactNode; className?: string }) {
   const p = DIRECTIONS[id].palette;
