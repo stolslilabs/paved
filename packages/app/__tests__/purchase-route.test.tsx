@@ -266,12 +266,20 @@ describe("/play/challenge: the game's stake", () => {
 
   it("the 24 h expiry is read against the chain's time, not the browser's (UTC-BOUND)", async () => {
     const s = setup();
-    open("/play/challenge", s);
-    await enabledPay();
-    // The browser's clock is days away from the indexer's head: the expiry is the head's plus 24 h, in UTC.
-    const expiry = new Date((FIXTURE_HEAD.timestamp + 86_400) * 1000).toISOString();
-    await waitFor(() => expect(document.querySelector("time")).toHaveAttribute("dateTime", expiry));
-    expect(document.querySelector("time")).toHaveTextContent(/^in 24 h · \w{3}, \w{3} \d+, \d{2}:\d{2} UTC$/);
+    // The browser's clock is days away from the indexer's head, and stands still: the chain's time is the head plus the
+    // seconds since it was read, so a loaded machine that took a second or more to reach the assertion read an expiry
+    // seconds later (6 s, once).
+    vi.useFakeTimers({ toFake: ["Date"], now: (FIXTURE_HEAD.timestamp + 5 * 86_400) * 1000 });
+    try {
+      open("/play/challenge", s);
+      await enabledPay();
+      // The expiry is the head's plus 24 h, in UTC.
+      const expiry = new Date((FIXTURE_HEAD.timestamp + 86_400) * 1000).toISOString();
+      await waitFor(() => expect(document.querySelector("time")).toHaveAttribute("dateTime", expiry));
+      expect(document.querySelector("time")).toHaveTextContent(/^in 24 h · \w{3}, \w{3} \d+, \d{2}:\d{2} UTC$/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("sends the referrer of ?ref=, which keeps the 5 % out of the swap", async () => {
@@ -1559,13 +1567,22 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
 
   it("the open prompt's hold turns into the usual one when the limit passes, without a reload", async () => {
     const s = setup();
-    // 298 s old: the limit passes 2 s after the page opens. Not 100 ms (GUARDS, P-71): a loaded machine took longer than
-    // that to draw the page, which then opened on the expired hold and never showed the waiting one.
-    localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: null, at: (Date.now() - PURCHASE_TIMEOUT_MS + 2000) / 1000, id: "other-tab" }));
-    open("/play/challenge", s);
-    expect(await screen.findByText(/A purchase is waiting in your wallet/, undefined, { timeout: 2000 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 4000 })).toBeInTheDocument();
-    expect(screen.getByText(/your wallet did not answer/)).toBeInTheDocument();
+    // The limit passes when the test moves the clock, not after a real-time window: a 100 ms, then a 2 s window failed on a
+    // loaded machine, which took longer than that to draw the page and opened it on the expired hold. The fake clock still
+    // runs with real time (`shouldAdvanceTime`), so the page's own timers and the lookups' waits go on as usual.
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      // Sent from another tab 4 minutes ago: one minute left.
+      localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: null, at: (Date.now() - PURCHASE_TIMEOUT_MS + 60_000) / 1000, id: "other-tab" }));
+      open("/play/challenge", s);
+      expect(await screen.findByText(/A purchase is waiting in your wallet/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "It did not land" })).toBeNull();
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(await screen.findByRole("button", { name: "It did not land" })).toBeInTheDocument();
+      expect(screen.getByText(/your wallet did not answer/)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a pack whose prompt the player declines: it says so and holds nothing", async () => {
