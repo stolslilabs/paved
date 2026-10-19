@@ -172,11 +172,11 @@ export function OverScene(props: OverSceneProps) {
         <Scores {...props} />
       </div>
       {board && (
-        // Over the scores, a fade under the toggle so the rows it passes over do not show through; over the board, none.
+        // Over the scores, a bar under the toggle so the rows it passes over do not show through; over the board, none.
         <div
           className={cn(
             "pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-            !onBoard && "bg-linear-to-t from-background via-background/90 to-transparent pt-8",
+            !onBoard && "border-t border-border bg-card/95 pt-3 backdrop-blur",
           )}
         >
           <ToggleGroup
