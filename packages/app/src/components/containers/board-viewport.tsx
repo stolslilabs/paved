@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
 import type { GameScene, HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
 import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
+import { BoardCovered } from "./board-covered";
 import { LazyTileBubble } from "./lazy-tile-bubble";
 
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
@@ -178,6 +179,8 @@ function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
 export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
+  // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
+  const covered = useContext(BoardCovered);
   useEffect(() => {
     onScene?.(scene);
     return () => onScene?.(null);
@@ -210,6 +213,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
         basePath={basePath}
         skins={skins}
         settings={settings}
+        covered={covered}
         availableSlots={gridSlots}
         hover={hover}
         confirmed={green}

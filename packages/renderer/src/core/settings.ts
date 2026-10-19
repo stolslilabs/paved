@@ -4,6 +4,7 @@ import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightInput, type DayNightSettings } from "./daynight-settings";
 import { DEFAULT_PLACEMENT_SETTINGS, resolvePlacementSettings, type PlacementSettings, type PlacementSettingsInput } from "./placement";
 import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings, type VoxelDropSettings, type VoxelDropSettingsInput } from "./voxel-drop-settings";
+import { DEFAULT_AMBIENT_SETTINGS, resolveAmbientSettings, type AmbientSettings, type AmbientSettingsInput } from "./ambient-settings";
 import {
   DEFAULT_LOOK_PRESET,
   LOOK_PRESETS,
@@ -70,6 +71,11 @@ export interface RendererSettings {
   dayNight: DayNightSettings;
   /** The voxel drop of a placed tile (VOXEL-DROP, `voxel-drop-settings.ts`): used by `GameScene.dropTile` only. */
   voxelDrop: VoxelDropSettings;
+  /**
+   * The ambient effects (AMBIENT, `ambient-settings.ts`): the one ambient loop and the particles over the water and the wonders.
+   * Off by default; the app's board turns them on from its settings row ("Ambient effects").
+   */
+  ambient: AmbientSettings;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -103,6 +109,8 @@ export interface RendererSettingsInput {
   dayNight?: DayNightInput;
   /** The voxel drop: its fields over the defaults'. */
   voxelDrop?: VoxelDropSettingsInput;
+  /** The ambient effects: their fields over the defaults'. */
+  ambient?: AmbientSettingsInput;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -127,6 +135,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   placement: DEFAULT_PLACEMENT_SETTINGS,
   dayNight: DEFAULT_DAYNIGHT_SETTINGS,
   voxelDrop: DEFAULT_VOXEL_DROP_SETTINGS,
+  ambient: DEFAULT_AMBIENT_SETTINGS,
 };
 
 /**
@@ -194,6 +203,7 @@ export function resolveRendererSettings(
     placement: resolvePlacementSettings(input.placement, base.placement),
     dayNight: resolveDayNightSettings(input.dayNight, base.dayNight),
     voxelDrop: resolveVoxelDropSettings(input.voxelDrop, base.voxelDrop),
+    ambient: resolveAmbientSettings(input.ambient, base.ambient),
   };
 }
 

@@ -5,7 +5,7 @@ import { withVolume } from "../../data/settings";
 import { ShowSkinsSwitch } from "../elements/setting-switch";
 import { DeviceSettingsPanel, type DevicePreferences } from "./device-settings-panel";
 
-const PREFS: DevicePreferences = { quality: "auto", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true };
+const PREFS: DevicePreferences = { quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true };
 
 const meta = {
   title: "Containers/DeviceSettingsPanel",
