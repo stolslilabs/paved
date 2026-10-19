@@ -61,7 +61,7 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
             <Icon name="display" className="text-muted-foreground" size="sm" fixedWidth />
             Graphics quality
           </span>
-          <ToggleGroup type="single" variant="outline" aria-labelledby="quality-label" value={p.quality} onValueChange={(v) => v && onChange?.("quality", v as GraphicsQuality)} className="w-full">
+          <ToggleGroup type="single" variant="outline" aria-labelledby="quality-label" value={p.quality} onValueChange={(v) => v && onChange?.("quality", v as GraphicsQuality)} className="w-full gap-1">
             {QUALITY.map((q) => (
               // "Auto (Medium)" is the one long label: Auto gets double width so it fits at 320 px (WRAP360).
               <ToggleGroupItem key={q.value} value={q.value} className={`h-auto min-h-9 min-w-0 ${q.value === "auto" ? "flex-[2]" : "flex-1"} px-1 py-1 text-center text-xs leading-tight whitespace-normal`}>

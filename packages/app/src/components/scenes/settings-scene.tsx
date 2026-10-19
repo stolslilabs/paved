@@ -60,7 +60,7 @@ export function SettingsScene(props: SettingsSceneProps) {
             {account ? (
               <div className="flex items-center gap-3 py-2.5">
                 <Avatar className="size-9">
-                  <AvatarFallback className="bg-gold-900 font-semibold text-gold-200">{(account.name ?? account.address.slice(2, 3)).slice(0, 1).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="bg-secondary font-semibold text-primary">{(account.name ?? account.address.slice(2, 3)).slice(0, 1).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <PlayerName name={account.name} address={account.address} className="text-sm font-semibold" />

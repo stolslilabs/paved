@@ -1,7 +1,8 @@
 /**
  * The images of Direction/D, E and F (#537, PR 1b): renders of the real board, tiles and wordmark, drawn once by
  * `scripts/direction-renders.ts` and committed beside this file. Only the direction stories import them, so Vite emits them in the
- * Storybook's build and never in the app's; nothing is fetched at run time.
+ * Storybook's build and never in the app's; nothing is fetched at run time. They are also the masters of the app's smaller
+ * copies (`src/assets/renders/`, written by `scripts/app-renders.ts`) since D was picked.
  */
 import wordmark from "./renders/wordmark.webp";
 import heroTall from "./renders/hero-tall.webp";

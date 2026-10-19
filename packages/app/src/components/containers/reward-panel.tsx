@@ -25,9 +25,9 @@ export interface RewardPanelProps {
 }
 
 const COPY: Record<RewardState, { title: string; tone: string; icon: string }> = {
-  rewarded: { title: "Reward", tone: "border-gold-800 bg-gold-950/60", icon: "trophy" },
+  rewarded: { title: "Reward", tone: "border-primary/40 bg-card", icon: "trophy" },
   awaiting: { title: "Reward after the day closes", tone: "border-border bg-secondary/40", icon: "clock" },
-  settle: { title: "Ready to settle", tone: "border-gold-800 bg-gold-950/60", icon: "trophy" },
+  settle: { title: "Ready to settle", tone: "border-primary/40 bg-card", icon: "trophy" },
   below: { title: "No reward", tone: "border-ember-900 bg-ember-950/50", icon: "triangle-exclamation" },
   expired: { title: "Expired", tone: "border-ember-900 bg-ember-950/50", icon: "triangle-exclamation" },
   free: { title: "Training", tone: "border-border bg-secondary/40", icon: "circle-info" },

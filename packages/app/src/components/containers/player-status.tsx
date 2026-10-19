@@ -40,7 +40,7 @@ export function PlayerStatus({ data, onConnect, connecting, className }: PlayerS
     <div data-slot="card" className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-4", className)}>
       <div className="flex items-center gap-3">
         <Avatar className="size-10">
-          <AvatarFallback className="bg-gold-900 font-semibold text-gold-200">{initial}</AvatarFallback>
+          <AvatarFallback className="bg-secondary font-semibold text-primary">{initial}</AvatarFallback>
         </Avatar>
         {/* `w-0`: a long username is cut, never widens the card (WRAP360). */}
         <div className="flex w-0 min-w-0 flex-1 flex-col">
