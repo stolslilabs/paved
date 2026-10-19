@@ -3,7 +3,6 @@
   "short_name": "Paved",
   "description": "Pave the road, build the kingdom.",
   "start_url": "/",
-  "display": "standalone",
   "background_color": "#0A141C",
   "theme_color": "#0A141C",
   "icons": [
