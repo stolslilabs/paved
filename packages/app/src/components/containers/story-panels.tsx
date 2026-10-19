@@ -242,14 +242,18 @@ export function CampaignCard({ id, name, summary, levels, stars, status, missing
       )}
       <span className="relative flex flex-col gap-1 p-4">
         <span className="flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate font-display text-xl font-semibold">{name}</span>
+          <span title={name} className="min-w-0 truncate font-display text-xl font-semibold">
+            {name}
+          </span>
           {shown === "complete" && (
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
               <Icon name="circle-check" size="xs" /> Complete
             </span>
           )}
         </span>
-        <span className="line-clamp-2 text-sm text-muted-foreground">{summary}</span>
+        <span title={summary} className="line-clamp-2 text-sm text-muted-foreground">
+          {summary}
+        </span>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span className="numeric text-muted-foreground">{levels} levels</span>
           <span className="numeric flex items-center gap-1" aria-label={`${stars} of ${total} stars`}>
