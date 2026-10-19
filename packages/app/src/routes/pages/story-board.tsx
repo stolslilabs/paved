@@ -199,7 +199,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const coachTarget = phase === "play" && !over && coachOn ? (coach?.target ?? null) : null;
   const bubble =
     placement.chosen && phase === "play"
-      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, coach: coachTarget === "place" }
+      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, coach: coachTarget === "place" }
       : null;
   return (
     <BoardScene

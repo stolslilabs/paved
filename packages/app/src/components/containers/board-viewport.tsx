@@ -116,6 +116,8 @@ export interface BoardBubble {
   busy?: boolean;
   /** A Story coach mark points at the placement: Validate is ringed. */
   coach?: boolean;
+  /** The tile's rotation now: a change drops a hold on Validate under way. */
+  orientation?: number;
 }
 
 /**
@@ -224,6 +226,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
             canConfirm={bubble.canConfirm}
             busy={bubble.busy}
             coach={bubble.coach}
+            orientation={bubble.orientation}
           />
         </Suspense>
       )}

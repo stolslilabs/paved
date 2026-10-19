@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { GameScene } from "@paved/renderer";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -69,6 +69,8 @@ export interface TileBubbleProps {
   busy?: boolean;
   /** A Story coach mark points at the placement: Validate is ringed. */
   coach?: boolean;
+  /** The tile's rotation now: a change during a hold on Validate drops the hold (it never places a rotation not shown). */
+  orientation?: number;
   /** The hold's length, ms (`HOLD_MS` by default; the stories tune it). */
   holdMs?: number;
   /**
@@ -96,8 +98,15 @@ const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md focus-visible:ring-offset
  * pans, zooms and the compass without a render of its own: the position is written to the element on the renderer's
  * camera notifications.
  */
-export function TileBubble({ rotations, onRotate, onClose, onConfirm, canConfirm = true, busy = false, coach = false, holdMs, scene, cell, className }: TileBubbleProps) {
+export function TileBubble({ rotations, onRotate, onClose, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, className }: TileBubbleProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // Each rotation asked from the bubble (its button or R): with the cell and the rotation, what Validate's hold validates.
+  const [turns, setTurns] = useState(0);
+  const rotate = useCallback(() => {
+    setTurns((t) => t + 1);
+    onRotate();
+  }, [onRotate]);
+  const holdKey = `${cell?.x},${cell?.y}:${orientation ?? ""}:${turns}`;
   const play = useSfx();
   const canRotate = rotations > 1;
   const size = bubbleSize((canRotate ? 2 : 1) + (onConfirm ? 1 : 0));
@@ -133,13 +142,13 @@ export function TileBubble({ rotations, onRotate, onClose, onConfirm, canConfirm
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable], [role=dialog]")) return;
       if (e.key === "Escape") onClose();
-      else if ((e.key === "r" || e.key === "R") && canRotate) onRotate();
+      else if ((e.key === "r" || e.key === "R") && canRotate) rotate();
       else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, onRotate, canRotate]);
+  }, [onClose, rotate, canRotate]);
 
   // The hold completed: the place sound of #541 with the buzz the button gives.
   const confirm = useCallback(() => {
@@ -165,7 +174,7 @@ export function TileBubble({ rotations, onRotate, onClose, onConfirm, canConfirm
         <Icon name="xmark" size="md" />
       </Button>
       {canRotate && (
-        <Button variant="ghost" size="icon" className={BUBBLE_BUTTON} onClick={onRotate} aria-label="Rotate tile" title="Rotate (R)">
+        <Button variant="ghost" size="icon" className={BUBBLE_BUTTON} onClick={rotate} aria-label="Rotate tile" title="Rotate (R)">
           <Icon name="rotate-right" size="md" />
         </Button>
       )}
@@ -175,6 +184,7 @@ export function TileBubble({ rotations, onRotate, onClose, onConfirm, canConfirm
           title="Hold to place"
           icon="check"
           holdMs={holdMs}
+          holdKey={holdKey}
           disabled={!canConfirm}
           busy={busy}
           onComplete={confirm}

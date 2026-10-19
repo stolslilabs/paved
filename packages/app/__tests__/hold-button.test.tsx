@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HOLD_MS, HoldButton } from "../src/components/elements/hold-button";
 import { TileBubble } from "../src/components/containers/tile-bubble";
@@ -106,6 +106,36 @@ describe("HoldButton", () => {
     expect(button().querySelector(".animate-spin")).not.toBeNull();
   });
 
+  it("calls the latest action when the hold completes, never the one of the render it started in", () => {
+    const first = vi.fn();
+    const latest = vi.fn();
+    const { rerender } = render(wrap(<HoldButton label="Hold to place the tile" onComplete={first} />));
+    fireEvent.pointerDown(button(), { button: 0 });
+    act(() => vi.advanceTimersByTime(400));
+    rerender(wrap(<HoldButton label="Hold to place the tile" onComplete={latest} />));
+    act(() => vi.advanceTimersByTime(400));
+    expect(first).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledOnce();
+  });
+
+  it("a change of what it validates (holdKey) mid-hold drops the hold: the ring rewinds, nothing happens until a new press", () => {
+    const onComplete = vi.fn();
+    const { rerender } = render(wrap(<HoldButton label="Hold to place the tile" onComplete={onComplete} holdKey="a" />));
+    fireEvent.keyDown(button(), { key: " " });
+    act(() => vi.advanceTimersByTime(400));
+    rerender(wrap(<HoldButton label="Hold to place the tile" onComplete={onComplete} holdKey="b" />));
+    expect(button()).toHaveAttribute("data-state", "idle");
+    // The key still held repeats: no restart.
+    fireEvent.keyDown(button(), { key: " ", repeat: true });
+    act(() => vi.advanceTimersByTime(HOLD_MS * 2));
+    expect(onComplete).not.toHaveBeenCalled();
+    fireEvent.keyUp(button(), { key: " " });
+    // A new press holds the whole length again, and acts.
+    fireEvent.keyDown(button(), { key: " " });
+    act(() => vi.advanceTimersByTime(HOLD_MS));
+    expect(onComplete).toHaveBeenCalledOnce();
+  });
+
   it("no callout, no selection, no touch gesture under it", () => {
     setup();
     expect(button().className).toMatch(/select-none/);
@@ -128,6 +158,47 @@ describe("the bubble's buttons (#568)", () => {
     fireEvent.pointerDown(button(), { button: 0 });
     act(() => vi.advanceTimersByTime(HOLD_MS));
     expect(onConfirm).toHaveBeenCalledOnce();
+  });
+
+  it("rotating during a hold on Validate (R, Space held) drops the hold: the old rotation is never placed", () => {
+    // As the pages do: each rotation makes a new confirm for the move now shown.
+    const placed: number[] = [];
+    function Page() {
+      const [orientation, setOrientation] = useState(1);
+      return (
+        <TileBubble
+          rotations={2}
+          orientation={orientation}
+          onRotate={() => setOrientation((o) => (o === 1 ? 3 : 1))}
+          onClose={vi.fn()}
+          onConfirm={() => placed.push(orientation)}
+        />
+      );
+    }
+    render(wrap(<Page />));
+    button().focus();
+    fireEvent.keyDown(button(), { key: " " });
+    act(() => vi.advanceTimersByTime(400));
+    // R pressed with the focus still on Validate: it reaches the bubble's key handler.
+    fireEvent.keyDown(button(), { key: "r" });
+    act(() => vi.advanceTimersByTime(HOLD_MS * 2));
+    expect(placed).toEqual([]);
+    expect(button()).toHaveAttribute("data-state", "idle");
+    fireEvent.keyUp(button(), { key: " " });
+    // Held again on the rotation shown: that one is placed.
+    fireEvent.keyDown(button(), { key: " " });
+    act(() => vi.advanceTimersByTime(HOLD_MS));
+    expect(placed).toEqual([3]);
+  });
+
+  it("clicking Rotate during a pointer hold drops it too", () => {
+    const onConfirm = vi.fn();
+    render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={onConfirm} />));
+    fireEvent.pointerDown(button(), { button: 0 });
+    act(() => vi.advanceTimersByTime(400));
+    fireEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
+    act(() => vi.advanceTimersByTime(HOLD_MS * 2));
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 
   it("one rotation: Close and Validate; Validate disabled until the tile can be placed, busy while it is sent", () => {

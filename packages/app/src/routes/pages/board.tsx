@@ -98,7 +98,7 @@ function TrainingBoard() {
   const state = snapshot.state;
   const handState = !hand || board.over ? "empty" : state.writeError ? "refused" : "placing";
   const bubble = placement.chosen
-    ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, onConfirm: () => void confirm(), canConfirm: placement.canConfirm && preview !== null, busy: placing }
+    ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: () => void confirm(), canConfirm: placement.canConfirm && preview !== null, busy: placing }
     : null;
   return (
     <BoardScene
@@ -296,7 +296,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const handState = challengeHand(state, expired);
   const bubble =
     placement.chosen && playable && handState !== "expired" && handState !== "empty"
-      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, busy: handState === "pending" }
+      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, busy: handState === "pending" }
       : null;
   return (
     <BoardScene

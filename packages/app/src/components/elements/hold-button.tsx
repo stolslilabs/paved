@@ -30,6 +30,11 @@ export interface HoldButtonProps {
   /** The action is on its way: a spinner in place of the icon, and disabled. */
   busy?: boolean;
   title?: string;
+  /**
+   * What the hold validates (the tile's cell and rotation, say): when it changes mid-hold, the hold is dropped and the ring
+   * rewinds, so a completed hold always acts on what was shown for its whole length.
+   */
+  holdKey?: string | number;
   className?: string;
 }
 
@@ -48,12 +53,15 @@ const vibrate = () => {
  * (hold Enter or Space). An activation with no press before it, as a screen reader's double tap sends, acts at once: the
  * hold guards a slip of the finger, which that activation is not.
  */
-export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS, disabled = false, busy = false, title, className }: HoldButtonProps) {
+export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, className }: HoldButtonProps) {
   const [state, setState] = useState<HoldState>("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A press (pointer or key) began: the click that follows it is not an activation of its own.
   const pressed = useRef(false);
   const off = disabled || busy;
+  // The hold's timer calls the latest action, never the one of the render it started in.
+  const action = useRef(onComplete);
+  action.current = onComplete;
 
   const stop = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -61,8 +69,8 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
   }, []);
   const complete = useCallback(() => {
     vibrate();
-    onComplete();
-  }, [onComplete]);
+    action.current();
+  }, []);
   const start = useCallback(() => {
     if (off) return;
     stop();
@@ -84,6 +92,13 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
   useEffect(() => {
     if (off) release();
   }, [off, release]);
+  // What the hold validates changed mid-hold (a rotation): the hold is dropped; a new press starts it again.
+  const lastKey = useRef(holdKey);
+  useEffect(() => {
+    if (lastKey.current === holdKey) return;
+    lastKey.current = holdKey;
+    release();
+  }, [holdKey, release]);
 
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     if (e.button > 0) return;

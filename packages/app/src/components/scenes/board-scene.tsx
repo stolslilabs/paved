@@ -206,6 +206,7 @@ export function BoardScene(props: BoardSceneProps) {
                 canConfirm={props.bubble.canConfirm}
                 busy={props.bubble.busy}
                 coach={props.bubble.coach}
+                orientation={props.bubble.orientation}
               />
             </Suspense>
           )}
