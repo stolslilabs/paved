@@ -7,18 +7,18 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Cobbles, formatCobbles } from "../src/components/elements/cobbles";
 import { CobblePacks, formatUsd } from "../src/components/containers/cobble-packs";
-import { PLANS, applySkinChanges, isClaimed, packDiscount, referencePrice, toggleSkin } from "../src/components/containers/cobble-types";
-import { SkinGrid } from "../src/components/containers/skin-grid";
+import { PLANS, applySkinChanges, chooseTheme, isClaimed, packDiscount, pickSkin, referencePrice, themeInUse, themeSet } from "../src/components/containers/cobble-types";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { HomeScene } from "../src/components/scenes/home-scene";
 import { LeaderboardScene } from "../src/components/scenes/leaderboard-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { QuestsScene } from "../src/components/scenes/quests-scene";
-import { ThemeScene } from "../src/components/scenes/theme-scene";
+import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
+import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { QUEST_DEFINITIONS } from "../src/mocks/quests";
-import { ACHIEVEMENTS, HOME, LEADERBOARD, PLAY, PURCHASE, QUESTS, THEME } from "../src/mocks/scenes";
+import { ACHIEVEMENTS, HOME, LEADERBOARD, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -67,26 +67,40 @@ describe("Cobbles amounts (gems-v1.md)", () => {
   });
 });
 
-describe("skin switches (5.3)", () => {
+describe("skin choices (5.3, THEMES-RENDERS)", () => {
   const saved = activeOn(1, 10, 13);
+  const owned = { 1: ownedPlans(7, 8, 10, 13) };
 
-  it("switches a skin on, then off again, and leaves the batch when back to the saved set", () => {
-    const on = toggleSkin(saved, {}, 7, 1);
+  it("picks a plan's skin, and leaves the batch when back to the saved one", () => {
+    const on = pickSkin(saved, {}, 7, 1);
     expect(on).toEqual({ 7: 1 });
-    expect(toggleSkin(saved, on, 7, 1)).toEqual({});
-    expect(toggleSkin(saved, {}, 10, 1)).toEqual({ 10: 0 });
+    expect(pickSkin(saved, on, 7, 0)).toEqual({});
+    expect(pickSkin(saved, {}, 10, 0)).toEqual({ 10: 0 });
+    expect(applySkinChanges(saved, { 10: 0 })[9]).toBe(0);
   });
 
-  it("keeps one theme per plan: switching Forest on replaces Snow's skin of that plan", () => {
-    const snow = activeOn(2, 7);
-    const changes = toggleSkin(snow, {}, 7, 1);
-    expect(applySkinChanges(snow, changes)[6]).toBe(1);
-    expect(applySkinChanges(snow, changes).filter((t) => t === 2)).toHaveLength(0);
+  it("a theme chosen whole: every owned plan wears it, the others Default; Default is every plan on 0", () => {
+    expect(themeSet(owned, 1).flatMap((t, i) => (t === 1 ? [i + 1] : []))).toEqual([7, 8, 10, 13]);
+    expect(themeSet(owned, 0).every((t) => t === 0)).toBe(true);
+    expect(themeSet({}, 1).every((t) => t === 0)).toBe(true);
   });
 
-  it("says so on the owned cell of a plan another theme has active", () => {
-    render(<SkinGrid theme="forest" prices={SKIN_PRICES} owned={ownedPlans(7)} active={activeOn(2, 7)} balance={0} />);
-    expect(screen.getByRole("listitem", { name: "Tile ffffcccff" })).toHaveTextContent("Replaces Snow");
+  it("is in use when the active set is what choosing it gives, and owned", () => {
+    expect(themeInUse(activeOn(1, 7, 8, 10, 13), owned, 1)).toBe(true);
+    expect(themeInUse(saved, owned, 1)).toBe(false);
+    expect(themeInUse(saved, owned, 0)).toBe(false);
+    expect(themeInUse(activeOn(1), owned, 0)).toBe(true);
+    // Nothing owned in Forest: Default is in use, not Forest.
+    expect(themeInUse(activeOn(1), { 1: 0 }, 1)).toBe(false);
+  });
+
+  it("choosing a theme sends only the plans that change, and asks first over a tile-by-tile mix", () => {
+    expect(chooseTheme(saved, owned, 1)).toEqual({ changes: { 7: 1, 8: 1 }, overridesChoice: true });
+    expect(chooseTheme(saved, owned, 0)).toEqual({ changes: { 10: 0, 13: 0 }, overridesChoice: true });
+    // From Default whole to Forest whole, and back: no choice is lost, nothing asked.
+    expect(chooseTheme(activeOn(1), owned, 1)).toEqual({ changes: { 7: 1, 8: 1, 10: 1, 13: 1 }, overridesChoice: false });
+    expect(chooseTheme(activeOn(1, 7, 8, 10, 13), owned, 0).overridesChoice).toBe(false);
+    expect(chooseTheme(activeOn(1, 7, 8, 10, 13), owned, 1)).toEqual({ changes: {}, overridesChoice: false });
   });
 });
 
@@ -154,54 +168,38 @@ describe("Purchase: Cobbles", () => {
   });
 });
 
-describe("Theme: skins", () => {
-  const cell = (plan: string) => screen.getByRole("listitem", { name: `Tile ${plan}` });
+describe("Theme shop", () => {
+  const cell = (plan: number) => screen.getByRole("listitem", { name: `Tile ${plan}` });
 
-  it("draws the 19 plans with their price and state, and counts the active ones", () => {
-    render(wrap(<ThemeScene {...THEME.skins} />));
-    const grid = screen.getByRole("list", { name: "Skins" });
+  it("draws the 19 tiles as rendered, with their price, state and variants, and counts the owned ones", () => {
+    render(wrap(<ThemeShopScene {...THEME_SHOP.forest} />));
+    const grid = screen.getByRole("list", { name: "Tiles" });
     expect(within(grid).getAllByRole("listitem")).toHaveLength(19);
-    expect(screen.getByText("of").parentElement).toHaveTextContent("2 of 19 active");
-    expect(cell("rfrfffffr")).toHaveAttribute("data-state", "active");
-    expect(cell("ffffcccff")).toHaveAttribute("data-state", "owned");
-    expect(cell("ccccccccc")).toHaveAttribute("data-state", "none");
-    expect(within(cell("ccccccccc")).getByRole("img", { name: "100 Cobbles" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
+    expect(screen.getByText("of").parentElement).toHaveTextContent("4 of 19 tiles owned");
+    expect(cell(13)).toHaveAttribute("data-state", "active");
+    expect(cell(7)).toHaveAttribute("data-state", "owned");
+    expect(cell(1)).toHaveAttribute("data-state", "none");
+    expect(within(cell(1)).getByRole("img", { name: "100 Cobbles" })).toBeInTheDocument();
+    // The real render of the plan in Forest, never a tinted chip.
+    expect(within(cell(1)).getByRole("img", { name: "Tile 1" })).toHaveAttribute("src", expect.stringMatching(/\/renders\/ccccccccc\.1\.[0-9a-f]{10}\.webp$/));
+    expect(within(cell(13)).getByLabelText(/^\d variants: the board picks one per tile$/)).toBeInTheDocument();
+    expect(screen.getByText(/models: the board picks one per tile/).textContent).toBe("72 models: the board picks one per tile");
   });
 
-  it("buys and switches a skin", async () => {
-    const onBuySkin = vi.fn();
-    const onToggleSkin = vi.fn();
-    render(wrap(<ThemeScene {...THEME.skins} onBuySkin={onBuySkin} onToggleSkin={onToggleSkin} />));
-    await userEvent.click(screen.getByRole("button", { name: "Buy Tile ccccccccc for 100 Cobbles" }));
-    expect(onBuySkin).toHaveBeenCalledWith(1);
-    await userEvent.click(screen.getByRole("switch", { name: "Tile ffffcccff skin active" }));
-    expect(onToggleSkin).toHaveBeenCalledWith(7);
-  });
-
-  it("batches the changes and saves them in one write", async () => {
-    const onSaveSkins = vi.fn();
-    render(wrap(<ThemeScene {...THEME.skinsChanged} onSaveSkins={onSaveSkins} />));
-    const bar = screen.getByRole("region", { name: "Unsaved changes" });
-    expect(bar).toHaveTextContent("2 changes to save");
-    expect(cell("ffffcccff")).toHaveAttribute("data-state", "active");
-    expect(cell("rfrfffffr")).toHaveAttribute("data-state", "owned");
-    await userEvent.click(within(bar).getByRole("button", { name: "Save" }));
-    expect(onSaveSkins).toHaveBeenCalledOnce();
-  });
-
-  it("locks the switches while saving, then says saved", () => {
-    const { unmount } = render(wrap(<ThemeScene {...THEME.skinsSaving} />));
-    expect(within(screen.getByRole("region", { name: "Unsaved changes" })).getByRole("button", { name: /Saving/ })).toBeDisabled();
-    expect(screen.getAllByRole("switch").every((s) => (s as HTMLButtonElement).disabled)).toBe(true);
-    unmount();
-    render(wrap(<ThemeScene {...THEME.skinsSaved} />));
-    expect(screen.getByRole("status")).toHaveTextContent("Skins saved");
+  it("buys a tile, and goes to My tiles", async () => {
+    const onBuy = vi.fn();
+    const onMyTiles = vi.fn();
+    render(wrap(<ThemeShopScene {...THEME_SHOP.forest} onBuy={onBuy} onMyTiles={onMyTiles} />));
+    await userEvent.click(screen.getByRole("button", { name: "Buy Tile 1 for 100 Cobbles" }));
+    expect(onBuy).toHaveBeenCalledWith(1);
+    expect(within(cell(7)).queryByRole("button")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /My tiles/ }));
+    expect(onMyTiles).toHaveBeenCalledOnce();
   });
 
   it("asks a player with no Cobbles to get some, every Buy disabled", async () => {
     const onBuyCobbles = vi.fn();
-    render(wrap(<ThemeScene {...THEME.noCobbles} onBuyCobbles={onBuyCobbles} />));
+    render(wrap(<ThemeShopScene {...THEME_SHOP.noCobbles} onBuyCobbles={onBuyCobbles} />));
     expect(screen.getByText("No Cobbles yet")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Buy / }).every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Get Cobbles" }));
@@ -209,52 +207,98 @@ describe("Theme: skins", () => {
   });
 
   it("disables what the player cannot afford, with the Cobbles missing", () => {
-    render(wrap(<ThemeScene {...THEME.cantAfford} />));
-    expect(within(cell("rfrfffffr")).getByRole("button", { name: /^Buy/ })).toBeEnabled();
-    expect(within(cell("rfffrfffr")).getByRole("button", { name: /^Buy/ })).toBeEnabled();
-    expect(within(cell("ccccccccc")).getByRole("button", { name: /^Buy/ })).toBeDisabled();
-    expect(cell("ccccccccc")).toHaveTextContent("Need 40 more");
-    expect(within(cell("ccccccccc")).getByRole("button", { name: /^Buy/ })).toHaveAccessibleDescription("Need 40 more");
-    expect(within(cell("rfrfffffr")).getByRole("button", { name: /^Buy/ })).not.toHaveAttribute("aria-describedby");
+    render(wrap(<ThemeShopScene {...THEME_SHOP.cantAfford} />));
+    expect(within(cell(13)).getByRole("button", { name: /^Buy/ })).toBeEnabled();
+    expect(within(cell(10)).getByRole("button", { name: /^Buy/ })).toBeEnabled();
+    expect(within(cell(1)).getByRole("button", { name: /^Buy/ })).toBeDisabled();
+    expect(cell(1)).toHaveTextContent("Need 40 more");
+    expect(within(cell(1)).getByRole("button", { name: /^Buy/ })).toHaveAccessibleDescription("Need 40 more");
+    expect(within(cell(13)).getByRole("button", { name: /^Buy/ })).not.toHaveAttribute("aria-describedby");
   });
 
-  it("shows a purchase on its way, the other skins waiting", () => {
-    render(wrap(<ThemeScene {...THEME.buying} />));
-    expect(within(cell("ccccccccc")).getByRole("button", { name: /^Buy/ })).toHaveAttribute("aria-busy", "true");
-    expect(within(cell("cccccfffc")).getByRole("button", { name: /^Buy/ })).toBeDisabled();
+  it("shows a purchase on its way, the other tiles waiting", () => {
+    render(wrap(<ThemeShopScene {...THEME_SHOP.buying} />));
+    expect(within(cell(1)).getByRole("button", { name: /^Buy/ })).toHaveAttribute("aria-busy", "true");
+    expect(within(cell(2)).getByRole("button", { name: /^Buy/ })).toBeDisabled();
   });
 
-  it("keeps owned skins on a theme withdrawn from sale, the others not for sale", async () => {
-    const onToggleSkin = vi.fn();
-    render(wrap(<ThemeScene {...THEME.ownedUnpriced} onToggleSkin={onToggleSkin} />));
+  it("keeps owned tiles on a theme withdrawn from sale, the others not for sale", () => {
+    render(wrap(<ThemeShopScene {...THEME_SHOP.ownedUnpriced} />));
     expect(screen.queryByText(/coming soon/)).not.toBeInTheDocument();
-    expect(within(screen.getByRole("list", { name: "Skins" })).getAllByRole("listitem")).toHaveLength(19);
-    expect(cell("rfrfffffr")).toHaveAttribute("data-state", "active");
-    expect(cell("ccccccccc")).toHaveTextContent("Not for sale");
+    expect(cell(13)).toHaveAttribute("data-state", "active");
+    expect(cell(1)).toHaveTextContent("Not for sale");
     expect(screen.queryByRole("button", { name: /^Buy/ })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("switch", { name: "Tile ffffcccff skin active" }));
-    expect(onToggleSkin).toHaveBeenCalledWith(7);
   });
 
-  it("counts the whole set", () => {
-    render(wrap(<ThemeScene {...THEME.allActive} />));
-    expect(screen.getByText("The whole set")).toBeInTheDocument();
-    expect(screen.getAllByRole("switch", { checked: true })).toHaveLength(19);
+  it("says a theme not out yet is coming soon, its cover blurred", () => {
+    const { container } = render(wrap(<ThemeShopScene {...THEME_SHOP.comingSoon} />));
+    expect(screen.getByText("Snow tiles: coming soon")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Tiles" })).not.toBeInTheDocument();
+    expect(container.querySelector("img.blur-xl")).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("says a theme without prices is coming soon", async () => {
-    const onBrowse = vi.fn();
-    render(wrap(<ThemeScene {...THEME.comingSoon} onBrowse={onBrowse} />));
-    expect(screen.getByText("Snow skins: coming soon")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Skins" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Forest" }));
-    expect(onBrowse).toHaveBeenCalledWith("forest");
+  it("asks a guest to connect, and shows a failed read with Retry", async () => {
+    const onConnect = vi.fn();
+    const { unmount } = render(wrap(<ThemeShopScene {...THEME_SHOP.guest} onConnect={onConnect} />));
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onConnect).toHaveBeenCalledOnce();
+    unmount();
+    render(wrap(<ThemeShopScene {...THEME_SHOP.error} />));
+    expect(screen.getByText("The skins could not be read")).toBeInTheDocument();
   });
 
   it("renders its stress state", () => {
-    render(wrap(<ThemeScene {...THEME.skinsStress} />));
+    render(wrap(<ThemeShopScene {...THEME_SHOP.stress} />));
     // The balance is the header pill's (`Balances`), not the page's.
-    expect(screen.getByRole("heading", { level: 1, name: "Theme" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Forest" })).toBeInTheDocument();
+  });
+});
+
+describe("My tiles", () => {
+  const row = (plan: number) => screen.getByRole("listitem", { name: `Tile ${plan}` });
+
+  it("offers each tile Default and the themes it is owned in, the active one picked", () => {
+    render(wrap(<MyTilesScene {...MY_TILES.owned} />));
+    expect(within(screen.getByRole("list", { name: "Tiles" })).getAllByRole("listitem")).toHaveLength(19);
+    expect(within(row(13)).getByRole("radio", { name: "Tile 13: Forest" })).toHaveAttribute("aria-checked", "true");
+    expect(within(row(7)).getByRole("radio", { name: "Tile 7: Default" })).toHaveAttribute("aria-checked", "true");
+    expect(within(row(1)).getAllByRole("radio")).toHaveLength(1);
+    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
+  });
+
+  it("picks one tile's skin", async () => {
+    const onPick = vi.fn();
+    render(wrap(<MyTilesScene {...MY_TILES.owned} onPick={onPick} />));
+    await userEvent.click(within(row(7)).getByRole("radio", { name: "Tile 7: Forest" }));
+    expect(onPick).toHaveBeenCalledWith(7, 1);
+  });
+
+  it("batches the picks and saves them in one write", async () => {
+    const onSave = vi.fn();
+    render(wrap(<MyTilesScene {...MY_TILES.changed} onSave={onSave} />));
+    const bar = screen.getByRole("region", { name: "Unsaved changes" });
+    expect(bar).toHaveTextContent("2 changes to save");
+    expect(row(7)).toHaveAttribute("data-changed", "true");
+    expect(within(row(13)).getByRole("radio", { name: "Tile 13: Default" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(within(bar).getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledOnce();
+  });
+
+  it("locks the picks while saving, then says saved", () => {
+    const { unmount } = render(wrap(<MyTilesScene {...MY_TILES.saving} />));
+    expect(within(screen.getByRole("region", { name: "Unsaved changes" })).getByRole("button", { name: /Saving/ })).toBeDisabled();
+    expect(screen.getAllByRole("radio").every((r) => (r as HTMLButtonElement).disabled)).toBe(true);
+    unmount();
+    render(wrap(<MyTilesScene {...MY_TILES.saved} />));
+    expect(screen.getByRole("status")).toHaveTextContent("Tiles saved");
+  });
+
+  it("with no skin owned, every tile is on Default and the shop is a tap away", async () => {
+    const onOpenShop = vi.fn();
+    render(wrap(<MyTilesScene {...MY_TILES.none} onOpenShop={onOpenShop} />));
+    expect(screen.getAllByRole("radio")).toHaveLength(19);
+    await userEvent.click(screen.getByRole("button", { name: "Open the Forest shop" }));
+    expect(onOpenShop).toHaveBeenCalledWith("forest");
   });
 });
 

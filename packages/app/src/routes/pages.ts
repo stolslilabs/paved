@@ -30,7 +30,9 @@ export const PAGES: readonly PageDef[] = [
   { path: "missions/:day?", title: "Missions", nav: "quests" },
   { path: "vault", title: "Vault", nav: "vault" },
   { path: "referral", title: "Referral", nav: "settings" },
-  { path: "settings/theme", title: "Theme", nav: "settings" },
+  { path: "settings/theme", title: "Themes", nav: "settings" },
+  { path: "settings/theme/:theme", title: "Theme", nav: "settings" },
+  { path: "settings/tiles", title: "My tiles", nav: "settings" },
   { path: "settings/credits", title: "Credits", nav: "settings" },
   { path: "settings", title: "Settings", nav: "settings" },
 ] as const;

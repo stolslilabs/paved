@@ -60,22 +60,53 @@ export function applySkinChanges(active: readonly number[], changes: Readonly<Re
 }
 
 /**
- * The batch after one toggle of `theme`'s skin of `plan`: on when another theme (or none) was active, off (theme 0)
- * when it was this one. A change back to the saved value leaves the batch, so `set_skins` sends only real changes.
- */
-export function toggleSkin(active: readonly number[], changes: Readonly<Record<number, number>>, plan: number, theme: number): Record<number, number> {
-  const current = changes[plan] ?? active[plan - 1];
-  const next = current === theme ? 0 : theme;
-  const rest = { ...changes };
-  delete rest[plan];
-  return next === active[plan - 1] ? rest : { ...rest, [plan]: next };
-}
-
-/**
  * The batch without the plans whose saved value is now the change itself: after a save whose receipt could not be read the
  * transaction may have landed, and the read of the active set that follows shows it. The same object when nothing drops.
  */
 export function dropSavedChanges(active: readonly number[], changes: Readonly<Record<number, number>>): Record<number, number> {
   const kept = Object.entries(changes).filter(([plan, theme]) => active[Number(plan) - 1] !== theme);
   return kept.length === Object.keys(changes).length ? (changes as Record<number, number>) : Object.fromEntries(kept);
+}
+
+/** How many of the 19 plans a theme's owned word holds (`skins(player_id, theme)`, bit p for plan p). */
+export const ownedCount = (owned: number): number => Array.from({ length: PLANS }, (_, i) => i + 1).filter((plan) => ownsSkin(owned, plan)).length;
+
+/**
+ * The active set a theme gives when it is chosen whole (THEMES-RENDERS, the owner's ruling of 2026-10-18): each plan the
+ * player owns in `theme` wears it, every other plan the default (0). Theme 0 is every plan on the default. `owned` maps a
+ * theme id to its owned word; a theme it does not name owns nothing.
+ */
+export function themeSet(owned: Readonly<Record<number, number>>, theme: number): number[] {
+  return Array.from({ length: PLANS }, (_, i) => (theme !== 0 && ownsSkin(owned[theme] ?? 0, i + 1) ? theme : 0));
+}
+
+const sameSet = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((t, i) => t === b[i]);
+
+/** Whether `theme` is the one in use: the active set is exactly what choosing it gives, and it is owned somewhere (0 aside). */
+export function themeInUse(active: readonly number[], owned: Readonly<Record<number, number>>, theme: number): boolean {
+  if (theme !== 0 && ownedCount(owned[theme] ?? 0) === 0) return false;
+  return sameSet(active, themeSet(owned, theme));
+}
+
+/**
+ * What choosing `theme` sends: the plans whose active theme changes, plan to new theme, for one `set_skins`; and whether
+ * that replaces a choice made tile by tile, so the page asks first. The active set is a tile-by-tile choice when it is not
+ * what choosing some theme gives (a mix, or a plan left on the default while its skin is owned and the theme is on).
+ */
+export function chooseTheme(active: readonly number[], owned: Readonly<Record<number, number>>, theme: number): { changes: Record<number, number>; overridesChoice: boolean } {
+  const next = themeSet(owned, theme);
+  const changes: Record<number, number> = {};
+  next.forEach((t, i) => {
+    if (t !== active[i]) changes[i + 1] = t;
+  });
+  const themes = [0, ...Object.keys(owned).map(Number)];
+  const chosenWhole = themes.some((t) => sameSet(active, themeSet(owned, t)));
+  return { changes, overridesChoice: !chosenWhole && Object.keys(changes).length > 0 };
+}
+
+/** The batch after picking `theme` for `plan` (My tiles): a pick back to the saved value leaves the batch. */
+export function pickSkin(active: readonly number[], changes: Readonly<Record<number, number>>, plan: number, theme: number): Record<number, number> {
+  const rest = { ...changes };
+  delete rest[plan];
+  return theme === active[plan - 1] ? rest : { ...rest, [plan]: theme };
 }

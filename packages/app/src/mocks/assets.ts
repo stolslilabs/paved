@@ -66,3 +66,12 @@ export const APP_MANIFEST: AssetManifest & {
  * ships no original.
  */
 export const originalTileArt = (base: string) => (key: string) => `${base}/assets/tiles/${key}.png`;
+
+/** The tiles' build-time renders in the stories and mocks: the app's own, at `APP_ASSETS`, as `useTileRenders` resolves them. */
+export const appRenders = (theme: number, key: string): string | null => {
+  const path = APP_MANIFEST.renders[String(theme)]?.[key];
+  return path ? `${APP_ASSETS}/${path}` : null;
+};
+
+/** Forest's models per plan key (1 to 9), as `useThemeVariants` reads them. */
+export const FOREST_VARIANTS: Readonly<Record<string, number>> = Object.fromEntries(Object.entries(APP_MANIFEST.themes["1"] ?? {}).map(([key, files]) => [key, files.length]));
