@@ -74,7 +74,7 @@ export function StoryScene({ campaigns, progress, storageOff, onBack, onLevel }:
                         aria-label={`Level ${level.id}, ${level.title}${unlocked ? "" : ", locked"}${done ? `, ${done.stars} of 3 stars` : ""}`}
                         className={cn(
                           "flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left text-card-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                          unlocked ? "cursor-pointer border-border hover:border-gold-700" : "cursor-not-allowed border-border/60 opacity-60",
+                          unlocked ? "state-layer cursor-pointer border-border" : "cursor-not-allowed border-border/60 opacity-60",
                         )}
                       >
                         <span className="numeric flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary font-display text-base font-semibold">

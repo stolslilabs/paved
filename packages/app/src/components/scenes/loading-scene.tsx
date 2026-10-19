@@ -15,7 +15,7 @@ export function LoadingScene({ progress, message = "Loading", tip }: LoadingScen
   return (
     <main
       aria-busy="true"
-      className="flex min-h-dvh flex-col items-center justify-center gap-10 bg-board bg-[radial-gradient(50%_35%_at_50%_45%,var(--color-gold-950),transparent)] px-6 text-foreground"
+      className="flex min-h-dvh flex-col items-center justify-center gap-10 bg-background bg-[radial-gradient(50%_35%_at_50%_45%,var(--glow),transparent)] px-6 text-foreground"
     >
       <Wordmark size="lg" tagline="Build · Connect · Score" />
       <div className="flex w-full max-w-xs flex-col items-center gap-3">

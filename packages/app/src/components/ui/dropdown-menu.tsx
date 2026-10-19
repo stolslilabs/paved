@@ -20,9 +20,9 @@ export function DropdownMenuSub(props: ComponentProps<typeof MenuPrimitive.Sub>)
 }
 
 const surface =
-  "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 motion-reduce:animate-none";
+  "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 motion-reduce:animate-none";
 const item =
-  "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
+  "state-layer relative flex min-h-10 cursor-default items-center gap-2 rounded-md px-2.5 py-2 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
 
 export function DropdownMenuContent({ className, sideOffset = 4, ...props }: ComponentProps<typeof MenuPrimitive.Content>) {
   return (
@@ -36,7 +36,7 @@ export function DropdownMenuItem({ className, inset, variant = "default", ...pro
     <MenuPrimitive.Item
       data-slot="dropdown-menu-item"
       data-variant={variant}
-      className={cn(item, inset && "pl-8", "data-[variant=destructive]:text-destructive-text data-[variant=destructive]:focus:bg-destructive data-[variant=destructive]:focus:text-destructive-foreground", className)}
+      className={cn(item, inset && "pl-8", "data-[variant=destructive]:text-destructive-text data-[variant=destructive]:data-[highlighted]:bg-destructive data-[variant=destructive]:data-[highlighted]:text-destructive-foreground", className)}
       {...props}
     />
   );
@@ -76,7 +76,7 @@ export function DropdownMenuShortcut({ className, ...props }: ComponentProps<"sp
 }
 export function DropdownMenuSubTrigger({ className, inset, children, ...props }: ComponentProps<typeof MenuPrimitive.SubTrigger> & { inset?: boolean }) {
   return (
-    <MenuPrimitive.SubTrigger data-slot="dropdown-menu-sub-trigger" className={cn(item, "data-[state=open]:bg-accent data-[state=open]:text-accent-foreground", inset && "pl-8", className)} {...props}>
+    <MenuPrimitive.SubTrigger data-slot="dropdown-menu-sub-trigger" className={cn(item, inset && "pl-8", className)} {...props}>
       {children}
       <ChevronRightIcon className="ml-auto" />
     </MenuPrimitive.SubTrigger>

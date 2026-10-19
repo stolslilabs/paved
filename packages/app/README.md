@@ -39,7 +39,7 @@ Cap the Node heap as `AGENTS.md` says: `NODE_OPTIONS=--max-old-space-size=832 bu
 Storybook 10 with `@storybook/react-vite`, the docs and a11y addons (section 4 of the architecture). `.storybook/`
 holds `main.ts` (stories `src/**/*.stories.tsx`), `preview.tsx` (the token file and fonts, `<html data-theme="dark">`,
 `MotionConfig`, a `QueryClient` seeded from `parameters.queryFixtures`, a `MemoryRouter` at `parameters.route`, the font
-preloads), `theme.ts` and `manager.ts` (the Storybook UI, dark on the board's colour). The board colour `#07111A` is the only
+preloads), `theme.ts` and `manager.ts` (the Storybook UI, dark on the board's colour). The board colour `#0C0D0F` (direction D) is the only
 background; the viewport toolbar in the header is the only width control (mobile 360, tablet 640, desktop 1024, wide 1440; none picked is the full width).
 
 The Foundations stories (`src/styles/*.stories.tsx`) read the token file itself (`src/styles/tokens.ts`), so they cannot

@@ -350,7 +350,7 @@ function GameTab(props: PurchaseSceneProps) {
       </div>
 
       <div className="flex flex-col gap-4">
-        <section data-slot="card" aria-label="Terms" className="flex flex-col gap-3 rounded-xl border border-gold-900 bg-gold-950/40 p-4">
+        <section data-slot="card" aria-label="Terms" className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-card p-4">
           <div className="flex items-center gap-3">
             <Icon name="trophy" className="text-primary" size="md" />
             <div className="flex flex-1 flex-col">
@@ -363,7 +363,7 @@ function GameTab(props: PurchaseSceneProps) {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Below the threshold the stake is lost; above it, PAVED is minted when the day closes.</p>
-          <div className="flex items-center gap-3 border-t border-gold-900 pt-3">
+          <div className="flex items-center gap-3 border-t border-border pt-3">
             <Icon name="clock" className="text-muted-foreground" size="md" />
             <div className="flex flex-col">
               <span className="text-sm">Valid 24 h</span>

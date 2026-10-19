@@ -8,12 +8,12 @@ export interface SettingsGroupProps {
   className?: string;
 }
 
-/** A titled card of setting rows, as the mockups group them: Visuals, Gameplay, Account. */
+/** A titled card of setting rows, as the mockups group them (Visuals, Gameplay, Account): direction D titles each in the display font. */
 export function SettingsGroup({ title, children, className }: SettingsGroupProps) {
   const id = `settings-${title.toLowerCase().replace(/\W+/g, "-")}`;
   return (
     <section aria-labelledby={id} data-slot="card" className={cn("flex flex-col rounded-xl border border-border bg-card px-4 py-2", className)}>
-      <h2 id={id} className="pt-1.5 pb-1 text-xs font-semibold tracking-wide wrap-anywhere text-muted-foreground uppercase">{title}</h2>
+      <h2 id={id} className="pt-2 pb-1 font-display text-xl tracking-wide wrap-anywhere">{title}</h2>
       <div className="flex flex-col divide-y divide-border">{children}</div>
     </section>
   );
@@ -31,10 +31,10 @@ export interface SettingsLinkProps {
 /** A row that opens another page (theme, referral): the mockups' "Connected >" row. */
 export function SettingsLink({ label, hint, icon, value, onClick }: SettingsLinkProps) {
   return (
-    <button type="button" onClick={onClick} className="-mx-2 flex cursor-pointer items-start gap-3 rounded-md px-2 py-2.5 text-left transition-colors outline-none hover:bg-secondary/60 focus-visible:ring-2 focus-visible:ring-ring">
+    <button type="button" onClick={onClick} className="state-layer -mx-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {/* Icons and the value sit on the label's first line (20 px boxes); label and hint wrap (WRAP360). */}
       <span className="inline-flex h-5 items-center">
-        <Icon name={icon} className="text-muted-foreground" size="sm" fixedWidth />
+        <Icon name={icon} className="text-primary" size="sm" fixedWidth />
       </span>
       <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
         <span className="text-sm leading-5">{label}</span>

@@ -51,7 +51,7 @@ export function ClosingFeed({ closings, className }: ClosingFeedProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ delay: i * 0.15, type: "spring", stiffness: 400, damping: 30 }}
-            className="w-64 rounded-lg border border-gold-900 bg-card/95 px-3 py-2 shadow-lg backdrop-blur"
+            className="w-64 rounded-lg border border-primary/30 bg-card/95 px-3 py-2 shadow-lg backdrop-blur"
           >
             <ClosingLine closing={c} />
           </m.div>

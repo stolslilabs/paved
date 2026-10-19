@@ -83,7 +83,7 @@ export function SheetContent({ className, children, side = "right", ...props }: 
               {children}
               <SheetPrimitive.Close
                 data-slot="sheet-close-x"
-                className="absolute top-4 right-4 rounded-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="state-layer absolute top-3 right-3 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <CloseIcon />
                 <span className="sr-only">Close</span>

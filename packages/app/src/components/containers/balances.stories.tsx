@@ -16,7 +16,7 @@ type Story = StoryObj<typeof meta>;
 const MOBILE = { viewport: { value: "mobile", isRotated: false } } as const;
 const WIDE = { viewport: { value: "wide", isRotated: false } } as const;
 
-/** In a tab page, as the shell lays it out: the pill in the header below `desktop`, the three balances at the rail's bottom from it. */
+/** In a tab page, as the shell lays it out: the pill in the header below `desktop`, the three balances at the end of the navigation's header from it (direction D). */
 function InPage({ state, onAction, onConnect, faucet }: Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet">) {
   return (
     <BalancesProvider value={{ state, onAction, onConnect, faucet }}>
@@ -41,7 +41,7 @@ export const Disconnected: Story = { ...page({ status: "disconnected" }), global
 /** WRAP360: the widest amounts. */
 export const Stress: Story = { args: { defaultOpen: true, state: { status: "ready", usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18, cobbles: 999_999 } }, globals: MOBILE };
 
-/** Desktop (1440): the three balances always visible at the bottom of the rail. */
+/** Desktop (1440): the three balances always visible at the end of the navigation's header. */
 export const RailConnected: Story = { ...page(CONNECTED), globals: WIDE };
 export const RailLoading: Story = { ...page({ status: "loading" }), globals: WIDE };
 export const RailError: Story = { ...page({ status: "error", message: "The balances could not be read." }), globals: WIDE };

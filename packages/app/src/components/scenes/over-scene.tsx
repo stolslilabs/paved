@@ -24,6 +24,7 @@ import { useSfx } from "../containers/audio-provider";
 import { Boundary, useClock } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
+import scoreWide from "../../assets/renders/score-wide.webp";
 import { TopBar } from "../containers/top-bar";
 
 // The final board (#539) is its own chunk, with the renderer: loaded at the first "Board", and in the browser's idle time
@@ -206,7 +207,7 @@ export function OverScene(props: OverSceneProps) {
             aria-label="Show"
             value={view}
             onValueChange={(next) => next && setView(next as OverView)}
-            className="pointer-events-auto rounded-md bg-card/95 shadow-lg backdrop-blur"
+            className="pointer-events-auto rounded-xl bg-card/95 p-1 shadow-lg backdrop-blur"
           >
             <ToggleGroupItem value="scores" className="min-w-32">
               <Icon name="ranking-star" fixedWidth />
@@ -241,10 +242,12 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
       <TopBar title="Final score" onBack={onHome} />
       <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
         <div className="flex flex-col gap-4">
+          {/* Direction D (#537): the mockups' banner, a render of a finished board (the bench's 38-tile game). Decorative. */}
+          <img src={scoreWide} alt="" width={960} height={448} draggable={false} decoding="async" className="h-36 w-full rounded-xl bg-secondary object-cover desktop:h-56" />
           <section
             data-slot="card"
             data-testid="final-score"
-            className="flex flex-col items-center gap-2 rounded-2xl border border-gold-900 bg-[radial-gradient(80%_70%_at_50%_0%,var(--color-gold-950),var(--color-ink-900))] px-4 py-6 text-center"
+            className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-[radial-gradient(80%_70%_at_50%_0%,var(--glow),var(--card))] px-4 py-6 text-center"
           >
             <span className="text-sm text-muted-foreground">{mode === "challenge" ? `Challenge #${game.id}` : "Training"}</span>
             <Score value={game.score} size="xl" tone="gold" className="items-center" />
@@ -416,7 +419,7 @@ function BestClosing({ best }: { best: ClosedStructure | null }) {
   if (!best) return null;
   const { label, icon, color } = info(best.category);
   return (
-    <div data-testid="highlight-best" className="flex items-center gap-3 rounded-lg border border-gold-900 bg-secondary/40 px-3 py-2">
+    <div data-testid="highlight-best" className="flex items-center gap-3 rounded-lg border border-primary/30 bg-secondary/40 px-3 py-2">
       <Icon name="medal" className="text-primary" fixedWidth />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="text-xs text-muted-foreground">Best closing</span>

@@ -39,7 +39,7 @@ export function SkinCell({ plan, theme, price, state, variants = 1, balance, buy
       data-state={state}
       aria-label={name}
       data-plan={planCode(plan).toLowerCase()}
-      className={cn("flex flex-col gap-2 rounded-xl border p-2", state === "active" ? "border-primary bg-accent" : "border-border bg-card")}
+      className={cn("flex flex-col gap-2 rounded-xl border p-2", state === "active" ? "border-primary bg-card state-layer" : "border-border bg-card")}
     >
       <span className="relative block aspect-square overflow-hidden rounded-lg bg-board">
         <TileRender plan={plan} theme={THEME_CODES[theme]} renders={renders} />
