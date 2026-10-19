@@ -85,7 +85,7 @@ describe("story plan", () => {
     for (let index = 1; index < tiles.length; index++) expect(tiles[index]).toBeGreaterThan(tiles[index - 1] as number);
   });
 
-  // About 0.3 s on a quiet machine; it took 5.1 s on a loaded CI runner (main, 2026-10-19), past vitest's 5 s default.
+  // The seeded draws are CPU-bound: the test passed 5 s, the default timeout, on CI (main included).
   it("takes each deck of the second campaign from the Challenge's draw of its seed", () => {
     for (const level of OPEN_COUNTRY.levels) {
       expect(level.seed, `level ${level.id} has a seed`).toBeDefined();
