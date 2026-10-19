@@ -22,6 +22,7 @@ import { FOREST, FOREST_FILES, loadForestVariant } from "./helpers/forest-varian
 import { decodePng } from "./helpers/png";
 import { FEATURE_HIGHLIGHT_GLSL, NIGHT_LIGHTS_GLSL, NIGHT_WINDOWS_GLSL, TileRenderer } from "../src/core/TileRenderer";
 import { GameScene } from "../src/core/GameScene";
+import { DEFAULT_WINDOW_LIGHT } from "../src/core/daynight-settings";
 import { LOOK_PRESETS } from "../src/core/look";
 
 const MODELS = fileURLToPath(new URL("../../app/asset-sources/models", import.meta.url));
@@ -942,6 +943,67 @@ describe("the night lights (DAYNIGHT)", () => {
       tiles.dispose();
       expect(dispose).toHaveBeenCalled();
       expect((tiles as any).windowSources.size).toBe(0);
+    });
+
+    it("#571: the windows' own strength and stagger, a spill map past the borders, baked again on a new reach, freed on dispose", async () => {
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ccccccccc", 1), nightTile("ccccccccc", 2)] as never);
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, intensity: 1.5, stagger: 0.8 });
+      const uniforms = shaderOf(typeMesh(tiles, "ccccccccc").material as THREE.Material).uniforms;
+      expect(uniforms.uNightGlow.value).toBe(1.5);
+      expect(uniforms.uWindowStagger.value).toBe(0.8);
+      await tiles.whenLabelled();
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      // Two cells side by side, 40 voxels each, and the margin round them.
+      const margin = DEFAULT_WINDOW_LIGHT.margin;
+      const rect = uniforms.uSpillRect.value as THREE.Vector4;
+      expect([rect.z, rect.w]).toEqual([80 + 2 * margin, 40 + 2 * margin]);
+      expect(uniforms.uSpillCell.value.toArray()).toEqual([1, 0]);
+      const spill = uniforms.uWindowSpill.value as THREE.DataTexture;
+      const data = spill.image.data as Uint8Array;
+      let lit = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (!data[i]) continue;
+        lit++;
+        // Each texel's owner tile is one of the two cells (0 or 1 from the first).
+        expect([0, 1]).toContain(data[i + 2]);
+      }
+      expect(lit).toBeGreaterThan(0);
+      // The columns' strength is theirs: back to the columns, 0.4.
+      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
+      expect(uniforms.uNightGlow.value).toBe(0.4);
+      // A new reach lets go of the volumes and the spill, and bakes again.
+      const first = (tiles as any).windowTextures[0] as THREE.Data3DTexture;
+      const freed = vi.spyOn(first, "dispose");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6 });
+      expect(freed).toHaveBeenCalled();
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      // No margin, no spill: the light stops at the border.
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6, margin: 0 });
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      expect((uniforms.uSpillRect.value as THREE.Vector4).z).toBe(0);
+      // The first pass's detection is a bake of its own too.
+      const through = (tiles as any).windowTextures[0] as THREE.Data3DTexture;
+      const rebaked = vi.spyOn(through, "dispose");
+      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6, margin: 0, detection: "recesses" });
+      expect(rebaked).toHaveBeenCalled();
+      await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
+      const last = uniforms.uWindowSpill.value as THREE.DataTexture;
+      const dispose = vi.spyOn(last, "dispose");
+      tiles.dispose();
+      expect(dispose).toHaveBeenCalled();
+    });
+
+    it("#571: the volume and the spill switch on by one hash (`windowOn`), declared before main", () => {
+      expect(NIGHT_WINDOWS_GLSL.split("windowOn(").length - 1).toBe(2);
+      expect(NIGHT_WINDOWS_GLSL).toContain("texelFetch(uWindowSpill");
+      const { tiles } = renderer();
+      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+      const { fragmentShader, vertexShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
+      expect(fragmentShader.indexOf("float windowOn(")).toBeLessThan(fragmentShader.indexOf("void main() {"));
+      expect(fragmentShader).toContain("* uWindowStagger * 0.85;");
+      expect(vertexShader).toContain("vBoardVoxel = ");
+      tiles.dispose();
     });
 
     it("reads the volume at the air cell in front of the face, and keeps the columns' branch off in this mode", () => {
