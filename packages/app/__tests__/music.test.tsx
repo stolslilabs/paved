@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MusicPlayer, formatTime, musicStatus } from "../src/components/containers/music-player";
+import { MusicPlayer, formatTime, musicStatus, usePreloadedArt } from "../src/components/containers/music-player";
 import { AudioProvider, useMusic } from "../src/components/containers/audio-provider";
 import { ALBUM, bindMediaSession, type SessionLike } from "../src/lib/music/media-session";
 import { CROSSFADE_S, HISTORY, createMusicPlayer } from "../src/lib/music/player";
@@ -139,6 +139,9 @@ describe("the playlist", () => {
   });
 });
 
+/** One tick of the player and some. */
+const TICK = 60;
+
 describe("the crossfade", () => {
   it("starts the next track CROSSFADE_S before the end, falls and rises on the volumes, and swaps", () => {
     const { player, a, b } = make({ volume: 0.5 });
@@ -195,6 +198,86 @@ describe("the crossfade", () => {
     expect(a.src).not.toBe(second);
     expect(a.volume).toBeCloseTo(0.4);
     expect(player.getState().title).toBe(titleOf(a.src));
+    player.destroy();
+  });
+
+  it("on Next the state switches at once to the new track at 0:00, and never runs out the old one across the fade (#580)", () => {
+    const { player, a, b } = make({ volume: 0.5 });
+    document.dispatchEvent(new Event("click"));
+    a.duration = 200;
+    a.currentTime = 80;
+    vi.advanceTimersByTime(100);
+    const first = player.getState();
+    // The next track is named ahead (its image can load before Next), and Next goes to that one.
+    expect(first.nextTrack).not.toBeNull();
+    expect(first.previousTrack).toBeNull();
+    const coming = first.nextTrack!;
+    const seen: { index: number | null; track: string | null; position: number; duration: number }[] = [];
+    const unsubscribe = player.subscribe(() => {
+      const s = player.getState();
+      seen.push({ index: s.index, track: s.track, position: s.position, duration: s.duration });
+    });
+
+    player.skip();
+    expect(b.src).toBe(coming);
+    // At once, before the fade has run: the new index, title, position 0, the length not known yet.
+    expect(player.getState()).toMatchObject({ track: coming, title: titleOf(coming), position: 0, duration: 0, previousTrack: first.track });
+    expect(player.getState().index).not.toBe(first.index);
+    // Its length as soon as the element knows it, not at the next tick.
+    b.duration = 150;
+    b.dispatchEvent(new Event("durationchange"));
+    expect(player.getState().duration).toBe(150);
+
+    // The fade runs on the old track's clock (its last 2 s); the state follows the new one all along.
+    for (const [old, now] of [[198.5, 0.5], [199.5, 1.5]] as const) {
+      a.currentTime = old;
+      b.currentTime = now;
+      vi.advanceTimersByTime(TICK);
+      expect(player.getState()).toMatchObject({ track: coming, position: now, duration: 150 });
+    }
+    a.currentTime = 200;
+    b.currentTime = 2;
+    vi.advanceTimersByTime(TICK);
+    expect(a.paused).toBe(true);
+    expect(player.getState()).toMatchObject({ track: coming, position: 2, duration: 150 });
+
+    // The sequence: the old track until Next, then only the new one, from 0, its position never going back.
+    const at = seen.findIndex((s) => s.track === coming);
+    expect(seen.slice(0, at).every((s) => s.track === first.track)).toBe(true);
+    expect(seen.slice(at).every((s) => s.track === coming && s.index === seen[at]!.index)).toBe(true);
+    expect(seen[at]).toMatchObject({ position: 0, duration: 0 });
+    const positions = seen.slice(at).map((s) => s.position);
+    expect(positions).toEqual([...positions].sort((x, y) => x - y));
+    expect(seen.slice(at).some((s) => s.duration === 200)).toBe(false);
+    unsubscribe();
+    player.destroy();
+  });
+
+  it("the crossfade at a track's end shows the incoming track from its start", () => {
+    const { player, a, b } = make();
+    document.dispatchEvent(new Event("click"));
+    a.duration = 100;
+    a.currentTime = 99;
+    vi.advanceTimersByTime(TICK);
+    expect(b.paused).toBe(false);
+    expect(player.getState()).toMatchObject({ track: b.src, position: 0, duration: 0 });
+    player.destroy();
+  });
+
+  it("on Previous mid-track the state switches at once too, and names the track it came from as the next", () => {
+    const { player, a, b } = make();
+    document.dispatchEvent(new Event("click"));
+    const first = a.src;
+    a.duration = 100;
+    a.currentTime = 10;
+    player.skip();
+    a.currentTime = 100;
+    vi.advanceTimersByTime(TICK);
+    const second = b.src;
+    b.duration = 120;
+    b.currentTime = 30;
+    player.previous();
+    expect(player.getState()).toMatchObject({ track: first, position: 0, previousTrack: null, nextTrack: second });
     player.destroy();
   });
 
@@ -510,6 +593,24 @@ describe("the Media Session", () => {
     player.destroy();
   });
 
+  it("switches the metadata and the position on Next, with the card, before the fade ends (#580)", () => {
+    const { player, a, b } = make();
+    const { session, positions } = fakeSession();
+    const unbind = bindMediaSession(player, { session, createMetadata: (init) => init as MediaMetadata, onPlay: () => {}, onPause: () => {} });
+    document.dispatchEvent(new Event("click"));
+    a.duration = 180;
+    a.currentTime = 60;
+    vi.advanceTimersByTime(TICK);
+    player.skip();
+    expect((session.metadata as unknown as MediaMetadataInit).title).toBe(titleOf(b.src));
+    b.duration = 140;
+    b.dispatchEvent(new Event("durationchange"));
+    expect(positions.at(-1)).toEqual({ duration: 140, position: 0, playbackRate: 1 });
+    expect(a.paused).toBe(false);
+    unbind();
+    player.destroy();
+  });
+
   it("does nothing where the browser has no session", () => {
     const { player } = make();
     expect(() => bindMediaSession(player, { session: null, onPlay: () => {}, onPause: () => {} })()).not.toThrow();
@@ -694,6 +795,42 @@ describe("the MusicPlayer card", () => {
     expect(screen.getByTestId("music-thumbnail")).toHaveAttribute("data-state", "placeholder");
     rerender(<MusicPlayer {...props} track="/music/08-harvest-dance.m4a" art="/music-art/128/08-harvest-dance.webp" />);
     expect(screen.getByTestId("music-thumbnail")).toHaveAttribute("data-state", "image");
+  });
+
+  it("keeps the placeholder under the image: a new track's image not loaded yet never shows the old one", () => {
+    vi.useRealTimers();
+    const { rerender } = render(<MusicPlayer {...props} />);
+    const thumb = screen.getByTestId("music-thumbnail");
+    expect(thumb.querySelector("svg, i, [data-icon]")).not.toBeNull();
+    const old = thumb.querySelector("img")!;
+    rerender(<MusicPlayer {...props} track="/music/08-harvest-dance.m4a" title="Harvest Dance" art="/music-art/128/08-harvest-dance.webp" position={0} duration={0} />);
+    const img = thumb.querySelector("img")!;
+    expect(img).not.toBe(old);
+    expect(img.getAttribute("src")).toBe("/music-art/128/08-harvest-dance.webp");
+    expect(screen.getByTestId("music-position")).toHaveTextContent("0:00");
+    expect(screen.getByRole("progressbar", { name: "Track progress" })).toHaveAttribute("aria-valuenow", "0");
+  });
+
+  it("loads the images of the next and previous tracks ahead", () => {
+    vi.useRealTimers();
+    const made: string[] = [];
+    const Real = globalThis.Image;
+    globalThis.Image = class {
+      decoding = "";
+      set src(v: string) {
+        made.push(v);
+      }
+    } as unknown as typeof Image;
+    try {
+      const { rerender } = renderHook(({ srcs }) => usePreloadedArt(srcs), { initialProps: { srcs: ["/music-art/128/03-market-day.webp", null] as (string | null)[] } });
+      expect(made).toEqual(["/music-art/128/03-market-day.webp"]);
+      rerender({ srcs: ["/music-art/128/03-market-day.webp", null] });
+      expect(made).toHaveLength(1);
+      rerender({ srcs: ["/music-art/128/08-harvest-dance.webp", "/music-art/128/03-market-day.webp"] });
+      expect(made.slice(1)).toEqual(["/music-art/128/08-harvest-dance.webp", "/music-art/128/03-market-day.webp"]);
+    } finally {
+      globalThis.Image = Real;
+    }
   });
 
   it("names each state", () => {
