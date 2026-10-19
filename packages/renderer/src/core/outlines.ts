@@ -45,7 +45,7 @@ export interface OutlineSettings {
   /**
    * At or above this share of the opening tile size the outlines are fully on; between the two the opacity is
    * `1 - t^p` of the logarithm of the tile size (`outlineFade`). This is the fade's start: 1.5 S by default
-   * (`OUTLINE_FADE_START`), settable from `MIN_FADE_START` (1.5) up to `OUTLINE_CLOSEST_FACTOR` (the closest zoom, 30 S).
+   * (`OUTLINE_FADE_START`), settable from `MIN_FADE_START` (1.5) up to `OUTLINE_CLOSEST_FACTOR` (the closest zoom, 24 S).
    */
   fadeFullFactor: number;
   /**
@@ -82,7 +82,8 @@ export const MIN_OUTLINE_OPACITY = 1 / 255;
 
 /**
  * The tile size at the closest zoom (`CLOSEST_DISTANCE`) as a multiple of the opening tile size S: the tile size is
- * inversely proportional to the camera distance, so it is `OPENING_DISTANCE / CLOSEST_DISTANCE` = 240 / 8 = 30.
+ * inversely proportional to the camera distance, so it is `OPENING_DISTANCE / CLOSEST_DISTANCE` = 240 / 10 = 24 (30 before
+ * TILT-54 moved the closest zoom from 8 to 10).
  */
 export const OUTLINE_CLOSEST_FACTOR = OPENING_DISTANCE / CLOSEST_DISTANCE;
 
@@ -102,7 +103,7 @@ export const DEFAULT_OUTLINE_SETTINGS: OutlineSettings = {
   enabled: true,
   force: "auto",
   // The fade follows the opening tile size S: off at 0.85 S (the historic threshold), fully on from the start
-  // (1.5 S; up to the closest zoom, 30 S), `1 - t^p` of log(tile px) between (OUT-FADE2), p = 2. A 360 x 780 phone opens at about 52 px a tile (off at
+  // (1.5 S; up to the closest zoom, 24 S), `1 - t^p` of log(tile px) between (OUT-FADE2), p = 2. A 360 x 780 phone opens at about 52 px a tile (off at
   // 44), a 900 px high window at about 60 (off at 51, over the farthest zoom's 48 px: the outlines vanish zoomed out).
   // At S itself the opacity is no longer 1: see `outlineOpacityAtOpening`.
   fadeOffFactor: 0.85,
