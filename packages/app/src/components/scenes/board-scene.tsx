@@ -61,7 +61,7 @@ export interface BoardSceneProps {
     tile: { plan: number; orientation: number } | null;
     state: HandState;
     slotChosen?: boolean;
-    /** The points the placed tile would score: on the HUD's score while a slot is chosen ("1,000 (+154)", #568). */
+    /** The points the placed tile would score: on the HUD's score while a slot is chosen ("Score (+154)", #568). */
     preview?: number | null;
     error?: string | null;
     /** The refusal's detail for support (`InlineError`). */

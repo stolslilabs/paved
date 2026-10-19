@@ -32,9 +32,10 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
   /** Points the last move added: shown with the score, then gone when the next move clears it. */
   delta?: number | null;
   /**
-   * The points the tile placed, not yet validated, would score (the engine's preview, PLACE-POLISH, issue 568): "1,000 (+154)",
-   * beside the value in the primary colour, plain and in brackets, where the gain of a move scored (`delta`) is green on the
-   * label's line and moves in. Unset or null: none.
+   * The points the tile placed, not yet validated, would score (the engine's preview, PLACE-POLISH, issue 568): "(+154)" in
+   * the primary colour and in brackets, beside the value. With a label it rides on the label's line, in place of the last
+   * move's gain (`delta`, green, moving in), which it outdates: "Score (+154)" over "1,000" keeps the header's width at 375 px,
+   * where "1,000 (+154)" on one line left no room for the title beside the season wheel and the deck. Unset or null: none.
    */
   preview?: number | null;
   className?: string;
@@ -60,22 +61,23 @@ export function Score({ value, label, icon, iconClassName, delta, preview, size,
       ) : null}
     </AnimatePresence>
   );
+  const previewed =
+    preview != null ? (
+      <span data-testid="score-preview" title="The points this tile would score" className="numeric text-xs font-semibold text-primary">
+        (+{formatPoints(preview)})<span className="sr-only"> if placed</span>
+      </span>
+    ) : null;
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       {label && (
         <span className="flex items-baseline gap-2 text-xs text-muted-foreground">
           {label}
-          {gain}
+          {previewed ?? gain}
         </span>
       )}
       <ValueRow icon={icon} iconSize={ICON_SIZE[size ?? "md"]} iconClassName={cn("text-primary", iconClassName)}>
         <span className={scoreVariants({ size, tone })} data-testid="score-value">{formatPoints(value)}</span>
-        {preview != null && (
-          <span data-testid="score-preview" title="The points this tile would score" className="-ml-1 numeric text-sm leading-none font-semibold text-primary">
-            (+{formatPoints(preview)})<span className="sr-only"> if placed</span>
-          </span>
-        )}
-        {!label && gain}
+        {!label && (previewed ?? gain)}
       </ValueRow>
     </div>
   );
