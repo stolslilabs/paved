@@ -37,7 +37,7 @@ function look(plan: number, orientation: number): string {
 }
 
 /** The legal placements of the tile in hand, once per distinct look: those worth trying. */
-function distinctPlacements(game: EngineGame, plan: PlanType): Placement[] {
+export function distinctPlacements(game: EngineGame, plan: PlanType): Placement[] {
   const seen = new Set<string>();
   const kept: Placement[] = [];
   const planCode = PLANS.indexOf(plan);
@@ -59,6 +59,11 @@ export interface SolveOptions {
 
 /** Solves a level: `sequence` is the deck after the starter, in draw order. */
 export function solve(sequence: readonly PlanType[], options: SolveOptions = {}): Solution {
+  return solveFrom(EngineGame.start({ deck: "story", seed: 0n, sequence, placed: options.placed }), options);
+}
+
+/** The best end of a game in progress (the moves from `start` on); `start` is not changed. */
+export function solveFrom(start: EngineGame, options: Pick<SolveOptions, "discards"> = {}): Solution {
   let nodes = 0;
   let best = -1;
   let bestMoves: SolverMove[] = [];
@@ -93,7 +98,7 @@ export function solve(sequence: readonly PlanType[], options: SolveOptions = {})
     path.pop();
   };
 
-  visit(EngineGame.start({ deck: "story", seed: 0n, sequence, placed: options.placed }));
+  visit(start.clone());
   return { optimum: best, moves: bestMoves, nodes };
 }
 

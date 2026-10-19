@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { TileChip, chipVariants, type TileArt } from "../elements/tile-chip";
+import { COACH_RING, type CoachTarget } from "./coach";
 
 /**
  * Where the hand is: `placing` (choose a slot, confirm), `pending` (a move sent, its receipt awaited),
@@ -30,17 +31,19 @@ export interface HandPanelProps {
   onConfirm?: () => void;
   onDiscard?: () => void;
   onSurrender?: () => void;
-  /** Surrender is offered: not in the tutorial, which has nothing to give up (P6). */
+  /** Surrender is offered: not in Story mode, where a level restarts instead (P6, #546). */
   canSurrender?: boolean;
   /** The Surrender dialog's module is on its way (BOARD-CHUNK): the button shows it is busy. */
   surrenderPending?: boolean;
+  /** A Story coach mark points at Place or Discard: that button is ringed. */
+  coach?: CoachTarget | null;
   className?: string;
 }
 
 const EXPIRED_TEXT = "24 h passed since its purchase. Surrender to close it.";
 
 /** The hand: the tile to place, confirm, discard, and surrender; the rotation is the bubble's, on the tile (the mockups' "Place tile" panel). */
-export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onConfirm, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, className }: HandPanelProps) {
+export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onConfirm, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, coach, className }: HandPanelProps) {
   const busy = state === "pending";
   const locked = state === "pending" || state === "expired" || state === "empty";
   const chipState = busy ? "pending" : state === "refused" ? "refused" : tile ? "selected" : "default";
@@ -75,7 +78,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail
           <p className="min-w-0 flex-1 text-sm text-muted-foreground">{slotChosen ? "Place it, or tap the cross on the tile to take it back." : "Tap a lit slot on the board."}</p>
         )}
       </div>
-      <Button size="lg" onClick={onConfirm} disabled={locked || !slotChosen} loading={busy} className="w-full">
+      <Button size="lg" onClick={onConfirm} disabled={locked || !slotChosen} loading={busy} className={cn("w-full", coach === "place" && COACH_RING)}>
         {busy ? (
           "Placing…"
         ) : (
@@ -86,7 +89,7 @@ export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail
         )}
       </Button>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile} className={cn(!canSurrender && "col-span-2")}>
+        <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile} className={cn(!canSurrender && "col-span-2", coach === "discard" && COACH_RING)}>
           <Icon name="trash" size="sm" /> Discard
         </Button>
         {canSurrender && (
