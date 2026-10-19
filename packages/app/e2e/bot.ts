@@ -124,7 +124,45 @@ export function nextValid(orientation: number, valid: readonly number[]): number
   return orientation;
 }
 
-export const placeButton = (page: Page) => page.getByRole("button", { name: /^Place tile/ });
+/** The bubble's Validate, held to place the tile (PLACE-POLISH, #568): the hand panel has no Place tile any more. */
+export const validateButton = (page: Page) => bubble(page).getByRole("button", { name: "Hold to place the tile", exact: true });
+/** The points preview of the tile placed and not sent, over the header's score ("(+154)"); null when none shows. */
+export async function readPreview(page: Page): Promise<number | null> {
+  const preview = page.locator("header").getByTestId("score-preview");
+  if ((await preview.count()) === 0) return null;
+  return points(await preview.innerText());
+}
+
+/** The moves saved so far: a placement shows here as soon as the page has made it. */
+const savedMoves = async (page: Page) => (await readSave(page))?.moves.length ?? 0;
+
+/**
+ * Places the tile as a player does: the mouse pressed on Validate and held until the page has made the move (the hold's
+ * 800 ms and the save), then let go. A press let go before the end places nothing (`tapValidate`).
+ */
+export async function holdToPlace(page: Page): Promise<void> {
+  const before = await savedMoves(page);
+  await validateButton(page).hover();
+  await page.mouse.down();
+  try {
+    await page.waitForFunction(
+      ([key, n]) => (JSON.parse(localStorage.getItem(key) ?? "{}").moves?.length ?? 0) > n,
+      [TRAINING_KEY, before] as [string, number],
+      { timeout: 20_000 },
+    );
+  } finally {
+    await page.mouse.up();
+  }
+}
+
+/** A short press on Validate (a tap): the ring starts and rewinds, nothing is placed. Returns whether the save is unchanged. */
+export async function tapValidate(page: Page): Promise<boolean> {
+  const before = await savedMoves(page);
+  await validateButton(page).click();
+  // Longer than the hold: a tap that placed would have saved by now.
+  await page.waitForTimeout(1_200);
+  return (await savedMoves(page)) === before;
+}
 /** The bubble on the tile placed and not sent (the plan view draws it above the hand panel). */
 export const bubble = (page: Page) => page.getByRole("toolbar", { name: "Tile" });
 
@@ -146,6 +184,6 @@ export async function ready(page: Page): Promise<void> {
 
 export interface MoveReport {
   kind: "place" | "discard";
-  /** From the click on Place tile / Discard to the page showing the new state, milliseconds. */
+  /** From the press on Validate / the click on Discard to the page showing the new state, milliseconds. */
   ms: number;
 }
