@@ -1,9 +1,10 @@
 import { mkdirSync, readdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { STORY_TRACKS } from "../src/mocks/music";
-import { PUBLIC_DIR, STATIC_DIRS, sharedDirs, writtenDirs } from "../scripts/storybook-static-dirs";
+import { CONFIG_DIR, PUBLIC_DIR, STATIC_DIRS, sharedDirs, writtenDirs } from "../scripts/storybook-static-dirs";
+import { SOURCE as MUSIC_SOURCES, sources } from "../scripts/compress-music-art.ts";
 
 /** A config dir with folders under it: `{ "a/x": ... }` makes `a/x/` (and a file in it, so the folder is not empty). */
 function tree(folders: string[]) {
@@ -39,6 +40,16 @@ describe("the Storybook static dirs", () => {
     // The staged folder holds the root files too (the notices), and no other static dir is `public/` whole.
     expect(readdirSync(staged[0]!)).toContain("THIRD_PARTY_NOTICES.txt");
     expect(STATIC_DIRS.some((d) => typeof d !== "string" && d.from === PUBLIC_DIR)).toBe(false);
+  });
+
+  it("carries none of the music's original images (#569): only their WebP copies", () => {
+    const originals = new Set(sources().map((s) => s.file));
+    const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+    for (const d of STATIC_DIRS) {
+      const from = resolve(CONFIG_DIR, typeof d === "string" ? d : d.from);
+      expect(MUSIC_SOURCES.startsWith(from), from).toBe(false);
+      for (const f of walk(from)) expect(originals.has(f.split("/").pop()!), f).toBe(false);
+    }
   });
 
   it("serves every folder of public/ but music/ at its own path", () => {
