@@ -25,7 +25,7 @@ export type BalancesState =
 export type BalanceKind = "usdc" | "paved" | "cobbles";
 
 export interface BalancesProps {
-  /** `pill`: a compact figure that opens a sheet (below `desktop`); `rail`: the three always visible (from `desktop`). */
+  /** `pill`: a compact figure that opens a sheet (below `desktop`); `rail`: the three always visible, in a row at the end of the navigation's header (from `desktop`). */
   layout: "pill" | "rail";
   state: BalancesState;
   onAction?: (kind: BalanceKind) => void;
@@ -45,15 +45,15 @@ const ROWS: readonly { kind: BalanceKind; label: string; icon: string; action: s
   { kind: "cobbles", label: "Cobbles", icon: "cubes-stacked", action: "Cobble shop" },
 ];
 
-function Figure({ kind, state }: { kind: BalanceKind; state: Extract<BalancesState, { status: "ready" }> }) {
+function Figure({ kind, state, compact }: { kind: BalanceKind; state: Extract<BalancesState, { status: "ready" }>; compact?: boolean }) {
   const value = kind === "cobbles" ? state.cobbles : kind === "usdc" ? state.usdc : state.paved;
-  if (value === undefined) return <Skeleton className="mt-1 h-4 w-20" />;
+  if (value === undefined) return <Skeleton className={cn("mt-1 h-4", compact ? "w-14" : "w-20")} />;
   if (kind === "cobbles") return value === null ? <span className="numeric">–</span> : <Cobbles value={value as number} />;
   return value === null ? <span className="numeric">–</span> : <Amount value={value as bigint} token={kind as "usdc" | "paved"} className="text-sm" />;
 }
 
 /** One balance: its figure, and a tap (at least 44 px high) to the place that acts on it. */
-function Row({ kind, state, onAction, faucet, minting }: { kind: BalanceKind; state: BalancesState; onAction?: (kind: BalanceKind) => void; faucet?: boolean; minting?: boolean }) {
+function Row({ kind, state, onAction, faucet, minting, compact }: { kind: BalanceKind; state: BalancesState; onAction?: (kind: BalanceKind) => void; faucet?: boolean; minting?: boolean; compact?: boolean }) {
   const base = ROWS.find((r) => r.kind === kind)!;
   const row = kind === "usdc" ? { ...base, action: minting ? "Minting…" : faucet ? "Get test USDC" : "" } : base;
   const inert = kind === "usdc" && (!faucet || minting);
@@ -63,26 +63,36 @@ function Row({ kind, state, onAction, faucet, minting }: { kind: BalanceKind; st
       onClick={() => onAction?.(kind)}
       disabled={inert}
       aria-label={row.action ? `${row.label}: ${row.action}` : row.label}
-      className="flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-3 py-2 text-left outline-none enabled:hover:bg-accent disabled:cursor-default focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "state-layer flex min-h-11 cursor-pointer items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2 text-left outline-none disabled:cursor-default focus-visible:ring-2 focus-visible:ring-ring",
+        compact ? "gap-x-2 px-2.5 py-1" : "w-full flex-wrap",
+      )}
     >
-      <Icon name={row.icon} size="sm" fixedWidth className="text-muted-foreground" />
-      <span className="flex min-w-0 flex-1 flex-col basis-40">
+      {/* In the header the icon waits for `wide`: from 1024 px the wordmark, the five items and the three figures share one line
+          (a wrapper: Font Awesome's own CSS sets the icon's display). */}
+      <span className={cn("inline-flex", compact && "hidden wide:inline-flex")}>
+        <Icon name={row.icon} size="sm" fixedWidth className="text-muted-foreground" />
+      </span>
+      <span className={cn("flex min-w-0 flex-col", compact ? "whitespace-nowrap" : "flex-1 basis-40")}>
         <span className="text-xs text-muted-foreground">{row.label}</span>
-        {state.status === "ready" ? <Figure kind={kind} state={state} /> : <Skeleton className="mt-1 h-4 w-20" />}
+        {state.status === "ready" ? <Figure kind={kind} state={state} compact={compact} /> : <Skeleton className={cn("mt-1 h-4", compact ? "w-14" : "w-20")} />}
       </span>
-      <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-        {row.action}
-        {row.action && !inert && <Icon name="chevron-right" size="xs" />}
-      </span>
+      {/* In the header the action is the row's name only (its `aria-label`); the sheet spells it out. */}
+      {!compact && (
+        <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+          {row.action}
+          {row.action && !inert && <Icon name="chevron-right" size="xs" />}
+        </span>
+      )}
     </button>
   );
 }
 
-function Rows({ state, onAction, onConnect, faucet, minting }: Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet" | "minting">) {
+function Rows({ state, onAction, onConnect, faucet, minting, compact }: Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet" | "minting"> & { compact?: boolean }) {
   if (state.status === "disconnected") {
     return (
-      <div className="flex flex-col gap-2 px-3 py-2">
-        <span className="text-xs text-muted-foreground">Connect to see your USDC, PAVED and Cobbles.</span>
+      <div className={cn("flex gap-2", compact ? "items-center" : "flex-col px-3 py-2")}>
+        <span className={cn("text-xs text-muted-foreground", compact && "hidden wide:inline")}>Connect to see your USDC, PAVED and Cobbles.</span>
         <Button size="sm" onClick={onConnect} loading={state.connecting}>
           Connect
         </Button>
@@ -91,9 +101,9 @@ function Rows({ state, onAction, onConnect, faucet, minting }: Pick<BalancesProp
   }
   if (state.status === "error") return <InlineError message={state.message} title="Balances" />;
   return (
-    <div className="flex flex-col">
+    <div className={cn("flex", compact ? "flex-row items-center gap-1" : "flex-col")}>
       {ROWS.map((r) => (
-        <Row key={r.kind} kind={r.kind} state={state} onAction={onAction} faucet={faucet} minting={minting} />
+        <Row key={r.kind} kind={r.kind} state={state} onAction={onAction} faucet={faucet} minting={minting} compact={compact} />
       ))}
     </div>
   );
@@ -114,15 +124,15 @@ function PillFace({ state }: { state: BalancesState }) {
 /**
  * The balances at hand (#538), one component, two layouts. `pill`: a 40 px pill in the page header showing the Cobbles; a
  * tap opens a sheet with USDC, PAVED and Cobbles, each with its action (a guest's pill connects instead). `rail`: the
- * three balances at the bottom of the left rail, each a link. Disconnected: a Connect call; loading: skeletons; error: a
+ * three balances in a row at the end of the navigation's header (direction D, #537), each a link. Disconnected: a Connect call; loading: skeletons; error: a
  * short inline error, never a toast.
  */
 export function Balances({ layout, state, onAction, onConnect, faucet, minting, defaultOpen = false, className }: BalancesProps) {
   const [open, setOpen] = useState(defaultOpen);
   if (layout === "rail") {
     return (
-      <section aria-label="Balances" className={cn("hidden flex-col gap-1 border-t border-border pt-3 desktop:flex", className)}>
-        <Rows state={state} onAction={onAction} onConnect={onConnect} faucet={faucet} minting={minting} />
+      <section aria-label="Balances" className={cn("hidden min-w-0 items-center desktop:flex", className)}>
+        <Rows state={state} onAction={onAction} onConnect={onConnect} faucet={faucet} minting={minting} compact />
       </section>
     );
   }

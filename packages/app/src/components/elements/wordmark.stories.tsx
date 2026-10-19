@@ -8,5 +8,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Large: Story = { args: { tagline: "Build · Connect · Score" } };
 export const Medium: Story = { args: { size: "md" } };
+/** The navigation header's, from `desktop`. */
+export const Small: Story = { args: { size: "sm" } };
 /** WRAP360: a long tagline. */
 export const Stress: Story = { args: { tagline: LONG_SENTENCE } };

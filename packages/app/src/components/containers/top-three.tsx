@@ -6,7 +6,7 @@ import { isFree } from "../../data/free";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
-const MEDAL = ["text-gold-300", "text-ink-200", "text-amber-400"] as const;
+const MEDAL = ["text-medal-1", "text-medal-2", "text-medal-3"] as const;
 
 /**
  * The cells of one ranked player: the rank (a crown for the podium), the name or short address, the best score of the day.
@@ -50,7 +50,7 @@ export function RankCells({ entry, self, games, free }: { entry: LeaderboardEntr
 }
 
 /** A ranked row's look: the viewer's own outlined in gold. */
-export const rankRowClass = (self?: boolean) => cn("flex items-center gap-3 rounded-lg px-3 py-2", self ? "bg-accent ring-1 ring-gold-700" : "bg-secondary/60");
+export const rankRowClass = (self?: boolean) => cn("flex items-center gap-3 rounded-lg px-3 py-2", self ? "bg-secondary ring-1 ring-primary/50" : "bg-secondary/60");
 
 export interface TopThreeRowProps {
   entry: LeaderboardEntry;

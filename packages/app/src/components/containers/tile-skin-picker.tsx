@@ -32,11 +32,11 @@ export function TileSkinPicker({ plan, options, value, saved, renders, disabled,
   const name = tileName(plan);
   const changed = value !== saved;
   return (
-    <li aria-label={name} data-changed={changed || undefined} className={cn("flex flex-col gap-2 rounded-xl border bg-card p-2", changed ? "border-gold-800" : "border-border", className)}>
+    <li aria-label={name} data-changed={changed || undefined} className={cn("flex flex-col gap-2 rounded-xl border bg-card p-2", changed ? "border-primary/40" : "border-border", className)}>
       <span className="flex items-center justify-between gap-2 px-1">
         <span className="text-sm font-semibold">{name}</span>
         {changed && (
-          <Badge variant="outline" className="border-gold-800">
+          <Badge variant="outline" className="border-primary/40">
             Unsaved
           </Badge>
         )}

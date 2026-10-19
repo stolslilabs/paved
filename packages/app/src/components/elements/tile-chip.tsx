@@ -30,7 +30,7 @@ export const chipVariants = cva("relative inline-grid shrink-0 overflow-hidden r
     size: { sm: "size-8", md: "size-14", lg: "size-24", xl: "size-32" },
     state: {
       default: "border-border",
-      selected: "border-primary shadow-[0_0_0_3px_var(--accent)]",
+      selected: "border-primary shadow-[0_0_0_3px_var(--state-selected)]",
       pending: "border-info animate-pulse motion-reduce:animate-none",
       refused: "border-destructive-text",
     },

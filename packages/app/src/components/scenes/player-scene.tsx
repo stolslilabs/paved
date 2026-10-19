@@ -47,7 +47,7 @@ export function PlayerScene(props: PlayerSceneProps) {
     <TabPage tab="ranks" title="Player" onBack={props.onBack} onNavigate={props.onNavigate}>
       <div data-slot="card" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
         <Avatar className="size-12">
-          <AvatarFallback className="bg-gold-900 text-lg font-semibold text-gold-200">{initial}</AvatarFallback>
+          <AvatarFallback className="bg-secondary text-lg font-semibold text-primary">{initial}</AvatarFallback>
         </Avatar>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">

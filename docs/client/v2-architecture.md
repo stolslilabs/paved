@@ -147,6 +147,10 @@ aliases, a runtime re-point, colour and type stories); the declension below is b
 
 ### 2.2 Proposed: the Paved palette as a Tailwind theme
 
+*Superseded in part by 2.2b (#537, 2026-10-19): the interface's neutral is direction D's `charcoal`; the navy `ink` scale stays
+in theme.css only as the 3D scene's night sky (the renderer's day/night keyframes), and no semantic token or component points
+at it. `gold`, the status scales and the method below stay. The block below is the first proposal, kept as the record.*
+
 **Read (measured from the mockups,** `app/docs/mockup-01.png`, a 5×5-pixel mean per point): the gold of
 the primary buttons is `#F0BF5B` (its gradient runs `#F3C15D` → `#E8B755`); the page is `#0A141C` and the
 board area `#07111A`; the cards `#172129`; the borders `#23303A`. These are the anchors of the `gold` and
@@ -395,6 +399,62 @@ app. `packages/app/src/styles/theme.css` is this file.
 Transparent tints (glitchbomb's 80 % … 4 % steps) need no tokens: Tailwind v4 writes them as
 `bg-gold-300/20` or `border-ink-50/8` from the opaque scale.
 
+### 2.2b Applied: direction D, the charcoal page with gold as the one action colour (#537)
+
+**Owner decisions.** 2026-10-18: the navy and gold palette, the cards and layout and the navigation (bottom tab bar, left rail
+with a sliding indicator) read as Cartridge's Controller and Arcade; the interaction states become white with transparency on
+every button and nav item. 2026-10-19: of the six directions in Storybook (`Direction/A` to `F`, kept as a record), the owner
+picks **D, "Mockup"**: the owner's mockups (`app/docs/mockup-01.png`, `mockup-02.png`) built as they are drawn. Almendra stays.
+
+**The palette** (`packages/app/src/styles/theme.css`, the only file with raw colours):
+
+| Token | Points at | Value | Role |
+|---|---|---|---|
+| `background` | `charcoal-950` | `#121316` | the page |
+| `card`, `popover` | `charcoal-900` | `#1C1E22` | cards, sheets, menus |
+| `secondary`, `muted`, `accent` | `charcoal-800` | `#2A2D33` | raised parts: keys, chips, segmented choices |
+| `border` | `charcoal-700` | `#363941` | the hairline (1.61:1 on the page, decorative) |
+| `input` / `input-surface` | `charcoal-600` / `-500` | `#61656E` / `#7D818A` | field edges, 3.17:1 on the page / 4.27:1 on a card |
+| `muted-foreground` | `charcoal-300` | `#CDCFD4` | secondary text, 10.68:1 on a card |
+| `foreground` | `charcoal-50` | `#F4F1EA` | text, warm, 16.49:1 on the page |
+| `primary` | `gold-300` | `#F0BF5B` | the one action colour: the main button, the current nav item, the switches, the icons of rows |
+| `board` | | `#0C0D0F` | under dialogs and sheets, the Storybook background |
+| `medal-1`, `-2`, `-3` | gold-300, charcoal-200, amber-400 | | the podium |
+| `glow` | `primary` at 14% | | the soft light behind a hero figure (loading, the final score) |
+
+`accent` is no longer a hover colour (it was `gold-950`, the brown block of the active rail item): it is a raised surface, and
+no part of the app paints it for a state. Every direct `gold-950` and `gold-800/900` use (the featured cards, the summary
+cards, the avatars) now goes through a token: `border-primary/40` (or `/30`) on `bg-card`, `bg-secondary text-primary`.
+
+**The interaction states** are tokens too, `--state-hover` (white 10%), `--state-selected` (15%), `--state-pressed` (20%),
+painted by one utility, `state-layer`: a white layer over the part's own background (`background-image` over
+`background-color`), so a gold button, a charcoal card and a transparent nav item take the same states. Selected covers
+`data-state="on"` (toggles), `"open"`, `"active"`, `"checked"`, `aria-current="page"` (nav), `aria-pressed`, `aria-selected`,
+`aria-checked` (a pack is a radio); a selected part keeps its 15% under the pointer; a press wins. Every `Button` variant (the
+link too, beside its underline), `ToggleGroupItem`, `Switch`, the tabs' triggers (the sliding highlight is their 15%), the
+dropdown's items (`data-highlighted` is hover), the dialog's and sheet's close keys, the nav items, the mode cards, the Cobble
+packs, the board map's slots and the rows that are buttons use it.
+
+**Cards.** Rounded 12 px (`rounded-xl`) charcoal with the hairline edge, led by an image where the mockups put one: a render on
+the left of a row (`ModeCard` `art`, the Play list), a banner across the top (`ModeCard` `banner`, the Challenge on Home; the
+final score's board). Settings groups are one card with dividers, titled in the display font. Buttons are 44 px by default
+(`lg` 56 px), 12 px corners.
+
+**Imagery.** Renders of the real board and tiles, drawn once by `packages/app/scripts/direction-renders.ts` (the bench's
+recorded 38- and 72-tile games and the voxel wordmark through the board's own `GameScene`, in headless Chromium; software
+WebGL on a machine with no GPU) and committed as the masters in `src/directions/renders/`. The app's copies are
+`src/assets/renders/` (`scripts/app-renders.ts`: each master resized to twice its largest box and re-encoded as WebP):
+
+| File | Size | Where |
+|---|---|---|
+| `wordmark.webp` | 840 x 240, 14,352 B | `Wordmark` (Home, the nav header, Welcome, Loading) |
+| `hero-tall.webp` / `hero-wide.webp` | 750 x 1000, 122,366 B / 1440 x 720, 112,264 B | `BoardHero` (Home, Welcome); one of the two is fetched |
+| `score-wide.webp` | 960 x 448, 62,554 B | the over screen's banner |
+| `mode-challenge.webp`, `mode-training.webp`, `mode-tutorial.webp` | 320 x 200; 21,056, 7,878 and 5,550 B | the mode cards, the game to resume |
+
+Total 346,020 B. Each is its own file in `dist/assets` (no JavaScript chunk grows), fetched when its `<img>` is drawn
+(`loading="lazy"` below the fold), with its width and height set; nothing is fetched from another host.
+
 ### 2.3 Fonts
 
 **Read, glitchbomb** (`client/src/themes/fonts.css`, `preset.ts`, `index.html`):
@@ -596,7 +656,7 @@ Mobile first: the base styles are the small mobile; each breakpoint adds.
 | (base) small mobile | 320 px | iPhone SE, small Android | one column; the bottom navigation shows icons only; the tile hand is a compact bar (tile, rotate, place); 14 px body text; page titles 20 px |
 | `mobile` | 360 px (22.5 rem) | most phones | bottom navigation with labels (the mockups); hand panel as in the mockups (tile preview + Place / Discard); 16 px body |
 | `tablet` | 640 px (40 rem) | large phones landscape, tablets | lists and cards in two columns (quests, achievements, leaderboard + player); the board's hand panel becomes a floating card at the bottom right; dialogs centred instead of bottom sheets |
-| `desktop` | 1024 px (64 rem) | laptops | the bottom navigation becomes a left rail; the board takes the centre with a right panel (score, tile in hand, placement preview, actions); hover states and keyboard shortcuts shown (R rotate, D discard, V camera) |
+| `desktop` | 1024 px (64 rem) | laptops | the bottom navigation becomes a header across the top (direction D, section 6.2; the left rail is gone); the board takes the centre with a right panel (score, tile in hand, placement preview, actions); hover states and keyboard shortcuts shown (R rotate, D discard, V camera) |
 | `wide` | 1440 px (90 rem) | large screens | content capped at 1200 px except the board, which fills |
 
 Also: `100dvh` with a `100vh` fallback for full-height screens (as t-0126 did), `env(safe-area-inset-*)`
@@ -798,9 +858,9 @@ The sidebar follows the tiers:
 | **Board** | the board on recorded boards (the bench fixtures at 38 and 72 tiles), with the outline width control (section 5) |
 | **Scenes** | each page of section 6 on fixtures, one story per state, shown at the full width of the preview by default, and at the width Storybook's own viewport toolbar picks (mobile 360, tablet 640, desktop 1024, wide 1440); no frame, no `viewport` arg |
 
-**The background (spec A):** the board's colour, `--board` = `#07111A`, set as Storybook's only
-background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
-`create({ base: "dark", appBg: "#07111A" })`).
+**The background (spec A):** the board's colour, `--board` = `#0C0D0F` since direction D (section 2.2b; it was `#07111A`),
+set as Storybook's only background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
+`create({ base: "dark", appBg: BOARD })`).
 
 ### 4.2 Hosting at `storybook.paved.bal7hazar.com`
 
@@ -2833,11 +2893,15 @@ to Home).
 
 ### 6.2 Navigation
 
-- **Mobile and tablet:** a fixed bottom bar of five tabs (icon + label from `mobile`, icon only below),
-  safe-area padded; the tab indicator slides (Motion `layoutId`). Hidden on full-screen flows (welcome,
-  play, purchase, board, over), which get a top bar with Back.
-- **Desktop:** the same five destinations in a left rail with labels; the board keeps the rail collapsed
-  to icons so the scene gets the width; dialogs instead of sheets.
+- **Direction D (#537, applied 2026-10-19; replaces the bar with a sliding indicator and the left rail, which read as
+  Cartridge's):** `containers/app-nav.tsx`.
+- **Mobile and tablet:** a sticky bottom bar of five items, each an icon over its label (labels from `mobile`, icon only
+  below), safe-area padded, as the mockups draw it. The current item is gold (`text-primary`) on the white 15% layer; hover
+  10%, pressed 20% (`state-layer`, section 2.2b). No indicator slides. Hidden on full-screen flows (welcome, play, purchase,
+  board, over), which get a top bar with Back, the title centred and a hairline under it.
+- **Desktop:** the same five items, icon beside label, in a sticky header across the top: the voxel wordmark on the left, the
+  items, then the three balances (#538) in a row at the header's end. No rail: every page is one column (`flex-col`) at every
+  width. Dialogs instead of sheets.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
 
