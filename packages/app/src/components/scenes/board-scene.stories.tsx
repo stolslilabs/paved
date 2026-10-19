@@ -9,6 +9,7 @@ import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
 import { Notice } from "../elements/notice";
 import { BoardViewport } from "../containers/board-viewport";
+import { StoryCoach, StoryEnd } from "../containers/story-panels";
 import { TileView } from "../containers/tile-view";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
 
@@ -189,3 +190,44 @@ export const DayNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orient
 
 /** The same, held at a summer night: the cities and the road's buildings lit, the plates and the tint readable. */
 export const DayNightAtNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) }, render: (args) => renderBoard(args, DAY_NIGHT_NIGHT) };
+
+/** A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces ringed. */
+export const StoryCoachDeck: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, null),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 5: Under the trees",
+    coach: "deck",
+    notices: <StoryCoach tip="Tap Tiles left: the deck sheet shows every tile this level deals, and the ones already played." onDismiss={fn()} />,
+  },
+};
+
+/** Story coach marks on the hand: Discard ringed (Tutorial 3), no Surrender in Story mode. */
+export const StoryCoachDiscard: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, null),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 3: Not this one",
+    coach: "discard",
+    notices: <StoryCoach tip="This tile only gets in the way: Discard it. At 0 points a discard is free." onDismiss={fn()} />,
+  },
+};
+
+/** A Story level's end over its board: the stars, the score against a best-known target, Replay and Next. */
+export const StoryEndOnBoard: Story = {
+  args: {
+    ...BOARD.placing,
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Open Country 11: A full road",
+    readOnly: true,
+    notices: <StoryEnd title="A full road" score={9120} stars={2} target={11800} twoStars={8260} bestKnown previousBest={8400} onReplay={fn()} onNext={fn()} onLevels={fn()} />,
+  },
+};

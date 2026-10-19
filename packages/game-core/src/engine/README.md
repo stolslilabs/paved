@@ -1,7 +1,7 @@
 # Off-chain game engine (E1)
 
 The rules of the contracts after D-18 (scoring without characters) and D-19 (tile owners, majority
-scoring), in TypeScript, with no chain: Training and the tutorial run on it (D-21, D-22, P-49). Pure: no I/O,
+scoring), in TypeScript, with no chain: Training and Story mode run on it (D-21, D-22, P-49, #546). Pure: no I/O,
 no clock, no random source; a game follows from its seed, its deck and its moves. It runs in a browser and in node.
 Its only dependency is `@scure/starknet` (Poseidon).
 
@@ -28,7 +28,9 @@ game.score; game.over; game.tileCount; game.built; game.discarded; game.counts;
 - Deck `story` (Story mode, `docs/client/story-mode.md`): `EngineGame.start({ deck: "story", seed, sequence })` plays
   the plans of `sequence` after the starter, in that order, with no withdrawal and no reseed, and ends after the last
   one (`tileLimit` is `sequence.length + 1`, and cannot be larger). `placed` puts tiles on the board before the first draw (a half-built level). `engine/solver.ts` (`solve(sequence)`) searches every move for the best
-  final score; it is an offline tool, not exported from the package index.
+  final score, and `engine/beam.ts` (`beam(sequence, options)`) the best it can find in a long deck (a beam search, the
+  best known score, not a proof); both are offline tools (`scripts/story-search.ts`), not exported from the package index.
+  `openEdges()` gives that search the open structures with their open half-edges.
 - `build(placement?, owner?)`: a Tutorial game takes its scripted placement (`scriptedPlacement()`); a given
   placement must equal it. `owner` sets the tile's owner (D-19).
 - `discard()`, `surrender()`. Illegal moves throw `EngineError` with the contract's revert message

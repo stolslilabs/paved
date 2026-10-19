@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { EngineGame } from "../src/engine";
 import { solve } from "../src/engine/solver";
-import { STORY_LEVELS, twoStars } from "../src/story/plan";
+import { beam } from "../src/engine/beam";
+import { seededDeck } from "../src/story/deck";
+import { decodeLine, encodeLine, replayLine } from "../src/story/line";
+import { CAMPAIGNS, OPEN_COUNTRY, TUTORIAL, twoStars } from "../src/story/plan";
 import { PlanType } from "../src/types/plan";
 
 const DOC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "docs", "client", "story-mode.md");
@@ -58,10 +61,12 @@ describe("story deck", () => {
 });
 
 describe("story plan", () => {
-  it("has 8 to 12 levels", () => {
-    expect(STORY_LEVELS.length).toBeGreaterThanOrEqual(8);
-    expect(STORY_LEVELS.length).toBeLessThanOrEqual(12);
-    expect(STORY_LEVELS.map((level) => level.id)).toEqual(STORY_LEVELS.map((_, index) => index + 1));
+  it("has campaigns of 11 levels, numbered from 1", () => {
+    expect(CAMPAIGNS.map((c) => c.id)).toEqual([1, 2]);
+    for (const campaign of CAMPAIGNS) {
+      expect(campaign.levels).toHaveLength(11);
+      expect(campaign.levels.map((level) => level.id)).toEqual(campaign.levels.map((_, index) => index + 1));
+    }
   });
 
   it("rounds the 2-star threshold up", () => {
@@ -71,31 +76,66 @@ describe("story plan", () => {
     expect(twoStars(1)).toBe(1);
   });
 
-  const doc = readFileSync(DOC, "utf8");
-  for (const level of STORY_LEVELS) {
-    it(`level ${level.id} "${level.title}": the solver finds the stored optimum`, () => {
-      const started = performance.now();
-      const solution = solve(level.deck, { placed: level.placed });
-      const elapsed = Math.round(performance.now() - started);
-      console.info(`story level ${level.id}: optimum ${solution.optimum}, ${solution.nodes} nodes, ${elapsed} ms`);
-      expect(solution.optimum).toBe(level.optimum);
-      // The moves replay to the same score on the engine
-      const game = EngineGame.start({ deck: "story", seed: 0n, sequence: level.deck, placed: level.placed });
-      for (const move of solution.moves) {
-        if (move.action === "discard") game.discard();
-        else game.build(move.placement);
-      }
-      expect(game.over).toBe(true);
-      expect(game.score).toBe(level.optimum);
-    }, 120_000);
+  it("grows the second campaign from about 10 tiles to the simple deck's 38", () => {
+    const tiles = OPEN_COUNTRY.levels.map((level) => level.deck.length + 1);
+    expect(tiles[0]).toBe(10);
+    expect(tiles.at(-1)).toBe(38);
+    for (let index = 1; index < tiles.length; index++) expect(tiles[index]).toBeGreaterThan(tiles[index - 1] as number);
+  });
 
-    it(`level ${level.id}: the plan document states its deck, optimum and 2-star threshold`, () => {
-      const row = doc.split("\n").find((line) => line.startsWith(`| ${level.id} |`));
-      expect(row, `row of level ${level.id} in story-mode.md`).toBeDefined();
-      expect(row).toContain(level.title);
-      expect(row).toContain(level.deck.join(" "));
-      expect(row).toContain(`**${level.optimum}**`);
-      expect(row).toContain(String(twoStars(level.optimum)));
-    });
+  it("takes each deck of the second campaign from the Challenge's draw of its seed", () => {
+    for (const level of OPEN_COUNTRY.levels) {
+      expect(level.seed, `level ${level.id} has a seed`).toBeDefined();
+      expect(level.deck).toEqual(seededDeck(BigInt(level.seed as number), level.deck.length));
+      expect(level.method).toBe("best-known");
+    }
+  });
+
+  it("encodes and decodes a line", () => {
+    const line = "N1,0 D E-1,2 S0,-3 W10,10";
+    expect(encodeLine(decodeLine(line))).toBe(line);
+    expect(decodeLine("")).toEqual([]);
+    expect(() => decodeLine("X1,0")).toThrow("not a move");
+  });
+
+  it("the beam search finds the exact optimum of the Tutorial's levels (a check of the search, not of the plan)", () => {
+    for (const level of TUTORIAL.levels.slice(0, 5)) {
+      const found = beam(level.deck, { width: 64, placed: level.placed, tail: 2 });
+      expect(found.score).toBe(level.target);
+      const game = replayLine(level.deck, encodeLine(found.moves), level.placed);
+      expect(game.score).toBe(found.score);
+    }
+  }, 60_000);
+
+  const doc = readFileSync(DOC, "utf8");
+  for (const campaign of CAMPAIGNS) {
+    for (const level of campaign.levels) {
+      const name = `${campaign.name} ${level.id} "${level.title}"`;
+      if (level.method === "exact") {
+        it(`${name}: the solver finds the stored optimum`, () => {
+          const started = performance.now();
+          const solution = solve(level.deck, { placed: level.placed });
+          const elapsed = Math.round(performance.now() - started);
+          console.info(`story ${campaign.id}-${level.id}: optimum ${solution.optimum}, ${solution.nodes} nodes, ${elapsed} ms`);
+          expect(solution.optimum).toBe(level.target);
+        }, 120_000);
+      }
+
+      it(`${name}: the stored line replays to the target`, () => {
+        const game = replayLine(level.deck, level.line, level.placed);
+        expect(game.over).toBe(true);
+        expect(game.score).toBe(level.target);
+      });
+
+      it(`${name}: the plan document states its deck, target and 2-star threshold`, () => {
+        const row = doc.split("\n").find((line) => line.startsWith(`| ${campaign.id}-${level.id} |`));
+        expect(row, `row of level ${campaign.id}-${level.id} in story-mode.md`).toBeDefined();
+        expect(row).toContain(level.title);
+        expect(row).toContain(`**${level.target}**`);
+        expect(row).toContain(String(twoStars(level.target)));
+        expect(row).toContain(level.method === "exact" ? "exact" : "best known");
+        expect(doc).toContain(level.deck.join(" "));
+      });
+    }
   }
 });

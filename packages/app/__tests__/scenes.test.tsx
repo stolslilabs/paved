@@ -128,7 +128,7 @@ describe("Play", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Challenge/ }));
     expect(onChallenge).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: /Training/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /Tutorial/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Story/ })).toBeEnabled();
     expect(screen.getByRole("button", { name: /^Multiplayer/ })).toBeDisabled();
   });
 

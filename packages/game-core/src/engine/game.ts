@@ -307,6 +307,23 @@ export class EngineGame {
       .map((s) => ({ category: CATEGORIES[s.category] as CategoryType, tiles: s.tiles, size: s.size }));
   }
 
+  /**
+   * Each structure still open with its open half-edges, and for a forest the roads and cities along it (open or not):
+   * what the Story search's estimate reads (`engine/beam.ts`). Read only.
+   */
+  openEdges(): { readonly category: CategoryType; readonly size: number; readonly open: number; readonly neighbours: number }[] {
+    return this.board
+      .structures()
+      .filter((s) => [CATEGORY_ROAD, CATEGORY_CITY, CATEGORY_FOREST, CATEGORY_WONDER].includes(s.category))
+      .filter((s) => !this.scoredRoots.has(s.root) && s.open > 0)
+      .map((s) => ({
+        category: CATEGORIES[s.category] as CategoryType,
+        size: s.size,
+        open: s.open,
+        neighbours: s.category === CATEGORY_FOREST ? this.board.neighbours(s.tile, s.area) : 0,
+      }));
+  }
+
   get over(): boolean {
     return this._over;
   }

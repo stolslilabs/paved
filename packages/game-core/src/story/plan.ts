@@ -1,16 +1,23 @@
-// The Story mode level plan (#546), a proposal for the owner's validation. Every level starts from
-// the usual starter tile `RFFFRFCFR` (a city to the north, a road east to west) and plays `deck` in
-// this order, so the optimum is well defined (engine deck `story`, solved by `engine/solver.ts`).
-// `docs/client/story-mode.md` describes the levels for the owner; a test keeps both in step.
+// The Story mode plan (#546): campaigns of 11 levels, each level a fixed deck. Every level starts from the usual starter
+// tile `RFFFRFCFR` (a city to the north, a road east to west) and plays `deck` in this order (engine deck `story`: no
+// withdrawal, no reseed), so its best score is one number. `docs/client/story-mode.md` describes the plan for the owner;
+// a test keeps both in step and replays every stored line to its target.
+//
+// The targets: `exact` is the optimum of `engine/solver.ts` (exhaustive), `best-known` the best score found by
+// `engine/beam.ts` (`scripts/story-search.ts`), a lower bound of the optimum raised whenever a higher score is found.
 
 import type { Placement } from "../engine/game";
 import { OrientationType as O } from "../types/orientation";
 import { PlanType as P } from "../types/plan";
 
+/** How a level's target was set: the proven optimum, or the best score a search found so far. */
+export type TargetMethod = "exact" | "best-known";
+
 export interface StoryLevel {
+  /** The level's index in its campaign, from 1. */
   readonly id: number;
   readonly title: string;
-  /** What the level teaches, one line. */
+  /** What the level teaches or adds, one line. */
   readonly teaches: string;
   /** The intro the player reads before the level. */
   readonly intro: string;
@@ -18,16 +25,30 @@ export interface StoryLevel {
   readonly deck: readonly P[];
   /** Tiles already on the board when the level starts, besides the starter (default none). */
   readonly placed?: readonly ({ plan: P } & Placement)[];
-  /** The best score: 3 stars. */
-  readonly optimum: number;
+  /** The seed whose Challenge draw the deck is (`story/deck.ts`), for a deck taken from the simple deck. */
+  readonly seed?: number;
+  /** The score for 3 stars. */
+  readonly target: number;
+  readonly method: TargetMethod;
+  /** One line that reaches `target` (`story/line.ts`). */
+  readonly line: string;
 }
 
-/** 2 stars: at least 70 % of the optimum, rounded up. */
-export function twoStars(optimum: number): number {
-  return Math.ceil((optimum * 70) / 100);
+export interface StoryCampaign {
+  /** The campaign's number, from 1 (the order they unlock in). */
+  readonly id: number;
+  readonly name: string;
+  /** One sentence for the campaign list. */
+  readonly summary: string;
+  readonly levels: readonly StoryLevel[];
 }
 
-export const STORY_LEVELS: readonly StoryLevel[] = [
+/** 2 stars: at least 70 % of the target, rounded up. */
+export function twoStars(target: number): number {
+  return Math.ceil((target * 70) / 100);
+}
+
+const TUTORIAL_LEVELS: readonly StoryLevel[] = [
   {
     id: 1,
     title: "First stone",
@@ -35,7 +56,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "Tap a cell next to the board to place the tile in your hand. Roads must meet roads. A road scores once both of its ends are closed, and a crossroads closes every road that reaches it.",
     deck: [P.SFRFRFRFR, P.SFRFRFRFR],
-    optimum: 321,
+    target: 321,
+    method: "exact",
+    line: "N1,0 N-1,0",
   },
   {
     id: 2,
@@ -44,7 +67,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "Tap a cell, then Rotate until the tile fits, or Cancel to pick another cell. Close the city at the top. One of your three tiles has nothing to do with it.",
     deck: [P.CFFFCFFFC, P.RFRFFFFFR, P.FFFFFFCFF],
-    optimum: 643,
+    target: 643,
+    method: "exact",
+    line: "E0,1 N1,0 N0,2",
   },
   {
     id: 3,
@@ -53,7 +78,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "Some tiles only get in the way. Discard throws the tile away and draws the next. While you have no points it costs nothing.",
     deck: [P.CCCCCCCCC, P.FFCFFFCFF, P.WFFFFFFFF],
-    optimum: 419,
+    target: 419,
+    method: "exact",
+    line: "D N0,1 N0,-1",
   },
   {
     id: 4,
@@ -62,7 +89,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "Once you have points, a discard costs 50 of them. Sometimes it is still the right call: count what the next tile is worth.",
     deck: [P.FFCFFFCFF, P.CCCCCCCCC, P.RFRFRFCFF, P.SFRFRFRFR],
-    optimum: 788,
+    target: 788,
+    method: "exact",
+    line: "N0,1 D N0,2 N1,0",
   },
   {
     id: 5,
@@ -71,7 +100,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "Forests fill the gaps between roads and cities. When a forest is fully surrounded it scores for the roads and cities around it.",
     deck: [P.FFCFFFCFF, P.CFFFCFFFC, P.CFFFCFFFC],
-    optimum: 740,
+    target: 740,
+    method: "exact",
+    line: "N0,1 E1,1 E-1,1",
   },
   {
     id: 6,
@@ -80,7 +111,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "A road of four tiles is worth more than two roads of two. Each tile in a structure raises its value by 2.35 %, so build long before you close.",
     deck: [P.SFRFRFRFR, P.RFFFRFFFR, P.CCCCCFRFC, P.WFFFFFFFR, P.FFFFFFCFF],
-    optimum: 1066,
+    target: 1066,
+    method: "exact",
+    line: "N1,0 N-1,0 E2,0 S-2,0 N0,1",
   },
   {
     id: 7,
@@ -89,7 +122,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "A junction splits a road in pieces, and each piece scores on its own. Plan so that one tile closes two roads at once.",
     deck: [P.SFRFRFCFR, P.RFRFRFCFF, P.WFFFFFFFR, P.FFFFCCCFF, P.SFRFRFRFR],
-    optimum: 1285,
+    target: 1285,
+    method: "exact",
+    line: "N1,0 E1,1 S-1,0 N0,1 N2,1",
   },
   {
     id: 8,
@@ -98,7 +133,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "One tile can close a road and the forest next to it together. Look for the tile that finishes two structures.",
     deck: [P.FFCFFFFFC, P.RFRFFFCFR, P.CCCCCFRFC, P.CCCCCFRFC, P.CCCCCCCCC],
-    optimum: 1515,
+    target: 1515,
+    method: "exact",
+    line: "S0,1 N1,0 W-1,0 N1,1 N1,-1",
   },
   {
     id: 9,
@@ -107,7 +144,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "The best board is not always the fullest one. Throw away what does not belong, then finish with two tiles that close three structures.",
     deck: [P.RFFFRFFFR, P.CCCCCFFFC, P.WFFFFFFFF, P.CCCCCFRFC, P.CCCCCFRFC],
-    optimum: 971,
+    target: 971,
+    method: "exact",
+    line: "D S0,-1 D E1,0 W-1,0",
   },
   {
     id: 10,
@@ -123,7 +162,9 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
       { plan: P.FFFFCCCFF, orientation: O.East, x: -1, y: -1 },
       { plan: P.FFFFCCCFF, orientation: O.North, x: 1, y: -1 },
     ],
-    optimum: 900,
+    target: 900,
+    method: "exact",
+    line: "N-1,-2 S0,-2 E1,-2",
   },
   {
     id: 11,
@@ -132,6 +173,161 @@ export const STORY_LEVELS: readonly StoryLevel[] = [
     intro:
       "Six tiles, three cities and a road. Build the village the way you would in a real game, then compare your score with the best there is.",
     deck: [P.FFFFCCCFF, P.SFRFRFCFR, P.FFCFFFFFC, P.SFRFRFRFR, P.FFCFFFFFC, P.CFFFCFFFC],
-    optimum: 1578,
+    target: 1578,
+    method: "exact",
+    line: "N0,-1 S1,0 S0,1 N-1,0 W1,1 E0,-2",
   },
 ];
+const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
+  {
+    id: 1,
+    title: "Open country",
+    teaches: "Ten tiles, the whole deck on the sheet: planning a few tiles ahead.",
+    intro:
+      "Ten tiles this time, and the deck sheet lists every one of them in order. Look ahead before you place: the city you open now may close three tiles later.",
+    seed: 1,
+    deck: [P.FFFFCCCFF, P.FFCFFFFFC, P.FFCFFFFFC, P.FFFFCCCFF, P.CCCCCFRFC, P.RFRFCCCFR, P.RFRFRFCFF, P.SFRFRFCFR, P.FFFFFFCFF],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 2,
+    title: "Road builders",
+    teaches: "A deck rich in roads: long roads, and the junctions that end them.",
+    intro:
+      "Most of these tiles carry a road. Let a road run before you close it, and use the junctions to finish two roads with one tile.",
+    seed: 2,
+    deck: [P.RFFFRFFFR, P.RFRFRFCFF, P.RFFFRFCFR, P.RFRFCCCFR, P.RFRFCCCFR, P.CCCCCFFFC, P.RFRFRFCFF, P.SFRFRFFFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFRFFFCFR, P.RFRFFFFFR],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 3,
+    title: "Three monasteries",
+    teaches: "Wonders in a longer deck: leaving room around a monastery.",
+    intro:
+      "Three monasteries come early. Each scores 900 once its eight neighbours are placed, so give them space at the edge of what you build.",
+    seed: 3,
+    deck: [P.WFFFFFFFF, P.SFRFRFFFR, P.RFFFRFFFR, P.WFFFFFFFF, P.RFRFCCCFR, P.RFRFRFCFF, P.RFRFCCCFR, P.FFFFCCCFF, P.RFRFRFCFF, P.FFFFFFCFF, P.FFCFFFCFF, P.CCCCCFFFC, P.RFFFRFFFR, P.RFFFRFCFR, P.WFFFFFFFF],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 4,
+    title: "Walls and fields",
+    teaches: "Cities and the forests between them, closed in the right order.",
+    intro:
+      "A forest scores for the closed roads and cities around it, but only if they are closed before it is. Finish the walls first, then the fields.",
+    seed: 4,
+    deck: [P.CFFFCFFFC, P.FFCFFFFFC, P.RFFFRFFFR, P.RFFFRFCFR, P.RFRFFFFFR, P.SFRFRFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFCFR, P.RFRFFFCFR, P.FFCFFFCFF, P.RFRFFFFFR, P.FFFFFFCFF, P.FFFFFFCFF, P.CCCCCFFFC, P.CCCCCFFFC, P.RFRFFFFFR, P.RFFFRFFFR],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 5,
+    title: "Market day",
+    teaches: "A mixed deck: keeping a few structures open, not too many.",
+    intro:
+      "Everything at once. Keep two or three things open at a time: more, and the last tiles will not be enough to finish them.",
+    seed: 5,
+    deck: [P.WFFFFFFFR, P.WFFFFFFFF, P.RFRFCCCFR, P.RFRFFFFFR, P.CCCCCFFFC, P.CFFFCFFFC, P.RFRFRFCFF, P.CFFFCFFFC, P.RFRFCCCFR, P.SFRFRFCFR, P.RFRFRFCFF, P.RFRFFFCFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFFFRFFFR, P.SFRFRFFFR, P.CFFFCFFFC, P.FFFFCCCFF, P.RFFFRFFFR, P.WFFFFFFFF, P.RFRFFFFFR],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 6,
+    title: "The cloister road",
+    teaches: "Wonders and cities together on a bigger board.",
+    intro:
+      "Monasteries and cities share this deck. A wonder wants to be surrounded, a city wants to be closed: one tile can help both.",
+    seed: 6,
+    deck: [P.CCCCCFFFC, P.WFFFFFFFF, P.RFFFRFCFR, P.RFRFFFFFR, P.WFFFFFFFF, P.RFRFFFFFR, P.RFRFCCCFR, P.RFRFFFFFR, P.RFRFCCCFR, P.RFFFRFFFR, P.CFFFCFFFC, P.CCCCCCCCC, P.RFFFRFFFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFRFRFCFF, P.FFFFFFCFF, P.FFFFCCCFF, P.FFCFFFCFF, P.FFCFFFFFC, P.CCCCCFFFC, P.WFFFFFFFR, P.FFFFCCCFF, P.CCCCCFRFC],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 7,
+    title: "Crossings",
+    teaches: "Junctions everywhere: splitting roads on purpose.",
+    intro:
+      "This deck is full of junctions. A crossroads ends every road that reaches it, so a short road between two of them scores quickly.",
+    seed: 7,
+    deck: [P.RFRFRFCFF, P.RFFFRFCFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFFFRFFFR, P.FFFFCCCFF, P.CFFFCFFFC, P.RFRFFFCFR, P.FFFFCCCFF, P.RFRFFFFFR, P.CCCCCFFFC, P.RFFFRFFFR, P.FFCFFFCFF, P.RFRFFFFFR, P.CCCCCFFFC, P.RFRFFFFFR, P.RFFFRFCFR, P.RFRFFFFFR, P.SFRFRFFFR, P.RFFFRFFFR, P.WFFFFFFFF, P.FFCFFFCFF, P.RFFFRFFFR, P.CCCCCCCCC, P.CCCCCFRFC, P.RFFFRFFFR, P.RFRFFFCFR],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 8,
+    title: "City walls",
+    teaches: "A city-heavy deck: big cities and their size bonus.",
+    intro:
+      "Cities, and more cities. Each tile adds 2.35 % to a structure's value: a city of eight is worth far more than two cities of four.",
+    seed: 8,
+    deck: [P.RFRFFFCFR, P.SFRFRFCFR, P.RFFFRFFFR, P.CFFFCFFFC, P.FFCFFFCFF, P.FFFFFFCFF, P.RFRFFFFFR, P.RFFFRFCFR, P.RFRFFFCFR, P.RFFFRFFFR, P.RFRFCCCFR, P.CFFFCFFFC, P.RFRFRFCFF, P.RFRFCCCFR, P.RFFFRFFFR, P.CCCCCFFFC, P.SFRFRFFFR, P.FFCFFFFFC, P.RFRFFFFFR, P.RFRFCCCFR, P.RFRFFFFFR, P.RFRFFFFFR, P.FFFFFFCFF, P.RFRFFFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFFFR, P.CCCCCFFFC, P.FFFFCCCFF, P.RFRFFFFFR],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 9,
+    title: "Pilgrims",
+    teaches: "Three wonders in a long deck: when to start them, when to give up on one.",
+    intro:
+      "Three monasteries again, in a much longer deck. Not every one has to score: a discard costs 50, a wonder left open costs 900.",
+    seed: 9,
+    deck: [P.RFRFCCCFR, P.FFCFFFCFF, P.RFRFFFCFR, P.CCCCCFFFC, P.RFRFCCCFR, P.CCCCCFFFC, P.FFCFFFCFF, P.RFRFRFCFF, P.CFFFCFFFC, P.WFFFFFFFF, P.CFFFCFFFC, P.SFRFRFCFR, P.RFRFCCCFR, P.SFRFRFFFR, P.RFFFRFFFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFFFRFFFR, P.SFRFRFFFR, P.FFFFFFCFF, P.SFRFRFFFR, P.FFFFCCCFF, P.FFFFFFCFF, P.WFFFFFFFR, P.SFRFRFFFR, P.RFFFRFCFR, P.WFFFFFFFF, P.RFFFRFFFR, P.FFFFCCCFF, P.FFFFCCCFF],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 10,
+    title: "The long season",
+    teaches: "Four wonders and a long deck: the board as a whole.",
+    intro:
+      "Thirty-six tiles and four monasteries. Build the board as a whole: where will the last ten tiles go?",
+    seed: 10,
+    deck: [P.FFFFCCCFF, P.FFFFFFCFF, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFFFR, P.FFFFCCCFF, P.WFFFFFFFF, P.WFFFFFFFF, P.RFRFFFFFR, P.RFRFCCCFR, P.FFFFCCCFF, P.RFRFFFCFR, P.RFFFRFCFR, P.FFCFFFCFF, P.WFFFFFFFR, P.RFFFRFCFR, P.CFFFCFFFC, P.RFRFFFFFR, P.RFFFRFFFR, P.FFCFFFCFF, P.WFFFFFFFF, P.CFFFCFFFC, P.RFFFRFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFRFFFFFR, P.CCCCCCCCC, P.CCCCCFFFC, P.RFRFCCCFR, P.FFFFFFCFF, P.RFRFFFCFR, P.FFFFFFCFF, P.RFRFCCCFR, P.RFRFFFCFR, P.RFRFFFFFR],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+  {
+    id: 11,
+    title: "A full road",
+    teaches: "The Challenge's whole game: 38 tiles, the simple deck's played count.",
+    intro:
+      "This is a full game: 38 tiles, like a Challenge, but you know the deck. Use the deck sheet, and go for the best score there is.",
+    seed: 11,
+    deck: [P.FFFFCCCFF, P.FFCFFFCFF, P.CCCCCFRFC, P.SFRFRFFFR, P.CCCCCFFFC, P.WFFFFFFFF, P.RFFFRFCFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFFFRFFFR, P.WFFFFFFFR, P.RFRFFFCFR, P.SFRFRFRFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFRFRFCFF, P.CCCCCFRFC, P.FFCFFFFFC, P.WFFFFFFFF, P.SFRFRFFFR, P.RFFFRFFFR, P.SFRFRFFFR, P.RFRFCCCFR, P.WFFFFFFFF, P.FFCFFFCFF, P.FFFFCCCFF, P.FFFFCCCFF, P.RFRFCCCFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFRFCCCFR, P.CFFFCFFFC, P.FFFFCCCFF, P.CFFFCFFFC, P.WFFFFFFFR, P.RFRFRFCFF],
+    target: 0,
+    method: "best-known",
+    line: "",
+  },
+];
+
+/** The first campaign: one rule per level, small decks, exact targets. */
+export const TUTORIAL: StoryCampaign = {
+  id: 1,
+  name: "Tutorial",
+  summary: "Eleven short levels, one rule each: placing, turning, discarding, roads, cities, forests and wonders.",
+  levels: TUTORIAL_LEVELS,
+};
+
+/** The second campaign: the Challenge's deck, frozen, from 10 tiles to the full 38. */
+export const OPEN_COUNTRY: StoryCampaign = {
+  id: 2,
+  name: "Open Country",
+  summary: "Longer games on the Challenge's own deck, from 10 tiles to a full game of 38.",
+  levels: OPEN_COUNTRY_LEVELS,
+};
+
+/** Every campaign, in the order they unlock. */
+export const CAMPAIGNS: readonly StoryCampaign[] = [TUTORIAL, OPEN_COUNTRY];

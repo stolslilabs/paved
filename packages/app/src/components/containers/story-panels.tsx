@@ -1,0 +1,151 @@
+import type { ReactNode } from "react";
+import { formatInteger, type Stars } from "@paved/game-core";
+import { cn } from "../../lib/utils";
+import { StarRow } from "../elements/star-row";
+import { Button } from "../ui/button";
+import { Icon } from "../ui/icon";
+
+const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
+
+/** What a level asks for: its target, labelled exact or best known, and the 2-star score. */
+export interface StoryTargets {
+  target: number;
+  twoStars: number;
+  /** The target is the best score a search found, not a proven optimum. */
+  bestKnown: boolean;
+}
+
+function TargetLine({ target, twoStars, bestKnown }: StoryTargets) {
+  return (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
+      <dt>
+        <StarRow stars={3} size="xs" label="3 stars" />
+      </dt>
+      <dd className="numeric">
+        {formatInteger(target)}
+        {bestKnown && <span className="text-muted-foreground"> (best known)</span>}
+      </dd>
+      <dt>
+        <StarRow stars={2} size="xs" label="2 stars" />
+      </dt>
+      <dd className="numeric">{formatInteger(twoStars)}</dd>
+      <dt>
+        <StarRow stars={1} size="xs" label="1 star" />
+      </dt>
+      <dd>Finish the level</dd>
+    </dl>
+  );
+}
+
+export interface StoryIntroProps extends StoryTargets {
+  campaign: string;
+  levelIndex: number;
+  title: string;
+  intro: string;
+  tiles: number;
+  /** The best score so far on this device, with its stars. */
+  best?: { score: number; stars: Stars } | null;
+  onStart?: () => void;
+  className?: string;
+}
+
+/** A level's intro (#546): what it teaches, its deck size, the stars it asks for; Start opens the board. */
+export function StoryIntro({ campaign, levelIndex, title, intro, tiles, best, onStart, className, ...targets }: StoryIntroProps) {
+  return (
+    <section aria-label="Level intro" data-testid="story-intro" className={cn(CARD, className)}>
+      <span className="text-xs text-muted-foreground">
+        {campaign} · Level {levelIndex} · <span className="numeric">{tiles}</span> tiles
+      </span>
+      <h2 className="font-display text-base font-semibold wrap-anywhere">{title}</h2>
+      <p className="wrap-anywhere">{intro}</p>
+      <TargetLine {...targets} />
+      {best && (
+        <p className="flex flex-wrap items-center gap-2 text-muted-foreground">
+          Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} size="xs" />
+        </p>
+      )}
+      <Button className="self-start" onClick={onStart}>
+        <Icon name="play" size="sm" /> Start
+      </Button>
+    </section>
+  );
+}
+
+export interface StoryCoachProps {
+  /** The tip: it names the control it points at, which the board rings. */
+  tip: string;
+  onDismiss?: () => void;
+  className?: string;
+}
+
+/** A coach mark's text (#546): one tip under the header while the control it names is ringed on the board. */
+export function StoryCoach({ tip, onDismiss, className }: StoryCoachProps) {
+  return (
+    <section aria-label="Tip" data-testid="story-coach" className={cn(CARD, "flex-row items-start gap-2 py-2", className)}>
+      <Icon name="book-open" size="sm" className="mt-0.5 shrink-0 text-primary" />
+      <p role="status" aria-live="polite" className="min-w-0 flex-1 wrap-anywhere">
+        {tip}
+      </p>
+      {onDismiss && (
+        <Button size="sm" variant="ghost" onClick={onDismiss}>
+          Got it
+        </Button>
+      )}
+    </section>
+  );
+}
+
+export interface StoryEndProps extends StoryTargets {
+  title: string;
+  score: number;
+  stars: Stars;
+  /** The best score before this run (none on a first finish). */
+  previousBest?: number | null;
+  /** The run scored above a best-known target: the plan can raise it. */
+  beatsTarget?: boolean;
+  onReplay?: () => void;
+  /** The next level; none after the last level, or while it is locked. */
+  onNext?: () => void;
+  onLevels?: () => void;
+  /** More under the result: Tutorial level 1's First Stone claim. */
+  children?: ReactNode;
+  className?: string;
+}
+
+/** A finished level (#546): the stars, the score against the target (and whether it is the best known), Replay and Next. */
+export function StoryEnd({ title, score, stars, previousBest, beatsTarget, onReplay, onNext, onLevels, children, className, ...targets }: StoryEndProps) {
+  const record = previousBest != null && score > previousBest;
+  return (
+    <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, className)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-base font-semibold wrap-anywhere">{title}: complete</h2>
+        <StarRow stars={stars} size="md" />
+      </div>
+      <p>
+        Score <span className="numeric font-semibold">{formatInteger(score)}</span> of {targets.bestKnown ? "the best known " : ""}
+        <span className="numeric">{formatInteger(targets.target)}</span>.
+        {record && <span className="text-primary"> A new best for you.</span>}
+      </p>
+      {beatsTarget && (
+        <p role="status" className="text-primary">
+          You beat the best score known for this level. It was found by a search, not proven: yours is better.
+        </p>
+      )}
+      <TargetLine {...targets} />
+      {children}
+      <div className="flex flex-wrap gap-2">
+        {onNext && (
+          <Button size="sm" onClick={onNext}>
+            Next level
+          </Button>
+        )}
+        <Button size="sm" variant="secondary" onClick={onReplay}>
+          Replay
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onLevels}>
+          Levels
+        </Button>
+      </div>
+    </section>
+  );
+}

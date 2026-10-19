@@ -23,7 +23,12 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "play/challenge": () => import("./pages/purchase"),
   "game/:gameId": board,
   training: board,
-  tutorial: board,
+  story: () => import("./pages/story"),
+  // A Story level is its own chunk (#546), with the board's manifest asked for as the board's.
+  "story/:campaign/:level": () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/story-board");
+  },
   "game/:gameId/over": over,
   "training/over": over,
   "leaderboard/:day?": () => import("./pages/leaderboard"),

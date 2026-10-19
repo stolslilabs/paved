@@ -3,8 +3,8 @@ import { fn } from "storybook/test";
 import { PLAY } from "../../mocks/scenes";
 import { PlayScene } from "./play-scene";
 
-/** The mode choice (`/play`): Challenge, Training, Tutorial, Multiplayer coming soon. One story per state; the Viewport control reframes it. */
-const meta = { title: "Scenes/Play", component: PlayScene, args: { onBack: fn(), onChallenge: fn(), onTraining: fn(), onTutorial: fn(), onConnect: fn(), onPlayFree: fn() } } satisfies Meta<typeof PlayScene>;
+/** The mode choice (`/play`): Challenge, Training, Story, Multiplayer coming soon. One story per state; the Viewport control reframes it. */
+const meta = { title: "Scenes/Play", component: PlayScene, args: { onBack: fn(), onChallenge: fn(), onTraining: fn(), onStory: fn(), onConnect: fn(), onPlayFree: fn() } } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 

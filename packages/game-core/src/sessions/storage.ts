@@ -14,13 +14,3 @@ export function browserStore(): KeyValueStore | null {
     return null;
   }
 }
-
-/** `window.localStorage`, or null without a window or when the browser refuses it (the tutorial reads it this way). */
-export function windowStore(): KeyValueStore | null {
-  try {
-    const window = (globalThis as { window?: { localStorage: KeyValueStore } }).window;
-    return window === undefined ? null : window.localStorage;
-  } catch {
-    return null;
-  }
-}

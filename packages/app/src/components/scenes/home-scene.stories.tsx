@@ -4,14 +4,14 @@ import { HOME } from "../../mocks/scenes";
 import { HomeScene } from "./home-scene";
 
 /** Home (`/`): the player's status, the game to resume, the modes, the Challenge top 3, the five tabs. One story per state; the Viewport control reframes it. */
-const meta = { title: "Scenes/Home", component: HomeScene, args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onTutorial: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn(), onPlayFree: fn() } } satisfies Meta<typeof HomeScene>;
+const meta = { title: "Scenes/Home", component: HomeScene, args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onStory: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn(), onPlayFree: fn() } } satisfies Meta<typeof HomeScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** A connected player with a Challenge game running and a Training save. */
 export const Connected: Story = { args: HOME.connected };
 
-/** No wallet: the connect call, Training and the Tutorial open. */
+/** No wallet: the connect call, Training and Story mode open. */
 export const Guest: Story = { args: HOME.guest };
 
 /** Nobody has finished a game: an empty podium, no rank yet. */

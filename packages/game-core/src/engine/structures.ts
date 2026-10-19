@@ -171,13 +171,15 @@ export class Board {
   }
 
   /** Every structure of the board (a root), in the order of its first node (tiles by id, then areas): its category code, nodes, tiles and open half-edges. */
-  structures(): { root: number; category: number; size: number; tiles: number; open: number }[] {
-    const seen = new Map<number, { root: number; category: number; size: number; tiles: number; open: number }>();
+  structures(): { root: number; category: number; size: number; tiles: number; open: number; tile: BoardTile; area: number }[] {
+    const seen = new Map<number, { root: number; category: number; size: number; tiles: number; open: number; tile: BoardTile; area: number }>();
     for (const tile of [...this.byId.values()].sort((a, b) => a.id - b.id)) {
       for (let area = 1; area <= 9; area++) {
         if (!tile.refs[area]) continue;
         const { root, record } = this.rootOf(tile, area);
-        if (!seen.has(root)) seen.set(root, { root, category: categoryOf(tile.plan, area), size: record.size, tiles: record.tiles.size, open: record.open });
+        if (!seen.has(root)) {
+          seen.set(root, { root, category: categoryOf(tile.plan, area), size: record.size, tiles: record.tiles.size, open: record.open, tile, area });
+        }
       }
     }
     return [...seen.values()];
@@ -224,6 +226,38 @@ export class Board {
       }
     }
     return { openRoad: false, roads: roadRoots.size, cities: cityRoots.size };
+  }
+
+  /**
+   * The distinct roads and cities, open or closed, adjacent to the forest of `area` of `tile`, which may still be open
+   * (its missing neighbours are skipped). What the forest would count if they all closed first; for the Story search.
+   */
+  neighbours(tile: BoardTile, area: number): number {
+    const visited = new Set<string>([`${tile.id}:${area}`]);
+    const roots = new Set<number>();
+    const nodes: [BoardTile, number][] = [[tile, area]];
+    for (let index = 0; index < nodes.length; index++) {
+      const [node, nodeArea] = nodes[index];
+      const row = areaRow(node.plan, nodeArea);
+      if (!row) continue;
+      for (let other = 1; other <= 9; other++) {
+        if (((row.adjacentRoads | row.adjacentCities) & (1 << (other - 1))) === 0) continue;
+        roots.add(this.rootOf(node, other).root);
+      }
+      for (const [direction, spot] of movesOf(node.plan, node.orientation, nodeArea)) {
+        if (spot === 0) continue;
+        const [x, y] = toward(node.x, node.y, direction);
+        const next = this.at(x, y);
+        if (!next) continue;
+        const landing = areaAt(next.plan, next.orientation, spot);
+        const key = `${next.id}:${landing}`;
+        if (!visited.has(key)) {
+          visited.add(key);
+          nodes.push([next, landing]);
+        }
+      }
+    }
+    return roots.size;
   }
 }
 

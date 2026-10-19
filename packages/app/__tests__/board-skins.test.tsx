@@ -136,10 +136,10 @@ describe("the board page's player", () => {
     expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
   });
 
-  it("the tutorial draws the connected player's skins", async () => {
+  it("a Story level draws the connected player's skins", async () => {
     const fakes = fakeSources({ signer: signer(VIEWER) });
     fakes.views.skinPlayer(VIEWER).active = active({ 4: 1 });
-    render(<App router={createTestRouter("/tutorial")} sources={fakes.sources} />);
+    render(<App router={createTestRouter("/story/1/1")} sources={fakes.sources} />);
     await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(4)]: 1 }), { timeout: 5000 });
   });
 });
