@@ -85,12 +85,14 @@ export {
   PACK_REFUSAL_TEXT,
   PackOutcomeUnknownError,
   PackRefusedError,
+  SendUnconfirmedError,
   WALLET_REJECTED_TEXT,
   WalletRejectedError,
   WriteError,
   buyPackArgs,
   isWalletRejection,
   packBoughtOf,
+  refusedBeforeSending,
 } from "./writer";
 export type { BuildMove, BuyPackRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, WriteAccount, WriteResult } from "./writer";
 export { PACK_IDS, PackBuyer, PackNotOnSaleError, PackPriceChangedError, onSale, packBuyerOf, packReferrer, packSwapInput, readPacks } from "./packs";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { MAX_STAKE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, boostBps } from "@paved/chain";
+import { MAX_STAKE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, SendUnconfirmedError, boostBps } from "@paved/chain";
 import { PurchaseScene, type PurchaseRefusal, type PurchaseTab } from "../../components/scenes/purchase-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";
@@ -24,12 +24,16 @@ import { useAppNavigate, useBack } from "../ref";
  * What the scene shows of a purchase whose outcome was unknown (`usePurchaseHold`): while recorded, the unknown outcome (Pay
  * held, then Buy again only); once its receipt read, that it went through or reverted; null otherwise.
  */
-function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games" | "Cobbles", now: number): PurchaseRefusal | null {
+function heldRefusal(hold: ReturnType<typeof usePurchase>["hold"], what: "games" | "Cobbles", now: number, lost = false): PurchaseRefusal | null {
   if (hold.unknown) {
     const when = sentAgo(now - hold.unknown.at);
     // Storage full or refused: the record is this tab's alone, so another tab would offer Pay (decided: said, not handled).
     const unsaved = hold.unsaved ? " This browser could not save the record: only this tab holds Pay, so do not buy from another tab." : "";
     // Under the wallet's limit a hash-less record is a prompt that may still be open (another tab, a reload).
+    // A send whose wallet failed after it may have sent it (`SendUnconfirmedError`): no prompt is open, but it may land.
+    if (hold.waiting && lost) {
+      return { kind: "unknown", message: `Your wallet lost track of a purchase while sending it (sent ${when}): it may still go through. Wait a few minutes before buying again.${unsaved}` };
+    }
     if (hold.waiting) {
       return { kind: "unknown", message: `A purchase is waiting in your wallet (sent ${when}): it may still go through. Answer it there, or wait, before buying again.${unsaved}` };
     }
@@ -136,12 +140,12 @@ export default function Page() {
   // A Buy again that sent nothing (busy, declined) puts the released record back: its own refusal is what the player reads.
   const gameRefusal =
     (gameHold.released ? newRefusal(purchase.mutation.error) : null) ??
-    heldRefusal(gameHold, "games", now) ??
+    heldRefusal(gameHold, "games", now, purchase.mutation.error instanceof SendUnconfirmedError) ??
     (purchase.ready.gameId !== null ? { kind: "ready" as const, message: "Your purchase landed: your game is waiting." } : null) ??
     (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
   const packRefusal =
     (packHold.released ? newRefusal(buyPack.mutation.error) : null) ??
-    heldRefusal(packHold, "Cobbles", now) ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
+    heldRefusal(packHold, "Cobbles", now, buyPack.mutation.error instanceof SendUnconfirmedError) ?? (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
 
   const confirm = () => {
     if (!purchase.buyer || !playerId) return void wallet.connect();
@@ -207,6 +211,7 @@ export default function Page() {
       checking={gameHold.checking}
       checkFailed={gameHold.failed}
       checkRetrying={gameHold.retrying}
+      checkDismissable={gameHold.dismissable}
       checkUnresolved={gameHold.unresolved}
       connected={connected}
       now={chainNow}
@@ -227,6 +232,7 @@ export default function Page() {
               checking: packHold.checking,
               checkFailed: packHold.failed,
               checkRetrying: packHold.retrying,
+              checkDismissable: packHold.dismissable,
               checkUnresolved: packHold.unresolved,
               bought: buyPack.mutation.data ? { cobbles: buyPack.mutation.data.bought.cobbles } : null,
             }
@@ -249,14 +255,11 @@ export default function Page() {
       onCheckAgain={() => (tab === "cobbles" ? packHold : gameHold).checkAgain()}
       onConfirmNone={() => (tab === "cobbles" ? packHold : gameHold).confirmNone()}
       onDismissCheck={() => {
-        // The player's deliberate way out of a check that keeps failing: the record and the unknown error both go.
+        // The player's deliberate way out of a check that keeps failing: the record and the unknown error both go. Never
+        // while the purchase may still be answered in the wallet (`dismissable`): its outcome would be dropped.
         if (tab === "cobbles") {
-          packHold.clear();
-          buyPack.mutation.reset();
-        } else {
-          gameHold.clear();
-          purchase.mutation.reset();
-        }
+          if (packHold.dismissFailed()) buyPack.mutation.reset();
+        } else if (gameHold.dismissFailed()) purchase.mutation.reset();
       }}
       onOpenReady={() => {
         const id = purchase.ready.gameId;

@@ -8,6 +8,7 @@ import {
   PoolQuoteBelowFloorError,
   PurchaseOutcomeUnknownError,
   PurchasePriceChangedError,
+  SendUnconfirmedError,
   SpawnPausedError,
   SwapBelowMinOutError,
   WalletRejectedError,
@@ -201,6 +202,12 @@ const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 const outcomeUnknown = (error: Error | null): error is WriteError =>
   (error instanceof PurchaseOutcomeUnknownError || error instanceof PackOutcomeUnknownError) && !!error.transactionHash;
 
+/**
+ * The wallet or the node failed in a way that does not show nothing was sent (`SendUnconfirmedError`: a timeout, a lost
+ * connection): the transaction may land, with no hash to read. Held as a send the wallet never answered.
+ */
+const maybeSent = (error: Error | null): error is SendUnconfirmedError => error instanceof SendUnconfirmedError;
+
 /** The receipt of an unknown purchase, once read: it landed, or it reverted (nothing moved). */
 export type PurchaseResolution = "succeeded" | "reverted";
 
@@ -228,8 +235,9 @@ type CheckAnswer = PurchaseResolution | "unknown" | "timed-out";
  * a hash (the wallet never answered) has no receipt: only those reads. `held` for as long as the record exists, until the
  * player confirms that those reads show no purchase (`confirmNone`, offered once `unresolved`): a receipt that still reads
  * unknown is read again after 5 s, 10 s and 20 s (`PURCHASE_RECHECK_MS`, `checking` meanwhile), then `unresolved` (Check
- * again with `checkAgain`); a failed check is `failed` (Retry with `retry`, or Dismiss with `clear`). After the confirm only
- * a deliberate Buy again sends (`clear` first). A receipt that reads (`resolved`) clears the record.
+ * again with `checkAgain`); a failed check is `failed` (Retry with `retry`, or Dismiss with `dismissFailed` once the record is
+ * no longer `waiting`). After the confirm only a deliberate Buy again sends (`clear` first). A receipt that reads
+ * (`resolved`) clears the record.
  */
 export function usePurchaseHold(kind: PurchaseKind, playerId: string | null, sending = false) {
   const { unknown, isPending, unsaved, clear } = useUnknownPurchase(playerId, kind);
@@ -345,6 +353,17 @@ export function usePurchaseHold(kind: PurchaseKind, playerId: string | null, sen
     confirmNone: () => unresolved && setConfirmed(record),
     /** Retry is fetching: Dismiss waits for its answer. */
     retrying: failed && check.isFetching,
+    /**
+     * Dismiss is offered on a failed check, but not while the record `waiting`: a send whose wallet may still answer would
+     * be forgotten with its outcome pending, and Pay offered beside its open prompt. Retry only, until the limit passes.
+     */
+    dismissable: failed && !waiting,
+    /** Dismiss: forgets the record after a failed check, only when `dismissable` (the deliberate way out, with its warning); true when it did. */
+    dismissFailed: (): boolean => {
+      if (!failed || waiting) return false;
+      clear();
+      return true;
+    },
     /** The record could not be written to storage: it holds in this tab only. */
     unsaved,
     retry: () => void refetch(),
@@ -438,6 +457,8 @@ async function heldSend<T>(
     const failure = error instanceof Error ? error : new Error(String(error));
     if (failure instanceof PurchaseTimedOutError) throw failure;
     if (outcomeUnknown(failure)) recordUnknown(client, kind, failure, sender, sent);
+    // It may have been sent, with no hash: the hash-less hold stays, as for a wallet that never answered.
+    else if (maybeSent(failure)) recordTimedOut(client, kind, sender, sent);
     // Sent and reverted: a known outcome, nothing moved.
     else if (failure instanceof WriteError && failure.transactionHash) clearTimedOutPurchase(client, sender, kind, sent.id);
     // Nothing sent (declined, refused before sending, busy): the earlier record comes back.
@@ -448,11 +469,13 @@ async function heldSend<T>(
 
 /**
  * The late answer of a send that timed out, into its hold: an unknown outcome with a hash replaces the hash-less record (its
- * receipt is checked from then on); any other answer (it landed, or it was refused) releases that send's own record.
+ * receipt is checked from then on); a failure that may come after sending keeps it; any other answer (it landed, or it was
+ * refused) releases that send's own record.
  */
 function settleTimedOut<T>(client: ReturnType<typeof useQueryClient>, kind: PurchaseKind, playerId: string, sent: SendMark, late: LateAnswer<T>): void {
   if ("error" in late && outcomeUnknown(late.error)) recordUnknown(client, kind, late.error, playerId, sent);
-  else clearTimedOutPurchase(client, playerId, kind, sent.id);
+  // A late failure that may come after sending answers nothing: the hold stays.
+  else if (!("error" in late && maybeSent(late.error))) clearTimedOutPurchase(client, playerId, kind, sent.id);
 }
 
 /** The reads a game purchase touches, read again once it is settled (a refusal may come from a moved price or a pause too). */
@@ -515,7 +538,7 @@ function guardedSend<T>(guard: { current: TimeoutGuard }, sender: string, send: 
     },
     onLate: (late) => {
       onLate(late);
-      if (!("error" in late && outcomeUnknown(late.error))) clearTimedOut(guard, id, sender);
+      if (!("error" in late && (outcomeUnknown(late.error) || maybeSent(late.error)))) clearTimedOut(guard, id, sender);
       if (guard.current.hung.get(key) === id) guard.current.hung.delete(key);
     },
   });
@@ -620,6 +643,9 @@ export function purchaseRefusal(error: Error): PurchaseRefusal {
   }
   if (error instanceof SpawnPausedError) return { kind: "paused", message: error.message };
   if (error instanceof PurchaseTimedOutError) return { kind: "unknown", message: error.message };
+  if (maybeSent(error)) {
+    return { kind: "unknown", message: "Your wallet lost track of the purchase while sending it: it may still go through. Check your balance before buying again." };
+  }
   if (error instanceof PurchaseOutcomeUnknownError || error instanceof PackOutcomeUnknownError) return { kind: "unknown", message: error.message };
   return { kind: "refused", message: error.message };
 }
