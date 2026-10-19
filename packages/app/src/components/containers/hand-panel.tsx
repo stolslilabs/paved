@@ -41,8 +41,8 @@ const EXPIRED_TEXT = "24 h passed since its purchase. Surrender to close it.";
 
 /**
  * The hand: the tile to place, Discard and Surrender, the hint and the errors. The placement is the bubble's, on the tile:
- * Rotate, Close and Validate, held (PLACE-POLISH, #568); the points it would score ride on the HUD's score. At 375 px the
- * tile stands left, the hint and the two buttons beside it, so the panel is about half its old height.
+ * Rotate, Close and Validate, held (PLACE-POLISH, #568); the points it would score ride on the HUD's score. The tile stands
+ * left with the hint beside it, Discard and Surrender under them across the panel (down to 320 px).
  */
 export function HandPanel({ tile, state, slotChosen, error, errorDetail, tileArt, renderTile, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, coach, className }: HandPanelProps) {
   const busy = state === "pending";
@@ -65,7 +65,7 @@ export function HandPanel({ tile, state, slotChosen, error, errorDetail, tileArt
         message={state === "refused" ? (error ?? "Choose another slot.") : state === "expired" ? EXPIRED_TEXT : null}
         detail={errorDetail}
       />
-      <div className="flex items-stretch gap-3">
+      <div className="flex items-center gap-3">
         {/* Each `GameCanvas` owns its canvas and frees its WebGL context on unmount (R-dispose, #397). */}
         {renderTile && tile ? (
           <span data-view="render" className={chipVariants({ size: "lg", state: chipState })}>
@@ -74,28 +74,27 @@ export function HandPanel({ tile, state, slotChosen, error, errorDetail, tileArt
         ) : (
           <TileChip plan={tile?.plan ?? 0} orientation={tile?.orientation} art={tileArt} size="lg" state={chipState} />
         )}
-        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
-          {/* What to do next: the rotation, the cancel and the placement are the bubble's, on the tile. */}
-          <p className="text-sm text-muted-foreground" data-testid="hand-hint">
-            {state === "placing" ? (slotChosen ? "Hold the check on the tile to place it." : "Tap a lit slot on the board.") : busy ? "Placing…" : null}
-          </p>
-          <div className={cn("grid gap-2", canSurrender ? "grid-cols-2" : "grid-cols-1")}>
-            <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile} className={cn("px-2", coach === "discard" && COACH_RING)}>
-              <Icon name="trash" size="sm" /> Discard
-            </Button>
-            {canSurrender && (
-              <Button
-                variant={state === "expired" ? "destructive" : "ghost"}
-                onClick={onSurrender}
-                disabled={busy || state === "empty"}
-                loading={surrenderPending}
-                className={cn("px-2", state !== "expired" && "text-destructive-text hover:text-destructive-text")}
-              >
-                <Icon name="flag" size="sm" /> Surrender
-              </Button>
-            )}
-          </div>
-        </div>
+        {/* What to do next: the rotation, the cancel and the placement are the bubble's, on the tile. */}
+        <p className="min-w-0 flex-1 text-sm text-muted-foreground" data-testid="hand-hint">
+          {state === "placing" ? (slotChosen ? "Hold the check on the tile to place it." : "Tap a lit slot on the board.") : busy ? "Placing…" : null}
+        </p>
+      </div>
+      {/* Under the tile, the panel's whole width: beside it, two buttons do not fit at 320 px. */}
+      <div className={cn("grid gap-2", canSurrender ? "grid-cols-2" : "grid-cols-1")}>
+        <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile} className={cn(coach === "discard" && COACH_RING)}>
+          <Icon name="trash" size="sm" /> Discard
+        </Button>
+        {canSurrender && (
+          <Button
+            variant={state === "expired" ? "destructive" : "ghost"}
+            onClick={onSurrender}
+            disabled={busy || state === "empty"}
+            loading={surrenderPending}
+            className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
+          >
+            <Icon name="flag" size="sm" /> Surrender
+          </Button>
+        )}
       </div>
     </section>
   );

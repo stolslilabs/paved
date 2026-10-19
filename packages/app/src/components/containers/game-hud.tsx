@@ -12,7 +12,7 @@ export interface GameHudProps {
   score: number;
   /** Points the last move added. */
   delta?: number | null;
-  /** The points the tile placed and not yet validated would score: "Score (+154)" over the score (#568). */
+  /** The points the tile placed and not yet validated would score: "(+154)" over the score on a phone, "Score (+154)" from the tablet width (#568). */
   preview?: number | null;
   remaining: number;
   /** `GameView.expiresAt` of a Challenge game (start + 24 h); none for Training and Story. */

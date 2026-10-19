@@ -225,7 +225,7 @@ describe("Board", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it("the hand: the tile, the hint, Discard and Surrender on one row beside it", () => {
+  it("the hand: the tile and the hint, Discard and Surrender on one row under them", () => {
     render(wrap(<BoardScene {...BOARD.slotChosen} />));
     const discard = screen.getByRole("button", { name: /Discard/ });
     const surrender = screen.getByRole("button", { name: /Surrender/ });
