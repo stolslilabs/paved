@@ -1,9 +1,16 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { toast } from "sonner";
 import { queryClient } from "./src/lib/query-client";
 
-afterEach(() => cleanup());
+// Sonner keeps its toasts in a module store and replays the active ones to each `Toaster` that mounts: an error toast (no
+// timeout) left on screen by one test showed again in every later test of the file, its buttons slowing each `findByRole`
+// (play-free: the card's lookup 0.7 s, then 1.3 to 1.8 s on a quiet machine, past 5 s under load). Dismissed, none is replayed.
+afterEach(() => {
+  toast.dismiss();
+  cleanup();
+});
 
 // jsdom lacks what Radix reads for sizing, pointer capture and scrolling: inert stand-ins, the real thing is the browser's.
 class ResizeObserverStub {

@@ -13,6 +13,7 @@ import { GAME_PLAYING } from "../src/mocks/games";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // `/settings` (P11a) on the app's own providers: the device settings and the viewer's skins switch kept on the device,
@@ -34,6 +35,10 @@ vi.mock("@paved/renderer/react", () => ({
     return null;
   },
 }));
+
+// The pages these tests open, imported before the first test: a cold page import ran inside the first `findBy` that reached it
+// (the defaults 2.9 to 5.1 s, the theme page 2.9 to 5.4 s, under load), against that lookup's 5 s.
+preloadPages("settings", "theme", "referral", "home", "board");
 
 const lastBoard = () => drawn.board.at(-1);
 const key = (plan: number) => getPlanKey(Plan.from(plan).value);
