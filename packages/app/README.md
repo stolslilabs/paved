@@ -15,7 +15,17 @@ bun run test --filter @paved/app     # Vitest + Testing Library (jsdom)
 bun run --filter @paved/app storybook        # Storybook on http://localhost:6006
 bun run --filter @paved/app build-storybook  # a static site in storybook-static/ (git-ignored)
 bun run --filter @paved/app wrap-sweep       # every story at 360 and 320 px, headless: text that overflows, is cut or is split
+bun run --filter @paved/app e2e              # the Training battle test: a bot plays full games in headless Chromium
 ```
+
+The Training battle test (`e2e/`, P-79) starts a Vite dev server with no chain (or uses `PAVED_E2E_URL`), opens
+`/training` in headless Chromium with WebGL off, so the board is the plan view whose slots are buttons, and plays: full
+games with Play again between them, a resume after reloads, a surrender. Every move, the tile in hand, the slots and
+rotations offered and the preview are checked against the engine's replay of the save (`replayTraining`). It needs the
+workspace packages built (`bun run build --filter='@paved/app^...'`) and the browser of the wrap sweep. Options:
+`PAVED_E2E_GAMES` (full games, default 2), `PAVED_E2E_SEED` with `PAVED_E2E_FROM` (replay a game from its seed and
+index, both printed in the log), `PAVED_E2E_ARTIFACTS` (the seeds and a failed test's screenshot, default
+`e2e/artifacts/`, git-ignored). Run it under `nice -n 10`, one browser at a time; the CI `e2e` job runs it with 2 games.
 
 The wrap sweep (`scripts/wrap-sweep.ts`, WRAP360) reads `storybook-static/`, so build Storybook first; it needs the
 browser once (`bunx playwright-core install chromium-headless-shell`, from `packages/app`). Options: `--filter <story id

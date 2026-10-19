@@ -239,6 +239,7 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
         <div className="flex flex-col gap-4">
           <section
             data-slot="card"
+            data-testid="final-score"
             className="flex flex-col items-center gap-2 rounded-2xl border border-gold-900 bg-[radial-gradient(80%_70%_at_50%_0%,var(--color-gold-950),var(--color-ink-900))] px-4 py-6 text-center"
           >
             <span className="text-sm text-muted-foreground">{mode === "challenge" ? `Challenge #${game.id}` : "Training"}</span>
