@@ -22,8 +22,8 @@ Code: `contracts/src/systems/story.cairo` (the `Story` system), `ISetupStory::cr
 - **Cobbles: 5, 10 and 15 for the first, second and third star of a level** (30 per level, 1,500 over 50 levels), paid once
   per star, level and account, on `Setup`'s existing ledger (`accounts`, `CobblesClaimed` with a new `kind` 3). No second
   ledger.
-- **Measured** (VPS, test profile): one submission of a 38-tile level costs **160,534,980 L2 gas**, of the whole deck (72
-  tiles) **322,156,932**: 14.5 % and 29.0 % of the 1.11 x 10^9 a transaction may use. `Story` is **58,145 CASM felts, 71.0 %**
+- **Measured** (VPS, test profile): one submission of a 38-tile level costs **160,617,110 L2 gas**, of the whole deck (72
+  tiles) **322,189,372**: 14.5 % and 29.0 % of the 1.11 x 10^9 a transaction may use. `Story` is **58,650 CASM felts, 71.6 %**
   of the cap; `Setup` goes from 38,722 to **39,861 CASM, 48.7 %** (under P-64's 50 % review point: no split).
 
 ## 2. Models and storage
@@ -137,7 +137,7 @@ RunSubmitted { #[key] player_id, #[key] campaign_id, #[key] level_id, game_id: u
 | 3 stars: score >= the target | chain | |
 | The best stars and score are kept | chain | 2 bits per level, the best score per level |
 | A level is locked until the one before it is finished | chain | `'Story: level locked'`: level `l > 1` needs 1 star on `l - 1` |
-| A campaign unlocks on stars | chain, at its first level | `'Story: campaign locked'`: the stars held over every level of the campaigns before it >= `unlock_average` x their level count. Checked on level 1 only: once a player has finished level 1, the campaign stays open to them, even if the owner adds levels before it later |
+| A campaign unlocks on stars | chain, at its first level | `'Story: campaign locked'`: the stars held over the levels the campaigns before it have now (levels 1 to their current `level_count`: the stars of a level the owner removed do not count) >= `unlock_average` x their level count. Checked on level 1 only, and not when the player has finished level 1 already: once open, a campaign stays open to them (its first level and the levels after it), even if the owner adds levels before it later |
 | Unknown campaign or level | chain | `'Story: invalid campaign'`, `'Story: invalid level'`, `'Story: no level'` |
 | What the screens show (locks, stars, the next level, the coach marks) | client | from the device's progress first, from `Story`'s views once wired; the client applies the same rules so a run it lets the player start is accepted |
 | Which levels exist, their decks and targets | owner, on chain | the client's plan and the chain's levels are kept equal by the deploy table (section 8) and, later, by the wiring task's check |
@@ -178,10 +178,10 @@ of the `submit_run` call alone.
 
 | Run | Tiles | Built, discarded | Score | L2 gas | Of 1.11 x 10^9 |
 |---|---:|---|---:|---:|---:|
-| 38-tile level (a greedy line on a Simple draw), 3 stars paid | 38 | 36, 1 | 5,629 | **160,534,980** | 14.5 % |
-| The whole deck (a shuffle of the 72 cards), 3 stars paid | 72 | 71, 0 | 16,546 | **322,156,932** | 29.0 % |
+| 38-tile level (a greedy line on a Simple draw), 3 stars paid | 38 | 36, 1 | 5,629 | **160,617,110** | 14.5 % |
+| The whole deck (a shuffle of the 72 cards), 3 stars paid | 72 | 71, 0 | 16,546 | **322,189,372** | 29.0 % |
 
-`test_story_gas_submit_38` fails above 168,561,729 (measured + 5 %). About 4.3M L2 gas per drawn tile, the cost of a
+`test_story_gas_submit_38` fails above 168,561,729 (160,534,980, measured before the campaign-lock fix of review 1, + 5 %). About 4.3M L2 gas per drawn tile, the cost of a
 Challenge move without its game-state writes (a Challenge build is 4.8 to 18.7M, `contracts/tests/gas.cairo`), plus the
 level's reads and the credit (three claims). The release code the network runs is cheaper (no `inlining-strategy =
 "avoid"`).
@@ -190,12 +190,12 @@ Class sizes (`scripts/class-sizes.sh`, release, CASM is the binding cap of 81,92
 
 | Class | Sierra | CASM | Of the cap | Before |
 |---|---:|---:|---:|---|
-| `Story` (new) | 25,412 | 58,145 | 71.0 % | |
+| `Story` (new) | 25,656 | 58,650 | 71.6 % | |
 | `Setup` | 18,024 | 39,861 | 48.7 % | 17,534 / 38,722, 47.3 % on main (2179cb2) |
 | `Challenge` | 29,831 | 64,826 | 79.1 % | unchanged |
 
 **P-64**: the projected share of `Setup` was about 48 % (one reporter-only entry point and a loop of three events, about
-1,000 CASM felts); measured 48.7 %, under the 50 % review point, so no `Shop` split. `Story` has 23,775 felts of margin
+1,000 CASM felts); measured 48.7 %, under the 50 % review point, so no `Shop` split. `Story` has 23,270 felts of margin
 for the views and the indexer's needs of the wiring task.
 
 ## 8. Deployment (fresh path), not run

@@ -100,9 +100,9 @@ pub trait IStory<TContractState> {
     /// move per drawn tile: replayed on the level's deck (`'Tile: cannot place'`, `'Tile: no
     /// neighbors'`, `'Tile: already exists'` on an illegal move), scored, and its stars kept if
     /// better; the stars newly gained are paid in cobbles by `Setup`. A level is locked until the
-    /// one before it is finished (1 star); the first level of a campaign until the caller holds
-    /// `unlock_average` stars per level over every level of the campaigns before it. Emits
-    /// `RunSubmitted`; returns the run's stars.
+    /// one before it is finished (1 star); the first level of a campaign, until the caller has
+    /// finished it, until the caller holds `unlock_average` stars per level over the levels the
+    /// campaigns before it have now. Emits `RunSubmitted`; returns the run's stars.
     fn submit_run(
         ref self: TContractState, campaign_id: u8, level_index: u8, moves: Span<StoryMove>,
     ) -> u8;
@@ -150,6 +150,20 @@ pub fn stars_at(stars: u128, level_id: u8) -> u8 {
     ((stars / star_unit(level_id)) % 4).try_into().unwrap()
 }
 
+/// The stars held over levels 1 to `level_count` of a progress word (the levels a campaign has
+/// now).
+pub fn stars_over(stars: u128, level_count: u8) -> u32 {
+    let mut word = stars;
+    let mut sum: u32 = 0;
+    let mut level: u8 = 0;
+    while level < level_count && word != 0 {
+        sum += (word % 4).try_into().unwrap();
+        word /= 4;
+        level += 1;
+    }
+    sum
+}
+
 #[starknet::contract]
 pub mod Story {
     use core::num::traits::{Bounded, Zero};
@@ -174,7 +188,7 @@ pub mod Story {
     use super::{
         IStory, IStorySetup, MAX_LEVELS, MAX_PLACED, MAX_STARS, MAX_TILES, PAGE_PLANS, PLACED_ID,
         StoryCampaign, StoryLevel, StoryMove, StoryProgress, StoryTile, star_unit, stars_at,
-        stars_of,
+        stars_of, stars_over,
     };
 
     pub mod errors {
@@ -410,17 +424,20 @@ pub mod Story {
             let level = self.level_of(campaign_id, level_id);
             assert(level.target != 0, errors::NO_LEVEL);
             // [Check] The level is unlocked: the one before it finished; for the first one, the
-            // campaign's average over the campaigns before it
+            // campaign's average over the levels the campaigns before it have now (the stars of a
+            // level the owner removed do not count). A first level the player has finished stays
+            // open: the campaign was open then, and its later levels stay open too
             let progress = self.progress_of(player_id, campaign_id);
             if level_id > 1 {
                 assert(stars_at(progress.stars, level_id - 1) != 0, errors::LEVEL_LOCKED);
-            } else if campaign_id > 1 {
+            } else if campaign_id > 1 && stars_at(progress.stars, 1) == 0 {
                 let mut levels: u32 = 0;
                 let mut stars: u32 = 0;
                 let mut id: u8 = 1;
                 while id < campaign_id {
-                    levels += self.campaign_of(id).level_count.into();
-                    stars += self.progress_of(player_id, id).total.into();
+                    let count = self.campaign_of(id).level_count;
+                    levels += count.into();
+                    stars += stars_over(self.progress_of(player_id, id).stars, count);
                     id += 1;
                 }
                 assert(stars >= levels * campaign.unlock_average.into(), errors::CAMPAIGN_LOCKED);

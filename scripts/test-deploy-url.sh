@@ -1462,7 +1462,7 @@ SH
   fi
   # 2b. Two classes left at 30 STRK each, 110 STRK: the rule asks 1.25 x 60 + 20 = 95 STRK, but the second declare's
   #     bounds (2.3 x 30 after 1.25 x 30) + the margin ask 126.50 STRK: the run stops before sending.
-  for name in Challenge Setup Faucet PavedToken MockRouter Vault; do hexname "$name"; done >"$est/bin/declared"
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy; do hexname "$name"; done >"$est/bin/declared"
   printf '%s' 30000000000000000000 >"$est/fee"
   out="$(real_run 110000000000000000000)"; rc=$?
   rm -f "$est/fee"

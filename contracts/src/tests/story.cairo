@@ -20,7 +20,7 @@ use paved::systems::setup::{
 use paved::systems::story::Story::{Event as StoryEvent, RunSubmitted};
 use paved::systems::story::{
     IStoryDispatcher, IStoryDispatcherTrait, IStorySetupDispatcher, IStorySetupDispatcherTrait,
-    StoryCampaign, StoryMove, StoryTile, star_unit, stars_at, stars_of,
+    StoryCampaign, StoryMove, StoryTile, star_unit, stars_at, stars_of, stars_over,
 };
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
@@ -248,6 +248,11 @@ fn test_story_star_bits() {
     assert(stars_at(word, 2) == 2, 'Story: level 2');
     assert(stars_at(word, 3) == 1, 'Story: level 3');
     assert(stars_at(word, 4) == 0, 'Story: level 4');
+    assert(stars_over(word, 3) == 6, 'Story: over 3 levels');
+    assert(stars_over(word, 2) == 5, 'Story: over 2 levels');
+    assert(stars_over(word, 1) == 3, 'Story: over 1 level');
+    assert(stars_over(word, 0) == 0, 'Story: over no level');
+    assert(stars_over(word, 64) == 6, 'Story: over 64 levels');
 }
 
 // Set-up
@@ -568,6 +573,64 @@ fn test_story_campaign_unlocked_on_stars() {
     assert(submit(world, PLAYER(), 2, 1, deck_38_moves()) == 3, 'Story: 3 stars');
     assert(world.story.best_score(PLAYER().into(), 2, 1) == 5629, 'Story: the client score');
     assert(cobbles(world, PLAYER()) == 90, 'Story: 3 levels of 30');
+}
+
+/// Campaign 1: level 1 at 1 star (its target raised to 459), level 2 at 3 stars: 4 stars held.
+fn four_stars(world: World) {
+    set_target(world, 459);
+    let (_, line) = first_stone();
+    submit(world, PLAYER(), 1, 1, line);
+    set_target(world, 321);
+    let (_, line) = price_of_a_discard();
+    submit(world, PLAYER(), 1, 2, line);
+}
+
+#[test]
+#[should_panic(expected: ('Story: campaign locked',))]
+fn test_story_removed_level_stars_do_not_unlock() {
+    // The owner cuts campaign 1 to its first level: 2 stars are needed over it, it holds 1 (the
+    // 3 stars of the level removed do not count)
+    let world = world();
+    campaigns(world);
+    four_stars(world);
+    assert(world.story.progress(PLAYER().into(), 1).total == 4, 'Story: 4 stars held');
+    start_cheat_caller_address(world.story.contract_address, OWNER());
+    world.story.set_campaign(1, 1, 2);
+    stop_cheat_caller_address(world.story.contract_address);
+    submit(world, PLAYER(), 2, 1, deck_38_moves());
+}
+
+#[test]
+fn test_story_open_campaign_stays_open_after_added_levels() {
+    // Campaign 2 opened at 6 stars over 3 levels and its level 1 finished; the owner adds a level
+    // to campaign 1 (8 stars needed now): the finished level 1 replays, a new player stays out
+    let world = world();
+    campaigns(world);
+    let (_, line) = first_stone();
+    submit(world, PLAYER(), 1, 1, line);
+    let (_, line) = price_of_a_discard();
+    submit(world, PLAYER(), 1, 2, line);
+    submit(world, PLAYER(), 2, 1, deck_38_moves());
+    start_cheat_caller_address(world.story.contract_address, OWNER());
+    world.story.set_campaign(1, 4, 2);
+    stop_cheat_caller_address(world.story.contract_address);
+    assert(submit(world, PLAYER(), 2, 1, deck_38_moves()) == 3, 'Story: replayed');
+    assert(cobbles(world, PLAYER()) == 90, 'Story: nothing paid twice');
+}
+
+#[test]
+#[should_panic(expected: ('Story: campaign locked',))]
+fn test_story_added_levels_raise_the_bar_for_a_new_player() {
+    let world = world();
+    campaigns(world);
+    let (_, line) = first_stone();
+    submit(world, PLAYER(), 1, 1, line);
+    let (_, line) = price_of_a_discard();
+    submit(world, PLAYER(), 1, 2, line);
+    start_cheat_caller_address(world.story.contract_address, OWNER());
+    world.story.set_campaign(1, 4, 2);
+    stop_cheat_caller_address(world.story.contract_address);
+    submit(world, PLAYER(), 2, 1, deck_38_moves());
 }
 
 // Stars, corrections, payments
