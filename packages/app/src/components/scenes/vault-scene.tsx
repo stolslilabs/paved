@@ -105,7 +105,7 @@ export function VaultScene(props: VaultSceneProps) {
     <TabPage tab="vault" title="Vault" subtitle={SUBTITLE} end={end} onNavigate={props.onNavigate}>
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
         <div className="flex flex-col gap-4">
-          <section aria-label="Your position" data-slot="card" className="rounded-xl border border-gold-900 bg-gold-950/40 px-4 pt-4 pb-2">
+          <section aria-label="Your position" data-slot="card" className="rounded-xl border border-primary/30 bg-card px-4 pt-4 pb-2">
             {none ? (
               <div className="flex flex-col items-center gap-2 py-6 text-center">
                 <Icon name="piggy-bank" size="xl" className="text-primary" />

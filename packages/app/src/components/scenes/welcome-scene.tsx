@@ -1,7 +1,7 @@
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
-import { Background } from "../elements/background";
+import { BoardHero } from "../elements/board-hero";
 import { Wordmark } from "../elements/wordmark";
 
 export interface WelcomeSceneProps {
@@ -24,9 +24,8 @@ const POINTS: { icon: string; title: string; text: string }[] = [
 /** The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. */
 export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTraining }: WelcomeSceneProps) {
   return (
-    <main className="relative flex min-h-dvh flex-col overflow-hidden bg-board text-foreground">
-      <Background />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_30%,var(--color-gold-950),transparent)] opacity-70" />
+    <main className="relative flex min-h-dvh flex-col overflow-hidden bg-background text-foreground">
+      <BoardHero shade="veil" />
 
       <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-end gap-8 px-4 pt-24 pb-[max(2rem,env(safe-area-inset-bottom))] desktop:max-w-4xl desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-16 desktop:pt-8">
         <div className="flex flex-col items-center gap-6 desktop:flex-1 desktop:items-start">
@@ -46,7 +45,7 @@ export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTrai
           </ul>
         </div>
 
-        <div data-slot="card" className="flex flex-col gap-4 rounded-2xl border border-border bg-card/90 p-5 shadow-xl backdrop-blur desktop:w-96">
+        <div data-slot="card" className="flex flex-col gap-4 rounded-xl border border-border bg-card/95 p-5 shadow-xl backdrop-blur desktop:w-96">
           <div className="flex flex-col gap-1">
             <h1 className="font-display text-xl font-semibold">Welcome to Paved</h1>
             <p className="text-sm text-muted-foreground">Connect to enter the daily Challenge, or try a game first: Training needs no wallet.</p>

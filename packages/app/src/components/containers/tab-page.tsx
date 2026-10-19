@@ -23,13 +23,14 @@ export interface TabPageProps {
 }
 
 /**
- * A page of the five tabs (section 6.2), as Home lays itself out: the bottom bar below `desktop`, the rail from it; the
- * title in the display font, an action on its right, the content in one column that widens with the viewport.
+ * A page of the five tabs (section 6.2), as Home lays itself out: the bottom bar below `desktop`, the header across the top
+ * from it (direction D, #537); the title in the display font, an action on its right, the content in one column that widens
+ * with the viewport.
  */
 export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, children, className }: TabPageProps) {
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground desktop:flex-row">
-      <AppNav active={tab} onNavigate={onNavigate} className="desktop:min-h-dvh" />
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <AppNav active={tab} onNavigate={onNavigate} />
       <main className={cn("mx-auto flex w-full flex-1 max-w-md flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1">
@@ -40,7 +41,7 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
             )}
             <div className="flex min-w-0 flex-col wrap-anywhere">
               <span className="flex flex-wrap items-center gap-2">
-                <h1 className="font-display text-2xl font-semibold">{title}</h1>
+                <h1 className="font-display text-3xl font-semibold tracking-wide">{title}</h1>
                 <MockMarkSlot />
               </span>
               {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}

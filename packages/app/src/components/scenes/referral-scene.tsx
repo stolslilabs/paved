@@ -72,9 +72,9 @@ export function ReferralScene(props: ReferralSceneProps) {
     <TabPage tab="settings" title="Referral" subtitle="Invite players, earn a share of their purchases" onBack={props.onBack} onNavigate={props.onNavigate}>
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
         <div className="flex flex-col gap-4">
-          <section aria-label="Your link" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-gold-900 bg-gold-950/40 p-4">
+          <section aria-label="Your link" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-card p-4">
             <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-lg bg-gold-900 text-gold-200">
+              <span className="grid size-10 place-items-center rounded-lg bg-secondary text-primary">
                 <Icon name="link" size="md" />
               </span>
               <div className="flex flex-col">

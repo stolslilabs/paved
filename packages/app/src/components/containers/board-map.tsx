@@ -123,7 +123,7 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
             aria-hidden
             data-ring={c.ring}
             style={{ ...at(c.x, c.y), opacity: RING_OPACITY[c.ring] }}
-            className="block min-h-0 min-w-0 border border-ink-200"
+            className="block min-h-0 min-w-0 border border-charcoal-200"
           />
         ))}
         {tiles.map((t) => (

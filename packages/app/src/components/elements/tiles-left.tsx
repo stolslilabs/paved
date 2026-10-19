@@ -25,7 +25,7 @@ export function TilesLeft({ remaining, onClick, className }: TilesLeftProps) {
       type="button"
       onClick={onClick}
       aria-label={`Tiles left: ${remaining}. Show the deck`}
-      className={cn("flex min-h-11 flex-col justify-center gap-1 rounded-md px-1.5 text-left outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("flex min-h-11 flex-col justify-center gap-1 rounded-md px-1.5 text-left outline-none state-layer focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       {body}
     </button>

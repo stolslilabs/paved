@@ -27,8 +27,9 @@ describe("app", () => {
     render(<App router={createTestRouter("/")} />);
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Main" });
-    // The five tabs are the nav's own buttons; the rail's Balances section (its Connect, its rows) comes after them.
-    expect(nav.querySelectorAll(":scope > button")).toHaveLength(5);
+    // The five tabs are the buttons of the nav's item row (direction D: after the wordmark); the header's Balances section (its
+    // Connect, its rows) comes after them.
+    expect(nav.querySelectorAll(":scope > div > button")).toHaveLength(5);
     for (const label of ["Home", "Ranks", "Missions", "Vault", "Settings"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }

@@ -46,9 +46,9 @@ function declaration(css: string, selector: string, prop: string): string {
 describe("theme.css", () => {
   it("compiles a semantic-token class to a colour that resolves", async () => {
     const css = await build(["bg-primary", "text-muted-foreground"]);
-    // primary -> --accent-scale-300 -> gold-300; muted-foreground -> ink-400
+    // primary -> --accent-scale-300 -> gold-300; muted-foreground -> charcoal-300
     expect(resolveVar(css, declaration(css, ".bg-primary", "background-color"))).toBe("oklch(0.829 0.130 83.0)");
-    expect(resolveVar(css, declaration(css, ".text-muted-foreground", "color"))).toBe("oklch(0.700 0.022 241.7)");
+    expect(resolveVar(css, declaration(css, ".text-muted-foreground", "color"))).toBe("oklch(0.854 0.007 268.5)");
   });
 
   it("applies a dark: class under <html data-theme=dark>, and not otherwise", async () => {
@@ -105,10 +105,25 @@ describe("theme.css", () => {
       const dir = resolve(import.meta.dirname, "../src/components", tier);
       for (const f of readdirSync(dir).filter((n) => n.endsWith(".tsx") && !n.endsWith(".stories.tsx"))) {
         expect(readFileSync(resolve(dir, f), "utf8"), `${tier}/${f}`).not.toMatch(
-          /#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|\b(?:bg|text|border|ring|fill|stroke)-(?:white|black|\[#)|\b(?:ink|gold|ember|meadow|river|amber)-\d/,
+          /#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|\b(?:bg|text|border|ring|fill|stroke)-(?:white|black|\[#)|\b(?:ink|charcoal|gold|ember|meadow|river|amber)-\d/,
         );
       }
     }
+  });
+
+  it("paints the interaction states white with transparency (#537): hover 10%, selected 15%, pressed 20%", async () => {
+    const css = await build(["state-layer", "bg-state-selected"]);
+    expect(resolveVar(css, "var(--state-hover)")).toBe("rgb(255 255 255 / 0.1)");
+    expect(resolveVar(css, "var(--state-selected)")).toBe("rgb(255 255 255 / 0.15)");
+    expect(resolveVar(css, "var(--state-pressed)")).toBe("rgb(255 255 255 / 0.2)");
+    const rule = css.slice(css.indexOf(".state-layer"));
+    expect(rule).toContain("background-image: linear-gradient(var(--layer), var(--layer))");
+    // Hover, then selected or current, then pressed: in that order, so a press wins and a selected part keeps its 15% under the pointer.
+    const at = (state: string) => rule.indexOf(`--layer: var(--state-${state})`);
+    expect(at("hover")).toBeGreaterThan(0);
+    expect(at("selected")).toBeGreaterThan(at("hover"));
+    expect(at("pressed")).toBeGreaterThan(at("selected"));
+    expect(rule).toMatch(/aria-current="page"/);
   });
 
   it("keeps raw colours in theme.css only", () => {
