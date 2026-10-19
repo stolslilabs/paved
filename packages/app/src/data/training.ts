@@ -6,12 +6,14 @@ import {
   LocalSession,
   OrientationType,
   TRAINING_KEY,
+  gameStats,
   loadGame,
   randomSeed,
   type KeyValueStore,
   type PageState,
   type PlaceMove,
   type SavedGame,
+  type GameStats,
   type SavedMove,
   type ScoredStructure,
 } from "@paved/game-core";
@@ -160,6 +162,11 @@ export class TrainingGame {
     const placement = toPlacement(move);
     if (!placement || this.rules.over || !this.rules.canPlace(placement)) return null;
     return this.rules.clone().build(placement).points;
+  }
+
+  /** The game's figures as it stands (`gameStats`), from the engine kept in step with the session. */
+  stats(): GameStats {
+    return gameStats(this.rules);
   }
 
   /** Places the tile in hand; `move` is in the chain's coordinates (`toChainSlot` of the slot the player sees). */

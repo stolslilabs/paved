@@ -14,7 +14,7 @@ import { Button } from "../../components/ui/button";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
-import { useBoardSettings } from "../../data/settings";
+import { useBoardSettings } from "../../data/board-settings";
 import { useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { trainingStore, useDataSources } from "../../data/sources";
@@ -52,7 +52,7 @@ function TrainingBoard() {
   const { game, snapshot, board } = useTrainingSession();
   // The connected player's skins; a guest's board draws the base models.
   const skins = useBoardSkins(useDataSources().signer?.address ?? null);
-  const boardSettings = useBoardSettings();
+  const boardSettings = useBoardSettings(game);
   const go = useAppNavigate();
   const onBack = useBack();
   // The 3D board, unless this browser has no WebGL or the renderer cannot start (its models not served): the plan view.
@@ -117,10 +117,12 @@ function TrainingBoard() {
       bubble={bubble}
       onSlotClick={placement.choose}
       placementHighlight={boardSettings.placementHighlight}
+      seasonWheel={boardSettings.wheel}
       canvas={
         view === "3d" ? (
           <BoardViewport
             settings={boardSettings.renderer}
+            onScene={boardSettings.onScene}
             tilePreview={boardSettings.tilePreview}
             placementHighlight={boardSettings.placementHighlight}
             skins={skins}
@@ -318,10 +320,12 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       notices={notices}
       promptSurrender={playable && expired}
       placementHighlight={boardSettings.placementHighlight}
+      seasonWheel={boardSettings.wheel}
       canvas={
         view === "3d" ? (
           <BoardViewport
             settings={boardSettings.renderer}
+            onScene={boardSettings.onScene}
             tilePreview={boardSettings.tilePreview}
             placementHighlight={boardSettings.placementHighlight}
             skins={skins}
@@ -482,10 +486,12 @@ function TutorialBoard() {
       readOnly={view.over}
       notices={stage}
       placementHighlight={boardSettings.placementHighlight}
+      seasonWheel={boardSettings.wheel}
       canvas={
         view3d === "3d" ? (
           <BoardViewport
             settings={boardSettings.renderer}
+            onScene={boardSettings.onScene}
             tilePreview={boardSettings.tilePreview}
             placementHighlight={boardSettings.placementHighlight}
             skins={skins}

@@ -1,32 +1,24 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorDetail } from "../error-detail";
-import { PLANS, dropSavedChanges, toggleSkin } from "../../components/containers/cobble-types";
-import { THEME_CODES } from "../../components/containers/skin-grid";
-import { THEMES } from "../../components/containers/theme-card";
-import { ThemeScene, type SkinsStatus, type ThemeSkins } from "../../components/scenes/theme-scene";
+import { THEMES, type ThemeId } from "../../components/containers/theme-card";
+import { ThemeScene } from "../../components/scenes/theme-scene";
 import { cobbleKeys } from "../../data/cobbles";
-import { skinChanges, skinKeys, useDeviceTheme, useShowSkins, useSkinWrites, useThemeSkins } from "../../data/skins";
+import { RENDERER_ASSETS } from "../../data/renderer-manifest";
+import { skinChanges, skinKeys, useOwnedSkins, useSkinWrites } from "../../data/skins";
 import { useDataSources } from "../../data/sources";
-import { useTileArt } from "../../data/tile-art";
+import { useTileRenders } from "../../data/tile-renders";
 import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
-
-/** Where the renderer's assets are served: the tile images of the previews and of the skins' chips. */
-const RENDERER_ASSETS = `${import.meta.env.BASE_URL}renderer-assets`;
-
-/** The eighteen tiles a theme's preview card draws (six by three): every plan but one, turned in turn. */
-const PREVIEW_TILES = Array.from({ length: 18 }, (_, i) => ({ plan: (i % PLANS) + 1, orientation: i % 4 }));
+import { skinsStatus } from "../skins-status";
 
 /**
- * `/settings/theme` (P11b): the board's look chosen on this device (`useDeviceTheme`), and a theme's 19 tile skins on
- * `Setup` (cobbles v1, part 3): each price, owned and active state from the chain (`useThemeSkins`), Buy (one `buy_skin`)
- * and the switches batched, Save sending only the plans that changed (one `set_skins`, about 0.12M gas per plan). The
- * receipts move the cache (`useSkinWrites`): the balance from `SkinBought`, the active set from `SkinsActivated`, then the
- * reads reconcile. Forest (theme 1) is the one theme on sale; Snow, Desert and Volcano are coming soon and not read. The
- * player is the signer's address: without one the skins ask to Connect. A wallet approved earlier is looked for here too
- * (`useAccount`).
+ * `/settings/theme` (THEMES-RENDERS): the themes, each card a build-time render of its real tiles (`useTileRenders`) and the
+ * tiles owned of 19 (`useOwnedSkins`). Use sends one `set_skins` of every plan that changes, so every tile the player owns in
+ * that theme wears it and the others go back to Default (the owner's ruling of 2026-10-18); the scene asks first when that
+ * replaces a choice made tile by tile. The receipt moves the cache (`useSkinWrites`), so the board, My tiles and the shop
+ * follow. The player is the signer's address: without one the page asks to Connect.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -35,90 +27,40 @@ export default function Page() {
   useAccount();
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
-  const [selected, select] = useDeviceTheme();
-  const [showSkins, setShowSkins] = useShowSkins();
-  const [browsed, browse] = useState<ThemeSkins["theme"]>("forest");
-  const [changes, setChanges] = useState<Record<number, number>>({});
-  const available = THEMES.find((t) => t.id === browsed)?.available ?? false;
-  const code = THEME_CODES[browsed];
-  const read = useThemeSkins(playerId, available ? code : null);
+  const read = useOwnedSkins(playerId);
   const writes = useSkinWrites(playerId);
   const client = useQueryClient();
-  const tileArt = useTileArt(RENDERER_ASSETS);
+  const renders = useTileRenders(RENDERER_ASSETS);
+  const [applying, setApplying] = useState<ThemeId | null>(null);
 
-  // The active set read again (after a save whose receipt could not be read, it may hold the batch): what it already holds is no change.
-  const active = read.data?.active;
-  useEffect(() => {
-    if (active) setChanges((c) => dropSavedChanges(active, c));
-  }, [active]);
-
-  const skins: ThemeSkins | null = read.data
-    ? {
-        theme: browsed,
-        ...read.data,
-        changes,
-        buying: writes.buying,
-        save: writes.saving ? "saving" : writes.saved && Object.keys(changes).length === 0 ? "saved" : "idle",
-        refusal: writes.error?.message ?? null,
-        refusalDetail: writes.error ? errorDetail(writes.error) : undefined,
-      }
-    : null;
-  // A deployment without the skins' views (`read.data` null) shows the board's look only.
-  const status: SkinsStatus | null =
-    playerId === null
-      ? { kind: "guest" }
-      : read.error
-        ? { kind: "error", message: read.error.message, detail: errorDetail(read.error) }
-        : read.data === undefined
-          ? { kind: "loading" }
-          : null;
-
-  const buy = (plan: number) => {
-    // The price the card shows: the writer reads `skin_price` again at send and refuses another.
-    const price = read.data?.prices[plan - 1];
-    if (!available || !price) return;
-    writes.reset();
-    writes.buy(code, plan, price).then(
-      () => toast.success("Skin bought", { description: "Switch it on, then save." }),
-      () => undefined,
-    );
-  };
-  const toggle = (plan: number) => {
-    if (!read.data) return;
-    writes.reset();
-    setChanges((c) => toggleSkin(read.data!.active, c, plan, code));
-  };
-  const save = () => {
+  const use = (theme: ThemeId, changes: Record<number, number>) => {
     const batch = skinChanges(changes);
     if (batch.length === 0) return;
+    const name = THEMES.find((t) => t.id === theme)?.name ?? theme;
     writes.reset();
-    // Kept on a refusal, so the player can try again; cleared once the receipt's active set is the cache's.
-    writes.save(batch).then(
-      () => setChanges({}),
-      () => undefined,
-    );
+    setApplying(theme);
+    writes
+      .save(batch)
+      .then(
+        () => toast.success(`${name} in use`, { description: "Your next board wears it." }),
+        () => undefined,
+      )
+      .finally(() => setApplying(null));
   };
 
   return (
     <ThemeScene
-      selected={selected}
-      tiles={PREVIEW_TILES}
-      tileArt={tileArt}
-      skins={skins}
-      skinsStatus={status}
-      showSkins={showSkins}
-      onShowSkins={setShowSkins}
-      onSelect={select}
-      onBrowse={browse}
-      onBuySkin={buy}
-      onToggleSkin={toggle}
-      onSaveSkins={save}
-      onDiscardSkins={() => {
-        writes.reset();
-        setChanges({});
-      }}
+      renders={renders}
+      // A deployment without the skins' views (`read.data` null) shows the cards alone.
+      skins={read.data}
+      skinsStatus={skinsStatus(playerId, read)}
+      applying={applying}
+      refusal={writes.error?.message ?? null}
+      refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
       onDismissRefusal={writes.reset}
-      onBuyCobbles={() => go("/play/challenge?tab=cobbles")}
+      onUse={use}
+      onOpen={(theme) => go(`/settings/theme/${theme}`)}
+      onMyTiles={() => go("/settings/tiles")}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });

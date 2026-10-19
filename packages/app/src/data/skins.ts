@@ -1,9 +1,10 @@
-import { useMutation, useQueries, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQueryClient, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
 import type { CobbleAccount, DecodedEvent, GameViews, PavedWriter, SkinChange, SkinViews, WriteResult } from "@paved/chain";
 import { PLANS } from "../components/containers/cobble-types";
-import type { ThemeId } from "../components/containers/theme-card";
-import type { ThemeSkinsData } from "../components/scenes/theme-scene";
+import { SKIN_THEMES, THEME_CODES } from "../components/containers/theme-card";
+import type { OwnedSkins } from "../components/scenes/theme-scene";
+import type { ThemeSkinsData } from "../components/scenes/theme-shop-scene";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { createDeviceStore, useDeviceStore } from "./device-store";
 import { addressKey } from "./keys";
@@ -46,7 +47,7 @@ export function skinViews(views: GameViews): SkinViews | null {
 const NO_PRICES: readonly number[] = new Array<number>(PLANS).fill(0);
 
 /**
- * The theme scene's skins for the theme `code` (`THEME_CODES`): its 19 prices, the player's owned skins in it, the active
+ * A theme shop's skins for the theme `code` (`THEME_CODES`): its 19 prices, the player's owned skins in it, the active
  * set and the balance. `code` null reads no price and no owned word (a theme that is not out: its prices are all 0). Null
  * without the Cobbles or skins views; disabled without a player.
  */
@@ -71,6 +72,44 @@ export function useThemeSkins(playerId: string | null, code: number | null): { d
       const error = (code === null ? null : (prices.error ?? owned.error)) ?? active.error ?? account.error ?? null;
       return {
         data: ready && account.data ? { balance: account.data.cobbles, prices: priceList!, owned: ownedWord!, active: active.data! } : undefined,
+        // A failed read ends the wait: pending only while nothing failed.
+        isPending: !ready && !error,
+        error,
+      };
+    },
+  });
+}
+
+/** The ids of the themes on sale and read (Forest today): the ones whose owned words Themes and My tiles read. */
+const SKIN_CODES: readonly number[] = SKIN_THEMES.map((t) => THEME_CODES[t.id]);
+
+/**
+ * The player's skins across the themes on sale (Themes and My tiles, THEMES-RENDERS): the balance, the active set and each
+ * theme's owned word by its id, the same keys as `useThemeSkins`'s, so a purchase or a save moves both pages. Null without
+ * the Cobbles or skins views; disabled without a player.
+ */
+export function useOwnedSkins(playerId: string | null): { data: OwnedSkins | null | undefined; isPending: boolean; error: Error | null } {
+  const { views } = useDataSources();
+  const ledger = cobbleViews(views);
+  const skins = skinViews(views);
+  const id = playerId ?? "0x0";
+  const enabled = playerId !== null && ledger !== null && skins !== null;
+  return useQueries({
+    queries: [
+      { queryKey: skinKeys.active(id), queryFn: () => skins!.activeSkins(id), enabled },
+      { queryKey: cobbleKeys.account(id), queryFn: () => (ledger ? ledger.account(id) : null), enabled },
+      ...SKIN_CODES.map((code) => ({ queryKey: skinKeys.owned(id, code), queryFn: () => skins!.ownedSkins(id, code), enabled })),
+    ],
+    combine: (results) => {
+      const [active, account, ...owned] = results as unknown as [UseQueryResult<number[]>, UseQueryResult<CobbleAccount | null>, ...UseQueryResult<number>[]];
+      if (playerId !== null && !enabled) return { data: null, isPending: false, error: null };
+      const ready = active.data !== undefined && account.data !== undefined && owned.every((o) => o.data !== undefined);
+      const error = active.error ?? account.error ?? owned.find((o) => o.error)?.error ?? null;
+      return {
+        data:
+          ready && account.data
+            ? { balance: account.data.cobbles, active: active.data!, owned: Object.fromEntries(SKIN_CODES.map((code, i) => [code, owned[i]!.data!])) }
+            : undefined,
         // A failed read ends the wait: pending only while nothing failed.
         isPending: !ready && !error,
         error,
@@ -170,35 +209,32 @@ export function skinChanges(changes: Readonly<Record<number, number>>): SkinChan
 }
 
 /**
- * Where this device keeps the theme chosen at the top of the theme page. Since P11a it is also the viewer's skins switch:
- * "default" shows every board on the base models, whoever's game it is, and downloads no skin model; any other value
- * (today "forest") shows the players' skins. The values stored before P11a stay as they are: "default" and "forest" read as
- * before, nothing is migrated.
+ * Where this device keeps the viewer's switch "Show other players' skins" (Settings). It was the theme chosen on the theme
+ * page before THEMES-RENDERS, which made the theme a choice on chain (`set_skins`); the key and its values are kept so a
+ * stored choice reads as before, nothing is migrated: "default" hides the other players' skins (their boards draw the base
+ * models, and no skin model of theirs is downloaded); "forest", or nothing stored, shows them.
  */
 export const THEME_KEY = "paved.theme.v1";
 
 const isTheme = (value: string): value is "default" | "forest" => value === "default" || value === "forest";
 
 /**
- * The theme store. Nothing stored is "forest", not "default": the skins show until the viewer opts out (the opt-out is
+ * The switch's store. Nothing stored is "forest", not "default": the skins show until the viewer opts out (the opt-out is
  * the stored "default"); a value it does not know is the same as nothing.
  */
 export const deviceTheme = createDeviceStore<"default" | "forest">(THEME_KEY, "forest", (raw) => (isTheme(raw) ? raw : null), (v) => v);
 
-/** The theme chosen on this device, kept when storage allows it and for the visit when not; shared by every page that reads it. */
-export function useDeviceTheme(): [ThemeId, (id: ThemeId) => void] {
-  const [theme, set] = useDeviceStore(deviceTheme);
-  return [theme, (id) => isTheme(id) && set(id)];
-}
-
-/** The viewer's skins switch: whether boards show the players' skins (any theme but "default"). One row on the theme page, one in Settings. */
+/** The viewer's switch: whether boards show the other players' skins (stored "forest") or not ("default"). A row of Settings. */
 export function useShowSkins(): [boolean, (show: boolean) => void] {
   const [theme, set] = useDeviceStore(deviceTheme);
   return [theme !== "default", (show) => set(show ? "forest" : "default")];
 }
 
 // Compile-time check, no runtime code (as `scene-types.ts`'s, kept here with its hook): `useThemeSkins`'s data is the
-// scene's `ThemeSkinsData`, or null without the views (`tsc -b` fails on a drift).
+// scene's `ThemeSkinsData`, `useOwnedSkins`'s the themes scene's `OwnedSkins`, or null without the views (`tsc -b` fails on a drift).
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
-export type SkinSceneTypes = [Expect<Equal<Exclude<ReturnType<typeof useThemeSkins>["data"], undefined>, ThemeSkinsData | null>>];
+export type SkinSceneTypes = [
+  Expect<Equal<Exclude<ReturnType<typeof useThemeSkins>["data"], undefined>, ThemeSkinsData | null>>,
+  Expect<Equal<Exclude<ReturnType<typeof useOwnedSkins>["data"], undefined>, OwnedSkins | null>>,
+];

@@ -185,7 +185,7 @@ describe("rendererManifest", () => {
     copyFileSync(join(MODELS, one), join(dir, one));
     writeFileSync(join(dir, "ccccccccc.glb"), "plain");
     writeFileSync(join(dir, "notes.txt"), "x");
-    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, tiles: {}, themes: {} });
+    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, tiles: {}, themes: {}, renders: {} });
   });
 
   it("fails when a name's hash is not its file's, or a plan has two files", () => {
@@ -213,4 +213,54 @@ describe("the dev middleware's manifest", () => {
       server.close();
     }
   });
+});
+
+describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
+  const RENDERS = join(APP, "public/renderer-assets/renders");
+
+  it("lists a WebP render per plan and a cover, for the base models and each theme, each with its hash in its name", () => {
+    const { renders, themes } = rendererManifest();
+    expect(Object.keys(renders).sort()).toEqual(["0", ...Object.keys(themes)].sort());
+    const listed: string[] = [];
+    for (const [theme, plans] of Object.entries(renders)) {
+      expect(Object.keys(plans).sort()).toEqual([...KEYS, "cover"].sort());
+      for (const [key, path] of Object.entries(plans)) {
+        expect(path).toMatch(new RegExp(`^renders/${key}\\.${theme}\\.[0-9a-f]{10}\\.webp$`));
+        const webp = readFileSync(join(APP, "public/renderer-assets", path));
+        expect(webp.subarray(8, 12).toString("latin1")).toBe("WEBP");
+        expect(createHash("sha256").update(webp).digest("hex").slice(0, 10)).toBe(path.split(".")[2]);
+        listed.push(path.slice("renders/".length));
+      }
+    }
+    expect(readdirSync(RENDERS).sort()).toEqual([...listed, "sources.json"].sort());
+  });
+
+  it("are current: every render there, named by its hash, drawn from the manifest's models", () => {
+    expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("40 renders: current");
+  }, 60_000);
+
+  it("fail the check on a missing render, a wrong hash, a model that changed or another version", () => {
+    const copy = () => {
+      const dir = mkdtempSync(join(tmpdir(), "renders-"));
+      for (const name of readdirSync(RENDERS)) copyFileSync(join(RENDERS, name), join(dir, name));
+      return dir;
+    };
+    const check = (dir: string) => () => execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check", "--out", dir], { stdio: "pipe" });
+    expect(check(copy())).not.toThrow();
+    const missing = copy();
+    rmSync(join(missing, readdirSync(missing).find((n) => n.startsWith("cover.1."))!));
+    expect(check(missing)).toThrow();
+    const edited = copy();
+    writeFileSync(join(edited, readdirSync(edited).find((n) => n.endsWith(".webp"))!), "edited");
+    expect(check(edited)).toThrow();
+    const sources = (dir: string, edit: (s: { version: number; files: Record<string, string[]> }) => void) => {
+      const file = join(dir, "sources.json");
+      const parsed = JSON.parse(readFileSync(file, "utf8")) as { version: number; files: Record<string, string[]> };
+      edit(parsed);
+      writeFileSync(file, JSON.stringify(parsed));
+      return dir;
+    };
+    expect(check(sources(copy(), (s) => (s.files[Object.keys(s.files)[0]!] = ["models/ccccccccc.0000000000.glb"])))).toThrow();
+    expect(check(sources(copy(), (s) => (s.version += 1)))).toThrow();
+  }, 60_000);
 });

@@ -75,7 +75,7 @@ describe("/settings", () => {
     expect(screen.getByRole("button", { name: "Mute music" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("switch", { name: /Tile preview/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Placement highlight/ })).toBeChecked();
-    expect(screen.getByRole("switch", { name: /Show players' skins/ })).toBeChecked();
+    expect(screen.getByRole("switch", { name: /Show other players' skins/ })).toBeChecked();
     expect(screen.queryByText(/High is heavier/)).not.toBeInTheDocument();
   });
 
@@ -116,19 +116,17 @@ describe("/settings", () => {
     vi.restoreAllMocks();
   });
 
-  it("the skins switch writes the theme's key, and the theme page shows the same value", async () => {
+  it("the switch for other players' skins writes its key, and no longer chooses the theme", async () => {
     const { router } = open();
-    await userEvent.click(await screen.findByRole("switch", { name: /Show players' skins/ }));
+    await userEvent.click(await screen.findByRole("switch", { name: /Show other players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("default");
     await act(() => router.navigate("/settings/theme"));
-    expect(await screen.findByRole("radiogroup", { name: "Theme" }, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: /Show players' skins/ })).not.toBeChecked();
-    expect(screen.getByRole("radio", { name: /Default/ })).toBeChecked();
-    await userEvent.click(screen.getByRole("switch", { name: /Show players' skins/ }));
-    expect(localStorage.getItem(THEME_KEY)).toBe("forest");
+    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /skins/ })).not.toBeInTheDocument();
     await act(() => router.navigate("/settings"));
     expect(await screen.findByRole("region", { name: "Account" }, { timeout: 5000 })).toBeInTheDocument();
-    expect(await screen.findByRole("switch", { name: /Show players' skins/ })).toBeChecked();
+    await userEvent.click(await screen.findByRole("switch", { name: /Show other players' skins/ }));
+    expect(localStorage.getItem(THEME_KEY)).toBe("forest");
   });
 
   it("shows the controller username, and Disconnect goes Home keeping ?ref=", async () => {
@@ -161,7 +159,7 @@ describe("/settings", () => {
 
   it("links to Theme and Referral, keeping ?ref=", async () => {
     const { router } = open("/settings?ref=abc");
-    await userEvent.click(await screen.findByRole("button", { name: /Theme/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Themes/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings/theme"));
     expect(router.state.location.search).toBe("?ref=abc");
     await act(() => router.navigate("/settings?ref=abc"));
@@ -181,11 +179,11 @@ describe("the board reads the settings", () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
     await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
-    expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true } });
+    expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true, freezeAt: null } });
     act(() => deviceSettings.set({ ...deviceSettings.get(), quality: "high" }));
-    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: true } }));
+    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: true, freezeAt: null } }));
     act(() => deviceSettings.set({ ...deviceSettings.get(), dayNight: false }));
-    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false } }));
+    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false, freezeAt: null } }));
     // A render that changes nothing the renderer reads keeps the object, so the canvas does not call setSettings for nothing.
     const high = lastBoard()?.settings;
     act(() => deviceSettings.set(withVolume(deviceSettings.get(), "sfx", 0)));
@@ -247,16 +245,15 @@ describe("the viewer's skins opt-out", () => {
     for (const board of drawn.board) expect(board.skins).toBe(NO_SKINS);
   });
 
-  it("opted out, Training and the tutorial draw the base models too, for the connected player", async () => {
+  it("opted out, Training and the tutorial still draw the connected player's own skins (the switch hides the other players')", async () => {
     localStorage.setItem(THEME_KEY, "default");
     for (const path of ["/training", "/tutorial"]) {
       drawn.board.length = 0;
       queryClient.clear();
       const fakes = skinned();
       const { unmount } = render(<App router={createTestRouter(path)} sources={fakes.sources} />);
-      await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
-      expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
-      expect(lastBoard()?.skins).toBe(NO_SKINS);
+      await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(9)]: 1 } satisfies TileSkins), { timeout: 5000 });
+      expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([`active_skins ${BigInt(VIEWER)}`]);
       unmount();
     }
   });

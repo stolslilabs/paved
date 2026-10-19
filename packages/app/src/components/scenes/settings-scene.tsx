@@ -8,11 +8,10 @@ import { ShowSkinsSwitch } from "../elements/setting-switch";
 import { DeviceSettingsPanel, type DevicePreferences, type DeviceSettingsPanelProps, type GraphicsQuality, type VolumeChannel } from "../containers/device-settings-panel";
 import { SettingsGroup, SettingsLink } from "../containers/settings-group";
 import { TabPage } from "../containers/tab-page";
-import { THEMES, type ThemeId } from "../containers/theme-card";
 
 /** The player's preferences, kept on this device (section 6.4: local storage): the device settings of the panel, and the skins switch. */
 export interface Preferences extends DevicePreferences {
-  /** Show the players' skins on the boards (off: the base models, nothing downloaded). Kept with the theme. */
+  /** Show the other players' skins on their boards (off: their base models, nothing of theirs downloaded). The own tiles always wear theirs. */
   showSkins: boolean;
 }
 
@@ -27,7 +26,6 @@ export interface SettingsSceneProps {
   preferences: Preferences;
   /** Null: a guest. */
   account: Account | null;
-  theme: ThemeId;
   /** The tier "auto" resolves to on this device: "Auto (Medium)". */
   autoQuality?: Exclude<GraphicsQuality, "auto">;
   connecting?: boolean;
@@ -45,8 +43,7 @@ export interface SettingsSceneProps {
 
 /** Settings (`/settings`): the device settings (the shared panel), the account, theme, referral and credits. */
 export function SettingsScene(props: SettingsSceneProps) {
-  const { preferences: p, account, theme, onChange } = props;
-  const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
+  const { preferences: p, account, onChange } = props;
   return (
     <TabPage tab="settings" title="Settings" onNavigate={props.onNavigate}>
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
@@ -96,7 +93,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           </SettingsGroup>
 
           <SettingsGroup title="More">
-            <SettingsLink label="Theme" icon="palette" value={themeName} onClick={props.onOpenTheme} />
+            <SettingsLink label="Themes" hint="Your tiles' looks, and their shops" icon="palette" onClick={props.onOpenTheme} />
             <SettingsLink label="Referral" hint="Your link and what it earned" icon="user-group" onClick={props.onOpenReferral} />
             <SettingsLink label="Credits" hint="Licences and third-party notices" icon="circle-info" onClick={props.onOpenCredits} />
           </SettingsGroup>

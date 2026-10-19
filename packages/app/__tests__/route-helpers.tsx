@@ -24,6 +24,8 @@ const PAGES = {
   settings: () => import("../src/routes/pages/settings"),
   achievements: () => import("../src/routes/pages/achievements"),
   theme: () => import("../src/routes/pages/theme"),
+  "theme-shop": () => import("../src/routes/pages/theme-shop"),
+  "my-tiles": () => import("../src/routes/pages/my-tiles"),
   credits: () => import("../src/routes/pages/credits"),
   welcome: () => import("../src/routes/pages/welcome"),
 };

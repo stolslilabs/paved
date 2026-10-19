@@ -21,6 +21,13 @@ const MODELS = resolve(dirname(fileURLToPath(import.meta.url)), "../public/rende
 const TILES = resolve(dirname(fileURLToPath(import.meta.url)), "../public/renderer-assets/tiles");
 /** A resized tile image's name: its plan key, its size in pixels, then the first 10 hex digits of the file's SHA-256. */
 const TILE = /^([a-z]{9})\.(\d+)\.([0-9a-f]{10})\.png$/;
+/**
+ * The build-time renders of the tiles (`scripts/render-tiles.ts`), at `<base>renderer-assets/renders/<plan>.<theme>.<hash>.webp`
+ * and `renders/cover.<theme>.<hash>.webp`.
+ */
+const RENDERS = resolve(dirname(fileURLToPath(import.meta.url)), "../public/renderer-assets/renders");
+/** A render's name: a plan key or `cover`, the theme id on chain (0 the base models), then the hash. */
+const RENDER = /^([a-z]{9}|cover)\.(\d+)\.([0-9a-f]{10})\.webp$/;
 /** A compressed model's name: its plan key, then the first 10 hex digits of the file's SHA-256. */
 const HASHED = /^([a-z]{9})\.([0-9a-f]{10})\.glb$/;
 /** A theme's compressed variant: the plan key, the set and the variant number, then the hash (`forest/rfrfffffr_HF_3.<hash>.glb`). */
@@ -64,12 +71,14 @@ export interface RendererManifest {
   models: Record<string, string>;
   tiles: Record<string, Record<string, string>>;
   themes: Record<string, Record<string, string[]>>;
+  /** The tiles' renders by theme id, then plan key or `cover` (`{ "1": { "cover": "renders/cover.1.<hash>.webp" } }`). */
+  renders: Record<string, Record<string, string>>;
 }
 
 /** The hash of `dir/name` against the one in its name: a mismatch fails the build. */
 function checkHash(dir: string, name: string, hash: string): void {
   const actual = createHash("sha256").update(readFileSync(join(dir, name))).digest("hex").slice(0, 10);
-  if (actual !== hash) throw new Error(`renderer-assets: ${name} hashes to ${actual}: run node scripts/compress-models.ts (or compress-tiles.ts)`);
+  if (actual !== hash) throw new Error(`renderer-assets: ${name} hashes to ${actual}: run node scripts/compress-models.ts (or compress-tiles.ts, render-tiles.ts)`);
 }
 
 /**
@@ -77,10 +86,11 @@ function checkHash(dir: string, name: string, hash: string): void {
  * model, from the names in `dir`; and `themes`, each theme's variants (`THEME_FOLDERS`) by its id on chain and plan key, in
  * variant order (`{ "1": { "rfrfffffr": ["models/forest/rfrfffffr_HF_1.<hash>.glb", ...] } }`), the input of the board's
  * skins (a later task: the renderer reads `models` only today); and `tiles`, the resized tile images in `tilesDir` by size
- * and plan key (the renderer draws the smallest that serves: `AssetLoader`). Fails when a name's hash is not its file's, or
- * a plan has two base files or two images of one size.
+ * and plan key (the renderer draws the smallest that serves: `AssetLoader`); and `renders`, the tiles' build-time renders in
+ * `rendersDir` by theme id and plan key or `cover` (the theme pages' images, `data/tile-renders.ts`). Fails when a name's
+ * hash is not its file's, or a plan has two base files, two images of one size or two renders in one theme.
  */
-export function rendererManifest(dir = MODELS, tilesDir: string | null = dir === MODELS ? TILES : null): RendererManifest {
+export function rendererManifest(dir = MODELS, tilesDir: string | null = dir === MODELS ? TILES : null, rendersDir: string | null = dir === MODELS ? RENDERS : null): RendererManifest {
   const models: Record<string, string> = {};
   for (const name of readdirSync(dir).sort()) {
     const match = HASHED.exec(name);
@@ -122,7 +132,17 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
     if (sized[key]) throw new Error(`renderer-assets: two ${size} px images for ${key} (${sized[key]}, tiles/${name})`);
     sized[key] = `tiles/${name}`;
   }
-  return { models, tiles, themes };
+  const renders: RendererManifest["renders"] = {};
+  for (const name of rendersDir && existsSync(rendersDir) ? readdirSync(rendersDir).sort() : []) {
+    const match = RENDER.exec(name);
+    if (!match) continue;
+    const [, key, theme, hash] = match as unknown as [string, string, string, string];
+    checkHash(rendersDir!, name, hash);
+    const themed = (renders[theme] ??= {});
+    if (themed[key]) throw new Error(`renderer-assets: two renders of ${key} in theme ${theme} (${themed[key]}, renders/${name})`);
+    themed[key] = `renders/${name}`;
+  }
+  return { models, tiles, themes, renders };
 }
 
 /**

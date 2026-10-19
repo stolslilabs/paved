@@ -1,13 +1,17 @@
-import { useEffect } from "react";
-import { useParams } from "react-router";
+import { useCallback, useEffect, useMemo } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import type { GameView } from "@paved/chain";
-import { OverScene, type OverSceneProps } from "../../components/scenes/over-scene";
+import { OverScene, type OverSceneProps, type OverView } from "../../components/scenes/over-scene";
+import { useBoardSkins } from "../../data/board-skins";
+import { RENDERER_ASSETS } from "../../data/renderer-manifest";
+import { useBoardSettings } from "../../data/settings";
+import { useTrainingPreviousBest } from "../../data/training-best";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
-import { rewardOf, settleProps, useOverRead, useSettle, type OverReward } from "../../data/over";
-import { useDataSources } from "../../data/sources";
+import { rewardOf, settleProps, useOverRead, useOverStanding, useSettle, type OverReward } from "../../data/over";
+import { trainingStore, useDataSources } from "../../data/sources";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
@@ -21,6 +25,33 @@ import { useAppNavigate, useBack } from "../ref";
 export default function Page() {
   const page = useRoutePage();
   return page?.path === "training/over" ? <TrainingOver /> : page?.path === "game/:gameId/over" ? <ChallengeRoute /> : <Placeholder />;
+}
+
+/** The history entry the Board switch pushed: the scores are one Back away. */
+const BOARD_ENTRY = "paved-over-board";
+
+/**
+ * Board or scores (#539), in the URL (`?view=board`): the switch to the board pushes an entry, so the system Back (a phone's
+ * back gesture) returns to the scores, as the board's own Back does; a link that opened on the board replaces it instead.
+ */
+function useOverView(): [OverView, (view: OverView) => void] {
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const view: OverView = params.get("view") === "board" ? "board" : "scores";
+  const pushed = (location.state as { [BOARD_ENTRY]?: boolean } | null)?.[BOARD_ENTRY] === true;
+  const change = useCallback(
+    (next: OverView) => {
+      if (next === view) return;
+      if (next === "scores" && pushed) return void navigate(-1);
+      const query = new URLSearchParams(params);
+      if (next === "board") query.set("view", "board");
+      else query.delete("view");
+      setParams(query, next === "board" ? { state: { [BOARD_ENTRY]: true } } : { replace: true });
+    },
+    [view, pushed, params, setParams, navigate],
+  );
+  return [view, change];
 }
 
 /** `/game/:gameId/over`: a game id is digits; anything else is not a game. */
@@ -64,6 +95,17 @@ function ChallengeOver({ gameId }: { gameId: number }) {
   const viewer = signer?.address ?? null;
   const control = useSettle(gameId, viewer);
   const playing = read.status === "playing";
+  const [view, setView] = useOverView();
+  const ready = read.status === "ready" ? read : null;
+  const standing = useOverStanding(ready?.game, ready?.indexed);
+  // The game's player's skins, as its board drew them.
+  const skins = useBoardSkins(ready?.game.playerId ?? null);
+  const boardSettings = useBoardSettings();
+  const replay = ready?.closings.data;
+  const board = useMemo(
+    () => (replay ? { tiles: replay.tiles, gameId, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer } : undefined),
+    [replay, gameId, skins, boardSettings.renderer],
+  );
 
   useEffect(() => {
     if (playing) go(`/game/${gameId}`, { replace: true });
@@ -82,7 +124,13 @@ function ChallengeOver({ gameId }: { gameId: number }) {
     <OverScene
       mode="challenge"
       game={game}
-      closings={closings.data ?? []}
+      closings={closings.data?.closings ?? []}
+      stats={closings.data?.stats}
+      board={board}
+      view={view}
+      onViewChange={setView}
+      previousBest={standing.previousBest}
+      rank={standing.rank}
       closingsNote={closings.isPending ? "Reading the game's closings…" : closings.error ? "The closings of this game could not be read." : undefined}
       reward={{ ...rewardProps(reward), stake: terms && terms.stake > 0 ? terms.stake : undefined }}
       freeGame={free}
@@ -137,10 +185,18 @@ function NotFound() {
  * a new seed.
  */
 function TrainingOver() {
-  const { snapshot, newGame } = useTrainingSession();
+  const { game: training, snapshot, newGame } = useTrainingSession();
+  const sources = useDataSources();
   const go = useAppNavigate();
   const game = snapshot.state.game;
   const over = game?.over ?? false;
+  const [view, setView] = useOverView();
+  const skins = useBoardSkins(sources.signer?.address ?? null);
+  const boardSettings = useBoardSettings();
+  const stats = useMemo(() => training.stats(), [training, snapshot]);
+  const tiles = snapshot.state.tiles;
+  const board = useMemo(() => ({ tiles, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer }), [tiles, skins, boardSettings.renderer]);
+  const previousBest = useTrainingPreviousBest(trainingStore(sources), `0x${training.seed.toString(16)}`, over ? (game?.score ?? 0) : null);
 
   useEffect(() => {
     if (!over) go("/training", { replace: true });
@@ -148,7 +204,7 @@ function TrainingOver() {
   if (!game || !over) return null;
 
   // Training has no chain game: the view carries the session's counters, and zeros where the chain would have a value.
-  const view: GameView = {
+  const gameView: GameView = {
     id: 0,
     playerId: game.playerId,
     mode: 0,
@@ -170,8 +226,13 @@ function TrainingOver() {
   return (
     <OverScene
       mode="training"
-      game={view}
+      game={gameView}
       closings={snapshot.closings}
+      stats={stats}
+      board={board}
+      view={view}
+      onViewChange={setView}
+      previousBest={previousBest}
       reward={{ state: "free" }}
       onPlayAgain={() => {
         newGame();
