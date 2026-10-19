@@ -3,7 +3,8 @@
 // draw every kept position tries every legal cell and rotation of the tile in hand, and a discard;
 // the children are ranked by their score plus an estimate of their open structures, and the best
 // `width` are kept. The last draw ranks by the real score, and the last `tail` draws can be solved
-// exactly from the best positions. Deterministic: the same options give the same line. Offline tool:
+// exactly from the best positions. A seed line (the designer's) is kept in the beam at every draw, so
+// the search never ends below it. Deterministic: the same options give the same line. Offline tool:
 // it stays out of the package index (the client never runs it).
 
 import { CategoryType } from "../types/category";
@@ -35,6 +36,11 @@ export interface BeamOptions {
   readonly tailStates?: number;
   /** Tiles on the board before the first draw (a level's `placed`). */
   readonly placed?: EngineConfig["placed"];
+  /**
+   * A line the search starts from (the designer's, `designer.ts`): its position at each draw is kept in the beam whatever
+   * its estimate, so the search ends at least at the line's score.
+   */
+  readonly seed?: readonly SolverMove[];
 }
 
 export interface BeamResult {
@@ -105,6 +111,9 @@ export function beamFrom(start: EngineGame, options: BeamOptions): BeamResult {
   const perParent = options.perParent ?? Number.POSITIVE_INFINITY;
   let nodes = 0;
   let beam: Node[] = [{ game: start.clone(), move: null, parent: null, value: estimate(start, weights), key: [0, 0] }];
+  // The seed line's position at the current draw, kept in the beam (its node there, or its own)
+  let seeded: Node | null = options.seed?.length ? beam[0] : null;
+  let depth = 0;
 
   while (beam.length > 0 && !beam[0].game.over && beam[0].game.hand) {
     const left = beam[0].game.tileLimit - beam[0].game.tileCount + 1;
@@ -147,10 +156,26 @@ export function beamFrom(start: EngineGame, options: BeamOptions): BeamResult {
       beam.push(child);
       if (beam.length >= options.width) break;
     }
+    // The seed's next position: the beam's node of the same board, or its own in place of the last one kept
+    const move = options.seed?.[depth];
+    if (seeded && move) {
+      const game = seeded.game.clone();
+      if (move.action === "build") game.build(move.placement);
+      else game.discard();
+      nodes += 1;
+      const key = move.action === "build" ? withTile(seeded.key, move.plan, move.placement) : seeded.key;
+      const same = beam.find((node) => node.key[0] === key[0] && node.key[1] === key[1] && node.game.score >= game.score);
+      seeded = same ?? { game, move, parent: seeded, value: estimate(game, weights), key };
+      if (!same) beam.splice(Math.min(beam.length, options.width - 1), 1, seeded);
+    } else {
+      seeded = null;
+    }
+    depth += 1;
   }
 
   let best: { score: number; moves: SolverMove[] } = { score: -1, moves: [] };
   const ends = tail > 0 ? beam.slice(0, options.tailStates ?? 8) : beam;
+  if (seeded && !ends.includes(seeded)) ends.push(seeded);
   for (const node of ends) {
     if (node.game.over || !node.game.hand) {
       if (node.game.score > best.score) best = { score: node.game.score, moves: line(node) };

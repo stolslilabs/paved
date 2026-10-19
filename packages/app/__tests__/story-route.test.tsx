@@ -127,4 +127,21 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     expect(within(second).getByRole("button", { name: /^Level 1, / })).toBeEnabled();
     expect(within(second).getByRole("button", { name: /^Level 2, .*, locked$/ })).toBeDisabled();
   });
+
+  it("the deck sheet of a level with tiles already placed counts them: nothing drawn reads as played (Tutorial 10)", async () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels.slice(0, 9)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, 0);
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
+    render(<App router={createTestRouter("/story/1/10")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    await userEvent.click(within(await screen.findByTestId("story-intro", {}, { timeout: 5000 })).getByRole("button", { name: /Start/ }));
+    const level = TUTORIAL.levels[9]!;
+    expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(level.deck.length));
+    await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
+    // The starter and the 5 tiles placed at the start are played; the 3 of the deck are all still to come.
+    expect(await screen.findByTestId("deck-summary", {}, { timeout: 5000 })).toHaveTextContent(`${1 + level.placed!.length} played, 0 discarded (dashed), ${level.deck.length} not yet.`);
+    const road = screen.getByTestId("deck-plans").querySelector('[data-plan="RFRFFFFFR"]')!;
+    // One RFRFFFFFR is on the board from the start, the other is the level's second draw: one crossed out, one not.
+    expect(road.querySelectorAll('[data-out="true"]')).toHaveLength(1);
+    expect(road.querySelectorAll('[data-out="false"]')).toHaveLength(1);
+  });
 });

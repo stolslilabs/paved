@@ -50,6 +50,15 @@ export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: s
   "2-1": { target: "deck", tip: "Longer levels: the deck sheet lists the whole deck of this level. Plan with it." },
 };
 
+/**
+ * Every tile of a level, as the deck sheet counts it against the board: the starter, the tiles already placed when the level
+ * starts (Tutorial 10's monastery and its neighbours), then the deck. The sheet crosses out as many of a plan as the board
+ * holds, so the pre-placed tiles must be in it, or a drawn tile of the same plan reads as played before it is drawn.
+ */
+export function levelDeck(level: Pick<StoryLevel, "deck" | "placed">): PlanType[] {
+  return [PlanType.RFFFRFCFR, ...(level.placed ?? []).map((tile) => tile.plan), ...level.deck];
+}
+
 /** `/story/:campaign/:level`: a level of Story mode, if it exists and is open. */
 export default function Page() {
   const params = useParams();
@@ -191,7 +200,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     <BoardScene
       mode="story"
       title={`${campaign.name} ${level.id}: ${level.title}`}
-      deck={[PlanType.RFFFRFCFR, ...level.deck]}
+      deck={levelDeck(level)}
       coach={phase === "play" && !over && coachOn ? (coach?.target ?? null) : null}
       tiles={state.tiles}
       score={state.game?.score ?? 0}

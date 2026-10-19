@@ -1,7 +1,8 @@
 // Sets the Story targets (`src/story/plan.ts`): the exact optimum for an `exact` level (`engine/solver.ts`), the best
-// known score for a `best-known` level (`engine/beam.ts`, a portfolio of beam settings tried in a fixed order until the
-// time cap). A stored line is replayed first and kept unless a search beats it, so a target only ever rises. Prints a
-// Markdown table of the cost per level; `--write` stores the higher targets and their lines in the plan.
+// known score for a `best-known` level: the designer's line (`engine/designer.ts`), then a portfolio of beam settings
+// (`engine/beam.ts`), each seeded with the designer's line, tried in a fixed order until the time cap. A stored line is
+// replayed first and kept unless something beats it, so a target only ever rises. Prints a Markdown table of the cost per
+// level; `--write` stores the designer's lines, the higher targets and their lines in the plan.
 //
 //   nice -n 10 bun scripts/story-search.ts [--campaign 2] [--level 11] [--cap 120] [--write]
 //
@@ -11,6 +12,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beam, type BeamOptions } from "../src/engine/beam";
+import { designer } from "../src/engine/designer";
 import { solve } from "../src/engine/solver";
 import { encodeLine, replayLine } from "../src/story/line";
 import { CAMPAIGNS, twoStars, type StoryCampaign, type StoryLevel } from "../src/story/plan";
@@ -47,6 +49,8 @@ interface Found {
   method: string;
   nodes: number;
   ms: number;
+  /** The designer's line and its score (best-known levels). */
+  designer?: { line: string; score: number };
 }
 
 function search(level: StoryLevel): Found {
@@ -64,6 +68,9 @@ function search(level: StoryLevel): Found {
   let best = { score: -1, line: "", method: "stored line" };
   if (level.line) best.score = replayLine(level.deck, level.line, level.placed).score;
   if (level.line) best.line = level.line;
+  const drawn = designer(level.deck, level.placed);
+  const designed = { line: encodeLine(drawn.moves), score: drawn.score };
+  if (designed.score > best.score) best = { score: designed.score, line: designed.line, method: "designer line" };
   let nodes = 0;
   let last = 0;
   let tried = 0;
@@ -72,13 +79,13 @@ function search(level: StoryLevel): Found {
     // A setting costs about twice the last one (the width doubles every 24 settings): stop before the cap
     if (elapsed + last > capMs) break;
     const t = performance.now();
-    const result = beam(level.deck, { ...options, placed: level.placed });
+    const result = beam(level.deck, { ...options, placed: level.placed, seed: drawn.moves });
     last = performance.now() - t;
     nodes += result.nodes;
     tried += 1;
     if (result.score > best.score) best = { score: result.score, line: encodeLine(result.moves), method: options.label };
   }
-  return { ...best, method: `${best.method} (${tried} settings)`, nodes, ms: Math.round(performance.now() - started) };
+  return { ...best, method: `${best.method} (${tried} settings)`, nodes, ms: Math.round(performance.now() - started), designer: designed };
 }
 
 /** `source` with the target, method and line of `level` of `campaign` replaced. */
@@ -90,21 +97,26 @@ function store(source: string, campaign: StoryCampaign, level: StoryLevel, found
   const block = source
     .slice(from, to)
     .replace(/target: \d+,/, `target: ${found.score},`)
-    .replace(/line: "[^"]*",/, `line: ${JSON.stringify(found.line)},`);
+    .replace(/line: "[^"]*",/, `line: ${JSON.stringify(found.line)},`)
+    .replace(/designer: "[^"]*",/, `designer: ${JSON.stringify(found.designer?.line ?? "")},`);
   return source.slice(0, from) + block + source.slice(to);
 }
 
 let source = readFileSync(PLAN, "utf8");
-console.log("| Campaign | Level | Tiles | Target | 2 stars | Method | Nodes | Time |");
-console.log("|---|---|---|---|---|---|---|---|");
+console.log("| Campaign | Level | Tiles | Target | 2 stars | Method | Nodes | Time | Designer |");
+console.log("|---|---|---|---|---|---|---|---|---|");
 for (const campaign of CAMPAIGNS) {
   if (onlyCampaign !== null && campaign.id !== onlyCampaign) continue;
   for (const level of campaign.levels) {
     if (onlyLevel !== null && level.id !== onlyLevel) continue;
     const found = search(level);
-    const raised = found.score > level.target || (level.method === "exact" && found.score !== level.target) || !level.line;
+    const raised =
+      found.score > level.target ||
+      (level.method === "exact" && found.score !== level.target) ||
+      !level.line ||
+      (found.designer !== undefined && found.designer.line !== level.designer);
     console.log(
-      `| ${campaign.name} | ${level.id} | ${level.deck.length + 1} | ${found.score}${raised ? " (new)" : ""} | ${twoStars(found.score)} | ${found.method} | ${found.nodes} | ${(found.ms / 1000).toFixed(1)} s |`,
+      `| ${campaign.name} | ${level.id} | ${level.deck.length + 1} | ${found.score}${found.score !== level.target ? " (new)" : ""} | ${twoStars(found.score)} | ${found.method} | ${found.nodes} | ${(found.ms / 1000).toFixed(1)} s | ${found.designer?.score ?? ""} |`,
     );
     if (raised) source = store(source, campaign, level, found);
   }

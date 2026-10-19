@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { EngineGame } from "../src/engine";
 import { solve } from "../src/engine/solver";
 import { beam } from "../src/engine/beam";
+import { designer } from "../src/engine/designer";
 import { seededDeck } from "../src/story/deck";
 import { decodeLine, encodeLine, replayLine } from "../src/story/line";
 import { CAMPAIGNS, OPEN_COUNTRY, TUTORIAL, twoStars } from "../src/story/plan";
@@ -108,6 +109,24 @@ describe("story plan", () => {
     }
   }, 60_000);
 
+  it("keeps a seed line in the beam: even the narrowest search ends at least at the seed's score", () => {
+    const level = TUTORIAL.levels[6]!;
+    const optimum = solve(level.deck, { placed: level.placed });
+    expect(beam(level.deck, { width: 1, placed: level.placed }).score).toBeLessThan(optimum.optimum);
+    const seeded = beam(level.deck, { width: 1, placed: level.placed, seed: optimum.moves });
+    expect(seeded.score).toBe(optimum.optimum);
+    expect(replayLine(level.deck, encodeLine(seeded.moves), level.placed).score).toBe(optimum.optimum);
+  });
+
+  it("plays the designer's rules: score what can be scored, else keep the board tidy, discard only what fits nowhere", () => {
+    // Tutorial 1: the designer closes the road of 3 (two crossroads around the starter's road)
+    const level = TUTORIAL.levels[0]!;
+    expect(designer(level.deck).score).toBe(level.target);
+    // Tutorial 3: the full city fits north of the starter, so the designer keeps it (never discards a tile that fits)
+    const three = designer(TUTORIAL.levels[2]!.deck);
+    expect(three.moves.every((move) => move.action === "build")).toBe(true);
+  });
+
   const doc = readFileSync(DOC, "utf8");
   for (const campaign of CAMPAIGNS) {
     for (const level of campaign.levels) {
@@ -120,6 +139,19 @@ describe("story plan", () => {
           console.info(`story ${campaign.id}-${level.id}: optimum ${solution.optimum}, ${solution.nodes} nodes, ${elapsed} ms`);
           expect(solution.optimum).toBe(level.target);
         }, 120_000);
+      }
+
+      if (level.method === "best-known") {
+        it(`${name}: the designer's line is the rules' line, and the target is not below it`, () => {
+          expect(level.designer, "a designer's line").toBeTruthy();
+          const played = designer(level.deck, level.placed);
+          expect(level.designer).toBe(encodeLine(played.moves));
+          const game = replayLine(level.deck, level.designer as string, level.placed);
+          expect(game.over).toBe(true);
+          expect(game.score).toBe(played.score);
+          expect(level.target).toBeGreaterThanOrEqual(played.score);
+          expect(doc).toContain(`designer ${played.score}`);
+        });
       }
 
       it(`${name}: the stored line replays to the target`, () => {

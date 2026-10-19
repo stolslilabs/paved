@@ -231,6 +231,6 @@ export const StoryEndOnBoard: Story = {
     remaining: 0,
     readOnly: true,
     // The campaign's last level: no Next.
-    notices: <StoryEnd title="A full road" score={9120} stars={2} target={14106} twoStars={9875} bestKnown previousBest={8400} onReplay={fn()} onLevels={fn()} />,
+    notices: <StoryEnd title="A full road" score={9120} stars={2} target={14374} twoStars={10062} bestKnown previousBest={8400} onReplay={fn()} onLevels={fn()} />,
   },
 };

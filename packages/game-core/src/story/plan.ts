@@ -3,8 +3,9 @@
 // withdrawal, no reseed), so its best score is one number. `docs/client/story-mode.md` describes the plan for the owner;
 // a test keeps both in step and replays every stored line to its target.
 //
-// The targets: `exact` is the optimum of `engine/solver.ts` (exhaustive), `best-known` the best score found by
-// `engine/beam.ts` (`scripts/story-search.ts`), a lower bound of the optimum raised whenever a higher score is found.
+// The targets: `exact` is the optimum of `engine/solver.ts` (exhaustive), `best-known` the higher of the designer's line
+// (`engine/designer.ts`) and the best score `engine/beam.ts` finds from it (`scripts/story-search.ts`): a lower bound of
+// the optimum, raised whenever a higher score is found.
 
 import type { Placement } from "../engine/game";
 import { OrientationType as O } from "../types/orientation";
@@ -32,6 +33,11 @@ export interface StoryLevel {
   readonly method: TargetMethod;
   /** One line that reaches `target` (`story/line.ts`). */
   readonly line: string;
+  /**
+   * The designer's line (`engine/designer.ts`: the team's way of playing a deck by hand, as written rules), for a
+   * `best-known` level: the human reference beside the search. The target is never below it, and the search starts from it.
+   */
+  readonly designer?: string;
 }
 
 export interface StoryCampaign {
@@ -190,6 +196,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 2805,
     method: "best-known",
     line: "N0,1 E0,2 S0,3 S1,1 W1,2 E1,3 W2,2 S2,3 E3,2",
+    designer: "N0,1 N1,1 S1,2 S0,2 W-1,0 S-1,-1 E2,2 N-1,-2 S-1,-3",
   },
   {
     id: 2,
@@ -202,6 +209,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 3126,
     method: "best-known",
     line: "N0,-1 N0,1 E-1,1 W-2,1 N-2,2 S0,-2 E-1,2 S0,2 N1,2 E-1,0 N1,0 W1,1",
+    designer: "N1,0 N0,1 S1,1 E-1,0 N2,0 S0,-1 N1,2 S2,1 E-1,1 W0,2 S-1,2 N2,2",
   },
   {
     id: 3,
@@ -214,6 +222,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 3739,
     method: "best-known",
     line: "N0,-1 N-1,0 N0,-2 N-1,-1 N1,0 E-1,-2 W-2,-2 E-2,-1 S1,-2 W-3,-1 N1,-1 E0,1 N-2,0 E2,0 N0,-3",
+    designer: "N0,-1 N1,0 N-1,0 N1,-1 N2,0 N0,1 W1,1 E-1,-1 E2,1 N1,2 N2,-1 S0,-2 E0,2 E3,0 N-1,1",
   },
   {
     id: 4,
@@ -226,6 +235,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 4567,
     method: "best-known",
     line: "E0,1 S0,2 E1,1 E1,2 E2,1 W1,0 N1,-1 N1,3 N0,-1 E-1,-1 N0,-2 S-1,0 W-2,-1 S0,-3 W-1,2 N0,3 S2,2 N3,1",
+    designer: "E0,1 S0,2 N1,0 E1,2 E1,1 N-1,0 W-1,1 E2,0 N2,1 S1,3 N1,4 N3,1 N1,5 E0,3 S3,0 S0,-1 N2,3 E2,4",
   },
   {
     id: 5,
@@ -238,6 +248,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 7118,
     method: "best-known",
     line: "N1,0 N1,1 S-1,0 E-1,-1 E2,0 E0,1 N0,2 E2,1 E2,2 S2,-1 W1,2 E3,0 W2,-2 E3,-2 N1,-1 S0,-1 E-1,1 E-2,1 N1,-2 N-1,-2 E0,-2",
+    designer: "N1,0 N0,-1 E-1,0 S-1,1 W-1,-1 N1,1 N2,0 N0,-2 N0,1 E2,1 S2,-1 S0,2 N0,3 E-1,2 N1,2 S2,2 N1,-2 W-1,-2 N1,3 N-2,1 E-1,3",
   },
   {
     id: 6,
@@ -250,6 +261,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 6967,
     method: "best-known",
     line: "W0,1 N1,1 N0,2 N1,2 N2,1 E2,2 N-1,1 W2,0 S-1,0 N1,0 E3,0 N3,-1 N3,2 W-2,0 N3,1 W2,-1 E4,-1 S3,-2 E2,-2 S1,-2 W0,-2 S1,-1 E0,-1 S-1,-1",
+    designer: "E0,1 N-1,1 N-1,0 E-2,0 N-1,2 W-2,1 N1,0 E-3,1 S1,1 N2,1 E0,2 N0,3 N3,1 S-1,-1 E-2,2 E-2,-1 W-3,-1 W-1,3 E2,0 N-2,3 E1,2 E-2,-2 E-3,-2 N-3,2",
   },
   {
     id: 7,
@@ -262,6 +274,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 7268,
     method: "best-known",
     line: "E0,-1 N0,1 N1,1 E0,2 E1,2 N-1,-1 E-1,-2 S-1,-3 W-1,2 W2,1 W-2,-2 E1,3 N-1,3 W1,4 W-2,2 N2,0 S1,0 E-1,0 S-1,1 N0,4 N0,3 E-3,-2 E3,1 N-3,2 W-1,4 N1,-1 W-4,-2",
+    designer: "N0,1 N1,0 S1,-1 N-1,1 N0,-1 N0,-2 N-1,2 S-1,0 E-2,0 E-1,-1 W-2,-1 N1,1 N0,-3 N2,0 N-3,0 W2,1 E1,-2 W2,-1 E1,-3 E2,-2 N-2,1 N0,-4 E1,-4 N-2,-2 N0,2 E1,-5 N2,-3",
   },
   {
     id: 8,
@@ -271,9 +284,10 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Cities, and more cities. Each tile adds 2.35 % to a structure's value: a city of eight is worth far more than two cities of four.",
     seed: 8,
     deck: [P.RFRFFFCFR, P.SFRFRFCFR, P.RFFFRFFFR, P.CFFFCFFFC, P.FFCFFFCFF, P.FFFFFFCFF, P.RFRFFFFFR, P.RFFFRFCFR, P.RFRFFFCFR, P.RFFFRFFFR, P.RFRFCCCFR, P.CFFFCFFFC, P.RFRFRFCFF, P.RFRFCCCFR, P.RFFFRFFFR, P.CCCCCFFFC, P.SFRFRFFFR, P.FFCFFFFFC, P.RFRFFFFFR, P.RFRFCCCFR, P.RFRFFFFFR, P.RFRFFFFFR, P.FFFFFFCFF, P.RFRFFFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFFFR, P.CCCCCFFFC, P.FFFFCCCFF, P.RFRFFFFFR],
-    target: 7594,
+    target: 7865,
     method: "best-known",
-    line: "N0,1 S1,0 N0,-1 E1,1 N2,1 N2,2 W0,-2 S2,0 N1,2 N2,-1 W3,0 E3,1 N3,2 S4,0 N2,-2 S2,-3 N1,-1 S4,1 N3,-1 S5,1 S-1,0 E-1,-1 N5,2 N-2,0 W-2,-1 N3,-3 N2,3 N5,3 S2,-4 S0,2",
+    line: "N0,1 N1,0 E1,1 E1,-1 N2,-1 S1,-2 W1,2 N2,0 S2,-2 N-1,0 S0,2 E3,-1 W-1,2 N0,3 N-1,1 S1,-3 E-2,1 N1,3 E-2,0 N1,4 S-2,2 S-1,3 E2,4 E2,1 S0,4 N1,5 E4,-1 W0,-2 E0,-1 S2,2",
+    designer: "N0,1 N1,0 E1,1 N0,-1 E0,-2 E1,-2 E-1,0 W-1,-2 S-1,1 E0,2 S0,3 N0,-3 W-1,-3 N1,3 E1,4 N1,-1 E1,5 W1,-3 N2,0 E-2,-3 W-2,-2 S2,1 N-1,2 E-3,-2 S-3,-1 E3,1 N-2,-1 S0,-4 S-2,0 S1,6",
   },
   {
     id: 9,
@@ -286,6 +300,7 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
     target: 10557,
     method: "best-known",
     line: "N0,1 E1,1 E2,1 N1,2 N3,1 S0,-1 N3,0 E4,1 E3,-1 N2,0 E3,-2 S3,-3 W4,-3 E4,-4 E3,-4 E3,-5 W2,-1 W1,0 E3,-6 E3,-7 N4,-7 N5,-7 E5,-3 E5,-6 N4,-2 E5,-2 E4,-5 S5,-4 W5,-5 N4,-6 N2,-3 N1,3 W4,-1",
+    designer: "N1,0 N0,1 N0,2 S0,-1 E-1,0 N1,-1 E2,0 E3,0 N2,-1 N1,-2 N2,1 E3,-1 S0,3 N4,0 E-1,1 N4,-1 S-1,2 N1,3 E1,4 S1,5 N2,5 N5,-1 S0,-2 S5,0 N2,-2 N1,2 W4,1 N6,-1 E3,-2 N4,-2 E3,-3 S3,1 S2,-3",
   },
   {
     id: 10,
@@ -295,9 +310,10 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "Thirty-six tiles and four monasteries. Build the board as a whole: where will the last ten tiles go?",
     seed: 10,
     deck: [P.FFFFCCCFF, P.FFFFFFCFF, P.RFRFFFFFR, P.CCCCCFRFC, P.RFFFRFFFR, P.FFFFCCCFF, P.WFFFFFFFF, P.WFFFFFFFF, P.RFRFFFFFR, P.RFRFCCCFR, P.FFFFCCCFF, P.RFRFFFCFR, P.RFFFRFCFR, P.FFCFFFCFF, P.WFFFFFFFR, P.RFFFRFCFR, P.CFFFCFFFC, P.RFRFFFFFR, P.RFFFRFFFR, P.FFCFFFCFF, P.WFFFFFFFF, P.CFFFCFFFC, P.RFFFRFFFR, P.RFRFFFFFR, P.CCCCCFRFC, P.RFRFFFFFR, P.CCCCCCCCC, P.CCCCCFFFC, P.RFRFCCCFR, P.FFFFFFCFF, P.RFRFFFCFR, P.FFFFFFCFF, P.RFRFCCCFR, P.RFRFFFCFR, P.RFRFFFFFR],
-    target: 9573,
+    target: 9589,
     method: "best-known",
-    line: "N0,1 E1,1 S0,-1 W-1,0 E2,1 S0,2 N1,2 N1,3 S2,3 W-1,2 E0,3 E1,4 W2,2 E0,4 N2,4 E3,2 N-1,4 S1,5 N2,5 E-2,4 N3,4 N-1,5 N3,5 W3,3 E4,5 E4,3 N-2,0 S-1,3 W-3,4 W-2,3 S4,4 N-3,5 N4,6 N5,3 W5,4",
+    line: "N0,1 E1,1 W1,0 W-1,0 E1,-1 E0,-1 N2,0 N2,-1 E3,0 E1,-2 N3,-1 S3,-2 W3,1 E4,-1 E2,1 E4,1 N5,-1 W2,-2 E2,2 E6,-1 N1,2 N5,0 E2,3 S3,2 S2,-3 N1,3 N2,-4 S5,-2 E0,3 S0,2 W-1,3 E7,-1 W0,-2 W1,4 S0,4",
+    designer: "N0,1 E1,1 W1,0 W-1,0 E1,-1 E0,-1 N2,0 N2,1 N1,-2 S0,-2 N2,-1 N0,-3 S0,-4 N-1,1 S-1,-3 N-1,2 N-1,-2 S-1,-4 N0,2 N3,0 N1,-3 E3,1 N1,2 N2,2 N3,-1 W1,-4 N-2,-2 E3,2 E-2,2 S2,-2 E4,-1 S-2,-3 S2,3 N3,3 W-2,-4",
   },
   {
     id: 11,
@@ -307,9 +323,10 @@ const OPEN_COUNTRY_LEVELS: readonly StoryLevel[] = [
       "This is a full game: 38 tiles, like a Challenge, but you know the deck. Use the deck sheet, and go for the best score there is.",
     seed: 11,
     deck: [P.FFFFCCCFF, P.FFCFFFCFF, P.CCCCCFRFC, P.SFRFRFFFR, P.CCCCCFFFC, P.WFFFFFFFF, P.RFFFRFCFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFFFRFFFR, P.WFFFFFFFR, P.RFRFFFCFR, P.SFRFRFRFR, P.RFFFRFFFR, P.RFRFFFFFR, P.RFRFFFFFR, P.RFRFRFCFF, P.CCCCCFRFC, P.FFCFFFFFC, P.WFFFFFFFF, P.SFRFRFFFR, P.RFFFRFFFR, P.SFRFRFFFR, P.RFRFCCCFR, P.WFFFFFFFF, P.FFCFFFCFF, P.FFFFCCCFF, P.FFFFCCCFF, P.RFRFCCCFR, P.SFRFRFCFR, P.FFFFFFCFF, P.RFRFCCCFR, P.CFFFCFFFC, P.FFFFCCCFF, P.CFFFCFFFC, P.WFFFFFFFR, P.RFRFRFCFF],
-    target: 14106,
+    target: 14374,
     method: "best-known",
-    line: "N0,1 E1,1 W-1,0 S1,0 N1,2 N0,-1 E2,1 E1,-1 W0,-2 N-1,-2 S1,-2 N2,-1 N2,0 N1,-3 N2,-3 E0,-3 S2,-2 N2,2 N-1,-1 N-1,-3 S-2,-2 E-2,-3 W-2,-4 N-2,0 N-1,-4 E-1,-5 N0,-4 W-2,-1 N-2,-5 S-2,-6 N-1,1 S0,-5 N1,-4 E2,-4 E2,-5 S-3,-5 S2,-6",
+    line: "N0,1 E1,1 W-1,0 S1,0 N1,2 N0,-1 E2,1 E1,-1 W0,-2 N-1,-2 S1,-2 N2,-1 N2,0 N1,-3 N2,-3 N3,0 S2,-2 N2,2 N-1,-1 N3,-1 N0,-3 N-1,-3 S-2,-2 E-2,-3 N3,-2 N-1,1 W4,-1 N4,-2 S4,-3 W-2,0 W3,-3 S5,-2 E4,0 E5,-1 E4,1 W3,1 N4,2",
+    designer: "N0,1 E1,1 W-1,0 S1,0 W-1,1 N0,-1 E2,1 N2,0 E1,-1 N2,-1 W2,2 N3,-1 D E3,0 S3,1 N4,1 S3,-2 N4,2 E3,2 N1,2 S2,-2 N1,-2 S0,-2 E-1,-2 N0,2 N3,3 S2,3 W1,3 N3,-3 N2,-3 E0,3 N0,-3 E-1,2 N-1,3 E4,3 S4,0 S-1,-1",
   },
 ];
 

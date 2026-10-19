@@ -210,19 +210,19 @@ level's deck is chosen"), so the player meets the real mix of tiles, a few more 
 deck sheet lists the level's whole deck, so planning ahead is what separates 2 from 3 stars. The titles and intros name
 what the level's deck stresses (roads, wonders, cities, junctions).
 
-| Level | Title | Adds | Tiles | Seed | 3 stars | 2 stars | Search (method, positions, time) |
-|---|---|---|---|---|---|---|---|
-| 2-1 | Open country | Ten tiles, the whole deck on the sheet: planning a few tiles ahead. | 10 | 1 | **2805** best known | 1964 | beam, 168 settings; best: width 256, 4/parent, decay 0.5, forest 50; 1,521,716 positions, 60.4 s |
-| 2-2 | Road builders | A deck rich in roads: long roads, and the junctions that end them. | 13 | 2 | **3126** best known | 2189 | beam, 142 settings; best: width 16, 2/parent, decay 0.4, forest 50; 2,622,941 positions, 119.2 s |
-| 2-3 | Three monasteries | Wonders in a longer deck: leaving room around a monastery. | 16 | 3 | **3739** best known | 2618 | beam, 140 settings; best: width 64, 4/parent, decay 0.6, forest 50; 2,038,515 positions, 119.6 s |
-| 2-4 | Walls and fields | Cities and the forests between them, closed in the right order. | 19 | 4 | **4567** best known | 3197 | beam, 109 settings; best: width 32, 2/parent, decay 0.4, forest 50; 2,162,162 positions, 119.5 s |
-| 2-5 | Market day | A mixed deck: keeping a few structures open, not too many. | 22 | 5 | **7118** best known | 4983 | beam, 104 settings; best: width 256, 2/parent, decay 0.4, forest 50; 1,864,784 positions, 117.2 s |
-| 2-6 | The cloister road | Wonders and cities together on a bigger board. | 25 | 6 | **6967** best known | 4877 | beam, 94 settings; best: width 128, all/parent, decay 0.6, forest 50; 1,764,347 positions, 119.5 s |
-| 2-7 | Crossings | Junctions everywhere: splitting roads on purpose. | 28 | 7 | **7268** best known | 5088 | beam, 81 settings; best: width 128, 2/parent, decay 0.6, forest 50; 1,716,911 positions, 120.1 s |
-| 2-8 | City walls | A city-heavy deck: big cities and their size bonus. | 31 | 8 | **7594** best known | 5316 | beam, 65 settings; best: width 64, 2/parent, decay 0.5, forest 150; 1,557,435 positions, 118.4 s |
-| 2-9 | Pilgrims | Three wonders in a long deck: when to start them, when to give up on one. | 34 | 9 | **10557** best known | 7390 | beam, 48 settings; best: width 32, all/parent, decay 0.4, forest 50; 935,429 positions, 118.0 s |
-| 2-10 | The long season | Four wonders and a long deck: the board as a whole. | 36 | 10 | **9573** best known | 6702 | beam, 54 settings; best: width 16, 2/parent, decay 0.4, forest 50; 1,210,356 positions, 118.2 s |
-| 2-11 | A full road | The Challenge's whole game: 38 tiles, the simple deck's played count. | 38 | 11 | **14106** best known | 9875 | beam, 54 settings; best: width 16, 2/parent, decay 0.6, forest 50; 1,182,950 positions, 118.8 s |
+| Level | Title | Adds | Tiles | Seed | 3 stars | 2 stars | Designer's line | Search (method, positions, time) |
+|---|---|---|---|---|---|---|---|---|
+| 2-1 | Open country | Ten tiles, the whole deck on the sheet: planning a few tiles ahead. | 10 | 1 | **2805** best known | 1964 | designer 1900 | best: width 256, 4/parent, decay 0.5, forest 50 (first run); designer-seeded rerun, 168 settings: no better; 1,546,493 positions, 55.5 s |
+| 2-2 | Road builders | A deck rich in roads: long roads, and the junctions that end them. | 13 | 2 | **3126** best known | 2189 | designer 3013 | best: width 16, 2/parent, decay 0.4, forest 50 (first run); designer-seeded rerun, 148 settings: no better; 2,928,157 positions, 119.0 s |
+| 2-3 | Three monasteries | Wonders in a longer deck: leaving room around a monastery. | 16 | 3 | **3739** best known | 2618 | designer 1705 | best: width 64, 4/parent, decay 0.6, forest 50 (first run); designer-seeded rerun, 149 settings: no better; 2,488,109 positions, 118.7 s |
+| 2-4 | Walls and fields | Cities and the forests between them, closed in the right order. | 19 | 4 | **4567** best known | 3197 | designer 2338 | best: width 32, 2/parent, decay 0.4, forest 50 (first run); designer-seeded rerun, 112 settings: no better; 2,358,638 positions, 120.0 s |
+| 2-5 | Market day | A mixed deck: keeping a few structures open, not too many. | 22 | 5 | **7118** best known | 4983 | designer 2887 | best: width 256, 2/parent, decay 0.4, forest 50 (first run); designer-seeded rerun, 104 settings: no better; 1,886,126 positions, 119.4 s |
+| 2-6 | The cloister road | Wonders and cities together on a bigger board. | 25 | 6 | **6967** best known | 4877 | designer 2959 | best: width 128, all/parent, decay 0.6, forest 50 (first run); designer-seeded rerun, 98 settings: no better; 1,998,605 positions, 118.2 s |
+| 2-7 | Crossings | Junctions everywhere: splitting roads on purpose. | 28 | 7 | **7268** best known | 5088 | designer 5309 | best: width 128, 2/parent, decay 0.6, forest 50 (first run); designer-seeded rerun, 84 settings: no better; 1,891,004 positions, 118.2 s |
+| 2-8 | City walls | A city-heavy deck: big cities and their size bonus. | 31 | 8 | **7865** best known | 5506 | designer 4974 | beam, 69 settings; best: width 64, 2/parent, decay 0.5, forest 50 (designer-seeded); 1,794,112 positions, 117.1 s |
+| 2-9 | Pilgrims | Three wonders in a long deck: when to start them, when to give up on one. | 34 | 9 | **10557** best known | 7390 | designer 4435 | best: width 32, all/parent, decay 0.4, forest 50 (first run); designer-seeded rerun, 43 settings: no better; 876,839 positions, 118.8 s |
+| 2-10 | The long season | Four wonders and a long deck: the board as a whole. | 36 | 10 | **9589** best known | 6713 | designer 6266 | beam, 54 settings; best: width 16, 2/parent, decay 0.5, forest 150 (designer-seeded); 1,167,786 positions, 120.3 s |
+| 2-11 | A full road | The Challenge's whole game: 38 tiles, the simple deck's played count. | 38 | 11 | **14374** best known | 10062 | designer 8798 | beam, 52 settings; best: width 32, 2/parent, decay 0.4, forest 150 (designer-seeded); 1,134,467 positions, 119.1 s |
 
 ### 2-1, Open country
 
@@ -232,6 +232,12 @@ Deck (9 drawn after the starter, seed 1):
 
 ```
 FFFFCCCFF FFCFFFFFC FFCFFFFFC FFFFCCCFF CCCCCFRFC RFRFCCCFR RFRFRFCFF SFRFRFCFR FFFFFFCFF
+```
+
+Designer's line (1900 points):
+
+```
+N0,1 N1,1 S1,2 S0,2 W-1,0 S-1,-1 E2,2 N-1,-2 S-1,-3
 ```
 
 Best known line (2805 points):
@@ -250,6 +256,12 @@ Deck (12 drawn after the starter, seed 2):
 RFFFRFFFR RFRFRFCFF RFFFRFCFR RFRFCCCFR RFRFCCCFR CCCCCFFFC RFRFRFCFF SFRFRFFFR RFFFRFFFR RFRFFFFFR RFRFFFCFR RFRFFFFFR
 ```
 
+Designer's line (3013 points):
+
+```
+N1,0 N0,1 S1,1 E-1,0 N2,0 S0,-1 N1,2 S2,1 E-1,1 W0,2 S-1,2 N2,2
+```
+
 Best known line (3126 points):
 
 ```
@@ -264,6 +276,12 @@ Deck (15 drawn after the starter, seed 3):
 
 ```
 WFFFFFFFF SFRFRFFFR RFFFRFFFR WFFFFFFFF RFRFCCCFR RFRFRFCFF RFRFCCCFR FFFFCCCFF RFRFRFCFF FFFFFFCFF FFCFFFCFF CCCCCFFFC RFFFRFFFR RFFFRFCFR WFFFFFFFF
+```
+
+Designer's line (1705 points):
+
+```
+N0,-1 N1,0 N-1,0 N1,-1 N2,0 N0,1 W1,1 E-1,-1 E2,1 N1,2 N2,-1 S0,-2 E0,2 E3,0 N-1,1
 ```
 
 Best known line (3739 points):
@@ -282,6 +300,12 @@ Deck (18 drawn after the starter, seed 4):
 CFFFCFFFC FFCFFFFFC RFFFRFFFR RFFFRFCFR RFRFFFFFR SFRFRFFFR RFRFFFFFR CCCCCFRFC RFFFRFCFR RFRFFFCFR FFCFFFCFF RFRFFFFFR FFFFFFCFF FFFFFFCFF CCCCCFFFC CCCCCFFFC RFRFFFFFR RFFFRFFFR
 ```
 
+Designer's line (2338 points):
+
+```
+E0,1 S0,2 N1,0 E1,2 E1,1 N-1,0 W-1,1 E2,0 N2,1 S1,3 N1,4 N3,1 N1,5 E0,3 S3,0 S0,-1 N2,3 E2,4
+```
+
 Best known line (4567 points):
 
 ```
@@ -296,6 +320,12 @@ Deck (21 drawn after the starter, seed 5):
 
 ```
 WFFFFFFFR WFFFFFFFF RFRFCCCFR RFRFFFFFR CCCCCFFFC CFFFCFFFC RFRFRFCFF CFFFCFFFC RFRFCCCFR SFRFRFCFR RFRFRFCFF RFRFFFCFR SFRFRFCFR FFFFFFCFF RFFFRFFFR SFRFRFFFR CFFFCFFFC FFFFCCCFF RFFFRFFFR WFFFFFFFF RFRFFFFFR
+```
+
+Designer's line (2887 points):
+
+```
+N1,0 N0,-1 E-1,0 S-1,1 W-1,-1 N1,1 N2,0 N0,-2 N0,1 E2,1 S2,-1 S0,2 N0,3 E-1,2 N1,2 S2,2 N1,-2 W-1,-2 N1,3 N-2,1 E-1,3
 ```
 
 Best known line (7118 points):
@@ -314,6 +344,12 @@ Deck (24 drawn after the starter, seed 6):
 CCCCCFFFC WFFFFFFFF RFFFRFCFR RFRFFFFFR WFFFFFFFF RFRFFFFFR RFRFCCCFR RFRFFFFFR RFRFCCCFR RFFFRFFFR CFFFCFFFC CCCCCCCCC RFFFRFFFR SFRFRFCFR FFFFFFCFF RFRFRFCFF FFFFFFCFF FFFFCCCFF FFCFFFCFF FFCFFFFFC CCCCCFFFC WFFFFFFFR FFFFCCCFF CCCCCFRFC
 ```
 
+Designer's line (2959 points):
+
+```
+E0,1 N-1,1 N-1,0 E-2,0 N-1,2 W-2,1 N1,0 E-3,1 S1,1 N2,1 E0,2 N0,3 N3,1 S-1,-1 E-2,2 E-2,-1 W-3,-1 W-1,3 E2,0 N-2,3 E1,2 E-2,-2 E-3,-2 N-3,2
+```
+
 Best known line (6967 points):
 
 ```
@@ -328,6 +364,12 @@ Deck (27 drawn after the starter, seed 7):
 
 ```
 RFRFRFCFF RFFFRFCFR SFRFRFCFR FFFFFFCFF RFFFRFFFR FFFFCCCFF CFFFCFFFC RFRFFFCFR FFFFCCCFF RFRFFFFFR CCCCCFFFC RFFFRFFFR FFCFFFCFF RFRFFFFFR CCCCCFFFC RFRFFFFFR RFFFRFCFR RFRFFFFFR SFRFRFFFR RFFFRFFFR WFFFFFFFF FFCFFFCFF RFFFRFFFR CCCCCCCCC CCCCCFRFC RFFFRFFFR RFRFFFCFR
+```
+
+Designer's line (5309 points):
+
+```
+N0,1 N1,0 S1,-1 N-1,1 N0,-1 N0,-2 N-1,2 S-1,0 E-2,0 E-1,-1 W-2,-1 N1,1 N0,-3 N2,0 N-3,0 W2,1 E1,-2 W2,-1 E1,-3 E2,-2 N-2,1 N0,-4 E1,-4 N-2,-2 N0,2 E1,-5 N2,-3
 ```
 
 Best known line (7268 points):
@@ -346,10 +388,16 @@ Deck (30 drawn after the starter, seed 8):
 RFRFFFCFR SFRFRFCFR RFFFRFFFR CFFFCFFFC FFCFFFCFF FFFFFFCFF RFRFFFFFR RFFFRFCFR RFRFFFCFR RFFFRFFFR RFRFCCCFR CFFFCFFFC RFRFRFCFF RFRFCCCFR RFFFRFFFR CCCCCFFFC SFRFRFFFR FFCFFFFFC RFRFFFFFR RFRFCCCFR RFRFFFFFR RFRFFFFFR FFFFFFCFF RFRFFFFFR RFRFFFFFR CCCCCFRFC RFFFRFFFR CCCCCFFFC FFFFCCCFF RFRFFFFFR
 ```
 
-Best known line (7594 points):
+Designer's line (4974 points):
 
 ```
-N0,1 S1,0 N0,-1 E1,1 N2,1 N2,2 W0,-2 S2,0 N1,2 N2,-1 W3,0 E3,1 N3,2 S4,0 N2,-2 S2,-3 N1,-1 S4,1 N3,-1 S5,1 S-1,0 E-1,-1 N5,2 N-2,0 W-2,-1 N3,-3 N2,3 N5,3 S2,-4 S0,2
+N0,1 N1,0 E1,1 N0,-1 E0,-2 E1,-2 E-1,0 W-1,-2 S-1,1 E0,2 S0,3 N0,-3 W-1,-3 N1,3 E1,4 N1,-1 E1,5 W1,-3 N2,0 E-2,-3 W-2,-2 S2,1 N-1,2 E-3,-2 S-3,-1 E3,1 N-2,-1 S0,-4 S-2,0 S1,6
+```
+
+Best known line (7865 points):
+
+```
+N0,1 N1,0 E1,1 E1,-1 N2,-1 S1,-2 W1,2 N2,0 S2,-2 N-1,0 S0,2 E3,-1 W-1,2 N0,3 N-1,1 S1,-3 E-2,1 N1,3 E-2,0 N1,4 S-2,2 S-1,3 E2,4 E2,1 S0,4 N1,5 E4,-1 W0,-2 E0,-1 S2,2
 ```
 
 ### 2-9, Pilgrims
@@ -360,6 +408,12 @@ Deck (33 drawn after the starter, seed 9):
 
 ```
 RFRFCCCFR FFCFFFCFF RFRFFFCFR CCCCCFFFC RFRFCCCFR CCCCCFFFC FFCFFFCFF RFRFRFCFF CFFFCFFFC WFFFFFFFF CFFFCFFFC SFRFRFCFR RFRFCCCFR SFRFRFFFR RFFFRFFFR RFFFRFFFR RFRFFFFFR RFRFFFFFR RFFFRFFFR RFRFFFFFR RFFFRFFFR SFRFRFFFR FFFFFFCFF SFRFRFFFR FFFFCCCFF FFFFFFCFF WFFFFFFFR SFRFRFFFR RFFFRFCFR WFFFFFFFF RFFFRFFFR FFFFCCCFF FFFFCCCFF
+```
+
+Designer's line (4435 points):
+
+```
+N1,0 N0,1 N0,2 S0,-1 E-1,0 N1,-1 E2,0 E3,0 N2,-1 N1,-2 N2,1 E3,-1 S0,3 N4,0 E-1,1 N4,-1 S-1,2 N1,3 E1,4 S1,5 N2,5 N5,-1 S0,-2 S5,0 N2,-2 N1,2 W4,1 N6,-1 E3,-2 N4,-2 E3,-3 S3,1 S2,-3
 ```
 
 Best known line (10557 points):
@@ -378,10 +432,16 @@ Deck (35 drawn after the starter, seed 10):
 FFFFCCCFF FFFFFFCFF RFRFFFFFR CCCCCFRFC RFFFRFFFR FFFFCCCFF WFFFFFFFF WFFFFFFFF RFRFFFFFR RFRFCCCFR FFFFCCCFF RFRFFFCFR RFFFRFCFR FFCFFFCFF WFFFFFFFR RFFFRFCFR CFFFCFFFC RFRFFFFFR RFFFRFFFR FFCFFFCFF WFFFFFFFF CFFFCFFFC RFFFRFFFR RFRFFFFFR CCCCCFRFC RFRFFFFFR CCCCCCCCC CCCCCFFFC RFRFCCCFR FFFFFFCFF RFRFFFCFR FFFFFFCFF RFRFCCCFR RFRFFFCFR RFRFFFFFR
 ```
 
-Best known line (9573 points):
+Designer's line (6266 points):
 
 ```
-N0,1 E1,1 S0,-1 W-1,0 E2,1 S0,2 N1,2 N1,3 S2,3 W-1,2 E0,3 E1,4 W2,2 E0,4 N2,4 E3,2 N-1,4 S1,5 N2,5 E-2,4 N3,4 N-1,5 N3,5 W3,3 E4,5 E4,3 N-2,0 S-1,3 W-3,4 W-2,3 S4,4 N-3,5 N4,6 N5,3 W5,4
+N0,1 E1,1 W1,0 W-1,0 E1,-1 E0,-1 N2,0 N2,1 N1,-2 S0,-2 N2,-1 N0,-3 S0,-4 N-1,1 S-1,-3 N-1,2 N-1,-2 S-1,-4 N0,2 N3,0 N1,-3 E3,1 N1,2 N2,2 N3,-1 W1,-4 N-2,-2 E3,2 E-2,2 S2,-2 E4,-1 S-2,-3 S2,3 N3,3 W-2,-4
+```
+
+Best known line (9589 points):
+
+```
+N0,1 E1,1 W1,0 W-1,0 E1,-1 E0,-1 N2,0 N2,-1 E3,0 E1,-2 N3,-1 S3,-2 W3,1 E4,-1 E2,1 E4,1 N5,-1 W2,-2 E2,2 E6,-1 N1,2 N5,0 E2,3 S3,2 S2,-3 N1,3 N2,-4 S5,-2 E0,3 S0,2 W-1,3 E7,-1 W0,-2 W1,4 S0,4
 ```
 
 ### 2-11, A full road
@@ -394,10 +454,16 @@ Deck (37 drawn after the starter, seed 11):
 FFFFCCCFF FFCFFFCFF CCCCCFRFC SFRFRFFFR CCCCCFFFC WFFFFFFFF RFFFRFCFR RFRFFFFFR RFRFFFFFR RFFFRFFFR WFFFFFFFR RFRFFFCFR SFRFRFRFR RFFFRFFFR RFRFFFFFR RFRFFFFFR RFRFRFCFF CCCCCFRFC FFCFFFFFC WFFFFFFFF SFRFRFFFR RFFFRFFFR SFRFRFFFR RFRFCCCFR WFFFFFFFF FFCFFFCFF FFFFCCCFF FFFFCCCFF RFRFCCCFR SFRFRFCFR FFFFFFCFF RFRFCCCFR CFFFCFFFC FFFFCCCFF CFFFCFFFC WFFFFFFFR RFRFRFCFF
 ```
 
-Best known line (14106 points):
+Designer's line (8798 points):
 
 ```
-N0,1 E1,1 W-1,0 S1,0 N1,2 N0,-1 E2,1 E1,-1 W0,-2 N-1,-2 S1,-2 N2,-1 N2,0 N1,-3 N2,-3 E0,-3 S2,-2 N2,2 N-1,-1 N-1,-3 S-2,-2 E-2,-3 W-2,-4 N-2,0 N-1,-4 E-1,-5 N0,-4 W-2,-1 N-2,-5 S-2,-6 N-1,1 S0,-5 N1,-4 E2,-4 E2,-5 S-3,-5 S2,-6
+N0,1 E1,1 W-1,0 S1,0 W-1,1 N0,-1 E2,1 N2,0 E1,-1 N2,-1 W2,2 N3,-1 D E3,0 S3,1 N4,1 S3,-2 N4,2 E3,2 N1,2 S2,-2 N1,-2 S0,-2 E-1,-2 N0,2 N3,3 S2,3 W1,3 N3,-3 N2,-3 E0,3 N0,-3 E-1,2 N-1,3 E4,3 S4,0 S-1,-1
+```
+
+Best known line (14374 points):
+
+```
+N0,1 E1,1 W-1,0 S1,0 N1,2 N0,-1 E2,1 E1,-1 W0,-2 N-1,-2 S1,-2 N2,-1 N2,0 N1,-3 N2,-3 N3,0 S2,-2 N2,2 N-1,-1 N3,-1 N0,-3 N-1,-3 S-2,-2 E-2,-3 N3,-2 N-1,1 W4,-1 N4,-2 S4,-3 W-2,0 W3,-3 S5,-2 E4,0 E5,-1 E4,1 W3,1 N4,2
 ```
 
 ## Campaigns 3 and 4 (later)
@@ -415,11 +481,21 @@ best final score. Its pruning is exact (a rotation that looks the same is tried 
 only when nothing fits). Each extra tile multiplies the positions by about 6 to 10: the Tutorial's levels take at most 66,446 positions,
 1.4 s; other six-tile decks tried while designing took 0.1 to 7 s. A ten-tile deck is already out of reach.
 
-**Best known, for the long levels.** `packages/game-core/src/engine/beam.ts` is a beam search on the same engine: at each
+**Best known, for the long levels: the designer's line, then a strong search from it.** Each long level has a
+**designer's line** (`packages/game-core/src/engine/designer.ts`): the way the team plays a fixed deck by hand, written down
+as rules so that anyone can replay and check it. For each tile in hand: (1) if a placement scores, take the one that scores
+most; (2) otherwise keep the board tidy: the placement that leaves the fewest open half-edges, then the one that grows the
+largest open road or city, then the one nearest the starter; (3) discard only a tile that fits nowhere. It is a human
+player's line, not a search: it plans no further than the tile in hand, so it is the floor a careful player reaches. The
+plan stores it beside the target, the test replays it and checks that the rules still give it, and the target is never
+below it.
+
+Then `packages/game-core/src/engine/beam.ts`, a beam search on the same engine, **starts from the designer's line**: at each
 draw, every kept position tries every legal placement of the tile in hand and a discard; the children are ranked by their
 score plus an estimate of their open structures (what a road, a city or a wonder would score closed, and a forest
 the roads and cities along it, each discounted by its open half-edges), boards reached twice are kept once, and the best
-`width` positions go on. The last two draws are then solved exactly (`solveFrom`) from the 8 best positions. No single
+`width` positions go on, with the designer's position at that draw always kept among them (so no search ends below the
+designer's line, and a narrow search can still branch off a good human line late in the game). The last two draws are then solved exactly (`solveFrom`) from the 8 best positions. No single
 setting of the estimate wins everywhere, so `packages/game-core/scripts/story-search.ts` runs a fixed portfolio of
 settings (width 16 to 1024; 2, 4 or all children per position; 4 discounts; 2 forest weights), cheapest first, until the
 level's **time cap of 120 s**, and keeps the best line. Every setting is deterministic: the same setting gives the same
@@ -428,9 +504,11 @@ line on any machine; the table names the setting that found each target.
 **Checked against the exact solver.** On the Tutorial's levels the beam finds every exact optimum (the test asserts it on
 levels 1 to 5 at width 64), so the method is sound where it can be checked; on long decks it is a lower bound.
 
-**Stored, replayed, raised.** A level's target and the line that reaches it are stored in `plan.ts`. The test replays each
-line on the engine and fails if it does not reach the target exactly. `story-search.ts --write` replays the stored line
-first and writes a new target only when a search beats it: a target only ever rises. A player's run above a best-known
+**Stored, replayed, raised.** A level's target, the line that reaches it and the designer's line are stored in `plan.ts`.
+The test replays each line on the engine and fails if the best line does not reach the target exactly or the target is
+below the designer's line. `story-search.ts --write` replays the stored line first and writes a new target only when the
+designer's line or a search beats it: a target only ever rises. A designer who finds a better line by hand adds it the same
+way (it replaces the stored line when it scores more). A player's run above a best-known
 target is kept on the device in the submission's shape; once runs reach the chain (#548), a higher run can be replayed and
 become the new target the same way. The plan says plainly which targets are proven (**exact**) and which are the **best
 known**: the end screen says it too.
@@ -441,7 +519,9 @@ Run it outside the tests, one level at a time, under `nice -n 10`:
 nice -n 10 bun scripts/story-search.ts --campaign 2 --cap 120 --write
 ```
 
-The costs in the tables were measured that way, one search at a time.
+The costs in the tables were measured that way, one search at a time. The search ran twice: first without the
+designer's line, then started from it. The table gives the second run's cost; where it found nothing better, the target
+is the first run's line, and the table names the setting that found it. The second run raised 2-8, 2-10 and 2-11.
 
 ## How a long level's deck is chosen
 
@@ -530,12 +610,13 @@ Cairo one's shape is final.
    proposal of PR 1 (only the next tile in levels 1 to 5) and showing the draw order are both possible if wanted.
 6. **Intro texts and tips** are short drafts; they are not final copy. The second campaign's name (Open Country) is a
    proposal too.
-7. **How long-deck targets are set** (new): the best known score of the deterministic beam portfolio above, the exact
-   solver finishing the last two draws, capped at 120 s per level, stored with its line and replayed by the test, raised
-   whenever a search or a replayed run beats it, and labelled "best known" in the plan and on the end screen. The
-   alternatives: a longer cap (10 minutes per level is possible offline; a wider search may find more), a designer's
-   line per level (it can be added: the search keeps the higher), or no 3-star target on long levels (rejected: the owner
-   wants the maximum as the target). A player beating a best-known target gets 3 stars
+7. **How long-deck targets are set** (new): the higher of the designer's line (the written rules above, stored and
+   replayed per level) and the deterministic beam portfolio started from it, the exact solver finishing the last two
+   draws, capped at 120 s per level; stored with its line and replayed by the test, raised whenever a search, a better
+   designer's line or a replayed run beats it, and labelled "best known" in the plan and on the end screen. The
+   alternatives: a longer cap (10 minutes per level is possible offline; a wider search may find more), hand-played
+   designer lines instead of written rules (they can be added: the higher line is kept), or no 3-star target on long
+   levels (rejected: the owner wants the maximum as the target). A player beating a best-known target gets 3 stars
    and is told so.
 
 ## Next
