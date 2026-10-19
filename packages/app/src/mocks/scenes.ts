@@ -15,7 +15,7 @@ import type { Preferences, SettingsSceneProps } from "../components/scenes/setti
 import type { ThemeSceneProps } from "../components/scenes/theme-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import { CategoryType } from "@paved/game-core";
-import { SOURCE_ASSETS, originalTileArt } from "./assets";
+import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
@@ -143,8 +143,8 @@ export const BOARD = {
 // Over
 
 const threshold = THRESHOLD_MILLI / 1000;
-/** The finished 38-tile game's board, drawn from the sources Storybook serves (the plan view without WebGL). */
-const finalBoard = { tiles: BOARD_38.tiles, gameId: GAME_OVER.id, basePath: SOURCE_ASSETS } as const;
+/** The finished 38-tile game's board, on the app's compressed models (the plan view without WebGL). */
+const finalBoard = { tiles: BOARD_38.tiles, gameId: GAME_OVER.id, basePath: APP_ASSETS } as const;
 const figures = { stats: STATS_38, board: finalBoard } as const;
 
 export const OVER = {
@@ -177,7 +177,7 @@ export const OVER = {
     game: { ...GAME_OVER, score: 0, placedCount: 3 },
     closings: [],
     stats: mockStats([], { placed: 2, discarded: 0, discardPenalty: 0, open: [{ category: CategoryType.Road, tiles: 3, size: 3 }] }),
-    board: { tiles: BOARD_38.tiles.slice(0, 3), basePath: SOURCE_ASSETS },
+    board: { tiles: BOARD_38.tiles.slice(0, 3), basePath: APP_ASSETS },
     reward: { state: "free" },
   },
   /** WRAP360: the widest score, rank, reward and closings. */
