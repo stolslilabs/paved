@@ -3036,6 +3036,41 @@ player ids (`free`), not a field of `LeaderboardEntry`.
   a `VaultViews` interface.
 - **The prediction's view** (section 9).
 
+### 6.6 Deploys and open tabs (STALE-CHUNK-RELOAD, #589)
+
+Every page, scene and large module is a lazy chunk with a hashed name under `/assets/` (served `immutable`;
+`index.html` is `no-cache`). A deployment replaces them all: the production host serves the latest deployment's files
+only, so a tab opened before it asks for names that answer 404 (`over-R2jaf3I2.js` while the host has
+`over-Dzic5OIG.js`). The owner's ruling (2026-10-19): no skew protection and no keeping of old chunks; everyone is on the
+latest build.
+
+- **Reload once.** `lib/stale-chunk.ts`: a failed dynamic import (Vite's `vite:preloadError`, which every chunk of the
+  app and the renderer goes through, and `RouteError` for a route) asks the host for the failed file (`HEAD`,
+  `no-store`), or for the build's entry script when the error names none (Safari). A 404 or 410 reloads the tab onto the
+  latest build, after a key for that file is set in `sessionStorage`; with the key already set (the file fails again
+  after the reload: a real outage), a stale reload of the tab less than 30 s before (the new build's file is missing
+  too), or a host that does not answer within 5 s, nothing reloads and `RouteError` shows the error with
+  a "Reload" action. A route shows the loading scene while the host is asked (5 s at most).
+- **Chunks loaded on demand** (`useDeferred`: the Surrender dialog, the settings and deck sheets, the final board)
+  reload the same way. When their file is still gone after that reload, the failure is thrown into the route, whose
+  `RouteError` offers the Reload (a new try cannot fetch it); a file the host still serves, or a silent host, keeps
+  their own error toast, after which a new try may work.
+- **Chunks whose caller keeps the failure** (the renderer's: day and night, the voxel drop, SMAA;
+  the idle prefetches) go through Vite's event as well: when the file is still gone after the reload, the listener hands
+  it to `StaleChunkGate` (in `RootLayout`), which throws it into the route, so `RouteError` shows it with the Reload.
+  `RouteError` then forgets it, so Back home does not throw it again.
+- **Nothing to save first.** A Training game is saved at each move (`LocalSession`), and a Challenge placement is on
+  chain or not; the reload lands on the same URL.
+- **`reimport`** (`lib/reimport.ts`, #539) stays for a transient failure (the same file under a new query); a file that
+  is gone fails there too and reaches the reload.
+- **The web client is not a PWA.** It has no service worker and no precache, and `site.webmanifest` has no `display`
+  (the name and the icons stay, for the tab and the bookmarks): a home-screen launch is a browser tab, not a long-lived
+  installed app. Mobile will be a native app. A guard test (`__tests__/no-service-worker.test.ts`) keeps out
+  `vite-plugin-pwa`, workbox and any worker file. The previous client (`app/`) registered a `vite-plugin-pwa` service
+  worker (`registerType: autoUpdate`) on this origin; at startup, once per browser, `lib/legacy-sw.ts` unregisters every
+  service worker of the origin and deletes every Cache Storage entry (logged once). It stays for several releases.
+  `app/` still carries `vite-plugin-pwa` and its `generate-pwa-assets` script; removing them is the owner's decision.
+
 ---
 
 ## 7. A new app beside app-web, or in place
