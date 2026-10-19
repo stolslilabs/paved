@@ -62,7 +62,7 @@ export function usePreloadedArt(srcs: readonly (string | null)[]) {
 }
 
 /**
- * The track's image, 56 px (64 on a tablet; a 128 px WebP), loaded when the player shows; a neutral placeholder before a track
+ * The track's image, 48 px (64 on a tablet; a 128 px WebP: 48 px leaves the status room at 320 px), loaded when the player shows; a neutral placeholder before a track
  * or if it fails. The placeholder lies under the image: a new track's image not there yet shows it, never the old track's.
  */
 function Thumbnail({ src, loading }: { src: string | null; loading: boolean }) {
@@ -70,7 +70,7 @@ function Thumbnail({ src, loading }: { src: string | null; loading: boolean }) {
   const [failed, setFailed] = useState<string | null>(null);
   const broken = src === null || failed === src;
   return (
-    <span className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground tablet:size-16" data-testid="music-thumbnail" data-state={broken ? "placeholder" : "image"}>
+    <span className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground tablet:size-16" data-testid="music-thumbnail" data-state={broken ? "placeholder" : "image"}>
       <Icon name="music" size="lg" />
       {!broken && (
         <img key={src} src={src} alt="" width={64} height={64} loading="lazy" decoding="async" draggable={false} onError={() => setFailed(src)} className="absolute inset-0 size-full object-cover" />
