@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { DAY_PHASE_AT, DEFAULT_AMBIENT_PARTICLES, TILE_SIZE, type GameScene, type QualityTier, type RendererSettingsInput, type TileRenderData } from "@paved/renderer";
+import { DAY_PHASE_AT, DEFAULT_AMBIENT_PARTICLES, PLAY_DEFAULT_POLAR_ANGLE, TILE_SIZE, type GameScene, type QualityTier, type RendererSettingsInput, type TileRenderData } from "@paved/renderer";
 import { getPlanKey, Plan } from "@paved/game-core";
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
@@ -16,7 +16,7 @@ export type EmittingPlan = (typeof EMITTING_PLANS)[number];
 
 /** One tile isolated, the 19 plans side by side, or the recorded 72-tile board. */
 export type AmbientLayout = "tile" | "all-tiles" | "board";
-/** The game's own camera (where it opens on this viewport, `focusBoard`), or one of the tour's views. */
+/** The game's own camera (where and how tilted it opens, `focusBoard`), a phone's play distance at that tilt, or a tour view. */
 export type AmbientView = "game" | "phone-play" | View;
 
 export interface AmbientParticlesBoardProps {
@@ -161,7 +161,8 @@ export function AmbientParticlesBoard(props: AmbientParticlesBoardProps) {
       scene.focusBoard();
       const target = scene.controls.controls.target;
       const at = distance ?? (view === "game" ? scene.camera.position.distanceTo(target) : PHONE_PLAY_DISTANCE);
-      scene.camera.position.set(target.x, target.y + at, target.z + 0.001);
+      // At the game's own tilt (TILT-54: the board opens 27 degrees from straight down).
+      scene.camera.position.set(target.x, target.y + at * Math.cos(PLAY_DEFAULT_POLAR_ANGLE), target.z + at * Math.sin(PLAY_DEFAULT_POLAR_ANGLE));
       scene.camera.lookAt(target);
     } else {
       const pose = viewPose(view, bounds, distance);
