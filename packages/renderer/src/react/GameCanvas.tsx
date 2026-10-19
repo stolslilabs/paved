@@ -34,6 +34,8 @@ export interface GameCanvasProps {
   skins?: TileSkins;
   /** A manifest the host gives instead of `<basePath>/manifest.json` (`RendererConfig.manifest`); read at init. */
   manifest?: AssetManifest;
+  /** The board is covered (a full-screen sheet, the score panel): the ambient loop stops (`GameScene.setCovered`). */
+  covered?: boolean;
   onReady?: (scene: GameScene) => void;
   /** Called when the scene cannot start, for example without a WebGL context. */
   onError?: (error: unknown) => void;
@@ -56,6 +58,7 @@ export function GameCanvas({
   settings,
   skins = NO_SKINS,
   manifest,
+  covered = false,
   basePath = "",
   style,
   className,
@@ -82,6 +85,8 @@ export function GameCanvas({
   // Read at init; later changes go through setSettings.
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
+  const coveredRef = useRef(covered);
+  useEffect(() => { coveredRef.current = covered; }, [covered]);
   const manifestRef = useRef(manifest);
   useEffect(() => { manifestRef.current = manifest; }, [manifest]);
 
@@ -110,6 +115,7 @@ export function GameCanvas({
         gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
         gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
         gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
+        gameScene.setCovered(coveredRef.current);
         // The first frame is drawn inside `start()`: the load trace times it (shader compiles and uploads included).
         const firstFrame = traceStart();
         gameScene.start();
@@ -167,6 +173,10 @@ export function GameCanvas({
   useEffect(() => {
     sceneRef.current?.setSettings(settings ?? {});
   }, [settings]);
+
+  useEffect(() => {
+    sceneRef.current?.setCovered(covered);
+  }, [covered]);
 
   return (
     <div
