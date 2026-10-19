@@ -49,6 +49,10 @@ interface Row {
  * is main's renderer (1 px `LineSegments`), "After" is R-OUT's. The first two rows are at the game's opening view in a
  * 1440 x 900 window (a tile about 60 px), at the default threshold (48) and at the earlier one (96). The other rows
  * were taken at 800 x 500 CSS px at 1x, with the earlier threshold of 96 px.
+ *
+ * The captures are records of their PRs and keep the camera of their time: opening straight down, tilted at most 27
+ * degrees, the closest zoom 5 (then 8). Since TILT-54 the game opens at 27 degrees and tilts to 54, the closest zoom 10;
+ * the live "Renderer/Outlines" story holds those views ("Default view", "Fully zoomed out", "Fully zoomed in").
  */
 const ROWS: Row[] = [
   {

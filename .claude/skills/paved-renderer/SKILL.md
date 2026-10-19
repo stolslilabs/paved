@@ -74,9 +74,12 @@ with `docs/`, `scripts/` or `packages/`.
   - Four-vertex quads: `createOutline` draws the four outer corners of `LineSegmentsGeometry`'s eight, two triangles a
     segment (same file, "the outline's quad").
   Do not change the two device-px defaults without a capture and a figure, as for the others below.
-- Camera limits (`camera.minDistance` 8 = `CLOSEST_DISTANCE`, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web
-  controller only; `NativeCameraController` ignores them. The near plane is 5 (`CAMERA_NEAR`) and the closest zoom 8 keeps the
-  tallest tile (2.625 units) beyond it: raise one only with the other (P4; a test reads every model's height).
+- Camera limits (`camera.minDistance` 10 = `CLOSEST_DISTANCE`, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web
+  controller only; `NativeCameraController` ignores them. The near plane is 5 (`CAMERA_NEAR`) and the closest zoom 10 keeps the
+  tallest tile (2.625 units) beyond it at the steepest tilt: raise one only with the other (P4; a test reads every model's height).
+- The play camera opens at 27 degrees (`PLAY_DEFAULT_POLAR_ANGLE`) and tilts from straight down to 54 (`PLAY_MAX_POLAR_ANGLE`):
+  the right button on desktop, two fingers dragged up or down on touch (`DOLLY_ROTATE`; one finger pans). A second finger
+  down cancels the tap (TILT-54, `docs/client/v2-architecture.md` 5.10).
 - Change a default only with a capture and a figure (R-OUT, PR #411; stories "Renderer/Outlines" and "Renderer/Outlines
   comparison" in `packages/app/src/stories/renderer/`).
 
