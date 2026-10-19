@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { GROUND_VOXELS } from "../src/core/feature-codes";
 import { cellIndex, voxelize, type VoxelGrid } from "../src/core/voxelizer";
 import { PALETTE_CLASSES } from "../src/core/features";
-import { DEFAULT_LIGHT_VOLUME, WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, plantEntries, spillOf, windowCells, type Window } from "../src/core/windows";
+import { NIGHT_WINDOWS_GLSL } from "../src/core/TileRenderer";
+import { DEFAULT_LIGHT_VOLUME, WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, plantEntries, spillOf, windowCells, windowSwitch, type Window } from "../src/core/windows";
 import { PLANS, loadMesh, litColumnsOf, shipped, sourceOf } from "./helpers/model-meshes";
 
 const HEAVY_TEST_MS = 60_000;
@@ -270,6 +271,29 @@ describe("the light volume", () => {
     const volume = buildLightVolume(gridOf((_x, _y, l) => l < GROUND_VOXELS), []);
     expect(volume.sources).toHaveLength(0);
     expect(volume.data.every((v) => v === 0)).toBe(true);
+  });
+});
+
+describe("the switch-on (#571: never three windows out of four dark every time)", () => {
+  const share = (level: number, stagger: number) => {
+    let on = 0;
+    let all = 0;
+    for (let owner = 0; owner < 40; owner++) for (let x = -6; x < 6; x++) for (let y = -6; y < 6; y++, all++) on += windowSwitch(owner, x, y, level, stagger) >= 0.5 ? 1 : 0;
+    return on / all;
+  };
+
+  it("is the shader's: 0 before its level, 1 past it, the same for the same window and cell", () => {
+    expect(windowSwitch(3, 2, -1, 0, 1)).toBe(0);
+    expect(windowSwitch(3, 2, -1, 1.2, 1)).toBe(1);
+    expect(windowSwitch(3, 2, -1, 0.5, 1)).toBe(windowSwitch(3, 2, -1, 0.5, 1));
+    expect(NIGHT_WINDOWS_GLSL).toContain("windowOn(");
+  });
+
+  it("at the windows' stagger (1) every window is on at full night and most at dusk; the columns' 1.6 kept about half dark", () => {
+    expect(share(1, 1)).toBeGreaterThan(0.95);
+    expect(share(0.6, 1)).toBeGreaterThan(0.5);
+    // The columns spread their levels to 1.6 (no 0.85): about half stay dark all night.
+    expect(share(1, 1.6 / 0.85)).toBeLessThan(0.65);
   });
 });
 

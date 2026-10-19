@@ -154,15 +154,15 @@ nightLit = max(nightLit, windowOn(floor(spill.g * 255.0 + 0.5), floor(spill.ba *
 `;
 
 // A window's switch-on (NIGHT-WINDOWS): the level of the night at which it lights, a hash of its owner (`windows.ts`: its own index
-// in its model's list, or its room's first window's) and its tile's cell, spread over 0 to `uWindowStagger` (#571: 1, every
-// window on by full night; the columns' spread is 1.6). Declared before main: the volume and the spill both call it.
+// in its model's list, or its room's first window's) and its tile's cell, spread over 0 to 0.85 x `uWindowStagger` (#571: at 1,
+// every window is on by full night, its 0.15 ramp done; the columns' levels spread to 1.6, past the night's 1). Declared before main: the volume and the spill both call it.
 const WINDOW_SWITCH_GLSL = /* glsl */ `
 float windowOn(float owner, vec2 cell) {
 uvec2 c = uvec2(ivec2(cell) + 4096);
 uint h = (uint(owner) * 2654435761u) ^ c.x * 73856093u ^ c.y * 19349663u;
 h = (h ^ h >> 16) * 0x7feb352du;
 h = (h ^ h >> 15) * 0x846ca68bu;
-float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * uWindowStagger;
+float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * uWindowStagger * 0.85;
 return smoothstep(at, at + 0.15, uNightLevel);
 }
 `;

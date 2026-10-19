@@ -619,3 +619,18 @@ export class WindowCache {
     return this.baked.size;
   }
 }
+
+/**
+ * A window's switch-on at a night's level, as the tile shader computes it (`windowOn`, `TileRenderer`): the hash of its owner
+ * (`LightVolume.owners`, the index; the shader reads it plus one) and its tile's cell, spread over 0 to 0.85 x `stagger`, then 0 to 1
+ * over 0.15 of the level. For the stories' readouts and the tests: the shader is the one that draws.
+ */
+export function windowSwitch(owner: number, cellX: number, cellY: number, level: number, stagger: number): number {
+  const [cx, cy] = [(cellX + 4096) >>> 0, (cellY + 4096) >>> 0];
+  let h = (Math.imul(owner + 1, 2654435761 | 0) ^ Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b | 0) >>> 0;
+  const at = (((h ^ (h >>> 16)) & 0xffff) / 65535) * stagger * 0.85;
+  const t = Math.min(1, Math.max(0, (level - at) / 0.15));
+  return t * t * (3 - 2 * t);
+}

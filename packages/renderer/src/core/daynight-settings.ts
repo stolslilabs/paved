@@ -35,7 +35,7 @@ export interface WindowLightSettings {
   margin: number;
   /**
    * The spread of the windows' switch-on levels over the night's ramp (the hash of each window, as the columns'): at 1 every
-   * window is on by full night and about 60 % at dusk; the columns' 1.6 leaves about half of them dark all night.
+   * window is on by full night and most of them at dusk; the columns' spread (1.6) leaves about half of them dark all night.
    */
   stagger: number;
   /** Which openings are kept (`WINDOW_RULES`). */
@@ -121,6 +121,7 @@ export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   seed: null,
   freezeAt: null,
   nightLights: true,
+  // The proposal of NIGHT-WINDOWS-2 (#571): "windows" here makes the windows the board's night lights; the owner decides.
   lights: "columns",
   // amber-300: a warm window.
   nightLightColor: "#ffb57a",

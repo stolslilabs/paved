@@ -89,7 +89,7 @@ export type { DayNightInput, DayNightSettings, DayPhase, NightLightSource, Seaso
 // The voxel grid of a tile model, once per model type (VOXELIZER, P-84): the voxel drop and the night windows build on it.
 export { PALETTE_SIZE, VoxelCache, cellIndex, paletteU, voxelize } from "./core/voxelizer";
 export type { VoxelFailure, VoxelGrid, VoxelSource, VoxelizeOptions } from "./core/voxelizer";
-export { DEFAULT_LIGHT_VOLUME, INSIDE_REACH, SPILL_LAYERS, WALL_DIRECTIONS, WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, plantEntries, spillOf, windowCells } from "./core/windows";
+export { DEFAULT_LIGHT_VOLUME, INSIDE_REACH, SPILL_LAYERS, WALL_DIRECTIONS, WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, plantEntries, spillOf, windowCells, windowSwitch } from "./core/windows";
 export type { BakedWindows, DropReason, Found, LightSpill, LightVolume, LightVolumeOptions, OpeningFilter, OpeningKind, VolumeMethod, Window, WindowRule } from "./core/windows";
 export { PALETTE_CLASSES, labelTileColumns } from "./core/features";
 export { paletteOfModel, planKeyOfModel, planLayout } from "./core/feature-layout";
