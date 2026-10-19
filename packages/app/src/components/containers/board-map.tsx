@@ -157,7 +157,7 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
               data-lit={highlight}
               data-fits={s.fits !== false}
               data-placed={placed ? "pending" : undefined}
-              className="relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="state-layer relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state])} />}
               {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="relative size-full rounded-[2px] border opacity-90" />}

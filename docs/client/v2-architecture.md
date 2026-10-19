@@ -428,9 +428,11 @@ cards, the avatars) now goes through a token: `border-primary/40` (or `/30`) on 
 **The interaction states** are tokens too, `--state-hover` (white 10%), `--state-selected` (15%), `--state-pressed` (20%),
 painted by one utility, `state-layer`: a white layer over the part's own background (`background-image` over
 `background-color`), so a gold button, a charcoal card and a transparent nav item take the same states. Selected covers
-`data-state="on"` (toggles), `"open"`, `"active"`, `aria-current="page"` (nav), `aria-pressed`, `aria-selected`; a selected
-part keeps its 15% under the pointer; a press wins. Every `Button` variant but `link`, `ToggleGroupItem`, the dropdown's
-items (`data-highlighted` is hover), the nav items, the mode cards and the rows that are buttons use it.
+`data-state="on"` (toggles), `"open"`, `"active"`, `"checked"`, `aria-current="page"` (nav), `aria-pressed`, `aria-selected`,
+`aria-checked` (a pack is a radio); a selected part keeps its 15% under the pointer; a press wins. Every `Button` variant (the
+link too, beside its underline), `ToggleGroupItem`, `Switch`, the tabs' triggers (the sliding highlight is their 15%), the
+dropdown's items (`data-highlighted` is hover), the dialog's and sheet's close keys, the nav items, the mode cards, the Cobble
+packs, the board map's slots and the rows that are buttons use it.
 
 **Cards.** Rounded 12 px (`rounded-xl`) charcoal with the hairline edge, led by an image where the mockups put one: a render on
 the left of a row (`ModeCard` `art`, the Play list), a banner across the top (`ModeCard` `banner`, the Challenge on Home; the

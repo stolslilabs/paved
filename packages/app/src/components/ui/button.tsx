@@ -14,13 +14,13 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Every variant but the link takes the white states (`state-layer`, theme.css): hover 10%, selected 15%, pressed 20%.
+        // Every variant takes the white states (`state-layer`, theme.css): hover 10%, selected 15%, pressed 20%; the link keeps its underline too.
         default: "state-layer bg-primary text-primary-foreground",
         destructive: "state-layer bg-destructive text-destructive-foreground",
         outline: "state-layer border border-input bg-transparent text-foreground",
         secondary: "state-layer bg-secondary text-secondary-foreground",
         ghost: "state-layer text-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "state-layer text-primary underline-offset-4 hover:underline",
       },
       size: {
         // Direction D's keys: 44 px by default (the touch floor), 56 px for the page's main action.

@@ -52,7 +52,7 @@ export function TabsTrigger({ className, value, children, ...props }: ComponentP
       data-slot="tabs-trigger"
       value={value}
       className={cn(
-        "relative inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none hover:bg-state-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground data-[state=active]:hover:bg-transparent",
+        "relative inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium state-layer whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground data-[state=active]:not-active:[--layer:transparent]",
         className,
       )}
       {...props}

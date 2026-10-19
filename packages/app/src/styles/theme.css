@@ -252,7 +252,7 @@
   &:where(:hover:not(:disabled, [aria-disabled="true"]), [data-highlighted], [data-force="hover"]) {
     --layer: var(--state-hover);
   }
-  &:where([data-state="on"], [data-state="open"], [data-state="active"], [aria-current="page"], [aria-pressed="true"], [aria-selected="true"], [data-selected], [data-force="selected"]) {
+  &:where([data-state="on"], [data-state="open"], [data-state="active"], [aria-current="page"], [aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [data-state="checked"], [data-selected], [data-force="selected"]) {
     --layer: var(--state-selected);
   }
   &:where(:active:not(:disabled, [aria-disabled="true"]), [data-force="pressed"]) {

@@ -126,6 +126,20 @@ describe("theme.css", () => {
     expect(rule).toMatch(/aria-current="page"/);
   });
 
+  it("puts the white states on every button variant and on the controls built from raw buttons (#537)", async () => {
+    const { buttonVariants } = await import("../src/components/ui/button");
+    for (const variant of ["default", "destructive", "outline", "secondary", "ghost", "link"] as const) {
+      expect(buttonVariants({ variant }), variant).toMatch(/\bstate-layer\b/);
+    }
+    // A pack is a radio (`aria-checked`): its selected layer is the same 15% as a toggle's.
+    const css = await build(["state-layer"]);
+    expect(css).toMatch(/aria-checked="true"/);
+    const dir = resolve(import.meta.dirname, "../src/components");
+    for (const f of ["containers/cobble-packs.tsx", "containers/board-map.tsx", "ui/dialog.tsx", "ui/sheet.tsx", "ui/switch.tsx", "ui/tabs.tsx"]) {
+      expect(readFileSync(resolve(dir, f), "utf8"), f).toMatch(/\bstate-layer\b/);
+    }
+  });
+
   it("keeps raw colours in theme.css only", () => {
     const files = ["../src/App.tsx", "../src/routes/Shell.tsx", "../src/routes/Placeholder.tsx", "../src/styles/fonts.css"];
     for (const f of files) expect(read(f), f).not.toMatch(/#[0-9a-fA-F]{3,8}\b|oklch\(|rgb\(/);
