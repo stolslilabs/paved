@@ -48,7 +48,7 @@ export interface HomeSceneProps {
   onPlayFree?: () => void;
   onChallenge?: () => void;
   onTraining?: () => void;
-  onTutorial?: () => void;
+  onStory?: () => void;
   onResume?: (gameId: number) => void;
   onConnect?: () => void;
   onNavigate?: (tab: Tab) => void;
@@ -121,7 +121,7 @@ export function HomeScene(props: HomeSceneProps) {
                 badge="Free"
                 onSelect={props.onTraining}
               />
-              <ModeCard icon="book-open" title="Tutorial" description="Learn the rules, one stage at a time." onSelect={props.onTutorial} />
+              <ModeCard icon="book-open" title="Story" description="Learn the rules level by level, then go for three stars." onSelect={props.onStory} />
             </div>
           </div>
 

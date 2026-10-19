@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
-import { CENTER, MAX_UNCONFIRMED, WRONG_SQUARE, initialOrientation, orientationName, type PlaceMove, type PredictedState } from "@paved/game-core";
+import { MAX_UNCONFIRMED, type PredictedState } from "@paved/game-core";
 import { BoardViewport } from "../../components/containers/board-viewport";
 import { TileView, hasWebGL } from "../../components/containers/tile-view";
 import { useTileArt } from "../../data/tile-art";
@@ -17,15 +17,13 @@ import { useBoardSkins } from "../../data/board-skins";
 import { useBoardSettings } from "../../data/board-settings";
 import { useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
-import { trainingStore, useDataSources } from "../../data/sources";
-import { useTutorialClaim, useTutorialClaimed, useTutorialRun } from "../../data/tutorial";
-import { useAccount, type WalletState } from "../../wallet/wallet";
-import { errorDetail, useErrorDetail } from "../error-detail";
+import { useDataSources } from "../../data/sources";
+import { useErrorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
-import { nextOrientation, same, useConfirmFlash, usePlacement, type Slot } from "../../data/placement";
+import { usePlacement, type Slot } from "../../data/placement";
 
 /**
  * The renderer reads the manifest the route asked for with this code (`data/renderer-manifest.ts`), not one of its own. If
@@ -34,12 +32,11 @@ import { nextOrientation, same, useConfirmFlash, usePlacement, type Slot } from 
 provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
 
-/** `/training` (P3), `/game/:gameId` (P5) and `/tutorial` (P6). */
+/** `/training` (P3) and `/game/:gameId` (P5); Story levels have their own page (`story-board.tsx`). */
 export default function Page() {
   const page = useRoutePage();
   if (page?.path === "training") return <TrainingBoard />;
   if (page?.path === "game/:gameId") return <ChallengeRoute />;
-  if (page?.path === "tutorial") return <TutorialBoard />;
   return <Placeholder />;
 }
 
@@ -347,232 +344,5 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       onDiscard={discard}
       onSurrender={surrender}
     />
-  );
-}
-
-/** Whether the store refuses to save (private mode, blocked site data): the tutorial's progress then lives in memory. */
-function storageOff(store: ReturnType<typeof trainingStore>): boolean {
-  try {
-    return store() === null;
-  } catch {
-    return true;
-  }
-}
-
-/**
- * `/tutorial` (P6): the scripted game (D-21, P-49) on the board scene, on game-core's `TutorialRun` kept for the page's
- * life (`useTutorialRun`). Each build step lights one slot, the stage's; the player turns the tile to match the example
- * and places it, and any other move is refused with its reason in the hand. A burn step asks for a discard. The stage's
- * text, Back and Restart sit under the header; at the end, the final score and the claim of First Stone (D-21), which
- * needs a connected wallet. No chain is read before the end.
- */
-function TutorialBoard() {
-  const { view, board, index, steps, play, back, restart } = useTutorialRun();
-  const sources = useDataSources();
-  // The connected player's skins, as in Training.
-  const skins = useBoardSkins(sources.signer?.address ?? null);
-  const boardSettings = useBoardSettings();
-  const onBack = useBack();
-  const step = view.step;
-  const [orientation, setOrientation] = useState(() => initialOrientation(step));
-  const [chosen, setChosen] = useState<Slot | null>(null);
-  const [hovered, setHovered] = useState<Slot | null>(null);
-  const [refusal, setRefusal] = useState<string | null>(null);
-  const refusalDetail = useErrorDetail(refusal);
-  const [view3d, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
-  // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
-  const tileArt = useTileArt(view3d === "3d" ? RENDERER_ASSETS : undefined);
-
-  // A new step (played, Back, Restart): its own orientation, no slot chosen, no refusal.
-  useEffect(() => {
-    setOrientation(initialOrientation(step));
-    setChosen(null);
-    setRefusal(null);
-  }, [index, step]);
-
-  const preset = step?.kind === "build" && step.placement ? { x: CENTER + step.placement.x, y: CENTER + step.placement.y } : null;
-  // The step's one slot, solid where the current rotation fits it (SLOTS).
-  const presetFits = useMemo(
-    () => preset !== null && view.game.canPlace({ orientation: orientationName(orientation), x: preset.x - CENTER, y: preset.y - CENTER }),
-    [view, preset?.x, preset?.y, orientation],
-  );
-  const hand = board.hand;
-  // No tile in hand: undefined (no plate). A tile with no slot (a burn step): empty, invalid plates all around.
-  const slots = useMemo(() => (!hand ? undefined : preset ? [{ ...preset, fits: presetFits }] : []), [!!hand, preset?.x, preset?.y, presetFits]);
-  const [confirmed, flash] = useConfirmFlash();
-  const target = chosen ?? (hovered && same(hovered, preset) ? hovered : null);
-  const move = useMemo<PlaceMove | null>(() => (target && hand ? { orientation, x: target.x, y: target.y } : null), [target, hand, orientation]);
-  // Where the tile may go in this orientation (the engine's rules), and its points when it is the step's own placement
-  // (the tutorial's engine builds only that one): a legal but wrong orientation is refused on Place, with its reason.
-  const placement = move && { orientation: orientationName(move.orientation), x: move.x - CENTER, y: move.y - CENTER };
-  const legal = useMemo(() => placement !== null && view.game.canPlace(placement), [view, placement?.orientation, placement?.x, placement?.y]);
-  const scripted = placement !== null && step?.placement?.orientation === placement.orientation;
-  const preview = useMemo(() => (legal && scripted ? view.game.clone().build(placement!).points : null), [view, legal, scripted]);
-  // Placed (chosen): yellow, or red while the rotation does not fit; a hover shows only a rotation that fits.
-  const ghost = move && hand && (legal || chosen) ? { ...move, plan: hand.plan, placed: chosen !== null, fits: legal } : null;
-
-  const choose = useCallback(
-    (cell: Slot) => {
-      if (!same(cell, preset)) {
-        setRefusal(WRONG_SQUARE);
-        return;
-      }
-      setRefusal(null);
-      setChosen(cell);
-    },
-    [preset?.x, preset?.y],
-  );
-  const rotate = useCallback(() => setOrientation((o) => nextOrientation(o)), []);
-  const cancel = useCallback(() => setChosen(null), []);
-  const confirm = useCallback(() => {
-    if (!move) return;
-    const refused = play({ kind: "build", orientation: move.orientation, x: move.x - CENTER, y: move.y - CENTER });
-    setRefusal(refused);
-    if (!refused && ghost) flash(ghost);
-  }, [move, play, ghost, flash]);
-  const discard = useCallback(() => setRefusal(play({ kind: "discard" })), [play]);
-
-  const stage = (
-    <section aria-label="Tutorial stage" data-slot="card" className="pointer-events-auto flex w-full max-w-2xl flex-col gap-2 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur">
-      {view.over ? (
-        <TutorialComplete score={board.score} />
-      ) : (
-        <>
-          <span className="text-xs text-muted-foreground">
-            Step {index + 1} of {steps}
-          </span>
-          <p role="status" aria-live="polite" className="wrap-anywhere">
-            {step?.text}
-          </p>
-        </>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" onClick={back} disabled={index === 0}>
-          Previous step
-        </Button>
-        <Button size="sm" variant="ghost" onClick={restart} disabled={index === 0}>
-          Restart
-        </Button>
-      </div>
-    </section>
-  );
-
-  const bubble = chosen && hand && !view.over ? { cell: chosen, rotations: 4, onRotate: rotate, onClose: cancel } : null;
-  return (
-    <BoardScene
-      mode="tutorial"
-      tiles={board.tiles}
-      score={board.score}
-      remaining={board.remaining}
-      discardedPlans={board.discardedPlans}
-      now={0}
-      hand={{
-        tile: hand && { plan: hand.plan, orientation },
-        state: !hand || view.over ? "empty" : refusal ? "refused" : "placing",
-        slotChosen: legal,
-        preview,
-        error: refusal,
-        errorDetail: refusalDetail,
-      }}
-      lastScored={board.lastScored}
-      tileArt={tileArt}
-      renderHandTile={view3d === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
-      storageDisabled={storageOff(trainingStore(sources))}
-      slots={slots}
-      ghost={ghost}
-      confirmed={confirmed}
-      bubble={bubble}
-      onSlotClick={choose}
-      readOnly={view.over}
-      notices={stage}
-      placementHighlight={boardSettings.placementHighlight}
-      seasonWheel={boardSettings.wheel}
-      canvas={
-        view3d === "3d" ? (
-          <BoardViewport
-            settings={boardSettings.renderer}
-            onScene={boardSettings.onScene}
-            tilePreview={boardSettings.tilePreview}
-            placementHighlight={boardSettings.placementHighlight}
-            skins={skins}
-            tiles={board.tiles}
-            basePath={RENDERER_ASSETS}
-            slots={slots}
-            ghost={ghost}
-            confirmed={confirmed}
-            bubble={bubble}
-            onCellClick={choose}
-            onCellHover={setHovered}
-            onError={() => setView("plan")}
-          />
-        ) : undefined
-      }
-      onBack={onBack}
-      onConfirm={confirm}
-      onDiscard={discard}
-    />
-  );
-}
-
-/**
- * The tutorial's end: the final score, then First Stone claimed on chain with one `Setup.claim_tutorial()` (D-21). The
- * claim needs a connected wallet (Connect is offered); a claim made before is read first (`tutorial_claimed`), so it
- * needs no transaction. Nothing checks on chain that the tutorial was played (P-49): the claim is the player's word.
- */
-function TutorialComplete({ score }: { score: number }) {
-  const wallet = useAccount();
-  // One claim per account: another account (a disconnect, then another connect) starts from its own read.
-  return <TutorialClaim key={wallet.address ?? "guest"} wallet={wallet} score={score} />;
-}
-
-function TutorialClaim({ wallet, score }: { wallet: WalletState; score: number }) {
-  const go = useAppNavigate();
-  const claimed = useTutorialClaimed(wallet.address);
-  const claim = useTutorialClaim();
-  const outcome = claim.data?.outcome ?? null;
-
-  let body;
-  if (!wallet.address) {
-    body = (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground">Connect a wallet to claim the mission First Stone.</span>
-        <Button size="sm" onClick={() => void wallet.connect()} loading={wallet.status === "connecting"}>
-          Connect
-        </Button>
-      </div>
-    );
-  } else if (outcome === "claimed") {
-    body = <p role="status">Claimed: First Stone is yours.</p>;
-  } else if (outcome === "already-claimed" || (claim.isIdle && claimed.data === true)) {
-    body = <p role="status">Already claimed: this account had First Stone before.</p>;
-  } else if (claim.isIdle && claimed.isPending) {
-    body = <p role="status">Checking your claim…</p>;
-  } else {
-    // An unreadable claim is still offered: the write says what the chain thinks.
-    body = (
-      <div className="flex flex-col gap-2">
-        <Button size="sm" className="self-start" onClick={() => claim.mutate()} loading={claim.isPending}>
-          Claim First Stone
-        </Button>
-        <InlineError title="The claim was refused" message={claim.error?.message} detail={claim.error ? errorDetail(claim.error) : undefined} />
-      </div>
-    );
-  }
-  return (
-    <div data-testid="tutorial-complete" className="flex flex-col gap-2">
-      <h2 className="font-display text-base font-semibold">Tutorial complete</h2>
-      <p>
-        Final score: <span className="numeric">{score}</span>. You know how roads, cities, forests and wonders score.
-      </p>
-      {body}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" onClick={() => go("/training")}>
-          Play Training
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => go("/")}>
-          Home
-        </Button>
-      </div>
-    </div>
   );
 }

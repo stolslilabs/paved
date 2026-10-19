@@ -24,7 +24,7 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
 };
 
 export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: string; icon: string }> = {
-  1: { title: "First Stone", description: "Finish the tutorial and claim it.", icon: "graduation-cap" },
+  1: { title: "First Stone", description: "Finish the first Story level and claim it.", icon: "graduation-cap" },
   2: { title: "Settler I", description: "Finish a Challenge game.", icon: "house-chimney" },
   3: { title: "Settler II", description: "Finish Challenge games: the second tier.", icon: "house-chimney" },
   4: { title: "Settler III", description: "Finish Challenge games: the third tier.", icon: "house-chimney" },

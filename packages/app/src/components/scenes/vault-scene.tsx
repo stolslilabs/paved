@@ -93,7 +93,7 @@ export function VaultScene(props: VaultSceneProps) {
     return (
       <TabPage tab="vault" title="Vault" subtitle={SUBTITLE} onNavigate={props.onNavigate}>
         <Notice tone="warning" title="Economy not deployed">
-          This network has no Vault yet: there is nothing to deposit or withdraw. Training and the Tutorial still play.
+          This network has no Vault yet: there is nothing to deposit or withdraw. Training and Story mode still play.
         </Notice>
       </TabPage>
     );
