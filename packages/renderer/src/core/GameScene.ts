@@ -25,7 +25,6 @@ import {
 import {
   detectSoftwareWebGL,
   openingTilePixels,
-  outlineFadeOf,
   outlinesAllowed,
   outlineStroke,
   tilePixels,
@@ -39,8 +38,6 @@ import type { DropResult } from "./tile-drops";
 import type * as DayNight from "./daynight";
 import { AmbientLoop } from "./ambient-loop";
 import { ambientAllowed } from "./ambient-settings";
-// The ambient particles are their own chunk: loaded only once the ambient effects are first on (`syncAmbient`).
-import type * as Particles from "./ambient-particles";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -192,11 +189,6 @@ export class GameScene {
    * loop at its capped rate, paused while the tab is hidden or the board covered (`setCovered`), off with the effects.
    */
   readonly ambient = new AmbientLoop();
-  /** The ambient particles (`ambient-particles.ts`), once their chunk is in; its load, started the first time the effects are on. */
-  private ambientParticles: Particles.AmbientParticles | null = null;
-  private ambientLoad: Promise<void> | null = null;
-  /** The night's level the cycle last drew (0 by day, or with the cycle off): the particles' night glow. */
-  private nightLevel = 0;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -334,7 +326,6 @@ export class GameScene {
       if (hover) this.requestRender();
       return;
     }
-    this.syncAmbientTiles();
     this.requestShadowUpdate();
     this.requestRender();
   }
@@ -469,53 +460,14 @@ export class GameScene {
 
   /**
    * The ambient effects (AMBIENT, #572): on when the settings say so, but not on the Low tier or under reduced motion
-   * (`ambientAllowed`). The first time they are on, the particles' chunk loads; off, the loop stops and the particles hide
-   * (their chunk and layout stay for the next time).
+   * (`ambientAllowed`). Off, the loop stops. An effect is a chunk of its own that registers on `ambient` (`AmbientLoop`).
    */
   private syncAmbient(): void {
     const settings = this.settings.ambient;
     const on = ambientAllowed(settings, this.getQuality(), prefersReducedMotion()) && !!this.renderer;
     this.ambient.setRate(settings.fps);
     this.ambient.setEnabled(on);
-    const particles = this.ambientParticles;
-    if (particles) {
-      particles.setSettings(settings.particles);
-      particles.object.visible = on;
-    } else if (on) {
-      this.loadAmbient();
-    }
     this.requestRender();
-  }
-
-  /** Loads the particles' chunk once, and puts the particles on the board when it is in (a failed load leaves the board as it is). */
-  private loadAmbient(): void {
-    this.ambientLoad ??= import("./ambient-particles").then(
-      (module) => {
-        if (this.disposed) return;
-        const particles = new module.AmbientParticles(this.ambient.time, this.settings.ambient.particles);
-        particles.onChange = () => this.requestRender();
-        particles.setNight(this.nightLevel);
-        this.ambientParticles = particles;
-        this.sceneGroup.add(particles.object);
-        this.ambient.register(particles);
-        this.syncAmbientTiles();
-        // The zoom fade is set with the outlines' stroke, on the next frame.
-        this.outlineTilePx = Number.NaN;
-        this.syncAmbient();
-      },
-      (error: unknown) => console.warn("[renderer] the ambient particles did not load, the board stays still:", error),
-    );
-  }
-
-  /** The particles laid out on the tiles drawn now (`TileRenderer.drawnModels`), in the board's group. */
-  private syncAmbientTiles(): void {
-    this.ambientParticles?.setTiles(this.tiles.drawnModels(), this.sceneGroup);
-  }
-
-  /** The particles' zoom fade at a tile size: the outlines' curve (`outlineFadeOf`), or 1 with the fade off. */
-  private ambientFade(tilePx: number, openingTilePx: number): number {
-    if (!this.settings.ambient.particles.zoomFade) return 1;
-    return openingTilePx > 0 ? outlineFadeOf(tilePx, openingTilePx, this.settings.outlines) : 1;
   }
 
   /**
@@ -526,11 +478,9 @@ export class GameScene {
     this.ambient.setPaused("covered", covered);
   }
 
-  /** What the ambient effects draw now: the loop's state and rate, the particles of each kind and their draws. */
-  getAmbient(): { running: boolean; fps: number; steps: number; water: number; wonder: number; drawCalls: number } {
-    const stats = this.ambientParticles?.stats() ?? { water: 0, wonder: 0, drawCalls: 0 };
-    const running = this.ambient.running;
-    return { running, fps: this.ambient.getRate(), steps: this.ambient.steps, ...(running ? stats : { water: 0, wonder: 0, drawCalls: 0 }) };
+  /** The ambient loop now: whether it runs, its rate and the steps it took. */
+  getAmbient(): { running: boolean; fps: number; steps: number } {
+    return { running: this.ambient.running, fps: this.ambient.getRate(), steps: this.ambient.steps };
   }
 
   /**
@@ -548,8 +498,6 @@ export class GameScene {
         this.effects.setBackdrop(false);
         this.dayNight?.releaseDayNight(this.directionalLight);
         this.renderer?.setClearColor(0x000000, 1);
-        this.nightLevel = 0;
-        this.ambientParticles?.setNight(0);
         this.tiles.setNightLights(false, settings.nightLightColor, settings.windowLight);
       }
       return;
@@ -613,11 +561,7 @@ export class GameScene {
         crossfade: this.dayNightRuns(),
         shadowMoved: () => this.requestShadowUpdate(),
         backdrop: (top, bottom) => this.effects.setBackdrop(true, top, bottom),
-        lights: (level) => {
-          this.tiles.setNightLevel(level);
-          this.nightLevel = level;
-          this.ambientParticles?.setNight(level);
-        },
+        lights: (level) => this.tiles.setNightLevel(level),
       },
       seasons,
       this.settings.dayNight.brightnessFloor,
@@ -725,7 +669,6 @@ export class GameScene {
   updateTiles(tiles: TileRenderData[]): void {
     this.latestTiles = tiles.slice();
     this.tiles.updateTiles(tiles);
-    this.syncAmbientTiles();
     if (this.controls) {
       this.controls.setBoardBounds(this.computeBoardBounds());
     }
@@ -742,7 +685,6 @@ export class GameScene {
     this.skins = skins;
     this.tiles.setSkins(skins);
     this.tiles.updateTiles(this.latestTiles);
-    this.syncAmbientTiles();
     this.requestShadowUpdate();
     this.requestRender();
   }
@@ -840,7 +782,6 @@ export class GameScene {
   setStrategyMode(on: boolean): void {
     this.tiles.setStrategyMode(on);
     this.tiles.updateTiles(this.latestTiles);
-    this.syncAmbientTiles();
     this.requestShadowUpdate();
     this.requestRender();
   }
@@ -1065,10 +1006,6 @@ export class GameScene {
       const outlines = this.outlineSettings();
       this.tiles.setOutlineStroke(outlineStroke(tilePx, outlines, this.pixelRatio, openingTilePx), outlines.color);
       this.tiles.setPlacementZoom(tilePx, openingTilePx);
-      this.ambientParticles?.setZoom(this.ambientFade(tilePx, openingTilePx));
-    }
-    if (this.ambientParticles && this.surface && this.camera) {
-      this.ambientParticles.setViewport(this.surface.getSize().height * this.pixelRatio, this.camera.fov, this.camera.zoom, this.pixelRatio);
     }
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
@@ -1174,8 +1111,6 @@ export class GameScene {
     this.directionalLight?.shadow.dispose();
     this.dayNight?.releaseDayNight(this.directionalLight);
     this.ambient.dispose();
-    this.ambientParticles?.dispose();
-    this.ambientParticles = null;
     this.scene.clear();
     this.latestTiles = [];
     this.cameraListeners.clear();

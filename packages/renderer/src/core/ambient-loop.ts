@@ -2,7 +2,7 @@
 import { AMBIENT_FPS } from "./ambient-settings";
 
 /**
- * One ambient effect (the particles, #572; the next ones, #573 and #574): it moves on its own in its shader, from the loop's
+ * One ambient effect (the cloud shadows of #573, the birds of #574): it moves on its own in its shader, from the loop's
  * time uniform (`AmbientLoop.time`), and says on each step whether it drew anything that moved.
  */
 export interface AmbientEffect {

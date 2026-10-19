@@ -31,7 +31,7 @@ export interface DeviceSettings {
   /** The board's day and night cycle (DAYNIGHT, P-73): a moving sky, the sun's shadows, the city lights at night. */
   dayNight: boolean;
   /**
-   * The ambient effects (#572 to #574): the particles over the water and the wonders, and the next effects on the same loop.
+   * The ambient effects (#572 to #574): every effect on the renderer's one ambient loop.
    * The renderer keeps them off on the Low tier and under reduced motion, whatever this says.
    */
   ambient: boolean;
