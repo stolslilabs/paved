@@ -9,6 +9,7 @@ import { useRoutePage } from "./handle";
 import { BalancesHost } from "./balances-host";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
+import { StaleChunkGate } from "./stale-chunk-gate";
 
 /** The boot screen: also the router's `hydrateFallbackElement` and every route's `Suspense` fallback (section 6.1). */
 export const bootScreen = <LoadingScene progress={null} />;
@@ -46,6 +47,7 @@ export function RootLayout() {
       {/* The "Mock data" mark of the headers of the pages the mock serves (MOCK-FIRST). */}
       <MockMarkProvider value={MOCKED && page !== null && MOCKED_PAGES.has(page.path)}>
         <HistoryTracker>
+          <StaleChunkGate />
           {/* A board shows no balances: it reads none (a board is the heaviest page, and its tests the most timing-bound). */}
           {onBoard ? (
             <Suspense fallback={bootScreen}>
