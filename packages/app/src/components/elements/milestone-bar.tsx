@@ -33,8 +33,18 @@ export interface MilestoneBarProps {
 
 const STATE_WORD: Record<MilestoneState, string> = { claimed: "claimed", claimable: "reward to claim", done: "reached", next: "next", locked: "locked" };
 
+/** Half a node (`size-8`): the nodes' centres run from here to the bar's width less it, so the last node stays inside. */
+const INSET = "1rem";
+/** A point at `f` (0 to 1) of the bar, between the two insets. */
+const along = (f: number) => `calc(${f} * (100% - 2 * ${INSET}) + ${INSET})`;
 /** Step i of n, evenly spaced: the last sits at the bar's end. */
-const at = (i: number, n: number) => `${((i + 1) / n) * 100}%`;
+const at = (i: number, n: number) => along((i + 1) / n);
+/**
+ * Where a step's label goes: centred on its node, but the last one is anchored to the bar's right edge (as wide as a node
+ * at least, so a short label stays centred under it): a wide label grows to the left instead of out of the card.
+ */
+const labelAt = (i: number, n: number) =>
+  i === n - 1 ? { className: "right-0 min-w-8 text-center", style: undefined } : { className: "-translate-x-1/2", style: { left: at(i, n) } };
 
 /**
  * A milestone progress bar (issue 595), as mobile games draw their limited-time events: the count fills the bar, each step is a
@@ -47,12 +57,12 @@ export function MilestoneBar({ count, milestones, unit, className }: MilestoneBa
   const fill = milestoneFill(count, milestones.map((m) => m.target));
   const rewards = milestones.some((m) => m.cobbles != null);
   return (
-    <div data-slot="milestone-bar" className={cn("px-4", className)}>
+    <div data-slot="milestone-bar" className={className}>
       {rewards && (
         <div aria-hidden className="relative h-6">
           {milestones.map((m, i) =>
             m.cobbles == null ? null : (
-              <span key={m.key} className="absolute bottom-0.5 -translate-x-1/2" style={{ left: at(i, n) }}>
+              <span key={m.key} className={cn("absolute bottom-0.5 flex justify-center", labelAt(i, n).className)} style={labelAt(i, n).style}>
                 <Cobbles
                   value={m.cobbles}
                   sign="+"
@@ -77,7 +87,7 @@ export function MilestoneBar({ count, milestones, unit, className }: MilestoneBa
           <div
             data-slot="milestone-fill"
             className={cn("h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none", fill >= 1 ? "bg-success" : "bg-primary")}
-            style={{ width: `${fill * 100}%` }}
+            style={{ width: fill <= 0 ? "0%" : fill >= 1 ? "100%" : along(fill) }}
           />
         </div>
         <ol aria-label="Steps" className="absolute inset-0">
@@ -98,8 +108,8 @@ export function MilestoneBar({ count, milestones, unit, className }: MilestoneBa
         {milestones.map((m, i) => (
           <span
             key={m.key}
-            className={cn("numeric absolute top-0 -translate-x-1/2 text-xs whitespace-nowrap", m.state === "locked" || m.state === "next" ? "text-muted-foreground" : "text-foreground")}
-            style={{ left: at(i, n) }}
+            className={cn("numeric absolute top-0 text-xs whitespace-nowrap", labelAt(i, n).className, m.state === "locked" || m.state === "next" ? "text-muted-foreground" : "text-foreground")}
+            style={labelAt(i, n).style}
           >
             {formatNumber(m.target)}
           </span>
