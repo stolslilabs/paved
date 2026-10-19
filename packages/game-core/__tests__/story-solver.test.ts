@@ -85,13 +85,14 @@ describe("story plan", () => {
     for (let index = 1; index < tiles.length; index++) expect(tiles[index]).toBeGreaterThan(tiles[index - 1] as number);
   });
 
+  // The seeded draws are CPU-bound: the test passed 5 s, the default timeout, on CI (main included).
   it("takes each deck of the second campaign from the Challenge's draw of its seed", () => {
     for (const level of OPEN_COUNTRY.levels) {
       expect(level.seed, `level ${level.id} has a seed`).toBeDefined();
       expect(level.deck).toEqual(seededDeck(BigInt(level.seed as number), level.deck.length));
       expect(level.method).toBe("best-known");
     }
-  });
+  }, 30_000);
 
   it("encodes and decodes a line", () => {
     const line = "N1,0 D E-1,2 S0,-3 W10,10";
