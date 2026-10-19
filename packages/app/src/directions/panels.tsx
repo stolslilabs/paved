@@ -68,6 +68,12 @@ export function PalettePanel({ id }: { id: DirectionId }) {
             <DTitle>Cards</DTitle>
             <p className="text-sm">{dir.cards}</p>
           </DCard>
+          {dir.mockups && (
+            <DCard className="flex flex-col gap-2 p-4 desktop:col-span-2">
+              <DTitle>Against the mockups</DTitle>
+              <p className="text-sm">{dir.mockups}</p>
+            </DCard>
+          )}
         </div>
 
         <Section title="Contrast of the states">
