@@ -29,6 +29,9 @@ export interface NightWindowsBoardProps {
   forest: boolean;
 }
 
+/** One column on a phone, two on a desktop (inline: the stories add no class to the app's CSS). */
+const COLUMNS = { gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))" } as const;
+
 /** The moments of the "moments" layout: from the first lights of the dusk to the full night, in a cycle (`DAY_PHASE_AT`). */
 const MOMENTS: ReadonlyArray<readonly [string, number]> = [
   ["early dusk", 0.53],
@@ -46,7 +49,7 @@ const MOMENTS: ReadonlyArray<readonly [string, number]> = [
 export function NightWindowsBoard({ layout, lights, phase, season, speed, view, distance, nightLightIntensity, windowIntensity, reach, falloff, margin, stagger, rule, quality, force, forest }: NightWindowsBoardProps) {
   const windowLight = { intensity: windowIntensity, reach, falloff, margin, stagger, rule };
   const board = (source: "columns" | "windows", label: string, at?: number) => (
-    <div className="relative h-full min-h-[50dvh]">
+    <div className="relative h-full" style={{ minHeight: "50dvh" }}>
       <DayNightBoard
         cycleSeconds={120}
         phase={phase}
@@ -74,7 +77,7 @@ export function NightWindowsBoard({ layout, lights, phase, season, speed, view, 
   if (layout === "moments") {
     const base = Math.max(0, freezeAt(season, "dawn") - 0.025);
     return (
-      <div className="grid min-h-dvh grid-cols-1 gap-px bg-border sm:grid-cols-2">
+      <div className="grid min-h-dvh gap-px bg-border" style={COLUMNS}>
         {MOMENTS.map(([label, moment]) => (
           <div key={label}>{board("windows", `windows, ${label}`, base + moment)}</div>
         ))}
@@ -82,7 +85,7 @@ export function NightWindowsBoard({ layout, lights, phase, season, speed, view, 
     );
   }
   return (
-    <div className="grid min-h-dvh grid-cols-1 gap-px bg-border sm:grid-cols-2">
+    <div className="grid min-h-dvh gap-px bg-border" style={COLUMNS}>
       {board("columns", name("columns"))}
       {board("windows", name("windows"))}
     </div>

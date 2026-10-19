@@ -167,6 +167,9 @@ const MARK_LABELS: Record<OpeningKind | "unlit", string> = {
 
 const FACING = ["N", "E", "S", "W"] as const;
 
+/** A readout cell's padding (inline: the stories add no class to the app's CSS). */
+const CELL = { paddingRight: "0.75rem" } as const;
+
 /** How many items each key has. */
 function countBy<T>(items: readonly T[], key: (item: T) => string): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -352,7 +355,7 @@ export function NightWindowsTile(props: NightWindowsTileProps) {
   const counts = baked ? { window: 0, door: 0, gap: 0, ...countBy(baked.kept, (w) => w.kind) } : null;
   const reasons = baked ? Object.entries(countBy(baked.dropped, (w) => w.reason)).map(([k, v]) => `${v} ${k}`).join(", ") || "none" : "";
   return (
-    <div className="flex min-h-dvh flex-wrap items-start gap-6 bg-background p-4 text-foreground sm:p-6" data-ready={baked ? "" : undefined}>
+    <div className="flex min-h-dvh flex-wrap items-start gap-6 bg-background p-6 text-foreground" data-ready={baked ? "" : undefined}>
       <canvas ref={iso} className="h-auto max-w-full border border-border" aria-label={`${id} with its windows`} />
       {step === "slice" && <canvas ref={slice} className="h-auto max-w-full border border-border" aria-label={`Light of layer ${at}`} />}
       <output className="min-w-0 max-w-full break-words font-mono text-xs leading-6" aria-live="off">
@@ -366,26 +369,26 @@ export function NightWindowsTile(props: NightWindowsTileProps) {
             <div>light volume {volume.sizeX} x {volume.sizeY} x {volume.layers} cells, RG8 {(volume.bytes / 1024).toFixed(1)} KB; spill {volume.spill.size} x {volume.spill.size} ({(volume.spill.data.byteLength / 1024).toFixed(1)} KB, margin {volume.spill.margin})</div>
             <div>{volume.sources.length} sources, {new Set(volume.owners).size} owners (a room's windows share one), {method}, build {volume.buildMs.toFixed(2)} ms</div>
             <div>switch-on at level {nightLevel.toFixed(2)} (stagger {stagger}) on cell {cellX}, {cellY}</div>
-            <table className="mt-2 border-collapse text-left">
-              <caption className="text-left">Structures (numbered on the view): windows kept / dropped per wall, lit at full night and at the level</caption>
+            <table className="mt-2" style={{ borderSpacing: 0, textAlign: "left" }}>
+              <caption style={{ textAlign: "left" }}>Structures (numbered on the view): windows kept / dropped per wall, lit at full night and at the level</caption>
               <thead>
                 <tr>
-                  <th className="pr-3">#</th>
-                  <th className="pr-3">box</th>
-                  {FACING.map((f) => <th key={f} className="pr-3">{f}</th>)}
-                  <th className="pr-3">lit night</th>
-                  <th className="pr-3">lit now</th>
+                  <th style={CELL}>#</th>
+                  <th style={CELL}>box</th>
+                  {FACING.map((f) => <th key={f} style={CELL}>{f}</th>)}
+                  <th style={CELL}>lit night</th>
+                  <th style={CELL}>lit now</th>
                   <th>dropped</th>
                 </tr>
               </thead>
               <tbody>
                 {structures.slice(0, STRUCTURE_ROWS).map((s) => (
                   <tr key={s.label}>
-                    <td className="pr-3">#{s.label}</td>
-                    <td className="pr-3">{s.size} at {s.x},{s.y}</td>
-                    {FACING.map((f, i) => <td key={f} className="pr-3">{s.kept[i]}{s.dropped[i] ? `/${s.dropped[i]}` : ""}</td>)}
-                    <td className="pr-3">{s.litNight}/{s.windows}</td>
-                    <td className="pr-3">{s.litNow}/{s.windows}</td>
+                    <td style={CELL}>#{s.label}</td>
+                    <td style={CELL}>{s.size} at {s.x},{s.y}</td>
+                    {FACING.map((f, i) => <td key={f} style={CELL}>{s.kept[i]}{s.dropped[i] ? `/${s.dropped[i]}` : ""}</td>)}
+                    <td style={CELL}>{s.litNight}/{s.windows}</td>
+                    <td style={CELL}>{s.litNow}/{s.windows}</td>
                     <td>{s.reasons}</td>
                   </tr>
                 ))}
@@ -485,7 +488,7 @@ export function NightWindowsTable({ skin, rule = "structures" }: { skin: TileSki
   }, [loader, skin, rule]);
   const total = rows?.reduce((sum, r) => ({ windows: sum.windows + r.windows, through: sum.through + r.through, doors: sum.doors + r.doors, gaps: sum.gaps + r.gaps }), { windows: 0, through: 0, doors: 0, gaps: 0 });
   return (
-    <div className="min-h-dvh bg-background p-4 text-foreground sm:p-6" data-ready={rows ? "" : undefined}>
+    <div className="min-h-dvh bg-background p-6 text-foreground" data-ready={rows ? "" : undefined}>
       {total && (
         <div className="mb-3 font-mono text-xs">
           {rows!.length} models, rule {rule}: windows {total.windows} ({total.through} through a wall), doors {total.doors}, gaps {total.gaps}
