@@ -151,18 +151,26 @@ function useSheetDrag(el: HTMLElement | null, active: boolean, close: () => void
     const onPointerMove = (e: PointerEvent) => {
       if (move(e.clientX, e.clientY)) e.preventDefault();
     };
-    const onPointerUp = () => {
+    const unlisten = () => {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+    };
+    const onPointerUp = () => {
+      unlisten();
       end();
+    };
+    /** A cancelled pointer (the browser took it back) restores the panel: only a release may close. */
+    const onPointerCancel = () => {
+      unlisten();
+      cancel();
     };
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType === "touch" || e.button !== 0) return;
       start(e.clientX, e.clientY, e.target);
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
-      window.addEventListener("pointercancel", onPointerUp);
+      window.addEventListener("pointercancel", onPointerCancel);
     };
     /** A drag that ends on a button does not press it. */
     const onClick = (e: MouseEvent) => {
@@ -185,7 +193,7 @@ function useSheetDrag(el: HTMLElement | null, active: boolean, close: () => void
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("click", onClick, true);
       g = null;
-      onPointerUp();
+      unlisten();
     };
   }, [el, active, close, reduced]);
 }

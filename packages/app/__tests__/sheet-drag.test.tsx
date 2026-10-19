@@ -171,4 +171,31 @@ describe("Bottom sheet drag (#581)", () => {
     fireEvent.pointerUp(window, { pointerType: "mouse" });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("restores the panel when a pen or mouse drag is cancelled, past the threshold too", () => {
+    const { el, onOpenChange } = open();
+    now = 0;
+    fireEvent.pointerDown(screen.getByText("Settings"), { pointerType: "pen", button: 0, clientX: 50, clientY: 100 });
+    now = 500;
+    fireEvent.pointerMove(window, { pointerType: "pen", clientX: 50, clientY: 400 });
+    expect(el.style.translate).toBe("0 300px");
+    now = 660;
+    fireEvent.pointerCancel(window, { pointerType: "pen" });
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(el.style.translate).toBe("");
+    expect(el).not.toHaveAttribute("data-dragging");
+    fireEvent.pointerUp(window, { pointerType: "pen" });
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("restores the panel when a touch is cancelled", () => {
+    const { el, onOpenChange } = open();
+    now = 0;
+    fireEvent.touchStart(screen.getByText("Row"), touch(50, 100));
+    now = 500;
+    fireEvent.touchMove(screen.getByText("Row"), touch(50, 400));
+    fireEvent.touchCancel(screen.getByText("Row"), { touches: [], changedTouches: [{ clientX: 50, clientY: 400 }] });
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(el.style.translate).toBe("");
+  });
 });
