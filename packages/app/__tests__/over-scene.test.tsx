@@ -82,3 +82,51 @@ describe("OverScene: a Challenge game's settlement (P7a)", () => {
     expect(screen.queryByText("No structure closed in this game.")).toBeNull();
   });
 });
+
+describe("OverScene: the figures and the final board (#539)", () => {
+  it("leads with the largest city, road and forest in tiles, the wonders and the best closing", () => {
+    show(<OverScene {...OVER.rewarded} />);
+    const highlights = screen.getByRole("region", { name: "Highlights" });
+    expect(within(highlights).getByTestId("highlight-city")).toHaveTextContent("Largest city8 tiles320 pts");
+    expect(within(highlights).getByTestId("highlight-road")).toHaveTextContent("Longest road7 tiles70 pts");
+    expect(within(highlights).getByTestId("highlight-forest")).toHaveTextContent("Largest forest6 tiles60 pts");
+    expect(within(highlights).getByTestId("highlight-wonders")).toHaveTextContent("Wonders1180 pts");
+    expect(within(highlights).getByTestId("highlight-best")).toHaveTextContent("City of 8 tiles, tile 38320 pts");
+    const metrics = screen.getByRole("region", { name: "Game metrics" });
+    expect(metrics).toHaveTextContent("Tiles placed37");
+    expect(metrics).toHaveTextContent("Tiles discarded2100 pts taken");
+    expect(metrics).toHaveTextContent("Cities closed5");
+    expect(metrics).toHaveTextContent("Left open4Largest: a forest of 7 tiles");
+    // Its badges: the previous best beaten, today's rank.
+    expect(screen.getByText("New best")).toBeInTheDocument();
+    expect(screen.getByText("#7 today")).toBeInTheDocument();
+  });
+
+  it("says None closed for a category the game did not close", () => {
+    show(<OverScene {...OVER.noClosing} />);
+    expect(screen.getByTestId("highlight-city")).toHaveTextContent("None closed");
+    expect(screen.queryByTestId("highlight-best")).toBeNull();
+    expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Left open1Largest: a road of 3 tiles");
+  });
+
+  it("switches to the board and back, keeping the board mounted under the scores", async () => {
+    const onViewChange = vi.fn();
+    show(<OverScene {...OVER.training} onViewChange={onViewChange} />);
+    expect(screen.queryByTestId("final-board")).toBeNull();
+    const toggle = screen.getByRole("radiogroup", { name: "Show" });
+    await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
+    expect(onViewChange).toHaveBeenLastCalledWith("board");
+    expect(await within(screen.getByTestId("final-board")).findByRole("img", { name: /Board of \d+ tiles/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Final board" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(onViewChange).toHaveBeenLastCalledWith("scores");
+    expect(screen.getByTestId("final-board")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+  });
+
+  it("has no toggle without a board", () => {
+    show(<OverScene {...OVER.noBoard} />);
+    expect(screen.queryByRole("radiogroup", { name: "Show" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Highlights" })).toBeNull();
+  });
+});

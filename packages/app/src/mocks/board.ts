@@ -1,5 +1,5 @@
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import type { TileData } from "@paved/game-core";
+import { CategoryType, SCORING_CATEGORIES, type ClosedStructure, type GameStats, type OpenStructure, type TileData } from "@paved/game-core";
 import board38 from "../../../game-core/bench/fixtures/board-38.json?raw";
 import board72 from "../../../game-core/bench/fixtures/board-72.json?raw";
 import placements38 from "../../../game-core/bench/fixtures/placements-38.json?raw";
@@ -57,3 +57,41 @@ export const LAST_SCORED: ScoredStructure[] = [
   { category: CITY, size: 8, points: 320 },
   { category: FOREST, size: 5, points: 50 },
 ];
+
+const CATEGORY_TYPES = Object.values(CategoryType);
+
+/**
+ * The figures of a game (`gameStats`'s shape) from its closings, for the over scene's mocks: a closing's tiles are its
+ * `size` here (the mocks have no board to count them on), `placed`, the discards and what was left open are given.
+ */
+export function mockStats(
+  closings: GameClosing[],
+  rest: { placed: number; discarded: number; discardPenalty: number; open: OpenStructure[] },
+): GameStats {
+  const closed: ClosedStructure[] = closings.map((c) => ({ category: CATEGORY_TYPES[c.category]!, size: c.size, tiles: c.size, points: c.points, player: 1n, tileId: c.tileId }));
+  const larger = <T extends { tiles: number; points?: number }>(a: T | null, b: T): T => (!a || b.tiles > a.tiles || (b.tiles === a.tiles && (b.points ?? 0) > (a.points ?? 0)) ? b : a);
+  return {
+    score: closed.reduce((n, c) => n + c.points, 0) - rest.discardPenalty,
+    placed: rest.placed,
+    discarded: rest.discarded,
+    discardPenalty: rest.discardPenalty,
+    categories: SCORING_CATEGORIES.map((category) => {
+      const of = closed.filter((c) => c.category === category);
+      return { category, closed: of.length, points: of.reduce((n, c) => n + c.points, 0), largest: of.reduce<ClosedStructure | null>(larger, null), open: rest.open.filter((o) => o.category === category).length };
+    }),
+    closings: closed,
+    best: closed.reduce<ClosedStructure | null>((b, c) => (!b || c.points > b.points ? c : b), null),
+    open: { count: rest.open.length, largest: rest.open.reduce<OpenStructure | null>(larger, null) },
+  };
+}
+
+/** What the 38-tile game left open at its end. */
+const OPEN_38: OpenStructure[] = [
+  { category: CategoryType.Forest, tiles: 7, size: 9 },
+  { category: CategoryType.Road, tiles: 3, size: 3 },
+  { category: CategoryType.City, tiles: 2, size: 2 },
+  { category: CategoryType.Forest, tiles: 2, size: 2 },
+];
+
+/** The 38-tile game's figures: 37 placed after the starter, 2 discarded. */
+export const STATS_38 = mockStats(CLOSINGS_38, { placed: 37, discarded: 2, discardPenalty: 100, open: OPEN_38 });

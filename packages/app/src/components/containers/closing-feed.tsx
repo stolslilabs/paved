@@ -9,11 +9,13 @@ export interface ClosingLineProps {
   closing: ScoredStructure;
   /** The move that closed it, when the list shows the whole game. */
   move?: number;
+  /** Its distinct tiles (`gameStats`): shown instead of `size`, which counts the areas it spans. */
+  tiles?: number;
   className?: string;
 }
 
 /** One closed structure: its category, its size in tiles, the points it scored (a forest can close at 0). */
-export function ClosingLine({ closing, move, className }: ClosingLineProps) {
+export function ClosingLine({ closing, move, tiles, className }: ClosingLineProps) {
   const info = categoryInfo(closing.category);
   return (
     <div className={cn("flex items-center gap-3", className)}>
@@ -21,7 +23,7 @@ export function ClosingLine({ closing, move, className }: ClosingLineProps) {
       <span className="flex min-w-0 flex-1 items-baseline gap-2 text-sm">
         <span>{info.label}</span>
         <span className="text-xs text-muted-foreground">
-          {closing.size} tiles{move != null && <> · tile {move}</>}
+          {tiles ?? closing.size} tiles{move != null && <> · tile {move}</>}
         </span>
       </span>
       <span className={cn("numeric text-sm font-semibold", closing.points > 0 ? "text-success" : "text-muted-foreground")}>
