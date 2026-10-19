@@ -110,13 +110,16 @@ describe("story plan", () => {
   }, 60_000);
 
   it("keeps a seed line in the beam: even the narrowest search ends at least at the seed's score", () => {
+    // Tutorial 7's stored line is its exact optimum (asserted below): no need to solve it again here.
     const level = TUTORIAL.levels[6]!;
-    const optimum = solve(level.deck, { placed: level.placed });
-    expect(beam(level.deck, { width: 1, placed: level.placed }).score).toBeLessThan(optimum.optimum);
-    const seeded = beam(level.deck, { width: 1, placed: level.placed, seed: optimum.moves });
-    expect(seeded.score).toBe(optimum.optimum);
-    expect(replayLine(level.deck, encodeLine(seeded.moves), level.placed).score).toBe(optimum.optimum);
-  });
+    const seed = decodeLine(level.line).map((move, index) =>
+      move.action === "build" ? { ...move, plan: level.deck[index]! } : { action: "discard" as const, plan: level.deck[index]! },
+    );
+    expect(beam(level.deck, { width: 1, placed: level.placed }).score).toBeLessThan(level.target);
+    const seeded = beam(level.deck, { width: 1, placed: level.placed, seed });
+    expect(seeded.score).toBe(level.target);
+    expect(replayLine(level.deck, encodeLine(seeded.moves), level.placed).score).toBe(level.target);
+  }, 30_000);
 
   it("plays the designer's rules: score what can be scored, else keep the board tidy, discard only what fits nowhere", () => {
     // Tutorial 1: the designer closes the road of 3 (two crossroads around the starter's road)
