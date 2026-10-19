@@ -143,16 +143,23 @@ export function useClosings(game: GameView | undefined): UseQueryResult<OverRepl
 
 // --- Best and rank ---------------------------------------------------------------------------------------------------
 
+/** The player's games the over page reads (the newest first): the whole history when fewer come back. */
+export const PLAYER_GAMES_READ = 20;
+
 /**
- * The player's best before this game: the best of their other finished Challenge games among the newest the indexer lists,
- * and their best overall when it is above this game's score (the indexer's best counts this game once it is indexed, so
- * an equal best says nothing). Null until either is read. A tie with a game older than the listed ones reads as a new best.
+ * The player's best before this game, never one that would call a tie a new best: null until a read answers.
+ *
+ * - Every other game listed (`complete`: the indexer returned fewer than `PLAYER_GAMES_READ`): the best of the other
+ *   finished games, exact.
+ * - Only the newest listed: those, and the indexer's best overall (`best`), which may count this game. An equal best is
+ *   kept, as it may be an older game the page did not read: a tie is never shown as a new best, at the cost of no badge
+ *   for a game that is its player's first at that score. Without `best`, an older game could be higher: null.
  */
-export function previousBestOf(game: Pick<GameView, "id" | "score">, others: readonly IndexedGame[] | undefined, best: number | undefined): number | null {
-  if (others === undefined && best === undefined) return null;
+export function previousBestOf(game: Pick<GameView, "id" | "score">, others: readonly IndexedGame[] | undefined, best: number | undefined, complete: boolean): number | null {
   const scores = (others ?? []).filter((g) => g.over && g.gameId !== game.id).map((g) => g.score);
-  if (best !== undefined && best > game.score) scores.push(best);
-  return Math.max(0, ...scores);
+  if (others !== undefined && complete) return Math.max(0, ...scores);
+  if (best === undefined) return null;
+  return Math.max(0, best, ...scores);
 }
 
 /**
@@ -166,11 +173,11 @@ export function useOverStanding(game: GameView | undefined, indexed: IndexedGame
   const day = indexed?.over && indexed.countedDayId > 0 && indexed.countedDayId === today.data ? indexed.countedDayId : null;
   const entry = useLeaderboardEntry(day, player);
   const profile = usePlayerProfile(player);
-  const others = useIndexedPlayerGames(player);
+  const others = useIndexedPlayerGames(player, PLAYER_GAMES_READ);
   if (!game?.over) return { previousBest: null, rank: null };
   const best = profile.data?.stats ? profile.data.stats.bestScore : undefined;
   return {
-    previousBest: previousBestOf(game, others.data, best),
+    previousBest: previousBestOf(game, others.data, best, others.data !== undefined && others.data.length < PLAYER_GAMES_READ),
     rank: entry.data && entry.data.bestGameId === game.id ? entry.data.rank : null,
   };
 }

@@ -138,6 +138,8 @@ export function OverScene(props: OverSceneProps) {
     };
   }, [hasBoard]);
   const finalBoard = useDeferred(loadFinalBoard, wanted, (e) => {
+    // Not wanted any more: the next "Board" turns it on again, and `useDeferred` loads again.
+    setWanted(false);
     setView("scores");
     toastError({ title: "Final board", message: "The board could not load. Check your connection and try again.", detail: errorDetail(e) });
   });

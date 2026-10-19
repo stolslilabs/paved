@@ -570,16 +570,20 @@ describe("the over page's helpers", () => {
     expect(replay.stats.placed).toBe(replay.tiles.length - 1);
   });
 
-  it("previousBestOf: the best of the player's other finished games, and their best when above this game's", () => {
+  it("previousBestOf: exact over the whole history, and never a tie as a new best over part of it", () => {
     const g = (gameId: number, score: number, over = true) => ({ gameId, score, over }) as never;
     const game = { id: 5, score: 100 };
-    expect(previousBestOf(game, undefined, undefined)).toBeNull();
-    expect(previousBestOf(game, [], 0)).toBe(0);
-    // This game, and a game still running, are not "before".
-    expect(previousBestOf(game, [g(5, 100), g(6, 400, false), g(4, 80)], 100)).toBe(80);
-    // The indexer's best, when above: an older game the page did not list.
-    expect(previousBestOf(game, [g(4, 80)], 150)).toBe(150);
-    expect(previousBestOf(game, undefined, 150)).toBe(150);
+    expect(previousBestOf(game, undefined, undefined, false)).toBeNull();
+    // Every game listed: this game, and a game still running, are not "before"; the indexer's best is not needed.
+    expect(previousBestOf(game, [], undefined, true)).toBe(0);
+    expect(previousBestOf(game, [g(5, 100), g(6, 400, false), g(4, 80)], 100, true)).toBe(80);
+    // Only the newest listed: an equal best may be an older tie, so it is kept (no "New best").
+    expect(previousBestOf(game, [g(5, 100), g(4, 80)], 100, false)).toBe(100);
+    expect(previousBestOf(game, [g(4, 80)], 150, false)).toBe(150);
+    expect(previousBestOf(game, [g(4, 80)], 90, false)).toBe(90);
+    // Only the newest listed and no best overall: an older game could be higher.
+    expect(previousBestOf(game, [g(4, 80)], undefined, false)).toBeNull();
+    expect(previousBestOf(game, undefined, 150, false)).toBe(150);
   });
 
   it("replayClosings lists what the moves closed, and refuses a game the engine does not reproduce", () => {
