@@ -11,7 +11,7 @@ import { useAppNavigate, useBack } from "../ref";
 
 /**
  * `/play`, the mode choice (P6): the Challenge is bought on `/play/challenge` (P7b) once a wallet is connected, a guest's
- * tap connects first; `spawn_paused` disables it. Training and the Tutorial need no wallet; Multiplayer is "coming soon".
+ * tap connects first; `spawn_paused` disables it. Training and Story mode need no wallet; Multiplayer is "coming soon".
  * An unread pause counts as not paused: the purchase page reads it again. "Free Challenge" is there for a connected player
  * with a credit: it spends it (`Challenge.spawn_free`) and opens the new game's board.
  */
@@ -39,7 +39,7 @@ export default function Page() {
         onBack={onBack}
         onChallenge={() => go("/play/challenge")}
         onTraining={() => go("/training")}
-        onTutorial={() => go("/tutorial")}
+        onStory={() => go("/story")}
         onConnect={() => void wallet.connect()}
       />
     </PrefetchOnIntent>

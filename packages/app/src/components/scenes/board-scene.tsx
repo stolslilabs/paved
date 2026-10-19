@@ -1,6 +1,7 @@
 import type { TileArt } from "../elements/tile-chip";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
+import type { PlanType } from "@paved/game-core";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
 import { Notice } from "../elements/notice";
@@ -16,8 +17,10 @@ import type { ErrorDetail } from "../elements/inline-error";
 import { useBoardSounds } from "../containers/board-sounds";
 import { useSfx } from "../containers/audio-provider";
 import { HandPanel, type HandState } from "../containers/hand-panel";
+import type { CoachTarget } from "../containers/coach";
+export type { CoachTarget } from "../containers/coach";
 
-export type BoardMode = "challenge" | "training" | "tutorial";
+export type BoardMode = "challenge" | "training" | "story";
 
 // The Surrender dialog (and Radix under it) is not the first frame's: its module loads at the first Surrender, and in the
 // browser's idle time after the board is up (BOARD-CHUNK, `__tests__/board-modules.test.ts`). The plan view stays: it is
@@ -31,12 +34,18 @@ const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 const loadDeckSheet = () => import("../containers/deck-sheet");
 const PREFETCH_AFTER_MS = 3000;
 
-const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", tutorial: "Tutorial" };
+const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story" };
 
 export interface BoardSceneProps {
   mode: BoardMode;
   /** The Challenge game id, shown in the title. */
   gameId?: number;
+  /** The header's title instead of the mode's (a Story level's name). */
+  title?: string;
+  /** The deck the deck sheet shows (a Story level's fixed deck, the starter included); the base deck otherwise. */
+  deck?: readonly PlanType[];
+  /** The control a Story coach mark points at: ringed. */
+  coach?: CoachTarget | null;
   tiles: BoardTile[];
   score: number;
   /** Points the last move added. */
@@ -63,7 +72,7 @@ export interface BoardSceneProps {
   tileArt?: TileArt;
   /** The hand's tile drawn by the renderer (`TileView`), given by the page like `canvas`; the art otherwise. */
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
-  /** `localStorage` refused: a Training or Tutorial game is not saved on this device. */
+  /** `localStorage` refused: a Training game (or Story progress) is not saved on this device. */
   storageDisabled?: boolean;
   /** Storage is there but the last move's save did not land (quota, a refusal): a reload resumes an older move. */
   saveDropped?: boolean;
@@ -96,16 +105,16 @@ export interface BoardSceneProps {
   onSurrender?: () => void;
   /** No hand: the board of a game the viewer cannot play (no account, another player's game). */
   readOnly?: boolean;
-  /** Lines under the header: "Connect to play", the dev-only prediction notice, the tutorial's stage and its end. */
+  /** Lines under the header: "Connect to play", the dev-only prediction notice, a Story level's intro, tip and end. */
   notices?: ReactNode;
   /** Opens the Surrender dialog when it turns true: an expired Challenge game closes only by a surrender (P5). */
   promptSurrender?: boolean;
 }
 
-/** The game board (`/game/:id`, `/training`, `/tutorial`): the scene full screen, its header, the closings, the hand. */
+/** The game board (`/game/:id`, `/training`, `/story/:campaign/:level`): the scene full screen, its header, the closings, the hand. */
 export function BoardScene(props: BoardSceneProps) {
   const { mode, gameId, tiles, hand, now } = props;
-  const title = mode === "challenge" && gameId != null ? `Challenge #${gameId}` : TITLES[mode];
+  const title = props.title ?? (mode === "challenge" && gameId != null ? `Challenge #${gameId}` : TITLES[mode]);
   const [surrendering, setSurrendering] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deckOpen, setDeckOpen] = useState(false);
@@ -166,6 +175,7 @@ export function BoardScene(props: BoardSceneProps) {
             play("tap");
             setDeckOpen(true);
           }}
+          coach={props.coach}
           className="pointer-events-auto w-full max-w-2xl"
         />
         {props.storageDisabled && (
@@ -207,14 +217,15 @@ export function BoardScene(props: BoardSceneProps) {
               props.onDiscard?.();
             }}
             onSurrender={() => setSurrendering(true)}
-            canSurrender={mode !== "tutorial"}
+            canSurrender={mode !== "story"}
+            coach={props.coach}
             surrenderPending={surrendering && !surrenderDialog}
           />
         </div>
       )}
 
       {deckSheet && (
-        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} handPlan={hand.tile?.plan ?? null} tileArt={props.tileArt} />
+        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} deck={props.deck} handPlan={hand.tile?.plan ?? null} tileArt={props.tileArt} />
       )}
 
       {settingsSheet && <settingsSheet.default open={settingsOpen} onOpenChange={setSettingsOpen} />}

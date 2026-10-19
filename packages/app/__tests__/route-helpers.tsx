@@ -4,7 +4,7 @@ import { LazyMotion, domMax } from "motion/react";
 import { beforeAll } from "vitest";
 
 /**
- * The board a route opens, where the test asserts the route and not the board (`challenge-route.test.tsx`, `tutorial-route.test.tsx`
+ * The board a route opens, where the test asserts the route and not the board (`challenge-route.test.tsx`, `story-route.test.tsx`
  * and the board's own tests run the real one). The renderer and three are the largest share of a route's cold first load (1.1 to
  * 1.4 s on a quiet machine, several times that under load). Use it with
  * `vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule)`.
@@ -13,6 +13,8 @@ export const boardStandInModule = { default: () => <h1>Board</h1> };
 
 const PAGES = {
   board: () => import("../src/routes/pages/board"),
+  story: () => import("../src/routes/pages/story"),
+  "story-board": () => import("../src/routes/pages/story-board"),
   home: () => import("../src/routes/pages/home"),
   leaderboard: () => import("../src/routes/pages/leaderboard"),
   over: () => import("../src/routes/pages/over"),

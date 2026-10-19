@@ -82,11 +82,11 @@ describe("/ (P6): home on its data", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
   });
 
-  it("without a save, Training is a new game; the Tutorial card opens /tutorial", async () => {
+  it("without a save, Training is a new game; the Story card opens /story", async () => {
     const { router } = open("/", { guest: true });
     expect(await screen.findByText("A free game, saved on this device.", {}, { timeout: 5000 })).toBeInTheDocument();
-    await userEvent.click(screen.getByText("Learn the rules, one stage at a time."));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/tutorial"));
+    await userEvent.click(screen.getByText("Learn the rules level by level, then go for three stars."));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/story"));
   });
 });
 
@@ -111,9 +111,9 @@ describe("/play (P6): the mode choice", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
   });
 
-  it("spawn_paused: the Challenge is disabled with its notice; Training and the Tutorial stay open", async () => {
+  it("spawn_paused: the Challenge is disabled with its notice; Training and Story mode stay open", async () => {
     const { router } = open("/play", { paused: true });
-    expect(await screen.findByText("New Challenge games are paused. Training and the Tutorial stay open.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("New Challenge games are paused. Training and Story mode stay open.", {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.click(screen.getByText("A full game for free, saved on this device."));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
   });

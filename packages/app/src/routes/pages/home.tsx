@@ -76,7 +76,7 @@ export default function Page() {
         onPlayFree={playFree}
         onChallenge={() => (address ? go("/play/challenge") : void wallet.connect())}
         onTraining={() => go("/training")}
-        onTutorial={() => go("/tutorial")}
+        onStory={() => go("/story")}
         onResume={(id) => go(`/game/${id}`)}
         onConnect={() => void wallet.connect()}
         onNavigate={onNavigate}
