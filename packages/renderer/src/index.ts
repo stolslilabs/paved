@@ -122,9 +122,9 @@ export type {
 // loaded on the first `GameScene.dropTile`.
 export { DEFAULT_VOXEL_DROP_SETTINGS, DROP_EASES, DROP_LANDINGS, resolveVoxelDropSettings } from "./core/voxel-drop-settings";
 export type { DropEase, DropLanding, VoxelDropSettings, VoxelDropSettingsInput } from "./core/voxel-drop-settings";
-// The ambient effects (#572): the one loop and the one setting every ambient effect shares. The particles are a chunk of their own.
-export { AMBIENT_FPS, DEFAULT_AMBIENT_PARTICLES, DEFAULT_AMBIENT_SETTINGS, ambientAllowed, resolveAmbientSettings } from "./core/ambient-settings";
-export type { AmbientParticlesSettings, AmbientSettings, AmbientSettingsInput, ParticleKindSettings } from "./core/ambient-settings";
+// The ambient effects (#572): the one loop and the one setting every ambient effect shares. Each effect is a chunk of its own.
+export { AMBIENT_FPS, DEFAULT_AMBIENT_SETTINGS, ambientAllowed, resolveAmbientSettings } from "./core/ambient-settings";
+export type { AmbientSettings, AmbientSettingsInput } from "./core/ambient-settings";
 export { AmbientLoop } from "./core/ambient-loop";
 export type { AmbientEffect, AmbientPause } from "./core/ambient-loop";
 export { dropDuration, planDrop } from "./core/voxel-drop-schedule";

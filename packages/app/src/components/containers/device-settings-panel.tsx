@@ -15,7 +15,7 @@ export interface DevicePreferences {
   quality: GraphicsQuality;
   /** The board's day and night cycle: a moving sky, the sun's shadows, the city lights at night. */
   dayNight: boolean;
-  /** The ambient effects: the particles over the water and the wonders (#572). Off on the Low tier and under reduced motion. */
+  /** The ambient effects (#572 to #574): what moves on the board on its own. Off on the Low tier and under reduced motion. */
   ambient: boolean;
   /** The music volume, 0 to 1; 0 is muted, and `musicBefore` the level an unmute returns to. */
   musicVolume: number;
@@ -88,7 +88,7 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
         />
         <SettingSwitch
           label="Ambient effects"
-          hint="Faint motes over the water and the wonders. Off on Low quality and with reduced motion"
+          hint="Gentle motion on the board. Off on Low quality and with reduced motion"
           icon="sparkles"
           checked={p.ambient}
           onCheckedChange={(v) => onChange?.("ambient", v)}

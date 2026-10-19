@@ -24,7 +24,7 @@ with `docs/`, `scripts/` or `packages/`.
   at most `settings.ambient.fps` (30) times a second, and not while the tab is hidden, the board covered (`setCovered`) or the
   effects off (setting, Low tier, reduced motion: `ambientAllowed`). An ambient effect (#573, #574) is a lazy chunk that
   implements `AmbientEffect` (`step` returns whether it moved), `register`s on that loop, and reads `ambient.time` as its
-  shader's time uniform. Never a second loop.
+  shader's time uniform. Never a second loop. No effect is registered yet: the particles of #572 were removed (owner, 2026-10-19).
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
