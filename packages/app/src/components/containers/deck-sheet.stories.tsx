@@ -23,3 +23,13 @@ export const Bottom: Story = { args: { side: "bottom" }, parameters: { viewport:
 export const Side: Story = { args: { side: "left" } };
 /** Nothing played yet. */
 export const Fresh: Story = { args: { side: "bottom", counts: deckSheetCounts(deck, []), handPlan: null } };
+
+/** A Story level's fixed deck (#546, Tutorial 5): every tile shown comes, so the note says so. */
+export const StoryFixedDeck: Story = {
+  args: {
+    side: "bottom",
+    fixed: true,
+    counts: deckSheetCounts([PlanType.RFFFRFCFR, PlanType.FFCFFFCFF, PlanType.CFFFCFFFC, PlanType.CFFFCFFFC], [id(PlanType.RFFFRFCFR), id(PlanType.FFCFFFCFF)]),
+    handPlan: id(PlanType.CFFFCFFFC),
+  },
+};

@@ -14,12 +14,12 @@ export interface PlaySceneProps {
   onPlayFree?: () => void;
   onChallenge?: () => void;
   onTraining?: () => void;
-  onTutorial?: () => void;
+  onStory?: () => void;
   onConnect?: () => void;
 }
 
-/** The mode choice (`/play`): Challenge, Training, Tutorial, and Multiplayer disabled ("coming soon", owner D-4). */
-export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onTutorial, onConnect, onPlayFree }: PlaySceneProps) {
+/** The mode choice (`/play`): Challenge, Training, Story, and Multiplayer disabled ("coming soon", owner D-4). */
+export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onStory, onConnect, onPlayFree }: PlaySceneProps) {
   // A guest's tap on the Challenge connects first; a pause disables it.
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
@@ -51,7 +51,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
           />
         )}
         <ModeCard icon="play" title="Training" description="A full game for free, saved on this device." badge="Free" onSelect={onTraining} />
-        <ModeCard icon="book-open" title="Tutorial" description="Learn the basics, one stage at a time." onSelect={onTutorial} />
+        <ModeCard icon="book-open" title="Story" description="Learn the rules level by level, then earn three stars on fixed decks." badge="Free" onSelect={onStory} />
         <ModeCard
           icon="user-group"
           title="Multiplayer"
@@ -62,7 +62,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
         />
         {spawnPaused && (
           <Notice tone="warning" className="tablet:col-span-2">
-            New Challenge games are paused. Training and the Tutorial stay open.
+            New Challenge games are paused. Training and Story mode stay open.
           </Notice>
         )}
       </main>

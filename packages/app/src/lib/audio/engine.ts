@@ -1,4 +1,5 @@
 import { createMusicPlayer, type MusicPlayer } from "../music/player";
+export { bindMediaSession } from "../music/media-session";
 import { SFX_NAMES, sfxUrl, type SfxName } from "./sfx";
 
 // The audio engine (AUDIO-SETTINGS, #541), without React, in its own chunk: one Web Audio graph,
@@ -153,6 +154,10 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
   };
   for (const g of GESTURES) doc.addEventListener(g, onGesture, true);
   doc.addEventListener("visibilitychange", onVisibility);
+  // A play from the lock screen, while the tab is hidden and the context suspended: the music plays, so the context runs.
+  const unsubscribe = music.subscribe(() => {
+    if (music.getState().playing) wake();
+  });
 
   return {
     music,
@@ -181,6 +186,7 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
       dead = true;
       for (const g of GESTURES) doc.removeEventListener(g, onGesture, true);
       doc.removeEventListener("visibilitychange", onVisibility);
+      unsubscribe();
       music.destroy();
       void Promise.resolve(ctx.close()).catch(() => {});
     },

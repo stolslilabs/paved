@@ -60,6 +60,8 @@ export const routes: RouteObject[] = [
       { path: "quests/:day?", loader: ({ request, params }) => to(params.day ? `/missions/${params.day}` : "/missions", request) },
       { path: "achievements", loader: ({ request }) => to("/missions/lifetime", request) },
       { path: "economy", loader: ({ request }) => to("/vault", request) },
+      // The scripted tutorial gave way to Story mode (#546), whose first campaign teaches the rules.
+      { path: "tutorial", loader: ({ request }) => to("/story", request) },
       { path: "*", element: <NotFound />, errorElement: <RouteError /> },
     ],
   },

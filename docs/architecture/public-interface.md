@@ -380,6 +380,14 @@ working.
     `Economy.json` is unchanged (`Economy.sell` gains an error, which is not in the ABI). No entry point changes signature and none is removed.
   - An indexer that refuses unknown selectors must know `SkinPriced`, `SkinBought` and `SkinsActivated` before the contracts
     that emit them are indexed.
+- **Story mode** (#546, #548, `docs/architecture/story-mode.md`; not deployed yet).
+  - A new contract, `Story` (`contracts/abis/Story.json`): `set_campaign`, `set_level` and `set_setup` (owner), `submit_run`
+    (any account, for itself), the views `campaign`, `level`, `progress`, `stars`, `best_score` and `setup`, and the events
+    `CampaignSet`, `LevelSet`, `RunSubmitted` and `SetupSet`, beside the engine's own (`Scored` of the replayed games).
+  - `Setup` gains the interface `ISetupStory`, `credit_story` (an allowlisted reporter only), and `CobblesClaimed` a value
+    of `kind`: 3, a star of a Story level (`id` `(campaign_id << 8) | level_id`, `period` the star, 1 to 3). No event is
+    added to `Setup`, no entry point changes signature and none is removed. A client that reads `kind` as 1 or 2 only
+    must accept 3; the indexer does since this change.
 
 ## Breaking change D-18
 

@@ -17,7 +17,7 @@ vi.mock("../src/routes/page-loaders", () => {
       "play/challenge": loader("purchase"),
       "game/:gameId": board,
       training: board,
-      tutorial: board,
+      "story/:campaign/:level": board,
       "leaderboard/:day?": loader("leaderboard"),
       "missions/:day?": loader("quests"),
       vault: loader("vault"),
