@@ -59,6 +59,9 @@ export function errorToastTexts(custom: { mock: { calls: unknown[][] } }): strin
   });
 }
 
+/** How long a test waits for the bubble after a slot is chosen: under load its render takes more than the default second. */
+const BUBBLE_WAIT_MS = 5000;
+
 /** The bubble's Validate (#568): held to place the tile. Null while no slot is chosen (no bubble). */
 export const validateButton = () => screen.queryByRole("button", { name: "Hold to place the tile" });
 
@@ -67,7 +70,7 @@ export const validateButton = () => screen.queryByRole("button", { name: "Hold t
  * waits for the bubble (its own chunk) to be there first.
  */
 export async function holdToPlace(): Promise<void> {
-  const button = await screen.findByRole("button", { name: "Hold to place the tile" });
+  const button = await screen.findByRole("button", { name: "Hold to place the tile" }, { timeout: BUBBLE_WAIT_MS });
   await act(async () => {
     fireEvent.pointerDown(button, { button: 0, pointerId: 1 });
     await new Promise((resolve) => setTimeout(resolve, HOLD_MS + 50));
@@ -80,5 +83,5 @@ export async function holdToPlace(): Promise<void> {
  * at once (`HoldButton`): for the tests that place many tiles. `holdToPlace` is the player's hold.
  */
 export async function placeTile(): Promise<void> {
-  fireEvent.click(await screen.findByRole("button", { name: "Hold to place the tile" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Hold to place the tile" }, { timeout: BUBBLE_WAIT_MS }));
 }
