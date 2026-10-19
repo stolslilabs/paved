@@ -197,6 +197,23 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       "mintTo",
       "spawn",
       "buy_pack",
+      // Any case: all capitals keep their words, and the old guard's names stay refused anywhere in a name.
+      "APPROVE",
+      "TRANSFER",
+      "TRANSFER_FROM",
+      "INCREASE_ALLOWANCE",
+      "SET_APPROVAL_FOR_ALL",
+      "SetApprovalForAll",
+      "DEPOSIT",
+      "PAY",
+      "MINT",
+      "SPAWN",
+      "BUY_PACK",
+      "Approve",
+      "safeTransferFrom",
+      "x2Approve",
+      "autoapprove",
+      "pretransfer",
     ];
     for (const method of refused) {
       expect(isTokenMethod(method), method).toBe(true);

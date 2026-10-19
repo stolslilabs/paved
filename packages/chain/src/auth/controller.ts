@@ -77,18 +77,24 @@ function isAddress(value: string): boolean {
 /**
  * The words of a method name that move a token or pull one from the player (P-65): an approve, an allowance or an
  * approval (`set_approval_for_all`), a transfer, and the calls that pay with one: a deposit, a pay, a mint. A name is cut
- * into words at `_` and at a capital (`transfer_from`, `setApprovalForAll`), and a word refused when it starts with one
- * of these (`payment`, `minted`).
+ * into words (`isTokenMethod`: `transfer_from`, `setApprovalForAll`, `SET_APPROVAL_FOR_ALL`), and a word refused when it
+ * starts with one of these, in any case (`payment`, `minted`, `DEPOSIT`).
  */
 const TOKEN_WORD = /^(approv|allowance|transfer|deposit|pay|mint)/i;
 
 /** The paid entry points that pull USDC with their approve (`Challenge.spawn`, `Setup.buy_pack`), by their exact names. */
 const TOKEN_PULLS: readonly string[] = ["spawn", "buy_pack"];
 
-/** Whether `method` moves or pulls a token, so is never a session policy (P-65). */
+/** The guard before VALUE-POLISH, kept as a floor: any name holding these, in any case or position, is refused. */
+const TOKEN_TEXT = /approv|allowance|transfer/i;
+
+/**
+ * Whether `method` moves or pulls a token, so is never a session policy (P-65). Words are cut at `_` and where a capital
+ * follows a lower-case letter or a digit, so an all-capitals name (`APPROVE`, `SET_APPROVAL_FOR_ALL`) keeps its words.
+ */
 export function isTokenMethod(method: string): boolean {
-  const words = method.split(/_|(?=[A-Z])/).filter(Boolean);
-  return TOKEN_PULLS.includes(method) || words.some((word) => TOKEN_WORD.test(word));
+  const words = method.split(/_|(?<=[a-z0-9])(?=[A-Z])/).filter(Boolean);
+  return TOKEN_PULLS.includes(method.toLowerCase()) || TOKEN_TEXT.test(method) || words.some((word) => TOKEN_WORD.test(word));
 }
 
 /** The faucet's policies built here (`faucetPolicy`): the one `mint` the guard lets through. */
