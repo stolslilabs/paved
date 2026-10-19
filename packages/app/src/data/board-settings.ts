@@ -14,16 +14,19 @@ export interface BoardWheel {
 }
 
 /**
- * The renderer's settings (quality and the day and night cycle, memoised so a change applies and a render does not), the two
+ * The renderer's settings (quality, the day and night cycle and the ambient effects, memoised so a change applies and a render does not), the two
  * board switches, and the season wheel of this game (#547: it starts from the Day and night setting, and `resetKey`, the
  * game, starts it again). The cycle's settings follow the wheel; `onScene` is the canvas's.
  */
 export function useBoardSettings(resetKey?: unknown): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean; wheel: BoardWheel; onScene: (scene: GameScene | null) => void } {
-  const [{ quality, dayNight, tilePreview, placementHighlight }] = useDeviceSettings();
+  const [{ quality, dayNight, ambient, tilePreview, placementHighlight }] = useDeviceSettings();
   const { state, next } = useSeasonWheel(dayNight, resetKey);
   const [scene, setScene] = useState<GameScene | null>(null);
   const read = useCallback(() => scene?.getDayNight?.() ?? null, [scene]);
-  const renderer = useMemo<RendererSettingsInput>(() => ({ quality, dayNight: wheelDayNight(state, dayNight) }), [quality, dayNight, state]);
+  const renderer = useMemo<RendererSettingsInput>(
+    () => ({ quality, dayNight: wheelDayNight(state, dayNight), ambient: { enabled: ambient } }),
+    [quality, dayNight, ambient, state],
+  );
   const wheel = useMemo<BoardWheel>(() => ({ state, onNext: next, read: scene ? read : null }), [state, next, scene, read]);
   return { renderer, tilePreview, placementHighlight, wheel, onScene: setScene };
 }

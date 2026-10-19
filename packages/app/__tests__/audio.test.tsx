@@ -58,7 +58,7 @@ describe("VolumeSlider", () => {
   });
 });
 
-const PREFS: DevicePreferences = { quality: "auto", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true };
+const PREFS: DevicePreferences = { quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true };
 
 describe("DeviceSettingsPanel", () => {
   it("has Visuals, Sound and Gameplay, and not the account, the theme or the referral", () => {

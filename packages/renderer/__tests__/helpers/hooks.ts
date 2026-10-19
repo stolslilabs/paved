@@ -66,6 +66,7 @@ export function createFakeSceneClass(scenes: unknown[]) {
     setCameraMode = vi.fn();
     setSettings = vi.fn();
     setSkins = vi.fn();
+    setCovered = vi.fn();
     constructor() {
       scenes.push(this);
     }
