@@ -4,6 +4,7 @@ import { Icon } from "../ui/icon";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { SettingSwitch } from "../elements/setting-switch";
 import { VolumeSlider } from "../elements/volume-slider";
+import { LiveMusicPlayer } from "./music-player";
 import { SettingsGroup } from "./settings-group";
 
 /** "auto" picks by device: Medium on every device, Low on a low-power one; High only by hand. */
@@ -47,9 +48,9 @@ const QUALITY: { value: GraphicsQuality; label: string }[] = [
 ];
 
 /**
- * The device settings, once (#541): Visuals (quality, the day and night cycle), Sound (the music and sound effects sliders) and
- * Gameplay (tile preview, placement highlight). The Settings page and the sheet over the board both draw this; the account,
- * the theme and the referral stay on the page.
+ * The device settings, once (#541): Visuals (quality, the day and night cycle), Sound (the music and sound effects sliders, the
+ * music player of #569) and Gameplay (tile preview, placement highlight). The Settings page and the sheet over the board both
+ * draw this; the account, the theme and the referral stay on the page.
  */
 export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra, onChange, onVolumeChange, className }: DeviceSettingsPanelProps) {
   return (
@@ -89,6 +90,9 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
       <SettingsGroup title="Sound">
         <VolumeSlider label="Music" value={p.musicVolume} before={p.musicBefore} onChange={(v) => onVolumeChange?.("music", v)} />
         <VolumeSlider label="Sound effects" value={p.sfxVolume} before={p.sfxBefore} onChange={(v) => onVolumeChange?.("sfx", v)} />
+        {/* The music playing (#569), on the app's audio: its volume is the Music slider above. */}
+        {/* A row of the card: the player's own card frame goes. */}
+        <LiveMusicPlayer enabled={p.musicVolume > 0} className="rounded-none border-0 bg-transparent px-0 py-3" />
       </SettingsGroup>
 
       <SettingsGroup title="Gameplay">

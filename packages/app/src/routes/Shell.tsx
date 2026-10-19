@@ -3,7 +3,7 @@ import { Outlet } from "react-router";
 import { AudioProvider } from "../components/containers/audio-provider";
 import { MockMarkProvider } from "../components/containers/mock-mark";
 import { MOCKED, MOCKED_PAGES } from "../data/data-source";
-import { useDeviceSettings } from "../data/settings";
+import { deviceSettings, useDeviceSettings, withVolume } from "../data/settings";
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { useRoutePage } from "./handle";
 import { BalancesHost } from "./balances-host";
@@ -12,6 +12,9 @@ import { usePrefetchTabs } from "./prefetch";
 
 /** The boot screen: also the router's `hydrateFallbackElement` and every route's `Suspense` fallback (section 6.1). */
 export const bootScreen = <LoadingScene progress={null} />;
+
+/** The music volume from the player's pause (0) or resume, stored like a move of the slider. */
+const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));
 
 /** The board routes: the scene fills the viewport (`h-dvh`) and the document does not scroll. */
 const BOARD_PATHS = new Set(["game/:gameId", "training", "tutorial"]);
@@ -26,7 +29,7 @@ const BOARD_PATHS = new Set(["game/:gameId", "training", "tutorial"]);
 export function RootLayout() {
   const page = useRoutePage();
   usePrefetchTabs();
-  const [{ musicVolume, sfxVolume }] = useDeviceSettings();
+  const [{ musicVolume, musicBefore, sfxVolume }] = useDeviceSettings();
   const onBoard = page !== null && BOARD_PATHS.has(page.path);
   // A board route does not scroll: no pull-to-refresh, no bounce (`html[data-board]`, styles/theme.css; APP-FEEL, P-69).
   useEffect(() => {
@@ -37,8 +40,9 @@ export function RootLayout() {
     };
   }, [onBoard]);
   return (
-    // The audio engine is its own chunk and starts on the first gesture; the provider only carries the two volumes.
-    <AudioProvider musicVolume={musicVolume} sfxVolume={sfxVolume}>
+    // The audio engine is its own chunk and starts on the first gesture; the provider carries the two volumes, and a pause or a
+    // resume of the music player (the settings, the lock screen) comes back as the music volume.
+    <AudioProvider musicVolume={musicVolume} musicBefore={musicBefore} sfxVolume={sfxVolume} onMusicVolumeChange={setMusicVolume}>
       {/* The "Mock data" mark of the headers of the pages the mock serves (MOCK-FIRST). */}
       <MockMarkProvider value={MOCKED && page !== null && MOCKED_PAGES.has(page.path)}>
         <HistoryTracker>
