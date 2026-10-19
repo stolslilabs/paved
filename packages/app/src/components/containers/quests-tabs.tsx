@@ -13,12 +13,12 @@ export interface QuestsTabsProps {
 /**
  * Limited (the quests) and Lifetime (the achievements), the two tabs of the Missions destination. One route each, so the
  * Tabs remember the last tab (`rememberAs`) and the indicator slides across the route change. The list keeps one size on
- * both pages: full width on a phone, the widest label twice from the tablet on (`self-start`, never stretched).
+ * both pages: full width on a phone, the widest label twice from the tablet on (`w-fit`, never stretched).
  */
 export function QuestsTabs({ active, onSelect, className }: QuestsTabsProps) {
   return (
     <Tabs value={active} rememberAs="missions" onValueChange={(v) => onSelect?.(v as QuestsTab)} className={className}>
-      <TabsList className="w-full tablet:w-fit tablet:self-start">
+      <TabsList className="w-full tablet:w-fit">
         <TabsTrigger value="quests" className="gap-2 px-4">
           <Icon name="scroll" size="sm" />
           Limited

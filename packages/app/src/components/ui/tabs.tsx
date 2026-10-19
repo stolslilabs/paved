@@ -1,7 +1,7 @@
 /*
- * F3's Radix tabs (shadcn/ui), with #594's list: equal columns sized by the widest label (the group keeps one footprint
+ * F3's Radix tabs (shadcn/ui), with the list of issue 594: equal columns sized by the widest label (the group keeps one footprint
  * whatever the active tab), a gap between the triggers (a hover layer never touches the active fill), and one active
- * indicator that the list moves to the active trigger with a CSS transform transition, under the #537 state layers.
+ * indicator that the list moves to the active trigger with a CSS transform transition, under the white state layers (2b).
  */
 import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
@@ -71,6 +71,7 @@ export function TabsList({ className, children, ref, ...props }: ComponentProps<
         return;
       }
       indicator.dataset.animate = animate ? "true" : "false";
+      indicator.style.transition = animate ? "transform 200ms ease-out, width 200ms ease-out" : "none";
       indicator.style.opacity = "1";
       indicator.style.width = `${trigger.offsetWidth}px`;
       indicator.style.transform = `translateX(${trigger.offsetLeft}px)`;
@@ -113,7 +114,7 @@ export function TabsList({ className, children, ref, ...props }: ComponentProps<
         ref={indicatorRef}
         data-slot="tabs-indicator"
         aria-hidden
-        className="pointer-events-none absolute top-1 bottom-1 left-0 rounded-md bg-state-selected opacity-0 data-[animate=true]:transition-[transform,width] data-[animate=true]:duration-200 data-[animate=true]:ease-out"
+        className="pointer-events-none absolute top-1 bottom-1 left-0 rounded-md bg-state-selected opacity-0"
       />
       {children}
     </TabsPrimitive.List>
@@ -121,7 +122,7 @@ export function TabsList({ className, children, ref, ...props }: ComponentProps<
 }
 
 /**
- * A trigger paints the hover and pressed layers (#537) on its own rounded box; the selected 15% is the list's indicator,
+ * A trigger paints the hover and pressed layers (2b) on its own rounded box; the selected 15% is the list's indicator,
  * so the active trigger's own layer stays clear (it would double the fill) unless pressed.
  */
 export function TabsTrigger({ className, value, children, ...props }: ComponentProps<typeof TabsPrimitive.Trigger>) {
