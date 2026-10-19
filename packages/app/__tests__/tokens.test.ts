@@ -7,9 +7,9 @@ import { STEPS, board, breakpoints, radiusBase, scales, semantic } from "../src/
 const css = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
 
 describe("the token reader of the Foundations stories", () => {
-  it("reads the six scales, 11 steps each", () => {
+  it("reads the seven scales, 11 steps each", () => {
     const all = scales(css);
-    expect(Object.keys(all)).toEqual(["gold", "charcoal", "meadow", "river", "ember", "amber"]);
+    expect(Object.keys(all)).toEqual(["gold", "charcoal", "ink", "meadow", "river", "ember", "amber"]);
     for (const swatches of Object.values(all)) expect(swatches.map((s) => s.step)).toEqual([...STEPS]);
   });
 

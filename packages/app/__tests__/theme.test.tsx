@@ -140,6 +140,15 @@ describe("theme.css", () => {
     }
   });
 
+  it("keeps the navy ink scale out of the interface: it is the 3D night sky's only (#537)", () => {
+    const dir = resolve(import.meta.dirname, "../src");
+    const sources = (readdirSync(dir, { recursive: true }) as string[]).filter((f) => /\.(tsx?|css)$/.test(f) && !f.startsWith("directions") && !f.endsWith("theme.css"));
+    expect(sources.filter((f) => /\bink-\d/.test(readFileSync(resolve(dir, f), "utf8")))).toEqual([]);
+    // No semantic token points at it.
+    const semantic = theme.slice(theme.indexOf(":root,\n[data-theme=\"dark\"]"));
+    expect(semantic).not.toMatch(/--color-ink-/);
+  });
+
   it("keeps raw colours in theme.css only", () => {
     const files = ["../src/App.tsx", "../src/routes/Shell.tsx", "../src/routes/Placeholder.tsx", "../src/styles/fonts.css"];
     for (const f of files) expect(read(f), f).not.toMatch(/#[0-9a-fA-F]{3,8}\b|oklch\(|rgb\(/);

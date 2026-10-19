@@ -147,8 +147,9 @@ aliases, a runtime re-point, colour and type stories); the declension below is b
 
 ### 2.2 Proposed: the Paved palette as a Tailwind theme
 
-*Superseded in part by 2.2b (#537, 2026-10-19): the navy `ink` scale is gone, replaced by direction D's `charcoal`; `gold`,
-the status scales and the method below stay. The block below is the first proposal, kept as the record.*
+*Superseded in part by 2.2b (#537, 2026-10-19): the interface's neutral is direction D's `charcoal`; the navy `ink` scale stays
+in theme.css only as the 3D scene's night sky (the renderer's day/night keyframes), and no semantic token or component points
+at it. `gold`, the status scales and the method below stay. The block below is the first proposal, kept as the record.*
 
 **Read (measured from the mockups,** `app/docs/mockup-01.png`, a 5×5-pixel mean per point): the gold of
 the primary buttons is `#F0BF5B` (its gradient runs `#F3C15D` → `#E8B755`); the page is `#0A141C` and the
