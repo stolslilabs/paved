@@ -7,6 +7,7 @@ import { App } from "../src/App";
 import { toast } from "../src/components/ui/sonner";
 import type { GameSigner } from "../src/data";
 import { useCompletionStore } from "../src/data/completion-memory";
+import { queryKeys } from "../src/data/keys";
 import { queryClient } from "../src/lib/query-client";
 import { weekOfDay } from "../src/lib/quest-window";
 import { createTestRouter } from "../src/routes/router";
@@ -206,6 +207,42 @@ describe("the completion toast, once per completion (P9's note)", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(success).toHaveBeenCalledTimes(2);
     expect(success.mock.calls.map(([title]) => title)).toEqual([expect.stringMatching(/^Mission completed/), expect.stringMatching(/^Mission completed/)]);
+  });
+});
+
+describe("the completion toasts, app-wide (#595)", () => {
+  it("toast on any page, the leaderboard here, with the reward, and once: the Missions page then adds nothing", async () => {
+    const s = setup();
+    const success = vi.spyOn(toast, "success");
+    const router = open("/leaderboard", s);
+    // The tracker's first read is not news: Daily Run was done before.
+    await waitFor(() => {
+      expect(queryClient.getQueryData(queryKeys.indexer.achievements(FIXTURE_ADA))).toBeDefined();
+      expect(queryClient.getQueryData(queryKeys.indexer.quests(FIXTURE_ADA, TODAY))).toBeDefined();
+    }, { timeout: 5000 });
+    expect(success).not.toHaveBeenCalled();
+
+    // A game over completes quest 4 and Settler II: the refresh after it toasts both, away from the Missions pages.
+    s.fixture.progress.get(FIXTURE_ADA)!.quests.set(4, { count: 3_000, completed_at: FIXTURE_HEAD.timestamp });
+    s.fixture.progress.get(FIXTURE_ADA)!.achievements.set(3, { count: 10, completed_at: FIXTURE_HEAD.timestamp });
+    await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(2));
+    const calls = Object.fromEntries(success.mock.calls.map(([title, options]) => [title, (options as { description?: string }).description]));
+    expect(calls).toEqual({ "Mission completed: Mission #4": "+15 Cobbles to claim", "Lifetime mission earned: Settler II": "+20 pts · +20 Cobbles to claim" });
+
+    await act(() => router.navigate("/missions"));
+    await claimButton(15, "Mission #4");
+    await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(success).toHaveBeenCalledTimes(2);
+  }, 20_000);
+
+  it("tracks nothing for a guest", async () => {
+    const s = setup({ signer: "none" });
+    const playerQuests = vi.spyOn(s.sources.indexer, "playerQuests");
+    open("/leaderboard", s);
+    await screen.findByRole("heading", { level: 1 }, { timeout: 5000 });
+    expect(playerQuests).not.toHaveBeenCalled();
   });
 });
 

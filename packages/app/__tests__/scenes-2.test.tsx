@@ -18,11 +18,9 @@ import { ReferralScene } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
-import { Toaster, toast } from "../src/components/ui/sonner";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { PAGE } from "../src/mocks/leaderboard";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
-import { ACHIEVEMENTS_MIXED, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO, QUESTS_WEEKLY_DONE } from "../src/mocks/quests";
 import { REFERRAL_LINK } from "../src/mocks/referral";
 import { ACHIEVEMENTS, LEADERBOARD, MY_TILES, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
@@ -417,25 +415,31 @@ describe("Theme", () => {
 });
 
 describe("Quests", () => {
-  it("shows the day's rotating dailies and the weeklies with their progress, each with its countdown, and the Achievements tab", async () => {
+  it("shows the day's rotating dailies and the weeklies as milestone tracks in two sections, each with its countdown, and the Achievements tab", async () => {
     const onTab = vi.fn();
     render(wrap(<QuestsScene {...QUESTS.today} onTab={onTab} />));
     const list = within(screen.getByRole("main"));
-    // One list: the open missions first (soonest end first), the completed one last.
-    expect(list.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Public Works", "Deep Woods", "Strong Day", "Weekly Forester", "Weekly Builder", "Weekly Points", "Daily Run"]);
+    const daily = within(list.getByRole("region", { name: /^Daily/ }));
+    const weekly = within(list.getByRole("region", { name: /^Weekly/ }));
+    // Each section: the open tracks first, the complete ones last.
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Public Works", "Deep Woods", "Strong Day", "Daily Run"]);
+    expect(weekly.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Weekly Forester", "Weekly Builder", "Weekly Points"]);
     expect(list.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
     expect(list.getByRole("article", { name: "Public Works" })).toHaveAttribute("data-state", "progress");
     for (const name of ["Master Builder", "Into the Woods", "Point Chaser"]) expect(list.queryByRole("article", { name })).not.toBeInTheDocument(); // v1's: not defined
     // Day 20,740 is offset 1 of the 3-day rotation, so Daily Run and one quest of each family are live: Public Works, Deep Woods, Strong Day.
     expect(list.queryByRole("article", { name: "Small Works" })).not.toBeInTheDocument();
-    expect(list.queryByRole("article", { name: "Great Works" })).not.toBeInTheDocument();
     expect(list.getByRole("progressbar", { name: "points: 2,710 of 5,000" })).toBeInTheDocument();
-    // Each mission has its own countdown: 00:00 UTC is 9 hours after the mocks' 15:00; the week ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
-    expect(within(list.getByRole("article", { name: "Public Works" })).getByRole("timer", { name: "Daily mission ends in 9:00:00" })).toBeInTheDocument();
-    expect(within(list.getByRole("article", { name: "Weekly Forester" })).getByRole("timer", { name: "Weekly mission ends in 105:00:00" })).toBeInTheDocument();
-    // A completed mission still in its window keeps its countdown.
-    expect(within(list.getByRole("article", { name: "Daily Run" })).getByRole("timer", { name: "Daily mission ends in 9:00:00" })).toBeInTheDocument();
-    expect(list.queryByRole("region", { name: "Daily" })).not.toBeInTheDocument();
+    // One target, one step; what is left to it.
+    const strong = within(list.getByRole("article", { name: "Strong Day" }));
+    expect(strong.getAllByRole("listitem").map((s) => s.getAttribute("aria-label"))).toEqual(["Strong Day: 5,000, next"]);
+    expect(strong.getByText("2,290 more points")).toBeInTheDocument();
+    expect(within(list.getByRole("article", { name: "Deep Woods" })).getByText("2 more forests")).toBeInTheDocument();
+    // The section's countdown: 00:00 UTC is 9 hours after the mocks' 15:00; the week ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
+    expect(daily.getByRole("timer", { name: "Daily missions end in 9:00:00" })).toBeInTheDocument();
+    expect(weekly.getByRole("timer", { name: "Weekly missions end in 105:00:00" })).toBeInTheDocument();
+    // Every mission of a section ends with it: no countdown of its own.
+    expect(daily.getAllByRole("timer")).toHaveLength(1);
     expect(screen.getByRole("tab", { name: "Limited" })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(screen.getByRole("tab", { name: "Lifetime" }));
     expect(onTab).toHaveBeenCalledWith("achievements");
@@ -443,9 +447,9 @@ describe("Quests", () => {
 
   it("shows another day's rotation, and a closed day without a countdown", () => {
     render(wrap(<QuestsScene {...QUESTS.allDone} />));
-    // The weeklies of that week were not all done: they come first, the four dailies (done) last.
-    expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label")).slice(-4)).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
-    expect(screen.getAllByText("Complete")).toHaveLength(4);
+    const daily = within(screen.getByRole("region", { name: /^Daily/ }));
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
+    expect(daily.getAllByText("Complete")).toHaveLength(4);
     expect(screen.getByText("Closed day")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
@@ -456,7 +460,43 @@ describe("Quests", () => {
     expect(screen.getByRole("article", { name: "Weekly Forester" })).toHaveAttribute("data-state", "complete");
     unmount();
     render(wrap(<QuestsScene {...QUESTS.endingSoon} />));
-    expect(screen.getAllByRole("timer", { name: "Daily mission ends in 0:04:00" })[0]).toHaveAttribute("data-state", "warning");
+    expect(screen.getByRole("timer", { name: "Daily missions end in 0:04:00" })).toHaveAttribute("data-state", "warning");
+  });
+
+  it("groups the tiers of one task into one bar of steps, each step with its reward and state (#595)", async () => {
+    const onClaim = vi.fn();
+    render(wrap(<QuestsScene {...QUESTS.tiered} onClaim={onClaim} />));
+    const daily = within(screen.getByRole("region", { name: /^Daily/ }));
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Builder", "Forester", "Points", "Daily Run"]);
+    const builder = within(daily.getByRole("article", { name: "Builder" }));
+    expect(builder.getAllByRole("listitem").map((s) => s.getAttribute("aria-label"))).toEqual([
+      "Small Works: 4, claimed",
+      "Public Works: 8, reward to claim",
+      "Great Works: 12, next",
+    ]);
+    expect(builder.getByRole("progressbar", { name: "roads and cities scored: 9 of 12" })).toBeInTheDocument();
+    expect(builder.getByText("3 more roads or cities")).toBeInTheDocument();
+    expect(builder.getByText("2/3")).toBeInTheDocument();
+    await userEvent.click(builder.getByRole("button", { name: "Claim 10 Cobbles: Public Works" }));
+    expect(onClaim).toHaveBeenCalledWith(6);
+    const forester = within(daily.getByRole("article", { name: "Forester" }));
+    expect(forester.getAllByRole("listitem").map((s) => s.getAttribute("data-state"))).toEqual(["claimable", "next", "locked"]);
+    // The weeklies' second tiers: one bar of two steps each.
+    const weekly = within(screen.getByRole("region", { name: /^Weekly/ }));
+    expect(weekly.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Forester", "Builder", "Points"]);
+    // Claim all takes every reached step not claimed: Public Works 10, Woodland Walk 5, Warm-Up Score 5, Weekly Forester 15.
+    expect(screen.getByRole("button", { name: /^Claim all/ })).toHaveTextContent("+35");
+  });
+
+  it("shows a tiered day before any game, and every step claimed", () => {
+    const { unmount } = render(wrap(<QuestsScene {...QUESTS.tieredFresh} />));
+    expect(within(within(screen.getByRole("region", { name: /^Daily/ })).getByRole("article", { name: "Builder" })).getAllByRole("listitem").map((s) => s.getAttribute("data-state"))).toEqual(["next", "locked", "locked"]);
+    expect(screen.queryByRole("button", { name: /^Claim (all|\d)/ })).not.toBeInTheDocument();
+    unmount();
+    render(wrap(<QuestsScene {...QUESTS.tieredClaimed} />));
+    expect(screen.getAllByRole("article").every((a) => a.getAttribute("data-state") === "complete")).toBe(true);
+    expect(screen.getAllByText("Cobbles claimed")).toHaveLength(7);
+    expect(screen.queryByRole("button", { name: /^Claim all/ })).not.toBeInTheDocument();
   });
 
   it("shows a day not played at zero, and a day with no quest", () => {
@@ -480,65 +520,6 @@ describe("Quests", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Could not load the missions");
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalled();
-  });
-
-  it("raises a toast once when a quest completes between two renders, not on a first read or a refresh", async () => {
-    toast.dismiss();
-    const success = vi.spyOn(toast, "success");
-    const scene = (quests: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} quests={quests} /></>);
-    const { rerender } = render(scene(QUESTS_TODAY_ONE_TO_GO));
-    // Daily Run was already complete at the first read: no toast for it.
-    await Promise.resolve();
-    expect(screen.queryByText(/Mission completed/)).not.toBeInTheDocument();
-    rerender(scene(QUESTS_TODAY_COMPLETED));
-    expect(await screen.findByText("Mission completed: Public Works")).toBeInTheDocument();
-    // A refresh of the same data, and a copy of it, add nothing.
-    rerender(scene({ ...QUESTS_TODAY_COMPLETED }));
-    rerender(scene(QUESTS_TODAY_COMPLETED));
-    expect(screen.getAllByText(/Mission completed/)).toHaveLength(1);
-    // Progress that dips and comes back within the interval is not announced a second time.
-    rerender(scene(QUESTS_TODAY_ONE_TO_GO));
-    rerender(scene(QUESTS_TODAY_COMPLETED));
-    expect(screen.getAllByText(/Mission completed/)).toHaveLength(1);
-    expect(success).toHaveBeenCalledTimes(1);
-    success.mockRestore();
-  });
-
-  it("raises no toast on a mere change of day, in either direction", async () => {
-    toast.dismiss();
-    const success = vi.spyOn(toast, "success");
-    const scene = (data: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} day={data.day} quests={data} /></>);
-    const { rerender } = render(scene(QUESTS_TODAY));
-    await Promise.resolve();
-    rerender(scene(QUESTS_ALL_DONE));
-    rerender(scene(QUESTS_TODAY));
-    rerender(scene(QUESTS_ALL_DONE));
-    await Promise.resolve();
-    expect(success).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Mission completed/)).not.toBeInTheDocument();
-    success.mockRestore();
-  });
-
-  it("treats a return to today as a first read: Weekly Forester 2 of 5 yesterday, 5 of 5 today, no toast", async () => {
-    toast.dismiss();
-    const success = vi.spyOn(toast, "success");
-    const scene = (data: typeof QUESTS_TODAY) => wrap(<><Toaster /><QuestsScene {...QUESTS.today} day={data.day} quests={data} /></>);
-    const { rerender } = render(scene(QUESTS_ALL_DONE));
-    await Promise.resolve();
-    rerender(scene(QUESTS_WEEKLY_DONE));
-    await Promise.resolve();
-    expect(success).not.toHaveBeenCalled();
-    success.mockRestore();
-  });
-
-  it("raises the same toast for an achievement earned", async () => {
-    toast.dismiss();
-    const scene = (achievements: typeof ACHIEVEMENTS_MIXED) => wrap(<><Toaster /><AchievementsScene achievements={achievements} connected /></>);
-    const { rerender } = render(scene(ACHIEVEMENTS_MIXED));
-    const earned = { ...ACHIEVEMENTS_MIXED, achievements: ACHIEVEMENTS_MIXED.achievements.map((a) => (a.achievementId === 6 ? { ...a, completed: true, completedAt: MOCK_NOW, tasks: a.tasks.map((t) => ({ ...t, count: t.total })) } : a)) };
-    rerender(scene(earned));
-    expect(await screen.findByText("Lifetime mission earned: Forester")).toBeInTheDocument();
-    expect(screen.getByText("+20 pts")).toBeInTheDocument();
   });
 });
 

@@ -7,7 +7,6 @@ import { isClaimed } from "../../components/containers/cobble-types";
 import { useDataSources } from "../../data/sources";
 import { usePlayerAchievements } from "../../data/indexer";
 import { cobbleKeys, useAchievementRewards, useClaims, type ClaimTarget } from "../../data/cobbles";
-import { useCompletionMemory } from "../../data/completion-memory";
 import { queryKeys } from "../../data/keys";
 import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useTabNavigate } from "../ref";
@@ -26,7 +25,6 @@ export default function Page() {
   const achievements = usePlayerAchievements(playerId);
   const rewards = useAchievementRewards(playerId);
   const claims = useClaims(playerId);
-  const toasts = useCompletionMemory(playerId, "achievement");
   const client = useQueryClient();
 
   const send = (target: ClaimTarget, batch: CobbleClaim[]) => {
@@ -52,7 +50,6 @@ export default function Page() {
       errorDetail={achievements.error ? errorDetail(achievements.error) : undefined}
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming === "daily" || claims.claiming === "weekly" ? null : claims.claiming } : null}
       canClaim={claims.claimer !== null}
-      toasts={toasts}
       onClaim={(achievementId) => send(achievementId, [{ kind: "achievement", achievementId }])}
       onClaimAll={claimAll}
       onTab={(tab) => go(tab === "quests" ? "/missions" : "/missions/lifetime")}

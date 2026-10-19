@@ -18,6 +18,10 @@ import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useRoutePage } from "../handle";
 import { useChainClock } from "../../data/clock";
+import { achievementCobbles, questCobbles } from "../../data/cobbles";
+import { useGameCompletions } from "../../data/indexer";
+import { achievementText, questText } from "../../components/containers/quest-text";
+import type { GameMission } from "../../components/containers/game-missions";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
 
@@ -80,7 +84,7 @@ function rewardProps(reward: OverReward): Pick<OverSceneProps["reward"], "state"
  * The end of a Challenge game, on its data (section 6.4): the final score and counters from `Challenge.game(id)`, every
  * closing from the game's tiles replayed on the engine, the reward from `Economy.terms(id)` (the amount once settled, the
  * deadline of an expired game), `Economy.day(day)` (the threshold once the day is closed) and the indexer's record (a free
- * game, the threshold the contract used). Settle is `Economy.settle`: "Settles after <date>" until the end of the day after
+ * game, the threshold the contract used), and the missions it completed (`useGameCompletions`, #595). Settle is `Economy.settle`: "Settles after <date>" until the end of the day after
  * the game's, then the player's button; a guest connects. A game still in play goes back to its board, an unknown one is
  * "Game not found", a failed read has Retry. Play again opens the purchase, keeping the link's `?ref=`.
  */
@@ -101,6 +105,23 @@ function ChallengeOver({ gameId }: { gameId: number }) {
   // The game's player's skins, as its board drew them.
   const skins = useBoardSkins(ready?.game.playerId ?? null);
   const boardSettings = useBoardSettings();
+  const completions = useGameCompletions(ready?.game.playerId ?? null, ready?.game.endTime ?? 0);
+  const defs = completions.definitions;
+  const missions: GameMission[] = [
+    ...completions.quests.map((q) => ({
+      key: `quest:${q.questId}:${q.intervalId}`,
+      kind: "quest" as const,
+      ...questText(q.questId),
+      cobbles: defs ? questCobbles(defs).find((c) => c.questId === q.questId)?.cobbles : undefined,
+    })),
+    ...completions.achievements.map((a) => ({
+      key: `achievement:${a.achievementId}`,
+      kind: "achievement" as const,
+      ...achievementText(a.achievementId),
+      points: a.points,
+      cobbles: defs ? achievementCobbles(defs).find((c) => c.achievementId === a.achievementId)?.cobbles : undefined,
+    })),
+  ];
   const replay = ready?.closings.data;
   const board = useMemo(
     () => (replay ? { tiles: replay.tiles, gameId, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer } : undefined),
@@ -138,6 +159,8 @@ function ChallengeOver({ gameId }: { gameId: number }) {
       deadline={reward.kind === "expired" ? reward.deadline : undefined}
       settle={settle ? (control.error && settle.state === "refused" ? { ...settle, detail: errorDetail(control.error, { gameId }) } : settle) : undefined}
       now={now}
+      missions={missions}
+      onMissions={() => go("/missions")}
       onPlayAgain={() => go("/play/challenge")}
       onHome={() => go("/")}
     />

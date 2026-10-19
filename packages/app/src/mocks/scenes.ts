@@ -35,8 +35,8 @@ import {
   VIEWER_OFF_TOP,
 } from "./leaderboard";
 import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, TODAY, VIEWER_TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE } from "./quests";
-import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TIERED, QUESTS_TIERED_DONE, QUESTS_TIERED_FRESH, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, TIERED_IDS, GAME_MISSIONS } from "./quests";
+import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, TIERED_COBBLES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_ENTRIES, STRESS_GAMES, STRESS_VAULT } from "./stress";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
@@ -165,6 +165,8 @@ export const OVER = {
     reward: { state: "rewarded", amount: 8_420_000_000_000_000_000n, stake: 3, threshold },
   },
   awaiting: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, rank: 7, reward: { state: "awaiting", stake: 3, threshold } },
+  /** #595: the missions the game completed, listed under the reward with their Cobbles. */
+  missions: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, rank: 7, reward: { state: "awaiting", stake: 3, threshold }, missions: GAME_MISSIONS },
   settle: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, rank: 7, reward: { state: "settle", stake: 3, threshold } },
   below: {
     mode: "challenge",
@@ -415,6 +417,22 @@ export const QUESTS = {
   },
   /** The three weeklies done: their 45 Cobbles and the week's free game to claim. */
   cobblesWeekDone: { ...questsBase, day: TODAY, quests: QUESTS_WEEK_DONE, rewards: { ...questRewards, day: { ...NOTHING_CLAIMED, claimed: bits(1) } } },
+  /**
+   * #595, the tiered schedule (a proposal): each family a track of three steps. Daily Run and Small Works claimed; Public
+   * Works, Woodland Walk, Warm-Up Score and Weekly Forester reached, their Cobbles to claim; the next steps lit, the rest locked.
+   */
+  tiered: { ...questsBase, day: TODAY, quests: QUESTS_TIERED, rewards: { ...questRewards, cobbles: TIERED_COBBLES, day: { ...NOTHING_CLAIMED, claimed: bits(1, 5) } } },
+  /** The tiered schedule before any game: the first step of each track is next, the others locked. */
+  tieredFresh: { ...questsBase, day: TODAY, quests: QUESTS_TIERED_FRESH, rewards: { ...questRewards, cobbles: TIERED_COBBLES } },
+  /** Every step reached and claimed, the day's and the week's: both free games claimed. */
+  tieredClaimed: {
+    ...questsBase,
+    day: TODAY,
+    quests: QUESTS_TIERED_DONE,
+    rewards: { ...questRewards, cobbles: TIERED_COBBLES, credits: 2, day: { claimed: bits(...TIERED_IDS.filter((id) => id <= 13)), credit: true }, week: { claimed: bits(...TIERED_IDS.filter((id) => id > 13)), credit: true } },
+  },
+  /** The tiered schedule without Cobbles (a network without the ledger): the bars and their steps, no reward drawn. */
+  tieredNoRewards: { ...questsBase, day: TODAY, quests: QUESTS_TIERED },
 } satisfies Record<string, Data<QuestsSceneProps>>;
 
 const achievementRewards = { cobbles: ACHIEVEMENT_COBBLES, claimed: ACCOUNT.achievementsClaimed, balance: ACCOUNT.gems };

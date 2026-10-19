@@ -9,7 +9,6 @@ import { useDataSources } from "../../data/sources";
 import { usePlayerQuests, useDefinitions } from "../../data/indexer";
 import { cobbleKeys, useClaims, useQuestRewards, type ClaimTarget } from "../../data/cobbles";
 import { queryKeys } from "../../data/keys";
-import { useCompletionMemory } from "../../data/completion-memory";
 import { firstQuestDay, useIndexerNow } from "../../data/quests";
 import { DAY_S, weekOfDay } from "../../lib/quest-window";
 import { useAccount } from "../../wallet/wallet";
@@ -23,8 +22,8 @@ const dayParam = (raw: string | undefined): number | null => (raw !== undefined 
  * free games from `Setup`'s ledger (`useQuestRewards`), on the indexer's clock (`useIndexerNow`): today is its day. Claim,
  * Claim all (one multicall) and the day's and the week's free game go through the signer; after a receipt the cache follows
  * its events (`useClaims`). A past day's Cobbles stay claimable. The player is the signer's address: without a signer the
- * page is a guest's; with one that cannot claim, it is read only ("Connect to claim"). The toasts remember, per player,
- * what they announced (`useCompletionMemory`). * A wallet approved earlier is looked for here too (`useAccount`), so a returning player can claim at once.
+ * page is a guest's; with one that cannot claim, it is read only ("Connect to claim"). The completion toasts are the app's
+ * (`routes/completion-host.tsx`). * A wallet approved earlier is looked for here too (`useAccount`), so a returning player can claim at once.
  */
 export default function Page() {
   const params = useParams();
@@ -41,7 +40,6 @@ export default function Page() {
   const definitions = useDefinitions();
   const rewards = useQuestRewards(playerId, day);
   const claims = useClaims(playerId);
-  const toasts = useCompletionMemory(playerId, "quest");
   const client = useQueryClient();
   const retry = () => {
     void client.invalidateQueries({ queryKey: queryKeys.indexer.all });
@@ -99,7 +97,6 @@ export default function Page() {
       now={clock.now!}
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming } : null}
       canClaim={claims.claimer !== null}
-      toasts={toasts}
       onDayChange={(d) => go(d === today ? "/missions" : `/missions/${d}`)}
       onClaim={claimQuest}
       onClaimAll={claimAll}
