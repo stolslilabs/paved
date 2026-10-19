@@ -19,7 +19,7 @@ import { formatPoints } from "../src/components/elements/score";
 import { App } from "../src/App";
 import type { DataSources, GameSigner, Settlements } from "../src/data";
 import { settlementsFor } from "../src/data/settle-client";
-import { DAY_SECONDS, replayClosings, rewardOf, settlesAfter, thresholdOf } from "../src/data/over";
+import { DAY_SECONDS, previousBestOf, replayClosings, replayGame, rewardOf, settlesAfter, thresholdOf } from "../src/data/over";
 import { queryKeys } from "../src/data/keys";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
@@ -42,6 +42,7 @@ const OPEN_DAY = TODAY;
 const READY_DAY = TODAY - 2;
 
 const played = playedGame(GAME_ID, PLAYER);
+const { stats } = replayGame(played.seed, played.tiles, played.game);
 
 type Fakes = ReturnType<typeof fakeSources>;
 
@@ -118,7 +119,8 @@ describe("/game/:gameId/over (P7a)", () => {
     expect(screen.getByText(`Challenge #${GAME_ID}`)).toBeInTheDocument();
     expect(screen.getByTestId("score-value")).toHaveTextContent(formatPoints(played.game.score));
     const metrics = screen.getByRole("region", { name: "Game metrics" });
-    expect(within(metrics).getByText("Tiles placed").closest("div")).toHaveTextContent(String(played.game.placedCount));
+    // The starter is not counted (#539): the tiles the player placed.
+    expect(within(metrics).getByText("Tiles placed").closest("div")).toHaveTextContent(`Tiles placed${played.game.placedCount - 1}`);
     // Every closing the moves scored, in move order, as the engine counted them.
     const list = within(await screen.findByRole("region", { name: "Closings" })).getAllByRole("listitem");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Closings" })).getAllByRole("listitem")).toHaveLength(played.closings.length));
@@ -126,8 +128,67 @@ describe("/game/:gameId/over (P7a)", () => {
     expect(s.views.calls).toEqual(expect.arrayContaining([`game challenge:${GAME_ID}`, `tiles challenge:${GAME_ID}`, `initial_seed challenge:${GAME_ID}`]));
     for (const [i, li] of within(screen.getByRole("region", { name: "Closings" })).getAllByRole("listitem").entries()) {
       expect(li).toHaveTextContent(`tile ${played.closings[i]!.tileId}`);
-      expect(li).toHaveTextContent(`${played.closings[i]!.size} tiles`);
+      // Its distinct tiles (#539), not `size`, the areas it spans.
+      expect(li).toHaveTextContent(`${stats.closings[i]!.tiles} tiles`);
     }
+  });
+
+  describe("the final board and the figures (#539)", () => {
+    it("switches to the final board and back in one tap each, the scores kept; the board's Back and the system Back return to the scores", async () => {
+      const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
+      const { router } = over(s);
+      await screen.findByRole("region", { name: "Highlights" }, { timeout: 5000 });
+      const toggle = screen.getByRole("radiogroup", { name: "Show" });
+      // The figures of the replay: the largest of each category in tiles, and the most valuable closing.
+      const highlights = await screen.findByRole("region", { name: "Highlights" });
+      const city = stats.categories.find((c) => c.category === "City")!;
+      expect(within(highlights).getByTestId("highlight-city")).toHaveTextContent(city.largest ? `${city.largest.tiles} tile` : "None closed");
+      expect(within(highlights).getByTestId("highlight-best")).toHaveTextContent(formatPoints(stats.best!.points));
+      expect(screen.queryByTestId("final-board")).not.toBeInTheDocument();
+
+      await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
+      expect(router.state.location.search).toContain("view=board");
+      const board = await screen.findByTestId("final-board");
+      expect(board).not.toHaveAttribute("aria-hidden", "true");
+      expect(screen.getByRole("heading", { level: 1, name: "Final board" })).toBeInTheDocument();
+      // jsdom has no WebGL: the plan view, one cell per placed tile, no hand.
+      expect(await within(board).findByRole("img", { name: `Board of ${stats.placed + 1} tiles` })).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Your tile" })).not.toBeInTheDocument();
+
+      await userEvent.click(within(toggle).getByRole("radio", { name: "Scores" }));
+      await waitFor(() => expect(router.state.location.search).not.toContain("view=board"));
+      expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
+      // The board stays mounted, hidden under the scores: no second load when it shows again.
+      expect(screen.getByTestId("final-board")).toHaveAttribute("aria-hidden", "true");
+
+      await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
+      await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      await waitFor(() => expect(router.state.location.search).not.toContain("view=board"));
+      expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
+
+      await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
+      await router.navigate(-1);
+      await waitFor(() => expect(router.state.location.search).not.toContain("view=board"));
+      expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
+    });
+
+    it("opens on the board from a link with ?view=board, and its Back then shows the scores in place", async () => {
+      const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
+      const { router } = open(`/game/${GAME_ID}/over?view=board`, s);
+      expect(await screen.findByRole("heading", { level: 1, name: "Final board" }, { timeout: 5000 })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
+    });
+
+    it("shows the rank of today when the game is the player's best of the day", async () => {
+      const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null, counted_day_id: TODAY } });
+      s.views.today = TODAY;
+      const entry = { rank: 3, player_id: `0x${PLAYER.slice(2).padStart(64, "0")}`, best_score: played.game.score, best_game_id: GAME_ID, games_played: 1, games_finished: 1, finished_at: 1600, free: false, name: null };
+      s.fixture.entries.set(TODAY, [entry, { ...entry, player_id: PLAYER }] as never);
+      over(s);
+      expect(await screen.findByText("#3 today", {}, { timeout: 5000 })).toBeInTheDocument();
+    });
   });
 
   describe("the reward", () => {
@@ -497,6 +558,28 @@ describe("the over page's helpers", () => {
     expect(rewardOf(fakeTerms({ stake: 1, settled: true, reward: 1n }), null, { economy: { threshold: 77_000 } } as never)).toEqual({ kind: "rewarded", amount: 1n, threshold: 77 });
     expect(rewardOf(null, null, undefined)).toEqual({ kind: "none" });
     expect(rewardOf(null, null, { free: true } as never)).toEqual({ kind: "free" });
+  });
+
+  it("replayGame: the closings, the figures that agree with them, and the final board's placed tiles", () => {
+    const replay = replayGame(played.seed, played.tiles, played.game);
+    expect(replay.closings).toEqual(played.closings);
+    expect(replay.stats.closings.map((c) => c.tileId)).toEqual(played.closings.map((c) => c.tileId));
+    expect(replay.stats.closings.map((c) => c.points)).toEqual(played.closings.map((c) => c.points));
+    expect(replay.stats.score).toBe(played.game.score);
+    expect(replay.tiles.map((t) => t.id)).toEqual(played.tiles.filter((t) => t.status === 1).map((t) => t.id));
+    expect(replay.stats.placed).toBe(replay.tiles.length - 1);
+  });
+
+  it("previousBestOf: the best of the player's other finished games, and their best when above this game's", () => {
+    const g = (gameId: number, score: number, over = true) => ({ gameId, score, over }) as never;
+    const game = { id: 5, score: 100 };
+    expect(previousBestOf(game, undefined, undefined)).toBeNull();
+    expect(previousBestOf(game, [], 0)).toBe(0);
+    // This game, and a game still running, are not "before".
+    expect(previousBestOf(game, [g(5, 100), g(6, 400, false), g(4, 80)], 100)).toBe(80);
+    // The indexer's best, when above: an older game the page did not list.
+    expect(previousBestOf(game, [g(4, 80)], 150)).toBe(150);
+    expect(previousBestOf(game, undefined, 150)).toBe(150);
   });
 
   it("replayClosings lists what the moves closed, and refuses a game the engine does not reproduce", () => {

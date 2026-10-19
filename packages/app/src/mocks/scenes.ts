@@ -14,8 +14,9 @@ import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
 import type { ThemeSceneProps } from "../components/scenes/theme-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
+import { CategoryType } from "@paved/game-core";
 import { SOURCE_ASSETS, originalTileArt } from "./assets";
-import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED } from "./board";
+import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
 import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
@@ -142,18 +143,22 @@ export const BOARD = {
 // Over
 
 const threshold = THRESHOLD_MILLI / 1000;
+/** The finished 38-tile game's board, drawn from the sources Storybook serves (the plan view without WebGL). */
+const finalBoard = { tiles: BOARD_38.tiles, gameId: GAME_OVER.id, basePath: SOURCE_ASSETS } as const;
+const figures = { stats: STATS_38, board: finalBoard } as const;
 
 export const OVER = {
   rewarded: {
     mode: "challenge",
     game: GAME_OVER,
     closings: CLOSINGS_38,
+    ...figures,
     previousBest: 1_180,
     rank: 7,
     reward: { state: "rewarded", amount: 8_420_000_000_000_000_000n, stake: 3, threshold },
   },
-  awaiting: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, rank: 7, reward: { state: "awaiting", stake: 3, threshold } },
-  settle: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, rank: 7, reward: { state: "settle", stake: 3, threshold } },
+  awaiting: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, rank: 7, reward: { state: "awaiting", stake: 3, threshold } },
+  settle: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, rank: 7, reward: { state: "settle", stake: 3, threshold } },
   below: {
     mode: "challenge",
     game: { ...GAME_OVER, score: 940 },
@@ -161,14 +166,30 @@ export const OVER = {
     rank: 18,
     reward: { state: "below", stake: 3, threshold },
   },
-  expired: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, reward: { state: "expired", stake: 3, threshold } },
-  training: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, previousBest: 1_420, reward: { state: "free" } },
-  noClosing: { mode: "training", game: { ...GAME_OVER, score: 0, placedCount: 3 }, closings: [], reward: { state: "free" } },
+  expired: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "expired", stake: 3, threshold } },
+  training: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, ...figures, previousBest: 1_420, reward: { state: "free" } },
+  /** The final board shown, the scores under it (#539). */
+  finalBoard: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, ...figures, view: "board", reward: { state: "free" } },
+  /** The scores alone: no board to show (the game's tiles could not be read), no figures beyond the closings. */
+  noBoard: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, rank: 7, reward: { state: "awaiting", stake: 3, threshold } },
+  noClosing: {
+    mode: "training",
+    game: { ...GAME_OVER, score: 0, placedCount: 3 },
+    closings: [],
+    stats: mockStats([], { placed: 2, discarded: 0, discardPenalty: 0, open: [{ category: CategoryType.Road, tiles: 3, size: 3 }] }),
+    board: { tiles: BOARD_38.tiles.slice(0, 3), basePath: SOURCE_ASSETS },
+    reward: { state: "free" },
+  },
   /** WRAP360: the widest score, rank, reward and closings. */
   stress: {
     mode: "challenge",
     game: { ...GAME_OVER, id: BIG_NUMBER, score: BIG_SCORE },
     closings: CLOSINGS_38.map((c) => ({ ...c, size: 999, points: BIG_SCORE })),
+    stats: mockStats(
+      CLOSINGS_38.map((c) => ({ ...c, size: 999, points: BIG_SCORE })),
+      { placed: 254, discarded: 999, discardPenalty: BIG_SCORE, open: [{ category: CategoryType.Forest, tiles: 999, size: 999 }] },
+    ),
+    board: finalBoard,
     previousBest: BIG_SCORE - 1,
     rank: 99_999,
     reward: { state: "rewarded", amount: BIG_AMOUNT_18, stake: 999, threshold: BIG_SCORE - 1 },

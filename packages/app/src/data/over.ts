@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import type { DayView, GameKey, GameView, IndexedGame, TermsView, TileView, WriteResult } from "@paved/chain";
-import { CENTER, CategoryType, EngineGame, OrientationType, PlanType } from "@paved/game-core";
+import type { BoardTile, DayView, GameKey, GameView, IndexedGame, TermsView, TileView, WriteResult } from "@paved/chain";
+import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, gameStats, type GameStats } from "@paved/game-core";
 import type { SettleProps } from "../components/scenes/over-scene";
-import { useGame, useEconomyDay, useTerms } from "./chain";
+import { useCurrentDay, useGame, useEconomyDay, useTerms } from "./chain";
 import { addressKey, queryKeys } from "./keys";
-import { useIndexedGame } from "./indexer";
+import { useIndexedGame, useIndexedPlayerGames, useLeaderboardEntry, usePlayerProfile } from "./indexer";
 import { useDataSources } from "./sources";
 import type { Closing } from "./training";
 
@@ -76,13 +76,20 @@ const PLACED = 1;
 const DISCARDED = 2;
 const HELD = 3;
 
+/** A finished game replayed (`replayGame`): its closings in move order, its figures and its placed tiles (the final board). */
+export interface OverReplay {
+  closings: Closing[];
+  stats: GameStats;
+  tiles: BoardTile[];
+}
+
 /**
- * Every closing of a game, in move order, with the tile that closed it: the game's tiles replayed on the engine from
+ * Every closing of a game, in move order, with the tile that closed it, the game's figures and its final board: the game's tiles replayed on the engine from
  * `initial_seed`, as the board opens a game (`replayChallenge`). The indexer keeps the `Scored` events but its game record
  * does not list them, so the closings are the engine's. Throws when a tile is not the engine's draw, a placement is
  * refused, or the replay's score is not the chain's: the list is never shown from a replay that disagrees.
  */
-export function replayClosings(initialSeed: bigint, tiles: readonly TileView[], game: Pick<GameView, "playerId" | "deckSize" | "over" | "score">): Closing[] {
+export function replayGame(initialSeed: bigint, tiles: readonly TileView[], game: Pick<GameView, "playerId" | "deckSize" | "over" | "score">): OverReplay {
   const engine = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(game.playerId), tileLimit: game.deckSize });
   const drawn = [...tiles].sort((a, b) => a.id - b.id);
   const starter = drawn[0];
@@ -107,14 +114,18 @@ export function replayClosings(initialSeed: bigint, tiles: readonly TileView[], 
   // A surrendered game keeps its last tile in hand, as on chain.
   if (game.over && !engine.over) engine.surrender();
   if (engine.score !== game.score) throw new Error(`Replay: score ${engine.score}, chain ${game.score}`);
-  return closings;
+  const board = drawn.filter((t) => t.status === PLACED).map(({ id, plan, orientation, x, y }) => ({ id, plan, orientation, x, y }));
+  return { closings, stats: gameStats(engine), tiles: board };
 }
+
+/** The closings alone of `replayGame`. */
+export const replayClosings = (...args: Parameters<typeof replayGame>): Closing[] => replayGame(...args).closings;
 
 /** The closings' key: under `chain`, so a refresh of the chain's reads covers them. A game's tiles never change once it is over. */
 export const closingsKey = (gameId: number) => ["chain", "closings", gameId] as const;
 
-/** Every closing of a finished game (`replayClosings` on its `initial_seed` and `tiles`). */
-export function useClosings(game: GameView | undefined): UseQueryResult<Closing[]> {
+/** A finished game replayed (`replayGame` on its `initial_seed` and `tiles`): its closings, its figures, its final board. */
+export function useClosings(game: GameView | undefined): UseQueryResult<OverReplay> {
   const { views } = useDataSources();
   const id = game?.over ? game.id : null;
   return useQuery({
@@ -122,12 +133,46 @@ export function useClosings(game: GameView | undefined): UseQueryResult<Closing[
     queryFn: async () => {
       const key: GameKey = { mode: "challenge", gameId: id as number };
       const [seed, tiles] = await Promise.all([views.initialSeed(key), views.tiles(key)]);
-      return replayClosings(BigInt(seed), tiles, game as GameView);
+      return replayGame(BigInt(seed), tiles, game as GameView);
     },
     enabled: id !== null,
     staleTime: Infinity,
     retry: false,
   });
+}
+
+// --- Best and rank ---------------------------------------------------------------------------------------------------
+
+/**
+ * The player's best before this game: the best of their other finished Challenge games among the newest the indexer lists,
+ * and their best overall when it is above this game's score (the indexer's best counts this game once it is indexed, so
+ * an equal best says nothing). Null until either is read. A tie with a game older than the listed ones reads as a new best.
+ */
+export function previousBestOf(game: Pick<GameView, "id" | "score">, others: readonly IndexedGame[] | undefined, best: number | undefined): number | null {
+  if (others === undefined && best === undefined) return null;
+  const scores = (others ?? []).filter((g) => g.over && g.gameId !== game.id).map((g) => g.score);
+  if (best !== undefined && best > game.score) scores.push(best);
+  return Math.max(0, ...scores);
+}
+
+/**
+ * "New best" and "#rank today" of a finished Challenge game (#539): the player's best before it (`previousBestOf`), and the
+ * rank of the day's leaderboard when this game is the player's best of today (the indexer's `bestGameId`). Both stay null
+ * while their reads are pending or failed, and the rank while the indexer has not counted the game.
+ */
+export function useOverStanding(game: GameView | undefined, indexed: IndexedGame | undefined): { previousBest: number | null; rank: number | null } {
+  const player = game?.over ? game.playerId : null;
+  const today = useCurrentDay();
+  const day = indexed?.over && indexed.countedDayId > 0 && indexed.countedDayId === today.data ? indexed.countedDayId : null;
+  const entry = useLeaderboardEntry(day, player);
+  const profile = usePlayerProfile(player);
+  const others = useIndexedPlayerGames(player);
+  if (!game?.over) return { previousBest: null, rank: null };
+  const best = profile.data?.stats ? profile.data.stats.bestScore : undefined;
+  return {
+    previousBest: previousBestOf(game, others.data, best),
+    rank: entry.data && entry.data.bestGameId === game.id ? entry.data.rank : null,
+  };
 }
 
 // --- The page's reads -------------------------------------------------------------------------------------------------
@@ -141,7 +186,7 @@ export type OverRead =
   | { status: "not-found" }
   /** The game is still in play: its board is where it belongs. */
   | { status: "playing" }
-  | { status: "ready"; game: GameView; terms: TermsView | null; day: DayView | null; indexed: IndexedGame | undefined; closings: UseQueryResult<Closing[]> };
+  | { status: "ready"; game: GameView; terms: TermsView | null; day: DayView | null; indexed: IndexedGame | undefined; closings: UseQueryResult<OverReplay> };
 
 /**
  * The reads of `/game/:id/over`: the game (`Challenge.game`), then, once it is over, its terms (`Economy.terms`), its

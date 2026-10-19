@@ -1,5 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { GameView, ScoredStructure } from "@paved/chain";
+import { CategoryType, type ClosedStructure, type GameStats, type OpenStructure } from "@paved/game-core";
+import { cn } from "../../lib/utils";
+import { useDeferred } from "../../lib/deferred";
+import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
+import { errorDetail } from "../../routes/error-detail";
+import { toastError } from "../containers/error-toast";
+import type { FinalBoardProps } from "../containers/final-board";
+import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -15,6 +23,14 @@ import { Boundary, useClock } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
 import { TopBar } from "../containers/top-bar";
+
+// The final board (#539) is its own chunk, with the renderer: loaded at the first "Board", and in the browser's idle time
+// once the scores are up, so the first switch finds it. The scores never wait for it.
+const loadFinalBoard = () => import("../containers/final-board");
+const PREFETCH_AFTER_MS = 1500;
+
+/** What the over route shows: the scores, or the final board under them (the toggle switches, one tap each way). */
+export type OverView = "scores" | "board";
 
 /**
  * What the settle area shows (P7a, a Challenge game bought with a stake, not settled): `after` (the day cannot be settled
@@ -68,11 +84,25 @@ export interface OverSceneProps {
   deadline?: number;
   /** Why the list of closings is not shown, when it could not be read. */
   closingsNote?: string;
+  /**
+   * The game's figures (`gameStats` of game-core): the largest structures, the most valuable closing, the discards, what
+   * was left open. Without them the metrics are the closings' alone, as before.
+   */
+  stats?: GameStats;
+  /** The finished game's board: the Board / Scores toggle shows it. None: no toggle (the board cannot be read). */
+  board?: FinalBoardProps;
+  /** Which of the two shows (controlled by the route, so the system Back returns from the board to the scores). Uncontrolled when omitted. */
+  view?: OverView;
+  onViewChange?: (view: OverView) => void;
   /** Seconds since the epoch: the scene's clock for the relative times (the browser's when omitted). Stories and tests fix it. */
   now?: number;
   onPlayAgain?: () => void;
   onHome?: () => void;
 }
+
+const CATEGORY_CODES = Object.values(CategoryType);
+const info = (category: CategoryType) => categoryInfo(CATEGORY_CODES.indexOf(category));
+const tilesOf = (n: number) => `${n} ${n === 1 ? "tile" : "tiles"}`;
 
 const duration = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -80,8 +110,95 @@ const duration = (seconds: number) => {
   return h > 0 ? `${h} h ${String(m).padStart(2, "0")} min` : `${m} min`;
 };
 
-/** The end of a game (`/game/:id/over`, `/training/over`): the final score, its metrics, every closing, the reward. */
-export function OverScene({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, onPlayAgain, onHome }: OverSceneProps) {
+/**
+ * The end of a game (`/game/:id/over`, `/training/over`): the final score, its figures, every closing, the reward; and the
+ * final board, one tap away (#539). Mobile first: one column, the headline figures first; two columns on desktop.
+ */
+export function OverScene(props: OverSceneProps) {
+  const { board, onViewChange } = props;
+  const [inner, setInner] = useState<OverView>("scores");
+  const view = board ? (props.view ?? inner) : "scores";
+  const setView = (next: OverView) => {
+    setInner(next);
+    onViewChange?.(next);
+  };
+  // Mounted at the first switch to the board, then kept under the scores: the canvas keeps its context and its models.
+  const [wanted, setWanted] = useState(false);
+  useEffect(() => {
+    if (view === "board") setWanted(true);
+  }, [view]);
+  const hasBoard = board !== undefined;
+  useEffect(() => {
+    if (!hasBoard || !prefetchAllowed()) return;
+    let cancel = () => {};
+    const timer = setTimeout(() => (cancel = whenIdle(() => void loadFinalBoard().catch(() => {}))), PREFETCH_AFTER_MS);
+    return () => {
+      clearTimeout(timer);
+      cancel();
+    };
+  }, [hasBoard]);
+  const finalBoard = useDeferred(loadFinalBoard, wanted, (e) => {
+    setView("scores");
+    toastError({ title: "Final board", message: "The board could not load. Check your connection and try again.", detail: errorDetail(e) });
+  });
+
+  const onBoard = view === "board";
+  return (
+    <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-background text-foreground">
+      {board && wanted && (
+        <div data-testid="final-board" aria-hidden={!onBoard} className={cn("absolute inset-0 bg-board", !onBoard && "invisible")}>
+          {finalBoard ? (
+            <finalBoard.default {...board} />
+          ) : (
+            <p role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
+              Loading the board…
+            </p>
+          )}
+        </div>
+      )}
+      {onBoard && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+          <div data-slot="card" className="pointer-events-auto w-full max-w-2xl rounded-xl border border-border bg-card/95 shadow-lg backdrop-blur">
+            <TopBar
+              title="Final board"
+              onBack={() => setView("scores")}
+              end={<Score value={props.game.score} size="sm" tone="gold" className="pr-2" />}
+              className="pt-0"
+            />
+          </div>
+        </div>
+      )}
+      <div aria-hidden={onBoard} className={cn("absolute inset-0 overflow-y-auto", onBoard && "invisible")}>
+        <Scores {...props} />
+      </div>
+      {board && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="lg"
+            aria-label="Show"
+            value={view}
+            onValueChange={(next) => next && setView(next as OverView)}
+            className="pointer-events-auto rounded-md bg-card/95 shadow-lg backdrop-blur"
+          >
+            <ToggleGroupItem value="scores" className="min-w-32">
+              <Icon name="ranking-star" fixedWidth />
+              Scores
+            </ToggleGroupItem>
+            <ToggleGroupItem value="board" className="min-w-32">
+              <Icon name="table-cells-large" fixedWidth />
+              Board
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The scores: the over screen's page, scrolled inside the scene so the board can sit under it. */
+function Scores({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
   const play = useSfx();
   useEffect(() => play("gameover"), [play]);
@@ -94,9 +211,9 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
     return { category, count: of.length, points: of.reduce((s, c) => s + c.points, 0) };
   }).filter((c) => c.count > 0);
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <>
       <TopBar title="Final score" onBack={onHome} />
-      <main className="mx-auto grid w-full max-w-md gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start">
+      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
         <div className="flex flex-col gap-4">
           <section
             data-slot="card"
@@ -109,20 +226,42 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
               {best && <Badge>New best</Badge>}
               {rank != null && <Badge variant="outline">#{rank} today</Badge>}
             </span>
+            {previousBest != null && !best && previousBest > 0 && <span className="text-xs text-muted-foreground">Best: <span className="numeric">{formatPoints(previousBest)}</span></span>}
           </section>
 
+          {stats && <Highlights stats={stats} />}
+
           <section data-slot="card" aria-label="Game metrics" className="rounded-xl border border-border bg-card px-4 py-2">
-            <StatRow icon="table-cells-large" label="Tiles placed" value={game.placedCount} />
-            {byCategory.map((c) => (
-              <StatRow
-                key={c.category}
-                icon={categoryInfo(c.category).icon}
-                label={`${categoryInfo(c.category).plural} closed`}
-                hint={`${formatPoints(c.points)} pts`}
-                value={c.count}
-              />
-            ))}
-            {game.endTime > 0 && <StatRow icon="clock" label="Time played" value={duration(game.endTime - game.startTime)} />}
+            {stats ? (
+              <>
+                <StatRow icon="table-cells-large" label="Tiles placed" hint="The starter tile not counted" value={stats.placed} />
+                <StatRow
+                  icon="xmark"
+                  label="Tiles discarded"
+                  hint={stats.discarded > 0 ? `${formatPoints(stats.discardPenalty)} pts taken` : undefined}
+                  value={stats.discarded}
+                  tone={stats.discardPenalty > 0 ? "danger" : "default"}
+                />
+                {stats.categories.map((c) => (
+                  <StatRow key={c.category} icon={info(c.category).icon} label={`${info(c.category).plural} closed`} hint={`${formatPoints(c.points)} pts`} value={c.closed} />
+                ))}
+                <StatRow icon="flag" label="Left open" hint={openHint(stats.open.largest)} value={stats.open.count} tone="muted" />
+              </>
+            ) : (
+              <>
+                <StatRow icon="table-cells-large" label="Tiles placed" value={game.placedCount} />
+                {byCategory.map((c) => (
+                  <StatRow
+                    key={c.category}
+                    icon={categoryInfo(c.category).icon}
+                    label={`${categoryInfo(c.category).plural} closed`}
+                    hint={`${formatPoints(c.points)} pts`}
+                    value={c.count}
+                  />
+                ))}
+              </>
+            )}
+            {game.endTime > 0 && game.startTime > 0 && <StatRow icon="clock" label="Time played" value={duration(game.endTime - game.startTime)} />}
           </section>
 
           {freeGame ? (
@@ -172,7 +311,7 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
                 <ol className="flex flex-col divide-y divide-border px-4">
                   {closings.map((c, i) => (
                     <li key={i} className="py-2">
-                      <ClosingLine closing={c} move={c.tileId} />
+                      <ClosingLine closing={c} move={c.tileId} tiles={stats?.closings.length === closings.length ? stats.closings[i]?.tiles : undefined} />
                     </li>
                   ))}
                 </ol>
@@ -185,6 +324,81 @@ export function OverScene({ mode, game, closings, previousBest, rank, reward, se
           </div>
         </div>
       </main>
+    </>
+  );
+}
+
+/** "Largest: a forest of 6 tiles", or nothing when no structure was left. */
+function openHint(largest: OpenStructure | null): string | undefined {
+  return largest ? `Largest: a ${info(largest.category).label.toLowerCase()} of ${tilesOf(largest.tiles)}` : undefined;
+}
+
+/**
+ * The headline figures (#539): the largest closed city, the longest road, the largest forest (in tiles, the distinct tiles
+ * D-19 counts), the wonders, the most valuable closing. Two columns from 375 px; a figure with nothing closed says so.
+ */
+function Highlights({ stats }: { stats: GameStats }) {
+  const of = (category: CategoryType) => stats.categories.find((c) => c.category === category);
+  const wonders = of(CategoryType.Wonder);
+  const cells: { key: string; icon: string; color: string; label: string; value: string; hint: string }[] = [
+    structureCell("city", "Largest city", CategoryType.City, of(CategoryType.City)?.largest ?? null),
+    structureCell("road", "Longest road", CategoryType.Road, of(CategoryType.Road)?.largest ?? null),
+    structureCell("forest", "Largest forest", CategoryType.Forest, of(CategoryType.Forest)?.largest ?? null),
+    {
+      key: "wonders",
+      icon: info(CategoryType.Wonder).icon,
+      color: info(CategoryType.Wonder).color,
+      label: "Wonders",
+      value: `${wonders?.closed ?? 0}`,
+      hint: wonders && wonders.closed > 0 ? `${formatPoints(wonders.points)} pts` : "None closed",
+    },
+  ];
+  return (
+    <section data-slot="card" aria-label="Highlights" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
+      <dl className="grid grid-cols-2 gap-2">
+        {cells.map((c) => (
+          <div key={c.key} data-testid={`highlight-${c.key}`} className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-secondary/40 px-3 py-2">
+            <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Icon name={c.icon} size="xs" fixedWidth className={c.color} />
+              <span className="wrap-anywhere">{c.label}</span>
+            </dt>
+            <dd className="numeric text-base font-semibold">{c.value}</dd>
+            <dd className="text-xs wrap-anywhere text-muted-foreground">{c.hint}</dd>
+          </div>
+        ))}
+      </dl>
+      <BestClosing best={stats.best} />
+      <p className="px-1 text-xs text-muted-foreground">Sizes count the tiles a structure spans.</p>
+    </section>
+  );
+}
+
+function structureCell(key: string, label: string, category: CategoryType, largest: ClosedStructure | null) {
+  return {
+    key,
+    icon: info(category).icon,
+    color: info(category).color,
+    label,
+    value: largest ? tilesOf(largest.tiles) : "—",
+    hint: largest ? `${formatPoints(largest.points)} pts` : "None closed",
+  };
+}
+
+/** The closing worth the most points, with the move that closed it. */
+function BestClosing({ best }: { best: ClosedStructure | null }) {
+  if (!best) return null;
+  const { label, icon, color } = info(best.category);
+  return (
+    <div data-testid="highlight-best" className="flex items-center gap-3 rounded-lg border border-gold-900 bg-secondary/40 px-3 py-2">
+      <Icon name="medal" className="text-primary" fixedWidth />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-xs text-muted-foreground">Best closing</span>
+        <span className="flex items-center gap-1.5 text-sm wrap-anywhere">
+          <Icon name={icon} size="xs" className={color} />
+          {best.category === CategoryType.Wonder ? label : `${label} of ${tilesOf(best.tiles)}`}, tile {best.tileId}
+        </span>
+      </span>
+      <span className="numeric text-sm font-semibold whitespace-nowrap text-primary">{formatPoints(best.points)} pts</span>
     </div>
   );
 }
