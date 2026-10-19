@@ -69,8 +69,8 @@ export const AMBIENT_FPS = 30;
  * motes over the water, fewer, slower gold sparkles over the wonders.
  */
 export const DEFAULT_AMBIENT_PARTICLES: AmbientParticlesSettings = {
-  water: { enabled: true, density: 0.2, perTile: 8, size: 0.07, lifeSeconds: 4.5, rise: 0.55, drift: 0.08, opacity: 0.35, color: "#bff4ff" },
-  wonder: { enabled: true, density: 0.01, perTile: 6, size: 0.08, lifeSeconds: 6, rise: 0.8, drift: 0.05, opacity: 0.3, color: "#ffe6a3" },
+  water: { enabled: true, density: 0.2, perTile: 8, size: 0.1, lifeSeconds: 4.5, rise: 0.55, drift: 0.08, opacity: 0.5, color: "#bff4ff" },
+  wonder: { enabled: true, density: 0.025, perTile: 6, size: 0.11, lifeSeconds: 6, rise: 0.8, drift: 0.05, opacity: 0.45, color: "#ffe6a3" },
   boardCap: 240,
   nightGlow: 0.8,
   zoomFade: true,
