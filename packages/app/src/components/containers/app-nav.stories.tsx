@@ -4,7 +4,7 @@ import { fn } from "storybook/test";
 import type { Tab } from "../../routes/pages";
 import { AppNav } from "./app-nav";
 
-/** Every story keeps its own active tab: a click moves it, so the indicator's slide and the colours can be checked. `active` is the starting tab. */
+/** Every story keeps its own active tab: a click moves it, so the white states and the gold of the current item can be checked. `active` is the starting tab. */
 function Stateful({ active, onNavigate, ...args }: React.ComponentProps<typeof AppNav>) {
   const [current, setCurrent] = useState<Tab>(active);
   useEffect(() => setCurrent(active), [active]);
@@ -25,12 +25,16 @@ const meta = {
   component: AppNav,
   args: { active: "home", onNavigate: fn() },
   render: (args) => <Stateful {...args} />,
-  decorators: [(Story) => <div className="flex min-h-[20rem]"><Story /></div>],
+  decorators: [(Story) => <div className="flex min-h-[20rem] flex-col justify-end desktop:justify-start"><Story /></div>],
 } satisfies Meta<typeof AppNav>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The bottom bar on a phone (icon and label from 360 px), a left rail with labels from 1024 px (the theme's `desktop`): the Viewport control switches between them. Click a tab: it becomes the active one and the indicator slides (Motion `layoutId`). */
+/**
+ * Direction D (#537): the bottom bar on a phone, each item an icon over its label (labels from 360 px); from 1024 px (the
+ * theme's `desktop`) a header across the top, the voxel wordmark, the items icon beside label. The Viewport control switches
+ * between them. The current item is gold on the white 15% layer; hover is 10%, a press 20%. No rail, no sliding indicator.
+ */
 export const Default: Story = {};
 
 /** Starts on Ranks. */

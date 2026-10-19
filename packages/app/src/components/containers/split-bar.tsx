@@ -24,7 +24,7 @@ export function SplitBar({ split, highlight, className }: SplitBarProps) {
     { key: "referral", label: "Referral", bps: split.referral, hint: "out of the Vault's part" },
   ] as const;
   const fill = (key: (typeof parts)[number]["key"]) =>
-    highlight === key ? "bg-primary" : key === "burn" ? "bg-ink-500" : key === "vault" ? "bg-gold-800" : "bg-gold-600";
+    highlight === key ? "bg-primary" : key === "burn" ? "bg-input-surface" : key === "vault" ? "bg-primary/45" : "bg-primary/70";
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div role="img" aria-label={parts.map((p) => `${p.label} ${formatBps(p.bps)}`).join(", ")} className="flex h-3 w-full overflow-hidden rounded-full bg-input">

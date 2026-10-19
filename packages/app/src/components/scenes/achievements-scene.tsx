@@ -101,7 +101,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
         </div>
       ) : (
         <>
-          <section aria-label="Summary" data-slot="card" className="flex flex-col gap-2 rounded-xl border border-gold-900 bg-gold-950/40 p-4">
+          <section aria-label="Summary" data-slot="card" className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-card p-4">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm">
                 <span className="numeric font-semibold text-primary">{earned}</span>
@@ -118,7 +118,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
             </div>
             <Progress value={possible > 0 ? (achievements.points / possible) * 100 : 0} aria-label={`${achievements.points} of ${possible} points`} />
             {claimable.length > 0 && canClaim && (
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gold-900 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                 <span className="text-xs text-muted-foreground">
                   <span className="numeric">{claimable.length}</span> to claim
                 </span>

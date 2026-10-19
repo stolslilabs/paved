@@ -46,7 +46,7 @@ const Panel = ({ title, children }: { title: string; children: ReactNode }) => (
 );
 
 /**
- * `--input` is ink-600 on the page. On a card or a popover it is re-pointed to `--input-surface` (ink-500) by a rule
+ * `--input` is charcoal-600 on the page. On a card or a popover it is re-pointed to `--input-surface` (charcoal-500) by a rule
  * on the surfaces' `data-slot` in theme.css, so the primitives carry no second class.
  */
 export const FieldOnSurfaces: Story = {

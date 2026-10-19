@@ -19,7 +19,7 @@ function Leaderboard() {
     });
   return (
     <div className="flex max-w-sm flex-col gap-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={add}>Add a row</Button>
         <Button size="sm" variant="secondary" onClick={() => setRows((rs) => rs.slice(1))}>Remove the first</Button>
         <Button size="sm" variant="outline" onClick={() => setRows((rs) => [...rs].reverse())}>Reverse</Button>

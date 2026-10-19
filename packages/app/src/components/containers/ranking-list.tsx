@@ -29,7 +29,7 @@ function Row({ entry, self, free, onSelectPlayer }: { entry: LeaderboardEntry; s
         type="button"
         aria-current={self ? "true" : undefined}
         onClick={() => onSelectPlayer?.(entry.playerId)}
-        className={cn(rankRowClass(self), "w-full cursor-pointer transition-colors outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring")}
+        className={cn(rankRowClass(self), "state-layer w-full cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring")}
       >
         <RankCells entry={entry} self={self} free={free} games />
       </button>

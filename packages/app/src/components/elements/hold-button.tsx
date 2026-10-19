@@ -137,10 +137,8 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
       onKeyUp={onKeyUp}
       onBlur={release}
       onClick={onClick}
-      className={cn("group relative touch-none select-none [-webkit-touch-callout:none]", className)}
+      className={cn("relative touch-none select-none [-webkit-touch-callout:none]", className)}
     >
-      {/* The white veil of the hover (desktop) and the press (touch) over any fill (issues 537 and 568). */}
-      <span aria-hidden data-veil className="absolute inset-0 rounded-[inherit] transition-colors group-hover:bg-veil group-active:bg-veil-strong" />
       {!busy && <Icon name={icon} size="md" />}
       <svg data-ring aria-hidden viewBox="0 0 44 44" className="absolute inset-0 size-full -rotate-90">
         <circle cx="22" cy="22" r={RING_R} fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={3} />

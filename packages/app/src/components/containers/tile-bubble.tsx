@@ -81,12 +81,12 @@ export interface TileBubbleProps {
 }
 
 /**
- * The bubble's buttons over its translucent card: white with transparency on hover (desktop) and when pressed (touch), and
- * the focus ring of every control (#537, #568).
+ * The bubble's buttons: 44 px, round, the focus ring offset on the bubble's card. Their hover (desktop) and pressed (touch)
+ * states are every button's since #537 (`state-layer`, white at 10 % and 20 % over any fill, the gold Validate's too).
  */
-const BUBBLE_BUTTON = "size-11 rounded-full hover:bg-veil active:bg-veil-strong focus-visible:ring-offset-card";
-/** Validate, the strongest: filled with the primary colour; `HoldButton`'s veil lays the same white over it on hover and when pressed. */
-const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md hover:bg-primary focus-visible:ring-offset-card";
+const BUBBLE_BUTTON = "size-11 rounded-full focus-visible:ring-offset-card";
+/** Validate, the strongest: filled with the primary colour (the default variant), raised. */
+const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md focus-visible:ring-offset-card";
 
 /**
  * The bubble on the tile being handled, in this order: Close (cancel), Rotate (clockwise through the valid rotations only,
@@ -161,11 +161,11 @@ export function TileBubble({ rotations, onRotate, onClose, onConfirm, canConfirm
         className,
       )}
     >
-      <Button variant="ghost" size="icon" className={cn(BUBBLE_BUTTON, "hover:text-foreground")} onClick={onClose} aria-label="Cancel placement" title="Cancel (Esc)">
+      <Button variant="ghost" size="icon" className={BUBBLE_BUTTON} onClick={onClose} aria-label="Cancel placement" title="Cancel (Esc)">
         <Icon name="xmark" size="md" />
       </Button>
       {canRotate && (
-        <Button variant="ghost" size="icon" className={cn(BUBBLE_BUTTON, "hover:text-foreground")} onClick={onRotate} aria-label="Rotate tile" title="Rotate (R)">
+        <Button variant="ghost" size="icon" className={BUBBLE_BUTTON} onClick={onRotate} aria-label="Rotate tile" title="Rotate (R)">
           <Icon name="rotate-right" size="md" />
         </Button>
       )}

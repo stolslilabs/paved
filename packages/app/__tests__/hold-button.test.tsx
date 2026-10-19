@@ -115,16 +115,14 @@ describe("HoldButton", () => {
 });
 
 describe("the bubble's buttons (#568)", () => {
-  it("Close, Rotate, Validate in that order, each with a hover, pressed and focus state; Validate held places once", () => {
+  it("Close, Rotate, Validate in that order, each with the white hover, pressed and focus states; Validate held places once", () => {
     const onConfirm = vi.fn();
     render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={onConfirm} />));
     const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
     expect(names).toEqual(["Cancel placement", "Rotate tile", "Hold to place the tile"]);
     for (const b of screen.getAllByRole("button")) {
-      // The white veil: on the button itself, or on Validate's veil over its fill.
-      const veil = b.querySelector("[data-veil]")?.className ?? b.className;
-      expect(veil).toMatch(/hover:bg-veil\b/);
-      expect(veil).toMatch(/active:bg-veil-strong/);
+      // The white hover and pressed states of #537 (`state-layer`), over Validate's gold fill too, and the focus ring.
+      expect(b.className).toMatch(/\bstate-layer\b/);
       expect(b.className).toMatch(/focus-visible:ring-2/);
     }
     fireEvent.pointerDown(button(), { button: 0 });
