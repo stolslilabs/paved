@@ -297,8 +297,11 @@ export interface LightVolumeOptions {
   margin: number;
 }
 
-/** The second pass's defaults (#571): a longer reach, a softer falloff and a margin past the border (the first: 6, 1.5, 0). */
-export const DEFAULT_LIGHT_VOLUME: LightVolumeOptions = { reach: 10, falloff: 1.2, method: "flood", doors: true, margin: 8 };
+/**
+ * The second pass's defaults (#571): a longer reach and a margin past the border (the first: 6, 1.5, 0). The falloff is steeper
+ * than the first's: the second pass finds about ten times the windows, and a soft falloff floods a city's ground whole.
+ */
+export const DEFAULT_LIGHT_VOLUME: LightVolumeOptions = { reach: 7, falloff: 2, method: "flood", doors: true, margin: 6 };
 
 /** The layers above the slab the spill keeps, the brightest of them (`WINDOW_SPILL_LAYERS`). */
 export const SPILL_LAYERS = WINDOW_SPILL_LAYERS;

@@ -59,7 +59,7 @@ const meta = {
     reach: DEFAULT_WINDOW_LIGHT.reach,
     falloff: DEFAULT_WINDOW_LIGHT.falloff,
     margin: DEFAULT_WINDOW_LIGHT.margin,
-    intensity: 1,
+    intensity: DEFAULT_WINDOW_LIGHT.intensity,
     lightColor: "#ffb57a",
     doorsLight: true,
     nightLevel: 1,

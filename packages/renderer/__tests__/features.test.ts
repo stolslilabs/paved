@@ -995,7 +995,7 @@ describe("the night lights (DAYNIGHT)", () => {
       tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
       const { fragmentShader, vertexShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
       expect(fragmentShader.indexOf("float windowOn(")).toBeLessThan(fragmentShader.indexOf("void main() {"));
-      expect(fragmentShader).toContain("* uWindowStagger;");
+      expect(fragmentShader).toContain("* uWindowStagger * 0.85;");
       expect(vertexShader).toContain("vBoardVoxel = ");
       tiles.dispose();
     });

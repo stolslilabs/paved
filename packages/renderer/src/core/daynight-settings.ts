@@ -48,7 +48,7 @@ export interface WindowLightSettings {
  */
 export const WINDOW_SPILL_LAYERS = 4;
 
-export const DEFAULT_WINDOW_LIGHT: WindowLightSettings = { intensity: 1, reach: 10, falloff: 1.2, margin: 8, stagger: 1, rule: "structures" };
+export const DEFAULT_WINDOW_LIGHT: WindowLightSettings = { intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures" };
 
 /** `input` over `base`, field by field: a value of the wrong kind or out of range keeps the base's. */
 export function resolveWindowLight(input: Partial<WindowLightSettings> = {}, base: WindowLightSettings = DEFAULT_WINDOW_LIGHT): WindowLightSettings {

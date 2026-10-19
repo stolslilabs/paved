@@ -246,7 +246,7 @@ describe("the light volume", () => {
   });
 
   it("the second pass's defaults: a longer reach, a softer falloff, a margin", () => {
-    expect(DEFAULT_LIGHT_VOLUME).toEqual({ reach: 10, falloff: 1.2, method: "flood", doors: true, margin: 8 });
+    expect(DEFAULT_LIGHT_VOLUME).toEqual({ reach: 7, falloff: 2, method: "flood", doors: true, margin: 6 });
   });
 
   it.each(["flood", "rays"] as const)("%s: the light goes past the tile's border within the margin, kept as the spill", (method) => {
