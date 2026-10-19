@@ -1400,7 +1400,7 @@ whole. A merged straight edge is several voxels long, so most such edges are far
 **At 54 degrees (TILT-54, 5.10)** an edge along z is foreshortened by cos 54 degrees (0.59): about 0.65 device px at the
 phone's 0.85 S at DPR 1, so the cut draws it at about 0.3 of its opacity, still above the 0.5 px cut; at S, about 0.77 px
 (0.53). At DPR 2 and above it is 1.3 px or more, whole. A voxel's vertical edge grows to sin 54 degrees (0.81) of a voxel
-on screen, so more risers pass the cut than at 27 degrees (estimate, not measured: more outline fragments, see 5.10).
+on screen, so more risers pass the cut than at 27 degrees; the frame time does not grow (measured, 5.10).
 
 **Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
 (`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
@@ -2781,9 +2781,24 @@ maximum, both ways from the default (`core/CameraController.ts`).
   `tilt54-desk-0.webp`, `tilt54-desk-27.webp`, `tilt54-desk-54.webp` at 1440 x 900 (DPR 2, stored at 1x);
   `tilt54-phone-54-closest.webp`, the closest zoom (10) at 54 degrees, no cut; `tilt54-phone-54-day.webp` and
   `tilt54-phone-54-night.webp`, the "Renderer/DayNight" story's sky at 54 degrees (summer day, autumn night).
-- **Frame time: not measured.** The bench run (p95 at 27 and 54 degrees, the auto tier and Low, desktop and phone
-  profiles) is on the GPU-BENCH-BACKLOG. Estimate: the same draw calls and triangles; at 54 degrees the board covers
-  fewer pixels (its depth is foreshortened by about cos 54 / cos 27, 0.66) but more side faces and more outline risers.
+- **Frame time (measured, TILT-54, on the Mac's GPU, not SwiftShader).** Headless Chromium (new headless mode, never on
+  screen), the "Renderer/Lighting" story on the recorded 72-tile board at distance 240, the slots and ghost off, outlines
+  forced on, `redraw` on. Each configuration ran in a fresh context with 120 warm-up frames and 600 measured frames. Per
+  frame, the CPU time of the loop tick (`setFrameObserver`) plus the GPU time of an `EXT_disjoint_timer_query_webgl2` query
+  around the render (600 of 600 frames timed, no disjoint). Two rounds, the order of the angles alternated; the load
+  average was about 4 to 6. Desktop: 1440 x 900 at DPR 2, unthrottled. Phone: 360 x 780 at DPR 3, CPU throttled 4x (the
+  bench's phone approximation, still on the Mac's GPU). "auto" resolved to Medium on both profiles. CPU + GPU p95 in ms, round 1 / round 2:
+
+  | Profile | Tier | 27 degrees | 54 degrees |
+  |---|---|---|---|
+  | Desktop | Medium (auto) | 5.64 / 5.78 | 5.32 / 5.56 |
+  | Desktop | Low | 5.67 / 5.75 | 5.59 / 5.47 |
+  | Phone | Medium (auto) | 5.31 / 5.18 | 5.11 / 5.40 |
+  | Phone | Low | 5.38 / 5.09 | 5.16 / 4.88 |
+
+  54 degrees costs no more than 27: every pair is within the spread between rounds (at most 0.3 ms), and all are far
+  under the 12 ms desktop and 16.6 ms phone limits. The GPU p95 alone is 3.2 to 4.2 ms and the CPU p95 1.9 to 2.7 ms.
+  The draw calls and triangles were not recorded: `renderer.info` read after the frame counts only the composer's last pass.
 
 ---
 
