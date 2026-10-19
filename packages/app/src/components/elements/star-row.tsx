@@ -10,7 +10,7 @@ export interface StarRowProps {
   className?: string;
 }
 
-/** A Story level's stars (#546): three, the earned ones in gold; read as "2 of 3 stars". */
+/** A Story level's stars (Story mode): three, the earned ones in gold; read as "2 of 3 stars". */
 export function StarRow({ stars, size = "sm", label, className }: StarRowProps) {
   return (
     <span role="img" aria-label={label ?? `${stars} of 3 stars`} data-stars={stars} className={cn("inline-flex items-center gap-0.5", className)}>
