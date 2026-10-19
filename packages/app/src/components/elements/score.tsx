@@ -34,9 +34,9 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
   /**
    * The points the tile placed, not yet validated, would score (the engine's preview, PLACE-POLISH, issue 568): "(+154)" in
    * the primary colour and in brackets, beside the value. With a label it rides on the label's line, in place of the last
-   * move's gain (`delta`, green, moving in), which it outdates: "Score (+154)" over "1,000" from the tablet width; below it,
-   * "(+154)" over "1,000" (the label kept for screen readers), so the HUD keeps its width down to 320 px, where "1,000 (+154)"
-   * on one line left no room for the title beside the season wheel and the deck. Unset or null: none.
+   * move's gain (`delta`, green, moving in), which it outdates, and in place of the label (kept for screen readers): "(+154)"
+   * over "1,000". The HUD keeps its width down to 320 px, where "1,000 (+154)" on one line left no room for the title beside
+   * the season wheel and the deck. Unset or null: none.
    */
   preview?: number | null;
   className?: string;
@@ -72,8 +72,8 @@ export function Score({ value, label, icon, iconClassName, delta, preview, size,
     <div className={cn("flex flex-col gap-1", className)}>
       {label && (
         <span className="flex items-baseline gap-2 text-xs text-muted-foreground">
-          {/* With a preview, below the tablet width the preview takes the label's place (read, not shown): the column keeps its width. */}
-          <span className={cn(previewed && "sr-only tablet:not-sr-only")}>{label}</span>
+          {/* With a preview, the preview takes the label's place (the label read, not shown): the column keeps its width. */}
+          <span className={cn(previewed && "sr-only")}>{label}</span>
           {previewed ?? gain}
         </span>
       )}

@@ -28,7 +28,7 @@ export const Stress: Story = { args: { title: LONG_LABEL, score: BIG_SCORE, delt
 export const WithWheel: Story = { args: { wheel: <SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} /> } };
 
 /**
- * A tile placed and not yet validated (#568): the points it would score over the score, "(+154)" over "1,270" on a phone ("Score (+154)" from the tablet width), in
+ * A tile placed and not yet validated (#568): the points it would score over the score, "(+154)" over "1,270" (in place of the label "Score"), in
  * the primary colour and in brackets, where a move's gain is green and moves in. At 375 px with the wheel, the deck and the
  * gear, the title keeps its room.
  */

@@ -121,7 +121,7 @@ export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } 
 
 /**
  * The tile placed on a plate its rotation fits: yellow and opaque, the bubble on its corner (Close, Rotate when several
- * rotations fit, Validate to hold), the points it would score on the HUD's score: "Score (+30)".
+ * rotations fit, Validate to hold), the points it would score over the HUD's score: "(+30)".
  */
 export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
 
