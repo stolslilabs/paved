@@ -1045,7 +1045,7 @@ export class GameScene {
       this.ambientParticles?.setZoom(this.ambientFade(tilePx, openingTilePx));
     }
     if (this.ambientParticles && this.surface && this.camera) {
-      this.ambientParticles.setViewport(this.surface.getSize().height * this.pixelRatio, this.camera.fov);
+      this.ambientParticles.setViewport(this.surface.getSize().height * this.pixelRatio, this.camera.fov, this.camera.zoom);
     }
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;

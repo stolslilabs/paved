@@ -148,7 +148,7 @@ const VERTEX = /* glsl */ `
     gl_Position = projectionMatrix * mv;
     float fade = smoothstep(0.0, 0.25, phase) * (1.0 - smoothstep(0.55, 1.0, phase));
     vAlpha = uOpacity * uFade * fade * uGlow;
-    // The size in device px: the world size at this depth (uScale: the drawing buffer's height over 2 tan(fov / 2)). A particle
+    // The size in device px: the world size at this depth (uScale: the drawing buffer's height x zoom over 2 tan(fov / 2)). A particle
     // with no light left is a point of no size: no fragment.
     gl_PointSize = vAlpha < 0.002 ? 0.0 : uSize * sqrt(uGlow) * uScale / max(-mv.z, 0.001);
   }
@@ -360,9 +360,12 @@ export class AmbientParticles implements AmbientEffect {
     for (const kind of PARTICLE_KINDS) this.uniforms[kind].uGlow.value = glow;
   }
 
-  /** The drawing buffer's height in device px and the camera's vertical field of view in degrees: a particle's size on screen. */
-  setViewport(heightDevicePx: number, fovDegrees: number): void {
-    const scale = heightDevicePx / (2 * Math.tan(THREE.MathUtils.degToRad(fovDegrees) / 2));
+  /**
+   * The drawing buffer's height in device px, the camera's vertical field of view in degrees and its zoom (the play camera's is
+   * 5): a particle's size on screen.
+   */
+  setViewport(heightDevicePx: number, fovDegrees: number, zoom = 1): void {
+    const scale = (heightDevicePx * zoom) / (2 * Math.tan(THREE.MathUtils.degToRad(fovDegrees) / 2));
     for (const kind of PARTICLE_KINDS) this.uniforms[kind].uScale.value = scale;
   }
 
