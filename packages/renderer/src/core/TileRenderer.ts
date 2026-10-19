@@ -1130,7 +1130,7 @@ export class TileRenderer {
 
   /**
    * The ghost: the tile in hand drawn on a cell as the board would draw it (its model, or its placeholder quad while the
-   * model loads), tinted on the model itself: blue at half opacity on a hover, yellow at 90 % once `placed`. It shares the type's geometry: nothing to
+   * model loads), tinted on the model itself: untinted at half opacity on a hover, opaque yellow once `placed`. It shares the type's geometry: nothing to
    * dispose.
    */
   setHover(state: HoverState | null): void {
@@ -1354,6 +1354,16 @@ export class TileRenderer {
   /** Loads what the drop of tile `key` needs, so that its `dropTile` begins in the call (the board prepares when a tile is picked). */
   prepareDrop(key: string): Promise<boolean> {
     return this.drops.prepare(key);
+  }
+
+  /**
+   * Loads what the drop of the tile in hand needs once it is on the board: the model it will draw at its cell (`state.cell`),
+   * so that the drop at the confirm begins in the call. False when that model is not in yet.
+   */
+  prepareDropAt(state: HoverState): Promise<boolean> {
+    const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
+    const model = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
+    return model ? this.drops.prepareModel(model) : Promise.resolve(false);
   }
 
   /** The zoom the placement grid follows (its fade, `grid.farFade`). */

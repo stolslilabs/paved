@@ -6,7 +6,7 @@ import { confirmHoldMs, boardPlates, boardSlots, nextOrientation, nextValid, pla
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { holdToPlace, preloadPages, validateButton } from "./route-helpers";
 
 // A fixed Training seed (GUARDS, P-71): the first tile of a random seed fits every rotation at every lit slot about one
 // time in eleven (180 of 2000 seeds), and the search for a red rotation then finds none. Seed 1 deals a first tile that
@@ -155,8 +155,6 @@ describe("the Training board's plan view, placing a tile", () => {
     const store = memoryStore();
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
     await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 });
-    const hand = () => screen.getByRole("region", { name: "Your tile" });
-    const place = () => within(hand()).getByRole("button", { name: /Place tile/ });
     const slots = () => screen.getAllByRole("button", { name: /^Slot / });
     // Every slot of every rotation is a button, dashed or solid.
     expect(slots().length).toBeGreaterThan(0);
@@ -168,22 +166,22 @@ describe("the Training board's plan view, placing a tile", () => {
       const label = slots()[i]!.getAttribute("aria-label");
       const chosen = () => screen.getByRole("button", { name: label! });
       expect(chosen()).toHaveAttribute("data-placed", "pending");
-      expect(place()).toBeEnabled();
       await screen.findByRole("button", { name: "Cancel placement" });
+      expect(validateButton()).toBeEnabled();
       for (let turn = 0; turn < 4 && screen.queryByRole("button", { name: "Rotate tile" }); turn++) {
         await userEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
         expect(chosen()).toHaveAttribute("data-placed", "pending");
-        expect(place()).toBeEnabled();
+        expect(validateButton()).toBeEnabled();
       }
       // Close: the tile is back in hand, nothing is placed.
       await userEvent.click(screen.getByRole("button", { name: "Cancel placement" }));
       expect(screen.queryByRole("button", { name: "Cancel placement" })).not.toBeInTheDocument();
-      expect(place()).toBeDisabled();
+      expect(validateButton()).toBeNull();
       expect(slots()[i]).not.toHaveAttribute("data-placed");
     }
 
     await userEvent.click(slots()[0]!);
-    await userEvent.click(place());
+    await holdToPlace();
     // The placed cell flashes green, then the flash goes; under reduced motion its fade is short.
     const flash = await waitFor(() => {
       const el = document.querySelector("[data-confirm]");

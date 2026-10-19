@@ -10,6 +10,8 @@ export const Default: Story = {};
 export const Gold: Story = { args: { tone: "gold", size: "lg" } };
 /** The points the last move added, beside the score. */
 export const WithDelta: Story = { args: { value: 1380, delta: 140 } };
+/** The points a placed tile would score (#568): beside the value, in brackets, distinct from the green gain. */
+export const WithPreview: Story = { args: { value: 1000, preview: 154 } };
 export const Final: Story = { args: { value: 4820, size: "xl", tone: "gold", label: "Your score" } };
 export const Zero: Story = { args: { value: 0 } };
 

@@ -16,10 +16,8 @@ export interface HandPanelProps {
   /** The tile to place (`SessionState.hand` with its orientation); null when there is none. */
   tile: { plan: number; orientation: number } | null;
   state: HandState;
-  /** A slot is chosen on the board: Confirm is enabled. */
+  /** A slot is chosen on the board: the hint names the bubble's hold. */
   slotChosen?: boolean;
-  /** The points the placement would score (the engine's preview), shown on Confirm. */
-  preview?: number | null;
   /** Why the move was refused. */
   error?: string | null;
   /** The refusal's detail for support (its typed name, hash, game, version, time): the page builds it. */
@@ -28,22 +26,25 @@ export interface HandPanelProps {
   tileArt?: TileArt;
   /** Draws the tile with the renderer (`TileView`), as the board does; the page gives it, tests leave it out (no WebGL). */
   renderTile?: (tile: { plan: number; orientation: number }) => ReactNode;
-  onConfirm?: () => void;
   onDiscard?: () => void;
   onSurrender?: () => void;
   /** Surrender is offered: not in Story mode, where a level restarts instead (P6, #546). */
   canSurrender?: boolean;
   /** The Surrender dialog's module is on its way (BOARD-CHUNK): the button shows it is busy. */
   surrenderPending?: boolean;
-  /** A Story coach mark points at Place or Discard: that button is ringed. */
+  /** A Story coach mark points at Discard: that button is ringed (the placement's ring is on the bubble's Validate). */
   coach?: CoachTarget | null;
   className?: string;
 }
 
 const EXPIRED_TEXT = "24 h passed since its purchase. Surrender to close it.";
 
-/** The hand: the tile to place, confirm, discard, and surrender; the rotation is the bubble's, on the tile (the mockups' "Place tile" panel). */
-export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail, tileArt, renderTile, onConfirm, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, coach, className }: HandPanelProps) {
+/**
+ * The hand: the tile to place, Discard and Surrender, the hint and the errors. The placement is the bubble's, on the tile:
+ * Rotate, Close and Validate, held (PLACE-POLISH, #568); the points it would score ride on the HUD's score. At 375 px the
+ * tile stands left, the hint and the two buttons beside it, so the panel is about half its old height.
+ */
+export function HandPanel({ tile, state, slotChosen, error, errorDetail, tileArt, renderTile, onDiscard, onSurrender, canSurrender = true, surrenderPending = false, coach, className }: HandPanelProps) {
   const busy = state === "pending";
   const locked = state === "pending" || state === "expired" || state === "empty";
   const chipState = busy ? "pending" : state === "refused" ? "refused" : tile ? "selected" : "default";
@@ -64,45 +65,37 @@ export function HandPanel({ tile, state, slotChosen, preview, error, errorDetail
         message={state === "refused" ? (error ?? "Choose another slot.") : state === "expired" ? EXPIRED_TEXT : null}
         detail={errorDetail}
       />
-      <div className="flex items-center gap-3">
+      <div className="flex items-stretch gap-3">
         {/* Each `GameCanvas` owns its canvas and frees its WebGL context on unmount (R-dispose, #397). */}
         {renderTile && tile ? (
-          <span data-view="render" className={chipVariants({ size: "xl", state: chipState })}>
+          <span data-view="render" className={chipVariants({ size: "lg", state: chipState })}>
             {renderTile(tile)}
           </span>
         ) : (
-          <TileChip plan={tile?.plan ?? 0} orientation={tile?.orientation} art={tileArt} size="xl" state={chipState} />
+          <TileChip plan={tile?.plan ?? 0} orientation={tile?.orientation} art={tileArt} size="lg" state={chipState} />
         )}
-        {/* What to do next: the rotation and the cancel are the bubble's, on the tile. */}
-        {state === "placing" && (
-          <p className="min-w-0 flex-1 text-sm text-muted-foreground">{slotChosen ? "Place it, or tap the cross on the tile to take it back." : "Tap a lit slot on the board."}</p>
-        )}
-      </div>
-      <Button size="lg" onClick={onConfirm} disabled={locked || !slotChosen} loading={busy} className={cn("w-full", coach === "place" && COACH_RING)}>
-        {busy ? (
-          "Placing…"
-        ) : (
-          <>
-            <Icon name="check" size="sm" /> Place tile
-            {slotChosen && preview != null && <span className="numeric">+{preview}</span>}
-          </>
-        )}
-      </Button>
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile} className={cn(!canSurrender && "col-span-2", coach === "discard" && COACH_RING)}>
-          <Icon name="trash" size="sm" /> Discard
-        </Button>
-        {canSurrender && (
-          <Button
-            variant={state === "expired" ? "destructive" : "ghost"}
-            onClick={onSurrender}
-            disabled={busy || state === "empty"}
-            loading={surrenderPending}
-            className={cn(state !== "expired" && "text-destructive-text hover:text-destructive-text")}
-          >
-            <Icon name="flag" size="sm" /> Surrender
-          </Button>
-        )}
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
+          {/* What to do next: the rotation, the cancel and the placement are the bubble's, on the tile. */}
+          <p className="text-sm text-muted-foreground" data-testid="hand-hint">
+            {state === "placing" ? (slotChosen ? "Hold the check on the tile to place it." : "Tap a lit slot on the board.") : busy ? "Placing…" : null}
+          </p>
+          <div className={cn("grid gap-2", canSurrender ? "grid-cols-2" : "grid-cols-1")}>
+            <Button variant="secondary" onClick={onDiscard} disabled={locked || !tile} className={cn("px-2", coach === "discard" && COACH_RING)}>
+              <Icon name="trash" size="sm" /> Discard
+            </Button>
+            {canSurrender && (
+              <Button
+                variant={state === "expired" ? "destructive" : "ghost"}
+                onClick={onSurrender}
+                disabled={busy || state === "empty"}
+                loading={surrenderPending}
+                className={cn("px-2", state !== "expired" && "text-destructive-text hover:text-destructive-text")}
+              >
+                <Icon name="flag" size="sm" /> Surrender
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );

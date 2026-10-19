@@ -36,12 +36,13 @@ import { useAppNavigate, useBack } from "../ref";
 provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
 /**
- * The coach marks of the levels that introduce a control (#546): the tip names the control, the board rings it. The rotate
- * and cancel bubble sits on the tile itself, so its tip has no ring. Keyed by `campaign-level`.
+ * The coach marks of the levels that introduce a control (#546): the tip names the control, the board rings it. The
+ * placement's ring ("place") is on the bubble's Validate, on the tile (#568); the rotate and cancel tip has no ring. Keyed by
+ * `campaign-level`.
  */
 export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: string }>> = {
-  "1-1": { target: "place", tip: "Tap a lit cell next to the starter, then Place tile. Roads must meet roads." },
-  "1-2": { target: null, tip: "Tap a cell: the bubble on the tile turns it, or its cross takes it back. Then Place tile." },
+  "1-1": { target: "place", tip: "Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." },
+  "1-2": { target: null, tip: "Tap a cell: the bubble on the tile turns it, or its cross takes it back. Then hold the check to place it." },
   "1-3": { target: "discard", tip: "This tile only gets in the way: Discard it. At 0 points a discard is free." },
   "1-4": { target: "discard", tip: "With points on the board, Discard takes 50 of them. Count what the next tile is worth first." },
   "1-5": { target: "deck", tip: "Tap Tiles left: the deck sheet shows every tile this level deals, and the ones already played." },
@@ -194,14 +195,18 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     notices = <StoryCoach tip={coach.tip} onDismiss={() => setCoachOn(false)} />;
   }
 
-  const bubble = placement.chosen && phase === "play" ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear } : null;
   const handState = !hand || over ? "empty" : state.writeError ? "refused" : "placing";
+  const coachTarget = phase === "play" && !over && coachOn ? (coach?.target ?? null) : null;
+  const bubble =
+    placement.chosen && phase === "play"
+      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, coach: coachTarget === "place" }
+      : null;
   return (
     <BoardScene
       mode="story"
       title={`${campaign.name} ${level.id}: ${level.title}`}
       deck={levelDeck(level)}
-      coach={phase === "play" && !over && coachOn ? (coach?.target ?? null) : null}
+      coach={coachTarget}
       tiles={state.tiles}
       score={state.game?.score ?? 0}
       delta={snapshot.delta}
@@ -243,7 +248,6 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         ) : undefined
       }
       onBack={onBack}
-      onConfirm={confirm}
       onDiscard={discard}
     />
   );

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CENTER, EngineGame, PlanType, PredictedSession } from "@paved/game-core";
@@ -12,16 +12,33 @@ import { TrainingGame } from "../src/data/training";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { holdToPlace, preloadPages, validateButton } from "./route-helpers";
 
 // The renderer's canvas as the page drives it (jsdom has no WebGL): the test reads its props and clicks a cell the way
 // the renderer reports one.
-const canvas = vi.hoisted(() => ({ props: null as GameCanvasProps | null }));
+const canvas = vi.hoisted(() => ({
+  props: null as GameCanvasProps | null,
+  // The voxel drop (#568): every drop asked for, and the cells whose drop was prepared at pre-validation.
+  drops: [] as { worldX: number; worldZ: number }[],
+  prepared: [] as { x: number; y: number }[],
+}));
 vi.mock("@paved/renderer/react", () => ({
   GameCanvas: (props: GameCanvasProps) => {
     canvas.props = props;
-    // The scene the bubble follows: a fixed corner, no camera moves.
-    useEffect(() => props.onReady?.({ projectCell: () => ({ x: 200, y: 300, visible: true }), onCameraChange: () => () => {} } as never), []);
+    // The scene the bubble follows: a fixed corner, no camera moves; a drop that plays and ends at once.
+    useEffect(
+      () =>
+        props.onReady?.({
+          projectCell: () => ({ x: 200, y: 300, visible: true }),
+          onCameraChange: () => () => {},
+          prepareDropAt: async (state: { x: number; y: number }) => (canvas.prepared.push({ x: state.x, y: state.y }), true),
+          dropTile: async (tile: { worldX: number; worldZ: number }) => {
+            canvas.drops.push({ worldX: tile.worldX, worldZ: tile.worldZ });
+            return { status: "started", info: {}, finished: Promise.resolve() };
+          },
+        } as never),
+      [],
+    );
     return <canvas data-testid="renderer" />;
   },
 }));
@@ -42,6 +59,8 @@ preloadPages("board");
 
 beforeEach(() => {
   canvas.props = null;
+  canvas.drops = [];
+  canvas.prepared = [];
   localStorage.clear();
   resetWelcomedForTests();
   markWelcomed();
@@ -52,8 +71,6 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-const hand = () => screen.getByRole("region", { name: "Your tile" });
-const place = () => within(hand()).getByRole("button", { name: /Place tile/ });
 const bubble = () => screen.findByRole("toolbar", { name: "Tile" });
 const rotate = async () => userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
 /** A plate the tile can take in some rotation, as the canvas lights it. */
@@ -68,21 +85,21 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
     for (const slot of legalSlots()) {
       act(() => canvas.props!.onTileClick!(slot.x, slot.y));
       await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true, valid: true }));
-      expect(place()).toBeEnabled();
       await bubble();
+      expect(validateButton()).toBeEnabled();
       const seen = new Set<number>([canvas.props!.hover!.orientation!]);
       while (screen.queryByRole("button", { name: "Rotate tile" }) && seen.size < 4) {
         await rotate();
         rotated++;
         expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true, valid: true });
-        expect(place()).toBeEnabled();
+        expect(validateButton()).toBeEnabled();
         const before = seen.size;
         seen.add(canvas.props!.hover!.orientation!);
         if (seen.size === before) break;
       }
       await userEvent.click(screen.getByRole("button", { name: "Cancel placement" }));
       expect(canvas.props!.hover).toBeNull();
-      expect(place()).toBeDisabled();
+      expect(validateButton()).toBeNull();
     }
     // This seed deals a tile that fits two rotations at some slots: Rotate was offered.
     expect(rotated).toBeGreaterThan(0);
@@ -97,10 +114,10 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
     await bubble();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(canvas.props!.hover).toBeNull());
-    expect(place()).toBeDisabled();
+    expect(validateButton()).toBeNull();
   });
 
-  it("Training: flashes green once the session took the move; refused, the tile stays placed and nothing flashes", async () => {
+  it("Training: prepares the drop once placed, drops the tile once the session took it, then flashes green; refused, nothing plays", async () => {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
     await screen.findByTestId("renderer", {}, { timeout: 5000 });
     await act(async () => {});
@@ -109,16 +126,23 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
     // Refused: no flash, the tile still placed on its slot.
     const refused = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
-    await waitFor(() => expect(place()).toBeEnabled());
-    await userEvent.click(place());
+    await waitFor(() => expect(validateButton()).toBeEnabled());
+    // Pre-validated: the drop of the tile at its cell is prepared, before anything is sent.
+    await waitFor(() => expect(canvas.prepared).toContainEqual({ x: slot.x, y: slot.y }));
+    // A tap does not place.
+    await userEvent.click(validateButton()!);
+    expect(refused).not.toHaveBeenCalled();
+    await holdToPlace();
     expect(refused).toHaveBeenCalledOnce();
+    expect(canvas.drops).toEqual([]);
     expect(canvas.props!.confirmed).toBeNull();
     expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true, valid: true });
 
-    // Accepted: the flash, then the slot goes.
+    // Accepted: the drop of the landed tile, then the green, and the slot goes.
     refused.mockRestore();
-    await userEvent.click(place());
+    await holdToPlace();
     await waitFor(() => expect(canvas.props!.confirmed).toMatchObject({ x: slot.x, y: slot.y }));
+    expect(canvas.drops).toEqual([{ worldX: slot.x, worldZ: slot.y }]);
     expect(canvas.props!.hover?.placed ?? false).toBe(false);
   }, 20_000);
 });
@@ -155,19 +179,20 @@ describe("the Challenge board's confirm", () => {
     await waitFor(() => expect(canvas.props!.availableSlots!.length).toBeGreaterThan(0));
     const slot = legalSlots()[0]!;
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
-    await waitFor(() => expect(place()).toBeEnabled());
+    await waitFor(() => expect(validateButton()).toBeEnabled());
 
     // Refused (the session takes nothing): no flash, still placed.
     const refused = vi.spyOn(PredictedSession.prototype, "place").mockResolvedValue(false);
-    await userEvent.click(place());
+    await holdToPlace();
     expect(refused).toHaveBeenCalledOnce();
     expect(canvas.props!.confirmed).toBeNull();
     expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true });
 
-    // Taken by the prediction: the flash at once, though the receipt never comes.
+    // Taken by the prediction: the drop and the flash at once, though the receipt never comes.
     refused.mockRestore();
-    await userEvent.click(place());
+    await holdToPlace();
     await waitFor(() => expect(canvas.props!.confirmed).toMatchObject({ x: slot.x, y: slot.y }));
+    expect(canvas.drops).toEqual([{ worldX: slot.x, worldZ: slot.y }]);
   }, 20_000);
 });
 

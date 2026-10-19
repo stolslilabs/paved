@@ -8,7 +8,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
-import { preloadPages } from "./route-helpers";
+import { placeTile, preloadPages } from "./route-helpers";
 
 preloadPages("story", "story-board");
 
@@ -34,7 +34,7 @@ const slotName = (x: number, y: number) => {
   return [part(x, "east", "west"), part(y, "north", "south")].filter(Boolean).join(", ") || "centre";
 };
 
-/** Plays `level`'s stored line through the board: Discard, or the slot, turned to the line's orientation, then Place tile. */
+/** Plays `level`'s stored line through the board: Discard, or the slot, turned to the line's orientation, then Validate. */
 async function playLine(level: StoryLevel) {
   for (const move of decodeLine(level.line)) {
     if (move.action === "discard") {
@@ -47,7 +47,7 @@ async function playLine(level: StoryLevel) {
     for (let turn = 0; turn < 4 && !within(hand()).queryByRole("img", { name: wanted }); turn++) {
       await userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
     }
-    await userEvent.click(within(hand()).getByRole("button", { name: /Place tile/ }));
+    await placeTile();
   }
 }
 
@@ -78,8 +78,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     expect(intro).toHaveTextContent(String(level.target));
     expect(screen.queryByRole("region", { name: "Your tile" })).toBeNull();
     await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
-    // The tip of level 1 names Place tile, which the board rings; Story has no Surrender.
-    expect(screen.getByTestId("story-coach")).toHaveTextContent("Place tile");
+    // The tip of level 1 names the hold on the check, which the bubble rings; Story has no Surrender.
+    expect(screen.getByTestId("story-coach")).toHaveTextContent("hold the check");
     expect(screen.queryByRole("button", { name: /Surrender/ })).toBeNull();
 
     await playLine(level);

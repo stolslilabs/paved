@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +9,7 @@ import { toChainSlot, toGridSlot, toRenderTiles } from "../src/components/contai
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { placeTile, preloadPages } from "./route-helpers";
 
 // The renderer's canvas, as the page drives it: the test reads what it is given (the lit slots, the ghost, the tiles)
 // and clicks a cell the way the renderer reports one (`onTileClick(gridX, gridY)`). jsdom has no WebGL.
@@ -16,6 +17,17 @@ const canvas = vi.hoisted(() => ({ props: null as GameCanvasProps | null }));
 vi.mock("@paved/renderer/react", () => ({
   GameCanvas: (props: GameCanvasProps) => {
     canvas.props = props;
+    // The scene the bubble follows (#568: its Validate places the tile): a fixed corner, no camera moves, no drop.
+    useEffect(
+      () =>
+        props.onReady?.({
+          projectCell: () => ({ x: 200, y: 300, visible: true }),
+          onCameraChange: () => () => {},
+          prepareDropAt: async () => false,
+          dropTile: async () => ({ status: "skipped", reason: "no-model" }),
+        } as never),
+      [],
+    );
     return <canvas data-testid="renderer" />;
   },
 }));
@@ -75,7 +87,7 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
     act(() => canvas.props!.onTileClick!(cell.x, cell.y));
     await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: cell.x, y: cell.y, orientation: chosen, placed: true, valid: true }));
 
-    await userEvent.click(within(screen.getByRole("region", { name: "Your tile" })).getByRole("button", { name: /Place tile/ }));
+    await placeTile();
     // The move saved is that cell in the engine's coordinates (y north), and the renderer now draws a tile on it.
     expect(loadGame(() => store)!.moves).toEqual([{ k: "b", o: chosen, x: cell.x, y: 0 - cell.y }]);
     await waitFor(() => expect(canvas.props!.tiles).toHaveLength(2));

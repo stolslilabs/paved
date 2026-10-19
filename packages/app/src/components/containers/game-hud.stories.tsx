@@ -26,3 +26,19 @@ export const Stress: Story = { args: { title: LONG_LABEL, score: BIG_SCORE, delt
 
 /** The season wheel next to the gear (#547). */
 export const WithWheel: Story = { args: { wheel: <SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} /> } };
+
+/**
+ * A tile placed and not yet validated (#568): the points it would score beside the score, "1,270 (+154)", in the primary
+ * colour and in brackets, where a move's gain is green on the label's line and moves in. At 375 px with the wheel and the gear.
+ */
+export const WithPreview: Story = {
+  args: { title: "Training", expiresAt: null, preview: 154, onDeck: fn(), wheel: <SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} /> },
+  decorators: [(Story) => <div className="w-full max-w-[375px]"><Story /></div>],
+};
+/** The preview and the last move's gain at once: two figures, two looks. */
+export const PreviewAfterAClosing: Story = { args: { score: 1640, delta: 370, preview: 154 } };
+/** WRAP360: the widest score with the widest preview at 375 px. */
+export const PreviewStress: Story = {
+  args: { title: LONG_LABEL, score: BIG_SCORE, preview: 9_999, onDeck: fn(), wheel: <SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} /> },
+  decorators: [(Story) => <div className="w-full max-w-[375px]"><Story /></div>],
+};

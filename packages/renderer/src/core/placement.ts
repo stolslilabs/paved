@@ -12,9 +12,9 @@ import { TILE_SIZE } from "./types";
  *   blue and transparent; invalid (no rotation fits), grey and more transparent. One instance of one mesh each: a single
  *   draw call for any number of slots. A plate under the tile in hand fades out (`plates.hideUnderTile`).
  * - The tile in hand is tinted on the model itself (`TileRenderer` draws it, this class owns the states and their ease):
- *   a hover preview is blue at 50 % opacity, a tile placed and not confirmed (pending) yellow at 90 %, a confirm a
- *   temporary green that fades to no tint on the tile the board now draws. There is no red: the board offers
- *   only the rotations that fit (#544). No rim, no aura.
+ *   a hover preview has no tint at 50 % opacity (#568: the blue is gone, its colour and strength stay as knobs), a tile
+ *   placed and not confirmed (pending) yellow and opaque (100 %), a confirm a temporary green that fades to no tint on
+ *   the tile the board now draws. There is no red: the board offers only the rotations that fit (#544). No rim, no aura.
  * - Each change of state eases over `motion.colorMs` (150 ms); under reduced motion it is instant and the confirm short.
  * - The grid (SLOTS2's ring hairlines) stays as a setting, off by default (`grid.enabled`).
  */
@@ -89,12 +89,12 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
   colors: { plate: "#b7ccdc", invalid: "#929292" },
   tints: {
     hoverColor: "#4f8dff",
-    hoverStrength: 0.45,
+    hoverStrength: 0,
     hoverOpacity: 0.5,
     hoverMs: 150,
     pendingColor: "#f0bf5b",
     pendingStrength: 0.4,
-    pendingOpacity: 0.9,
+    pendingOpacity: 1,
     pendingMs: 150,
     confirmColor: "#6eca6f",
     confirmStrength: 0.6,

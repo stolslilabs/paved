@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readdirSync, readFileSync } from "node:fs";
@@ -184,16 +184,25 @@ describe("Board", () => {
     expect(within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "areas");
   });
 
-  it("waits for a slot before Confirm, then shows the preview points", async () => {
+  it("has no Place tile: no bubble before a slot, then the bubble's hold places and the HUD shows the points (#568)", async () => {
     const { unmount } = render(wrap(<BoardScene {...BOARD.placing} />));
-    expect(screen.getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Place tile/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hold to place the tile" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("score-preview")).not.toBeInTheDocument();
     unmount();
     const onConfirm = vi.fn();
-    render(wrap(<BoardScene {...BOARD.slotChosen} onConfirm={onConfirm} />));
-    await userEvent.click(screen.getByRole("button", { name: /Place tile.*\+30/ }));
+    render(wrap(<BoardScene {...BOARD.slotChosen} bubble={{ ...BOARD.slotChosen.bubble, onConfirm }} />));
+    expect(screen.getByTestId("score-preview")).toHaveTextContent("(+30)");
+    const validate = await screen.findByRole("button", { name: "Hold to place the tile" });
+    // A tap does not place: the ring starts and rewinds.
+    await userEvent.click(validate);
+    expect(onConfirm).not.toHaveBeenCalled();
+    // A screen reader's activation (no press before it) places at once.
+    fireEvent.click(validate);
     expect(onConfirm).toHaveBeenCalledOnce();
-    // The hand has no Rotate: the rotation is the bubble's, on the tile.
-    expect(screen.queryByRole("button", { name: /Rotate/ })).not.toBeInTheDocument();
+    // The hand has no Rotate and no Place: they are the bubble's, on the tile.
+    const hand = screen.getByRole("region", { name: "Your tile" });
+    expect(within(hand).queryByRole("button", { name: /Rotate|Place/ })).not.toBeInTheDocument();
   });
 
   it("the bubble (plan view): Rotate only with several valid rotations, Close always, and the R and Escape keys", async () => {
@@ -216,12 +225,12 @@ describe("Board", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it("the hand: Place tile full width, Discard and Surrender on one row", () => {
+  it("the hand: the tile, the hint, Discard and Surrender on one row beside it", () => {
     render(wrap(<BoardScene {...BOARD.slotChosen} />));
     const discard = screen.getByRole("button", { name: /Discard/ });
     const surrender = screen.getByRole("button", { name: /Surrender/ });
     expect(discard.parentElement).toBe(surrender.parentElement);
-    expect(screen.getByRole("button", { name: /Place tile/ })).toHaveClass("w-full");
+    expect(screen.getByTestId("hand-hint")).toHaveTextContent("Hold the check on the tile");
   });
 
   it("shows the closing points of the last move", () => {
@@ -231,9 +240,12 @@ describe("Board", () => {
     expect(screen.getByText("+370")).toBeInTheDocument();
   });
 
-  it("locks the hand while a move is pending", () => {
+  it("locks the hand while a move is pending, and the bubble's Validate spins", async () => {
+    const { unmount } = render(wrap(<BoardScene {...BOARD.slotChosen} bubble={{ ...BOARD.slotChosen.bubble, busy: true }} />));
+    expect(await screen.findByRole("button", { name: "Hold to place the tile" })).toHaveAttribute("aria-busy", "true");
+    unmount();
     render(wrap(<BoardScene {...BOARD.pending} />));
-    expect(screen.getByRole("button", { name: /Placing/ })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("hand-hint")).toHaveTextContent("Placing…");
     expect(screen.getByRole("button", { name: /Discard/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Surrender/ })).toBeDisabled();
   });
@@ -241,14 +253,13 @@ describe("Board", () => {
   it("says why a move was refused and lets the player try again", () => {
     render(wrap(<BoardScene {...BOARD.refused} />));
     expect(screen.getByRole("alert")).toHaveTextContent("Move refused");
-    expect(screen.getByRole("button", { name: /Place tile/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Discard/ })).toBeEnabled();
   });
 
   it("asks to surrender an expired game and allows nothing else", async () => {
     const onSurrender = vi.fn();
     render(wrap(<BoardScene {...BOARD.expired} onSurrender={onSurrender} />));
     expect(screen.getByRole("timer", { name: "Expired" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Place tile/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Discard/ })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: /Surrender/ }));
     expect(onSurrender).not.toHaveBeenCalled();

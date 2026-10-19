@@ -27,8 +27,8 @@ export interface BoardSoundsInput {
 
 /**
  * The board's sound effects (#541), read from what the board already shows, so the three boards and the 3D canvas share them:
- * tile selected, rotated, an invalid move, the structures a move closed (one sound per category). Placing and discarding are
- * played by `BoardScene` at the button. Before the first gesture or while muted, `play` does nothing.
+ * tile selected, rotated, an invalid move, the structures a move closed (one sound per category). Placing is played by the
+ * bubble (`TileBubble`) at the end of its hold, discarding by `BoardScene` at the button. Before the first gesture or while muted, `play` does nothing.
  */
 export function useBoardSounds({ ghost, error, lastScored }: BoardSoundsInput): void {
   const play = useSfx();

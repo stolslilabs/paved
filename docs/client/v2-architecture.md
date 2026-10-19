@@ -2382,7 +2382,9 @@ gone, "not satisfying in any circumstance"; the states are filters on the tile m
 plate-state text above where they differ.
 
 - **Tile in hand** (`TileRenderer`, ghost materials; the states and their ease are `PlacementRenderer`'s, `ghostTint`): hover
-  blue at 50 % opacity; pre-validation (placed, waiting for Place tile) yellow at 90 %; confirm a temporary green tint on the
+  no tint at 50 % opacity; pre-validation (placed, waiting for the bubble's hold to validate) yellow at 100 % opacity
+  (PLACE-POLISH, #568, the owner's decisions of 2026-10-19: blue and 90 % before; the hover's colour and strength stay as
+  knobs, its strength 0 by default); confirm a temporary green tint on the
   tile the board then draws, fading to none over `motion.confirmMs`; placed (after the fade) none. There is no red: the board offers only
   the rotations that fit (#544). Each look eases over its own time (`tints.hoverMs`, `tints.pendingMs`; the confirm over `motion.confirmMs`).
   Every colour, strength (how far the model goes to the tint) and opacity is a `placement.tints` setting and a story control.

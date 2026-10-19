@@ -354,9 +354,12 @@ describe("the plates' changes", () => {
 describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
   const { tints } = DEFAULT_PLACEMENT_SETTINGS;
 
-  it("defaults to the owner's: blue at 50 % on a hover, yellow at 90 % pending, a green confirm, no rim or aura setting left", () => {
+  it("defaults to the owner's: no tint at 50 % on a hover, opaque yellow pending, a green confirm, no rim or aura setting left", () => {
     expect(tints.hoverOpacity).toBe(0.5);
-    expect(tints.pendingOpacity).toBe(0.9);
+    expect(tints.hoverStrength).toBe(0);
+    expect(tintForKind("hover", tints).strength).toBe(0);
+    expect(tints.pendingOpacity).toBe(1);
+    expect(tintForKind("pending", tints).opacity).toBe(1);
     const hue = (hex: string) => new THREE.Color(hex).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace).h * 360;
     expect(hue(tints.hoverColor)).toBeGreaterThan(200);
     expect(hue(tints.hoverColor)).toBeLessThan(250);
@@ -371,7 +374,7 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     expect(tintKindOf({ placed: false })).toBe("hover");
     expect(tintKindOf({ placed: true })).toBe("pending");
     expect(tintForKind("hover", tints)).toMatchObject({ opacity: 0.5 });
-    expect(tintForKind("pending", tints)).toMatchObject({ opacity: 0.9 });
+    expect(tintForKind("pending", tints)).toMatchObject({ opacity: 1 });
   });
 
   it("eases between looks over 150 ms from where it was, and a newly drawn tile starts at its look", () => {
@@ -380,9 +383,9 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     expect(placement.ghostTint(0)[4]).toBeCloseTo(0.5, 9);
     placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
     expect(placement.ghostTint(1000)[4]).toBeCloseTo(0.5, 9);
-    expect(placement.ghostTint(1000 + motion.colorMs / 2)[4]).toBeCloseTo(0.7, 6);
+    expect(placement.ghostTint(1000 + motion.colorMs / 2)[4]).toBeCloseTo(0.75, 6);
     expect(placement.update(1000 + motion.colorMs / 2).animating).toBe(true);
-    expect(placement.ghostTint(1000 + motion.colorMs)[4]).toBeCloseTo(0.9, 9);
+    expect(placement.ghostTint(1000 + motion.colorMs)[4]).toBeCloseTo(1, 9);
     placement.update(1000 + motion.colorMs);
     expect(placement.update(1000 + motion.colorMs + 16).animating).toBe(false);
     // Gone, then drawn again elsewhere: no ease from the old look.
@@ -398,9 +401,9 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
     placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
     // 200 ms of a 400 ms ease: halfway.
-    expect(placement.ghostTint(1200)[4]).toBeCloseTo(0.7, 6);
+    expect(placement.ghostTint(1200)[4]).toBeCloseTo(0.75, 6);
     expect(placement.update(1399).animating).toBe(true);
-    expect(placement.ghostTint(1400)[4]).toBeCloseTo(0.9, 9);
+    expect(placement.ghostTint(1400)[4]).toBeCloseTo(1, 9);
     // The default eases are the 150 ms of before.
     expect(DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs).toBe(150);
     expect(tintEaseMs("hover", DEFAULT_PLACEMENT_SETTINGS.tints)).toBe(150);
@@ -423,7 +426,7 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     placement.setReducedMotion(true);
     placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
     placement.setGhost({ x: 1, y: 0, kind: "pending" }, 10);
-    expect(placement.ghostTint(10)[4]).toBeCloseTo(0.9, 9);
+    expect(placement.ghostTint(10)[4]).toBeCloseTo(1, 9);
     expect(placement.update(10).animating).toBe(false);
     placement.dispose();
   });
@@ -483,7 +486,7 @@ describe("the settings", () => {
     expect(s.plates.gap).toBe(6);
     expect(s.plates.radius).toBe(DEFAULT_PLACEMENT_SETTINGS.plates.radius);
     expect(s.tints.hoverOpacity).toBe(0.3);
-    expect(s.tints.pendingOpacity).toBe(0.9);
+    expect(s.tints.pendingOpacity).toBe(1);
     expect(s.motion.reducedMotion).toBe(true);
     expect(resolveRendererSettings({ placement: { tints: { pendingOpacity: 0.7 } } }).placement.tints.pendingOpacity).toBe(0.7);
     expect(resolveRendererSettings().placement).toEqual(DEFAULT_PLACEMENT_SETTINGS);
@@ -582,7 +585,7 @@ describe("the tile renderer's ghost", () => {
     expect(look.mix.value).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.hoverStrength, 6);
     tiles.setHover(ghostAt(1, 0, { placed: true }));
     tiles.update(performance.now() + 10_000);
-    expect(look.alpha.value).toBeCloseTo(0.9, 6);
+    expect(look.alpha.value).toBeCloseTo(1, 6);
     tiles.dispose();
   });
 

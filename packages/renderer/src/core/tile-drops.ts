@@ -87,14 +87,23 @@ export class TileDrops {
    */
   async prepare(key: string): Promise<boolean> {
     const tile = this.host.tile(key);
-    const mesh = tile?.model ? this.typeMesh(tile.model) : null;
-    if (!tile?.model || !mesh) return false;
+    return tile?.model ? this.prepareModel(tile.model) : false;
+  }
+
+  /**
+   * Loads the chunk and the grid of `model` before any tile draws it: the board prepares the drop of a tile still in hand
+   * (placed, not confirmed), whose model is known but whose tile is not on the board yet. True when it is ready.
+   */
+  async prepareModel(model: string): Promise<boolean> {
+    if (this.disposed) return false;
+    const mesh = this.typeMesh(model);
+    if (!mesh) return false;
     this.chunk ??= import("./voxel-drop");
     const chunk = await this.chunk;
     if (this.disposed) return false;
     this.loaded = chunk;
     this.cache ??= new chunk.VoxelCache();
-    return !!(await this.cache.request(tile.model, { geometry: mesh.geometry, toModel: mesh.matrixWorld }));
+    return !!(await this.cache.request(model, { geometry: mesh.geometry, toModel: mesh.matrixWorld }));
   }
 
   /**

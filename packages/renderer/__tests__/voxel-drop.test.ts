@@ -232,6 +232,21 @@ describe("the drop of a placed tile", () => {
     renderer.dispose();
   });
 
+  it("prepares the drop of the tile in hand before it is on the board (#568), so the drop at the confirm begins in the call", async () => {
+    const renderer = await rendererWithModel();
+    // Pre-validated: the tile is the ghost at its cell, not yet a tile of the board.
+    const ghost = { x: 2, y: 3, valid: true, idle: true, placed: true, planIndex: 1, orientation: 1, cell: { x: 0, y: 0, gameId: 1 } };
+    expect(await renderer.prepareDropAt(ghost)).toBe(true);
+    expect(await renderer.prepareDropAt({ ...ghost, planIndex: 0 })).toBe(false);
+    // Accepted: the tile lands and drops at once.
+    renderer.updateTiles([tile()]);
+    const model = container(renderer).children[0]!;
+    const pending = renderer.dropTile("1-1");
+    expect(model.visible).toBe(false);
+    expect((await pending).status).toBe("started");
+    renderer.dispose();
+  });
+
   it("plays at the clock's speed: slow motion lasts longer", async () => {
     const renderer = await rendererWithModel();
     renderer.setVoxelDropSettings(resolveVoxelDropSettings({ speed: 0.5 }));
