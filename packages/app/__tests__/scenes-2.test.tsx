@@ -488,6 +488,18 @@ describe("Quests", () => {
     expect(screen.getByRole("button", { name: /^Claim all/ })).toHaveTextContent("+35");
   });
 
+  it("keeps every task of a mission of several tasks, never a full bar while one is left (#595 review)", () => {
+    render(wrap(<QuestsScene {...QUESTS.multiTask} />));
+    const card = within(screen.getByRole("article", { name: "Mission #20" }));
+    expect(screen.getByRole("article", { name: "Mission #20" })).toHaveAttribute("data-state", "progress");
+    expect(card.getByRole("progressbar", { name: "roads and cities scored: 4 of 4" })).toBeInTheDocument();
+    expect(card.getByRole("progressbar", { name: "forests scored: 0 of 2" })).toBeInTheDocument();
+    expect(card.queryByText(/more units/)).not.toBeInTheDocument();
+    expect(card.queryByText("Complete")).not.toBeInTheDocument();
+    // The other missions stay milestone tracks.
+    expect(within(screen.getByRole("article", { name: "Strong Day" })).getByRole("list", { name: "Steps" })).toBeInTheDocument();
+  });
+
   it("shows a tiered day before any game, and every step claimed", () => {
     const { unmount } = render(wrap(<QuestsScene {...QUESTS.tieredFresh} />));
     expect(within(within(screen.getByRole("region", { name: /^Daily/ })).getByRole("article", { name: "Builder" })).getAllByRole("listitem").map((s) => s.getAttribute("data-state"))).toEqual(["next", "locked", "locked"]);

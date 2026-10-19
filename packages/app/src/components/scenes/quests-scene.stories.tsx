@@ -71,3 +71,6 @@ export const TieredClaimed: Story = { args: QUESTS.tieredClaimed };
 
 /** The tiered bars without Cobbles: steps check when reached, no reward drawn. */
 export const TieredNoRewards: Story = { args: QUESTS.tieredNoRewards };
+
+/** A mission of several tasks: each task keeps its bar (roads and cities 4 of 4, forests 0 of 2), in progress until both are done. */
+export const MultiTask: Story = { args: QUESTS.multiTask };

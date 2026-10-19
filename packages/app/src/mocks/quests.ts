@@ -104,6 +104,18 @@ export const QUESTS_TODAY_ONE_TO_GO = day(TODAY, { ...TODAY_COUNTS, 6: 7 }, DONE
 /** ... and the read after it: 8 of 8. */
 export const QUESTS_TODAY_COMPLETED = day(TODAY, { ...TODAY_COUNTS, 6: 8 }, { ...DONE_TODAY, 6: MOCK_NOW });
 
+/**
+ * Today with a mission of several tasks beside the others (quiver allows it; none is defined at the fresh deployment): id 20,
+ * 4 roads and cities and 2 forests in the day, the roads done, no forest yet. Not a milestone: each task keeps its bar.
+ */
+export const QUESTS_MULTI_TASK: ScheduledQuests = {
+  ...QUESTS_TODAY,
+  quests: [
+    ...QUESTS_TODAY.quests,
+    { questId: 20, intervalId: TODAY, tasks: [task(STRUCTURE_SCORED, 4, 4), task(FOREST_SCORED, 2, 0)], completed: false, completedAt: null, retired: false, ...dailyAt(0, 1) },
+  ],
+};
+
 /** The same day with Weekly Forester done (5 of 5). */
 export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR });
 

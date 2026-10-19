@@ -13,6 +13,9 @@ export interface Steppable {
   completed: boolean;
 }
 
+/** The `taskId` of a track that is one mission of several tasks: not a milestone, each of its tasks counts on its own. */
+export const MULTI_TASK = 0;
+
 export interface MilestoneStep<T> {
   entry: T;
   /** The total of the step's task: where the step sits on the count. */
@@ -24,7 +27,7 @@ export interface MilestoneStep<T> {
 export interface MilestoneTrack<T> {
   /** The grouping key (`group` of `milestoneTracks`). */
   key: string;
-  /** The task the steps count, or 0 for a mission of several tasks (its own track). */
+  /** The task the steps count, or `MULTI_TASK` for a mission of several tasks (its own track, its `count` and step target meaningless). */
   taskId: number;
   /** The task's count: the largest any step reports (each is saturated at its own total). */
   count: number;
@@ -42,7 +45,7 @@ export function milestoneTracks<T extends Steppable>(entries: readonly T[], grou
     const task = entry.tasks[0];
     const single = entry.tasks.length === 1;
     const key = single ? `${group(entry)}:${task.taskId}` : `${group(entry)}:entry${i}`;
-    const track = tracks.get(key) ?? { key, taskId: single ? task.taskId : 0, count: 0, steps: [] };
+    const track = tracks.get(key) ?? { key, taskId: single ? task.taskId : MULTI_TASK, count: 0, steps: [] };
     track.count = Math.max(track.count, task?.count ?? 0);
     track.steps.push({ entry, target: task?.total ?? 0, reached: entry.completed });
     tracks.set(key, track);

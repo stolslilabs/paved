@@ -2,7 +2,7 @@ import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
-import { milestoneTracks, type MilestoneTrack } from "../../lib/milestones";
+import { MULTI_TASK, milestoneTracks, type MilestoneTrack } from "../../lib/milestones";
 import { endOfUtcDay, questPeriod, windowEnd, type QuestPeriod, type ScheduledQuest, type ScheduledQuests } from "../../lib/quest-window";
 import { DayPicker } from "../elements/day-picker";
 import { Cobbles } from "../elements/cobbles";
@@ -12,7 +12,7 @@ import { Countdown } from "../elements/countdown";
 import { FreeGames } from "../containers/free-games";
 import { isClaimed, type PeriodClaims, type QuestCobbles } from "../containers/cobble-types";
 import { MissionTrackCard, type TrackStep } from "../containers/mission-track-card";
-import type { ProgressReward } from "../containers/progress-card";
+import { ProgressCard, type ProgressReward } from "../containers/progress-card";
 import { questText, trackText } from "../containers/quest-text";
 import { QuestsTabs, type QuestsTab } from "../containers/quests-tabs";
 import { TabPage } from "../containers/tab-page";
@@ -85,7 +85,8 @@ const windowKey = (q: ScheduledQuest) => `${questPeriod(q)}:${q.start}:${q.inter
 /**
  * The quests (`/missions/:day?`, Missions, Limited) as milestone tracks (#595): a Daily and a Weekly section, each with its
  * window's countdown, and in each one card per track: the tiers of one task are one bar with several steps (each with its
- * Cobbles, claimed from the card), a mission with one target a bar of one step. The progress is the indexer's, counted
+ * Cobbles, claimed from the card), a mission with one target a bar of one step; a mission of several tasks keeps a bar per
+ * task (`ProgressCard`). The progress is the indexer's, counted
  * from the chain's reports; the day picker shows a past day (closed: no countdown, its Cobbles still claimable). Daily
  * counts down to 00:00 UTC, Weekly to the end of the week the definitions give (quests-v2.md 1.2, 2.1). The completion
  * toasts are the app's (`routes/completion-host.tsx`), raised on any page, the board included.
@@ -146,8 +147,26 @@ export function QuestsScene(props: QuestsSceneProps) {
           {tracks.map((t) => {
             const single = t.steps.length === 1;
             const first = t.steps[0].entry;
-            const text = single ? questText(first.questId) : { ...trackText(t.taskId), description: undefined };
             const at = open ? endOf(first) : null;
+            const ownEnds = at !== null && at !== ends ? { at, now, label: labels.one } : undefined;
+            // A mission of several tasks is no milestone: one bar would show its first task only. Each task keeps its bar.
+            if (t.taskId === MULTI_TASK) {
+              return (
+                <ProgressCard
+                  key={t.key}
+                  kind="quest"
+                  {...questText(first.questId)}
+                  tasks={first.tasks}
+                  completed={first.completed}
+                  completedAt={first.completedAt}
+                  retired={first.retired}
+                  reward={rewardOf(first)}
+                  ends={ownEnds}
+                  onClaim={() => props.onClaim?.(first.questId)}
+                />
+              );
+            }
+            const text = single ? questText(first.questId) : { ...trackText(t.taskId), description: undefined };
             const steps: TrackStep[] = t.steps.map(({ entry, target, reached }) => ({
               id: entry.questId,
               title: questText(entry.questId).title,
@@ -166,7 +185,7 @@ export function QuestsScene(props: QuestsSceneProps) {
                 count={t.count}
                 steps={steps}
                 retired={t.steps.every((s) => s.entry.retired)}
-                ends={at !== null && at !== ends ? { at, now, label: labels.one } : undefined}
+                ends={ownEnds}
                 onClaim={props.onClaim}
               />
             );

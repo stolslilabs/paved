@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { completionLine } from "../src/components/containers/completion-toasts";
 import { stepState } from "../src/components/containers/mission-track-card";
 import { taskLeft } from "../src/components/containers/quest-text";
-import { milestoneFill, milestoneTracks, nextStep } from "../src/lib/milestones";
+import { MULTI_TASK, milestoneFill, milestoneTracks, nextStep } from "../src/lib/milestones";
 import { completedAtEnd } from "../src/lib/quest-toasts";
 import { QUESTS_TIERED, QUESTS_TODAY } from "../src/mocks/quests";
 
@@ -29,7 +29,9 @@ describe("milestone tracks (#595)", () => {
     const multi = { tasks: [{ taskId: 2, total: 4, count: 1 }, { taskId: 4, total: 2, count: 0 }], completed: false };
     const tracks = milestoneTracks([multi, { ...multi }], () => "daily");
     expect(tracks).toHaveLength(2);
-    expect(tracks[0].taskId).toBe(0);
+    expect(tracks[0].taskId).toBe(MULTI_TASK);
+    // Its entry keeps every task, for the scene to draw each.
+    expect(tracks[0].steps.map((s) => s.entry.tasks.map((t) => t.taskId))).toEqual([[2, 4]]);
   });
 
   it("the fresh definitions: one step per track; the tiered proposal: three steps per family", () => {

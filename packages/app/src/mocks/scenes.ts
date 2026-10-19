@@ -35,7 +35,7 @@ import {
   VIEWER_OFF_TOP,
 } from "./leaderboard";
 import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, TODAY, VIEWER_TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TIERED, QUESTS_TIERED_DONE, QUESTS_TIERED_FRESH, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, TIERED_IDS, GAME_MISSIONS } from "./quests";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TIERED, QUESTS_TIERED_DONE, QUESTS_TIERED_FRESH, QUESTS_MULTI_TASK, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, TIERED_IDS, GAME_MISSIONS } from "./quests";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, TIERED_COBBLES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_ENTRIES, STRESS_GAMES, STRESS_VAULT } from "./stress";
@@ -431,6 +431,8 @@ export const QUESTS = {
     quests: QUESTS_TIERED_DONE,
     rewards: { ...questRewards, cobbles: TIERED_COBBLES, credits: 2, day: { claimed: bits(...TIERED_IDS.filter((id) => id <= 13)), credit: true }, week: { claimed: bits(...TIERED_IDS.filter((id) => id > 13)), credit: true } },
   },
+  /** A mission of several tasks (id 20: roads and cities done, forests not): a bar per task, not a milestone track. */
+  multiTask: { ...questsBase, day: TODAY, quests: QUESTS_MULTI_TASK },
   /** The tiered schedule without Cobbles (a network without the ledger): the bars and their steps, no reward drawn. */
   tieredNoRewards: { ...questsBase, day: TODAY, quests: QUESTS_TIERED },
 } satisfies Record<string, Data<QuestsSceneProps>>;
