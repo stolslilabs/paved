@@ -5,7 +5,6 @@ import { achievementCobbles, questCobbles } from "../data/cobbles";
 import { useCompletionMemory } from "../data/completion-memory";
 import { useDefinitions, usePlayerAchievements, usePlayerQuests } from "../data/indexer";
 import { useIndexerNow } from "../data/quests";
-import { useDataSources } from "../data/sources";
 import { DAY_S } from "../lib/quest-window";
 import type { Trackable } from "../lib/quest-toasts";
 
@@ -17,20 +16,15 @@ function useTracked(list: readonly Trackable[] | undefined): Trackable[] | null 
 }
 
 /**
- * The completion toasts, app-wide (#595): mounted once in `App.tsx`, beside the `Toaster`, so a mission (a quest or an
+ * The completion toasts, app-wide (#595): mounted once by `App.tsx`, beside the `Toaster`, for a signer (a guest has nothing
+ * to track), and loaded as its own chunk then (the bundle rule: the first load does not carry it), so a mission (a quest or an
  * achievement) completed while the player is on the board, or anywhere else, toasts there: its title, icon and Cobbles.
  * It reads today's quests and the achievements of the signer (the indexer's, on its clock) on the usual refreshes (focus,
  * a claim's receipt) and on `refreshPlayerProgress`, which the board calls after a confirmed move and the over page at a
  * game over. The memory is the app's (`useCompletionMemory`), so the Missions pages' reads of the same keys toast nothing
- * twice; a guest has nothing to track.
+ * twice.
  */
-export function CompletionHost() {
-  const { signer } = useDataSources();
-  const playerId = signer?.address ?? null;
-  return playerId === null ? null : <Tracker playerId={playerId} />;
-}
-
-function Tracker({ playerId }: { playerId: string }) {
+export default function CompletionTracker({ playerId }: { playerId: string }) {
   const { now } = useIndexerNow();
   const today = now === null ? null : Math.floor(now / DAY_S);
   const quests = usePlayerQuests(playerId, today);

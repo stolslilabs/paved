@@ -76,7 +76,7 @@ export interface QuestsSceneProps {
 
 const SECTION = {
   daily: { title: "Daily", icon: "sun", ends: "Daily missions end in", one: "Daily mission ends in" },
-  weekly: { title: "Weekly", icon: "calendar-week", ends: "Weekly missions end in", one: "Weekly mission ends in" },
+  weekly: { title: "Weekly", icon: "crown", ends: "Weekly missions end in", one: "Weekly mission ends in" },
 } as const;
 
 /** A track's steps share one schedule: the tiers of a task live in the same window (#595). */
