@@ -72,7 +72,7 @@ export interface RendererSettings {
   /** The voxel drop of a placed tile (VOXEL-DROP, `voxel-drop-settings.ts`): used by `GameScene.dropTile` only. */
   voxelDrop: VoxelDropSettings;
   /**
-   * The ambient effects (AMBIENT, `ambient-settings.ts`): the one ambient loop and the particles over the water and the wonders.
+   * The ambient effects (AMBIENT, `ambient-settings.ts`): the one ambient loop every ambient effect moves on.
    * Off by default; the app's board turns them on from its settings row ("Ambient effects").
    */
   ambient: AmbientSettings;
