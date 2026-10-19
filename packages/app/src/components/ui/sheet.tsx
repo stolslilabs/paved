@@ -57,7 +57,7 @@ const SIDE_CLASS: Record<Side, string> = {
 };
 
 /**
- * Drag-to-dismiss of a bottom sheet (#581): `slop` px before a gesture is read as a drag or not; a release closes past
+ * Drag-to-dismiss of a bottom sheet (issue 581): `slop` px before a gesture is read as a drag or not; a release closes past
  * `share` of the panel's height or `distance` px (the smaller), or when the finger leaves downward at `velocity` px/ms or
  * more; an upward flick at that speed keeps it open.
  */
