@@ -5,6 +5,7 @@ import { Icon } from "../components/ui/icon";
 import { DIRECTIONS, STATES, type DirectionId } from "./palettes";
 import banner from "../../../../assets/banner.svg";
 import logo from "../../../../assets/logo.svg";
+import { RENDERS } from "./renders";
 
 /*
  * The kit of the three directions (#537, PR 1): the primitives a screen is made of (card, button, chip, switch, brand, tile art),
@@ -14,6 +15,15 @@ import logo from "../../../../assets/logo.svg";
 
 const Dir = createContext<DirectionId>("a");
 export const useDir = () => useContext(Dir);
+
+/**
+ * D, E and F as flags, for the screens that part ways: `is.f` rather than a comparison with a one-letter string, which the Font
+ * Awesome subset's scan (`scripts/fa-subset.ts`) would read as an icon name on a line about an icon.
+ */
+export function useLook() {
+  const id = useDir();
+  return { d: id === "d", e: id === "e", f: id === "f" };
+}
 
 /** The root of a direction: its tokens as CSS variables, the page colour, the font. A story or a screen sits inside one. */
 export function DirectionRoot({ id, children, className }: { id: DirectionId; children: ReactNode; className?: string }) {
@@ -74,11 +84,23 @@ const SIZE: Record<Size, string> = {
   lg: "h-14 px-6 text-base",
   square: "size-11",
 };
-/** The shape of a direction: its corner and its press. A sinks like a key; B is a pebble; C is glass. */
+/**
+ * F's corner: the banner's letters are notched, a square step cut from each corner; so is every slab, slot and button of F.
+ * `clip-path` also clips a ring drawn outside, so F's focus ring is drawn inside (`SHAPE.f`).
+ */
+export const NOTCH =
+  "[clip-path:polygon(6px_0,calc(100%_-_6px)_0,calc(100%_-_6px)_6px,100%_6px,100%_calc(100%_-_6px),calc(100%_-_6px)_calc(100%_-_6px),calc(100%_-_6px)_100%,6px_100%,6px_calc(100%_-_6px),0_calc(100%_-_6px),0_6px,6px_6px)]";
+/** E's plinth: a band of earth under the part, which a press sinks into. */
+const PLINTH = "shadow-[0_4px_0_var(--d-shadow)] active:translate-y-[3px] active:shadow-[0_1px_0_var(--d-shadow)] data-[on=true]:translate-y-[3px] data-[on=true]:shadow-[0_1px_0_var(--d-shadow)]";
+
+/** The shape of a direction: its corner and its press. A sinks like a key; B is a pebble; C is glass; D is the mockups' rounded key; E stands on earth; F is notched. */
 const SHAPE: Record<DirectionId, string> = {
   a: "rounded-[3px] font-bold tracking-wider uppercase shadow-[0_4px_0_var(--d-shadow)] active:translate-y-[3px] active:shadow-[0_1px_0_var(--d-shadow)] data-[on=true]:translate-y-[3px] data-[on=true]:shadow-[0_1px_0_var(--d-shadow)]",
   b: "rounded-full font-semibold active:scale-[0.97]",
   c: "rounded-2xl font-medium active:scale-[0.97]",
+  d: "rounded-lg font-semibold active:scale-[0.98]",
+  e: "rounded-xl font-semibold",
+  f: `${NOTCH} font-bold tracking-wide uppercase focus-visible:ring-inset focus-visible:ring-offset-0`,
 };
 
 export interface DButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -99,7 +121,16 @@ export function DButton({ variant = "solid", size = "md", on, force, className, 
       data-on={on ? "true" : undefined}
       data-force={force}
       aria-pressed={on === undefined ? undefined : on}
-      className={clsx("inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap disabled:pointer-events-none disabled:opacity-50", OVERLAY, VARIANT[variant], SIZE[size], SHAPE[d], className)}
+      className={clsx(
+        "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap disabled:pointer-events-none disabled:opacity-50",
+        OVERLAY,
+        VARIANT[variant],
+        SIZE[size],
+        SHAPE[d],
+        // E: the filled buttons stand on their earth band; a ghost or a bordered one has no block to stand.
+        d === "e" && (variant === "solid" || variant === "secondary") ? PLINTH : d === "e" && "active:scale-[0.98]",
+        className,
+      )}
       {...rest}
     />
   );
@@ -110,7 +141,14 @@ const CARD: Record<DirectionId, string> = {
   a: "rounded-[3px] border-2 border-(color:--d-raised) bg-(--d-surface) shadow-[5px_5px_0_var(--d-shadow)]",
   b: "rounded-[10px] bg-(--d-surface) outline-2 -outline-offset-[7px] outline-dashed outline-(--d-line)",
   c: "rounded-3xl border border-white/12 bg-white/6 backdrop-blur-xl shadow-[0_10px_40px_rgb(0_0_0/0.35)]",
+  d: "rounded-xl border border-(color:--d-line) bg-(--d-surface)",
+  e: "rounded-[14px] bg-(--d-surface) shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_6px_0_var(--d-shadow),0_16px_28px_rgb(0_0_0/0.45)]",
+  // An inset bevel, light on top and dark at the bottom, as a voxel's faces: no outer shadow survives the notch.
+  f: `${NOTCH} bg-(--d-surface) shadow-[inset_0_2px_0_rgb(255_255_255/0.08),inset_0_-3px_0_rgb(0_0_0/0.45)]`,
 };
+
+/** A direction's small corner (chips, the switch): square for A and F, rounded for the others. */
+const square = (d: DirectionId) => d === "a" || d === "f";
 
 export function DCard({ className, children }: { className?: string; children: ReactNode }) {
   const d = useDir();
@@ -131,7 +169,15 @@ export function DCardButton({ on, force, className, type = "button", ...rest }: 
       data-on={on ? "true" : undefined}
       data-force={force}
       aria-pressed={on === undefined ? undefined : on}
-      className={clsx("cursor-pointer text-left disabled:pointer-events-none disabled:opacity-50", OVERLAY, CARD[d], d === "a" && "active:translate-y-[3px] active:shadow-[2px_2px_0_var(--d-shadow)]", className)}
+      className={clsx(
+        "cursor-pointer text-left disabled:pointer-events-none disabled:opacity-50",
+        OVERLAY,
+        CARD[d],
+        d === "a" && "active:translate-y-[3px] active:shadow-[2px_2px_0_var(--d-shadow)]",
+        d === "e" && "active:translate-y-[4px] active:shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_2px_0_var(--d-shadow)]",
+        d === "f" && "focus-visible:ring-inset focus-visible:ring-offset-0",
+        className,
+      )}
       {...rest}
     />
   );
@@ -141,7 +187,7 @@ export function DCardButton({ on, force, className, type = "button", ...rest }: 
 export function DChip({ children, tone = "plain", className }: { children: ReactNode; tone?: "plain" | "primary" | "accent"; className?: string }) {
   const d = useDir();
   const toneClass = { plain: "bg-white/10 text-(color:--d-muted)", primary: "bg-(--d-primary) text-(color:--d-on-primary)", accent: "bg-(--d-accent) text-(color:--d-on-primary)" }[tone];
-  return <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 text-xs leading-none font-semibold tracking-wide uppercase", d === "a" ? "rounded-[2px]" : "rounded-full", toneClass, className)}>{children}</span>;
+  return <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 text-xs leading-none font-semibold tracking-wide uppercase", square(d) ? "rounded-[2px]" : d === "d" ? "rounded-md" : "rounded-full", toneClass, className)}>{children}</span>;
 }
 
 /** A switch: a button with the overlay states, a track and a knob. */
@@ -156,9 +202,9 @@ export function DSwitch({ checked, label, force, onChange }: { checked: boolean;
       data-on={checked ? "true" : undefined}
       data-force={force}
       onClick={() => onChange?.(!checked)}
-      className={clsx("relative h-8 w-14 shrink-0 cursor-pointer", OVERLAY, d === "a" ? "rounded-[3px]" : "rounded-full", checked ? "bg-(--d-primary)" : "bg-(--d-raised) ring-1 ring-white/25")}
+      className={clsx("relative h-8 w-14 shrink-0 cursor-pointer", OVERLAY, square(d) ? "rounded-[3px]" : "rounded-full", checked ? "bg-(--d-primary)" : "bg-(--d-raised) ring-1 ring-white/25")}
     >
-      <span className={clsx("absolute top-1 size-6 transition-[left]", d === "a" ? "rounded-[2px]" : "rounded-full", checked ? "left-7 bg-(--d-on-primary)" : "left-1 bg-(--d-text)")} />
+      <span className={clsx("absolute top-1 size-6 transition-[left]", square(d) ? "rounded-[2px]" : "rounded-full", checked ? "left-7 bg-(--d-on-primary)" : "left-1 bg-(--d-text)")} />
     </button>
   );
 }
@@ -171,10 +217,16 @@ export function TileArt({ index, className }: { index: number; className?: strin
   return <img src={tileUrl(index)} alt="" draggable={false} style={{ imageRendering: "pixelated" }} className={clsx("aspect-square object-cover", className)} />;
 }
 
-/** The brand: A sets the banner (the extruded letters), B and C the mark and the name in the display font. */
+/** The voxel wordmark (D, E, F): the banner's letters as stone blocks with grass on their tops, a render (`renders.ts`). 1400 x 400. */
+export function VoxelWordmark({ className }: { className?: string }) {
+  return <img src={RENDERS.wordmark} alt="Paved" draggable={false} width={1400} height={400} className={clsx("h-auto max-w-full", className)} />;
+}
+
+/** The brand: A sets the banner (the extruded letters), B and C the mark and the name in the display font, D, E and F the voxel wordmark. */
 export function Brand({ className }: { className?: string }) {
   const d = useDir();
   if (d === "a") return <img src={banner} alt="Paved" draggable={false} className={clsx("-my-4 h-16 w-auto self-start", className)} />;
+  if (d === "d" || d === "e" || d === "f") return <VoxelWordmark className={clsx("-my-2 w-36", className)} />;
   return (
     <span className={clsx("flex items-center gap-2", className)}>
       <img src={logo} alt="" draggable={false} className="size-10" />

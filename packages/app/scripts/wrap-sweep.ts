@@ -56,9 +56,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^ui-carousel--/, kind: "overflow", element: 'div "DailyOne deck', why: "carousel track" },
   // A horizontal scroller, by design: the story shows ScrollArea's horizontal mode.
   { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
-  // Direction/A, B, C (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design.
-  { story: /^direction-[abc]--palette$/, kind: "scroll", element: 'div "Pair', why: "contrast table scroller" },
-  { story: /^direction-[abc]--states$/, kind: "scroll", element: 'div "rest', why: "state grid scroller" },
+  // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design.
+  { story: /^direction-[a-f]--palette$/, kind: "scroll", element: 'div "Pair', why: "contrast table scroller" },
+  { story: /^direction-[a-f]--states$/, kind: "scroll", element: 'div "rest', why: "state grid scroller" },
   // Specimens outside WRAP360's files (`ui/` primitives' stories and the Foundations in `src/styles`): one line per
   // specimen on purpose (a weight, a figure, a tooltip on each side). Not the components' layout.
   { story: "ui-tooltip--sides", kind: "page", element: "html scrollWidth", why: "four triggers in a row" },
