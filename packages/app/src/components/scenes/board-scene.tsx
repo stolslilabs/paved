@@ -153,7 +153,7 @@ export function BoardScene(props: BoardSceneProps) {
           onBack={props.onBack}
           wheel={
             props.seasonWheel && (
-              <Suspense fallback={<span aria-hidden className="size-11 shrink-0" />}>
+              <Suspense fallback={<span aria-hidden className="-mx-1 size-11 shrink-0 tablet:mx-0" />}>
                 <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
               </Suspense>
             )

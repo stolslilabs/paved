@@ -44,7 +44,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
       data-state={state}
       data-testid="season-wheel"
       onClick={onNext}
-      className={cn("relative grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("relative -mx-1 grid size-11 shrink-0 tablet:mx-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <span
         aria-hidden
