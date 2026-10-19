@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { GROUND_VOXELS } from "../src/core/feature-codes";
 import { cellIndex, voxelize, type VoxelGrid } from "../src/core/voxelizer";
-import { WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, windowCells } from "../src/core/windows";
+import { PALETTE_CLASSES } from "../src/core/features";
+import { NIGHT_WINDOWS_GLSL } from "../src/core/TileRenderer";
+import { DEFAULT_LIGHT_VOLUME, WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, plantEntries, spillOf, windowCells, windowSwitch, type Window } from "../src/core/windows";
 import { PLANS, loadMesh, litColumnsOf, shipped, sourceOf } from "./helpers/model-meshes";
 
 const HEAVY_TEST_MS = 60_000;
@@ -81,33 +83,136 @@ describe("the window detection", () => {
   });
 
   it.each(Object.entries(TABLE))(
-    "finds #513's windows of %s",
+    "still finds #513's windows of %s (its recesses), among the windows through the walls",
     async (plan, [count, sizes]) => {
       const grid = voxelize(sourceOf(await loadMesh(shipped(plan))), { name: plan })!;
       const windows = detectWindows(grid).filter((w) => w.kind === "window");
-      expect(windows).toHaveLength(count);
+      const recesses = windows.filter((w) => !w.through);
+      expect(recesses).toHaveLength(count);
       const found: Record<string, number> = {};
-      for (const w of windows) found[`${w.width}x${w.height}`] = (found[`${w.width}x${w.height}`] ?? 0) + 1;
+      for (const w of recesses) found[`${w.width}x${w.height}`] = (found[`${w.width}x${w.height}`] ?? 0) + 1;
       expect(found).toEqual(sizes);
+      expect(windows.length).toBeGreaterThanOrEqual(count);
     },
     HEAVY_TEST_MS,
   );
 
   it(
-    "finds #513's 84 windows over the 19 plans, and the lit columns keep fewer of them",
+    "finds #513's 84 windows over the 19 plans and those through the walls; the structures keep more than the lit columns",
     async () => {
-      let all = 0;
-      let kept = 0;
+      const total = { recesses: 0, all: 0, structures: 0, columns: 0, firstPass: 0, firstPassThrough: 0 };
       for (const plan of PLANS) {
         const mesh = await loadMesh(shipped(plan));
         const grid = voxelize(sourceOf(mesh), { name: plan })!;
-        all += detectWindows(grid).filter((w) => w.kind === "window").length;
-        kept += detectWindows(grid, litColumnsOf(plan, mesh)).filter((w) => w.kind === "window").length;
+        const count = (windows: readonly Window[]) => windows.filter((w) => w.kind === "window").length;
+        const all = detectWindows(grid);
+        total.recesses += all.filter((w) => w.kind === "window" && !w.through).length;
+        total.all += count(all);
+        total.structures += count(detectWindows(grid, { vegetation: plantEntries(PALETTE_CLASSES.base.vegetation) }));
+        total.columns += count(detectWindows(grid, litColumnsOf(plan, mesh)));
+        // The first pass's detection and rule together: #523's 65 kept windows, none through a wall.
+        const first = detectWindows(grid, { lit: litColumnsOf(plan, mesh), recessesOnly: true });
+        total.firstPass += count(first);
+        total.firstPassThrough += first.filter((w) => w.through).length;
       }
       expect(PLANS).toHaveLength(19);
-      expect(all).toBe(84);
-      expect(kept).toBeGreaterThan(40);
-      expect(kept).toBeLessThanOrEqual(all);
+      expect(total.recesses).toBe(84);
+      expect(total.firstPass).toBe(65);
+      expect(total.firstPassThrough).toBe(0);
+      // Measured on 2026-10-19: 872 windows, 836 kept on the structures, 720 on the lit columns.
+      expect(total.all).toBeGreaterThan(800);
+      expect(total.structures).toBeLessThanOrEqual(total.all);
+      expect(total.structures).toBeGreaterThan(total.columns);
+    },
+    HEAVY_TEST_MS,
+  );
+});
+
+/**
+ * A hollow house (#571's houses: walls one voxel thick, x 3 to 8, y 3 to 8, layers 4 to 9, a roof at 10) with a window through
+ * the middle of each wall at layer 7.
+ */
+const WALL_WINDOWS: ReadonlyArray<readonly [number, number]> = [
+  [5, 3],
+  [8, 5],
+  [5, 8],
+  [3, 5],
+];
+const hollow = (x: number, y: number, l: number) => {
+  if (l < GROUND_VOXELS) return true;
+  if (x < 3 || x > 8 || y < 3 || y > 8 || l > 10) return false;
+  if (l === 10) return true;
+  if (x > 3 && x < 8 && y > 3 && y < 8) return false;
+  return !(l === 7 && WALL_WINDOWS.some(([wx, wy]) => wx === x && wy === y));
+};
+
+describe("the windows through the walls (#571)", () => {
+  it("finds the window of each of a hollow house's four walls, once each, from the outside", () => {
+    const found = findOpenings(gridOf(hollow, 12, 12));
+    const windows = found.windows.filter((w) => w.kind === "window");
+    expect(windows.map((w) => [w.facing, w.x, w.y, w.layer, w.through]).sort()).toEqual(
+      [
+        [0, 5, 3, 7, true],
+        [1, 8, 5, 7, true],
+        [2, 5, 8, 7, true],
+        [3, 3, 5, 7, true],
+      ].sort(),
+    );
+    // The same holes seen from the room are told apart, not kept.
+    expect(found.rejected.filter((r) => r.reason === "seen from inside")).toHaveLength(4);
+  });
+
+  it("the four windows of a room share one owner, and the room is lit, so they switch on together", () => {
+    const grid = gridOf(hollow, 12, 12);
+    const volume = buildLightVolume(grid, detectWindows(grid));
+    expect(volume.sources).toHaveLength(4);
+    expect(new Set(volume.owners).size).toBe(1);
+    // The room's far wall is seen through each window: its air is lit full, owned by the room's window.
+    expect(lightOf(volume, 5, 5, 7)).toBe(255);
+    expect(ownerAt(volume, 5, 5, 7)).toBe(volume.sources[volume.owners[0]!]);
+    // And in front of each window, that window's pool.
+    expect(lightOf(volume, 5, 1, 7)).toBeGreaterThan(0);
+    expect(lightOf(volume, 10, 5, 7)).toBeGreaterThan(0);
+  });
+
+  it("the first pass's detection (recessesOnly) finds no window through a wall, so no room is lit", () => {
+    const grid = gridOf(hollow, 12, 12);
+    const first = detectWindows(grid, { recessesOnly: true });
+    expect(first.filter((w) => w.kind === "window")).toHaveLength(0);
+    const volume = buildLightVolume(grid, first);
+    expect(lightOf(volume, 5, 5, 7)).toBe(0);
+  });
+
+  it("a recess keeps its own owner, and a hole through a solid block is no window", () => {
+    const volume = buildLightVolume(gridOf(house), detectWindows(gridOf(house)));
+    expect(volume.owners).toEqual([0]);
+    const tunnel = findOpenings(gridOf((x, y, l) => house(x, y, l) && !(x === 5 && l === 6)));
+    expect(tunnel.windows.filter((w) => w.layer === 6)).toHaveLength(0);
+  });
+
+  it("drops the openings in a wall of leaves (the structures' rule), with the reason", () => {
+    const leaves = findOpenings(gridOf(hollow, 12, 12), { vegetation: [7] });
+    expect(leaves.windows.filter((w) => w.kind === "window")).toHaveLength(0);
+    expect(leaves.dropped.map((w) => w.reason)).toEqual(["vegetation", "vegetation", "vegetation", "vegetation"]);
+    expect(findOpenings(gridOf(hollow, 12, 12), { vegetation: [3] }).windows.filter((w) => w.kind === "window")).toHaveLength(4);
+    // The first pass's rule, the lit columns, still drops what is not on a lit column.
+    expect(findOpenings(gridOf(hollow, 12, 12), new Uint8Array(144)).dropped.map((w) => w.reason)).toContain("unlit column");
+  });
+
+  it("the stone greys of the vegetation class are walls, not plants", () => {
+    expect(plantEntries(PALETTE_CLASSES.base.vegetation)).not.toContain(187);
+    expect(plantEntries(PALETTE_CLASSES.base.vegetation)).toContain(176);
+  });
+
+  it(
+    "finds the four windows of a tower (cccccfffc), one a wall, and a house's (ccccccccc) on its north wall",
+    async () => {
+      const tower = detectWindows(voxelize(sourceOf(await loadMesh(shipped("cccccfffc"))), { name: "cccccfffc" })!).filter(
+        (w) => w.kind === "window" && w.layer === 10 && w.x >= 35 && w.x <= 39 && w.y >= 29 && w.y <= 33,
+      );
+      expect(tower.map((w) => w.facing).sort()).toEqual([0, 1, 2, 3]);
+      const city = detectWindows(voxelize(sourceOf(await loadMesh(shipped("ccccccccc"))), { name: "ccccccccc" })!);
+      expect(city.filter((w) => w.kind === "window" && w.facing === 0 && w.x === 5 && w.y === 2).map((w) => w.layer).sort()).toEqual([10, 6]);
     },
     HEAVY_TEST_MS,
   );
@@ -154,10 +259,55 @@ describe("the light volume", () => {
     expect(buildLightVolume(withDoor, found, { doors: false }).sources.map((w) => w.kind)).toEqual(["window"]);
   });
 
+  it("the second pass's defaults: a longer reach, a softer falloff, a margin", () => {
+    expect(DEFAULT_LIGHT_VOLUME).toEqual({ reach: 7, falloff: 2, method: "flood", doors: true, margin: 6 });
+  });
+
+  it.each(["flood", "rays"] as const)("%s: the light goes past the tile's border within the margin, kept as the spill", (method) => {
+    // The window faces north at y 4: the border is 4 cells in front of it.
+    const grid = gridOf(house);
+    const windows = detectWindows(grid);
+    const none = buildLightVolume(grid, windows, { method, reach: 10, margin: 0 });
+    expect(none.spill.data.every((v) => v === 0)).toBe(true);
+    const wide = buildLightVolume(grid, windows, { method, reach: 10, margin: 6 });
+    expect(wide.spill.size).toBe(24);
+    expect(spillOf(wide, 5, -1)).toBeGreaterThan(0);
+    expect(spillOf(wide, 5, -1)).toBeGreaterThan(spillOf(wide, 5, -5));
+    // Nothing past the margin, nothing inside the tile, nothing behind the wall's plane.
+    expect(spillOf(wide, 5, -7)).toBe(0);
+    expect(spillOf(wide, 5, 2)).toBe(0);
+    expect(spillOf(wide, 5, 13)).toBe(0);
+    // The volume inside the tile is the same size as without a margin.
+    expect(wide.bytes).toBe(none.bytes);
+  });
+
   it("a model with no window gives an empty volume", () => {
     const volume = buildLightVolume(gridOf((_x, _y, l) => l < GROUND_VOXELS), []);
     expect(volume.sources).toHaveLength(0);
     expect(volume.data.every((v) => v === 0)).toBe(true);
+  });
+});
+
+describe("the switch-on (#571: never three windows out of four dark every time)", () => {
+  const share = (level: number, stagger: number) => {
+    let on = 0;
+    let all = 0;
+    for (let owner = 0; owner < 40; owner++) for (let x = -6; x < 6; x++) for (let y = -6; y < 6; y++, all++) on += windowSwitch(owner, x, y, level, stagger) >= 0.5 ? 1 : 0;
+    return on / all;
+  };
+
+  it("is the shader's: 0 before its level, 1 past it, the same for the same window and cell", () => {
+    expect(windowSwitch(3, 2, -1, 0, 1)).toBe(0);
+    expect(windowSwitch(3, 2, -1, 1.2, 1)).toBe(1);
+    expect(windowSwitch(3, 2, -1, 0.5, 1)).toBe(windowSwitch(3, 2, -1, 0.5, 1));
+    expect(NIGHT_WINDOWS_GLSL).toContain("windowOn(");
+  });
+
+  it("at the windows' stagger (1) every window is on at full night and most at dusk; the columns' 1.6 kept about half dark", () => {
+    expect(share(1, 1)).toBeGreaterThan(0.95);
+    expect(share(0.6, 1)).toBeGreaterThan(0.5);
+    // The columns spread their levels to 1.6 (no 0.85): about half stay dark all night.
+    expect(share(1, 1.6 / 0.85)).toBeLessThan(0.65);
   });
 });
 

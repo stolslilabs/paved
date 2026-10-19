@@ -16,6 +16,64 @@ export type DayPhase = (typeof DAY_PHASES)[number];
 export const NIGHT_LIGHT_SOURCES = ["columns", "windows"] as const;
 export type NightLightSource = (typeof NIGHT_LIGHT_SOURCES)[number];
 
+/** Which openings light: every structure's ("structures", #571) or only those on the columns lit today ("columns", #513). */
+export const WINDOW_RULES = ["structures", "columns"] as const;
+export type WindowRuleSetting = (typeof WINDOW_RULES)[number];
+
+/**
+ * The windows' light (NIGHT-WINDOWS-2, #571), when the night lights come from the windows (`lights` "windows"). The columns keep
+ * `nightLightIntensity`; these are the windows' own, so their defaults move nothing on the board as it is.
+ */
+export interface WindowLightSettings {
+  /** The emissive strength of the windows and of their pools of light (the columns' is `nightLightIntensity`, 0.4). */
+  intensity: number;
+  /** How far a window's light reaches, in voxels (a tile is 40). */
+  reach: number;
+  /** The falloff's exponent: 1 is linear, above 1 it drops faster near the window. */
+  falloff: number;
+  /** How far past the tile's border the light goes, in voxels, onto the neighbours' ground (0: it stops at the border). */
+  margin: number;
+  /**
+   * The spread of the windows' switch-on levels over the night's ramp (the hash of each window, as the columns'): at 1 every
+   * window is on by full night and most of them at dusk; the columns' spread (1.6) leaves about half of them dark all night.
+   */
+  stagger: number;
+  /** Which openings are kept (`WINDOW_RULES`). */
+  rule: WindowRuleSetting;
+  /**
+   * Which openings are found: "through" (#571), the recesses and the openings through a wall into a room (lit, its windows
+   * switching on together); "recesses", the first pass's (#513), recesses only and no room. For the stories' comparison.
+   */
+  detection: WindowDetection;
+}
+
+/** The detections (`WindowLightSettings.detection`): the second pass's, or the first's. */
+export const WINDOW_DETECTIONS = ["through", "recesses"] as const;
+export type WindowDetection = (typeof WINDOW_DETECTIONS)[number];
+
+/**
+ * The layers over the slab whose light the windows' spill keeps past a tile's border (`windows.ts`), the brightest of them: the
+ * ground and the foot of the walls there. The tile shader fades it out over the next 4 (`NIGHT_WINDOWS_GLSL`).
+ */
+export const WINDOW_SPILL_LAYERS = 4;
+
+export const DEFAULT_WINDOW_LIGHT: WindowLightSettings = { intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures", detection: "through" };
+
+/** `input` over `base`, field by field: a value of the wrong kind or out of range keeps the base's. */
+export function resolveWindowLight(input: Partial<WindowLightSettings> = {}, base: WindowLightSettings = DEFAULT_WINDOW_LIGHT): WindowLightSettings {
+  const at = (value: number | undefined, fallback: number, min: number, max: number) =>
+    typeof value === "number" && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+  return {
+    intensity: at(input.intensity, base.intensity, 0, 8),
+    reach: at(input.reach, base.reach, 1, 32),
+    falloff: at(input.falloff, base.falloff, 0.25, 8),
+    margin: Math.round(at(input.margin, base.margin, 0, 20)),
+    stagger: at(input.stagger, base.stagger, 0.05, 4),
+    rule: WINDOW_RULES.includes(input.rule!) ? input.rule! : base.rule,
+    detection: WINDOW_DETECTIONS.includes(input.detection!) ? input.detection! : base.detection,
+  };
+}
+
 export interface DayNightSettings {
   /**
    * The cycle on the board: a gradient behind it, the sun and moon moving over it, the night lights. Off (the renderer's
@@ -46,6 +104,8 @@ export interface DayNightSettings {
   /** The night lights' colour (sRGB hex) and strength, an emissive radiance added to the lit voxels. */
   nightLightColor: string;
   nightLightIntensity: number;
+  /** The windows' light: strength, reach, margin past the border, stagger and rule (`lights` "windows" only). */
+  windowLight: WindowLightSettings;
   /**
    * The night's floor: the sky light and the ambient at night are at least this share of the day's, so the board stays
    * readable for play (0: as the keyframes say).
@@ -71,17 +131,22 @@ export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   seed: null,
   freezeAt: null,
   nightLights: true,
+  // The proposal of NIGHT-WINDOWS-2 (#571): "windows" here makes the windows the board's night lights; the owner decides.
   lights: "columns",
   // amber-300: a warm window.
   nightLightColor: "#ffb57a",
   nightLightIntensity: 0.4,
+  windowLight: DEFAULT_WINDOW_LIGHT,
   brightnessFloor: 0.85,
   frameMs: 33,
   reducedMotion: "auto",
 };
 
+/** What a caller sets: any field, the windows' light by field too. */
+export type DayNightInput = Partial<Omit<DayNightSettings, "windowLight">> & { windowLight?: Partial<WindowLightSettings> };
+
 /** `input` over `base`, field by field: a value of the wrong kind or out of range keeps the base's. */
-export function resolveDayNightSettings(input: Partial<DayNightSettings> = {}, base: DayNightSettings = DEFAULT_DAYNIGHT_SETTINGS): DayNightSettings {
+export function resolveDayNightSettings(input: DayNightInput = {}, base: DayNightSettings = DEFAULT_DAYNIGHT_SETTINGS): DayNightSettings {
   const positive = (value: number | undefined, fallback: number) => (typeof value === "number" && value > 0 && Number.isFinite(value) ? value : fallback);
   const share = (value: number | undefined, fallback: number) => (typeof value === "number" && value >= 0 && value <= 1 ? value : fallback);
   return {
@@ -95,6 +160,7 @@ export function resolveDayNightSettings(input: Partial<DayNightSettings> = {}, b
     lights: NIGHT_LIGHT_SOURCES.includes(input.lights!) ? input.lights! : base.lights,
     nightLightColor: typeof input.nightLightColor === "string" ? input.nightLightColor : base.nightLightColor,
     nightLightIntensity: typeof input.nightLightIntensity === "number" && input.nightLightIntensity >= 0 ? input.nightLightIntensity : base.nightLightIntensity,
+    windowLight: resolveWindowLight(input.windowLight, base.windowLight),
     brightnessFloor: share(input.brightnessFloor, base.brightnessFloor),
     frameMs: positive(input.frameMs, base.frameMs),
     reducedMotion: input.reducedMotion === "auto" || typeof input.reducedMotion === "boolean" ? input.reducedMotion : base.reducedMotion,
