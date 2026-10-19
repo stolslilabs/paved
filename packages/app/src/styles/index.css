@@ -1,2 +1,5 @@
 @import "./fonts.css";
 @import "./theme.css";
+
+/* The Storybook-only directions (#537) carry their own utilities; the app's stylesheet must not scan them. */
+@source not "../directions";
