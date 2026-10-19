@@ -9,6 +9,10 @@ import { createShuffle } from "./tracks";
 // The tracks played make a history (#569): `previous()` goes back through it and `skip()` forward again before it draws a new
 // track from the shuffle, both with the crossfade. `pause()` and `resume()` are the setting (music off or on); the app keeps it
 // (`AudioProvider`: a pause mutes the music volume, remembered after a reload).
+//
+// The state reads the track heard (#580): from the start of a crossfade on, the one coming in (its index, title, position from
+// 0, its length as soon as known), not the outgoing one running out its last seconds. It names the tracks next to it too
+// (`previousTrack`, `nextTrack`: the next draw of the shuffle is made ahead), so the card can preload their images.
 
 /** The crossfade between two tracks, in seconds: the next one starts this long before the current one ends. */
 export const CROSSFADE_S = 2;
@@ -40,6 +44,9 @@ export interface MusicState {
   /** Seconds played and the track's length (0 until known). */
   position: number;
   duration: number;
+  /** The tracks `previous()` and `skip()` go to (URLs), null when there is none yet: their images can be loaded ahead. */
+  previousTrack: string | null;
+  nextTrack: string | null;
 }
 
 export interface MusicOptions {
@@ -94,9 +101,13 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
   // The tracks played, oldest first, and the one heard (or coming in): `skip` after `previous` walks forward again.
   const history: number[] = [];
   let at = -1;
+  // The next draw of the shuffle, made ahead when the state names the next track: `forward` takes it.
+  let ahead: number | null = null;
+  const peek = (): number => (ahead ??= shuffle());
   const forward = (): number => {
     if (at < history.length - 1) return history[++at]!;
-    history.push(shuffle());
+    history.push(peek());
+    ahead = null;
     if (history.length > HISTORY) history.shift();
     at = history.length - 1;
     return history[at]!;
@@ -146,25 +157,29 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
   const waiting = (a: HTMLAudioElement) => a.readyState < HAVE_FUTURE_DATA;
 
   const read = (): MusicState => {
-    const a = cur();
+    // Mid-fade, the track coming in: the card and the lock screen switch with the sound, at 0:00 of the new track.
+    const a = fading ? other() : cur();
+    const i = fading ? pendingIndex : index;
     return {
       enabled,
       volume,
       unlocked,
-      playing: index !== null && wants() && !a.paused,
-      index,
-      track: index === null ? null : tracks[index]!,
-      title: index === null ? null : titleOf(tracks[index]!),
-      loading: index !== null && wants() && waiting(a),
-      position: index === null ? 0 : a.currentTime || 0,
-      duration: index === null || !Number.isFinite(a.duration) ? 0 : a.duration,
+      playing: i !== null && wants() && !a.paused,
+      index: i,
+      track: i === null ? null : tracks[i]!,
+      title: i === null ? null : titleOf(tracks[i]!),
+      loading: i !== null && wants() && waiting(a),
+      position: i === null ? 0 : a.currentTime || 0,
+      duration: i === null || !Number.isFinite(a.duration) ? 0 : a.duration,
+      previousTrack: i !== null && at > 0 ? tracks[history[at - 1]!]! : null,
+      nextTrack: i !== null ? tracks[at < history.length - 1 ? history[at + 1]! : peek()]! : null,
     };
   };
   const emit = () => {
     const s = read();
     // A new object only when something changed, as `useSyncExternalStore` needs; the position moves in whole 1/10 s.
     const p = snapshot;
-    if (p && p.enabled === s.enabled && p.volume === s.volume && p.unlocked === s.unlocked && p.playing === s.playing && p.index === s.index && p.loading === s.loading && Math.floor(p.position * 10) === Math.floor(s.position * 10) && p.duration === s.duration) return;
+    if (p && p.enabled === s.enabled && p.volume === s.volume && p.unlocked === s.unlocked && p.playing === s.playing && p.index === s.index && p.previousTrack === s.previousTrack && p.nextTrack === s.nextTrack && p.loading === s.loading && Math.floor(p.position * 10) === Math.floor(s.position * 10) && p.duration === s.duration) return;
     snapshot = s;
     listeners.forEach((l) => l());
   };
@@ -289,9 +304,9 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
       emit();
     }
   };
-  // The data arriving or running out changes `loading` at once, not at the next tick.
+  // The data arriving or running out changes `loading` at once, not at the next tick; the length shows as soon as it is known.
   const onReady = () => emit();
-  const READY = ["waiting", "canplay", "playing"] as const;
+  const READY = ["waiting", "canplay", "playing", "loadedmetadata", "durationchange"] as const;
 
   for (const g of GESTURES) doc.addEventListener(g, onGesture, true);
   doc.addEventListener("visibilitychange", onVisibility);

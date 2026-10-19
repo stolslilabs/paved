@@ -5,7 +5,7 @@ import type { MusicState } from "../../lib/music/player";
 import { TRACKS } from "../../lib/music/tracks";
 
 /** The music before the engine has loaded (its chunk), after a gesture or never: off, silent, nothing known. */
-const IDLE: MusicState = { enabled: false, volume: 0, unlocked: false, playing: false, index: null, track: null, title: null, loading: false, position: 0, duration: 0 };
+const IDLE: MusicState = { enabled: false, volume: 0, unlocked: false, playing: false, index: null, track: null, title: null, loading: false, position: 0, duration: 0, previousTrack: null, nextTrack: null };
 /** The level a resume returns to when the settings know none above 0. */
 const RESUME_VOLUME = 0.4;
 
