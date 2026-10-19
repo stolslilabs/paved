@@ -45,17 +45,35 @@ export function musicStatus({ enabled, unlocked, playing, loading, track }: Pick
   return track ? "Paused" : "Tap play to start";
 }
 
-/** The track's image, 64 px (a 128 px WebP), loaded when the player shows; a neutral placeholder before a track or if it fails. */
+/** The images of the tracks next to the one playing, loaded ahead: on Previous or Next the thumbnail shows at once (#580). */
+export function usePreloadedArt(srcs: readonly (string | null)[]) {
+  const key = srcs.filter(Boolean).join("|");
+  useEffect(() => {
+    if (!key) return;
+    // Held until the next tracks change, so the browser keeps the requests going.
+    const images = key.split("|").map((src) => {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = src;
+      return img;
+    });
+    return () => void images.splice(0);
+  }, [key]);
+}
+
+/**
+ * The track's image, 56 px (64 on a tablet; a 128 px WebP), loaded when the player shows; a neutral placeholder before a track
+ * or if it fails. The placeholder lies under the image: a new track's image not there yet shows it, never the old track's.
+ */
 function Thumbnail({ src, loading }: { src: string | null; loading: boolean }) {
   // The source that failed: a new track tries its own image again.
   const [failed, setFailed] = useState<string | null>(null);
   const broken = src === null || failed === src;
   return (
     <span className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground tablet:size-16" data-testid="music-thumbnail" data-state={broken ? "placeholder" : "image"}>
-      {broken ? (
-        <Icon name="music" size="lg" />
-      ) : (
-        <img key={src} src={src} alt="" width={64} height={64} loading="lazy" decoding="async" draggable={false} onError={() => setFailed(src)} className="size-full object-cover" />
+      <Icon name="music" size="lg" />
+      {!broken && (
+        <img key={src} src={src} alt="" width={64} height={64} loading="lazy" decoding="async" draggable={false} onError={() => setFailed(src)} className="absolute inset-0 size-full object-cover" />
       )}
       {loading && (
         <span className="absolute inset-0 grid place-items-center bg-background/60" aria-hidden>
@@ -70,6 +88,9 @@ function Thumbnail({ src, loading }: { src: string | null; loading: boolean }) {
  * The music player of the settings (#569): the track's thumbnail and title, a thin progress line with the time, and Previous,
  * Play or Pause, Next (44 px). No volume of its own: the Music slider above it is that. Pause turns the music off (the volume to
  * 0, remembered); while it is off, Previous and Next still change the track.
+ *
+ * Compact (#580): two rows, the controls on the thumbnail's row next to the title, the progress and the time across the card
+ * under it.
  */
 export function MusicPlayer({ track, title, art, position, duration, enabled, unlocked, playing, loading, onPrevious, onNext, onPlay, onPause, className }: MusicPlayerProps) {
   const on = enabled && unlocked;
@@ -98,7 +119,7 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
   };
   const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
   return (
-    <section aria-label="Music player" className={cn("flex flex-col gap-3 rounded-xl border border-border bg-card p-3", className)}>
+    <section aria-label="Music player" className={cn("flex flex-col gap-2 rounded-xl border border-border bg-card p-3", className)}>
       <div className="flex min-w-0 items-center gap-3">
         <Thumbnail src={art} loading={loading && on} />
         <div className="flex min-w-0 flex-1 flex-col" aria-live="off">
@@ -110,28 +131,28 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
             {musicStatus({ enabled, unlocked, playing, loading, track })}
           </span>
         </div>
+        <div className="flex shrink-0 items-center">
+          <Button size="icon" variant="ghost" className="size-11" aria-label="Previous track" disabled={!unlocked || track === null} onClick={onPrevious}>
+            <Icon name="backward-step" size="md" />
+          </Button>
+          <Button size="icon" className="size-11 rounded-full" aria-label={on ? "Pause music" : "Play music"} ref={button} onClick={toggle}>
+            <Icon name={on ? "pause" : "play"} size="md" />
+          </Button>
+          <Button size="icon" variant="ghost" className="size-11" aria-label="Next track" disabled={!unlocked} onClick={onNext}>
+            <Icon name="forward-step" size="md" />
+          </Button>
+        </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="numeric min-w-10 shrink-0 text-xs whitespace-nowrap text-muted-foreground" data-testid="music-position">
+        <span className="numeric min-w-9 shrink-0 text-xs whitespace-nowrap text-muted-foreground" data-testid="music-position">
           {formatTime(position)}
         </span>
         <span className="h-1 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
           <span className="block h-full rounded-full bg-primary" style={{ width: `${progress * 100}%` }} />
         </span>
-        <span className="numeric min-w-10 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground" data-testid="music-duration">
+        <span className="numeric min-w-9 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground" data-testid="music-duration">
           {duration > 0 ? formatTime(duration) : "--:--"}
         </span>
-      </div>
-      <div className="flex items-center justify-center gap-4">
-        <Button size="icon" variant="ghost" className="size-11" aria-label="Previous track" disabled={!unlocked || track === null} onClick={onPrevious}>
-          <Icon name="backward-step" size="md" />
-        </Button>
-        <Button size="icon" className="size-11 rounded-full" aria-label={on ? "Pause music" : "Play music"} ref={button} onClick={toggle}>
-          <Icon name={on ? "pause" : "play"} size="md" />
-        </Button>
-        <Button size="icon" variant="ghost" className="size-11" aria-label="Next track" disabled={!unlocked} onClick={onNext}>
-          <Icon name="forward-step" size="md" />
-        </Button>
       </div>
     </section>
   );
@@ -143,6 +164,7 @@ export function MusicPlayer({ track, title, art, position, duration, enabled, un
  */
 export function LiveMusicPlayer({ enabled, className }: { enabled: boolean; className?: string }) {
   const m = useMusic();
+  usePreloadedArt([m.nextTrack && artOf(m.nextTrack, 128), m.previousTrack && artOf(m.previousTrack, 128)]);
   return (
     <MusicPlayer
       track={m.track}
