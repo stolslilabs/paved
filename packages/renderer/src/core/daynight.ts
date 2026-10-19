@@ -426,12 +426,17 @@ export function drawDayNight(target: DayNightTarget, seasons: number, floor: num
 
 /**
  * The cycle's moment to draw for the settings, in seasons since a summer's dawn: the first season's noon when still (the
- * Low tier, reduced motion: a still scene never shows a night, so it wins over a frozen moment), else `freezeAt` when
- * frozen, else where `elapsedMs` of the clock has run it to.
+ * Low tier, reduced motion: a still scene never shows a night, so it wins over a frozen moment, except one frozen in a
+ * day: the season wheel's fixed states, which a still scene shows as chosen), else `freezeAt` when frozen, else where
+ * `elapsedMs` of the clock has run it to.
  */
 export function momentOf(settings: DayNightSettings, elapsedMs: number, still: boolean): number {
   const start = startSeason(settings.season, settings.seed);
-  if (still) return SEASONS.indexOf(start) + DAY_PHASE_AT.day;
+  if (still) {
+    const held = settings.freezeAt !== null ? cycleAt(settings.freezeAt) : null;
+    if (held && held.phase === "day" && held.blend === 0) return settings.freezeAt!;
+    return SEASONS.indexOf(start) + DAY_PHASE_AT.day;
+  }
   if (settings.freezeAt !== null) return settings.freezeAt;
   return seasonsAt(elapsedMs, settings.cycleMs, start);
 }
