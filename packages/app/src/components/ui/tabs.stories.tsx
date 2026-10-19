@@ -61,7 +61,7 @@ const UnequalLabels = () => (
   <Tabs defaultValue="a">
     <TabsList>
       <TabsTrigger value="a">Tiles</TabsTrigger>
-      <TabsTrigger value="b">Milestones and more</TabsTrigger>
+      <TabsTrigger value="b">Milestones</TabsTrigger>
       <TabsTrigger value="c">Themes</TabsTrigger>
     </TabsList>
   </Tabs>
@@ -92,8 +92,9 @@ export const SameSize: Story = {
 };
 
 /**
- * The same on a phone, without room for three columns of the widest label: the long label's column keeps its label's
- * width and the others share the rest. The text never spills over a neighbour, and the footprint still never changes.
+ * The same on a phone (Collection's Tiles / Milestones / Themes): without room for three columns of the widest label
+ * (320 px), the long label's column keeps its label's width and the others share the rest. The text never spills over a
+ * neighbour, the list stays inside the screen, and the footprint never changes.
  */
 export const SameSizeMobile: Story = {
   globals: { viewport: { value: "mobile", isRotated: false } },
