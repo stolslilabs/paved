@@ -70,6 +70,8 @@ export function deploymentHash(
 }
 
 const DAY_SECONDS = 86400;
+/** What a `CobblesClaimed` of each kind pays for: 1 a quest, 2 an achievement, 3 a star of a Story level. */
+const CLAIM_SUBJECTS: Record<number, string> = { 1: "quest", 2: "achievement", 3: "story star" };
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -690,7 +692,7 @@ export class Store {
             break;
           }
           case "CobblesClaimed": {
-            const what = `CobblesClaimed of ${padded(event.playerId)} (${event.kind === 1 ? "quest" : "achievement"} ${event.id}, period ${event.period}) ${where}`;
+            const what = `CobblesClaimed of ${padded(event.playerId)} (${CLAIM_SUBJECTS[event.kind]} ${event.id}, period ${event.period}) ${where}`;
             const player = padded(event.playerId);
             if (this.sql.cobbleClaim.get(player, event.kind, event.id, Number(event.period))) {
               throw new Halt(`${what}: already claimed`);
