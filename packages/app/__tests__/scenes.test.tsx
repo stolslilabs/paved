@@ -495,7 +495,7 @@ describe("Element feedback (EL)", () => {
     expect(vault.querySelector("[data-icon='piggy-bank']")).not.toBeNull();
   });
 
-  it("keeps a tab page's navigation out of its scrolling region, at the bottom of a one-viewport frame (#611)", () => {
+  it("keeps a tab page's navigation out of its scrolling region, fixed to the viewport's bottom below desktop (#611)", () => {
     render(wrap(<TabPage tab="settings" title="Settings"><p>Body</p></TabPage>));
     const nav = screen.getByRole("navigation", { name: "Main" });
     const region = screen.getByText("Body").closest("[data-slot=page-scroll]")!;
@@ -504,7 +504,10 @@ describe("Element feedback (EL)", () => {
     expect(region.contains(nav)).toBe(false);
     expect(nav.parentElement).toBe(region.parentElement);
     expect(nav.parentElement!.className).toMatch(/\bh-dvh\b/);
-    expect(nav.className).toMatch(/order-last/);
+    expect(nav.className).toMatch(/(^| )fixed inset-x-0 bottom-0 /);
+    expect(nav.className).toContain("desktop:relative");
+    // The region ends at the bar's top: its measured height.
+    expect(region.className).toContain("mb-(--app-nav-h)");
   });
 
   it("serves the background as AVIF, WebP and a JPEG fallback from this host", () => {

@@ -102,6 +102,20 @@ async function main(): Promise<void> {
     const docScroll = await page.evaluate(() => document.scrollingElement!.scrollTop);
     check("tab page: the document does not scroll", docScroll === 0, `scrollTop ${docScroll}`);
     check("tab page: the navigation does not move on a scroll", (await navTop()) === navBefore, `${await navTop()} vs ${navBefore}`);
+    const navPosition = await nav.evaluate((el) => getComputedStyle(el).position);
+    check("tab page: the navigation is position fixed", navPosition === "fixed", navPosition);
+    // Back brings the page back where it was left (the region keeps its offset per history entry).
+    const region = page.locator("[data-slot=page-scroll]");
+    const left = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /Credits/ }).click();
+    await page.waitForURL(/credits/);
+    await page.goBack();
+    await page.getByRole("button", { name: /Credits/ }).waitFor();
+    await page.waitForTimeout(500);
+    const back = await region.evaluate((el) => el.scrollTop);
+    check("tab page: Back restores the page's scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
+    await region.evaluate((el) => (el.scrollTop = 0));
 
     // iOS Safari ignores the meta: its pinch is the page's `gesturestart` and `gesturechange`, which must be cancelled.
     const cancelled = await page.evaluate(() =>
