@@ -5,7 +5,7 @@
 /* iPhone Safari in a tab (not an installed app): its floating bottom toolbar overlays the page's end, and
    `env(safe-area-inset-bottom)` does not count it. `-webkit-touch-callout` exists only on iOS WebKit, so Android Chrome, desktop
    browsers and a home-screen app of an older manifest (`display-mode: standalone`, dropped in #589) never match; the width keeps iPad out. */
-/* NO-SCROLLBARS (#609): the document has more below (`usePageScrollHint`, lib/scroll-hint.ts sets the mark on `<html>`). */
+/* NO-SCROLLBARS (#609): the document has more below (`usePageScrollHint`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
 @custom-variant page-more (&:where(html[data-scroll-end] *));
 @custom-variant iphone-tab {
   @supports (-webkit-touch-callout: none) {

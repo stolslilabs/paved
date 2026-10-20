@@ -1,5 +1,5 @@
 import type { Tab } from "../../routes/pages";
-import { usePageScrollHint } from "../../lib/scroll-hint";
+import { usePageScrollHint } from "../../lib/page-scroll-hint";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { Wordmark } from "../elements/wordmark";

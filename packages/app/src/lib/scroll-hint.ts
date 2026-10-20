@@ -1,10 +1,9 @@
-import { useEffect } from "react";
-
 /*
  * NO-SCROLLBARS (#609): no scrollbar shows on desktop (`styles/theme.css`), so a region that scrolls says so by a soft fade
  * on the side where more content waits. The fade is the `scroll-hint` utility (theme.css); this module tells it which
  * sides have more, as `data-scroll-start` and `data-scroll-end` on the scroller, and the axis as `data-scroll-axis`.
- * `ScrollRegion` (`components/ui/scroll-region.tsx`) and `ScrollArea` take it; the document takes `usePageScrollHint`.
+ * `ScrollRegion` (`components/ui/scroll-region.tsx`) and `ScrollArea` take it; the document takes `usePageScrollHint`
+ * (`page-scroll-hint.ts`, apart so that the first load, Home's, does not carry this module).
  */
 
 /** Less than this many pixels left to scroll counts as none (sub-pixel layouts never quite reach the end). */
@@ -76,36 +75,4 @@ export function scrollHintRef(el: HTMLElement | null): (() => void) | undefined 
     resize?.disconnect();
     mutations?.disconnect();
   };
-}
-
-/**
- * The document's hint (a tab page scrolls as one document, `routes/Shell.tsx`): `data-scroll-end` on `<html>` while the
- * page has more below, which the `page-more` variant (theme.css) reads to show the fade at the bottom of the viewport.
- */
-export function usePageScrollHint() {
-  useEffect(() => {
-    const root = document.documentElement;
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      const end = window.scrollY + window.innerHeight < root.scrollHeight - SLACK;
-      if (end) root.setAttribute("data-scroll-end", "");
-      else root.removeAttribute("data-scroll-end");
-    };
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    const resize = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : null;
-    resize?.observe(document.body);
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      resize?.disconnect();
-      root.removeAttribute("data-scroll-end");
-    };
-  }, []);
 }
