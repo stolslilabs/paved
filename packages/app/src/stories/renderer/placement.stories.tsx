@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { DAY_PHASES, LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
-import { PLACEMENT_STATES, PlacementBoard, placementArgTypes } from "./placement-board";
+import { PENDING_PROPOSALS, PLACEMENT_STATES, PendingProposals, PlacementBoard, placementArgTypes } from "./placement-board";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
@@ -8,7 +8,8 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
  * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours), lying at the tiles' bottom
  * (#588). One grey with no hue for both states, told apart by opacity alone: playable (some rotation fits) 0.55,
  * invalid (none fits) 0.2. The tile in hand is tinted on the model
- * itself: no tint at 50 % opacity on a hover, yellow and opaque once placed (#568, blue and 90 % before), a temporary
+ * itself: no tint at 50 % opacity on a hover, opaque with a faint yellow once placed (#605: 0.12, 0.4 before; #568, blue
+ * and 90 % before that), a temporary
  * green on confirm fading to none. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
  * the hold on Validate, the voxel drop, then the green. Each change eases over 150 ms (at once under reduced
  * motion). Every setting is a control (colours, strengths, opacities, durations, the plates' radius and opacities; sizes
@@ -23,7 +24,7 @@ const meta = {
       control: "inline-radio",
       options: PLACEMENT_STATES,
       type: { name: "enum", value: [...PLACEMENT_STATES] },
-      description: "idle: no plate; in-hand: the plates; hover: untinted, half opacity; placed: yellow, opaque; confirm: green tint fading out; tour: hover, placed, confirm in turn; sequence: hover, placed with the bubble, the hold, the drop, the green",
+      description: "idle: no plate; in-hand: the plates; hover: untinted, half opacity; placed: a faint yellow, opaque; confirm: green tint fading out; tour: hover, placed, confirm in turn; sequence: hover, placed with the bubble, the hold, the drop, the green",
     },
     holdMs: { control: { type: "range", min: 200, max: 10000, step: 50 }, description: "sequence: Validate's hold, ms (800 in the game)" },
     dropSpeed: { control: { type: "range", min: 0.05, max: 2, step: 0.05 }, description: "The voxel drop's clock (1 in the game); slowed for a capture played back faster" },
@@ -83,8 +84,37 @@ export const Hover: Story = { args: { state: "hover" } };
 /** Hover, placed, confirm in turn: the states of the owner's feedback, for a capture. */
 export const Tour: Story = { args: { state: "tour" } };
 
-/** The tile placed on a plate its rotation fits: the model yellow and opaque. */
+/** The tile placed on a plate its rotation fits: the model opaque, a faint yellow (the board's default, proposal 1 of #605). */
 export const Placed: Story = { args: { state: "placed" } };
+
+/**
+ * The pending tile's three looks (#605) side by side, the owner picks: (1) the faint yellow, the board's default meanwhile;
+ * (2) no tint, a gold frame on the tile's edges and a gold plate under it; (3) the faint tint breathing. Stacked at 375 px.
+ * Seen close, at the game's tilt, on the placed tile. The outlines are forced on: the gold frame is drawn with their stroke,
+ * which software WebGL turns off.
+ */
+export const PendingProposalsDay: StoryObj<typeof PendingProposals> = {
+  render: (args) => <PendingProposals {...args} />,
+  args: { view: "default", distance: 45, onPlaced: true, force: "on" },
+};
+
+/** The three looks at night, the cycle held there. */
+export const PendingProposalsNight: StoryObj<typeof PendingProposals> = {
+  render: (args) => <PendingProposals {...args} />,
+  args: { view: "default", distance: 45, onPlaced: true, force: "on", dayPhase: "night" },
+};
+
+/** Proposal 1 (#605): the same yellow at 0.12 instead of 0.4, opaque. The board's default until the owner picks. */
+export const PendingFaint: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, ...PENDING_PROPOSALS.faint.args } };
+
+/** Proposal 2 (#605): no tint; a thin gold frame on the tile's top edges, the plate under it gold, its rim around the tile. */
+export const PendingGoldEdge: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, force: "on", ...PENDING_PROPOSALS.gold.args } };
+
+/** Proposal 3 (#605): a faint tint breathing from 0 to 0.12 and back over 2.4 s. */
+export const PendingPulse: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, ...PENDING_PROPOSALS.pulse.args } };
+
+/** Proposal 3 under reduced motion: no breathing, the faint tint held at 0.12. */
+export const PendingPulseReducedMotion: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, reducedMotion: true, ...PENDING_PROPOSALS.pulse.args } };
 
 /** Confirmed: the tile green, then a fade to its own look (played again every 1.6 s). */
 export const ConfirmGreen: Story = { args: { state: "confirm" } };

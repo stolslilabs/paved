@@ -534,7 +534,7 @@ describe("the feature highlight in the tile shader", () => {
     // The same program and the same water; the highlight's switch its own, and off while the board's is on.
     // (the ghost's own program: the tile's, plus the tint and the opacity at the end of the fragment shader)
     expect(ghosts[0].customProgramCacheKey()).toBe("paved-tile-ghost");
-    expect(own.fragmentShader).toContain("mix(gl_FragColor.rgb, uTintColor, uTintMix)");
+    expect(own.fragmentShader).toContain("mix(gl_FragColor.rgb, tintTarget, uTintMix)");
     expect(own.fragmentShader).toContain(its.fragmentShader.slice(its.fragmentShader.indexOf("void main() {"), its.fragmentShader.indexOf("void main() {") + 40));
     expect(own.uniforms.uWaterOn).toBe(its.uniforms.uWaterOn);
     expect(its.uniforms.uFeatureOn.value).toBe(1);
