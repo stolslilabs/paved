@@ -60,7 +60,6 @@ export const TEST_HEAP_MB: Record<string, number> = {
   "@paved/renderer": 384,
   "@paved/ui": 384,
   "@paved/app": 1536,
-  "@paved/app-native": 256,
   "@paved/indexer": 384,
 };
 

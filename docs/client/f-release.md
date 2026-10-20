@@ -111,7 +111,7 @@ request. A Vercel project reads the `vercel.json` of **its own root directory**,
 
 The web client is the Client v2, `packages/app`. The legacy client, `packages/app-web`, was removed in P-70 (see git history); no Vercel
 project built it. The docs
-project's `book/vercel.json` and the legacy `app/vercel.json` are other projects' files; neither is read by these two.
+project's `book/vercel.json` is another project's file; it is not read by these two. (The legacy `app/vercel.json` left with `app/` in #591.)
 
 What the files set:
 

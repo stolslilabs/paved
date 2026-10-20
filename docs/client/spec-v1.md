@@ -8,7 +8,7 @@ Source: the owner's message to the PM, 2026-10-14, in French. Below: (A) the own
 
 This document is the specification for the client. It may need contract changes too, to reach the target or simply to keep the client and the contracts coherent.
 
-- Style direction: `app/docs/mockup-01.png` (and `mockup-02.png`), on main since db469fb.
+- Style direction: `packages/app/src/stories/renderer/mockups/mockup-01.png` (and `mockup-02.png`), on main since db469fb (moved from `app/docs/` in #591).
 - Web, mobile first and responsive, also playable on desktop. Several breakpoints if needed: small mobile, mobile, tablet, desktop.
 - First thing: benchmark, and draw heavily on the architecture and file structure of https://github.com/cartridge-gg/nums.
 - Host a Storybook app to explore each component individually, at storybook.paved.bal7hazar.com (the owner pointed that DNS name at the VPS).

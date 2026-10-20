@@ -3,7 +3,7 @@
  * on 2026-10-19 and PR 2 applied it to the app itself (`styles/theme.css`, the primitives, the navigation, the scenes). PR 1 gave A, B and C, each a
  * palette taken from Paved's own assets (the logo and banner, the tiles' art, the 3D models), its own navigation and its own
  * card style; none was picked and they stay as a record. PR 1b gives D, E and F, derived from the owner's mockups
- * (`app/docs/mockup-01.png`, `mockup-02.png`): charcoal with gold as the one action colour, renders of the real board and tiles,
+ * (`stories/renderer/mockups/mockup-01.png`, `mockup-02.png`): charcoal with gold as the one action colour, renders of the real board and tiles,
  * the voxel wordmark. They differ by how far they go from the mockups, not by their palette. The interaction states are the
  * owner's decision of 2026-10-18: white with transparency, the same on every button and every nav item, whatever the direction.
  */
