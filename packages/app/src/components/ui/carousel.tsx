@@ -4,7 +4,7 @@
  * https://www.embla-carousel.com, MIT, (c) David Jerleke). Adapted: reduced motion (from `MotionConfig`) makes
  * the buttons and the arrow keys jump instead of scroll, the `reInit` listener is removed on cleanup too, the region
  * takes an accessible name, F3's Button and icons, the semantic tokens; `startIndex` is read once, at mount, and
- * `useCarouselSettled` tells when the track is at rest (#615).
+ * `useCarouselSettled` tells when the track is at rest.
  *
  * Embla is the one runtime beside Motion: it is the carousel engine the owner chose (embla-carousel.com), with its own
  * drag and snap physics, which Motion does not provide; it animates the track's scroll position, not the components.
@@ -47,7 +47,7 @@ function useCarousel() {
 
 /**
  * Play's mode cards and the themes. Give it an `aria-label`: the region is a landmark. `opts.startIndex` is the slide it
- * opens on, read once: a later change would re-init Embla, which jumps to it and cuts the scroll under way (#615).
+ * opens on, read once: a later change would re-init Embla, which jumps to it and cuts the scroll under way.
  */
 export function Carousel({ orientation = "horizontal", opts, setApi, plugins, className, children, ...props }: ComponentProps<"div"> & CarouselProps) {
   const [startIndex] = useState(opts?.startIndex);
@@ -108,7 +108,7 @@ export function Carousel({ orientation = "horizontal", opts, setApi, plugins, cl
 }
 
 /**
- * Whether the carousel has come to rest since it mounted (#615): at once when it opens still (Embla jumps to `startIndex`)
+ * Whether the carousel has come to rest since it mounted: at once when it opens still (Embla jumps to `startIndex`)
  * or is off (`active: false`, a breakpoint), else on Embla's `settle`, once its scroll ends and no finger holds it. A motion
  * that follows the carousel's own (a card's unlock) waits for it: one motion at a time. Stays true once true.
  */
