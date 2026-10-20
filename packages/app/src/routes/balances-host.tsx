@@ -10,8 +10,8 @@ import { useAccount } from "../wallet/wallet";
 import { errorDetail } from "./error-detail";
 import { useAppNavigate } from "./ref";
 
-/** Where PAVED and the Cobbles lead: the Vault, and the Cobble packs (#621). USDC mints from the faucet where there is one. */
-const DESTINATION = { paved: "/vault", cobbles: "/cobbles" } as const;
+/** Where PAVED, vPAVED and the Cobbles lead: the Vault, and the Cobble packs (#621). USDC mints from the faucet where there is one. */
+const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } as const;
 
 /** Devnet and Sepolia deploy the Faucet (`FAUCET_NETWORKS` of `@paved/chain`, kept out of the first bundle); mainnet has none. */
 const FAUCET_NETWORKS = ["devnet", "sepolia"];
