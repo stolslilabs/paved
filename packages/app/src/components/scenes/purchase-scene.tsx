@@ -309,7 +309,7 @@ export function PurchaseScene(props: PurchaseSceneProps) {
         }
       />
       {cobbles && (
-        <Tabs value={tab} onValueChange={(v) => props.onTab?.(v as PurchaseTab)} className="mx-auto w-full max-w-md px-4 tablet:max-w-2xl desktop:max-w-4xl">
+        <Tabs value={tab} onValueChange={(v) => props.onTab?.(v as PurchaseTab)} className="mx-auto w-full max-w-md px-4 pb-2 tablet:max-w-2xl desktop:max-w-4xl">
           <TabsList className="w-full tablet:w-auto">
             <TabsTrigger value="game" className="flex-1 gap-2 px-4">
               <Icon name="trophy" size="sm" />
@@ -333,7 +333,7 @@ function GameTab(props: PurchaseSceneProps) {
   const blocked = spawnPaused || short || props.quoting || (connected && balance === null) || props.checking || props.checkFailed || props.checkUnresolved;
   const label = retryLabel(refusal);
   return (
-    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
+    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <div className="flex flex-col gap-4">
         <section data-slot="card" aria-labelledby="stake-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-baseline justify-between">
@@ -424,7 +424,7 @@ function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
   const { refusal, bought } = cobbles;
   const label = retryLabel(refusal);
   return (
-    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
+    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <section aria-labelledby="packs-title" className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
           <h2 id="packs-title" className="font-display text-sm font-semibold">Cobble packs</h2>
