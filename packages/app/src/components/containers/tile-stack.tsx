@@ -63,10 +63,11 @@ export interface TileStackProps {
 /** Whether the hint shows: at the start, then again after `HINT_IDLE_MS` without a move or a cell chosen. */
 function useHint(active: boolean, moveKey: number, cellChosen: boolean): boolean {
   const [shown, setShown] = useState(true);
-  const first = useRef(true);
+  // A move (the key changed) or a cell chosen hides it; a second run of the same effect (StrictMode) does not.
+  const last = useRef({ moveKey, cellChosen });
   useEffect(() => {
-    if (first.current) first.current = false;
-    else setShown(false);
+    if (last.current.moveKey !== moveKey || last.current.cellChosen !== cellChosen) setShown(false);
+    last.current = { moveKey, cellChosen };
     if (!active || cellChosen) return;
     const timer = setTimeout(() => setShown(true), HINT_IDLE_MS);
     return () => clearTimeout(timer);
@@ -81,7 +82,8 @@ function useHint(active: boolean, moveKey: number, cellChosen: boolean): boolean
  * While no cell is chosen, a small bubble on the stack offers Discard, held as the bubble's (the player can always
  * discard, also when the tile fits nowhere); while the tile is on a cell the top is dimmed: the tile is on the board.
  * A refused move and the expired game show as a compact banner above it; the expired one carries Surrender. The hint
- * shows at the start and after a while without a move, never for good.
+ * shows at the start and after a while without a move, never for good. No overlay of the stack blurs the board behind it:
+ * a backdrop blur over the live canvas redraws as the board does, so a still board would not read as still (mobile-feel).
  */
 export function TileStack({
   tile,
@@ -147,17 +149,17 @@ export function TileStack({
             </Button>
           ) : undefined
         }
-        className="pointer-events-auto w-full rounded-xl bg-card/95 shadow-lg backdrop-blur"
+        className="pointer-events-auto w-full rounded-xl bg-card shadow-lg"
       />
       {(hint || busy) && (
-        <p data-testid="hand-hint" className="rounded-full bg-card/90 px-3 py-1 text-xs text-muted-foreground shadow backdrop-blur">
+        <p data-testid="hand-hint" className="rounded-full bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow">
           {busy ? "Placing…" : "Tap a lit slot on the board."}
         </p>
       )}
       <div className="flex items-end gap-2">
         {/* The stack's Discard: while no cell is chosen (then it is the bubble's, on the tile). */}
         {canDiscard && !cellChosen && onDiscard && (
-          <div data-testid="stack-discard" className="pointer-events-auto mb-3 flex items-center gap-2 rounded-full border bg-card/95 p-1 shadow-lg backdrop-blur">
+          <div data-testid="stack-discard" className="pointer-events-auto mb-3 flex items-center gap-2 rounded-full border bg-card p-1 shadow-lg">
             {fitsNowhere && <span className="pl-2 text-xs text-muted-foreground">This tile fits nowhere</span>}
             <DiscardHold onDiscard={onDiscard} cost={discardCost} holdMs={holdMs} className={cn("size-11 rounded-full focus-visible:ring-offset-card", coach === "discard" && cn(COACH_RING, "rounded-full"))} />
           </div>
