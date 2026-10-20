@@ -4,9 +4,8 @@ import { QUESTS } from "../../mocks/scenes";
 import { QuestsScene } from "./quests-scene";
 
 /**
- * The quests (`/missions/:day?`, Limited) as milestone tracks (#595): a Daily and a Weekly section with their countdowns, one card
- * per track, its steps and their Cobbles; the day picker. The completion toasts are the app's (Containers/CompletionToasts).
- * One story per state; the viewport is the toolbar's (VP).
+ * The quests (`/missions/:day?`, Limited): the day's rotating Daily set and the Weekly ones, a section each with its countdown,
+ * a card per mission, and the day picker. The completion toasts are the app's (Containers/CompletionToasts). One story per state; the viewport is the toolbar's (VP).
  */
 const meta = { title: "Scenes/Missions (Limited)", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() } } satisfies Meta<typeof QuestsScene>;
 export default meta;
@@ -59,18 +58,3 @@ export const CobblesWeekDone: Story = { args: QUESTS.cobblesWeekDone };
 
 /** P9: the player is known but has no wallet to sign yet (P6): the rewards show, the claims ask to connect. */
 export const CobblesReadOnly: Story = { args: { ...QUESTS.cobblesPastDay, canClaim: false } };
-
-/** #595, the tiered schedule (a proposal): each family one bar of three steps; reached steps to claim glow, claimed ones check, the next is lit, the rest locked. */
-export const Tiered: Story = { args: QUESTS.tiered };
-
-/** The tiered schedule before any game: the first step of each track next. */
-export const TieredFresh: Story = { args: QUESTS.tieredFresh };
-
-/** Every step reached and claimed, both free games claimed. */
-export const TieredClaimed: Story = { args: QUESTS.tieredClaimed };
-
-/** The tiered bars without Cobbles: steps check when reached, no reward drawn. */
-export const TieredNoRewards: Story = { args: QUESTS.tieredNoRewards };
-
-/** A mission of several tasks: each task keeps its bar (roads and cities 4 of 4, forests 0 of 2), in progress until both are done. */
-export const MultiTask: Story = { args: QUESTS.multiTask };
