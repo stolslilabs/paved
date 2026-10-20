@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { CAMPAIGNS, PlanType } from "@paved/game-core";
+import { appRenders } from "../../mocks/assets";
 import { Button } from "../ui/button";
-import { StoryCoach, StoryEnd, StoryIntro } from "./story-panels";
+import { CampaignCard, StoryCoach, StoryEnd, StoryIntro, type CampaignCardProps } from "./story-panels";
 
 /** The panels of a Story level (#546), drawn under the board's header: the intro, a coach mark's tip, the end. */
 const meta = { title: "Containers/Story panels", component: StoryIntro, parameters: { layout: "padded" } } satisfies Meta<typeof StoryIntro>;
@@ -73,4 +75,41 @@ export const EndOneStarLast: Story = { args: TUTORIAL_1, render: () => <StoryEnd
 export const EndBeatsBestKnown: Story = {
   args: TUTORIAL_1,
   render: () => <StoryEnd {...END} title="A full road" target={14374} twoStars={10062} bestKnown score={14250} stars={3} beatsTarget previousBest={12900} />,
+};
+
+const PLAN_IDS = Object.values(PlanType);
+const plansOf = (index: number) => [...new Set(CAMPAIGNS[index]!.levels.flatMap((l) => l.deck))].map((p) => PLAN_IDS.indexOf(p));
+const CARD: CampaignCardProps = {
+  id: 2,
+  name: "Open Country",
+  summary: CAMPAIGNS[1]!.summary,
+  levels: 11,
+  stars: 0,
+  status: "open",
+  plans: plansOf(1),
+  renders: appRenders,
+  onSelect: fn(),
+};
+const card = (props: Partial<CampaignCardProps>) => () => (
+  <div className="w-full max-w-md">
+    <CampaignCard {...CARD} {...props} />
+  </div>
+);
+
+/** A campaign card (#592), open: its own tiles behind (build-time renders), its levels and stars. */
+export const CampaignOpen: Story = { args: TUTORIAL_1, render: card({ stars: 7, selected: true }) };
+
+/** Locked: the tiles under a blur, a lock, and the stars still to earn. */
+export const CampaignLocked: Story = { args: TUTORIAL_1, render: card({ status: "locked", missing: 9 }) };
+
+/** Just unlocked (the first visit since): the lock turns open and goes, the blur lifts, once. */
+export const CampaignJustUnlocked: Story = { args: TUTORIAL_1, render: card({ status: "unlocking" }) };
+
+/** The same under reduced motion: open at once, no animation. */
+export const CampaignJustUnlockedReduced: Story = { args: TUTORIAL_1, parameters: { reducedMotion: "always" }, render: card({ status: "unlocking" }) };
+
+/** Every level finished. */
+export const CampaignComplete: Story = {
+  args: TUTORIAL_1,
+  render: card({ id: 1, name: "Tutorial", summary: CAMPAIGNS[0]!.summary, stars: 33, status: "complete", plans: plansOf(0) }),
 };
