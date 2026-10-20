@@ -22,7 +22,7 @@ export function useRoutePage(): PageDef | null {
 
 /**
  * The tab shown as active: the `nav` of the deepest matched route's own entry (never read from the path, so
- * `/player/:id` is Ranks and `/settings/theme` is Settings). `null` on a full-screen flow and on "not found".
+ * `/missions/lifetime` is Missions and `/settings/theme` is Settings). `null` on a full-screen flow and on "not found".
  */
 export function useActiveTab(): Tab | null {
   return useRoutePage()?.nav ?? null;

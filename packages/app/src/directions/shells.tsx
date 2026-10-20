@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
-import type { Tab } from "../routes/pages";
-import { NAV_TABS } from "../components/containers/app-nav";
+import type { Tab } from "./tabs";
+import { NAV_TABS } from "./tabs";
 import { Brand, DButton, Icon, OVERLAY, TileArt, useDir, type Force } from "./kit";
 import { NavD, NavE, NavF } from "./nav-2";
 

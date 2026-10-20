@@ -36,7 +36,7 @@ export const InTopBar: Story = {
 export const Off: Story = {
   render: () => (
     <MockMarkProvider value={false}>
-      <TabPage tab="ranks" title="Leaderboard" onNavigate={fn()}>
+      <TabPage tab="quests" title="Missions" onNavigate={fn()}>
         <p className="text-sm text-muted-foreground">The page's content.</p>
       </TabPage>
     </MockMarkProvider>

@@ -102,7 +102,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
   const playing = read.status === "playing";
   const [view, setView] = useOverView();
   const ready = read.status === "ready" ? read : null;
-  const standing = useOverStanding(ready?.game, ready?.indexed);
+  const standing = useOverStanding(ready?.game);
   // The game's player's skins, as its board drew them.
   const skins = useBoardSkins(ready?.game.playerId ?? null);
   const boardSettings = useBoardSettings();
@@ -152,7 +152,6 @@ function ChallengeOver({ gameId }: { gameId: number }) {
       view={view}
       onViewChange={setView}
       previousBest={standing.previousBest}
-      rank={standing.rank}
       closingsNote={closings.isPending ? "Reading the game's closings…" : closings.error ? "The closings of this game could not be read." : undefined}
       reward={{ ...rewardProps(reward), stake: terms && terms.stake > 0 ? terms.stake : undefined }}
       freeGame={free}
