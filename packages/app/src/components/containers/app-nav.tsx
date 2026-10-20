@@ -43,7 +43,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
         className={cn(
           "z-20 flex items-center border-border bg-background/95 backdrop-blur",
           "fixed inset-x-0 bottom-0 border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]",
-          "desktop:relative desktop:inset-auto desktop:shrink-0 desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
+          "desktop:relative desktop:shrink-0 desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
           className,
         )}
       >
