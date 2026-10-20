@@ -30,6 +30,8 @@ with `docs/`, `scripts/` or `packages/`.
   (`core/cloud-shader.ts`, in the board's chunk) dims only the shadow-casting directional lights' direct light (the sun and its
   twin). A light term, not a caster: a cloud's move draws a frame, never the shadow map (`game-scene-ambient.test.ts` counts it).
   A step draws only once the clouds moved `CLOUD_MIN_MOVE` (a quarter of a voxel).
+- The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`): the story registers them on
+  `scene.ambient` itself; the board does not call them until the owner validates them.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
