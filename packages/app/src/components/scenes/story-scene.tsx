@@ -9,6 +9,7 @@ import {
   type StoryCampaign,
   type StoryProgress,
 } from "@paved/game-core";
+import type { UpcomingCampaign } from "../../data/story";
 import { cn } from "../../lib/utils";
 import { Notice } from "../elements/notice";
 import { StarRow } from "../elements/star-row";
@@ -34,6 +35,8 @@ export interface StorySceneProps {
   /** The build-time tile renders the cards' backgrounds draw from. */
   renders?: TileRenders;
   layout?: CampaignLayout;
+  /** The campaigns not built yet: one card announces them (none: no card). */
+  upcoming?: readonly UpcomingCampaign[];
   /** The device refused to save the progress: it lasts for this visit only. */
   storageOff?: boolean;
   onBack?: () => void;
@@ -42,6 +45,16 @@ export interface StorySceneProps {
 }
 
 const PLAN_IDS = Object.values(PlanType);
+
+/** What the announcing card says of the campaigns to come: their levels and tiles, the closing level's own size. */
+export function upcomingText(upcoming: readonly UpcomingCampaign[]): string {
+  const parts = upcoming.map((c) =>
+    c.finaleTiles != null
+      ? `${c.levels - 1} full games of ${c.tiles} tiles, closed by one game of the whole ${c.finaleTiles}-tile deck`
+      : `${c.levels} games of ${c.tiles} tiles`,
+  );
+  return `${upcoming.length === 1 ? "One more campaign is" : `${upcoming.length} more campaigns are`} on the way: ${parts.join("; then ")}.`;
+}
 
 /** A campaign's background: the distinct plans of its decks in draw order, as chain ids. */
 const coverPlans = (campaign: StoryCampaign): number[] => [...new Set(campaign.levels.flatMap((l) => l.deck))].map((p) => PLAN_IDS.indexOf(p));
@@ -59,7 +72,7 @@ function statusOf(progress: StoryProgress, campaigns: readonly StoryCampaign[], 
  * up they sit in a grid and a press picks one. The levels: one column on a phone, two from `tablet`, three from `desktop`,
  * each title on one line.
  */
-export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [], renders, layout = "carousel", storageOff, onBack, onCampaign, onLevel }: StorySceneProps) {
+export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [], renders, layout = "carousel", upcoming = [], storageOff, onBack, onCampaign, onLevel }: StorySceneProps) {
   const [chosen, setChosen] = useState(() => campaignId ?? [...campaigns].reverse().find((c) => campaignUnlocked(progress, campaigns, c))?.id ?? campaigns[0]?.id);
   const [api, setApi] = useState<CarouselApi>();
   const campaign = campaigns.find((c) => c.id === chosen) ?? campaigns[0];
@@ -125,12 +138,14 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
                 </CarouselItem>
               );
             })}
-            <CarouselItem className={cn(carousel ? "basis-[86%]" : "basis-full", "tablet:basis-full desktop:basis-1/3")}>
-              <div className="flex aspect-[16/10] w-full tablet:aspect-auto tablet:flex-row tablet:py-3 desktop:aspect-[16/10] desktop:flex-col flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                <Icon name="hourglass" size="md" />
-                Two more campaigns are on the way: full games of 38 tiles, then games of the whole 72-tile deck.
-              </div>
-            </CarouselItem>
+            {upcoming.length > 0 && (
+              <CarouselItem className={cn(carousel ? "basis-[86%]" : "basis-full", "tablet:basis-full desktop:basis-1/3")}>
+                <div className="flex aspect-[16/10] w-full tablet:aspect-auto tablet:flex-row tablet:py-3 desktop:aspect-[16/10] desktop:flex-col flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                  <Icon name="hourglass" size="md" />
+                  {upcomingText(upcoming)}
+                </div>
+              </CarouselItem>
+            )}
           </CarouselContent>
         </Carousel>
         {carousel && (

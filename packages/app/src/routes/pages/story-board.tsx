@@ -13,7 +13,7 @@ import {
 import { provideManifest } from "@paved/renderer";
 import { BoardViewport } from "../../components/containers/board-viewport";
 import type { CoachTarget } from "../../components/containers/coach";
-import { StoryCoach, StoryEnd, StoryIntro } from "../../components/containers/story-panels";
+import { DeckPresentation, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
 import { TileView, hasWebGL } from "../../components/containers/tile-view";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError } from "../../components/elements/inline-error";
@@ -25,8 +25,9 @@ import { useBoardSkins } from "../../data/board-skins";
 import { usePlacement, type Slot } from "../../data/placement";
 import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
-import { findLevel, levelPath, nextLevel, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
+import { findLevel, levelPath, nextLevel, useDeckPresented, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
 import { useTileArt } from "../../data/tile-art";
+import { useTileRenders } from "../../data/tile-renders";
 import { remainingOf } from "../../data/training-save";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
@@ -60,6 +61,14 @@ export function levelDeck(level: Pick<StoryLevel, "deck" | "placed">): PlanType[
   return [PlanType.RFFFRFCFR, ...(level.placed ?? []).map((tile) => tile.plan), ...level.deck];
 }
 
+const PLAN_IDS = Object.values(PlanType);
+
+/** The points a run scoring `score` was short of its next star, from its result; null at 3 stars. */
+export function pointsToNextStar(result: { stars: number; twoStars: number; target: number }, score: number): number | null {
+  if (result.stars >= 3) return null;
+  return Math.max(0, (result.stars >= 2 ? result.target : result.twoStars) - score);
+}
+
 /** `/story/:campaign/:level`: a level of Story mode, if it exists and is open. */
 export default function Page() {
   const params = useParams();
@@ -84,9 +93,10 @@ export default function Page() {
 }
 
 /**
- * A Story level on the board (#546): its intro first (what it teaches, the stars it asks for), then the board on the level's
- * `StoryRun` with the tip of the control it introduces, then its end (the stars, the score against the target, Replay and
- * Next). The run is played as Training's (lit slots, the bubble, Place, Discard); a finished run is recorded on the device.
+ * A Story level on the board (#546, #593): the presentation of its deck first, the first time this device opens it (the
+ * deck sheet shows it again on request), then the board on the level's `StoryRun` with the tip of the control it
+ * introduces, then its end (the stars filling one by one, the score, the points short of the next star, Replay and Next).
+ * The star thresholds are never shown. The run is played as Training's (lit slots, the bubble, Place, Discard); a finished run is recorded on the device.
  * Tutorial level 1 offers the claim of First Stone (D-21).
  */
 function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: StoryLevel }) {
@@ -98,7 +108,15 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const boardSettings = useBoardSettings(attempt);
   const go = useAppNavigate();
   const onBack = useBack();
-  const [phase, setPhase] = useState<"intro" | "play">("intro");
+  const { presented, markPresented } = useDeckPresented(campaign.id, level.id);
+  const [presenting, setPresenting] = useState(!presented);
+  const phase = presenting ? "intro" : "play";
+  const renders = useTileRenders(RENDERER_ASSETS);
+  const deckIds = useMemo(() => level.deck.map((plan) => PLAN_IDS.indexOf(plan)), [level]);
+  const start = useCallback(() => {
+    markPresented();
+    setPresenting(false);
+  }, [markPresented]);
   const coach = COACH[`${campaign.id}-${level.id}`] ?? null;
   const [coachOn, setCoachOn] = useState(true);
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
@@ -147,11 +165,10 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     run.restart();
     placement.clear();
     setAttempt((n) => n + 1);
-    setPhase("play");
+    setPresenting(false);
   }, [run, placement]);
 
   const result = levelResult(level, run.score);
-  const targets = { target: result.target, twoStars: result.twoStars, bestKnown: result.bestKnown };
   const next = nextLevel(campaign.id, level.id);
   const nextOpen =
     next !== null &&
@@ -162,17 +179,17 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const best = levelProgress(progress, campaign.id, level.id);
 
   let notices;
-  if (phase === "intro") {
+  if (presenting) {
     notices = (
-      <StoryIntro
+      <DeckPresentation
         campaign={campaign.name}
         levelIndex={level.id}
         title={level.title}
         intro={level.intro}
-        tiles={level.deck.length + 1}
+        deck={deckIds}
+        renders={renders}
         best={best && { score: best.best, stars: best.stars }}
-        onStart={() => setPhase("play")}
-        {...targets}
+        onStart={start}
       />
     );
   } else if (over) {
@@ -181,12 +198,13 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         title={level.title}
         score={run.score}
         stars={result.stars}
+        toNextStar={pointsToNextStar(result, run.score)}
+        bestKnown={result.bestKnown}
         previousBest={previousBest}
         beatsTarget={result.beatsTarget && result.bestKnown}
         onReplay={replay}
         onNext={nextOpen && next ? () => go(levelPath(next.campaignId, next.levelIndex)) : undefined}
         onLevels={() => go("/story")}
-        {...targets}
       >
         {campaign.id === 1 && level.id === 1 && <FirstStone />}
       </StoryEnd>
@@ -206,6 +224,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       mode="story"
       title={`${campaign.name} ${level.id}: ${level.title}`}
       deck={levelDeck(level)}
+      onPresentDeck={over ? undefined : () => setPresenting(true)}
       coach={coachTarget}
       tiles={state.tiles}
       score={state.game?.score ?? 0}
