@@ -10,7 +10,6 @@ import { Background } from "../src/components/elements/background";
 import { Countdown, formatRemaining } from "../src/components/elements/countdown";
 import { Score } from "../src/components/elements/score";
 import { StatRow } from "../src/components/elements/stat-row";
-import { TilesLeft } from "../src/components/elements/tiles-left";
 import { AppNav } from "../src/components/containers/app-nav";
 import { formatPoints } from "../src/components/elements/score";
 import { planCode } from "../src/components/elements/tile-chip";
@@ -225,12 +224,43 @@ describe("Board", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it("the hand: the tile and the hint, Discard and Surrender on one row under them", () => {
-    render(wrap(<BoardScene {...BOARD.slotChosen} />));
-    const discard = screen.getByRole("button", { name: /Discard/ });
-    const surrender = screen.getByRole("button", { name: /Surrender/ });
-    expect(discard.parentElement).toBe(surrender.parentElement);
-    expect(screen.getByTestId("hand-hint")).toHaveTextContent("Hold the check on the tile");
+  it("the stack: the tile and the hint, its Discard held while no cell is chosen; then the bubble has Discard (#606)", async () => {
+    const onDiscard = vi.fn();
+    const { unmount } = render(wrap(<BoardScene {...BOARD.placing} onDiscard={onDiscard} />));
+    const stack = screen.getByRole("region", { name: "Your tile" });
+    expect(screen.getByTestId("hand-hint")).toHaveTextContent("Tap a lit slot on the board.");
+    const discard = within(stack).getByRole("button", { name: /^Hold to discard the tile/ });
+    // The score is above 50: a discard costs 50, and its name says so.
+    expect(discard).toHaveAccessibleName("Hold to discard the tile (costs 50 points)");
+    // A tap does not discard; a screen reader's activation does.
+    await userEvent.click(discard);
+    expect(onDiscard).not.toHaveBeenCalled();
+    fireEvent.click(discard);
+    expect(onDiscard).toHaveBeenCalledOnce();
+    // No Surrender on the board: it is in the settings.
+    expect(screen.queryByRole("button", { name: /Surrender/ })).not.toBeInTheDocument();
+    unmount();
+    render(wrap(<BoardScene {...BOARD.slotChosen} bubble={{ ...BOARD.slotChosen.bubble, onDiscard }} />));
+    expect(within(screen.getByRole("region", { name: "Your tile" })).queryByRole("button", { name: /discard/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("hand-hint")).not.toBeInTheDocument();
+    const names = (await screen.findByRole("toolbar", { name: "Tile" })).querySelectorAll("button");
+    expect([...names].map((b) => b.getAttribute("aria-label"))).toEqual(["Cancel placement", "Hold to discard the tile (costs 50 points)", "Rotate tile", "Hold to place the tile"]);
+  });
+
+  it("says when the tile fits nowhere, its Discard still offered", () => {
+    render(wrap(<BoardScene {...BOARD.placing} hand={{ ...BOARD.placing.hand, fitsNowhere: true }} />));
+    expect(screen.getByTestId("stack-discard")).toHaveTextContent("This tile fits nowhere");
+    expect(within(screen.getByTestId("stack-discard")).getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
+  });
+
+  it("the stack: the tiles left on its badge, a tap opens the deck sheet; a read-only board keeps it", async () => {
+    const { unmount } = render(wrap(<BoardScene {...BOARD.placing} />));
+    await userEvent.click(screen.getByRole("button", { name: "Tiles left: 12. Show the deck" }));
+    expect(await screen.findByRole("dialog", { name: "Deck" }, { timeout: 5000 })).toBeInTheDocument();
+    unmount();
+    render(wrap(<BoardScene {...BOARD.placing} readOnly />));
+    expect(screen.queryByRole("region", { name: "Your tile" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Deck" })).getByTestId("tiles-left")).toHaveTextContent("12");
   });
 
   it("shows the closing points of the last move", () => {
@@ -240,45 +270,68 @@ describe("Board", () => {
     expect(screen.getByText("+370")).toBeInTheDocument();
   });
 
-  it("locks the hand while a move is pending, and the bubble's Validate spins", async () => {
-    const { unmount } = render(wrap(<BoardScene {...BOARD.slotChosen} bubble={{ ...BOARD.slotChosen.bubble, busy: true }} />));
+  it("locks the hand while a move is pending, and the bubble's Validate and Discard wait", async () => {
+    const { unmount } = render(wrap(<BoardScene {...BOARD.slotChosen} bubble={{ ...BOARD.slotChosen.bubble, onDiscard: vi.fn(), busy: true }} />));
     expect(await screen.findByRole("button", { name: "Hold to place the tile" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: /^Hold to discard/ })).toBeDisabled();
     unmount();
     render(wrap(<BoardScene {...BOARD.pending} />));
     expect(screen.getByTestId("hand-hint")).toHaveTextContent("Placing…");
-    expect(screen.getByRole("button", { name: /Discard/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Surrender/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /discard/i })).not.toBeInTheDocument();
   });
 
-  it("says why a move was refused and lets the player try again", () => {
-    render(wrap(<BoardScene {...BOARD.refused} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Move refused");
-    expect(screen.getByRole("button", { name: /Discard/ })).toBeEnabled();
+  it("says why a move was refused, in a banner above the stack, and lets the player try again", () => {
+    render(wrap(<BoardScene {...BOARD.refused} hand={{ ...BOARD.refused.hand, slotChosen: false }} />));
+    expect(within(screen.getByRole("region", { name: "Your tile" })).getByRole("alert")).toHaveTextContent("Move refused");
+    expect(screen.getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
   });
 
-  it("asks to surrender an expired game and allows nothing else", async () => {
+  it("asks to surrender an expired game from its banner and allows nothing else", async () => {
     const onSurrender = vi.fn();
     render(wrap(<BoardScene {...BOARD.expired} onSurrender={onSurrender} />));
     expect(screen.getByRole("timer", { name: "Expired" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Discard/ })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: /Surrender/ }));
+    expect(screen.queryByRole("button", { name: /discard/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Game expired");
+    await userEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: /Surrender/ }));
     expect(onSurrender).not.toHaveBeenCalled();
     await userEvent.click(within(await screen.findByRole("dialog", { name: "Surrender this game?" })).getByRole("button", { name: "Surrender" }));
     expect(onSurrender).toHaveBeenCalledOnce();
   });
 
-  it("asks before a surrender; Esc and Keep playing close the dialog without surrendering (P3)", async () => {
+  it("asks before a surrender, from the settings (#606); Esc and Keep playing close the dialog without surrendering (P3)", async () => {
     const onSurrender = vi.fn();
     render(wrap(<BoardScene {...BOARD.placing} onSurrender={onSurrender} />));
-    const surrender = screen.getByRole("button", { name: /Surrender/ });
-    await userEvent.click(surrender);
+    const surrender = async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      await userEvent.click(within(await screen.findByRole("dialog", { name: "Settings" }, { timeout: 5000 })).getByRole("button", { name: /^Surrender/ }));
+    };
+    await surrender();
     expect(await screen.findByRole("dialog", { name: "Surrender this game?" })).toHaveTextContent(pts(BOARD.placing.score));
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    await userEvent.click(surrender);
+    await surrender();
     await userEvent.click(await screen.findByRole("button", { name: "Keep playing" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(onSurrender).not.toHaveBeenCalled();
+    await surrender();
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Surrender this game?" })).getByRole("button", { name: "Surrender" }));
+    expect(onSurrender).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["training", "Restart", "Restart this game?"],
+    ["story", "Restart level", "Restart this level?"],
+  ] as const)("%s: Restart in the settings, confirmed first; no Surrender", async (mode, row, title) => {
+    const onRestart = vi.fn();
+    render(wrap(<BoardScene {...BOARD.storageDisabled} mode={mode} onRestart={onRestart} />));
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: 5000 });
+    expect(within(sheet).queryByRole("button", { name: /Surrender/ })).not.toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: new RegExp(`^${row}`) }));
+    const dialog = await screen.findByRole("dialog", { name: title });
+    expect(onRestart).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Restart" }));
+    expect(onRestart).toHaveBeenCalledOnce();
   });
 
   it("warns when the last save was dropped, and plays on the plan view's slots", async () => {
@@ -463,16 +516,11 @@ describe("no wiring (SC1, SC2)", () => {
 
 describe("Element feedback (EL)", () => {
   it("puts the icon on the value's row, under the title", () => {
-    const { container, unmount } = render(<Score value={1270} label="Score" icon="star" />);
+    const { container } = render(<Score value={1270} label="Score" icon="star" />);
     const value = screen.getByTestId("score-value");
     const icon = container.querySelector("[data-icon='star']")!;
     expect(value.parentElement).toBe(icon.parentElement!.parentElement);
     expect(screen.getByText("Score").parentElement).not.toBe(value.parentElement);
-    unmount();
-    const tiles = render(<TilesLeft remaining={12} />);
-    const left = screen.getByTestId("tiles-left");
-    expect(tiles.container.querySelector("[data-icon='table-cells-large']")!.parentElement!.parentElement).toBe(left.parentElement);
-    expect(tiles.container).not.toHaveTextContent(/discard/i);
   });
 
   it("keeps a stat row's hint under its label, the icon and the value on the first row", () => {

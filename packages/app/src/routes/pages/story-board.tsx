@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import {
   CAMPAIGNS,
+  DISCARD_POINTS,
   PlanType,
   campaignUnlocked,
   levelProgress,
@@ -38,17 +39,18 @@ provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
 /**
  * The coach marks of the levels that introduce a control (#546): the tip names the control, the board rings it. The
- * placement's ring ("place") is on the bubble's Validate, on the tile (#568); the rotate and cancel tip has no ring. Keyed by
+ * placement's ring ("place") is on the bubble's Validate, on the tile (#568); the discard's on the trash, the tile stack's or,
+ * with the tile on a cell, the bubble's (#606); the deck's on the tile stack; the rotate and cancel tip has no ring. Keyed by
  * `campaign-level`.
  */
 export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: string }>> = {
   "1-1": { target: "place", tip: "Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." },
   "1-2": { target: null, tip: "Tap a cell: the bubble on the tile turns it, or its cross takes it back. Then hold the check to place it." },
-  "1-3": { target: "discard", tip: "This tile only gets in the way: Discard it. At 0 points a discard is free." },
-  "1-4": { target: "discard", tip: "With points on the board, Discard takes 50 of them. Count what the next tile is worth first." },
-  "1-5": { target: "deck", tip: "Tap Tiles left: the deck sheet shows every tile this level deals, and the ones already played." },
+  "1-3": { target: "discard", tip: "This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." },
+  "1-4": { target: "discard", tip: "With points on the board, a discard takes 50 of them. Count what the next tile is worth first." },
+  "1-5": { target: "deck", tip: "Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." },
   "1-6": { target: "wheel", tip: "The season wheel turns the board through the seasons. Tap it to step on; the score does not change." },
-  "1-7": { target: "settings", tip: "The gear opens the settings (sound, the placement highlight) without leaving the level." },
+  "1-7": { target: "settings", tip: "The gear opens the settings (sound, the placement highlight, Restart level) without leaving the level." },
   "2-1": { target: "deck", tip: "Longer levels: the deck sheet lists the whole deck of this level. Plan with it." },
 };
 
@@ -217,7 +219,18 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const coachTarget = phase === "play" && !over && coachOn ? (coach?.target ?? null) : null;
   const bubble =
     placement.chosen && phase === "play"
-      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, coach: coachTarget === "place" }
+      ? {
+          cell: placement.chosen,
+          rotations: placement.rotations.length,
+          onRotate: placement.rotate,
+          onClose: placement.clear,
+          onDiscard: discard,
+          discardCost: Math.min(run.score, DISCARD_POINTS),
+          orientation,
+          onConfirm: confirm,
+          canConfirm: placement.canConfirm && preview !== null,
+          coach: coachTarget === "place" || coachTarget === "discard" ? coachTarget : false,
+        }
       : null;
   return (
     <BoardScene
@@ -232,9 +245,20 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       remaining={state.game ? remainingOf(state.game) : 0}
       discardedPlans={state.discardedPlans}
       now={0}
-      hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: placement.canConfirm && preview !== null, preview, error: state.writeError, errorDetail: handErrorDetail }}
+      hand={{
+        tile: hand && { plan: hand.plan, orientation },
+        state: handState,
+        slotChosen: placement.canConfirm && preview !== null,
+        cellChosen: placement.chosen !== null,
+        fitsNowhere: hand !== null && phase === "play" && slots?.length === 0,
+        preview,
+        error: state.writeError,
+        errorDetail: handErrorDetail,
+      }}
       lastScored={state.lastScored}
       tileArt={tileArt}
+      tileRenders={renders}
+      skins={skins}
       renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
       storageDisabled={!saved}
       slots={phase === "play" ? slots : undefined}
@@ -268,6 +292,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       }
       onBack={onBack}
       onDiscard={discard}
+      onRestart={replay}
     />
   );
 }

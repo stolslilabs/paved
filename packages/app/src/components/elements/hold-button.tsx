@@ -2,17 +2,26 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Mous
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { haptic } from "../../lib/haptics";
 
 /** How long the button is held to act, ms (PLACE-POLISH, issue 568: about 0.8 s, the usual hold of a sensitive action). */
 export const HOLD_MS = 800;
 /** The ring rewinds this fast when the hold is let go before the end, ms. */
 const REWIND_MS = 150;
-/** The buzz at completion, ms, where the device has one (`navigator.vibrate`). */
-const VIBRATE_MS = 30;
-
 /** The ring: a circle in the button's 44 px box, drawn from the top, clockwise. */
 const RING_R = 19;
 const RING_C = 2 * Math.PI * RING_R;
+
+/**
+ * The button's colours (#606): `primary`, the yellow button with a grey progress ring (Validate); `destructive`, the colours
+ * inverted, a grey circle with a red progress ring (Discard).
+ */
+export type HoldTone = "primary" | "destructive";
+
+const TONE: Record<HoldTone, { variant: "default" | "secondary"; progress: string }> = {
+  primary: { variant: "default", progress: "stroke-current" },
+  destructive: { variant: "secondary", progress: "stroke-destructive" },
+};
 
 /** idle: not held; holding: the ring fills; done: the hold completed, the ring full until the button is let go. */
 export type HoldState = "idle" | "holding" | "done";
@@ -35,25 +44,18 @@ export interface HoldButtonProps {
    * rewinds, so a completed hold always acts on what was shown for its whole length.
    */
   holdKey?: string | number;
+  tone?: HoldTone;
   className?: string;
 }
 
-const vibrate = () => {
-  try {
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(VIBRATE_MS);
-  } catch {
-    // A browser that refuses it (no user gesture, a policy): no buzz.
-  }
-};
-
 /**
  * A button that acts only when held (PLACE-POLISH, issue 568): a ring fills around its icon over `holdMs`; letting go, or the
- * pointer leaving it, before the end cancels and the ring rewinds. Completion acts once, with a buzz where the device has
- * one. The same with the mouse, a finger (no callout, no selection, no gesture of the board under it) or the keyboard
+ * pointer leaving it, before the end cancels and the ring rewinds. A light tick when the hold starts, a firmer one when it
+ * completes and acts, once (`haptic`, where the device has haptics). The same with the mouse, a finger (no callout, no selection, no gesture of the board under it) or the keyboard
  * (hold Enter or Space). An activation with no press before it, as a screen reader's double tap sends, acts at once: the
  * hold guards a slip of the finger, which that activation is not.
  */
-export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, className }: HoldButtonProps) {
+export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", className }: HoldButtonProps) {
   const [state, setState] = useState<HoldState>("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A press (pointer or key) began: the click that follows it is not an activation of its own.
@@ -68,13 +70,14 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
     timer.current = null;
   }, []);
   const complete = useCallback(() => {
-    vibrate();
+    haptic("firm");
     action.current();
   }, []);
   const start = useCallback(() => {
     if (off) return;
     stop();
     pressed.current = true;
+    haptic("light");
     setState("holding");
     timer.current = setTimeout(() => {
       timer.current = null;
@@ -138,6 +141,8 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
   return (
     <Button
       size="icon"
+      variant={TONE[tone].variant}
+      data-tone={tone}
       aria-label={label}
       title={title}
       data-state={state}
@@ -163,7 +168,7 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
           cy="22"
           r={RING_R}
           fill="none"
-          stroke="currentColor"
+          className={TONE[tone].progress}
           strokeWidth={3}
           strokeLinecap="round"
           strokeDasharray={RING_C}

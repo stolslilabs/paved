@@ -86,6 +86,7 @@ export {
   DECKS as ENGINE_DECKS,
   gameStats,
   SCORING_CATEGORIES,
+  DISCARD_POINTS,
 } from "./engine";
 export type {
   EngineConfig,

@@ -11,6 +11,8 @@
  *
  * - each plan in each theme the manifest lists, plus theme 0 (the base models), as a `TILE` x `TILE` WebP, the theme's first
  *   variant standing for its others: `public/renderer-assets/renders/<plan>.<theme>.<hash>.webp`;
+ * - the same plans seen from straight above, north up, `TOP` x `TOP`, for the deck sheet (#606), which turns them as tile
+ *   chips: `renders/<plan>-top.<theme>.<hash>.webp`;
  * - each theme's cover, a few tiles side by side for its card, `COVER_W` x `COVER_H`: `renders/cover.<theme>.<hash>.webp`;
  * - `renders/sources.json`: the script's `VERSION` and, per render, the hashed model files it drew.
  *
@@ -35,9 +37,11 @@ const OUT = outAt > 0 ? resolve(process.argv[outAt + 1]!) : join(APP, "public/re
 const SOURCES = join(OUT, "sources.json");
 
 /** Raise when the camera, the sizes, the cover's tiles or the look of the page change: `--check` then asks for a new run. */
-const VERSION = 1;
+const VERSION = 2;
 /** A plan's render, square: three to a 375 px row at DPR 3 (about 105 CSS px a cell). */
 const TILE = 320;
+/** A plan's top-down render, square: the deck sheet's 40 px chip at DPR 3 (`deck-sheet.tsx`). */
+const TOP = 120;
 /** A theme's cover, 2:1, as its card. */
 const COVER_W = 720;
 const COVER_H = 360;
@@ -55,9 +59,11 @@ const COVER = [
 /** The zooms that frame one tile and the cover at the page's fixed distance. */
 const TILE_ZOOM = 7.8;
 const COVER_ZOOM = 3.6;
+/** The zoom that fills the top-down square with the tile, its edge just inside. */
+const TOP_ZOOM = 12;
 
-/** A render's name: a plan key or `cover`, the theme id, then the hash. */
-export const RENDER = /^([a-z]{9}|cover)\.(\d+)\.([0-9a-f]{10})\.webp$/;
+/** A render's name: a plan key (`-top` for the top-down one) or `cover`, the theme id, then the hash. */
+export const RENDER = /^([a-z]{9}(?:-top)?|cover)\.(\d+)\.([0-9a-f]{10})\.webp$/;
 
 interface Sources {
   version: number;
@@ -73,11 +79,11 @@ async function currentModels(): Promise<{ models: Record<string, string>; themes
   return rendererManifest();
 }
 
-/** The renders a run writes: theme 0 and each theme of the manifest, each with its 19 plans and its cover. */
+/** The renders a run writes: theme 0 and each theme of the manifest, each with its 19 plans, their top-down renders and its cover. */
 function expected(models: Record<string, string>, themes: Record<string, Record<string, string[]>>): Array<{ theme: number; name: string }> {
   const ids = [0, ...Object.keys(themes).map(Number)].sort((a, b) => a - b);
   const keys = Object.keys(models).sort();
-  return ids.flatMap((theme) => [...keys, "cover"].map((name) => ({ theme, name })));
+  return ids.flatMap((theme) => [...keys, ...keys.map((key) => `${key}-top`), "cover"].map((name) => ({ theme, name })));
 }
 
 async function check(): Promise<void> {
@@ -143,10 +149,13 @@ async function run(): Promise<void> {
     mkdirSync(OUT, { recursive: true });
     for (const name of readdirSync(OUT)) unlinkSync(join(OUT, name));
     for (const { theme, name } of expected(models, themes)) {
+      const top = name.endsWith("-top");
       const spec =
         name === "cover"
           ? { theme, tiles: COVER, width: COVER_W, height: COVER_H, zoom: COVER_ZOOM }
-          : { theme, tiles: [{ key: name, dx: 0, dy: 0, orientation: 1 }], width: TILE, height: TILE, zoom: TILE_ZOOM };
+          : top
+            ? { theme, tiles: [{ key: name.slice(0, -"-top".length), dx: 0, dy: 0, orientation: 1 }], width: TOP, height: TOP, zoom: TOP_ZOOM, top: true }
+            : { theme, tiles: [{ key: name, dx: 0, dy: 0, orientation: 1 }], width: TILE, height: TILE, zoom: TILE_ZOOM };
       const out = await page.evaluate(
         (s) => (window as unknown as { paved: { render(s: unknown): Promise<{ webp: string; models: string[] }> } }).paved.render(s),
         spec,
