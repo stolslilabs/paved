@@ -26,6 +26,16 @@ export interface BoardMapProps {
   highlight?: boolean;
   /** The faint cell outlines around the tiles by ring (SLOTS' grid): off by default, as the board's (PLATES). */
   grid?: boolean;
+  /**
+   * A PvP territory (#647): the defender's owned cells, drawn as ground under the tiles, the only cells an attack places on.
+   * The map frames them too, so an attack's first tiles sit in the whole territory.
+   */
+  territory?: readonly { x: number; y: number }[];
+  /**
+   * The map sized to its own box (a size container), not to the viewport: for a board that shares the screen with a panel of
+   * any height (the PvP scout's card), so no tile ever runs under it.
+   */
+  fit?: boolean;
   className?: string;
 }
 
@@ -81,12 +91,13 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
  * it where the 3D canvas is not given or cannot start: in the render tests (jsdom has no WebGL), without WebGL, and as
  * a plan view. With `slots` it is playable: each legal slot is a button on its plate, the ghost shows the tile in hand.
  */
-export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highlight = true, grid: showGrid = false, className }: BoardMapProps) {
+export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highlight = true, grid: showGrid = false, territory, fit = false, className }: BoardMapProps) {
   const slotList = slots ?? [];
   if (tiles.length === 0) return null;
   const plates = highlight ? boardPlates(tiles, slots) : [];
   const invalid = plates.filter((p) => p.state === "invalid");
-  const cells = [...tiles, ...slotList, ...invalid];
+  const ground = territory ?? [];
+  const cells = [...tiles, ...slotList, ...invalid, ...ground];
   const xs = cells.map((t) => t.x);
   const ys = cells.map((t) => t.y);
   // The grid's rings around the tiles widen the map (drawn or not, the map keeps its frame).
@@ -95,7 +106,7 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
   const cols = Math.max(...xs) + MAP_RINGS - minX + 1;
   const rows = maxY - (Math.min(...ys) - MAP_RINGS) + 1;
   // The empty cells within the rings, each with its ring (Chebyshev, as the board's grid): faint outlines.
-  const taken = new Set(cells.map((c) => `${c.x},${c.y}`));
+  const taken = new Set([...tiles, ...slotList, ...invalid].map((c) => `${c.x},${c.y}`));
   const grid: { x: number; y: number; ring: number }[] = [];
   if (showGrid) {
     for (let x = minX; x < minX + cols; x++) {
@@ -109,14 +120,22 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
   const stateOf = new Map(plates.map((p) => [`${p.x},${p.y}`, p.state]));
   const at = (x: number, y: number) => ({ gridColumn: x - minX + 1, gridRow: maxY - y + 1 });
   return (
-    <div className={cn("absolute inset-0 grid place-items-center overflow-hidden bg-board p-6", className)}>
+    <div className={cn("absolute inset-0 grid place-items-center overflow-hidden bg-board p-6", className)} style={fit ? { containerType: "size" } : undefined}>
       <div
         // A picture, unless its slots make it a set of controls.
         role={slotList.length ? "group" : "img"}
-        aria-label={`Board of ${tiles.length} tiles`}
+        aria-label={`Board of ${tiles.length} tiles${territory ? ` in a territory of ${territory.length} cells` : ""}`}
         className="grid aspect-square w-full max-w-[min(90vw,70vh)] gap-px"
-        style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)`, aspectRatio: `${cols} / ${rows}` }}
+        style={{
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
+          aspectRatio: `${cols} / ${rows}`,
+          ...(fit ? { width: `min(100cqw, 100cqh * ${cols} / ${rows})`, maxWidth: "none" } : {}),
+        }}
       >
+        {ground.map((c) => (
+          <span key={`t${c.x},${c.y}`} aria-hidden data-territory style={at(c.x, c.y)} className="block min-h-0 min-w-0 rounded-[2px] border border-dashed border-input bg-secondary/60" />
+        ))}
         {grid.map((c) => (
           <span
             key={`g${c.x},${c.y}`}

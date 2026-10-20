@@ -244,6 +244,38 @@
   --resource-glint: rgb(255 255 255 / 0.14);
 }
 
+/* 3d. The PvP flow (#647): the search's clouds over their sky, the crowns, and each league's crest (a proposal until #644
+   names the leagues). The crests are told apart by their names too, never by colour alone. */
+:root {
+  --cloud: var(--color-charcoal-50);
+  --cloud-shade: var(--color-charcoal-300);
+  --sky-search-top: var(--color-river-900);
+  --sky-search-bottom: var(--color-river-500);
+  --crown: var(--color-gold-300);
+  --league-bronze: var(--color-amber-500);
+  --league-silver: var(--color-charcoal-300);
+  --league-gold: var(--color-gold-400);
+  --league-crystal: var(--color-river-300);
+  --league-master: var(--color-ember-400);
+  --league-champion: var(--color-meadow-400);
+  --league-legend: var(--color-gold-100);
+}
+
+@theme inline {
+  --color-cloud: var(--cloud);
+  --color-cloud-shade: var(--cloud-shade);
+  --color-sky-search-top: var(--sky-search-top);
+  --color-sky-search-bottom: var(--sky-search-bottom);
+  --color-crown: var(--crown);
+  --color-league-bronze: var(--league-bronze);
+  --color-league-silver: var(--league-silver);
+  --color-league-gold: var(--league-gold);
+  --color-league-crystal: var(--league-crystal);
+  --color-league-master: var(--league-master);
+  --color-league-champion: var(--league-champion);
+  --color-league-legend: var(--league-legend);
+}
+
 /* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
 @theme inline {
   --color-background: var(--background);
