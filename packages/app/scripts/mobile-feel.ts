@@ -83,6 +83,79 @@ async function main(): Promise<void> {
     await pinch(cdp, cx, cy, 2.5);
     check("chrome: a pinch does not zoom", (await scale(page)) === 1, `scale ${await scale(page)}`);
 
+    // FOOTER-FIXED (#611): the document never scrolls or bounces; the page scrolls in its own region and the navigation
+    // stays at the viewport's bottom through a scroll.
+    const nav = page.getByRole("navigation", { name: "Main" });
+    const navTop = async () => (await nav.boundingBox())!.y;
+    const docStyles = await page.evaluate(() => ({
+      html: getComputedStyle(document.documentElement).overscrollBehaviorY,
+      body: getComputedStyle(document.body).overscrollBehaviorY,
+      region: getComputedStyle(document.querySelector("[data-slot=page-scroll]")!).overscrollBehaviorY,
+    }));
+    check("tab page: html and body take no overscroll, the region contains its own", docStyles.html === "none" && docStyles.body === "none" && docStyles.region === "contain", JSON.stringify(docStyles));
+    const viewportHeight = page.viewportSize()!.height;
+    const navBox = (await nav.boundingBox())!;
+    check("tab page: the navigation sits at the viewport's bottom", Math.abs(navBox.y + navBox.height - viewportHeight) < 1, `${navBox.y + navBox.height} vs ${viewportHeight}`);
+    const navBefore = await navTop();
+    await page.mouse.wheel(0, 2000);
+    await page.waitForTimeout(300);
+    const docScroll = await page.evaluate(() => document.scrollingElement!.scrollTop);
+    check("tab page: the document does not scroll", docScroll === 0, `scrollTop ${docScroll}`);
+    check("tab page: the navigation does not move on a scroll", (await navTop()) === navBefore, `${await navTop()} vs ${navBefore}`);
+    const navPosition = await nav.evaluate((el) => getComputedStyle(el).position);
+    check("tab page: the navigation is position fixed", navPosition === "fixed", navPosition);
+    // Back brings the page back where it was left (the region keeps its offset per history entry).
+    const region = page.locator("[data-slot=page-scroll]");
+    const left = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /Credits/ }).click();
+    await page.waitForURL(/credits/);
+    await page.goBack();
+    await page.getByRole("button", { name: /Credits/ }).waitFor();
+    await page.waitForTimeout(500);
+    const back = await region.evaluate((el) => el.scrollTop);
+    check("tab page: Back restores the page's scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
+    await region.evaluate((el) => (el.scrollTop = 0));
+    await page.waitForTimeout(300);
+    // The same page kept mounted across entries: Settings picked again opens a new entry at the top, and Back returns to the
+    // first entry's offset, the top included.
+    const settingsTab = nav.getByRole("button", { name: "Settings" });
+    await settingsTab.click();
+    await page.waitForTimeout(300);
+    await region.evaluate((el) => (el.scrollTop = 500));
+    await page.waitForTimeout(300);
+    await page.goBack();
+    await page.waitForTimeout(500);
+    const backToTop = await region.evaluate((el) => el.scrollTop);
+    check("tab page: Back to an entry left at the top returns to the top", backToTop === 0, `scrollTop ${backToTop}`);
+    await region.evaluate((el) => (el.scrollTop = 500));
+    await page.waitForTimeout(300);
+    await settingsTab.click();
+    await page.waitForTimeout(500);
+    const newEntry = await region.evaluate((el) => el.scrollTop);
+    check("tab page: the current tab picked again opens a new entry at the top", newEntry === 0, `scrollTop ${newEntry}`);
+    // A fresh document (a typed URL) opens at the top: its first entry never takes another page's offset.
+    await region.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await page.waitForTimeout(300);
+    for (const path of ["/vault", "/settings"]) {
+      await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
+      await region.waitFor();
+      await page.waitForTimeout(500);
+      const fresh = await region.evaluate((el) => el.scrollTop);
+      check(`tab page: a fresh load of ${path} opens at the top`, fresh === 0, `scrollTop ${fresh}`);
+    }
+    // The first entry of that fresh document keeps its offset across a reload of a later entry.
+    const kept = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /Credits/ }).click();
+    await page.waitForURL(/credits/);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.goBack();
+    await page.getByRole("button", { name: /Credits/ }).waitFor();
+    await page.waitForTimeout(500);
+    const afterReload = await region.evaluate((el) => el.scrollTop);
+    check("tab page: Back after a reload of the next page restores the first entry's offset", kept > 0 && Math.abs(afterReload - kept) < 2, `left at ${kept}, back at ${afterReload}`);
+
     // iOS Safari ignores the meta: its pinch is the page's `gesturestart` and `gesturechange`, which must be cancelled.
     const cancelled = await page.evaluate(() =>
       ["gesturestart", "gesturechange"].map((type) => {
@@ -99,7 +172,7 @@ async function main(): Promise<void> {
     await canvas.waitFor({ timeout: 60_000 });
     await page.waitForTimeout(4000);
     check("board: the canvas is touch-action none", (await canvas.evaluate((el) => getComputedStyle(el).touchAction)) === "none");
-    check("board: the page does not scroll or bounce (html[data-board])", await page.evaluate(() => "board" in document.documentElement.dataset));
+    check("board: the page does not scroll or bounce (overscroll-behavior none)", await page.evaluate(() => getComputedStyle(document.documentElement).overscrollBehaviorY === "none"));
     const cb = (await canvas.boundingBox())!;
     const bx = cb.x + cb.width / 2;
     const by = cb.y + cb.height / 2;

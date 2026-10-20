@@ -166,7 +166,7 @@ function SaveBar({ changes, save, onSave, onDiscard }: { changes: number; save: 
     <div
       aria-label="Unsaved changes"
       role="region"
-      className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-card p-3 shadow-lg desktop:bottom-4"
+      className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-card p-3 shadow-lg"
     >
       <span className="text-sm">
         <span className="numeric font-semibold">{changes}</span> {changes === 1 ? "change" : "changes"} to save

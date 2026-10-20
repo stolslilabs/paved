@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AppNav } from "../src/components/containers/app-nav";
+import { TabFrame } from "../src/components/containers/tab-frame";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "../src/components/ui/dropdown-menu";
 import { ScrollArea } from "../src/components/ui/scroll-area";
 import { ScrollRegion } from "../src/components/ui/scroll-region";
@@ -61,7 +61,8 @@ describe("the scrollable regions", () => {
     const root = resolve("src");
     const files = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(resolve(dir, e.name)) : /\.tsx?$/.test(e.name) ? [resolve(dir, e.name)] : []));
-    const allowed = new Set(["components/ui/scroll-region.tsx"]);
+    // The tab page's region is the page's document (#611): the page's hint, not the mask (`TabFrame`).
+    const allowed = new Set(["components/ui/scroll-region.tsx", "components/containers/tab-frame.tsx"]);
     const offenders = files(root)
       .map((f) => relative(root, f))
       // Storybook's own tools (renderer benches, lighting) are not the app's screens.
@@ -72,15 +73,15 @@ describe("the scrollable regions", () => {
 });
 
 describe("the page's hint", () => {
-  it("comes with AppNav, which every tab page renders, Home included (not only TabPage)", () => {
+  it("comes with TabFrame, which every tab page renders, Home included (not only TabPage), from its scrolling region", () => {
     for (const f of ["src/components/scenes/home-scene.tsx", "src/components/containers/tab-page.tsx"]) {
-      expect(readFileSync(f, "utf8"), f).toContain("<AppNav");
+      expect(readFileSync(f, "utf8"), f).toContain("<TabFrame");
     }
     const root = document.documentElement;
-    const height = vi.spyOn(root, "scrollHeight", "get").mockReturnValue(window.innerHeight + 400);
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(400);
     const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => (cb(0), 1));
     try {
-      const { container, unmount } = render(<AppNav active="home" />);
+      const { container, unmount } = render(<TabFrame tab="home"><p>Body</p></TabFrame>);
       expect(root).toHaveAttribute("data-scroll-end");
       // Two fades: above the bar below `desktop`, at the viewport's foot from it (outside the bar's backdrop filter).
       expect(container.querySelectorAll("[data-slot=page-scroll-hint]")).toHaveLength(2);

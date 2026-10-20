@@ -3,6 +3,7 @@ import { fn } from "storybook/test";
 import { TabPage } from "./tab-page";
 import { BIG_AMOUNT_18, LONG_LABEL, LONG_SENTENCE } from "../../mocks/stress";
 import { Amount } from "../elements/amount";
+import { VIEWPORT_OPTIONS } from "../scenes/viewports";
 
 const meta = {
   title: "Containers/TabPage",
@@ -32,3 +33,27 @@ export const Stress: Story = {
     end: <Amount value={BIG_AMOUNT_18} token="paved" className="text-sm" />,
   },
 };
+
+/** An iPhone's viewport (375 x 812), for the stories of the frame (#611). */
+const PHONE = { viewport: { options: { ...VIEWPORT_OPTIONS, phone: { name: "iPhone 375", styles: { width: "375px", height: "812px" }, type: "mobile" } } } };
+
+/**
+ * FOOTER-FIXED (#611): a page taller than the viewport, at 375 px. The page scrolls in its own region between the top and
+ * the navigation, and the navigation stays fixed to the bottom: a pull past the top or the bottom bounces the region only.
+ */
+export const LongPage: Story = {
+  parameters: PHONE,
+  globals: { viewport: { value: "phone", isRotated: false } },
+  args: {
+    tab: "quests",
+    title: "Missions",
+    children: Array.from({ length: 12 }, (_, i) => (
+      <div key={i} data-slot="card" className="flex h-24 shrink-0 items-center rounded-xl border border-border bg-card px-4 text-sm">
+        Card {i + 1}
+      </div>
+    )),
+  },
+};
+
+/** A page shorter than the viewport, at 375 px: the navigation still sits at the bottom, nothing scrolls. */
+export const ShortPage: Story = { parameters: PHONE, globals: { viewport: { value: "phone", isRotated: false } } };
