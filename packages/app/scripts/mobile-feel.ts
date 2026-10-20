@@ -144,6 +144,17 @@ async function main(): Promise<void> {
       const fresh = await region.evaluate((el) => el.scrollTop);
       check(`tab page: a fresh load of ${path} opens at the top`, fresh === 0, `scrollTop ${fresh}`);
     }
+    // The first entry of that fresh document keeps its offset across a reload of a later entry.
+    const kept = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /Credits/ }).click();
+    await page.waitForURL(/credits/);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.goBack();
+    await page.getByRole("button", { name: /Credits/ }).waitFor();
+    await page.waitForTimeout(500);
+    const afterReload = await region.evaluate((el) => el.scrollTop);
+    check("tab page: Back after a reload of the next page restores the first entry's offset", kept > 0 && Math.abs(afterReload - kept) < 2, `left at ${kept}, back at ${afterReload}`);
 
     // iOS Safari ignores the meta: its pinch is the page's `gesturestart` and `gesturechange`, which must be cancelled.
     const cancelled = await page.evaluate(() =>
