@@ -44,7 +44,7 @@ export function RootLayout() {
     // The audio engine is its own chunk and starts on the first gesture; the provider carries the two volumes, and a pause or a
     // resume of the music player (the settings, the lock screen) comes back as the music volume.
     <AudioProvider musicVolume={musicVolume} musicBefore={musicBefore} sfxVolume={sfxVolume} onMusicVolumeChange={setMusicVolume}>
-      {/* The "Mock data" mark of the headers of the pages the mock serves (MOCK-FIRST). */}
+      {/* The "Mock" mark of the headers of the pages the mock serves (MOCK-FIRST). */}
       <MockMarkProvider value={MOCKED && page !== null && MOCKED_PAGES.has(page.path)}>
         <HistoryTracker>
           <StaleChunkGate />

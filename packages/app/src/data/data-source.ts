@@ -1,5 +1,5 @@
 // Where the reads the deployed classes lack are served from (#549, MOCK-FIRST): the one switch of the mock layer
-// (`data/mock/`). No chain code here: the first bundle reads it (the shell's "Mock data" mark).
+// (`data/mock/`). No chain code here: the first bundle reads it (the shell's "Mock" mark).
 
 /**
  * `chain`: every read and write goes to the chain and the indexer (`@paved/chain`'s views and writers). `mock`: the reads
@@ -32,7 +32,7 @@ export const DATA_SOURCE: DataSourceName = dataSourceOf({
   network: import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : ""),
 });
 
-/** The mock serves part of this build's data: the pages show the "Mock data" mark. */
+/** The mock serves part of this build's data: the pages show the "Mock" mark. */
 export const MOCKED = DATA_SOURCE === "mock";
 
 /**

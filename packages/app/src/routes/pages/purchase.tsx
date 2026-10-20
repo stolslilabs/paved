@@ -281,7 +281,7 @@ function PurchaseStatus({ error, detail, onBack, onRetry }: { error: string | nu
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Challenge" onBack={onBack} />
-      <main aria-busy={error === null} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 tablet:max-w-2xl">
+      <main aria-busy={error === null} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 tablet:max-w-2xl">
         {error === null ? (
           <Notice title="Reading the price…">The stake's price, its split and your balance.</Notice>
         ) : (

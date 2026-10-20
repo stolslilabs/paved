@@ -38,7 +38,7 @@ export function RouteError() {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Something broke" />
-      <main data-testid="route-error" className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 tablet:max-w-2xl">
+      <main data-testid="route-error" className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 tablet:max-w-2xl">
         <InlineError title="This page could not be shown" message={describe(error)} detail={errorDetail(error)} />
         {chunk && <Button onClick={() => window.location.reload()}>Reload</Button>}
         <Button variant={chunk ? "outline" : undefined} onClick={() => go("/", { replace: true })}>
