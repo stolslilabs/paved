@@ -78,6 +78,7 @@ pub mod components {
 }
 
 pub mod systems {
+    pub mod avatar;
     pub mod challenge;
     pub mod collection;
     pub mod economy;
@@ -113,6 +114,7 @@ pub mod mocks {
 
 #[cfg(test)]
 pub mod tests {
+    pub mod avatar;
     pub mod collection;
     pub mod deck_walk;
     pub mod differential;

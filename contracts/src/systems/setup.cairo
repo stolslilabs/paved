@@ -29,6 +29,10 @@
 //! Since cobbles v1, part 3 (`cobbles-v1.md`, 5) cobbles are spent here, and only here: the owner
 //! prices the skin of a tile plan in a theme, the player buys it for itself (`buy_skin`), once, and
 //! sets which owned skin is active for each of the 19 plans (`set_skins`, one write).
+//!
+//! Since the avatar on chain (#627, `docs/architecture/avatar-chain.md`) the `Avatar` system spends
+//! cobbles too, on avatar items, through `spend_cobbles`: an allowlisted reporter (as `Story` for its
+//! stars), which debits the player's balance here, on the one ledger.
 
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
@@ -648,6 +652,22 @@ pub trait ISetupStory<TContractState> {
     ) -> u32;
 }
 
+/// The kinds of a spend (`CobblesSpent.kind`): an avatar item, `id` `(category << 8) | item id`.
+pub const SPEND_AVATAR: u8 = 1;
+
+/// The avatar on chain (#627, `docs/architecture/avatar-chain.md`): the cobbles the `Avatar`
+/// system spends, debited from this ledger for an allowlisted reporter (`set_reporter`), as
+/// `credit_story` credits them for `Story`.
+#[starknet::interface]
+pub trait ISetupSpend<TContractState> {
+    /// Debits `cobbles` (not 0) from `player_id`'s balance, an allowlisted reporter only
+    /// (`'Quest: not reporter'`); it trusts the reporter for whom (`Avatar` spends for its caller
+    /// only). Reverts on a short balance. Emits `CobblesSpent`; returns the balance after it.
+    fn spend_cobbles(
+        ref self: TContractState, player_id: felt252, cobbles: u32, kind: u8, id: u32,
+    ) -> u64;
+}
+
 /// Cobbles v1, part 3 (P-61, `docs/architecture/cobbles-v1.md`, 5): the skins of the tile plans,
 /// priced by the owner, bought with cobbles by the player for itself, and the set the player shows.
 #[starknet::interface]
@@ -697,11 +717,12 @@ pub mod Setup {
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, ISetupStory,
-        MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, Progress,
-        ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait,
-        QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES,
-        WEEKLY, Wiring, active_themes, bit, list_ids, list_word, schedule_kind, week_of,
+        CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, ISetupSpend,
+        ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS,
+        Pack, Progress, ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles,
+        QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN,
+        STAR_COBBLES, WEEKLY, Wiring, active_themes, bit, list_ids, list_word, schedule_kind,
+        week_of,
     };
 
     // Errors
@@ -873,6 +894,7 @@ pub mod Setup {
         SkinPriced: SkinPriced,
         SkinBought: SkinBought,
         SkinsActivated: SkinsActivated,
+        CobblesSpent: CobblesSpent,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -994,6 +1016,18 @@ pub mod Setup {
         #[key]
         pub player_id: felt252,
         pub active: felt252,
+    }
+
+    /// Cobbles spent by a reporter (`Avatar`) for `player_id`: `kind` what on (`SPEND_AVATAR`), `id` which
+    /// item, `balance` the player's cobbles after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CobblesSpent {
+        #[key]
+        pub player_id: felt252,
+        pub kind: u8,
+        pub id: u32,
+        pub cobbles: u32,
+        pub balance: u64,
     }
 
     // Constructor
@@ -1554,6 +1588,25 @@ pub mod Setup {
 
         fn active_skins(self: @ContractState, player_id: felt252) -> Array<u8> {
             active_themes(self.active_skins.read(player_id))
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupSpendImpl of ISetupSpend<ContractState> {
+        fn spend_cobbles(
+            ref self: ContractState, player_id: felt252, cobbles: u32, kind: u8, id: u32,
+        ) -> u64 {
+            // [Check] Caller is a reporter (the `Avatar` system, which spends for its caller only)
+            self.quest.assert_reporter(get_caller_address());
+            // [Check] Something to spend, and enough of it
+            assert(cobbles != 0, errors::INVALID_COBBLES);
+            let mut account = self.accounts.read(player_id);
+            assert(account.cobbles >= cobbles.into(), errors::NOT_ENOUGH_COBBLES);
+            // [Effect] The cobbles spent
+            account.cobbles -= cobbles.into();
+            self.accounts.write(player_id, account);
+            self.emit(CobblesSpent { player_id, kind, id, cobbles, balance: account.cobbles });
+            account.cobbles
         }
     }
 

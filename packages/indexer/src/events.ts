@@ -205,6 +205,18 @@ export type Decoded =
       balance: bigint;
     }
   | {
+      /**
+       * Cobbles spent for the player by a reporter of `Setup` (`Setup.spend_cobbles`, avatar-chain.md: `Avatar`): `kind` 1 an avatar
+       * item, `id` `(category << 8) | item id`. `cobbles`: the amount (not 0). `balance`: the player's cobbles after it.
+       */
+      name: "CobblesSpent";
+      playerId: bigint;
+      kind: number;
+      id: number;
+      cobbles: number;
+      balance: bigint;
+    }
+  | {
       /** The player's active skins after a `set_skins`: the whole packed word and its `SKIN_PLANS` themes, plan 1 first (0: the default). */
       name: "SkinsActivated";
       playerId: bigint;
@@ -311,6 +323,8 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   SkinPriced: ["setup"],
   SkinBought: ["setup"],
   SkinsActivated: ["setup"],
+  // The avatar on chain (avatar-chain.md): the cobbles the Avatar system (a reporter) spends on Setup's ledger.
+  CobblesSpent: ["setup"],
   Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
@@ -404,6 +418,7 @@ const INDEXED: readonly EventName[] = [
   "SkinPriced",
   "SkinBought",
   "SkinsActivated",
+  "CobblesSpent",
   "Sold",
   "Purchased",
   "Recorded",
@@ -697,6 +712,22 @@ export function decode(
         gameId: small(data[0], 32, "game_id"),
         credits: small(data[1], 16, "credits"),
       };
+    case "CobblesSpent": {
+      // key player_id; data kind (u8), id (u32), cobbles (u32, not 0), balance (u64)
+      shape(name, keys, data, 1, 4);
+      const kind = small(data[0], 8, "kind");
+      if (kind !== 1) throw new DecodeError(`${name}: kind ${kind}, expected 1 (an avatar item)`);
+      const cobbles = small(data[2], 32, "cobbles");
+      if (cobbles === 0) throw new DecodeError(`${name}: 0 cobbles`);
+      return {
+        name,
+        playerId: felt(keys[1]),
+        kind,
+        id: small(data[1], 32, "id"),
+        cobbles,
+        balance: u64(data[3], "balance"),
+      };
+    }
     case "PackSet": {
       // key pack_id; data cobbles (u32), price (u128), active
       shape(name, keys, data, 1, 3);

@@ -372,7 +372,7 @@ export interface PlayerAchievementsAnswer extends Envelope {
 /** A player's cobbles and free-game credits at the served block (cobbles v1): the running values of the chain's own events. */
 export interface PlayerCobblesAnswer extends Envelope {
   player_id: string;
-  /** The cobble balance, the `balance` of the last `CobblesClaimed`, `PackBought` or `SkinBought`; 0 for a player with none. */
+  /** The cobble balance, the `balance` of the last `CobblesClaimed`, `PackBought`, `SkinBought` or `CobblesSpent`; 0 for a player with none. */
   cobbles: number;
   /** The free-game credits left: claimed (`CreditClaimed`) less spent (`CreditSpent`). */
   credits: number;

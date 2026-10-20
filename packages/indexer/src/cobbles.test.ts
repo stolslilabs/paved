@@ -185,6 +185,24 @@ describe("the stars of Story levels (kind 3, docs/architecture/story-mode.md)", 
   });
 });
 
+describe("the cobbles spent on avatar items (CobblesSpent, docs/architecture/avatar-chain.md)", () => {
+  test("a spend moves the same running balance as the claims", async () => {
+    const { queries, head, indexer } = await open((node) =>
+      node.mine([ev.cobblesClaimed(A, 2, 2, 0, 90, 90)], [ev.cobblesSpent(A, 1, 0x27f, 30, 60)], [ev.cobblesClaimed(A, 1, 1, DAY, 5, 65)]),
+    );
+    expect(indexer.status).toBe("ok");
+    expect(queries.playerCobbles(head, PA)).toMatchObject({ cobbles: 65 });
+    expect(indexer.store.dump().cobble_spends).toMatchObject([{ player_id: PA, kind: 1, id: 0x27f, cobbles: 30, balance: 60 }]);
+  });
+
+  test("a spend whose balance does not follow the ledger halts", async () => {
+    await halts(
+      (node) => node.mine([ev.cobblesClaimed(A, 2, 2, 0, 90, 90)], [ev.cobblesSpent(A, 1, 1, 30, 70)]),
+      /CobblesSpent of .* balance 70, the ledger before it gives 60/,
+    );
+  });
+});
+
 describe("the ledger halts on what the chain would not do", () => {
   test("a second claim of the same quest and period, or achievement", async () => {
     await halts((node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)], [ev.cobblesClaimed(A, 1, 1, DAY, 5, 10)]), /already claimed/);

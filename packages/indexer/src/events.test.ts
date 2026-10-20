@@ -864,6 +864,35 @@ describe("Cobbles v1 part 3 events (the skins, cobbles-v1.md section 5)", () => 
     expect(() => decode("challenge", e.keys, e.data)).toThrow(/does not emit it/);
   });
 
+  test("CobblesSpent: the avatar items' spends", () => {
+    expect(inSource("CobblesSpent")).toEqual({
+      keys: ["player_id: felt252"],
+      data: ["kind: u8", "id: u32", "cobbles: u32", "balance: u64"],
+    });
+    expect(EMITTERS.CobblesSpent).toEqual(["setup"]);
+    expect((IGNORED as readonly string[]).includes("CobblesSpent")).toBe(false);
+    const e = ev.cobblesSpent(0x1234, 1, 0x27f, 100, 2 ** 40);
+    expect(decode("setup", e.keys, e.data)).toEqual({
+      name: "CobblesSpent",
+      playerId: 0x1234n,
+      kind: 1,
+      id: 0x27f,
+      cobbles: 100,
+      balance: 2n ** 40n,
+    });
+    // a kind other than 1, 0 cobbles, a balance above 2^53, a missing member
+    for (const bad of [
+      ev.cobblesSpent(0x1234, 0, 1, 10, 5),
+      ev.cobblesSpent(0x1234, 2, 1, 10, 5),
+      ev.cobblesSpent(0x1234, 1, 1, 0, 5),
+      ev.cobblesSpent(0x1234, 1, 1, 10, 2 ** 60),
+    ]) {
+      expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
+    }
+    expect(() => decode("setup", e.keys, e.data.slice(0, 3))).toThrow(DecodeError);
+    expect(() => decode("challenge", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+
   test("SkinsActivated: the packed word, theme of plan p in byte p - 1", () => {
     // all 19 plans, each with its own theme (plan p shows theme p + 100), plan 1 in the lowest byte
     const all = Array.from({ length: SKIN_PLANS }, (_, i) => [i + 1, i + 101] as const);

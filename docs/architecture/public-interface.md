@@ -388,6 +388,15 @@ working.
     of `kind`: 3, a star of a Story level (`id` `(campaign_id << 8) | level_id`, `period` the star, 1 to 3). No event is
     added to `Setup`, no entry point changes signature and none is removed. A client that reads `kind` as 1 or 2 only
     must accept 3; the indexer does since this change.
+- **The avatar on chain** (#627, `docs/architecture/avatar-chain.md`; not deployed yet).
+  - A new contract, `Avatar` (`contracts/abis/Avatar.json`): `set_layout`, `set_price_bounds`, `set_item`, `withdraw_item`
+    and `set_setup` (owner), `buy_avatar_item` and `set_avatar` (any account, for itself), the views `avatar`, `owned`,
+    `item`, `items`, `layout`, `price_bounds` and `setup`, and the events `LayoutSet`, `PriceBoundsSet`, `AvatarItemListed`,
+    `AvatarItemBought`, `AvatarSet` and `SetupSet`.
+  - `Setup` gains the interface `ISetupSpend`: `spend_cobbles` (an allowlisted reporter only: `Avatar`, as `Story` for
+    `credit_story`), with the event `CobblesSpent` (`kind` 1, an avatar item, `id` `(category << 8) | item id`). No entry
+    point changes signature and none is removed. An indexer that refuses unknown selectors must know `CobblesSpent` before
+    `Setup` emits it; the indexer does since this change (schema 17).
 
 ## Breaking change D-18
 

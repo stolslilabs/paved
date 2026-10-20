@@ -66,8 +66,26 @@ export type { AchievementCobbles, CobbleAccount, CobbleClaim, CobbleKind, Cobble
 export { DEFAULT_THEME, FOREST_THEME, SKIN_PLANS, activeThemes, isSkinPlan, ownsSkin } from "./skins";
 export type { SkinChange, SkinViews } from "./skins";
 export {
+  AVATAR_LISTED,
+  AVATAR_MAX_CATEGORIES,
+  AVATAR_MAX_WIDTH,
+  AVATAR_UNLISTED,
+  AVATAR_WITHDRAWN,
+  canSetLook,
+  isFreeItem,
+  isLayout,
+  isOnSale,
+  lookIds,
+  lookOf,
+  ownsItem,
+} from "./avatar";
+export type { AvatarItem, AvatarViews } from "./avatar";
+export {
   RECEIPT_POLL_MS,
   PavedWriter,
+  AVATAR_REFUSAL_TEXT,
+  AvatarPriceChangedError,
+  AvatarRefusedError,
   CLAIM_REFUSAL_TEXT,
   ClaimRefusedError,
   FaucetCapError,
@@ -94,7 +112,7 @@ export {
   packBoughtOf,
   refusedBeforeSending,
 } from "./writer";
-export type { BuildMove, BuyPackRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, WriteAccount, WriteResult } from "./writer";
+export type { AvatarRefusal, BuildMove, BuyAvatarItemRequest, BuyPackRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, WriteAccount, WriteResult } from "./writer";
 export { PACK_IDS, PackBuyer, PackNotOnSaleError, PackPriceChangedError, onSale, packBuyerOf, packReferrer, packSwapInput, readPacks } from "./packs";
 export type { PackBuyerOptions, PackPlan, PackPurchaseRequest } from "./packs";
 export { PavedClient, createPavedClient } from "./paved-client";

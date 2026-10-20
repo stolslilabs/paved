@@ -12,6 +12,28 @@ Every gas and size figure below is an **estimate**, from the measured unit costs
 gas, a write 118,210, an event about 32,800) and the measured tile-skin calls (`buy_skin` 664,724, `set_skins` 456,713,
 `set_skin_price` 302,510). The implementation measures each one.
 
+## As built (skeleton, before the owner's values)
+
+The Overseer's ruling (2026-10-20): a separate `Avatar` system, the Cobbles debited through one `Setup` entry
+(`spend_cobbles`), as Story's precedent; the free base set, the price bounds and the limits are **parameters the owner
+sets**, never hard-coded; the pull request stays a draft until the owner's three answers (section 7, points 1 to 3).
+
+- **Code**: `contracts/src/systems/avatar.cairo` (`Avatar`), `ISetupSpend` in `contracts/src/systems/setup.cairo`, tests
+  `contracts/src/tests/avatar.cairo`; `packages/chain/src/avatar.ts` (packing, views, writes in `writer.ts`), the indexer's
+  `CobblesSpent` (schema 17), the data hooks `packages/app/src/data/avatar.ts`.
+- **Nothing is hard-coded but the packing.** The layout (`set_layout`: the width of each category, 1 to 7 bits, 1 to 30
+  categories, which may only grow), the price bounds (`set_price_bounds`), each item's price (0: free, the base set),
+  `supply` and `until` (`set_item`) are the owner's calls. Until the owner sets bounds, only free items can be listed.
+- **Placeholders** (no value is deployed: `scripts/deploy.sh` does not deploy `Avatar` yet, and sets nothing): the tests'
+  layout (four categories of 3, 4, 7 and 2 bits; ten of 7 bits for the gas), bounds (20 to 100) and catalogue (items 0
+  and 1 free, a few paid at 30 to 100) are the tests' own. The owner's free set, range and limits, and #626's layout, go into
+  the deployment once given.
+- **Departures from the proposal**: the layout is owner-set storage, not a constant table (the format of #626 PR 1 is not
+  posted; owner-set, it needs no class upgrade, and append-only, it keeps every stored look valid). `withdraw_item` of a
+  free item stops it being free (a player who does not own it can no longer select it); a stored avatar is never re-checked.
+  `items(category)` returns a category's whole catalogue in one call for the creator. `AvatarItemBought` carries `sold`.
+  `set_avatar(0)` clears the avatar, with no check.
+
 ## 1. Summary
 
 - **A new system, `Avatar`**, holds the catalogue of avatar parts, what each player owns, and each player's avatar. It is
