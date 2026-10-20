@@ -1,7 +1,7 @@
 import type { TileArt } from "../elements/tile-chip";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import type { PlanType } from "@paved/game-core";
+import type { DeckSheetOrder } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
@@ -45,8 +45,8 @@ export interface BoardSceneProps {
   gameId?: number;
   /** The header's title instead of the mode's (a Story level's name). */
   title?: string;
-  /** The deck the deck sheet shows (a Story level's fixed deck, the starter included); the base deck otherwise. */
-  deck?: readonly PlanType[];
+  /** A Story level's draw where it stands (`deckSheetOrder`): the deck sheet shows it in order (#613); the counted base deck otherwise. */
+  deckOrder?: DeckSheetOrder;
   /** A Story level: the deck sheet offers the level's deck presentation again (#593). */
   onPresentDeck?: () => void;
   /** The control a Story coach mark points at: ringed. */
@@ -250,7 +250,7 @@ export function BoardScene(props: BoardSceneProps) {
       )}
 
       {deckSheet && (
-        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} deck={props.deck}
+        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} order={props.deckOrder}
           handPlan={hand.tile?.plan ?? null}
           tileArt={props.tileArt}
           onPresent={

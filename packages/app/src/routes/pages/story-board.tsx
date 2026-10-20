@@ -4,6 +4,7 @@ import {
   CAMPAIGNS,
   PlanType,
   campaignUnlocked,
+  deckSheetOrder,
   levelProgress,
   levelResult,
   levelUnlocked,
@@ -51,15 +52,6 @@ export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: s
   "1-7": { target: "settings", tip: "The gear opens the settings (sound, the placement highlight) without leaving the level." },
   "2-1": { target: "deck", tip: "Longer levels: the deck sheet lists the whole deck of this level. Plan with it." },
 };
-
-/**
- * Every tile of a level, as the deck sheet counts it against the board: the starter, the tiles already placed when the level
- * starts (Tutorial 10's monastery and its neighbours), then the deck. The sheet crosses out as many of a plan as the board
- * holds, so the pre-placed tiles must be in it, or a drawn tile of the same plan reads as played before it is drawn.
- */
-export function levelDeck(level: Pick<StoryLevel, "deck" | "placed">): PlanType[] {
-  return [PlanType.RFFFRFCFR, ...(level.placed ?? []).map((tile) => tile.plan), ...level.deck];
-}
 
 const PLAN_IDS = Object.values(PlanType);
 
@@ -140,6 +132,8 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const { orientation, move, ghost, slots } = placement;
   const preview = useMemo(() => (move ? run.preview(move) : null), [run, snapshot, move]);
   const handErrorDetail = useErrorDetail(state.writeError);
+  // The deck sheet shows the level's draw in its order (#613), the order the presentation shows.
+  const deckOrder = useMemo(() => deckSheetOrder(level.deck, snapshot.moves), [level, snapshot.moves]);
 
   // The best before this run, read once per attempt, then the run recorded once it is over.
   const [previousBest, setPreviousBest] = useState<number | null>(null);
@@ -226,7 +220,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     <BoardScene
       mode="story"
       title={`${campaign.name} ${level.id}: ${level.title}`}
-      deck={levelDeck(level)}
+      deckOrder={deckOrder}
       onPresentDeck={over ? undefined : () => setPresenting(true)}
       coach={coachTarget}
       tiles={state.tiles}
