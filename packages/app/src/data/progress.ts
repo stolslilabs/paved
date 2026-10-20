@@ -6,14 +6,13 @@ import { DAY_S, type ScheduledQuest } from "../lib/quest-window";
 import { useDefinitions, usePlayerAchievements, usePlayerQuests } from "./indexer";
 import { addressKey, queryKeys } from "./keys";
 
-// The player's mission progress around a game (#595): read again after its moves and its game over, so the app's completion
-// toasts follow it on the board, and the missions one game completed, for its game over. Out of `indexer.ts`, so the first
+// The player's mission progress around a game (#595): read again at its game over, so the app's completion toasts follow
+// it, and the missions one game completed, for its game over. Out of `indexer.ts`, so the first
 // load (the home's reads) does not carry it.
 
 /**
  * Reads the player's quests (every day cached) and achievements again (#595): the app's completion toasts follow them
- * (`routes/completion-host.tsx`). Called after a confirmed move and at a game over, then again while the indexer catches up
- * (`PROGRESS_RETRY_MS`): the Challenge reports a game's progress once, at its game over (quests.md, D-24).
+ * (`routes/completion-host.tsx`). Called at a game over, then again while the indexer catches up (`PROGRESS_RETRY_MS`): the Challenge reports a game's progress once, at its game over (quests.md, D-24).
  */
 export function refreshPlayerProgress(client: QueryClient, playerId: string): void {
   void client.invalidateQueries({ queryKey: ["indexer", "quests", addressKey(playerId)] });

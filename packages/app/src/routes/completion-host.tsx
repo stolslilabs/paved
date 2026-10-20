@@ -20,8 +20,7 @@ function useTracked(list: readonly Trackable[] | undefined): Trackable[] | null 
  * to track), and loaded as its own chunk then (the bundle rule: the first load does not carry it), so a mission (a quest or an
  * achievement) completed while the player is on the board, or anywhere else, toasts there: its title, icon and Cobbles.
  * It reads today's quests and the achievements of the signer (the indexer's, on its clock) on the usual refreshes (focus,
- * a claim's receipt) and on `refreshPlayerProgress`, which the board calls after a confirmed move and the over page at a
- * game over. The memory is the app's (`useCompletionMemory`), so the Missions pages' reads of the same keys toast nothing
+ * a claim's receipt) and on `refreshPlayerProgress`, which the over page calls at a game over. The memory is the app's (`useCompletionMemory`), so the Missions pages' reads of the same keys toast nothing
  * twice.
  */
 export default function CompletionTracker({ playerId }: { playerId: string }) {
