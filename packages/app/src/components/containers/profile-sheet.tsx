@@ -1,6 +1,5 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
 import { useState } from "react";
-import { cn } from "../../lib/utils";
 import { useSidePanel } from "../../lib/side-panel";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -50,7 +49,7 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
         onOpenChange(next);
       }}
     >
-      <SheetContent side={desktop ? "left" : "bottom"} className={cn(desktop && "w-sm max-w-[85vw]")}>
+      <SheetContent side={desktop ? "left" : "bottom"}>
         <SheetHeader className="items-center text-center">
           <PlayerAvatar size="lg" player={connected ? { name: connected.player.name, address: connected.player.playerId } : null} loading={state.status === "loading"} />
           <SheetTitle className="flex w-full min-w-0 justify-center">

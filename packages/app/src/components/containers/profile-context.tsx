@@ -38,7 +38,7 @@ export function ProfileSlot({ className }: { className?: string }) {
           setOpened(true);
           setOpen(true);
         }}
-        className={cn("shrink-0 cursor-pointer rounded-full transition-transform outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:transition-none", className)}
+        className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
       >
         <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"} />
       </button>
