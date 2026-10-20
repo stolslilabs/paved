@@ -1,6 +1,7 @@
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { Cobbles } from "../elements/cobbles";
+import { TokenIcon } from "../elements/token-icon";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet";
@@ -84,7 +85,7 @@ export function ParcelSheet({ cell, offer, level, cobbles, cells, buying, onBuy,
         )}
         {state === "cobbles" && offer && (
           <p role="status" className="flex items-center gap-2 rounded-lg bg-secondary p-3 text-sm">
-            <Icon name="cubes-stacked" size="sm" className="text-warning" />
+            <TokenIcon kind="cobbles" size="xs" />
             <span>
               Need <span className="numeric">{offer.price - cobbles}</span> more Cobbles.
             </span>
@@ -106,7 +107,7 @@ export function ParcelSheet({ cell, offer, level, cobbles, cells, buying, onBuy,
             </Button>
           ) : state === "ready" && offer && cell ? (
             <Button className="w-full" loading={buying} onClick={() => onBuy?.(cell)} aria-label={`Buy this parcel for ${offer.price} Cobbles`}>
-              Buy for <Cobbles value={offer.price} size="sm" iconClassName="text-primary-foreground" className="text-primary-foreground" />
+              Buy for <Cobbles value={offer.price} size="sm" className="text-primary-foreground" />
             </Button>
           ) : null}
         </SheetFooter>

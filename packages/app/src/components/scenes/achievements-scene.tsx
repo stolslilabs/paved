@@ -116,7 +116,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
                 <Button size="sm" onClick={props.onClaimAll} loading={claiming === "all"} disabled={claiming !== null && claiming !== "all"}>
                   {claiming === "all" ? "Claiming…" : (
                     <>
-                      Claim all <Cobbles value={claimableCobbles} sign="+" size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                      Claim all <Cobbles value={claimableCobbles} sign="+" size="sm" className="text-primary-foreground" />
                     </>
                   )}
                 </Button>
