@@ -174,7 +174,7 @@ function SheetRow({ kind, from, state, onAction, faucet, minting }: PlateTapProp
       // The plate's figure is hidden from assistive technology: the row's name carries it ("48.50 USDC: Get test USDC").
       aria-label={amount === undefined ? (action ? `${label}: ${action}` : label) : nameOf(kind, amount, action)}
       aria-busy={amount === undefined || undefined}
-      className="state-layer flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+      className="state-layer flex min-h-14 w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
     >
       {amount === undefined ? (
         <Skeleton className="h-11 w-32 rounded-full" />

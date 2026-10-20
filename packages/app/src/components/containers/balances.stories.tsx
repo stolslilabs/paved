@@ -63,7 +63,8 @@ function Live({ layout, onAction }: Pick<BalancesProps, "layout" | "onAction">) 
   }, []);
   return (
     <div className="flex justify-end p-6">
-      <Balances layout={layout} state={STEPS[step]!} onAction={onAction} faucet />
+      {/* The rail is the header's from `desktop`; drawn alone at a phone's width, its plates wrap. */}
+      <Balances layout={layout} state={STEPS[step]!} onAction={onAction} faucet className="flex-wrap justify-end" />
     </div>
   );
 }
