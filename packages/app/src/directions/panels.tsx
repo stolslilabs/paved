@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ScrollRegion } from "../components/ui/scroll-region";
 import { checks, STATE_NAMES } from "./contrast";
 import { DButton, DCard, DCardButton, DChip, DirectionRoot, DSwitch, DTitle, Icon, Muted, type Variant } from "./kit";
 import { DNav } from "./shells";
@@ -82,7 +83,7 @@ export function PalettePanel({ id }: { id: DirectionId }) {
             colour. Lowest text ratio over the page, a card and a raised part: {STATE_NAMES.map((s) => `${s} ${worst(s).toFixed(2)}`).join(", ")}. Steady states are held to
             4.5:1, pressed (a tap) to 3:1; <code>__tests__/directions-contrast.test.ts</code> fails under that.
           </p>
-          <div className="overflow-x-auto">
+          <ScrollRegion orientation="horizontal">
             <table className="w-full min-w-[34rem] text-left text-xs">
               <thead>
                 <tr className="text-(color:--d-muted)">
@@ -110,7 +111,7 @@ export function PalettePanel({ id }: { id: DirectionId }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         </Section>
       </div>
     </DirectionRoot>
@@ -140,7 +141,7 @@ export function StatesPanel({ id }: { id: DirectionId }) {
         </header>
 
         <Section title="Buttons">
-          <div className="overflow-x-auto">
+          <ScrollRegion orientation="horizontal">
             <div className="grid min-w-[40rem] grid-cols-[5.5rem_repeat(5,minmax(0,1fr))] items-center gap-x-3 gap-y-4">
               <span />
               {CELLS.map((c) => (
@@ -157,7 +158,7 @@ export function StatesPanel({ id }: { id: DirectionId }) {
                 </div>
               ))}
             </div>
-          </div>
+          </ScrollRegion>
         </Section>
 
         <Section title="Cards that are buttons, chips, switch">
