@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HAPTIC_MS, haptic } from "../src/lib/haptics";
 
-// BUBBLE-DISCARD (#606): the board's haptics, through the Vibration API, else iOS 18's switch, else nothing.
+// BUBBLE-DISCARD (issue 606): the board's haptics, through the Vibration API only.
 
 const define = (target: object, key: string, value: unknown) => Object.defineProperty(target, key, { value, configurable: true, writable: true });
 
@@ -21,19 +21,16 @@ describe("haptic", () => {
     expect(HAPTIC_MS.light).toBeLessThan(HAPTIC_MS.firm);
   });
 
-  it("without the Vibration API, toggles a hidden switch where the browser knows one (iOS 18 Safari), and leaves nothing behind", () => {
+  it("without the Vibration API (iOS Safari) does nothing: no hidden switch is toggled, the iOS 18 workaround is not used unproven", () => {
     define(HTMLInputElement.prototype, "switch", false);
-    const clicks: Element[] = [];
-    vi.spyOn(HTMLLabelElement.prototype, "click").mockImplementation(function (this: HTMLLabelElement) {
-      clicks.push(this);
-    });
+    const click = vi.spyOn(HTMLElement.prototype, "click");
     haptic("light");
-    expect(clicks).toHaveLength(1);
-    expect(clicks[0]!.querySelector("input")).toHaveAttribute("switch");
+    haptic("firm");
+    expect(click).not.toHaveBeenCalled();
     expect(document.querySelector("input[switch]")).toBeNull();
   });
 
-  it("does nothing elsewhere, and never throws", () => {
+  it("never throws", () => {
     expect(() => haptic("firm")).not.toThrow();
     define(navigator, "vibrate", () => {
       throw new Error("blocked");
