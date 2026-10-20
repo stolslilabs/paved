@@ -1,4 +1,4 @@
-import type { GameView, Leaderboard } from "@paved/chain";
+import type { GameView } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
@@ -12,7 +12,6 @@ import { BalancesSlot } from "../containers/balances-context";
 import { TabFrame } from "../containers/tab-frame";
 import { ModeCard } from "../containers/mode-card";
 import { PlayerStatus, type PlayerStatusData } from "../containers/player-status";
-import { TopThree } from "../containers/top-three";
 
 /** The Training save on this device: enough to offer Resume. */
 export interface TrainingSave {
@@ -30,8 +29,6 @@ export interface HomeCobbles {
 export interface HomeSceneProps {
   /** Null: a guest (no wallet). */
   player: PlayerStatusData | null;
-  /** Today's leaderboard (`/v1/tournaments/:day/leaderboard`); its first three rows are the podium. */
-  leaderboard: Leaderboard;
   /** The viewer's Challenge game still running (`GameSpawned` events, then `game(id)`); its deadline is `expiresAt`. */
   activeGame: GameView | null;
   training: TrainingSave | null;
@@ -39,8 +36,6 @@ export interface HomeSceneProps {
   spawnPaused: boolean;
   now: number;
   connecting?: boolean;
-  /** The players of today's top 3 whose best game was free (P-61), marked as on the Leaderboard. */
-  free?: readonly string[];
   /** The Cobbles balance and free games; omitted for a guest or before Cobbles. */
   cobbles?: HomeCobbles | null;
   onPlay?: () => void;
@@ -56,10 +51,11 @@ export interface HomeSceneProps {
 
 /**
  * Home (`/`), direction D (#537): the hero (a render of a real board under the voxel wordmark, as the mockups' first screen),
- * then Play, the player's status, the game to resume, the mode cards with today's Challenge top 3; the five tabs.
+ * then Play, the player's status, the game to resume, the mode cards and the Challenge's banner card; the five tabs. No
+ * podium: the ranks left the UI (#623), to come back as leagues.
  */
 export function HomeScene(props: HomeSceneProps) {
-  const { player, leaderboard, activeGame, training, spawnPaused, now, cobbles } = props;
+  const { player, activeGame, training, spawnPaused, now, cobbles } = props;
   return (
     <TabFrame tab="home" onNavigate={props.onNavigate}>
       <header className="relative h-64 w-full tablet:h-80">
@@ -129,17 +125,12 @@ export function HomeScene(props: HomeSceneProps) {
             banner={modeChallenge}
             icon="trophy"
             title="Challenge"
-            description="A ranked game. Beat the threshold to earn PAVED."
-            badge="Ranked"
+            description="Stake, beat the threshold, earn PAVED."
+            badge="Paid"
             disabled={spawnPaused}
             reason="Purchases paused"
             onSelect={props.onChallenge}
-          >
-            <div className="flex flex-col gap-2 pt-1">
-              <span className="text-xs text-muted-foreground">Top 3</span>
-              <TopThree entries={leaderboard.entries} viewer={player?.today} free={props.free} />
-            </div>
-          </ModeCard>
+          />
         </div>
       </main>
     </TabFrame>

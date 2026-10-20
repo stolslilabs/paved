@@ -75,8 +75,6 @@ export interface OverSceneProps {
   closings: (ScoredStructure & { tileId: number })[];
   /** The player's best before this game: "New best" when beaten. */
   previousBest?: number | null;
-  /** The rank this score holds today, Challenge only. */
-  rank?: number | null;
   reward: {
     state: RewardState;
     /** PAVED base units. */
@@ -216,7 +214,7 @@ export function OverScene(props: OverSceneProps) {
             className="pointer-events-auto rounded-xl bg-card/95 p-1 shadow-lg backdrop-blur"
           >
             <ToggleGroupItem value="scores" className="min-w-32">
-              <Icon name="ranking-star" fixedWidth />
+              <Icon name="star" fixedWidth />
               Scores
             </ToggleGroupItem>
             <ToggleGroupItem value="board" className="min-w-32">
@@ -231,7 +229,7 @@ export function OverScene(props: OverSceneProps) {
 }
 
 /** The scores: the over screen's page, scrolled inside the scene so the board can sit under it. */
-function Scores({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
+function Scores({ mode, game, closings, previousBest, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
   const play = useSfx();
   useEffect(() => play("gameover"), [play]);
@@ -260,7 +258,6 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
             <span className="flex flex-wrap justify-center gap-2">
               {freeGame && <Badge variant="secondary">Free game</Badge>}
               {best && <Badge>New best</Badge>}
-              {rank != null && <Badge variant="outline">#{rank} today</Badge>}
             </span>
             {previousBest != null && !best && previousBest > 0 && <span className="text-xs text-muted-foreground">Best: <span className="numeric">{formatPoints(previousBest)}</span></span>}
           </section>

@@ -20,7 +20,7 @@ const WIDE = { viewport: { value: "wide", isRotated: false } } as const;
 function InPage({ state, onAction, onConnect, faucet }: Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet">) {
   return (
     <BalancesProvider value={{ state, onAction, onConnect, faucet }}>
-      <TabPage tab="ranks" title="Ranks">
+      <TabPage tab="vault" title="Vault">
         <div data-slot="card" className="h-40 rounded-xl border border-border bg-card" />
       </TabPage>
     </BalancesProvider>

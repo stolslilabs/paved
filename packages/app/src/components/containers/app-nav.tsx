@@ -4,11 +4,14 @@ import { Icon } from "../ui/icon";
 import { Wordmark } from "../elements/wordmark";
 import { BalancesSlot } from "./balances-context";
 
-/** The five destinations of section 6.1, Home · Ranks · Missions · Vault · Settings (the route map's `TABS`, with icons). */
+/**
+ * The five destinations of section 6.1, Home · Missions · Play · Vault · Settings (the route map's `TABS`, with icons).
+ * Play (#623) is the main action, in the centre: icon only, a gold disc.
+ */
 export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "house" },
-  { id: "ranks", label: "Ranks", icon: "ranking-star" },
   { id: "quests", label: "Missions", icon: "scroll" },
+  { id: "play", label: "Play", icon: "play" },
   { id: "vault", label: "Vault", icon: "piggy-bank" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];
@@ -24,6 +27,8 @@ export interface AppNavProps {
  * icon over its label (labels from `mobile`), at the bottom of the page below `desktop`; from `desktop` the same items, icon
  * beside label, in a header across the top, after the voxel wordmark and before the three balances. No rail and no sliding
  * indicator: the current item is gold on the white 15% layer (`state-layer`, theme.css), hover 10%, pressed 20%.
+ * Play, the centre item (#623), has no label (`aria-label`) and stands out as the app's accent: a larger gold disc raised
+ * above the bar on a phone, a gold disc among the items from `desktop`. It opens the mode choice (`/play`).
  * Below `desktop` the bar is `position: fixed` to the viewport's bottom, outside the page's scrolling region (`TabFrame`,
  * #611, which ends the region at the bar's measured height); from `desktop` it is the first child of the page's column. The
  * page lays it out in one column (`flex-col`) at every width. It draws the page's edge hint
@@ -47,6 +52,27 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
         <div className="flex min-w-0 flex-1 justify-between gap-1 desktop:flex-none desktop:justify-start desktop:gap-1.5">
           {NAV_TABS.map((tab) => {
             const isActive = tab.id === active;
+            if (tab.id === "play") {
+              return (
+                // The slot keeps the bar's five equal columns; the disc rises above the bar on a phone (over the edge hint: `z-10`), sits in
+                // the row from `desktop`.
+                <div key={tab.id} className="flex min-w-0 flex-1 justify-center desktop:flex-none desktop:px-1">
+                  <button
+                    type="button"
+                    aria-label={tab.label}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={() => onNavigate?.(tab.id)}
+                    className={cn(
+                      "state-layer relative z-10 -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none focus-visible:ring-ring",
+                      "desktop:mt-0 desktop:size-11 desktop:shadow-none desktop:ring-0 desktop:focus-visible:ring-2",
+                    )}
+                  >
+                    {/* The triangle's weight sits left of its box: nudged right so it reads centred in the disc. */}
+                    <Icon name={tab.icon} size="lg" className="translate-x-0.5 desktop:text-base" />
+                  </button>
+                </div>
+              );
+            }
             return (
               <button
                 key={tab.id}

@@ -31,8 +31,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   },
   "game/:gameId/over": over,
   "training/over": over,
-  "leaderboard/:day?": () => import("./pages/leaderboard"),
-  "player/:id": () => import("./pages/player"),
   "missions/:day?": () => import("./pages/quests"),
   "missions/lifetime": () => import("./pages/achievements"),
   vault: () => import("./pages/vault"),
