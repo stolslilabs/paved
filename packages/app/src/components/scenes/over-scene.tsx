@@ -14,6 +14,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollArea } from "../ui/scroll-area";
+import { ScrollRegion } from "../ui/scroll-region";
 import { Separator } from "../ui/separator";
 import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
 import { Score, formatPoints } from "../elements/score";
@@ -194,9 +195,9 @@ export function OverScene(props: OverSceneProps) {
           </div>
         </div>
       )}
-      <div aria-hidden={onBoard} className={cn("absolute inset-0 overflow-y-auto", onBoard && "invisible")}>
+      <ScrollRegion aria-hidden={onBoard} className={cn("absolute inset-0", onBoard && "invisible")}>
         <Scores {...props} />
-      </div>
+      </ScrollRegion>
       {board && (
         // Over the scores, a bar under the toggle so the rows it passes over do not show through; over the board, none.
         <div

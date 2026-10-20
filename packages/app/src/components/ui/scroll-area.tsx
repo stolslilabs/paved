@@ -1,11 +1,12 @@
 import type { ComponentProps } from "react";
 import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
+import { scrollHintRef } from "../../lib/scroll-hint";
 import { cn } from "../../lib/utils";
 
 export function ScrollArea({ className, children, ...props }: ComponentProps<typeof ScrollAreaPrimitive.Root>) {
   return (
     <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative overflow-hidden", className)} {...props}>
-      <ScrollAreaPrimitive.Viewport data-slot="scroll-area-viewport" className="size-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <ScrollAreaPrimitive.Viewport ref={scrollHintRef} data-slot="scroll-area-viewport" className="scroll-hint size-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />
@@ -14,12 +15,16 @@ export function ScrollArea({ className, children, ...props }: ComponentProps<typ
   );
 }
 
+/**
+ * Radix's bar. NO-SCROLLBARS (issue 609): mounted, because Radix lets the viewport scroll on an axis only while that axis has a
+ * bar, but never drawn from `desktop` (the edge fade of `scroll-hint` says the area scrolls); below it, as before.
+ */
 export function ScrollBar({ className, orientation = "vertical", ...props }: ComponentProps<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>) {
   return (
     <ScrollAreaPrimitive.ScrollAreaScrollbar
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
-      className={cn("flex touch-none p-px transition-colors select-none", orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent", orientation === "horizontal" && "h-2.5 flex-col border-t border-t-transparent", className)}
+      className={cn("flex touch-none p-px transition-colors select-none desktop:hidden", orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent", orientation === "horizontal" && "h-2.5 flex-col border-t border-t-transparent", className)}
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb data-slot="scroll-area-thumb" className="relative flex-1 rounded-full bg-input" />

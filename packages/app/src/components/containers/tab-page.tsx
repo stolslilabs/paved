@@ -25,7 +25,7 @@ export interface TabPageProps {
 /**
  * A page of the five tabs (section 6.2), as Home lays itself out: the bottom bar below `desktop`, the header across the top
  * from it (direction D, #537); the title in the display font, an action on its right, the content in one column that widens
- * with the viewport.
+ * with the viewport. The page scrolls as one document; `AppNav` brings its edge hint (NO-SCROLLBARS, #609).
  */
 export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, children, className }: TabPageProps) {
   return (
