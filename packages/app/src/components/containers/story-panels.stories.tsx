@@ -61,7 +61,7 @@ export const StarFills: Story = {
     <div className="flex flex-col gap-6">
       {([0, 1, 2, 3] as const).map((n) => (
         <div key={n} className="flex items-center gap-4">
-          <span className="numeric w-16 text-sm text-muted-foreground">{n} stars</span>
+          <span className="numeric w-16 text-sm text-muted-foreground">{n} {n === 1 ? "star" : "stars"}</span>
           <StarFill stars={n} />
         </div>
       ))}
