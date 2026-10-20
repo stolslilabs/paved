@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, waitFor } from "storybook/test";
 import { ScrollRegion } from "./scroll-region";
@@ -20,6 +21,9 @@ const Rows = ({ count = PLAYERS.length }: { count?: number }) => (
   </ol>
 );
 
+/** The box's frame sits outside the scroller: the fade masks the scroller, and would fade a border of its own too. */
+const Frame = ({ children }: { children: ReactNode }) => <div className="w-64 overflow-hidden rounded-md border border-input">{children}</div>;
+
 /*
  * NO-SCROLLBARS (#609): no scrollbar on desktop, so a region that scrolls has to say so by itself. Two hints were proposed:
  * - Cut: the box's height leaves the last row half visible. It needs every box sized against its rows, and a list whose
@@ -29,12 +33,14 @@ const Rows = ({ count = PLAYERS.length }: { count?: number }) => (
  * The fade is applied everywhere: `ScrollRegion` and `ScrollArea` carry it, and the document has its own at the viewport's foot.
  */
 
-/** Proposal A, the cut: the box (17rem) shows five rows and a half; no fade. Not kept. */
+/** Proposal A, the cut: the box (15.5rem) shows five rows and a half; no fade. Not kept. */
 export const ProposalCut: Story = {
   name: "Proposal: cut",
   render: () => (
-    <div className="h-68 w-64 overflow-y-auto rounded-md border border-input">
-      <Rows />
+    <div className="w-64 rounded-md border border-input">
+      <div className="h-62 overflow-y-auto">
+        <Rows />
+      </div>
     </div>
   ),
 };
@@ -43,18 +49,22 @@ export const ProposalCut: Story = {
 export const ProposalFade: Story = {
   name: "Proposal: fade (the rule)",
   render: () => (
-    <ScrollRegion className="h-68 w-64 rounded-md border border-input">
-      <Rows />
-    </ScrollRegion>
+    <Frame>
+      <ScrollRegion className="h-62">
+        <Rows />
+      </ScrollRegion>
+    </Frame>
   ),
 };
 
 /** Scrolled to the middle: both sides fade. */
 export const Middle: Story = {
   render: () => (
-    <ScrollRegion className="h-68 w-64 rounded-md border border-input" data-testid="region">
-      <Rows />
-    </ScrollRegion>
+    <Frame>
+      <ScrollRegion className="h-62" data-testid="region">
+        <Rows />
+      </ScrollRegion>
+    </Frame>
   ),
   play: async ({ canvasElement }) => {
     const region = canvasElement.querySelector<HTMLElement>("[data-testid=region]")!;
@@ -78,9 +88,11 @@ export const End: Story = {
 /** Content that fits: no fade at all. */
 export const Fits: Story = {
   render: () => (
-    <ScrollRegion className="h-68 w-64 rounded-md border border-input" data-testid="region">
-      <Rows count={4} />
-    </ScrollRegion>
+    <Frame>
+      <ScrollRegion className="h-62" data-testid="region">
+        <Rows count={4} />
+      </ScrollRegion>
+    </Frame>
   ),
   play: async ({ canvasElement }) => {
     const region = canvasElement.querySelector<HTMLElement>("[data-testid=region]")!;
@@ -92,7 +104,7 @@ export const Fits: Story = {
 /** Sideways: the fade follows the axis that scrolls. */
 export const Horizontal: Story = {
   render: () => (
-    <ScrollRegion orientation="horizontal" className="w-72 rounded-md border border-input">
+    <ScrollRegion orientation="horizontal" className="w-72">
       <div className="flex w-max gap-3 p-3">
         {PLAYERS.slice(0, 12).map((p) => (
           <div key={p} className="grid size-20 shrink-0 place-items-center rounded-md bg-secondary text-xs">
@@ -107,7 +119,7 @@ export const Horizontal: Story = {
 /** A keyboard user tabs to the region and scrolls it with the arrows: the ring shows whole, the fade steps aside meanwhile. */
 export const Focus: Story = {
   render: () => (
-    <ScrollRegion tabIndex={0} aria-label="Players" className="h-68 w-64 rounded-md border border-input outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <ScrollRegion tabIndex={0} aria-label="Players" className="h-62 w-64 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <Rows />
     </ScrollRegion>
   ),

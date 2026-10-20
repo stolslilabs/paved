@@ -55,7 +55,7 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
         </header>
         {children}
       </main>
-      <div aria-hidden data-slot="page-scroll-hint" className="pointer-events-none fixed inset-x-0 bottom-0 z-10 hidden h-12 bg-linear-to-t from-background to-transparent opacity-0 transition-opacity motion-reduce:transition-none desktop:block page-more:opacity-100" />
+      <div aria-hidden data-slot="page-scroll-hint" className="pointer-events-none fixed inset-x-0 bottom-0 z-10 hidden h-16 bg-linear-to-t from-background via-background/70 to-transparent opacity-0 transition-opacity motion-reduce:transition-none desktop:block page-more:opacity-100" />
     </div>
   );
 }
