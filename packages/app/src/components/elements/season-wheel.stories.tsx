@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
-import { WHEEL_SEASONS, WHEEL_STATES, nextWheelState, type WheelState } from "../../data/season-wheel";
+import { WHEEL_SEASONS, WHEEL_STATES, initialWheelRound, nextWheelRound, type WheelRound } from "../../data/season-wheel";
 import { SeasonWheel } from "./season-wheel";
 
 const meta = {
@@ -53,10 +53,27 @@ function Turning_() {
 /** The turning disc, sped up: one season in 3 s, the badge turning to the moon at each dusk and back at each dawn. */
 export const Turning: Story = { render: () => <Turning_ /> };
 
-function Clicks_() {
-  const [state, setState] = useState<WheelState>("auto");
-  return <SeasonWheel state={state} point={{ season: "summer", position: 0.3 }} onNext={() => setState(nextWheelState)} />;
+function Clicks_({ now }: { now: (typeof WHEEL_SEASONS)[number] }) {
+  const [round, setRound] = useState<WheelRound>(() => initialWheelRound(true));
+  return <SeasonWheel state={round.state} point={{ season: now, position: 0.3 }} onNext={() => setRound((r) => nextWheelRound(r, now))} />;
 }
 
-/** Click: auto, summer, autumn, winter, spring, auto. */
-export const Interactive: Story = { render: () => <Clicks_ /> };
+/** Click (#634), the cycle in summer: autumn, the next season not yet started, then winter, spring, and auto on the fourth tap. */
+export const Interactive: Story = { render: () => <Clicks_ now="summer" /> };
+/** Click, the cycle in winter: spring, summer, autumn, auto. */
+export const InteractiveFromWinter: Story = { render: () => <Clicks_ now="winter" /> };
+
+/** The four-tap round from auto in autumn, side by side: auto, then winter, spring, summer, and auto on the fourth tap. */
+export const FourTapRound: Story = {
+  render: () => {
+    const rounds = [initialWheelRound(true)];
+    for (let i = 0; i < 4; i++) rounds.push(nextWheelRound(rounds.at(-1)!, "autumn"));
+    return (
+      <div className="flex flex-wrap gap-4">
+        {rounds.map((r, i) => (
+          <SeasonWheel key={i} state={r.state} point={r.state === "auto" ? { season: "autumn", position: 0.3 } : null} />
+        ))}
+      </div>
+    );
+  },
+};
