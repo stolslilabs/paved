@@ -46,23 +46,11 @@ export interface PlacementBoardProps {
   dayPhase?: DayPhase | "off";
   /** The view looks at the placed tile's cell instead of the board's middle. */
   onPlaced?: boolean;
-  /** Fill the parent (a cell of `PendingProposals`) instead of the whole screen. */
+  /** Fill the parent (a cell of `PendingLooks`) instead of the whole screen. */
   fill?: boolean;
   /** The placement settings, flat (`placementArgTypes`). */
   [arg: string]: unknown;
 }
-
-/**
- * The three looks of a pending tile (#605, the owner picks), as flat args: (1) the yellow at a much lower strength, opaque
- * (the board's default meanwhile); (2) no tint, a thin gold frame on the tile's top edges and the plate under it in gold,
- * its rim showing around the tile; (3) a faint tint breathing from 0 to 0.12 and back, held at 0.12 under reduced motion.
- */
-export const PENDING_PROPOSALS = {
-  faint: { label: "1 · Faint yellow (0.12)", args: { tintsPendingStrength: 0.12 } },
-  gold: { label: "2 · Gold edge and plate", args: { tintsPendingStrength: 0, tintsPendingEdgeOpacity: 1, tintsPendingEdgeWidth: 2, platesPendingOpacity: 0.9 } },
-  pulse: { label: "3 · Breathing tint (0 to 0.12)", args: { tintsPendingStrength: 0.12, tintsPendingPulseMs: 2400 } },
-} as const satisfies Record<string, { label: string; args: Record<string, unknown> }>;
-export type PendingProposal = keyof typeof PENDING_PROPOSALS;
 
 export const tiles = toRenderTiles(BOARD_72.tiles, 1);
 
@@ -146,14 +134,11 @@ export function placementArgTypes(): Record<string, object> {
     widthDevicePx: range(0.5, 3, 0.25),
     farFadeStart: range(0.85, 3, 0.05),
     "plates.gap": range(PLATE_GAP_VOXELS.min, PLATE_GAP_VOXELS.max, 0.5),
-        "plates.radius": range(0, 20, 0.5),
+    "plates.radius": range(0, 20, 0.5),
     invalidOpacity: range(0, 1, 0.01),
     colorMs: range(0, 1000, 10),
     hoverMs: range(0, 1000, 10),
     pendingMs: range(0, 1000, 10),
-    pendingPulseMs: range(0, 6000, 100),
-    pendingEdgeWidth: range(0.5, 4, 0.25),
-    "plates.pendingOutset": range(0, 6, 0.25),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };
@@ -313,17 +298,24 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
 const NO_SLOTS: PlacementSlot[] = [];
 const NO_TILES: typeof tiles = [];
 
+/** The two looks of the tile in hand (#657): `hover`, the preview at half opacity, and `placed`, the pending tile with Faint. */
+export const TILE_LOOKS = {
+  hover: { label: "Hover · 50 %, its outlines", state: "hover" },
+  placed: { label: "Pending · Faint, its outlines", state: "placed" },
+} as const satisfies Record<string, { label: string; state: PlacementStoryState }>;
+export type TileLook = keyof typeof TILE_LOOKS;
+
 /**
- * The three pending looks side by side (#605): one board each, the tile placed, the same view; stacked on a phone, in a
- * row from 640 px (classes the app already has: a story's classes reach the app's CSS). `data-ready` once every board is drawn.
+ * The tile in hand's two looks side by side (#657): one board each, the same view; stacked on a phone, in a row from 640 px
+ * (classes the app already has: a story's classes reach the app's CSS). `data-ready` once every board is drawn.
  */
-export function PendingProposals({ view = "default", ...props }: Partial<PlacementBoardProps>) {
+export function PendingLooks({ view = "default", ...props }: Partial<PlacementBoardProps>) {
   return (
     <div className="flex h-dvh w-full flex-col gap-1 bg-background sm:flex-row">
-      {(Object.keys(PENDING_PROPOSALS) as PendingProposal[]).map((key) => (
-        <section key={key} className="relative min-h-0 flex-1" data-proposal={key}>
-          <PlacementBoard {...props} {...PENDING_PROPOSALS[key].args} view={view} state="placed" readout={false} fill />
-          <h2 className="pointer-events-none absolute top-2 left-2 rounded-md bg-background/80 px-2 py-1 text-xs font-medium text-foreground">{PENDING_PROPOSALS[key].label}</h2>
+      {(Object.keys(TILE_LOOKS) as TileLook[]).map((key) => (
+        <section key={key} className="relative min-h-0 flex-1" data-look={key}>
+          <PlacementBoard {...props} view={view} state={TILE_LOOKS[key].state} readout={false} fill />
+          <h2 className="pointer-events-none absolute top-2 left-2 rounded-md bg-background/80 px-2 py-1 text-xs font-medium text-foreground">{TILE_LOOKS[key].label}</h2>
         </section>
       ))}
     </div>

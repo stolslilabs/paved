@@ -68,6 +68,9 @@ with `docs/`, `scripts/` or `packages/`.
   (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
   faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the
   bias, order, depth, the dark grey and the viewport each draw is told.
+- The tile in hand (hover preview and pending tile, #657) is drawn with the same outline pass on its own material
+  (`TileRenderer.ghostEdgeMaterial`): the placed tiles' stroke, its opacity times the ghost's (half on a hover), drawn
+  after the ghost's faces and depth pre-pass. The confirm's overlay draws none (`placement.test.ts`, "the tile in hand's outlines").
 - The width is `widthVoxels` of a voxel (default **0.015**), converted to device px at the zoom (`outlineStroke`), at least
   `minWidthDevicePx` (1) and at most `maxWidthPx` (2) CSS px; the colour is `#1f1f1f`. The opacity follows the tile's
   on-screen size in CSS px (`tilePixels`) against S, the tile size the board opens at on this viewport
