@@ -18,6 +18,7 @@ import type { VoxelDropSettings } from "./voxel-drop-settings";
 import type * as Classifier from "./features";
 import { DEFAULT_WINDOW_LIGHT, WINDOW_SPILL_LAYERS, type WindowLightSettings } from "./daynight-settings";
 import { CLOUD_FRAGMENT_GLSL, CLOUD_VERTEX_GLSL, cloudLightsFragment, createCloudUniforms } from "./cloud-shader";
+import { SNOW_APPLY_GLSL, SNOW_FRAGMENT_GLSL, createSnowUniforms } from "./snow-shader";
 // The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are on.
 import type * as Windows from "./windows";
 import type * as Voxelizer from "./voxelizer";
@@ -284,6 +285,11 @@ export class TileRenderer {
    * them; until it does, the term is off.
    */
   readonly cloudUniforms = createCloudUniforms();
+  /**
+   * The snow on the tops (`snow-shader.ts`, #607 PR 2), shared as the others: only the weather's chunk (stories only) writes them;
+   * until it does, the term is off.
+   */
+  readonly snowUniforms = createSnowUniforms();
   /** The windows' chunk and the voxel grids (`VoxelCache`) and baked windows (`WindowCache`) it builds, per model type. */
   private windowsChunk: Promise<{ windows: typeof Windows; voxelizer: typeof Voxelizer }> | null = null;
   private voxelGrids: Voxelizer.VoxelCache | null = null;
@@ -658,6 +664,7 @@ export class TileRenderer {
       ...this.structureUniforms,
       ...this.nightUniforms,
       ...this.cloudUniforms,
+      ...this.snowUniforms,
       ...labels,
       uFootprint: footprint,
     };
@@ -716,6 +723,7 @@ export class TileRenderer {
             "varying vec2 vBoardVoxel;",
             WINDOW_SWITCH_GLSL,
             CLOUD_FRAGMENT_GLSL,
+            SNOW_FRAGMENT_GLSL,
             "void main() {",
           ].join("\n"),
         )
@@ -724,6 +732,8 @@ export class TileRenderer {
           "#include <roughnessmap_fragment>",
           "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
         )
+        // The snow on the tops (`snow-shader.ts`): off until the weather sets its cover.
+        .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>\n${SNOW_APPLY_GLSL}`)
         .replace(
           "#include <emissivemap_fragment>",
           "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;\n  totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;",
