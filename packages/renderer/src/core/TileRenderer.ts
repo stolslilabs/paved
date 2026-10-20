@@ -217,6 +217,13 @@ export class TileRenderer {
   private confirmContainer: THREE.Group | null = null;
   private depthMaterial: THREE.MeshBasicMaterial | null = null;
   private edgeMaterial = createOutlineMaterial();
+  /**
+   * The frame on the pending tile's top edges (#605, `tints.pendingEdge*`): one square outline at the ground's top, moved
+   * to the ghost's container, drawn with the outlines' stroke in its own colour and width (`applyPendingEdge`).
+   */
+  private pendingEdgeMaterial = createOutlineMaterial();
+  private pendingEdge: THREE.Mesh | null = null;
+  private outlineStroke: OutlineStroke = { width: 0, opacity: 0 };
   private strategyGeometry: THREE.BoxGeometry | null = null;
   private strategySideMaterial: THREE.Material | null = null;
   private strategyTopMaterials: Map<string, THREE.MeshBasicMaterial> = new Map();
@@ -1119,8 +1126,8 @@ export class TileRenderer {
 
   /**
    * The ghost: the tile in hand drawn on a cell as the board would draw it (its model, or its placeholder quad while the
-   * model loads), tinted on the model itself: untinted at half opacity on a hover, opaque yellow once `placed`. It shares the type's geometry: nothing to
-   * dispose.
+   * model loads), tinted on the model itself: untinted at half opacity on a hover, opaque with a faint yellow once `placed`
+   * (and the pending frame, when on: `pendingEdgeFrame`). It shares the type's geometry: nothing to dispose.
    */
   setHover(state: HoverState | null): void {
     this.hoverState = state;
@@ -1165,11 +1172,33 @@ export class TileRenderer {
       return;
     }
     const container = new THREE.Group();
-    container.add(model);
+    container.add(model, this.pendingEdgeFrame());
     container.position.set(state.x * this.squareSize, 0, state.y * this.squareSize);
     this.setGhostTint({ x: state.x, y: state.y, kind });
     this.previewGroup.add(container);
     this.previewContainer = container;
+  }
+
+  /** The pending tile's frame, made once: the tile's square at the ground's top, drawn after the ghost it lies on. */
+  private pendingEdgeFrame(): THREE.Mesh {
+    if (!this.pendingEdge) {
+      const square = new THREE.PlaneGeometry(this.squareSize, this.squareSize).rotateX(-Math.PI / 2);
+      this.pendingEdge = createOutline(buildEdgesGeometry(square), this.pendingEdgeMaterial);
+      square.dispose();
+      this.pendingEdge.position.y = PLACEHOLDER_HEIGHT;
+      this.pendingEdge.renderOrder = GHOST_ORDER + 1;
+      this.pendingEdge.castShadow = false;
+    }
+    return this.pendingEdge;
+  }
+
+  /** The frame's stroke: the outlines' at this zoom, `pendingEdgeWidth` times as wide, at the tint's edge opacity. */
+  private applyPendingEdge(edge: number): void {
+    const { pendingEdgeColor, pendingEdgeWidth } = this.placement.getSettings().tints;
+    const stroke = this.outlineStroke;
+    // Hidden at 0 (a hover, or the frame off): the ghost shows no outline then.
+    if (this.pendingEdge) this.pendingEdge.visible = edge > 0;
+    applyOutlineStroke(this.pendingEdgeMaterial, { ...stroke, width: stroke.width * Math.max(0, pendingEdgeWidth), opacity: stroke.opacity * edge }, pendingEdgeColor);
   }
 
   /**
@@ -1249,11 +1278,12 @@ export class TileRenderer {
 
   /** Writes a tint (`PlacementRenderer.ghostTint`) to a role's uniforms. */
   private applyLook(role: GhostRole, tint: GhostTint | number[]): void {
-    const [r, g, b, mix, alpha] = Array.isArray(tint) ? tint : [tint.r, tint.g, tint.b, tint.strength, tint.opacity];
+    const [r, g, b, mix, alpha, edge] = Array.isArray(tint) ? tint : [tint.r, tint.g, tint.b, tint.strength, tint.opacity, tint.edge];
     const look = this.ghostLooks[role];
     look.color.value.setRGB(r!, g!, b!);
     look.mix.value = mix!;
     look.alpha.value = alpha!;
+    if (role === "hand") this.applyPendingEdge(edge ?? 0);
   }
 
   /** The tile in hand's tint now (its ease runs in `update`). */
@@ -1372,6 +1402,8 @@ export class TileRenderer {
   /** Width, opacity and colour of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
   setOutlineStroke(stroke: OutlineStroke, color?: string): void {
     applyOutlineStroke(this.edgeMaterial, stroke, color);
+    this.outlineStroke = stroke;
+    this.applyPendingEdge(this.placement.ghostTint()[5] ?? 0);
   }
 
   setStrategyMode(on: boolean): void {
@@ -1419,6 +1451,10 @@ export class TileRenderer {
     this.depthMaterial?.dispose();
     this.depthMaterial = null;
     this.edgeMaterial.dispose();
+    this.pendingEdge?.removeFromParent();
+    this.pendingEdge?.geometry.dispose();
+    this.pendingEdge = null;
+    this.pendingEdgeMaterial.dispose();
     this.strategyGeometry?.dispose();
     this.strategyGeometry = null;
     this.strategySideMaterial?.dispose();

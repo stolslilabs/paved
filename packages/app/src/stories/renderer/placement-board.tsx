@@ -43,9 +43,25 @@ export interface PlacementBoardProps {
   lookPreset?: LookPreset;
   /** The day and night cycle held at a phase of a summer's day (#588: the plates read by day, dusk and night); off, the look alone. */
   dayPhase?: DayPhase | "off";
+  /** The view looks at the placed tile's cell instead of the board's middle. */
+  onPlaced?: boolean;
+  /** Fill the parent (a cell of `PendingProposals`) instead of the whole screen. */
+  fill?: boolean;
   /** The placement settings, flat (`placementArgTypes`). */
   [arg: string]: unknown;
 }
+
+/**
+ * The three looks of a pending tile (#605, the owner picks), as flat args: (1) the yellow at a much lower strength, opaque
+ * (the board's default meanwhile); (2) no tint, a thin gold frame on the tile's top edges and the plate under it in gold,
+ * its rim showing around the tile; (3) a faint tint breathing from 0 to 0.12 and back, held at 0.12 under reduced motion.
+ */
+export const PENDING_PROPOSALS = {
+  faint: { label: "1 · Faint yellow (0.12)", args: { tintsPendingStrength: 0.12 } },
+  gold: { label: "2 · Gold edge and plate", args: { tintsPendingStrength: 0, tintsPendingEdgeOpacity: 1, tintsPendingEdgeWidth: 2, platesPendingOpacity: 0.9 } },
+  pulse: { label: "3 · Breathing tint (0 to 0.12)", args: { tintsPendingStrength: 0.12, tintsPendingPulseMs: 2400 } },
+} as const satisfies Record<string, { label: string; args: Record<string, unknown> }>;
+export type PendingProposal = keyof typeof PENDING_PROPOSALS;
 
 export const tiles = toRenderTiles(BOARD_72.tiles, 1);
 
@@ -82,6 +98,12 @@ export const PLACED: HoverState = (() => {
   const cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2 / TILE_SIZE;
   const slot = SLOTS.filter((s) => s.legal !== false).sort((a, b) => (a.x - cx) ** 2 + (a.y - cz) ** 2 - ((b.x - cx) ** 2 + (b.y - cz) ** 2))[0]!;
   return { x: slot.x, y: slot.y, valid: true, idle: true, placed: true, planIndex: BOARD_72.tiles[1].plan, orientation: BOARD_72.tiles[1].orientation };
+})();
+
+/** Bounds shrunk to the placed tile's cell: every view looks at it (`onPlaced`). */
+const PLACED_BOUNDS: Bounds = (() => {
+  const [x, z] = [PLACED.x * TILE_SIZE, PLACED.y * TILE_SIZE];
+  return { minX: x, maxX: x, minZ: z, maxZ: z, anchor: [x, z] };
 })();
 
 /** The board with the placed tile on its slot: the confirm's board. */
@@ -128,6 +150,9 @@ export function placementArgTypes(): Record<string, object> {
     colorMs: range(0, 1000, 10),
     hoverMs: range(0, 1000, 10),
     pendingMs: range(0, 1000, 10),
+    pendingPulseMs: range(0, 6000, 100),
+    pendingEdgeWidth: range(0.5, 4, 0.25),
+    "plates.pendingOutset": range(0, 6, 0.25),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };
@@ -150,7 +175,7 @@ export function placementArgTypes(): Record<string, object> {
  * out); `board` off shows the plates alone. `sequence` plays the game's placement (#568). `data-ready` is set once the board
  * is drawn at the held view; `data-step` names the sequence's step.
  */
-export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, holdMs = 800, dropSpeed, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", dayPhase = "off", ...args }: PlacementBoardProps) {
+export function PlacementBoard({ state, onPlaced = false, fill = false, board = true, reducedMotion, replayMs = 1600, holdMs = 800, dropSpeed, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", dayPhase = "off", ...args }: PlacementBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState("");
@@ -171,14 +196,14 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
 
   useEffect(() => {
     if (!scene) return;
-    const pose = viewPose(view, BOUNDS, distance);
+    const pose = viewPose(view, onPlaced ? PLACED_BOUNDS : BOUNDS, distance);
     scene.controls.controls.target.set(...pose.target);
     scene.camera.position.set(...pose.position);
     scene.camera.lookAt(...pose.target);
     scene.requestRender();
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setReady(true))));
     return () => cancelAnimationFrame(id);
-  }, [scene, view, distance]);
+  }, [scene, view, distance, onPlaced]);
 
   // The confirm again and again, so its fade can be watched (and tuned).
   useEffect(() => {
@@ -254,7 +279,7 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
   const shown = !board ? NO_TILES : confirming ? WITH_PLACED : state === "sequence" ? sequenceTiles : tiles;
 
   return (
-    <div className="relative h-full min-h-dvh w-full overflow-hidden bg-board" data-ready={ready || undefined} data-step={state === "sequence" ? step : undefined}>
+    <div className={`relative h-full w-full overflow-hidden bg-board ${fill ? "" : "min-h-dvh"}`} data-ready={ready || undefined} data-step={state === "sequence" ? step : undefined}>
       <GameCanvas
         tiles={shown}
         availableSlots={slots}
@@ -281,3 +306,20 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
 
 const NO_SLOTS: PlacementSlot[] = [];
 const NO_TILES: typeof tiles = [];
+
+/**
+ * The three pending looks side by side (#605): one board each, the tile placed, the same view; stacked on a phone, in a
+ * row from 1024 px. `data-ready` once every board is drawn.
+ */
+export function PendingProposals(props: Omit<PlacementBoardProps, "state">) {
+  return (
+    <div className="grid h-dvh w-full grid-rows-3 gap-1 bg-background lg:grid-cols-3 lg:grid-rows-1">
+      {(Object.keys(PENDING_PROPOSALS) as PendingProposal[]).map((key) => (
+        <section key={key} className="relative min-h-0" data-proposal={key}>
+          <PlacementBoard {...props} {...PENDING_PROPOSALS[key].args} state="placed" readout={false} fill />
+          <h2 className="pointer-events-none absolute top-2 left-2 rounded-md bg-background/80 px-2 py-1 text-xs font-medium text-foreground">{PENDING_PROPOSALS[key].label}</h2>
+        </section>
+      ))}
+    </div>
+  );
+}
