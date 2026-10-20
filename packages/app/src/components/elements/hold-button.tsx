@@ -3,6 +3,7 @@ import { cn } from "../../lib/utils";
 import { HOLD_MS, useHold, type Hold, type HoldState } from "../../lib/use-hold";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { haptic } from "../../lib/haptics";
 
 export { HOLD_MS, type HoldState };
 /** The ring rewinds this fast when the hold is let go before the end, ms. */
