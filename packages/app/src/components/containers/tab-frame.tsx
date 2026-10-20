@@ -53,9 +53,15 @@ export function TabFrame({ tab, onNavigate, children }: TabFrameProps) {
 const offsets = new Map<string, number>();
 const STORE = "page-scroll:";
 
+/**
+ * The key of a document's first entry (a typed URL, a link from outside, a reload of it): every such entry shares it, so its
+ * offset lives in this document's memory only, never in `sessionStorage`, or one page would open at another's offset.
+ */
+const FIRST_ENTRY = "default";
+
 function savedOffset(key: string): number {
   const known = offsets.get(key);
-  if (known !== undefined) return known;
+  if (known !== undefined || key === FIRST_ENTRY) return known ?? 0;
   try {
     return Number(sessionStorage.getItem(STORE + key)) || 0;
   } catch {
@@ -65,6 +71,7 @@ function savedOffset(key: string): number {
 
 function saveOffset(key: string, top: number) {
   offsets.set(key, top);
+  if (key === FIRST_ENTRY) return;
   try {
     sessionStorage.setItem(STORE + key, String(top));
   } catch {

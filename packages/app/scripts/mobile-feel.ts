@@ -134,6 +134,16 @@ async function main(): Promise<void> {
     await page.waitForTimeout(500);
     const newEntry = await region.evaluate((el) => el.scrollTop);
     check("tab page: the current tab picked again opens a new entry at the top", newEntry === 0, `scrollTop ${newEntry}`);
+    // A fresh document (a typed URL) opens at the top: its first entry never takes another page's offset.
+    await region.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await page.waitForTimeout(300);
+    for (const path of ["/vault", "/settings"]) {
+      await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
+      await region.waitFor();
+      await page.waitForTimeout(500);
+      const fresh = await region.evaluate((el) => el.scrollTop);
+      check(`tab page: a fresh load of ${path} opens at the top`, fresh === 0, `scrollTop ${fresh}`);
+    }
 
     // iOS Safari ignores the meta: its pinch is the page's `gesturestart` and `gesturechange`, which must be cancelled.
     const cancelled = await page.evaluate(() =>
