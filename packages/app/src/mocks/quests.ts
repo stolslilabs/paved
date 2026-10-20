@@ -78,13 +78,13 @@ const quest = (def: QuestDefinition, day: number, count: number, completedAt: nu
 };
 
 /** A day as the indexer serves it: the definitions live at some second of it, with the counts given (0 for the others). */
-const day = (d: number, counts: Record<number, number>, completedAt: Record<number, number> = {}, definitions: readonly QuestDefinition[] = QUEST_DEFINITIONS): ScheduledQuests => ({
+const day = (d: number, counts: Record<number, number>, completedAt: Record<number, number> = {}): ScheduledQuests => ({
   playerId: PLAYER_ID,
   day: d,
   startTime: d * DAY,
   endTime: (d + 1) * DAY,
   // Nothing is live before the day the quests were defined.
-  quests: (d < QUESTS_FROM ? [] : definitions.filter((def) => isLiveOnDay(def, d))).map((def) => quest(def, d, counts[def.questId] ?? 0, completedAt[def.questId] ?? null)),
+  quests: (d < QUESTS_FROM ? [] : QUEST_DEFINITIONS.filter((def) => isLiveOnDay(def, d))).map((def) => quest(def, d, counts[def.questId] ?? 0, completedAt[def.questId] ?? null)),
 });
 
 /** When Daily Run was done today. */
@@ -103,18 +103,6 @@ export const QUESTS_TODAY = day(TODAY, TODAY_COUNTS, DONE_TODAY);
 export const QUESTS_TODAY_ONE_TO_GO = day(TODAY, { ...TODAY_COUNTS, 6: 7 }, DONE_TODAY);
 /** ... and the read after it: 8 of 8. */
 export const QUESTS_TODAY_COMPLETED = day(TODAY, { ...TODAY_COUNTS, 6: 8 }, { ...DONE_TODAY, 6: MOCK_NOW });
-
-/**
- * Today with a mission of several tasks beside the others (quiver allows it; none is defined at the fresh deployment): id 20,
- * 4 roads and cities and 2 forests in the day, the roads done, no forest yet. Not a milestone: each task keeps its bar.
- */
-export const QUESTS_MULTI_TASK: ScheduledQuests = {
-  ...QUESTS_TODAY,
-  quests: [
-    ...QUESTS_TODAY.quests,
-    { questId: 20, intervalId: TODAY, tasks: [task(STRUCTURE_SCORED, 4, 4), task(FOREST_SCORED, 2, 0)], completed: false, completedAt: null, retired: false, ...dailyAt(0, 1) },
-  ],
-};
 
 /** The same day with Weekly Forester done (5 of 5). */
 export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR });
@@ -138,56 +126,6 @@ export const QUESTS_IDLE = day(TODAY - 4, {});
 
 /** A day before the quests were defined: none live. */
 export const QUESTS_NONE = day(QUESTS_FROM - 2, {});
-
-/*
- * The tiered schedule (#595), a PROPOSAL, not the chain's: the milestone bars group the tiers of one task live in one window,
- * and the fresh definitions have none (one target of each family a day, one per weekly task). Here the three targets of each
- * family are live every day (`interval = duration = 1 day`, `start` 0), so each family is a track of three steps, and each
- * weekly gets a second tier (17 to 19, not defined on chain). The PR lists it for the owner; the contracts and
- * `scripts/deploy.sh` change in a separate issue.
- */
-export const TIERED_DEFINITIONS: readonly QuestDefinition[] = [
-  { questId: 1, taskId: GAME_FINISHED, total: 1, ...dailyAt(0, 1) },
-  ...[5, 6, 7].map((questId, i) => ({ questId, taskId: STRUCTURE_SCORED, total: [4, 8, 12][i], ...dailyAt(0, 1) })),
-  ...[8, 9, 10].map((questId, i) => ({ questId, taskId: FOREST_SCORED, total: [2, 3, 4][i], ...dailyAt(0, 1) })),
-  ...[11, 12, 13].map((questId, i) => ({ questId, taskId: POINTS, total: [2_000, 5_000, 8_000][i], ...dailyAt(0, 1) })),
-  { questId: 14, taskId: FOREST_SCORED, total: 5, ...weekly },
-  { questId: 17, taskId: FOREST_SCORED, total: 15, ...weekly },
-  { questId: 15, taskId: STRUCTURE_SCORED, total: 30, ...weekly },
-  { questId: 18, taskId: STRUCTURE_SCORED, total: 60, ...weekly },
-  { questId: 16, taskId: POINTS, total: 20_000, ...weekly },
-  { questId: 19, taskId: POINTS, total: 50_000, ...weekly },
-];
-
-/** Per task, the count each of its definitions is served (saturated at its own total by `task`). */
-const byTask = (daily: Record<number, number>, week: Record<number, number>): Record<number, number> =>
-  Object.fromEntries(TIERED_DEFINITIONS.map((def) => [def.questId, (def.duration > DAY ? week : daily)[def.taskId] ?? 0]));
-const tieredDay = (daily: Record<number, number>, week: Record<number, number>, completedAt: Record<number, number> = {}) =>
-  day(TODAY, byTask(daily, week), completedAt, TIERED_DEFINITIONS);
-
-/**
- * Today on the tiered schedule: 1 game, 9 roads and cities, 2 forests and 2,710 points today, so Builder has two of its three
- * steps (3 more to Great Works), Forester one of three, Points one of three; the week has 7 forests, 22 roads and cities and
- * 12,400 points (Weekly Forester reached, its second step at 15).
- */
-export const QUESTS_TIERED = tieredDay(
-  { [GAME_FINISHED]: 1, [STRUCTURE_SCORED]: 9, [FOREST_SCORED]: 2, [POINTS]: 2_710 },
-  { [FOREST_SCORED]: 7, [STRUCTURE_SCORED]: 22, [POINTS]: 12_400 },
-  { 1: MOCK_NOW - 3 * HOUR, 5: MOCK_NOW - 3 * HOUR, 6: MOCK_NOW - 3 * HOUR, 8: MOCK_NOW - 3 * HOUR, 11: MOCK_NOW - 3 * HOUR, 14: MOCK_NOW - DAY },
-);
-
-/** The tiered day before any game: every step locked but the first of each track. */
-export const QUESTS_TIERED_FRESH = tieredDay({}, {});
-
-/** The tiered day with every step reached, the day's and the week's. */
-export const QUESTS_TIERED_DONE = tieredDay(
-  { [GAME_FINISHED]: 3, [STRUCTURE_SCORED]: 14, [FOREST_SCORED]: 5, [POINTS]: 9_100 },
-  { [FOREST_SCORED]: 16, [STRUCTURE_SCORED]: 61, [POINTS]: 52_000 },
-  Object.fromEntries(TIERED_DEFINITIONS.map((def, i) => [def.questId, MOCK_NOW - (12 - (i % 12)) * HOUR])),
-);
-
-/** The tiered quest ids, the weeklies' second tiers included. */
-export const TIERED_IDS = TIERED_DEFINITIONS.map((d) => d.questId);
 
 const achievement = (achievementId: number, points: number, tasks: TaskProgress[], completedAt: number | null = null): PlayerAchievement => {
   const completed = tasks.every((t) => t.count >= t.total);

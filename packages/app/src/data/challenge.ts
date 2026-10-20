@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { useQueryClient } from "@tanstack/react-query";
 import type { GameKey, WriteResult } from "@paved/chain";
 import { PredictedSession, type MoveSenders, type PredictedState } from "@paved/game-core";
-import { refreshPlayerProgress } from "./progress";
-import { addressKey, queryKeys } from "./keys";
+import { queryKeys } from "./keys";
 import { useDataSources } from "./sources";
 
 export type ChallengeSession = PredictedSession<GameKey, WriteResult>;
@@ -12,7 +11,7 @@ export type ChallengeSession = PredictedSession<GameKey, WriteResult>;
  * The board's session of a Challenge game (P5): a `PredictedSession` on the sources' views, the game read and replayed
  * once on open, then each move predicted by the engine and confirmed by the chain. `senders` are the signer's writes
  * for this game; null without a signer (the board is read only, P6 connects the wallet). Each confirmed move refreshes the
- * `game(id)` and active-game reads of the other pages (`queryKeys`), and the player's progress (`refreshPlayerProgress`).
+ * `game(id)` and active-game reads of the other pages (`queryKeys`).
  *
  * `@paved/chain` is loaded with the session (a dynamic import, for the writer's `GameExpiredError`): the board's module is
  * shared with Training, which must not bring starknet.js.
@@ -52,14 +51,6 @@ export function useChallengeSession(gameId: number): {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chain.game(gameId) });
     if (signer) void queryClient.invalidateQueries({ queryKey: queryKeys.chain.activeGame(signer.address) });
   }, [settled, queryClient, gameId, signer]);
-
-  // ... and the player's own progress, which the app's completion toasts follow (#595): a mission completed in this game
-  // toasts on the board. The game over's own read is the over page's (`useGameCompletions`), with its retries.
-  const player = state?.status === "ready" ? (state.game?.playerId ?? null) : null;
-  const mine = signer !== null && player !== null && addressKey(player) === addressKey(signer.address);
-  useEffect(() => {
-    if (settled !== null && mine && signer) refreshPlayerProgress(queryClient, signer.address);
-  }, [settled, mine, queryClient, signer]);
 
   const senders = useMemo<MoveSenders<WriteResult> | null>(() => {
     if (!signer) return null;

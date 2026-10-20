@@ -1,5 +1,3 @@
-import { formatNumber } from "@paved/game-core";
-
 // What the screens say about quests and achievements, from the legacy client's `utils/quests-view.ts` (the accepted list,
 // docs/architecture/quests.md, P-22, and its v2a section). The titles and texts of quests 1 and 5 to 16 and achievements 1 to 16
 // are copied from there (app-web, removed in P-70; see git history), with an icon each. Quests 2 to 4
@@ -23,10 +21,6 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   14: { title: "Weekly Forester", description: "Score forests over the week, Monday to Sunday UTC.", icon: "tree" },
   15: { title: "Weekly Builder", description: "Score roads and cities over the week, Monday to Sunday UTC.", icon: "city" },
   16: { title: "Weekly Points", description: "Collect points over the week's finished Challenge games, Monday to Sunday UTC.", icon: "trophy" },
-  // Proposed (#595), not defined on chain: the weeklies' second tiers, the milestone bars' tiered schedule (the mocks' only).
-  17: { title: "Weekly Forester II", description: "Score more forests over the week: the second step of Weekly Forester.", icon: "tree" },
-  18: { title: "Weekly Builder II", description: "Score more roads and cities over the week: the second step of Weekly Builder.", icon: "city" },
-  19: { title: "Weekly Points II", description: "Collect more points over the week: the second step of Weekly Points.", icon: "trophy" },
 };
 
 export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: string; icon: string }> = {
@@ -63,37 +57,6 @@ export const TASK_UNIT: Record<number, string> = {
   10: "tutorial claimed",
 };
 
-/** A track of several steps on one task (#595): its name and icon, by task id. A track of one step is named after its mission. */
-export const TRACK_TEXT: Record<number, { title: string; icon: string }> = {
-  1: { title: "Challenge games", icon: "flag-checkered" },
-  2: { title: "Builder", icon: "city" },
-  3: { title: "Points", icon: "star" },
-  4: { title: "Forester", icon: "tree" },
-  5: { title: "Pilgrim", icon: "landmark-dome" },
-  6: { title: "Grand Builder", icon: "chess-rook" },
-  7: { title: "High Roller", icon: "dice" },
-  8: { title: "Podium", icon: "crown" },
-};
-
-/** What is left to the next step, by task id, one and many: "1 more forest", "3 more roads or cities". */
-const TASK_LEFT: Record<number, [string, string]> = {
-  1: ["Challenge game", "Challenge games"],
-  2: ["road or city", "roads or cities"],
-  3: ["point", "points"],
-  4: ["forest", "forests"],
-  5: ["wonder", "wonders"],
-  6: ["large structure", "large structures"],
-  7: ["high-score game", "high-score games"],
-  8: ["podium place", "podium places"],
-  9: ["win", "wins"],
-  10: ["tutorial claim", "tutorial claims"],
-};
-
 export const questText = (id: number) => QUEST_TEXT[id] ?? { title: `Mission #${id}`, description: "", icon: "scroll" };
 export const achievementText = (id: number) => ACHIEVEMENT_TEXT[id] ?? { title: `Mission #${id}`, description: "", icon: "medal" };
 export const taskUnit = (taskId: number) => TASK_UNIT[taskId] ?? `task ${taskId}`;
-export const trackText = (taskId: number) => TRACK_TEXT[taskId] ?? { title: `Task ${taskId}`, icon: "scroll" };
-export const taskLeft = (taskId: number, left: number): string => {
-  const [one, many] = TASK_LEFT[taskId] ?? ["unit", "units"];
-  return `${formatNumber(left)} more ${left === 1 ? one : many}`;
-};
