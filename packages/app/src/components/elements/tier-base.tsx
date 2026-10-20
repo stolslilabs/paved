@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 /**
- * A tier's base (#646): the plinth under a tile, whatever its skin. Dirt, silver, gold, diamond, ruby, from the tokens
+ * A tier's base (the village, issue 646): the plinth under a tile, whatever its skin. Dirt, silver, gold, diamond, ruby, from the tokens
  * `--tier-0` to `--tier-4` (`theme.css`). The names live in `containers/village-rules.ts` (`TIERS`).
  */
 export const tierBaseVariants = cva("relative block rounded-[3px]", {
