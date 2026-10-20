@@ -83,3 +83,14 @@ export async function holdToPlace(): Promise<void> {
 export async function placeTile(): Promise<void> {
   fireEvent.click(await screen.findByRole("button", { name: "Hold to place the tile" }, { timeout: BUBBLE_WAIT_MS }));
 }
+
+/**
+ * Discards the tile in hand from the tile stack (#606): its Discard is held, so the test activates it as a screen reader does
+ * (a click with no press before it acts at once; `hold-button.test.tsx` covers the hold itself).
+ */
+export async function discardTile(): Promise<void> {
+  const stack = await screen.findByRole("region", { name: "Your tile" }, { timeout: BUBBLE_WAIT_MS });
+  const button = stack.querySelector<HTMLButtonElement>('button[aria-label^="Hold to discard the tile"]');
+  if (!button) throw new Error("discardTile: the stack offers no Discard");
+  fireEvent.click(button);
+}

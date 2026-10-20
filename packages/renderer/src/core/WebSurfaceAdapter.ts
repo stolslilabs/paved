@@ -144,6 +144,7 @@ export class WebSurfaceAdapter implements RenderSurfaceAdapter {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
       button: event.button,
+      buttons: event.buttons,
       pointerId: event.pointerId,
     });
   }

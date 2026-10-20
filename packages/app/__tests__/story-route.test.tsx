@@ -9,7 +9,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
-import { placeTile, preloadPages } from "./route-helpers";
+import { placeTile, preloadPages, discardTile } from "./route-helpers";
 
 preloadPages("story", "story-board");
 
@@ -39,7 +39,7 @@ const slotName = (x: number, y: number) => {
 async function playLine(level: StoryLevel) {
   for (const move of decodeLine(level.line)) {
     if (move.action === "discard") {
-      await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+      await discardTile();
       continue;
     }
     const { x, y, orientation } = move.placement;
@@ -163,7 +163,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     // A tap anywhere on the presentation starts the level.
     await userEvent.click(within(await screen.findByTestId("deck-presentation", {}, { timeout: 5000 })).getByText(level.intro));
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
-    for (let i = 0; i < level.deck.length; i++) await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    for (let i = 0; i < level.deck.length; i++) await discardTile();
     const end = await screen.findByTestId("story-end");
     expect(end).toHaveAttribute("data-stars", "1");
     // A tap while the stars fill skips to the result: one row of stars, never two.
@@ -176,20 +176,20 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     await userEvent.click(within(end).getByRole("button", { name: "Replay" }));
     expect(screen.queryByTestId("story-end")).toBeNull();
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
-    expect(within(hand()).getByRole("button", { name: /Discard/ })).toBeEnabled();
+    expect(within(hand()).getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
     first.unmount();
     queryClient.clear();
 
     // Presented once on this device: the next visit opens on the board, and the deck sheet shows the presentation again.
     render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    expect(await within(await screen.findByRole("region", { name: "Your tile" }, { timeout: 5000 })).findByRole("button", { name: /Discard/ })).toBeEnabled();
+    expect(await within(await screen.findByRole("region", { name: "Your tile" }, { timeout: 5000 })).findByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Present the level again" }, { timeout: 5000 }));
     const again = await screen.findByTestId("deck-presentation");
     await userEvent.click(within(again).getByRole("button", { name: /Start/ }));
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
-    expect(within(hand()).getByRole("button", { name: /Discard/ })).toBeEnabled();
+    expect(within(hand()).getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
   });
 
   it("a locked level's address says so; the second campaign opens at 2 stars per Tutorial level", async () => {

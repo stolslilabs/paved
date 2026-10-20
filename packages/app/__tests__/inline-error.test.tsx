@@ -4,7 +4,7 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { InlineError, errorReport } from "../src/components/elements/inline-error";
-import { HandPanel } from "../src/components/containers/hand-panel";
+import { TileStack } from "../src/components/containers/tile-stack";
 import { VaultForm } from "../src/components/containers/vault-form";
 import { PAVED_BALANCE } from "../src/mocks/economy";
 import { EXIT_FEE_BPS, PREVIEW_DEPOSIT_100, VAULT_HELD } from "../src/mocks/vault";
@@ -123,7 +123,7 @@ describe("InlineError (P-67)", () => {
 
   it("takes no space without an error: nothing is rendered, so a parent's gap is not added", async () => {
     // Each host with no error renders no slot: the same children, so the same height, as before P-67.
-    const { unmount } = render(wrap(<HandPanel tile={{ plan: 1, orientation: 1 }} state="placing" />));
+    const { unmount } = render(wrap(<TileStack tile={{ plan: 1, orientation: 1 }} state="placing" remaining={10} />));
     expect(document.querySelector('[data-slot="inline-error"]')).toBeNull();
     unmount();
     render(
@@ -155,11 +155,11 @@ describe("InlineError (P-67)", () => {
   });
 
   it("is the hand's one error rendering, refused and expired alike", () => {
-    const { rerender } = render(wrap(<HandPanel tile={{ plan: 1, orientation: 1 }} state="refused" error="The edges do not match." />));
+    const { rerender } = render(wrap(<TileStack tile={{ plan: 1, orientation: 1 }} state="refused" remaining={10} error="The edges do not match." />));
     expect(screen.getByRole("alert")).toHaveTextContent("Move refused: The edges do not match.");
-    rerender(wrap(<HandPanel tile={{ plan: 1, orientation: 1 }} state="expired" />));
+    rerender(wrap(<TileStack tile={{ plan: 1, orientation: 1 }} state="expired" remaining={10} />));
     expect(screen.getByRole("alert")).toHaveTextContent("Game expired: 24 h passed since its purchase.");
-    rerender(wrap(<HandPanel tile={{ plan: 1, orientation: 1 }} state="placing" />));
+    rerender(wrap(<TileStack tile={{ plan: 1, orientation: 1 }} state="placing" remaining={10} />));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 

@@ -55,6 +55,7 @@ export function createFakeSceneClass(scenes: unknown[]) {
       this.disposed++;
     });
     onTileClick = vi.fn();
+    onTilePress = vi.fn();
     onTileHover = vi.fn();
     onHoverLeave = vi.fn();
     updateTiles = vi.fn();

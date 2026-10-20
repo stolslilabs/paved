@@ -46,6 +46,8 @@ export interface SurfaceInputEvent {
   x: number;
   y: number;
   button?: number;
+  /** The buttons held (`PointerEvent.buttons`, 1 the left): a move with another one held is a chord (#630). Unset: unknown. */
+  buttons?: number;
   /** The pointer's id (`PointerEvent.pointerId`): it tells a second finger from the first. Unset: one pointer. */
   pointerId?: number;
 }

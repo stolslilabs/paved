@@ -266,7 +266,7 @@ function gameOf(store: () => KeyValueStore | null): TrainingGame {
 
 /**
  * The board's session in Training: the saved game of this browser resumed (replayed once), or a new one; each move is
- * applied to the session's engine, never replayed (`LocalSession`). `newGame` starts another seed.
+ * applied to the session's engine, never replayed (`LocalSession`). `newGame` starts another seed, `restart` the same seed again.
  *
  * Two tabs on one save: the last save written wins. A tab follows the save another tab wrote (the `storage` event, which
  * fires only in the other tabs) whenever it holds moves this tab lacks, even at the same length (each tab played a
@@ -280,6 +280,8 @@ export function useTrainingSession(): {
   board: SessionBoard;
   snapshot: TrainingSnapshot;
   newGame: () => void;
+  /** The same game again from its start: its seed, so its deck (#606, the settings' Restart). */
+  restart: () => void;
 } {
   const sources = useDataSources();
   const store = trainingStore(sources);
@@ -293,6 +295,12 @@ export function useTrainingSession(): {
     setGame(next);
   }, [store]);
 
+  const restart = useCallback(() => {
+    const again = TrainingGame.start(game.seed, store);
+    games.set(store, again);
+    setGame(again);
+  }, [store, game]);
+
   useEffect(() => {
     const follow = (event: StorageEvent) => {
       if (event.key !== TRAINING_KEY || event.newValue === null) return;
@@ -303,5 +311,5 @@ export function useTrainingSession(): {
     return () => window.removeEventListener("storage", follow);
   }, [store, game]);
 
-  return { game, session: game.session, state: snapshot.state, board: boardOf(snapshot.state), snapshot, newGame };
+  return { game, session: game.session, state: snapshot.state, board: boardOf(snapshot.state), snapshot, newGame, restart };
 }
