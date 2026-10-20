@@ -133,6 +133,35 @@ export { DEFAULT_BIRD_SETTINGS, MAX_BIRDS, resolveBirdSettings } from "./core/bi
 export type { BirdSettings, BirdSettingsInput } from "./core/bird-settings";
 export type { BirdSource, BirdState, Birds } from "./core/birds";
 export const loadBirds = (): Promise<typeof import("./core/birds")> => import("./core/birds");
+// The weather (WEATHER-STUDY, #607 PR 2), stories only: the board does not call it. Its settings are small and eager; the effect is a
+// chunk of its own, loaded by `loadWeather` (nothing in the app's board calls it, so the app's build has no such chunk). The snow on
+// the tops is a term of the tile shader (`TileRenderer.snowUniforms`), off until the weather sets it.
+export {
+  DEFAULT_WEATHER_SETTINGS,
+  PARTICLE_FALL,
+  PARTICLE_LAYERS,
+  PARTICLE_MAX,
+  PARTICLE_SIZE,
+  RAYS_MAX,
+  SPLASH_MAX,
+  resolveWeatherSettings,
+  weatherCloudFactor,
+  weatherMode,
+} from "./core/weather-settings";
+export type {
+  AutumnSettings,
+  GradeSettings,
+  ParticleLayer,
+  ParticleSettings,
+  SpringSettings,
+  SummerSettings,
+  WeatherMode,
+  WeatherSettings,
+  WeatherSettingsInput,
+  WinterSettings,
+} from "./core/weather-settings";
+export type { Weather, WeatherStats } from "./core/weather";
+export const loadWeather = (): Promise<typeof import("./core/weather")> => import("./core/weather");
 export { dropDuration, planDrop } from "./core/voxel-drop-schedule";
 export type { DropSchedule, ScheduleGrid } from "./core/voxel-drop-schedule";
 export type { DropInfo, DropResult, DropSkip } from "./core/tile-drops";

@@ -32,6 +32,13 @@ with `docs/`, `scripts/` or `packages/`.
   A step draws only once the clouds moved `CLOUD_MIN_MOVE` (a quarter of a voxel).
 - The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`): the story registers them on
   `scene.ambient` itself; the board does not call them until the owner validates them.
+- The **weather** (#607 PR 2, `core/weather.ts`, loaded by `loadWeather`, settings in `core/weather-settings.ts`) is stories only
+  (`Renderer/Weather`), like the birds: the story adds `Weather.object` to the scene, registers it on `scene.ambient`, and feeds
+  it the cycle's point (`setCycle`), the clouds' wind (`setWind`) and `weatherMode` (off on Low and with the effects off; "still"
+  under reduced motion: nothing falls, the grades, glare, shafts and snow cover stay). One instanced draw per falling layer, one
+  full-screen draw for the grade, glare, shimmer and shafts (it keeps the target's alpha, so the cycle's backdrop still fills the
+  sky). The snow on the tops is a term of the tile shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`), off at 0: the
+  board never sets it.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
