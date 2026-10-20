@@ -3,12 +3,13 @@ import { fn } from "storybook/test";
 import { readPacks, type Definitions } from "@paved/chain";
 import { questCobbles } from "../../data/cobbles";
 import { MockLedger } from "../../data/mock/ledger";
-import { PURCHASE, QUESTS, THEME_SHOP, VAULT } from "../../mocks/scenes";
+import { COBBLES, PURCHASE, QUESTS, THEME_SHOP, VAULT } from "../../mocks/scenes";
 import { QUEST_DEFINITIONS, QUESTS_TODAY } from "../../mocks/quests";
 import { PLAYER_ID } from "../../mocks/players";
 import { BALANCE_RICH } from "../../mocks/economy";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
-import { PurchaseScene, type PurchaseSceneProps } from "../../components/scenes/purchase-scene";
+import { CobblesScene, type CobblesSceneProps } from "../../components/scenes/cobbles-scene";
+import { PurchaseScene } from "../../components/scenes/purchase-scene";
 import { QuestsScene, type QuestsSceneProps } from "../../components/scenes/quests-scene";
 import { ThemeShopScene, type ThemeShopSceneProps } from "../../components/scenes/theme-shop-scene";
 import { VaultScene, type VaultSceneProps } from "../../components/scenes/vault-scene";
@@ -111,34 +112,28 @@ export const MissionsClaimed: Story = {
   render: (_args, { loaded }) => <QuestsScene {...(loaded.props as QuestsSceneProps)} />,
 };
 
-/** Challenge with the mark (MOCK-MARK, #622): "Mock" on the title's line, the tabs under the bar's line. */
+/** Challenge with the mark (MOCK-MARK, #622): "Mock" on the title's line. */
 export const Challenge: Story = {
-  render: () => (
-    <PurchaseScene
-      {...(PURCHASE.cobblePacks as PurchaseSceneProps)}
-      {...{ onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn(), onTab: fn(), onSelectPack: fn(), onBuyPack: fn() }}
-      tab="game"
-    />
-  ),
+  render: () => <PurchaseScene {...PURCHASE.stake1} {...{ onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn() }} />,
 };
 
-/** The Cobble shop on the mock: its four packs, 50 Cobbles after the first one (5 USDC) was bought with test USDC. */
+/** The Cobble packs on the mock (#621): its four packs, 50 Cobbles after the first one (5 USDC) was bought with test USDC. */
 export const PackBought: Story = {
   loaders: [
     async () => {
       const l = ledger();
       await l.writesFor(PLAYER_ID, { paved: async () => 0n, usdc: async () => BALANCE_RICH }).buyPack({ packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null });
       const packs = await readPacks(l);
-      const props: PurchaseSceneProps = {
-        ...(PURCHASE.cobblePacks as PurchaseSceneProps),
-        ...{ onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn(), onTab: fn(), onSelectPack: fn(), onBuyPack: fn() },
+      const props: CobblesSceneProps = {
+        ...(COBBLES.packs as CobblesSceneProps),
+        ...{ onConnect: fn(), onBack: fn(), onSelectPack: fn(), onBuyPack: fn() },
         balance: await l.usdcBalance(PLAYER_ID, BALANCE_RICH),
         cobbles: { balance: (await l.account(PLAYER_ID)).cobbles, packs, selected: null },
       };
       return { props };
     },
   ],
-  render: (_args, { loaded }) => <PurchaseScene {...(loaded.props as PurchaseSceneProps)} />,
+  render: (_args, { loaded }) => <CobblesScene {...(loaded.props as CobblesSceneProps)} />,
 };
 
 /** Forest's shop on the mock after a pack: plan 13 (50 Cobbles) bought and set active, 0 Cobbles left. */

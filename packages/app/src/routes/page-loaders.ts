@@ -21,6 +21,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "": () => import("./pages/home"),
   play: () => import("./pages/play"),
   "play/challenge": () => import("./pages/purchase"),
+  cobbles: () => import("./pages/cobbles"),
   "game/:gameId": board,
   training: board,
   story: () => import("./pages/story"),

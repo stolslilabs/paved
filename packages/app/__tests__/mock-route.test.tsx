@@ -71,4 +71,14 @@ describe("the mocked pages (Sepolia's default)", { timeout: 20_000 }, () => {
     await waitFor(() => expect(screen.getByRole("region", { name: "Your position" })).not.toHaveTextContent("No vPAVED yet"));
     noRawErrors();
   });
+
+  it("the balances' Cobbles lead to the packs' own page (#621), its packs from the mock", async () => {
+    open("/vault");
+    const [cobbles] = await screen.findAllByRole("button", { name: "Cobbles: Cobble shop" }, { timeout: 5000 });
+    await userEvent.click(cobbles!);
+    expect(await screen.findByRole("heading", { level: 1, name: "Cobbles" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
+    noRawErrors();
+  });
 });

@@ -5,6 +5,7 @@ import type { LoadingSceneProps } from "../components/scenes/loading-scene";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
+import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
 import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
@@ -196,19 +197,27 @@ export const PURCHASE = {
   buying: { ...purchaseBase, ...at(3), buying: true },
   /** WRAP360: a full referrer address (cut in the middle) and the largest balance. */
   stress: { ...purchaseBase, ...at(10), referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
-  /** P-61, the Cobbles tab: the four packs, none picked yet. */
-  cobblePacks: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: null } },
-  /** A pack picked (100 for $9): Pay confirms. */
-  cobblePackPicked: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2 } },
-  /** A referrer from `?ref=`: their share, as for a game. */
-  cobblePackReferred: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef", cobbles: { ...cobbleShop, selected: 3 } },
-  /** The approve and `buy_pack` on their way. */
-  cobblePackBuying: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2, buying: true } },
-  /** 1,000 for $70 with $3.40 in the wallet. */
-  cobblePackShort: { ...purchaseBase, ...at(1), tab: "cobbles", balance: BALANCE_LOW, cobbles: { ...cobbleShop, selected: 4 } },
-  /** WRAP360: the largest Cobble balance and USDC balance, a full referrer address. */
-  cobbleStress: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, cobbles: { ...cobbleShop, balance: BIG_NUMBER, selected: 4 } },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
+
+// Cobble packs (#621: their own page)
+
+const cobblesBase = { split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH };
+const REFERRER = "0x0456bb00000000000000000000000000000000000000000000000000000beef";
+
+export const COBBLES = {
+  /** P-61: the four packs, none picked yet. */
+  packs: { ...cobblesBase, cobbles: { ...cobbleShop, selected: null } },
+  /** A pack picked (100 for $9): Pay confirms. */
+  picked: { ...cobblesBase, cobbles: { ...cobbleShop, selected: 2 } },
+  /** A referrer from `?ref=`: their share, as for a game. */
+  referred: { ...cobblesBase, referrer: REFERRER, cobbles: { ...cobbleShop, selected: 3 } },
+  /** The approve and `buy_pack` on their way. */
+  buying: { ...cobblesBase, cobbles: { ...cobbleShop, selected: 2, buying: true } },
+  /** 1,000 for $70 with $3.40 in the wallet. */
+  short: { ...cobblesBase, balance: BALANCE_LOW, cobbles: { ...cobbleShop, selected: 4 } },
+  /** WRAP360: the largest Cobble balance and USDC balance, a full referrer address. */
+  stress: { ...cobblesBase, referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, cobbles: { ...cobbleShop, balance: BIG_NUMBER, selected: 4 } },
+} satisfies Record<string, Data<CobblesSceneProps>>;
 
 // Vault
 

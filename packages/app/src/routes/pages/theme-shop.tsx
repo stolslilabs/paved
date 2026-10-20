@@ -69,7 +69,7 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
       onDismissRefusal={writes.reset}
       onBuy={buy}
-      onBuyCobbles={() => go("/play/challenge?tab=cobbles")}
+      onBuyCobbles={() => go("/cobbles")}
       onMyTiles={() => go("/settings/tiles")}
       onConnect={() => go("/welcome")}
       onRetry={() => {
