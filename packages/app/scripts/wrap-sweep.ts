@@ -59,9 +59,12 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^scenes-story--/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
   // A horizontal scroller, by design: the story shows ScrollArea's horizontal mode.
   { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
-  // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design.
-  { story: /^direction-[a-f]--palette$/, kind: "scroll", element: 'div "Pair', why: "contrast table scroller" },
-  { story: /^direction-[a-f]--states$/, kind: "scroll", element: 'div "rest', why: "state grid scroller" },
+  // The same for ScrollRegion (NO-SCROLLBARS, #609): its horizontal story is a sideways scroller with the edge hint.
+  { story: "ui-scroll-region--horizontal", kind: "scroll", element: "div[scroll-region]", why: "horizontal scroller" },
+  // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design
+  // (a ScrollRegion since NO-SCROLLBARS, #609).
+  { story: /^direction-[a-f]--palette$/, kind: "scroll", element: 'div[scroll-region] "Pair', why: "contrast table scroller" },
+  { story: /^direction-[a-f]--states$/, kind: "scroll", element: 'div[scroll-region] "rest', why: "state grid scroller" },
   // Specimens outside WRAP360's files (`ui/` primitives' stories and the Foundations in `src/styles`): one line per
   // specimen on purpose (a weight, a figure, a tooltip on each side). Not the components' layout.
   { story: "ui-tooltip--sides", kind: "page", element: "html scrollWidth", why: "four triggers in a row" },

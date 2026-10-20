@@ -5,6 +5,8 @@
 /* iPhone Safari in a tab (not an installed app): its floating bottom toolbar overlays the page's end, and
    `env(safe-area-inset-bottom)` does not count it. `-webkit-touch-callout` exists only on iOS WebKit, so Android Chrome, desktop
    browsers and a home-screen app of an older manifest (`display-mode: standalone`, dropped in #589) never match; the width keeps iPad out. */
+/* NO-SCROLLBARS (#609): the tab page's region has more below (`pageScrollHintRef`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
+@custom-variant page-more (&:where(html[data-scroll-end] *));
 @custom-variant iphone-tab {
   @supports (-webkit-touch-callout: none) {
     @media (display-mode: browser) and (max-width: 40rem) {
@@ -279,6 +281,14 @@
      navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
   html, body { overscroll-behavior: none; }
 
+  /* NO-SCROLLBARS (#609): no scrollbar is drawn from `desktop`, on any element, the document included; every scroller still
+     scrolls by wheel, trackpad, keyboard and touch. Below `desktop` the OS draws overlay bars that hide themselves: unchanged.
+     What tells the player a region scrolls is the edge fade, `scroll-hint` below. */
+  @variant desktop {
+    * { scrollbar-width: none; }
+    *::-webkit-scrollbar { display: none; }
+  }
+
   /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
      `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
      second class. `data-input-surface` marks any other card or popover surface. */
@@ -308,6 +318,47 @@
   }
   &:where(:active:not(:disabled, [aria-disabled="true"]), [data-force="pressed"]) {
     --layer: var(--state-pressed);
+  }
+}
+
+/*
+ * NO-SCROLLBARS (#609), the edge hint: a scroller fades its content out over `--scroll-hint-size` on each side where more
+ * waits, so the cut row reads as "there is more". The sides come from `data-scroll-start` / `data-scroll-end` and the axis
+ * from `data-scroll-axis` (`scrollHintRef`, lib/scroll-hint.ts); with nothing to scroll there is no fade. The mask is on the
+ * scroller itself, so a scroller is never the panel that draws a surface (a sheet scrolls an inner `ScrollRegion`). A focused
+ * scroller drops the fade so its ring shows whole, and the scroll padding keeps a focused child clear of the fade.
+ */
+@property --scroll-hint-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-hint-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@utility scroll-hint {
+  --scroll-hint-size: 2rem;
+  --scroll-hint-dir: to bottom;
+  --scroll-hint-mask: linear-gradient(var(--scroll-hint-dir), transparent, black var(--scroll-hint-start), black calc(100% - var(--scroll-hint-end)), transparent);
+  mask-image: var(--scroll-hint-mask);
+  scroll-padding: var(--scroll-hint-size);
+  transition: --scroll-hint-start 150ms ease-out, --scroll-hint-end 150ms ease-out;
+  &[data-scroll-axis="x"] {
+    --scroll-hint-dir: to right;
+  }
+  &[data-scroll-start] {
+    --scroll-hint-start: var(--scroll-hint-size);
+  }
+  &[data-scroll-end] {
+    --scroll-hint-end: var(--scroll-hint-size);
+  }
+  &:focus-visible {
+    mask-image: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 

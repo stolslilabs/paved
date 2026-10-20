@@ -1,5 +1,6 @@
 import { useSidePanel } from "../../lib/side-panel";
 import { autoQuality, deviceSettings, useDeviceSettings, withVolume } from "../../data/settings";
+import { ScrollRegion } from "../ui/scroll-region";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { DeviceSettingsPanel, type DeviceSettingsPanelProps } from "./device-settings-panel";
 
@@ -19,12 +20,15 @@ export function DeviceSettingsSheet({ open, onOpenChange, side, ...panel }: Devi
   const where = side ?? (wide ? "right" : "bottom");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={where} className={where === "bottom" ? "max-h-[85dvh] overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" : "w-full max-w-sm overflow-y-auto p-4"} aria-describedby={undefined}>
+      <SheetContent side={where} className={where === "bottom" ? "max-h-[85dvh] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" : "w-full max-w-sm p-4"} aria-describedby={undefined}>
         <SheetHeader className="pr-10">
           <SheetTitle className="font-display text-lg">Settings</SheetTitle>
           <SheetDescription>On this device. A change applies at once.</SheetDescription>
         </SheetHeader>
-        <DeviceSettingsPanel {...panel} />
+        {/* The header stays; the settings scroll under it with the edge hint (NO-SCROLLBARS, #609). */}
+        <ScrollRegion className="-mx-4 min-h-0 px-4">
+          <DeviceSettingsPanel {...panel} />
+        </ScrollRegion>
       </SheetContent>
     </Sheet>
   );
