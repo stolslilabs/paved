@@ -22,6 +22,7 @@ export const PAGES: readonly PageDef[] = [
   { path: "", title: "Home", nav: "home" },
   { path: "play", title: "Play", nav: null },
   { path: "play/challenge", title: "Purchase", nav: null },
+  { path: "cobbles", title: "Cobbles", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
   { path: "training", title: "Training", nav: null },
   { path: "story", title: "Story", nav: null },

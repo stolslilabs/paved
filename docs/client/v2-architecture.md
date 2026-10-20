@@ -2893,6 +2893,7 @@ maximum, both ways from the default (`core/CameraController.ts`).
 | home | `/` | Home | Play button, the Challenge card (no podium since D-29), Training and Tutorial, the active game to resume |
 | play | `/play` | hidden (back); the nav's Play opens it | Challenge, Training, Tutorial (P-57 B4), Multiplayer disabled ("coming soon") |
 | purchase | `/play/challenge` | hidden (back) | stake picker 1–10, price, boost, the 24 h validity, the minimum score to beat, confirm; then spawn |
+| cobbles | `/cobbles` | hidden (back) | the Cobble balance, the packs, pick one and pay its USDC (#621; `/play/challenge?tab=cobbles` redirects here) |
 | board | `/game/:gameId` (Challenge), `/training`, `/tutorial` | hidden | the board, the tile in hand, rotate / place / discard, give up |
 | over | `/game/:gameId/over`, `/training/over` | hidden | final score, the game's metrics, the reward or "below the threshold", settle when the day allows, Play again |
 | quests | `/quests/:day?` | Quests | the day's quests |
@@ -3496,7 +3497,7 @@ was unmounted are announced on return is P9's to decide; recommended yes, by kee
 hook as `previous`. Weekly progress is monotone inside one interval in the mocks, and the indexer's must be.
 The `Toaster` is mounted once above the pages (`App.tsx`).
 
-**As built (P7b).** `/play/challenge` reads its Game tab from the chain: `Economy.quote(stake)` (the price from
+**As built (P7b).** `/play/challenge` reads the game's purchase from the chain: `Economy.quote(stake)` (the price from
 `entry_price`, the threshold), `split_bps`, the USDC `balance_of`, `spawn_paused`, and the pool's `quote_swap` of the stake's
 swap for `min_out` (1 % slippage); Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall
 through `EconomyWriter.purchase`, which reads the price, the quote, the router pin, `Economy.seller()` and the guard's rate
@@ -3508,7 +3509,7 @@ wallet: nothing was sent."): a refusal, no hold. Only the controller's documente
 `null` or a node's "Transaction rejected", stays a plain refusal with its message. In both cases nothing was sent, so the
 record written at send gives way to the one that was there before (none, or a record the player released). A referrer equal to the seller (`Setup`) is sent as 0x0 even where the
 base deployment names no Setup (VALUE-FIX's note). While a new stake's quote is read the last one stays shown
-and Pay waits. The Cobbles tab (`?tab=cobbles`) reads the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
+and Pay waits. The Cobble packs, once a tab of this page (`?tab=cobbles`) and a page of their own since #621 (`/cobbles`, the old link redirects there), read the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
 indexer's `/v1/packs`: `buy_pack` charges the contract's price, the buyer reads it again at send, and the chain has a new
 price before the indexer does. Buy is `PackBuyer.buy` (`@paved/chain`, `packs.ts`): the same fresh checks as a game (the
 chain id, the pack on sale at the confirmed price, the router pin, the rate, the split, a fresh quote of the pack's swap,
