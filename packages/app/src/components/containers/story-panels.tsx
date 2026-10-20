@@ -329,6 +329,8 @@ export interface CampaignCardProps {
   renders?: TileRenders;
   /** Its levels are the ones shown under the cards. */
   selected?: boolean;
+  /** Unlocking: holds the locked look while another motion runs (the carousel's), and plays the unlock once it is false (#615). */
+  paused?: boolean;
   onSelect?: () => void;
   className?: string;
 }
@@ -340,13 +342,14 @@ const BLURRED = "blur(14px) saturate(0.5)";
 /**
  * One campaign (#592): its tiles as a background (build-time renders, no WebGL), its name, summary, levels and stars. A locked
  * one shows its background under a blur, a lock and the stars it still needs; an unlocking one plays the unlock once (at
- * once under reduced motion). Pressing it shows its levels.
+ * once under reduced motion), when it is not `paused`. Pressing it shows its levels.
  */
-export function CampaignCard({ id, name, summary, levels, stars, status, missing = 0, plans, renders, selected, onSelect, className }: CampaignCardProps) {
+export function CampaignCard({ id, name, summary, levels, stars, status, missing = 0, plans, renders, selected, paused, onSelect, className }: CampaignCardProps) {
   const reduced = useReducedMotionConfig();
   const shown: CampaignStatus = status === "unlocking" && reduced ? "open" : status;
   const locked = shown === "locked";
   const unlocking = shown === "unlocking";
+  const playing = unlocking && !paused;
   const total = levels * 3;
   return (
     <button
@@ -355,6 +358,7 @@ export function CampaignCard({ id, name, summary, levels, stars, status, missing
       aria-pressed={selected ?? false}
       data-campaign={id}
       data-status={shown}
+      data-unlock={unlocking ? (playing ? "playing" : "paused") : undefined}
       className={cn(
         "state-layer group relative flex aspect-[16/10] w-full cursor-pointer flex-col justify-end overflow-hidden rounded-xl border bg-card text-left text-card-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
         selected ? "border-primary ring-1 ring-primary" : "border-border",
@@ -364,7 +368,7 @@ export function CampaignCard({ id, name, summary, levels, stars, status, missing
       <m.span
         className="absolute inset-0"
         initial={unlocking ? { filter: BLURRED, scale: 1.1 } : false}
-        animate={unlocking ? { filter: "blur(0px) saturate(1)", scale: 1 } : undefined}
+        animate={playing ? { filter: "blur(0px) saturate(1)", scale: 1 } : undefined}
         transition={{ delay: UNLOCK.lift, duration: UNLOCK.duration, ease: "easeOut" }}
       >
         <TileMosaic plans={plans} renders={renders} className={cn("size-full aspect-auto", locked && "scale-110 blur-[14px] saturate-50")} />
@@ -375,18 +379,18 @@ export function CampaignCard({ id, name, summary, levels, stars, status, missing
           aria-hidden
           className="absolute inset-0 bg-background/35"
           initial={{ opacity: 1 }}
-          animate={unlocking ? { opacity: 0 } : undefined}
+          animate={playing ? { opacity: 0 } : undefined}
           transition={{ delay: UNLOCK.fade, duration: 0.45 }}
         >
           <span className="absolute top-3 right-3 grid size-11 place-items-center rounded-full border border-border bg-card/90 text-foreground shadow-lg">
-            <m.span className="absolute" initial={{ opacity: 1 }} animate={unlocking ? { opacity: 0 } : undefined} transition={{ delay: UNLOCK.turn, duration: 0.12 }}>
+            <m.span className="absolute" initial={{ opacity: 1 }} animate={playing ? { opacity: 0 } : undefined} transition={{ delay: UNLOCK.turn, duration: 0.12 }}>
               <Icon name="lock" size="md" />
             </m.span>
             {unlocking && (
               <m.span
                 className="absolute text-primary"
                 initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: [0.8, 1.3, 1] }}
+                animate={playing ? { opacity: 1, scale: [0.8, 1.3, 1] } : undefined}
                 transition={{ delay: UNLOCK.turn, duration: 0.45 }}
               >
                 <Icon name="lock-open" size="md" />
