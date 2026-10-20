@@ -10,7 +10,7 @@ const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
 // The board scene's props the Challenge board adds (P5): a read-only board, notices, the expiry's Surrender prompt.
 describe("BoardScene, Challenge (P5)", () => {
-  it("read only: no hand, the notices under the header", () => {
+  it("read only: no hand (the stack keeps the tiles left and the deck), the notices under the header", () => {
     render(wrap(<BoardScene {...BOARD.placing} readOnly notices={<Notice title="Connect to play">Read only.</Notice>} />));
     expect(screen.queryByRole("region", { name: "Your tile" })).not.toBeInTheDocument();
     expect(screen.getByText("Connect to play")).toBeInTheDocument();

@@ -23,8 +23,6 @@ const READS_SOURCE_MODELS: Record<string, string> = {
   "src/stories/tiles/tile-browser.tsx": "source models",
   // "Renderer/Tiles", images "original": the 1680 px originals, as before TEX (`asset-sources/` has no manifest).
   "src/stories/renderer/tiles-board.tsx": "original tile images",
-  // Not in LOAD-FAST's files: its `Rendered` story's hand tile. To move to `APP_ASSETS` in a later task.
-  "src/components/containers/hand-panel.stories.tsx": "not moved yet",
 };
 
 /** A renderer handed `asset-sources/`: a `basePath` that names it, or a model path under it. */

@@ -17,10 +17,10 @@ vi.mock("../src/components/containers/surrender-dialog", async (importOriginal) 
 });
 
 describe("BoardScene, the Surrender dialog still loading", () => {
-  it("the tap shows the button busy at once, opens the dialog once when the module arrives, and opens it only once", async () => {
+  it("the expired banner's tap shows the button busy at once, opens the dialog once when the module arrives, and opens it only once", async () => {
     render(
       <LazyMotion features={domMax}>
-        <BoardScene {...BOARD.placing} />
+        <BoardScene {...BOARD.expired} />
       </LazyMotion>,
     );
     const button = screen.getByRole("button", { name: /Surrender/ });

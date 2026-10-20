@@ -8,7 +8,7 @@ import type { GameSigner } from "../src/data";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { preloadPages, discardTile } from "./route-helpers";
 
 const PLANS = Object.values(PlanType);
 const PLAYER = "0xabc";
@@ -101,13 +101,13 @@ describe("/game/:gameId (P5)", () => {
     expect(screen.queryByText("Connect to play")).not.toBeInTheDocument();
     const before = within(hand()!).getByRole("img", { name: /^Tile / }).getAttribute("aria-label");
 
-    await userEvent.click(within(hand()!).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     await waitFor(() => expect(s.signer.discard).toHaveBeenCalledWith(key));
     await waitFor(() => expect(within(hand()!).getByRole("img", { name: /^Tile / }).getAttribute("aria-label")).not.toBe(before));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("an expired game: the hand offers only a surrender, and the Surrender dialog opens by itself", async () => {
+  it("an expired game: the stack's banner offers only a surrender, and the Surrender dialog opens by itself", async () => {
     const s = sources({ signer: true, expiresAt: 100 });
     open(`/game/${GAME_ID}`, s);
     const dialog = await screen.findByRole("dialog", {}, { timeout: 5000 });
@@ -138,7 +138,7 @@ describe("/game/:gameId (P5)", () => {
       if (failures-- > 0) throw new Error("rpc: timeout");
       return tiles(k);
     };
-    await userEvent.click(within(hand()!).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     expect(await screen.findByText("The board may be out of date")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(screen.queryByText("The board may be out of date")).not.toBeInTheDocument());

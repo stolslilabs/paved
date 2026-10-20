@@ -94,7 +94,7 @@ export interface BoardViewportProps {
   onCellClick?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
   onCellHover?: (slot: { x: number; y: number } | null) => void;
-  /** The tile placed and not yet sent: the bubble (Close, Rotate, Validate) follows its corner. Unset: none. */
+  /** The tile placed and not yet sent: the bubble (Cancel, Discard, Rotate, Validate) follows its corner. Unset: none. */
   bubble?: BoardBubble | null;
   /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
   onScene?: (scene: GameScene | null) => void;
@@ -109,14 +109,18 @@ export interface BoardBubble {
   rotations: number;
   onRotate: () => void;
   onClose: () => void;
+  /** The end of the hold on Discard (#606): the tile in hand is discarded, wherever it stands. */
+  onDiscard?: () => void;
+  /** What a discard costs now (at most the score): its label says it. */
+  discardCost?: number;
   /** The end of the hold on Validate: the page sends the move (#568). */
   onConfirm?: () => void;
   /** Validate is enabled: the rotation fits and the points are known. */
   canConfirm?: boolean;
   /** The move is on its way: Validate's spinner. */
   busy?: boolean;
-  /** A Story coach mark points at the placement: Validate is ringed. */
-  coach?: boolean;
+  /** A Story coach mark points at the placement (Validate is ringed) or at Discard (the trash is). */
+  coach?: boolean | "place" | "discard";
   /** The tile's rotation now: a change drops a hold on Validate under way. */
   orientation?: number;
 }
@@ -231,6 +235,8 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
             rotations={bubble.rotations}
             onRotate={bubble.onRotate}
             onClose={bubble.onClose}
+            onDiscard={bubble.onDiscard}
+            discardCost={bubble.discardCost}
             onConfirm={bubble.onConfirm}
             canConfirm={bubble.canConfirm}
             busy={bubble.busy}

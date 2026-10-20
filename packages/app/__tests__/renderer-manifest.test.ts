@@ -218,12 +218,12 @@ describe("the dev middleware's manifest", () => {
 describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
   const RENDERS = join(APP, "public/renderer-assets/renders");
 
-  it("lists a WebP render per plan and a cover, for the base models and each theme, each with its hash in its name", () => {
+  it("lists a WebP render per plan, its top-down one (#606) and a cover, for the base models and each theme, each with its hash in its name", () => {
     const { renders, themes } = rendererManifest();
     expect(Object.keys(renders).sort()).toEqual(["0", ...Object.keys(themes)].sort());
     const listed: string[] = [];
     for (const [theme, plans] of Object.entries(renders)) {
-      expect(Object.keys(plans).sort()).toEqual([...KEYS, "cover"].sort());
+      expect(Object.keys(plans).sort()).toEqual([...KEYS, ...KEYS.map((key) => `${key}-top`), "cover"].sort());
       for (const [key, path] of Object.entries(plans)) {
         expect(path).toMatch(new RegExp(`^renders/${key}\\.${theme}\\.[0-9a-f]{10}\\.webp$`));
         const webp = readFileSync(join(APP, "public/renderer-assets", path));
@@ -236,7 +236,7 @@ describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
   });
 
   it("are current: every render there, named by its hash, drawn from the manifest's models", () => {
-    expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("40 renders: current");
+    expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("78 renders: current");
   }, 60_000);
 
   it("fail the check on a missing render, a wrong hash, a model that changed or another version", () => {
