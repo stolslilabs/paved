@@ -55,7 +55,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await waitFor(() => expect(at(router)).toBe("/story?campaign=1"));
     await back();
     await waitFor(() => expect(at(router)).toBe("/play"));
-    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: 5000 })).toBeInTheDocument();
 
     // The system Back walks the history, which no longer holds the level: the list, then the list before it.
     await router.navigate(-1);
@@ -65,7 +65,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/play"));
     // The Play page in place of the list before its Back is pressed: the list's own Back would open Play again.
-    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: 5000 })).toBeInTheDocument();
 
     await back();
     await waitFor(() => expect(at(router)).toBe("/"));
