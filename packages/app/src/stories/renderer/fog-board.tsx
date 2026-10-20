@@ -31,7 +31,7 @@ import { skinsFor } from "./skins-board";
 
 /**
  * What the fog leaves clear: the board's tiles and free slots, a PvP village's owned cells and the cells next to them, or a
- * shape's cells alone (to judge the corners).
+ * shape's tiles and their free slots, unplated (to judge the corners).
  */
 export type FogReveal = "board" | "village" | "shape";
 /** The shapes that test the corners: a lone tile, an L, a diagonal pair. */
@@ -81,7 +81,7 @@ export interface FogBoardProps {
   decor: number;
   decorScale: number;
   reveal: FogReveal;
-  /** shape: the cells left clear, each with a tile. */
+  /** shape: the tiles placed; they and their free slots stay clear. */
   shape: FogShape;
   /** board: the recorded 72-tile board's first tiles placed, in its own order (each next to one before). */
   placed: number;
@@ -155,8 +155,7 @@ function initialBoard(props: Pick<FogBoardProps, "reveal" | "shape" | "placed" |
 
 /** The cells the fog leaves clear for the board state. */
 function revealOf(reveal: FogReveal, board: Board): FogCell[] {
-  if (reveal === "shape") return board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ }));
-  return reveal === "board" ? boardReveal(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ }))) : villageReveal(board.owned);
+  return reveal !== "village" ? boardReveal(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ }))) : villageReveal(board.owned);
 }
 
 /** The plates: the free slots (board); the owned empty cells, playable, and the buyable ones, fainter (village). */

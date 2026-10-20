@@ -352,8 +352,8 @@ function blur(values: Float32Array, width: number, height: number, kernel: Float
 
 /**
  * Builds the field of the cells as they lift. The distance outside (to the clear cells) and inside (to the fogged cells around
- * them) are stamped once per reveal for the cells fully clear, and on a copy at each build for the lifting ones: a step of a lift
- * stamps a few cells, not the board. The signed distance is then blurred by `cornerRadius` (`CORNER_SIGMAS`): every corner of the
+ * them) are stamped once per reveal for the cells fully clear, and at each build for the lifting ones, over the part of the field
+ * they reach: a step of a lift builds a few cells' surroundings, not the board. The signed distance is then blurred by `cornerRadius` (`CORNER_SIGMAS`): every corner of the
  * clear area, a hole's or the fog's, comes out round, and a straight border stays on the cells' border. The window follows the
  * cells' whole squares (`fieldWindow`).
  */
@@ -361,6 +361,11 @@ export class RevealFieldBuilder {
   private baseKey = "";
   private baseOut: Float32Array = new Float32Array(0);
   private baseIn: Float32Array = new Float32Array(0);
+  /** The field of the clear cells alone (the lifting ones left out): a lift's build starts from a copy of it. */
+  private baseData: Uint8Array = new Uint8Array(0);
+  /** The corners' blur and its spread, texels each side. */
+  private kernel: Float32Array | null = null;
+  private spread = 0;
   /** The corners' radius, cells (0 sharp). A change stamps the clear cells again. */
   cornerRadius = 0;
   /** The builds made, and how many of them stamped the clear cells again (a new reveal or window). */
@@ -399,22 +404,65 @@ export class RevealFieldBuilder {
         }
       }
       stampField(this.baseIn, window, [...fogged.values()].flatMap((c) => fogRects(c, undefined)), inside, texels);
+      this.kernel = radius > 0 ? gaussian((radius / CORNER_SIGMAS) * texels) : null;
+      this.spread = this.kernel ? (this.kernel.length - 1) / 2 : 0;
+      this.baseData = Uint8Array.from(this.signed(this.baseOut, this.baseIn, width, height), (d) => this.encode(d));
       this.baseKey = key;
       this.baseBuilds++;
     }
-    const outside = moving.length ? this.baseOut.slice() : this.baseOut;
-    const within = moving.length ? this.baseIn.slice() : this.baseIn;
-    if (moving.length) {
-      stampField(outside, window, revealRects(moving), reach, texels);
-      stampField(within, window, moving.flatMap((c) => fogRects(c, revealRects([c])[0])), inside, texels);
+    if (!moving.length) {
+      this.builds++;
+      return { data: this.baseData.slice(), width, height, originX: window.originX, originY: window.originY, texels, reach, inside };
     }
-    const signed = new Float32Array(width * height);
-    for (let i = 0; i < signed.length; i++) signed[i] = outside[i]! > 0 ? outside[i]! : -within[i]!;
-    if (radius > 0) blur(signed, width, height, gaussian((radius / CORNER_SIGMAS) * texels));
-    const data = new Uint8Array(width * height);
-    for (let i = 0; i < data.length; i++) data[i] = Math.round(((Math.min(reach, Math.max(-inside, signed[i]!)) + inside) / (reach + inside)) * 255);
+    // The lifting cells change the field within the reach and the blur's spread of them: that part alone is built again, over a
+    // copy of the clear cells' field, from a part larger by the spread (what the blur reads).
+    const spread = Math.ceil(this.spread / texels);
+    const xs = moving.map((c) => c.x);
+    const ys = moving.map((c) => c.y);
+    const part = (margin: number) => {
+      const x0 = Math.max(window.originX, Math.min(...xs) - 0.5 - margin);
+      const y0 = Math.max(window.originY, Math.min(...ys) - 0.5 - margin);
+      const x1 = Math.min(window.originX + window.cellsX, Math.max(...xs) + 0.5 + margin);
+      const y1 = Math.min(window.originY + window.cellsY, Math.max(...ys) + 0.5 + margin);
+      return { originX: x0, originY: y0, cellsX: x1 - x0, cellsY: y1 - y0 };
+    };
+    const written = part(reach + spread);
+    const read = part(reach + 2 * spread);
+    const [rw, rh] = [read.cellsX * texels, read.cellsY * texels];
+    const [rx, ry] = [(read.originX - window.originX) * texels, (read.originY - window.originY) * texels];
+    const outside = new Float32Array(rw * rh);
+    const within = new Float32Array(rw * rh);
+    for (let y = 0; y < rh; y++) {
+      const from = (ry + y) * width + rx;
+      outside.set(this.baseOut.subarray(from, from + rw), y * rw);
+      within.set(this.baseIn.subarray(from, from + rw), y * rw);
+    }
+    stampField(outside, read, revealRects(moving), reach, texels);
+    stampField(within, read, moving.flatMap((c) => fogRects(c, revealRects([c])[0])), inside, texels);
+    const signed = this.signed(outside, within, rw, rh);
+    const data = this.baseData.slice();
+    const [wx, wy] = [(written.originX - read.originX) * texels, (written.originY - read.originY) * texels];
+    for (let y = 0; y < written.cellsY * texels; y++) {
+      for (let x = 0; x < written.cellsX * texels; x++) {
+        data[(ry + wy + y) * width + rx + wx + x] = this.encode(signed[(wy + y) * rw + wx + x]!);
+      }
+    }
     this.builds++;
     return { data, width, height, originX: window.originX, originY: window.originY, texels, reach, inside };
+  }
+
+  /** The signed distance of these distances, outside and inside, blurred by the corners' kernel. */
+  private signed(outside: Float32Array, within: Float32Array, width: number, height: number): Float32Array {
+    const signed = new Float32Array(width * height);
+    for (let i = 0; i < signed.length; i++) signed[i] = outside[i]! > 0 ? outside[i]! : -within[i]!;
+    if (this.kernel) blur(signed, width, height, this.kernel);
+    return signed;
+  }
+
+  /** A signed distance as the field's byte. */
+  private encode(distance: number): number {
+    const { reach, inside } = this;
+    return Math.round(((Math.min(reach, Math.max(-inside, distance)) + inside) / (reach + inside)) * 255);
   }
 }
 

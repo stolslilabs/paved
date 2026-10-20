@@ -64,6 +64,10 @@ const CAPTURES: Capture[] = [
   { name: "fog-close-hard-edge", story: "voxel-edge", args: "view:close;voxelEdge:!false;falloff:0", frames: 1 },
   { name: "fog-night", story: "night", frames: 1 },
   { name: "fog-off", story: "off", frames: 1 },
+  // The corners (#648), close up: pass `--args cornerRadius:0 --suffix -sharp` for the cells' sharp corners.
+  { name: "fog-corners-one", story: "corners", args: "shape:one", frames: 1 },
+  { name: "fog-corners-l", story: "corners", args: "shape:L", frames: 1 },
+  { name: "fog-corners-diagonal", story: "corners", args: "shape:diagonal", frames: 1 },
 ]
   .filter((c) => !ONLY || c.name.includes(ONLY))
   .map((c) => (STILLS ? { ...c, frames: c.moves ? c.moves[0]! + 13 : 1 } : c));

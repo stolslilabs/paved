@@ -93,8 +93,8 @@ const meta = {
     decor: { ...range(0, 16, 1), description: `The props a forest cell holds (default ${d.landscape.decor})`, ...category("landscape") },
     decorScale: { ...range(0.25, 3, 0.05), description: `The props' size, times their own (default ${d.landscape.decorScale})`, ...category("landscape") },
 
-    reveal: { control: "inline-radio", options: ["board", "village", "shape"], description: "What stays clear: the tiles and their free slots, a village's owned cells and the cells next to them, or a shape's cells alone", ...category("board") },
-    shape: { control: "inline-radio", options: ["one", "L", "diagonal"], description: "Shape: a lone tile, an L or a diagonal pair, alone clear (to judge the corners)", ...category("board") },
+    reveal: { control: "inline-radio", options: ["board", "village", "shape"], description: "What stays clear: the tiles and their free slots, a village's owned cells and the cells next to them, or a shape's tiles and their free slots (no plates)", ...category("board") },
+    shape: { control: "inline-radio", options: ["one", "L", "diagonal"], description: "Shape: a lone tile, an L or a diagonal pair, with their free slots clear and unplated (to judge the corners)", ...category("board") },
     placed: { ...range(1, 72, 1), description: "Board: the recorded board's first tiles placed, in its order", ...category("board") },
     villageCells: { ...range(1, VILLAGE_MAX_CELLS, 1), description: `Village: the cells owned (at most ${VILLAGE_MAX_CELLS})`, ...category("board") },
     villageBuilt: { ...range(0, VILLAGE_MAX_CELLS, 1), description: "Village: how many owned cells hold a tile", ...category("board") },
@@ -156,8 +156,9 @@ export const ReducedMotion: Story = { args: { placed: 3, landscape: true, fallof
 export const LowTier: Story = { args: { quality: "low", landscape: true, falloff: 2 } };
 
 /**
- * The corners, close up (camera at 40): the shape's cells alone clear, the landscape behind. Every corner of the clear area, a
- * hole's and the fog's, is rounded to `cornerRadius` (0 shows the cells' sharp corners). Switch `shape` for an L or a diagonal pair.
+ * The corners, close up (camera at 40): a shape's tiles and their free slots clear (no plates), the landscape beyond. Every
+ * corner of the clear area, a hole's and the fog's, is rounded to `cornerRadius` (0 shows the cells' sharp corners). Switch
+ * `shape` for an L or a diagonal pair.
  */
 export const Corners: Story = { args: { reveal: "shape", shape: "one", landscape: true, view: "close", interactive: false } };
 
