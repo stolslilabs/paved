@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { TierBase } from "../elements/tier-base";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 import { TIERS, buyableCells, cellKey, clearCells, tierOf, tierProgress, type Cell, type LegalCell, type Village } from "./village-rules";
 
 /**
@@ -85,11 +86,11 @@ export function cellName(c: Cell): string {
  * pointer. Shared with the PvP flow (#647): the attack draws the defender's territory with it (`parcels` off).
  */
 export function VillageBoard({ village, fog = "village", parcels = false, parcel, placing, over, tileArt, onParcel, onPlace, onCopy, className }: VillageBoardProps) {
-  const scroller = useRef<HTMLDivElement>(null);
-  // A board wider than the screen opens on its middle, where the village is.
+  const grid = useRef<HTMLDivElement>(null);
+  // A board wider than the screen opens on its middle, where the village is (the scroll region holds the grid).
   const extent = village.cells.length;
   useLayoutEffect(() => {
-    const el = scroller.current;
+    const el = grid.current?.parentElement;
     if (!el) return;
     el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
     el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
@@ -231,8 +232,9 @@ export function VillageBoard({ village, fog = "village", parcels = false, parcel
 
   return (
     // `safe center`: a board wider than the screen scrolls from its edge, not from a centre cut off on both sides.
-    <div ref={scroller} className={cn("grid size-full overflow-auto bg-board p-4", className)} style={{ placeItems: "safe center" }}>
+    <ScrollRegion orientation="both" className={cn("grid size-full bg-board p-4", className)} style={{ placeItems: "safe center" }}>
       <div
+        ref={grid}
         role={placing || buyable.length ? "group" : "img"}
         aria-label={`Village of ${village.cells.length} cells and ${village.tiles.length} tiles`}
         className="relative grid shrink-0 gap-0.5"
@@ -247,6 +249,6 @@ export function VillageBoard({ village, fog = "village", parcels = false, parcel
         {cells}
         {fog === "village" && <FogVeil clear={clearList} minX={minX} maxY={maxY} cols={cols} rows={rows} />}
       </div>
-    </div>
+    </ScrollRegion>
   );
 }
