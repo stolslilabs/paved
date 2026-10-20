@@ -55,7 +55,8 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
             const isActive = tab.id === active;
             if (tab.id === "play") {
               return (
-                // The slot keeps the bar's five equal columns; the disc rises above the bar on a phone, sits in the row from `desktop`.
+                // The slot keeps the bar's five equal columns; the disc rises above the bar on a phone (over the edge hint: `z-10`), sits in
+                // the row from `desktop`.
                 <div key={tab.id} className="flex min-w-0 flex-1 justify-center desktop:flex-none desktop:px-1">
                   <button
                     type="button"
@@ -63,11 +64,12 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
                     aria-current={isActive ? "page" : undefined}
                     onClick={() => onNavigate?.(tab.id)}
                     className={cn(
-                      "state-layer -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none focus-visible:ring-ring",
+                      "state-layer relative z-10 -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none focus-visible:ring-ring",
                       "desktop:mt-0 desktop:size-11 desktop:shadow-none desktop:ring-0 desktop:focus-visible:ring-2",
                     )}
                   >
-                    <Icon name={tab.icon} size="lg" className="desktop:text-base" />
+                    {/* The triangle's weight sits left of its box: nudged right so it reads centred in the disc. */}
+                    <Icon name={tab.icon} size="lg" className="translate-x-0.5 desktop:text-base" />
                   </button>
                 </div>
               );
