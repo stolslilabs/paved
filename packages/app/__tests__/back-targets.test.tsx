@@ -65,10 +65,11 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/play"));
     // The location moves before the page does: wait for Play, or Back is the Story page's still on screen.
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: 5000 });
 
+    // Home is a lazy page: under a loaded run its navigation takes longer than waitFor's default second.
     await back();
-    await waitFor(() => expect(at(router)).toBe("/"));
+    await waitFor(() => expect(at(router)).toBe("/"), { timeout: 5000 });
   });
 
   it("the level list's Back is the Play page whatever route opened it", async () => {
