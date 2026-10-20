@@ -1,7 +1,7 @@
 # Packages
 
-The active client stack: `game-core`, `chain`, `renderer`, `ui`, `app`, `app-native` (dormant: it
-builds and its tests run, but it is not developed). `app/` is deprecated.
+The active client stack: `game-core`, `chain`, `renderer`, `ui`, `app`, `indexer`. The deprecated `app/` and
+`app-native` were removed in #591 (see git history).
 
 ## Build and test
 

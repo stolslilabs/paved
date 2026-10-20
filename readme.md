@@ -1,8 +1,8 @@
 ## Programme documents
 
 Paved is being taken up again. The context, plan, decisions, risks and operating rules are in
-[`docs/programme/`](docs/programme/). The 2026 client is in `packages/`; `app/` is deprecated and kept
-for reference only.
+[`docs/programme/`](docs/programme/). The client is in `packages/`; the deprecated `app/` was removed in #591
+(see git history).
 
 ### Terminal 1 - Client setup
 

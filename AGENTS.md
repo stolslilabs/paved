@@ -1,6 +1,6 @@
 # Agent Notes
 
-- `app/` is deprecated and kept purely for reference.
+- The deprecated `app/` client and `packages/app-native` were removed in #591 (see git history).
 - Active development should target the packages-based stack (`packages/app`, `packages/renderer`, `packages/ui`, `packages/chain`, `packages/game-core`).
 
 ## How tests are scoped
@@ -11,7 +11,7 @@ whole suite is the CI's job on the pull request, gated by paths. Pre-push hooks 
 | Part | Local test command | Peak memory |
 |---|---|---|
 | Contracts (`contracts/`, package `paved`, toolchain pinned by `.tool-versions`) | `snforge test <filter>` with the module path of what changed, e.g. `snforge test paved::types::` | Measure first. Linux: `prlimit --as=16106127360 -- /usr/bin/time -v snforge test <filter>` (15 GiB cap, from VmPeak). macOS: `/usr/bin/time -l snforge test <filter>`, no cap (see "On the Mac (P-33)") |
-| Client package `@paved/game-core`, `@paved/chain`, `@paved/renderer`, `@paved/ui`, `@paved/app`, `@paved/app-native`, `@paved/indexer` | `bun run test --filter <package>` | Node: see "Node test peaks" below. Cap: `NODE_OPTIONS=--max-old-space-size=<MB>`, never `prlimit --as` |
+| Client package `@paved/game-core`, `@paved/chain`, `@paved/renderer`, `@paved/ui`, `@paved/app`, `@paved/indexer` | `bun run test --filter <package>` | Node: see "Node test peaks" below. Cap: `NODE_OPTIONS=--max-old-space-size=<MB>`, never `prlimit --as` |
 
 The Training Playwright e2e and its CI job `e2e` left with app-web (removed in P-70; see git history).
 
@@ -41,7 +41,6 @@ Node test peaks (VPS, 2026-10-10, bun 1.4.2, Node v24.21.0, vitest; after `bun i
 | `@paved/renderer` | 233,404 kB (227.9 MiB) | 384 |
 | `@paved/ui` | 237,084 kB (231.5 MiB) | 384 |
 | `@paved/app` | 952,816 kB (930.5 MiB) | 1536 |
-| `@paved/app-native` | 152,740 kB (149.2 MiB) | 256 |
 | `@paved/indexer` | 240,220 kB (234.6 MiB) | 384 |
 
 `@paved/app` row (2026-10-16, bun 1.4.2, commit 31314d94): measured with
