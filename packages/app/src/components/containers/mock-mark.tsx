@@ -20,6 +20,8 @@ export function MockMark({ className }: { className?: string }) {
 /** Whether the shell's data source is the mock: the shell sets it (`data-source.ts`); absent (stories, tests) it is false. */
 const MockedContext = createContext(false);
 export const MockMarkProvider = MockedContext.Provider;
+/** Whether the shell says the data is mocked: for a header that makes room for the mark. */
+export const useMockMarked = () => useContext(MockedContext);
 
 /** The mark where a page's header puts it, drawn only while the shell says the data is mocked. */
 export function MockMarkSlot({ className }: { className?: string }) {
