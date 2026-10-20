@@ -39,6 +39,12 @@ with `docs/`, `scripts/` or `packages/`.
   full-screen draw for the grade, glare, shimmer and shafts (it keeps the target's alpha, so the cycle's backdrop still fills the
   sky). The snow on the tops is a term of the tile shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`), off at 0: the
   board never sets it.
+- The **fog of war** (FOG-STUDY, `core/fog-of-war.ts`, loaded by `loadFogOfWar`, reveal logic and settings in
+  `core/fog-of-war-settings.ts`) is stories only (`Renderer/Fog of war`): the story adds `FogOfWar.object` to the board's group
+  (`scene.tiles.getGroup()`), registers it on `scene.ambient` and hands it the clear cells (`boardReveal`, `villageReveal`) and
+  `fogMode` ("still" on Low, with the effects off and under reduced motion: no drift, a cell lifts at once; it stays on at every
+  tier). One field texture (the distance to the nearest clear cell, built on the CPU when the reveal changes and while a cell
+  lifts) drives the floor, the mist, the landscape's ground and its instanced props: one draw each, no per-cell draw.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
