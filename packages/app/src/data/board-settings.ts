@@ -27,6 +27,8 @@ export function useBoardSettings(resetKey?: unknown): { renderer: RendererSettin
     () => ({ quality, dayNight: wheelDayNight(state, dayNight), ambient: { enabled: ambient } }),
     [quality, dayNight, ambient, state],
   );
-  const wheel = useMemo<BoardWheel>(() => ({ state, onNext: next, read: scene ? read : null }), [state, next, scene, read]);
+  // A tap goes to the season after the cycle's (#634), read as the tap lands.
+  const onNext = useCallback(() => next(read()?.season), [next, read]);
+  const wheel = useMemo<BoardWheel>(() => ({ state, onNext, read: scene ? read : null }), [state, onNext, scene, read]);
   return { renderer, tilePreview, placementHighlight, wheel, onScene: setScene };
 }
