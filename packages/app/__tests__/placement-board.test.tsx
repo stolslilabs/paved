@@ -13,6 +13,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { holdToPlace, preloadPages, validateButton } from "./route-helpers";
+import { HOLD_MS } from "../src/lib/use-hold";
 
 // The renderer's canvas as the page drives it (jsdom has no WebGL): the test reads its props and clicks a cell the way
 // the renderer reports one.
@@ -145,6 +146,83 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
     expect(canvas.drops).toEqual([{ worldX: slot.x, worldZ: slot.y }]);
     expect(canvas.props!.hover?.placed ?? false).toBe(false);
   }, 20_000);
+});
+
+describe("holding the placed tile (TILE-HOLD, #630)", () => {
+  /** The Training board with its first legal slot chosen: the tile placed there, the bubble up, Validate enabled. */
+  async function placed() {
+    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
+    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await act(async () => {});
+    const slot = legalSlots()[0]!;
+    act(() => canvas.props!.onTileClick!(slot.x, slot.y));
+    await waitFor(() => expect(validateButton()).toBeEnabled());
+    return slot;
+  }
+  const press = (x: number, y: number, phase: "down" | "released" | "cancelled") => {
+    let acted: boolean | void = undefined;
+    act(() => void (acted = canvas.props!.onTilePress!(x, y, phase)));
+    return acted;
+  };
+  const ring = () => validateButton()!.getAttribute("data-state");
+
+  it("a press on the tile fills Validate's ring; held to the end it places once, and its let go clicks nothing", async () => {
+    const slot = await placed();
+    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    press(slot.x, slot.y, "down");
+    expect(ring()).toBe("holding");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, HOLD_MS + 50));
+    });
+    expect(place).toHaveBeenCalledOnce();
+    expect(ring()).toBe("done");
+    // The renderer keeps the click that would follow the let go.
+    expect(press(slot.x, slot.y, "released")).toBe(true);
+    expect(ring()).toBe("idle");
+    expect(place).toHaveBeenCalledOnce();
+  }, 20_000);
+
+  it("let go early, or cancelled by a pan or a second finger, it places nothing and the ring rewinds; a short tap clicks as before", async () => {
+    const slot = await placed();
+    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    press(slot.x, slot.y, "down");
+    expect(ring()).toBe("holding");
+    expect(press(slot.x, slot.y, "released")).toBe(false);
+    expect(ring()).toBe("idle");
+    press(slot.x, slot.y, "down");
+    press(slot.x, slot.y, "cancelled");
+    expect(ring()).toBe("idle");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, HOLD_MS + 50));
+    });
+    expect(place).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it("a press on another cell holds nothing: no hold to let go, the tap is the click it was", async () => {
+    const slot = await placed();
+    press(slot.x + 5, slot.y + 5, "down");
+    expect(ring()).toBe("idle");
+    expect(press(slot.x + 5, slot.y + 5, "released")).toBeUndefined();
+  }, 20_000);
+
+  it("Validate disabled (a rotation that does not fit) or busy (the move on its way): a press on the tile holds nothing", async () => {
+    const cell = { x: CENTER + 1, y: CENTER };
+    const grid = { x: 1, y: 0 };
+    const bubbleOf = (b: { canConfirm?: boolean; busy?: boolean }) => ({ cell, rotations: 1, onRotate: () => {}, onClose: () => {}, onConfirm: vi.fn(), ...b });
+    const view = render(<BoardViewport tiles={[]} ghost={{ ...cell, plan: 3, orientation: 1, placed: true, fits: false }} bubble={bubbleOf({ canConfirm: false })} />);
+    await screen.findByRole("toolbar", { name: "Tile" });
+    press(grid.x, grid.y, "down");
+    expect(ring()).toBe("idle");
+    expect(press(grid.x, grid.y, "released")).toBeUndefined();
+    view.rerender(<BoardViewport tiles={[]} ghost={{ ...cell, plan: 3, orientation: 1, placed: true }} bubble={bubbleOf({ busy: true })} />);
+    press(grid.x, grid.y, "down");
+    expect(ring()).toBe("idle");
+    view.rerender(<BoardViewport tiles={[]} ghost={{ ...cell, plan: 3, orientation: 1, placed: true }} bubble={bubbleOf({})} />);
+    press(grid.x, grid.y, "down");
+    expect(ring()).toBe("holding");
+    press(grid.x, grid.y, "cancelled");
+    expect(ring()).toBe("idle");
+  });
 });
 
 const PLANS = Object.values(PlanType);

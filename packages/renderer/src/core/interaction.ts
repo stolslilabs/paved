@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { HoverState } from "./types";
+import type { HoverState, SurfaceInputEvent } from "./types";
 
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // y = 0
@@ -152,4 +152,104 @@ export function cellCorner(
     if (!best || corner.x - corner.y > best.x - best.y) best = corner;
   }
   return best!;
+}
+
+/**
+ * Where a press on a board cell is (TILE-HOLD, #630): `down` when the pointer goes down on the cell, then exactly one of
+ * `released` (let go, wherever) or `cancelled` (it moved past the click threshold, a second pointer went down, another button
+ * was pressed, it left the surface or the browser took it). A press that ends `cancelled` never clicks.
+ */
+export type TilePressPhase = "down" | "released" | "cancelled";
+
+/**
+ * A press's listener. On `released`, returning true says the press acted (a completed hold): no click follows it, so a held
+ * tile is never chosen again on the let go.
+ */
+export type TilePressListener = (gridX: number, gridY: number, phase: TilePressPhase) => boolean | void;
+
+export interface PointerTapHandlers {
+  /** The cell under a surface point, or null off the ground. */
+  toGrid(point: { x: number; y: number }): { x: number; y: number } | null;
+  onPress?(gridX: number, gridY: number, phase: TilePressPhase): boolean | void;
+  onClick?(gridX: number, gridY: number): void;
+}
+
+/**
+ * The board's taps and presses from the surface's pointer events, with the left button or one finger only. A click is a down
+ * and up of one pointer within `threshold` px with no second pointer down between (a pinch or the two-finger tilt places
+ * nothing). A press is reported from the down, so a hold can start under the finger; it never stands in the camera's way:
+ * any move past the threshold, a second pointer, another button, the pointer leaving or a browser cancel ends it `cancelled`,
+ * and the camera pans, pinches or tilts as it would without it.
+ */
+export class PointerTap {
+  /**
+   * The pointer a tap may come from: where and which pointer went down. `multi` is set when a second pointer went down
+   * before it came up; `press` is the cell a press was reported on, until it ends.
+   */
+  private down: { x: number; y: number; pointerId?: number; multi: boolean; press: { x: number; y: number } | null } | null = null;
+
+  constructor(
+    private readonly handlers: PointerTapHandlers,
+    private readonly threshold: number,
+  ) {}
+
+  handle(event: SurfaceInputEvent): void {
+    switch (event.type) {
+      case "pointerdown":
+        return this.pointerDown(event);
+      case "pointermove":
+        if (this.down?.press && this.samePointer(event) && !isClick(this.down, event, this.threshold)) this.endPress("cancelled");
+        return;
+      case "pointerup":
+        return this.pointerUp(event);
+      case "pointercancel":
+        this.endPress("cancelled");
+        this.down = null;
+        return;
+      case "pointerleave":
+        this.endPress("cancelled");
+        return;
+    }
+  }
+
+  private samePointer(event: SurfaceInputEvent): boolean {
+    return event.pointerId === undefined || this.down?.pointerId === undefined || event.pointerId === this.down.pointerId;
+  }
+
+  private pointerDown(event: SurfaceInputEvent): void {
+    // The right button tilts and the middle one pans: neither taps, and either ends a press under way.
+    if ((event.button ?? 0) !== 0) {
+      this.endPress("cancelled");
+      return;
+    }
+    const down = this.down;
+    if (down && event.pointerId !== undefined && down.pointerId !== undefined && event.pointerId !== down.pointerId) {
+      down.multi = true;
+      this.endPress("cancelled");
+      return;
+    }
+    // A press still open (a lost up): it ends before the new one.
+    this.endPress("cancelled");
+    const cell = this.handlers.onPress ? this.handlers.toGrid(event) : null;
+    this.down = { x: event.x, y: event.y, pointerId: event.pointerId, multi: false, press: cell };
+    if (cell) this.handlers.onPress?.(cell.x, cell.y, "down");
+  }
+
+  private pointerUp(event: SurfaceInputEvent): void {
+    const down = this.down;
+    if ((event.button ?? 0) !== 0 || !down) return;
+    const acted = this.endPress("released");
+    this.down = null;
+    if (acted || down.multi || !isClick(down, event, this.threshold)) return;
+    const cell = this.handlers.toGrid(event);
+    if (cell) this.handlers.onClick?.(cell.x, cell.y);
+  }
+
+  /** Ends the press under way, if any, with `phase`; true when its listener says it acted. */
+  private endPress(phase: "released" | "cancelled"): boolean {
+    const press = this.down?.press;
+    if (!press) return false;
+    this.down!.press = null;
+    return this.handlers.onPress?.(press.x, press.y, phase) === true;
+  }
 }

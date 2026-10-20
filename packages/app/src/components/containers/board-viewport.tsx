@@ -1,9 +1,10 @@
 import { Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
-import type { GameScene, HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
+import type { GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
 import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
+import type { Hold } from "../../lib/use-hold";
 import { BoardCovered } from "./board-covered";
 import { LazyTileBubble } from "./lazy-tile-bubble";
 
@@ -167,6 +168,37 @@ export function useDropThenConfirm(scene: GameScene | null, tiles: TileRenderDat
   return green;
 }
 
+/**
+ * The board's presses as a hold on the placed tile (TILE-HOLD, #630): a press down on `cell` (the bubble's, in the renderer's
+ * grid) starts Validate's hold (`hold()`, the bubble's), so its ring fills as if Validate were held; the let go releases it,
+ * a pan, a second finger or the pointer leaving cancels it (`PointerTap`). A press elsewhere, or with Validate disabled or
+ * busy, holds nothing: a tap or a pan as before. A completed hold says it acted, so its let go does not also click the cell.
+ */
+export function useTileHold(cell: { x: number; y: number } | null, hold: () => Hold | null): TilePressListener {
+  // The hold the press under way started, kept to its end even if the bubble goes (the move was sent).
+  const pressed = useRef<Hold | null>(null);
+  const cellRef = useRef(cell);
+  cellRef.current = cell;
+  const holdRef = useRef(hold);
+  holdRef.current = hold;
+  const listener = useRef<TilePressListener>((gx, gy, phase) => {
+    if (phase === "down") {
+      const at = cellRef.current;
+      const h = at && at.x === gx && at.y === gy ? holdRef.current() : null;
+      pressed.current = h?.start() ? h : null;
+      return;
+    }
+    const h = pressed.current;
+    pressed.current = null;
+    if (!h) return;
+    const acted = h.completed();
+    if (phase === "released") h.release();
+    else h.cancel();
+    return phase === "released" && acted;
+  });
+  return listener.current;
+}
+
 /** A ghost as the renderer's hover: its grid cell, its state, and the cell its skin variant is picked for. */
 function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
   return {
@@ -203,6 +235,10 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
   const hover = useMemo<HoverState | null>(() => (ghost && (tilePreview || ghost.placed) ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
   const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
   const green = useDropThenConfirm(scene, renderTiles, confirm, settings?.placement?.motion?.confirmMs);
+  // Validate's hold, set by the bubble while it is up: holding the placed tile holds it too (#630).
+  const tileHold = useRef<Hold | null>(null);
+  const holdCell = bubble?.onConfirm ? toGridSlot(bubble.cell.x, bubble.cell.y) : null;
+  const onTilePress = useTileHold(holdCell, () => tileHold.current);
   // The tile placed and not yet validated: the drop's chunk and its model's voxels load now, so the drop at the confirm
   // begins in the call (`GameScene.prepareDropAt`).
   const prepareKey = hover?.placed ? `${hover.planIndex}:${hover.cell?.x}:${hover.cell?.y}` : null;
@@ -211,7 +247,8 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
   }, [scene, prepareKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     // The canvas owns its pinch, pan and rotate (`touch-none`), and the browser's context menu stays off the board (APP-FEEL, P-69).
-    <div className={cn("absolute inset-0 touch-none bg-board", className)} onContextMenu={(e) => e.preventDefault()}>
+    // A long press on the tile holds it (#630): no text selection, loupe or iOS callout comes with it.
+    <div className={cn("absolute inset-0 touch-none bg-board select-none [-webkit-touch-callout:none]", className)} onContextMenu={(e) => e.preventDefault()}>
       <GameCanvas
         tiles={renderTiles}
         basePath={basePath}
@@ -224,6 +261,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
         onReady={setScene}
         onError={onError}
         onTileClick={onCellClick && ((gx, gy) => onCellClick(toChainSlot(gx, gy)))}
+        onTilePress={onTilePress}
         onTileHover={onCellHover && ((gx, gy) => onCellHover(toChainSlot(gx, gy)))}
         onHoverLeave={onCellHover && (() => onCellHover(null))}
       />
@@ -242,6 +280,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
             busy={bubble.busy}
             coach={bubble.coach}
             orientation={bubble.orientation}
+            holdRef={tileHold}
           />
         </Suspense>
       )}

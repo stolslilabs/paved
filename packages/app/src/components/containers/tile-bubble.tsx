@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { GameScene } from "@paved/renderer";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { HoldButton } from "../elements/hold-button";
 import { cn } from "../../lib/utils";
 import { haptic } from "../../lib/haptics";
+import { useHold, type Hold } from "../../lib/use-hold";
 import { useSfx } from "./audio-provider";
 import { COACH_RING } from "./coach";
 import { DiscardHold } from "./discard-hold";
@@ -87,6 +88,11 @@ export interface TileBubbleProps {
    */
   scene?: GameScene | null;
   cell?: { x: number; y: number };
+  /**
+   * Where the board finds Validate's hold (TILE-HOLD, #630): a press on the placed tile starts and lets go of this same hold,
+   * so Validate's ring fills whichever of the two is held. Set while the bubble is up, null once it is gone.
+   */
+  holdRef?: RefObject<Hold | null>;
   className?: string;
 }
 
@@ -102,11 +108,12 @@ const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md focus-visible:ring-offset
  * The bubble on the tile being handled, in this order: Close (cancel), Rotate (clockwise through the valid rotations only,
  * when there is more than one) and Validate, held to place the tile (PLACE-POLISH, #568). The primary action is last, at
  * the end the reading and the thumb reach last, as a dialog's; Rotate, the step before it, is next to it, and Close is
- * apart from both. Keys: R rotates, Escape closes, Enter or Space held on Validate places. It follows the tile through
+ * apart from both. Keys: R rotates, Escape closes, Enter or Space held on Validate places. Holding the placed tile itself
+ * places it too, with Validate's hold and ring (TILE-HOLD, #630: `holdRef`). It follows the tile through
  * pans, zooms and the compass without a render of its own: the position is written to the element on the renderer's
  * camera notifications.
  */
-export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCost, canDiscard = true, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, className }: TileBubbleProps) {
+export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCost, canDiscard = true, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, holdRef, className }: TileBubbleProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Each rotation asked from the bubble (its button or R): with the cell and the rotation, what Validate's hold validates.
   const [turns, setTurns] = useState(0);
@@ -164,6 +171,17 @@ export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCos
     play("place");
     onConfirm?.();
   }, [play, onConfirm]);
+  // Validate's hold, the button's and the board's (#630): one ring whichever holds it.
+  const hold = useHold({ onComplete: confirm, holdMs, holdKey, disabled: !onConfirm || !canConfirm || busy });
+  useLayoutEffect(() => {
+    if (holdRef) holdRef.current = hold;
+  }, [holdRef, hold]);
+  useLayoutEffect(() => {
+    if (!holdRef) return;
+    return () => {
+      holdRef.current = null;
+    };
+  }, [holdRef]);
 
   return (
     <div
@@ -215,8 +233,7 @@ export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCos
           label="Hold to place the tile"
           title="Hold to place"
           icon="check"
-          holdMs={holdMs}
-          holdKey={holdKey}
+          hold={hold}
           disabled={!canConfirm}
           busy={busy}
           onComplete={confirm}

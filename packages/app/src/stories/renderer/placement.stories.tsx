@@ -129,5 +129,13 @@ export const ReducedMotion: Story = { args: { state: "placed", reducedMotion: tr
  */
 export const Sequence: Story = { args: { state: "sequence", replayMs: 3000 } };
 
+/**
+ * Holding the placed tile itself (TILE-HOLD, #630), at 375 px: once the tile is placed with its bubble, press and hold the
+ * tile on its cell. Validate's ring fills exactly as when Validate is held, and the end places the tile (the drop, then the
+ * green). Let go early and the ring rewinds; drag past 5 px and the camera pans instead, the ring rewinding; a second
+ * finger (pinch, tilt) or the right button (tilt) does the same. Nothing else marks the held tile: the ring is the cue.
+ */
+export const HoldTheTile: Story = { args: { state: "sequence", replayMs: 3000, readout: false }, globals: { viewport: { value: "mobile", isRotated: false } } };
+
 /** The sequence under reduced motion: no drop, the green at once. */
 export const SequenceReducedMotion: Story = { args: { state: "sequence", replayMs: 3000, reducedMotion: true } };
