@@ -127,6 +127,12 @@ export { AMBIENT_FPS, DEFAULT_AMBIENT_SETTINGS, ambientAllowed, resolveAmbientSe
 export type { AmbientSettings, AmbientSettingsInput } from "./core/ambient-settings";
 export { AmbientLoop } from "./core/ambient-loop";
 export type { AmbientEffect, AmbientPause } from "./core/ambient-loop";
+// The birds (BIRDS, #574), stories only: the board does not call them yet. Their settings are small and eager; the effect is a chunk
+// of its own, loaded by `loadBirds` (nothing in the app's board calls it, so the app's build has no such chunk).
+export { DEFAULT_BIRD_SETTINGS, MAX_BIRDS, resolveBirdSettings } from "./core/bird-settings";
+export type { BirdSettings, BirdSettingsInput } from "./core/bird-settings";
+export type { BirdSource, BirdState, Birds } from "./core/birds";
+export const loadBirds = (): Promise<typeof import("./core/birds")> => import("./core/birds");
 export { dropDuration, planDrop } from "./core/voxel-drop-schedule";
 export type { DropSchedule, ScheduleGrid } from "./core/voxel-drop-schedule";
 export type { DropInfo, DropResult, DropSkip } from "./core/tile-drops";

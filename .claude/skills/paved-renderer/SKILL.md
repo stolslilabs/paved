@@ -25,6 +25,8 @@ with `docs/`, `scripts/` or `packages/`.
   effects off (setting, Low tier, reduced motion: `ambientAllowed`). An ambient effect (#573, #574) is a lazy chunk that
   implements `AmbientEffect` (`step` returns whether it moved), `register`s on that loop, and reads `ambient.time` as its
   shader's time uniform. Never a second loop. No effect is registered yet: the particles of #572 were removed (owner, 2026-10-19).
+  The birds of #574 (`core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`): the story registers them on
+  `scene.ambient` itself; the board does not call them until the owner validates them.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
