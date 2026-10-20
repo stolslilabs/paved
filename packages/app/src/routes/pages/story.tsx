@@ -5,16 +5,17 @@ import { StoryScene } from "../../components/scenes/story-scene";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { UPCOMING_CAMPAIGNS, levelPath, useCampaignUnlocks, useStoryProgress } from "../../data/story";
 import { useTileRenders } from "../../data/tile-renders";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate, useUpTo } from "../ref";
 
 /**
  * `/story` (#546, #592): the campaigns as cards and the levels of the chosen one, with the stars and locks of this device's
  * progress. The chosen campaign is the address's `?campaign=` (replaced, not pushed), so Back from a level lands on it; a
- * campaign opened since the last visit is chosen instead, so its card is in view while it plays its unlock, once.
+ * campaign opened since the last visit is chosen instead, so its card is in view while it plays its unlock, once. Back goes
+ * to the modes (`/play`), whatever route the player came from: never into the level just played (#614).
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onBack = useBack();
+  const onBack = useUpTo("/play");
   const [params, setParams] = useSearchParams();
   const { progress, saved } = useStoryProgress();
   const justUnlocked = useCampaignUnlocks(CAMPAIGNS, progress);
