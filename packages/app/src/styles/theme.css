@@ -187,6 +187,41 @@
   --board: var(--color-board);
 }
 
+/* 3b. The season dial (#607): each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle
+   paints them (`KEYFRAMES` in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in
+   step). Hex, not palette steps: the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The
+   icons' tint is the day's bottom, lightly, over the foreground. The ring is paving stones set in a gold rim. */
+:root {
+  --sky-summer-day-top: #1f65a1;
+  --sky-summer-day-bottom: #6bb7ff;
+  --sky-summer-night-top: #0a141c;
+  --sky-summer-night-bottom: #083559;
+  --sky-autumn-day-top: #114c7c;
+  --sky-autumn-day-bottom: #ffb57a;
+  --sky-autumn-night-top: #0a141c;
+  --sky-autumn-night-bottom: #3e0503;
+  --sky-winter-day-top: #3e4c57;
+  --sky-winter-day-bottom: #93a0ab;
+  --sky-winter-night-top: #0a141c;
+  --sky-winter-night-bottom: #23303a;
+  --sky-spring-day-top: #3180c5;
+  --sky-spring-day-bottom: #95dc94;
+  --sky-spring-night-top: #0a141c;
+  --sky-spring-night-bottom: #012604;
+  --season-summer-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-summer-day-bottom));
+  --season-autumn-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-autumn-day-bottom));
+  --season-winter-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-winter-day-bottom));
+  --season-spring-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-spring-day-bottom));
+  --dial-rim: var(--primary);
+  --dial-band: var(--color-charcoal-900);
+  --dial-stone: var(--color-charcoal-600);
+  --dial-stone-alt: var(--color-charcoal-700);
+  --dial-stone-edge: var(--color-charcoal-500);
+  --dial-night: var(--color-river-900);
+  --dial-night-foreground: var(--color-river-200);
+  --dial-shade: rgb(0 0 0 / 0.55);
+}
+
 /* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
 @theme inline {
   --color-background: var(--background);
