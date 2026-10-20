@@ -18,6 +18,9 @@ export const NoBoard: Story = { args: OVER.noBoard };
 /** Above the threshold, settled: the reward minted; a new best. */
 export const Rewarded: Story = { args: OVER.rewarded };
 
+/** #595: the missions this game completed, under the reward, with their Cobbles and the way to claim them. */
+export const MissionsCompleted: Story = { args: { ...OVER.missions, onMissions: fn() } };
+
 /** Recorded, its day still open. */
 export const AwaitingTheDay: Story = { args: OVER.awaiting };
 
