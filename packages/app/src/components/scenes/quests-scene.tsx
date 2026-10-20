@@ -2,18 +2,16 @@ import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
-import { MULTI_TASK, milestoneTracks, type MilestoneTrack } from "../../lib/milestones";
 import { endOfUtcDay, questPeriod, windowEnd, type QuestPeriod, type ScheduledQuest, type ScheduledQuests } from "../../lib/quest-window";
 import { DayPicker } from "../elements/day-picker";
 import { Cobbles } from "../elements/cobbles";
+import { Countdown } from "../elements/countdown";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
-import { Countdown } from "../elements/countdown";
 import { FreeGames } from "../containers/free-games";
 import { isClaimed, type PeriodClaims, type QuestCobbles } from "../containers/cobble-types";
-import { MissionTrackCard, type TrackStep } from "../containers/mission-track-card";
 import { ProgressCard, type ProgressReward } from "../containers/progress-card";
-import { questText, trackText } from "../containers/quest-text";
+import { questText } from "../containers/quest-text";
 import { QuestsTabs, type QuestsTab } from "../containers/quests-tabs";
 import { TabPage } from "../containers/tab-page";
 
@@ -79,17 +77,11 @@ const SECTION = {
   weekly: { title: "Weekly", icon: "crown", ends: "Weekly missions end in", one: "Weekly mission ends in" },
 } as const;
 
-/** A track's steps share one schedule: the tiers of a task live in the same window (#595). */
-const windowKey = (q: ScheduledQuest) => `${questPeriod(q)}:${q.start}:${q.interval}:${q.duration}`;
-
 /**
- * The quests (`/missions/:day?`, Missions, Limited) as milestone tracks (#595): a Daily and a Weekly section, each with its
- * window's countdown, and in each one card per track: the tiers of one task are one bar with several steps (each with its
- * Cobbles, claimed from the card), a mission with one target a bar of one step; a mission of several tasks keeps a bar per
- * task (`ProgressCard`). The progress is the indexer's, counted
- * from the chain's reports; the day picker shows a past day (closed: no countdown, its Cobbles still claimable). Daily
- * counts down to 00:00 UTC, Weekly to the end of the week the definitions give (quests-v2.md 1.2, 2.1). The completion
- * toasts are the app's (`routes/completion-host.tsx`), raised on any page, the board included.
+ * The quests (`/missions/:day?`, Missions, Limited): the day's live quests with the player's progress, counted by the indexer from the
+ * chain's reports, in a Daily and a Weekly section, each with its window's countdown, and the day picker; Lifetime is the tab beside. Daily is the day's rotating set and counts down to
+ * 00:00 UTC; Weekly is the week's, and counts down to the end of the week the definitions give (quests-v2.md 1.2, 2.1).
+ * The completion toasts are the app's (`routes/completion-host.tsx`), raised on any page, the board included.
  */
 export function QuestsScene(props: QuestsSceneProps) {
   const { day, today, quests, connected, error, now, rewards, canClaim = true } = props;
@@ -98,7 +90,7 @@ export function QuestsScene(props: QuestsSceneProps) {
   const done = entries.filter((q) => q.completed).length;
   const daily = entries.filter((q) => questPeriod(q) === "daily");
   const weekly = entries.filter((q) => questPeriod(q) === "weekly");
-  // Each mission's window end (a daily's falls back to the UTC day's end).
+  // Each mission with the end of its own window (a daily's falls back to the UTC day's end).
   const endOf = (q: ScheduledQuest): number | null => windowEnd([q], now) ?? (questPeriod(q) === "daily" ? endOfUtcDay(now) : null);
 
   // A quest's Cobbles, claimed or not: a claim word per kind (the day's for a daily, the week's for a weekly).
@@ -119,18 +111,13 @@ export function QuestsScene(props: QuestsSceneProps) {
   const claimable = entries.map((q) => ({ q, r: rewardOf(q) })).filter(({ q, r }) => q.completed && r && !r.claimed);
   const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
 
+  // A section per period, with its window's countdown; in it, the open missions first (soonest end first), the completed ones
+  // last. A mission whose window ends before the section's keeps its own countdown.
   const section = (period: QuestPeriod, list: ScheduledQuest[]) => {
     if (list.length === 0) return null;
-    const ends = open ? Math.min(...list.map((q) => endOf(q) ?? Infinity)) : Infinity;
-    const trackEnd = (t: MilestoneTrack<ScheduledQuest>) => endOf(t.steps[0].entry) ?? Infinity;
-    // The open tracks first, soonest end first; the complete ones last.
-    const tracks = milestoneTracks(list, windowKey).sort((x, y) => {
-      const doneX = Number(x.steps.every((s) => s.reached));
-      const doneY = Number(y.steps.every((s) => s.reached));
-      return doneX - doneY || (open ? trackEnd(x) - trackEnd(y) : 0);
-    });
     const labels = SECTION[period];
-    const doneHere = list.filter((q) => q.completed).length;
+    const ends = open ? Math.min(...list.map((q) => endOf(q) ?? Infinity)) : Infinity;
+    const sorted = [...list].sort((x, y) => Number(x.completed) - Number(y.completed) || (open ? (endOf(x) ?? Infinity) - (endOf(y) ?? Infinity) : 0));
     return (
       <section aria-labelledby={`missions-${period}`} className="flex flex-col gap-3">
         <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -138,55 +125,26 @@ export function QuestsScene(props: QuestsSceneProps) {
             <Icon name={labels.icon} size="sm" className="text-primary" />
             {labels.title}
             <span className="numeric text-xs font-normal text-muted-foreground">
-              {doneHere}/{list.length}
+              {list.filter((q) => q.completed).length}/{list.length}
             </span>
           </h2>
           {Number.isFinite(ends) && <Countdown expiresAt={ends} now={now} label={labels.ends} />}
         </header>
-        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 wide:grid-cols-3">
-          {tracks.map((t) => {
-            const single = t.steps.length === 1;
-            const first = t.steps[0].entry;
-            const at = open ? endOf(first) : null;
-            const ownEnds = at !== null && at !== ends ? { at, now, label: labels.one } : undefined;
-            // A mission of several tasks is no milestone: one bar would show its first task only. Each task keeps its bar.
-            if (t.taskId === MULTI_TASK) {
-              return (
-                <ProgressCard
-                  key={t.key}
-                  kind="quest"
-                  {...questText(first.questId)}
-                  tasks={first.tasks}
-                  completed={first.completed}
-                  completedAt={first.completedAt}
-                  retired={first.retired}
-                  reward={rewardOf(first)}
-                  ends={ownEnds}
-                  onClaim={() => props.onClaim?.(first.questId)}
-                />
-              );
-            }
-            const text = single ? questText(first.questId) : { ...trackText(t.taskId), description: undefined };
-            const steps: TrackStep[] = t.steps.map(({ entry, target, reached }) => ({
-              id: entry.questId,
-              title: questText(entry.questId).title,
-              target,
-              reached,
-              completedAt: entry.completedAt,
-              reward: rewardOf(entry),
-            }));
+        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
+          {sorted.map((q) => {
+            const at = open ? endOf(q) : null;
             return (
-              <MissionTrackCard
-                key={t.key}
-                title={text.title}
-                description={text.description}
-                icon={text.icon}
-                taskId={t.taskId}
-                count={t.count}
-                steps={steps}
-                retired={t.steps.every((s) => s.entry.retired)}
-                ends={ownEnds}
-                onClaim={props.onClaim}
+              <ProgressCard
+                key={q.questId}
+                kind="quest"
+                {...questText(q.questId)}
+                tasks={q.tasks}
+                completed={q.completed}
+                completedAt={q.completedAt}
+                retired={q.retired}
+                reward={rewardOf(q)}
+                ends={at !== null && at !== ends ? { at, now, label: labels.one } : undefined}
+                onClaim={() => props.onClaim?.(q.questId)}
               />
             );
           })}
@@ -223,7 +181,7 @@ export function QuestsScene(props: QuestsSceneProps) {
       ) : quests === null ? (
         <div role="status" aria-label="Loading the missions" className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-36 rounded-xl" />
+            <Skeleton key={i} className="h-32 rounded-xl" />
           ))}
         </div>
       ) : quests.quests.length === 0 ? (
@@ -279,11 +237,17 @@ export function QuestsScene(props: QuestsSceneProps) {
           {props.rewardsUnavailable && (
             <Notice title="Rewards unavailable">{props.rewardsUnavailable}</Notice>
           )}
-          {section("daily", daily)}
-          {section("weekly", weekly)}
+          {daily.length + weekly.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">No limited mission live today.</p>
+          ) : (
+            <>
+              {section("daily", daily)}
+              {section("weekly", weekly)}
+            </>
+          )}
           <p className="text-xs text-muted-foreground">
             {rewards
-              ? "Counted by the indexer from the games the chain reports; only paid games count. A reached step's Cobbles are claimed any time: past days stay claimable. A daily starts over at 00:00 UTC."
+              ? "Counted by the indexer from the games the chain reports; only paid games count. A completed mission's Cobbles are claimed any time: past days stay claimable. A daily starts over at 00:00 UTC."
               : props.rewardsUnavailable
                 ? "Counted by the indexer from the games the chain reports. Rewards are not shown here. A daily starts over at 00:00 UTC."
                 : "Counted by the indexer from the games the chain reports. No reward in this version: a mission is for the record. A daily starts over at 00:00 UTC."}
