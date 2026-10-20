@@ -66,6 +66,10 @@ beforeAll(async () => {
       root: fileURLToPath(new URL("..", import.meta.url)),
       logLevel: "error",
       server: { port: 0, host: "127.0.0.1", strictPort: false },
+      // The scan from the app's page only: crawling `scripts/` fails on a render page's bare `three`, Vite then skips the
+      // pre-bundling and reloads the page each time it finds a dependency at run time, which on a cold cache (CI) can land
+      // in the middle of the bot's first moves and lose the tile it just placed.
+      optimizeDeps: { entries: ["index.html"] },
     });
     await server.listen();
     const address = server.httpServer?.address();
