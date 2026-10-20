@@ -243,7 +243,9 @@ Departures from sections 4 and 5:
 So the component adds **677 CASM felts** (307 Sierra) to the system that embeds it. For #643's system, that is to be
 judged against its cap (P-44).
 
-**Gas.** z15 in `contracts/tests/gas.cairo` measures one draw. Its ceiling is set from the figure of the CI's run.
+**Gas.** z15 in `contracts/tests/gas.cairo` measures one draw on the consumer's side, the game's second: **599,559 L2
+gas** (CI, snforge 0.64.0). Its ceiling is that figure + 5 %, 629,537. Cartridge's part (`submit_random` and
+`assert_consumed`) is not in it.
 
 **The local snforge run was skipped under the VPS cap.**
 
@@ -251,7 +253,7 @@ judged against its cap (P-44).
 - main peaks the same without this branch's modules (8,352,860 kB).
 - That is above the 8 GB scope of the VPS's Cairo shim, so the run is OOM-killed after the diagnostics, which pass
   without errors.
-- The tests ran in CI (`AGENTS.md`).
+- The tests ran in CI (`AGENTS.md`): the 14 of `paved::tests::vrf` and z15 pass (949 passed, 0 failed).
 
 **Follow-ups:**
 
