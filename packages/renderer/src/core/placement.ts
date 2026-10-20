@@ -15,12 +15,9 @@ import { TILE_SIZE } from "./types";
  * - The tile in hand is tinted on the model itself (`TileRenderer` draws it, this class owns the states and their ease):
  *   a hover preview has no tint at 50 % opacity (#568: the blue is gone, its colour and strength stay as knobs), a tile
  *   placed and not confirmed (pending) opaque (100 %) with a faint yellow that keeps the tile's light (#605: 0.12 of the
- *   hue, it was 0.4 of the colour and read as a yellow filter), a confirm a temporary green that fades to no tint on the tile the board now draws. There is no red: the
- *   board offers only the rotations that fit (#544).
- * - The pending look's other knobs (#605's proposals, off by default): a slow breathing of the tint (`tints.pendingPulseMs`,
- *   from 0 to `pendingStrength` and back; the faint tint held under reduced motion), a gold frame on the tile's top edges
- *   (`tints.pendingEdge*`, drawn by `TileRenderer` with the outlines' stroke), and the plate under the tile in gold, a
- *   little wider than the tile so its rim shows around it (`plates.pending*`).
+ *   hue, it was 0.4 of the colour and read as a yellow filter; the owner's pick, #657), a confirm a temporary green that
+ *   fades to no tint on the tile the board now draws. There is no red: the board offers only the rotations that fit (#544).
+ *   The tile in hand (hover and pending) has the placed tiles' outlines, at its own opacity (#657, `TileRenderer`).
  * - Each change of state eases over `motion.colorMs` (150 ms); under reduced motion it is instant and the confirm short.
  * - The grid (SLOTS2's ring hairlines) stays as a setting, off by default (`grid.enabled`).
  */
@@ -44,12 +41,6 @@ export interface PlacementSettings {
      * lit by night read as a yellow filter); off, the pixel goes to the colour itself, as the confirm's does.
      */
     pendingKeepsLight: boolean;
-    /** The pending tint breathes from 0 to `pendingStrength` and back over this many ms; 0: held. Held under reduced motion. */
-    pendingPulseMs: number;
-    /** The frame on the pending tile's top edges: its colour, opacity (0: none) and width (a multiple of the outlines'). */
-    pendingEdgeColor: string;
-    pendingEdgeOpacity: number;
-    pendingEdgeWidth: number;
     /** The confirm: the tint at its start, fading to none; the opacity is the overlay's at its start. */
     confirmColor: string;
     confirmStrength: number;
@@ -84,11 +75,6 @@ export interface PlacementSettings {
     invalidOpacity: number;
     /** The plate under the tile in hand (hover or placed) fades out; off, it stays. */
     hideUnderTile: boolean;
-    /** The plate under a pending tile: its colour and opacity (0: hidden as under a hover), whatever `hideUnderTile` says. */
-    pendingColor: string;
-    pendingOpacity: number;
-    /** How far it reaches past the tile's edges, voxels, so its rim shows around the tile; within the gap (`pendingPlateScale`). */
-    pendingOutset: number;
   };
   motion: {
     /** A change of a plate's state (a rotation, a slot chosen), ms; the tile's tints have their own (`tints.*Ms`). */
@@ -119,16 +105,12 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     pendingOpacity: 1,
     pendingMs: 150,
     pendingKeepsLight: true,
-    pendingPulseMs: 0,
-    pendingEdgeColor: "#f0bf5b",
-    pendingEdgeOpacity: 0,
-    pendingEdgeWidth: 2,
     confirmColor: "#6eca6f",
     confirmStrength: 0.6,
     confirmOpacity: 1,
   },
   grid: { enabled: false, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
-  plates: { enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true, pendingColor: "#f0bf5b", pendingOpacity: 0, pendingOutset: 1.5 },
+  plates: { enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true },
   motion: { colorMs: 150, confirmMs: 700, reducedConfirmMs: 150, reducedMotion: "auto" },
 };
 
@@ -260,22 +242,18 @@ export type PlateState = "playable" | "invalid";
 /** The tile in hand's look: hovering a cell, or placed there and waiting for confirmation (pending). */
 export type TintKind = "hover" | "pending";
 
-/**
- * The tile in hand's tint at a moment: a linear rgb colour, how far the model goes to it, the model's opacity, and the
- * opacity of the frame on its top edges (`tints.pendingEdgeOpacity`; 0 but pending).
- */
+/** The tile in hand's tint at a moment: a linear rgb colour, how far the model goes to it, and the model's opacity. */
 export interface GhostTint {
   r: number;
   g: number;
   b: number;
   strength: number;
   opacity: number;
-  edge: number;
 }
 
-const tintOf = (color: string, strength: number, opacity: number, edge = 0): GhostTint => {
+const tintOf = (color: string, strength: number, opacity: number): GhostTint => {
   const c = new THREE.Color(color);
-  return { r: c.r, g: c.g, b: c.b, strength: clamp01(strength), opacity: clamp01(opacity), edge: clamp01(edge) };
+  return { r: c.r, g: c.g, b: c.b, strength: clamp01(strength), opacity: clamp01(opacity) };
 };
 
 const clamp01 = (v: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0);
@@ -288,27 +266,7 @@ export function tintEaseMs(kind: TintKind, tints: PlacementSettings["tints"]): n
 /** The tint of a state, from the settings. */
 export function tintForKind(kind: TintKind, tints: PlacementSettings["tints"]): GhostTint {
   if (kind === "hover") return tintOf(tints.hoverColor, tints.hoverStrength, tints.hoverOpacity);
-  return tintOf(tints.pendingColor, tints.pendingStrength, tints.pendingOpacity, tints.pendingEdgeOpacity);
-}
-
-/**
- * The pending tint's breath at `elapsed` ms since the tile was placed (`tints.pendingPulseMs`): the share of
- * `pendingStrength`, from 0 up to 1 and back over each period, slow at both ends. 1 (held) with no period.
- */
-export function pendingPulse(elapsed: number, periodMs: number): number {
-  if (!(periodMs > 0) || !Number.isFinite(elapsed)) return 1;
-  return 0.5 - 0.5 * Math.cos((2 * Math.PI * Math.max(0, elapsed)) / periodMs);
-}
-
-/**
- * The scale of the plate under a pending tile, seen from above: from its inset size to the tile's plus `pendingOutset`
- * on each side, the outset kept half a voxel inside the gap so it never reaches a neighbouring plate.
- */
-export function pendingPlateScale(plates: Pick<PlacementSettings["plates"], "gap" | "radius" | "pendingOutset">): number {
-  const shape = plateShapeOf(plates);
-  const gap = (TILE_SIZE - shape.size) / VOXEL_SIZE;
-  const outset = Math.min(Math.max(0, gap / 2 - 0.5), Math.max(0, Number.isFinite(plates.pendingOutset) ? plates.pendingOutset : 0));
-  return (TILE_SIZE + 2 * outset * VOXEL_SIZE) / shape.size;
+  return tintOf(tints.pendingColor, tints.pendingStrength, tints.pendingOpacity);
 }
 
 /** Which look the tile in hand has: pending once placed, else hover. */
@@ -429,10 +387,9 @@ export function plateStateOf(slot: Pick<PlacementSlot, "legal">): PlateState {
   return slot.legal === false ? "invalid" : "playable";
 }
 
-/** One plate's eased values: its colour (linear rgb), its opacity and its scale seen from above. */
-const VALUES = 5;
+/** One plate's eased values: its colour (linear rgb) and its opacity. */
+const VALUES = 4;
 const OPACITY = 3;
-const SCALE = 4;
 
 interface PlateEntry {
   x: number;
@@ -454,10 +411,7 @@ export interface PlacementUpdate {
 
 const cellKey = (x: number, y: number) => `${x},${y}`;
 
-const tintValues = (t: GhostTint) => [t.r, t.g, t.b, t.strength, t.opacity, t.edge];
-
-/** The tint's strength among `tintValues`. */
-const STRENGTH = 3;
+const tintValues = (t: GhostTint) => [t.r, t.g, t.b, t.strength, t.opacity];
 
 /**
  * Draws the placement visuals: the grid, the plates, and owns the tile in hand's tint states and their ease (the tile
@@ -484,7 +438,7 @@ export class PlacementRenderer {
   private plates = new Map<string, PlateEntry>();
   /** The tile in hand's cell and look; null with no tile drawn on the board. */
   private ghost: { x: number; y: number; kind: TintKind } | null = null;
-  /** The tint eases from `from` to `to` (six numbers: rgb, strength, opacity, edge) since `since`. */
+  /** The tint eases from `from` to `to` (five numbers: rgb, strength, opacity) since `since`. */
   /** The tint's final look has been drawn (a frame follows the tick that reached it). */
   private tintDrawn = true;
   private tint = { from: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), to: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), since: Number.NEGATIVE_INFINITY, ms: DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs };
@@ -613,17 +567,10 @@ export class PlacementRenderer {
     return Number.isFinite(now) ? colorProgress(now - this.tint.since, { ...this.settings.motion, colorMs: this.tint.ms }, this.reduced) : 1;
   }
 
-  /** The tile in hand's tint at `now` (NaN: its target), eased, breathing while pending; the last one while no tile is drawn. */
+  /** The tile in hand's tint at `now` (NaN: its target), eased; the last one while no tile is drawn. */
   ghostTint(now: number = performance.now()): number[] {
     const t = this.tintProgress(now);
-    const tint = this.tint.from.map((v, i) => v + (this.tint.to[i]! - v) * t);
-    if (this.isPulsing() && Number.isFinite(now)) tint[STRENGTH]! *= pendingPulse(now - this.tint.since, this.settings.tints.pendingPulseMs);
-    return tint;
-  }
-
-  /** The pending tint breathes: a tile placed, a period set, and no reduced motion (the faint tint held then). */
-  isPulsing(): boolean {
-    return this.ghost?.kind === "pending" && this.settings.tints.pendingPulseMs > 0 && !this.reduced;
+    return this.tint.from.map((v, i) => v + (this.tint.to[i]! - v) * t);
   }
 
   /**
@@ -706,22 +653,12 @@ export class PlacementRenderer {
     this.writeInstances(now);
   }
 
-  /**
-   * A plate's values for its state: hidden under the tile in hand when `plates.hideUnderTile`; under a pending tile, gold
-   * and wider than the tile when `plates.pendingOpacity` is set.
-   */
+  /** A plate's values for its state: hidden under the tile in hand when `plates.hideUnderTile`. */
   private targetOf(entry: Pick<PlateEntry, "x" | "y" | "state">): Float32Array {
     const { colors, plates } = this.settings;
-    const under = this.ghost !== null && this.ghost.x === entry.x && this.ghost.y === entry.y;
-    const values = new Float32Array(VALUES);
-    values[SCALE] = 1;
-    if (under && this.ghost!.kind === "pending" && plates.enabled && plates.pendingOpacity > 0) {
-      const gold = new THREE.Color(plates.pendingColor);
-      values.set([gold.r, gold.g, gold.b, clamp01(plates.pendingOpacity), pendingPlateScale(plates)], 0);
-      return values;
-    }
-    const covered = plates.hideUnderTile && under;
+    const covered = plates.hideUnderTile && this.ghost !== null && this.ghost.x === entry.x && this.ghost.y === entry.y;
     const plate = new THREE.Color(colors.plate);
+    const values = new Float32Array(VALUES);
     values.set([plate.r, plate.g, plate.b], 0);
     values[OPACITY] = plates.enabled && !covered ? (entry.state === "invalid" ? plates.invalidOpacity : plates.opacity) : 0;
     return values;
@@ -770,13 +707,12 @@ export class PlacementRenderer {
     if (entries.length === 0 && !this.plateMesh) return;
     const plate = this.ensureMesh(entries.length);
     const matrix = new THREE.Matrix4();
-    const scale = new THREE.Matrix4();
     const color = new THREE.Color();
     const opacity = plate.geometry.getAttribute("aOpacity") as THREE.InstancedBufferAttribute;
     entries.forEach((entry, i) => {
       const v = this.current(entry, now);
       entry.settled = this.progress(entry, now) >= 1;
-      matrix.makeTranslation(entry.x * TILE_SIZE, PLATE_Y, entry.y * TILE_SIZE).multiply(scale.makeScale(v[SCALE]!, 1, v[SCALE]!));
+      matrix.makeTranslation(entry.x * TILE_SIZE, PLATE_Y, entry.y * TILE_SIZE);
       plate.setMatrixAt(i, matrix);
       plate.setColorAt(i, color.setRGB(v[0]!, v[1]!, v[2]!));
       opacity.setX(i, v[OPACITY]!);
@@ -803,7 +739,7 @@ export class PlacementRenderer {
         this.dirty = true;
       }
     }
-    if (this.tintProgress(now) < 1 || this.isPulsing()) {
+    if (this.tintProgress(now) < 1) {
       animating = true;
       this.tintDrawn = false;
     } else if (!this.tintDrawn) {
