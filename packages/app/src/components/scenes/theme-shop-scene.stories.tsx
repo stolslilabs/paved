@@ -18,6 +18,9 @@ type Story = StoryObj<typeof meta>;
 /** Forest: four owned, two active, the rest priced 50 to 100 Cobbles, each with its variant count. */
 export const Forest: Story = { args: THEME_SHOP.forest };
 
+/** Skins reserved to a tier of their plan (#646): Gold and Diamond reached on two plans, the others wait. */
+export const TierGated: Story = { args: THEME_SHOP.tierGated };
+
 /** No Cobbles and nothing owned: Get Cobbles. */
 export const NoCobbles: Story = { args: THEME_SHOP.noCobbles };
 
