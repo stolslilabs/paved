@@ -49,6 +49,11 @@ function random(seed: number): () => number {
   };
 }
 
+const smoothstepTo = (a: number, b: number, x: number): number => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
 /** A cell's own seed: its props are the same at every load. */
 const cellSeed = (x: number, y: number): number => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0;
 
@@ -182,13 +187,19 @@ void main() {
 /** The landscape's parts in three's standard shader: the board's place of each vertex (`vFogBoard`), the props' growth. */
 const LAND_VERTEX_DECLARE = /* glsl */ `
 ${FOG_FIELD_GLSL}
+uniform float uFogFalloff;
+uniform float uFogBillow;
 varying vec2 vFogBoard;
 `;
 const LAND_VERTEX = /* glsl */ `
 #ifdef FOG_DECOR
-  // A prop grows out of the ground past the clear cells' border, and sinks into it as the fog lifts over its cell.
+  // A prop grows out of the ground past the clear cells' border, and sinks into it as the fog lifts over its cell. Past the
+  // fog's reach (its falloff and billow) it is gone: the fog hides it whole there, and its faces would show through the
+  // fog's noise as faint squares.
   vec2 fogOrigin = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
-  transformed *= smoothstep(uFogEdge, uFogEdge + 0.35, fogDistance(fogOrigin));
+  float fogD = fogDistance(fogOrigin);
+  float fogFar = uFogEdge + uFogFalloff + 0.5 * uFogBillow;
+  transformed *= smoothstep(uFogEdge, uFogEdge + 0.35, fogD) * (1.0 - smoothstep(fogFar - 0.3, fogFar + 0.2, fogD));
 #endif
   vec4 fogBoard = vec4(transformed, 1.0);
 #ifdef USE_INSTANCING
@@ -213,6 +224,10 @@ const GROUND_COLOR = /* glsl */ `
 `;
 const LAND_FOG = /* glsl */ `
   vec2 fogHere = fogAt(vFogBoard, vec2(0.0));
+#ifdef FOG_DECOR
+  // A prop dissolves into the thick fog voxel column by voxel column, along the fog's own billows: none stays as a faint block.
+  if (fogHere.x * uFogOpacity > 0.25 + 0.45 * fogHash(floor(vFogBoard / ${VOXEL.toFixed(4)}))) discard;
+#endif
   gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColorAt(fogHere.y), fogHere.x * uFogOpacity);
 `;
 
@@ -221,30 +236,45 @@ type Box = [w: number, h: number, d: number, x: number, y: number, z: number, co
 
 /** The props, in voxels (a tile is 40 across; its ground 4 high): two trees, a bush and a rock. */
 const PROPS: Record<string, Box[]> = {
+  // A round crown: two crossed slabs (no corners), a lighter cap.
   tree: [
-    [2, 5, 2, 0, 0, 0, "#6b4a2b"],
-    [6, 4, 6, 0, 4, 0, "#3f6b2a"],
-    [4, 2, 4, 0, 8, 0, "#4f7f31"],
+    [2, 3, 2, 0, 0, 0, "#4a3524"],
+    [6, 3, 4, 0, 3, 0, "#2c3d2c"],
+    [4, 3, 6, 0, 3, 0, "#2c3d2c"],
+    [4, 2, 4, 0, 6, 0, "#3b4e33"],
+    [2, 1, 2, -1, 8, 1, "#4a5d3a"],
   ],
   pine: [
-    [2, 3, 2, 0, 0, 0, "#5e3f24"],
-    [7, 2, 7, 0, 3, 0, "#2f5a2e"],
-    [5, 2, 5, 0, 5, 0, "#346334"],
-    [3, 2, 3, 0, 7, 0, "#3a6c38"],
-    [1, 2, 1, 0, 9, 0, "#3a6c38"],
+    [2, 2, 2, 0, 0, 0, "#3f2d1f"],
+    [5, 2, 5, 0, 2, 0, "#233428"],
+    [3, 2, 3, 0, 4, 0, "#283a2b"],
+    [1, 2, 1, 0, 6, 0, "#2d402e"],
   ],
   bush: [
-    [4, 3, 4, 0, 0, 0, "#4b7a2c"],
-    [2, 1, 2, 0, 3, 0, "#5d8f35"],
+    [3, 2, 3, 0, 0, 0, "#3c4c2c"],
+    [2, 1, 2, 0.5, 2, 0.5, "#4a5a33"],
   ],
   rock: [
-    [3, 2, 3, 0, 0, 0, "#85898c"],
-    [2, 1, 2, 0.5, 2, -0.5, "#a0a4a7"],
+    [3, 2, 3, 0, 0, 0, "#6f6c64"],
+    [2, 1, 2, 0.5, 2, -0.5, "#86827a"],
   ],
 };
 const PROP_KINDS = Object.keys(PROPS);
-/** Each prop's share of a cell's props. */
-const PROP_SHARE: Record<string, number> = { tree: 0.42, pine: 0.2, bush: 0.23, rock: 0.15 };
+/** Each prop's share in a forest and in a meadow (the forests are the noise's high patches). */
+const FOREST_SHARE: Record<string, number> = { tree: 0.55, pine: 0.35, bush: 0.1, rock: 0 };
+const MEADOW_SHARE: Record<string, number> = { tree: 0.25, pine: 0.05, bush: 0.4, rock: 0.3 };
+/** The forests' patches, cells across. */
+const FOREST_CELLS = 3;
+
+/** A smooth value noise over the cells (0 to 1), patches `FOREST_CELLS` across: where the forests stand. */
+function forestAt(x: number, y: number): number {
+  const [u, v] = [x / FOREST_CELLS, y / FOREST_CELLS];
+  const [x0, y0] = [Math.floor(u), Math.floor(v)];
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const [fx, fy] = [smooth(u - x0), smooth(v - y0)];
+  const at = (i: number, j: number) => random(cellSeed(i + 7919, j - 104729))();
+  return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy;
+}
 
 /** One geometry of a prop's boxes, colours per vertex (linear), its foot at y 0. */
 function propGeometry(boxes: Box[]): THREE.BufferGeometry {
@@ -347,6 +377,7 @@ export class FogOfWar implements AmbientEffect {
     this.noise.needsUpdate = true;
     this.uniforms = {
       uTime: time,
+      // The field's texture once built (`rebuild`, below).
       uFogField: { value: this.noise },
       uFogRect: { value: new THREE.Vector4(0, 0, 1, 1) },
       uFogReach: { value: FIELD_REACH },
@@ -377,16 +408,15 @@ export class FogOfWar implements AmbientEffect {
     this.groundMesh.position.y = GROUND_Y;
     this.groundMesh.receiveShadow = true;
     this.propMaterial = landMaterial(this.uniforms, this.ground, "FOG_DECOR");
-    for (const mesh of [this.floor, this.mist, this.groundMesh]) {
-      mesh.frustumCulled = false;
-      mesh.matrixAutoUpdate = true;
-    }
+    for (const mesh of [this.floor, this.mist, this.groundMesh]) mesh.frustumCulled = false;
     // The mist after the floor, both after the opaque board (three sorts the transparent by distance; these lie under it).
     this.floor.renderOrder = 2;
     this.mist.renderOrder = 3;
     this.object.add(this.floor, this.mist, this.groundMesh);
     this.object.name = "fog-of-war";
     this.apply();
+    // No cell clear yet: fog everywhere, until `setRevealed`.
+    this.rebuild();
   }
 
   setSettings(settings: FogSettings): void {
@@ -539,10 +569,13 @@ export class FogOfWar implements AmbientEffect {
     const up = new THREE.Vector3(0, 1, 0);
     for (const cell of near.values()) {
       const next = random(cellSeed(cell.x, cell.y));
-      const count = Math.floor(next() * (s.landscape.decor + 1));
+      // A forest's cell holds up to `decor` props, a meadow's one at most.
+      const forest = smoothstepTo(0.4, 0.7, forestAt(cell.x, cell.y));
+      const count = Math.floor(s.landscape.decor * forest + next() * 1.6);
+      const share = forest > 0.5 ? FOREST_SHARE : MEADOW_SHARE;
       for (let i = 0; i < count; i++) {
         let pick = next();
-        const kind = PROP_KINDS.find((k) => (pick -= PROP_SHARE[k]!) < 0) ?? "tree";
+        const kind = PROP_KINDS.find((k) => (pick -= share[k]!) < 0) ?? "tree";
         // On the voxel grid, inside the cell's middle (a prop does not straddle two cells).
         const vx = Math.round((next() - 0.5) * 28) * VOXEL;
         const vz = Math.round((next() - 0.5) * 28) * VOXEL;

@@ -368,7 +368,10 @@ export interface FogSettings {
   falloff: number;
   /** The edge cut on the voxel grid (a voxel stair, as the models'). */
   voxelEdge: boolean;
-  /** How far the noise pushes a soft edge in and out, cells (0 a straight falloff). A hard edge stays on the border. */
+  /**
+   * How far the noise pushes a soft edge in and out, cells (0 a straight falloff). A hard edge stays on the border. With the
+   * falloff, at most `FIELD_REACH` - 0.5 cells.
+   */
   billow: number;
   /** The noise's features, cells across. */
   noiseScale: number;
@@ -397,7 +400,7 @@ export interface LandscapeSettings {
   /** The ground's colour (sRGB hex), and its second colour, the patches and voxels drawn between the two. */
   ground: string;
   groundAlt: string;
-  /** The props a cell holds at most (trees, bushes, rocks), 0 none. */
+  /** The props a forest's cell holds (trees, bushes; a meadow's one at most, a bush or a rock), 0 none. */
   decor: number;
   /** The props' size, times their own. */
   decorScale: number;
@@ -422,7 +425,7 @@ export const DEFAULT_FOG_SETTINGS: FogSettings = {
   mistHeight: 0.9,
   night: 0.3,
   liftSeconds: 0.8,
-  landscape: { enabled: false, ground: "#56702f", groundAlt: "#6a8538", decor: 3, decorScale: 1 },
+  landscape: { enabled: false, ground: "#4c5931", groundAlt: "#5c6638", decor: 10, decorScale: 1 },
 };
 
 export type FogSettingsInput = DeepPartial<FogSettings>;
@@ -435,11 +438,13 @@ const hex = (value: unknown, fallback: string): string => (typeof value === "str
 /** `input` over `base`, field by field; a value of the wrong kind or out of range keeps the base's. */
 export function resolveFogSettings(input: FogSettingsInput = {}, base: FogSettings = DEFAULT_FOG_SETTINGS): FogSettings {
   const l = input.landscape ?? {};
+  const falloff = at(input.falloff, base.falloff, 0, FIELD_REACH - 1);
   return {
     enabled: flag(input.enabled, base.enabled),
-    falloff: at(input.falloff, base.falloff, 0, FIELD_REACH - 1),
+    falloff,
     voxelEdge: flag(input.voxelEdge, base.voxelEdge),
-    billow: at(input.billow, base.billow, 0, 1.5),
+    // The falloff and the billow stay within the field's reach, so the fog is whole past it (the field holds no farther distance).
+    billow: Math.min(at(input.billow, base.billow, 0, 1.5), FIELD_REACH - 0.5 - falloff),
     noiseScale: at(input.noiseScale, base.noiseScale, 0.25, 20),
     drift: at(input.drift, base.drift, 0, 10),
     driftDirection: at(input.driftDirection, base.driftDirection, -360, 360),
@@ -454,7 +459,7 @@ export function resolveFogSettings(input: FogSettingsInput = {}, base: FogSettin
       enabled: flag(l.enabled, base.landscape.enabled),
       ground: hex(l.ground, base.landscape.ground),
       groundAlt: hex(l.groundAlt, base.landscape.groundAlt),
-      decor: at(l.decor, base.landscape.decor, 0, 8),
+      decor: at(l.decor, base.landscape.decor, 0, 16),
       decorScale: at(l.decorScale, base.landscape.decorScale, 0.25, 4),
     },
   };

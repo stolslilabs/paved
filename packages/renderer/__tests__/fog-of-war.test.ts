@@ -223,6 +223,9 @@ describe("the fog of war: its settings and mode", () => {
     expect(s.color).toBe(DEFAULT_FOG_SETTINGS.color);
     expect(s.landscape).toEqual({ ...DEFAULT_FOG_SETTINGS.landscape, enabled: true, decor: 2 });
     expect(resolveFogSettings({ falloff: FIELD_REACH })).toEqual(DEFAULT_FOG_SETTINGS);
+    // The falloff and the billow stay within the field's reach: past it the fog is whole.
+    const wide = resolveFogSettings({ falloff: 3, billow: 1.5 });
+    expect(wide.falloff + wide.billow).toBe(FIELD_REACH - 0.5);
   });
 
   it("stays on at every tier, still (no drift, an instant lift) on Low, under reduced motion or with the effects off", () => {
@@ -250,6 +253,9 @@ describe("the fog of war: the effect", () => {
 
   it("draws the fog's floor and its mist; the landscape draws the ground and its props instead of the floor", () => {
     const { fog } = fogOf();
+    // Before any reveal, a field of fog alone.
+    expect(fog.stats()).toMatchObject({ cells: 0, fieldBuilds: 1 });
+    expect(fog.stats().field).not.toBe("none");
     fog.setRevealed(board);
     expect(fog.stats()).toMatchObject({ mode: "moving", cells: 5, drawCalls: 2, props: 0 });
     fog.setSettings(settings({ mist: 0, landscape: { enabled: true } }));
