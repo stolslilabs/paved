@@ -43,9 +43,9 @@ describe("the weather (#607 PR 2, #658): the settings", () => {
       leaves: { enabled: true, density: 0.25, speed: 1, size: 1, opacity: 0.9, wind: 2.5 },
       clouds: 1.4,
     });
-    // Winter: the snowfall as it was, the snow on the tops a veil (a third of the snow's colour at most).
+    // Winter: the snowfall as it was, the snow on the tops a light veil (a tenth of the snow's colour, mixed in linear light).
     expect(d.winter.snow).toEqual({ enabled: true, density: 0.3, speed: 1, size: 1, opacity: 0.75, wind: 0.6 });
-    expect(d.winter.veil).toBeLessThanOrEqual(0.35);
+    expect(d.winter.veil).toBeLessThanOrEqual(0.12);
     // Summer and spring: a raised brightness and their grade, no glare, shimmer or shafts; no petals in spring.
     expect(Object.keys(d.summer).sort()).toEqual(["brightness", "enabled", "grade"]);
     expect(Object.keys(d.spring).sort()).toEqual(["brightness", "enabled", "grade", "petals"]);

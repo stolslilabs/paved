@@ -1,11 +1,11 @@
 /**
- * WEATHER-STUDY (#607 PR 2), WEATHER-WIRE (#658): stills of each season by day and at night at 375 x 812 and 1440 x 900 (DPR 2), a
+ * WEATHER-STUDY (#607 PR 2), WEATHER-WIRE (#658): stills of each season by day and at night at 375 x 812 and 1440 x 900 (DPR 2 by default), a
  * GIF per season with things falling, and a GIF of a season fade, from the stories `Renderer/Weather` (the weather the scene draws on
  * every board), at a phone's play distance, the wheel fixed.
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up)
- *   node scripts/weather-captures.ts --out <folder> [--url http://localhost:6006] [--frames 45] [--fps 15] [--gpu] [--only autumn]
- *     [--args snowVeil:0.2 --suffix -veil02]
+ *   node scripts/weather-captures.ts --out <folder> [--url http://localhost:6006] [--frames 45] [--fps 15] [--dpr 2] [--gpu]
+ *     [--only autumn] [--args snowVeil:0.2 --suffix -veil02]
  *
  * Each capture opens a fresh page, waits for the board and the season's weather in full, stops the render loop and draws its frames
  * one by one: the ambient time moved 1 / fps, every effect on the loop stepped (the weather, the clouds), `scene.render()`, and a
@@ -30,6 +30,8 @@ const OUT = arg("out", "");
 const FRAMES = Number(arg("frames", "45"));
 const FPS = Number(arg("fps", "15"));
 const GPU = process.argv.includes("--gpu");
+/** The device pixel ratio (2 by default; 1 speeds up a software run, whose screenshots take tens of seconds each at 2). */
+const DPR = Number(arg("dpr", "2"));
 const ONLY = arg("only", "");
 /** Extra story args for every capture (`snowVeil:0.2;snowCover:0.3`), to compare a knob. */
 const EXTRA = arg("args", "");
@@ -74,7 +76,7 @@ const browser = await chromium.launch(
 );
 
 for (const capture of CAPTURES) {
-  const page = await browser.newPage({ viewport: { width: capture.width, height: capture.height }, deviceScaleFactor: 2 });
+  const page = await browser.newPage({ viewport: { width: capture.width, height: capture.height }, deviceScaleFactor: DPR });
   const args = [capture.args, EXTRA].filter(Boolean).join(";");
   await page.goto(`${URL_BASE}/iframe.html?id=renderer-weather--${capture.story}&viewMode=story${args ? `&args=${args}` : ""}`, { timeout: 180_000, waitUntil: "commit" });
   await page.waitForSelector("[data-ready]", { timeout: 300_000 });
@@ -108,7 +110,7 @@ for (const capture of CAPTURES) {
       },
       { dt: 1 / FPS, turn: f === capture.turnAt ? (capture.turnTo ?? null) : null },
     );
-    await page.screenshot({ path: join(frames, `${String(f).padStart(3, "0")}.png`) });
+    await page.screenshot({ path: join(frames, `${String(f).padStart(3, "0")}.png`), timeout: 300_000 });
   }
   const scale = `scale=${capture.width}:-1`;
   if (capture.frames === 1) {

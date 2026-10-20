@@ -125,7 +125,7 @@ export const DEFAULT_WEATHER_SETTINGS: WeatherSettings = {
     leaves: particles(0.25, 0.9, 2.5),
     clouds: 1.4,
   },
-  winter: { enabled: true, grade: { color: "#d7e4f5", amount: 0.18 }, snow: particles(0.3, 0.75, 0.6), cover: 0.4, veil: 0.32 },
+  winter: { enabled: true, grade: { color: "#d7e4f5", amount: 0.18 }, snow: particles(0.3, 0.75, 0.6), cover: 0.4, veil: 0.1 },
   spring: {
     enabled: true,
     grade: { color: "#f2ffe0", amount: 0.12 },
