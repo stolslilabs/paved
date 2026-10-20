@@ -33,12 +33,12 @@ const Frame = ({ children }: { children: ReactNode }) => <div className="w-64 ov
  * The fade is applied everywhere: `ScrollRegion` and `ScrollArea` carry it, and the document has its own at the viewport's foot.
  */
 
-/** Proposal A, the cut: the box (15.5rem) shows five rows and a half; no fade. Not kept. */
+/** Proposal A, the cut: the box (16rem) shows five rows and a half; no fade. Not kept. */
 export const ProposalCut: Story = {
   name: "Proposal: cut",
   render: () => (
     <div className="w-64 rounded-md border border-input">
-      <div className="h-62 overflow-y-auto">
+      <div className="h-64 overflow-y-auto">
         <Rows />
       </div>
     </div>
@@ -50,7 +50,7 @@ export const ProposalFade: Story = {
   name: "Proposal: fade (the rule)",
   render: () => (
     <Frame>
-      <ScrollRegion className="h-62">
+      <ScrollRegion className="h-64">
         <Rows />
       </ScrollRegion>
     </Frame>
@@ -61,7 +61,7 @@ export const ProposalFade: Story = {
 export const Middle: Story = {
   render: () => (
     <Frame>
-      <ScrollRegion className="h-62" data-testid="region">
+      <ScrollRegion className="h-64" data-testid="region">
         <Rows />
       </ScrollRegion>
     </Frame>
@@ -89,7 +89,7 @@ export const End: Story = {
 export const Fits: Story = {
   render: () => (
     <Frame>
-      <ScrollRegion className="h-62" data-testid="region">
+      <ScrollRegion className="h-64" data-testid="region">
         <Rows count={4} />
       </ScrollRegion>
     </Frame>
@@ -105,7 +105,7 @@ export const Fits: Story = {
 export const Horizontal: Story = {
   render: () => (
     <ScrollRegion orientation="horizontal" className="w-72">
-      <div className="flex w-max gap-3 p-3">
+      <div className="flex w-fit gap-3 p-3">
         {PLAYERS.slice(0, 12).map((p) => (
           <div key={p} className="grid size-20 shrink-0 place-items-center rounded-md bg-secondary text-xs">
             {p}
@@ -119,7 +119,7 @@ export const Horizontal: Story = {
 /** A keyboard user tabs to the region and scrolls it with the arrows: the ring shows whole, the fade steps aside meanwhile. */
 export const Focus: Story = {
   render: () => (
-    <ScrollRegion tabIndex={0} aria-label="Players" className="h-62 w-64 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <ScrollRegion tabIndex={0} aria-label="Players" className="h-64 w-64 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <Rows />
     </ScrollRegion>
   ),

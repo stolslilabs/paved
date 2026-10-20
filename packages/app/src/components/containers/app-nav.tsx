@@ -35,11 +35,11 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
       className={cn(
         "z-20 flex items-center border-border bg-background/95 backdrop-blur",
         "sticky inset-x-0 bottom-0 order-last border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]",
-        "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-linear-to-t before:from-background before:to-transparent before:opacity-0 before:transition-opacity motion-reduce:before:transition-none page-more:before:opacity-100 desktop:before:hidden",
         "desktop:top-0 desktop:bottom-auto desktop:order-first desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
         className,
       )}
     >
+      <span aria-hidden data-slot="page-scroll-hint" className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-linear-to-b to-background opacity-0 transition-opacity motion-reduce:transition-none page-more:opacity-100 desktop:hidden" />
       <Wordmark size="sm" className="hidden shrink-0 desktop:flex" />
       <div className="flex min-w-0 flex-1 justify-between gap-1 desktop:flex-none desktop:justify-start desktop:gap-1.5">
         {NAV_TABS.map((tab) => {

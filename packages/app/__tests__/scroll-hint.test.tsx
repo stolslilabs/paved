@@ -55,7 +55,7 @@ describe("the scrollable regions", () => {
     expect(viewport.className).toContain("focus-visible:ring-2");
   });
 
-  it("no plain overflow-auto or overflow-scroll in the app: every scroller is a ScrollRegion or a ScrollArea", () => {
+  it("no plain scrolling box in the app: every scroller is a ScrollRegion or a ScrollArea", () => {
     const root = resolve("src");
     const files = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(resolve(dir, e.name)) : /\.tsx?$/.test(e.name) ? [resolve(dir, e.name)] : []));
@@ -76,7 +76,8 @@ describe("theme.css", () => {
 
   it("the hint fades the sides marked by data-scroll-start / data-scroll-end", () => {
     const hint = theme.match(/@utility scroll-hint \{[\s\S]*?\n\}/)![0];
-    expect(hint).toContain("mask-image: linear-gradient");
+    expect(hint).toContain("--scroll-hint-mask: linear-gradient");
+    expect(hint).toContain("mask-image: var(--scroll-hint-mask)");
     expect(hint).toMatch(/&\[data-scroll-start\] \{\s*--scroll-hint-start: var\(--scroll-hint-size\)/);
     expect(hint).toMatch(/&\[data-scroll-end\] \{\s*--scroll-hint-end: var\(--scroll-hint-size\)/);
     expect(hint).toMatch(/&:focus-visible \{\s*mask-image: none/);

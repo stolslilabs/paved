@@ -305,7 +305,8 @@
 @utility scroll-hint {
   --scroll-hint-size: 2rem;
   --scroll-hint-dir: to bottom;
-  mask-image: linear-gradient(var(--scroll-hint-dir), transparent, black var(--scroll-hint-start), black calc(100% - var(--scroll-hint-end)), transparent);
+  --scroll-hint-mask: linear-gradient(var(--scroll-hint-dir), transparent, black var(--scroll-hint-start), black calc(100% - var(--scroll-hint-end)), transparent);
+  mask-image: var(--scroll-hint-mask);
   scroll-padding: var(--scroll-hint-size);
   transition: --scroll-hint-start 150ms ease-out, --scroll-hint-end 150ms ease-out;
   &[data-scroll-axis="x"] {
