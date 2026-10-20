@@ -13,12 +13,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
  * plan (`deckSheetCounts`), never its order nor the cards withdrawn at the start. `ordered`: a Story level's fixed draw
  * (`deckSheetOrder`), the next tile first, so the player can plan the level.
  */
-export type DeckSheetView = { mode: "counted"; counts: DeckSheetCounts } | { mode: "ordered"; order: DeckSheetOrder };
+export type DeckSheetDeck = { mode: "counted"; counts: DeckSheetCounts } | { mode: "ordered"; order: DeckSheetOrder };
 
 export interface DeckSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  view: DeckSheetView;
+  deck: DeckSheetDeck;
   /** Chain plan id of the tile in hand: its next chip is highlighted (counted; the ordered view knows its tile in hand). */
   handPlan?: number | null;
   tileArt?: TileArt;
@@ -33,13 +33,13 @@ export interface DeckSheetProps {
  * board crossed out, the tile in hand highlighted; in a Story level the draw in its order (#613). A bottom sheet on a phone;
  * a panel on the left from `tablet` up, so that the hand panel (bottom right) stays free.
  */
-export function DeckSheet({ open, onOpenChange, view, handPlan, tileArt, side, onPresent }: DeckSheetProps) {
+export function DeckSheet({ open, onOpenChange, deck, handPlan, tileArt, side, onPresent }: DeckSheetProps) {
   const wide = useSidePanel();
   const where = side ?? (wide ? "left" : "bottom");
-  const ordered = view.mode === "ordered";
-  const total = ordered ? view.order.slots.length : view.counts.total;
-  const placed = ordered ? view.order.placed : view.counts.placed;
-  const discarded = ordered ? view.order.discarded : view.counts.discarded;
+  const ordered = deck.mode === "ordered";
+  const total = ordered ? deck.order.slots.length : deck.counts.total;
+  const placed = ordered ? deck.order.placed : deck.counts.placed;
+  const discarded = ordered ? deck.order.discarded : deck.counts.discarded;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -55,7 +55,7 @@ export function DeckSheet({ open, onOpenChange, view, handPlan, tileArt, side, o
         </SheetHeader>
         {/* The header stays; the deck scrolls under it with the edge hint (NO-SCROLLBARS, #609). */}
         <ScrollRegion className="-mx-4 flex min-h-0 flex-col gap-4 px-4">
-          {ordered ? <OrderedDeck order={view.order} tileArt={tileArt} /> : <CountedDeck counts={view.counts} handPlan={handPlan} tileArt={tileArt} />}
+          {ordered ? <OrderedDeck order={deck.order} tileArt={tileArt} /> : <CountedDeck counts={deck.counts} handPlan={handPlan} tileArt={tileArt} />}
           <p className="numeric text-sm text-muted-foreground" data-testid="deck-summary">
             {placed} played, {discarded} discarded (dashed), {total - placed - discarded} not yet.
           </p>
@@ -129,6 +129,6 @@ export default function BoardDeckSheet({
   side,
   onPresent,
 }: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt" | "side" | "onPresent"> & { tiles: readonly BoardTile[]; discardedPlans?: readonly number[]; order?: DeckSheetOrder }) {
-  const view: DeckSheetView = order ? { mode: "ordered", order } : { mode: "counted", counts: deckSheetCounts(baseDeckPlans(), tiles.map((t) => t.plan), discardedPlans) };
-  return <DeckSheet open={open} onOpenChange={onOpenChange} view={view} handPlan={handPlan} tileArt={tileArt} side={side} onPresent={onPresent} />;
+  const deck: DeckSheetDeck = order ? { mode: "ordered", order } : { mode: "counted", counts: deckSheetCounts(baseDeckPlans(), tiles.map((t) => t.plan), discardedPlans) };
+  return <DeckSheet open={open} onOpenChange={onOpenChange} deck={deck} handPlan={handPlan} tileArt={tileArt} side={side} onPresent={onPresent} />;
 }

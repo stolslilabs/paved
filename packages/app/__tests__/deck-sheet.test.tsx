@@ -12,7 +12,7 @@ describe("DeckSheet", () => {
   const counts = deckSheetCounts(baseDeckPlans(), [id(PlanType.CCCCCFFFC), id(PlanType.CCCCCFFFC), id(PlanType.CCCCCCCCC)], [id(PlanType.FFFFFFCFF), id(PlanType.FFFFFFCFF)]);
 
   it("shows 72 chips and crosses out the played ones", () => {
-    render(<DeckSheet open onOpenChange={() => {}} view={{ mode: "counted", counts }} handPlan={id(PlanType.CCCCCFFFC)} side="bottom" />);
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "counted", counts }} handPlan={id(PlanType.CCCCCFFFC)} side="bottom" />);
     const plans = screen.getByTestId("deck-plans");
     expect(within(plans).getAllByRole("img")).toHaveLength(72);
     expect(plans.querySelectorAll("[data-out='true']")).toHaveLength(5);
@@ -25,7 +25,7 @@ describe("DeckSheet", () => {
   it("shows a Story level's draw in order, each played tile out in its position (#613)", () => {
     const sequence = [PlanType.CFFFCFFFC, PlanType.RFRFFFFFR, PlanType.FFFFFFCFF, PlanType.CFFFCFFFC];
     const order = deckSheetOrder(sequence, [{ discard: false }, { discard: true }]);
-    render(<DeckSheet open onOpenChange={() => {}} view={{ mode: "ordered", order }} side="bottom" />);
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "ordered", order }} side="bottom" />);
     expect(screen.queryByTestId("deck-plans")).toBeNull();
     const slots = [...screen.getByTestId("deck-order").querySelectorAll("li")];
     expect(slots.map((li) => li.getAttribute("data-plan"))).toEqual(sequence);

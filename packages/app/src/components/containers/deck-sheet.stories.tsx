@@ -18,7 +18,7 @@ const meta = {
   title: "Containers/DeckSheet",
   component: DeckSheet,
   parameters: { layout: "fullscreen" },
-  args: { open: true, onOpenChange: fn(), view: { mode: "counted", counts: deckSheetCounts(deck, played, [id(PlanType.FFFFFFCFF)]) }, handPlan: id(PlanType.CCCCCFFFC) },
+  args: { open: true, onOpenChange: fn(), deck: { mode: "counted", counts: deckSheetCounts(deck, played, [id(PlanType.FFFFFFCFF)]) }, handPlan: id(PlanType.CCCCCFFFC) },
 } satisfies Meta<typeof DeckSheet>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -28,14 +28,14 @@ export const Bottom: Story = { args: { side: "bottom" }, globals: mobile };
 /** A random draw from the tablet width up: a panel on the left, the hand panel stays free. */
 export const Side: Story = { args: { side: "left" }, globals: wide };
 /** Nothing played yet. */
-export const Fresh: Story = { args: { side: "bottom", view: { mode: "counted", counts: deckSheetCounts(deck, []) }, handPlan: null }, globals: mobile };
+export const Fresh: Story = { args: { side: "bottom", deck: { mode: "counted", counts: deckSheetCounts(deck, []) }, handPlan: null }, globals: mobile };
 
 /** A Story level on a phone (#613): its draw in order, the tile in hand ("Now") first of those left, the played ones out in their position. */
-export const StoryOrder: Story = { args: { side: "bottom", view: { mode: "ordered", order: storyOrder }, handPlan: null, onPresent: fn() }, globals: mobile };
+export const StoryOrder: Story = { args: { side: "bottom", deck: { mode: "ordered", order: storyOrder }, handPlan: null, onPresent: fn() }, globals: mobile };
 /** A Story level from the tablet width up: the same order in the left panel. */
-export const StoryOrderSide: Story = { args: { side: "left", view: { mode: "ordered", order: storyOrder }, handPlan: null, onPresent: fn() }, globals: wide };
+export const StoryOrderSide: Story = { args: { side: "left", deck: { mode: "ordered", order: storyOrder }, handPlan: null, onPresent: fn() }, globals: wide };
 /** A short Story level before its first move (Tutorial 5): every tile to come, the first in hand. */
 export const StoryOrderFresh: Story = {
-  args: { side: "bottom", view: { mode: "ordered", order: deckSheetOrder(TUTORIAL.levels[4]!.deck, []) }, handPlan: null, onPresent: fn() },
+  args: { side: "bottom", deck: { mode: "ordered", order: deckSheetOrder(TUTORIAL.levels[4]!.deck, []) }, handPlan: null, onPresent: fn() },
   globals: mobile,
 };
