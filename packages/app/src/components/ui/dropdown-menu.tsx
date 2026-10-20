@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { cn } from "../../lib/utils";
+import { ScrollRegion } from "./scroll-region";
 import { CheckIcon, ChevronRightIcon, DotIcon } from "./icons";
 
 export function DropdownMenu(props: ComponentProps<typeof MenuPrimitive.Root>) {
@@ -20,14 +21,17 @@ export function DropdownMenuSub(props: ComponentProps<typeof MenuPrimitive.Sub>)
 }
 
 const surface =
-  "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 motion-reduce:animate-none";
+  "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) flex flex-col overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 motion-reduce:animate-none";
 const item =
   "state-layer relative flex min-h-10 cursor-default items-center gap-2 rounded-md px-2.5 py-2 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
 
-export function DropdownMenuContent({ className, sideOffset = 4, ...props }: ComponentProps<typeof MenuPrimitive.Content>) {
+export function DropdownMenuContent({ className, sideOffset = 4, children, ...props }: ComponentProps<typeof MenuPrimitive.Content>) {
   return (
     <MenuPrimitive.Portal>
-      <MenuPrimitive.Content data-slot="dropdown-menu-content" sideOffset={sideOffset} className={cn(surface, className)} {...props} />
+      <MenuPrimitive.Content data-slot="dropdown-menu-content" sideOffset={sideOffset} className={cn(surface, className)} {...props}>
+        {/* A long menu scrolls inside the surface: the edge hint fades the items, not the popover (NO-SCROLLBARS, issue 609). */}
+        <ScrollRegion className="-m-1 min-h-0 p-1">{children}</ScrollRegion>
+      </MenuPrimitive.Content>
     </MenuPrimitive.Portal>
   );
 }
@@ -82,6 +86,10 @@ export function DropdownMenuSubTrigger({ className, inset, children, ...props }:
     </MenuPrimitive.SubTrigger>
   );
 }
-export function DropdownMenuSubContent({ className, ...props }: ComponentProps<typeof MenuPrimitive.SubContent>) {
-  return <MenuPrimitive.SubContent data-slot="dropdown-menu-sub-content" className={cn(surface, "shadow-lg", className)} {...props} />;
+export function DropdownMenuSubContent({ className, children, ...props }: ComponentProps<typeof MenuPrimitive.SubContent>) {
+  return (
+    <MenuPrimitive.SubContent data-slot="dropdown-menu-sub-content" className={cn(surface, "shadow-lg", className)} {...props}>
+      <ScrollRegion className="-m-1 min-h-0 p-1">{children}</ScrollRegion>
+    </MenuPrimitive.SubContent>
+  );
 }

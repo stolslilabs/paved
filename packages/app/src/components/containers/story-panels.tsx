@@ -7,6 +7,7 @@ import { StarRow } from "../elements/star-row";
 import { TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 import { useSfx } from "./audio-provider";
 
 const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
@@ -62,8 +63,10 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, deck, ren
       onKeyDown={(e) => {
         if (e.key === "Escape") onStart?.();
       }}
-      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer overflow-y-auto bg-background/80 backdrop-blur-sm", className)}
+      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer bg-background/80 backdrop-blur-sm", className)}
     >
+      {/* The veil stays whole; the content scrolls inside it with the edge hint (NO-SCROLLBARS, #609). */}
+      <ScrollRegion className="h-full">
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-4 py-6 tablet:max-w-2xl">
         <m.header className="flex flex-col gap-1" initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
           <span className="text-xs text-muted-foreground">
@@ -115,6 +118,7 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, deck, ren
           <span className="text-xs text-muted-foreground">or tap anywhere</span>
         </div>
       </div>
+      </ScrollRegion>
     </section>
   );
 }
@@ -248,12 +252,13 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
     );
   }
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm" onClick={() => {
+    <div className="pointer-events-auto fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => {
         if (settled) return;
         setSkipped(true);
         setSettled(true);
       }}
     >
+      <ScrollRegion className="h-full">
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
         <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, "items-center gap-4 py-6 text-center", className)}>
           <h2 className="font-display text-lg font-semibold wrap-anywhere">{title}: complete</h2>
@@ -308,6 +313,7 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
           </m.div>
         </section>
       </div>
+      </ScrollRegion>
     </div>
   );
 }

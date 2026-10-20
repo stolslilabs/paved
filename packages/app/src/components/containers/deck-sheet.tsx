@@ -5,6 +5,7 @@ import { cn } from "../../lib/utils";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 
 export interface DeckSheetProps {
@@ -38,7 +39,7 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side,
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={where}
-        className={where === "bottom" ? "max-h-[70dvh] overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" : "w-full max-w-sm overflow-y-auto p-4"}
+        className={where === "bottom" ? "max-h-[70dvh] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" : "w-full max-w-sm p-4"}
         aria-describedby="deck-sheet-note"
       >
         <SheetHeader className="pr-10">
@@ -47,6 +48,8 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side,
             {fixed ? `This level deals all of these ${counts.total} tiles, in a fixed order.` : `The deck is drawn from these ${counts.total} tiles; some never come.`}
           </SheetDescription>
         </SheetHeader>
+        {/* The header stays; the deck scrolls under it with the edge hint (NO-SCROLLBARS, #609). */}
+        <ScrollRegion className="-mx-4 flex min-h-0 flex-col gap-4 px-4">
         <ul className="flex flex-wrap gap-2" data-testid="deck-plans">
           {counts.plans.map((plan) => (
             <li key={plan.plan} className="flex max-w-full flex-wrap gap-1 rounded-lg bg-secondary/50 p-1" data-plan={plan.code}>
@@ -73,6 +76,7 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side,
             <Icon name="play" size="sm" /> Present the level again
           </Button>
         )}
+        </ScrollRegion>
       </SheetContent>
     </Sheet>
   );

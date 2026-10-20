@@ -26,6 +26,7 @@ export interface AppNavProps {
  * indicator: the current item is gold on the white 15% layer (`state-layer`, theme.css), hover 10%, pressed 20%.
  * The bar is sticky, the last child of its page's column on a phone and the first from `desktop`: the content never runs
  * under it (no padding to keep in step with its height). The page lays it out in one column (`flex-col`) at every width.
+ * Below `desktop`, while the page has more below (`page-more`, NO-SCROLLBARS #609), a fade just above the bar says so.
  */
 export function AppNav({ active, onNavigate, className }: AppNavProps) {
   return (
@@ -34,6 +35,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
       className={cn(
         "z-20 flex items-center border-border bg-background/95 backdrop-blur",
         "sticky inset-x-0 bottom-0 order-last border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]",
+        "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-linear-to-t before:from-background before:to-transparent before:opacity-0 before:transition-opacity motion-reduce:before:transition-none page-more:before:opacity-100 desktop:before:hidden",
         "desktop:top-0 desktop:bottom-auto desktop:order-first desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
         className,
       )}
