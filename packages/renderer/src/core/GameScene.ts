@@ -194,6 +194,8 @@ export class GameScene {
   /** The cloud shadows (`cloud-shadows.ts`, #573), once their chunk is in; its load, started the first time they are on. */
   private clouds: Clouds.CloudShadows | null = null;
   private cloudsLoad: Promise<void> | null = null;
+  /** The cycle's night level last drawn (0 by day, or with the cycle off): the clouds' share on the moon's light. */
+  private nightLevel = 0;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -490,14 +492,27 @@ export class GameScene {
         if (this.disposed) return;
         const clouds = new module.CloudShadows(this.tiles.cloudUniforms, this.settings.ambient.clouds);
         clouds.onChange = () => this.requestRender();
-        clouds.setSeason(this.getDayNight()?.season ?? null);
         this.clouds = clouds;
+        this.syncCloudLight();
         this.scene.add(clouds.object);
         this.ambient.register(clouds);
         this.syncAmbient();
       },
       (error: unknown) => console.warn("[renderer] the cloud shadows did not load, the board stays still:", error),
     );
+  }
+
+  /**
+   * What the clouds can dim (`CloudShadows.setLight`): with the cycle drawing the board, its season, how up its sun is (0 at
+   * night: the clouds then step no frame unless they dim the moon) and its night level; with the cycle off, the look's sun.
+   */
+  private syncCloudLight(): void {
+    const clouds = this.clouds;
+    if (!clouds) return;
+    const point = this.getDayNight();
+    clouds.setSeason(point?.season ?? null);
+    const sun = point && this.dayNight ? this.dayNight.sunAt(point.season, point.position).up : 1;
+    clouds.setLight(sun, point ? this.nightLevel : 0);
   }
 
   /** The cloud shadows now (`CloudShadows.stats`), or null before their chunk is in: the stories' readout. */
@@ -534,7 +549,8 @@ export class GameScene {
         this.dayNight?.releaseDayNight(this.directionalLight);
         this.renderer?.setClearColor(0x000000, 1);
         this.tiles.setNightLights(false, settings.nightLightColor, settings.windowLight);
-        this.clouds?.setSeason(null);
+        this.nightLevel = 0;
+        this.syncCloudLight();
       }
       return;
     }
@@ -597,12 +613,15 @@ export class GameScene {
         crossfade: this.dayNightRuns(),
         shadowMoved: () => this.requestShadowUpdate(),
         backdrop: (top, bottom) => this.effects.setBackdrop(true, top, bottom),
-        lights: (level) => this.tiles.setNightLevel(level),
+        lights: (level) => {
+          this.tiles.setNightLevel(level);
+          this.nightLevel = level;
+        },
       },
       seasons,
       this.settings.dayNight.brightnessFloor,
     );
-    this.clouds?.setSeason(this.dayNightPoint.season);
+    this.syncCloudLight();
     this.requestRender();
   }
 

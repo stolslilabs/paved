@@ -139,6 +139,9 @@ export class CloudShadows implements AmbientEffect {
   private settings: CloudShadowSettings;
   private season: Season | null = null;
   private active = false;
+  /** The light the clouds dim (`setLight`): the sun up (0 to 1), and the night's level for the moon's share (0 by day). */
+  private sun = 1;
+  private night = 0;
   private wind: [number, number] = [1, 0];
   /** The wind's travel, world units, at the last step, and at the last step that drew. */
   private travel = 0;
@@ -196,6 +199,26 @@ export class CloudShadows implements AmbientEffect {
     this.apply();
   }
 
+  /**
+   * The light the clouds can dim: `sun`, how up the sun is (0 under the horizon), and `night`, the cycle's night level (0 by day,
+   * 1 at full night), which scales `moon`. With the cycle off, the look's sun: (1, 0). A held night with `moon` at 0 leaves
+   * nothing to dim: the clouds are then not visible and step no frame.
+   */
+  setLight(sun: number, night: number): void {
+    if (sun === this.sun && night === this.night) return;
+    const was = this.visible;
+    const moon = this.moonShare();
+    this.sun = sun;
+    this.night = night;
+    // A moving cycle calls this on each of its steps: only a change the light shows sets the uniforms again.
+    if (this.visible !== was || this.moonShare() !== moon) this.apply();
+  }
+
+  /** The share of the darkness the moon's light takes now: `moon` times the night's level. */
+  private moonShare(): number {
+    return this.settings.moon * this.night;
+  }
+
   /** On with the ambient effects and the clouds' own switch; off, the term reads nothing and the wisps hide. */
   setActive(on: boolean): void {
     if (on === this.active) return;
@@ -210,9 +233,14 @@ export class CloudShadows implements AmbientEffect {
     return Math.min(1, this.settings.coverage * factor);
   }
 
-  /** Whether the clouds draw anything: on, with some coverage and some darkness (or wisps). */
+  /**
+   * Whether the clouds draw anything: on, with some coverage, and either a darkness on a light that shines (the sun up, or the
+   * moon's share at night) or wisps.
+   */
   get visible(): boolean {
-    return this.active && this.settings.enabled && this.coverage() > 0 && (this.settings.darkness > 0 || this.settings.wisps > 0);
+    const s = this.settings;
+    const dims = s.darkness > 0 && (this.sun > 0 || this.moonShare() > 0);
+    return this.active && s.enabled && this.coverage() > 0 && (dims || s.wisps > 0);
   }
 
   /** What the clouds draw now, for the stories' readout and the tests. */
@@ -248,7 +276,7 @@ export class CloudShadows implements AmbientEffect {
     this.uniforms.uCloudEdge.value.set(low, high);
     this.uniforms.uCloudHeight.value = s.height;
     this.uniforms.uCloudDark.value = visible ? s.darkness : 0;
-    this.uniforms.uCloudMoon.value = s.moon;
+    this.uniforms.uCloudMoon.value = this.moonShare();
     this.wispOpacity.value = s.wisps;
     this.object.visible = visible && s.wisps > 0;
     this.object.position.y = s.height;

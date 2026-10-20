@@ -16,7 +16,7 @@ export interface CloudUniforms {
   uCloudHeight: { value: number };
   /** The share of the sun's direct light a cloud's core takes: 0 turns the term off. */
   uCloudDark: { value: number };
-  /** The share of that darkness the moon's light takes at full night (times the night's level). */
+  /** The share of that darkness the other directional lights (the moon at night) take: the effect sets it, 0 by day. */
   uCloudMoon: { value: number };
 }
 
@@ -69,9 +69,9 @@ const SUN_SHADOW_LINE = /directLight\.color \*= \( directLight\.visible && recei
 
 /**
  * three's `lights_fragment_begin` with the clouds on the directional lights: the shadow-casting ones (the sun, `GameScene`'s key
- * light, and its twin while the cycle crossfades) by the full darkness; the others (the fill, the moon at night) by `uCloudMoon`
- * times the night's level (`uNightOn`, `uNightLevel`, the night lights' uniforms). The ambient, sky and point lights are left as
- * they are. Throws if three's chunk no longer has the line it hooks.
+ * light, and its twin while the cycle crossfades) by the full darkness; the others (the fill, the moon at night) by `uCloudMoon`,
+ * which the effect sets from the cycle's night (never from the night lights' uniforms: the windows have a switch of their own).
+ * The ambient, sky and point lights are left as they are. Throws if three's chunk no longer has the line it hooks.
  */
 export function cloudLightsFragment(chunk: string = THREE.ShaderChunk.lights_fragment_begin): string {
   const match = SUN_SHADOW_LINE.exec(chunk);
@@ -81,7 +81,7 @@ export function cloudLightsFragment(chunk: string = THREE.ShaderChunk.lights_fra
     "\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )",
     "\t\tdirectLight.color *= cloudLight( directionalLight.direction, 1.0 );",
     "\t\t#else",
-    "\t\tdirectLight.color *= cloudLight( directionalLight.direction, uCloudMoon * uNightOn * uNightLevel );",
+    "\t\tdirectLight.color *= cloudLight( directionalLight.direction, uCloudMoon );",
     "\t\t#endif",
     "",
   ].join("\n");

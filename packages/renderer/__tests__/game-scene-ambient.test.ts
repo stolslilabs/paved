@@ -235,6 +235,39 @@ describe("GameScene: the cloud shadows (#573) on the ambient loop", () => {
     expect(scene.getClouds()).toBeNull();
   });
 
+  it("at a held night step no frame unless they dim the moon, whatever the window lights' switch", async () => {
+    const night = { enabled: true, freezeAt: 0.8, reducedMotion: false };
+    const { scene, tiles, frames, renders } = await createScene({ ...CLOUDS, dayNight: night });
+    await (scene as any).dayNightLoad;
+    await vi.waitFor(() => expect(scene.getClouds()).not.toBeNull());
+    expect(scene.getDayNight()).toMatchObject({ phase: "night" });
+    // The default: the clouds go with the sun. Nothing to dim, nothing drawn, the time frozen board stays idle.
+    expect(scene.getClouds()).toMatchObject({ visible: false });
+    expect(tiles.cloudUniforms.uCloudDark.value).toBe(0);
+    frames(10);
+    const idle = renders();
+    frames(120);
+    expect(renders() - idle).toBe(0);
+
+    // The moon's share on: the clouds dim the moon, at its share times the night's level, with the windows on or off.
+    for (const nightLights of [true, false]) {
+      scene.setSettings({ ...CLOUDS, dayNight: { ...night, nightLights }, ambient: { enabled: true, reducedMotion: false, clouds: { moon: 0.5 } } });
+      expect(scene.getClouds()).toMatchObject({ visible: true });
+      expect(tiles.cloudUniforms.uCloudDark.value).toBe(0.2);
+      expect(tiles.cloudUniforms.uCloudMoon.value).toBeCloseTo(0.5);
+      frames(10);
+      const moving = renders();
+      frames(120);
+      expect(renders() - moving).toBeGreaterThan(20);
+    }
+
+    // By day the moon's share is 0: only the sun is dimmed.
+    scene.setSettings({ ...CLOUDS, dayNight: { ...night, freezeAt: 0.3 }, ambient: { enabled: true, reducedMotion: false, clouds: { moon: 0.5 } } });
+    expect(tiles.cloudUniforms.uCloudMoon.value).toBe(0);
+    expect(scene.getClouds()).toMatchObject({ visible: true });
+    scene.dispose();
+  });
+
   it("do not load on the Low tier, nor with the effects off", async () => {
     const low = await createScene({ ...CLOUDS, quality: "low" });
     const off = await createScene({ quality: "medium" });

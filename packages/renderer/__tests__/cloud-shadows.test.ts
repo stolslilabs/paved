@@ -31,7 +31,9 @@ describe("cloud shadows: the tile shader's term", () => {
     expect(chunk).not.toBe(THREE.ShaderChunk.lights_fragment_begin);
     expect(chunk.match(/cloudLight\(/g)).toHaveLength(2);
     expect(chunk).toContain("cloudLight( directionalLight.direction, 1.0 )");
-    expect(chunk).toContain("uCloudMoon * uNightOn * uNightLevel");
+    expect(chunk).toContain("cloudLight( directionalLight.direction, uCloudMoon )");
+    // The moon's share is the effect's own: never tied to the window lights' switch (`uNightOn`).
+    expect(chunk).not.toContain("uNightOn");
     // Inside the directional lights' loop, after the sun's shadow and before its light is added.
     const loop = chunk.slice(chunk.indexOf("NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )"));
     expect(loop.indexOf("getShadow( directionalShadowMap")).toBeLessThan(loop.indexOf("cloudLight("));
@@ -129,6 +131,44 @@ describe("cloud shadows: the effect", () => {
     clouds.setSeason(null);
     expect(clouds.coverage()).toBeCloseTo(0.4);
     expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("steps no frame while no light it dims shines: the sun down and no moon share", () => {
+    const { uniforms, clouds } = make({ ...DEFAULT_CLOUD_SHADOWS, moon: 0 });
+    const onChange = vi.fn();
+    clouds.setActive(true);
+    clouds.onChange = onChange;
+    // A held night: the sun under the horizon, the night full.
+    clouds.setLight(0, 1);
+    expect(clouds.visible).toBe(false);
+    expect(uniforms.uCloudDark.value).toBe(0);
+    expect(clouds.step(1)).toBe(false);
+    expect(clouds.step(2)).toBe(false);
+    // The same light again changes nothing and asks for no frame.
+    onChange.mockClear();
+    clouds.setLight(0, 1);
+    expect(onChange).not.toHaveBeenCalled();
+    // The sun back up: the clouds dim it again.
+    clouds.setLight(1, 0);
+    expect(clouds.visible).toBe(true);
+    expect(uniforms.uCloudDark.value).toBe(DEFAULT_CLOUD_SHADOWS.darkness);
+    expect(clouds.step(3)).toBe(true);
+    // Wisps show at night whatever the light.
+    clouds.setSettings({ ...DEFAULT_CLOUD_SHADOWS, moon: 0, wisps: 0.1 });
+    clouds.setLight(0, 1);
+    expect(clouds.visible).toBe(true);
+  });
+
+  it("dims the moon's light by its share times the night's level", () => {
+    const { uniforms, clouds } = make({ ...DEFAULT_CLOUD_SHADOWS, moon: 0.5 });
+    clouds.setActive(true);
+    expect(uniforms.uCloudMoon.value).toBe(0);
+    clouds.setLight(0, 1);
+    expect(clouds.visible).toBe(true);
+    expect(uniforms.uCloudMoon.value).toBe(0.5);
+    expect(uniforms.uCloudDark.value).toBe(DEFAULT_CLOUD_SHADOWS.darkness);
+    clouds.setLight(0, 0.5);
+    expect(uniforms.uCloudMoon.value).toBe(0.25);
   });
 
   it("is off with no coverage or no darkness; shows the wisps only when asked", () => {
