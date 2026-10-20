@@ -31,7 +31,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 /**
  * Credits (`/settings/credits`): the third-party notices the client owes, one column on every viewport. Cartridge's licence
  * asks for its notice and a link to the full text (D-15, moved here from the footer by #536); the fonts, icons, music and
- * sounds are named with their licences.
+ * sounds are named with their licences, and the token icons with their sources (#620).
  */
 export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_URL, onBack, onNavigate }: CreditsSceneProps) {
   return (
@@ -49,6 +49,16 @@ export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_
       </Section>
       <Section title="Icons">
         <p>Font Awesome Pro, under the Font Awesome Commercial License.</p>
+      </Section>
+      <Section title="Token icons">
+        <ul className="flex flex-col gap-1">
+          <li className="wrap-anywhere">
+            USDC: the USDC mark, a trademark of Circle Internet Financial, shown unaltered to name USDC as Circle's brand guidelines ask; the
+            file comes from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo.
+          </li>
+          <li className="wrap-anywhere">Cobbles: Font Awesome Pro's cubes-stacked, under the Font Awesome Commercial License.</li>
+          <li className="wrap-anywhere">PAVED and vPAVED: drawn for Paved, their P the letter of Almendra Bold (SIL Open Font License 1.1) as outlines.</li>
+        </ul>
       </Section>
       <Section title="Music">
         <ul className="flex flex-col gap-0.5 text-muted-foreground">
