@@ -64,6 +64,8 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await waitFor(() => expect(at(router)).toBe("/story"));
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/play"));
+    // The location moves before the page does: wait for Play, or Back is the Story page's still on screen.
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
 
     await back();
     await waitFor(() => expect(at(router)).toBe("/"));
