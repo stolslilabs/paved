@@ -4,7 +4,7 @@ import { MockMark, MockMarkProvider } from "./mock-mark";
 import { TabPage } from "./tab-page";
 import { TopBar } from "./top-bar";
 
-/** The "Mock data" mark (MOCK-FIRST): a small pill beside a page's title while the mock serves part of the page's data. */
+/** The "Mock" mark (MOCK-FIRST, #622): a small pill beside a page's title while the mock serves part of the page's data. */
 const meta = { title: "Containers/Mock mark", component: MockMark } satisfies Meta<typeof MockMark>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -23,7 +23,7 @@ export const InTabPage: Story = {
   ),
 };
 
-/** Under the title of a full-screen flow's top bar (the purchase). */
+/** On the title's line of a full-screen flow's top bar (the purchase). */
 export const InTopBar: Story = {
   render: () => (
     <MockMarkProvider value>
@@ -32,11 +32,22 @@ export const InTopBar: Story = {
   ),
 };
 
+/** A long tab-page title wraps; the mark stays on its last line. */
+export const InTabPageLongTitle: Story = {
+  render: () => (
+    <MockMarkProvider value>
+      <TabPage tab="vault" title="The Vault of the long winter" onNavigate={fn()}>
+        <p className="text-sm text-muted-foreground">The page's content.</p>
+      </TabPage>
+    </MockMarkProvider>
+  ),
+};
+
 /** No mark on a page the chain serves: the provider says false. */
 export const Off: Story = {
   render: () => (
     <MockMarkProvider value={false}>
-      <TabPage tab="ranks" title="Leaderboard" onNavigate={fn()}>
+      <TabPage tab="quests" title="Missions" onNavigate={fn()}>
         <p className="text-sm text-muted-foreground">The page's content.</p>
       </TabPage>
     </MockMarkProvider>

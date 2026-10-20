@@ -4,7 +4,7 @@ import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController, TALLEST_TILE_HEIGHT } from "./CameraController";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
-import { screenToGrid, cellCorner, isClick, createThrottled, type CellCorner } from "./interaction";
+import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
   RendererConfig,
   TileRenderData,
@@ -164,12 +164,10 @@ export class GameScene {
   /** The renderer's pixel ratio: device px per CSS px of the drawing buffer, the device's capped at `maxPixelRatio`. */
   private pixelRatio = 1;
 
-  /**
-   * The pointer a tap may come from: where and which pointer went down. `multi` is set when a second pointer went down
-   * before it came up (a two-finger pinch or tilt): that gesture places nothing, whatever its fingers' travel.
-   */
-  private pointerDownPos: { x: number; y: number; pointerId?: number; multi: boolean } | null = null;
+  /** The board's taps and presses (`PointerTap`): a two-finger pinch or tilt places nothing, whatever its fingers' travel. */
+  private pointerTap: PointerTap | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
+  private onTilePressCallback: TilePressListener | null = null;
   private onTileHoverCallback: ((gridX: number, gridY: number) => void) | null = null;
   private onHoverLeaveCallback: (() => void) | null = null;
   private boundInputHandler: ((event: SurfaceInputEvent) => void) | null = null;
@@ -631,7 +629,7 @@ export class GameScene {
   }
 
   private setupInteraction(surface: RenderSurfaceAdapter): void {
-    const toNdc = (event: SurfaceInputEvent): { x: number; y: number } | null => {
+    const toNdc = (event: { x: number; y: number }): { x: number; y: number } | null => {
       const size = surface.getSize();
       if (size.width <= 0 || size.height <= 0) {
         return null;
@@ -656,45 +654,24 @@ export class GameScene {
       }
     }, 50); // ~20fps throttle
 
+    const toGrid = (point: { x: number; y: number }): { x: number; y: number } | null => {
+      const ndc = toNdc(point);
+      if (!ndc) return null;
+      // Ensure camera matrix is fresh (controls may have updated between frames)
+      this.camera.updateMatrixWorld();
+      return screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
+    };
+    this.pointerTap = new PointerTap(
+      {
+        toGrid,
+        onPress: (x, y, phase) => this.onTilePressCallback?.(x, y, phase),
+        onClick: (x, y) => this.onTileClickCallback?.(x, y),
+      },
+      CLICK_THRESHOLD,
+    );
+
     this.boundInputHandler = (event: SurfaceInputEvent) => {
-      if (event.type === "pointerdown") {
-        if ((event.button ?? 0) === 0) {
-          const down = this.pointerDownPos;
-          if (down && event.pointerId !== undefined && down.pointerId !== undefined && event.pointerId !== down.pointerId) {
-            down.multi = true;
-            return;
-          }
-          this.pointerDownPos = { x: event.x, y: event.y, pointerId: event.pointerId, multi: false };
-        }
-        return;
-      }
-
-      if (event.type === "pointercancel") {
-        this.pointerDownPos = null;
-        return;
-      }
-
-      if (event.type === "pointerup") {
-        if ((event.button ?? 0) === 0 && this.pointerDownPos) {
-          const up = { x: event.x, y: event.y };
-          if (!this.pointerDownPos.multi && isClick(this.pointerDownPos, up, CLICK_THRESHOLD)) {
-            const ndc = toNdc(event);
-            if (!ndc) {
-              this.pointerDownPos = null;
-              return;
-            }
-
-            // Ensure camera matrix is fresh (controls may have updated between frames)
-            this.camera.updateMatrixWorld();
-            const grid = screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
-            if (grid && this.onTileClickCallback) {
-              this.onTileClickCallback(grid.x, grid.y);
-            }
-          }
-          this.pointerDownPos = null;
-        }
-        return;
-      }
+      this.pointerTap?.handle(event);
 
       if (event.type === "pointermove") {
         handlePointerMove(event);
@@ -711,6 +688,14 @@ export class GameScene {
 
   onTileClick(cb: ((gridX: number, gridY: number) => void) | null): void {
     this.onTileClickCallback = cb;
+  }
+
+  /**
+   * A press on a cell, from the down (TILE-HOLD, #630): `down`, then `released` or `cancelled` (`PointerTap`). The board holds
+   * the placed tile with it; returning true on `released` (the hold acted) keeps the click that would follow from firing.
+   */
+  onTilePress(cb: TilePressListener | null): void {
+    this.onTilePressCallback = cb;
   }
 
   onTileHover(cb: ((gridX: number, gridY: number) => void) | null): void {
@@ -1174,10 +1159,11 @@ export class GameScene {
     this.latestTiles = [];
     this.cameraListeners.clear();
     this.onTileClickCallback = null;
+    this.onTilePressCallback = null;
     this.onTileHoverCallback = null;
     this.onHoverLeaveCallback = null;
     this.boundInputHandler = null;
-    this.pointerDownPos = null;
+    this.pointerTap = null;
     this.ambientLight = null;
     this.hemisphereLight = null;
     this.directionalLight = null;

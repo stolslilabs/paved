@@ -6,6 +6,7 @@ import type { RendererSettingsInput } from "../core/settings";
 import type { AssetManifest } from "../core/AssetLoader";
 import { NO_SKINS, type TileSkins } from "../core/skins";
 import type { PlacementSlot } from "../core/placement";
+import type { TilePressListener } from "../core/interaction";
 import type {
   TileRenderData,
   HoverState,
@@ -40,6 +41,8 @@ export interface GameCanvasProps {
   /** Called when the scene cannot start, for example without a WebGL context. */
   onError?: (error: unknown) => void;
   onTileClick?: (gridX: number, gridY: number) => void;
+  /** A press on a cell (`GameScene.onTilePress`): `down`, then `released` or `cancelled`; true on `released` keeps the click. */
+  onTilePress?: TilePressListener;
   onTileHover?: (gridX: number, gridY: number) => void;
   onHoverLeave?: () => void;
 }
@@ -65,6 +68,7 @@ export function GameCanvas({
   onReady,
   onError,
   onTileClick,
+  onTilePress,
   onTileHover,
   onHoverLeave,
 }: GameCanvasProps) {
@@ -74,12 +78,14 @@ export function GameCanvas({
   const onReadyRef = useRef(onReady);
   const onErrorRef = useRef(onError);
   const onTileClickRef = useRef(onTileClick);
+  const onTilePressRef = useRef(onTilePress);
   const onTileHoverRef = useRef(onTileHover);
   const onHoverLeaveRef = useRef(onHoverLeave);
 
   useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
+  useEffect(() => { onTilePressRef.current = onTilePress; }, [onTilePress]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
   // Read at init; later changes go through setSettings.
@@ -113,6 +119,7 @@ export function GameCanvas({
         // Unmounted while init was pending: never start the scene.
         if (cancelled) return;
         gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
+        gameScene.onTilePress((gx, gy, phase) => onTilePressRef.current?.(gx, gy, phase));
         gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
         gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
         gameScene.setCovered(coveredRef.current);

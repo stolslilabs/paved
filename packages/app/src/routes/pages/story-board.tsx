@@ -5,6 +5,7 @@ import {
   DISCARD_POINTS,
   PlanType,
   campaignUnlocked,
+  deckSheetOrder,
   levelProgress,
   levelResult,
   levelUnlocked,
@@ -32,7 +33,7 @@ import { useTileRenders } from "../../data/tile-renders";
 import { remainingOf } from "../../data/training-save";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate, useUpTo } from "../ref";
 
 // As the other boards: the renderer reads the manifest the route asked for (`data/renderer-manifest.ts`).
 provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
@@ -54,15 +55,6 @@ export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: s
   "2-1": { target: "deck", tip: "Longer levels: the deck sheet lists the whole deck of this level. Plan with it." },
 };
 
-/**
- * Every tile of a level, as the deck sheet counts it against the board: the starter, the tiles already placed when the level
- * starts (Tutorial 10's monastery and its neighbours), then the deck. The sheet crosses out as many of a plan as the board
- * holds, so the pre-placed tiles must be in it, or a drawn tile of the same plan reads as played before it is drawn.
- */
-export function levelDeck(level: Pick<StoryLevel, "deck" | "placed">): PlanType[] {
-  return [PlanType.RFFFRFCFR, ...(level.placed ?? []).map((tile) => tile.plan), ...level.deck];
-}
-
 const PLAN_IDS = Object.values(PlanType);
 
 /** The points a run scoring `score` was short of its next star, from its result; null at 3 stars. */
@@ -76,14 +68,14 @@ export default function Page() {
   const params = useParams();
   const found = findLevel(Number(params.campaign), Number(params.level));
   const { progress } = useStoryProgress();
-  const onBack = useBack();
+  const onBack = useUpTo("/story");
   const go = useAppNavigate();
   const open = found !== null && levelUnlocked(progress, CAMPAIGNS, found.campaign, found.level.id);
   if (!found || !open) {
     return (
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <TopBar title="Story" onBack={onBack} />
-        <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4">
+        <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
           <Notice title={found ? "This level is locked" : "No such level"} icon="lock" action={<Button size="sm" onClick={() => go("/story")}>Levels</Button>}>
             {found ? "Finish the level before it first (and earn the stars its campaign asks for)." : "Story mode has no level at this address."}
           </Notice>
@@ -109,7 +101,9 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const [attempt, setAttempt] = useState(0);
   const boardSettings = useBoardSettings(attempt);
   const go = useAppNavigate();
-  const onBack = useBack();
+  // Back is the campaign's level list, never the history: after Next, the entry before is the previous level (#614).
+  const levels = `/story?campaign=${campaign.id}`;
+  const onBack = useUpTo(levels);
   const { presented, markPresented } = useDeckPresented(campaign.id, level.id);
   const [presenting, setPresenting] = useState(!presented);
   const phase = presenting ? "intro" : "play";
@@ -140,6 +134,8 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const { orientation, move, ghost, slots } = placement;
   const preview = useMemo(() => (move ? run.preview(move) : null), [run, snapshot, move]);
   const handErrorDetail = useErrorDetail(state.writeError);
+  // The deck sheet shows the level's draw in its order (#613), the order the presentation shows.
+  const deckOrder = useMemo(() => deckSheetOrder(level.deck, snapshot.moves), [level, snapshot.moves]);
 
   // The best before this run, read once per attempt, then the run recorded once it is over.
   const [previousBest, setPreviousBest] = useState<number | null>(null);
@@ -205,8 +201,9 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         previousBest={previousBest}
         beatsTarget={result.beatsTarget && result.bestKnown}
         onReplay={replay}
-        onNext={nextOpen && next ? () => go(levelPath(next.campaignId, next.levelIndex)) : undefined}
-        onLevels={() => go("/story")}
+        // Both replace the finished level's entry: the system Back never reopens it as a new game (#614).
+        onNext={nextOpen && next ? () => go(levelPath(next.campaignId, next.levelIndex), { replace: true }) : undefined}
+        onLevels={() => go(levels, { replace: true })}
       >
         {campaign.id === 1 && level.id === 1 && <FirstStone />}
       </StoryEnd>
@@ -236,7 +233,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     <BoardScene
       mode="story"
       title={`${campaign.name} ${level.id}: ${level.title}`}
-      deck={levelDeck(level)}
+      deckOrder={deckOrder}
       onPresentDeck={over ? undefined : () => setPresenting(true)}
       coach={coachTarget}
       tiles={state.tiles}

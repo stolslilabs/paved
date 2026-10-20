@@ -103,7 +103,7 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Story" onBack={onBack} />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 pt-2 pb-8 tablet:max-w-3xl desktop:max-w-5xl">
+      <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 pb-8 tablet:max-w-3xl desktop:max-w-5xl">
         {storageOff && (
           <Notice tone="warning" title="Storage is off">
             This browser refuses local storage: your stars last until the page closes.

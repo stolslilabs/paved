@@ -211,10 +211,10 @@ describe("the completion toast, once per completion (P9's note)", () => {
 });
 
 describe("the completion toasts, app-wide (#595)", () => {
-  it("toast on any page, the leaderboard here, with the reward, and once: the Missions page then adds nothing", async () => {
+  it("toast on any page, the Vault here, with the reward, and once: the Missions page then adds nothing", async () => {
     const s = setup();
     const success = vi.spyOn(toast, "success");
-    const router = open("/leaderboard", s);
+    const router = open("/vault", s);
     // The tracker's first read is not news: Daily Run was done before.
     await waitFor(() => {
       expect(queryClient.getQueryData(queryKeys.indexer.achievements(FIXTURE_ADA))).toBeDefined();
@@ -240,7 +240,7 @@ describe("the completion toasts, app-wide (#595)", () => {
   it("tracks nothing for a guest", async () => {
     const s = setup({ signer: "none" });
     const playerQuests = vi.spyOn(s.sources.indexer, "playerQuests");
-    open("/leaderboard", s);
+    open("/vault", s);
     await screen.findByRole("heading", { level: 1 }, { timeout: 5000 });
     expect(playerQuests).not.toHaveBeenCalled();
   });

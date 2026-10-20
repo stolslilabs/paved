@@ -18,7 +18,7 @@ export interface ModeCardProps {
   art?: string;
   /** A render across the top of the card, as a banner: the mockups' Daily Challenge. */
   banner?: string;
-  /** Extra content under the description (a top 3, a stake line). */
+  /** Extra content under the description (a connect hint, a stake line). */
   children?: ReactNode;
   onSelect?: () => void;
   className?: string;

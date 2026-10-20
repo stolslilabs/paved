@@ -1,7 +1,8 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import { DAY_PHASE_AT, DEFAULT_PLACEMENT_SETTINGS, PLATE_GAP_VOXELS, type DayPhase, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
-import { toRenderTiles, useDropThenConfirm } from "../../components/containers/board-viewport";
+import { toRenderTiles, useDropThenConfirm, useTileHold } from "../../components/containers/board-viewport";
+import type { Hold } from "../../lib/use-hold";
 import { LazyTileBubble } from "../../components/containers/lazy-tile-bubble";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -9,8 +10,8 @@ import { viewPose, type Bounds, type View } from "./outlines-tour";
 
 /**
  * The placement states the story shows (SLOTS, P-68; PLATES, P-74; PLACEMENT-TINTS): `tour` plays hover, placed and confirm
- * in turn; `sequence` is the game's (PLACE-POLISH, #568): hover, placed with its bubble, the hold on Validate, the voxel drop,
- * then the green.
+ * in turn; `sequence` is the game's (PLACE-POLISH, #568): hover, placed with its bubble, the hold on Validate or on the
+ * placed tile itself (TILE-HOLD, #630), the voxel drop, then the green.
  */
 export const PLACEMENT_STATES = ["idle", "in-hand", "hover", "placed", "confirm", "tour", "sequence"] as const;
 export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
@@ -188,10 +189,11 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
     () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, ...(dropSpeed ? { voxelDrop: { speed: dropSpeed } } : {}), ...(dayPhase === "off" ? {} : { dayNight: { enabled: true, season: "summer" as const, freezeAt: DAY_PHASE_AT[dayPhase] } }), placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
     [key], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  // The measuring scripts (the GPU flicker check) drive the camera by the scene itself: exact pans and distances.
+  // The measuring scripts (the GPU flicker check) drive the camera by the scene itself: exact pans and distances; the
+  // captures press the placed tile at its cell (#630).
   const onReady = useCallback((s: GameScene) => {
     setScene(s);
-    (window as unknown as { __placementScene?: GameScene }).__placementScene = s;
+    Object.assign(window, { __placementScene: s, __placementCell: { x: PLACED.x, y: PLACED.y } });
   }, []);
 
   useEffect(() => {
@@ -264,6 +266,9 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
     setStep("landed");
     setAccepted((a) => ({ ...PLACED, placed: false, key: (a?.key ?? 0) + 1 }));
   }, []);
+  // As on the board (TILE-HOLD, #630): a press on the placed tile itself holds Validate, its ring filling the same.
+  const tileHold = useRef<Hold | null>(null);
+  const onTilePress = useTileHold(state === "sequence" && step === "placed" ? PLACED : null, () => tileHold.current);
 
   const confirming = state === "confirm" || (state === "tour" && phase === 2);
   const slots = state === "idle" || confirming || (state === "sequence" && step === "landed") ? NO_SLOTS : SLOTS;
@@ -288,11 +293,12 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
         basePath={APP_ASSETS}
         settings={settings}
         onReady={onReady}
+        onTilePress={onTilePress}
         style={{ position: "absolute", inset: 0 }}
       />
       {state === "sequence" && step === "placed" && scene && (
         <Suspense fallback={null}>
-          <LazyTileBubble scene={scene} cell={{ x: PLACED.x, y: PLACED.y }} rotations={2} onRotate={() => {}} onClose={() => setStep("hover")} onConfirm={validate} holdMs={holdMs} />
+          <LazyTileBubble scene={scene} cell={{ x: PLACED.x, y: PLACED.y }} rotations={2} onRotate={() => {}} onClose={() => setStep("hover")} onConfirm={validate} holdMs={holdMs} holdRef={tileHold} />
         </Suspense>
       )}
       {readout && zoom && (

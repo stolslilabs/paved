@@ -23,7 +23,7 @@ import { useGameCompletions } from "../../data/progress";
 import { achievementText, questText } from "../../components/containers/quest-text";
 import type { GameMission } from "../../components/containers/game-missions";
 import { Placeholder } from "../Placeholder";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate, useUpTo } from "../ref";
 
 /** `/training/over` (P3) and `/game/:gameId/over` (P7a). */
 export default function Page() {
@@ -90,7 +90,8 @@ function rewardProps(reward: OverReward): Pick<OverSceneProps["reward"], "state"
  */
 function ChallengeOver({ gameId }: { gameId: number }) {
   const go = useAppNavigate();
-  const onBack = useBack();
+  // Home, as the scene's own Back: the entry before the game's end is what opened the game, never a page above it (#614).
+  const onBack = useUpTo("/");
   const wallet = useAccount();
   useConnectError(wallet.error);
   const { signer = null } = useDataSources();
@@ -101,7 +102,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
   const playing = read.status === "playing";
   const [view, setView] = useOverView();
   const ready = read.status === "ready" ? read : null;
-  const standing = useOverStanding(ready?.game, ready?.indexed);
+  const standing = useOverStanding(ready?.game);
   // The game's player's skins, as its board drew them.
   const skins = useBoardSkins(ready?.game.playerId ?? null);
   const boardSettings = useBoardSettings();
@@ -151,7 +152,6 @@ function ChallengeOver({ gameId }: { gameId: number }) {
       view={view}
       onViewChange={setView}
       previousBest={standing.previousBest}
-      rank={standing.rank}
       closingsNote={closings.isPending ? "Reading the game's closings…" : closings.error ? "The closings of this game could not be read." : undefined}
       reward={{ ...rewardProps(reward), stake: terms && terms.stake > 0 ? terms.stake : undefined }}
       freeGame={free}
@@ -172,7 +172,7 @@ function OverStatus({ error, detail, onBack, onRetry }: { error: string | null; 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Final score" onBack={onBack} />
-      <main aria-busy={error === null} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 tablet:max-w-2xl">
+      <main aria-busy={error === null} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 tablet:max-w-2xl">
         {error === null ? (
           <Notice title="Reading the game…">Its score, its reward and its day.</Notice>
         ) : (
@@ -192,7 +192,7 @@ function NotFound() {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Game over" onBack={() => go("/", { replace: true })} />
-      <main data-testid="game-not-found" className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 tablet:max-w-2xl">
+      <main data-testid="game-not-found" className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 tablet:max-w-2xl">
         <Notice tone="warning" title="Game not found">
           This game does not exist.
         </Notice>

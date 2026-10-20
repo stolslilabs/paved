@@ -6,13 +6,10 @@ import {
   useDefinitions,
   useIndexedGame,
   useIndexedPlayerGames,
-  useLeaderboard,
-  useLeaderboardEntry,
   usePlayerAchievements,
   usePlayerProfile,
   usePlayerQuests,
   usePlayerStatus,
-  useTopThree,
 } from "../src/data";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
 
@@ -20,32 +17,6 @@ import { dataOf, fakeSources, renderData } from "./data-fakes";
 const NEWCOMER = "0x07a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f";
 
 describe("the indexer's hooks, on the fixture indexer", () => {
-  it("useTopThree answers the day's first three rows", async () => {
-    const f = fakeSources();
-    const { result } = renderData(() => useTopThree(FIXTURE_TOURNAMENT), f.sources);
-    const board = await dataOf(result);
-    expect(board.entries.map((e) => e.rank)).toEqual([1, 2, 3]);
-    expect(board.total).toBe(41);
-    expect(f.fixture.requests).toHaveLength(1);
-    expect(f.fixture.requests[0]).toMatch(new RegExp(`^/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard\\?.*limit=3`));
-  });
-
-  it("useLeaderboard answers a page of a day", async () => {
-    const f = fakeSources();
-    const { result } = renderData(() => useLeaderboard(FIXTURE_TOURNAMENT, 20, 20), f.sources);
-    const board = await dataOf(result);
-    expect(board.entries[0]?.rank).toBe(21);
-    expect(board.nextOffset).toBe(40);
-  });
-
-  it("useLeaderboardEntry answers the viewer's row; null when they have none", async () => {
-    const f = fakeSources();
-    const ada = renderData(() => useLeaderboardEntry(FIXTURE_TOURNAMENT, FIXTURE_ADA), f.sources);
-    expect((await dataOf(ada.result))?.rank).toBe(1);
-    const none = renderData(() => useLeaderboardEntry(FIXTURE_TOURNAMENT, NEWCOMER), f.sources);
-    expect(await dataOf(none.result)).toBeNull();
-  });
-
   it("usePlayerProfile answers the profile; player null for an unknown id", async () => {
     const f = fakeSources();
     const ada = renderData(() => usePlayerProfile(FIXTURE_ADA), f.sources);
@@ -99,21 +70,21 @@ describe("the indexer's hooks, on the fixture indexer", () => {
     expect(achievements.achievements.find((a) => a.achievementId === 2)?.completed).toBe(true);
   });
 
-  it("usePlayerStatus joins profile and today's row; a new player gets an empty profile; a guest null", async () => {
+  it("usePlayerStatus maps the profile; a new player gets an empty profile; a guest null", async () => {
     const f = fakeSources();
-    const ada = renderData(() => usePlayerStatus(FIXTURE_ADA, FIXTURE_TOURNAMENT), f.sources);
+    const ada = renderData(() => usePlayerStatus(FIXTURE_ADA), f.sources);
     const status = await dataOf(ada.result);
     expect(status?.player.playerId).toBe(FIXTURE_ADA);
-    expect(status?.today?.rank).toBe(1);
+    // No leaderboard read (#623): the profile only.
+    expect(f.fixture.requests.every((r) => r.startsWith("/v1/players/"))).toBe(true);
 
-    const fresh = renderData(() => usePlayerStatus(NEWCOMER, FIXTURE_TOURNAMENT), f.sources);
+    const fresh = renderData(() => usePlayerStatus(NEWCOMER), f.sources);
     expect(await dataOf(fresh.result)).toEqual({
       player: { playerId: NEWCOMER, name: null, created: null },
       stats: { challengeGames: 0, challengeFinished: 0, bestScore: 0, paidGames: 0, settledGames: 0, rewards: "0" },
-      today: null,
     });
 
-    const guest = renderData(() => usePlayerStatus(null, FIXTURE_TOURNAMENT), f.sources);
+    const guest = renderData(() => usePlayerStatus(null), f.sources);
     expect(guest.result.current.data).toBeNull();
   });
 
@@ -123,7 +94,7 @@ describe("the indexer's hooks, on the fixture indexer", () => {
       new URL(String(input)).pathname.endsWith(route) ? new Response("{}", { status: 500 }) : f.fixture.fetch(input);
     const on = (route: string) => ({ ...f.sources, indexer: new IndexerClient({ url: "http://indexer.test/", fetch: failing(route) as typeof globalThis.fetch }) });
 
-    const status = renderData(() => usePlayerStatus(FIXTURE_ADA, FIXTURE_TOURNAMENT), on(`/tournaments/${FIXTURE_TOURNAMENT}`));
+    const status = renderData(() => usePlayerStatus(FIXTURE_ADA), on(`/players/${FIXTURE_ADA}`));
     await waitFor(() => expect(status.result.current.error).not.toBeNull());
     expect(status.result.current).toMatchObject({ isPending: false, data: undefined });
 

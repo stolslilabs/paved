@@ -16,7 +16,7 @@ import { VaultScene, type VaultSceneProps } from "../../components/scenes/vault-
 /**
  * The pages the mock serves on a network whose contracts are behind the client (MOCK-FIRST: Sepolia by default), each
  * read from a fresh mock ledger (`data/mock/ledger.ts`) and its flows run on it: the figures are the mock's own, the
- * "Mock data" mark is in the header. The mock starts a player at 142.35 PAVED and no Cobbles; the quests are Sepolia's
+ * "Mock" mark is in the header. The mock starts a player at 142.35 PAVED and no Cobbles; the quests are Sepolia's
  * schedule with the Cobbles the mock gives them.
  */
 const withMark: Decorator = (Story) => (
@@ -109,6 +109,17 @@ export const MissionsClaimed: Story = {
     },
   ],
   render: (_args, { loaded }) => <QuestsScene {...(loaded.props as QuestsSceneProps)} />,
+};
+
+/** Challenge with the mark (MOCK-MARK, #622): "Mock" on the title's line, the tabs under the bar's line. */
+export const Challenge: Story = {
+  render: () => (
+    <PurchaseScene
+      {...(PURCHASE.cobblePacks as PurchaseSceneProps)}
+      {...{ onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn(), onTab: fn(), onSelectPack: fn(), onBuyPack: fn() }}
+      tab="game"
+    />
+  ),
 };
 
 /** The Cobble shop on the mock: its four packs, 50 Cobbles after the first one (5 USDC) was bought with test USDC. */

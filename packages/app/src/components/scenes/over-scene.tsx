@@ -14,6 +14,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollArea } from "../ui/scroll-area";
+import { ScrollRegion } from "../ui/scroll-region";
 import { Separator } from "../ui/separator";
 import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
 import { Score, formatPoints } from "../elements/score";
@@ -74,8 +75,6 @@ export interface OverSceneProps {
   closings: (ScoredStructure & { tileId: number })[];
   /** The player's best before this game: "New best" when beaten. */
   previousBest?: number | null;
-  /** The rank this score holds today, Challenge only. */
-  rank?: number | null;
   reward: {
     state: RewardState;
     /** PAVED base units. */
@@ -189,14 +188,14 @@ export function OverScene(props: OverSceneProps) {
               title="Final board"
               onBack={() => setView("scores")}
               end={<Score value={props.game.score} size="sm" tone="gold" className="pr-2" />}
-              className="pt-0"
+              className="mb-0 pt-0"
             />
           </div>
         </div>
       )}
-      <div aria-hidden={onBoard} className={cn("absolute inset-0 overflow-y-auto", onBoard && "invisible")}>
+      <ScrollRegion aria-hidden={onBoard} className={cn("absolute inset-0", onBoard && "invisible")}>
         <Scores {...props} />
-      </div>
+      </ScrollRegion>
       {board && (
         // Over the scores, a bar under the toggle so the rows it passes over do not show through; over the board, none.
         <div
@@ -215,7 +214,7 @@ export function OverScene(props: OverSceneProps) {
             className="pointer-events-auto rounded-xl bg-card/95 p-1 shadow-lg backdrop-blur"
           >
             <ToggleGroupItem value="scores" className="min-w-32">
-              <Icon name="ranking-star" fixedWidth />
+              <Icon name="star" fixedWidth />
               Scores
             </ToggleGroupItem>
             <ToggleGroupItem value="board" className="min-w-32">
@@ -230,7 +229,7 @@ export function OverScene(props: OverSceneProps) {
 }
 
 /** The scores: the over screen's page, scrolled inside the scene so the board can sit under it. */
-function Scores({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
+function Scores({ mode, game, closings, previousBest, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
   const play = useSfx();
   useEffect(() => play("gameover"), [play]);
@@ -245,7 +244,7 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
   return (
     <>
       <TopBar title="Final score" onBack={onHome} />
-      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
+      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
         <div className="flex flex-col gap-4">
           {/* Direction D (#537): the mockups' banner, a render of a finished board (the bench's 38-tile game). Decorative. */}
           <img src={scoreWide} alt="" width={960} height={448} draggable={false} decoding="async" className="h-36 w-full rounded-xl bg-secondary object-cover desktop:h-56" />
@@ -259,7 +258,6 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
             <span className="flex flex-wrap justify-center gap-2">
               {freeGame && <Badge variant="secondary">Free game</Badge>}
               {best && <Badge>New best</Badge>}
-              {rank != null && <Badge variant="outline">#{rank} today</Badge>}
             </span>
             {previousBest != null && !best && previousBest > 0 && <span className="text-xs text-muted-foreground">Best: <span className="numeric">{formatPoints(previousBest)}</span></span>}
           </section>

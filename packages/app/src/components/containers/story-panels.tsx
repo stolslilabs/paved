@@ -7,6 +7,7 @@ import { StarRow } from "../elements/star-row";
 import { TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 import { useSfx } from "./audio-provider";
 
 const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
@@ -20,14 +21,7 @@ function buzz(ms: number) {
   }
 }
 
-/** One plan of a level's deck and how many times the level deals it, in the order of its first draw. */
-export function deckGroups(deck: readonly number[]): { plan: number; count: number }[] {
-  const groups = new Map<number, number>();
-  for (const plan of deck) groups.set(plan, (groups.get(plan) ?? 0) + 1);
-  return [...groups].map(([plan, count]) => ({ plan, count }));
-}
-
-/** The whole presentation's entrance, seconds: the tiles land one group after another within it, however many there are. */
+/** The whole presentation's entrance, seconds: the tiles land one after another within it, however many there are. */
 const PRESENT_SECONDS = 0.9;
 
 export interface DeckPresentationProps {
@@ -46,14 +40,13 @@ export interface DeckPresentationProps {
 }
 
 /**
- * A level's opening (#593): its title and intro, then the tiles it deals, grouped by plan with their counts (the deck sheet's
- * counts, not the order), landing one after another; a tap anywhere, or Start, opens the board. No star threshold is shown.
+ * A level's opening (#593): its title and intro, then the tiles it deals in draw order, numbered, the order the deck sheet
+ * shows (#613), landing one after another; a tap anywhere, or Start, opens the board. No star threshold is shown.
  * Under reduced motion the tiles are there at once.
  */
 export function DeckPresentation({ campaign, levelIndex, title, intro, deck, renders, best, onStart, className }: DeckPresentationProps) {
   const reduced = useReducedMotionConfig();
-  const groups = deckGroups(deck);
-  const step = Math.min(0.07, PRESENT_SECONDS / Math.max(1, groups.length));
+  const step = Math.min(0.07, PRESENT_SECONDS / Math.max(1, deck.length));
   return (
     <section
       aria-label="Level deck"
@@ -62,59 +55,60 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, deck, ren
       onKeyDown={(e) => {
         if (e.key === "Escape") onStart?.();
       }}
-      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer overflow-y-auto bg-background/80 backdrop-blur-sm", className)}
+      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer bg-background/80 backdrop-blur-sm", className)}
     >
-      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-4 py-6 tablet:max-w-2xl">
-        <m.header className="flex flex-col gap-1" initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-          <span className="text-xs text-muted-foreground">
-            {campaign} · Level {levelIndex}
-          </span>
-          <h2 className="font-display text-2xl font-semibold wrap-anywhere">{title}</h2>
-          <p className="text-sm wrap-anywhere">{intro}</p>
-        </m.header>
-        <div className="flex flex-col gap-2">
-          <span className="text-sm text-muted-foreground">
-            This level deals <span className="numeric text-foreground">{deck.length}</span> {deck.length === 1 ? "tile" : "tiles"}:
-          </span>
-          <ul data-testid="presented-tiles" className="grid grid-cols-4 gap-2 tablet:grid-cols-6 desktop:grid-cols-8">
-            {groups.map(({ plan, count }, i) => (
-              <m.li
-                key={plan}
-                data-plan={plan}
-                data-count={count}
-                className="relative aspect-square overflow-hidden rounded-lg border border-border bg-board shadow-md"
-                initial={reduced ? false : { opacity: 0, y: 14, scale: 0.85 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: 0.25 + i * step, duration: 0.3, ease: "easeOut" }}
-              >
-                <TileRender plan={plan} theme={0} renders={renders} />
-                {count > 1 && (
-                  <span className="numeric absolute right-1 bottom-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow" aria-label={`${count} of this tile`}>
-                    ×{count}
+      {/* The veil stays whole; the content scrolls inside it with the edge hint (NO-SCROLLBARS, #609). */}
+      <ScrollRegion className="h-full">
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-4 py-6 tablet:max-w-2xl">
+          <m.header className="flex flex-col gap-1" initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <span className="text-xs text-muted-foreground">
+              {campaign} · Level {levelIndex}
+            </span>
+            <h2 className="font-display text-2xl font-semibold wrap-anywhere">{title}</h2>
+            <p className="text-sm wrap-anywhere">{intro}</p>
+          </m.header>
+          <div className="flex flex-col gap-2">
+            <span className="text-sm text-muted-foreground">
+              This level deals <span className="numeric text-foreground">{deck.length}</span> {deck.length === 1 ? "tile" : "tiles"}, in this order:
+            </span>
+            <ol data-testid="presented-tiles" className="grid grid-cols-5 gap-2 tablet:grid-cols-8 desktop:grid-cols-10">
+              {deck.map((plan, i) => (
+                <m.li
+                  key={i}
+                  data-plan={plan}
+                  aria-label={`Tile ${i + 1}`}
+                  className="relative aspect-square overflow-hidden rounded-lg border border-border bg-board shadow-md"
+                  initial={reduced ? false : { opacity: 0, y: 14, scale: 0.85 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.25 + i * step, duration: 0.3, ease: "easeOut" }}
+                >
+                  <TileRender plan={plan} theme={0} renders={renders} />
+                  <span className="numeric absolute top-1 left-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow" aria-hidden>
+                    {i + 1}
                   </span>
-                )}
-              </m.li>
-            ))}
-          </ul>
+                </m.li>
+              ))}
+            </ol>
+          </div>
+          {best && (
+            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} size="xs" />
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              autoFocus
+              onClick={(e) => {
+                e.stopPropagation();
+                onStart?.();
+              }}
+            >
+              <Icon name="play" size="sm" /> Start
+            </Button>
+            <span className="text-xs text-muted-foreground">or tap anywhere</span>
+          </div>
         </div>
-        {best && (
-          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} size="xs" />
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            autoFocus
-            onClick={(e) => {
-              e.stopPropagation();
-              onStart?.();
-            }}
-          >
-            <Icon name="play" size="sm" /> Start
-          </Button>
-          <span className="text-xs text-muted-foreground">or tap anywhere</span>
-        </div>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }
@@ -248,66 +242,68 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
     );
   }
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm" onClick={() => {
+    <div className="pointer-events-auto fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => {
         if (settled) return;
         setSkipped(true);
         setSettled(true);
       }}
     >
-      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
-        <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, "items-center gap-4 py-6 text-center", className)}>
-          <h2 className="font-display text-lg font-semibold wrap-anywhere">{title}: complete</h2>
-          <StarFill key={instant ? "stars-instant" : "stars-fill"} stars={stars} instant={instant} />
-          <m.div
-            key={instant ? "result-instant" : "result-fill"}
-            className="flex w-full flex-col items-center gap-3"
-            initial={instant ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: resultDelay(stars), duration: 0.35 }}
-          >
-            <p className="flex flex-col items-center gap-1">
-              <span className="text-xs text-muted-foreground">Score</span>
-              <span className="numeric font-display text-3xl font-semibold">{formatInteger(score)}</span>
-              {record && <span className="text-primary">A new best for you.</span>}
-            </p>
-            {toNextStar != null && toNextStar > 0 && stars < 3 && (
-              <p data-testid="to-next-star" className="flex items-center gap-1.5 text-muted-foreground">
-                <Icon name="star" size="xs" className="text-primary" />
-                <span>
-                  <span className="numeric text-foreground">{formatInteger(toNextStar)}</span> {toNextStar === 1 ? "point" : "points"} short of the next star.
-                </span>
+      <ScrollRegion className="h-full">
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
+          <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, "items-center gap-4 py-6 text-center", className)}>
+            <h2 className="font-display text-lg font-semibold wrap-anywhere">{title}: complete</h2>
+            <StarFill key={instant ? "stars-instant" : "stars-fill"} stars={stars} instant={instant} />
+            <m.div
+              key={instant ? "result-instant" : "result-fill"}
+              className="flex w-full flex-col items-center gap-3"
+              initial={instant ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: resultDelay(stars), duration: 0.35 }}
+            >
+              <p className="flex flex-col items-center gap-1">
+                <span className="text-xs text-muted-foreground">Score</span>
+                <span className="numeric font-display text-3xl font-semibold">{formatInteger(score)}</span>
+                {record && <span className="text-primary">A new best for you.</span>}
               </p>
-            )}
-            {stars === 3 && !beatsTarget && <p className="text-primary">{bestKnown ? "Three stars: the best score known for this level." : "Three stars: the best score there is."}</p>}
-            {beatsTarget && (
-              <p role="status" className="text-primary">
-                You beat the best score known for this level. It was found by a search, not proven: yours is better.
-              </p>
-            )}
-            {children && (
-              <div className="w-full text-left" onClick={(e) => e.stopPropagation()}>
-                {children}
-              </div>
-            )}
-            <div className="flex flex-wrap justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-              {onNext && (
-                <Button size="sm" onClick={onNext}>
-                  Next level
-                </Button>
+              {toNextStar != null && toNextStar > 0 && stars < 3 && (
+                <p data-testid="to-next-star" className="flex items-center gap-1.5 text-muted-foreground">
+                  <Icon name="star" size="xs" className="text-primary" />
+                  <span>
+                    <span className="numeric text-foreground">{formatInteger(toNextStar)}</span> {toNextStar === 1 ? "point" : "points"} short of the next star.
+                  </span>
+                </p>
               )}
-              <Button size="sm" variant="secondary" onClick={onReplay}>
-                Replay
-              </Button>
-              <Button size="sm" variant="ghost" onClick={onLevels}>
-                Levels
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setPeek(true)}>
-                Board
-              </Button>
-            </div>
-          </m.div>
-        </section>
-      </div>
+              {stars === 3 && !beatsTarget && <p className="text-primary">{bestKnown ? "Three stars: the best score known for this level." : "Three stars: the best score there is."}</p>}
+              {beatsTarget && (
+                <p role="status" className="text-primary">
+                  You beat the best score known for this level. It was found by a search, not proven: yours is better.
+                </p>
+              )}
+              {children && (
+                <div className="w-full text-left" onClick={(e) => e.stopPropagation()}>
+                  {children}
+                </div>
+              )}
+              <div className="flex flex-wrap justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {onNext && (
+                  <Button size="sm" onClick={onNext}>
+                    Next level
+                  </Button>
+                )}
+                <Button size="sm" variant="secondary" onClick={onReplay}>
+                  Replay
+                </Button>
+                <Button size="sm" variant="ghost" onClick={onLevels}>
+                  Levels
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setPeek(true)}>
+                  Board
+                </Button>
+              </div>
+            </m.div>
+          </section>
+        </div>
+      </ScrollRegion>
     </div>
   );
 }
