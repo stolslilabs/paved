@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { MockMarkSlot } from "./mock-mark";
+import { MockMark, useMockMarked } from "./mock-mark";
 
 export interface TopBarProps {
   title?: ReactNode;
@@ -13,23 +13,60 @@ export interface TopBarProps {
   className?: string;
 }
 
-/** The top bar of a full-screen flow (section 6.2): Back, the title centred, an action on the right; direction D (#537) closes it with a hairline. */
+/**
+ * The top bar of a full-screen flow (section 6.2): Back, the title centred, an action on the right; direction D (#537) closes it
+ * with a hairline. The space under that line is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
+ * flush, so every such page has the same gap.
+ */
 export function TopBar({ title, onBack, end, className }: TopBarProps) {
+  const marked = useMockMarked();
+  const bar = useRef<HTMLElement>(null);
+  // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds.
+  useLayoutEffect(() => {
+    const el = bar.current!;
+    const sides = [el.firstElementChild!.firstElementChild!, el.lastElementChild!.firstElementChild!] as HTMLElement[];
+    const sync = () => el.style.setProperty("--side", `${Math.max(48, sides[0]!.offsetWidth, sides[1]!.offsetWidth)}px`);
+    sync();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(sync);
+    sides.forEach((side) => observer.observe(side));
+    return () => observer.disconnect();
+  }, []);
   return (
     // At least 56 px, never fixed: a long title wraps (WRAP360) and the bar grows with it.
-    <header className={cn("grid min-h-14 shrink-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-2 pt-[env(safe-area-inset-top)] pb-1", className)}>
-      <span>
-        {onBack && (
-          <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
-            <Icon name="chevron-left" />
-          </Button>
+    <header
+      ref={bar}
+      className={cn(
+        "grid min-h-14 shrink-0 grid-cols-[var(--side,3rem)_minmax(0,1fr)_var(--side,3rem)] items-center gap-1 mb-4 border-b border-border px-2 pt-[env(safe-area-inset-top)] pb-1",
+        className,
+      )}
+    >
+      <span className="flex">
+        <span className="flex w-max shrink-0">
+          {onBack && (
+            <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
+              <Icon name="chevron-left" />
+            </Button>
+          )}
+        </span>
+      </span>
+      {/*
+        The mark on the title's line, after its last word when the title wraps (#622). It takes no width in the line (its
+        negative margin); the title's box keeps its room on both sides instead, so the title stays at the centre.
+      */}
+      <span className={cn("text-center", marked && "px-12")}>
+        <h1 className="inline text-lg leading-tight font-semibold wrap-anywhere">{title}</h1>
+        {marked && (
+          <span className="-mr-12 ml-1 inline-flex w-11 align-[0.125rem]">
+            <MockMark className="w-full px-0" />
+          </span>
         )}
       </span>
-      <span className="flex flex-col items-center gap-0.5">
-        <h1 className="text-center text-lg leading-tight font-semibold wrap-anywhere">{title}</h1>
-        <MockMarkSlot />
+      <span className="flex justify-end">
+        <span className="flex w-max shrink-0 justify-end">
+          {end}
+        </span>
       </span>
-      <span className="flex min-w-12 justify-end">{end}</span>
     </header>
   );
 }

@@ -188,7 +188,7 @@ export function OverScene(props: OverSceneProps) {
               title="Final board"
               onBack={() => setView("scores")}
               end={<Score value={props.game.score} size="sm" tone="gold" className="pr-2" />}
-              className="pt-0"
+              className="mb-0 pt-0"
             />
           </div>
         </div>
@@ -244,7 +244,7 @@ function Scores({ mode, game, closings, previousBest, reward, settling, onSettle
   return (
     <>
       <TopBar title="Final score" onBack={onHome} />
-      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
+      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
         <div className="flex flex-col gap-4">
           {/* Direction D (#537): the mockups' banner, a render of a finished board (the bench's 38-tile game). Decorative. */}
           <img src={scoreWide} alt="" width={960} height={448} draggable={false} decoding="async" className="h-36 w-full rounded-xl bg-secondary object-cover desktop:h-56" />

@@ -75,7 +75,7 @@ export default function Page() {
     return (
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <TopBar title="Story" onBack={onBack} />
-        <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4">
+        <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
           <Notice title={found ? "This level is locked" : "No such level"} icon="lock" action={<Button size="sm" onClick={() => go("/story")}>Levels</Button>}>
             {found ? "Finish the level before it first (and earn the stars its campaign asks for)." : "Story mode has no level at this address."}
           </Notice>

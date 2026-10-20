@@ -30,7 +30,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Choose a mode" onBack={onBack} />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pt-2 pb-8 tablet:max-w-2xl tablet:grid tablet:grid-cols-2 tablet:gap-4">
+      <main className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-8 tablet:max-w-2xl tablet:grid tablet:grid-cols-2 tablet:gap-4">
         <ModeCard
           featured
           art={spawnPaused ? undefined : modeChallenge}

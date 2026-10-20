@@ -39,9 +39,10 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
               </Button>
             )}
             <div className="flex min-w-0 flex-col wrap-anywhere">
-              <span className="flex flex-wrap items-center gap-2">
-                <h1 className="font-display text-3xl font-semibold tracking-wide">{title}</h1>
-                <MockMarkSlot />
+              {/* The mark on the title's line, after its last word when the title wraps (#622). */}
+              <span>
+                <h1 className="inline font-display text-3xl font-semibold tracking-wide">{title}</h1>
+                <MockMarkSlot className="ml-2 align-[0.375rem]" />
               </span>
               {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
             </div>

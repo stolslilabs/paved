@@ -27,7 +27,7 @@ export function Placeholder() {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title={page.title} onBack={onBack} />
-      <main data-testid="page" data-path={path} className="mx-auto w-full max-w-md px-4 pt-2 text-sm text-muted-foreground tablet:max-w-2xl">
+      <main data-testid="page" data-path={path} className="mx-auto w-full max-w-md px-4 text-sm text-muted-foreground tablet:max-w-2xl">
         {BODY}
       </main>
     </div>
