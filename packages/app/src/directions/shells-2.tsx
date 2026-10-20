@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
-import type { Tab } from "../routes/pages";
+import type { Tab } from "./tabs";
 import { DButton, Icon, NOTCH, useDir } from "./kit";
 import { RENDERS } from "./renders";
 import { DNav } from "./shells";

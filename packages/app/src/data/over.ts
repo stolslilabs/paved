@@ -5,7 +5,7 @@ import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, gameStats,
 import type { SettleProps } from "../components/scenes/over-scene";
 import { useCurrentDay, useGame, useEconomyDay, useTerms } from "./chain";
 import { addressKey, queryKeys } from "./keys";
-import { useIndexedGame, useIndexedPlayerGames, useLeaderboardEntry, usePlayerProfile } from "./indexer";
+import { useIndexedGame, useIndexedPlayerGames, usePlayerProfile } from "./indexer";
 import { useDataSources } from "./sources";
 import type { Closing } from "./training";
 
@@ -141,7 +141,7 @@ export function useClosings(game: GameView | undefined): UseQueryResult<OverRepl
   });
 }
 
-// --- Best and rank ---------------------------------------------------------------------------------------------------
+// --- Best -----------------------------------------------------------------------------------------------------------
 
 /** The player's games the over page reads (the newest first): the whole history when fewer come back. */
 export const PLAYER_GAMES_READ = 20;
@@ -163,23 +163,17 @@ export function previousBestOf(game: Pick<GameView, "id" | "score">, others: rea
 }
 
 /**
- * "New best" and "#rank today" of a finished Challenge game (#539): the player's best before it (`previousBestOf`), and the
- * rank of the day's leaderboard when this game is the player's best of today (the indexer's `bestGameId`). Both stay null
- * while their reads are pending or failed, and the rank while the indexer has not counted the game.
+ * "New best" of a finished Challenge game (#539): the player's best before it (`previousBestOf`), from the player's own
+ * games and profile, never a leaderboard (the rank left the screen with the ranks, #623). Null while a read is pending or
+ * failed.
  */
-export function useOverStanding(game: GameView | undefined, indexed: IndexedGame | undefined): { previousBest: number | null; rank: number | null } {
+export function useOverStanding(game: GameView | undefined): { previousBest: number | null } {
   const player = game?.over ? game.playerId : null;
-  const today = useCurrentDay();
-  const day = indexed?.over && indexed.countedDayId > 0 && indexed.countedDayId === today.data ? indexed.countedDayId : null;
-  const entry = useLeaderboardEntry(day, player);
   const profile = usePlayerProfile(player);
   const others = useIndexedPlayerGames(player, PLAYER_GAMES_READ);
-  if (!game?.over) return { previousBest: null, rank: null };
+  if (!game?.over) return { previousBest: null };
   const best = profile.data?.stats ? profile.data.stats.bestScore : undefined;
-  return {
-    previousBest: previousBestOf(game, others.data, best, others.data !== undefined && others.data.length < PLAYER_GAMES_READ),
-    rank: entry.data && entry.data.bestGameId === game.id ? entry.data.rank : null,
-  };
+  return { previousBest: previousBestOf(game, others.data, best, others.data !== undefined && others.data.length < PLAYER_GAMES_READ) };
 }
 
 // --- The page's reads -------------------------------------------------------------------------------------------------

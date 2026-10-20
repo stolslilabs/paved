@@ -10,7 +10,6 @@ import { CobblePacks, formatUsd } from "../src/components/containers/cobble-pack
 import { PLANS, applySkinChanges, chooseTheme, isClaimed, packDiscount, pickSkin, referencePrice, themeInUse, themeSet } from "../src/components/containers/cobble-types";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { HomeScene } from "../src/components/scenes/home-scene";
-import { LeaderboardScene } from "../src/components/scenes/leaderboard-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { QuestsScene } from "../src/components/scenes/quests-scene";
@@ -18,7 +17,7 @@ import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { QUEST_DEFINITIONS } from "../src/mocks/quests";
-import { ACHIEVEMENTS, HOME, LEADERBOARD, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
+import { ACHIEVEMENTS, HOME, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -379,7 +378,7 @@ describe("Achievements: Cobbles", () => {
   });
 });
 
-describe("Home, Play and Leaderboard: Cobbles", () => {
+describe("Home and Play: Cobbles", () => {
   it("keeps the free-game card on Home, with no day or Daily wording", () => {
     render(wrap(<HomeScene {...HOME.cobbles} />));
     expect(screen.queryByText(/^Day \d+/)).not.toBeInTheDocument();
@@ -396,20 +395,6 @@ describe("Home, Play and Leaderboard: Cobbles", () => {
     render(wrap(<PlayScene {...PLAY.freeGame} onPlayFree={onPlayFree} />));
     await userEvent.click(screen.getByRole("button", { name: /Free Challenge/ }));
     expect(onPlayFree).toHaveBeenCalledTimes(2);
-  });
-
-  it("marks a free game in Home's top 3, as the Leaderboard does", () => {
-    render(wrap(<HomeScene {...HOME.freeGame} />));
-    const podium = within(screen.getByRole("list", { name: "Top 3" })).getAllByRole("listitem");
-    expect(podium[1]).toHaveTextContent("Free");
-    expect(podium.filter((r) => /Free/.test(r.textContent ?? ""))).toHaveLength(1);
-  });
-
-  it("marks a free game's row Free, ranked like any other", () => {
-    render(wrap(<LeaderboardScene {...LEADERBOARD.freeGame} />));
-    const rows = within(screen.getByRole("list", { name: "Ranking" })).getAllByRole("button");
-    expect(rows[1]).toHaveTextContent("Free");
-    expect(rows.filter((r) => /Free/.test(r.textContent ?? ""))).toHaveLength(1);
   });
 });
 
