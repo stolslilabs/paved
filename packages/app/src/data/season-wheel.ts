@@ -14,6 +14,12 @@ export type WheelState = (typeof WHEEL_STATES)[number];
 /** `DAY_PHASE_AT.day` of the renderer: the middle of a season's day, where a fixed state holds the cycle. */
 export const DAY_AT = 0.3125;
 
+/** `DAY_SHARE` of the renderer's cycle (its chunk, not its barrel): the share of a season that is day, the rest night. */
+export const DAY_SHARE = 0.625;
+
+/** Day or night at a point of the cycle; a fixed state holds a day. */
+export const isNight = (point: WheelPoint | null | undefined): boolean => !!point && point.position >= DAY_SHARE;
+
 export const nextWheelState = (state: WheelState): WheelState => WHEEL_STATES[(WHEEL_STATES.indexOf(state) + 1) % WHEEL_STATES.length];
 
 /** Where a new game starts: auto with the cycle on in Settings, summer with it off. */

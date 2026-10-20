@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
+import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, SOURCE_ASSETS, appRenders, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
@@ -220,6 +221,42 @@ export const DayNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orient
 
 /** The same, held at a summer night: the cities and the road's buildings lit, the plates and the tint readable. */
 export const DayNightAtNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) }, render: (args) => renderBoard(args, DAY_NIGHT_NIGHT) };
+
+function WithDial(args: BoardSceneProps) {
+  const board = useBoardSettings();
+  // The cycle ten times as fast (a day and a night every 12 s), so the dial's turn shows.
+  const settings = useMemo<RendererSettingsInput>(() => ({ ...board.renderer, dayNight: { ...board.renderer.dayNight, speed: 10 } }), [board.renderer]);
+  return (
+    <BoardScene
+      {...args}
+      seasonWheel={board.wheel}
+      canvas={<BoardViewport tiles={args.tiles} basePath={APP_ASSETS} slots={args.slots} ghost={args.ghost} bubble={args.bubble} settings={settings} onScene={board.onScene} />}
+      renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
+    />
+  );
+}
+
+/**
+ * The season dial on the board (#607): under the HUD's right end on a phone, in the board's top right corner from desktop
+ * up. Wired as the game wires it (`useBoardSettings`), the cycle ten times as fast; a tap goes auto, summer, autumn, winter,
+ * spring, auto (the Day and night setting off starts it on summer).
+ */
+export const SeasonDial: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
+
+/** The dial ringed by a Story coach mark (Tutorial 6). */
+export const StoryCoachWheel: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, null),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 6: Seasons",
+    coach: "wheel",
+    notices: <StoryCoach tip="The season wheel turns the board through the seasons. Tap it to step on; the score does not change." onDismiss={fn()} />,
+  },
+  render: (args) => <WithDial {...args} />,
+};
 
 /** A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces ringed. */
 export const StoryCoachDeck: Story = {
