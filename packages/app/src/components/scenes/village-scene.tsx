@@ -104,7 +104,7 @@ export function VillageScene({
   const [chosenParcel, setChosenParcel] = useState<Cell | null>(initialParcel);
   const [tiers, setTiers] = useState(initialTiers);
   const [drag, setDrag] = useState<{ index: number; x: number; y: number; over: Cell | null } | null>(null);
-  const press = useRef<{ index: number; x: number; y: number; moved: boolean } | null>(null);
+  const press = useRef<{ index: number; x: number; y: number; moved: boolean; source: HTMLElement } | null>(null);
   const tapAfterDrag = useRef(false);
   const stop = useRef<(() => void) | null>(null);
   useEffect(() => () => stop.current?.(), []);
@@ -149,7 +149,7 @@ export function VillageScene({
   const startDrag = (index: number, e: ReactPointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0) return;
     stop.current?.();
-    press.current = { index, x: e.clientX, y: e.clientY, moved: false };
+    press.current = { index, x: e.clientX, y: e.clientY, moved: false, source: e.currentTarget };
     const move = (ev: PointerEvent) => {
       const p = press.current;
       if (!p) return;
@@ -163,7 +163,13 @@ export function VillageScene({
       press.current = null;
       stop.current?.();
       if (!p?.moved) return;
-      tapAfterDrag.current = true;
+      // Only a release over its own card is followed by a click on it: that click is the drag's end, not a tap. Released
+      // anywhere else, no click comes, and the next tap must count. The timer drops the flag once the click had its chance.
+      const target = document.elementFromPoint?.(ev.clientX, ev.clientY);
+      if (target && p.source.contains(target)) {
+        tapAfterDrag.current = true;
+        setTimeout(() => (tapAfterDrag.current = false), 0);
+      }
       setDrag(null);
       if (dropped) drop(p.index, cellUnder(ev.clientX, ev.clientY));
     };

@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import { cn } from "../../lib/utils";
 import { TierBase } from "../elements/tier-base";
@@ -39,6 +39,9 @@ export interface VillageBoardProps {
   onCopy?: (tile: BoardTile) => void;
   className?: string;
 }
+
+/** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */
+const MIN_CELL = 46;
 
 /** The rings of fogged ground drawn around the clear cells. */
 const FOG_RINGS = 2;
@@ -82,6 +85,15 @@ export function cellName(c: Cell): string {
  * pointer. Shared with the PvP flow (#647): the attack draws the defender's territory with it (`parcels` off).
  */
 export function VillageBoard({ village, fog = "village", parcels = false, parcel, placing, over, tileArt, onParcel, onPlace, onCopy, className }: VillageBoardProps) {
+  const scroller = useRef<HTMLDivElement>(null);
+  // A board wider than the screen opens on its middle, where the village is.
+  const extent = village.cells.length;
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+    el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+  }, [extent]);
   const owned = new Set(village.cells.map(cellKey));
   const buyable = parcels ? buyableCells(village.cells) : [];
   const buyableKeys = new Set(buyable.map(cellKey));
@@ -218,12 +230,19 @@ export function VillageBoard({ village, fog = "village", parcels = false, parcel
   }
 
   return (
-    <div className={cn("grid size-full place-items-center overflow-hidden bg-board p-4", className)}>
+    // `safe center`: a board wider than the screen scrolls from its edge, not from a centre cut off on both sides.
+    <div ref={scroller} className={cn("grid size-full overflow-auto bg-board p-4", className)} style={{ placeItems: "safe center" }}>
       <div
         role={placing || buyable.length ? "group" : "img"}
         aria-label={`Village of ${village.cells.length} cells and ${village.tiles.length} tiles`}
-        className="relative grid w-full max-w-[min(100%,70dvh)] gap-0.5"
-        style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)`, aspectRatio: `${cols} / ${rows}` }}
+        className="relative grid shrink-0 gap-0.5"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
+          aspectRatio: `${cols} / ${rows}`,
+          // Every cell keeps the 44 px touch floor: past what the screen holds, the board scrolls.
+          width: `max(${cols * MIN_CELL}px, min(100%, 70dvh))`,
+        }}
       >
         {cells}
         {fog === "village" && <FogVeil clear={clearList} minX={minX} maxY={maxY} cols={cols} rows={rows} />}

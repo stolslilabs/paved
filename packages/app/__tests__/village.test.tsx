@@ -116,6 +116,30 @@ describe("Scenes/Village", () => {
     expect(onPlace).toHaveBeenCalledWith(expect.objectContaining({ plan: REWARD.plans[0], x: legal.x, y: legal.y }));
   });
 
+  it("counts the first tap after a drag released on the board, and not the click that ends a drag on its own card", async () => {
+    render(wrap(<VillageScene {...VILLAGE.reward} />));
+    const cards = () => within(screen.getByRole("list", { name: "Reward tiles" })).getAllByRole("button");
+    const original = document.elementFromPoint;
+    const dragTo = (card: HTMLElement, under: Element | null) => {
+      fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 10 });
+      document.elementFromPoint = () => under;
+      try {
+        fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
+        fireEvent.pointerUp(window, { clientX: 100, clientY: 100 });
+      } finally {
+        document.elementFromPoint = original;
+      }
+    };
+    // Released over the board, off any cell: no click follows on the card, so the next tap selects at once.
+    dragTo(cards()[0]!, document.querySelector("[data-cell]"));
+    await userEvent.click(cards()[1]!);
+    expect(cards()[1]).toHaveAttribute("aria-pressed", "true");
+    // Released on its own card: the click that follows is the drag's end, not a tap.
+    dragTo(cards()[2]!, cards()[2]!);
+    fireEvent.click(cards()[2]!);
+    expect(cards()[2]).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("greys out a tile that fits nowhere and has nothing to copy onto", () => {
     render(wrap(<VillageScene {...VILLAGE.rewardCramped} />));
     const tiles = within(screen.getByRole("list", { name: "Reward tiles" })).getAllByRole("button");
