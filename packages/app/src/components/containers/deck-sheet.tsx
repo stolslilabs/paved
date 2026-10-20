@@ -50,32 +50,32 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side,
         </SheetHeader>
         {/* The header stays; the deck scrolls under it with the edge hint (NO-SCROLLBARS, #609). */}
         <ScrollRegion className="-mx-4 flex min-h-0 flex-col gap-4 px-4">
-        <ul className="flex flex-wrap gap-2" data-testid="deck-plans">
-          {counts.plans.map((plan) => (
-            <li key={plan.plan} className="flex max-w-full flex-wrap gap-1 rounded-lg bg-secondary/50 p-1" data-plan={plan.code}>
-              {Array.from({ length: plan.total }, (_, i) => {
-                const placed = i < plan.placed;
-                const discarded = !placed && i < plan.placed + plan.discarded;
-                const out = placed || discarded;
-                const inHand = !out && i === plan.placed + plan.discarded && handPlan === plan.plan;
-                return (
-                  <span key={i} data-out={out} data-discarded={discarded} title={discarded ? "Discarded" : placed ? "Played" : undefined} className={cn("relative inline-flex rounded-md", out && "opacity-40", discarded && "outline-2 -outline-offset-2 outline-dashed outline-foreground")}>
-                    <TileChip plan={plan.plan} size="sm" art={tileArt} state={inHand ? "selected" : "default"} />
-                    {out && <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center text-foreground before:h-0.5 before:w-[130%] before:-rotate-45 before:bg-current" />}
-                  </span>
-                );
-              })}
-            </li>
-          ))}
-        </ul>
-        <p className="numeric text-sm text-muted-foreground" data-testid="deck-summary">
-          {counts.placed} played, {counts.discarded} discarded (dashed), {counts.total - counts.placed - counts.discarded} not yet.
-        </p>
-        {onPresent && (
-          <Button size="sm" variant="secondary" className="self-start" onClick={onPresent}>
-            <Icon name="play" size="sm" /> Present the level again
-          </Button>
-        )}
+          <ul className="flex flex-wrap gap-2" data-testid="deck-plans">
+            {counts.plans.map((plan) => (
+              <li key={plan.plan} className="flex max-w-full flex-wrap gap-1 rounded-lg bg-secondary/50 p-1" data-plan={plan.code}>
+                {Array.from({ length: plan.total }, (_, i) => {
+                  const placed = i < plan.placed;
+                  const discarded = !placed && i < plan.placed + plan.discarded;
+                  const out = placed || discarded;
+                  const inHand = !out && i === plan.placed + plan.discarded && handPlan === plan.plan;
+                  return (
+                    <span key={i} data-out={out} data-discarded={discarded} title={discarded ? "Discarded" : placed ? "Played" : undefined} className={cn("relative inline-flex rounded-md", out && "opacity-40", discarded && "outline-2 -outline-offset-2 outline-dashed outline-foreground")}>
+                      <TileChip plan={plan.plan} size="sm" art={tileArt} state={inHand ? "selected" : "default"} />
+                      {out && <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center text-foreground before:h-0.5 before:w-[130%] before:-rotate-45 before:bg-current" />}
+                    </span>
+                  );
+                })}
+              </li>
+            ))}
+          </ul>
+          <p className="numeric text-sm text-muted-foreground" data-testid="deck-summary">
+            {counts.placed} played, {counts.discarded} discarded (dashed), {counts.total - counts.placed - counts.discarded} not yet.
+          </p>
+          {onPresent && (
+            <Button size="sm" variant="secondary" className="self-start" onClick={onPresent}>
+              <Icon name="play" size="sm" /> Present the level again
+            </Button>
+          )}
         </ScrollRegion>
       </SheetContent>
     </Sheet>
