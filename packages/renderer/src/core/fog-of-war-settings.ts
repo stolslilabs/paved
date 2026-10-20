@@ -224,15 +224,26 @@ export function revealRects(cells: Iterable<RevealedCell>): RevealRect[] {
 
 /** How far the field holds a distance, in cells: the soft falloff and the billow stay within it; beyond it is all fog. */
 export const FIELD_REACH = 4;
+/** How far inside the clear cells the field holds a distance, in cells: the corners' blur reads no deeper. */
+export const FIELD_INSIDE = 1.5;
 /** The field's texels a cell, each way. */
 export const FIELD_TEXELS = 4;
 /** The field's window grows by steps of this many cells, so the board's growth reallocates it seldom. */
 export const FIELD_STEP = 8;
+/** The largest corner radius, cells: its blur stays within `FIELD_INSIDE`. */
+export const MAX_CORNER_RADIUS = 1;
+/**
+ * A Gaussian blur of a signed distance keeps a straight border where it is and rounds a corner, convex or concave, to a circle of
+ * about this many sigmas across its radius (measured: the blurred zero line crosses a right angle's diagonal 0.566 sigma from
+ * its corner, as a circle of 1.93 sigmas does).
+ */
+export const CORNER_SIGMAS = 1.93;
 
 /**
- * The fog's field: one byte a texel, the distance from the texel's centre to the nearest clear rectangle (0 inside one), in
- * cells, over `reach` (255 at `reach` and beyond). Texel (0, 0) starts at cell edge (`originX`, `originY`): the cell
- * coordinate `c` is at texel `(c - origin) * texels`. The shader reads it filtered (bilinear): `fieldDistance` does the same.
+ * The fog's field: one byte a texel, the signed distance from the texel's centre to the border of the clear area, in cells
+ * (negative inside it), from `-inside` (0) to `reach` (255), its corners rounded (`cornerRadius`). Texel (0, 0) starts at cell
+ * edge (`originX`, `originY`): the cell coordinate `c` is at texel `(c - origin) * texels`. The shader reads it filtered
+ * (bilinear): `fieldDistance` does the same.
  */
 export interface RevealField {
   data: Uint8Array;
@@ -242,6 +253,7 @@ export interface RevealField {
   originY: number;
   texels: number;
   reach: number;
+  inside: number;
 }
 
 /** The field's window: its first cell edge and its size, in cells. */
@@ -293,14 +305,64 @@ export function stampField(distance: Float32Array, window: FieldWindow, rects: R
   }
 }
 
+/** The fogged part of a cell whose clear part is `clear` (a band from a side, or a square in its middle): up to four rectangles. */
+export function fogRects(cell: FogCell, clear: RevealRect | undefined): RevealRect[] {
+  const [x0, x1, y0, y1] = [cell.x - 0.5, cell.x + 0.5, cell.y - 0.5, cell.y + 0.5];
+  if (!clear) return [{ x0, x1, y0, y1 }];
+  const rects: RevealRect[] = [];
+  if (clear.x0 > x0) rects.push({ x0, x1: clear.x0, y0, y1 });
+  if (clear.x1 < x1) rects.push({ x0: clear.x1, x1, y0, y1 });
+  if (clear.y0 > y0) rects.push({ x0: clear.x0, x1: clear.x1, y0, y1: clear.y0 });
+  if (clear.y1 < y1) rects.push({ x0: clear.x0, x1: clear.x1, y0: clear.y1, y1 });
+  return rects;
+}
+
+/** A normalised Gaussian kernel of `sigma` texels, three sigmas each side. */
+function gaussian(sigma: number): Float32Array {
+  const radius = Math.max(1, Math.ceil(3 * sigma));
+  const kernel = new Float32Array(2 * radius + 1);
+  let sum = 0;
+  for (let i = -radius; i <= radius; i++) sum += kernel[i + radius] = Math.exp(-(i * i) / (2 * sigma * sigma));
+  for (let i = 0; i < kernel.length; i++) kernel[i]! /= sum;
+  return kernel;
+}
+
+/** Blurs `values` (`width` x `height`) in place with a separable `kernel`, the edges clamped. */
+function blur(values: Float32Array, width: number, height: number, kernel: Float32Array): void {
+  const radius = (kernel.length - 1) / 2;
+  const line = new Float32Array(Math.max(width, height));
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    for (let x = 0; x < width; x++) line[x] = values[row + x]!;
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let k = -radius; k <= radius; k++) sum += kernel[k + radius]! * line[Math.min(width - 1, Math.max(0, x + k))]!;
+      values[row + x] = sum;
+    }
+  }
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) line[y] = values[y * width + x]!;
+    for (let y = 0; y < height; y++) {
+      let sum = 0;
+      for (let k = -radius; k <= radius; k++) sum += kernel[k + radius]! * line[Math.min(height - 1, Math.max(0, y + k))]!;
+      values[y * width + x] = sum;
+    }
+  }
+}
+
 /**
- * Builds the field of the cells as they lift. The cells fully clear are stamped once per reveal (their distances kept), the
- * lifting ones on a copy at each build: a step of a lift stamps a few cells, not the board. The window follows the cells'
- * whole squares (`fieldWindow`).
+ * Builds the field of the cells as they lift. The distance outside (to the clear cells) and inside (to the fogged cells around
+ * them) are stamped once per reveal for the cells fully clear, and on a copy at each build for the lifting ones: a step of a lift
+ * stamps a few cells, not the board. The signed distance is then blurred by `cornerRadius` (`CORNER_SIGMAS`): every corner of the
+ * clear area, a hole's or the fog's, comes out round, and a straight border stays on the cells' border. The window follows the
+ * cells' whole squares (`fieldWindow`).
  */
 export class RevealFieldBuilder {
   private baseKey = "";
-  private base: Float32Array = new Float32Array(0);
+  private baseOut: Float32Array = new Float32Array(0);
+  private baseIn: Float32Array = new Float32Array(0);
+  /** The corners' radius, cells (0 sharp). A change stamps the clear cells again. */
+  cornerRadius = 0;
   /** The builds made, and how many of them stamped the clear cells again (a new reveal or window). */
   builds = 0;
   baseBuilds = 0;
@@ -308,42 +370,69 @@ export class RevealFieldBuilder {
   constructor(
     readonly reach = FIELD_REACH,
     readonly texels = FIELD_TEXELS,
+    readonly inside = FIELD_INSIDE,
   ) {}
 
   build(cells: ReadonlyArray<RevealedCell>): RevealField {
-    const { reach, texels } = this;
+    const { reach, texels, inside } = this;
     const window = fieldWindow(cells, reach);
     const [width, height] = [window.cellsX * texels, window.cellsY * texels];
     const stable = cells.filter((c) => c.value >= 1);
     const moving = cells.filter((c) => c.value < 1);
-    const key = `${window.originX},${window.originY},${window.cellsX},${window.cellsY}|${stable.map((c) => cellKey(c.x, c.y)).sort().join(";")}`;
+    const keyOf = (list: ReadonlyArray<FogCell>) => list.map((c) => cellKey(c.x, c.y)).sort().join(";");
+    const radius = Math.min(MAX_CORNER_RADIUS, Math.max(0, this.cornerRadius));
+    const key = `${window.originX},${window.originY},${window.cellsX},${window.cellsY}|${radius}|${keyOf(stable)}|${keyOf(moving)}`;
     if (key !== this.baseKey) {
-      this.base = new Float32Array(width * height).fill(reach);
-      stampField(this.base, window, revealRects(stable), reach, texels);
+      this.baseOut = new Float32Array(width * height).fill(reach);
+      stampField(this.baseOut, window, revealRects(stable), reach, texels);
+      // Inside, the distance to the fogged cells near the clear ones (a lifting cell's own fog is stamped at each build).
+      this.baseIn = new Float32Array(width * height).fill(inside);
+      const taken = new Set(cells.map((c) => cellKey(c.x, c.y)));
+      const fogged = new Map<string, FogCell>();
+      const ring = Math.ceil(inside);
+      for (const c of cells) {
+        for (let dy = -ring; dy <= ring; dy++) {
+          for (let dx = -ring; dx <= ring; dx++) {
+            const k = cellKey(c.x + dx, c.y + dy);
+            if (!taken.has(k)) fogged.set(k, { x: c.x + dx, y: c.y + dy });
+          }
+        }
+      }
+      stampField(this.baseIn, window, [...fogged.values()].flatMap((c) => fogRects(c, undefined)), inside, texels);
       this.baseKey = key;
       this.baseBuilds++;
     }
-    const distance = moving.length ? this.base.slice() : this.base;
-    if (moving.length) stampField(distance, window, revealRects(moving), reach, texels);
+    const outside = moving.length ? this.baseOut.slice() : this.baseOut;
+    const within = moving.length ? this.baseIn.slice() : this.baseIn;
+    if (moving.length) {
+      stampField(outside, window, revealRects(moving), reach, texels);
+      stampField(within, window, moving.flatMap((c) => fogRects(c, revealRects([c])[0])), inside, texels);
+    }
+    const signed = new Float32Array(width * height);
+    for (let i = 0; i < signed.length; i++) signed[i] = outside[i]! > 0 ? outside[i]! : -within[i]!;
+    if (radius > 0) blur(signed, width, height, gaussian((radius / CORNER_SIGMAS) * texels));
     const data = new Uint8Array(width * height);
-    for (let i = 0; i < data.length; i++) data[i] = Math.round((Math.min(distance[i]!, reach) / reach) * 255);
+    for (let i = 0; i < data.length; i++) data[i] = Math.round(((Math.min(reach, Math.max(-inside, signed[i]!)) + inside) / (reach + inside)) * 255);
     this.builds++;
-    return { data, width, height, originX: window.originX, originY: window.originY, texels, reach };
+    return { data, width, height, originX: window.originX, originY: window.originY, texels, reach, inside };
   }
 }
 
-/** The field of these cells at once (a builder of its own). */
-export const buildRevealField = (cells: ReadonlyArray<RevealedCell>, reach = FIELD_REACH, texels = FIELD_TEXELS): RevealField =>
-  new RevealFieldBuilder(reach, texels).build(cells);
+/** The field of these cells at once (a builder of its own), its corners rounded by `cornerRadius` cells. */
+export const buildRevealField = (cells: ReadonlyArray<RevealedCell>, cornerRadius = 0, reach = FIELD_REACH, texels = FIELD_TEXELS): RevealField => {
+  const builder = new RevealFieldBuilder(reach, texels);
+  builder.cornerRadius = cornerRadius;
+  return builder.build(cells);
+};
 
-/** The field's distance at a cell coordinate, in cells, filtered as the GPU reads it (bilinear, clamped to the edge). */
+/** The field's signed distance at a cell coordinate, in cells, filtered as the GPU reads it (bilinear, clamped to the edge). */
 export function fieldDistance(field: RevealField, x: number, y: number): number {
   const fx = (x - field.originX) * field.texels - 0.5;
   const fy = (y - field.originY) * field.texels - 0.5;
   const at = (tx: number, ty: number) => {
     const cx = Math.min(field.width - 1, Math.max(0, tx));
     const cy = Math.min(field.height - 1, Math.max(0, ty));
-    return (field.data[cy * field.width + cx]! / 255) * field.reach;
+    return (field.data[cy * field.width + cx]! / 255) * (field.reach + field.inside) - field.inside;
   };
   const x0 = Math.floor(fx);
   const y0 = Math.floor(fy);
@@ -354,18 +443,14 @@ export function fieldDistance(field: RevealField, x: number, y: number): number 
   return top * (1 - v) + bottom * v;
 }
 
-/**
- * The distance at which the filtered field crosses a clear rectangle's border: a quarter of a texel (the texel inside reads 0,
- * the one outside half a texel; bilinear meets them halfway). The fog's edge sits there, so it falls on the cells' border.
- */
-export const fieldEdge = (texels = FIELD_TEXELS): number => 0.25 / texels;
-
 /** The fog's look and the landscape beyond the clear cells. */
 export interface FogSettings {
   /** The fog on (the study's own switch). */
   enabled: boolean;
   /** The edge: 0 a hard line on the cells' border, above 0 a soft falloff over this many cells (up to `FIELD_REACH` - 1). */
   falloff: number;
+  /** The radius of every corner of the clear area (a hole's and the fog's), cells: 0 sharp, up to `MAX_CORNER_RADIUS`. */
+  cornerRadius: number;
   /** The edge cut on the voxel grid (a voxel stair, as the models'). */
   voxelEdge: boolean;
   /**
@@ -413,6 +498,7 @@ export interface LandscapeSettings {
 export const DEFAULT_FOG_SETTINGS: FogSettings = {
   enabled: true,
   falloff: 1.5,
+  cornerRadius: 0.5,
   voxelEdge: false,
   billow: 0.6,
   noiseScale: 2.5,
@@ -442,6 +528,7 @@ export function resolveFogSettings(input: FogSettingsInput = {}, base: FogSettin
   return {
     enabled: flag(input.enabled, base.enabled),
     falloff,
+    cornerRadius: at(input.cornerRadius, base.cornerRadius, 0, MAX_CORNER_RADIUS),
     voxelEdge: flag(input.voxelEdge, base.voxelEdge),
     // The falloff and the billow stay within the field's reach, so the fog is whole past it (the field holds no farther distance).
     billow: Math.min(at(input.billow, base.billow, 0, 1.5), FIELD_REACH - 0.5 - falloff),

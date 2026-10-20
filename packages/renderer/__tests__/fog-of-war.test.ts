@@ -5,6 +5,7 @@ import {
   DEFAULT_FOG_SETTINGS,
   FIELD_REACH,
   FIELD_TEXELS,
+  MAX_CORNER_RADIUS,
   RevealFieldBuilder,
   RevealTransition,
   VILLAGE_MAX_CELLS,
@@ -13,7 +14,6 @@ import {
   cellKey,
   easeLift,
   fieldDistance,
-  fieldEdge,
   fieldWindow,
   fogMode,
   freeSlots,
@@ -23,8 +23,20 @@ import {
   villageReveal,
   type FogCell,
   type FogSettings,
+  type RevealField,
   type RevealedCell,
 } from "../src/core/fog-of-war-settings";
+
+/** Where the field first reaches 0, walking from the cell coordinate `from` along `dir`, a thousandth of a cell a step. */
+function crossingPoint(field: RevealField, from: [number, number], dir: [number, number]): [number, number] {
+  const n = Math.hypot(dir[0], dir[1]);
+  for (let t = 0; t < 3; t += 0.001) {
+    const [x, y] = [from[0] + (dir[0] / n) * t, from[1] + (dir[1] / n) * t];
+    if (fieldDistance(field, x, y) >= 0) return [x, y];
+  }
+  return [Number.NaN, Number.NaN];
+}
+const crossingAlong = (field: RevealField, from: [number, number], dir: [number, number]): number => crossingPoint(field, from, dir)[dir[0] !== 0 ? 0 : 1];
 
 const keys = (cells: FogCell[]) => cells.map((c) => cellKey(c.x, c.y)).sort();
 const clear = (cells: FogCell[]): RevealedCell[] => cells.map((c) => ({ ...c, value: 1, anchor: [0, 0] }));
@@ -170,8 +182,9 @@ describe("the fog of war: its field", () => {
     expect(field.data).toHaveLength(field.width * field.height);
   });
 
-  it("is 0 over the clear cells, the distance to them outside, and full fog past its reach", () => {
-    for (const c of cells) expect(fieldDistance(field, c.x, c.y)).toBe(0);
+  it("is negative over the clear cells, the distance to them outside, and full fog past its reach", () => {
+    // A cell's middle is half a cell from the fog when a side of it is fogged (bilinear reads a little less).
+    for (const c of cells) expect(fieldDistance(field, c.x, c.y)).toBeLessThan(-0.35);
     // Two cells right of the free slot (2, 0): 1.5 cells from its border.
     expect(fieldDistance(field, 4, 0)).toBeCloseTo(1.5, 1);
     // Off a corner: (3, 2) is 1.5 cells right of the slot (1, 1)'s square and half a cell past its far side.
@@ -180,21 +193,14 @@ describe("the fog of war: its field", () => {
     expect(fieldDistance(field, -40, 30)).toBe(FIELD_REACH);
   });
 
-  it("crosses the hard edge's distance on the cells' border, as the GPU filters it", () => {
-    const edge = fieldEdge();
+  it("crosses 0 on the cells' border, as the GPU filters it", () => {
     // Along the row y = 0, rightward from the slot (2, 0), whose border is at x = 2.5.
-    let crossing = Number.NaN;
-    for (let x = 2; x < 3; x += 0.001) {
-      if (fieldDistance(field, x, 0) >= edge) {
-        crossing = x;
-        break;
-      }
-    }
+    const crossing = crossingAlong(field, [2, 0], [1, 0]);
     expect(crossing).toBeGreaterThan(2.5 - 0.02);
     expect(crossing).toBeLessThan(2.5 + 0.02);
   });
 
-  it("stamps the clear cells once per reveal, and only the lifting ones at each step of a lift", () => {
+  it("stamps the cells once as a reveal starts and once as it ends, only the lifting ones at each step between", () => {
     // The window moves by 8 cells: one more ring of cells stays in it, so the clear cells' stamp is kept through the lift.
     const builder = new RevealFieldBuilder();
     const lift = new RevealTransition(1);
@@ -203,15 +209,92 @@ describe("the fog of war: its field", () => {
     expect([builder.builds, builder.baseBuilds]).toEqual([1, 1]);
     lift.setTarget(boardReveal([{ x: 0, y: 0 }, { x: 1, y: 0 }]), 1, { origin: [{ x: 1, y: 0 }] });
     for (const t of [1.25, 1.5, 1.75]) builder.build(lift.cells(t));
-    expect([builder.builds, builder.baseBuilds]).toEqual([4, 1]);
+    expect([builder.builds, builder.baseBuilds]).toEqual([4, 2]);
     // Halfway, the lifting cell (2, 0) is clear on its half next to (1, 0) only.
     const half = builder.build(lift.cells(1.5));
-    expect(fieldDistance(half, 1.75, 0)).toBe(0);
+    expect(fieldDistance(half, 1.75, 0)).toBeLessThan(0);
     expect(fieldDistance(half, 2.25, 0)).toBeGreaterThan(0.15);
     const done = builder.build(lift.cells(2));
-    expect(fieldDistance(done, 2.25, 0)).toBe(0);
+    expect(fieldDistance(done, 2.25, 0)).toBeLessThan(0);
     // Lifted, the new cells join the clear ones: stamped once more.
-    expect(builder.baseBuilds).toBe(2);
+    expect(builder.baseBuilds).toBe(3);
+  });
+});
+
+describe("the fog of war: its rounded corners", () => {
+  const R = DEFAULT_FOG_SETTINGS.cornerRadius;
+  const shapes: Record<string, FogCell[]> = {
+    "one tile": [{ x: 0, y: 0 }],
+    "an L": [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
+    "a diagonal pair": [
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ],
+  };
+  const sharp = (cells: FogCell[]) => buildRevealField(clear(cells));
+  const round = (cells: FogCell[]) => buildRevealField(clear(cells), R);
+
+  it("defaults to half a cell, and keeps it within the field", () => {
+    expect(R).toBe(0.5);
+    expect(resolveFogSettings({ cornerRadius: 0 }).cornerRadius).toBe(0);
+    expect(resolveFogSettings({ cornerRadius: MAX_CORNER_RADIUS + 1 }).cornerRadius).toBe(R);
+  });
+
+  // A block of 3 x 3 cells around (0, 0): straight borders and outer corners away from any other corner.
+  const block = Array.from({ length: 9 }, (_, i) => ({ x: (i % 3) - 1, y: Math.floor(i / 3) - 1 }));
+  /** Where a circle of radius R in a right angle crosses its diagonal: R (1 - 1 / sqrt 2) in from the corner, each way. */
+  const inset = R * (1 - Math.SQRT1_2);
+
+  it("keeps a straight border on the cells' border", () => {
+    expect(crossingAlong(round(block), [0, 0], [0, -1])).toBeCloseTo(-1.5, 2);
+    expect(crossingAlong(round(shapes["an L"]!), [0, 0], [-1, 0])).toBeCloseTo(-0.5, 1);
+  });
+
+  it("rounds the clear area's outer corners as a circle of the radius", () => {
+    // Bilinear filtering alone softens a sharp corner by a twentieth of a cell.
+    expect(crossingPoint(sharp(block), [0, 0], [-1, -1])[0]).toBeLessThan(-1.5 + 0.06);
+    const [x, y] = crossingPoint(round(block), [0, 0], [-1, -1]);
+    expect(Math.abs(x - (-1.5 + inset))).toBeLessThan(0.02);
+    expect(Math.abs(y - (-1.5 + inset))).toBeLessThan(0.02);
+  });
+
+  it("rounds a lone tile to about a circle, its corners well in", () => {
+    const field = round(shapes["one tile"]!);
+    const side = -crossingAlong(field, [0, 0], [0, -1]);
+    const [corner] = crossingPoint(field, [0, 0], [1, 1]);
+    expect(side).toBeGreaterThan(0.43);
+    expect(corner).toBeLessThan(0.5 - inset + 0.02);
+    expect(corner / side).toBeLessThan(0.78);
+  });
+
+  it("rounds the fog's corner inside an L, as a circle of the radius", () => {
+    // Up-right along the diagonal from the middle of (0, 0): the L's inner corner (0.5, 0.5), where the fog comes in.
+    expect(fieldDistance(sharp(shapes["an L"]!), 0.6, 0.6)).toBeGreaterThan(0);
+    expect(fieldDistance(round(shapes["an L"]!), 0.6, 0.6)).toBeLessThan(0);
+    const [x] = crossingPoint(round(shapes["an L"]!), [0, 0], [1, 1]);
+    expect(Math.abs(x - (0.5 + inset))).toBeLessThan(0.02);
+  });
+
+  it("rounds a diagonal pair's corners, and the fog's beside their shared corner", () => {
+    const field = round(shapes["a diagonal pair"]!);
+    const [x] = crossingPoint(field, [1, 1], [1, 1]);
+    expect(x).toBeLessThan(1.5 - inset + 0.02);
+    // Beside the shared corner (0.5, 0.5), the fogged cell (1, 0)'s corner is pulled back: clearer than sharp.
+    expect(fieldDistance(field, 0.6, 0.4)).toBeLessThan(fieldDistance(sharp(shapes["a diagonal pair"]!), 0.6, 0.4));
+  });
+
+  it("stamps the clear cells again when the radius changes, not at each step", () => {
+    const builder = new RevealFieldBuilder();
+    const cells = clear(shapes["an L"]!);
+    builder.build(cells);
+    builder.build(cells);
+    builder.cornerRadius = 0.25;
+    builder.build(cells);
+    expect([builder.builds, builder.baseBuilds]).toEqual([3, 2]);
   });
 });
 

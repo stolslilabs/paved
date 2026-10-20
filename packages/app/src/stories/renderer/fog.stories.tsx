@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { AMBIENT_FPS, DEFAULT_FOG_SETTINGS, FIELD_REACH, QUALITY_TIERS, VILLAGE_MAX_CELLS } from "@paved/renderer";
+import { AMBIENT_FPS, DEFAULT_FOG_SETTINGS, FIELD_REACH, MAX_CORNER_RADIUS, QUALITY_TIERS, VILLAGE_MAX_CELLS } from "@paved/renderer";
 import { PHONE_PLAY_DISTANCE } from "./birds-board";
 import { FogBoard, type FogBoardProps } from "./fog-board";
 
@@ -11,6 +11,7 @@ const category = (name: string) => ({ table: { category: name } });
 const ARGS: FogBoardProps = {
   fog: d.enabled,
   falloff: d.falloff,
+  cornerRadius: d.cornerRadius,
   voxelEdge: d.voxelEdge,
   billow: d.billow,
   noiseScale: d.noiseScale,
@@ -29,6 +30,7 @@ const ARGS: FogBoardProps = {
   decor: d.landscape.decor,
   decorScale: d.landscape.decorScale,
   reveal: "board",
+  shape: "one",
   placed: 72,
   villageCells: VILLAGE_MAX_CELLS,
   villageBuilt: 30,
@@ -71,6 +73,7 @@ const meta = {
   argTypes: {
     fog: { control: "boolean", description: "The fog on", ...category("fog") },
     falloff: { ...range(0, FIELD_REACH - 1, 0.05), description: `The edge: 0 a hard line on the cells' border, above 0 a soft falloff over this many cells (default ${d.falloff})`, ...category("fog") },
+    cornerRadius: { ...range(0, MAX_CORNER_RADIUS, 0.05), description: `The radius of every corner of the clear area, a hole's and the fog's, cells; 0 sharp (default ${d.cornerRadius})`, ...category("fog") },
     voxelEdge: { control: "boolean", description: "The edge and the fog's grain cut on the voxel grid, as the models", ...category("fog") },
     billow: { ...range(0, 1.5, 0.05), description: `How far the noise pushes a soft edge in and out, cells (default ${d.billow})`, ...category("fog") },
     noiseScale: { ...range(0.5, 8, 0.1), description: `The fog's billows, cells across (default ${d.noiseScale})`, ...category("fog") },
@@ -90,7 +93,8 @@ const meta = {
     decor: { ...range(0, 16, 1), description: `The props a forest cell holds (default ${d.landscape.decor})`, ...category("landscape") },
     decorScale: { ...range(0.25, 3, 0.05), description: `The props' size, times their own (default ${d.landscape.decorScale})`, ...category("landscape") },
 
-    reveal: { control: "inline-radio", options: ["board", "village"], description: "What stays clear: the tiles and their free slots, or a village's owned cells and the cells next to them", ...category("board") },
+    reveal: { control: "inline-radio", options: ["board", "village", "shape"], description: "What stays clear: the tiles and their free slots, a village's owned cells and the cells next to them, or a shape's cells alone", ...category("board") },
+    shape: { control: "inline-radio", options: ["one", "L", "diagonal"], description: "Shape: a lone tile, an L or a diagonal pair, alone clear (to judge the corners)", ...category("board") },
     placed: { ...range(1, 72, 1), description: "Board: the recorded board's first tiles placed, in its order", ...category("board") },
     villageCells: { ...range(1, VILLAGE_MAX_CELLS, 1), description: `Village: the cells owned (at most ${VILLAGE_MAX_CELLS})`, ...category("board") },
     villageBuilt: { ...range(0, VILLAGE_MAX_CELLS, 1), description: "Village: how many owned cells hold a tile", ...category("board") },
@@ -150,6 +154,12 @@ export const ReducedMotion: Story = { args: { placed: 3, landscape: true, fallof
 
 /** The Low tier: the fog stays on, still. */
 export const LowTier: Story = { args: { quality: "low", landscape: true, falloff: 2 } };
+
+/**
+ * The corners, close up (camera at 40): the shape's cells alone clear, the landscape behind. Every corner of the clear area, a
+ * hole's and the fog's, is rounded to `cornerRadius` (0 shows the cells' sharp corners). Switch `shape` for an L or a diagonal pair.
+ */
+export const Corners: Story = { args: { reveal: "shape", shape: "one", landscape: true, view: "close", interactive: false } };
 
 /** No fog: the board as it is today, for the comparison. */
 export const Off: Story = { args: { fog: false } };

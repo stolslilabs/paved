@@ -29,8 +29,25 @@ import { BOARD_72 } from "../../mocks/board";
 import { PHONE_PLAY_DISTANCE } from "./birds-board";
 import { skinsFor } from "./skins-board";
 
-/** What the fog leaves clear: the board's tiles and free slots, or a PvP village's owned cells and the cells next to them. */
-export type FogReveal = "board" | "village";
+/**
+ * What the fog leaves clear: the board's tiles and free slots, a PvP village's owned cells and the cells next to them, or a
+ * shape's cells alone (to judge the corners).
+ */
+export type FogReveal = "board" | "village" | "shape";
+/** The shapes that test the corners: a lone tile, an L, a diagonal pair. */
+export type FogShape = "one" | "L" | "diagonal";
+const SHAPES: Record<FogShape, FogCell[]> = {
+  one: [{ x: 0, y: 0 }],
+  L: [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+  ],
+  diagonal: [
+    { x: 0, y: 0 },
+    { x: 1, y: 1 },
+  ],
+};
 /**
  * The game's opening camera (`focusBoard`), or at the game's tilt: a phone's play distance, the farthest the camera goes (300), or
  * close (40, just past the clear area's right border, to judge the edge zoomed in).
@@ -45,6 +62,7 @@ export interface FogBoardProps {
   /** The fog on (the study's own switch). */
   fog: boolean;
   falloff: number;
+  cornerRadius: number;
   voxelEdge: boolean;
   billow: number;
   noiseScale: number;
@@ -63,6 +81,8 @@ export interface FogBoardProps {
   decor: number;
   decorScale: number;
   reveal: FogReveal;
+  /** shape: the cells left clear, each with a tile. */
+  shape: FogShape;
   /** board: the recorded 72-tile board's first tiles placed, in its own order (each next to one before). */
   placed: number;
   /** village: the owned cells (the recorded board's first, in its order), and how many of them hold a tile. */
@@ -92,6 +112,7 @@ export function fogInput(props: FogBoardProps): FogSettingsInput {
   return {
     enabled: props.fog,
     falloff: props.falloff,
+    cornerRadius: props.cornerRadius,
     voxelEdge: props.voxelEdge,
     billow: props.billow,
     noiseScale: props.noiseScale,
@@ -124,7 +145,8 @@ interface Board {
   last: FogCell | null;
 }
 
-function initialBoard(props: Pick<FogBoardProps, "reveal" | "placed" | "villageCells" | "villageBuilt">): Board {
+function initialBoard(props: Pick<FogBoardProps, "reveal" | "shape" | "placed" | "villageCells" | "villageBuilt">): Board {
+  if (props.reveal === "shape") return { tiles: SHAPES[props.shape].map((c, i) => tileFor(c, 900 + i)), owned: [], last: null };
   if (props.reveal === "board") return { tiles: RECORDED.slice(0, Math.max(1, props.placed)), owned: [], last: null };
   const cells = Math.min(VILLAGE_MAX_CELLS, Math.max(1, props.villageCells));
   const owned = RECORDED.slice(0, cells).map((t) => ({ x: t.worldX, y: t.worldZ }));
@@ -133,11 +155,13 @@ function initialBoard(props: Pick<FogBoardProps, "reveal" | "placed" | "villageC
 
 /** The cells the fog leaves clear for the board state. */
 function revealOf(reveal: FogReveal, board: Board): FogCell[] {
+  if (reveal === "shape") return board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ }));
   return reveal === "board" ? boardReveal(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ }))) : villageReveal(board.owned);
 }
 
 /** The plates: the free slots (board); the owned empty cells, playable, and the buyable ones, fainter (village). */
 function platesOf(reveal: FogReveal, board: Board): PlacementSlot[] {
+  if (reveal === "shape") return [];
   if (reveal === "board") return freeSlots(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
   const built = new Set(board.tiles.map((t) => cellKey(t.worldX, t.worldZ)));
   const owned = board.owned.filter((c) => !built.has(cellKey(c.x, c.y)));
@@ -149,6 +173,7 @@ function platesOf(reveal: FogReveal, board: Board): PlacementSlot[] {
  * on the first owned empty cell, else the next cell bought (the recorded board's next, or the one tapped). Null: nothing to do.
  */
 function nextBoard(reveal: FogReveal, board: Board, tapped: FogCell | null): Board | null {
+  if (reveal === "shape") return null;
   const id = 1000 + board.tiles.length;
   const taken = new Set(board.tiles.map((t) => cellKey(t.worldX, t.worldZ)));
   if (reveal === "board") {
@@ -200,7 +225,7 @@ interface Readout {
  * move as `window.__fogPlace()`.
  */
 export function FogBoard(props: FogBoardProps) {
-  const { reveal, placed, villageCells, villageBuilt, plates, autoplay, interactive, view, time, enabled, reducedMotion, fps, quality } = props;
+  const { reveal, shape, placed, villageCells, villageBuilt, plates, autoplay, interactive, view, time, enabled, reducedMotion, fps, quality } = props;
   const [scene, setScene] = useState<GameScene | null>(null);
   const [fog, setFog] = useState<FogOfWar | null>(null);
   const [ready, setReady] = useState(false);
@@ -212,7 +237,7 @@ export function FogBoard(props: FogBoardProps) {
   settingsRef.current = fogSettings;
 
   // A new start (the controls' board) starts over.
-  useEffect(() => setBoard(initialBoard({ reveal, placed, villageCells, villageBuilt })), [reveal, placed, villageCells, villageBuilt]);
+  useEffect(() => setBoard(initialBoard({ reveal, shape, placed, villageCells, villageBuilt })), [reveal, shape, placed, villageCells, villageBuilt]);
 
   const settings = useMemo<RendererSettingsInput>(
     () => ({
@@ -296,8 +321,11 @@ export function FogBoard(props: FogBoardProps) {
     if (view !== "game") {
       const distance = VIEW_DISTANCE[view];
       const target = scene.controls.controls.target;
-      // Close, the view looks at the edge: half a cell past the clear area's border right of the board's middle.
-      if (view === "close") target.x += 2 * TILE_SIZE;
+      // Close, the view looks at the edge: half a cell past the clear area's border right of the board's middle; a shape's middle.
+      if (view === "close" && reveal === "shape") {
+        const cells = SHAPES[shape];
+        target.set((cells.reduce((n, c) => n + c.x, 0) / cells.length) * TILE_SIZE, target.y, (cells.reduce((n, c) => n + c.y, 0) / cells.length) * TILE_SIZE);
+      } else if (view === "close") target.x += 2 * TILE_SIZE;
       scene.camera.position.set(target.x, target.y + distance * Math.cos(PLAY_DEFAULT_POLAR_ANGLE), target.z + distance * Math.sin(PLAY_DEFAULT_POLAR_ANGLE));
       scene.camera.lookAt(target);
     }
@@ -306,10 +334,10 @@ export function FogBoard(props: FogBoardProps) {
     return () => cancelAnimationFrame(id);
     // The camera frames the board the story starts with, not each move: a placement does not move it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, view, reveal, placed, villageCells]);
+  }, [scene, view, reveal, shape, placed, villageCells]);
 
   // The readout: the frame observer times each frame drawn and counts its draws (three's counters kept over the passes).
-  const boardLabel = reveal === "board" ? `${board.tiles.length} tiles` : `village: ${board.owned.length} of ${VILLAGE_MAX_CELLS} cells owned, ${board.tiles.length} built`;
+  const boardLabel = reveal === "shape" ? `shape: ${shape}` : reveal === "board" ? `${board.tiles.length} tiles` : `village: ${board.owned.length} of ${VILLAGE_MAX_CELLS} cells owned, ${board.tiles.length} built`;
   const labelRef = useRef(boardLabel);
   labelRef.current = boardLabel;
   useEffect(() => {

@@ -13,12 +13,11 @@ import type { Season } from "./daynight-settings";
 import { sunAt } from "./daynight";
 import { TILE_SIZE } from "./types";
 import {
+  FIELD_INSIDE,
   FIELD_REACH,
-  FIELD_TEXELS,
   RevealFieldBuilder,
   RevealTransition,
   cellKey,
-  fieldEdge,
   type FogCell,
   type FogMode,
   type FogSettings,
@@ -92,7 +91,8 @@ interface FogUniforms {
   /** The field's first cell edge (x, z, in cells) and one over its size in cells. */
   uFogRect: { value: THREE.Vector4 };
   uFogReach: { value: number };
-  uFogEdge: { value: number };
+  /** How far inside the clear cells the field reads, cells (its byte 0). */
+  uFogInside: { value: number };
   uFogFalloff: { value: number };
   uFogBillow: { value: number };
   uFogVoxel: { value: number };
@@ -105,15 +105,18 @@ interface FogUniforms {
   uFogOpacity: { value: number };
 }
 
-/** The field's distance at a point of the board (x, z), in cells; the props' vertex shader reads it too. */
+/**
+ * The field's signed distance at a point of the board (x, z), in cells, negative over the clear cells, the border (its corners
+ * rounded) at 0; the props' vertex shader reads it too.
+ */
 const FOG_FIELD_GLSL = /* glsl */ `
 uniform sampler2D uFogField;
 uniform vec4 uFogRect;
 uniform float uFogReach;
-uniform float uFogEdge;
+uniform float uFogInside;
 float fogDistance(vec2 board) {
   vec2 cell = board / ${TILE_SIZE.toFixed(1)};
-  return texture2D(uFogField, (cell - uFogRect.xy) * uFogRect.zw).r * uFogReach;
+  return texture2D(uFogField, (cell - uFogRect.xy) * uFogRect.zw).r * (uFogReach + uFogInside) - uFogInside;
 }
 `;
 
@@ -149,10 +152,10 @@ vec2 fogAt(vec2 board, vec2 shift) {
   float amount;
   if (uFogFalloff <= 0.0) {
     float aa = uFogVoxel > 0.5 ? 1e-4 : max(fwidth(d), 1e-4);
-    amount = smoothstep(uFogEdge - 0.5 * aa, uFogEdge + 0.5 * aa, d);
+    amount = smoothstep(-0.5 * aa, 0.5 * aa, d);
   } else {
-    float away = smoothstep(uFogEdge, uFogEdge + 0.5, d);
-    amount = smoothstep(uFogEdge, uFogEdge + uFogFalloff, d + (n - 0.5) * 2.0 * uFogBillow * away);
+    float away = smoothstep(0.0, 0.5, d);
+    amount = smoothstep(0.0, uFogFalloff, d + (n - 0.5) * 2.0 * uFogBillow * away);
   }
   return vec2(amount, n);
 }
@@ -198,8 +201,8 @@ const LAND_VERTEX = /* glsl */ `
   // fog's noise as faint squares.
   vec2 fogOrigin = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
   float fogD = fogDistance(fogOrigin);
-  float fogFar = uFogEdge + uFogFalloff + 0.5 * uFogBillow;
-  transformed *= smoothstep(uFogEdge, uFogEdge + 0.35, fogD) * (1.0 - smoothstep(fogFar - 0.3, fogFar + 0.2, fogD));
+  float fogFar = uFogFalloff + 0.5 * uFogBillow;
+  transformed *= smoothstep(0.0, 0.35, fogD) * (1.0 - smoothstep(fogFar - 0.3, fogFar + 0.2, fogD));
 #endif
   vec4 fogBoard = vec4(transformed, 1.0);
 #ifdef USE_INSTANCING
@@ -381,7 +384,7 @@ export class FogOfWar implements AmbientEffect {
       uFogField: { value: this.noise },
       uFogRect: { value: new THREE.Vector4(0, 0, 1, 1) },
       uFogReach: { value: FIELD_REACH },
-      uFogEdge: { value: fieldEdge(FIELD_TEXELS) },
+      uFogInside: { value: FIELD_INSIDE },
       uFogFalloff: { value: 0 },
       uFogBillow: { value: 0 },
       uFogVoxel: { value: 0 },
@@ -422,10 +425,12 @@ export class FogOfWar implements AmbientEffect {
   setSettings(settings: FogSettings): void {
     const landscape = settings.landscape.enabled !== this.settings.landscape.enabled || settings.landscape.decor !== this.settings.landscape.decor || settings.landscape.decorScale !== this.settings.landscape.decorScale;
     const reach = settings.falloff !== this.settings.falloff || settings.billow !== this.settings.billow;
+    const corners = settings.cornerRadius !== this.settings.cornerRadius;
     this.settings = settings;
     this.transition.setSeconds(settings.liftSeconds);
     if (landscape || reach) this.propsKey = "";
     this.apply();
+    if (corners) this.rebuild();
     this.syncProps();
     this.onChange?.();
   }
@@ -499,6 +504,7 @@ export class FogOfWar implements AmbientEffect {
     this.groundMesh.visible = shown && land;
     this.mist.visible = shown && s.mist > 0;
     for (const mesh of this.props.values()) mesh.visible = shown && land;
+    this.builder.cornerRadius = s.cornerRadius;
     u.uFogFalloff.value = s.falloff;
     u.uFogBillow.value = s.billow;
     u.uFogVoxel.value = s.voxelEdge ? 1 : 0;

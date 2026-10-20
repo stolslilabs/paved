@@ -175,7 +175,7 @@ export {
   buildRevealField,
   cellKey,
   fieldDistance,
-  fieldEdge,
+  MAX_CORNER_RADIUS,
   fogMode,
   freeSlots,
   liftedCells,
