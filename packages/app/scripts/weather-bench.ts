@@ -65,7 +65,7 @@ for (let round = 0; round < ROUNDS; round++) {
     for (const [name, config] of round % 2 ? [...CONFIGS].reverse() : CONFIGS) {
       const page = await browser.newPage({ viewport: { width: 360, height: 780 }, deviceScaleFactor: 3 });
       const cdp = await page.context().newCDPSession(page);
-      await page.goto(`${URL_BASE}/iframe.html?id=renderer-weather--${season}&viewMode=story&args=quality:${config.quality}`, { timeout: 180_000, waitUntil: "commit" });
+      await page.goto(`${URL_BASE}/iframe.html?id=renderer-weather--${season}&viewMode=story`, { timeout: 180_000, waitUntil: "commit" });
       await page.waitForSelector("[data-ready]", { timeout: 300_000 });
       // The season's weather in full (its fade done) before the timed frames.
       await page.waitForFunction(() => {
@@ -81,8 +81,9 @@ for (let round = 0; round < ROUNDS; round++) {
           const w = (window as any).__weather;
           s.stop();
           s.setFrameObserver(null);
-          if (config.weather === "off") w.setMode("off");
-          if (config.weather === "forced") w.setMode("moving");
+          s.setSettings({ ...s.getSettings(), quality: config.quality });
+          // The mode as the story's `weatherMode` gives it for the tier (off on Low), or forced.
+          w.setMode(config.weather === "off" ? "off" : config.weather === "forced" ? "moving" : s.getQuality() === "low" ? "off" : "moving");
           const gl = s.renderer.getContext();
           const info = s.renderer.info;
           info.autoReset = false;
