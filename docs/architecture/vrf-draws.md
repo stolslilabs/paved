@@ -1,0 +1,194 @@
+# Cartridge's VRF for every draw (#638, design)
+
+Track CORE's design for #638, part of the PvP plan #637. The owner's decisions of 2026-10-20 bind:
+
+- Cartridge's VRF gives a true random for every tile drawn.
+- The commit to a future block hash is dropped.
+- The devnet mock is Glitchbomb's.
+
+This note proposes the rest and lists the open points (section 7). The code follows the ruling.
+
+Sources read for this note: Cartridge's public provider and server, `cartridge-gg/vrf` on `main` (MIT, cartridge-gg):
+`src/vrf_provider/vrf_provider_component.cairo`, `src/types.cairo`, `server/src/main.rs`,
+`server/src/routes/proof.rs` and `server/src/routes/outside_execution/mod.rs`. Glitchbomb's repository could not be
+read from here: GitHub answers 404 without a login. Its mock is known only from #638's description (section 4).
+
+## 1. Summary
+
+- **The source of a draw is `Source::Salt(salt)`, with the salt computed from the draw: its kind, its game and its index.**
+  The provider's seed is `poseidon(salt, caller, chain_id)`, the caller being the embedding system. So a draw's random is
+  fixed for that draw. A reverted transaction sent again draws the same tile, and no player action can reroll it.
+- **One draw per transaction.** The embedding system enforces it itself, and the provider enforces it too (section 3).
+- **What a player can see before a draw depends on Cartridge's deployment, not on this design.**
+  - Cartridge's published server answers any seed: `/proof` returns the random for a raw seed, with no authentication in
+    the handler.
+  - `/outside_execution` returns the signed wrapper to its caller, with the proof in the `submit_random` calldata. It does
+    not simulate the transaction or check whether it would revert.
+  - If a player can reach either route in production, they can read **every** future draw of their own game, not only the
+    next one. That holds for `Salt` and for `Nonce` sources alike, since both seeds are computed from public values.
+  - So this must be confirmed with Cartridge before #643 relies on it (open point 2). A preview of the next tile for
+    everyone does not answer that case.
+- **Fee estimation leaks nothing.** The provider's `consume_random` returns 0 when every resource bound of the
+  transaction is 0 ("Always return 0 during fee estimation to avoid leaking vrf info"). A local simulation cannot get a
+  real value: `consume_random` asserts the random is non-zero (`NOT_FULFILLED`), and only `submit_random`, with a proof
+  checked against Cartridge's public key, writes it.
+- **What this PR builds:** a component that a system embeds; the mock provider; a test harness contract that embeds the
+  component, for the snforge tests and the size and gas measures; the client's call builder; and the devnet deployment
+  of the mock. No game system draws through it yet: the first is #643.
+
+## 2. How Cartridge's flow works (from its source)
+
+1. The client puts `request_random(caller, source)` on the VRF provider as the **first** call of its multicall. On chain
+   it does nothing. Cartridge's server uses it to find the seed.
+2. Cartridge's server computes the seed, proves it with Cartridge's key and wraps the player's outside execution. The
+   wrapper's calls are: `submit_random(seed, proof)`, then the player's calls, then `assert_consumed(seed)`. The
+   paymaster submits the wrapper.
+3. The embedding system calls `consume_random(source)` with the same source.
+   - It gets `poseidon(random, consume_count)`, where `consume_count` is the number of earlier consumes in the
+     transaction.
+   - A source whose seed was not submitted panics with `NOT_FULFILLED`.
+4. `assert_consumed` reverts the whole transaction if nothing consumed, then clears the stored random.
+
+Seeds (`get_seed`):
+
+- `Salt(s)`: `poseidon(s, caller, chain_id)`.
+- `Nonce(addr)`: `poseidon(nonce[addr], addr, caller, chain_id)`. The nonce increments on the first consume of the
+  transaction.
+
+`nonce[addr]` is keyed by `addr` alone, whatever the caller. So **any contract can advance any address's nonce** by
+consuming `Nonce(addr)` in a transaction of its own.
+
+The provider is at `0x051fea4450da9d6aee758bdeba88b2f665bcbf549d2c61421aa724e9ac0ced8f` on mainnet and on Sepolia
+(class `0x00be3edf…7257`, from its README).
+
+## 3. Rules against replaying a draw
+
+**The salt.**
+
+```
+salt = poseidon('PAVED_DRAW', kind, game_id, draw_index)
+```
+
+- `kind` keeps apart the draws of one system that share a game id: an attack's tile, a reward offer, the matchmaker's
+  opponent.
+- The caller in the provider's seed keeps apart the systems.
+- `draw_index` is the game's draw counter, stored by the embedding system and incremented by the draw. Nothing the player
+  chooses (a position, an orientation, a transaction) enters the salt. So a draw cannot be steered by choosing a move,
+  and cannot be rerolled by reverting.
+
+**Why not `Nonce`.**
+
+- With `Nonce(player)`, a player could read the next draw, then advance their own nonce from a contract of their own,
+  and so redraw at will (a reroll).
+- `Nonce(system)` has the same hole, and also lets another player's draw change yours.
+- `Salt` has no state that anyone else can advance.
+
+**A reverted and resent transaction** has the same salt, so the same seed, so the same random: ECVRF is deterministic for
+one key and one seed. Tested with the mock (section 4), which derives its value from the seed.
+
+**One draw per transaction.**
+
+- **The provider.** The server fulfils one seed per transaction (the first `request_random`). A second draw of the same
+  game uses the next index, so another seed, so it panics with `NOT_FULFILLED`. Two consumes of one source in one
+  transaction get different values (`consume_count`).
+- **The component.** It also checks the rule itself, so that the mock and the devnet behave as the chain does. It stores
+  the transaction hash of its last draw (`vrf_last_draw_tx`) and refuses a second draw in the same transaction:
+  `'VRF: one draw per tx'`. The check is contract-wide, so one transaction cannot draw in two games of the same system
+  either.
+
+**What is left, if the routes of section 1 are reachable.**
+
+- Every draw of a game is computable in advance by its player, and by anyone who knows its salt. The order is then
+  known: by the measures of #637, a bot then reaches 100 to 117 % of the village, with 3 stars in 35 to 58 % of attacks.
+- Showing the next tile to everyone would not close that gap. The leak is the whole future, not one tile ahead.
+- **This design needs nothing else from Cartridge.** It needs only that their production server proves a seed only when
+  the paymaster submits the transaction, and that a reverting transaction does not land with its proof in the calldata.
+  If that holds, no peek is possible and the UI shows no next tile (open points 2 and 3).
+
+## 4. The mock provider
+
+- **A native `#[starknet::contract]`, `MockVrfProvider`** (`contracts/src/mocks/vrf.cairo`), with the provider's
+  interface (`IVrfProvider`) and its `Source` enum (`contracts/src/vrf.cairo`).
+  - Its calls are `request_random(caller, source)` and `assert_consumed(seed)`, which do nothing, and
+    `consume_random(source) -> felt252`.
+  - The serialization of `Source` is Cartridge's (`0` for `Nonce`, `1` for `Salt`), so the client sends the same calldata
+    on the devnet and on chain.
+- **Its value comes from the source, not from the transaction hash (proposed; it departs from Glitchbomb's).**
+  - `consume_random` computes the seed as the provider does, with the caller, the chain id and, for `Nonce`, an
+    incremented nonce.
+  - It returns `poseidon(seed, 'MOCK_VRF')`.
+  - So a retried draw gets the same tile in the tests. With the transaction hash, the snforge tests would have to cheat
+    the hash, and could not show that a draw is fixed by its source.
+- **Source of the port.** The interface and the seed formula come from Cartridge's public provider (MIT, cartridge-gg).
+  The contract shape follows #638's description of Glitchbomb's mock (at `5efcbcec`, MIT, cartridge-gg). If the owner
+  wants a line-by-line port of Glitchbomb's file, it must be exported here, since it cannot be read from here (open
+  point 5).
+- **The mock is deployed by `deploy.sh` on the devnet only.** It is refused by name on Sepolia and mainnet, as
+  `MockUSDC` is.
+
+## 5. The component and the client
+
+**`DrawableComponent`** (`contracts/src/components/drawable.cairo`), flat, like the other components (`upgrades.md`,
+"Storage layout discipline"). Its storage is new names only:
+
+| Variable | Type | Role |
+|---|---|---|
+| `vrf_provider` | `ContractAddress` | Cartridge's provider, or the mock on devnet. Set by the owner |
+| `vrf_last_draw_tx` | `felt252` | The transaction hash of the last draw: the one-draw-per-transaction rule |
+
+Its calls:
+
+- `draw_random(ref self, kind: felt252, game_id: felt252, draw_index: u32) -> felt252`. Internal: the embedding system
+  calls it inside its own entry point, with its own draw counter.
+  - It checks the one-draw rule.
+  - It computes the salt and calls `consume_random(Source::Salt(salt))`.
+  - It returns the random, which then replaces the seed of that draw, for example in `draw_from_bitmap(random, …)`.
+- `vrf_salt(kind, game_id, draw_index) -> felt252`. A pure function: the client computes the same salt for its
+  `request_random`.
+- `set_vrf_provider(address)`, owner only, in the embedding system's ABI. It also emits `VrfProviderSet` for the
+  indexer.
+
+**The client (`@paved/chain`).**
+
+- `vrfSalt(kind, gameId, drawIndex)`, the TypeScript mirror of the salt, pinned against Cairo by a fixture as the codec
+  is.
+- `withVrfRequest(calls, { provider, consumer, salt })` puts `request_random(consumer, Salt(salt))` first.
+- The deployment gains `vrfProvider`: Cartridge's address on Sepolia and mainnet, the mock's on the devnet. The devnet
+  path is the same call against the mock, which ignores it.
+- `request_random` on the provider becomes a session policy (it moves no token, P-65).
+- The draw's write and its tile view come with #643, which owns the first drawing entry point.
+
+**The indexer.** It needs no table here: `VrfProviderSet` is a configuration event. The draws' events belong to the
+systems that draw (#643, #642, #639).
+
+## 6. Size and cost (to measure in the PR)
+
+- **CASM.** `scripts/class-sizes.sh` on the harness contract, with and without the component: the felts it adds to an
+  embedding system. These are judged against each future embedder's cap (P-44, `class-headroom.md`).
+- **Gas.**
+  - `contracts/tests/gas.cairo` measures one draw through the mock: the salt, the dispatcher call and the two storage
+    accesses.
+  - The real provider's `submit_random` (the ECVRF verification) and `assert_consumed` run in the same transaction, paid
+    by the paymaster. snforge cannot measure them without Cartridge's class.
+  - Proposed: measure the consumer side in `gas.cairo`, and Cartridge's part once on Sepolia, from the receipt of a
+    harness draw (open point 6).
+
+## 7. Open points for the owner
+
+1. **The source: `Salt(poseidon('PAVED_DRAW', kind, game_id, draw_index))`** (proposed), not `Nonce`. A `Nonce` can be
+   advanced by any contract, so a player could reroll.
+2. **To confirm with Cartridge** (it decides whether the VRF hides the order):
+   - Is the production VRF server's `/proof` or `/outside_execution` route reachable by a player?
+   - Does the paymaster submit a VRF-wrapped transaction that reverts?
+   - Does it ever return the signed wrapper to the client?
+
+   If any answer is yes, a player can read their whole game in advance, whatever the source. Glitchbomb's integration
+   cannot answer this; only Cartridge's deployment can.
+3. **No next-tile preview in the UI** (proposed). If the answers to point 2 are all no, there is nothing to equalise. If
+   any is yes, one tile shown would not equalise a whole known order.
+4. **One draw per transaction, contract-wide**, enforced by the component (one storage read and one write per draw;
+   proposed), on top of what the provider already enforces.
+5. **The mock's value comes from the source**, not from the transaction hash (proposed). It is ported from Cartridge's
+   public interface and #638's description, unless Glitchbomb's file is exported here.
+6. **The embedding in this PR is a test harness only.** The first real embedding is #643. Cartridge's part of the gas is
+   measured on Sepolia, not in snforge (proposed).
