@@ -162,6 +162,29 @@ export type {
 } from "./core/weather-settings";
 export type { Weather, WeatherStats } from "./core/weather";
 export const loadWeather = (): Promise<typeof import("./core/weather")> => import("./core/weather");
+// The fog of war (FOG-STUDY), stories only: the board does not call it. Its reveal logic and settings are small and eager; the fog
+// is a chunk of its own, loaded by `loadFogOfWar` (nothing in the app's board calls it, so the app's build has no such chunk).
+export {
+  DEFAULT_FOG_SETTINGS,
+  FIELD_REACH,
+  FIELD_TEXELS,
+  FOG_NEIGHBOURS,
+  RevealTransition,
+  VILLAGE_MAX_CELLS,
+  boardReveal,
+  buildRevealField,
+  cellKey,
+  fieldDistance,
+  fieldEdge,
+  fogMode,
+  freeSlots,
+  liftedCells,
+  resolveFogSettings,
+  villageReveal,
+} from "./core/fog-of-war-settings";
+export type { FogCell, FogMode, FogSettings, FogSettingsInput, LandscapeSettings, RevealField, RevealedCell } from "./core/fog-of-war-settings";
+export type { FogOfWar, FogStats } from "./core/fog-of-war";
+export const loadFogOfWar = (): Promise<typeof import("./core/fog-of-war")> => import("./core/fog-of-war");
 export { dropDuration, planDrop } from "./core/voxel-drop-schedule";
 export type { DropSchedule, ScheduleGrid } from "./core/voxel-drop-schedule";
 export type { DropInfo, DropResult, DropSkip } from "./core/tile-drops";
