@@ -44,7 +44,8 @@ function InFlow({ state, onAction, onConnect, faucet }: Pick<BalancesProps, "sta
 const flow = (state: BalancesState): Story => ({ render: (args) => <InFlow {...args} state={state} /> });
 
 type Ready = Extract<BalancesState, { status: "ready" }>;
-const CONNECTED: Ready = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 };
+// No Vault position: a known zero (the vault read's `shares`), so a first deposit animates its plate in.
+const CONNECTED: Ready = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 0n, cobbles: 240 };
 /** A Vault holder: vPAVED joins the balances. */
 const HOLDER: Ready = { ...CONNECTED, vpaved: 1_250_400_000_000_000_000n };
 const STEPS: readonly Ready[] = [

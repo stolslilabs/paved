@@ -28,6 +28,8 @@ export interface ResourcePlateProps extends VariantProps<typeof plateVariants> {
   fraction: number;
   /** A "+" at the end, as a game's currency bar invites a purchase. */
   plus?: boolean;
+  /** The amount shown before this plate mounted (a balance that just appeared): the first render animates from it. */
+  from?: bigint;
   /** After the figure: a hint of what a tap does (a chevron). */
   children?: ReactNode;
   className?: string;
@@ -46,10 +48,10 @@ interface Change {
  * (`NumberTicker`) and briefly takes the change's colour; up, a "+N" rises and fades and the coin pops; down, a "−N" drops and
  * fades and the coin dips. Under reduced motion only the colour flashes: nothing moves. The accessible name is the container's.
  */
-export function ResourcePlate({ kind, amount, decimals, fraction, plus, size, tone, children, className }: ResourcePlateProps) {
+export function ResourcePlate({ kind, amount, decimals, fraction, plus, from, size, tone, children, className }: ResourcePlateProps) {
   const reduced = useReducedMotionConfig();
   // The last amount seen and its change, derived while rendering (no effect, no extra frame).
-  const [seen, setSeen] = useState(amount);
+  const [seen, setSeen] = useState(from ?? amount);
   const [change, setChange] = useState<Change | null>(null);
   const [flash, setFlash] = useState<boolean>(false);
   if (amount !== seen) {
@@ -71,8 +73,8 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, size, to
   const target = text === null ? 0 : Number(text.replaceAll(",", ""));
   // The exact text on the settled value (a number past 2^53 loses digits); the counter's own between.
   const format = useCallback((n: number) => (n === target && text !== null ? text : formatFixed(n, fraction)), [target, text, fraction]);
-  // Where the counter starts: the first amount shown, so a first load writes it at once.
-  const [start] = useState(target);
+  // Where the counter starts: the first amount shown, so a first load writes it at once (or `from`, to count from it).
+  const [start] = useState(() => (from === undefined ? target : Number(formatUnits(from, decimals, fraction).replaceAll(",", ""))));
   const moving = change !== null && !reduced;
 
   return (

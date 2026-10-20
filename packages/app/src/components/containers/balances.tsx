@@ -1,6 +1,6 @@
 import { formatUnits } from "@paved/game-core";
 import * as m from "motion/react-m";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -61,10 +61,49 @@ function amountOf(state: Ready, kind: BalanceKind): bigint | null | undefined {
   return typeof value === "number" ? BigInt(value) : value;
 }
 
-/** The balances a player sees: vPAVED only while some is held. */
-const shownKinds = (state: Ready) => ORDER.filter((kind) => kind !== "vpaved" || (state.vpaved ?? 0n) > 0n);
+/** The balances a player sees: vPAVED only while it shows (`useVpavedPlate`). */
+const shownKinds = (vpaved: boolean) => ORDER.filter((kind) => kind !== "vpaved" || vpaved);
+
+/** How long a vPAVED plate stays once its balance falls to zero: its count down and its "−N" play out first. */
+const VPAVED_LEAVE_MS = 2400;
+
+/**
+ * Whether the vPAVED plate shows, and what it counts from (issue 620). It shows while some is held. A first deposit mounts it
+ * counting up from the zero before (`from`), so the gain animates like any other; a withdrawal to zero keeps it on screen at
+ * 0.00 until its count down and its "−N" are over, then it leaves. Never animated from a missing value, as the plates.
+ */
+function useVpavedPlate(vpaved: bigint | null | undefined): { shown: boolean; from?: bigint } {
+  const held = (vpaved ?? 0n) > 0n;
+  const [seen, setSeen] = useState(vpaved);
+  const [shown, setShown] = useState(held);
+  const [from, setFrom] = useState<bigint | undefined>(undefined);
+  if (vpaved !== seen) {
+    setSeen(vpaved);
+    const known = typeof seen === "bigint" && typeof vpaved === "bigint";
+    if (held && !shown) {
+      setShown(true);
+      setFrom(known ? (seen as bigint) : undefined);
+    }
+    if (!held && shown && !known) setShown(false);
+  }
+  const leaving = shown && !held;
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = setTimeout(() => setShown(false), VPAVED_LEAVE_MS);
+    return () => clearTimeout(timer);
+  }, [leaving]);
+  // `from` serves the plates that mount with the deposit; a sheet opened later shows the balance as a first load.
+  useEffect(() => {
+    if (from === undefined) return;
+    const timer = setTimeout(() => setFrom(undefined), VPAVED_LEAVE_MS);
+    return () => clearTimeout(timer);
+  }, [from]);
+  return { shown, from };
+}
 
 interface PlateTapProps {
+  /** The amount a plate that just appeared counts from (vPAVED's first deposit). */
+  from?: bigint;
   kind: BalanceKind;
   state: Ready;
   onAction?: (kind: BalanceKind) => void;
@@ -91,6 +130,7 @@ function nameOf(kind: BalanceKind, amount: bigint | null, action: string) {
  */
 function PlateTap({
   kind,
+  from,
   state,
   onAction,
   faucet,
@@ -114,7 +154,7 @@ function PlateTap({
       className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
       {...rest}
     >
-      <ResourcePlate kind={kind} amount={amount} decimals={decimals} fraction={fraction} plus={kind === "cobbles"} tone={kind === "cobbles" ? "invite" : "default"}>
+      <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} plus={kind === "cobbles"} tone={kind === "cobbles" ? "invite" : "default"}>
         {children}
       </ResourcePlate>
     </m.button>
@@ -122,7 +162,7 @@ function PlateTap({
 }
 
 /** A row of the sheet: a large plate, the balance's name and its action. */
-function SheetRow({ kind, state, onAction, faucet, minting }: PlateTapProps) {
+function SheetRow({ kind, from, state, onAction, faucet, minting }: PlateTapProps) {
   const amount = amountOf(state, kind);
   const { action, inert } = actionOf(kind, faucet, minting);
   const { label, decimals, fraction } = PLATES[kind];
@@ -131,13 +171,15 @@ function SheetRow({ kind, state, onAction, faucet, minting }: PlateTapProps) {
       type="button"
       onClick={() => onAction?.(kind)}
       disabled={inert || amount === undefined}
-      aria-label={action ? `${label}: ${action}` : label}
+      // The plate's figure is hidden from assistive technology: the row's name carries it ("48.50 USDC: Get test USDC").
+      aria-label={amount === undefined ? (action ? `${label}: ${action}` : label) : nameOf(kind, amount, action)}
+      aria-busy={amount === undefined || undefined}
       className="state-layer flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
     >
       {amount === undefined ? (
         <Skeleton className="h-11 w-32 rounded-full" />
       ) : (
-        <ResourcePlate kind={kind} amount={amount} decimals={decimals} fraction={fraction} size="md" plus={kind === "cobbles"} tone={kind === "cobbles" ? "invite" : "default"} />
+        <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size="md" plus={kind === "cobbles"} tone={kind === "cobbles" ? "invite" : "default"} />
       )}
       <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
         <span className="hidden mobile:inline">{label}</span>
@@ -170,6 +212,8 @@ const PLATE_HOLD = <Skeleton className="h-8 w-20 rounded-full" />;
  */
 export function Balances({ layout, state, onAction, onConnect, faucet, minting, defaultOpen = false, className }: BalancesProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const vpaved = useVpavedPlate(state.status === "ready" ? state.vpaved : undefined);
+  const fromOf = (kind: BalanceKind) => (kind === "vpaved" ? vpaved.from : undefined);
   if (layout === "rail") {
     return (
       <section aria-label="Balances" className={cn("flex min-w-0 items-center gap-1.5", className)}>
@@ -184,7 +228,7 @@ export function Balances({ layout, state, onAction, onConnect, faucet, minting, 
             {PLATE_HOLD}
           </>
         ) : (
-          shownKinds(state).map((kind) => <PlateTap key={kind} kind={kind} state={state} onAction={onAction} faucet={faucet} minting={minting} />)
+          shownKinds(vpaved.shown).map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} onAction={onAction} faucet={faucet} minting={minting} />)
         )}
       </section>
     );
@@ -225,8 +269,8 @@ export function Balances({ layout, state, onAction, onConnect, faucet, minting, 
           </SheetHeader>
           {state.status === "ready" ? (
             <div className="flex flex-col gap-1 px-2 pb-2">
-              {shownKinds(state).map((kind) => (
-                <SheetRow key={kind} kind={kind} state={state} onAction={pick} faucet={faucet} minting={minting} />
+              {shownKinds(vpaved.shown).map((kind) => (
+                <SheetRow key={kind} kind={kind} from={fromOf(kind)} state={state} onAction={pick} faucet={faucet} minting={minting} />
               ))}
             </div>
           ) : (

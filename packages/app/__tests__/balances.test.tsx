@@ -22,9 +22,12 @@ describe("Balances (#538), the resource bar (#620)", () => {
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("48.50")).toBeInTheDocument();
     expect(within(sheet).getByText("142.35")).toBeInTheDocument();
+    // Each row names its amount for assistive technology (the plate's figure is hidden from it).
+    expect(within(sheet).getByRole("button", { name: "48.50 USDC" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "240 Cobbles: Buy packs" })).toBeInTheDocument();
     // vPAVED shows only when held.
-    expect(within(sheet).queryByRole("button", { name: "vPAVED: Vault" })).toBeNull();
-    await userEvent.click(within(sheet).getByRole("button", { name: "PAVED: Vault" }));
+    expect(within(sheet).queryByRole("button", { name: /vPAVED/ })).toBeNull();
+    await userEvent.click(within(sheet).getByRole("button", { name: "142.35 PAVED: Vault" }));
     expect(onAction).toHaveBeenCalledWith("paved");
   });
 
@@ -71,6 +74,28 @@ describe("Balances (#538), the resource bar (#620)", () => {
     rerender(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 1_250_400_000_000_000_000n }} onAction={onAction} />));
     await userEvent.click(screen.getByRole("button", { name: "1.25 vPAVED: Vault" }));
     expect(onAction).toHaveBeenCalledWith("vpaved");
+  });
+
+  it("vPAVED: a first deposit brings its plate counting up from zero, with its +N", () => {
+    const { container, rerender } = render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 0n }} />));
+    rerender(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 500_000_000_000_000_000n }} />));
+    expect(screen.getByRole("button", { name: "0.50 vPAVED: Vault" })).toBeInTheDocument();
+    expect(container.querySelector("[data-token=vpaved] [data-slot=resource-change]")).toHaveTextContent("+0.50");
+  });
+
+  it("vPAVED: a withdrawal to zero counts down and shows its −N before the plate leaves", async () => {
+    const { container, rerender } = render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 500_000_000_000_000_000n }} />));
+    rerender(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 0n }} />));
+    expect(screen.getByRole("button", { name: "0.00 vPAVED: Vault" })).toBeInTheDocument();
+    expect(container.querySelector("[data-token=vpaved] [data-slot=resource-change]")).toHaveTextContent("−0.50");
+    await waitFor(() => expect(screen.queryByRole("button", { name: /vPAVED/ })).toBeNull(), { timeout: 4000 });
+  });
+
+  it("vPAVED: from a missing value it is a first load, no animation", () => {
+    const { container, rerender } = render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: undefined }} />));
+    rerender(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 500_000_000_000_000_000n }} />));
+    expect(screen.getByRole("button", { name: "0.50 vPAVED: Vault" })).toBeInTheDocument();
+    expect(container.querySelector("[data-slot=resource-change]")).toBeNull();
   });
 
   it("each token shows its icon file, no Font Awesome glyph", () => {
