@@ -69,7 +69,7 @@ export interface SeasonWheelProps {
   state: WheelState;
   /** Where the cycle is (`GameScene.getDayNight`), used in auto; none: the dial rests on the first season's day. */
   point?: WheelPoint | null;
-  /** Click: the next state (issue 634: the next season not yet started, four of them, then auto; `nextWheelRound`). */
+  /** Click: the next state (issue 634: the next season not yet started, then forward, auto on the fourth tap; `nextWheelRound`). */
   onNext?: () => void;
   /** The disc's turn takes this long between two readings, in ms (the board reads once a second). Default 1000. */
   turnMs?: number;

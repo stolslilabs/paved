@@ -58,16 +58,16 @@ function Clicks_({ now }: { now: (typeof WHEEL_SEASONS)[number] }) {
   return <SeasonWheel state={round.state} point={{ season: now, position: 0.3 }} onNext={() => setRound((r) => nextWheelRound(r, now))} />;
 }
 
-/** Click (#634), the cycle in summer: autumn, the next season not yet started, then winter, spring, summer, and auto again. */
+/** Click (#634), the cycle in summer: autumn, the next season not yet started, then winter, spring, and auto on the fourth tap. */
 export const Interactive: Story = { render: () => <Clicks_ now="summer" /> };
-/** Click, the cycle in winter: spring, summer, autumn, winter, auto. */
+/** Click, the cycle in winter: spring, summer, autumn, auto. */
 export const InteractiveFromWinter: Story = { render: () => <Clicks_ now="winter" /> };
 
-/** The four-tap round from auto in autumn, side by side: auto, then winter, spring, summer, autumn, and auto after the fourth. */
+/** The four-tap round from auto in autumn, side by side: auto, then winter, spring, summer, and auto on the fourth tap. */
 export const FourTapRound: Story = {
   render: () => {
     const rounds = [initialWheelRound(true)];
-    for (let i = 0; i < 5; i++) rounds.push(nextWheelRound(rounds.at(-1)!, "autumn"));
+    for (let i = 0; i < 4; i++) rounds.push(nextWheelRound(rounds.at(-1)!, "autumn"));
     return (
       <div className="flex flex-wrap gap-4">
         {rounds.map((r, i) => (

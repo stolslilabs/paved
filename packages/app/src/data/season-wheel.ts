@@ -24,7 +24,7 @@ export const isNight = (point: WheelPoint | null | undefined): boolean => !!poin
 export const followingSeason = (season: Season): Season => WHEEL_SEASONS[(WHEEL_SEASONS.indexOf(season as (typeof WHEEL_SEASONS)[number]) + 1) % WHEEL_SEASONS.length]!;
 
 /**
- * Where the wheel is in a round of taps (#634): its state, and `last`, the fourth season of the round, after which a tap
+ * Where the wheel is in a round of taps (#634): its state, and `last`, the last season of the round, after which a tap
  * goes back to auto. In auto `last` is none.
  */
 export interface WheelRound {
@@ -34,13 +34,14 @@ export interface WheelRound {
 
 /**
  * A tap (#634): from auto, the next season not yet started (the one after `now`, the auto cycle's season; summer's day,
- * where the dial rests, when the cycle has not drawn yet); then each following season, four in all, the fourth being the
- * season auto was in; after the fourth, auto again. The dial only ever turns forward.
+ * where the dial rests, when the cycle has not drawn yet); then each following season up to the one before `now`. The
+ * four seasons passed (`now`'s and the three after it), the fourth tap goes back to auto. The dial only ever turns forward.
  */
 export function nextWheelRound(round: WheelRound, now?: Season | null): WheelRound {
   if (round.state === "auto") {
     const from = now ?? "summer";
-    return { state: followingSeason(from) as WheelState, last: from };
+    const first = followingSeason(from);
+    return { state: first as WheelState, last: followingSeason(followingSeason(first)) };
   }
   if (round.state === round.last) return { state: "auto", last: null };
   return { state: followingSeason(round.state) as WheelState, last: round.last };

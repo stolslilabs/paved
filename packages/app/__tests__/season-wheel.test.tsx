@@ -30,14 +30,15 @@ describe("the season wheel's states", () => {
     return seen.map((r) => r.state);
   };
 
-  it("goes from auto to the next season not yet started, four seasons forward, then auto again (#634)", () => {
+  it("goes from auto to the next season not yet started, then forward, and back to auto on the fourth tap (#634)", () => {
     const auto = initialWheelRound(true);
-    expect(taps(auto, "summer")).toEqual(["auto", "autumn", "winter", "spring", "summer", "auto"]);
-    expect(taps(auto, "autumn")).toEqual(["auto", "winter", "spring", "summer", "autumn", "auto"]);
-    expect(taps(auto, "winter")).toEqual(["auto", "spring", "summer", "autumn", "winter", "auto"]);
-    expect(taps(auto, "spring")).toEqual(["auto", "summer", "autumn", "winter", "spring", "auto"]);
+    // Five taps: the fourth is auto, the fifth starts a new round from the cycle's season.
+    expect(taps(auto, "summer")).toEqual(["auto", "autumn", "winter", "spring", "auto", "autumn"]);
+    expect(taps(auto, "autumn")).toEqual(["auto", "winter", "spring", "summer", "auto", "winter"]);
+    expect(taps(auto, "winter")).toEqual(["auto", "spring", "summer", "autumn", "auto", "spring"]);
+    expect(taps(auto, "spring")).toEqual(["auto", "summer", "autumn", "winter", "auto", "summer"]);
     // The cycle not drawn yet: the dial rests on summer's day, so autumn is the next to come.
-    expect(taps(auto, null)).toEqual(["auto", "autumn", "winter", "spring", "summer", "auto"]);
+    expect(taps(auto, null)).toEqual(["auto", "autumn", "winter", "spring", "auto", "autumn"]);
   });
 
   it("reads the cycle's season only on the tap from auto: a round keeps its course whatever the cycle says after", () => {
@@ -47,8 +48,6 @@ describe("the season wheel's states", () => {
     expect(round.state).toBe("summer");
     round = nextWheelRound(round, "spring");
     expect(round.state).toBe("autumn");
-    round = nextWheelRound(round, "autumn");
-    expect(round.state).toBe("winter");
     expect(nextWheelRound(round, "autumn")).toEqual({ state: "auto", last: null });
   });
 
