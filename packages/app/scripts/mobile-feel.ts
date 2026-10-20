@@ -83,6 +83,26 @@ async function main(): Promise<void> {
     await pinch(cdp, cx, cy, 2.5);
     check("chrome: a pinch does not zoom", (await scale(page)) === 1, `scale ${await scale(page)}`);
 
+    // FOOTER-FIXED (#611): the document never scrolls or bounces; the page scrolls in its own region and the navigation
+    // stays at the viewport's bottom through a scroll.
+    const nav = page.getByRole("navigation", { name: "Main" });
+    const navTop = async () => (await nav.boundingBox())!.y;
+    const docStyles = await page.evaluate(() => ({
+      html: getComputedStyle(document.documentElement).overscrollBehaviorY,
+      body: getComputedStyle(document.body).overscrollBehaviorY,
+      region: getComputedStyle(document.querySelector("[data-slot=page-scroll]")!).overscrollBehaviorY,
+    }));
+    check("tab page: html and body take no overscroll, the region contains its own", docStyles.html === "none" && docStyles.body === "none" && docStyles.region === "contain", JSON.stringify(docStyles));
+    const viewportHeight = page.viewportSize()!.height;
+    const navBox = (await nav.boundingBox())!;
+    check("tab page: the navigation sits at the viewport's bottom", Math.abs(navBox.y + navBox.height - viewportHeight) < 1, `${navBox.y + navBox.height} vs ${viewportHeight}`);
+    const navBefore = await navTop();
+    await page.mouse.wheel(0, 2000);
+    await page.waitForTimeout(300);
+    const docScroll = await page.evaluate(() => document.scrollingElement!.scrollTop);
+    check("tab page: the document does not scroll", docScroll === 0, `scrollTop ${docScroll}`);
+    check("tab page: the navigation does not move on a scroll", (await navTop()) === navBefore, `${await navTop()} vs ${navBefore}`);
+
     // iOS Safari ignores the meta: its pinch is the page's `gesturestart` and `gesturechange`, which must be cancelled.
     const cancelled = await page.evaluate(() =>
       ["gesturestart", "gesturechange"].map((type) => {
@@ -99,7 +119,7 @@ async function main(): Promise<void> {
     await canvas.waitFor({ timeout: 60_000 });
     await page.waitForTimeout(4000);
     check("board: the canvas is touch-action none", (await canvas.evaluate((el) => getComputedStyle(el).touchAction)) === "none");
-    check("board: the page does not scroll or bounce (html[data-board])", await page.evaluate(() => "board" in document.documentElement.dataset));
+    check("board: the page does not scroll or bounce (overscroll-behavior none)", await page.evaluate(() => getComputedStyle(document.documentElement).overscrollBehaviorY === "none"));
     const cb = (await canvas.boundingBox())!;
     const bx = cb.x + cb.width / 2;
     const by = cb.y + cb.height / 2;

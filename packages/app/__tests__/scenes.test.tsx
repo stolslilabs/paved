@@ -12,6 +12,7 @@ import { Score } from "../src/components/elements/score";
 import { StatRow } from "../src/components/elements/stat-row";
 import { TilesLeft } from "../src/components/elements/tiles-left";
 import { AppNav } from "../src/components/containers/app-nav";
+import { TabPage } from "../src/components/containers/tab-page";
 import { formatPoints } from "../src/components/elements/score";
 import { planCode } from "../src/components/elements/tile-chip";
 import { TileView } from "../src/components/containers/tile-view";
@@ -488,11 +489,22 @@ describe("Element feedback (EL)", () => {
     expect(screen.getByRole("timer", { name: "Closes in 9:00:00" })).toBeInTheDocument();
   });
 
-  it("draws the Vault tab with the piggy bank, and the bar sticky at the bottom", () => {
+  it("draws the Vault tab with the piggy bank", () => {
     render(wrap(<AppNav active="home" />));
     const vault = screen.getByRole("button", { name: "Vault" });
     expect(vault.querySelector("[data-icon='piggy-bank']")).not.toBeNull();
-    expect(screen.getByRole("navigation", { name: "Main" }).className).toMatch(/sticky.*bottom-0/);
+  });
+
+  it("keeps a tab page's navigation out of its scrolling region, at the bottom of a one-viewport frame (#611)", () => {
+    render(wrap(<TabPage tab="settings" title="Settings"><p>Body</p></TabPage>));
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    const region = screen.getByText("Body").closest("[data-slot=page-scroll]")!;
+    expect(region.className).toMatch(/overflow-y-auto/);
+    expect(region.className).toMatch(/overscroll-contain/);
+    expect(region.contains(nav)).toBe(false);
+    expect(nav.parentElement).toBe(region.parentElement);
+    expect(nav.parentElement!.className).toMatch(/\bh-dvh\b/);
+    expect(nav.className).toMatch(/order-last/);
   });
 
   it("serves the background as AVIF, WebP and a JPEG fallback from this host", () => {

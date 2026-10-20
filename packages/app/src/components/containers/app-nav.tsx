@@ -24,8 +24,9 @@ export interface AppNavProps {
  * icon over its label (labels from `mobile`), at the bottom of the page below `desktop`; from `desktop` the same items, icon
  * beside label, in a header across the top, after the voxel wordmark and before the three balances. No rail and no sliding
  * indicator: the current item is gold on the white 15% layer (`state-layer`, theme.css), hover 10%, pressed 20%.
- * The bar is sticky, the last child of its page's column on a phone and the first from `desktop`: the content never runs
- * under it (no padding to keep in step with its height). The page lays it out in one column (`flex-col`) at every width.
+ * The bar is the last child of its page's column on a phone and the first from `desktop`, outside the page's scrolling region
+ * (`TabFrame`, #611): it stays fixed to the viewport's bottom, and the content never runs under it (no padding to keep in
+ * step with its height). The page lays it out in one column (`flex-col`) at every width.
  */
 export function AppNav({ active, onNavigate, className }: AppNavProps) {
   return (
@@ -33,8 +34,8 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
       aria-label="Main"
       className={cn(
         "z-20 flex items-center border-border bg-background/95 backdrop-blur",
-        "sticky inset-x-0 bottom-0 order-last border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]",
-        "desktop:top-0 desktop:bottom-auto desktop:order-first desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
+        "shrink-0 order-last border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]",
+        "desktop:order-first desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
         className,
       )}
     >

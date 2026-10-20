@@ -275,8 +275,9 @@
   input, textarea, [contenteditable="true"] { @apply select-text; -webkit-touch-callout: default; }
   canvas { touch-action: none; -webkit-touch-callout: none; }
   img, svg { -webkit-user-drag: none; user-drag: none; }
-  /* The board routes do not scroll: no pull-to-refresh and no bounce (`RootLayout` sets the flag). The other pages scroll as usual. */
-  html[data-board], html[data-board] body { overscroll-behavior: none; }
+  /* The document never bounces and never pulls to refresh (#611): a pull past the top would drag every page, its
+     navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
+  html, body { overscroll-behavior: none; }
 
   /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
      `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a

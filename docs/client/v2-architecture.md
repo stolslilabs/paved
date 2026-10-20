@@ -700,8 +700,9 @@ referral link, a full address, an error detail, and every input and textarea). P
 `user-scalable`, so `touch-action: manipulation` stops the double-tap zoom and `usePageGestures` (`lib/page-gestures.ts`)
 cancels its `gesturestart` and `gesturechange`. The board's canvas has `touch-action: none` and owns its pinch, pan and
 rotate; its context menu is off. There is no long-press menu (`-webkit-touch-callout: none`), no tap flash, and images
-are not draggable. A board route (`RootLayout` sets `data-board` on `html`) has `overscroll-behavior: none`: no
-pull-to-refresh and no bounce; the other pages scroll as usual. The cost: a player with low vision cannot pinch the
+are not draggable. The document has `overscroll-behavior: none` on `html` and `body` (#611): no pull-to-refresh and no
+bounce on any page. A tab page is one viewport tall and scrolls in its own region (`TabFrame`, `overscroll-behavior:
+contain`), so its navigation stays fixed to the bottom; a full-screen flow scrolls as one document. The cost: a player with low vision cannot pinch the
 page. The mitigations are text of 12 px or more, the 360 and 320 px wrap sweep, and a layout in `rem`, so the browser's
 text-size setting still applies where the layout allows. `scripts/mobile-feel.ts` (the CI `client` job) drives a mobile
 device context.
@@ -2915,11 +2916,12 @@ to Home).
 
 - **Direction D (#537, applied 2026-10-19; replaces the bar with a sliding indicator and the left rail, which read as
   Cartridge's):** `containers/app-nav.tsx`.
-- **Mobile and tablet:** a sticky bottom bar of five items, each an icon over its label (labels from `mobile`, icon only
+- **Mobile and tablet:** a bottom bar of five items, fixed to the viewport's bottom (outside the page's scrolling region,
+  `TabFrame`, #611; a pull past the top never moves it), each an icon over its label (labels from `mobile`, icon only
   below), safe-area padded, as the mockups draw it. The current item is gold (`text-primary`) on the white 15% layer; hover
   10%, pressed 20% (`state-layer`, section 2.2b). No indicator slides. Hidden on full-screen flows (welcome, play, purchase,
   board, over), which get a top bar with Back, the title centred and a hairline under it.
-- **Desktop:** the same five items, icon beside label, in a sticky header across the top: the voxel wordmark on the left, the
+- **Desktop:** the same five items, icon beside label, in a header fixed across the top: the voxel wordmark on the left, the
   items, then the three balances (#538) in a row at the header's end. No rail: every page is one column (`flex-col`) at every
   width. Dialogs instead of sheets.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across

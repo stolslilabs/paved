@@ -33,8 +33,8 @@ describe("the shell is select-none", () => {
     expect(rule("img, svg")).toContain("user-drag: none");
   });
 
-  it("the board routes have no pull-to-refresh or bounce", () => {
-    expect(baseLayer).toMatch(/html\[data-board\][^{]*\{[^}]*overscroll-behavior: none/);
+  it("the document has no pull-to-refresh or bounce on any page (#611)", () => {
+    expect(rule("html, body")).toContain("overscroll-behavior: none");
   });
 });
 
