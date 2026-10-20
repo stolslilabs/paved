@@ -62,9 +62,9 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, deck, ren
       onKeyDown={(e) => {
         if (e.key === "Escape") onStart?.();
       }}
-      className={cn("pointer-events-auto fixed inset-0 z-40 cursor-pointer overflow-y-auto bg-background/90 backdrop-blur-sm", className)}
+      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer overflow-y-auto bg-background/80 backdrop-blur-sm", className)}
     >
-      <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center gap-4 px-4 py-[max(1.5rem,env(safe-area-inset-top))] tablet:max-w-2xl desktop:max-w-3xl">
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-4 py-6 tablet:max-w-2xl">
         <m.header className="flex flex-col gap-1" initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
           <span className="text-xs text-muted-foreground">
             {campaign} · Level {levelIndex}
@@ -199,16 +199,16 @@ export function StarFill({ stars, instant = false, className }: { stars: Stars; 
       {[1, 2, 3].map((n) => {
         const earned = n <= stars;
         return (
-          <span key={n} className={cn("relative inline-flex", n === 2 && "-translate-y-2")}>
-            <Icon name="star" className="text-[3rem]! text-muted-foreground/30 tablet:text-[3.5rem]!" />
+          <span key={n} className="relative inline-flex">
+            <Icon name="star" className="text-5xl! text-muted-foreground/40" />
             {earned && (
               <m.span
-                className="absolute inset-0 inline-flex text-primary drop-shadow-[0_0_10px_var(--glow)]"
+                className="absolute inset-0 inline-flex text-primary"
                 initial={instant ? false : { scale: 0, rotate: -40, opacity: 0 }}
                 animate={{ scale: [0, 1.35, 1], rotate: 0, opacity: 1 }}
                 transition={{ delay: FILL.lead + (n - 1) * FILL.gap, duration: FILL.pop, ease: "easeOut" }}
               >
-                <Icon name="star" className="text-[3rem]! tablet:text-[3.5rem]!" />
+                <Icon name="star" className="text-5xl!" />
               </m.span>
             )}
           </span>
@@ -238,7 +238,7 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
   const record = previousBest != null && score > previousBest;
   if (peek) {
     return (
-      <div className="pointer-events-auto fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center px-4">
+      <div className="pointer-events-auto fixed inset-x-0 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-50 flex justify-center px-4">
         <Button onClick={() => setPeek(false)} className="shadow-lg">
           <Icon name="star" size="sm" /> Show the result
         </Button>
@@ -246,13 +246,13 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
     );
   }
   return (
-    <div className="pointer-events-auto fixed inset-0 z-40 overflow-y-auto bg-background/75 backdrop-blur-sm" onClick={() => {
+    <div className="pointer-events-auto fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm" onClick={() => {
         if (settled) return;
         setSkipped(true);
         setSettled(true);
       }}
     >
-      <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-4 py-6">
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
         <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, "items-center gap-4 py-6 text-center", className)}>
           <h2 className="font-display text-lg font-semibold wrap-anywhere">{title}: complete</h2>
           <StarFill key={instant ? "instant" : "fill"} stars={stars} instant={instant} />
