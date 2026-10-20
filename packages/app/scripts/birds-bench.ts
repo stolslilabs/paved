@@ -65,7 +65,7 @@ for (let round = 0; round < ROUNDS; round++) {
     for (const [name, config] of round % 2 ? [...CONFIGS].reverse() : CONFIGS) {
       const page = await browser.newPage({ viewport: { width: 360, height: 780 }, deviceScaleFactor: 3 });
       const cdp = await page.context().newCDPSession(page);
-      await page.goto(`${URL_BASE}/iframe.html?id=renderer-birds--board&viewMode=story&args=${args};intervalSeconds:600;quality:${config.quality}`, { timeout: 180_000, waitUntil: "commit" });
+      await page.goto(`${URL_BASE}/iframe.html?id=renderer-birds--board&viewMode=story&args=${args};intervalSeconds:600`, { timeout: 180_000, waitUntil: "commit" });
       // Ready once the board is drawn at its view and the perches are placed.
       await page.waitForSelector("[data-ready]", { timeout: 300_000 });
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
@@ -76,6 +76,8 @@ for (let round = 0; round < ROUNDS; round++) {
           const b = (window as any).__birds;
           s.stop();
           s.setFrameObserver(null);
+          const current = s.getSettings();
+          s.setSettings({ ...current, quality: config.quality });
           const near = s.tiles.getGroup().worldToLocal(s.controls.controls.target.clone());
           const gl = s.renderer.getContext();
           const info = s.renderer.info;
