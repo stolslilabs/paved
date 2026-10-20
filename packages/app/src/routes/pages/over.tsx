@@ -23,7 +23,7 @@ import { useGameCompletions } from "../../data/progress";
 import { achievementText, questText } from "../../components/containers/quest-text";
 import type { GameMission } from "../../components/containers/game-missions";
 import { Placeholder } from "../Placeholder";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate, useUpTo } from "../ref";
 
 /** `/training/over` (P3) and `/game/:gameId/over` (P7a). */
 export default function Page() {
@@ -90,7 +90,8 @@ function rewardProps(reward: OverReward): Pick<OverSceneProps["reward"], "state"
  */
 function ChallengeOver({ gameId }: { gameId: number }) {
   const go = useAppNavigate();
-  const onBack = useBack();
+  // Home, as the scene's own Back: the entry before the game's end is what opened the game, never a page above it (#614).
+  const onBack = useUpTo("/");
   const wallet = useAccount();
   useConnectError(wallet.error);
   const { signer = null } = useDataSources();

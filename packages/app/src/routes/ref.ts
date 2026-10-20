@@ -31,10 +31,23 @@ export function useTabNavigate() {
   return useCallback((tab: Tab) => go(TABS.find((t) => t.id === tab)?.to ?? "/"), [go]);
 }
 
-/** Back (a scene's `onBack`): the previous in-app entry, or Home when there is none (a deep link, an old link, a redirect). */
+/**
+ * Back (a scene's `onBack`): the previous in-app entry, or Home when there is none (a deep link, an old link, a redirect).
+ * Only for a page whose previous entry can never be a game: a page reached after a game goes up with `useUpTo` instead.
+ */
 export function useBack() {
   const navigate = useNavigate();
   const go = useAppNavigate();
   const canGoBack = useCanGoBack();
   return useCallback(() => (canGoBack() ? navigate(-1) : go("/", { replace: true })), [canGoBack, go, navigate]);
+}
+
+/**
+ * Back up the information hierarchy (#614): always the page's parent route, whatever route the player came from. A page that
+ * can be reached after a game (a level list, the modes, a game's end) uses it, so its Back never lands in a game, as the
+ * browser history would when it holds the board's entry.
+ */
+export function useUpTo(parent: string) {
+  const go = useAppNavigate();
+  return useCallback(() => go(parent), [go, parent]);
 }
