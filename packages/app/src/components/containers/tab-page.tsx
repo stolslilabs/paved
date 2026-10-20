@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { Tab } from "../../routes/pages";
-import { usePageScrollHint } from "../../lib/scroll-hint";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -26,11 +25,9 @@ export interface TabPageProps {
 /**
  * A page of the five tabs (section 6.2), as Home lays itself out: the bottom bar below `desktop`, the header across the top
  * from it (direction D, #537); the title in the display font, an action on its right, the content in one column that widens
- * with the viewport. The page scrolls as one document; while it has more below, a fade at the bottom of the viewport says so
- * (NO-SCROLLBARS, #609): above the bar on a phone (`AppNav`), on the viewport's edge from `desktop`.
+ * with the viewport. The page scrolls as one document; `AppNav` brings its edge hint (NO-SCROLLBARS, #609).
  */
 export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, children, className }: TabPageProps) {
-  usePageScrollHint();
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <AppNav active={tab} onNavigate={onNavigate} />
@@ -55,7 +52,6 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
         </header>
         {children}
       </main>
-      <div aria-hidden data-slot="page-scroll-hint" className="pointer-events-none fixed inset-x-0 bottom-0 z-10 hidden h-16 bg-linear-to-b via-background/70 to-background opacity-0 transition-opacity motion-reduce:transition-none desktop:block page-more:opacity-100" />
     </div>
   );
 }

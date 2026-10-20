@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { AppNav } from "../src/components/containers/app-nav";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "../src/components/ui/dropdown-menu";
 import { ScrollArea } from "../src/components/ui/scroll-area";
 import { ScrollRegion } from "../src/components/ui/scroll-region";
 import { scrollEdges } from "../src/lib/scroll-hint";
@@ -66,6 +68,51 @@ describe("the scrollable regions", () => {
       .filter((f) => !allowed.has(f) && !f.startsWith("stories/") && !f.endsWith(".stories.tsx"))
       .filter((f) => /\boverflow(-[xy])?-(auto|scroll)\b/.test(readFileSync(resolve(root, f), "utf8")));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("the page's hint", () => {
+  it("comes with AppNav, which every tab page renders, Home included (not only TabPage)", () => {
+    for (const f of ["src/components/scenes/home-scene.tsx", "src/components/containers/tab-page.tsx"]) {
+      expect(readFileSync(f, "utf8"), f).toContain("<AppNav");
+    }
+    const root = document.documentElement;
+    const height = vi.spyOn(root, "scrollHeight", "get").mockReturnValue(window.innerHeight + 400);
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => (cb(0), 1));
+    try {
+      const { container, unmount } = render(<AppNav active="home" />);
+      expect(root).toHaveAttribute("data-scroll-end");
+      // Two fades: above the bar below `desktop`, at the viewport's foot from it (outside the bar's backdrop filter).
+      expect(container.querySelectorAll("[data-slot=page-scroll-hint]")).toHaveLength(2);
+      expect(container.querySelector("nav > [data-slot=page-scroll-hint].fixed")).toBeNull();
+      unmount();
+      expect(root).not.toHaveAttribute("data-scroll-end");
+    } finally {
+      height.mockRestore();
+      raf.mockRestore();
+    }
+  });
+});
+
+describe("the dropdown menu", () => {
+  it("portals its submenu out of the menu's scroll region, whose mask would clip it", () => {
+    render(
+      <DropdownMenu open>
+        <DropdownMenuTrigger>Open</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem>Play</DropdownMenuItem>
+          <DropdownMenuSub open>
+            <DropdownMenuSubTrigger>More</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem>Rules</DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    const rules = screen.getByText("Rules");
+    expect(rules.closest("[data-slot=dropdown-menu-sub-content]")).not.toBeNull();
+    expect(rules.closest("[data-slot=dropdown-menu-content]")).toBeNull();
   });
 });
 

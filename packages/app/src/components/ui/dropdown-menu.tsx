@@ -88,8 +88,11 @@ export function DropdownMenuSubTrigger({ className, inset, children, ...props }:
 }
 export function DropdownMenuSubContent({ className, children, ...props }: ComponentProps<typeof MenuPrimitive.SubContent>) {
   return (
-    <MenuPrimitive.SubContent data-slot="dropdown-menu-sub-content" className={cn(surface, "shadow-lg", className)} {...props}>
-      <ScrollRegion className="-m-1 min-h-0 p-1">{children}</ScrollRegion>
-    </MenuPrimitive.SubContent>
+    // Portaled like the menu: inside it, the menu's scroll region (its mask and its overflow) would clip the submenu.
+    <MenuPrimitive.Portal>
+      <MenuPrimitive.SubContent data-slot="dropdown-menu-sub-content" className={cn(surface, "shadow-lg", className)} {...props}>
+        <ScrollRegion className="-m-1 min-h-0 p-1">{children}</ScrollRegion>
+      </MenuPrimitive.SubContent>
+    </MenuPrimitive.Portal>
   );
 }
