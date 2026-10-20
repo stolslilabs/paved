@@ -309,13 +309,13 @@ const NO_TILES: typeof tiles = [];
 
 /**
  * The three pending looks side by side (#605): one board each, the tile placed, the same view; stacked on a phone, in a
- * row from 1024 px. `data-ready` once every board is drawn.
+ * row from 640 px (classes the app already has: a story's classes reach the app's CSS). `data-ready` once every board is drawn.
  */
 export function PendingProposals({ view = "default", ...props }: Partial<PlacementBoardProps>) {
   return (
-    <div className="grid h-dvh w-full grid-rows-3 gap-1 bg-background lg:grid-cols-3 lg:grid-rows-1">
+    <div className="flex h-dvh w-full flex-col gap-1 bg-background sm:flex-row">
       {(Object.keys(PENDING_PROPOSALS) as PendingProposal[]).map((key) => (
-        <section key={key} className="relative min-h-0" data-proposal={key}>
+        <section key={key} className="relative min-h-0 flex-1" data-proposal={key}>
           <PlacementBoard {...props} {...PENDING_PROPOSALS[key].args} view={view} state="placed" readout={false} fill />
           <h2 className="pointer-events-none absolute top-2 left-2 rounded-md bg-background/80 px-2 py-1 text-xs font-medium text-foreground">{PENDING_PROPOSALS[key].label}</h2>
         </section>
