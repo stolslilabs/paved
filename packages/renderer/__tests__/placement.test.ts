@@ -13,8 +13,6 @@ import {
   gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
-  pendingPlateScale,
-  pendingPulse,
   tintEaseMs,
   tintForKind,
   tintKindOf,
@@ -158,7 +156,7 @@ describe("the grid's ring fade (a setting, off by default since PLATES)", () => 
 
 describe("the plates' shape (PLACEMENT-TINTS)", () => {
   it("is flat, inset in its cell, in voxels: the defaults", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true, pendingColor: "#f0bf5b", pendingOpacity: 0, pendingOutset: 1.5 });
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true });
     // A smaller corner than the slab's 5 voxels, and more transparent plates (0.9 and 0.45 before).
     expect(DEFAULT_PLACEMENT_SETTINGS.plates.radius).toBeLessThan(5);
     expect(DEFAULT_PLACEMENT_SETTINGS.plates.opacity).toBeLessThan(0.9);
@@ -369,12 +367,12 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     expect(tintForKind("hover", tints).strength).toBe(0);
     expect(tints.pendingOpacity).toBe(1);
     expect(tintForKind("pending", tints).opacity).toBe(1);
-    // #605: a faint yellow (0.4 before read as a yellow filter), held, no frame, no gold plate.
+    // #605, the owner's pick (#657): Faint, a faint yellow (0.4 before read as a yellow filter) keeping the tile's light,
+    // held. The other proposals are gone: no breathing, no gold frame, no gold plate.
     expect(tints.pendingStrength).toBe(0.12);
     expect(tints.pendingKeepsLight).toBe(true);
-    expect(tints.pendingPulseMs).toBe(0);
-    expect(tints.pendingEdgeOpacity).toBe(0);
-    expect(DEFAULT_PLACEMENT_SETTINGS.plates.pendingOpacity).toBe(0);
+    expect(Object.keys(tints).filter((k) => /Pulse|Edge/.test(k))).toEqual([]);
+    expect(Object.keys(DEFAULT_PLACEMENT_SETTINGS.plates).filter((k) => k.startsWith("pending"))).toEqual([]);
     const hue = (hex: string) => new THREE.Color(hex).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace).h * 360;
     expect(hue(tints.hoverColor)).toBeGreaterThan(200);
     expect(hue(tints.hoverColor)).toBeLessThan(250);
@@ -566,7 +564,7 @@ describe("the tile renderer's ghost", () => {
     tiles.dispose();
   });
 
-  it("draws the ghost translucent behind a depth pre-pass, with no outline: no inner face shows through", () => {
+  it("draws the ghost translucent behind a depth pre-pass, its outlines after it: no inner face or edge shows through", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
     // The tile material is patched as a tile's is, so the ghost takes its tint.
     const patched = (tiles as any).assets.material as THREE.MeshStandardMaterial;
@@ -576,8 +574,10 @@ describe("the tile renderer's ghost", () => {
     const container = (tiles as any).previewContainer as THREE.Group;
     const meshes: THREE.Mesh[] = [];
     container.traverse((c) => c instanceof THREE.Mesh && meshes.push(c));
-    // The edge outlines are hidden on a ghost.
-    for (const m of meshes.filter((m) => m.userData.outline)) expect(m.visible).toBe(false);
+    // #657: the edge outlines are drawn on the ghost, after its faces and their depth pre-pass.
+    const outlines = meshes.filter((m) => m.userData.outline);
+    expect(outlines.length).toBeGreaterThan(0);
+    for (const m of outlines) expect(m.visible).toBe(true);
     const colour = meshes.filter((m) => !m.userData.outline &&  (m.material as THREE.Material).transparent && (m.material as THREE.Material).depthWrite === false && (m.material as THREE.Material).colorWrite);
     const depth = meshes.filter((m) => (m.material as THREE.Material).colorWrite === false);
     expect(colour).toHaveLength(1);
@@ -586,6 +586,7 @@ describe("the tile renderer's ghost", () => {
     expect(depth[0]!.material).toHaveProperty("depthWrite", true);
     expect(depth[0]!.geometry).toBe(colour[0]!.geometry);
     expect((colour[0]!.material as THREE.Material).depthFunc).toBe(THREE.LessEqualDepth);
+    for (const m of outlines) expect(m.renderOrder).toBeGreaterThan(colour[0]!.renderOrder);
     tiles.dispose();
   });
 
@@ -675,112 +676,55 @@ describe("the placement's resources", () => {
   });
 });
 
-describe("the pending look's proposals (#605)", () => {
-  const pending = (input: Parameters<typeof resolvePlacementSettings>[0], reduced = false) => {
-    const placement = new PlacementRenderer();
-    placement.setSettings(resolvePlacementSettings(input));
-    placement.setReducedMotion(reduced);
-    placement.setSlots([{ x: 1, y: 0 }, { x: 2, y: 0 }], 0);
-    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
-    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
-    return placement;
+describe("the tile in hand's outlines (#657)", () => {
+  const outlinesOf = (container: THREE.Object3D) => {
+    const found: THREE.Mesh[] = [];
+    container.traverse((c) => c.userData.outline && found.push(c as THREE.Mesh));
+    return found;
   };
 
-  it("breathes from 0 to 1 and back over a period, slow at both ends; held with none", () => {
-    expect(pendingPulse(0, 2400)).toBeCloseTo(0, 9);
-    expect(pendingPulse(1200, 2400)).toBeCloseTo(1, 9);
-    expect(pendingPulse(600, 2400)).toBeCloseTo(0.5, 9);
-    expect(pendingPulse(2400, 2400)).toBeCloseTo(0, 9);
-    expect(pendingPulse(500, 0)).toBe(1);
-    expect(pendingPulse(Number.NaN, 2400)).toBe(1);
-  });
-
-  it("pulses the pending tint between 0 and its strength, drawing every frame while it does", () => {
-    const placement = pending({ tints: { pendingStrength: 0.12, pendingPulseMs: 2400 } });
-    expect(placement.isPulsing()).toBe(true);
-    expect(placement.ghostTint(1000 + 1200)[3]).toBeCloseTo(0.12, 6);
-    expect(placement.ghostTint(1000 + 2400)[3]).toBeCloseTo(0, 6);
-    expect(placement.update(1000 + 60_000).animating).toBe(true);
-    // Its target, as the settings give it.
-    expect(placement.ghostTint(Number.NaN)[3]).toBeCloseTo(0.12, 6);
-    // A hover does not pulse, and render on demand holds again.
-    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 70_000);
-    placement.update(70_000 + 200);
-    expect(placement.update(70_000 + 300).animating).toBe(false);
-    placement.dispose();
-  });
-
-  it("holds the faint tint under reduced motion: no pulse, no frame", () => {
-    const placement = pending({ tints: { pendingStrength: 0.12, pendingPulseMs: 2400 } }, true);
-    expect(placement.isPulsing()).toBe(false);
-    expect(placement.ghostTint(1000 + 2400)[3]).toBeCloseTo(0.12, 6);
-    placement.update(1001);
-    expect(placement.update(1002).animating).toBe(false);
-    placement.dispose();
-  });
-
-  it("carries the frame's opacity in the tint: 0 on a hover, the setting's once pending", () => {
-    const placement = pending({ tints: { pendingEdgeOpacity: 0.9 } });
-    expect(placement.ghostTint(Number.NaN)[5]).toBeCloseTo(0.9, 6);
-    expect(tintForKind("hover", resolvePlacementSettings({ tints: { pendingEdgeOpacity: 0.9 } }).tints).edge).toBe(0);
-    placement.dispose();
-  });
-
-  it("draws the plate under a pending tile gold and wider than the tile, within the gap; grey and hidden by default", () => {
-    const plain = pending({});
-    plain.update(3000);
-    expect(instances(plain).plateAt(1, 0)!.opacity).toBe(0);
-    plain.dispose();
-    const gold = pending({ plates: { pendingOpacity: 0.9 } });
-    gold.update(3000);
-    const drawn = instances(gold);
-    const plate = drawn.plateAt(1, 0)!;
-    expect(plate.opacity).toBeCloseTo(0.9, 6);
-    close(plate.color, "#f0bf5b");
-    const m = new THREE.Matrix4();
-    const mesh = gold.getPlateMesh()!;
-    const index = drawn.plates.indexOf(plate);
-    mesh.getMatrixAt(index, m);
-    const scale = new THREE.Vector3().setFromMatrixScale(m);
-    const side = plateShapeOf(DEFAULT_PLACEMENT_SETTINGS.plates).size * scale.x;
-    // 1.5 voxels past each edge of the tile, under the gap's half (2 voxels): it never reaches a neighbour's plate.
-    expect(side).toBeCloseTo(TILE_SIZE + 3 * VOXEL_SIZE, 6);
-    expect(scale.y).toBe(1);
-    // The neighbour stays grey, at its own size.
-    close(instances(gold).plateAt(2, 0)!.color, DEFAULT_PLACEMENT_SETTINGS.colors.plate);
-    // A hover over it: the plate hidden again.
-    gold.setGhost({ x: 1, y: 0, kind: "hover" }, 5000);
-    gold.update(5000 + 1000);
-    expect(instances(gold).plateAt(1, 0)!.opacity).toBeCloseTo(0, 6);
-    gold.dispose();
-  });
-
-  it("keeps the gold plate's outset within the gap", () => {
-    const plates = DEFAULT_PLACEMENT_SETTINGS.plates;
-    const size = plateShapeOf(plates).size;
-    expect(pendingPlateScale({ ...plates, pendingOutset: 10 }) * size).toBeCloseTo(TILE_SIZE + 2 * 1.5 * VOXEL_SIZE, 6);
-    expect(pendingPlateScale({ ...plates, pendingOutset: -1 }) * size).toBeCloseTo(TILE_SIZE, 6);
-    expect(pendingPlateScale({ ...plates, gap: 8, pendingOutset: 2 }) * plateShapeOf({ gap: 8, radius: 3 }).size).toBeCloseTo(TILE_SIZE + 4 * VOXEL_SIZE, 6);
-  });
-
-  it("shows the gold frame on the pending tile only, with the outlines' stroke times its width, and disposes it", () => {
+  it("draws the placed tiles' outline pass on the hover preview at its 50 %, opaque once pending; the placed tiles' unchanged", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
-    tiles.setPlacementSettings(resolvePlacementSettings({ tints: { pendingEdgeOpacity: 1, pendingEdgeWidth: 2, pendingMs: 0 }, motion: { colorMs: 0 } }), DEFAULT_OUTLINE_SETTINGS);
-    tiles.setOutlineStroke({ width: 1.5, opacity: 0.8 });
+    tiles.updateTiles([{ game_id: 1, id: 1, player_id: "0x1", plan: 9, orientation: 1, x: 0, y: 0, worldX: 0, worldZ: 0 }] as never);
+    tiles.setOutlineStroke({ width: 1.5, opacity: 0.8 }, "#1f1f1f");
+    const placed = (tiles as any).edgeMaterial as THREE.ShaderMaterial;
     tiles.setHover(ghostAt(1, 0));
-    const frame = (tiles as any).pendingEdge as THREE.Mesh;
-    expect(frame.userData.outline).toBe(true);
-    expect(frame.visible).toBe(false);
+    const hover = outlinesOf((tiles as any).previewContainer);
+    expect(hover.length).toBeGreaterThan(0);
+    const material = hover[0]!.material as THREE.ShaderMaterial;
+    // The same shader and stroke as the placed tiles', its own opacity: the ghost's.
+    expect(material).not.toBe(placed);
+    expect(material.vertexShader).toBe(placed.vertexShader);
+    expect(material.fragmentShader).toBe(placed.fragmentShader);
+    expect(material.uniforms.linewidth.value).toBeCloseTo(1.5, 6);
+    expect(material.uniforms.opacity.value).toBeCloseTo(0.8 * 0.5, 6);
+    expect(material.uniforms.diffuse.value.equals(placed.uniforms.diffuse.value)).toBe(true);
+    expect(placed.uniforms.opacity.value).toBeCloseTo(0.8, 6);
+    // Placed (pending): opaque, its outlines as the placed tiles'.
     tiles.setHover(ghostAt(1, 0, { placed: true }));
-    tiles.update(performance.now() + 1000);
-    expect(frame.visible).toBe(true);
-    expect(frame.parent?.parent).toBe((tiles as any).previewContainer.parent);
-    const material = frame.material as THREE.ShaderMaterial;
-    expect(material).not.toBe((tiles as any).edgeMaterial);
-    expect(material.uniforms.linewidth.value).toBeCloseTo(3, 6);
-    expect(material.uniforms.opacity.value).toBeCloseTo(0.8, 6);
-    const spies = [vi.spyOn(frame.geometry, "dispose"), vi.spyOn(material, "dispose")];
+    tiles.update(performance.now() + 10_000);
+    const pending = outlinesOf((tiles as any).previewContainer);
+    expect(pending.length).toBeGreaterThan(0);
+    expect((pending[0]!.material as THREE.ShaderMaterial).uniforms.opacity.value).toBeCloseTo(0.8, 6);
+    // A new zoom reaches both, the ghost's still at its opacity.
+    tiles.setHover(ghostAt(1, 0));
+    tiles.update(performance.now() + 20_000);
+    tiles.setOutlineStroke({ width: 2, opacity: 0.6 });
+    expect(material.uniforms.linewidth.value).toBeCloseTo(2, 6);
+    expect(material.uniforms.opacity.value).toBeCloseTo(0.6 * 0.5, 6);
+    expect(placed.uniforms.opacity.value).toBeCloseTo(0.6, 6);
+    // The placed tile keeps the shared material.
+    const board = (tiles as any).tileGroup as THREE.Group;
+    for (const m of outlinesOf(board)) expect(m.material).toBe(placed);
     tiles.dispose();
-    for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws no outline on the confirm's overlay (the tile under it has its own), and disposes the ghost's outline material", () => {
+    const tiles = new TileRenderer(fakeAssets() as any);
+    tiles.setConfirmed({ ...ghostAt(1, 0), key: 1 });
+    for (const m of outlinesOf((tiles as any).confirmContainer)) expect(m.visible).toBe(false);
+    const spy = vi.spyOn((tiles as any).ghostEdgeMaterial as THREE.Material, "dispose");
+    tiles.dispose();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
