@@ -539,6 +539,35 @@ function economyRow(fields: Record<string, unknown>) {
   };
 }
 
+describe("/game/:gameId/over: the missions the game completed (#595)", () => {
+  it("lists the quests and achievements completed at the game's end, with their Cobbles, and leads to the Missions page", async () => {
+    const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
+    const end = played.game.endTime;
+    // Daily Run and Settler I completed by this game over; quest 4 by an earlier game, not listed. The game ends on day 0.
+    s.fixture.questsFromDay = 0;
+    // The indexer's client asks for the padded address.
+    s.fixture.progress.set(`0x${PLAYER.slice(2).padStart(64, "0")}`, {
+      quests: new Map([[1, { count: 1, completed_at: end }], [4, { count: 3_000, completed_at: end - 300 }]]),
+      achievements: new Map([[2, { count: 1, completed_at: end }]]),
+    });
+    const { router } = over(s);
+    const list = within(await screen.findByRole("region", { name: "Missions completed" }, { timeout: 5000 }));
+    await waitFor(() => expect(list.getAllByRole("listitem").map((li) => li.textContent)).toEqual([expect.stringContaining("Daily Run"), expect.stringContaining("Settler I")]));
+    // Daily Run's 5 Cobbles and Settler I's 10 points, from the definitions.
+    expect(list.getByRole("img", { name: "+5 Cobbles" })).toBeInTheDocument();
+    expect(list.getByText(/\+10 pts/)).toBeInTheDocument();
+    await userEvent.click(list.getByRole("button", { name: "Claim on the Missions page" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/missions"));
+  });
+
+  it("lists nothing when the game completed no mission", async () => {
+    const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
+    over(s);
+    await reward();
+    expect(screen.queryByRole("region", { name: "Missions completed" })).not.toBeInTheDocument();
+  });
+});
+
 describe("the over page's helpers", () => {
   it("mirror the chain's day arithmetic", () => {
     for (const day of [0, 20_000, 20_376]) expect(settlesAfter(day)).toBe(chainSettlesAfter(day));

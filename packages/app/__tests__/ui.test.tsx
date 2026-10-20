@@ -92,7 +92,7 @@ describe("Tabs", () => {
     await user.click(screen.getByRole("tab", { name: "C" }));
     expect(screen.getByText("panel c")).toBeVisible();
     expect(document.querySelectorAll('[data-slot="tabs-indicator"]')).toHaveLength(1);
-    expect(screen.getByRole("tab", { name: "C" }).querySelector('[data-slot="tabs-indicator"]')).not.toBeNull();
+    expect(screen.getByRole("tablist").querySelector('[data-slot="tabs-indicator"]')).not.toBeNull();
   });
 
   it("merges the consumer's ref with the list's own", () => {

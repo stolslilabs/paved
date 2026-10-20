@@ -18,9 +18,9 @@ const wrap = (ui: ReactNode, reducedMotion: Reduced = "never") => (
   </LazyMotion>
 );
 
-describe("Tabs highlight (motion-primitives AnimatedBackground)", () => {
-  const Demo = () => (
-    <Tabs defaultValue="a">
+describe("Tabs indicator (one element, moved by a transform transition)", () => {
+  const Demo = ({ value, rememberAs }: { value?: string; rememberAs?: string }) => (
+    <Tabs defaultValue="a" value={value} rememberAs={rememberAs}>
       <TabsList>
         <TabsTrigger value="a">A</TabsTrigger>
         <TabsTrigger value="b">B</TabsTrigger>
@@ -29,19 +29,36 @@ describe("Tabs highlight (motion-primitives AnimatedBackground)", () => {
       <TabsContent value="b">panel b</TabsContent>
     </Tabs>
   );
+  const indicator = () => document.querySelector<HTMLElement>('[data-slot="tabs-indicator"]')!;
 
-  it("draws the highlight inside the active trigger and moves it with the selection", async () => {
+  it("places the indicator without a transition, then moves it with one", async () => {
     const user = userEvent.setup();
     render(wrap(<Demo />));
-    expect(within(screen.getByRole("tab", { name: "A" })).getByText("A").parentElement?.querySelector('[data-slot="tabs-indicator"]')).not.toBeNull();
+    expect(indicator().dataset.animate).toBe("false");
+    expect(indicator().style.opacity).toBe("1");
     await user.tab();
     await user.keyboard("{ArrowRight}");
     expect(document.querySelectorAll('[data-slot="tabs-indicator"]')).toHaveLength(1);
-    expect(screen.getByRole("tab", { name: "B" }).querySelector('[data-slot="tabs-indicator"]')).not.toBeNull();
+    expect(indicator().dataset.animate).toBe("true");
     expect(screen.getByRole("tab", { name: "B" })).toHaveAccessibleName("B");
   });
 
-  it("gives two Tabs on one page their own highlight", () => {
+  it("jumps under reduced motion", async () => {
+    const user = userEvent.setup();
+    render(wrap(<Demo />, "always"));
+    await user.click(screen.getByRole("tab", { name: "B" }));
+    expect(indicator().dataset.animate).toBe("false");
+  });
+
+  it("slides from the remembered tab when the list mounts again with another value (a tab per route)", () => {
+    const { unmount } = render(wrap(<Demo value="a" rememberAs="route-test" />));
+    expect(indicator().dataset.animate).toBe("false");
+    unmount();
+    render(wrap(<Demo value="b" rememberAs="route-test" />));
+    expect(indicator().dataset.animate).toBe("true");
+  });
+
+  it("gives two Tabs on one page their own indicator", () => {
     render(wrap(<><Demo /><Demo /></>));
     const ids = new Set([...document.querySelectorAll('[role="tablist"]')].map((list) => list.closest('[data-slot="tabs"]')));
     expect(ids.size).toBe(2);

@@ -35,3 +35,12 @@ export function newlyCompleted<T extends Trackable>(
     return was !== undefined && !was.completed;
   });
 }
+
+/**
+ * The entries completed by one game (#595): those whose `completedAt` is the game's end. The Challenge reports a game's
+ * progress once, in the transaction of its game over (quests.md, D-24), so a mission it completed carries that block's time,
+ * the game's `endTime`. Empty for a game still running (`endTime` 0).
+ */
+export function completedAtEnd<T extends { completed: boolean; completedAt: number | null }>(entries: readonly T[], endTime: number): T[] {
+  return endTime > 0 ? entries.filter((e) => e.completed && e.completedAt === endTime) : [];
+}
