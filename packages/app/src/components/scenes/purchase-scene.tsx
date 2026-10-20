@@ -79,13 +79,11 @@ export interface PurchaseSceneProps {
  * Cobble packs have a page of their own (`/cobbles`, #621).
  */
 export function PurchaseScene(props: PurchaseSceneProps) {
-  const { balance } = props;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar
         title="Challenge"
         onBack={props.onBack}
-        end={<span className="pr-2 text-xs text-muted-foreground">{balance === null ? <span className="numeric">— USDC</span> : <Amount value={balance} token="usdc" />}</span>}
       />
       <GameForm {...props} />
     </div>

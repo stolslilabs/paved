@@ -1,6 +1,8 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isValidElement } from "react";
+import { completionLine, type CompletionToast } from "../src/components/containers/completion-toasts";
 import { NOT_AVAILABLE_MESSAGE, ViewError, type QuestCobbles } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD, FakeClaimer } from "@paved/chain/testing";
 import { App } from "../src/App";
@@ -67,7 +69,8 @@ function open(path: string, s: ReturnType<typeof setup>) {
 }
 
 // The pill and the rail both hold the balance in the DOM (the breakpoint shows one).
-const balance = async (value: number) => (await screen.findAllByRole("img", { name: `${value} Cobbles` }, { timeout: 10000 }))[0];
+// The balance is the Cobbles' plate of the balances (#620).
+const balance = async (value: number) => (await screen.findAllByRole("button", { name: `${value} Cobbles: Buy packs` }, { timeout: 10000 }))[0];
 const claimButton = (cobbles: number, title: string | RegExp) => screen.findByRole("button", { name: typeof title === "string" ? `Claim ${cobbles} Cobbles: ${title}` : title }, { timeout: 3000 });
 
 preloadPages("quests", "achievements");
@@ -227,7 +230,9 @@ describe("the completion toasts, app-wide (#595)", () => {
     s.fixture.progress.get(FIXTURE_ADA)!.achievements.set(3, { count: 10, completed_at: FIXTURE_HEAD.timestamp });
     await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
     await waitFor(() => expect(success).toHaveBeenCalledTimes(2));
-    const calls = Object.fromEntries(success.mock.calls.map(([title, options]) => [title, (options as { description?: string }).description]));
+    // A reward's line is drawn with the Cobbles' icon (`CompletionReward`, #620); its words are `completionLine`'s.
+    const line = (d: unknown) => (isValidElement<{ entry: CompletionToast }>(d) ? completionLine(d.props.entry) : d);
+    const calls = Object.fromEntries(success.mock.calls.map(([title, options]) => [title, line((options as { description?: unknown }).description)]));
     expect(calls).toEqual({ "Mission completed: Mission #4": "+15 Cobbles to claim", "Lifetime mission earned: Settler II": "+20 pts · +20 Cobbles to claim" });
 
     await act(() => router.navigate("/missions"));

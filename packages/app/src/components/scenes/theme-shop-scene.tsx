@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
+import { TokenIcon } from "../elements/token-icon";
 import { ThemeCover, type TileRenders } from "../elements/tile-render";
 import { PLANS, ownedCount, ownsSkin } from "../containers/cobble-types";
 import { SkinGrid } from "../containers/skin-grid";
@@ -125,7 +126,7 @@ export function ThemeShopScene({ theme, renders, variants, skins, skinsStatus, b
           <SkinGrid theme={theme} prices={skins.prices} owned={skins.owned} active={skins.active} variants={variants} balance={skins.balance} buying={buying} renders={renders} onBuy={onBuy} />
           {forSale.length > 0 && skins.balance >= cheapest && (
             <Button variant="ghost" size="sm" className="self-start" onClick={onBuyCobbles}>
-              <Icon name="cubes-stacked" size="sm" />
+              <TokenIcon kind="cobbles" size="xs" />
               Get Cobbles
             </Button>
           )}

@@ -226,6 +226,15 @@
   --dial-shade: rgb(0 0 0 / 0.55);
 }
 
+/* 3c. The balances' resource bar (#620): each currency on a dark plate, sunk a little, a hairline edge; the light that
+   crosses the Cobbles' plate. */
+:root {
+  --resource-plate: var(--color-charcoal-950);
+  --resource-edge: var(--color-charcoal-700);
+  --resource-shade: rgb(0 0 0 / 0.45);
+  --resource-glint: rgb(255 255 255 / 0.14);
+}
+
 /* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
 @theme inline {
   --color-background: var(--background);
@@ -259,6 +268,8 @@
   --color-medal-1: var(--medal-1);
   --color-medal-2: var(--medal-2);
   --color-medal-3: var(--medal-3);
+  --color-resource-plate: var(--resource-plate);
+  --color-resource-edge: var(--resource-edge);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -360,6 +371,20 @@
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+}
+
+/* The Cobbles' plate (#620): a soft light crosses it now and then, an invitation to tap; none under reduced motion. */
+@keyframes plate-shine {
+  0%, 75% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@utility plate-shine {
+  background-image: linear-gradient(100deg, transparent 30%, var(--resource-glint) 50%, transparent 70%);
+  animation: plate-shine 7s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0;
   }
 }
 
