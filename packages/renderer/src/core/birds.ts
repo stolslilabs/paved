@@ -299,10 +299,11 @@ export class Birds implements AmbientEffect {
 
   /**
    * Starts a flight now: one bird, or a flock (`kind`; unset, by the settings' share), from a tree at random, or from the one nearest
-   * `near` (in the frame's units: the stories' "Fly now" takes the camera's target). False when there is no flight to make: fewer
-   * than two perches, or the air full (`MAX_BIRDS`).
+   * `near` (in the frame's units: the stories' "Fly now" takes the camera's target). False when there is no flight to make: the
+   * birds roosting (night), fewer than two perches, or the air full (`MAX_BIRDS`).
    */
   launch(kind?: "single" | "flock", near?: { x: number; z: number }): boolean {
+    if (this.roosting) return false;
     const s = this.settings;
     const free = MAX_BIRDS - this.birds.length;
     if (this.perches.length < 2 || free <= 0) return false;
@@ -366,7 +367,7 @@ export class Birds implements AmbientEffect {
     this.last = seconds;
     if (this.nextFlight === null) this.nextFlight = seconds + this.gap();
     if (seconds >= this.nextFlight) {
-      if (!this.roosting) this.launch();
+      this.launch();
       this.nextFlight = seconds + this.gap();
     }
     for (const bird of this.birds) this.fly(bird, dt, seconds);

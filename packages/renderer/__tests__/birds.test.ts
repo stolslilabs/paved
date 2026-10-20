@@ -205,10 +205,13 @@ describe("the birds (#574)", () => {
     expect(flights).toBeGreaterThan(60);
     expect(flights).toBeLessThan(140);
     birds.setNight(true);
+    // Not even on demand (the stories' "Fly now"): roosting birds do not take off.
+    expect(birds.launch("flock")).toBe(false);
+    expect(birds.launch("single", { x: 0, z: 0 })).toBe(false);
     run(birds, time, 60);
     expect(birds.states()).toEqual([]);
     run(birds, time, 200);
-    expect(birds.stats().flights).toBeLessThanOrEqual(flights + 1);
+    expect(birds.stats().flights).toBe(flights);
     birds.dispose();
   });
 

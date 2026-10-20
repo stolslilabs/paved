@@ -322,9 +322,10 @@ export function BirdsBoard(props: BirdsBoardProps) {
           birds.launch(undefined, target);
           scene.requestRender();
         }}
-        className="absolute right-3 bottom-3 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        disabled={!!readout?.phase.startsWith("night")}
+        className="absolute right-3 bottom-3 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
       >
-        Fly now
+        {readout?.phase.startsWith("night") ? "Roosting" : "Fly now"}
       </button>
     </div>
   );

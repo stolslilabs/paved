@@ -7,10 +7,10 @@
  *   node scripts/birds-bench.ts [--url http://localhost:6006] [--rounds 3] [--warm 30] [--frames 120] [--gpu]
  *
  * Each run opens a fresh page (a fresh WebGL context), waits for the board and its perches, stops the render loop and draws frames
- * one by one: the ambient time moved 1/30 s, the birds stepped (a flock launched near the camera's target whenever none flies, so
- * every "on" frame has birds in the air: the worst case, not the average of a flight every 14 s), `scene.render()`, then
- * `gl.finish()`, so a frame's time holds its CPU work and the GPU's. Warm-up frames are dropped; the rounds alternate the order of
- * the configurations. The Low tier turns the ambient effects off by design: "low, forced on" steps the birds there anyway, as a
+ * one by one: the ambient time moved 1/30 s, then, timed together, the birds stepped (a flock launched near the camera's target
+ * whenever none flies, so every "on" frame has birds in the air: the worst case, not the average of a flight every 14 s),
+ * `scene.render()` and `gl.finish()`. A frame's time holds the birds' step (steering, boids, the instances written), the draw's
+ * CPU work and the GPU's. Warm-up frames are dropped; the rounds alternate the order of the configurations. The Low tier turns the ambient effects off by design: "low, forced on" steps the birds there anyway, as a
  * reference of their cost on that tier.
  *
  * Without `--gpu` it runs headless on SwiftShader (software WebGL): its figures show the relative cost on this machine, not a
@@ -90,12 +90,13 @@ for (let round = 0; round < ROUNDS; round++) {
           for (let f = 0; f < warm + frames; f++) {
             await new Promise((resolve) => requestAnimationFrame(resolve));
             s.ambient.time.value += 1 / 30;
+            info.reset();
+            // The birds' own CPU work (steering, boids, the instances written) is in the frame's time, with the draw.
+            const start = performance.now();
             if (config.birds) {
               if (b.stats().flying === 0 && b.states().length === 0) b.launch("flock", near);
               b.step(s.ambient.time.value);
             }
-            info.reset();
-            const start = performance.now();
             s.render();
             gl.finish();
             const ms = performance.now() - start;
