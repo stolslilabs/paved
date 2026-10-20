@@ -43,7 +43,12 @@ function gameRedirect({ request }: LoaderFunctionArgs) {
   return to("/", request);
 }
 
-const LOADERS: Record<string, RouteObject["loader"]> = { "": homeLoader, welcome: welcomeLoader };
+/** The Cobble packs left the Challenge's purchase for a page of their own (#621): the old tab's links land there. */
+function challengeLoader({ request }: LoaderFunctionArgs) {
+  return new URL(request.url).searchParams.get("tab") === "cobbles" ? to("/cobbles", request) : null;
+}
+
+const LOADERS: Record<string, RouteObject["loader"]> = { "": homeLoader, welcome: welcomeLoader, "play/challenge": challengeLoader };
 
 export const routes: RouteObject[] = [
   {

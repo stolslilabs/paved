@@ -21,6 +21,7 @@ const PAGES = {
   over: () => import("../src/routes/pages/over"),
   play: () => import("../src/routes/pages/play"),
   purchase: () => import("../src/routes/pages/purchase"),
+  cobbles: () => import("../src/routes/pages/cobbles"),
   quests: () => import("../src/routes/pages/quests"),
   referral: () => import("../src/routes/pages/referral"),
   settings: () => import("../src/routes/pages/settings"),

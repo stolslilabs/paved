@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { InlineError } from "../src/components/elements/inline-error";
 import { Notice } from "../src/components/elements/notice";
 import { CopyField } from "../src/components/elements/copy-field";
-import { RefusalNotice } from "../src/components/scenes/purchase-scene";
+import { RefusalNotice } from "../src/components/containers/purchase-notices";
 import { ShortAddress } from "../src/components/elements/short-address";
 import { stopPageGesture, usePageGestures } from "../src/lib/page-gestures";
 
@@ -83,10 +83,10 @@ describe("the copy targets opt back in with select-text", () => {
       .map((f) => relative(dir, resolve(dir, f)))
       .sort();
     expect(found).toEqual([
+      "components/containers/purchase-notices.tsx",
       "components/elements/copy-field.tsx",
       "components/elements/inline-error.tsx",
       "components/elements/short-address.tsx",
-      "components/scenes/purchase-scene.tsx",
     ]);
   });
 });
