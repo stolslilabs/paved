@@ -6,7 +6,7 @@ import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
 import { useBoardSettings } from "../../data/board-settings";
-import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
+import { APP_ASSETS, SOURCE_ASSETS, appRenders, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
 import { Notice } from "../elements/notice";
@@ -68,8 +68,8 @@ function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps,
     tiles: TILES,
     slots,
     ghost: chosen ? { ...chosen, plan: HAND.plan, orientation, placed: true, fits } : null,
-    hand: { tile: { plan: HAND.plan, orientation }, state: "placing", slotChosen: chosen !== null && fits, preview: chosen && fits ? 30 : null },
-    bubble: chosen ? { cell: chosen, rotations: VALID.length, onRotate: fn(), onClose: fn(), onConfirm: fn(), canConfirm: fits } : null,
+    hand: { tile: { plan: HAND.plan, orientation }, state: "placing", slotChosen: chosen !== null && fits, cellChosen: chosen !== null, preview: chosen && fits ? 30 : null },
+    bubble: chosen ? { cell: chosen, rotations: VALID.length, onRotate: fn(), onClose: fn(), onDiscard: fn(), discardCost: 50, onConfirm: fn(), canConfirm: fits } : null,
   };
 }
 
@@ -111,7 +111,7 @@ const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, seas
 const meta = {
   title: "Scenes/Board",
   component: BoardScene,
-  args: { onBack: fn(), onDiscard: fn(), onSurrender: fn() },
+  args: { onBack: fn(), onDiscard: fn(), onSurrender: fn(), onRestart: fn(), tileRenders: appRenders },
   render: (args) => renderBoard(args),
 } satisfies Meta<typeof BoardScene>;
 export default meta;
@@ -129,13 +129,37 @@ export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } 
  */
 export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
 
-/** The gear opened: the device settings over the board, a bottom sheet on a phone (375 px), a side panel on a desktop (1440 px). */
-export const SettingsOpen: Story = {
+/** Opens the gear's settings over the board. */
+const openSettings: Story["play"] = async ({ canvasElement }) => {
+  await userEvent.click(within(canvasElement).getByRole("button", { name: "Settings" }));
+  await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Settings" })).toBeInTheDocument());
+};
+
+/**
+ * The gear opened in a Challenge: the device settings over the board, a bottom sheet on a phone (375 px), a side panel on a
+ * desktop (1440 px); "This game" first, with Surrender (#606), which asks in its dialog.
+ */
+export const SettingsOpen: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, play: openSettings };
+/** The settings in Training: Restart (the same game from its first tile, same deck), confirmed by a dialog. No Surrender. */
+export const SettingsTraining: Story = { args: { ...BOARD.storageDisabled, storageDisabled: false, ...inHand(HAND.orientation, null) }, play: openSettings };
+/** The settings in Story mode: Restart level, confirmed by a dialog. */
+export const SettingsStory: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees" },
+  play: openSettings,
+};
+
+/** A tap on the tile stack: the deck sheet, its chips the real tiles seen from above (the toggle switches to the simplified view). */
+export const DeckOpen: Story = {
   args: { ...BOARD.placing, ...inHand(HAND.orientation, null) },
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Settings" }));
-    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Settings" })).toBeInTheDocument());
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Tiles left/ }));
+    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Deck" })).toBeInTheDocument());
   },
+};
+
+/** The tile in hand fits no cell in any rotation: no plate is playable, the stack's Discard says so and stays offered. */
+export const FitsNowhere: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null), slots: [], hand: { tile: HAND, state: "placing", fitsNowhere: true } },
 };
 
 type PlatesArgs = BoardSceneProps & { rotation: number; placed: boolean };
@@ -153,8 +177,8 @@ export const Plates: StoryObj<PlatesArgs> = {
   render: ({ rotation, placed, ...args }) => renderBoard({ ...args, ...inHand(rotation, placed ? CHOSEN : null) }),
 };
 
-/** A slot chosen (plan view): the bubble above the hand, the points on the HUD's score. */
-export const SlotChosen: Story = { args: BOARD.slotChosen };
+/** A slot chosen (plan view): the bubble above the tile stack (Cancel, Discard, Rotate, Validate), the points on the HUD's score. */
+export const SlotChosen: Story = { args: { ...BOARD.slotChosen, hand: { ...BOARD.slotChosen.hand, cellChosen: true }, bubble: { ...BOARD.slotChosen.bubble, onDiscard: fn(), discardCost: 50 } } };
 
 /** The last move closed a city and a forest: the points appear over the board. */
 export const ClosingPoints: Story = { args: BOARD.closing };
@@ -164,13 +188,13 @@ export const PendingMove: Story = { args: BOARD.pending };
 
 export const RefusedMove: Story = { args: BOARD.refused };
 
-/** 24 h passed: the hand asks to surrender. */
+/** 24 h passed: the banner above the stack carries Surrender, the only move left. */
 export const Expired: Story = { args: BOARD.expired };
 
 /** 24 h passed, as the Challenge board opens it (P5): the Surrender dialog opens by itself. */
 export const ExpiredPrompt: Story = { args: { ...BOARD.expired, promptSurrender: true } };
 
-/** A Challenge game with no account connected (P5): no hand, the board read only. */
+/** A Challenge game with no account connected (P5): no hand, the board read only; the stack keeps the tiles left and the deck. */
 export const ReadOnly: Story = {
   args: {
     ...BOARD.placing,
@@ -244,11 +268,11 @@ export const StoryCoachDeck: Story = {
     expiresAt: null,
     title: "Tutorial 5: Under the trees",
     coach: "deck",
-    notices: <StoryCoach tip="Tap Tiles left: the deck sheet shows every tile this level deals, and the ones already played." onDismiss={fn()} />,
+    notices: <StoryCoach tip="Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." onDismiss={fn()} />,
   },
 };
 
-/** Story coach marks on the hand: Discard ringed (Tutorial 3), no Surrender in Story mode. */
+/** Story coach marks on the stack: its Discard ringed (Tutorial 3), no Surrender in Story mode. */
 export const StoryCoachDiscard: Story = {
   args: {
     ...BOARD.placing,
@@ -258,7 +282,8 @@ export const StoryCoachDiscard: Story = {
     expiresAt: null,
     title: "Tutorial 3: Not this one",
     coach: "discard",
-    notices: <StoryCoach tip="This tile only gets in the way: Discard it. At 0 points a discard is free." onDismiss={fn()} />,
+    score: 0,
+    notices: <StoryCoach tip="This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." onDismiss={fn()} />,
   },
 };
 

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { baseDeckPlans, deckSheetCounts, deckSheetOrder, PlanType, TUTORIAL } from "@paved/game-core";
+import { appRenders, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { DeckSheet } from "./deck-sheet";
 
 const id = (plan: PlanType) => Object.values(PlanType).indexOf(plan);
@@ -18,14 +19,23 @@ const meta = {
   title: "Containers/DeckSheet",
   component: DeckSheet,
   parameters: { layout: "fullscreen" },
-  args: { open: true, onOpenChange: fn(), deck: { mode: "counted", counts: deckSheetCounts(deck, played, [id(PlanType.FFFFFFCFF)]) }, handPlan: id(PlanType.CCCCCFFFC) },
+  args: {
+    open: true,
+    onOpenChange: fn(),
+    deck: { mode: "counted", counts: deckSheetCounts(deck, played, [id(PlanType.FFFFFFCFF)]) },
+    handPlan: id(PlanType.CCCCCFFFC),
+    renders: appRenders,
+    tileArt: originalTileArt(SOURCE_ASSETS),
+    view: "real",
+    onViewChange: fn(),
+  },
 } satisfies Meta<typeof DeckSheet>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A random draw (Challenge, Training) on a phone: a bottom sheet, 72 chips by plan, the played ones crossed out; never the order. */
+/** A random draw (Challenge, Training) on a phone: a bottom sheet, 72 chips by plan, the real tiles seen from above (#606), the played ones crossed out; never the order. */
 export const Bottom: Story = { args: { side: "bottom" }, globals: mobile };
-/** A random draw from the tablet width up: a panel on the left, the hand panel stays free. */
+/** A random draw from the tablet width up: a panel on the left, the tile stack stays free. */
 export const Side: Story = { args: { side: "left" }, globals: wide };
 /** Nothing played yet. */
 export const Fresh: Story = { args: { side: "bottom", deck: { mode: "counted", counts: deckSheetCounts(deck, []) }, handPlan: null }, globals: mobile };
@@ -39,3 +49,10 @@ export const StoryOrderFresh: Story = {
   args: { side: "bottom", deck: { mode: "ordered", order: deckSheetOrder(TUTORIAL.levels[4]!.deck, []) }, handPlan: null, onPresent: fn() },
   globals: mobile,
 };
+
+/** The simplified view (the toggle's other side): each plan's nine areas. */
+export const Simplified: Story = { args: { side: "bottom", view: "simple" }, globals: mobile };
+/** The real view in the board's skins: the player's Forest theme on a few plans (`skins`), the base models elsewhere. */
+export const Skinned: Story = { args: { side: "bottom", skins: { cccccfffc: 1, ffffcccff: 1, rfrfffffr: 1, wffffffff: 1 } }, globals: mobile };
+/** No renders served (a build without them): the real view falls back to the board's tile art. */
+export const NoRenders: Story = { args: { side: "bottom", renders: undefined }, globals: mobile };

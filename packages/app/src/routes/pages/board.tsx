@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
-import { MAX_UNCONFIRMED, type PredictedState } from "@paved/game-core";
+import { DISCARD_POINTS, MAX_UNCONFIRMED, type PredictedState } from "@paved/game-core";
 import { BoardViewport } from "../../components/containers/board-viewport";
 import { TileView, hasWebGL } from "../../components/containers/tile-view";
 import { useTileArt } from "../../data/tile-art";
+import { useTileRenders } from "../../data/tile-renders";
 import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
 import { provideManifest } from "@paved/renderer";
-import type { HandState } from "../../components/containers/hand-panel";
+import type { HandState } from "../../components/containers/tile-stack";
 import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
@@ -46,7 +47,7 @@ export default function Page() {
  * `toChainSlot` (D1, #379). A finished game goes to `/training/over`.
  */
 function TrainingBoard() {
-  const { game, snapshot, board } = useTrainingSession();
+  const { game, snapshot, board, restart } = useTrainingSession();
   // The connected player's skins; a guest's board draws the base models.
   const skins = useBoardSkins(useDataSources().signer?.address ?? null);
   const boardSettings = useBoardSettings(game);
@@ -56,6 +57,7 @@ function TrainingBoard() {
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
   const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
+  const renders = useTileRenders(RENDERER_ASSETS);
 
   const hand = board.hand;
   const slotsAt = useCallback((o: number) => game.slots(o), [game]);
@@ -93,12 +95,21 @@ function TrainingBoard() {
     void game.discard();
   }, [game, placement]);
 
-  const surrender = useCallback(() => void game.surrender(), [game]);
-
   const state = snapshot.state;
   const handState = !hand || board.over ? "empty" : state.writeError ? "refused" : "placing";
   const bubble = placement.chosen
-    ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: () => void confirm(), canConfirm: placement.canConfirm && preview !== null, busy: placing }
+    ? {
+        cell: placement.chosen,
+        rotations: placement.rotations.length,
+        onRotate: placement.rotate,
+        onClose: placement.clear,
+        onDiscard: discard,
+        discardCost: Math.min(board.score, DISCARD_POINTS),
+        orientation,
+        onConfirm: () => void confirm(),
+        canConfirm: placement.canConfirm && preview !== null,
+        busy: placing,
+      }
     : null;
   return (
     <BoardScene
@@ -110,9 +121,20 @@ function TrainingBoard() {
       discardedPlans={board.discardedPlans}
       expiresAt={null}
       now={Math.floor(Date.now() / 1000)}
-      hand={{ tile: hand && { plan: hand.plan, orientation }, state: handState, slotChosen: placement.canConfirm && preview !== null, preview, error: state.writeError, errorDetail: handErrorDetail }}
+      hand={{
+        tile: hand && { plan: hand.plan, orientation },
+        state: handState,
+        slotChosen: placement.canConfirm && preview !== null,
+        cellChosen: placement.chosen !== null,
+        fitsNowhere: hand !== null && slots?.length === 0,
+        preview,
+        error: state.writeError,
+        errorDetail: handErrorDetail,
+      }}
       lastScored={board.lastScored}
       tileArt={tileArt}
+      tileRenders={renders}
+      skins={skins}
       renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
       storageDisabled={snapshot.storage === "off"}
       saveDropped={snapshot.storage === "dropped"}
@@ -145,7 +167,10 @@ function TrainingBoard() {
       }
       onBack={onBack}
       onDiscard={discard}
-      onSurrender={surrender}
+      onRestart={() => {
+        placement.clear();
+        restart();
+      }}
     />
   );
 }
@@ -184,6 +209,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
   const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
+  const renders = useTileRenders(RENDERER_ASSETS);
 
   const ready = state?.status === "ready" ? state : null;
   const hand = ready?.hand ?? null;
@@ -296,7 +322,18 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const handState = challengeHand(state, expired);
   const bubble =
     placement.chosen && playable && handState !== "expired" && handState !== "empty"
-      ? { cell: placement.chosen, rotations: placement.rotations.length, onRotate: placement.rotate, onClose: placement.clear, orientation, onConfirm: confirm, canConfirm: placement.canConfirm && preview !== null, busy: handState === "pending" }
+      ? {
+          cell: placement.chosen,
+          rotations: placement.rotations.length,
+          onRotate: placement.rotate,
+          onClose: placement.clear,
+          onDiscard: discard,
+          discardCost: Math.min(game?.score ?? 0, DISCARD_POINTS),
+          orientation,
+          onConfirm: confirm,
+          canConfirm: placement.canConfirm && preview !== null,
+          busy: handState === "pending",
+        }
       : null;
   return (
     <BoardScene
@@ -313,12 +350,16 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
         tile: hand && { plan: hand.plan, orientation },
         state: handState,
         slotChosen: placement.canConfirm && preview !== null,
+        cellChosen: placement.chosen !== null,
+        fitsNowhere: hand !== null && slots?.length === 0,
         preview,
         error: state.writeError,
         errorDetail: handErrorDetail,
       }}
       lastScored={state.lastScored}
       tileArt={tileArt}
+      tileRenders={renders}
+      skins={skins}
       renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
       slots={slots}
       ghost={ghost}

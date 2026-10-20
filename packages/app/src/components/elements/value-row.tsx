@@ -14,7 +14,7 @@ export interface ValueRowProps {
 }
 
 /**
- * The one layout rule for an icon with a figure (Score, TilesLeft, StatRow, the amounts beside an icon): the title sits
+ * The one layout rule for an icon with a figure (Score, StatRow, the amounts beside an icon): the title sits
  * above, and the icon shares one row with the value, centred on the value's line, so the title, the icon and the value
  * no longer have three baselines. The value brings `leading-none` so the row is exactly its line high.
  */
