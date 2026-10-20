@@ -26,7 +26,7 @@ export interface AppNavProps {
 /**
  * The tabbed pages' navigation (section 6.2), direction D (#537, the owner's pick): the mockups' bar of five items, each an
  * icon over its label (labels from `mobile`), at the bottom of the page below `desktop`; from `desktop` the same items, icon
- * beside label, in a header across the top, after the voxel wordmark and before the three balances. No rail and no sliding
+ * beside label, in a header across the top, after the voxel wordmark and before the balances (#620). No rail and no sliding
  * indicator: the current item is gold on the white 15% layer (`state-layer`, theme.css), hover 10%, pressed 20%.
  * Play, the centre item (#623), has no label (`aria-label`) and stands out as the app's accent: a larger gold disc raised
  * above the bar on a phone, a gold disc among the items from `desktop`. It opens the mode choice (`/play`).
@@ -94,8 +94,8 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
             );
           })}
         </div>
-        {/* From `desktop`, the three balances close the header (#538); below it the pages' headers carry the pill. */}
-        <BalancesSlot layout="rail" className="ml-auto" />
+        {/* From `desktop`, the balances close the header (#538, #620); below it the pages' headers carry the pill. */}
+        <BalancesSlot layout="rail" className="ml-auto hidden desktop:flex" />
       </nav>
       {/* Outside the bar: its backdrop filter would make it the containing block of a fixed child. */}
       <div aria-hidden data-slot="page-scroll-hint" className="pointer-events-none fixed inset-x-0 bottom-0 z-10 hidden h-16 bg-linear-to-b via-background/70 to-background opacity-0 transition-opacity motion-reduce:transition-none desktop:block page-more:opacity-100" />

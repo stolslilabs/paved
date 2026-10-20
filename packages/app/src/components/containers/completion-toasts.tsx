@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { newlyCompleted, completionKey, type Trackable } from "../../lib/quest-toasts";
-import { formatCobbles } from "../elements/cobbles";
+import { Cobbles, formatCobbles } from "../elements/cobbles";
 import { Icon } from "../ui/icon";
 import { toast } from "../ui/sonner";
 
@@ -19,11 +19,21 @@ export function completionLine({ description, cobbles }: Pick<CompletionToast, "
   return [description, reward].filter(Boolean).join(" · ") || undefined;
 }
 
+/** The line under a completion's title with the Cobbles' icon (issue 620); its words are `completionLine`'s. */
+export function CompletionReward({ entry }: { entry: Pick<CompletionToast, "description" | "cobbles"> }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1">
+      {entry.description && <span>{entry.description} ·</span>}
+      <Cobbles value={entry.cobbles ?? 0} sign="+" size="sm" /> to claim
+    </span>
+  );
+}
+
 /** A completion's toast: at the top, clear of the board's hand and the pages' bottom bar, once per key (Sonner's `id`). */
 export function toastCompletion(kind: "quest" | "achievement", key: string, entry: CompletionToast) {
   toast.success(`${kind === "quest" ? "Mission completed" : "Lifetime mission earned"}: ${entry.title}`, {
     id: key,
-    description: completionLine(entry),
+    description: entry.cobbles ? <CompletionReward entry={entry} /> : completionLine(entry),
     icon: <Icon name={entry.icon} size="md" />,
     position: "top-center",
   });

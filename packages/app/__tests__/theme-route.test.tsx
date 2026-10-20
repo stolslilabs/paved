@@ -157,7 +157,7 @@ describe("/settings/theme/forest: the shop", () => {
     const s = setup();
     open(s, "/settings/theme/forest");
     await userEvent.click(await buyButton(10));
-    expect((await screen.findAllByRole("img", { name: "185 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "185 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     await waitFor(async () => expect((await cell(10)).dataset.state).toBe("owned"));
     expect(s.writer.sent).toEqual([{ buy: { theme: FOREST, plan: 10 } }]);
   });

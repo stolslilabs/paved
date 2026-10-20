@@ -3,7 +3,7 @@
  * https://github.com/magicuidesign/magicui at commit 85f97fd27b053339af74ba9dd4ca428ee25989fb, MIT, (c) Magic UI).
  * Adapted: reduced motion (from `MotionConfig`) writes the value at once, the formatter is built once per
  * `decimalPlaces`, the colour is inherited (no raw black and white), the `direction` prop is dropped (Paved's counters
- * only go towards their value).
+ * only go towards their value), and a `format` prop writes the figure (the balances' exact amounts, issue 620).
  */
 import { formatFixed } from "@paved/game-core";
 import { useEffect, useMemo, useRef, type ComponentProps } from "react";
@@ -18,6 +18,8 @@ export type NumberTickerProps = Omit<ComponentProps<"span">, "children"> & {
   /** Seconds to wait, once in view, before counting. */
   delay?: number;
   decimalPlaces?: number;
+  /** Writes a figure; `formatFixed` to `decimalPlaces` by default. Kept stable (`useCallback`), or the counter resubscribes. */
+  format?: (n: number) => string;
 };
 
 /**
@@ -25,13 +27,13 @@ export type NumberTickerProps = Omit<ComponentProps<"span">, "children"> & {
  * text is written straight to the span (no React render per frame). Hooks only: no `m` component, so it needs no
  * Motion feature set.
  */
-export function NumberTicker({ value, startValue = 0, delay = 0, decimalPlaces = 0, className, ...props }: NumberTickerProps) {
+export function NumberTicker({ value, startValue = 0, delay = 0, decimalPlaces = 0, format: write, className, ...props }: NumberTickerProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const reduced = useReducedMotionConfig();
   const motionValue = useMotionValue(startValue);
   const springValue = useSpring(motionValue, { damping: 60, stiffness: 100 });
   const isInView = useInView(ref, { once: true, margin: "0px" });
-  const format = useMemo(() => (n: number) => formatFixed(n, decimalPlaces), [decimalPlaces]);
+  const format = useMemo(() => write ?? ((n: number) => formatFixed(n, decimalPlaces)), [write, decimalPlaces]);
 
   useEffect(() => {
     if (!isInView) return;
