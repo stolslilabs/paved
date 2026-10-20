@@ -176,6 +176,13 @@ describe("ResourcePlate: the change animations (#620)", () => {
     expect(container).toHaveTextContent("–");
     rerender(plate(240n));
     expect(change(container)).toBeNull();
+    // The figure is written at once, not counted up from zero.
+    expect(container.querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^240$/);
+  });
+
+  it("a first load writes the figure at once", () => {
+    const { container } = render(plate(240n));
+    expect(container.querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^240$/);
   });
 
   it("under reduced motion the figure only flashes its colour: no floating change", () => {

@@ -60,8 +60,12 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, from, si
   const [seen, setSeen] = useState(from ?? amount);
   const [change, setChange] = useState<Change | null>(null);
   const [flash, setFlash] = useState<boolean>(false);
+  // Where the counter starts: the first amount shown, so a first load writes it at once (or `from`, to count from it).
+  const [start, setStart] = useState(() => (from === undefined ? (amount === null ? 0 : figureOf(amount, decimals, fraction)) : figureOf(from, decimals, fraction)));
   if (amount !== seen) {
     setSeen(amount);
+    // A value that arrives after none (no source, then one) is a first load: the counter mounts on it, nothing counts.
+    if (amount !== null && seen === null) setStart(figureOf(amount, decimals, fraction));
     if (amount !== null && seen !== null) {
       const diff = amount - seen;
       const up = diff > 0n;
@@ -79,8 +83,6 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, from, si
   const target = amount === null ? 0 : figureOf(amount, decimals, fraction);
   // The exact text on the settled value (a number past 2^53 loses digits); the counter's own between.
   const format = useCallback((n: number) => (n === target && text !== null ? text : formatFixed(n, fraction)), [target, text, fraction]);
-  // Where the counter starts: the first amount shown, so a first load writes it at once (or `from`, to count from it).
-  const [start] = useState(() => (from === undefined ? target : figureOf(from, decimals, fraction)));
   const moving = change !== null && !reduced;
 
   return (
