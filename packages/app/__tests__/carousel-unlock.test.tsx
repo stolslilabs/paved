@@ -1,10 +1,23 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CAMPAIGNS, EMPTY_PROGRESS, recordRun } from "@paved/game-core";
 import { StoryScene } from "../src/components/scenes/story-scene";
 import { Carousel, CarouselContent, CarouselItem, useCarouselSettled, type CarouselApi } from "../src/components/ui/carousel";
+
+// Embla as is, its last API kept: StoryScene does not hand it out.
+const embla = vi.hoisted(() => ({ api: undefined as CarouselApi }));
+vi.mock("embla-carousel-react", async (original) => {
+  const { default: useEmblaCarousel } = await original<typeof import("embla-carousel-react")>();
+  return {
+    default: (...args: Parameters<typeof useEmblaCarousel>) => {
+      const result = useEmblaCarousel(...args);
+      embla.api = result[1];
+      return result;
+    },
+  };
+});
 
 const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
   <LazyMotion features={domMax}>
@@ -89,4 +102,15 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
     expect(card).toHaveAttribute("data-status", "open");
     expect(card).not.toHaveAttribute("data-unlock");
   });
+
+  for (const reduced of ["never", "always"] as const) {
+    it(`a press on a card brings it in view, a jump under reduced motion (${reduced})`, async () => {
+      embla.api = undefined;
+      render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progressOpeningTheSecond()} campaignId={2} />, reduced));
+      await waitFor(() => expect(embla.api).toBeDefined());
+      const scrollTo = vi.spyOn(embla.api!, "scrollTo");
+      fireEvent.click(screen.getByRole("button", { name: /Tutorial/ }));
+      expect(scrollTo).toHaveBeenCalledWith(0, reduced === "always");
+    });
+  }
 });

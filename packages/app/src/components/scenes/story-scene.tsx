@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useReducedMotionConfig } from "motion/react";
 import {
   PlanType,
   campaignRequirement,
@@ -78,6 +79,8 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
   // One motion at a time (#615): the carousel opens on the chosen card without a scroll, and a card's unlock waits until
   // the track is at rest, so neither cuts the other.
   const settled = useCarouselSettled(api);
+  // Embla's second argument is `jump`: under reduced motion a press brings its card in view without a scroll.
+  const reduced = Boolean(useReducedMotionConfig());
   const campaign = campaigns.find((c) => c.id === chosen) ?? campaigns[0];
 
   const choose = useCallback(
@@ -137,7 +140,7 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
                     paused={!settled}
                     onSelect={() => {
                       choose(c.id);
-                      api?.scrollTo(index);
+                      api?.scrollTo(index, reduced);
                     }}
                   />
                 </CarouselItem>
