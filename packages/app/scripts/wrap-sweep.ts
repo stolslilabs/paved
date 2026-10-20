@@ -54,6 +54,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // A carousel: its track is wider than its window and the window clips it, by design (Embla).
   { story: /^ui-carousel--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   { story: /^ui-carousel--/, kind: "overflow", element: 'div "DailyOne deck', why: "carousel track" },
+  // Story's campaign cards (#592): the same carousel on a phone, its next card peeking past the window, by design.
+  { story: /^scenes-story--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^scenes-story--/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
   // A horizontal scroller, by design: the story shows ScrollArea's horizontal mode.
   { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
   // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design.

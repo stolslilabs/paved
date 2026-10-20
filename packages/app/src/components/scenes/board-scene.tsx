@@ -46,6 +46,8 @@ export interface BoardSceneProps {
   title?: string;
   /** The deck the deck sheet shows (a Story level's fixed deck, the starter included); the base deck otherwise. */
   deck?: readonly PlanType[];
+  /** A Story level: the deck sheet offers the level's deck presentation again (#593). */
+  onPresentDeck?: () => void;
   /** The control a Story coach mark points at: ringed. */
   coach?: CoachTarget | null;
   tiles: BoardTile[];
@@ -241,7 +243,17 @@ export function BoardScene(props: BoardSceneProps) {
       )}
 
       {deckSheet && (
-        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} deck={props.deck} handPlan={hand.tile?.plan ?? null} tileArt={props.tileArt} />
+        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} deck={props.deck}
+          handPlan={hand.tile?.plan ?? null}
+          tileArt={props.tileArt}
+          onPresent={
+            props.onPresentDeck &&
+            (() => {
+              setDeckOpen(false);
+              props.onPresentDeck?.();
+            })
+          }
+        />
       )}
 
       {settingsSheet && <settingsSheet.default open={settingsOpen} onOpenChange={setSettingsOpen} />}

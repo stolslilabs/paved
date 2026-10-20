@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAMPAIGNS, STORY_KEY, TUTORIAL, decodeLine, recordRun, EMPTY_PROGRESS, type StoryLevel } from "@paved/game-core";
 import { App } from "../src/App";
+import { PRESENTED_KEY, UNLOCKS_KEY } from "../src/data/story";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -60,9 +61,55 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const tutorial = screen.getByRole("region", { name: "Tutorial" });
     expect(within(tutorial).getByRole("button", { name: /^Level 1, First stone$/ })).toBeEnabled();
     expect(within(tutorial).getByRole("button", { name: /^Level 2, Turn it around, locked$/ })).toBeDisabled();
+    expect(tutorial.querySelector('[title="Turn it around"]')).not.toBeNull();
+    // The campaigns are cards; the locked one says what it needs, and pressing it shows its levels, locked.
+    const cards = screen.getByRole("region", { name: "Campaigns" });
+    const locked = within(cards).getByRole("button", { name: /^Open Country/ });
+    expect(locked).toHaveAttribute("data-status", "locked");
+    expect(locked).toHaveTextContent("22 more stars to open");
+    expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(locked);
+    expect(locked).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
     const second = screen.getByRole("region", { name: "Open Country" });
     expect(within(second).getByText("Locked")).toBeInTheDocument();
     expect(within(second).getByRole("button", { name: /^Level 1, .*, locked$/ })).toBeDisabled();
+    expect(screen.queryByRole("region", { name: "Tutorial" })).toBeNull();
+  });
+
+  it("a campaign opened since the last visit plays its unlock once; the device remembers it (#592)", async () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
+    const first = render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    expect(within(cards).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "unlocking");
+    expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("data-status", "complete");
+    await waitFor(() => expect(JSON.parse(store.getItem(UNLOCKS_KEY) ?? "[]")).toEqual([2]));
+    first.unmount();
+    queryClient.clear();
+
+    render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const again = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    expect(within(again).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "open");
+  });
+
+  it("the campaign just opened is the one in view, over a campaign remembered in the address (#592)", async () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
+    const router = createTestRouter("/story?campaign=1");
+    render(<App router={router} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    const opened = within(cards).getByRole("button", { name: /^Open Country/ });
+    expect(opened).toHaveAttribute("data-status", "unlocking");
+    expect(opened).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "Open Country" })).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
+    // A pick after that is the player's: the address keeps it.
+    await userEvent.click(within(cards).getByRole("button", { name: /^Tutorial/ }));
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=1"));
+    expect(screen.getByRole("region", { name: "Tutorial" })).toBeInTheDocument();
   });
 
   it("plays level 1 to 3 stars on the board, records the run, claims First Stone, and opens level 2", async () => {
@@ -71,13 +118,19 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const router = createTestRouter("/story");
     render(<App router={router} sources={fakeSources({ store: () => store }).sources} connector={wallet.load} />);
     await userEvent.click(await screen.findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: 5000 }));
-    // The intro first: what the level asks for, then Start.
-    const intro = await screen.findByTestId("story-intro", {}, { timeout: 5000 });
+    // The deck's presentation first (#593): the title, the intro and the tiles it deals, never a star threshold; then Start.
+    const intro = await screen.findByTestId("deck-presentation", {}, { timeout: 5000 });
     const level = TUTORIAL.levels[0]!;
     expect(intro).toHaveTextContent(level.intro);
-    expect(intro).toHaveTextContent(String(level.target));
+    expect(intro).toHaveTextContent(`This level deals ${level.deck.length} tiles`);
+    // Its two tiles are the same plan: one group, counted.
+    expect(within(intro).getByTestId("presented-tiles").querySelectorAll("li")).toHaveLength(1);
+    expect(within(intro).getByLabelText("2 of this tile")).toBeInTheDocument();
+    expect(intro).not.toHaveTextContent(String(level.target));
+    expect(intro).not.toHaveTextContent(String(Math.ceil(level.target * 0.7)));
     expect(screen.queryByRole("region", { name: "Your tile" })).toBeNull();
     await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
+    expect(JSON.parse(store.getItem(PRESENTED_KEY)!)).toEqual(["1-1"]);
     // The tip of level 1 names the hold on the check, which the bubble rings; Story has no Surrender.
     expect(screen.getByTestId("story-coach")).toHaveTextContent("hold the check");
     expect(screen.queryByRole("button", { name: /Surrender/ })).toBeNull();
@@ -86,6 +139,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const end = await screen.findByTestId("story-end", {}, { timeout: 5000 });
     expect(end).toHaveAttribute("data-stars", "3");
     expect(within(end).getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
+    // 3 stars: no next star to miss.
+    expect(within(end).queryByTestId("to-next-star")).toBeNull();
     const saved = JSON.parse(store.getItem(STORY_KEY)!);
     expect(saved.levels["1-1"]).toMatchObject({ best: level.target, stars: 3, run: { campaignId: 1, levelIndex: 1 } });
     expect(saved.levels["1-1"].run.moves).toHaveLength(decodeLine(level.line).length);
@@ -98,19 +153,42 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
 
     await userEvent.click(within(end).getByRole("button", { name: "Next level" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/story/1/2"));
-    expect(await screen.findByTestId("story-intro")).toHaveTextContent(TUTORIAL.levels[1]!.title);
+    expect(await screen.findByTestId("deck-presentation")).toHaveTextContent(TUTORIAL.levels[1]!.title);
   });
 
-  it("a discard-only run finishes with 1 star; Replay starts the level again", async () => {
+  it("a discard-only run finishes with 1 star and the points short of the next; Replay goes straight to the board", async () => {
     const store = memoryStore();
-    render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    await userEvent.click(within(await screen.findByTestId("story-intro", {}, { timeout: 5000 })).getByRole("button", { name: /Start/ }));
-    for (let i = 0; i < TUTORIAL.levels[0]!.deck.length; i++) await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    const level = TUTORIAL.levels[0]!;
+    const first = render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    // A tap anywhere on the presentation starts the level.
+    await userEvent.click(within(await screen.findByTestId("deck-presentation", {}, { timeout: 5000 })).getByText(level.intro));
+    expect(screen.queryByTestId("deck-presentation")).toBeNull();
+    for (let i = 0; i < level.deck.length; i++) await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
     const end = await screen.findByTestId("story-end");
     expect(end).toHaveAttribute("data-stars", "1");
+    // A tap while the stars fill skips to the result: one row of stars, never two.
+    await userEvent.click(within(end).getByRole("heading", { name: /complete$/ }));
+    expect(within(screen.getByTestId("story-end")).getAllByTestId("star-fill")).toHaveLength(1);
+    // The thresholds stay hidden: only what the next star was missing.
+    expect(within(end).getByTestId("to-next-star")).toHaveTextContent(`${Math.ceil(level.target * 0.7)} points short of the next star.`);
+    expect(end).not.toHaveTextContent(String(level.target));
     expect(JSON.parse(store.getItem(STORY_KEY)!).levels["1-1"]).toMatchObject({ best: 0, stars: 1 });
     await userEvent.click(within(end).getByRole("button", { name: "Replay" }));
     expect(screen.queryByTestId("story-end")).toBeNull();
+    expect(screen.queryByTestId("deck-presentation")).toBeNull();
+    expect(within(hand()).getByRole("button", { name: /Discard/ })).toBeEnabled();
+    first.unmount();
+    queryClient.clear();
+
+    // Presented once on this device: the next visit opens on the board, and the deck sheet shows the presentation again.
+    render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    expect(await within(await screen.findByRole("region", { name: "Your tile" }, { timeout: 5000 })).findByRole("button", { name: /Discard/ })).toBeEnabled();
+    expect(screen.queryByTestId("deck-presentation")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Present the level again" }, { timeout: 5000 }));
+    const again = await screen.findByTestId("deck-presentation");
+    await userEvent.click(within(again).getByRole("button", { name: /Start/ }));
+    expect(screen.queryByTestId("deck-presentation")).toBeNull();
     expect(within(hand()).getByRole("button", { name: /Discard/ })).toBeEnabled();
   });
 
@@ -133,7 +211,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     for (const level of TUTORIAL.levels.slice(0, 9)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, 0);
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     render(<App router={createTestRouter("/story/1/10")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    await userEvent.click(within(await screen.findByTestId("story-intro", {}, { timeout: 5000 })).getByRole("button", { name: /Start/ }));
+    await userEvent.click(within(await screen.findByTestId("deck-presentation", {}, { timeout: 5000 })).getByRole("button", { name: /Start/ }));
     const level = TUTORIAL.levels[9]!;
     expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(level.deck.length));
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));

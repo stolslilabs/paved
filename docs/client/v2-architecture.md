@@ -151,7 +151,7 @@ aliases, a runtime re-point, colour and type stories); the declension below is b
 in theme.css only as the 3D scene's night sky (the renderer's day/night keyframes), and no semantic token or component points
 at it. `gold`, the status scales and the method below stay. The block below is the first proposal, kept as the record.*
 
-**Read (measured from the mockups,** `app/docs/mockup-01.png`, a 5×5-pixel mean per point): the gold of
+**Read (measured from the mockups,** `mockup-01.png`, now in `packages/app/src/stories/renderer/mockups/`, a 5×5-pixel mean per point): the gold of
 the primary buttons is `#F0BF5B` (its gradient runs `#F3C15D` → `#E8B755`); the page is `#0A141C` and the
 board area `#07111A`; the cards `#172129`; the borders `#23303A`. These are the anchors of the `gold` and
 `ink` scales. **Chosen, not measured:** the anchors of `meadow` (success), `river` (info), `ember`
@@ -404,7 +404,7 @@ Transparent tints (glitchbomb's 80 % … 4 % steps) need no tokens: Tailwind v4 
 **Owner decisions.** 2026-10-18: the navy and gold palette, the cards and layout and the navigation (bottom tab bar, left rail
 with a sliding indicator) read as Cartridge's Controller and Arcade; the interaction states become white with transparency on
 every button and nav item. 2026-10-19: of the six directions in Storybook (`Direction/A` to `F`, kept as a record), the owner
-picks **D, "Mockup"**: the owner's mockups (`app/docs/mockup-01.png`, `mockup-02.png`) built as they are drawn. Almendra stays.
+picks **D, "Mockup"**: the owner's mockups (`packages/app/src/stories/renderer/mockups/mockup-01.png`, `mockup-02.png`) built as they are drawn. Almendra stays.
 
 **The palette** (`packages/app/src/styles/theme.css`, the only file with raw colours):
 
@@ -472,7 +472,7 @@ nums, for comparison, self-hosts PixelGame (otf), PPNeueBit, DMMono and Circular
 Lineto face) from `public/assets/fonts/`.
 
 **Read, Paved today:** `packages/ui/src/theme.ts` uses Rubik Mono One for headings and body;
-`app/public/assets/fonts/RubikMonoOne-Regular.ttf` is the only font file in the repository.
+`app/public/assets/fonts/RubikMonoOne-Regular.ttf` was the only font file in the repository (`app/` was removed in #591).
 
 **Chosen by the owner (2026-10-14, through the PM), replacing the proposal of Rubik Mono One and Inter** (F1b,
 t-0228), **then changed the same day to Almendra Bold, Rubik and Space Mono** (t-0260, which reverses F1b). Packages
@@ -1726,7 +1726,7 @@ Out of v1 (P-57 B3) unless the owner asks. **Estimate** of what it would take:
 ### 5.5 Lighting and post-processing (LIGHT)
 
 The owner's remark (P-63, 2026-10-15): the voxel assets and the outlines are right; the lighting and the scene's
-post-processing are what is missing to reach `app/docs/mockup-01.png` and `-02.png`. LIGHT takes over item 3 of 5.2 (the
+post-processing are what is missing to reach `mockup-01.png` and `-02.png` (`packages/app/src/stories/renderer/mockups/`). LIGHT takes over item 3 of 5.2 (the
 order of bloom, vignette and tone mapping, deferred to Q-polish by P4).
 
 **What was there.** `GameScene` drew an ambient, a hemisphere and one white directional light, set
@@ -1951,7 +1951,7 @@ threshold (main's slots do not glow) and the water mask; the tier contents chang
 **Stories:** "Renderer/Lighting" (`packages/app/src/stories/renderer/lighting.stories.tsx`): every field of the look
 is a control over the preset (unset fields keep the preset's), with the quality tier and a readout of the tier in
 effect and the passes that run; the stories Mockup, Soft, Off and Zoomed in; and "Side by side with the mockup", the
-board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/docs`, which Vite serves: not copied).
+board at the opening view beside `mockup-01.png` or `-02.png` (kept beside the story in `mockups/`, moved from `app/docs` in #591).
 LIGHT-GPU added the controls the bench drives: `forest` (Forest on every plan), `force` (the outlines) and
 `maxPixelRatio`; `quality` is typed as an enum so a URL can set it (Storybook dropped it from a URL before: its docgen
 type was an unresolved union).
@@ -3090,7 +3090,7 @@ place would break every page at once, while app-web must keep shipping the Sepol
 | app-web's `training/` (`LocalSession`, `PageSession`, storage, seed) and `tutorial/tutorial-run.ts` | **moved** into `@paved/game-core` (`session/`) so both apps share them, then the session work of section 9 builds on them there |
 | app-web's pure helpers (`utils/*-view.ts`, `player-label`, `mode-routing`) | copied into the new app where used, deleted with app-web |
 | `public/models`, `public/assets/tiles` | moved to `@paved/renderer`'s assets (served by both apps through Vite's `publicDir`) |
-| `@paved/ui` (Tamagui) | dropped with app-web from the web; **`app-native` still depends on it** (dormant, P-2): it stays for app-native until the PM rules on app-native |
+| `@paved/ui` (Tamagui) | dropped with app-web from the web; `app-native`, its last user, was removed in #591; the package stays |
 | app-web's `bench/` and `scripts/bench` | the bench moves to the new app's board route (same method) |
 
 **How both live:** both build in CI; Vercel published app-web's build until the cut-over (app-web was removed in P-70, see git history), then the
@@ -3137,7 +3137,7 @@ Awesome **Pro 6.6.0 from these files**, under the owner's Commercial License. Th
 
 **The files in `packages/app`** (F4). Moved with `git mv`, not copied: nothing read `app/public/fontawesome`
 (`app/` imports `@fortawesome/*` from npm and never the scripts), so the deprecated folder no longer holds
-them. They are unmodified, and `sha256sum` equals that of `21788fb`:
+them (the folder itself was removed in #591). They are unmodified, and `sha256sum` equals that of `21788fb`:
 
 | File | Bytes | SHA-256 |
 |---|---|---|

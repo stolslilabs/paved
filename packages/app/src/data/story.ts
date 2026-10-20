@@ -6,6 +6,8 @@ import {
   EMPTY_PROGRESS,
   STORY_KEY,
   StoryRun,
+  campaignRequirement,
+  campaignUnlocked,
   loadProgress,
   recordRun,
   saveProgress,
@@ -95,6 +97,104 @@ export function useStoryProgress(): {
   );
   return { progress: snapshot, saved: state.saved, record };
 }
+
+/** Where the device keeps the campaigns whose unlock it has shown (#592): their ids, as a JSON array. */
+export const UNLOCKS_KEY = "paved:story-unlocks:v1";
+
+/** The ids shown per store when the browser refuses storage: the animation then plays once per page, not on every visit. */
+const shownHere = new WeakMap<() => KeyValueStore | null, Set<number>>();
+
+function readShown(store: () => KeyValueStore | null): Set<number> {
+  const memory = shownHere.get(store) ?? new Set<number>();
+  shownHere.set(store, memory);
+  try {
+    const raw = store()?.getItem(UNLOCKS_KEY);
+    const ids: unknown = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(ids)) for (const id of ids) if (typeof id === "number") memory.add(id);
+  } catch {
+    // A refused or broken read: what this page has shown stands.
+  }
+  return memory;
+}
+
+/**
+ * The campaigns that opened since this device last showed the campaign list (#592): their cards play the unlock once (the
+ * lock goes, the blur lifts). A campaign open from the start (no stars asked) never plays it. Read once per mount; the
+ * effect then records them, so the next visit shows them open at once.
+ */
+export function useCampaignUnlocks(campaigns: readonly StoryCampaign[], progress: StoryProgress): readonly number[] {
+  const store = trainingStore(useDataSources());
+  const [fresh] = useState(() => {
+    const shown = readShown(store);
+    return campaigns.filter((c) => campaignRequirement(campaigns, c).needed > 0 && campaignUnlocked(progress, campaigns, c) && !shown.has(c.id)).map((c) => c.id);
+  });
+  useEffect(() => {
+    if (fresh.length === 0) return;
+    const shown = readShown(store);
+    for (const id of fresh) shown.add(id);
+    try {
+      store()?.setItem(UNLOCKS_KEY, JSON.stringify([...shown].sort((a, b) => a - b)));
+    } catch {
+      // Storage off: the page's memory keeps it.
+    }
+  }, [fresh, store]);
+  return fresh;
+}
+
+/** Where the device keeps the levels whose deck it has presented (#593): their `campaign-level` keys, as a JSON array. */
+export const PRESENTED_KEY = "paved:story-decks:v1";
+
+/** The keys presented per store when the browser refuses storage: the presentation then shows once per page. */
+const presentedHere = new WeakMap<() => KeyValueStore | null, Set<string>>();
+
+function readPresented(store: () => KeyValueStore | null): Set<string> {
+  const memory = presentedHere.get(store) ?? new Set<string>();
+  presentedHere.set(store, memory);
+  try {
+    const raw = store()?.getItem(PRESENTED_KEY);
+    const keys: unknown = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(keys)) for (const key of keys) if (typeof key === "string") memory.add(key);
+  } catch {
+    // A refused or broken read: what this page has presented stands.
+  }
+  return memory;
+}
+
+/**
+ * Whether this device has presented the deck of a level (#593): read once per mount, so a level opens on its presentation
+ * the first time only; `markPresented` records it (a replay, or the next visit, goes straight to the board).
+ */
+export function useDeckPresented(campaignId: number, levelIndex: number): { presented: boolean; markPresented: () => void } {
+  const store = trainingStore(useDataSources());
+  const key = `${campaignId}-${levelIndex}`;
+  const [presented] = useState(() => readPresented(store).has(key));
+  const markPresented = useCallback(() => {
+    const shown = readPresented(store);
+    if (shown.has(key)) return;
+    shown.add(key);
+    try {
+      store()?.setItem(PRESENTED_KEY, JSON.stringify([...shown]));
+    } catch {
+      // Storage off: the page's memory keeps it.
+    }
+  }, [store, key]);
+  return { presented, markPresented };
+}
+
+/** A campaign not built yet: its number of levels, the tiles of each, and the tiles of its last level when they differ. */
+export interface UpcomingCampaign {
+  levels: number;
+  tiles: number;
+  /** The last level's tiles, when it closes the campaign on a longer deck. */
+  finaleTiles?: number;
+}
+
+/**
+ * The campaigns not built yet (#546 amendments, #593), for the card that announces them; with the Tutorial's 11 and Open
+ * Country's 11, 50 levels in all. The third campaign is the last: 27 full games of 38 tiles, closed by one level of the whole
+ * 72-tile deck. There is no 72-tile campaign: the whole deck is always the same game.
+ */
+export const UPCOMING_CAMPAIGNS: readonly UpcomingCampaign[] = [{ levels: 28, tiles: 38, finaleTiles: 72 }];
 
 /** A run of `level`, one per mounted level page: its engine kept between moves, `restart` starts the level again. */
 export function useStoryRun(campaign: StoryCampaign, level: StoryLevel): { run: StoryRun; snapshot: StorySnapshot } {

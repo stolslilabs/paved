@@ -5,7 +5,7 @@ Self-hosted images for the scenes' backgrounds (`components/elements/background.
 ## Source
 
 `placeholder-*` come from `app/public/assets/placeholder.png` (2000 x 1000 px, 1,002,100 B as a PNG; no alpha), the placeholder the
-owner chose on 2026-10-14. It stands in until the real art lands: replace the source, run the commands again, keep the names.
+owner chose on 2026-10-14. `app/` was removed in #591: the recipe below reads the file from git history (commit `45c8bd05`). It stands in until the real art lands: replace the source, run the commands again, keep the names.
 
 ## Files
 
@@ -29,10 +29,11 @@ A browser takes AVIF, else WebP, else the JPEG fallback (`<picture>`, `srcset` w
 Tools: macOS `sips` 316 (resize, AVIF and JPEG) and `cwebp` 1.6.0 (libwebp). No npm dependency.
 
 ```sh
-SRC=app/public/assets/placeholder.png   # from the repository root
+SRC=/tmp/bg-source.png   # from the repository root: the source, out of git history (app/ left in #591)
+git show 45c8bd05:app/public/assets/placeholder.png > "$SRC"
 cd packages/app/public/backgrounds
 for w in 720 1440 2000; do
-  sips -z $((w/2)) $w "../../../../$SRC" --out /tmp/bg-$w.png
+  sips -z $((w/2)) $w "$SRC" --out /tmp/bg-$w.png
   cwebp -quiet -q 72 -m 6 /tmp/bg-$w.png -o placeholder-$w.webp
   sips -s format avif -s formatOptions 55 /tmp/bg-$w.png --out placeholder-$w.avif
   sips -s format jpeg -s formatOptions 70 /tmp/bg-$w.png --out placeholder-$w.jpg

@@ -1,72 +1,120 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useReducedMotionConfig } from "motion/react";
+import * as m from "motion/react-m";
 import { formatInteger, type Stars } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { StarRow } from "../elements/star-row";
+import { TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { useSfx } from "./audio-provider";
 
 const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
 
-/** What a level asks for: its target, labelled exact or best known, and the 2-star score. */
-export interface StoryTargets {
-  target: number;
-  twoStars: number;
-  /** The target is the best score a search found, not a proven optimum. */
-  bestKnown: boolean;
+/** A short buzz where the device has one (`navigator.vibrate`); refused or absent, nothing. */
+function buzz(ms: number) {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(ms);
+  } catch {
+    // A browser that refuses it (no user gesture, a policy): no buzz.
+  }
 }
 
-function TargetLine({ target, twoStars, bestKnown }: StoryTargets) {
-  return (
-    <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
-      <dt>
-        <StarRow stars={3} size="xs" label="3 stars" />
-      </dt>
-      <dd className="numeric">
-        {formatInteger(target)}
-        {bestKnown && <span className="text-muted-foreground"> (best known)</span>}
-      </dd>
-      <dt>
-        <StarRow stars={2} size="xs" label="2 stars" />
-      </dt>
-      <dd className="numeric">{formatInteger(twoStars)}</dd>
-      <dt>
-        <StarRow stars={1} size="xs" label="1 star" />
-      </dt>
-      <dd>Finish the level</dd>
-    </dl>
-  );
+/** One plan of a level's deck and how many times the level deals it, in the order of its first draw. */
+export function deckGroups(deck: readonly number[]): { plan: number; count: number }[] {
+  const groups = new Map<number, number>();
+  for (const plan of deck) groups.set(plan, (groups.get(plan) ?? 0) + 1);
+  return [...groups].map(([plan, count]) => ({ plan, count }));
 }
 
-export interface StoryIntroProps extends StoryTargets {
+/** The whole presentation's entrance, seconds: the tiles land one group after another within it, however many there are. */
+const PRESENT_SECONDS = 0.9;
+
+export interface DeckPresentationProps {
   campaign: string;
   levelIndex: number;
   title: string;
   intro: string;
-  tiles: number;
+  /** The tiles the level deals after the starter, in draw order (chain plan ids). */
+  deck: readonly number[];
+  /** The build-time renders the tiles are drawn from; the plan's chip without one. */
+  renders?: TileRenders;
   /** The best score so far on this device, with its stars. */
   best?: { score: number; stars: Stars } | null;
   onStart?: () => void;
   className?: string;
 }
 
-/** A level's intro (#546): what it teaches, its deck size, the stars it asks for; Start opens the board. */
-export function StoryIntro({ campaign, levelIndex, title, intro, tiles, best, onStart, className, ...targets }: StoryIntroProps) {
+/**
+ * A level's opening (#593): its title and intro, then the tiles it deals, grouped by plan with their counts (the deck sheet's
+ * counts, not the order), landing one after another; a tap anywhere, or Start, opens the board. No star threshold is shown.
+ * Under reduced motion the tiles are there at once.
+ */
+export function DeckPresentation({ campaign, levelIndex, title, intro, deck, renders, best, onStart, className }: DeckPresentationProps) {
+  const reduced = useReducedMotionConfig();
+  const groups = deckGroups(deck);
+  const step = Math.min(0.07, PRESENT_SECONDS / Math.max(1, groups.length));
   return (
-    <section aria-label="Level intro" data-testid="story-intro" className={cn(CARD, className)}>
-      <span className="text-xs text-muted-foreground">
-        {campaign} · Level {levelIndex} · <span className="numeric">{tiles}</span> tiles
-      </span>
-      <h2 className="font-display text-base font-semibold wrap-anywhere">{title}</h2>
-      <p className="wrap-anywhere">{intro}</p>
-      <TargetLine {...targets} />
-      {best && (
-        <p className="flex flex-wrap items-center gap-2 text-muted-foreground">
-          Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} size="xs" />
-        </p>
-      )}
-      <Button className="self-start" onClick={onStart}>
-        <Icon name="play" size="sm" /> Start
-      </Button>
+    <section
+      aria-label="Level deck"
+      data-testid="deck-presentation"
+      onClick={onStart}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onStart?.();
+      }}
+      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer overflow-y-auto bg-background/80 backdrop-blur-sm", className)}
+    >
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-4 py-6 tablet:max-w-2xl">
+        <m.header className="flex flex-col gap-1" initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <span className="text-xs text-muted-foreground">
+            {campaign} · Level {levelIndex}
+          </span>
+          <h2 className="font-display text-2xl font-semibold wrap-anywhere">{title}</h2>
+          <p className="text-sm wrap-anywhere">{intro}</p>
+        </m.header>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm text-muted-foreground">
+            This level deals <span className="numeric text-foreground">{deck.length}</span> {deck.length === 1 ? "tile" : "tiles"}:
+          </span>
+          <ul data-testid="presented-tiles" className="grid grid-cols-4 gap-2 tablet:grid-cols-6 desktop:grid-cols-8">
+            {groups.map(({ plan, count }, i) => (
+              <m.li
+                key={plan}
+                data-plan={plan}
+                data-count={count}
+                className="relative aspect-square overflow-hidden rounded-lg border border-border bg-board shadow-md"
+                initial={reduced ? false : { opacity: 0, y: 14, scale: 0.85 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: 0.25 + i * step, duration: 0.3, ease: "easeOut" }}
+              >
+                <TileRender plan={plan} theme={0} renders={renders} />
+                {count > 1 && (
+                  <span className="numeric absolute right-1 bottom-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow" aria-label={`${count} of this tile`}>
+                    ×{count}
+                  </span>
+                )}
+              </m.li>
+            ))}
+          </ul>
+        </div>
+        {best && (
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} size="xs" />
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            autoFocus
+            onClick={(e) => {
+              e.stopPropagation();
+              onStart?.();
+            }}
+          >
+            <Icon name="play" size="sm" /> Start
+          </Button>
+          <span className="text-xs text-muted-foreground">or tap anywhere</span>
+        </div>
+      </div>
     </section>
   );
 }
@@ -95,10 +143,14 @@ export function StoryCoach({ tip, onDismiss, className }: StoryCoachProps) {
   );
 }
 
-export interface StoryEndProps extends StoryTargets {
+export interface StoryEndProps {
   title: string;
   score: number;
   stars: Stars;
+  /** The points this run was short of its next star; none at 3 stars. The thresholds themselves are never shown (#593). */
+  toNextStar?: number | null;
+  /** The level's target is the best score known, not a proven optimum. */
+  bestKnown?: boolean;
   /** The best score before this run (none on a first finish). */
   previousBest?: number | null;
   /** The run scored above a best-known target: the plan can raise it. */
@@ -112,40 +164,268 @@ export interface StoryEndProps extends StoryTargets {
   className?: string;
 }
 
-/** A finished level (#546): the stars, the score against the target (and whether it is the best known), Replay and Next. */
-export function StoryEnd({ title, score, stars, previousBest, beatsTarget, onReplay, onNext, onLevels, children, className, ...targets }: StoryEndProps) {
-  const record = previousBest != null && score > previousBest;
+/** The stars' timeline, seconds: the first lands after `lead`, then one every `gap`; the rest of the screen after the last. */
+const FILL = { lead: 0.35, gap: 0.5, pop: 0.45 } as const;
+
+/** When the result under the stars comes in, seconds. */
+export const resultDelay = (stars: number) => FILL.lead + Math.max(0, stars - 1) * FILL.gap + FILL.pop;
+
+/**
+ * The stars earned, filled one by one (#593): each lands with a pop, a sound (`place`, the last of three the `wonder`) and a
+ * buzz where the device has one. `instant` (reduced motion, or a tap to skip) shows them at once, with one sound.
+ */
+export function StarFill({ stars, instant: skip = false, className }: { stars: Stars; instant?: boolean; className?: string }) {
+  const play = useSfx();
+  const reduced = useReducedMotionConfig() ?? false;
+  const instant = skip || reduced;
+  useEffect(() => {
+    if (stars === 0) return;
+    if (instant) {
+      play(stars === 3 ? "wonder" : "place");
+      buzz(40);
+      return;
+    }
+    const timers = Array.from({ length: stars }, (_, i) =>
+      setTimeout(
+        () => {
+          play(i === 2 ? "wonder" : "place");
+          buzz(i === 2 ? 80 : 30);
+        },
+        (FILL.lead + i * FILL.gap) * 1000,
+      ),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [stars, instant, play]);
   return (
-    <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-base font-semibold wrap-anywhere">{title}: complete</h2>
-        <StarRow stars={stars} size="md" />
+    <span role="img" aria-label={`${stars} of 3 stars`} data-stars={stars} data-testid="star-fill" className={cn("inline-flex items-end gap-2", className)}>
+      {[1, 2, 3].map((n) => {
+        const earned = n <= stars;
+        return (
+          <span key={n} className="relative inline-flex">
+            <Icon name="star" className="text-5xl! text-muted-foreground/40" />
+            {earned && (
+              <m.span
+                className="absolute inset-0 inline-flex text-primary"
+                initial={instant ? false : { scale: 0, rotate: -40, opacity: 0 }}
+                animate={{ scale: [0, 1.35, 1], rotate: 0, opacity: 1 }}
+                transition={{ delay: FILL.lead + (n - 1) * FILL.gap, duration: FILL.pop, ease: "easeOut" }}
+              >
+                <Icon name="star" className="text-5xl!" />
+              </m.span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/**
+ * A finished level (#593, #546): over the board, the stars fill one by one, then the score screen: the score, a new best,
+ * how many points the next star was missing (never the thresholds), Next, Replay and Levels. A tap skips the stars; under
+ * reduced motion they are there at once. "Board" shows the finished board under a small bar that brings the result back.
+ */
+export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousBest, beatsTarget, onReplay, onNext, onLevels, children, className }: StoryEndProps) {
+  const reduced = useReducedMotionConfig() ?? false;
+  const [skipped, setSkipped] = useState(false);
+  const [settled, setSettled] = useState(reduced);
+  const [peek, setPeek] = useState(false);
+  const instant = reduced || skipped;
+  // Once the stars are in, a tap is a tap: nothing to skip, so nothing replays.
+  useEffect(() => {
+    if (settled) return;
+    const timer = setTimeout(() => setSettled(true), resultDelay(stars) * 1000);
+    return () => clearTimeout(timer);
+  }, [settled, stars]);
+  const record = previousBest != null && score > previousBest;
+  if (peek) {
+    return (
+      <div className="pointer-events-auto fixed inset-x-0 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-50 flex justify-center px-4">
+        <Button onClick={() => setPeek(false)} className="shadow-lg">
+          <Icon name="star" size="sm" /> Show the result
+        </Button>
       </div>
-      <p>
-        Score <span className="numeric font-semibold">{formatInteger(score)}</span> of {targets.bestKnown ? "the best known " : ""}
-        <span className="numeric">{formatInteger(targets.target)}</span>.
-        {record && <span className="text-primary"> A new best for you.</span>}
-      </p>
-      {beatsTarget && (
-        <p role="status" className="text-primary">
-          You beat the best score known for this level. It was found by a search, not proven: yours is better.
-        </p>
+    );
+  }
+  return (
+    <div className="pointer-events-auto fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm" onClick={() => {
+        if (settled) return;
+        setSkipped(true);
+        setSettled(true);
+      }}
+    >
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
+        <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, "items-center gap-4 py-6 text-center", className)}>
+          <h2 className="font-display text-lg font-semibold wrap-anywhere">{title}: complete</h2>
+          <StarFill key={instant ? "stars-instant" : "stars-fill"} stars={stars} instant={instant} />
+          <m.div
+            key={instant ? "result-instant" : "result-fill"}
+            className="flex w-full flex-col items-center gap-3"
+            initial={instant ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: resultDelay(stars), duration: 0.35 }}
+          >
+            <p className="flex flex-col items-center gap-1">
+              <span className="text-xs text-muted-foreground">Score</span>
+              <span className="numeric font-display text-3xl font-semibold">{formatInteger(score)}</span>
+              {record && <span className="text-primary">A new best for you.</span>}
+            </p>
+            {toNextStar != null && toNextStar > 0 && stars < 3 && (
+              <p data-testid="to-next-star" className="flex items-center gap-1.5 text-muted-foreground">
+                <Icon name="star" size="xs" className="text-primary" />
+                <span>
+                  <span className="numeric text-foreground">{formatInteger(toNextStar)}</span> {toNextStar === 1 ? "point" : "points"} short of the next star.
+                </span>
+              </p>
+            )}
+            {stars === 3 && !beatsTarget && <p className="text-primary">{bestKnown ? "Three stars: the best score known for this level." : "Three stars: the best score there is."}</p>}
+            {beatsTarget && (
+              <p role="status" className="text-primary">
+                You beat the best score known for this level. It was found by a search, not proven: yours is better.
+              </p>
+            )}
+            {children && (
+              <div className="w-full text-left" onClick={(e) => e.stopPropagation()}>
+                {children}
+              </div>
+            )}
+            <div className="flex flex-wrap justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {onNext && (
+                <Button size="sm" onClick={onNext}>
+                  Next level
+                </Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={onReplay}>
+                Replay
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onLevels}>
+                Levels
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setPeek(true)}>
+                Board
+              </Button>
+            </div>
+          </m.div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A campaign card's state (#592): open, locked (blurred, its condition stated), unlocking (opened since the device last showed
+ * the list: the lock goes and the blur lifts, once), complete (every level finished).
+ */
+export type CampaignStatus = "open" | "locked" | "unlocking" | "complete";
+
+export interface CampaignCardProps {
+  id: number;
+  name: string;
+  summary: string;
+  levels: number;
+  /** The stars held over its levels, of `levels` x 3. */
+  stars: number;
+  status: CampaignStatus;
+  /** Locked: the stars still to earn over the campaigns before it. */
+  missing?: number;
+  /** The plans of its decks (chain ids), the first eight drawn as its background. */
+  plans: readonly number[];
+  renders?: TileRenders;
+  /** Its levels are the ones shown under the cards. */
+  selected?: boolean;
+  onSelect?: () => void;
+  className?: string;
+}
+
+/** The unlock's timeline, in seconds: the lock turns open, the blur lifts, the lock goes. */
+const UNLOCK = { turn: 0.5, lift: 0.8, duration: 0.9, fade: 1.3 } as const;
+const BLURRED = "blur(14px) saturate(0.5)";
+
+/**
+ * One campaign (#592): its tiles as a background (build-time renders, no WebGL), its name, summary, levels and stars. A locked
+ * one shows its background under a blur, a lock and the stars it still needs; an unlocking one plays the unlock once (at
+ * once under reduced motion). Pressing it shows its levels.
+ */
+export function CampaignCard({ id, name, summary, levels, stars, status, missing = 0, plans, renders, selected, onSelect, className }: CampaignCardProps) {
+  const reduced = useReducedMotionConfig();
+  const shown: CampaignStatus = status === "unlocking" && reduced ? "open" : status;
+  const locked = shown === "locked";
+  const unlocking = shown === "unlocking";
+  const total = levels * 3;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected ?? false}
+      data-campaign={id}
+      data-status={shown}
+      className={cn(
+        "state-layer group relative flex aspect-[16/10] w-full cursor-pointer flex-col justify-end overflow-hidden rounded-xl border bg-card text-left text-card-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        selected ? "border-primary ring-1 ring-primary" : "border-border",
+        className,
       )}
-      <TargetLine {...targets} />
-      {children}
-      <div className="flex flex-wrap gap-2">
-        {onNext && (
-          <Button size="sm" onClick={onNext}>
-            Next level
-          </Button>
-        )}
-        <Button size="sm" variant="secondary" onClick={onReplay}>
-          Replay
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onLevels}>
-          Levels
-        </Button>
-      </div>
-    </section>
+    >
+      <m.span
+        className="absolute inset-0"
+        initial={unlocking ? { filter: BLURRED, scale: 1.1 } : false}
+        animate={unlocking ? { filter: "blur(0px) saturate(1)", scale: 1 } : undefined}
+        transition={{ delay: UNLOCK.lift, duration: UNLOCK.duration, ease: "easeOut" }}
+      >
+        <TileMosaic plans={plans} renders={renders} className={cn("size-full aspect-auto", locked && "scale-110 blur-[14px] saturate-50")} />
+      </m.span>
+      <span aria-hidden className="absolute inset-0 bg-linear-to-t from-card via-card/75 to-transparent" />
+      {(locked || unlocking) && (
+        <m.span
+          aria-hidden
+          className="absolute inset-0 bg-background/35"
+          initial={{ opacity: 1 }}
+          animate={unlocking ? { opacity: 0 } : undefined}
+          transition={{ delay: UNLOCK.fade, duration: 0.45 }}
+        >
+          <span className="absolute top-3 right-3 grid size-11 place-items-center rounded-full border border-border bg-card/90 text-foreground shadow-lg">
+            <m.span className="absolute" initial={{ opacity: 1 }} animate={unlocking ? { opacity: 0 } : undefined} transition={{ delay: UNLOCK.turn, duration: 0.12 }}>
+              <Icon name="lock" size="md" />
+            </m.span>
+            {unlocking && (
+              <m.span
+                className="absolute text-primary"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: [0.8, 1.3, 1] }}
+                transition={{ delay: UNLOCK.turn, duration: 0.45 }}
+              >
+                <Icon name="lock-open" size="md" />
+              </m.span>
+            )}
+          </span>
+        </m.span>
+      )}
+      <span className="relative flex flex-col gap-1 p-4">
+        <span className="flex items-center justify-between gap-2">
+          <span title={name} className="min-w-0 truncate font-display text-xl font-semibold">
+            {name}
+          </span>
+          {shown === "complete" && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
+              <Icon name="circle-check" size="xs" /> Complete
+            </span>
+          )}
+        </span>
+        <span title={summary} className="line-clamp-2 text-sm text-muted-foreground">
+          {summary}
+        </span>
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="numeric text-muted-foreground">{levels} levels</span>
+          <span className="numeric flex items-center gap-1" aria-label={`${stars} of ${total} stars`}>
+            <Icon name="star" size="sm" className="text-primary" />
+            {stars} / {total}
+          </span>
+          {locked && (
+            <span className="flex items-center gap-1 font-semibold text-foreground">
+              <Icon name="lock" size="xs" /> <span className="numeric">{missing}</span> more {missing === 1 ? "star" : "stars"} to open
+            </span>
+          )}
+        </span>
+      </span>
+    </button>
   );
 }
