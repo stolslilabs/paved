@@ -106,7 +106,8 @@ export function TileStack({
   const reduced = useReducedMotionConfig() ?? false;
   const busy = state === "pending";
   const canDiscard = tile !== null && (state === "placing" || state === "refused");
-  const hint = useHint(state === "placing" && tile !== null, remaining, cellChosen);
+  // No lit slot to tap when the tile fits nowhere: the stack's Discard says so instead.
+  const hint = useHint(state === "placing" && tile !== null && !fitsNowhere, remaining, cellChosen);
   const bodies = Math.max(0, Math.min(STACK_CAP, remaining));
   const top = useRef<HTMLSpanElement>(null);
 

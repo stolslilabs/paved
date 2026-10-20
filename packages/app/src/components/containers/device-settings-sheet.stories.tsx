@@ -19,6 +19,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** On the board in a Challenge (#606): "This game" first, with Surrender. */
+export const BoardChallenge: Story = { args: { side: "bottom", game: { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: fn() } } };
+/** On the board in Training: Restart. */
+export const BoardTraining: Story = { args: { side: "bottom", game: { kind: "restart", label: "Restart", hint: "Play this game again from its first tile, same deck.", onSelect: fn() } } };
+/** On the board in Story mode: Restart level. */
+export const BoardStory: Story = { args: { side: "bottom", game: { kind: "restart", label: "Restart level", hint: "Play this level again from its first tile.", onSelect: fn() } } };
 /** On a phone (375 px): a bottom sheet. */
 export const Bottom: Story = { args: { side: "bottom" }, parameters: { viewport: { defaultViewport: "mobile1" } } };
 /** From the tablet width up (1440 px): a side panel. */
