@@ -9,7 +9,7 @@ import { Wordmark } from "../elements/wordmark";
 import { BoardHero } from "../elements/board-hero";
 import modeChallenge from "../../assets/renders/mode-challenge.webp";
 import { BalancesSlot } from "../containers/balances-context";
-import { TabFrame } from "../containers/tab-page";
+import { TabFrame } from "../containers/tab-frame";
 import { ModeCard } from "../containers/mode-card";
 import { PlayerStatus, type PlayerStatusData } from "../containers/player-status";
 import { TopThree } from "../containers/top-three";

@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { TabFrame } from "../src/components/containers/tab-page";
+import { TabFrame } from "../src/components/containers/tab-frame";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "../src/components/ui/dropdown-menu";
 import { ScrollArea } from "../src/components/ui/scroll-area";
 import { ScrollRegion } from "../src/components/ui/scroll-region";
@@ -62,7 +62,7 @@ describe("the scrollable regions", () => {
     const files = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(resolve(dir, e.name)) : /\.tsx?$/.test(e.name) ? [resolve(dir, e.name)] : []));
     // The tab page's region is the page's document (#611): the page's hint, not the mask (`TabFrame`).
-    const allowed = new Set(["components/ui/scroll-region.tsx", "components/containers/tab-page.tsx"]);
+    const allowed = new Set(["components/ui/scroll-region.tsx", "components/containers/tab-frame.tsx"]);
     const offenders = files(root)
       .map((f) => relative(root, f))
       // Storybook's own tools (renderer benches, lighting) are not the app's screens.
