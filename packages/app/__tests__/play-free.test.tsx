@@ -59,7 +59,7 @@ afterEach(() => {
 describe("Play free on /", () => {
   it("no credit: the Cobbles balance shows, no Play free entry", async () => {
     open("/", { credits: 0 });
-    expect((await screen.findAllByRole("img", { name: "120 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "120 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     expect(freeCard("Free game")).toBeNull();
   });
 
@@ -77,7 +77,7 @@ describe("Play free on /", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
     router.navigate("/");
-    expect((await screen.findAllByRole("img", { name: "120 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "120 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     expect(freeCard("Free game")).toBeNull();
   });
 
@@ -201,7 +201,7 @@ describe("the earlier wallet session on /missions and /missions/lifetime", () =>
     expect(screen.queryByText("Connect to see your missions")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
     await waitFor(() => expect(claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: TODAY }]]));
-    expect((await screen.findAllByRole("img", { name: "245 Cobbles" }, { timeout: 3000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "245 Cobbles: Buy packs" }, { timeout: 3000 })).length).toBeGreaterThan(0);
   });
 
   it("/missions: with no earlier session the page is a guest's, and the probe ran once", async () => {
@@ -212,7 +212,7 @@ describe("the earlier wallet session on /missions and /missions/lifetime", () =>
 
   it("/missions/lifetime: the same session is found there", async () => {
     const { wallet } = openClaims("/missions/lifetime");
-    expect((await screen.findAllByRole("img", { name: "240 Cobbles" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "240 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
     expect(wallet.calls).toContain("probe");
     expect(screen.queryByText(/^Connect to see/)).toBeNull();
   });

@@ -62,7 +62,7 @@ export function HomeScene(props: HomeSceneProps) {
         <BoardHero />
         <h1 className="sr-only">Home</h1>
         <div className="relative mx-auto flex h-full w-full max-w-md flex-col items-center px-4 pt-4 tablet:max-w-2xl desktop:max-w-5xl desktop:items-start desktop:justify-center desktop:px-8 desktop:pt-0">
-          <BalancesSlot layout="pill" className="self-end" />
+          <BalancesSlot layout="pill" className="self-end desktop:hidden" />
           <Wordmark tagline="Build · Connect · Score" className="mt-2 desktop:mt-0 desktop:items-start [&_span]:[text-shadow:0_1px_3px_var(--color-board)]" />
         </div>
       </header>

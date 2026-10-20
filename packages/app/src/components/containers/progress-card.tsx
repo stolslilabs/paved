@@ -123,7 +123,7 @@ export function ProgressCard(props: ProgressCardProps) {
             <Button size="sm" onClick={onClaim} loading={reward.claiming} disabled={reward.disabled} aria-label={`Claim ${reward.cobbles} Cobbles: ${title}`}>
               {reward.claiming ? "Claiming…" : (
                 <>
-                  Claim <Cobbles value={reward.cobbles} size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                  Claim <Cobbles value={reward.cobbles} size="sm" className="text-primary-foreground" />
                 </>
               )}
             </Button>

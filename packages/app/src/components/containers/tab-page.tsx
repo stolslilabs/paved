@@ -47,7 +47,7 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
               {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
             </div>
           </div>
-          <BalancesSlot layout="pill" className="ml-auto" />
+          <BalancesSlot layout="pill" className="ml-auto desktop:hidden" />
           {end}
         </header>
         {children}

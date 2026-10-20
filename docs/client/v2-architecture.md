@@ -2923,9 +2923,12 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
   below), safe-area padded, as the mockups draw it. Play, the centre item (D-29), is a larger gold disc raised above the bar,
   icon only (`aria-label="Play"`). The current item is gold (`text-primary`) on the white 15% layer; hover
   10%, pressed 20% (`state-layer`, section 2.2b). No indicator slides. Hidden on full-screen flows (welcome, play, purchase,
-  board, over), which get a top bar with Back, the title centred and a hairline under it.
+  board, over), which get a top bar with Back, the title centred and a hairline under it. The balances (#620) sit in the
+  page header (the Cobbles and USDC plates; USDC opens a sheet with every balance) and, on a flow, in a strip under the top
+  bar; on every screen but the board.
 - **Desktop:** the same five items, icon beside label (Play a gold disc, icon only), in a header fixed across the top: the
-  voxel wordmark on the left, the items, then the three balances (#538) in a row at the header's end. No rail: every page is one column (`flex-col`) at every
+  voxel wordmark on the left, the items, then the balances (#538, #620: a resource bar, each currency on a plate, vPAVED when
+  held) in a row at the header's end; a flow's top bar shows them on its right. No rail: every page is one column (`flex-col`) at every
   width. Dialogs instead of sheets.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
@@ -3032,8 +3035,8 @@ Podium none in v1) with the same claims; **home** and **play** show the balance 
 ruling), until D-29 removed both. The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
 `components/containers/cobble-types.ts`. Since P9 the ledger's (`CobbleAccount`, the claims of a period, a quest's and an
 achievement's Cobbles) are `@paved/chain`'s, named `cobbles` as CORE renamed them; the packs and the skins stay provisional
-until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
-`cubes-stacked`), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
+until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, the stones of
+`TokenIcon`, `src/assets/tokens/cobbles.svg`, #620), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
 `src/data/scene-types.ts` holds: the scenes' Cobbles props are optional (the leaderboard's free mark, a list of player ids, left with the
 leaderboard, D-29).
 
