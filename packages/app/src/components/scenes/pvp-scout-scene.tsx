@@ -51,7 +51,7 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
     <div className="relative flex h-dvh min-h-[36rem] flex-col overflow-hidden bg-board text-foreground">
       <div data-scout-board className="relative min-h-0 flex-1 desktop:absolute desktop:inset-0">
         {props.canvas ?? (
-          <BoardMap tiles={[...village.tiles]} territory={village.cells} highlight={false} className="p-3 tablet:p-6 desktop:pt-20 desktop:pr-[27rem]" />
+          <BoardMap tiles={[...village.tiles]} territory={village.cells} highlight={false} fit className="p-3 tablet:p-6 desktop:pt-20 desktop:pr-[27rem]" />
         )}
       </div>
 

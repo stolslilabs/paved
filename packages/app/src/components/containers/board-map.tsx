@@ -31,6 +31,11 @@ export interface BoardMapProps {
    * The map frames them too, so an attack's first tiles sit in the whole territory.
    */
   territory?: readonly { x: number; y: number }[];
+  /**
+   * The map sized to its own box (a size container), not to the viewport: for a board that shares the screen with a panel of
+   * any height (the PvP scout's card), so no tile ever runs under it.
+   */
+  fit?: boolean;
   className?: string;
 }
 
@@ -86,7 +91,7 @@ function ConfirmFlash({ style }: { style: CSSProperties }) {
  * it where the 3D canvas is not given or cannot start: in the render tests (jsdom has no WebGL), without WebGL, and as
  * a plan view. With `slots` it is playable: each legal slot is a button on its plate, the ghost shows the tile in hand.
  */
-export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highlight = true, grid: showGrid = false, territory, className }: BoardMapProps) {
+export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highlight = true, grid: showGrid = false, territory, fit = false, className }: BoardMapProps) {
   const slotList = slots ?? [];
   if (tiles.length === 0) return null;
   const plates = highlight ? boardPlates(tiles, slots) : [];
@@ -115,13 +120,18 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
   const stateOf = new Map(plates.map((p) => [`${p.x},${p.y}`, p.state]));
   const at = (x: number, y: number) => ({ gridColumn: x - minX + 1, gridRow: maxY - y + 1 });
   return (
-    <div className={cn("absolute inset-0 grid place-items-center overflow-hidden bg-board p-6", className)}>
+    <div className={cn("absolute inset-0 grid place-items-center overflow-hidden bg-board p-6", className)} style={fit ? { containerType: "size" } : undefined}>
       <div
         // A picture, unless its slots make it a set of controls.
         role={slotList.length ? "group" : "img"}
         aria-label={`Board of ${tiles.length} tiles${territory ? ` in a territory of ${territory.length} cells` : ""}`}
         className="grid aspect-square w-full max-w-[min(90vw,70vh)] gap-px"
-        style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)`, aspectRatio: `${cols} / ${rows}` }}
+        style={{
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
+          aspectRatio: `${cols} / ${rows}`,
+          ...(fit ? { width: `min(100cqw, 100cqh * ${cols} / ${rows})`, maxWidth: "none" } : {}),
+        }}
       >
         {ground.map((c) => (
           <span key={`t${c.x},${c.y}`} aria-hidden data-territory style={at(c.x, c.y)} className="block min-h-0 min-w-0 rounded-[2px] border border-dashed border-input bg-secondary/60" />

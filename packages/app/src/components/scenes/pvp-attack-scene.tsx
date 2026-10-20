@@ -113,6 +113,7 @@ export function PvpAttackScene(props: PvpAttackSceneProps) {
         <BoardMap
           tiles={props.tiles}
           territory={props.territory}
+          fit
           slots={replay ? undefined : props.slots}
           ghost={replay ? null : props.ghost}
           onSlotClick={props.onSlotClick}
