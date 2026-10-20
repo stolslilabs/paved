@@ -116,6 +116,24 @@ async function main(): Promise<void> {
     const back = await region.evaluate((el) => el.scrollTop);
     check("tab page: Back restores the page's scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
     await region.evaluate((el) => (el.scrollTop = 0));
+    await page.waitForTimeout(300);
+    // The same page kept mounted across entries: Settings picked again opens a new entry at the top, and Back returns to the
+    // first entry's offset, the top included.
+    const settingsTab = nav.getByRole("button", { name: "Settings" });
+    await settingsTab.click();
+    await page.waitForTimeout(300);
+    await region.evaluate((el) => (el.scrollTop = 500));
+    await page.waitForTimeout(300);
+    await page.goBack();
+    await page.waitForTimeout(500);
+    const backToTop = await region.evaluate((el) => el.scrollTop);
+    check("tab page: Back to an entry left at the top returns to the top", backToTop === 0, `scrollTop ${backToTop}`);
+    await region.evaluate((el) => (el.scrollTop = 500));
+    await page.waitForTimeout(300);
+    await settingsTab.click();
+    await page.waitForTimeout(500);
+    const newEntry = await region.evaluate((el) => el.scrollTop);
+    check("tab page: the current tab picked again opens a new entry at the top", newEntry === 0, `scrollTop ${newEntry}`);
 
     // iOS Safari ignores the meta: its pinch is the page's `gesturestart` and `gesturechange`, which must be cancelled.
     const cancelled = await page.evaluate(() =>

@@ -86,19 +86,21 @@ function RegionScrollKeeper({ region }: { region: RefObject<HTMLElement | null> 
   useLayoutEffect(() => {
     const el = region.current;
     if (!el) return;
-    let target = type === "POP" ? savedOffset(key) : 0;
+    // A page kept mounted across entries (the current tab picked again, then Back) takes its target too, the top included.
+    const target = type === "POP" ? savedOffset(key) : 0;
+    let pending = true;
     let frame = 0;
     const restore = () => {
-      if (target <= 0) return;
+      if (!pending) return;
       el.scrollTop = target;
-      if (Math.abs(el.scrollTop - target) < 1) target = 0;
+      if (Math.abs(el.scrollTop - target) < 1) pending = false;
     };
     const stop = () => {
-      target = 0;
+      pending = false;
     };
     const onScroll = () => {
       // A restore under way would save the offset its short content clamps it to.
-      if (!frame && target <= 0) {
+      if (!frame && !pending) {
         frame = requestAnimationFrame(() => {
           frame = 0;
           saveOffset(key, el.scrollTop);
