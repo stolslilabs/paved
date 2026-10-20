@@ -415,12 +415,17 @@ describe("Theme", () => {
 });
 
 describe("Quests", () => {
-  it("shows the day's rotating dailies and the weeklies with their progress, each with its countdown, and the Achievements tab", async () => {
+  it("shows the day's rotating dailies and the weeklies with their progress in two sections, each with its countdown, and the Achievements tab", async () => {
     const onTab = vi.fn();
     render(wrap(<QuestsScene {...QUESTS.today} onTab={onTab} />));
     const list = within(screen.getByRole("main"));
-    // One list: the open missions first (soonest end first), the completed one last.
-    expect(list.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Public Works", "Deep Woods", "Strong Day", "Weekly Forester", "Weekly Builder", "Weekly Points", "Daily Run"]);
+    const daily = within(list.getByRole("region", { name: /^Daily/ }));
+    const weekly = within(list.getByRole("region", { name: /^Weekly/ }));
+    // A card per mission, as before #601; in each section the open missions first, the completed ones last.
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Public Works", "Deep Woods", "Strong Day", "Daily Run"]);
+    expect(weekly.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Weekly Forester", "Weekly Builder", "Weekly Points"]);
+    expect(daily.getByText("1/4")).toBeInTheDocument();
+    expect(weekly.getByText("0/3")).toBeInTheDocument();
     expect(list.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
     expect(list.getByRole("article", { name: "Public Works" })).toHaveAttribute("data-state", "progress");
     for (const name of ["Master Builder", "Into the Woods", "Point Chaser"]) expect(list.queryByRole("article", { name })).not.toBeInTheDocument(); // v1's: not defined
@@ -428,12 +433,12 @@ describe("Quests", () => {
     expect(list.queryByRole("article", { name: "Small Works" })).not.toBeInTheDocument();
     expect(list.queryByRole("article", { name: "Great Works" })).not.toBeInTheDocument();
     expect(list.getByRole("progressbar", { name: "points: 2,710 of 5,000" })).toBeInTheDocument();
-    // Each mission has its own countdown: 00:00 UTC is 9 hours after the mocks' 15:00; the week ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
-    expect(within(list.getByRole("article", { name: "Public Works" })).getByRole("timer", { name: "Daily mission ends in 9:00:00" })).toBeInTheDocument();
-    expect(within(list.getByRole("article", { name: "Weekly Forester" })).getByRole("timer", { name: "Weekly mission ends in 105:00:00" })).toBeInTheDocument();
-    // A completed mission still in its window keeps its countdown.
-    expect(within(list.getByRole("article", { name: "Daily Run" })).getByRole("timer", { name: "Daily mission ends in 9:00:00" })).toBeInTheDocument();
-    expect(list.queryByRole("region", { name: "Daily" })).not.toBeInTheDocument();
+    // The section's countdown: 00:00 UTC is 9 hours after the mocks' 15:00; the week ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
+    expect(daily.getByRole("timer", { name: "Daily missions end in 9:00:00" })).toBeInTheDocument();
+    expect(weekly.getByRole("timer", { name: "Weekly missions end in 105:00:00" })).toBeInTheDocument();
+    // Every mission of a section ends with it: no countdown of its own.
+    expect(daily.getAllByRole("timer")).toHaveLength(1);
+    expect(weekly.getAllByRole("timer")).toHaveLength(1);
     expect(screen.getByRole("tab", { name: "Limited" })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(screen.getByRole("tab", { name: "Lifetime" }));
     expect(onTab).toHaveBeenCalledWith("achievements");
@@ -441,9 +446,9 @@ describe("Quests", () => {
 
   it("shows another day's rotation, and a closed day without a countdown", () => {
     render(wrap(<QuestsScene {...QUESTS.allDone} />));
-    // The weeklies of that week were not all done: they come first, the four dailies (done) last.
-    expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label")).slice(-4)).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
-    expect(screen.getAllByText("Complete")).toHaveLength(4);
+    const daily = within(screen.getByRole("region", { name: /^Daily/ }));
+    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
+    expect(daily.getAllByText("Complete")).toHaveLength(4);
     expect(screen.getByText("Closed day")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
@@ -454,7 +459,7 @@ describe("Quests", () => {
     expect(screen.getByRole("article", { name: "Weekly Forester" })).toHaveAttribute("data-state", "complete");
     unmount();
     render(wrap(<QuestsScene {...QUESTS.endingSoon} />));
-    expect(screen.getAllByRole("timer", { name: "Daily mission ends in 0:04:00" })[0]).toHaveAttribute("data-state", "warning");
+    expect(screen.getByRole("timer", { name: "Daily missions end in 0:04:00" })).toHaveAttribute("data-state", "warning");
   });
 
   it("shows a day not played at zero, and a day with no quest", () => {

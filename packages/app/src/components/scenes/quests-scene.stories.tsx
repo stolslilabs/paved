@@ -4,8 +4,8 @@ import { QUESTS } from "../../mocks/scenes";
 import { QuestsScene } from "./quests-scene";
 
 /**
- * The quests (`/missions/:day?`, Limited): the day's rotating Daily set and the Weekly ones, each with a countdown, and the day
- * picker. The completion toasts are the app's (Containers/CompletionToasts). One story per state; the viewport is the toolbar's (VP).
+ * The quests (`/missions/:day?`, Limited): the day's rotating Daily set and the Weekly ones, a section each with its countdown,
+ * a card per mission, and the day picker. The completion toasts are the app's (Containers/CompletionToasts). One story per state; the viewport is the toolbar's (VP).
  */
 const meta = { title: "Scenes/Missions (Limited)", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() } } satisfies Meta<typeof QuestsScene>;
 export default meta;

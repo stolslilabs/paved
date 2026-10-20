@@ -2,9 +2,10 @@ import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
-import { endOfUtcDay, questPeriod, windowEnd, type ScheduledQuest, type ScheduledQuests } from "../../lib/quest-window";
+import { endOfUtcDay, questPeriod, windowEnd, type QuestPeriod, type ScheduledQuest, type ScheduledQuests } from "../../lib/quest-window";
 import { DayPicker } from "../elements/day-picker";
 import { Cobbles } from "../elements/cobbles";
+import { Countdown } from "../elements/countdown";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { FreeGames } from "../containers/free-games";
@@ -71,9 +72,14 @@ export interface QuestsSceneProps {
   onNavigate?: (tab: Tab) => void;
 }
 
+const SECTION = {
+  daily: { title: "Daily", icon: "sun", ends: "Daily missions end in", one: "Daily mission ends in" },
+  weekly: { title: "Weekly", icon: "crown", ends: "Weekly missions end in", one: "Weekly mission ends in" },
+} as const;
+
 /**
  * The quests (`/missions/:day?`, Missions, Limited): the day's live quests with the player's progress, counted by the indexer from the
- * chain's reports, and the day picker; Lifetime is the tab beside. Daily is the day's rotating set and counts down to
+ * chain's reports, in a Daily and a Weekly section, each with its window's countdown, and the day picker; Lifetime is the tab beside. Daily is the day's rotating set and counts down to
  * 00:00 UTC; Weekly is the week's, and counts down to the end of the week the definitions give (quests-v2.md 1.2, 2.1).
  * The completion toasts are the app's (`routes/completion-host.tsx`), raised on any page, the board included.
  */
@@ -84,9 +90,8 @@ export function QuestsScene(props: QuestsSceneProps) {
   const done = entries.filter((q) => q.completed).length;
   const daily = entries.filter((q) => questPeriod(q) === "daily");
   const weekly = entries.filter((q) => questPeriod(q) === "weekly");
-  // One list, each mission with the end of its own window (a daily's falls back to the UTC day's end); the open ones first, soonest end first.
+  // Each mission with the end of its own window (a daily's falls back to the UTC day's end).
   const endOf = (q: ScheduledQuest): number | null => windowEnd([q], now) ?? (questPeriod(q) === "daily" ? endOfUtcDay(now) : null);
-  const missions = [...entries].sort((x, y) => Number(x.completed) - Number(y.completed) || (open ? (endOf(x) ?? Infinity) - (endOf(y) ?? Infinity) : 0));
 
   // A quest's Cobbles, claimed or not: a claim word per kind (the day's for a daily, the week's for a weekly).
   const claiming = rewards?.claiming ?? null;
@@ -105,6 +110,48 @@ export function QuestsScene(props: QuestsSceneProps) {
   };
   const claimable = entries.map((q) => ({ q, r: rewardOf(q) })).filter(({ q, r }) => q.completed && r && !r.claimed);
   const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
+
+  // A section per period, with its window's countdown; in it, the open missions first (soonest end first), the completed ones
+  // last. A mission whose window ends before the section's keeps its own countdown.
+  const section = (period: QuestPeriod, list: ScheduledQuest[]) => {
+    if (list.length === 0) return null;
+    const labels = SECTION[period];
+    const ends = open ? Math.min(...list.map((q) => endOf(q) ?? Infinity)) : Infinity;
+    const sorted = [...list].sort((x, y) => Number(x.completed) - Number(y.completed) || (open ? (endOf(x) ?? Infinity) - (endOf(y) ?? Infinity) : 0));
+    return (
+      <section aria-labelledby={`missions-${period}`} className="flex flex-col gap-3">
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <h2 id={`missions-${period}`} className="flex items-center gap-2 font-display text-lg font-semibold">
+            <Icon name={labels.icon} size="sm" className="text-primary" />
+            {labels.title}
+            <span className="numeric text-xs font-normal text-muted-foreground">
+              {list.filter((q) => q.completed).length}/{list.length}
+            </span>
+          </h2>
+          {Number.isFinite(ends) && <Countdown expiresAt={ends} now={now} label={labels.ends} />}
+        </header>
+        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
+          {sorted.map((q) => {
+            const at = open ? endOf(q) : null;
+            return (
+              <ProgressCard
+                key={q.questId}
+                kind="quest"
+                {...questText(q.questId)}
+                tasks={q.tasks}
+                completed={q.completed}
+                completedAt={q.completedAt}
+                retired={q.retired}
+                reward={rewardOf(q)}
+                ends={at !== null && at !== ends ? { at, now, label: labels.one } : undefined}
+                onClaim={() => props.onClaim?.(q.questId)}
+              />
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
 
   return (
     <TabPage tab="quests" title="Missions" onNavigate={props.onNavigate}>
@@ -190,28 +237,13 @@ export function QuestsScene(props: QuestsSceneProps) {
           {props.rewardsUnavailable && (
             <Notice title="Rewards unavailable">{props.rewardsUnavailable}</Notice>
           )}
-          {missions.length === 0 ? (
+          {daily.length + weekly.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">No limited mission live today.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
-              {missions.map((q) => {
-                const at = open ? (endOf(q) ?? null) : null;
-                return (
-                  <ProgressCard
-                    key={q.questId}
-                    kind="quest"
-                    {...questText(q.questId)}
-                    tasks={q.tasks}
-                    completed={q.completed}
-                    completedAt={q.completedAt}
-                    retired={q.retired}
-                    reward={rewardOf(q)}
-                    ends={at === null ? undefined : { at, now, label: `${questPeriod(q) === "daily" ? "Daily" : "Weekly"} mission ends in` }}
-                    onClaim={() => props.onClaim?.(q.questId)}
-                  />
-                );
-              })}
-            </div>
+            <>
+              {section("daily", daily)}
+              {section("weekly", weekly)}
+            </>
           )}
           <p className="text-xs text-muted-foreground">
             {rewards
