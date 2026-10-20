@@ -6,7 +6,9 @@ Track CORE's design for #638, part of the PvP plan #637. The owner's decisions o
 - The commit to a future block hash is dropped.
 - The devnet mock is Glitchbomb's.
 
-This note proposes the rest and lists the open points (section 7). The code follows the ruling.
+The Overseer ruled on 2026-10-20 on open points 1 and 3 to 6, as proposed (section 7). Point 2 is a question for
+Cartridge that the owner asks: it stays **pending**, and the decisions of #643 and #645 that wait on it are listed in
+section 7. Section 8 is as built.
 
 Sources read for this note: Cartridge's public provider and server, `cartridge-gg/vrf` on `main` (MIT, cartridge-gg):
 `src/vrf_provider/vrf_provider_component.cairo`, `src/types.cairo`, `server/src/main.rs`,
@@ -173,22 +175,44 @@ systems that draw (#643, #642, #639).
   - Proposed: measure the consumer side in `gas.cairo`, and Cartridge's part once on Sepolia, from the receipt of a
     harness draw (open point 6).
 
-## 7. Open points for the owner
+## 7. Rulings and the pending point
 
-1. **The source: `Salt(poseidon('PAVED_DRAW', kind, game_id, draw_index))`** (proposed), not `Nonce`. A `Nonce` can be
-   advanced by any contract, so a player could reroll.
-2. **To confirm with Cartridge** (it decides whether the VRF hides the order):
-   - Is the production VRF server's `/proof` or `/outside_execution` route reachable by a player?
-   - Does the paymaster submit a VRF-wrapped transaction that reverts?
-   - Does it ever return the signed wrapper to the client?
+Ruled by the Overseer (2026-10-20), as proposed:
 
-   If any answer is yes, a player can read their whole game in advance, whatever the source. Glitchbomb's integration
-   cannot answer this; only Cartridge's deployment can.
-3. **No next-tile preview in the UI** (proposed). If the answers to point 2 are all no, there is nothing to equalise. If
-   any is yes, one tile shown would not equalise a whole known order.
-4. **One draw per transaction, contract-wide**, enforced by the component (one storage read and one write per draw;
-   proposed), on top of what the provider already enforces.
-5. **The mock's value comes from the source**, not from the transaction hash (proposed). It is ported from Cartridge's
-   public interface and #638's description, unless Glitchbomb's file is exported here.
+1. **The source is `Salt(poseidon('PAVED_DRAW', kind, game_id, draw_index))`**, never `Nonce`: a nonce can be advanced
+   by any contract, so a player could reroll.
+3. **No next-tile preview in the UI.**
+4. **One draw per transaction, contract-wide**, enforced by the component (one storage read and one write per draw), on
+   top of what the provider already enforces.
+5. **The mock's value comes from the source**, not from the transaction hash. It is ported from Cartridge's public
+   interface and #638's description of Glitchbomb's mock.
 6. **The embedding in this PR is a test harness only.** The first real embedding is #643. Cartridge's part of the gas is
-   measured on Sepolia, not in snforge (proposed).
+   measured on Sepolia, not in snforge.
+
+**Pending: point 2, three questions for Cartridge** (the owner asks them; the answers come through the Overseer):
+
+- Is the production VRF server's `/proof` or `/outside_execution` route reachable by a player?
+- Does the paymaster submit a VRF-wrapped transaction that reverts?
+- Does it ever return the signed wrapper to the client?
+
+If any answer is yes, a player can read their whole game in advance, whatever the source. Glitchbomb's integration
+cannot answer this; only Cartridge's deployment can.
+
+What waits on the answers:
+
+- **#643 (the attacks).**
+  - Whether the attack's tiles can be drawn one at a time on the VRF, with the order hidden. The attack's star
+    thresholds (#637, open point 1) were measured with the order hidden.
+  - Whether the attack's UI may show only the tile in hand.
+  - Whether the matchmaker's opponent draw (#639) can share the same source.
+  - If any answer is yes, #643 needs another source of hidden order before it ships, since the owner dropped the
+    future block hash.
+- **#645 (the Challenge on the VRF).**
+  - Whether moving the Challenge to the VRF removes the selective buyer's edge (R-4,
+    `docs/measures/selective-buyer.md`). If a player can read the draws in advance, the VRF does not remove it, and
+    D-3, D-13 and D-28 stay as they are.
+  - Whether the Challenge's per-draw reseed is replaced by one VRF draw per tile.
+
+## 8. As built
+
+FIGURES

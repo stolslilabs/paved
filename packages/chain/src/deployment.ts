@@ -8,7 +8,8 @@ export interface DeploymentFile {
   deployed_block?: number;
   /** The symbol is for the record only: the app labels the token `PAVED` whatever it says (D-10, which replaces D-2's old label); reading it waits for P8's token. */
   token?: { address?: string; class_hash?: string; decimals?: number; symbol?: string };
-  contracts?: Partial<Record<ContractName | "Faucet" | "Collection", { address?: string; class_hash?: string }>>;
+  /** `MockVrfProvider`: the devnet's VRF provider (#638), read by `vrfProvider`. */
+  contracts?: Partial<Record<ContractName | "Faucet" | "Collection" | "MockVrfProvider", { address?: string; class_hash?: string }>>;
 }
 
 /** Values from the environment; each one set overrides the file. */
