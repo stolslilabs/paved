@@ -43,11 +43,11 @@ const VARIANTS: ReadonlyArray<readonly [string, Config]> = [
   ["landscape (soft, props)", { story: "landscape" }],
   ["village (38 cells, landscape)", { story: "village" }],
   ["lift (3 tiles + 1 every 36 frames, landscape)", { story: "interactive", args: "interactive:!false", placeEvery: 36 }],
-  // The owner's choice (#648): the landscape at the study's falloff, billow, drift and mist, every corner rounded (the default).
-  ["chosen: landscape, rounded corners", { story: "landscape", args: "falloff:1.5;billow:0.6" }],
-  ["chosen: village (38 cells)", { story: "village", args: "falloff:1.5;billow:0.6" }],
-  ["chosen: lift (3 tiles + 1 every 36 frames)", { story: "interactive", args: "interactive:!false;falloff:1.5;billow:0.6", placeEvery: 36 }],
-  ["chosen, corners sharp", { story: "landscape", args: "falloff:1.5;billow:0.6;cornerRadius:0" }],
+  // The owner's choice (#648): the Landscape story as it is (falloff 2.5, billow 0.7), every corner rounded (the default).
+  ["chosen: landscape, rounded corners", { story: "landscape" }],
+  ["chosen: village (38 cells)", { story: "village", args: "billow:0.7" }],
+  ["chosen: lift (3 tiles + 1 every 36 frames)", { story: "interactive", args: "interactive:!false;falloff:2.5;billow:0.7", placeEvery: 36 }],
+  ["chosen, corners sharp", { story: "landscape", args: "cornerRadius:0" }],
 ];
 /** `--only off,chosen`: the configurations whose name holds one of these. */
 const ONLY_ANY = ONLY ? ONLY.split(",") : [];

@@ -311,7 +311,8 @@ describe("GameScene: the fog of war (#648)", () => {
     await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
     expect(scene.getFog()).toMatchObject({ mode: "moving", cells: board.length });
     expect(scene.getFog()!.props).toBeGreaterThan(0);
-    expect(scene.getSettings().fog).toMatchObject({ enabled: true, cornerRadius: 0.5, landscape: { enabled: true } });
+    // The Landscape story's falloff and billow (#633), the study's drift and mist.
+    expect(scene.getSettings().fog).toMatchObject({ enabled: true, falloff: 2.5, billow: 0.7, drift: 0.6, mist: 0.35, cornerRadius: 0.5, landscape: { enabled: true } });
     expect(tiles.group.children.some((o) => o.name === "fog-of-war")).toBe(true);
     // A tile placed: the fog lifts on the loop.
     scene.setFogReveal(boardReveal([{ x: 0, y: 0 }, { x: 1, y: 0 }]), [{ x: 1, y: 0 }]);
@@ -334,6 +335,29 @@ describe("GameScene: the fog of war (#648)", () => {
     expect(scene.getFog()!.mode).toBe("moving");
     scene.setFogReveal(null);
     expect(scene.getFog()!.mode).toBe("off");
+    scene.dispose();
+  });
+
+  it("ends a lift at once when the device turns reduced motion on mid-lift", async () => {
+    const device = { reduce: false, listeners: [] as Array<() => void> };
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      get matches() {
+        return q.includes("reduce") && device.reduce;
+      },
+      addEventListener: (_: string, listener: () => void) => device.listeners.push(listener),
+      removeEventListener: vi.fn(),
+    }));
+    // The ambient effects follow the device's reduced motion ("auto").
+    const { scene, frames } = await createScene({ ...FOG, ambient: { enabled: true, reducedMotion: "auto", clouds: { enabled: false } } });
+    scene.setFogReveal(board);
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    frames(10);
+    scene.setFogReveal(boardReveal([{ x: 0, y: 0 }, { x: 1, y: 0 }]), [{ x: 1, y: 0 }]);
+    expect(scene.getFog()).toMatchObject({ mode: "moving", lifting: true });
+    device.reduce = true;
+    for (const listener of device.listeners) listener();
+    expect(scene.getAmbient().running).toBe(false);
+    expect(scene.getFog()).toMatchObject({ mode: "still", lifting: false });
     scene.dispose();
   });
 });

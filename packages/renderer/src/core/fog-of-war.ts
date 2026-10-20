@@ -440,6 +440,7 @@ export class FogOfWar implements AmbientEffect {
     this.mode = mode;
     if (mode !== "moving") {
       this.transition.finish();
+      this.lifting = false;
       this.rebuild();
     }
     this.apply();

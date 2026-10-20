@@ -564,6 +564,12 @@ export const DEFAULT_FOG_SETTINGS: FogSettings = {
 
 export type FogSettingsInput = DeepPartial<FogSettings>;
 
+/**
+ * The owner's variant (#633's Landscape story, chosen for every mode in #648): the landscape beyond a soft edge of two cells and a
+ * half, billowing 0.7 cells; the drift and the mist as the study's; every corner rounded (`cornerRadius`).
+ */
+export const LANDSCAPE_FOG: FogSettingsInput = { falloff: 2.5, billow: 0.7, landscape: { enabled: true } };
+
 const at = (value: unknown, fallback: number, min: number, max: number): number =>
   typeof value === "number" && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
 const flag = (value: unknown, fallback: boolean): boolean => (typeof value === "boolean" ? value : fallback);

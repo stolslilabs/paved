@@ -5,7 +5,7 @@ import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightInput,
 import { DEFAULT_PLACEMENT_SETTINGS, resolvePlacementSettings, type PlacementSettings, type PlacementSettingsInput } from "./placement";
 import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings, type VoxelDropSettings, type VoxelDropSettingsInput } from "./voxel-drop-settings";
 import { DEFAULT_AMBIENT_SETTINGS, resolveAmbientSettings, type AmbientSettings, type AmbientSettingsInput } from "./ambient-settings";
-import { DEFAULT_FOG_SETTINGS, resolveFogSettings, type FogSettings, type FogSettingsInput } from "./fog-of-war-settings";
+import { DEFAULT_FOG_SETTINGS, LANDSCAPE_FOG, resolveFogSettings, type FogSettings, type FogSettingsInput } from "./fog-of-war-settings";
 import {
   DEFAULT_LOOK_PRESET,
   LOOK_PRESETS,
@@ -145,7 +145,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   dayNight: DEFAULT_DAYNIGHT_SETTINGS,
   voxelDrop: DEFAULT_VOXEL_DROP_SETTINGS,
   ambient: DEFAULT_AMBIENT_SETTINGS,
-  fog: resolveFogSettings({ enabled: false, landscape: { enabled: true } }, DEFAULT_FOG_SETTINGS),
+  fog: resolveFogSettings({ ...LANDSCAPE_FOG, enabled: false }, DEFAULT_FOG_SETTINGS),
 };
 
 /**

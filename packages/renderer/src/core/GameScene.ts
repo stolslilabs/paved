@@ -864,6 +864,8 @@ export class GameScene {
         this.applyPlacementSettings();
         this.syncDayNight();
         this.syncAmbient();
+        // The fog stands still under reduced motion: a lift under way ends at once.
+        this.syncFog();
         this.requestRender();
       };
       query.addEventListener?.("change", onChange);

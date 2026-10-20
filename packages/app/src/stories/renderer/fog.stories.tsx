@@ -160,7 +160,7 @@ export const LowTier: Story = { args: { quality: "low", landscape: true, falloff
  * corner of the clear area, a hole's and the fog's, is rounded to `cornerRadius` (0 shows the cells' sharp corners). Switch
  * `shape` for an L or a diagonal pair.
  */
-export const Corners: Story = { args: { reveal: "shape", shape: "one", landscape: true, view: "close", interactive: false } };
+export const Corners: Story = { args: { reveal: "shape", shape: "one", landscape: true, falloff: 2.5, billow: 0.7, view: "close", interactive: false } };
 
 /** No fog: the board as it is today, for the comparison. */
 export const Off: Story = { args: { fog: false } };
