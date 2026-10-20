@@ -64,8 +64,9 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await waitFor(() => expect(at(router)).toBe("/story"));
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/play"));
-    // The Play page in place of the list before its Back is pressed: the list's own Back would open Play again.
-    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
+    // The Play page in place of the list before its Back is pressed: the list's own Back would open Play again. Waited for, not
+    // asserted: under a loaded run the swap can still replace the node it found.
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: 5000 });
 
     // Under a loaded run the page swap after a history step lags the location: the Back on screen can still be the Story
     // page's, or a click can land before Play's is live. Click Play's own Back until the location is Home.
