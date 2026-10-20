@@ -18,7 +18,7 @@ export interface WelcomeSceneProps {
 const POINTS: { icon: string; title: string; text: string }[] = [
   { icon: "table-cells-large", title: "Lay tiles", text: "One tile at a time, on a board that grows." },
   { icon: "city", title: "Close structures", text: "Cities, roads, forests: closing one scores it." },
-  { icon: "trophy", title: "Beat the day", text: "A daily Challenge, ranked, with a reward above the threshold." },
+  { icon: "trophy", title: "Beat the day", text: "A daily Challenge, with a reward above the threshold." },
 ];
 
 /** The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. */

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { NAV_TABS } from "../components/containers/app-nav";
+import { NAV_TABS } from "./tabs";
 import { Brand, Icon, NOTCH, OVERLAY } from "./kit";
 import type { NavProps } from "./shells";
 

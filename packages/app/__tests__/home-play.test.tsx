@@ -43,16 +43,18 @@ afterEach(() => {
 });
 
 describe("/ (P6): home on its data", () => {
-  it("a connected player: their open game to resume, today's top 3 from the indexer", async () => {
+  it("a connected player: their open game to resume, no podium (#623)", async () => {
     const { router, fixture } = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 });
     // The newest open game of the player's `GameSpawned` events, read with `game(id)`.
     expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
     expect(screen.queryByText("Playing as a guest")).toBeNull();
-    // No day notion on Home (#538); the podium of the chain's day, from the indexer.
+    // No day notion on Home (#538), and no ranking (#623): the leaderboard is never read.
     expect(screen.queryByText(/Day \d+/)).toBeNull();
     expect(screen.queryByText("Daily")).toBeNull();
-    await waitFor(() => expect(fixture.requests.some((r) => r.startsWith(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?`) && r.includes("limit=3"))).toBe(true));
+    expect(screen.queryByText("Top 3")).toBeNull();
+    await waitFor(() => expect(fixture.requests.some((r) => r.startsWith("/v1/players/"))).toBe(true));
+    expect(fixture.requests.some((r) => r.includes("/leaderboard") || r.includes("/entry/"))).toBe(false);
     await userEvent.click(screen.getByRole("button", { name: "Resume" }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_PLAYING.id}`));
   });
@@ -91,7 +93,7 @@ describe("/ (P6): home on its data", () => {
 });
 
 describe("/play (P6): the mode choice", () => {
-  const challenge = () => screen.getByText("A ranked game: stake 1 to 10, beat the threshold, earn PAVED.");
+  const challenge = () => screen.getByText("Stake 1 to 10, beat the threshold, earn PAVED.");
 
   it("a guest: the Challenge connects first; Multiplayer is coming soon", async () => {
     const { router, wallet } = open("/play", { guest: true });

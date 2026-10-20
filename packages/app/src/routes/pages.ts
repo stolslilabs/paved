@@ -3,7 +3,11 @@
  * `nav` is the bottom-navigation tab a route belongs to; `null` is a full-screen flow (a top bar with Back,
  * no tabs).
  */
-export type Tab = "home" | "ranks" | "quests" | "vault" | "settings";
+/**
+ * The navigation's five destinations (#623): Home, Missions, Play, Vault, Settings. `play` opens the mode choice, a
+ * full-screen flow (`nav: null`), so no page shows it as the current one; the four others are tabs of pages.
+ */
+export type Tab = "home" | "quests" | "play" | "vault" | "settings";
 
 export interface PageDef {
   /** The route path, relative to the root. */
@@ -24,8 +28,6 @@ export const PAGES: readonly PageDef[] = [
   { path: "story/:campaign/:level", title: "Story", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
-  { path: "leaderboard/:day?", title: "Leaderboard", nav: "ranks" },
-  { path: "player/:id", title: "Player", nav: "ranks" },
   // The static `missions/lifetime` first: `prefetch` matches in table order, and `:day?` would take "lifetime".
   { path: "missions/lifetime", title: "Missions", nav: "quests" },
   { path: "missions/:day?", title: "Missions", nav: "quests" },
@@ -40,8 +42,8 @@ export const PAGES: readonly PageDef[] = [
 
 export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "home", label: "Home", to: "/" },
-  { id: "ranks", label: "Ranks", to: "/leaderboard" },
   { id: "quests", label: "Missions", to: "/missions" },
+  { id: "play", label: "Play", to: "/play" },
   { id: "vault", label: "Vault", to: "/vault" },
   { id: "settings", label: "Settings", to: "/settings" },
 ];

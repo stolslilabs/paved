@@ -37,10 +37,6 @@ export const queryKeys = {
   },
   indexer: {
     all: ["indexer"] as const,
-    /** `/v1/tournaments/:day/leaderboard?limit&offset`. */
-    leaderboard: (day: number, limit: number, offset = 0) => ["indexer", "leaderboard", day, limit, offset] as const,
-    /** `/v1/tournaments/:day/entry/:player`. */
-    entry: (day: number, playerId: string) => ["indexer", "entry", day, addressKey(playerId)] as const,
     /** `/v1/players/:id`. */
     player: (playerId: string) => ["indexer", "player", addressKey(playerId)] as const,
     /** `/v1/players/:id/games`, the first page. */

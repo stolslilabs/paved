@@ -97,9 +97,9 @@ describe("OverScene: the figures and the final board (#539)", () => {
     expect(metrics).toHaveTextContent("Tiles discarded2100 pts taken");
     expect(metrics).toHaveTextContent("Cities closed5");
     expect(metrics).toHaveTextContent("Left open4Largest: a forest of 7 tiles");
-    // Its badges: the previous best beaten, today's rank.
+    // Its badge: the previous best beaten; no rank (#623).
     expect(screen.getByText("New best")).toBeInTheDocument();
-    expect(screen.getByText("#7 today")).toBeInTheDocument();
+    expect(screen.queryByText(/#\d+ today/)).toBeNull();
   });
 
   it("says None closed for a category the game did not close", () => {
