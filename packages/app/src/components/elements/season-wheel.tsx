@@ -5,9 +5,7 @@ import { Icon } from "../ui/icon";
 
 export const SEASON_ICON = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const;
 
-const NAMES = { summer: "Summer", autumn: "Autumn", winter: "Winter", spring: "Spring" } as const;
-
-// The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`): a gold rim, a band of paving stones, the disc of the four
+// The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`): a soft gold rim (issue 634), a band of paving stones, the disc of the four
 // seasons' skies, a hub at the centre. The dial is 72 px across on a phone and 96 px from tablet up.
 
 /** The disc's radius: inside the band of stones. */
@@ -71,7 +69,7 @@ export interface SeasonWheelProps {
   state: WheelState;
   /** Where the cycle is (`GameScene.getDayNight`), used in auto; none: the dial rests on the first season's day. */
   point?: WheelPoint | null;
-  /** Click: the next state (auto, summer, autumn, winter, spring, auto). */
+  /** Click: the next state (issue 634: the next season not yet started, four of them, then auto; `nextWheelRound`). */
   onNext?: () => void;
   /** The disc's turn takes this long between two readings, in ms (the board reads once a second). Default 1000. */
   turnMs?: number;
@@ -87,7 +85,7 @@ function target(state: WheelState, point?: WheelPoint | null): number {
 /**
  * The season dial (issue 547, crafted in issue 607): a gold rim and a band of paving stones around a disc of the four seasons, each
  * quarter its season's sky, day then night, with its icon tinted by that sky. The disc turns under a pointer at the top,
- * whose badge is a sun by day and a moon by night; a banner under it names the season and the time of day. In auto the disc
+ * whose badge is a sun by day and a moon by night; nothing is written under it (issue 634), the button's name says it. In auto the disc
  * follows the cycle and the hub carries the auto marker; in a fixed state it rests on that season's day and the hub is a
  * pin. It always turns the same way, never back.
  */
@@ -113,7 +111,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
       data-time={time}
       data-testid="season-wheel"
       onClick={onNext}
-      className={cn("group relative flex shrink-0 flex-col items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("group relative flex shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <span aria-hidden className="relative block size-18 rounded-full shadow-lg tablet:size-24">
         {/* The disc and the stones, turning; the icons ride on it and stay upright. */}
@@ -169,7 +167,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
           <circle cx={50} cy={50} r={HUB - 3} fill="none" stroke="var(--dial-stone)" strokeWidth={0.8} />
         </svg>
         <span className="absolute inset-0 rounded-full transition-colors group-hover:bg-state-hover group-active:bg-state-pressed" />
-        <span className="absolute inset-0 flex items-center justify-center text-primary" data-centre={state === "auto" ? "auto" : "fixed"}>
+        <span className="absolute inset-0 flex items-center justify-center" style={{ color: "var(--dial-mark)" }} data-centre={state === "auto" ? "auto" : "fixed"}>
           {state === "auto" ? <Icon name="arrows-rotate" size="xs" /> : <span className="size-1.5 rounded-full bg-current tablet:size-2" />}
         </span>
         {/* "Now": a badge on the rim, over the pointer: the sun by day, the moon by night. */}
@@ -180,13 +178,6 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
         >
           <Icon name={night ? "moon" : "sun"} size="xs" />
         </span>
-      </span>
-      <span
-        aria-hidden
-        data-banner
-        className="-mt-1.5 rounded-md border border-primary/40 bg-card/90 px-1.5 text-xs leading-4 whitespace-nowrap text-card-foreground shadow backdrop-blur"
-      >
-        {NAMES[current]} <span style={{ color: night ? "var(--dial-night-foreground)" : "var(--primary)" }}>{night ? "night" : "day"}</span>
       </span>
     </button>
   );

@@ -214,7 +214,9 @@
   --season-autumn-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-autumn-day-bottom));
   --season-winter-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-winter-day-bottom));
   --season-spring-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-spring-day-bottom));
-  --dial-rim: var(--primary);
+  /* The dial's gold, toned into its stones (#634): it reads as one piece with the sky quarters. */
+  --dial-rim: color-mix(in oklab, var(--primary) 45%, var(--color-charcoal-600));
+  --dial-mark: color-mix(in oklab, var(--primary) 65%, var(--color-charcoal-600));
   --dial-band: var(--color-charcoal-900);
   --dial-stone: var(--color-charcoal-600);
   --dial-stone-alt: var(--color-charcoal-700);
