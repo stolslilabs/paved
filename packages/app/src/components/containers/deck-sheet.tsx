@@ -3,6 +3,8 @@ import type { BoardTile } from "@paved/chain";
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { TileChip, type TileArt } from "../elements/tile-chip";
+import { Button } from "../ui/button";
+import { Icon } from "../ui/icon";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 
 export interface DeckSheetProps {
@@ -20,6 +22,8 @@ export interface DeckSheetProps {
   side?: "bottom" | "left";
   /** A Story level's fixed deck (#546): every tile shown comes, none is withdrawn. */
   fixed?: boolean;
+  /** A Story level: shows the level's deck presentation again (#593). */
+  onPresent?: () => void;
 }
 
 /**
@@ -27,7 +31,7 @@ export interface DeckSheetProps {
  * the tile in hand highlighted. A bottom sheet on a phone; a panel on the left from `tablet` up, so that the hand panel
  * (bottom right) stays free.
  */
-export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side, fixed = false }: DeckSheetProps) {
+export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side, fixed = false, onPresent }: DeckSheetProps) {
   const wide = useSidePanel();
   const where = side ?? (wide ? "left" : "bottom");
   return (
@@ -64,6 +68,11 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, side,
         <p className="numeric text-sm text-muted-foreground" data-testid="deck-summary">
           {counts.placed} played, {counts.discarded} discarded (dashed), {counts.total - counts.placed - counts.discarded} not yet.
         </p>
+        {onPresent && (
+          <Button size="sm" variant="secondary" className="self-start" onClick={onPresent}>
+            <Icon name="play" size="sm" /> Present the level again
+          </Button>
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -78,7 +87,8 @@ export default function BoardDeckSheet({
   deck,
   handPlan,
   tileArt,
-}: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt"> & { tiles: readonly BoardTile[]; discardedPlans?: readonly number[]; deck?: readonly PlanType[] }) {
+  onPresent,
+}: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt" | "onPresent"> & { tiles: readonly BoardTile[]; discardedPlans?: readonly number[]; deck?: readonly PlanType[] }) {
   const counts = deckSheetCounts(deck ?? baseDeckPlans(), tiles.map((t) => t.plan), discardedPlans);
-  return <DeckSheet open={open} onOpenChange={onOpenChange} counts={counts} handPlan={handPlan} tileArt={tileArt} fixed={deck !== undefined} />;
+  return <DeckSheet open={open} onOpenChange={onOpenChange} counts={counts} handPlan={handPlan} tileArt={tileArt} fixed={deck !== undefined} onPresent={onPresent} />;
 }

@@ -3,12 +3,18 @@ import { fn } from "storybook/test";
 import { CAMPAIGNS, PlanType } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
 import { Button } from "../ui/button";
-import { CampaignCard, StoryCoach, StoryEnd, StoryIntro, type CampaignCardProps } from "./story-panels";
+import { CampaignCard, DeckPresentation, StarFill, StoryCoach, StoryEnd, type CampaignCardProps } from "./story-panels";
 
-/** The panels of a Story level (#546), drawn under the board's header: the intro, a coach mark's tip, the end. */
-const meta = { title: "Containers/Story panels", component: StoryIntro, parameters: { layout: "padded" } } satisfies Meta<typeof StoryIntro>;
+/**
+ * The panels of a Story level (#546, #593): the deck presentation that opens it, a coach mark's tip, the end (the stars filling
+ * one by one, then the score with the points short of the next star). No star threshold is shown anywhere.
+ */
+const meta = { title: "Containers/Story panels", component: DeckPresentation, parameters: { layout: "padded" } } satisfies Meta<typeof DeckPresentation>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+const PLAN_IDS = Object.values(PlanType);
+const deckOf = (campaign: number, level: number) => CAMPAIGNS[campaign]!.levels[level]!.deck.map((p) => PLAN_IDS.indexOf(p));
 
 const TUTORIAL_1 = {
   campaign: "Tutorial",
@@ -16,31 +22,29 @@ const TUTORIAL_1 = {
   title: "First stone",
   intro:
     "Tap a cell next to the board to place the tile in your hand. Roads must meet roads. A road scores once both of its ends are closed, and a crossroads closes every road that reaches it.",
-  tiles: 3,
-  target: 321,
-  twoStars: 225,
-  bestKnown: false,
+  deck: deckOf(0, 0),
+  renders: appRenders,
   onStart: fn(),
 };
 
-/** A Tutorial level's intro: an exact target. */
-export const Intro: Story = { args: TUTORIAL_1 };
+/** A Tutorial level opens on its deck (#593): the title, the intro, its two tiles landing in turn; a tap anywhere starts. */
+export const Presentation: Story = { args: TUTORIAL_1 };
 
-/** A long level's intro: its target is the best known, said so; the player's best so far. */
-export const IntroBestKnown: Story = {
+/** A long level: 37 tiles grouped by plan with their counts, and the player's best so far (no threshold). */
+export const PresentationLong: Story = {
   args: {
     ...TUTORIAL_1,
     campaign: "Open Country",
     levelIndex: 11,
     title: "A full road",
-    intro: "This is a full game: 38 tiles, like a Challenge, but you know the deck. Use the deck sheet, and go for the best score there is.",
-    tiles: 38,
-    target: 14374,
-    twoStars: 10062,
-    bestKnown: true,
+    intro: CAMPAIGNS[1]!.levels[10]!.intro,
+    deck: deckOf(1, 10),
     best: { score: 10200, stars: 2 },
   },
 };
+
+/** The same under reduced motion: every tile there at once. */
+export const PresentationReduced: Story = { args: PresentationLong.args, parameters: { reducedMotion: "always" } };
 
 /** A coach mark's tip; the board rings the control it names. */
 export const Coach: Story = {
@@ -48,7 +52,25 @@ export const Coach: Story = {
   render: () => <StoryCoach tip="Tap a lit cell next to the starter, then Place tile. Roads must meet roads." onDismiss={fn()} />,
 };
 
-const END = { title: "First stone", target: 321, twoStars: 225, bestKnown: false, onReplay: fn(), onNext: fn(), onLevels: fn() };
+const END = { title: "First stone", onReplay: fn(), onNext: fn(), onLevels: fn() };
+
+/** The stars alone, filling one by one (#593): 0 to 3, each with its sound and a buzz where the device has one. */
+export const StarFills: Story = {
+  args: TUTORIAL_1,
+  render: () => (
+    <div className="flex flex-col gap-6">
+      {([0, 1, 2, 3] as const).map((n) => (
+        <div key={n} className="flex items-center gap-4">
+          <span className="numeric w-16 text-sm text-muted-foreground">{n} stars</span>
+          <StarFill stars={n} />
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+/** The same under reduced motion: the stars are there at once. */
+export const StarFillsReduced: Story = { ...StarFills, parameters: { reducedMotion: "always" } };
 
 /** Three stars, with First Stone's claim under the result (Tutorial level 1). */
 export const EndThreeStars: Story = {
@@ -65,19 +87,24 @@ export const EndThreeStars: Story = {
   ),
 };
 
-/** Two stars, a new personal best. */
-export const EndTwoStars: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={225} stars={2} previousBest={209} /> };
+/** Two stars, a new personal best, and how many points the third star was missing (its threshold is not shown). */
+export const EndTwoStars: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={225} stars={2} toNextStar={96} previousBest={209} /> };
 
-/** One star: finished. No Next while the next level is locked (it is not: finishing opens it; here the last level). */
-export const EndOneStarLast: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={0} stars={1} onNext={undefined} /> };
+/** One star and the points short of the second. No Next (the last level). */
+export const EndOneStarLast: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={209} stars={1} toNextStar={16} onNext={undefined} /> };
+
+/** No star: the end screen of a run that earned none (a level always gives one when finished; the screen still holds it). */
+export const EndNoStar: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={0} stars={0} toNextStar={225} /> };
 
 /** A score above a best-known target: the player is told the target was a search's, and theirs is better. */
 export const EndBeatsBestKnown: Story = {
   args: TUTORIAL_1,
-  render: () => <StoryEnd {...END} title="A full road" target={14374} twoStars={10062} bestKnown score={14250} stars={3} beatsTarget previousBest={12900} />,
+  render: () => <StoryEnd {...END} title="A full road" bestKnown score={14450} stars={3} beatsTarget previousBest={12900} />,
 };
 
-const PLAN_IDS = Object.values(PlanType);
+/** The end under reduced motion: the stars and the result at once. */
+export const EndReduced: Story = { ...EndTwoStars, parameters: { reducedMotion: "always" } };
+
 const plansOf = (index: number) => [...new Set(CAMPAIGNS[index]!.levels.flatMap((l) => l.deck))].map((p) => PLAN_IDS.indexOf(p));
 const CARD: CampaignCardProps = {
   id: 2,

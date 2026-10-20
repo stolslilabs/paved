@@ -33,33 +33,37 @@ requests").
 ## The campaigns
 
 About 50 levels in all (owner, amendment 2): each campaign has its own number of levels, from its definition; nothing in
-game-core or the screens assumes a count. Proposed split, 50 levels:
+game-core or the screens assumes a count. **There is no 72-tile campaign** (owner, amendment 3 and #593, 2026-10-19): a
+full deck of 72 tiles is always the same game, so a whole campaign of them makes no sense. Instead **one final level of 72
+tiles closes the last campaign**. Proposed split, three campaigns, 50 levels:
 
 | # | Campaign | Levels | Tiles per level (the starter included) | Targets | State |
 |---|---|---|---|---|---|
 | 1 | Tutorial | 11 | 3 to 7: one rule per level | exact optimum | built (PR 2) |
 | 2 | Open Country | 11 | 10, 13, 16, 19, 22, 25, 28, 31, 34, 36, 38 | best known | built (PR 2) |
-| 3 | (name to find) | 16 | 38 every level | best known | later |
-| 4 | (name to find) | 12 | 72 every level: the whole deck, nothing withdrawn | best known | later |
+| 3 | (name to find) | 28 | 38 for levels 1 to 27; **72 for level 28**, the whole deck, nothing withdrawn | best known | later |
 
 Why this split:
 
 - **Tutorial, 11**: kept as the owner asked; one level per rule or control.
 - **Open Country, 11**: a ramp from 10 to 38 tiles. Eleven steps of about three tiles keep each level a little longer than the
   last without repeating a size; more levels would only add near-duplicates of the same size, fewer would make the jumps
-  large (a 10-tile level to a 20-tile one).
-- **Campaign 3, 16**: full games of 38 tiles, the length of a Challenge. This is the body of the mode, the levels a player
-  replays for 3 stars; it gets the most levels.
-- **Campaign 4, 12**: the whole 72-tile deck, about twice a full game per level, for the players who finished the rest.
-  Fewer levels, each one long.
+  large (a 10-tile level to a 20-tile one). Unchanged, so none of its decks or targets is recomputed.
+- **Campaign 3, 28**: 27 full games of 38 tiles, the length of a Challenge, then the one 72-tile level as its finale. This
+  is the body of the mode, the levels a player replays for 3 stars; it takes the levels the dropped 72-tile campaign had
+  (16 + 12 = 28), so the total stays at 50 and the two built campaigns do not change.
 
 With #548's rewards (5, 10 and 15 Cobbles for the first, second and third star, 30 per level at most), 50 levels pay
 1,500 Cobbles in all. The unlock rule follows the counts: campaign 2 opens at 22 stars (2 x 11), campaign 3 at 44
-(2 x 22), campaign 4 at 76 (2 x 38).
+(2 x 22). There is no campaign after it.
 
 One progression: the Tutorial teaches the rules on 3 to 7 tiles; Open Country takes the Challenge's own deck from 10 tiles
 to a full game of 38, about three more tiles a level (two at the end, so that the last level is exactly the simple deck's
-played count); campaign 3 is eleven full games; campaign 4 plays the whole 72-tile deck.
+played count); campaign 3 is 27 full games, closed by one game of the whole 72-tile deck.
+
+On chain nothing changes: the Story system keeps campaigns and levels in storage (`set_campaign` with its level count,
+`set_level`; 72 tiles is a per-level bound), so no contract assumes a 72-tile campaign. On the client the card that
+announces the campaigns to come reads its counts from `UPCOMING_CAMPAIGNS` (`packages/app/src/data/story.ts`).
 
 ## Campaign 1: Tutorial
 
@@ -466,12 +470,13 @@ Best known line (14374 points):
 N0,1 E1,1 W-1,0 S1,0 N1,2 N0,-1 E2,1 E1,-1 W0,-2 N-1,-2 S1,-2 N2,-1 N2,0 N1,-3 N2,-3 N3,0 S2,-2 N2,2 N-1,-1 N3,-1 N0,-3 N-1,-3 S-2,-2 E-2,-3 N3,-2 N-1,1 W4,-1 N4,-2 S4,-3 W-2,0 W3,-3 S5,-2 E4,0 E5,-1 E4,1 W3,1 N4,2
 ```
 
-## Campaigns 3 and 4 (later)
+## Campaign 3 (later)
 
-- **Campaign 3**: 16 levels of 38 tiles each, decks chosen as Open Country's (one seed each), targets best known.
-- **Campaign 4**: 12 levels of the whole 72-tile deck, nothing withdrawn: the order is the simple deck's draw for a seed with
-  no card withdrawn (the same draw over 72 cards). Targets best known; the search is about twice as long per level.
-- Neither is built in PR 2. Their unlock follows the same rule (2 stars per level of every campaign before).
+- **Levels 1 to 27**: 38 tiles each, decks chosen as Open Country's (one seed each), targets best known.
+- **Level 28, the finale**: the whole 72-tile deck, nothing withdrawn: the order is the simple deck's draw for a seed with no
+  card withdrawn (the same draw over 72 cards). Its target is best known; the search is about twice as long as a 38-tile
+  level's.
+- Not built yet. Its unlock follows the same rule (2 stars per level of every campaign before: 44).
 
 ## How the targets are set
 
@@ -546,16 +551,24 @@ from the Challenge's own draw (`packages/game-core/src/story/deck.ts`, `seededDe
   phone, a grid of three from tablet up. Home and Play lead here; `/tutorial` redirects here; the scripted tutorial's code
   is removed (the engine keeps the contracts' tutorial deck for its parity tests).
 - **Level** (`/story/:campaign/:level`): the board of Training, with the level's name in the header.
-  - **Intro**: the campaign and level, the tiles, the intro text, the three star thresholds (the target marked "best known"
-    where it is), the player's best so far, and Start.
+  - **Deck presentation** (#593): the level opens on its deck, over the board: the campaign and level, the title, the
+    intro, then the tiles the level deals, grouped by plan with their counts (the build-time renders, landing one after
+    another in under a second), the player's best so far, and Start; a tap anywhere starts too. The device remembers it per
+    level (`paved:story-decks:v1`): a replay, or a later visit, goes straight to the board, and the deck sheet's "Present
+    the level again" shows it on request. Under reduced motion the tiles are there at once.
+  - **Star thresholds are hidden** (#593): no screen shows the score a star needs (not the level card, not the
+    presentation, not the HUD). They stay in the plan, which computes the stars.
   - **Coach marks**: the level that introduces a control shows one tip under the header and rings that control on the
     board: Place tile (1-1), the rotate and cancel bubble on the tile (1-2, a tip only: the bubble sits on the tile),
     Discard (1-3, 1-4), the deck sheet's "Tiles left" (1-5, 2-1), the season wheel (1-6), the settings gear (1-7). "Got it"
     hides it.
   - **No Surrender**: a level restarts with Replay instead.
-  - **End**: the stars, the score against the target ("of the best known" where it is one), a new personal best, the note
-    when the player beat a best-known target, the three thresholds, then Next level (when it is open), Replay and Levels.
-    Tutorial level 1's end also offers First Stone (`claim_tutorial`, connected players; Connect is offered to a guest).
+  - **End** (#593): over the board, the stars earned fill one by one, each with a sound (`place`, the third `wonder`) and a
+    buzz where the device has one; a tap skips to the end, and under reduced motion they are there at once. Then the score
+    screen: the score, a new personal best, **how many points the next star was missing** (the only figure drawn from a
+    threshold), the note when the player beat a best-known target, then Next level (when it is open), Replay, Levels, and
+    Board (the finished board, with a bar that brings the result back). Tutorial level 1's end also offers First Stone
+    (`claim_tutorial`, connected players; Connect is offered to a guest).
 - **Deck sheet** (#540): in every level it shows the level's own fixed deck (the starter and the drawn tiles, per plan,
   the played and discarded ones crossed out), never the simple deck's 72. It shows counts, not the order (decision 5).
 - **Progress on the device** (`paved:story:v1`): per level the best score, its stars and the run that scored it, in the
@@ -594,7 +607,7 @@ Cairo one's shape is final.
 ## Decisions to confirm
 
 1. **The level list** (the Tutorial's 11 levels, one rule each, finale last; the split of the other campaigns,
-   11 / 16 / 12, for about 50 levels in all). Reorder, drop or reword freely: only the
+   11 / 28 with the 72-tile finale last, for 50 levels in all). Reorder, drop or reword freely: only the
    decks and numbers have to be recomputed, and the test will say which.
 2. **In Tutorial levels 1, 2, 5 and 10 no outcome falls between 70 % and 100 %** (checked over every playable game:
    level 1 ends on 0, 209 or 321; level 2 on 0, 419 or 643; level 5 on 0, 319, 369, 419 or 740; level 10 on 0 or 900), so 2
@@ -622,4 +635,4 @@ Cairo one's shape is final.
 ## Next
 
 Once this plan is validated: the Cairo side lands (STORY-CHAIN), then the wiring (#548: the levels on chain, the
-submission at the end of a run, the Cobble rewards), and campaigns 3 and 4.
+submission at the end of a run, the Cobble rewards), and campaign 3 with its 72-tile finale.

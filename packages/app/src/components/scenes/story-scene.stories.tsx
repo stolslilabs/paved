@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { CAMPAIGNS, EMPTY_PROGRESS, recordRun, type StoryProgress } from "@paved/game-core";
+import { UPCOMING_CAMPAIGNS } from "../../data/story";
 import { appRenders } from "../../mocks/assets";
 import { StoryScene } from "./story-scene";
 
@@ -27,7 +28,7 @@ function progressOf(...parts: { index: number; levels: number; stars: 1 | 2 | 3 
 const meta = {
   title: "Scenes/Story",
   component: StoryScene,
-  args: { campaigns: CAMPAIGNS, progress: EMPTY_PROGRESS, renders: appRenders, onBack: fn(), onCampaign: fn(), onLevel: fn() },
+  args: { campaigns: CAMPAIGNS, progress: EMPTY_PROGRESS, renders: appRenders, upcoming: UPCOMING_CAMPAIGNS, onBack: fn(), onCampaign: fn(), onLevel: fn() },
 } satisfies Meta<typeof StoryScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
