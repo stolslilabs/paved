@@ -127,11 +127,12 @@ export function VillageScene({
 
   const place = (plan: number, cell: Cell) => {
     const o = dropOrientation(village, plan, orientation, cell);
-    if (o == null) return;
+    if (o == null || busy) return;
     onPlace?.({ plan, x: cell.x, y: cell.y, orientation: o });
     setSelected(null);
   };
   const copy = (plan: number, tileId: number) => {
+    if (busy) return;
     onAddCopy?.({ plan, tileId });
     setSelected(null);
   };
