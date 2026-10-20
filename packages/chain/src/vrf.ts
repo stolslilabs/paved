@@ -2,14 +2,10 @@
 // the draw's salt (the mirror of `draw_salt` in contracts/src/vrf.cairo), and the provider of each network.
 import { hash, num, shortString } from "starknet";
 import type { ControllerPolicy } from "./auth/controller";
-import type { DeploymentFile } from "./deployment";
 import type { Call } from "./writer";
 
-/** Cartridge's VRF provider, the same address on mainnet and on Sepolia (cartridge-gg/vrf, README). */
-export const CARTRIDGE_VRF_PROVIDER = "0x051fea4450da9d6aee758bdeba88b2f665bcbf549d2c61421aa724e9ac0ced8f";
-
-/** The networks that draw through Cartridge's provider. The devnet draws through the mock (`contracts.MockVrfProvider`). */
-export const CARTRIDGE_VRF_NETWORKS: readonly string[] = ["sepolia", "mainnet"];
+// The provider of each network lives in ./deployment, which imports no starknet (it is in the client's entry chunk).
+export { CARTRIDGE_VRF_NETWORKS, CARTRIDGE_VRF_PROVIDER, vrfProvider } from "./deployment";
 
 /** The provider's entry point that the client calls first; it does nothing on chain (Cartridge's server reads it). */
 export const VRF_REQUEST_ENTRY_POINT = "request_random";
@@ -56,21 +52,6 @@ export function vrfRequestCall(request: VrfRequest): Call {
 /** The write's calls with the provider's request first, as Cartridge's server requires. One draw per transaction. */
 export function withVrfRequest(calls: Call[], request: VrfRequest): Call[] {
   return [vrfRequestCall(request), ...calls];
-}
-
-/**
- * The provider of a network: Cartridge's on Sepolia and mainnet; on the devnet the mock the deployment file records
- * (`contracts.MockVrfProvider`); an empty string where there is none.
- */
-export function vrfProvider(network: string, file?: DeploymentFile | null): string {
-  if (CARTRIDGE_VRF_NETWORKS.includes(network)) return CARTRIDGE_VRF_PROVIDER;
-  if (network !== "devnet") return "";
-  const address = file?.contracts?.MockVrfProvider?.address;
-  try {
-    return address && BigInt(address) !== 0n ? address : "";
-  } catch {
-    return "";
-  }
 }
 
 /** The session policy of the request: it moves no token (P-65). None without a provider. */
