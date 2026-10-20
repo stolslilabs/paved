@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CAMPAIGNS, STORY_KEY, TUTORIAL, decodeLine, recordRun, EMPTY_PROGRESS, type StoryLevel } from "@paved/game-core";
+import { CAMPAIGNS, STORY_KEY, TUTORIAL, decodeLine, recordRun, EMPTY_PROGRESS, PlanType, type StoryLevel } from "@paved/game-core";
 import { App } from "../src/App";
 import { PRESENTED_KEY, UNLOCKS_KEY } from "../src/data/story";
 import { queryClient } from "../src/lib/query-client";
@@ -123,9 +123,9 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const level = TUTORIAL.levels[0]!;
     expect(intro).toHaveTextContent(level.intro);
     expect(intro).toHaveTextContent(`This level deals ${level.deck.length} tiles`);
-    // Its two tiles are the same plan: one group, counted.
-    expect(within(intro).getByTestId("presented-tiles").querySelectorAll("li")).toHaveLength(1);
-    expect(within(intro).getByLabelText("2 of this tile")).toBeInTheDocument();
+    // Its two tiles in draw order, numbered (#613): the same plan twice, never grouped.
+    expect(within(intro).getByTestId("presented-tiles").querySelectorAll("li")).toHaveLength(level.deck.length);
+    expect(within(intro).getByLabelText("Tile 2")).toBeInTheDocument();
     expect(intro).not.toHaveTextContent(String(level.target));
     expect(intro).not.toHaveTextContent(String(Math.ceil(level.target * 0.7)));
     expect(screen.queryByRole("region", { name: "Your tile" })).toBeNull();
@@ -206,23 +206,27 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     expect(within(second).getByRole("button", { name: /^Level 2, .*, locked$/ })).toBeDisabled();
   });
 
-  it("the deck sheet of a level with tiles already placed counts them: nothing drawn reads as played (Tutorial 10)", async () => {
+  it("the deck sheet of a level shows its draw in order, the presentation's order; the tiles placed at the start are not in it (Tutorial 10, #613)", async () => {
     let progress = EMPTY_PROGRESS;
     for (const level of TUTORIAL.levels.slice(0, 9)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, 0);
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     render(<App router={createTestRouter("/story/1/10")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    await userEvent.click(within(await screen.findByTestId("deck-presentation", {}, { timeout: 5000 })).getByRole("button", { name: /Start/ }));
+    const intro = await screen.findByTestId("deck-presentation", {}, { timeout: 5000 });
     const level = TUTORIAL.levels[9]!;
+    const ids = level.deck.map((plan) => String(Object.values(PlanType).indexOf(plan)));
+    const presented = [...within(intro).getByTestId("presented-tiles").querySelectorAll("li")].map((li) => li.getAttribute("data-plan"));
+    expect(presented).toEqual(ids);
+    await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
     expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(level.deck.length));
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
-    // The starter and the 5 tiles placed at the start are played; the 3 of the deck are all still to come.
-    // A fixed deck: every tile shown comes (not the Challenge's "some never come").
-    expect(await screen.findByText(`This level deals all of these ${1 + level.placed!.length + level.deck.length} tiles, in a fixed order.`, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(`This level deals these ${level.deck.length} tiles in this order, the next one first.`, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText(/some never come/)).toBeNull();
-    expect(await screen.findByTestId("deck-summary", {}, { timeout: 5000 })).toHaveTextContent(`${1 + level.placed!.length} played, 0 discarded (dashed), ${level.deck.length} not yet.`);
-    const road = screen.getByTestId("deck-plans").querySelector('[data-plan="RFRFFFFFR"]')!;
-    // One RFRFFFFFR is on the board from the start, the other is the level's second draw: one crossed out, one not.
-    expect(road.querySelectorAll('[data-out="true"]')).toHaveLength(1);
-    expect(road.querySelectorAll('[data-out="false"]')).toHaveLength(1);
+    expect(screen.queryByTestId("deck-plans")).toBeNull();
+    const order = screen.getByTestId("deck-order");
+    const slots = [...order.querySelectorAll("li")];
+    // The sheet's order is the presentation's; the first tile is in hand, none is out yet.
+    expect(slots.map((li) => li.getAttribute("data-plan"))).toEqual(level.deck);
+    expect(slots.map((li) => li.getAttribute("data-slot-state"))).toEqual(["hand", ...level.deck.slice(1).map(() => "next")]);
+    expect(screen.getByTestId("deck-summary")).toHaveTextContent(`0 played, 0 discarded (dashed), ${level.deck.length} not yet.`);
   });
 });
