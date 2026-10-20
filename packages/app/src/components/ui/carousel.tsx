@@ -2,7 +2,7 @@
  * Source: shadcn/ui's Carousel (apps/v4/registry/new-york-v4/ui/carousel.tsx, https://github.com/shadcn-ui/ui at commit
  * 0023018feb6e18c2f4aa0af2062f1c3107d90bfa, MIT, (c) 2023 shadcn), on Embla Carousel (`embla-carousel-react` 8.6.0,
  * https://www.embla-carousel.com, MIT, (c) David Jerleke). Adapted: reduced motion (from `MotionConfig`) makes
- * the buttons and the arrow keys jump instead of scroll, the `reInit` listener is removed on cleanup too, the region
+ * the buttons, the arrow keys and a swipe's release jump instead of scroll, the `reInit` listener is removed on cleanup too, the region
  * takes an accessible name, F3's Button and icons, the semantic tokens; `startIndex` is read once, at mount, and
  * `useCarouselSettled` tells when the track is at rest.
  *
@@ -97,6 +97,16 @@ export function Carousel({ orientation = "horizontal", opts, setApi, plugins, cl
       api.off("select", onSelect);
     };
   }, [api, onSelect]);
+
+  // A swipe follows the finger; on release Embla glides to the snap it picked. Under reduced motion it lands there at once.
+  useEffect(() => {
+    if (!api || !reduced) return;
+    const land = (api: CarouselApi) => api?.scrollTo(api.selectedScrollSnap(), true);
+    api.on("pointerUp", land);
+    return () => {
+      api.off("pointerUp", land);
+    };
+  }, [api, reduced]);
 
   return (
     <CarouselContext.Provider value={{ carouselRef, api, opts, orientation, scrollPrev, scrollNext, canScrollPrev, canScrollNext }}>

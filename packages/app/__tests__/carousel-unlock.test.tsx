@@ -112,5 +112,15 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
       fireEvent.click(screen.getByRole("button", { name: /Tutorial/ }));
       expect(scrollTo).toHaveBeenCalledWith(0, reduced === "always");
     });
+
+    it(`a swipe's release glides to its snap, and lands there at once under reduced motion (${reduced})`, async () => {
+      let api: CarouselApi;
+      render(wrap(<Demo start={1} onApi={(a) => (api = a)} />, reduced));
+      await waitFor(() => expect(api).toBeDefined());
+      const scrollTo = vi.spyOn(api!, "scrollTo");
+      act(() => api!.emit("pointerUp"));
+      if (reduced === "always") expect(scrollTo).toHaveBeenCalledWith(api!.selectedScrollSnap(), true);
+      else expect(scrollTo).not.toHaveBeenCalled();
+    });
   }
 });
