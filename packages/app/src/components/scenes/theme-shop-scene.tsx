@@ -5,7 +5,7 @@ import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { ThemeCover, type TileRenders } from "../elements/tile-render";
 import { PLANS, ownedCount, ownsSkin } from "../containers/cobble-types";
-import { SkinGrid } from "../containers/skin-grid";
+import { SkinGrid, type SkinTierGate } from "../containers/skin-grid";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TabPage } from "../containers/tab-page";
 import { THEMES, THEME_CODES, type SkinThemeId } from "../containers/theme-card";
@@ -28,6 +28,8 @@ export interface ThemeShopSceneProps {
   renders?: TileRenders;
   /** The theme's models per plan key (the manifest's variants): Forest has 1 to 9. */
   variants?: Readonly<Record<string, number>>;
+  /** The theme's skins reserved to a tier of their plan (#646), by plan: Buy waits for the tier. */
+  tierGates?: Readonly<Record<number, SkinTierGate>>;
   /** The theme's skins; omitted: `skinsStatus` says why. */
   skins?: ThemeSkinsData | null;
   skinsStatus?: SkinsStatus | null;
@@ -54,7 +56,7 @@ export interface ThemeShopSceneProps {
  * Cobbles when short. A plan with several models says so: the board picks one per tile. Buying does not put a tile on the
  * board: Use on Themes, or My tiles, does.
  */
-export function ThemeShopScene({ theme, renders, variants, skins, skinsStatus, buying, refusal, refusalDetail, onDismissRefusal, onBuy, onBuyCobbles, onMyTiles, onConnect, onRetry, onBack, onNavigate }: ThemeShopSceneProps) {
+export function ThemeShopScene({ theme, renders, variants, tierGates, skins, skinsStatus, buying, refusal, refusalDetail, onDismissRefusal, onBuy, onBuyCobbles, onMyTiles, onConnect, onRetry, onBack, onNavigate }: ThemeShopSceneProps) {
   const option = THEMES.find((t) => t.id === theme)!;
   const code = THEME_CODES[theme];
   const onSale = skins ? skins.prices.some((p) => p > 0) : false;
@@ -122,7 +124,7 @@ export function ThemeShopScene({ theme, renders, variants, skins, skinsStatus, b
               )
             }
           />
-          <SkinGrid theme={theme} prices={skins.prices} owned={skins.owned} active={skins.active} variants={variants} balance={skins.balance} buying={buying} renders={renders} onBuy={onBuy} />
+          <SkinGrid theme={theme} prices={skins.prices} owned={skins.owned} active={skins.active} variants={variants} balance={skins.balance} buying={buying} renders={renders} gates={tierGates} onBuy={onBuy} />
           {forSale.length > 0 && skins.balance >= cheapest && (
             <Button variant="ghost" size="sm" className="self-start" onClick={onBuyCobbles}>
               <Icon name="cubes-stacked" size="sm" />
