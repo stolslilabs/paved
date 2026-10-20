@@ -63,10 +63,18 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await waitFor(() => expect(at(router)).toBe("/story?campaign=1"));
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/story"));
+    // The screen follows the location later (the router's updates are transitions): wait for each page to be drawn, or the
+    // Play page seen below could be the one from before these steps, and the click hit the list's Back, which opens Play.
+    await screen.findByRole("heading", { level: 1, name: "Story" }, { timeout: 5000 });
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/play"));
-    // The Play page in place of the list before its Back is pressed: the list's own Back would open Play again.
-    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
+    await waitFor(
+      () => {
+        expect(screen.queryByRole("heading", { level: 1, name: "Story" })).toBeNull();
+        expect(screen.getByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
 
     // The page may still swap its Back for a new node right after the pop: a click on the old one reaches no handler (seen
     // about one run in two on a loaded machine), so the press is tried again until the page goes Home.
