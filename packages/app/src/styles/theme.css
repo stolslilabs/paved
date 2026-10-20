@@ -187,6 +187,15 @@
   --medal-2: var(--color-charcoal-200);
   --medal-3: var(--color-amber-400);
   --board: var(--color-board);
+  /* The village's tiers (#646): the base under a tile, whatever its skin. Dirt, silver, gold, diamond, ruby (a proposal for
+     the fifth). */
+  --tier-0: var(--color-amber-800);
+  --tier-1: var(--color-charcoal-300);
+  --tier-2: var(--color-gold-400);
+  --tier-3: var(--color-river-300);
+  --tier-4: var(--color-ember-500);
+  /* The village's fog in the plan view (#633's rule, until #648 draws the chosen one): a grey veil over the board. */
+  --fog: var(--color-charcoal-400);
 }
 
 /* 3b. The season dial (#607): each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle
@@ -259,6 +268,12 @@
   --color-medal-1: var(--medal-1);
   --color-medal-2: var(--medal-2);
   --color-medal-3: var(--medal-3);
+  --color-tier-0: var(--tier-0);
+  --color-tier-1: var(--tier-1);
+  --color-tier-2: var(--tier-2);
+  --color-tier-3: var(--tier-3);
+  --color-tier-4: var(--tier-4);
+  --color-fog: var(--fog);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
