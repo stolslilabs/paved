@@ -52,6 +52,8 @@ export interface BirdsBoardProps extends BirdSettings {
   quality: QualityTier | "auto";
   /** The ambient effects on (the loop runs); off, nothing moves. */
   enabled: boolean;
+  /** The cloud shadows of #573, the loop's other effect: off, the birds are judged alone. */
+  clouds: boolean;
 }
 
 /** The knobs that are the birds' own settings. */
@@ -140,7 +142,7 @@ function sourcesOf(scene: GameScene, tiles: TileRenderData[], skins: TileSkins):
  * scripts as `window.__birdsScene`, the birds as `window.__birds`.
  */
 export function BirdsBoard(props: BirdsBoardProps) {
-  const { layout, plan, forest, view, distance, time, cycleSeconds, perches, fps, quality, enabled } = props;
+  const { layout, plan, forest, view, distance, time, cycleSeconds, perches, fps, quality, enabled, clouds } = props;
   const [scene, setScene] = useState<GameScene | null>(null);
   const [birds, setBirds] = useState<Birds | null>(null);
   const [ready, setReady] = useState(false);
@@ -159,9 +161,9 @@ export function BirdsBoard(props: BirdsBoardProps) {
         time === "cycle"
           ? { enabled: true, cycleMs: cycleSeconds * 1000, reducedMotion: false, freezeAt: null }
           : { enabled: true, reducedMotion: false, freezeAt: DAY_PHASE_AT[time] },
-      ambient: { enabled, fps, reducedMotion: false },
+      ambient: { enabled, fps, reducedMotion: false, clouds: { enabled: clouds } },
     }),
-    [quality, time, cycleSeconds, enabled, fps],
+    [quality, time, cycleSeconds, enabled, fps, clouds],
   );
   const settingsRef = useRef(birdSettings);
   settingsRef.current = birdSettings;

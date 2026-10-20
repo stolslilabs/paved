@@ -44,6 +44,7 @@ const meta = {
     time: { control: "inline-radio", options: ["cycle", "day", "night"], description: "The day and night cycle running, or held at a day or a night", ...board },
     cycleSeconds: { ...range(10, 240, 5), description: "One day and night, seconds (120 in the game)", ...board },
     enabled: { control: "boolean", description: "The ambient effects on (the loop runs)", ...board },
+    clouds: { control: "boolean", description: "The cloud shadows (#573), the loop's other effect (off: the birds alone)", ...board },
     quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Low turns the ambient effects off", ...board },
   },
   args: {
@@ -57,6 +58,7 @@ const meta = {
     time: "day",
     cycleSeconds: 120,
     enabled: true,
+    clouds: false,
     quality: "medium",
   },
 } satisfies Meta<typeof BirdsBoard>;
@@ -86,6 +88,9 @@ export const SingleClose: Story = { args: { flockShare: 0, intervalSeconds: 3, l
 
 /** The birds casting shadows. */
 export const Shadows: Story = { args: { shadows: true, intervalSeconds: 5 } };
+
+/** With the cloud shadows of #573: both effects on the one ambient loop. */
+export const WithClouds: Story = { args: { clouds: true } };
 
 /** The Low tier: the ambient effects are off there, nothing flies. */
 export const LowTier: Story = { args: { quality: "low" } };
