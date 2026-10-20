@@ -142,3 +142,56 @@ do; `AvatarItemBought` repeats the balance so a client reading `Avatar` alone ne
 4. **A free item later made paid**: proposed as in section 4 (stored avatars keep it, selecting it again needs a purchase).
 5. **For the PM: the host system.** Proposed: the new `Avatar` system with `Setup.spend_cobbles` (section 1). The alternative,
    the avatar in `Setup` with P-64's `Shop` split, moves packs and skins too and is a larger change.
+
+## Hand-over (2026-10-20, to the Mac)
+
+The owner moved the Cairo work of this task to the Mac. The branch holds the work in progress (commit "WIP AVATAR-CHAIN");
+no pull request is open.
+
+**Done.**
+
+- The owner's answers (2026-10-20, #627): items 0 to 3 of every category free; paid items 20 to 100 Cobbles, rebalanced later,
+  bounds and prices owner-set; rare items seasonal (listed for their season with `until`), no quantity limit at launch, the
+  mechanism kept. The Overseer's ruling: a separate `Avatar` system debiting the Cobbles through one `Setup` entry.
+- `contracts/src/systems/avatar.cairo`: the owner-set layout (append-only), price bounds and catalogue (`set_item`,
+  `withdraw_item`), `buy_avatar_item`, `set_avatar`, the views `avatar`, `owned`, `item`, `items`, `layout`, `price_bounds`,
+  `setup`, and their events.
+- `Setup.spend_cobbles` (`ISetupSpend`) with `CobblesSpent`. **Changed after the last measure**: it was first gated by a
+  dedicated spender (`set_spender`, `spender`, `SpenderSet`), which put `Setup` at 41,126 CASM felts, **50.2 %**, past P-64's
+  50 % review point; it is now gated by `Setup`'s reporter allowlist, as `credit_story` is for `Story` (Avatar is
+  allowlisted by `set_reporter`). That version is **not built or measured yet** (expected about -450 felts, under 50 %).
+- Measured on the VPS before that change (test profile, `get_available_gas` around the call): `set_item` 1,018,235;
+  `buy_avatar_item` 1,154,753; `set_avatar` with 10 free parts 2,677,046, with 10 owned parts 3,640,176 (above the design's
+  estimates; the ceilings in `src/tests/avatar.cairo` are these + 5 %). `Avatar` 11,318 CASM felts (13.8 %). The scoped
+  `snforge test paved::tests::avatar::` passed 22 of 22 with the spender version; it peaked at 11.5 to 14.3 GB VmPeak and
+  7.9 to 8.9 GB RSS.
+- `@paved/chain`: `Avatar` in the ABIs, the deployment (optional address), the views (`RpcGameViews`, `FakeGameViews`), the
+  writes `buyAvatarItem` and `setAvatar` with `AvatarRefusedError` and `AvatarPriceChangedError`, the session policies;
+  `packages/chain/src/avatar.ts` (the look's packing). The indexer decodes `CobblesSpent` into the Cobbles ledger (schema
+  17; its tests passed). The app's hooks `useAvatar`, `useAvatarCatalogue`, `useAvatarWrites` (`packages/app/src/data/avatar.ts`).
+- `scripts/deploy.sh`: declares and deploys `Avatar`, allowlists it on `Setup`, and sets the owner's defaults
+  (`FRESH_AVATAR_*`: bounds 20 to 100, items 0 to 3 of each category free), read back; `scripts/test-deploy-url.sh` counts
+  updated to 10 classes.
+
+**Placeholders.**
+
+- `FRESH_AVATAR_LAYOUT` in `deploy.sh` (nine categories of 7 bits) until AVATAR-LOOK (#626 PR 1) states the format: a layout
+  on chain only grows, so it must be #626's before any deployment. No paid item is listed by the script (the owner lists them
+  with their art and seasons). No deployment now.
+- The tests' layout, bounds and catalogue in `src/tests/avatar.cairo` and the client tests are their own.
+
+**Next.**
+
+1. Regenerate `contracts/abis/Setup.json` (`scripts/abis.sh`: the committed one still has `set_spender`, `spender` and
+   `SpenderSet`), then run `snforge test paved::tests::avatar::` and `scripts/class-sizes.sh` on the Mac: `Setup` under 50 %.
+2. Add `paved::tests::avatar` to a `COVERAGE_GROUPS` group of `scripts/measure.sh` (`measure.sh check-groups` fails without
+   it), and decide whether its `test_gas_*` tests stay there or move to `contracts/tests/gas.cairo`.
+3. The pre-push check of the WIP commit failed on **format** and **guard tests** (not investigated; the guard failure includes
+   the coverage group above). Run `check-run --lock -- bun run check`; the `@paved/chain` and `@paved/app` tests of this
+   branch were not run yet.
+4. The mock data source (`packages/app/src/data/mock/`): Sepolia's classes have no `Avatar`, so the hooks answer null there;
+   add the avatar reads and writes to `MockLedger` if the creator (#626 PR 2) must work on mock data.
+5. Seasonal items: the season calendar is the client's (listing a season's items with `until` its end is the owner's call
+   at each season); say in the PR whether a start time (`from`) is wanted later.
+6. The audit (correctness and security) in the PR: the reporter allowlist's trust (a reporter can already report progress
+   for any player), `set_layout`'s append-only rule, `sold` against `supply`, the bit arithmetic of the look.
