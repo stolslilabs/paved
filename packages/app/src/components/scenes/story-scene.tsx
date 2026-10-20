@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useReducedMotionConfig } from "motion/react";
 import {
   PlanType,
   campaignRequirement,
@@ -16,7 +17,7 @@ import { StarRow } from "../elements/star-row";
 import type { TileRenders } from "../elements/tile-render";
 import { CampaignCard, type CampaignStatus } from "../containers/story-panels";
 import { TopBar } from "../containers/top-bar";
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "../ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, useCarouselSettled, type CarouselApi } from "../ui/carousel";
 import { Icon } from "../ui/icon";
 
 /**
@@ -75,6 +76,11 @@ function statusOf(progress: StoryProgress, campaigns: readonly StoryCampaign[], 
 export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [], renders, layout = "carousel", upcoming = [], storageOff, onBack, onCampaign, onLevel }: StorySceneProps) {
   const [chosen, setChosen] = useState(() => campaignId ?? [...campaigns].reverse().find((c) => campaignUnlocked(progress, campaigns, c))?.id ?? campaigns[0]?.id);
   const [api, setApi] = useState<CarouselApi>();
+  // One motion at a time (#615): the carousel opens on the chosen card without a scroll, and a card's unlock waits until
+  // the track is at rest, so neither cuts the other.
+  const settled = useCarouselSettled(api);
+  // Embla's second argument is `jump`: under reduced motion a press brings its card in view without a scroll.
+  const reduced = Boolean(useReducedMotionConfig());
   const campaign = campaigns.find((c) => c.id === chosen) ?? campaigns[0];
 
   const choose = useCallback(
@@ -98,6 +104,7 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
     };
   }, [api, campaigns, choose]);
 
+  // Read once by the carousel: a later choice scrolls it (a swipe, `scrollTo`), never re-inits it.
   const start = Math.max(0, campaigns.findIndex((c) => c.id === chosen));
   const carousel = layout === "carousel";
   return (
@@ -130,9 +137,10 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
                     plans={coverPlans(c)}
                     renders={renders}
                     selected={c.id === campaign?.id}
+                    paused={!settled}
                     onSelect={() => {
                       choose(c.id);
-                      api?.scrollTo(index);
+                      api?.scrollTo(index, reduced);
                     }}
                   />
                 </CarouselItem>
