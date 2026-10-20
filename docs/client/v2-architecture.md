@@ -2073,7 +2073,7 @@ main's chain held at 1.5 (61 MiB against 155).
     first time a plan needs a quad and kept until `TileRenderer.dispose()`, which disposes them and the image copies
     (not the loader's images). A pending tile's quad takes the pending style (`pendingMaterial`, cached per source). The
     ghost's quad has its own copy of the plan's material (disposed with the ghost, as the ghost's model materials are) and
-    no outline, as the ghost's model has none; the ghost's tint and the invalid red apply to it. A plan whose image is not
+    its square's outline at the ghost's opacity, as the ghost's model has its own (#657); the ghost's tint applies to it. A plan whose image is not
     in (it failed to load) draws no quad: its tile waits for its model, as before, and gets its quad if the image comes
     first (the loader's retry after the first frame; the ghost's key goes from "none" to "quad"). `tile-placeholder.test.ts`
     checks the quad, the swap (never zero objects for a tile), the ghost, a live switch of skins both ways, a failed
