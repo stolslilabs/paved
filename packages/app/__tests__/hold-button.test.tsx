@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HOLD_MS, HoldButton } from "../src/components/elements/hold-button";
 import { TileBubble } from "../src/components/containers/tile-bubble";
+import { HAPTIC_MS } from "../src/lib/haptics";
 
 // PLACE-POLISH (#568): Validate is held, never tapped.
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -37,7 +38,8 @@ describe("HoldButton", () => {
     expect(onComplete).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1));
     expect(onComplete).toHaveBeenCalledOnce();
-    expect(vibrate).toHaveBeenCalledOnce();
+    // A light tick when the hold started, a firmer one when it completed (#606).
+    expect(vibrate.mock.calls).toEqual([[HAPTIC_MS.light], [HAPTIC_MS.firm]]);
     expect(button()).toHaveAttribute("data-state", "done");
     fireEvent.pointerUp(button(), { button: 0 });
     fireEvent.click(button(), { detail: 1 });
@@ -144,12 +146,26 @@ describe("HoldButton", () => {
   });
 });
 
-describe("the bubble's buttons (#568)", () => {
-  it("Close, Rotate, Validate in that order, each with the white hover, pressed and focus states; Validate held places once", () => {
+describe("the tones (#606)", () => {
+  it("primary: the yellow button, its ring in its own (grey) colour; destructive: a grey circle, its ring red", () => {
+    const { unmount } = render(wrap(<HoldButton label="Hold to place the tile" onComplete={vi.fn()} />));
+    expect(button()).toHaveAttribute("data-tone", "primary");
+    expect(button().className).toMatch(/\bbg-primary\b/);
+    expect(ring().getAttribute("class")).toContain("stroke-current");
+    unmount();
+    render(wrap(<HoldButton label="Hold to place the tile" tone="destructive" icon="trash" onComplete={vi.fn()} />));
+    expect(button()).toHaveAttribute("data-tone", "destructive");
+    expect(button().className).toMatch(/\bbg-secondary\b/);
+    expect(ring().getAttribute("class")).toContain("stroke-destructive");
+  });
+});
+
+describe("the bubble's buttons (#568, #606)", () => {
+  it("Cancel, Discard, Rotate, Validate in that order, each with the white hover, pressed and focus states; Validate held places once", () => {
     const onConfirm = vi.fn();
-    render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={onConfirm} />));
+    render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} discardCost={50} onConfirm={onConfirm} />));
     const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
-    expect(names).toEqual(["Cancel placement", "Rotate tile", "Hold to place the tile"]);
+    expect(names).toEqual(["Cancel placement", "Hold to discard the tile (costs 50 points)", "Rotate tile", "Hold to place the tile"]);
     for (const b of screen.getAllByRole("button")) {
       // The white hover and pressed states of #537 (`state-layer`), over Validate's gold fill too, and the focus ring.
       expect(b.className).toMatch(/\bstate-layer\b/);
@@ -207,5 +223,41 @@ describe("the bubble's buttons (#568)", () => {
     expect(button()).toBeDisabled();
     rerender(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={vi.fn()} busy />));
     expect(button()).toHaveAttribute("aria-busy", "true");
+  });
+});
+
+describe("Discard in the bubble (#606)", () => {
+  const discardButton = () => screen.getByRole("button", { name: /^Hold to discard the tile/ });
+
+  it("is held like Validate: a tap does nothing, a hold discards once; free at 0 points", () => {
+    const onDiscard = vi.fn();
+    const { unmount } = render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={onDiscard} discardCost={0} />));
+    expect(discardButton()).toHaveAccessibleName("Hold to discard the tile (free)");
+    fireEvent.pointerDown(discardButton(), { button: 0 });
+    act(() => vi.advanceTimersByTime(HOLD_MS / 2));
+    fireEvent.pointerUp(discardButton(), { button: 0 });
+    fireEvent.click(discardButton(), { detail: 1 });
+    expect(onDiscard).not.toHaveBeenCalled();
+    fireEvent.pointerDown(discardButton(), { button: 0 });
+    act(() => vi.advanceTimersByTime(HOLD_MS));
+    expect(onDiscard).toHaveBeenCalledOnce();
+    unmount();
+    // No Discard asked for: the bubble keeps its three buttons.
+    render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={vi.fn()} />));
+    expect(screen.queryByRole("button", { name: /discard/i })).toBeNull();
+  });
+
+  it("is disabled while the move is on its way", () => {
+    render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} onConfirm={vi.fn()} busy />));
+    expect(discardButton()).toBeDisabled();
+  });
+
+  it("Cancel and Rotate tick lightly where the device has haptics", () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} />));
+    fireEvent.click(screen.getByRole("button", { name: "Rotate tile" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel placement" }));
+    expect(vibrate.mock.calls).toEqual([[HAPTIC_MS.light], [HAPTIC_MS.light]]);
   });
 });

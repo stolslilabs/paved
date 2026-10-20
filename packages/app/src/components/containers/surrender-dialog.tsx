@@ -12,7 +12,7 @@ export interface SurrenderDialogProps {
 }
 
 /**
- * The Surrender confirmation. Its own module so that the board's route chunk does not carry the dialog and Radix under it
+ * The Surrender confirmation (from the in-game settings since #606, or by itself when a Challenge game expired). Its own module so that the board's route chunk does not carry the dialog and Radix under it
  * (BOARD-CHUNK): `BoardScene` loads it at the first Surrender, and in the browser's idle time before.
  */
 export function SurrenderDialog({ open, onOpenChange, expired, score, onSurrender }: SurrenderDialogProps) {
@@ -39,6 +39,45 @@ export function SurrenderDialog({ open, onOpenChange, expired, score, onSurrende
             }}
           >
             Surrender
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export interface RestartDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Story mode restarts the level; Training the same game from its start (its seed, its deck). */
+  mode: "story" | "training";
+  onRestart: () => void;
+}
+
+/** The Restart confirmation of the in-game settings (#606), in the Surrender dialog's module: the same chunk, loaded the same way. */
+export function RestartDialog({ open, onOpenChange, mode, onRestart }: RestartDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showClose={false}>
+        <DialogHeader>
+          <DialogTitle>{mode === "story" ? "Restart this level?" : "Restart this game?"}</DialogTitle>
+          <DialogDescription>
+            {mode === "story"
+              ? "The level starts again from its first tile. This run's moves and points are lost."
+              : "The same game starts again from its first tile, with the same deck. This game's moves and points are lost."}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="secondary">Keep playing</Button>
+          </DialogClose>
+          <Button
+            onClick={() => {
+              onOpenChange(false);
+              onRestart();
+            }}
+          >
+            Restart
           </Button>
         </DialogFooter>
       </DialogContent>

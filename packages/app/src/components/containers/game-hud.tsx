@@ -3,7 +3,6 @@ import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
 import { Icon } from "../ui/icon";
 import { Score } from "../elements/score";
-import { TilesLeft } from "../elements/tiles-left";
 import { COACH_RING, type CoachTarget } from "./coach";
 
 export interface GameHudProps {
@@ -13,22 +12,19 @@ export interface GameHudProps {
   delta?: number | null;
   /** The points the tile placed and not yet validated would score: "(+154)" over the score, in place of its label (#568). */
   preview?: number | null;
-  remaining: number;
   /** `GameView.expiresAt` of a Challenge game (start + 24 h); none for Training and Story. */
   expiresAt?: number | null;
   now: number;
   onBack?: () => void;
   /** The gear: opens the device settings over the board (#541). */
   onSettings?: () => void;
-  /** The deck sheet (#540): "Tiles left" becomes a button. */
-  onDeck?: () => void;
-  /** A Story coach mark points at the deck or the gear: that control is ringed (the season dial's ring is the board scene's). */
+  /** A Story coach mark points at the gear: it is ringed (the deck's ring is on the tile stack, #606; the season dial's is the board scene's). */
   coach?: CoachTarget | null;
   className?: string;
 }
 
-/** The board's header over the scene: Back and the mode, the tiles left, the time left, the score, the settings gear. */
-export function GameHud({ title, score, delta, preview, remaining, expiresAt, now, onBack, onSettings, onDeck, coach, className }: GameHudProps) {
+/** The board's header over the scene: Back and the mode, the time left, the score, the settings gear. The tiles left are on the tile stack (#606). */
+export function GameHud({ title, score, delta, preview, expiresAt, now, onBack, onSettings, coach, className }: GameHudProps) {
   return (
     <header
       className={cn(
@@ -47,7 +43,6 @@ export function GameHud({ title, score, delta, preview, remaining, expiresAt, no
         <h1 title={title} className="w-0 min-w-full truncate font-display text-sm font-semibold">{title}</h1>
         {expiresAt != null && <Countdown expiresAt={expiresAt} now={now} />}
       </div>
-      <TilesLeft remaining={remaining} onClick={onDeck} className={cn(coach === "deck" && COACH_RING)} />
       <div className="mobile:border-l mobile:border-border mobile:pl-3">
         <Score value={score} delta={delta} preview={preview} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
       </div>

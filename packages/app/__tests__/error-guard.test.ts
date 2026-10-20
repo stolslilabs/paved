@@ -21,12 +21,12 @@ const SHARED = "src/components/elements/inline-error.tsx";
 
 /** The error colours' uses that are not errors, with how many each file has. */
 const ALLOWED: Record<string, { count: number; why: string }> = {
-  "src/components/containers/hand-panel.tsx": { count: 2, why: "the Surrender button's text and its hover (a destructive action)" },
+  "src/components/containers/device-settings-sheet.tsx": { count: 2, why: "the board's Surrender row, its icon and its label (a destructive action, #606)" },
   "src/components/elements/stat-row.tsx": { count: 1, why: "StatRow's danger tone: a stat (missed by), not an error" },
   "src/components/elements/countdown.tsx": { count: 1, why: "an expired deadline" },
   "src/components/containers/reward-panel.tsx": { count: 2, why: "a threshold missed: the icon and the points" },
   "src/components/containers/vault-form.tsx": { count: 1, why: "the invalid amount field's border, beside its InlineError" },
-  "src/components/elements/tile-chip.tsx": { count: 1, why: "a refused tile chip's border (the hand's state)" },
+  "src/components/elements/tile-chip.tsx": { count: 1, why: "a refused tile chip's border (the tile stack's state)" },
   "src/components/ui/dropdown-menu.tsx": { count: 2, why: "a destructive menu item and its focus" },
   "src/components/ui/badge.tsx": { count: 1, why: "the destructive badge's text on its own fill" },
   "src/components/ui/button.tsx": { count: 1, why: "the destructive button's text on its own fill" },
