@@ -1,4 +1,5 @@
 import type { ContractName } from "./abis";
+import { vrfProvider } from "./vrf";
 
 /** `contracts/deployments/<network>.json`, as CORE's deploy script writes it (O-19). */
 export interface DeploymentFile {
@@ -35,6 +36,11 @@ export interface Deployment {
   faucet: string;
   /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
   collection: string;
+  /**
+   * The VRF provider a drawing write requests from (#638, `vrfProvider`): Cartridge's on Sepolia and mainnet, the file's
+   * `contracts.MockVrfProvider` on the devnet; an empty string where there is none. Not part of `configured`.
+   */
+  vrfProvider: string;
   /**
    * True when the RPC URL and the required address (Challenge) are known: the only case where writes are offered.
    * `Account` is not one since D-25 (E): it left the deployment, and a file that still names it is read without it.
@@ -116,6 +122,7 @@ export function resolveDeployment(input: {
     addresses,
     faucet: isAddress(faucet) ? faucet : "",
     collection: [env.collection, file.contracts?.Collection?.address].find(isAddress) ?? "",
+    vrfProvider: vrfProvider(input.network, file),
     configured: missing.length === 0,
     missing,
   };

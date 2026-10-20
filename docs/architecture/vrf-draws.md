@@ -88,6 +88,24 @@ salt = poseidon('PAVED_DRAW', kind, game_id, draw_index)
 **A reverted and resent transaction** has the same salt, so the same seed, so the same random: ECVRF is deterministic for
 one key and one seed. Tested with the mock (section 4), which derives its value from the seed.
 
+**The draw is the first consume of its transaction** (found in review, 2026-10-20).
+
+- Cartridge's `consume_random` returns `poseidon(random[seed], consume_count)`, where `consume_count` counts the
+  transaction's consumes **for every seed together**.
+- `submit_random` is public: anyone may submit a proof that is valid for a seed of their own. It resets the count to 0
+  and leaves the seeds already stored in place.
+- So, after the wrapper submits the Paved seed `S`, a player's calls could replay a proof for their own consumer's seed
+  `A` and consume `A` N times before calling Paved. The unchanged `S` would then return `poseidon(random[S], N)`, a
+  value the player chooses by choosing N: a reroll.
+- **The rule:** the component reads the provider's `get_consume_count()` and refuses the draw unless it is 0
+  (`'VRF: not first consume'`). The draw's value is then always `poseidon(random[S], 0)`.
+  - A player who resets the count to 0 by submitting their own proof again only gets that same value.
+  - `random[S]` is fixed: it is checked against Cartridge's key for `S`.
+- The mock counts the consumes of each transaction the same way (`get_consume_count`, keyed by the transaction hash)
+  and mixes the count into its value.
+- Tested: a draw after another consume in its transaction is refused, and any number of consumes in an earlier
+  transaction leave the draw's value unchanged (fuzzed).
+
 **One draw per transaction.**
 
 - **The provider.** The server fulfils one seed per transaction (the first `request_random`). A second draw of the same
@@ -231,21 +249,36 @@ Departures from sections 4 and 5:
 - The mock's `assert_consumed` takes the seed, as Cartridge's provider does. #638 describes Glitchbomb's as taking the
   source.
 - The mock refuses only SN_MAIN at construction: starknet-devnet runs as SN_SEPOLIA, so Sepolia cannot be refused there.
+- The interface has `get_consume_count` too, for the first-consume rule of section 3.
+- `Deployment.vrfProvider` (`resolveDeployment`) carries the network's provider, so the app reads it with the other
+  addresses.
+
+**The devnet path.**
+
+- `scripts/deploy.sh devnet` declares and deploys `MockVrfProvider`, with no constructor argument, and records it as
+  `contracts.MockVrfProvider`.
+- `deploy` refuses the mock by name on every other network.
+- The smoke reads its consume count (0) and the consume of a salt (not 0).
+- Rehearsed on a fresh `starknet-devnet --seed 42` with `scripts/deploy.sh devnet --unmerged`: `smoke ok`, the mock at
+  `0x02c5080f…b46d`, class `0x02abc54e…e5d7`.
+- The address depends only on the class hash (salt 1, no `--unique`, no calldata). So the entry is in the committed
+  `contracts/deployments/devnet.json`, and a regeneration from the same class writes the same entry.
+- `vrfProvider` resolves it there, which `packages/chain/test/vrf.test.ts` pins.
 
 **CASM** (release, `scripts/class-sizes.sh`, VPS, 2026-10-20):
 
 | Class | Sierra | CASM | Of the cap |
 |---|---|---|---|
-| `DrawHarness` | 1,132 | 2,676 | 3.3 % |
+| `DrawHarness` | 1,172 | 2,803 | 3.4 % |
 | `DrawHarness` without the component (measured, not committed) | 825 | 1,999 | 2.4 % |
-| `MockVrfProvider` | 596 | 949 | 1.2 % |
+| `MockVrfProvider` | 877 | 1,381 | 1.7 % |
 
-So the component adds **677 CASM felts** (307 Sierra) to the system that embeds it. For #643's system, that is to be
+So the component adds **804 CASM felts** (347 Sierra) to the system that embeds it. For #643's system, that is to be
 judged against its cap (P-44).
 
-**Gas.** z15 in `contracts/tests/gas.cairo` measures one draw on the consumer's side, the game's second: **599,559 L2
-gas** (CI, snforge 0.64.0). Its ceiling is that figure + 5 %, 629,537. Cartridge's part (`submit_random` and
-`assert_consumed`) is not in it.
+**Gas.** z15 in `contracts/tests/gas.cairo` measures one draw on the consumer's side, the game's second. It was
+599,559 L2 gas in CI before the first-consume check; with the check, the ceiling is set from the next CI figure.
+Cartridge's part (`submit_random` and `assert_consumed`) is not in it.
 
 **The local snforge run was skipped under the VPS cap.**
 
@@ -253,10 +286,6 @@ gas** (CI, snforge 0.64.0). Its ceiling is that figure + 5 %, 629,537. Cartridge
 - main peaks the same without this branch's modules (8,352,860 kB).
 - That is above the 8 GB scope of the VPS's Cairo shim, so the run is OOM-killed after the diagnostics, which pass
   without errors.
-- The tests ran in CI (`AGENTS.md`): the 14 of `paved::tests::vrf` and z15 pass (949 passed, 0 failed).
+- The tests run in CI (`AGENTS.md`).
 
-**Follow-ups:**
-
-- `scripts/deploy.sh` deploys `MockVrfProvider` on the devnet only and records `contracts.MockVrfProvider`, which
-  `vrfProvider` reads. This goes with #643, the first system that takes a provider.
-- The indexer's `VrfProviderSet`, with #643 too.
+**Follow-up:** the indexer's `VrfProviderSet`, with #643, the first system that emits it outside the test harness.

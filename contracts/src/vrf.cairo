@@ -10,6 +10,10 @@
 //! a nonce is keyed by an address alone, so any contract can advance it and reroll the next draw.
 //! The provider's seed is Poseidon of the salt, the consumer (the embedding system) and the chain
 //! id, so a draw's random is fixed for that draw: a reverted transaction sent again draws the same.
+//! What `consume_random` returns also mixes the transaction's consume count, which is shared by
+//! every seed and which the player can advance (consuming a seed of their own, after replaying its
+//! proof with `submit_random`). So a draw is only taken as the first consume of its transaction
+//! (`DrawableComponent`): its value is then Poseidon of the seed's random and 0.
 
 use core::hash::HashStateTrait;
 use core::poseidon::PoseidonTrait;
@@ -32,6 +36,9 @@ pub trait IVrfProvider<TContractState> {
     fn consume_random(ref self: TContractState, source: Source) -> felt252;
     /// Appended by Cartridge's server after the player's calls: reverts if nothing consumed.
     fn assert_consumed(ref self: TContractState, seed: felt252);
+    /// The consumes of the transaction so far, for every seed together (0 outside a VRF call).
+    /// `consume_random` returns Poseidon of the seed's random and this count.
+    fn get_consume_count(self: @TContractState) -> u32;
 }
 
 /// The salt of the draw `draw_index` of `game_id` in the kind of draw `kind` (an attack's tile, a

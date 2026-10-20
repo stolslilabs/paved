@@ -6,6 +6,10 @@
 //! Rules against replaying a draw:
 //! - the source is `Source::Salt(draw_salt(kind, game_id, draw_index))`: fixed for that draw, so
 //!   a reverted transaction sent again gets the same random, and no player choice enters it;
+//! - the draw is the first consume of its transaction (the provider's `get_consume_count` is 0):
+//!   Cartridge's `consume_random` returns Poseidon of the seed's random and the transaction's
+//!   consume count, shared by every seed, so a player who consumed seeds of their own first would
+//!   otherwise shift the draw's value;
 //! - one draw per transaction, contract-wide: the transaction hash of the last draw is stored and
 //!   a second draw in the same transaction is refused. Cartridge's provider refuses it too (its
 //!   server proves one seed per transaction), the devnet mock does not.
@@ -33,6 +37,7 @@ pub mod DrawableComponent {
         pub const ZERO_PROVIDER: felt252 = 'VRF: provider is zero';
         pub const NO_PROVIDER: felt252 = 'VRF: no provider';
         pub const ONE_DRAW_PER_TX: felt252 = 'VRF: one draw per tx';
+        pub const NOT_FIRST_CONSUME: felt252 = 'VRF: not first consume';
     }
 
     #[storage]
@@ -91,9 +96,12 @@ pub mod DrawableComponent {
             assert(tx_hash != self.vrf_last_draw_tx.read(), errors::ONE_DRAW_PER_TX);
             // [Effect] Record the draw's transaction
             self.vrf_last_draw_tx.write(tx_hash);
+            // [Check] The draw is the transaction's first consume, so its value does not depend on
+            // what the transaction consumed before
+            let vrf = IVrfProviderDispatcher { contract_address: provider };
+            assert(vrf.get_consume_count() == 0, errors::NOT_FIRST_CONSUME);
             // [Interaction] Consume the draw's random
-            let source = Source::Salt(draw_salt(kind, game_id, draw_index));
-            IVrfProviderDispatcher { contract_address: provider }.consume_random(source)
+            vrf.consume_random(Source::Salt(draw_salt(kind, game_id, draw_index)))
         }
     }
 }

@@ -66,11 +66,18 @@ fn safe(world: World) -> IDrawHarnessSafeDispatcher {
     IDrawHarnessSafeDispatcher { contract_address: world.harness.contract_address }
 }
 
-/// The mock's random of a salt for `consumer`, on snforge's chain (SN_SEPOLIA by default).
+/// What the mock's first consume of a transaction returns for a salt and `consumer`, on
+/// snforge's chain (SN_SEPOLIA by default): Poseidon of the seed's random and the count 0.
 fn mock_random(salt: felt252, consumer: ContractAddress) -> felt252 {
+    mock_consume(salt, consumer, 0)
+}
+
+/// What the mock returns for a salt and `consumer` as the transaction's consume `count`.
+fn mock_consume(salt: felt252, consumer: ContractAddress, count: u32) -> felt252 {
     let chain_id = starknet::get_tx_info().unbox().chain_id;
     let seed = poseidon_hash_span(array![salt, consumer.into(), chain_id].span());
-    poseidon_hash_span(array![seed, MOCK_TAG].span())
+    let random = poseidon_hash_span(array![seed, MOCK_TAG].span());
+    poseidon_hash_span(array![random, count.into()].span())
 }
 
 // The salt
@@ -230,6 +237,42 @@ fn test_fuzz_vrf_interleaved_draws_follow_each_games_indexes(seed: u64) {
     assert_eq!(world.harness.draw_count(2), c);
 }
 
+/// The provider's consume count is shared by every seed of the transaction, and what it returns
+/// mixes it in. A player who consumes seeds of their own first (on chain: after replaying a proof
+/// with `submit_random`) would shift the draw's value: the draw is refused unless it is the
+/// transaction's first consume.
+#[test]
+#[should_panic(expected: 'VRF: not first consume')]
+fn test_vrf_draw_after_another_consume_in_its_transaction_is_refused() {
+    let world = deploy_world();
+    let provider = IVrfProviderDispatcher { contract_address: world.provider };
+    with_tx('TX1');
+    // The test contract is the attacker's own consumer
+    provider.consume_random(Source::Salt('MINE'));
+    world.harness.draw(GAME);
+}
+
+/// However many consumes the player makes first, in transactions that fail or not, the draw sent
+/// in a transaction of its own gets the value of its seed with the count 0.
+#[test]
+#[fuzzer(runs: 16, seed: 638)]
+fn test_fuzz_vrf_consumes_before_the_draw_never_shift_its_value(n: u8) {
+    let world = deploy_world();
+    let provider = IVrfProviderDispatcher { contract_address: world.provider };
+    with_tx('TX1');
+    let mut i: u8 = 0;
+    while i < n % 8 {
+        let mine = provider.consume_random(Source::Salt('MINE'));
+        assert_eq!(mine, mock_consume('MINE', starknet::get_contract_address(), i.into()));
+        i += 1;
+    }
+    with_tx('TX2');
+    assert_eq!(
+        world.harness.draw(GAME),
+        mock_random(draw_salt(HARNESS_KIND, GAME, 0), world.harness.contract_address),
+    );
+}
+
 // The provider
 
 #[test]
@@ -294,11 +337,22 @@ fn test_vrf_mock_salt_is_fixed_and_nonce_advances() {
     // `request_random` and `assert_consumed` do nothing
     provider.request_random(me, Source::Salt(1));
     provider.assert_consumed(0);
+    with_tx('TX1');
+    assert_eq!(provider.get_consume_count(), 0);
     let salt = provider.consume_random(Source::Salt(1));
-    assert_eq!(salt, provider.consume_random(Source::Salt(1)));
     assert_eq!(salt, mock_random(1, me));
-    // A nonce is advanced by every consume, whoever consumes it: why draws never use one
+    // A second consume of the transaction mixes the count 1, as Cartridge's does
+    assert_eq!(provider.get_consume_count(), 1);
+    assert_eq!(provider.consume_random(Source::Salt(1)), mock_consume(1, me, 1));
+    // A new transaction counts from 0: the same salt gets the same value
+    with_tx('TX2');
+    assert_eq!(provider.get_consume_count(), 0);
+    assert_eq!(provider.consume_random(Source::Salt(1)), salt);
+    // A nonce is advanced by every transaction that consumes it, whoever consumes it: why draws
+    // never use one
+    with_tx('TX3');
     let first = provider.consume_random(Source::Nonce(PLAYER()));
+    with_tx('TX4');
     let second = provider.consume_random(Source::Nonce(PLAYER()));
     assert_ne!(first, second);
 }

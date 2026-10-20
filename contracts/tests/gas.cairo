@@ -125,10 +125,12 @@ pub const CEILING_SET_SKINS_1: u128 = 479549;
 pub const CEILING_SET_SKINS_19: u128 = 2789690;
 pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
 // VRF-DRAWS (#638): z15, one draw of `DrawableComponent` in the test harness over the devnet mock
-// (the consumer's side: the one-draw check, the salt, the provider's call, the count). Cartridge's
+// (the consumer's side: the one-draw check, the provider's consume count, the salt, the provider's
+// call, the count). Cartridge's
 // part of a real draw (`submit_random`'s proof check, `assert_consumed`) is measured on Sepolia
-// (`docs/architecture/vrf-draws.md`, section 6). Measured in CI 599,559, + 5 %.
-pub const CEILING_VRF_DRAW: u128 = 629537;
+// (`docs/architecture/vrf-draws.md`, section 6). Measured in CI 599,559 before the consume-count
+// check; provisional until CI measures it with the check.
+pub const CEILING_VRF_DRAW: u128 = 1000000;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).

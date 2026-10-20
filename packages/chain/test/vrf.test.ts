@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { hash, num, shortString } from "starknet";
+import devnetFile from "../../../contracts/deployments/devnet.json";
+import sepoliaFile from "../../../contracts/deployments/sepolia.json";
+import { resolveDeployment } from "../src/deployment";
 import {
   CARTRIDGE_VRF_PROVIDER,
   VRF_REQUEST_ENTRY_POINT,
@@ -78,5 +81,18 @@ describe("the provider of each network", () => {
   test("the request is a session policy on the provider only", () => {
     expect(vrfPolicies(CARTRIDGE_VRF_PROVIDER)).toEqual([{ target: CARTRIDGE_VRF_PROVIDER, method: "request_random" }]);
     expect(vrfPolicies("")).toEqual([]);
+  });
+});
+
+describe("the devnet path (contracts/deployments)", () => {
+  test("the committed devnet file records the mock, and the devnet deployment resolves it", () => {
+    const mock = devnetFile.contracts.MockVrfProvider.address;
+    expect(BigInt(mock)).not.toBe(0n);
+    expect(resolveDeployment({ network: "devnet", file: devnetFile }).vrfProvider).toBe(mock);
+  });
+
+  test("Sepolia resolves Cartridge's provider; its file records no mock", () => {
+    expect("MockVrfProvider" in sepoliaFile.contracts).toBe(false);
+    expect(resolveDeployment({ network: "sepolia", file: sepoliaFile }).vrfProvider).toBe(CARTRIDGE_VRF_PROVIDER);
   });
 });
