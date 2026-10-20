@@ -115,7 +115,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
       onClick={onNext}
       className={cn("group relative flex shrink-0 flex-col items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
-      <span aria-hidden className="relative block size-18 drop-shadow-lg tablet:size-24">
+      <span aria-hidden className="relative block size-18 rounded-full shadow-lg tablet:size-24">
         {/* The disc and the stones, turning; the icons ride on it and stay upright. */}
         <span data-dial-disc className="absolute inset-0 transition-transform ease-linear motion-reduce:transition-none" style={{ transform: `rotate(${turned}deg)`, ...turn }}>
           <svg viewBox="0 0 100 100" className="size-full">
@@ -154,7 +154,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
               className="absolute flex size-0 items-center justify-center transition-transform ease-linear motion-reduce:transition-none"
               style={{ left: `${ICON_AT[s].x}%`, top: `${ICON_AT[s].y}%`, transform: `rotate(${-turned}deg)`, color: `var(--season-${s}-tint)`, ...turn }}
             >
-              <span className={cn("flex drop-shadow-[0_1px_1px_var(--dial-shade)]", s !== current && "opacity-80")}>
+              <span className={cn("flex", s !== current && "opacity-80")} style={{ filter: "drop-shadow(0 1px 1px var(--dial-shade))" }}>
                 <Icon name={SEASON_ICON[s]} size="xs" className="tablet:text-[1rem]" />
               </span>
             </span>
@@ -175,10 +175,8 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
         {/* "Now": a badge on the rim, over the pointer: the sun by day, the moon by night. */}
         <span
           data-now={time}
-          className={cn(
-            "absolute top-0 left-1/2 flex size-5 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full border border-(--dial-band) tablet:size-6",
-            night ? "bg-(--dial-night) text-(--dial-night-foreground)" : "bg-primary text-primary-foreground",
-          )}
+          className="absolute top-0 left-1/2 flex size-5 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full border border-card tablet:size-6"
+          style={{ background: night ? "var(--dial-night)" : "var(--primary)", color: night ? "var(--dial-night-foreground)" : "var(--primary-foreground)" }}
         >
           <Icon name={night ? "moon" : "sun"} size="xs" />
         </span>
@@ -186,9 +184,9 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
       <span
         aria-hidden
         data-banner
-        className="-mt-1.5 rounded-md border border-(--dial-rim)/60 bg-card/90 px-1.5 text-xs leading-4 whitespace-nowrap text-card-foreground shadow backdrop-blur"
+        className="-mt-1.5 rounded-md border border-primary/40 bg-card/90 px-1.5 text-xs leading-4 whitespace-nowrap text-card-foreground shadow backdrop-blur"
       >
-        {NAMES[current]} <span className={night ? "text-(--dial-night-foreground)" : "text-primary"}>{night ? "night" : "day"}</span>
+        {NAMES[current]} <span style={{ color: night ? "var(--dial-night-foreground)" : "var(--primary)" }}>{night ? "night" : "day"}</span>
       </span>
     </button>
   );
