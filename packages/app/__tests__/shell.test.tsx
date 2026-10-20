@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
@@ -88,6 +88,14 @@ describe("the active tab comes from the route's own entry", () => {
     expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Missions");
   });
 
+  it("opens Choose a mode from the nav's Play, the centre item (#623)", async () => {
+    const router = open("/vault");
+    await screen.findByRole("heading", { level: 1, name: "Vault" });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Play" }));
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
+    expect(router.state.location.pathname).toBe("/play");
+  });
+
   it("has no tab on a full-screen flow", async () => {
     open("/play");
     await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
@@ -100,6 +108,10 @@ describe("redirects of the old links", () => {
     ["/game?mode=challenge&id=7", "/game/7"],
     ["/game?mode=training", "/training"],
     ["/economy", "/vault"],
+    // The ranks left the UI (#623): their links land Home.
+    ["/leaderboard", "/"],
+    ["/leaderboard/20300", "/"],
+    ["/player/0x1", "/"],
   ])("%s goes to %s", async (from, to) => {
     const router = open(from);
     await waitFor(() => expect(router.state.location.pathname).toBe(to));
@@ -116,6 +128,7 @@ describe("redirects of the old links", () => {
       ["/game?mode=challenge&id=7&ref=0xabc", "/game/7"],
       ["/game?mode=training&ref=0xabc", "/training"],
       ["/economy?ref=0xabc", "/vault"],
+      ["/leaderboard/20300?ref=0xabc", "/"],
     ] as const) {
       const router = createTestRouter(from);
       const { unmount } = render(<App router={router} />);
