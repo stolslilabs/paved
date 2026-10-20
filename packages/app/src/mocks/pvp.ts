@@ -9,6 +9,7 @@ import type { PvpSearchSceneProps } from "../components/scenes/pvp-search-scene"
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER, PLAYER_ID } from "./players";
 import { buildVillage, playAttack, type AttackStep } from "./pvp-attack";
+import { REWARD, VILLAGE_GROWING } from "./village";
 
 /**
  * The PvP flow's fakes (#647), nothing wired: the players, the villages and the attacks (played on the engine,
@@ -173,7 +174,10 @@ function result(score: number, extra: Partial<Data<PvpResultSceneProps>> = {}): 
     target: RIVAL_VILLAGE.score,
     crowns,
     crownsAfter: ME.crowns + crowns,
-    reward: stars > 0 ? { state: "offer", plans: [10, 18, 13], cobbles: 15 } : { state: "none" },
+    // The reward is placed in the player's own village: #646's fakes (its growing village, its offer of three tiles).
+    reward: stars > 0 ? { state: "offer", offer: REWARD } : { state: "none" },
+    village: VILLAGE_GROWING,
+    balance: 640,
     now: MOCK_NOW,
     ...extra,
   };
@@ -185,6 +189,10 @@ export const PVP_RESULT = {
   threeStarsPromoted: result(ATTACK_SCORES.rival[10]),
   /** One star, the day's rewards already taken. */
   oneStarCapped: result(ATTACK_SCORES.rival[2], { reward: { state: "capped", resetsAt: MOCK_NOW + 7 * HOUR + 40 * 60 } }),
+  /** The reward chosen on the sheet: a tile placed in the village. */
+  rewardPlaced: result(ATTACK_SCORES.rival[3], { reward: { state: "taken", plan: REWARD.plans[0]!, cobbles: null } }),
+  /** The Cobbles taken instead. */
+  rewardCobbles: result(ATTACK_SCORES.rival[3], { reward: { state: "taken", plan: null, cobbles: REWARD.cobbles } }),
   defeat: result(ATTACK_SCORES.rival[5]),
   /** A defeat that drops the attacker out of Gold. */
   defeatDropped: { ...result(ATTACK_SCORES.rival[5]), crownsAfter: 790 },

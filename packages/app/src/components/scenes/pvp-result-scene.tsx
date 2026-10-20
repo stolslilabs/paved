@@ -1,6 +1,9 @@
+import { useState } from "react";
 import * as m from "motion/react-m";
 import { formatInteger, formatPercent } from "@paved/game-core";
+import { useDeferred } from "../../lib/deferred";
 import { cn } from "../../lib/utils";
+import { errorDetail } from "../../routes/error-detail";
 import { leagueOf, shareOf, type PvpPlayer } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -10,13 +13,26 @@ import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LeagueCrest } from "../elements/league-crest";
 import { TileChip, type TileArt } from "../elements/tile-chip";
+import { toastError } from "../containers/error-toast";
+import type { RewardOffer } from "../containers/reward-sheet";
 import { TopBar } from "../containers/top-bar";
+import type { Village } from "../containers/village-rules";
+import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import type { VillageCopy, VillagePlace } from "./village-scene";
+
+// The village and its reward sheet (#646) are their own chunk: loaded at the first Choose, never with the result.
+const loadVillage = () => import("./village-scene");
 
 /**
  * The village reward after an attack (owner decision, #637: at once, no timer, with a daily cap): `offer` (three tiles, or the
- * Cobbles; the choice is #646's reward sheet), `capped` (the day's rewards are taken: the next at `resetsAt`), `none` (no star).
+ * Cobbles; chosen on #646's reward sheet, over the player's village), `taken` (chosen: a tile placed or copied, or the
+ * Cobbles), `capped` (the day's rewards are taken: the next at `resetsAt`), `none` (no star).
  */
-export type PvpReward = { state: "offer"; plans: readonly [number, number, number]; cobbles: number } | { state: "capped"; resetsAt: number } | { state: "none" };
+export type PvpReward =
+  | { state: "offer"; offer: RewardOffer }
+  | { state: "taken"; plan: number | null; cobbles: number | null }
+  | { state: "capped"; resetsAt: number }
+  | { state: "none" };
 
 export interface PvpResultSceneProps {
   defender: PvpPlayer;
@@ -28,6 +44,10 @@ export interface PvpResultSceneProps {
   /** The attacker's crowns after it. */
   crownsAfter: number;
   reward: PvpReward;
+  /** The player's own village: the reward sheet places its tile there. */
+  village: Village;
+  /** The player's Cobbles, on the village's top bar. */
+  balance: number;
   /** Seconds since the epoch: the cap's countdown. */
   now: number;
   /** The result is being recorded (#643's finish): the crowns are not final yet. */
@@ -35,8 +55,12 @@ export interface PvpResultSceneProps {
   error?: string | null;
   errorDetail?: ErrorDetail;
   tileArt?: TileArt;
-  /** Opens #646's reward sheet: place one of the three tiles, or take the Cobbles. */
-  onReward?: () => void;
+  /** The reward's tile placed on a free cell of the village (#646's sheet). */
+  onPlace?: (place: VillagePlace) => void;
+  /** The reward's tile added as a copy to a placed tile of its plan. */
+  onAddCopy?: (copy: VillageCopy) => void;
+  /** The Cobbles taken instead of a tile. */
+  onTakeCobbles?: () => void;
   onReplay?: () => void;
   /** Another attack: back to the search. */
   onAgain?: () => void;
@@ -47,11 +71,22 @@ const VERDICT = ["Defeat", "Victory", "Victory", "Triumph"] as const;
 
 /**
  * The end of an attack (#647): the stars won, the score against the village's, the crowns won or lost and the league they
- * leave the attacker in (a promotion or a drop said in words), then the village reward. One column on a phone, the same
- * column centred on a desktop.
+ * leave the attacker in (a promotion or a drop said in words), then the village reward: Choose opens the player's village
+ * with #646's reward sheet (drag a tile to a lit cell, onto a tile of its plan for a copy, or take the Cobbles), full screen;
+ * a choice closes it. One column on a phone, the same column centred on a desktop.
  */
 export function PvpResultScene(props: PvpResultSceneProps) {
   const { stars, score, target, crowns, crownsAfter, reward } = props;
+  const [choosing, setChoosing] = useState(false);
+  const open = choosing && reward.state === "offer";
+  const villageScene = useDeferred(loadVillage, open, (e) => {
+    setChoosing(false);
+    toastError({ title: "Reward", message: "Your village could not load. Check your connection and try again.", detail: errorDetail(e) });
+  });
+  const chosen = <A,>(callback: ((a: A) => void) | undefined) => (a: A) => {
+    setChoosing(false);
+    callback?.(a);
+  };
   const before = leagueOf(crownsAfter - crowns);
   const after = leagueOf(crownsAfter);
   const moved = after.id !== before.id ? (after.from > before.from ? "up" : "down") : null;
@@ -114,17 +149,32 @@ export function PvpResultScene(props: PvpResultSceneProps) {
             <>
               <p className="text-sm text-muted-foreground">Pick one tile for your village and place it now, or take the Cobbles.</p>
               <div className="flex items-center justify-center gap-3">
-                {reward.plans.map((plan, i) => (
+                {reward.offer.plans.map((plan, i) => (
                   <TileChip key={i} plan={plan} art={props.tileArt} size="md" />
                 ))}
                 <span className="text-xs text-muted-foreground">or</span>
-                <Cobbles value={reward.cobbles} sign="+" />
+                <Cobbles value={reward.offer.cobbles} sign="+" />
               </div>
-              <Button size="lg" onClick={props.onReward} disabled={props.pending}>
+              <Button size="lg" onClick={() => setChoosing(true)} disabled={props.pending} loading={choosing && !villageScene}>
                 <Icon name="gift" size="sm" />
                 Choose
               </Button>
             </>
+          )}
+          {reward.state === "taken" && (
+            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Icon name="check" size="sm" className="text-success" />
+              {reward.plan != null ? (
+                <>
+                  <TileChip plan={reward.plan} art={props.tileArt} size="sm" />
+                  Placed in your village.
+                </>
+              ) : (
+                <>
+                  <Cobbles value={reward.cobbles ?? 0} sign="+" /> taken.
+                </>
+              )}
+            </p>
           )}
           {reward.state === "capped" && (
             <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
@@ -146,6 +196,31 @@ export function PvpResultScene(props: PvpResultSceneProps) {
           </Button>
         </div>
       </main>
+
+      {villageScene && (
+        <Dialog open={open} onOpenChange={setChoosing}>
+          <DialogContent
+            showClose={false}
+            aria-describedby={undefined}
+            className="inset-0 top-0 left-0 h-dvh max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 bg-background p-0 sm:max-w-none"
+          >
+            <DialogTitle className="sr-only">Village reward</DialogTitle>
+            <villageScene.VillageScene
+              village={props.village}
+              cobbles={props.balance}
+              reward={reward.state === "offer" ? reward.offer : null}
+              tileArt={props.tileArt}
+              onBack={() => setChoosing(false)}
+              onPlace={chosen(props.onPlace)}
+              onAddCopy={chosen(props.onAddCopy)}
+              onTakeCobbles={() => {
+                setChoosing(false);
+                props.onTakeCobbles?.();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

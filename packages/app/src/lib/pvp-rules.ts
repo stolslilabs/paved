@@ -14,23 +14,27 @@ export interface PvpCell {
 }
 
 /**
- * The three star marks as shares of the defender's score: 70 / 85 / 110 % (the measured proposal of #637, open point 1). They
- * give 1 star in about half the attacks, 2 in a quarter to a third, 3 in 7 to 14 %.
+ * The three star marks in whole percent of the defender's score: 70 / 85 / 110 % (the measured proposal of #637, open point 1).
+ * They give 1 star in about half the attacks, 2 in a quarter to a third, 3 in 7 to 14 %. The rules count in integers: a share
+ * times a score in floating point lands just past a whole point (1.1 x 5,130 is 5,643.000...1) and would ask one point more.
  */
-export const STAR_MARKS = [0.7, 0.85, 1.1] as const;
+export const STAR_PERCENTS = [70, 85, 110] as const;
+
+/** The same marks as shares of the target, for drawing them. */
+export const STAR_MARKS = STAR_PERCENTS.map((p) => p / 100) as readonly number[];
 
 /** The shield an attacked village gets: 8 hours (owner decision). */
 export const SHIELD_S = 8 * 3_600;
 
-/** The stars an attack's score earns against `target`: 0 to 3. */
+/** The stars an attack's score earns against `target`: 0 to 3, each once `score` is at least its share of the target. */
 export function starsFor(score: number, target: number): number {
   if (target <= 0) return 3;
-  return STAR_MARKS.filter((mark) => score >= Math.ceil(mark * target)).length;
+  return STAR_PERCENTS.filter((p) => score * 100 >= p * target).length;
 }
 
-/** The points each star needs against `target` (rounded up: a star is never won short of its share). */
+/** The points each star needs against `target`: the least whole score at or past its share. */
 export function starPoints(target: number): [number, number, number] {
-  return STAR_MARKS.map((mark) => Math.ceil(mark * target)) as [number, number, number];
+  return STAR_PERCENTS.map((p) => Math.floor((p * target + 99) / 100)) as [number, number, number];
 }
 
 /** A score as a share of the target, 0 and up (1 is the target). */

@@ -46,12 +46,16 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
   const short = next.balance < next.price;
   const busy = props.pending != null;
   return (
-    <div className="relative h-dvh min-h-[36rem] overflow-hidden bg-board text-foreground">
-      {props.canvas ?? (
-        <BoardMap tiles={[...village.tiles]} territory={village.cells} highlight={false} className="pt-20 pb-[min(26rem,58dvh)] desktop:pr-[27rem] desktop:pb-6" />
-      )}
+    // A column on a phone: the header, the board in the space left, the card under it (the board is never under the card,
+    // whatever the card holds). From desktop up the board takes the screen and the card floats on its right.
+    <div className="relative flex h-dvh min-h-[36rem] flex-col overflow-hidden bg-board text-foreground">
+      <div data-scout-board className="relative min-h-0 flex-1 desktop:absolute desktop:inset-0">
+        {props.canvas ?? (
+          <BoardMap tiles={[...village.tiles]} territory={village.cells} highlight={false} className="p-3 tablet:p-6 desktop:pt-20 desktop:pr-[27rem]" />
+        )}
+      </div>
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4 desktop:justify-start">
+      <header className="pointer-events-none order-first flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4 desktop:absolute desktop:inset-x-0 desktop:top-0 desktop:justify-start">
         <div className="pointer-events-auto flex w-full max-w-2xl items-center gap-2 rounded-xl border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur desktop:max-w-md">
           <Button variant="ghost" size="icon" className="size-10" aria-label="Back" onClick={props.onBack}>
             <Icon name="chevron-left" />
@@ -64,7 +68,7 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
       <section
         aria-label="Attack"
         data-input-surface
-        className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] mx-auto flex max-w-xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur tablet:inset-x-4 tablet:bottom-4 tablet:p-4 desktop:right-4 desktop:left-auto desktop:w-[25rem]"
+        className="relative mx-2 mb-[max(0.5rem,env(safe-area-inset-bottom))] flex shrink-0 flex-col gap-3 self-center rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur w-[calc(100%-1rem)] max-w-xl tablet:mx-4 tablet:mb-4 tablet:p-4 desktop:absolute desktop:right-4 desktop:bottom-4 desktop:m-0 desktop:w-[25rem]"
       >
         <PvpPlayerRow player={defender} />
 

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CENTER } from "@paved/game-core";
-import { LEAGUES, STAR_MARKS, crownsFor, leagueOf, nextLeague, starPoints, starsFor } from "../src/lib/pvp-rules";
+import { LEAGUES, STAR_MARKS, STAR_PERCENTS, crownsFor, leagueOf, nextLeague, starPoints, starsFor } from "../src/lib/pvp-rules";
 import { StarMeter } from "../src/components/elements/star-meter";
 import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
 import { PvpDefenceScene } from "../src/components/scenes/pvp-defence-scene";
@@ -42,6 +42,22 @@ describe("PvP rules (#647)", () => {
     expect(starsFor(4_082, 5_831)).toBe(1);
     expect(starsFor(4_957, 5_831)).toBe(2);
     expect(starsFor(6_415, 5_831)).toBe(3);
+  });
+
+  it("awards each star at exactly its share, never one point late (integer marks, no floating-point rounding)", () => {
+    expect(starPoints(5_130)).toEqual([3_591, 4_361, 5_643]);
+    expect(starsFor(5_643, 5_130)).toBe(3);
+    expect(crownsFor(STAKES, starsFor(5_643, 5_130))).toBe(30);
+    expect(starsFor(110, 100)).toBe(3);
+    expect(starsFor(109, 100)).toBe(2);
+    for (let target = 1; target <= 20_000; target++) {
+      const points = starPoints(target);
+      points.forEach((p, i) => {
+        expect(p * 100).toBeGreaterThanOrEqual(STAR_PERCENTS[i]! * target);
+        expect((p - 1) * 100).toBeLessThan(STAR_PERCENTS[i]! * target);
+        if (starsFor(p, target) < i + 1 || starsFor(p - 1, target) >= i + 1) throw new Error(`target ${target}, star ${i + 1}`);
+      });
+    }
   });
 
   it("wins crowns by stars and loses them with none", () => {
@@ -122,8 +138,13 @@ describe("PvP scenes (#647)", () => {
   });
 
   it("scout: warns that attacking drops the shield, and disables Next without the Cobbles", () => {
-    render(wrap(<PvpScoutScene {...PVP_SCOUT.shielded} />));
+    const { container } = render(wrap(<PvpScoutScene {...PVP_SCOUT.shielded} />));
     expect(screen.getByText("Attacking drops your shield")).toBeInTheDocument();
+    // On a phone the board takes the space left above the card, in the same column: the card never covers it.
+    const board = container.querySelector("[data-scout-board]")!;
+    const card = screen.getByRole("region", { name: "Attack" });
+    expect(board.parentElement).toBe(card.parentElement);
+    expect(card.className).not.toMatch(/(^|\s)absolute\b/);
     cleanup();
     render(wrap(<PvpScoutScene {...PVP_SCOUT.short} />));
     expect(screen.getByRole("button", { name: /not enough Cobbles/ })).toBeDisabled();
@@ -158,13 +179,29 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "3");
   });
 
-  it("result: stars, crowns, league, and the reward's Choose", async () => {
-    const onReward = vi.fn();
-    render(wrap(<PvpResultScene {...PVP_RESULT.twoStars} onReward={onReward} />));
+  it("result: stars, crowns, league; Choose opens the village with #646's reward sheet, a choice closes it", async () => {
+    const onTakeCobbles = vi.fn();
+    render(wrap(<PvpResultScene {...PVP_RESULT.twoStars} onTakeCobbles={onTakeCobbles} />));
     expect(screen.getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "+20 crowns" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Choose/ }));
-    expect(onReward).toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: "Village reward" });
+    const tiles = within(within(dialog).getByRole("list", { name: "Reward tiles" })).getAllByRole("button");
+    expect(tiles).toHaveLength(3);
+    await userEvent.click(tiles[0]!);
+    expect(within(dialog).getAllByRole("button", { name: /^Place it at/ }).length).toBeGreaterThan(0);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Take 15 Cobbles instead" }));
+    expect(onTakeCobbles).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Village reward" })).toBeNull());
+  });
+
+  it("result: the reward taken, a tile or the Cobbles", () => {
+    render(wrap(<PvpResultScene {...PVP_RESULT.rewardPlaced} />));
+    expect(screen.getByText("Placed in your village.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Choose/ })).toBeNull();
+    cleanup();
+    render(wrap(<PvpResultScene {...PVP_RESULT.rewardCobbles} />));
+    expect(screen.getByRole("img", { name: "+15 Cobbles" })).toBeInTheDocument();
   });
 
   it("result: a promotion, the daily cap, a defeat with no reward", () => {
