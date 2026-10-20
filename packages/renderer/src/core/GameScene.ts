@@ -40,6 +40,9 @@ import { AmbientLoop } from "./ambient-loop";
 import { ambientAllowed } from "./ambient-settings";
 // The cloud shadows are their own chunk: loaded only once the ambient effects are first on with the clouds (`syncAmbient`).
 import type * as Clouds from "./cloud-shadows";
+// The fog of war is its own chunk too: loaded only once it is first on with a reveal (`syncFog`).
+import type * as Fog from "./fog-of-war";
+import { fogMode, type FogCell } from "./fog-of-war-settings";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -194,6 +197,11 @@ export class GameScene {
   private cloudsLoad: Promise<void> | null = null;
   /** The cycle's night level last drawn (0 by day, or with the cycle off): the clouds' share on the moon's light. */
   private nightLevel = 0;
+  /** The fog of war (`fog-of-war.ts`, FOG-EVERYWHERE), once its chunk is in; its load, started the first time it is on. */
+  private fog: Fog.FogOfWar | null = null;
+  private fogLoad: Promise<void> | null = null;
+  /** The clear cells the board gave (`setFogReveal`) and the cells they lift from; null: no reveal, no fog. */
+  private fogReveal: { cells: ReadonlyArray<FogCell>; origin: ReadonlyArray<FogCell> } | null = null;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -460,6 +468,7 @@ export class GameScene {
     this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
     this.syncDayNight();
     this.syncAmbient();
+    this.syncFog();
     this.requestRender();
   }
 
@@ -481,6 +490,58 @@ export class GameScene {
       this.loadClouds();
     }
     this.requestRender();
+  }
+
+  /**
+   * The clear cells of the fog of war (FOG-EVERYWHERE, #648), in the grid: the board's tiles and free slots (`boardReveal`), or
+   * in a village or an attack the owned cells and the cells next to them (`villageReveal`). A cell added lifts from the side of
+   * `origin` (the tile just placed, the cell just bought). Null: no fog (a tile's preview). The fog shows only with
+   * `RendererSettings.fog` on.
+   */
+  setFogReveal(cells: ReadonlyArray<FogCell> | null, origin: ReadonlyArray<FogCell> = []): void {
+    this.fogReveal = cells ? { cells, origin } : null;
+    this.syncFog();
+  }
+
+  /**
+   * The fog of war: on with the settings and a reveal, its chunk loaded the first time; its mode from the tier, the ambient
+   * effects and reduced motion (`fogMode`: it stays on at every tier, still where the effects cannot move it); off, hidden.
+   */
+  private syncFog(): void {
+    const settings = this.settings.fog;
+    const reveal = this.fogReveal;
+    const on = settings.enabled && !!reveal && !!this.renderer;
+    const fog = this.fog;
+    if (!fog) {
+      if (on) this.loadFog();
+      return;
+    }
+    fog.setSettings(settings);
+    fog.setMode(on ? fogMode(settings, this.settings.ambient, this.getQuality(), prefersReducedMotion()) : "off");
+    if (reveal) fog.setRevealed(reveal.cells, reveal.origin);
+    fog.setCycle(this.getDayNight());
+    this.requestRender();
+  }
+
+  /** Loads the fog's chunk once, in the board's group (it turns with the compass), on the ambient loop. */
+  private loadFog(): void {
+    this.fogLoad ??= import("./fog-of-war").then(
+      (module) => {
+        if (this.disposed) return;
+        const fog = new module.FogOfWar(this.ambient.time, this.settings.fog);
+        fog.onChange = () => this.requestRender();
+        this.fog = fog;
+        this.tiles.getGroup().add(fog.object);
+        this.ambient.register(fog);
+        this.syncFog();
+      },
+      (error: unknown) => console.warn("[renderer] the fog of war did not load, the board stays clear:", error),
+    );
+  }
+
+  /** The fog of war now (`FogOfWar.stats`), or null before its chunk is in: the bench and the stories' readout. */
+  getFog(): ReturnType<Fog.FogOfWar["stats"]> | null {
+    return this.fog?.stats() ?? null;
   }
 
   /** Loads the cloud shadows' chunk once and registers them on the loop (a failed load leaves the board as it is). */
@@ -505,6 +566,8 @@ export class GameScene {
    * night: the clouds then step no frame unless they dim the moon) and its night level; with the cycle off, the look's sun.
    */
   private syncCloudLight(): void {
+    // The fog dims with the cycle as well (its moonlit blue at night).
+    this.fog?.setCycle(this.getDayNight());
     const clouds = this.clouds;
     if (!clouds) return;
     const point = this.getDayNight();
@@ -1155,6 +1218,9 @@ export class GameScene {
     this.clouds?.dispose();
     this.clouds = null;
     this.cloudsLoad = null;
+    this.fog?.dispose();
+    this.fog = null;
+    this.fogLoad = null;
     this.scene.clear();
     this.latestTiles = [];
     this.cameraListeners.clear();

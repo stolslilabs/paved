@@ -6,6 +6,7 @@ import type { RendererSettingsInput } from "../src/core/settings";
 import type { AmbientEffect } from "../src/core/ambient-loop";
 import { placementStubs } from "./helpers/placement-stubs";
 import { createCloudUniforms } from "../src/core/cloud-shader";
+import { boardReveal } from "../src/core/fog-of-war-settings";
 
 const adapter: RenderSurfaceAdapter = {
   getSize: () => ({ width: 375, height: 812 }),
@@ -84,6 +85,10 @@ async function createScene(settings: RendererSettingsInput, effects: AmbientEffe
     setNightLights: vi.fn(),
     setNightLevel: vi.fn(),
     cloudUniforms: createCloudUniforms(),
+    group: new THREE.Group(),
+    getGroup() {
+      return this.group;
+    },
     dispose: vi.fn(),
   };
   (scene as any).tiles = tiles;
@@ -276,5 +281,59 @@ describe("GameScene: the cloud shadows (#573) on the ambient loop", () => {
     expect(off.scene.getClouds()).toBeNull();
     low.scene.dispose();
     off.scene.dispose();
+  });
+});
+
+describe("GameScene: the fog of war (#648)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const FOG: RendererSettingsInput = { ...ON, fog: { enabled: true } };
+  const board = boardReveal([{ x: 0, y: 0 }]);
+
+  it("is off by default, and loads nothing without a reveal", async () => {
+    const off = await createScene(ON);
+    off.scene.setFogReveal(board);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(off.scene.getFog()).toBeNull();
+    off.scene.dispose();
+    const noReveal = await createScene(FOG);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(noReveal.scene.getFog()).toBeNull();
+    noReveal.scene.dispose();
+  });
+
+  it("on with a reveal: loads its chunk in the board's group, the owner's variant (the landscape, rounded corners)", async () => {
+    const { scene, tiles } = await createScene(FOG);
+    scene.setFogReveal(board);
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    expect(scene.getFog()).toMatchObject({ mode: "moving", cells: board.length });
+    expect(scene.getFog()!.props).toBeGreaterThan(0);
+    expect(scene.getSettings().fog).toMatchObject({ enabled: true, cornerRadius: 0.5, landscape: { enabled: true } });
+    expect(tiles.group.children.some((o) => o.name === "fog-of-war")).toBe(true);
+    // A tile placed: the fog lifts on the loop.
+    scene.setFogReveal(boardReveal([{ x: 0, y: 0 }, { x: 1, y: 0 }]), [{ x: 1, y: 0 }]);
+    expect(scene.getFog()).toMatchObject({ lifting: true });
+    scene.dispose();
+    expect(tiles.group.children.some((o) => o.name === "fog-of-war")).toBe(false);
+  });
+
+  it("stays on at every tier: still on Low and with the effects off; gone without a reveal or with the setting off", async () => {
+    const { scene } = await createScene(FOG);
+    scene.setFogReveal(board);
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    scene.setSettings({ ...FOG, quality: "low" });
+    expect(scene.getFog()!.mode).toBe("still");
+    scene.setSettings({ ...FOG, ambient: { enabled: false } });
+    expect(scene.getFog()!.mode).toBe("still");
+    scene.setSettings({ ...FOG, fog: { enabled: false } });
+    expect(scene.getFog()!.mode).toBe("off");
+    scene.setSettings(FOG);
+    expect(scene.getFog()!.mode).toBe("moving");
+    scene.setFogReveal(null);
+    expect(scene.getFog()!.mode).toBe("off");
+    scene.dispose();
   });
 });
