@@ -79,7 +79,7 @@ export interface CobblesSceneProps {
 function BalancePlate({ cobbles, connected }: { cobbles: number; connected: boolean }) {
   return (
     <section aria-labelledby="cobble-balance-title" className="flex items-center gap-3 rounded-xl border border-primary/30 bg-card p-4 desktop:col-span-2">
-      <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/15 ring-1 ring-primary/40">
+      <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-background">
         <Icon name="cubes-stacked" size="lg" className="text-primary" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
@@ -94,7 +94,7 @@ function BalancePlate({ cobbles, connected }: { cobbles: number; connected: bool
           <span className="numeric text-3xl leading-tight font-semibold text-muted-foreground">–</span>
         )}
       </span>
-      <p className="hidden max-w-56 text-right text-xs text-muted-foreground tablet:block">They buy tile skins, and stay on your account.</p>
+      <p className="hidden max-w-xs text-right text-xs text-muted-foreground tablet:inline">They buy tile skins, and stay on your account.</p>
     </section>
   );
 }
