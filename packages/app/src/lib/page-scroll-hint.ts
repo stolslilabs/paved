@@ -22,13 +22,12 @@ export function usePageScrollHint() {
     };
     update();
     window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    // The body's size, not the window's: a tab page is `min-h-dvh`, so a resized viewport resizes the body too.
     const resize = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : null;
     resize?.observe(document.body);
     return () => {
       if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
       resize?.disconnect();
       root.removeAttribute("data-scroll-end");
     };
