@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAMPAIGNS, STORY_KEY, TUTORIAL, decodeLine, recordRun, EMPTY_PROGRESS, type StoryLevel } from "@paved/game-core";
 import { App } from "../src/App";
+import { UNLOCKS_KEY } from "../src/data/story";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -60,9 +61,55 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const tutorial = screen.getByRole("region", { name: "Tutorial" });
     expect(within(tutorial).getByRole("button", { name: /^Level 1, First stone$/ })).toBeEnabled();
     expect(within(tutorial).getByRole("button", { name: /^Level 2, Turn it around, locked$/ })).toBeDisabled();
+    expect(tutorial.querySelector('[title="Turn it around"]')).not.toBeNull();
+    // The campaigns are cards; the locked one says what it needs, and pressing it shows its levels, locked.
+    const cards = screen.getByRole("region", { name: "Campaigns" });
+    const locked = within(cards).getByRole("button", { name: /^Open Country/ });
+    expect(locked).toHaveAttribute("data-status", "locked");
+    expect(locked).toHaveTextContent("22 more stars to open");
+    expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(locked);
+    expect(locked).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
     const second = screen.getByRole("region", { name: "Open Country" });
     expect(within(second).getByText("Locked")).toBeInTheDocument();
     expect(within(second).getByRole("button", { name: /^Level 1, .*, locked$/ })).toBeDisabled();
+    expect(screen.queryByRole("region", { name: "Tutorial" })).toBeNull();
+  });
+
+  it("a campaign opened since the last visit plays its unlock once; the device remembers it (#592)", async () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
+    const first = render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    expect(within(cards).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "unlocking");
+    expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("data-status", "complete");
+    await waitFor(() => expect(JSON.parse(store.getItem(UNLOCKS_KEY) ?? "[]")).toEqual([2]));
+    first.unmount();
+    queryClient.clear();
+
+    render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const again = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    expect(within(again).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "open");
+  });
+
+  it("the campaign just opened is the one in view, over a campaign remembered in the address (#592)", async () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
+    const router = createTestRouter("/story?campaign=1");
+    render(<App router={router} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    const opened = within(cards).getByRole("button", { name: /^Open Country/ });
+    expect(opened).toHaveAttribute("data-status", "unlocking");
+    expect(opened).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "Open Country" })).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
+    // A pick after that is the player's: the address keeps it.
+    await userEvent.click(within(cards).getByRole("button", { name: /^Tutorial/ }));
+    await waitFor(() => expect(router.state.location.search).toBe("?campaign=1"));
+    expect(screen.getByRole("region", { name: "Tutorial" })).toBeInTheDocument();
   });
 
   it("plays level 1 to 3 stars on the board, records the run, claims First Stone, and opens level 2", async () => {

@@ -6,6 +6,8 @@ import {
   EMPTY_PROGRESS,
   STORY_KEY,
   StoryRun,
+  campaignRequirement,
+  campaignUnlocked,
   loadProgress,
   recordRun,
   saveProgress,
@@ -94,6 +96,49 @@ export function useStoryProgress(): {
     [state, store],
   );
   return { progress: snapshot, saved: state.saved, record };
+}
+
+/** Where the device keeps the campaigns whose unlock it has shown (#592): their ids, as a JSON array. */
+export const UNLOCKS_KEY = "paved:story-unlocks:v1";
+
+/** The ids shown per store when the browser refuses storage: the animation then plays once per page, not on every visit. */
+const shownHere = new WeakMap<() => KeyValueStore | null, Set<number>>();
+
+function readShown(store: () => KeyValueStore | null): Set<number> {
+  const memory = shownHere.get(store) ?? new Set<number>();
+  shownHere.set(store, memory);
+  try {
+    const raw = store()?.getItem(UNLOCKS_KEY);
+    const ids: unknown = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(ids)) for (const id of ids) if (typeof id === "number") memory.add(id);
+  } catch {
+    // A refused or broken read: what this page has shown stands.
+  }
+  return memory;
+}
+
+/**
+ * The campaigns that opened since this device last showed the campaign list (#592): their cards play the unlock once (the
+ * lock goes, the blur lifts). A campaign open from the start (no stars asked) never plays it. Read once per mount; the
+ * effect then records them, so the next visit shows them open at once.
+ */
+export function useCampaignUnlocks(campaigns: readonly StoryCampaign[], progress: StoryProgress): readonly number[] {
+  const store = trainingStore(useDataSources());
+  const [fresh] = useState(() => {
+    const shown = readShown(store);
+    return campaigns.filter((c) => campaignRequirement(campaigns, c).needed > 0 && campaignUnlocked(progress, campaigns, c) && !shown.has(c.id)).map((c) => c.id);
+  });
+  useEffect(() => {
+    if (fresh.length === 0) return;
+    const shown = readShown(store);
+    for (const id of fresh) shown.add(id);
+    try {
+      store()?.setItem(UNLOCKS_KEY, JSON.stringify([...shown].sort((a, b) => a - b)));
+    } catch {
+      // Storage off: the page's memory keeps it.
+    }
+  }, [fresh, store]);
+  return fresh;
 }
 
 /** A run of `level`, one per mounted level page: its engine kept between moves, `restart` starts the level again. */

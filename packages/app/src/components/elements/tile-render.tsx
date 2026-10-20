@@ -58,3 +58,25 @@ export function ThemeCover({ theme, renders, blurred, alt, className }: ThemeCov
     </span>
   );
 }
+
+export interface TileMosaicProps {
+  /** The plans to show (chain ids, `PlanType`'s index), in reading order: two rows of four. */
+  plans: readonly number[];
+  theme?: number;
+  renders?: TileRenders;
+  className?: string;
+}
+
+/**
+ * A patch of board from build-time tile renders (a Story campaign card): up to eight tiles in two rows of four, images only (no WebGL
+ * context), each the plan's chip without a render. Decorative: the card it sits in names it.
+ */
+export function TileMosaic({ plans, theme = 0, renders, className }: TileMosaicProps) {
+  return (
+    <span aria-hidden className={cn("grid aspect-[2/1] grid-cols-4 grid-rows-2 overflow-hidden bg-board", className)}>
+      {plans.slice(0, 8).map((plan, i) => (
+        <TileRender key={`${plan}-${i}`} plan={plan} theme={theme} renders={renders} alt="" />
+      ))}
+    </span>
+  );
+}
