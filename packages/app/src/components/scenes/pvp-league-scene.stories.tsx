@@ -13,7 +13,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Gold, 16 crowns from Crystal; the season ends in 4 days. */
+/** Gold, 28 crowns from Crystal; the season ends in 4 days. */
 export const Gold: Story = { args: PVP_LEAGUE.gold };
 /** The season's last day: its timer. */
 export const LastDay: Story = { args: PVP_LEAGUE.lastDay };

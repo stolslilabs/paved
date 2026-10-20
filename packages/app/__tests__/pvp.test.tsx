@@ -88,7 +88,7 @@ describe("PvP scenes (#647)", () => {
     const onCancel = vi.fn();
     render(wrap(<PvpSearchScene {...PVP_SEARCH.searching} onCancel={onCancel} />));
     expect(screen.getByRole("heading", { name: "Searching for a village" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "1,184 crowns" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1,172 crowns" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalled();
   });
@@ -196,7 +196,7 @@ describe("PvP scenes (#647)", () => {
 
   it("league: crowns, the way to the next league, the season's end", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} />));
-    expect(screen.getByRole("progressbar", { name: "16 crowns to Crystal" })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "28 crowns to Crystal" })).toBeInTheDocument();
     expect(screen.getByText(/Ends in 4 d 3 h/)).toBeInTheDocument();
     expect(screen.getByRole("listitem", { current: true })).toHaveTextContent("Gold");
     cleanup();

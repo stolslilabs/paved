@@ -16,8 +16,8 @@ import { buildVillage, playAttack, type AttackStep } from "./pvp-attack";
  * `PvpVillage`: its own fakes draw a village with `VillageBoard`, these with the game's board.
  */
 
-/** The attacker: Gold, 16 crowns short of Crystal. */
-export const ME: PvpPlayer = { name: PLAYER.name, address: PLAYER_ID, level: 6, crowns: 1_184 };
+/** The attacker: Gold, 28 crowns short of Crystal (two stars keep them in Gold, three take them up). */
+export const ME: PvpPlayer = { name: PLAYER.name, address: PLAYER_ID, level: 6, crowns: 1_172 };
 
 /** The defender drawn by the search. */
 export const RIVAL: PvpPlayer = { name: "Rook of Ashford", address: "0x04b7e2a19c3d5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e1a", level: 7, crowns: 1_212 };
@@ -109,7 +109,7 @@ function placedAt(steps: readonly AttackStep[], i: number): Data<PvpAttackSceneP
     ...base,
     hand: { ...base.hand, tile: { plan: tile.plan, orientation: tile.orientation }, slotChosen: true, preview: next.delta },
     ghost: { x: tile.x, y: tile.y, plan: tile.plan, orientation: tile.orientation, placed: true, fits: true },
-    bubble: { cell: { x: tile.x, y: tile.y }, rotations: 1, onRotate: () => {}, onClose: () => {}, canConfirm: true },
+    bubble: { cell: { x: tile.x, y: tile.y }, rotations: 1, onRotate: () => {}, onClose: () => {}, onDiscard: () => {}, onConfirm: () => {}, canConfirm: true },
   };
 }
 

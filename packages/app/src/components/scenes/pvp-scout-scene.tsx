@@ -89,11 +89,12 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
             </li>
           ))}
         </ul>
-        <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-          <span>No star: you lose</span>
-          <Crowns value={-stakes.loss} signed size="sm" />
-          <span>· the tiles are the defender's, drawn at random.</span>
-        </p>
+        <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+          <p className="flex flex-wrap items-center gap-x-1.5">
+            No star: you lose <Crowns value={-stakes.loss} signed size="sm" />
+          </p>
+          <p>You play the defender's tiles, drawn at random, on their cells.</p>
+        </div>
 
         {shielded && (
           <Notice tone="warning" title="Attacking drops your shield" icon="shield-halved">
