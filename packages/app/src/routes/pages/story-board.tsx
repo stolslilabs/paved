@@ -31,7 +31,7 @@ import { useTileRenders } from "../../data/tile-renders";
 import { remainingOf } from "../../data/training-save";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate, useUpTo } from "../ref";
 
 // As the other boards: the renderer reads the manifest the route asked for (`data/renderer-manifest.ts`).
 provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
@@ -74,7 +74,7 @@ export default function Page() {
   const params = useParams();
   const found = findLevel(Number(params.campaign), Number(params.level));
   const { progress } = useStoryProgress();
-  const onBack = useBack();
+  const onBack = useUpTo("/story");
   const go = useAppNavigate();
   const open = found !== null && levelUnlocked(progress, CAMPAIGNS, found.campaign, found.level.id);
   if (!found || !open) {
@@ -107,7 +107,9 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const [attempt, setAttempt] = useState(0);
   const boardSettings = useBoardSettings(attempt);
   const go = useAppNavigate();
-  const onBack = useBack();
+  // Back is the campaign's level list, never the history: after Next, the entry before is the previous level (#614).
+  const levels = `/story?campaign=${campaign.id}`;
+  const onBack = useUpTo(levels);
   const { presented, markPresented } = useDeckPresented(campaign.id, level.id);
   const [presenting, setPresenting] = useState(!presented);
   const phase = presenting ? "intro" : "play";
@@ -203,8 +205,9 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         previousBest={previousBest}
         beatsTarget={result.beatsTarget && result.bestKnown}
         onReplay={replay}
-        onNext={nextOpen && next ? () => go(levelPath(next.campaignId, next.levelIndex)) : undefined}
-        onLevels={() => go("/story")}
+        // Both replace the finished level's entry: the system Back never reopens it as a new game (#614).
+        onNext={nextOpen && next ? () => go(levelPath(next.campaignId, next.levelIndex), { replace: true }) : undefined}
+        onLevels={() => go(levels, { replace: true })}
       >
         {campaign.id === 1 && level.id === 1 && <FirstStone />}
       </StoryEnd>
