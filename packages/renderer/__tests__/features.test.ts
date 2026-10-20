@@ -837,6 +837,19 @@ describe("the night lights (DAYNIGHT)", () => {
     tiles.dispose();
   });
 
+  it("#573: dims the sun's direct light under the clouds through the shared cloud uniforms, from the fragment's world place", () => {
+    const { tiles } = renderer();
+    tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+    const { uniforms, vertexShader, fragmentShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
+    expect(uniforms.uCloudDark).toBe(tiles.cloudUniforms.uCloudDark);
+    expect(uniforms.uCloudMap).toBe(tiles.cloudUniforms.uCloudMap);
+    expect(vertexShader).toContain("vCloudWorld = (modelMatrix * vec4(position, 1.0)).xyz;");
+    expect(fragmentShader).toContain("float cloudLight(vec3 lightDirection, float strength)");
+    expect(fragmentShader).toContain("directLight.color *= cloudLight( directionalLight.direction, 1.0 );");
+    expect(fragmentShader).not.toContain("#include <lights_fragment_begin>");
+    tiles.dispose();
+  });
+
   describe("the windows' light (NIGHT-WINDOWS, #513)", () => {
     const volumeOf = (tiles: TileRenderer, key: string) => shaderOf(typeMesh(tiles, key).material as THREE.Material).uniforms.uWindowLight.value as THREE.Data3DTexture;
 
