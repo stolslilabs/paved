@@ -38,6 +38,8 @@ import type { DropResult } from "./tile-drops";
 import type * as DayNight from "./daynight";
 import { AmbientLoop } from "./ambient-loop";
 import { ambientAllowed } from "./ambient-settings";
+// The cloud shadows are their own chunk: loaded only once the ambient effects are first on with the clouds (`syncAmbient`).
+import type * as Clouds from "./cloud-shadows";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -189,6 +191,11 @@ export class GameScene {
    * loop at its capped rate, paused while the tab is hidden or the board covered (`setCovered`), off with the effects.
    */
   readonly ambient = new AmbientLoop();
+  /** The cloud shadows (`cloud-shadows.ts`, #573), once their chunk is in; its load, started the first time they are on. */
+  private clouds: Clouds.CloudShadows | null = null;
+  private cloudsLoad: Promise<void> | null = null;
+  /** The cycle's night level last drawn (0 by day, or with the cycle off): the clouds' share on the moon's light. */
+  private nightLevel = 0;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -460,14 +467,57 @@ export class GameScene {
 
   /**
    * The ambient effects (AMBIENT, #572): on when the settings say so, but not on the Low tier or under reduced motion
-   * (`ambientAllowed`). Off, the loop stops. An effect is a chunk of its own that registers on `ambient` (`AmbientLoop`).
+   * (`ambientAllowed`). Off, the loop stops. An effect is a chunk of its own that registers on `ambient` (`AmbientLoop`): the
+   * cloud shadows (#573) load the first time they are on; off, they leave the light as it was (their chunk stays).
    */
   private syncAmbient(): void {
     const settings = this.settings.ambient;
     const on = ambientAllowed(settings, this.getQuality(), prefersReducedMotion()) && !!this.renderer;
     this.ambient.setRate(settings.fps);
     this.ambient.setEnabled(on);
+    const clouds = this.clouds;
+    if (clouds) {
+      clouds.setSettings(settings.clouds);
+      clouds.setActive(on && settings.clouds.enabled);
+    } else if (on && settings.clouds.enabled) {
+      this.loadClouds();
+    }
     this.requestRender();
+  }
+
+  /** Loads the cloud shadows' chunk once and registers them on the loop (a failed load leaves the board as it is). */
+  private loadClouds(): void {
+    this.cloudsLoad ??= import("./cloud-shadows").then(
+      (module) => {
+        if (this.disposed) return;
+        const clouds = new module.CloudShadows(this.tiles.cloudUniforms, this.settings.ambient.clouds);
+        clouds.onChange = () => this.requestRender();
+        this.clouds = clouds;
+        this.syncCloudLight();
+        this.scene.add(clouds.object);
+        this.ambient.register(clouds);
+        this.syncAmbient();
+      },
+      (error: unknown) => console.warn("[renderer] the cloud shadows did not load, the board stays still:", error),
+    );
+  }
+
+  /**
+   * What the clouds can dim (`CloudShadows.setLight`): with the cycle drawing the board, its season, how up its sun is (0 at
+   * night: the clouds then step no frame unless they dim the moon) and its night level; with the cycle off, the look's sun.
+   */
+  private syncCloudLight(): void {
+    const clouds = this.clouds;
+    if (!clouds) return;
+    const point = this.getDayNight();
+    clouds.setSeason(point?.season ?? null);
+    const sun = point && this.dayNight ? this.dayNight.sunAt(point.season, point.position).up : 1;
+    clouds.setLight(sun, point ? this.nightLevel : 0);
+  }
+
+  /** The cloud shadows now (`CloudShadows.stats`), or null before their chunk is in: the stories' readout. */
+  getClouds(): ReturnType<Clouds.CloudShadows["stats"]> | null {
+    return this.clouds?.stats() ?? null;
   }
 
   /**
@@ -499,6 +549,8 @@ export class GameScene {
         this.dayNight?.releaseDayNight(this.directionalLight);
         this.renderer?.setClearColor(0x000000, 1);
         this.tiles.setNightLights(false, settings.nightLightColor, settings.windowLight);
+        this.nightLevel = 0;
+        this.syncCloudLight();
       }
       return;
     }
@@ -561,11 +613,15 @@ export class GameScene {
         crossfade: this.dayNightRuns(),
         shadowMoved: () => this.requestShadowUpdate(),
         backdrop: (top, bottom) => this.effects.setBackdrop(true, top, bottom),
-        lights: (level) => this.tiles.setNightLevel(level),
+        lights: (level) => {
+          this.tiles.setNightLevel(level);
+          this.nightLevel = level;
+        },
       },
       seasons,
       this.settings.dayNight.brightnessFloor,
     );
+    this.syncCloudLight();
     this.requestRender();
   }
 
@@ -1111,6 +1167,9 @@ export class GameScene {
     this.directionalLight?.shadow.dispose();
     this.dayNight?.releaseDayNight(this.directionalLight);
     this.ambient.dispose();
+    this.clouds?.dispose();
+    this.clouds = null;
+    this.cloudsLoad = null;
     this.scene.clear();
     this.latestTiles = [];
     this.cameraListeners.clear();

@@ -102,7 +102,7 @@ describe("the ambient settings: one 'Ambient effects' switch, off on Low and und
 
   it("takes the fields given over the base, and keeps the base's for a value out of range", () => {
     const s = resolveAmbientSettings({ fps: 240, reducedMotion: true });
-    expect(s).toEqual({ enabled: false, fps: 60, reducedMotion: true });
+    expect(s).toEqual({ ...DEFAULT_AMBIENT_SETTINGS, enabled: false, fps: 60, reducedMotion: true });
     expect(resolveAmbientSettings({ fps: 0 }).fps).toBe(30);
     expect(resolveAmbientSettings({ enabled: "yes" as never, reducedMotion: "no" as never })).toEqual(DEFAULT_AMBIENT_SETTINGS);
   });
