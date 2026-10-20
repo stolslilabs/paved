@@ -5,6 +5,7 @@ import type { RenderSurfaceAdapter } from "../src/core/types";
 import type { RendererSettingsInput } from "../src/core/settings";
 import type { AmbientEffect } from "../src/core/ambient-loop";
 import { placementStubs } from "./helpers/placement-stubs";
+import { createCloudUniforms } from "../src/core/cloud-shader";
 
 const adapter: RenderSurfaceAdapter = {
   getSize: () => ({ width: 375, height: 812 }),
@@ -28,7 +29,19 @@ async function createScene(settings: RendererSettingsInput, effects: AmbientEffe
     setSize: vi.fn(),
     setClearColor: vi.fn(),
     dispose: vi.fn(),
-    shadowMap: { enabled: false, type: 0, autoUpdate: true, needsUpdate: false },
+    // Counts the shadow map's redraws: the cloud shadows must ask for none (#573).
+    shadowMap: {
+      enabled: false,
+      type: 0,
+      autoUpdate: true,
+      redraws: 0,
+      get needsUpdate() {
+        return false;
+      },
+      set needsUpdate(on: boolean) {
+        if (on) this.redraws++;
+      },
+    },
     domElement: { width: 750, height: 1624 },
     outputColorSpace: "",
     toneMapping: 0,
@@ -70,6 +83,7 @@ async function createScene(settings: RendererSettingsInput, effects: AmbientEffe
     updateBoardFrame: vi.fn(),
     setNightLights: vi.fn(),
     setNightLevel: vi.fn(),
+    cloudUniforms: createCloudUniforms(),
     dispose: vi.fn(),
   };
   (scene as any).tiles = tiles;
@@ -82,10 +96,11 @@ async function createScene(settings: RendererSettingsInput, effects: AmbientEffe
       queue.shift()?.();
     }
   };
-  return { scene, tiles, frames, renders: () => renders };
+  return { scene, tiles, frames, renders: () => renders, shadowRedraws: () => renderer.shadowMap.redraws };
 }
 
-const ON: RendererSettingsInput = { quality: "medium", ambient: { enabled: true, reducedMotion: false } };
+// The loop's own tests: the cloud shadows (#573, `game-scene-clouds.test.ts`) left out, so only the test's effects step.
+const ON: RendererSettingsInput = { quality: "medium", ambient: { enabled: true, reducedMotion: false, clouds: { enabled: false } } };
 
 /** An effect that always moves: each step of the loop asks for a frame. */
 const moving = () => ({ step: vi.fn((_seconds: number) => true) });
@@ -131,7 +146,7 @@ describe("GameScene: the ambient loop (#572)", () => {
     expect(renders() - covered).toBeGreaterThan(25);
 
     // The setting off: the loop stops.
-    scene.setSettings({ ...ON, ambient: { enabled: false } });
+    scene.setSettings({ ...ON, ambient: { enabled: false, clouds: { enabled: false } } });
     frames(2);
     const off = renders();
     frames(60);
@@ -149,11 +164,11 @@ describe("GameScene: the ambient loop (#572)", () => {
   });
 
   it("under reduced motion (the setting, or the device's for auto): off", async () => {
-    const { scene } = await createScene({ ...ON, ambient: { enabled: true, reducedMotion: true } }, [moving()]);
+    const { scene } = await createScene({ ...ON, ambient: { enabled: true, reducedMotion: true, clouds: { enabled: false } } }, [moving()]);
     expect(scene.getAmbient().running).toBe(false);
     scene.dispose();
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce"), addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-    const auto = await createScene({ ...ON, ambient: { enabled: true } }, [moving()]);
+    const auto = await createScene({ ...ON, ambient: { enabled: true, clouds: { enabled: false } } }, [moving()]);
     expect(auto.scene.getAmbient().running).toBe(false);
     auto.scene.dispose();
   });
@@ -166,5 +181,100 @@ describe("GameScene: the ambient loop (#572)", () => {
     frames(60);
     expect(renders() - before).toBe(0);
     scene.dispose();
+  });
+});
+
+describe("GameScene: the cloud shadows (#573) on the ambient loop", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const CLOUDS: RendererSettingsInput = { quality: "medium", ambient: { enabled: true, reducedMotion: false } };
+
+  it("load their chunk the first time the effects are on, drift on the loop and never redraw the shadow map", async () => {
+    const { scene, tiles, frames, renders, shadowRedraws } = await createScene(CLOUDS);
+    await vi.waitFor(() => expect(scene.getClouds()).not.toBeNull());
+    expect(scene.getClouds()).toMatchObject({ visible: true, coverage: 0.4, darkness: 0.2, wisps: false });
+    // The tile shader's term reads the effect's map and darkness.
+    expect(tiles.cloudUniforms.uCloudDark.value).toBe(0.2);
+    expect(tiles.cloudUniforms.uCloudMap.value.image.width).toBe(128);
+    expect(scene.getAmbient().running).toBe(true);
+
+    frames(10);
+    const redraws = shadowRedraws();
+    const before = renders();
+    const offset = tiles.cloudUniforms.uCloudOffset.value.clone();
+    frames(120);
+    // Two seconds at 60 Hz: the loop steps 30 a second, the clouds draw when they moved a quarter of a voxel (about 15 a second).
+    expect(renders() - before).toBeGreaterThanOrEqual(25);
+    expect(renders() - before).toBeLessThanOrEqual(31);
+    expect(tiles.cloudUniforms.uCloudOffset.value.equals(offset)).toBe(false);
+    expect(shadowRedraws()).toBe(redraws);
+
+    // Off with the setting: the term off, nothing more drawn.
+    scene.setSettings({ ...CLOUDS, ambient: { enabled: false } });
+    expect(tiles.cloudUniforms.uCloudDark.value).toBe(0);
+    frames(2);
+    const off = renders();
+    frames(60);
+    expect(renders() - off).toBe(0);
+
+    // The clouds' own switch: the loop has nothing that moves, so the board stays idle.
+    scene.setSettings({ ...CLOUDS, ambient: { enabled: true, reducedMotion: false, clouds: { enabled: false } } });
+    expect(tiles.cloudUniforms.uCloudDark.value).toBe(0);
+    frames(2);
+    const own = renders();
+    frames(60);
+    expect(renders() - own).toBe(0);
+
+    scene.setSettings(CLOUDS);
+    expect(tiles.cloudUniforms.uCloudDark.value).toBe(0.2);
+    scene.dispose();
+    expect(tiles.cloudUniforms.uCloudDark.value).toBe(0);
+    expect(scene.getClouds()).toBeNull();
+  });
+
+  it("at a held night step no frame unless they dim the moon, whatever the window lights' switch", async () => {
+    const night = { enabled: true, freezeAt: 0.8, reducedMotion: false };
+    const { scene, tiles, frames, renders } = await createScene({ ...CLOUDS, dayNight: night });
+    await (scene as any).dayNightLoad;
+    await vi.waitFor(() => expect(scene.getClouds()).not.toBeNull());
+    expect(scene.getDayNight()).toMatchObject({ phase: "night" });
+    // The default: the clouds go with the sun. Nothing to dim, nothing drawn, the time frozen board stays idle.
+    expect(scene.getClouds()).toMatchObject({ visible: false });
+    expect(tiles.cloudUniforms.uCloudDark.value).toBe(0);
+    frames(10);
+    const idle = renders();
+    frames(120);
+    expect(renders() - idle).toBe(0);
+
+    // The moon's share on: the clouds dim the moon, at its share times the night's level, with the windows on or off.
+    for (const nightLights of [true, false]) {
+      scene.setSettings({ ...CLOUDS, dayNight: { ...night, nightLights }, ambient: { enabled: true, reducedMotion: false, clouds: { moon: 0.5 } } });
+      expect(scene.getClouds()).toMatchObject({ visible: true });
+      expect(tiles.cloudUniforms.uCloudDark.value).toBe(0.2);
+      expect(tiles.cloudUniforms.uCloudMoon.value).toBeCloseTo(0.5);
+      frames(10);
+      const moving = renders();
+      frames(120);
+      expect(renders() - moving).toBeGreaterThan(20);
+    }
+
+    // By day the moon's share is 0: only the sun is dimmed.
+    scene.setSettings({ ...CLOUDS, dayNight: { ...night, freezeAt: 0.3 }, ambient: { enabled: true, reducedMotion: false, clouds: { moon: 0.5 } } });
+    expect(tiles.cloudUniforms.uCloudMoon.value).toBe(0);
+    expect(scene.getClouds()).toMatchObject({ visible: true });
+    scene.dispose();
+  });
+
+  it("do not load on the Low tier, nor with the effects off", async () => {
+    const low = await createScene({ ...CLOUDS, quality: "low" });
+    const off = await createScene({ quality: "medium" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(low.scene.getClouds()).toBeNull();
+    expect(off.scene.getClouds()).toBeNull();
+    low.scene.dispose();
+    off.scene.dispose();
   });
 });

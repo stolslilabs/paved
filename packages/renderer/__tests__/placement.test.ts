@@ -4,6 +4,7 @@ import {
   DEFAULT_PLACEMENT_SETTINGS,
   GRID_RINGS,
   PLATE_GAP_VOXELS,
+  PLATE_Y,
   PlacementRenderer,
   colorProgress,
   confirmProgress,
@@ -155,7 +156,7 @@ describe("the grid's ring fade (a setting, off by default since PLATES)", () => 
 
 describe("the plates' shape (PLACEMENT-TINTS)", () => {
   it("is flat, inset in its cell, in voxels: the defaults", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, radius: 3, opacity: 0.6, invalidOpacity: 0.25, hideUnderTile: true });
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true });
     // A smaller corner than the slab's 5 voxels, and more transparent plates (0.9 and 0.45 before).
     expect(DEFAULT_PLACEMENT_SETTINGS.plates.radius).toBeLessThan(5);
     expect(DEFAULT_PLACEMENT_SETTINGS.plates.opacity).toBeLessThan(0.9);
@@ -222,10 +223,19 @@ describe("the plates' shape (PLACEMENT-TINTS)", () => {
     expect(PLATE_GAP_VOXELS.min).toBeGreaterThan(0);
   });
 
-  it("lies at the tiles' ground top", () => {
+  it("lies at the tiles' bottom, not the ground's top, the grid with it (#588)", () => {
     const placement = new PlacementRenderer();
     placement.setSlots([{ x: 2, y: 1 }], 0);
-    expect(instances(placement).plateAt(2, 1)!.height).toBeCloseTo(GROUND_VOXELS * VOXEL_SIZE, 5);
+    const height = instances(placement).plateAt(2, 1)!.height;
+    expect(height).toBeCloseTo(PLATE_Y, 6);
+    // Level with a model's foot (y 0) to a tenth of a voxel, far under the ground's top (4 voxels).
+    expect(height).toBeGreaterThan(0);
+    expect(height).toBeLessThan(0.1 * VOXEL_SIZE);
+    expect(height).toBeLessThan(GROUND_VOXELS * VOXEL_SIZE);
+    placement.setSettings(resolvePlacementSettings({ grid: { enabled: true } }));
+    placement.setTileCells([{ x: 0, y: 0 }]);
+    const grid = placement.group.children.find((c) => c.userData.grid)!;
+    expect(grid.position.y).toBeCloseTo(PLATE_Y, 6);
     placement.dispose();
   });
 });
@@ -256,7 +266,7 @@ describe("the plates' states", () => {
     expect(plateStateOf({ legal: false })).toBe("invalid");
   });
 
-  it("draw one blue, transparent plate for the playable and a grey, more transparent one for the invalid", () => {
+  it("draw one grey for both, the playable a little less transparent than the invalid: their opacity alone differs", () => {
     const placement = new PlacementRenderer();
     placement.setReducedMotion(true);
     placement.setSlots(SLOTS, 0);
@@ -264,7 +274,7 @@ describe("the plates' states", () => {
     const { plateAt } = instances(placement);
     close(plateAt(1, 0)!.color, colors.plate);
     close(plateAt(2, 0)!.color, colors.plate);
-    close(plateAt(3, 0)!.color, colors.invalid);
+    close(plateAt(3, 0)!.color, colors.plate);
     expect(plateAt(1, 0)!.opacity).toBeCloseTo(plates.opacity, 6);
     expect(plateAt(2, 0)!.opacity).toBeCloseTo(plates.opacity, 6);
     expect(plateAt(3, 0)!.opacity).toBeCloseTo(plates.invalidOpacity, 6);
@@ -272,13 +282,10 @@ describe("the plates' states", () => {
     placement.dispose();
   });
 
-  it("are the app's tokens: a pale neutral blue and a grey with no hue", () => {
+  it("are the app's token: one grey with no hue (#588, no blue left)", () => {
     const { colors } = DEFAULT_PLACEMENT_SETTINGS;
-    expect(colors).toEqual({ plate: "#b7ccdc", invalid: "#929292" });
-    const hsl = new THREE.Color(colors.plate).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace);
-    expect(hsl.h * 360).toBeGreaterThan(190);
-    expect(hsl.h * 360).toBeLessThan(230);
-    const grey = new THREE.Color(colors.invalid);
+    expect(colors).toEqual({ plate: "#c8c8c8" });
+    const grey = new THREE.Color(colors.plate);
     expect(grey.r).toBe(grey.g);
     expect(grey.g).toBe(grey.b);
   });
@@ -323,7 +330,7 @@ describe("the plates' changes", () => {
     expect(placement.update(0).animating).toBe(false);
     placement.setSlots([{ x: 1, y: 0, legal: false }], 10);
     expect(placement.update(10).animating).toBe(false);
-    close(instances(placement).plateAt(1, 0)!.color, DEFAULT_PLACEMENT_SETTINGS.colors.invalid);
+    expect(instances(placement).plateAt(1, 0)!.opacity).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.plates.invalidOpacity, 6);
     expect(colorProgress(0, motion, true)).toBe(1);
     placement.dispose();
   });

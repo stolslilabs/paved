@@ -17,6 +17,7 @@ import type { VoxelDropSettings } from "./voxel-drop-settings";
 // does not light anything.
 import type * as Classifier from "./features";
 import { DEFAULT_WINDOW_LIGHT, WINDOW_SPILL_LAYERS, type WindowLightSettings } from "./daynight-settings";
+import { CLOUD_FRAGMENT_GLSL, CLOUD_VERTEX_GLSL, cloudLightsFragment, createCloudUniforms } from "./cloud-shader";
 // The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are on.
 import type * as Windows from "./windows";
 import type * as Voxelizer from "./voxelizer";
@@ -271,6 +272,11 @@ export class TileRenderer {
     uSpillCell: { value: new THREE.Vector2(0, 0) },
     uSpillScale: { value: 0 },
   };
+  /**
+   * The cloud shadows' uniforms (`cloud-shader.ts`, #573), shared as the others: the effect's chunk (`cloud-shadows.ts`) writes
+   * them; until it does, the term is off.
+   */
+  readonly cloudUniforms = createCloudUniforms();
   /** The windows' chunk and the voxel grids (`VoxelCache`) and baked windows (`WindowCache`) it builds, per model type. */
   private windowsChunk: Promise<{ windows: typeof Windows; voxelizer: typeof Voxelizer }> | null = null;
   private voxelGrids: Voxelizer.VoxelCache | null = null;
@@ -633,12 +639,21 @@ export class TileRenderer {
    * palette is read, the roughness after it is set; then the feature highlight (`FEATURE_HIGHLIGHT_GLSL`), from the
    * fragment's place on the model's grid (`uGridMatrix`, `uLabelMap`) and the tile's cell, from its model matrix and the
    * footprint's centre (`uFootprint`): those three are the geometry's own, the rest shared. Every patched material
-   * compiles to one program.
+   * compiles to one program. The cloud shadows (`cloud-shader.ts`) dim the sun's direct light, from the fragment's place in the
+   * world.
    */
   private patchTileShader(material: THREE.MeshStandardMaterial, geometry: THREE.BufferGeometry, labels: LabelUniforms): void {
     if (!geometry.boundingBox) geometry.computeBoundingBox();
     const footprint = { value: geometry.boundingBox!.getCenter(new THREE.Vector3()) };
-    const uniforms = { ...this.waterUniforms, ...this.featureUniforms, ...this.structureUniforms, ...this.nightUniforms, ...labels, uFootprint: footprint };
+    const uniforms = {
+      ...this.waterUniforms,
+      ...this.featureUniforms,
+      ...this.structureUniforms,
+      ...this.nightUniforms,
+      ...this.cloudUniforms,
+      ...labels,
+      uFootprint: footprint,
+    };
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader.replace(
@@ -653,7 +668,9 @@ export class TileRenderer {
           "varying vec3 vGridNormal;",
           "flat varying vec2 vCell;",
           "varying vec2 vBoardVoxel;",
+          "varying vec3 vCloudWorld;",
           "void main() {",
+          CLOUD_VERTEX_GLSL,
           "  vGrid = (uGridMatrix * vec4(position, 1.0)).xyz;",
           "  vGridNormal = mat3(uGridMatrix) * normal;",
           "  vCell = floor((uBoardInverse * modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
@@ -691,6 +708,7 @@ export class TileRenderer {
             "flat varying vec2 vCell;",
             "varying vec2 vBoardVoxel;",
             WINDOW_SWITCH_GLSL,
+            CLOUD_FRAGMENT_GLSL,
             "void main() {",
           ].join("\n"),
         )
@@ -702,7 +720,9 @@ export class TileRenderer {
         .replace(
           "#include <emissivemap_fragment>",
           "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;\n  totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;",
-        );
+        )
+        // The cloud shadows dim the directional lights' direct light only (`cloudLightsFragment`).
+        .replace("#include <lights_fragment_begin>", cloudLightsFragment());
     };
     material.customProgramCacheKey = () => "paved-tile";
   }

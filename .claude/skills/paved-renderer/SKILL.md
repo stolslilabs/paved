@@ -24,8 +24,13 @@ with `docs/`, `scripts/` or `packages/`.
   at most `settings.ambient.fps` (30) times a second, and not while the tab is hidden, the board covered (`setCovered`) or the
   effects off (setting, Low tier, reduced motion: `ambientAllowed`). An ambient effect (#573, #574) is a lazy chunk that
   implements `AmbientEffect` (`step` returns whether it moved), `register`s on that loop, and reads `ambient.time` as its
-  shader's time uniform. Never a second loop. No effect is registered yet: the particles of #572 were removed (owner, 2026-10-19).
-  The birds of #574 (`core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`): the story registers them on
+  shader's time uniform. Never a second loop. The particles of #572 were removed (owner, 2026-10-19).
+- The **cloud shadows** (#573) are that loop's one effect: `core/cloud-shadows.ts` (a lazy chunk: the noise map, the knobs of
+  `RendererSettings.ambient.clouds`, the drift) writes `TileRenderer.cloudUniforms`, and the tile shader's term
+  (`core/cloud-shader.ts`, in the board's chunk) dims only the shadow-casting directional lights' direct light (the sun and its
+  twin). A light term, not a caster: a cloud's move draws a frame, never the shadow map (`game-scene-ambient.test.ts` counts it).
+  A step draws only once the clouds moved `CLOUD_MIN_MOVE` (a quarter of a voxel).
+- The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`): the story registers them on
   `scene.ambient` itself; the board does not call them until the owner validates them.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.

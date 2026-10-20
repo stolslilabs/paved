@@ -123,8 +123,8 @@ export type {
 export { DEFAULT_VOXEL_DROP_SETTINGS, DROP_EASES, DROP_LANDINGS, resolveVoxelDropSettings } from "./core/voxel-drop-settings";
 export type { DropEase, DropLanding, VoxelDropSettings, VoxelDropSettingsInput } from "./core/voxel-drop-settings";
 // The ambient effects (#572): the one loop and the one setting every ambient effect shares. Each effect is a chunk of its own.
-export { AMBIENT_FPS, DEFAULT_AMBIENT_SETTINGS, ambientAllowed, resolveAmbientSettings } from "./core/ambient-settings";
-export type { AmbientSettings, AmbientSettingsInput } from "./core/ambient-settings";
+export { AMBIENT_FPS, DEFAULT_AMBIENT_SETTINGS, DEFAULT_CLOUD_SHADOWS, ambientAllowed, resolveAmbientSettings } from "./core/ambient-settings";
+export type { AmbientSettings, AmbientSettingsInput, CloudShadowSettings } from "./core/ambient-settings";
 export { AmbientLoop } from "./core/ambient-loop";
 export type { AmbientEffect, AmbientPause } from "./core/ambient-loop";
 // The birds (BIRDS, #574), stories only: the board does not call them yet. Their settings are small and eager; the effect is a chunk

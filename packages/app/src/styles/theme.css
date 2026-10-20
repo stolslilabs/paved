@@ -114,10 +114,10 @@
      shade under the page, #0C0D0F (was the navy #07111A). */
   --color-board: oklch(0.159 0.005 264.4); /* #0C0D0F */
 
-  /* The placement plates (PLATES, P-74): a pale neutral blue, a grey with no hue (a slot no rotation fits). The renderer's
-     colours (`DEFAULT_PLACEMENT_SETTINGS.colors`) are these hex values; a test keeps them in step. */
-  --color-plate: oklch(0.834 0.032 240.7); /* #B7CCDC */
-  --color-plate-off: oklch(0.660 0.000 0.0); /* #929292 */
+  /* The placement plates (PLATES, P-74; #588): one grey with no hue for both states, told apart by opacity alone (the
+     playable plate less transparent than the invalid one). The renderer's colour (`DEFAULT_PLACEMENT_SETTINGS.colors.plate`)
+     is this hex value; a test keeps them in step. */
+  --color-plate: oklch(0.833 0.000 0.0); /* #C8C8C8 */
 
   /* Fonts (section 2.3): the owner's choice, 2026-10-14. Fallbacks are system fonts of the same kind. */
   --font-sans: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
