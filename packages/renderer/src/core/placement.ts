@@ -14,8 +14,8 @@ import { TILE_SIZE } from "./types";
  *   (`plates.hideUnderTile`).
  * - The tile in hand is tinted on the model itself (`TileRenderer` draws it, this class owns the states and their ease):
  *   a hover preview has no tint at 50 % opacity (#568: the blue is gone, its colour and strength stay as knobs), a tile
- *   placed and not confirmed (pending) opaque (100 %) with a faint yellow (#605: 0.12, it was 0.4 and read as a yellow
- *   filter), a confirm a temporary green that fades to no tint on the tile the board now draws. There is no red: the
+ *   placed and not confirmed (pending) opaque (100 %) with a faint yellow that keeps the tile's light (#605: 0.12 of the
+ *   hue, it was 0.4 of the colour and read as a yellow filter), a confirm a temporary green that fades to no tint on the tile the board now draws. There is no red: the
  *   board offers only the rotations that fit (#544).
  * - The pending look's other knobs (#605's proposals, off by default): a slow breathing of the tint (`tints.pendingPulseMs`,
  *   from 0 to `pendingStrength` and back; the faint tint held under reduced motion), a gold frame on the tile's top edges
@@ -39,6 +39,11 @@ export interface PlacementSettings {
     pendingOpacity: number;
     /** The ease into the pending look, ms. */
     pendingMs: number;
+    /**
+     * The pending tint keeps each pixel's brightness, only its hue goes to `pendingColor` (#605: a fixed gold over a tile
+     * lit by night read as a yellow filter); off, the pixel goes to the colour itself, as the confirm's does.
+     */
+    pendingKeepsLight: boolean;
     /** The pending tint breathes from 0 to `pendingStrength` and back over this many ms; 0: held. Held under reduced motion. */
     pendingPulseMs: number;
     /** The frame on the pending tile's top edges: its colour, opacity (0: none) and width (a multiple of the outlines'). */
@@ -113,6 +118,7 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     pendingStrength: 0.12,
     pendingOpacity: 1,
     pendingMs: 150,
+    pendingKeepsLight: true,
     pendingPulseMs: 0,
     pendingEdgeColor: "#f0bf5b",
     pendingEdgeOpacity: 0,

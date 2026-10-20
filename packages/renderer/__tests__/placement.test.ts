@@ -371,6 +371,7 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     expect(tintForKind("pending", tints).opacity).toBe(1);
     // #605: a faint yellow (0.4 before read as a yellow filter), held, no frame, no gold plate.
     expect(tints.pendingStrength).toBe(0.12);
+    expect(tints.pendingKeepsLight).toBe(true);
     expect(tints.pendingPulseMs).toBe(0);
     expect(tints.pendingEdgeOpacity).toBe(0);
     expect(DEFAULT_PLACEMENT_SETTINGS.plates.pendingOpacity).toBe(0);
@@ -600,6 +601,12 @@ describe("the tile renderer's ghost", () => {
     tiles.setHover(ghostAt(1, 0, { placed: true }));
     tiles.update(performance.now() + 10_000);
     expect(look.alpha.value).toBeCloseTo(1, 6);
+    // #605: the pending tint keeps the tile's light; the confirm's goes to its colour.
+    expect(look.keepsLight.value).toBe(1);
+    expect((tiles as any).ghostLooks.confirm.keepsLight.value).toBe(0);
+    tiles.setPlacementSettings(resolvePlacementSettings({ tints: { pendingKeepsLight: false } }), DEFAULT_OUTLINE_SETTINGS);
+    tiles.update(performance.now() + 20_000);
+    expect(look.keepsLight.value).toBe(0);
     tiles.dispose();
   });
 
