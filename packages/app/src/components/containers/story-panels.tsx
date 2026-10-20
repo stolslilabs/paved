@@ -174,8 +174,10 @@ export const resultDelay = (stars: number) => FILL.lead + Math.max(0, stars - 1)
  * The stars earned, filled one by one (#593): each lands with a pop, a sound (`place`, the last of three the `wonder`) and a
  * buzz where the device has one. `instant` (reduced motion, or a tap to skip) shows them at once, with one sound.
  */
-export function StarFill({ stars, instant = false, className }: { stars: Stars; instant?: boolean; className?: string }) {
+export function StarFill({ stars, instant: skip = false, className }: { stars: Stars; instant?: boolean; className?: string }) {
   const play = useSfx();
+  const reduced = useReducedMotionConfig() ?? false;
+  const instant = skip || reduced;
   useEffect(() => {
     if (stars === 0) return;
     if (instant) {
@@ -255,9 +257,9 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
         <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, "items-center gap-4 py-6 text-center", className)}>
           <h2 className="font-display text-lg font-semibold wrap-anywhere">{title}: complete</h2>
-          <StarFill key={instant ? "instant" : "fill"} stars={stars} instant={instant} />
+          <StarFill key={instant ? "stars-instant" : "stars-fill"} stars={stars} instant={instant} />
           <m.div
-            key={instant ? "instant" : "fill"}
+            key={instant ? "result-instant" : "result-fill"}
             className="flex w-full flex-col items-center gap-3"
             initial={instant ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
