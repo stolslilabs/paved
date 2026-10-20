@@ -6,6 +6,8 @@ import type { RendererSettingsInput } from "../src/core/settings";
 import type { AmbientEffect } from "../src/core/ambient-loop";
 import { placementStubs } from "./helpers/placement-stubs";
 import { createCloudUniforms } from "../src/core/cloud-shader";
+import { createSnowUniforms } from "../src/core/snow-shader";
+import { DEFAULT_WEATHER_SETTINGS } from "../src/core/weather-settings";
 
 const adapter: RenderSurfaceAdapter = {
   getSize: () => ({ width: 375, height: 812 }),
@@ -84,6 +86,7 @@ async function createScene(settings: RendererSettingsInput, effects: AmbientEffe
     setNightLights: vi.fn(),
     setNightLevel: vi.fn(),
     cloudUniforms: createCloudUniforms(),
+    snowUniforms: createSnowUniforms(),
     dispose: vi.fn(),
   };
   (scene as any).tiles = tiles;
@@ -276,5 +279,96 @@ describe("GameScene: the cloud shadows (#573) on the ambient loop", () => {
     expect(off.scene.getClouds()).toBeNull();
     low.scene.dispose();
     off.scene.dispose();
+  });
+});
+
+describe("GameScene: the weather (#658) in every board", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** The game's board: the ambient effects on (their setting's default), the cycle held at a season's noon by the fixed wheel. */
+  const held = (season: number, extra: RendererSettingsInput = {}): RendererSettingsInput => ({
+    quality: "medium",
+    ambient: { enabled: true, reducedMotion: false, clouds: { enabled: false } },
+    dayNight: { enabled: true, freezeAt: season + 0.3, reducedMotion: false },
+    ...extra,
+  });
+  const AUTUMN = 1;
+  const WINTER = 2;
+
+  it("loads its chunk, follows the wheel's season and fades into the next over three seconds on the loop", async () => {
+    const { scene, tiles, frames, renders } = await createScene(held(AUTUMN));
+    await (scene as any).dayNightLoad;
+    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull());
+    frames(2);
+    expect(scene.getWeather()).toMatchObject({ mode: "moving", season: "autumn", presence: { autumn: 1 } });
+    expect(scene.getWeather()!.particles.rain).toBeGreaterThan(0);
+    // The rain falls: the loop draws about 30 frames a second.
+    const before = renders();
+    frames(60);
+    expect(renders() - before).toBeGreaterThanOrEqual(28);
+
+    // A tap on the wheel (fixed: the next season held): winter fades in as autumn fades out.
+    scene.setSettings(held(WINTER));
+    frames(90);
+    const mid = scene.getWeather()!;
+    expect(mid.season).toBe("winter");
+    expect(mid.presence.winter).toBeGreaterThan(0.3);
+    expect(mid.presence.winter).toBeLessThan(0.7);
+    expect(mid.presence.autumn).toBeCloseTo(1 - mid.presence.winter);
+    frames(120);
+    expect(scene.getWeather()).toMatchObject({ presence: { autumn: 0, winter: 1 } });
+    expect(tiles.snowUniforms.uSnowCover.value).toBeCloseTo(DEFAULT_WEATHER_SETTINGS.winter.cover);
+    expect(tiles.snowUniforms.uSnowVeil.value).toBe(DEFAULT_WEATHER_SETTINGS.winter.veil);
+
+    scene.dispose();
+    expect(scene.getWeather()).toBeNull();
+    expect(tiles.snowUniforms.uSnowCover.value).toBe(0);
+  });
+
+  it("is off with the 'Ambient effects' off, on the Low tier and with the cycle off; still under reduced motion", async () => {
+    const { scene, tiles } = await createScene(held(WINTER));
+    await (scene as any).dayNightLoad;
+    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull());
+    expect(scene.getWeather()!.mode).toBe("moving");
+
+    scene.setSettings(held(WINTER, { ambient: { enabled: false } }));
+    expect(scene.getWeather()).toMatchObject({ mode: "off", drawCalls: 0 });
+    expect(tiles.snowUniforms.uSnowCover.value).toBe(0);
+
+    scene.setSettings(held(WINTER, { quality: "low" }));
+    expect(scene.getWeather()).toMatchObject({ mode: "off", drawCalls: 0 });
+
+    scene.setSettings(held(WINTER, { dayNight: { enabled: false } }));
+    expect(scene.getWeather()).toMatchObject({ mode: "off", season: null, drawCalls: 0 });
+
+    // Reduced motion: nothing falls, the grade and the veil stay, the loop is off (nothing steps, nothing draws on its own).
+    scene.setSettings(held(WINTER, { ambient: { enabled: true, reducedMotion: true, clouds: { enabled: false } } }));
+    expect(scene.getWeather()).toMatchObject({ mode: "still", season: "winter", particles: { snow: 0 }, drawCalls: 1 });
+    expect(tiles.snowUniforms.uSnowCover.value).toBeGreaterThan(0);
+    expect(scene.getAmbient().running).toBe(false);
+    scene.dispose();
+  });
+
+  it("does not load with the effects off, on the Low tier, nor with the cycle off", async () => {
+    const off = await createScene(held(AUTUMN, { ambient: { enabled: false } }));
+    const low = await createScene(held(AUTUMN, { quality: "low" }));
+    const noCycle = await createScene(held(AUTUMN, { dayNight: { enabled: false } }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (const { scene } of [off, low, noCycle]) {
+      expect((scene as any).weatherLoad).toBeNull();
+      scene.dispose();
+    }
+  });
+
+  it("brings autumn's more clouds to the cloud shadows while it shows", async () => {
+    const { scene } = await createScene(held(AUTUMN, { ambient: { enabled: true, reducedMotion: false } }));
+    const coverage = (scene as any).cloudSettings().seasonCoverage.autumn;
+    expect(coverage).toBeCloseTo(1.2 * DEFAULT_WEATHER_SETTINGS.autumn.clouds);
+    scene.setSettings(held(AUTUMN, { ambient: { enabled: true, reducedMotion: false }, weather: { enabled: false } }));
+    expect((scene as any).cloudSettings().seasonCoverage.autumn).toBeCloseTo(1.2);
+    scene.dispose();
   });
 });

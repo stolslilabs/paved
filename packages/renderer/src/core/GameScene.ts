@@ -37,9 +37,12 @@ import type { DropResult } from "./tile-drops";
 // The day and night cycle is its own chunk: loaded only once the cycle is first on (`loadDayNight`).
 import type * as DayNight from "./daynight";
 import { AmbientLoop } from "./ambient-loop";
-import { ambientAllowed } from "./ambient-settings";
+import { ambientAllowed, type CloudShadowSettings } from "./ambient-settings";
 // The cloud shadows are their own chunk: loaded only once the ambient effects are first on with the clouds (`syncAmbient`).
 import type * as Clouds from "./cloud-shadows";
+// The weather is its own chunk too: loaded only once it first shows (`syncWeather`).
+import type * as WeatherChunk from "./weather";
+import { weatherCloudFactor, weatherMode, type WeatherMode } from "./weather-settings";
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -194,6 +197,9 @@ export class GameScene {
   private cloudsLoad: Promise<void> | null = null;
   /** The cycle's night level last drawn (0 by day, or with the cycle off): the clouds' share on the moon's light. */
   private nightLevel = 0;
+  /** The weather (`weather.ts`, #607, #658), once its chunk is in; its load, started the first time it shows. */
+  private weather: WeatherChunk.Weather | null = null;
+  private weatherLoad: Promise<void> | null = null;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -475,12 +481,74 @@ export class GameScene {
     this.ambient.setEnabled(on);
     const clouds = this.clouds;
     if (clouds) {
-      clouds.setSettings(settings.clouds);
+      clouds.setSettings(this.cloudSettings());
       clouds.setActive(on && settings.clouds.enabled);
     } else if (on && settings.clouds.enabled) {
       this.loadClouds();
     }
+    this.syncWeather();
     this.requestRender();
+  }
+
+  /** The cloud shadows' settings, with autumn's more clouds while the weather shows (`weatherCloudFactor`). */
+  private cloudSettings(): CloudShadowSettings {
+    const clouds = this.settings.ambient.clouds;
+    const factor = this.weatherModeNow() !== "off" ? weatherCloudFactor(this.settings.weather, "autumn") : 1;
+    if (factor === 1) return clouds;
+    return { ...clouds, seasonCoverage: { ...clouds.seasonCoverage, autumn: clouds.seasonCoverage.autumn * factor } };
+  }
+
+  /**
+   * The weather's mode (`weatherMode`): off with the weather or the ambient effects off ("Ambient effects"), on the Low tier, or
+   * with the day and night cycle off (no season); still under reduced motion (nothing falls: the grade, the brightness and the
+   * snow on the tops only); else moving, on the ambient loop.
+   */
+  private weatherModeNow(): WeatherMode {
+    if (!this.renderer || !this.settings.dayNight.enabled) return "off";
+    return weatherMode(this.settings.weather, this.settings.ambient, this.getQuality(), prefersReducedMotion());
+  }
+
+  /**
+   * The weather (WEATHER-WIRE, #658) in every board: its chunk loads the first time it shows, then it follows the settings, the
+   * clouds' wind, its mode and the cycle's point (`syncWeatherCycle`: the wheel's season, auto or fixed, by day and at night).
+   */
+  private syncWeather(): void {
+    const mode = this.weatherModeNow();
+    const weather = this.weather;
+    if (!weather) {
+      if (mode !== "off") this.loadWeather();
+      return;
+    }
+    weather.setSettings(this.settings.weather);
+    weather.setWind(this.settings.ambient.clouds.windDirection, this.settings.ambient.clouds.windSpeed);
+    this.syncWeatherCycle();
+    weather.setMode(mode);
+  }
+
+  /** The cycle's point to the weather: its season and daylight (none with the cycle off). */
+  private syncWeatherCycle(): void {
+    this.weather?.setCycle(this.getDayNight());
+  }
+
+  /** Loads the weather's chunk once, adds it to the scene and registers it on the loop (a failed load leaves the board as it is). */
+  private loadWeather(): void {
+    this.weatherLoad ??= import("./weather").then(
+      (module) => {
+        if (this.disposed) return;
+        const weather = new module.Weather(this.ambient.time, this.tiles.snowUniforms, this.settings.weather);
+        weather.onChange = () => this.requestRender();
+        this.weather = weather;
+        this.scene.add(weather.object);
+        this.ambient.register(weather);
+        this.syncWeather();
+      },
+      (error: unknown) => console.warn("[renderer] the weather did not load, the board stays as it is:", error),
+    );
+  }
+
+  /** The weather now (`Weather.stats`), or null before its chunk is in: the stories' readout and the tests. */
+  getWeather(): WeatherChunk.WeatherStats | null {
+    return this.weather?.stats() ?? null;
   }
 
   /** Loads the cloud shadows' chunk once and registers them on the loop (a failed load leaves the board as it is). */
@@ -488,7 +556,7 @@ export class GameScene {
     this.cloudsLoad ??= import("./cloud-shadows").then(
       (module) => {
         if (this.disposed) return;
-        const clouds = new module.CloudShadows(this.tiles.cloudUniforms, this.settings.ambient.clouds);
+        const clouds = new module.CloudShadows(this.tiles.cloudUniforms, this.cloudSettings());
         clouds.onChange = () => this.requestRender();
         this.clouds = clouds;
         this.syncCloudLight();
@@ -550,6 +618,7 @@ export class GameScene {
         this.nightLevel = 0;
         this.syncCloudLight();
       }
+      this.syncWeather();
       return;
     }
     if (!this.dayNight) {
@@ -620,6 +689,7 @@ export class GameScene {
       this.settings.dayNight.brightnessFloor,
     );
     this.syncCloudLight();
+    this.syncWeatherCycle();
     this.requestRender();
   }
 
@@ -1155,6 +1225,9 @@ export class GameScene {
     this.clouds?.dispose();
     this.clouds = null;
     this.cloudsLoad = null;
+    this.weather?.dispose();
+    this.weather = null;
+    this.weatherLoad = null;
     this.scene.clear();
     this.latestTiles = [];
     this.cameraListeners.clear();

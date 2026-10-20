@@ -1,22 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import {
   DAY_PHASE_AT,
   DEFAULT_BIRD_SETTINGS,
-  DEFAULT_CLOUD_SHADOWS,
   PLAY_DEFAULT_POLAR_ANGLE,
   loadBirds,
-  loadWeather,
-  resolveWeatherSettings,
-  weatherMode,
   type Birds,
   type GameScene,
   type ParticleSettings,
   type QualityTier,
   type RendererSettingsInput,
   type Season,
-  type Weather,
-  type WeatherSettings,
   type WeatherSettingsInput,
 } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
@@ -38,7 +32,7 @@ export type WeatherBoardProps = LayerProps<"rain"> &
   LayerProps<"leaves"> &
   LayerProps<"snow"> &
   LayerProps<"petals"> & {
-    /** The weather on (the study's own switch). */
+    /** The weather on (`RendererSettings.weather.enabled`). */
     weather: boolean;
     area: number;
     fadeSeconds: number;
@@ -48,10 +42,6 @@ export type WeatherBoardProps = LayerProps<"rain"> &
     summerGrade: string;
     summerGradeAmount: number;
     summerBrightness: number;
-    glare: number;
-    glareSize: number;
-    shimmer: number;
-    shimmerSpeed: number;
     autumnOn: boolean;
     autumnGrade: string;
     autumnGradeAmount: number;
@@ -61,18 +51,17 @@ export type WeatherBoardProps = LayerProps<"rain"> &
     winterGrade: string;
     winterGradeAmount: number;
     snowCover: number;
+    snowVeil: number;
     springOn: boolean;
     springGrade: string;
     springGradeAmount: number;
-    raysOn: boolean;
-    raysDensity: number;
-    raysOpacity: number;
-    raysSize: number;
-    raysSpeed: number;
-    /** The birds of #574 in spring (not validated yet: off by default). */
+    springBrightness: number;
+    /** The birds of #574 in spring (not validated yet: off by default, and the board does not draw them). */
     springBirds: boolean;
     /** The season: the wheel's fixed one, or where the cycle starts with the wheel on auto. */
     season: Season;
+    /** With the wheel fixed: two seconds after the board is up, the wheel turns to this season (a season fade); null, it stays. */
+    fadeTo: Season | null;
     wheel: WeatherWheel;
     /** With the wheel fixed: its day (the game's) or its night (to judge the weather at night). */
     time: "day" | "night";
@@ -106,15 +95,7 @@ export function weatherInput(props: WeatherBoardProps): WeatherSettingsInput {
     area: props.area,
     fadeSeconds: props.fadeSeconds,
     night: props.nightShare,
-    summer: {
-      enabled: props.summerOn,
-      grade: { color: props.summerGrade, amount: props.summerGradeAmount },
-      brightness: props.summerBrightness,
-      glare: props.glare,
-      glareSize: props.glareSize,
-      shimmer: props.shimmer,
-      shimmerSpeed: props.shimmerSpeed,
-    },
+    summer: { enabled: props.summerOn, grade: { color: props.summerGrade, amount: props.summerGradeAmount }, brightness: props.summerBrightness },
     autumn: {
       enabled: props.autumnOn,
       grade: { color: props.autumnGrade, amount: props.autumnGradeAmount },
@@ -123,11 +104,17 @@ export function weatherInput(props: WeatherBoardProps): WeatherSettingsInput {
       leaves: layer(props, "leaves"),
       clouds: props.autumnClouds,
     },
-    winter: { enabled: props.winterOn, grade: { color: props.winterGrade, amount: props.winterGradeAmount }, snow: layer(props, "snow"), cover: props.snowCover },
+    winter: {
+      enabled: props.winterOn,
+      grade: { color: props.winterGrade, amount: props.winterGradeAmount },
+      snow: layer(props, "snow"),
+      cover: props.snowCover,
+      veil: props.snowVeil,
+    },
     spring: {
       enabled: props.springOn,
       grade: { color: props.springGrade, amount: props.springGradeAmount },
-      rays: { enabled: props.raysOn, density: props.raysDensity, opacity: props.raysOpacity, size: props.raysSize, speed: props.raysSpeed },
+      brightness: props.springBrightness,
       petals: layer(props, "petals"),
     },
   };
@@ -159,101 +146,53 @@ interface Readout {
 }
 
 /**
- * The weather (WEATHER-STUDY, #607 PR 2) on the recorded 72-tile board at the game's camera, under the day and night cycle and the
- * season wheel. The board does not call the weather: the story loads its chunk (`loadWeather`), adds it to the scene, hands it the
- * tile shader's snow (`scene.tiles.snowUniforms`) and registers it on the scene's one ambient loop (`scene.ambient`), which steps
- * it at its capped rate and stops while the tab is hidden or the effects are off. Its mode follows the settings, the tier and
- * reduced motion (`weatherMode`); its season and daylight the cycle (`setCycle`); its wind the cloud shadows' (`setWind`). Every
- * knob is a control; the readout gives the weather's draws and the frame's, the frames a second and the frame's CPU time, p95.
- * The scene is exposed to the measuring scripts as `window.__weatherScene`, the weather as `window.__weather`.
+ * The weather (WEATHER-WIRE, #658) on the recorded 72-tile board at the game's camera, under the day and night cycle and the season
+ * wheel, drawn by the scene itself as on every board: the controls go to `RendererSettings.weather`, the scene loads the weather's
+ * chunk, registers it on its one ambient loop, and hands it its mode (the tier, the 'Ambient effects', reduced motion), the cycle's
+ * point and the clouds' wind. Every knob is a control; the readout gives the weather's draws and the frame's, the frames a second and
+ * the frame's CPU time, p95. The scene is exposed to the measuring scripts as `window.__weatherScene`.
  */
 export function WeatherBoard(props: WeatherBoardProps) {
-  const { view, clouds, windDirection, windSpeed, enabled, reducedMotion, fps, quality, springBirds } = props;
+  const { view, clouds, windDirection, windSpeed, enabled, reducedMotion, fps, quality, springBirds, fadeTo } = props;
   const [scene, setScene] = useState<GameScene | null>(null);
-  const [weather, setWeather] = useState<Weather | null>(null);
   const [season, setSeason] = useState<Season | null>(null);
   const [ready, setReady] = useState(false);
   const [readout, setReadout] = useState<Readout | null>(null);
-  const settingsKey = JSON.stringify(weatherInput(props));
-  const weatherSettings = useMemo<WeatherSettings>(() => resolveWeatherSettings(JSON.parse(settingsKey) as WeatherSettingsInput), [settingsKey]);
-  const dayNightKey = JSON.stringify(weatherDayNight(props));
+  // The season fade: two seconds after the board is up, the wheel turns (as a tap on it does).
+  const [turned, setTurned] = useState(false);
+  const shown = turned && fadeTo && props.wheel === "fixed" ? { ...props, season: fadeTo } : props;
+  const weatherKey = JSON.stringify(weatherInput(props));
+  const dayNightKey = JSON.stringify(weatherDayNight(shown));
   const settings = useMemo<RendererSettingsInput>(
     () => ({
       quality,
       dayNight: JSON.parse(dayNightKey) as RendererSettingsInput["dayNight"],
-      ambient: {
-        enabled,
-        fps,
-        reducedMotion,
-        clouds: {
-          enabled: clouds,
-          windDirection,
-          windSpeed,
-          // More clouds in autumn (the weather's proposal), by the clouds' own season factor.
-          seasonCoverage: { ...DEFAULT_CLOUD_SHADOWS.seasonCoverage, autumn: DEFAULT_CLOUD_SHADOWS.seasonCoverage.autumn * (weatherSettings.enabled && weatherSettings.autumn.enabled ? weatherSettings.autumn.clouds : 1) },
-        },
-      },
+      ambient: { enabled, fps, reducedMotion, clouds: { enabled: clouds, windDirection, windSpeed } },
+      weather: JSON.parse(weatherKey) as WeatherSettingsInput,
     }),
-    [quality, dayNightKey, enabled, fps, reducedMotion, clouds, windDirection, windSpeed, weatherSettings],
+    [quality, dayNightKey, enabled, fps, reducedMotion, clouds, windDirection, windSpeed, weatherKey],
   );
-  const settingsRef = useRef(weatherSettings);
-  settingsRef.current = weatherSettings;
 
   const onReady = useCallback((s: GameScene) => {
     setScene(s);
     (window as unknown as { __weatherScene?: GameScene }).__weatherScene = s;
   }, []);
 
-  // The weather: its chunk, in the scene (world space), on the scene's ambient loop, with the tiles' snow.
+  useEffect(() => {
+    setTurned(false);
+    if (!ready || !fadeTo) return;
+    const id = window.setTimeout(() => setTurned(true), 2000);
+    return () => clearTimeout(id);
+  }, [ready, fadeTo]);
+
+  // The season the cycle draws, read twice a second (for the birds' switch).
   useEffect(() => {
     if (!scene) return;
-    let alive = true;
-    let made: Weather | null = null;
-    let unregister = () => {};
-    void loadWeather().then(({ Weather }) => {
-      if (!alive) return;
-      made = new Weather(scene.ambient.time, scene.tiles.snowUniforms, settingsRef.current);
-      made.onChange = () => scene.requestRender();
-      scene.scene.add(made.object);
-      unregister = scene.ambient.register(made);
-      (window as unknown as { __weather?: Weather }).__weather = made;
-      setWeather(made);
-    });
-    return () => {
-      alive = false;
-      unregister();
-      made?.dispose();
-      scene.requestRender();
-      setWeather(null);
-    };
-  }, [scene]);
-
-  useEffect(() => {
-    weather?.setSettings(weatherSettings);
-  }, [weather, weatherSettings]);
-
-  useEffect(() => {
-    weather?.setWind(windDirection, windSpeed);
-  }, [weather, windDirection, windSpeed]);
-
-  // The mode: off on the Low tier and with the effects off, still under reduced motion (the scene's tier, resolved from "auto").
-  useEffect(() => {
-    if (!scene || !weather) return;
-    weather.setMode(weatherMode(weatherSettings, { enabled, reducedMotion }, scene.getQuality(), false));
-  }, [scene, weather, weatherSettings, enabled, reducedMotion, quality]);
-
-  // The season and the daylight: the cycle's point, read four times a second (the season wheel reads it once a second).
-  useEffect(() => {
-    if (!scene || !weather) return;
-    const sync = () => {
-      const point = scene.getDayNight();
-      weather.setCycle(point);
-      setSeason(point?.season ?? null);
-    };
+    const sync = () => setSeason(scene.getDayNight()?.season ?? null);
     sync();
-    const id = window.setInterval(sync, 250);
+    const id = window.setInterval(sync, 500);
     return () => clearInterval(id);
-  }, [scene, weather]);
+  }, [scene]);
 
   // Spring's birds (#574), on the same loop, while the season is spring and the switch on.
   const birdsOn = springBirds && season === "spring";
@@ -305,7 +244,7 @@ export function WeatherBoard(props: WeatherBoardProps) {
 
   // The readout: the frame observer times each frame drawn and counts its draws (three's counters kept over the passes).
   useEffect(() => {
-    if (!scene || !weather) return;
+    if (!scene) return;
     const info = scene.renderer.info;
     info.autoReset = false;
     const times: number[] = [];
@@ -324,19 +263,18 @@ export function WeatherBoard(props: WeatherBoardProps) {
     const timer = window.setInterval(() => {
       while (stamps.length && stamps[0]! < performance.now() - 1000) stamps.shift();
       const ambient = scene.getAmbient();
-      const stats = weather.stats();
+      const stats = scene.getWeather();
       const point = scene.getDayNight();
-      const counts = Object.entries(stats.particles)
+      const counts = Object.entries(stats?.particles ?? {})
         .filter(([, n]) => n > 0)
         .map(([k, n]) => `${n} ${k}`);
-      if (stats.splashes) counts.push(`${stats.splashes} splashes`);
-      if (stats.rays) counts.push(`${stats.rays} rays`);
-      if (stats.cover > 0) counts.push(`snow on ${Math.round(stats.cover * 100)} % of the tops`);
+      if (stats?.splashes) counts.push(`${stats.splashes} splashes`);
+      if (stats && stats.cover > 0) counts.push(`snow veil on ${Math.round(stats.cover * 100)} % of the tops`);
       setReadout({
-        mode: stats.mode,
+        mode: stats?.mode ?? "not loaded",
         season: point ? `${point.season} ${point.phase}` : "no cycle",
         layers: counts.join(" · ") || "nothing falls",
-        weatherDraws: stats.drawCalls,
+        weatherDraws: stats?.drawCalls ?? 0,
         drawCalls: calls,
         cpuP95: p95(times),
         framesPerSecond: stamps.length,
@@ -349,7 +287,7 @@ export function WeatherBoard(props: WeatherBoardProps) {
       scene.setFrameObserver(null);
       info.autoReset = true;
     };
-  }, [scene, weather]);
+  }, [scene]);
 
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={(ready && !!readout) || undefined}>
