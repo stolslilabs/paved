@@ -363,7 +363,7 @@ describe("the plates' changes", () => {
 describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
   const { tints } = DEFAULT_PLACEMENT_SETTINGS;
 
-  it("defaults to the owner's: no tint at 50 % on a hover, opaque yellow pending, a green confirm, no rim or aura setting left", () => {
+  it("defaults to the owner's: no tint at 50 % on a hover, opaque and a faint yellow pending, a green confirm, no rim or aura setting left", () => {
     expect(tints.hoverOpacity).toBe(0.5);
     expect(tints.hoverStrength).toBe(0);
     expect(tintForKind("hover", tints).strength).toBe(0);
