@@ -21,14 +21,7 @@ function buzz(ms: number) {
   }
 }
 
-/** One plan of a level's deck and how many times the level deals it, in the order of its first draw. */
-export function deckGroups(deck: readonly number[]): { plan: number; count: number }[] {
-  const groups = new Map<number, number>();
-  for (const plan of deck) groups.set(plan, (groups.get(plan) ?? 0) + 1);
-  return [...groups].map(([plan, count]) => ({ plan, count }));
-}
-
-/** The whole presentation's entrance, seconds: the tiles land one group after another within it, however many there are. */
+/** The whole presentation's entrance, seconds: the tiles land one after another within it, however many there are. */
 const PRESENT_SECONDS = 0.9;
 
 export interface DeckPresentationProps {
@@ -47,14 +40,13 @@ export interface DeckPresentationProps {
 }
 
 /**
- * A level's opening (#593): its title and intro, then the tiles it deals, grouped by plan with their counts (the deck sheet's
- * counts, not the order), landing one after another; a tap anywhere, or Start, opens the board. No star threshold is shown.
+ * A level's opening (#593): its title and intro, then the tiles it deals in draw order, numbered, the order the deck sheet
+ * shows (#613), landing one after another; a tap anywhere, or Start, opens the board. No star threshold is shown.
  * Under reduced motion the tiles are there at once.
  */
 export function DeckPresentation({ campaign, levelIndex, title, intro, deck, renders, best, onStart, className }: DeckPresentationProps) {
   const reduced = useReducedMotionConfig();
-  const groups = deckGroups(deck);
-  const step = Math.min(0.07, PRESENT_SECONDS / Math.max(1, groups.length));
+  const step = Math.min(0.07, PRESENT_SECONDS / Math.max(1, deck.length));
   return (
     <section
       aria-label="Level deck"
@@ -77,28 +69,26 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, deck, ren
           </m.header>
           <div className="flex flex-col gap-2">
             <span className="text-sm text-muted-foreground">
-              This level deals <span className="numeric text-foreground">{deck.length}</span> {deck.length === 1 ? "tile" : "tiles"}:
+              This level deals <span className="numeric text-foreground">{deck.length}</span> {deck.length === 1 ? "tile" : "tiles"}, in this order:
             </span>
-            <ul data-testid="presented-tiles" className="grid grid-cols-4 gap-2 tablet:grid-cols-6 desktop:grid-cols-8">
-              {groups.map(({ plan, count }, i) => (
+            <ol data-testid="presented-tiles" className="grid grid-cols-5 gap-2 tablet:grid-cols-8 desktop:grid-cols-10">
+              {deck.map((plan, i) => (
                 <m.li
-                  key={plan}
+                  key={i}
                   data-plan={plan}
-                  data-count={count}
+                  aria-label={`Tile ${i + 1}`}
                   className="relative aspect-square overflow-hidden rounded-lg border border-border bg-board shadow-md"
                   initial={reduced ? false : { opacity: 0, y: 14, scale: 0.85 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ delay: 0.25 + i * step, duration: 0.3, ease: "easeOut" }}
                 >
                   <TileRender plan={plan} theme={0} renders={renders} />
-                  {count > 1 && (
-                    <span className="numeric absolute right-1 bottom-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow" aria-label={`${count} of this tile`}>
-                      ×{count}
-                    </span>
-                  )}
+                  <span className="numeric absolute top-1 left-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow" aria-hidden>
+                    {i + 1}
+                  </span>
                 </m.li>
               ))}
-            </ul>
+            </ol>
           </div>
           {best && (
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
