@@ -5,7 +5,7 @@
 /* iPhone Safari in a tab (not an installed app): its floating bottom toolbar overlays the page's end, and
    `env(safe-area-inset-bottom)` does not count it. `-webkit-touch-callout` exists only on iOS WebKit, so Android Chrome, desktop
    browsers and a home-screen app of an older manifest (`display-mode: standalone`, dropped in #589) never match; the width keeps iPad out. */
-/* NO-SCROLLBARS (#609): the document has more below (`usePageScrollHint`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
+/* NO-SCROLLBARS (#609): the tab page's region has more below (`pageScrollHintRef`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
 @custom-variant page-more (&:where(html[data-scroll-end] *));
 @custom-variant iphone-tab {
   @supports (-webkit-touch-callout: none) {
@@ -337,8 +337,9 @@
   input, textarea, [contenteditable="true"] { @apply select-text; -webkit-touch-callout: default; }
   canvas { touch-action: none; -webkit-touch-callout: none; }
   img, svg { -webkit-user-drag: none; user-drag: none; }
-  /* The board routes do not scroll: no pull-to-refresh and no bounce (`RootLayout` sets the flag). The other pages scroll as usual. */
-  html[data-board], html[data-board] body { overscroll-behavior: none; }
+  /* The document never bounces and never pulls to refresh (#611): a pull past the top would drag every page, its
+     navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
+  html, body { overscroll-behavior: none; }
 
   /* NO-SCROLLBARS (#609): no scrollbar is drawn from `desktop`, on any element, the document included; every scroller still
      scrolls by wheel, trackpad, keyboard and touch. Below `desktop` the OS draws overlay bars that hide themselves: unchanged.
