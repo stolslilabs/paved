@@ -186,7 +186,7 @@ export class PointerTap {
    * The pointer a tap may come from: where and which pointer went down. `multi` is set when a second pointer went down
    * before it came up; `press` is the cell a press was reported on, until it ends.
    */
-  private down: { x: number; y: number; pointerId?: number; multi: boolean; press: { x: number; y: number } | null } | null = null;
+  private down: { x: number; y: number; pointerId?: number; multi: boolean; cancelled: boolean; press: { x: number; y: number } | null } | null = null;
 
   constructor(
     private readonly handlers: PointerTapHandlers,
@@ -198,7 +198,12 @@ export class PointerTap {
       case "pointerdown":
         return this.pointerDown(event);
       case "pointermove":
-        if (this.down?.press && this.samePointer(event) && !isClick(this.down, event, this.threshold)) this.endPress("cancelled");
+        if (!this.down || !this.samePointer(event)) return;
+        // Another button pressed while the left is held (a chord: the right one tilts) comes as a move, never as a down.
+        if (event.buttons !== undefined && (event.buttons & ~1) !== 0) {
+          this.down.cancelled = true;
+          this.endPress("cancelled");
+        } else if (this.down.press && !isClick(this.down, event, this.threshold)) this.endPress("cancelled");
         return;
       case "pointerup":
         return this.pointerUp(event);
@@ -231,7 +236,7 @@ export class PointerTap {
     // A press still open (a lost up): it ends before the new one.
     this.endPress("cancelled");
     const cell = this.handlers.onPress ? this.handlers.toGrid(event) : null;
-    this.down = { x: event.x, y: event.y, pointerId: event.pointerId, multi: false, press: cell };
+    this.down = { x: event.x, y: event.y, pointerId: event.pointerId, multi: false, cancelled: false, press: cell };
     if (cell) this.handlers.onPress?.(cell.x, cell.y, "down");
   }
 
@@ -240,7 +245,9 @@ export class PointerTap {
     if ((event.button ?? 0) !== 0 || !down) return;
     const acted = this.endPress("released");
     this.down = null;
-    if (acted || down.multi || !isClick(down, event, this.threshold)) return;
+    // A press that was cancelled (moved past the threshold, a chord) never clicks, even back where it started: a hold
+    // that completed and was then dragged off and back must not choose its cell again.
+    if (acted || down.cancelled || down.multi || !isClick(down, event, this.threshold)) return;
     const cell = this.handlers.toGrid(event);
     if (cell) this.handlers.onClick?.(cell.x, cell.y);
   }
@@ -250,6 +257,7 @@ export class PointerTap {
     const press = this.down?.press;
     if (!press) return false;
     this.down!.press = null;
+    if (phase === "cancelled") this.down!.cancelled = true;
     return this.handlers.onPress?.(press.x, press.y, phase) === true;
   }
 }

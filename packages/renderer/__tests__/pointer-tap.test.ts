@@ -83,6 +83,27 @@ describe("PointerTap (TILE-HOLD, #630)", () => {
     expect(t.presses.at(-1)).toEqual([1, 2, "cancelled"]);
   });
 
+  it("never clicks after a cancelled press, even back where it started: a completed hold dragged off and back keeps its cell", () => {
+    const t = tracker();
+    t.send("pointerdown", 150, 250);
+    t.send("pointermove", 165, 250);
+    t.send("pointermove", 150, 250);
+    t.send("pointerup", 150, 250);
+    expect(t.presses.map((p) => p[2])).toEqual(["down", "cancelled"]);
+    expect(t.clicks).toEqual([]);
+  });
+
+  it("cancels the press on a mouse chord: the right button pressed while the left is held comes as a move with buttons 3", () => {
+    const t = tracker();
+    t.send("pointerdown", 150, 250, { buttons: 1 });
+    t.send("pointermove", 150, 250, { buttons: 1 });
+    expect(t.presses.map((p) => p[2])).toEqual(["down"]);
+    t.send("pointermove", 150, 250, { buttons: 3 });
+    expect(t.presses.map((p) => p[2])).toEqual(["down", "cancelled"]);
+    t.send("pointerup", 150, 250, { buttons: 0 });
+    expect(t.clicks).toEqual([]);
+  });
+
   it("cancels the press when the browser cancels the pointer or it leaves the surface", () => {
     const t = tracker();
     t.send("pointerdown", 150, 250);
