@@ -113,7 +113,7 @@ const meta = {
     glare: { ...range(0, 1.5, 0.01), description: `The sun's glare, a light leak from the sun's side of the screen (default ${d.summer.glare})`, ...category("summer") },
     glareSize: { ...range(0.1, 2, 0.05), description: `The glare's reach, a share of the screen (default ${d.summer.glareSize})`, ...category("summer") },
     shimmer: { ...range(0, 0.1, 0.002), description: `The heat shimmer far off (default ${d.summer.shimmer})`, ...category("summer") },
-    shimmerSpeed: { ...range(0, 4, 0.1), description: "The shimmer's speed", ...category("summer") },
+    shimmerSpeed: { ...range(0, 4, 0.1), description: `The shimmer's speed; 0 stops it (default ${d.summer.shimmerSpeed})`, ...category("summer") },
 
     autumnOn: { control: "boolean", description: "Autumn's weather on", ...category("autumn") },
     autumnGrade: { control: "color", description: `Autumn's grade (default ${d.autumn.grade.color})`, ...category("autumn") },

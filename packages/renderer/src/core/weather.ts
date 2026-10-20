@@ -208,6 +208,7 @@ uniform float uGlareSize;
 uniform vec2 uSun;
 uniform float uAspect;
 uniform float uShimmer;
+uniform float uShimmerSpeed;
 uniform float uRays;
 uniform float uRayCount;
 uniform float uRaySize;
@@ -225,7 +226,8 @@ void main() {
     shafts += 0.6 * smoothstep(0.7, 1.0, sin(angle * uRayCount * 1.7 - uTime * uRaySpeed * 0.08 + 1.3));
     light += uRays * shafts * exp(-r / (1.6 * uRaySize)) * smoothstep(0.05, 0.5, r);
   }
-  float ripple = sin(vUv.y * 140.0 - uTime * 2.4 + sin(vUv.x * 9.0 + uTime * 0.9) * 2.5);
+  float shimmerTime = uTime * uShimmerSpeed;
+  float ripple = sin(vUv.y * 140.0 - shimmerTime * 2.4 + sin(vUv.x * 9.0 + shimmerTime * 0.9) * 2.5);
   float shimmer = uShimmer * ripple * smoothstep(0.45, 1.0, vUv.y);
   gl_FragColor = vec4(uTint * (1.0 + shimmer), light);
 }
@@ -422,6 +424,7 @@ export class Weather implements AmbientEffect {
         uSun: { value: new THREE.Vector2(0, 2) },
         uAspect: { value: 1 },
         uShimmer: { value: 0 },
+        uShimmerSpeed: { value: 1 },
         uRays: { value: 0 },
         uRayCount: { value: 6 },
         uRaySize: { value: 1 },
@@ -459,6 +462,8 @@ export class Weather implements AmbientEffect {
 
   setSettings(settings: WeatherSettings): void {
     this.settings = settings;
+    // While nothing steps (still, off), a season turned on or off shows at once: no step would fade it.
+    if (this.mode !== "moving") this.snap();
     this.apply();
   }
 
@@ -566,7 +571,9 @@ export class Weather implements AmbientEffect {
     overlay.uTint!.value.copy(tint);
     overlay.uGlare!.value = sun(s.summer.glare * p.summer);
     overlay.uGlareSize!.value = s.summer.glareSize;
-    overlay.uShimmer!.value = moving ? sun(s.summer.shimmer * p.summer) : 0;
+    // The shimmer moves only with the loop and a speed: held still, a ripple would read as a fixed pattern on the board.
+    overlay.uShimmer!.value = moving && s.summer.shimmerSpeed > 0 ? sun(s.summer.shimmer * p.summer) : 0;
+    overlay.uShimmerSpeed!.value = s.summer.shimmerSpeed;
     overlay.uRays!.value = rays > 5e-4 ? rays : 0;
     overlay.uRayCount!.value = Math.max(1, rayCount);
     overlay.uRaySize!.value = r.size;

@@ -191,6 +191,34 @@ describe("the weather: what each season draws", () => {
     weather.dispose();
   });
 
+  it("a season turned off (or on) shows at once while nothing steps: under reduced motion and off", () => {
+    const { weather } = weatherOf();
+    weather.setMode("still");
+    weather.setCycle(noon("spring"));
+    expect(weather.stats()).toMatchObject({ presence: { spring: 1 }, drawCalls: 1 });
+    expect(weather.stats().rays).toBeGreaterThan(0);
+    weather.setSettings(resolveWeatherSettings({ spring: { enabled: false } }));
+    expect(weather.stats()).toMatchObject({ presence: { spring: 0 }, rays: 0, drawCalls: 0 });
+    weather.setSettings(DEFAULT_WEATHER_SETTINGS);
+    expect(weather.stats()).toMatchObject({ presence: { spring: 1 }, drawCalls: 1 });
+    weather.dispose();
+  });
+
+  it("the shimmer runs at its speed, and a speed of 0 stops it (no shimmer, no frame of its own)", () => {
+    const { weather } = weatherOf(resolveWeatherSettings({ summer: { shimmerSpeed: 2.5 } }));
+    const overlay = weather.object.children.find((c) => c.name === "weather-grade") as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    weather.setMode("moving");
+    weather.setCycle(noon("summer"));
+    expect(overlay.material.uniforms.uShimmerSpeed!.value).toBe(2.5);
+    expect(overlay.material.uniforms.uShimmer!.value).toBeGreaterThan(0);
+    expect(overlay.material.fragmentShader).toContain("uTime * uShimmerSpeed");
+    expect(weather.step(1)).toBe(true);
+    weather.setSettings(resolveWeatherSettings({ summer: { shimmerSpeed: 0 } }));
+    expect(overlay.material.uniforms.uShimmer!.value).toBe(0);
+    expect(weather.step(2)).toBe(false);
+    weather.dispose();
+  });
+
   it("calls onChange on every change, and dispose frees what it made and turns the snow off", () => {
     const { weather, snow } = weatherOf();
     const onChange = vi.fn();
