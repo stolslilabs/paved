@@ -3,7 +3,8 @@
  * 0023018feb6e18c2f4aa0af2062f1c3107d90bfa, MIT, (c) 2023 shadcn), on Embla Carousel (`embla-carousel-react` 8.6.0,
  * https://www.embla-carousel.com, MIT, (c) David Jerleke). Adapted: reduced motion (from `MotionConfig`) makes
  * the buttons and the arrow keys jump instead of scroll, the `reInit` listener is removed on cleanup too, the region
- * takes an accessible name, F3's Button and icons, the semantic tokens.
+ * takes an accessible name, F3's Button and icons, the semantic tokens; `startIndex` is read once, at mount, and
+ * `useCarouselSettled` tells when the track is at rest (#615).
  *
  * Embla is the one runtime beside Motion: it is the carousel engine the owner chose (embla-carousel.com), with its own
  * drag and snap physics, which Motion does not provide; it animates the track's scroll position, not the components.
@@ -44,9 +45,16 @@ function useCarousel() {
   return context;
 }
 
-/** Play's mode cards and the themes. Give it an `aria-label`: the region is a landmark. */
+/**
+ * Play's mode cards and the themes. Give it an `aria-label`: the region is a landmark. `opts.startIndex` is the slide it
+ * opens on, read once: a later change would re-init Embla, which jumps to it and cuts the scroll under way (#615).
+ */
 export function Carousel({ orientation = "horizontal", opts, setApi, plugins, className, children, ...props }: ComponentProps<"div"> & CarouselProps) {
-  const [carouselRef, api] = useEmblaCarousel({ ...opts, axis: orientation === "horizontal" ? "x" : "y" }, plugins);
+  const [startIndex] = useState(opts?.startIndex);
+  const [carouselRef, api] = useEmblaCarousel(
+    { ...opts, ...(startIndex === undefined ? {} : { startIndex }), axis: orientation === "horizontal" ? "x" : "y" },
+    plugins,
+  );
   const reduced = useReducedMotionConfig();
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
@@ -97,6 +105,30 @@ export function Carousel({ orientation = "horizontal", opts, setApi, plugins, cl
       </div>
     </CarouselContext.Provider>
   );
+}
+
+/**
+ * Whether the carousel has come to rest since it mounted (#615): at once when it opens still (Embla jumps to `startIndex`)
+ * or is off (`active: false`, a breakpoint), else on Embla's `settle`, once its scroll ends and no finger holds it. A motion
+ * that follows the carousel's own (a card's unlock) waits for it: one motion at a time. Stays true once true.
+ */
+export function useCarouselSettled(api: CarouselApi): boolean {
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (!api || settled) return;
+    const done = () => setSettled(true);
+    // A frame first: a scroll started in the same commit (a `scrollTo` from an effect) is under way by then.
+    const frame = requestAnimationFrame(() => {
+      const engine = api.internalEngine();
+      if (!engine.options.active || (engine.scrollBody.settled() && !engine.dragHandler.pointerDown())) done();
+    });
+    api.on("settle", done);
+    return () => {
+      cancelAnimationFrame(frame);
+      api.off("settle", done);
+    };
+  }, [api, settled]);
+  return settled;
 }
 
 export function CarouselContent({ className, ...props }: ComponentProps<"div">) {
