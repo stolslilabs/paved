@@ -13,7 +13,7 @@ const RING_R = 19;
 const RING_C = 2 * Math.PI * RING_R;
 
 /**
- * The button's colours (#606): `primary`, the yellow button with a grey progress ring (Validate); `destructive`, the colours
+ * The button's colours (BUBBLE-DISCARD, issue 606): `primary`, the yellow button with a grey progress ring (Validate); `destructive`, the colours
  * inverted, a grey circle with a red progress ring (Discard).
  */
 export type HoldTone = "primary" | "destructive";

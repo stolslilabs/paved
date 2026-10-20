@@ -30,7 +30,7 @@ export function GameActionRow({ action }: { action: GameAction }) {
       className="state-layer -mx-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
     >
       <span className="inline-flex h-5 items-center">
-        <Icon name={destructive ? "flag" : "rotate-left"} className={destructive ? "text-destructive-text" : "text-primary"} size="sm" fixedWidth />
+        <Icon name={destructive ? "flag" : "arrows-rotate"} className={destructive ? "text-destructive-text" : "text-primary"} size="sm" fixedWidth />
       </span>
       <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
         <span className={cn("text-sm leading-5", destructive && "text-destructive-text")}>{action.label}</span>

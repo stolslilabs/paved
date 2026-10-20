@@ -70,10 +70,10 @@ export function DeckSheet({ open, onOpenChange, counts, handPlan, tileArt, rende
             {onViewChange && (
               <ToggleGroup type="single" variant="outline" aria-label="Deck view" value={view} onValueChange={(v) => v && onViewChange(v as DeckView)}>
                 <ToggleGroupItem value="real" className="h-11 px-3">
-                  <Icon name="image" size="sm" /> Real
+                  <Icon name="eye" size="sm" /> Real
                 </ToggleGroupItem>
                 <ToggleGroupItem value="simple" className="h-11 px-3">
-                  <Icon name="grid-2" size="sm" /> Simplified
+                  <Icon name="table-cells-large" size="sm" /> Simplified
                 </ToggleGroupItem>
               </ToggleGroup>
             )}
