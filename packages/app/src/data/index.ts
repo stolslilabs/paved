@@ -26,13 +26,10 @@ export {
   useDefinitions,
   useIndexedGame,
   useIndexedPlayerGames,
-  useLeaderboard,
-  useLeaderboardEntry,
   usePlayerAchievements,
   usePlayerProfile,
   usePlayerQuests,
   usePlayerStatus,
-  useTopThree,
 } from "./indexer";
 export { boardOf, remainingOf, useTrainingSave, useTrainingSession } from "./training";
 export { useChallengeSession } from "./challenge";

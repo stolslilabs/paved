@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
 import { PAGES } from "../src/routes/pages";
@@ -23,20 +23,21 @@ afterEach(() => {
 });
 
 describe("app", () => {
-  it("renders the home page with the five tabs", async () => {
+  it("renders the home page with the five destinations, Play in the centre", async () => {
     render(<App router={createTestRouter("/")} />);
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Main" });
     // The five tabs are the buttons of the nav's item row (direction D: after the wordmark); the header's Balances section (its
     // Connect, its rows) comes after them.
-    expect(nav.querySelectorAll(":scope > div > button")).toHaveLength(5);
-    for (const label of ["Home", "Ranks", "Missions", "Vault", "Settings"]) {
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
-    }
+    expect(nav.querySelectorAll(":scope > div > button")).toHaveLength(4);
+    // #623: Home, Missions, Play, Vault, Settings; Play has no visible label.
+    expect([...nav.querySelectorAll(":scope > div > button, :scope > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Home", "Missions", "Play", "Vault", "Settings"]);
+    expect(within(nav).getByRole("button", { name: "Play" })).toHaveTextContent("");
+    expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });
 
-  it("keeps the section 6.1 route map: 21 pages, each path once", () => {
-    expect(PAGES).toHaveLength(21);
+  it("keeps the section 6.1 route map: 19 pages, each path once", () => {
+    expect(PAGES).toHaveLength(19);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
@@ -45,7 +46,7 @@ describe("app", () => {
   // `story-route.test.tsx`; quests and achievements: P9, `quests-route.test.tsx`; the leaderboard and the player: P8,
   // `leaderboard-route.test.tsx`; the purchase: P7b, `purchase-route.test.tsx`; the theme: P11b, `theme-route.test.tsx`; the Challenge's end: P7a, `over-route.test.tsx`; the vault and the referral: P10,
   // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`).
-  const WIRED = ["welcome", "", "play", "play/challenge", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "leaderboard/:day?", "player/:id", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral"];
+  const WIRED = ["welcome", "", "play", "play/challenge", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

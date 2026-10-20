@@ -1,16 +1,14 @@
-import type { IndexedPlayer, LeaderboardEntry, PlayerStats } from "@paved/chain";
+import type { IndexedPlayer, PlayerStats } from "@paved/chain";
 import { cn } from "../../lib/utils";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 
-/** The connected player as the home page reads them: indexer profile (the day belongs to Ranks, #538). */
+/** The connected player as the home page reads them: the indexer profile. */
 export interface PlayerStatusData {
   player: IndexedPlayer;
   stats: PlayerStats;
-  /** The viewer's row on today's leaderboard; null before their first finished game of the day. */
-  today: LeaderboardEntry | null;
 }
 
 export interface PlayerStatusProps {
@@ -21,7 +19,7 @@ export interface PlayerStatusProps {
   className?: string;
 }
 
-/** The player's status on Home: who, today's rank and best, the balances; or the connect call for a guest. */
+/** The player's status on Home: who, their games and best; or the connect call for a guest. */
 export function PlayerStatus({ data, onConnect, connecting, className }: PlayerStatusProps) {
   if (!data) {
     return (

@@ -181,13 +181,16 @@ describe("/game/:gameId/over (P7a)", () => {
       expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
     });
 
-    it("shows the rank of today when the game is the player's best of the day", async () => {
+    it("shows no rank, even when the game is the player's best of the day (#623): the leaderboard is not read", async () => {
       const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null, counted_day_id: TODAY } });
       s.views.today = TODAY;
       const entry = { rank: 3, player_id: `0x${PLAYER.slice(2).padStart(64, "0")}`, best_score: played.game.score, best_game_id: GAME_ID, games_played: 1, games_finished: 1, finished_at: 1600, free: false, name: null };
       s.fixture.entries.set(TODAY, [entry, { ...entry, player_id: PLAYER }] as never);
       over(s);
-      expect(await screen.findByText("#3 today", {}, { timeout: 5000 })).toBeInTheDocument();
+      await screen.findByTestId("final-score", {}, { timeout: 5000 });
+      await waitFor(() => expect(s.fixture.requests.some((r) => r.startsWith("/v1/players/"))).toBe(true));
+      expect(screen.queryByText(/#\d+ today/)).toBeNull();
+      expect(s.fixture.requests.some((r) => r.includes("/entry/") || r.includes("/leaderboard"))).toBe(false);
     });
   });
 

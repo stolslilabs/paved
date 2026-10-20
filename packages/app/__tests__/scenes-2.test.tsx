@@ -11,18 +11,15 @@ import { formatBps } from "../src/components/containers/split-bar";
 import { parseUnits } from "../src/components/containers/vault-form";
 import { vaultRate } from "../src/components/containers/vault-position";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
-import { LeaderboardScene } from "../src/components/scenes/leaderboard-scene";
-import { PlayerScene } from "../src/components/scenes/player-scene";
 import { QuestsScene } from "../src/components/scenes/quests-scene";
 import { ReferralScene } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
-import { PAGE } from "../src/mocks/leaderboard";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
 import { REFERRAL_LINK } from "../src/mocks/referral";
-import { ACHIEVEMENTS, LEADERBOARD, MY_TILES, PLAYER_PAGE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
+import { ACHIEVEMENTS, MY_TILES, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
@@ -60,110 +57,6 @@ describe("SC2 helpers", () => {
     expect(formatBps(7_368)).toBe("73.68%");
   });
 
-});
-
-describe("Leaderboard", () => {
-  it("ranks today's first page, the viewer outlined in place, the close counting down", async () => {
-    const onSelectPlayer = vi.fn();
-    const onDayChange = vi.fn();
-    render(wrap(<LeaderboardScene {...LEADERBOARD.today} onSelectPlayer={onSelectPlayer} onDayChange={onDayChange} />));
-    const list = screen.getByRole("list", { name: "Ranking" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(PAGE);
-    const self = within(list).getByRole("button", { current: true });
-    expect(self).toHaveTextContent("7");
-    expect(self).toHaveTextContent("bal7hazar(you)");
-    expect(self).toHaveTextContent(pts(1270));
-    expect(list.parentElement).toHaveTextContent("20 of 41 players ranked");
-    expect(screen.getByRole("timer", { name: "Closes in 9:00:00" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next day" })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: "Previous day" }));
-    expect(onDayChange).toHaveBeenCalledWith(TODAY - 1);
-    await userEvent.click(within(list).getAllByRole("button")[0]);
-    expect(onSelectPlayer).toHaveBeenCalledWith("0x0123aa");
-    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Ranks" })).toHaveAttribute("aria-current", "page");
-  });
-
-  it("ranks the rows in score order", () => {
-    for (const state of ["today", "closed", "offTop"] as const) {
-      const scores = LEADERBOARD[state].leaderboard.entries.map((e) => e.bestScore);
-      expect(scores).toEqual([...scores].sort((a, b) => b - a));
-      expect(LEADERBOARD[state].leaderboard.entries.map((e) => e.rank)).toEqual(scores.map((_, i) => i + 1));
-    }
-  });
-
-  it("shows a closed day as final", () => {
-    render(wrap(<LeaderboardScene {...LEADERBOARD.closed} />));
-    expect(screen.getByText("Closed")).toBeInTheDocument();
-    expect(screen.getByText(/its ranking is final/)).toBeInTheDocument();
-    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
-    expect(screen.getByRole("button", { current: true })).toHaveTextContent(pts(1840));
-  });
-
-  it("says a day is empty", () => {
-    render(wrap(<LeaderboardScene {...LEADERBOARD.empty} />));
-    expect(screen.getByText("Nobody finished a game this day")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Ranking" })).not.toBeInTheDocument();
-  });
-
-  it("follows the page with the viewer's own row when they are off the top", () => {
-    render(wrap(<LeaderboardScene {...LEADERBOARD.offTop} />));
-    expect(within(screen.getByRole("list", { name: "Ranking" })).queryByRole("button", { current: true })).not.toBeInTheDocument();
-    const own = within(screen.getByRole("list", { name: "Your rank" })).getByRole("button", { current: true });
-    expect(own).toHaveTextContent("34");
-    expect(own).toHaveTextContent(pts(360));
-  });
-
-  it("outlines nobody for a guest", () => {
-    render(wrap(<LeaderboardScene {...LEADERBOARD.guest} />));
-    expect(screen.queryByRole("button", { current: true })).not.toBeInTheDocument();
-  });
-
-  it("shows the rows' shape while loading, and the indexer's error with Retry", async () => {
-    const { unmount } = render(wrap(<LeaderboardScene {...LEADERBOARD.loading} />));
-    expect(screen.getByRole("status", { name: "Loading the ranking" })).toBeInTheDocument();
-    unmount();
-    const onRetry = vi.fn();
-    render(wrap(<LeaderboardScene {...LEADERBOARD.error} onRetry={onRetry} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not load the ranking");
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(onRetry).toHaveBeenCalledOnce();
-  });
-});
-
-describe("Player", () => {
-  it("shows another player's record, today's rank and last games", async () => {
-    const onBack = vi.fn();
-    render(wrap(<PlayerScene {...PLAYER_PAGE.other} onBack={onBack} />));
-    expect(screen.getByText("stonemaster")).toBeInTheDocument();
-    expect(screen.getByText("#1")).toBeInTheDocument();
-    const record = screen.getByRole("region", { name: "Record" });
-    expect(within(record).getByText("Best score").closest("div")?.parentElement).toHaveTextContent(pts(2310));
-    expect(within(record).getByText("Rewards").closest("div")?.parentElement).toHaveTextContent("1,204.50");
-    expect(within(screen.getByRole("list", { name: "Games" })).getAllByRole("listitem")).toHaveLength(4);
-    expect(screen.queryByText("You")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(onBack).toHaveBeenCalledOnce();
-  });
-
-  it("marks the viewer's own page and their running game", () => {
-    render(wrap(<PlayerScene {...PLAYER_PAGE.self} />));
-    expect(screen.getByText("You")).toBeInTheDocument();
-    const games = screen.getByRole("list", { name: "Games" });
-    expect(within(games).getByText("In progress")).toBeInTheDocument();
-    expect(within(games).getByText("Awaiting the day")).toBeInTheDocument();
-    expect(within(games).getByText("Below the threshold")).toBeInTheDocument();
-  });
-
-  it("says when the indexer does not know the address, and loads", () => {
-    const { unmount } = render(wrap(<PlayerScene {...PLAYER_PAGE.unknown} />));
-    expect(screen.getByText(/seen no game from this address/)).toBeInTheDocument();
-    expect(screen.getAllByText("0x07a1…7e8f").length).toBeGreaterThan(0);
-    unmount();
-    render(wrap(<PlayerScene {...PLAYER_PAGE.loading} />));
-    expect(screen.queryByRole("list", { name: "Games" })).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Record" }).querySelectorAll("[data-slot=skeleton]").length).toBeGreaterThan(0);
-  });
 });
 
 describe("Vault", () => {
@@ -281,7 +174,7 @@ describe("Vault", () => {
     render(wrap(<VaultScene {...VAULT.noPaved} onPlay={onPlay} />));
     expect(screen.getByRole("status")).toHaveTextContent("No PAVED in your wallet");
     expect(screen.queryByRole("button", { name: "Deposit" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Play" }));
+    await userEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Play" }));
     expect(onPlay).toHaveBeenCalledOnce();
   });
 
@@ -586,8 +479,8 @@ describe("Referral", () => {
 });
 
 describe("SC2 stories", () => {
-  const fixtures = { leaderboard: LEADERBOARD, player: PLAYER_PAGE, vault: VAULT, settings: SETTINGS, theme: THEME, "theme-shop": THEME_SHOP, "my-tiles": MY_TILES, quests: QUESTS, achievements: ACHIEVEMENTS, referral: REFERRAL };
-  const names = { leaderboard: "LEADERBOARD", player: "PLAYER_PAGE", vault: "VAULT", settings: "SETTINGS", theme: "THEME", "theme-shop": "THEME_SHOP", "my-tiles": "MY_TILES", quests: "QUESTS", achievements: "ACHIEVEMENTS", referral: "REFERRAL" } as const;
+  const fixtures = { vault: VAULT, settings: SETTINGS, theme: THEME, "theme-shop": THEME_SHOP, "my-tiles": MY_TILES, quests: QUESTS, achievements: ACHIEVEMENTS, referral: REFERRAL };
+  const names = { vault: "VAULT", settings: "SETTINGS", theme: "THEME", "theme-shop": "THEME_SHOP", "my-tiles": "MY_TILES", quests: "QUESTS", achievements: "ACHIEVEMENTS", referral: "REFERRAL" } as const;
 
   // One story per state (the owner, through the PM, 2026-10-14): the viewport is the toolbar's global (VP), never a story each.
   it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s in one story, at no fixed viewport", (scene) => {
