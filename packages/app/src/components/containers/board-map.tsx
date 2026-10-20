@@ -49,8 +49,8 @@ const RING_OPACITY = [0, 0.32, 0.13];
 const PLATE = "pointer-events-none absolute inset-[5%] block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";
 /** The two states, on the token the renderer's colour is pinned to: one grey, flat, the opacities the board's. */
 const PLATE_STATE: Record<PlateState, string> = {
-  playable: "bg-plate/40",
-  invalid: "bg-plate/25",
+  playable: "bg-plate/55",
+  invalid: "bg-plate/20",
 };
 /** The placed tile's tint, over the tile: yellow (gold-300, the renderer's). */
 const TINT = "pointer-events-none absolute inset-0 block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";

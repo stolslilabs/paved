@@ -14,7 +14,7 @@ describe("the plates' colours (PLATES)", () => {
   it("are the palette's token, the renderer's colour the same value: one grey for both states (#588)", () => {
     const { colors, tints } = DEFAULT_PLACEMENT_SETTINGS;
     expect(hexOf("plate")).toBe(colors.plate);
-    expect(colors.plate).toBe("#929292");
+    expect(colors.plate).toBe("#c8c8c8");
     // One token: the states differ by opacity alone.
     expect(theme).not.toContain("plate-off");
     expect(hexOf("gold-300")).toBe(tints.pendingColor);

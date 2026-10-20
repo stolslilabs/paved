@@ -156,7 +156,7 @@ describe("the grid's ring fade (a setting, off by default since PLATES)", () => 
 
 describe("the plates' shape (PLACEMENT-TINTS)", () => {
   it("is flat, inset in its cell, in voxels: the defaults", () => {
-    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, radius: 3, opacity: 0.4, invalidOpacity: 0.25, hideUnderTile: true });
+    expect(DEFAULT_PLACEMENT_SETTINGS.plates).toEqual({ enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true });
     // A smaller corner than the slab's 5 voxels, and more transparent plates (0.9 and 0.45 before).
     expect(DEFAULT_PLACEMENT_SETTINGS.plates.radius).toBeLessThan(5);
     expect(DEFAULT_PLACEMENT_SETTINGS.plates.opacity).toBeLessThan(0.9);
@@ -284,7 +284,7 @@ describe("the plates' states", () => {
 
   it("are the app's token: one grey with no hue (#588, no blue left)", () => {
     const { colors } = DEFAULT_PLACEMENT_SETTINGS;
-    expect(colors).toEqual({ plate: "#929292" });
+    expect(colors).toEqual({ plate: "#c8c8c8" });
     const grey = new THREE.Color(colors.plate);
     expect(grey.r).toBe(grey.g);
     expect(grey.g).toBe(grey.b);

@@ -6,8 +6,8 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 /**
  * The placement visuals (PLACEMENT-TINTS) on the recorded 72-tile board: with a tile in hand, a flat plate on every free
  * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours), lying at the tiles' bottom
- * (#588). One grey with no hue for both states, told apart by opacity alone: playable (some rotation fits) 0.4,
- * invalid (none fits) 0.25. The tile in hand is tinted on the model
+ * (#588). One grey with no hue for both states, told apart by opacity alone: playable (some rotation fits) 0.55,
+ * invalid (none fits) 0.2. The tile in hand is tinted on the model
  * itself: no tint at 50 % opacity on a hover, yellow and opaque once placed (#568, blue and 90 % before), a temporary
  * green on confirm fading to none. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
  * the hold on Validate, the voxel drop, then the green. Each change eases over 150 ms (at once under reduced
@@ -56,7 +56,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A tile in hand: its plates, one grey, playable (0.4) and invalid (more transparent, 0.25). */
+/** A tile in hand: its plates, one grey, playable (0.55) and invalid (more transparent, 0.2). */
 export const Plates: Story = { args: { state: "in-hand" } };
 
 /** The plates at dusk, the cycle held there (#588: both states told apart by day, dusk and night). */
@@ -65,8 +65,8 @@ export const PlatesDusk: Story = { args: { state: "in-hand", dayPhase: "dusk" } 
 /** The plates at night, the cycle held there. */
 export const PlatesNight: Story = { args: { state: "in-hand", dayPhase: "night" } };
 
-/** From the side, at the steepest tilt and the closest zoom: the plates lie level with the tiles' bottom (#588). */
-export const PlatesSide: Story = { args: { state: "in-hand", view: "zoomed-in" } };
+/** From the side, at the steepest tilt, close (50 units, on the board's middle tile): the plates lie level with the tiles' bottom (#588). */
+export const PlatesSide: Story = { args: { state: "in-hand", view: "zoomed-in", distance: 50 } };
 
 /** The plates alone, no tile: their shape and colour, every one a control. */
 export const PlatesAlone: Story = { args: { state: "in-hand", board: false, view: "top", distance: 90 } };

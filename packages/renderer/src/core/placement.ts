@@ -87,7 +87,7 @@ export type PlacementSettingsInput = { [K in keyof PlacementSettings]?: Partial<
 export const PLATE_GAP_VOXELS = { min: 1, max: 12 } as const;
 
 export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
-  colors: { plate: "#929292" },
+  colors: { plate: "#c8c8c8" },
   tints: {
     hoverColor: "#4f8dff",
     hoverStrength: 0,
@@ -102,7 +102,7 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     confirmOpacity: 1,
   },
   grid: { enabled: false, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
-  plates: { enabled: true, gap: 4, radius: 3, opacity: 0.4, invalidOpacity: 0.25, hideUnderTile: true },
+  plates: { enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true },
   motion: { colorMs: 150, confirmMs: 700, reducedConfirmMs: 150, reducedMotion: "auto" },
 };
 

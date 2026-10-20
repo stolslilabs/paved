@@ -2467,12 +2467,15 @@ plate-state text above where they differ.
 
 **SLOT-PLATES-GREY (#588, the owner's decisions of 2026-10-19).** It supersedes the plates' colours and height above.
 
-- **One grey, no hue.** Playable and invalid plates take the same grey, `#929292` (`placement.colors.plate`; the
-  `invalid` colour is gone), and differ by opacity alone: playable `plates.opacity` 0.4 (0.6 and blue `#B7CCDC` before),
-  invalid `plates.invalidOpacity` 0.25. Greyscale plus transparency fits every UI style and every backdrop, by day, at
-  dusk and at night (stories `Renderer/Placement`: `Plates`, `PlatesDusk`, `PlatesNight`).
+- **One grey, no hue.** Playable and invalid plates take the same grey, `#C8C8C8` (`placement.colors.plate`; the
+  `invalid` colour is gone), and differ by opacity alone: playable `plates.opacity` 0.55 (0.6 and blue `#B7CCDC` before),
+  invalid `plates.invalidOpacity` 0.2 (0.25 before). Greyscale plus transparency fits every UI style and every backdrop
+  (stories `Renderer/Placement`: `Plates`, `PlatesDusk`, `PlatesNight`). Tuned at 375 x 812 on the GPU: the issue's
+  proposal (`#929292`, 0.4 and 0.25) left the two states hard to tell apart by day and nearly gone at night (the plates
+  are lit, so the night's light darkens them); a lighter grey and a wider gap between the two opacities keep them apart
+  by day, at dusk and at night.
 - **One token.** `--color-plate` is that grey; `--color-plate-off` is merged into it. The plan view (`BoardMap`) draws
-  `bg-plate/40` and `bg-plate/25`; `board-map-plates.test.tsx` keeps the hex and the opacities equal to the renderer's.
+  `bg-plate/55` and `bg-plate/20`; `board-map-plates.test.tsx` keeps the hex and the opacities equal to the renderer's.
 - **At the tiles' bottom.** `PLATE_Y` (`placement.ts`) is a model's foot (y 0, `TileRenderer` sets each model's bottom
   there), lifted a twentieth of a voxel, no longer the ground slab's top (4 voxels): from the side a plate lies level with
   the foot of the tiles around it (story `PlatesSide`, the steepest tilt). The grid lines lie there with them. Nothing else
