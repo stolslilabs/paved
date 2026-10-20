@@ -128,9 +128,9 @@ pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
 // (the consumer's side: the one-draw check, the provider's consume count, the salt, the provider's
 // call, the count). Cartridge's
 // part of a real draw (`submit_random`'s proof check, `assert_consumed`) is measured on Sepolia
-// (`docs/architecture/vrf-draws.md`, section 6). Measured in CI 599,559 before the consume-count
-// check; provisional until CI measures it with the check.
-pub const CEILING_VRF_DRAW: u128 = 1000000;
+// (`docs/architecture/vrf-draws.md`, section 6). Measured in CI 986,461, + 5 % (599,559 before the
+// first-consume check and the mock's count of the transaction's consumes, two slots written).
+pub const CEILING_VRF_DRAW: u128 = 1035785;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).

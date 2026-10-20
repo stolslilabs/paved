@@ -276,9 +276,11 @@ Departures from sections 4 and 5:
 So the component adds **804 CASM felts** (347 Sierra) to the system that embeds it. For #643's system, that is to be
 judged against its cap (P-44).
 
-**Gas.** z15 in `contracts/tests/gas.cairo` measures one draw on the consumer's side, the game's second. It was
-599,559 L2 gas in CI before the first-consume check; with the check, the ceiling is set from the next CI figure.
-Cartridge's part (`submit_random` and `assert_consumed`) is not in it.
+**Gas.** z15 in `contracts/tests/gas.cairo` measures one draw on the consumer's side over the mock, the game's second:
+**986,461 L2 gas** (CI, snforge 0.64.0), and its ceiling is that figure + 5 %, 1,035,785. It was 599,559 before the
+review fix. The difference is the component's `get_consume_count` call, and the mock's count of the transaction's
+consumes (two slots written per consume), which Cartridge's provider keeps in its own storage. Cartridge's part
+(`submit_random` and `assert_consumed`) is not in it.
 
 **The local snforge run was skipped under the VPS cap.**
 
@@ -286,6 +288,6 @@ Cartridge's part (`submit_random` and `assert_consumed`) is not in it.
 - main peaks the same without this branch's modules (8,352,860 kB).
 - That is above the 8 GB scope of the VPS's Cairo shim, so the run is OOM-killed after the diagnostics, which pass
   without errors.
-- The tests run in CI (`AGENTS.md`).
+- The tests ran in CI (`AGENTS.md`): the 16 of `paved::tests::vrf` and z15 pass (951 passed, 0 failed).
 
 **Follow-up:** the indexer's `VrfProviderSet`, with #643, the first system that emits it outside the test harness.
