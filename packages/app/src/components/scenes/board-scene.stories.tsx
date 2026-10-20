@@ -103,8 +103,8 @@ const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, seas
  * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
  * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
  * reframes it. The board draws the placement visuals as the game does (PLATES, P-74): a plate on every free cell next
- * to a tile, playable (blue) where a rotation of the tile in hand fits,
- * invalid (greyscale) where none does, and the tile placed on a plate (a yellow tint), from
+ * to a tile, one grey (#588): playable (less transparent) where a rotation of the tile in hand fits,
+ * invalid (more transparent) where none does, and the tile placed on a plate (a yellow tint), from
  * the engine's rule on the recorded board.
  */
 const meta = {

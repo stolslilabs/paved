@@ -1,12 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
+import { DAY_PHASES, LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
 import { PLACEMENT_STATES, PlacementBoard, placementArgTypes } from "./placement-board";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
  * The placement visuals (PLACEMENT-TINTS) on the recorded 72-tile board: with a tile in hand, a flat plate on every free
- * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours). Playable (some rotation
- * fits): blue and transparent; invalid (none fits): grey, more transparent. The tile in hand is tinted on the model
+ * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours), lying at the tiles' bottom
+ * (#588). One grey with no hue for both states, told apart by opacity alone: playable (some rotation fits) 0.4,
+ * invalid (none fits) 0.25. The tile in hand is tinted on the model
  * itself: no tint at 50 % opacity on a hover, yellow and opaque once placed (#568, blue and 90 % before), a temporary
  * green on confirm fading to none. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
  * the hold on Validate, the voxel drop, then the green. Each change eases over 150 ms (at once under reduced
@@ -46,6 +47,7 @@ const meta = {
       type: { name: "enum", value: ["auto", ...QUALITY_TIERS] },
       description: "Graphics quality: auto is the device's (Medium on desktops and phones)",
     },
+    dayPhase: { control: "inline-radio", options: ["off", ...DAY_PHASES], description: "The day and night cycle held at a phase of a summer's day; off, the look alone" },
     lookPreset: { control: "inline-radio", options: LOOK_PRESET_NAMES, type: { name: "enum", value: [...LOOK_PRESET_NAMES] }, description: "The look the board is lit with" },
     ...placementArgTypes(),
   },
@@ -54,10 +56,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A tile in hand: its plates, playable (blue, transparent) and invalid (grey, more transparent). */
+/** A tile in hand: its plates, one grey, playable (0.4) and invalid (more transparent, 0.25). */
 export const Plates: Story = { args: { state: "in-hand" } };
 
-/** The plates alone, no tile: their shape and colours, every one a control. */
+/** The plates at dusk, the cycle held there (#588: both states told apart by day, dusk and night). */
+export const PlatesDusk: Story = { args: { state: "in-hand", dayPhase: "dusk" } };
+
+/** The plates at night, the cycle held there. */
+export const PlatesNight: Story = { args: { state: "in-hand", dayPhase: "night" } };
+
+/** From the side, at the steepest tilt and the closest zoom: the plates lie level with the tiles' bottom (#588). */
+export const PlatesSide: Story = { args: { state: "in-hand", view: "zoomed-in" } };
+
+/** The plates alone, no tile: their shape and colour, every one a control. */
 export const PlatesAlone: Story = { args: { state: "in-hand", board: false, view: "top", distance: 90 } };
 
 /** No tile in hand: no plate. */

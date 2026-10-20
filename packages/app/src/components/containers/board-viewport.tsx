@@ -69,7 +69,7 @@ export interface BoardViewportProps {
    */
   basePath?: string;
   /**
-   * The legal slots of the tile in hand in any rotation (the contracts' coordinates): one blue plate each (`fits`, whether
+   * The legal slots of the tile in hand in any rotation (the contracts' coordinates): one playable plate each (`fits`, whether
    * the current rotation fits there, is the caller's, for its buttons). Every other free
    * cell next to a tile gets an invalid plate (`boardPlates`). Unset: no tile in hand, no plate; an empty list: a tile that
    * fits nowhere, invalid plates all around.
