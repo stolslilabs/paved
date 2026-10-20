@@ -35,6 +35,12 @@ export interface ResourcePlateProps extends VariantProps<typeof plateVariants> {
   className?: string;
 }
 
+/** The figure the counter counts to: the amount cut (not rounded) to `fraction` digits, as `formatUnits` writes it. */
+function figureOf(amount: bigint, decimals: number, fraction: number): number {
+  const cut = decimals > fraction ? amount / 10n ** BigInt(decimals - fraction) : amount;
+  return Number(cut) / 10 ** Math.min(fraction, decimals);
+}
+
 /** A change of the amount, numbered so that each one replays the pop and the floating figure. */
 interface Change {
   id: number;
@@ -70,11 +76,11 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, from, si
   }, [flash, change?.id]);
 
   const text = amount === null ? null : formatUnits(amount, decimals, fraction);
-  const target = text === null ? 0 : Number(text.replaceAll(",", ""));
+  const target = amount === null ? 0 : figureOf(amount, decimals, fraction);
   // The exact text on the settled value (a number past 2^53 loses digits); the counter's own between.
   const format = useCallback((n: number) => (n === target && text !== null ? text : formatFixed(n, fraction)), [target, text, fraction]);
   // Where the counter starts: the first amount shown, so a first load writes it at once (or `from`, to count from it).
-  const [start] = useState(() => (from === undefined ? target : Number(formatUnits(from, decimals, fraction).replaceAll(",", ""))));
+  const [start] = useState(() => (from === undefined ? target : figureOf(from, decimals, fraction)));
   const moving = change !== null && !reduced;
 
   return (
