@@ -18,7 +18,6 @@ vi.mock("../src/routes/page-loaders", () => {
       "game/:gameId": board,
       training: board,
       "story/:campaign/:level": board,
-      "leaderboard/:day?": loader("leaderboard"),
       "missions/:day?": loader("quests"),
       vault: loader("vault"),
       settings: loader("settings"),
@@ -69,8 +68,8 @@ describe("prefetchRoute", () => {
   it("fetches the chunk of the page a path shows, with its query and params", () => {
     expect(prefetchRoute("/play/challenge?ref=0x1")).toBe(true);
     expect(prefetchRoute("/game/12")).toBe(true);
-    expect(prefetchRoute("/leaderboard/20000")).toBe(true);
-    expect(loads).toEqual(["purchase", "board", "leaderboard"]);
+    expect(prefetchRoute("/missions/20000")).toBe(true);
+    expect(loads).toEqual(["purchase", "board", "quests"]);
   });
 
   it("fetches a chunk once: the three boards share one", () => {
@@ -105,7 +104,7 @@ describe("the idle prefetch of the tab pages", () => {
     vi.advanceTimersByTime(200);
     expect(loads).toEqual(["home"]);
     vi.advanceTimersByTime(200 * 4);
-    expect(loads).toEqual(["home", "leaderboard", "quests", "vault", "settings"]);
+    expect(loads).toEqual(["home", "quests", "play", "vault", "settings"]);
     vi.advanceTimersByTime(5000);
     expect(loads).toHaveLength(5);
   });

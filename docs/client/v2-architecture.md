@@ -2890,12 +2890,11 @@ maximum, both ways from the default (`core/CameraController.ts`).
 |---|---|---|---|
 | welcome | `/welcome` | hidden | first visit only (a `localStorage` flag); the connect button; skip to Training |
 | loading | (no route) | hidden | the app's boot screen and every route's `Suspense` fallback; the scene's asset loading inside the board |
-| home | `/` | Home | Play button, the Challenge card with today's top 3, Training and Tutorial, the active game to resume |
-| play | `/play` | hidden (back) | Challenge, Training, Tutorial (P-57 B4), Multiplayer disabled ("coming soon") |
+| home | `/` | Home | Play button, the Challenge card (no podium since D-29), Training and Tutorial, the active game to resume |
+| play | `/play` | hidden (back); the nav's Play opens it | Challenge, Training, Tutorial (P-57 B4), Multiplayer disabled ("coming soon") |
 | purchase | `/play/challenge` | hidden (back) | stake picker 1–10, price, boost, the 24 h validity, the minimum score to beat, confirm; then spawn |
 | board | `/game/:gameId` (Challenge), `/training`, `/tutorial` | hidden | the board, the tile in hand, rotate / place / discard, give up |
 | over | `/game/:gameId/over`, `/training/over` | hidden | final score, the game's metrics, the reward or "below the threshold", settle when the day allows, Play again |
-| leaderboard | `/leaderboard/:day?`, `/player/:id` | Ranks | as today, with the day picker |
 | quests | `/quests/:day?` | Quests | the day's quests |
 | achievements | `/achievements` | (from Quests, a tab) | split out of today's quests screen |
 | vault | `/vault` | Vault | stake, unstake, dividends |
@@ -2904,23 +2903,26 @@ maximum, both ways from the default (`core/CameraController.ts`).
 | settings | `/settings` | Settings | graphics quality, sound, music, tile preview, placement highlight (the mockups), account, links to theme and referral |
 
 Old links keep working: `/game?mode=challenge&id=N` → `/game/N`, `/game?mode=training` → `/training`,
-`/economy` → `/vault`.
+`/economy` → `/vault`; since D-29, `/leaderboard`, `/leaderboard/:day` and `/player/:id` → `/`.
 
-**Decided for the owner:** five bottom tabs, Home · Ranks · Quests · Vault · Settings. The mockups' tabs
-were Home, Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme moves under Settings
-as one of its rows. Reversed if the owner wants Theme as a tab (it would replace Vault, which would move
-to Home).
+**The five destinations (D-29, the owner, 2026-10-20, #623):** Home · Missions · Play · Vault · Settings, on mobile and
+on desktop. Play, in the centre, has no label and is the accent: it opens Choose a mode (`/play`), a full-screen flow, so it
+is never the current item. The ranks are out of the UI (the Ranks and player pages, Home's podium, the score screen's rank),
+to come back later, probably as leagues; the indexer's leaderboard endpoint and the `@paved/chain` reads stay for them.
+Before D-29 the tabs were Home · Ranks · Quests · Vault · Settings ("decided for the owner"); the mockups' were Home,
+Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a row of Settings.
 
 ### 6.2 Navigation
 
 - **Direction D (#537, applied 2026-10-19; replaces the bar with a sliding indicator and the left rail, which read as
   Cartridge's):** `containers/app-nav.tsx`.
 - **Mobile and tablet:** a sticky bottom bar of five items, each an icon over its label (labels from `mobile`, icon only
-  below), safe-area padded, as the mockups draw it. The current item is gold (`text-primary`) on the white 15% layer; hover
+  below), safe-area padded, as the mockups draw it. Play, the centre item (D-29), is a larger gold disc raised above the bar,
+  icon only (`aria-label="Play"`). The current item is gold (`text-primary`) on the white 15% layer; hover
   10%, pressed 20% (`state-layer`, section 2.2b). No indicator slides. Hidden on full-screen flows (welcome, play, purchase,
   board, over), which get a top bar with Back, the title centred and a hairline under it.
-- **Desktop:** the same five items, icon beside label, in a sticky header across the top: the voxel wordmark on the left, the
-  items, then the three balances (#538) in a row at the header's end. No rail: every page is one column (`flex-col`) at every
+- **Desktop:** the same five items, icon beside label (Play a gold disc, icon only), in a sticky header across the top: the
+  voxel wordmark on the left, the items, then the three balances (#538) in a row at the header's end. No rail: every page is one column (`flex-col`) at every
   width. Dialogs instead of sheets.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
@@ -2986,12 +2988,11 @@ Sources, read at the pinned versions: `@cartridge/controller` 0.13.16, whose key
 |---|---|---|---|---|
 | welcome | controller connect | — | — | `welcomed` flag |
 | loading | — | — | — | — |
-| home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/tournaments/:day/leaderboard` (top 3), `/v1/head` | — | the Training save (resume) |
+| home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/players/:id` (the player's status) | — | the Training save (resume) |
 | play | `spawn_paused` | — | — | — |
 | purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; `Economy.seller` (read at send); writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)`, each one multicall and one wallet prompt (neither the approve nor the call that pulls the USDC is a session policy, P-65) | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet has not answered, written when the send starts, and when it was sent) |
 | board | `game(id)`, `tiles(id, from, count)`, the initial seed (section 9); writes `build`, `discard`, `surrender` | — | `EngineGame` (prediction, legality, preview points) | the Training and Tutorial moves |
-| over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id` | the final counters (Training) | — |
-| leaderboard | — | tournaments, leaderboard, player, player games | — | — |
+| over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id`; "New best" from the player's own games and profile (`/v1/players/:id/games`, `/v1/players/:id`), no leaderboard (D-29) | the final counters (Training) | — |
 | quests | `Setup.account`, `day_progress`, `week_progress`; writes `claim_quest`, `claim_daily_credit`, `claim_weekly_credit` (P9) | `definitions` (with `cobbles`, `cobbles_kind`), `playerQuests`, `/v1/head` (the clock) | — | — |
 | achievements | `Setup.account`; write `claim_achievement` (P9) | `definitions`, `playerAchievements` | — | — |
 | vault | `Vault` (an ERC4626 over PAVED, vPAVED, P-56): `balance_of`, `convert_to_assets`, `max_withdraw`, `max_redeem`, `exit_fee`, `total_assets`, `total_supply` (the rate), `preview_deposit`, `preview_withdraw`, `delegates` (read only); PAVED `balance_of`; writes PAVED `approve` + `deposit(assets, receiver)` (one multicall), `withdraw(assets, receiver, owner)`, `redeem(shares, receiver, owner)` (Withdraw all), none a session policy (P10) | — | — | — |
@@ -3005,9 +3006,9 @@ and the execution, `buy_pack` takes the lower price and the rest of the allowanc
 own `buy_pack` can spend it (`Setup` moves USDC from the caller alone), so nothing is lost; the client does not reset it. No
 change: accepted as is.
 
-**As wired (P6).** Home reads the day from the chain's `currentDay()` (the clock's until it answers) and its top 3 from
-the indexer client on `VITE_INDEXER_URL`; `/v1/head` is not read. Each home read that has not answered, or failed,
-leaves its part empty instead of holding the page: an empty podium, no game to resume, not paused (purchase reads the
+**As wired (P6; the podium removed by D-29).** Home reads the player's profile from the indexer client on
+`VITE_INDEXER_URL`, and no leaderboard; `/v1/head` is not read. Each home read that has not answered, or failed,
+leaves its part empty instead of holding the page: no game to resume, not paused (purchase reads the
 pause again); a connected player the indexer has not answered for is shown by address with zero figures. The welcome's
 controller connect is the devnet burner on devnet. The shell has no footer since #536 (the D-15 notice moved to the Credits page, `/settings/credits`); Disconnect is Settings' (P11a), see "As built (P11a)". The tutorial's board (`/tutorial`) reads `Setup.tutorial_claimed` and writes
 `Setup.claim_tutorial` only at its end, for the claim.
@@ -3024,14 +3025,14 @@ them as scenes on typed mocks, no wiring:
 claimable, and the free games: every daily of a day, or weekly of a week, done earns one (`claim_daily_credit`,
 `claim_weekly_credit`), then a credit counter and Play free; **achievements** show their Cobbles (their points; On the
 Podium none in v1) with the same claims; **home** and **play** show the balance and a free game that spends a credit
-(`spawn_free`); the **leaderboard**, and Home's top 3, mark a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
-ruling). The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
+(`spawn_free`); the **leaderboard**, and Home's top 3, marked a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
+ruling), until D-29 removed both. The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
 `components/containers/cobble-types.ts`. Since P9 the ledger's (`CobbleAccount`, the claims of a period, a quest's and an
 achievement's Cobbles) are `@paved/chain`'s, named `cobbles` as CORE renamed them; the packs and the skins stay provisional
 until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
 `cubes-stacked`), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
-`src/data/scene-types.ts` holds: the scenes' Cobbles props are optional, and the leaderboard's free mark is a list of
-player ids (`free`), not a field of `LeaderboardEntry`.
+`src/data/scene-types.ts` holds: the scenes' Cobbles props are optional (the leaderboard's free mark, a list of player ids, left with the
+leaderboard, D-29).
 
 ### 6.5 What waits for CORE (P-57 B9)
 
@@ -3756,6 +3757,9 @@ and `tokens.test.ts` checks that they agree; `app-web`, the v1 client, keeps its
 - *Tutorial.* `useTutorialRun` builds its `TutorialRun` in a lazy state initialiser. A lazy initialiser does not stop React from rendering a first mount it then discards (two
   inits and one commit, measured with the page preloaded, as with a `useRef`), so the test counts engines from the committed page.
 
+*Removed by D-29 (#623, 2026-10-20): the pages, scenes, hooks and mocks below left the client, the routes redirect to Home; the
+indexer's endpoints and `@paved/chain`'s reads stay for the leagues. Kept as the record of P8.*
+
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
 `currentDay` (the browser's clock until it answers; nothing is read before the chain has answered or failed), a later day or a
 non-number is today, and the picker goes no earlier than the indexer's first tournament (`useFirstDay`, which walks
@@ -3869,7 +3873,8 @@ Each is reversed by the owner's word; the section says what else would reverse i
 5. Motion, lazy-loaded (3.2).
 6. TanStack Query + zustand + the engine session as the three owners of state; React Router 7 (3.3).
 7. Breakpoints 360 / 640 / 1024 / 1440 px on a 320 px base (3.4).
-8. Five bottom tabs: Home, Ranks, Quests, Vault, Settings; Theme under Settings (6.1).
+8. Five bottom tabs: Home, Ranks, Quests, Vault, Settings; Theme under Settings (6.1). Since D-29: Home, Missions, Play (the
+   centre, icon only), Vault, Settings; no ranks.
 9. A new `packages/app` beside app-web, app-web removed at the cut-over (7).
 10. Font Awesome Pro 6.6.0 from the owner's files, loaded after the first frame and drawn by React (8).
 11. Prediction with at most two unconfirmed moves; the chain wins on a mismatch (9).

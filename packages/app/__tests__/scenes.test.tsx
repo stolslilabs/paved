@@ -89,17 +89,17 @@ describe("Loading", () => {
 });
 
 describe("Home", () => {
-  it("shows the player, the game to resume, today's top 3 and the five tabs", async () => {
+  it("shows the player, the game to resume, no podium, and the nav with Play in the centre", async () => {
     const onResume = vi.fn();
     render(wrap(<HomeScene {...HOME.connected} onResume={onResume} />));
     expect(screen.getAllByText("bal7hazar").length).toBeGreaterThan(0);
-    const podium = screen.getByRole("list", { name: "Top 3" });
-    expect(within(podium).getAllByRole("listitem")).toHaveLength(4);
-    expect(within(podium).getByText("stonemaster")).toBeInTheDocument();
+    // The ranks left the UI (#623): no podium on the Challenge card.
+    expect(screen.queryByRole("list", { name: "Top 3" })).not.toBeInTheDocument();
+    expect(screen.queryByText("stonemaster")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Resume" }));
     expect(onResume).toHaveBeenCalledWith(1042);
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("button")).toHaveLength(5);
+    expect(within(nav).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Home", "Missions", "Play", "Vault", "Settings"]);
     expect(within(nav).getByRole("button", { name: "Home" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -107,11 +107,6 @@ describe("Home", () => {
     render(wrap(<HomeScene {...HOME.guest} />));
     expect(screen.getByText("Playing as a guest")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
-  });
-
-  it("says the podium is empty on a day nobody finished", () => {
-    render(wrap(<HomeScene {...HOME.firstOfDay} />));
-    expect(screen.getByText(/No finished game yet/)).toBeInTheDocument();
   });
 
   it("disables the Challenge while purchases are paused", () => {
