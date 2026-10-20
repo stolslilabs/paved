@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
@@ -21,17 +20,15 @@ export interface GameHudProps {
   onBack?: () => void;
   /** The gear: opens the device settings over the board (#541). */
   onSettings?: () => void;
-  /** The season wheel (#547), drawn next to the gear. */
-  wheel?: ReactNode;
   /** The deck sheet (#540): "Tiles left" becomes a button. */
   onDeck?: () => void;
-  /** A Story coach mark points at the deck, the wheel or the gear: that control is ringed. */
+  /** A Story coach mark points at the deck or the gear: that control is ringed (the season dial's ring is the board scene's). */
   coach?: CoachTarget | null;
   className?: string;
 }
 
 /** The board's header over the scene: Back and the mode, the tiles left, the time left, the score, the settings gear. */
-export function GameHud({ title, score, delta, preview, remaining, expiresAt, now, onBack, onSettings, onDeck, wheel, coach, className }: GameHudProps) {
+export function GameHud({ title, score, delta, preview, remaining, expiresAt, now, onBack, onSettings, onDeck, coach, className }: GameHudProps) {
   return (
     <header
       className={cn(
@@ -54,7 +51,6 @@ export function GameHud({ title, score, delta, preview, remaining, expiresAt, no
       <div className="mobile:border-l mobile:border-border mobile:pl-3">
         <Score value={score} delta={delta} preview={preview} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
       </div>
-      {wheel && (coach === "wheel" ? <span data-coach="wheel" className={COACH_RING}>{wheel}</span> : wheel)}
       {onSettings && (
         <Button variant="ghost" size="icon" className={cn("size-9 shrink-0 mobile:size-10", coach === "settings" && COACH_RING)} aria-label="Settings" onClick={onSettings}>
           <Icon name="gear" />

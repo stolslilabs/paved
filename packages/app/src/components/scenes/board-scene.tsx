@@ -2,6 +2,7 @@ import type { TileArt } from "../elements/tile-chip";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
 import type { PlanType } from "@paved/game-core";
+import { cn } from "../../lib/utils";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
 import { Notice } from "../elements/notice";
@@ -19,7 +20,7 @@ import type { ErrorDetail } from "../elements/inline-error";
 import { useBoardSounds } from "../containers/board-sounds";
 import { useSfx } from "../containers/audio-provider";
 import { HandPanel, type HandState } from "../containers/hand-panel";
-import type { CoachTarget } from "../containers/coach";
+import { COACH_RING, type CoachTarget } from "../containers/coach";
 export type { CoachTarget } from "../containers/coach";
 
 export type BoardMode = "challenge" | "training" | "story";
@@ -174,13 +175,6 @@ export function BoardScene(props: BoardSceneProps) {
           expiresAt={mode === "challenge" ? props.expiresAt : null}
           now={now}
           onBack={props.onBack}
-          wheel={
-            props.seasonWheel && (
-              <Suspense fallback={<span aria-hidden className="-mx-1 size-11 shrink-0 tablet:mx-0" />}>
-                <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
-              </Suspense>
-            )
-          }
           onSettings={() => {
             play("tap");
             setSettingsOpen(true);
@@ -192,18 +186,31 @@ export function BoardScene(props: BoardSceneProps) {
           coach={props.coach}
           className="pointer-events-auto w-full max-w-2xl"
         />
-        {props.storageDisabled && (
-          <Notice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
-            This browser refuses local storage: this game is not saved and ends if the page closes.
-          </Notice>
-        )}
-        {!props.storageDisabled && props.saveDropped && (
-          <Notice tone="warning" title="Last move not saved" className="pointer-events-auto w-full max-w-2xl">
-            This browser refused to save the last move: if the page closes, the game resumes before it.
-          </Notice>
-        )}
-        {props.notices}
-        <ClosingFeed closings={props.lastScored} className="mt-1" />
+        {/* The season dial (#607) hangs under the HUD's right end, beside the notices; from desktop up, in the board's top
+            right corner, clear of the HUD. */}
+        <div className="flex w-full max-w-2xl items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
+            {props.storageDisabled && (
+              <Notice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
+                This browser refuses local storage: this game is not saved and ends if the page closes.
+              </Notice>
+            )}
+            {!props.storageDisabled && props.saveDropped && (
+              <Notice tone="warning" title="Last move not saved" className="pointer-events-auto w-full max-w-2xl">
+                This browser refused to save the last move: if the page closes, the game resumes before it.
+              </Notice>
+            )}
+            {props.notices}
+            <ClosingFeed closings={props.lastScored} className="mt-1" />
+          </div>
+          {props.seasonWheel && (
+            <div data-bubble-avoid data-dial-place data-coach={props.coach === "wheel" ? "wheel" : undefined} className={cn("pointer-events-auto shrink-0 desktop:absolute desktop:top-4 desktop:right-4", props.coach === "wheel" && COACH_RING)}>
+              <Suspense fallback={<span aria-hidden className="block size-18 tablet:size-24" />}>
+                <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
+              </Suspense>
+            </div>
+          )}
+        </div>
       </div>
 
       {!props.readOnly && (
