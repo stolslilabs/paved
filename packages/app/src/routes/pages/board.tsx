@@ -248,7 +248,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
     return (
       <div className="flex min-h-dvh flex-col bg-board text-foreground">
         <TopBar title={`Challenge #${gameId}`} onBack={onBack} />
-        <main aria-busy={state?.status !== "error"} className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4">
+        <main aria-busy={state?.status !== "error"} className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
           {state?.status === "error" ? (
             <InlineError
               title={state.error === "game-not-found" ? "No such game" : "This game cannot be read"}
