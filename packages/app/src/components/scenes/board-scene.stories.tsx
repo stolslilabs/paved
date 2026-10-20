@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
@@ -8,6 +9,8 @@ import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
 import { Notice } from "../elements/notice";
+import { toastCompletion } from "../containers/completion-toasts";
+import { Toaster } from "../ui/sonner";
 import { BoardViewport } from "../containers/board-viewport";
 import { StoryCoach, StoryEnd } from "../containers/story-panels";
 import { TileView } from "../containers/tile-view";
@@ -237,3 +240,20 @@ export const StoryEndOnBoard: Story = {
     notices: <StoryEnd title="A full road" score={9120} stars={2} target={14374} twoStars={10062} bestKnown previousBest={8400} onReplay={fn()} onLevels={fn()} />,
   },
 };
+
+/** Raises a completion toast over the board a second in, as the app's tracking does when a game completes a mission (#595). */
+function BoardWithToast(args: BoardSceneProps) {
+  useEffect(() => {
+    const t = setTimeout(() => toastCompletion("quest", "quest:6:story", { title: "Public Works", icon: "city", cobbles: 10 }), 1_000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <>
+      {renderBoard(args)}
+      <Toaster />
+    </>
+  );
+}
+
+/** #595: a mission completed during the game toasts on the board, at the top, clear of the hand. */
+export const MissionCompleted: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <BoardWithToast {...args} /> };

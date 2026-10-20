@@ -23,6 +23,7 @@ import { Notice } from "../elements/notice";
 import { useSfx } from "../containers/audio-provider";
 import { Boundary, useClock } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
+import { GameMissions, type GameMission } from "../containers/game-missions";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
 import scoreWide from "../../assets/renders/score-wide.webp";
 import { TopBar } from "../containers/top-bar";
@@ -110,6 +111,10 @@ export interface OverSceneProps {
   onViewChange?: (view: OverView) => void;
   /** Seconds since the epoch: the scene's clock for the relative times (the browser's when omitted). Stories and tests fix it. */
   now?: number;
+  /** The missions this game completed (#595), Challenge only: listed under the reward. None or empty: no list. */
+  missions?: readonly GameMission[];
+  /** The list's way to the Missions page, where their Cobbles are claimed. */
+  onMissions?: () => void;
   onPlayAgain?: () => void;
   onHome?: () => void;
 }
@@ -225,7 +230,7 @@ export function OverScene(props: OverSceneProps) {
 }
 
 /** The scores: the over screen's page, scrolled inside the scene so the board can sit under it. */
-function Scores({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, onPlayAgain, onHome }: OverSceneProps) {
+function Scores({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
   const play = useSfx();
   useEffect(() => play("gameover"), [play]);
@@ -325,6 +330,8 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
               {settle && <SettleArea {...settle} now={clock} />}
             </>
           )}
+
+          {missions && <GameMissions missions={missions} onOpen={onMissions} />}
         </div>
 
         <div className="flex flex-col gap-4">

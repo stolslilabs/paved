@@ -35,6 +35,9 @@ export const QUEST_COBBLES: readonly QuestCobbles[] = [
   { questId: 16, cobbles: 15, kind: "weekly" },
 ];
 
+/** The tiered schedule's Cobbles (#595, a proposal): the weeklies' second tiers 30 each, the others as above. */
+export const TIERED_COBBLES: readonly QuestCobbles[] = [...QUEST_COBBLES, ...[17, 18, 19].map((questId) => ({ questId, cobbles: 30, kind: "weekly" as const }))];
+
 /** The Cobbles of the achievements (3.1): their display points; On the Podium (9) has none in v1, so it is not listed. */
 export const ACHIEVEMENT_COBBLES: readonly AchievementCobbles[] = [
   [1, 10], [2, 10], [3, 20], [4, 40], [5, 20], [6, 20], [7, 30], [8, 30], [10, 40], [11, 50], [12, 40], [13, 50], [14, 80], [15, 60], [16, 80],
