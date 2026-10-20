@@ -108,7 +108,7 @@ function geometryOf(root: Node): unknown {
  * (it does not call the birds), so the story finds them in the tile group by cell, and the model id by the type whose geometry the
  * tile shares (its skin's variant, or the base model while the variant loads).
  */
-function sourcesOf(scene: GameScene, tiles: TileRenderData[], skins: TileSkins): BirdSource[] {
+export function sourcesOf(scene: GameScene, tiles: TileRenderData[], skins: TileSkins): BirdSource[] {
   const tileGroup = scene.tiles.getGroup().children[0];
   if (!tileGroup) return [];
   const byCell = new Map(tiles.map((t) => [`${t.worldX},${t.worldZ}`, t]));
