@@ -62,25 +62,21 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await waitFor(() => expect(at(router)).toBe("/story?campaign=1"));
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/story"));
+    // The screen follows the location later (the router's updates are transitions): wait for each page to be drawn, or the
+    // Play page seen below could be the one from before these steps, and the click hit the list's Back, which opens Play.
+    await screen.findByRole("heading", { level: 1, name: "Story" }, { timeout: 5000 });
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/play"));
-    // The Play page in place of the list before its Back is pressed: the list's own Back would open Play again. Waited for, not
-    // asserted: under a loaded run the swap can still replace the node it found.
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: 5000 });
-
-    // Under a loaded run the page swap after a history step lags the location: the Back on screen can still be the Story
-    // page's, or a click can land before Play's is live. Click Play's own Back until the location is Home.
     await waitFor(
-      async () => {
-        if (at(router) !== "/") {
-          const button = screen.getByRole("button", { name: "Back" });
-          expect(button.closest("header")).toHaveTextContent("Choose a mode");
-          await userEvent.click(button);
-        }
-        expect(at(router)).toBe("/");
+      () => {
+        expect(screen.queryByRole("heading", { level: 1, name: "Story" })).toBeNull();
+        expect(screen.getByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
       },
       { timeout: 5000 },
     );
+
+    await back();
+    await waitFor(() => expect(at(router)).toBe("/"));
   });
 
   it("the level list's Back is the Play page whatever route opened it", async () => {

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_DAYNIGHT_SETTINGS, DAY_PHASE_AT, SEASONS } from "@paved/renderer";
 // The cycle's own chunk, from its source: the renderer's barrel does not export its keyframes.
 import { DAY_SHARE as RENDERER_DAY_SHARE, KEYFRAMES } from "../../renderer/src/core/daynight";
-import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, WHEEL_STATES, initialWheelState, isNight, nextWheelState, useSeasonWheel, wheelDayNight } from "../src/data/season-wheel";
+import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheelRound, useSeasonWheel, type WheelRound, wheelDayNight } from "../src/data/season-wheel";
 import { DIAL_PX, ICON_AT, ICON_PX, SeasonWheel } from "../src/components/elements/season-wheel";
 
 // The season wheel (#547), a crafted dial since #607: its states, what each asks of the renderer, its colours, and the element.
@@ -23,15 +23,38 @@ describe("the season wheel's states", () => {
     expect(isNight({ season: "summer", position: 0.625 })).toBe(true);
   });
 
-  it("goes auto, summer, autumn, winter, spring, auto", () => {
-    const seen = [WHEEL_STATES[0]!];
-    for (let i = 0; i < 5; i++) seen.push(nextWheelState(seen.at(-1)!));
-    expect(seen).toEqual(["auto", "summer", "autumn", "winter", "spring", "auto"]);
+  // Five taps from a round, the auto cycle's season given on each tap (only the first, from auto, uses it).
+  const taps = (from: WheelRound, now: (typeof WHEEL_SEASONS)[number] | null) => {
+    const seen = [from];
+    for (let i = 0; i < 5; i++) seen.push(nextWheelRound(seen.at(-1)!, now));
+    return seen.map((r) => r.state);
+  };
+
+  it("goes from auto to the next season not yet started, then forward, and back to auto on the fourth tap (#634)", () => {
+    const auto = initialWheelRound(true);
+    // Five taps: the fourth is auto, the fifth starts a new round from the cycle's season.
+    expect(taps(auto, "summer")).toEqual(["auto", "autumn", "winter", "spring", "auto", "autumn"]);
+    expect(taps(auto, "autumn")).toEqual(["auto", "winter", "spring", "summer", "auto", "winter"]);
+    expect(taps(auto, "winter")).toEqual(["auto", "spring", "summer", "autumn", "auto", "spring"]);
+    expect(taps(auto, "spring")).toEqual(["auto", "summer", "autumn", "winter", "auto", "summer"]);
+    // The cycle not drawn yet: the dial rests on summer's day, so autumn is the next to come.
+    expect(taps(auto, null)).toEqual(["auto", "autumn", "winter", "spring", "auto", "autumn"]);
   });
 
-  it("starts from the setting: auto when the cycle is on, summer when it is off", () => {
-    expect(initialWheelState(true)).toBe("auto");
-    expect(initialWheelState(false)).toBe("summer");
+  it("reads the cycle's season only on the tap from auto: a round keeps its course whatever the cycle says after", () => {
+    let round = nextWheelRound(initialWheelRound(true), "winter");
+    expect(round.state).toBe("spring");
+    round = nextWheelRound(round, "summer");
+    expect(round.state).toBe("summer");
+    round = nextWheelRound(round, "spring");
+    expect(round.state).toBe("autumn");
+    expect(nextWheelRound(round, "autumn")).toEqual({ state: "auto", last: null });
+  });
+
+  it("starts from the setting: auto when the cycle is on, summer when it is off, whose round ends with spring", () => {
+    expect(initialWheelRound(true).state).toBe("auto");
+    expect(initialWheelRound(false).state).toBe("summer");
+    expect(taps(initialWheelRound(false), "winter")).toEqual(["summer", "autumn", "winter", "spring", "auto", "spring"]);
   });
 
   it("asks the renderer to run in auto, to hold a season's day, and for no cycle at all in summer with the setting off", () => {
@@ -47,8 +70,8 @@ describe("the season wheel's states", () => {
 
   it("is per game: a new game, or a change of the setting, starts again from the setting", () => {
     const { result, rerender } = renderHook(({ on, game }) => useSeasonWheel(on, game), { initialProps: { on: true, game: 1 } });
-    act(() => result.current.next());
-    expect(result.current.state).toBe("summer");
+    act(() => result.current.next("winter"));
+    expect(result.current.state).toBe("spring");
     rerender({ on: true, game: 2 });
     expect(result.current.state).toBe("auto");
     act(() => result.current.next());
@@ -79,6 +102,12 @@ describe("the season dial's colours and room (#607)", () => {
       expect(Number(match![1])).toBeGreaterThan(50);
       expect(Number(match![1])).toBeLessThan(90);
     }
+  });
+
+  it("tones its gold down into the stones, the rim and pointer more than the hub's mark (#634)", () => {
+    const share = (name: string) => Number(token(name)?.match(/^color-mix\(in oklab, var\(--primary\) (\d+)%, var\(--color-charcoal-600\)\)$/)?.[1]);
+    expect(share("dial-rim")).toBeLessThan(share("dial-mark"));
+    expect(share("dial-mark")).toBeLessThan(80);
   });
 
   it("keeps the icons at least 4 px apart on a phone, on a dial of 64 px or more", () => {
@@ -112,18 +141,18 @@ describe("<SeasonWheel>", () => {
     expect(container.querySelector("[data-centre=auto]")).toBeNull();
   });
 
-  it("shows the sun by day and the moon by night, a fixed season by day, and names both in its banner", () => {
+  it("shows the sun by day and the moon by night, a fixed season by day, names both, and writes nothing (#634)", () => {
     const now = (c: HTMLElement) => c.querySelector("[data-now]")?.getAttribute("data-now");
-    const banner = (c: HTMLElement) => c.querySelector("[data-banner]")?.textContent;
     const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "spring", position: 0.3 }} />);
     expect(now(container)).toBe("day");
     rerender(<SeasonWheel state="auto" point={{ season: "spring", position: 0.8 }} />);
     expect(now(container)).toBe("night");
     expect(screen.getByRole("button", { name: /now spring night/ })).toBeTruthy();
-    expect(banner(container)).toBe("Spring night");
+    expect(container.textContent).toBe("");
     rerender(<SeasonWheel state="winter" />);
     expect(now(container)).toBe("day");
-    expect(banner(container)).toBe("Winter day");
+    expect(screen.getByRole("button", { name: /winter day/ })).toBeTruthy();
+    expect(container.textContent).toBe("");
   });
 
   it("splits each season's quarter into its day and its night", () => {
