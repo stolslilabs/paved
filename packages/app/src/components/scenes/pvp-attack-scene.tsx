@@ -108,7 +108,9 @@ export function PvpAttackScene(props: PvpAttackSceneProps) {
   const discardCost = Math.min(props.score, DISCARD_POINTS);
   const title = replay ? `Replay: ${replay.attacker.name ?? "an attacker"}` : `Attack: ${defender.name ?? "a village"}`;
   return (
-    <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
+    // No `overflow-hidden` here: every layer is placed inside the screen and the board clips itself; a clip on the root would
+    // cut the HUD score's screen-reader text, which sits at the right edge (WRAP360).
+    <div className="relative h-dvh min-h-[32rem] bg-board text-foreground">
       {props.canvas ?? (
         <BoardMap
           tiles={props.tiles}

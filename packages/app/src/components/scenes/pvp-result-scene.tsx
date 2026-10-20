@@ -148,7 +148,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
           {reward.state === "offer" && (
             <>
               <p className="text-sm text-muted-foreground">Pick one tile for your village and place it now, or take the Cobbles.</p>
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
                 {reward.offer.plans.map((plan, i) => (
                   <TileChip key={i} plan={plan} art={props.tileArt} size="md" />
                 ))}
@@ -185,7 +185,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
           {reward.state === "none" && <p className="text-sm text-muted-foreground">No star, no reward. Reach 70 % of a village's score for the first star.</p>}
         </section>
 
-        <div className="mt-auto grid w-full grid-cols-2 gap-2">
+        <div className="mt-auto grid w-full gap-2 mobile:grid-cols-2">
           <Button variant="secondary" size="lg" onClick={props.onReplay}>
             <Icon name="film" size="sm" />
             Replay
@@ -202,7 +202,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
           <DialogContent
             showClose={false}
             aria-describedby={undefined}
-            className="inset-0 top-0 left-0 h-dvh max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 bg-background p-0 sm:max-w-none"
+            className="inset-0 top-0 left-0 h-dvh max-w-none translate-x-0 translate-y-0 gap-0 rounded-none border-0 bg-background p-0 sm:max-w-none"
           >
             <DialogTitle className="sr-only">Village reward</DialogTitle>
             <villageScene.VillageScene
