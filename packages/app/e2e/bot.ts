@@ -141,8 +141,21 @@ const savedMoves = async (page: Page) => (await readSave(page))?.moves.length ??
  * 800 ms and the save), then let go. A press let go before the end places nothing (`tapValidate`).
  */
 export async function holdToPlace(page: Page): Promise<void> {
+  await holdUntilSaved(page, validateButton(page));
+}
+
+/** The tile stack's Discard (#606): held as Validate is, while no cell is chosen. */
+export const discardButton = (page: Page) => page.getByRole("region", { name: "Your tile" }).getByRole("button", { name: /^Hold to discard the tile/ });
+
+/** Discards the tile as a player does: the stack's trash held until the page has saved the discard, then let go. */
+export async function holdToDiscard(page: Page): Promise<void> {
+  await holdUntilSaved(page, discardButton(page));
+}
+
+/** The mouse pressed on `button` and held until the page has saved one more move, then let go. */
+async function holdUntilSaved(page: Page, button: ReturnType<Page["getByRole"]>): Promise<void> {
   const before = await savedMoves(page);
-  await validateButton(page).hover();
+  await button.hover();
   await page.mouse.down();
   try {
     await page.waitForFunction(
@@ -163,7 +176,7 @@ export async function tapValidate(page: Page): Promise<boolean> {
   await page.waitForTimeout(1_200);
   return (await savedMoves(page)) === before;
 }
-/** The bubble on the tile placed and not sent (the plan view draws it above the hand panel). */
+/** The bubble on the tile placed and not sent (the plan view draws it above the tile stack). */
 export const bubble = (page: Page) => page.getByRole("toolbar", { name: "Tile" });
 
 export async function openTraining(page: Page, base: string): Promise<void> {

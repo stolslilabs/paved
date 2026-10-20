@@ -10,6 +10,7 @@ import {
   ORIENTATIONS,
   VIEWPORT,
   bubble,
+  holdToDiscard,
   holdToPlace,
   nextValid,
   noWebGL,
@@ -188,7 +189,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
 
     if (legal.length === 0 || random() < discardRate) {
       const t0 = performance.now();
-      await page.getByRole("button", { name: "Discard" }).click();
+      await holdToDiscard(page);
       model.discard();
       out.moves += 1;
       await expectMirror(page, model, `${at} after discard`, { k: "d" });
@@ -319,23 +320,29 @@ describe("Training, played by a bot in a headless browser", () => {
     });
   }, 600_000);
 
-  it("surrenders: the game ends with its score, saved as such", async () => {
-    await withPage("surrender", async (page) => {
+  it("restarts from the settings (#606): the same game from its first tile, same seed, nothing played", async () => {
+    await withPage("restart", async (page) => {
       await openTraining(page, base);
       const seed = (await readSave(page))!.seed;
-      logSeed("surrender", seed);
+      logSeed("restart", seed);
+      const first = await readHand(page);
       const { model } = await play(page, rngOf(seed), { stopAfter: 8, checkSlots: false });
-      await page.getByRole("region", { name: "Your tile" }).getByRole("button", { name: "Surrender" }).click();
-      const dialog = page.getByRole("dialog");
-      await dialog.getByRole("button", { name: "Surrender" }).click();
-      model.surrender();
-      await expectOver(page, model);
-      const save = await readSave(page);
-      expect(save!.moves.at(-1), "the surrender is saved").toEqual({ k: "s" });
-      const replayed = replaySave(save!);
-      expect(replayed.over).toBe(true);
-      expect(replayed.score).toBe(model.score);
-      expect(remainingOf(replayed), "a surrender leaves tiles unplayed").toBeGreaterThan(0);
+      expect(model.built + model.discarded, "moves were played").toBe(8);
+      // Training has no Surrender (a Challenge's): its settings offer Restart, confirmed by a dialog.
+      await page.getByRole("button", { name: "Settings" }).click();
+      const sheet = page.getByRole("dialog", { name: "Settings" });
+      expect(await sheet.getByRole("button", { name: /Surrender/ }).count(), "no Surrender in Training").toBe(0);
+      await sheet.getByRole("button", { name: /^Restart/ }).click();
+      await page.getByRole("dialog", { name: "Restart this game?" }).getByRole("button", { name: "Restart", exact: true }).click();
+      await page.waitForFunction(([k, s]) => {
+        const save = JSON.parse(localStorage.getItem(k) ?? "{}");
+        return save.seed === s && save.moves?.length === 0;
+      }, [TRAINING_KEY, seed] as [string, string], { timeout: 30_000 });
+      const fresh = replaySave((await readSave(page))!);
+      await expectMirror(page, fresh, "after the restart");
+      expect(await readHand(page), "the game's first tile again").toEqual(first);
+      // The restarted game plays on.
+      await play(page, rngOf(seed), { stopAfter: 2, checkSlots: false });
     });
   }, 300_000);
 });
