@@ -1,0 +1,105 @@
+import type { IndexedPlayer, PlayerStats } from "@paved/chain";
+import { useState } from "react";
+import { cn } from "../../lib/utils";
+import { useSidePanel } from "../../lib/side-panel";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Icon } from "../ui/icon";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { PlayerAvatar } from "../elements/player-avatar";
+import { PlayerName } from "../elements/player-name";
+import { formatPoints } from "../elements/score";
+import { ShortAddress } from "../elements/short-address";
+
+/** The connected player as the indexer gives them: the profile and their Challenge figures. */
+export interface PlayerStatusData {
+  player: IndexedPlayer;
+  stats: PlayerStats;
+}
+
+/** Who is at the controls: the wallet still looking for an earlier session, a guest, or a connected player. */
+export type ProfileState = { status: "loading" } | { status: "guest"; connecting?: boolean } | { status: "connected"; data: PlayerStatusData };
+
+export interface ProfileSheetProps {
+  state: ProfileState;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+  /** Copies the address; a rejection is a failed copy (nothing said). The page does the copying. */
+  onCopy?: (address: string) => Promise<void>;
+}
+
+/** The side panel from `desktop`, where the avatar sits at the left of the navigation's header; the bottom sheet under it. */
+const DESKTOP_QUERY = "(min-width: 64rem)";
+
+/**
+ * What a tap on the avatar opens (#624): a bottom sheet on a phone, a panel from the left from `desktop`. The avatar larger,
+ * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (disabled until the creator,
+ * #626) and Disconnect; a guest gets the Training line and Connect. The level and XP come with #625.
+ */
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy }: ProfileSheetProps) {
+  const desktop = useSidePanel(DESKTOP_QUERY);
+  const [copied, setCopied] = useState(false);
+  const connected = state.status === "connected" ? state.data : null;
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setCopied(false);
+        onOpenChange(next);
+      }}
+    >
+      <SheetContent side={desktop ? "left" : "bottom"} className={cn(desktop && "w-sm max-w-[85vw]")}>
+        <SheetHeader className="items-center text-center">
+          <PlayerAvatar size="lg" player={connected ? { name: connected.player.name, address: connected.player.playerId } : null} loading={state.status === "loading"} />
+          <SheetTitle className="flex w-full min-w-0 justify-center">
+            {connected ? <PlayerName name={connected.player.name} address={connected.player.playerId} className="text-lg" /> : state.status === "guest" ? "Playing as a guest" : "Profile"}
+          </SheetTitle>
+          <SheetDescription>{connected ? "Your profile" : state.status === "guest" ? "Training is free. Connect to enter the Challenge." : "Looking for your account…"}</SheetDescription>
+        </SheetHeader>
+
+        {connected && (
+          <>
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/60 p-1.5 pl-3">
+              <ShortAddress address={connected.player.playerId} className="min-w-0 flex-1 truncate text-xs" />
+              <Button
+                size="sm"
+                variant={copied ? "secondary" : "default"}
+                aria-live="polite"
+                onClick={() => void onCopy?.(connected.player.playerId).then(() => setCopied(true), () => undefined)}
+              >
+                <Icon name={copied ? "check" : "copy"} size="xs" />
+                {copied ? "Copied" : "Copy"}
+              </Button>
+            </div>
+            <dl className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3">
+                <dt className="text-xs text-muted-foreground">Games</dt>
+                <dd className="numeric text-lg font-semibold wrap-anywhere">{formatPoints(connected.stats.challengeFinished)}</dd>
+              </div>
+              <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3">
+                <dt className="text-xs text-muted-foreground">Best</dt>
+                <dd className="numeric text-lg font-semibold wrap-anywhere">{formatPoints(connected.stats.bestScore)}</dd>
+              </div>
+            </dl>
+            <Button variant="outline" disabled>
+              <Icon name="pen" size="xs" />
+              Edit avatar
+              <Badge variant="outline" className="ml-1">Soon</Badge>
+            </Button>
+            <Button variant="ghost" onClick={onDisconnect}>
+              <Icon name="right-from-bracket" size="xs" />
+              Disconnect
+            </Button>
+          </>
+        )}
+        {state.status === "guest" && (
+          <Button onClick={onConnect} loading={state.connecting}>
+            Connect
+          </Button>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}

@@ -11,7 +11,8 @@ import modeChallenge from "../../assets/renders/mode-challenge.webp";
 import { BalancesSlot } from "../containers/balances-context";
 import { AppNav } from "../containers/app-nav";
 import { ModeCard } from "../containers/mode-card";
-import { PlayerStatus, type PlayerStatusData } from "../containers/player-status";
+import { ProfileSlot } from "../containers/profile-context";
+import type { PlayerStatusData } from "../containers/profile-sheet";
 
 /** The Training save on this device: enough to offer Resume. */
 export interface TrainingSave {
@@ -51,7 +52,7 @@ export interface HomeSceneProps {
 
 /**
  * Home (`/`), direction D (#537): the hero (a render of a real board under the voxel wordmark, as the mockups' first screen),
- * then Play, the player's status, the game to resume, the mode cards and the Challenge's banner card; the five tabs. No
+ * then Play, a guest's notice (the player is the avatar at the top left, #624), the game to resume, the mode cards and the Challenge's banner card; the five tabs. No
  * podium: the ranks left the UI (#623), to come back as leagues.
  */
 export function HomeScene(props: HomeSceneProps) {
@@ -63,7 +64,11 @@ export function HomeScene(props: HomeSceneProps) {
         <BoardHero />
         <h1 className="sr-only">Home</h1>
         <div className="relative mx-auto flex h-full w-full max-w-md flex-col items-center px-4 pt-4 tablet:max-w-2xl desktop:max-w-5xl desktop:items-start desktop:justify-center desktop:px-8 desktop:pt-0">
-          <BalancesSlot layout="pill" className="self-end" />
+          {/* The avatar at the top left, the balances on the right (#624); from `desktop` both are in the navigation's header. */}
+          <div className="flex w-full items-center justify-between gap-3 desktop:hidden">
+            <ProfileSlot />
+            <BalancesSlot layout="pill" className="ml-auto" />
+          </div>
           <Wordmark tagline="Build · Connect · Score" className="mt-2 desktop:mt-0 desktop:items-start [&_span]:[text-shadow:0_1px_3px_var(--color-board)]" />
         </div>
       </header>
@@ -74,7 +79,20 @@ export function HomeScene(props: HomeSceneProps) {
               Play <Icon name="chevron-right" size="md" />
             </Button>
 
-            <PlayerStatus data={player} onConnect={props.onConnect} connecting={props.connecting} />
+            {/* The player card left for the avatar and its sheet (#624); a guest keeps its line, with Connect at hand. */}
+            {!player && (
+              <Notice
+                icon="user"
+                title="Playing as a guest"
+                action={
+                  <Button size="sm" onClick={props.onConnect} loading={props.connecting}>
+                    Connect
+                  </Button>
+                }
+              >
+                Training is free. Connect to enter the Challenge.
+              </Notice>
+            )}
 
             {activeGame && (
               <div data-slot="card" className="flex items-center gap-3 rounded-xl border border-primary/40 bg-card p-3">
