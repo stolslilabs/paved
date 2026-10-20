@@ -11,7 +11,7 @@ const CENTER = 2_147_483_647;
 export interface BoardMapProps {
   tiles: BoardTile[];
   /**
-   * The legal slots of the tile in hand in any rotation, as buttons (the contracts' coordinates): a blue plate each
+   * The legal slots of the tile in hand in any rotation, as buttons (the contracts' coordinates): a plate each
    * (`fits`: the current rotation fits there, unset: it does). Every other free cell
    * next to a tile gets an invalid plate, not a button (`boardPlates`). Unset: no tile in hand, no plate; an empty list: a tile
    * that fits nowhere, invalid plates all around.
@@ -47,10 +47,10 @@ const RING_OPACITY = [0, 0.32, 0.13];
  * tile (5 %) on each side, its corners rounded, each change eased over 150 ms.
  */
 const PLATE = "pointer-events-none absolute inset-[5%] block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";
-/** The two states, on the tokens the renderer's colours are pinned to: flat, transparent. */
+/** The two states, on the token the renderer's colour is pinned to: one grey, flat, the opacities the board's. */
 const PLATE_STATE: Record<PlateState, string> = {
-  playable: "bg-plate/60",
-  invalid: "bg-plate-off/25",
+  playable: "bg-plate/55",
+  invalid: "bg-plate/20",
 };
 /** The placed tile's tint, over the tile: yellow (gold-300, the renderer's). */
 const TINT = "pointer-events-none absolute inset-0 block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";

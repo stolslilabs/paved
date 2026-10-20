@@ -2465,6 +2465,24 @@ plate-state text above where they differ.
   by default: a translucent tile over a visible plate would show it through; turn it off in the story to judge).
 - **Plan view** (`BoardMap`, DOM): the same states with the palette's tokens; the tint is an overlay on the chip.
 
+**SLOT-PLATES-GREY (#588, the owner's decisions of 2026-10-19).** It supersedes the plates' colours and height above.
+
+- **One grey, no hue.** Playable and invalid plates take the same grey, `#C8C8C8` (`placement.colors.plate`; the
+  `invalid` colour is gone), and differ by opacity alone: playable `plates.opacity` 0.55 (0.6 and blue `#B7CCDC` before),
+  invalid `plates.invalidOpacity` 0.2 (0.25 before). Greyscale plus transparency fits every UI style and every backdrop
+  (stories `Renderer/Placement`: `Plates`, `PlatesDusk`, `PlatesNight`). Tuned at 375 x 812 on the GPU: the issue's
+  proposal (`#929292`, 0.4 and 0.25) left the two states hard to tell apart by day and nearly gone at night (the plates
+  are lit, so the night's light darkens them); a lighter grey and a wider gap between the two opacities keep them apart
+  by day, at dusk and at night.
+- **One token.** `--color-plate` is that grey; `--color-plate-off` is merged into it. The plan view (`BoardMap`) draws
+  `bg-plate/55` and `bg-plate/20`; `board-map-plates.test.tsx` keeps the hex and the opacities equal to the renderer's.
+- **At the tiles' bottom.** `PLATE_Y` (`placement.ts`) is a model's foot (y 0, `TileRenderer` sets each model's bottom
+  there), lifted a twentieth of a voxel, no longer the ground slab's top (4 voxels): from the side a plate lies level with
+  the foot of the tiles around it (story `PlatesSide`, the steepest tilt). The grid lines lie there with them. Nothing else
+  is drawn at that level (a plate is inset in its own cell, and the tile in hand's own foot is hidden under its ground), the
+  neighbours' shadows still reach the plates (they receive shadows, lit like the tiles), and the plate under the tile in
+  hand still fades out (`plates.hideUnderTile`).
+
 ### 5.8 Loading (LOAD-FAST)
 
 **As built (LOAD-FAST, 2026-10-17).** The owner: "in the board scene's story, it takes several seconds before the assets

@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { DEFAULT_PLACEMENT_SETTINGS, PLATE_GAP_VOXELS, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
+import { DAY_PHASE_AT, DEFAULT_PLACEMENT_SETTINGS, PLATE_GAP_VOXELS, type DayPhase, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles, useDropThenConfirm } from "../../components/containers/board-viewport";
 import { LazyTileBubble } from "../../components/containers/lazy-tile-bubble";
 import { APP_ASSETS } from "../../mocks/assets";
@@ -41,6 +41,8 @@ export interface PlacementBoardProps {
   /** The graphics quality ("auto": the device's) and the look's preset, as the game's settings give them. */
   quality?: QualityTier | "auto";
   lookPreset?: LookPreset;
+  /** The day and night cycle held at a phase of a summer's day (#588: the plates read by day, dusk and night); off, the look alone. */
+  dayPhase?: DayPhase | "off";
   /** The placement settings, flat (`placementArgTypes`). */
   [arg: string]: unknown;
 }
@@ -148,7 +150,7 @@ export function placementArgTypes(): Record<string, object> {
  * out); `board` off shows the plates alone. `sequence` plays the game's placement (#568). `data-ready` is set once the board
  * is drawn at the held view; `data-step` names the sequence's step.
  */
-export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, holdMs = 800, dropSpeed, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", ...args }: PlacementBoardProps) {
+export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 1600, holdMs = 800, dropSpeed, view, distance, redraw = false, readout = true, force = "auto", maxPixelRatio = "auto", quality = "auto", lookPreset = "mockup", dayPhase = "off", ...args }: PlacementBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState("");
@@ -156,9 +158,9 @@ export function PlacementBoard({ state, board = true, reducedMotion, replayMs = 
   // The tour: hover, placed, then the confirm, every `replayMs`.
   const [phase, setPhase] = useState(0);
   const input = placementInput(args);
-  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset, dropSpeed]);
+  const key = JSON.stringify([input, reducedMotion, force, maxPixelRatio, quality, lookPreset, dropSpeed, dayPhase]);
   const settings = useMemo<RendererSettingsInput>(
-    () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, ...(dropSpeed ? { voxelDrop: { speed: dropSpeed } } : {}), placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
+    () => ({ outlines: { force }, maxPixelRatio, quality, lookPreset, ...(dropSpeed ? { voxelDrop: { speed: dropSpeed } } : {}), ...(dayPhase === "off" ? {} : { dayNight: { enabled: true, season: "summer" as const, freezeAt: DAY_PHASE_AT[dayPhase] } }), placement: { ...input, motion: { ...input.motion, ...(reducedMotion === undefined ? {} : { reducedMotion }) } } }),
     [key], // eslint-disable-line react-hooks/exhaustive-deps
   );
   // The measuring scripts (the GPU flicker check) drive the camera by the scene itself: exact pans and distances.
