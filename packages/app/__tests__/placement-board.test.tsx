@@ -210,7 +210,8 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
     const grid = { x: 1, y: 0 };
     const bubbleOf = (b: { canConfirm?: boolean; busy?: boolean }) => ({ cell, rotations: 1, onRotate: () => {}, onClose: () => {}, onConfirm: vi.fn(), ...b });
     const view = render(<BoardViewport tiles={[]} ghost={{ ...cell, plan: 3, orientation: 1, placed: true, fits: false }} bubble={bubbleOf({ canConfirm: false })} />);
-    await screen.findByRole("toolbar", { name: "Tile" });
+    // The bubble is its own chunk: under load it takes more than the default second to come.
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
     press(grid.x, grid.y, "down");
     expect(ring()).toBe("idle");
     expect(press(grid.x, grid.y, "released")).toBeUndefined();
@@ -222,7 +223,7 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
     expect(ring()).toBe("holding");
     press(grid.x, grid.y, "cancelled");
     expect(ring()).toBe("idle");
-  });
+  }, 20_000);
 });
 
 const PLANS = Object.values(PlanType);
