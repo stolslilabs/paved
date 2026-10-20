@@ -37,8 +37,9 @@ export const MOCKED = DATA_SOURCE === "mock";
 
 /**
  * The pages that read mocked data when the source is `mock` (their header shows the mark): Home and Play (the free games'
- * credits and the pause), the purchase (the packs, the Cobbles), the missions (their Cobbles and claims), the Vault, the
- * referral (its earnings and split) and the theme (the skins). The boards, the game-over pages, the leaderboard, the player
- * pages, Training, the tutorial and Settings read only the chain and the indexer.
+ * credits and the pause), the Challenge's purchase (the split, the pause), the Cobble packs (the packs, the Cobbles), the
+ * missions (their Cobbles and claims), the Vault, the referral (its earnings and split) and the theme (the skins). The
+ * boards, the game-over pages, the leaderboard, the player pages, Training, the tutorial and Settings read only the chain and
+ * the indexer.
  */
-export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles"]);
+export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "cobbles", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles"]);
