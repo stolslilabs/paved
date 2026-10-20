@@ -42,7 +42,7 @@ export interface HoldButtonProps {
   holdKey?: string | number;
   tone?: HoldTone;
   /**
-   * A hold shared with another source (`useHold`; the board's press on the placed tile, TILE-HOLD #630): the button shows its
+   * A hold shared with another source (`useHold`; the board's press on the placed tile, TILE-HOLD, issue 630): the button shows its
    * ring and drives it as its own, so the ring fills whichever of the two is held. Its controller then owns `onComplete`,
    * `holdMs` and `holdKey`; the button's are unused.
    */

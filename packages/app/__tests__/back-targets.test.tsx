@@ -9,7 +9,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
-import { preloadPages } from "./route-helpers";
+import { discardTile, preloadPages } from "./route-helpers";
 
 preloadPages("home", "play", "story", "story-board");
 
@@ -36,8 +36,9 @@ const back = () => userEvent.click(screen.getByRole("button", { name: "Back" }))
 
 /** Discards every tile of Tutorial level 1 (its deck presented already): the level's end. */
 async function finishLevelOne() {
-  const hand = await screen.findByRole("region", { name: "Your tile" }, { timeout: 5000 });
-  for (let i = 0; i < TUTORIAL.levels[0]!.deck.length; i++) await userEvent.click(within(hand).getByRole("button", { name: /Discard/ }));
+  await screen.findByRole("region", { name: "Your tile" }, { timeout: 5000 });
+  // The stack's Discard is held since #606: `discardTile` activates it as a screen reader does.
+  for (let i = 0; i < TUTORIAL.levels[0]!.deck.length; i++) await discardTile();
   return screen.findByTestId("story-end");
 }
 
