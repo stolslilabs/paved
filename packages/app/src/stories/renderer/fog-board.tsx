@@ -385,7 +385,7 @@ export function FogBoard(props: FogBoardProps) {
         </output>
       )}
       {interactive && (
-        <div className="absolute right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="absolute right-3 bottom-3">
           <Button size="sm" variant="secondary" onClick={() => move(null)}>
             {reveal === "board" ? "Place next" : "Build or buy next"}
           </Button>
