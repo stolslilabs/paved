@@ -50,13 +50,14 @@ interface Capture {
 const MOVES = [3, 14, 25];
 const CAPTURES: Capture[] = [
   { name: "fog-hard-edge", story: "hard-edge", frames: FRAMES },
-  { name: "fog-voxel-edge", story: "voxel-edge", frames: FRAMES },
+  { name: "fog-voxel-edge", story: "voxel-edge", frames: 1 },
   { name: "fog-soft-falloff", story: "soft-falloff", frames: FRAMES },
   { name: "fog-landscape", story: "landscape", frames: FRAMES },
-  { name: "fog-village", story: "village", frames: FRAMES },
-  { name: "fog-interactive", story: "interactive", args: "interactive:!false", frames: MOVE_FRAMES, moves: MOVES },
-  { name: "fog-interactive-hard-edge", story: "interactive", args: "interactive:!false;falloff:0;mist:0", frames: MOVE_FRAMES, moves: MOVES },
-  { name: "fog-village-growing", story: "village-growing", args: "autoplay:0;interactive:!false", frames: MOVE_FRAMES, moves: MOVES },
+  { name: "fog-village", story: "village", frames: 1 },
+  // The moves' clips hold the drift (the lift is their point, and a still fog keeps the GIF small).
+  { name: "fog-interactive", story: "interactive", args: "interactive:!false;drift:0", frames: MOVE_FRAMES, moves: MOVES },
+  { name: "fog-interactive-hard-edge", story: "interactive", args: "interactive:!false;falloff:0;mist:0;drift:0", frames: MOVE_FRAMES, moves: MOVES },
+  { name: "fog-village-growing", story: "village-growing", args: "autoplay:0;interactive:!false;drift:0", frames: MOVE_FRAMES, moves: MOVES },
   { name: "fog-landscape-hard-edge", story: "landscape-hard-edge", frames: 1 },
   { name: "fog-close-voxel-edge", story: "voxel-edge", args: "view:close", frames: 1 },
   { name: "fog-close-soft-edge", story: "voxel-edge", args: "view:close;voxelEdge:!false", frames: 1 },
