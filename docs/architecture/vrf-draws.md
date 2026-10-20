@@ -215,4 +215,46 @@ What waits on the answers:
 
 ## 8. As built
 
-FIGURES
+Code:
+
+- `contracts/src/vrf.cairo`: `Source`, `IVrfProvider` and `draw_salt`.
+- `contracts/src/components/drawable.cairo`: `DrawableComponent`.
+- `contracts/src/mocks/vrf.cairo`: `MockVrfProvider`.
+- `contracts/src/mocks/drawer.cairo`: `DrawHarness`, test only.
+- Tests: `contracts/src/tests/vrf.cairo` (coverage group `tests-vrf`) and `contracts/tests/gas.cairo`, z15.
+- Client: `packages/chain/src/vrf.ts`, tests in `packages/chain/test/vrf.test.ts`.
+
+Departures from sections 4 and 5:
+
+- The salt function is `draw_salt` in `paved::vrf`, not a call of the component. The client's mirror is `vrfSalt`, pinned
+  against it by one fixture value.
+- The mock's `assert_consumed` takes the seed, as Cartridge's provider does. #638 describes Glitchbomb's as taking the
+  source.
+- The mock refuses only SN_MAIN at construction: starknet-devnet runs as SN_SEPOLIA, so Sepolia cannot be refused there.
+
+**CASM** (release, `scripts/class-sizes.sh`, VPS, 2026-10-20):
+
+| Class | Sierra | CASM | Of the cap |
+|---|---|---|---|
+| `DrawHarness` | 1,132 | 2,676 | 3.3 % |
+| `DrawHarness` without the component (measured, not committed) | 825 | 1,999 | 2.4 % |
+| `MockVrfProvider` | 596 | 949 | 1.2 % |
+
+So the component adds **677 CASM felts** (307 Sierra) to the system that embeds it. For #643's system, that is to be
+judged against its cap (P-44).
+
+**Gas.** z15 in `contracts/tests/gas.cairo` measures one draw. Its ceiling is set from the figure of the CI's run.
+
+**The local snforge run was skipped under the VPS cap.**
+
+- The test build of `contracts/` peaks at **8.35 GB RSS** (8,352,724 kB; VmPeak 14.2 GB).
+- main peaks the same without this branch's modules (8,352,860 kB).
+- That is above the 8 GB scope of the VPS's Cairo shim, so the run is OOM-killed after the diagnostics, which pass
+  without errors.
+- The tests ran in CI (`AGENTS.md`).
+
+**Follow-ups:**
+
+- `scripts/deploy.sh` deploys `MockVrfProvider` on the devnet only and records `contracts.MockVrfProvider`, which
+  `vrfProvider` reads. This goes with #643, the first system that takes a provider.
+- The indexer's `VrfProviderSet`, with #643 too.
