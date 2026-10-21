@@ -21,6 +21,8 @@ export interface TopBarProps {
  * with a hairline. The space under that line is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
  * flush, so every such page has the same gap. The balances (#620) show as on the tab pages, where the shell provides them: on a
  * phone in a strip under the title (the bar's sides stay narrow, so the title keeps its room), from `desktop` before `end`.
+ * Its height is every page's header height (`page-header`, #676): the title row and the strip below `desktop` (the strip's
+ * room kept without balances), one row from it. A title takes two lines at most.
  */
 export function TopBar({ title, onBack, end, balances = true, className }: TopBarProps) {
   const marked = useMockMarked();
@@ -37,11 +39,11 @@ export function TopBar({ title, onBack, end, balances = true, className }: TopBa
     return () => observer.disconnect();
   }, []);
   return (
-    // At least 56 px, never fixed: a long title wraps (WRAP360) and the bar grows with it.
     <header
       ref={bar}
+      data-slot="page-header"
       className={cn(
-        "grid min-h-14 shrink-0 grid-cols-[var(--side,3rem)_minmax(0,1fr)_var(--side,3rem)] items-center gap-1 mb-4 border-b border-border px-2 pt-[env(safe-area-inset-top)] pb-1",
+        "page-header grid grid-cols-[var(--side,3rem)_minmax(0,1fr)_var(--side,3rem)] items-center gap-x-1 mb-4 border-b border-border px-2",
         className,
       )}
     >
@@ -58,7 +60,7 @@ export function TopBar({ title, onBack, end, balances = true, className }: TopBa
         The mark on the title's line, after its last word when the title wraps (#622). It takes no width in the line (its
         negative margin); the title's box keeps its room on both sides instead, so the title stays at the centre.
       */}
-      <span className={cn("text-center", marked && "px-12")}>
+      <span title={typeof title === "string" ? title : undefined} className={cn("line-clamp-2 text-center", marked && "px-12")}>
         <h1 className="inline text-lg leading-tight font-semibold wrap-anywhere">{title}</h1>
         {marked && (
           <span className="-mr-12 ml-1 inline-flex w-11 align-[0.125rem]">

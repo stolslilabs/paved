@@ -33,7 +33,8 @@ export interface AppNavProps {
  * Vault, Settings, and Play is reached from the Home page. It opens the mode choice (`/play`).
  * Below `desktop` the bar is `position: fixed` to the viewport's bottom, outside the page's scrolling region (`TabFrame`,
  * #611, which ends the region at the bar's measured height); from `desktop` it is the first child of the page's column. The
- * page lays it out in one column (`flex-col`) at every width. It draws the page's edge hint
+ * page lays it out in one column (`flex-col`) at every width. The header is every page's header height from `desktop`
+ * (`page-header`, #676), as a flow's top bar and a tab page's title row. It draws the page's edge hint
  * (NO-SCROLLBARS, #609): while the page's region has more below (`page-more`, set by `TabFrame`), a fade just above the bar
  * below `desktop`, at the foot of the viewport from it.
  */
@@ -45,7 +46,7 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
         className={cn(
           "z-20 flex items-center border-border bg-background/95 backdrop-blur",
           "fixed inset-x-0 bottom-0 border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]",
-          "desktop:relative desktop:shrink-0 desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:py-3 wide:gap-6 wide:px-8",
+          "desktop:page-header desktop:relative desktop:gap-4 desktop:border-t-0 desktop:border-b desktop:px-6 desktop:pb-0 wide:gap-6 wide:px-8",
           className,
         )}
       >

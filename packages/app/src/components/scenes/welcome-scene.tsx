@@ -26,8 +26,10 @@ export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTrai
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden bg-background text-foreground">
       <BoardHero shade="veil" />
+      {/* No bar on the first visit, but every page's header height above the content (`page-header`, #676): it starts where it does on the other pages. */}
+      <div aria-hidden data-slot="page-header" className="page-header" />
 
-      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-end gap-8 px-4 pt-24 pb-[max(2rem,env(safe-area-inset-bottom))] desktop:max-w-4xl desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-16 desktop:pt-8">
+      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-end gap-8 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] desktop:max-w-4xl desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-16">
         <div className="flex flex-col items-center gap-6 desktop:flex-1 desktop:items-start">
           <Wordmark tagline="Build · Connect · Score" className="desktop:items-start desktop:text-left" />
           <ul className="hidden flex-col gap-4 desktop:flex">

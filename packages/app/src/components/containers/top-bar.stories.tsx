@@ -21,7 +21,7 @@ export const WithAction: Story = {
     ),
   },
 };
-/** WRAP360: a long title wraps and the bar grows; a compound breaks. */
+/** WRAP360: a long title wraps, two lines at most, then an ellipsis (the whole title in `title`); the bar keeps its height (HEADER-HEIGHT). */
 export const Stress: Story = { args: { title: `${LONG_LABEL} ${LONG_WORD}` } };
 /** MOCK-MARK (#622): "Mock" on the title's line, the title and the mark centred together. */
 export const WithMark: Story = {

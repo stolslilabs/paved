@@ -25,7 +25,9 @@ const BOARD_PATHS = new Set(["game/:gameId", "training", "story/:campaign/:level
  * The root of every route. It draws nothing of its own (the Cartridge notice lives on the Credits page, D-15): a tab page
  * is one viewport tall, its navigation fixed to the bottom and its content in its own scrolling region (`TabFrame`, FOOTER-FIXED); a
  * full-screen flow brings its top bar and is `min-h-dvh`, scrolling as one document. The document never bounces (`html, body`
- * take no overscroll, styles/theme.css). Pages load lazily; `Suspense` shows
+ * take no overscroll, styles/theme.css). Every page's header, the top bar, the tab pages' title row, the navigation's header from
+ * `desktop`, is one height per breakpoint (`--header-h`, the
+ * `page-header` utility, theme.css: HEADER-HEIGHT). Pages load lazily; `Suspense` shows
  * the loading scene while a page's code arrives; once the first render is done the browser fetches the tab pages' code in
  * its idle time (`prefetch.tsx`).
  */

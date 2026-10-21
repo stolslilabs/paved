@@ -26,13 +26,15 @@ export interface TabPageProps {
 /**
  * A page of the five tabs (section 6.2), as Home lays itself out: the bottom bar below `desktop`, the header across the top
  * from it (direction D, #537); the title in the display font, an action on its right, the content in one column that widens
- * with the viewport, in the frame of the tab pages (`TabFrame`).
+ * with the viewport, in the frame of the tab pages (`TabFrame`). The header is every page's header height (`page-header`,
+ * #676): below `desktop` the title row (the avatar or Back, the title, `end`) over the balances' row, from it the title row.
  */
 export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, children, className }: TabPageProps) {
   return (
     <TabFrame tab={tab} onNavigate={onNavigate}>
-      <main className={cn("mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
-        <header className="flex flex-wrap items-center justify-between gap-3">
+      <main className={cn("mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
+        {/* Every page's header height (`page-header`, #676): the title row and the balances' row below `desktop`, the title row from it. */}
+        <header data-slot="page-header" className="page-header grid grid-cols-[1fr_auto] items-center gap-x-3">
           <div className="flex min-w-0 items-center gap-1">
             {/* The top left is Back on a page reached from another, the player's avatar on a tab's own page (#624; from `desktop` it is in the navigation). */}
             {onBack ? (
@@ -42,17 +44,21 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
             ) : (
               <ProfileSlot className="mr-2 desktop:hidden" />
             )}
-            <div className="flex min-w-0 flex-col wrap-anywhere">
-              {/* The mark on the title's line, after its last word when the title wraps (#622). */}
-              <span>
+            <div className="flex min-w-0 flex-col">
+              {/* The mark on the title's line, after it (#622). One line each: the header's height is fixed, a cut line keeps its whole text in `title`. */}
+              <span title={title} className="truncate">
                 <h1 className="inline font-display text-3xl font-semibold tracking-wide">{title}</h1>
                 <MockMarkSlot className="ml-2 align-[0.375rem]" />
               </span>
-              {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
+              {subtitle && (
+                <span title={typeof subtitle === "string" ? subtitle : undefined} className="truncate text-xs text-muted-foreground">
+                  {subtitle}
+                </span>
+              )}
             </div>
           </div>
-          <BalancesSlot layout="pill" className="ml-auto desktop:hidden" />
           {end}
+          <BalancesSlot layout="pill" className="col-span-2 ml-auto desktop:hidden" />
         </header>
         {children}
       </main>
