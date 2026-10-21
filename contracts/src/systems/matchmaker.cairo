@@ -106,6 +106,7 @@ pub mod Matchmaker {
 
     pub mod errors {
         pub const ZERO_SETUP: felt252 = 'Matchmaker: setup is zero';
+        pub const ZERO_VILLAGE: felt252 = 'Matchmaker: village is zero';
         pub const NOT_OPERATOR: felt252 = 'Matchmaker: not operator';
         pub const NO_OPPONENT: felt252 = 'Matchmaker: no opponent';
         pub const OPPONENT_DRAWN: felt252 = 'Matchmaker: opponent drawn';
@@ -368,6 +369,8 @@ pub mod Matchmaker {
 
         fn join(ref self: ContractState, player: ContractAddress) {
             self.assert_operator();
+            // [Check] Not zero: a zero opponent means none in a match
+            assert(player.is_non_zero(), errors::ZERO_VILLAGE);
             let village = PoolTrait::join(ref self, player, get_block_timestamp(), true);
             self.emit(VillageJoined { village: player });
             self

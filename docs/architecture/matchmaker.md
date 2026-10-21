@@ -60,14 +60,15 @@ New contract, new names only (`docs/architecture/upgrades.md`, "Storage layout d
 | `registry` | `felt252` | Bit `b` set iff bucket `b` is non-empty (bits 0 to 250) |
 | `bucket_sizes` | `Map<u8, u32>` | The number of villages in bucket `b` |
 | `slots` | `Map<(u8, u32), ContractAddress>` | The village at index `i` of bucket `b`, for `i < size` |
-| `villages` | `Map<ContractAddress, felt252>` | One packed slot per village (below) |
-| `queues` | `Map<u8, felt252>` | Shield queue `q`: `head` [0, 64) · `tail` [64, 128) |
+| `villages` | `Map<ContractAddress, Village>` | One packed slot per village (below; `StorePacking` into a felt) |
+| `queues` | `Map<u8, Queue>` | Shield queue `q`: `head` [0, 64), `tail` [64, 128) |
 | `queue_entries` | `Map<(u8, u64), ContractAddress>` | Queue `q`'s entry at sequence `n`, for `head <= n < tail` |
-| `matches` | `Map<ContractAddress, felt252>` | The attacker's drawn opponent and its offer (below) |
+| `match_opponents` | `Map<ContractAddress, ContractAddress>` | The attacker's drawn opponent (zero: none) |
+| `match_states` | `Map<ContractAddress, u16>` | Its offer [0, 8) and whether the attack started [8] |
 | `operators` | `Map<ContractAddress, bool>` | The systems allowed to create villages and run attacks |
 | `setup` | `ContractAddress` | `Setup`, where "Next" spends Cobbles |
 
-**The village slot**, one felt:
+**The village slot**, one felt (as built: no field crosses the two 128-bit halves):
 
 | Bits | Field |
 |---|---|
@@ -76,14 +77,15 @@ New contract, new names only (`docs/architecture/upgrades.md`, "Storage layout d
 | 40..72 | `index` (u32): the slot in the bucket, in the pool |
 | 72..80 | `status` (u8): 0 none, 1 in the pool, 2 shielded |
 | 80..88 | `queue` (u8): the shield queue, when shielded |
-| 88..152 | `seq` (u64): the entry's sequence in that queue |
-| 152..216 | `shield_until` (u64): the shield's end, a block timestamp |
-| 216..248 | `draws` (u32): the VRF draw counter of this attacker |
-| 248 | `npc` (bool) |
+| 88..120 | `draws` (u32): the VRF draw counter of this attacker |
+| 120 | `npc` (bool) |
+| 128..192 | `seq` (u64): the entry's sequence in that queue |
+| 192..248 | `shield_until`: the shield's end, a block timestamp below 2^56 |
 
-**The match slot**: the opponent's address does not fit beside other fields, so `matches` holds
-`opponent` in a `ContractAddress` and the offer and state in a second felt. As built: two maps, `match_opponents` and
-`match_states` (`offer` [0, 8) · `started` [8]).
+Bits 121..128 and 248..251 are free. A zero slot is a village that never joined.
+
+**The match**: the opponent's address does not fit beside other fields, so it takes two maps, `match_opponents`
+(the opponent, zero for none) and `match_states` (`offer` [0, 8), `started` [8]).
 
 ## 4. The pool
 
@@ -194,3 +196,93 @@ start shields it, and the second's start fails (`'Matchmaker: opponent shielded'
   `CrownsSettled`, `OperatorSet`, `NpcSet`.
 - **Client**: the `@paved/chain` views and writes and the indexer's tables (`pvp_villages`, `pvp_matches`,
   `pvp_shields`) go in this PR when they fit, or in the follow-up that the PR names.
+
+## 10. As built
+
+Code:
+
+- `contracts/src/matchmaker/{crowns,village,pool}.cairo`: the library. `pool.cairo` holds the `PoolStore` trait and
+  `Pool`, its rules: `insert`, `remove`, `move_crowns`, `shield`, `release`, `draw`, and the calls `join`, `set_npc`,
+  `remove_npc`, `set_crowns`, `start`, `settle`.
+- `contracts/src/systems/matchmaker.cairo`: `Matchmaker`, which implements `PoolStore` on its storage, with the
+  interfaces `IMatchmaker` (player, operators, anyone, views) and `IMatchmakerAdmin` (owner).
+- `contracts/src/systems/setup.cairo`: `ISetupSpend` (`set_spender`, `is_spender`, `spend_cobbles`), the storage member
+  `spenders` (appended), and the events `SpenderSet` and `CobblesSpent`.
+- Tests:
+  - `contracts/src/tests/matchmaker.cairo` is the library over a memory store: unit tests, fuzz tests of the offer, the
+    settlement's conservation, the packings, the draw's no-self-match, and random sequences of calls that check the pool's
+    invariants after every call (section 4).
+  - `contracts/src/tests/matchmaker_system.cairo` is the system over the VRF mock and a real `Setup`: callers, draws,
+    "Next", attacks, shields, NPCs, and the storage pinned by name (`spenders` of `Setup` included).
+  - Coverage group `tests-matchmaker`. Gas: z16 to z21 in `contracts/tests/gas.cairo`.
+- `@paved/indexer`: `CobblesSpent` enters the running cobble ledger (table `cobble_spends`, schema 17). Without it the
+  first "Next" would halt the indexer, whose ledger checks every balance. `SpenderSet` is ignored by name.
+
+Departures from the sections above:
+
+- The village slot's layout (section 3) keeps every field inside one 128-bit half.
+- `join` refuses the zero address: a zero opponent means "none" in a match.
+
+**CASM** (release, `scripts/class-sizes.sh`, VPS, 2026-10-21, under `prlimit --as=12884901888`):
+
+| Class | Sierra | CASM | Of the cap |
+|---|---:|---:|---:|
+| `Matchmaker` (new) | 9,616 | 24,473 | 29.9 % |
+| `Setup`, merge base `b6b4ee1a` | 18,024 | 39,861 | 48.7 % |
+| `Setup`, this branch | 18,563 | 41,179 | 50.3 % (+1,318) |
+
+No other class changes.
+
+**Gas** (L2 gas of the call alone, test profile, snforge 0.64.0, VPS; ceilings at measured + 5 %):
+
+| Test | Call | L2 gas |
+|---|---|---:|
+| z16 | `join` (a village behind its initial shield) | 862,337 |
+| z17 | `search`, free (the VRF draw, the nearest bucket, the offer) | 2,381,575 |
+| z18 | `next` (one Cobble spent in `Setup`, then a draw) | 2,927,813 |
+| z19 | `start_attack`, the worst case: 2 shields released, the attacker's dropped, the defender's raised | 3,900,612 |
+| z20 | `settle` (3 stars, both villages written) | 975,721 |
+| z21 | `release_shields(2)` | 1,765,814 |
+
+The draw costs about 1.4M above the VRF draw alone (z15, 986,461): the bitmap search computes powers of two through
+`Math::pow` (`paved::helpers::bitmap`, kept as it is). A table of the 251 powers would cut that if #643's attack budget
+needs it.
+
+**Local runs.** The full `contracts/` test build peaks above the VPS's 8 GB Cairo scope (`vrf-draws.md`, section 8). So
+the matchmaker's modules and the gas tests ran locally in a scratch copy of the crate that keeps every source but only the
+test modules named: 73 tests of `paved::tests::matchmaker*` pass (peak RSS 4.5 GB), and the 21 `test_gas_z*` pass (peak RSS
+4.5 GB, z15 equal to its committed figure). CI runs the whole suite.
+
+**Audit, value and access** (Cobbles and crowns move):
+
+- **Cobbles.**
+  - `spend_cobbles` only lowers a balance. Only a spender the owner allows may call it, and it refuses 0 and a short
+    balance. It trusts the spender for whom, as `credit_story` trusts the reporter.
+  - The matchmaker spends only for the caller of `next`, before the draw, in the same transaction: a draw that fails
+    reverts the spend.
+- **Crowns.**
+  - They move only through operators: `settle` (an attack started, 0 to 3 stars, at the offer fixed at the draw) and
+    `set_crowns` (#644). Both are trusted, like `Setup`'s reporters.
+  - Between players, crowns are conserved and never negative (fuzzed). Against an NPC, a win mints the attacker's gain:
+    a cold-start trade-off, bounded by the owner removing the NPCs (open point 4).
+  - A high player draws an NPC only if no player sits in a nearer bucket.
+- **The draw.**
+  - The salt is fixed by the attacker and its draw counter, which only a landed draw advances. A reverted or resent
+    transaction draws the same opponent; a free re-draw needs the drawn opponent to have left the pool.
+  - The attacker never draws itself (fuzzed). A drawn opponent shielded in the meantime fails the start, and then the
+    search is free.
+- **Liveness.**
+  - Every attack start puts back at most 2 expired shields, and pops at most 4 entries in all, stale ones included. One
+    attack adds at most one live entry and one stale one, so the queues drain with no keeper. `release_shields` (anyone, at
+    most 16) clears a backlog.
+- **Owner.** It sets the operators, `Setup`, the VRF provider and the NPCs, and upgrades. No owner call moves a player's
+  crowns or Cobbles.
+
+**Follow-ups this PR names** (the client side, allowed by #639's constraints):
+
+- The deployment of `Matchmaker` (`scripts/deploy.sh`, the deployment files): the operators, `Setup.set_spender` and the
+  NPC villages, in the fresh path.
+- `@paved/chain`: the views (`village`, `current_match`, `offer`, the queues) and the writes `search` and `next`, each
+  behind `withVrfRequest` with `vrfSalt('MATCH', attacker, draws)`.
+- `@paved/indexer`: the matchmaker's events and their tables (`pvp_villages`, `pvp_matches`, `pvp_shields`), once
+  `Matchmaker` is in a deployment file.

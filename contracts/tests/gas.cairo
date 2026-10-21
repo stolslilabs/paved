@@ -138,9 +138,9 @@ pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
 pub const CEILING_VRF_DRAW: u128 = 1035785;
 // z16 to z21: the matchmaker's calls (#639, `docs/architecture/matchmaker.md`): measured on the VPS
 // (snforge 0.64.0, test profile) + 5 %, rounded up.
-pub const CEILING_MM_JOIN: u128 = 899784;
+pub const CEILING_MM_JOIN: u128 = 905454;
 pub const CEILING_MM_SEARCH: u128 = 2500654;
-pub const CEILING_MM_NEXT: u128 = 3084767;
+pub const CEILING_MM_NEXT: u128 = 3074204;
 pub const CEILING_MM_START: u128 = 4095643;
 pub const CEILING_MM_SETTLE: u128 = 1024508;
 pub const CEILING_MM_RELEASE: u128 = 1854105;

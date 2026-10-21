@@ -210,6 +210,17 @@ fn test_join_by_a_non_operator_fails() {
 
 #[test]
 #[feature("safe_dispatcher")]
+fn test_join_zero_fails() {
+    let world = world();
+    as_operator(world);
+    match safe(world).join(0.try_into().unwrap()) {
+        Result::Ok(_) => panic!("joined zero"),
+        Result::Err(error) => assert_eq!(*error.at(0), 'Matchmaker: village is zero'),
+    }
+}
+
+#[test]
+#[feature("safe_dispatcher")]
 fn test_join_twice_fails() {
     let world = world();
     join(world, ALICE());
