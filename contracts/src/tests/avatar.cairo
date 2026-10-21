@@ -120,7 +120,7 @@ fn cobbles_of(w: World, who: ContractAddress) -> u64 {
 
 fn buy(w: World, who: ContractAddress, part: u8, id: u8) {
     as_player(w, who);
-    w.avatar.buy_avatar_item(part, id);
+    w.avatar.buy_avatar_item(part, id, 0xffff);
     stop(w);
 }
 
@@ -404,7 +404,7 @@ fn test_an_item_is_bought_once_never_twice() {
     give(w, PLAYER(), 200);
     buy(w, PLAYER(), 1, 5);
     as_player(w, PLAYER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5)), 'Avatar: item owned');
+    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5, 0xffff)), 'Avatar: item owned');
     stop(w);
     assert_eq!(cobbles_of(w, PLAYER()), 150);
     assert_eq!(w.avatar.item(1, 5).sold, 1);
@@ -418,11 +418,41 @@ fn test_an_item_is_bought_once_never_twice() {
 
 #[test]
 #[feature("safe_dispatcher")]
+fn test_never_charged_above_the_confirmed_price() {
+    let w = world();
+    give(w, PLAYER(), 200);
+    // Confirmed at 50; the owner relists at 60 before the purchase lands: refused, nothing moved
+    as_owner(w);
+    w.avatar.set_item(1, 5, 60, 0, 0);
+    stop(w);
+    as_player(w, PLAYER());
+    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5, 50)), 'Avatar: price above max');
+    stop(w);
+    assert_eq!(cobbles_of(w, PLAYER()), 200);
+    assert_eq!(w.avatar.owned(PLAYER().into(), 1), 0);
+    assert_eq!(w.avatar.item(1, 5).sold, 0);
+    // Exactly the confirmed price: charged it
+    as_player(w, PLAYER());
+    w.avatar.buy_avatar_item(1, 5, 60);
+    stop(w);
+    assert_eq!(cobbles_of(w, PLAYER()), 140);
+    // A price lowered since the confirmation: charged the lower one
+    as_owner(w);
+    w.avatar.set_item(0, 2, 20, 0, 0);
+    stop(w);
+    as_player(w, PLAYER());
+    w.avatar.buy_avatar_item(0, 2, 30);
+    stop(w);
+    assert_eq!(cobbles_of(w, PLAYER()), 120);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
 fn test_cobbles_never_below_zero() {
     let w = world();
     give(w, PLAYER(), 99);
     as_player(w, PLAYER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(2, 255)), 'Setup: not enough cobbles');
+    assert_eq!(error_of(safe(w).buy_avatar_item(2, 255, 0xffff)), 'Setup: not enough cobbles');
     stop(w);
     // Nothing written: the bit, the count sold, the balance
     assert_eq!(w.avatar.owned(PLAYER().into(), 2), 0);
@@ -441,9 +471,9 @@ fn test_free_unlisted_and_withdrawn_items_are_not_for_sale() {
     give(w, PLAYER(), 500);
     as_player(w, PLAYER());
     let not_for_sale = 'Avatar: item not for sale';
-    assert_eq!(error_of(safe(w).buy_avatar_item(0, 0)), not_for_sale);
-    assert_eq!(error_of(safe(w).buy_avatar_item(0, 6)), not_for_sale);
-    assert_eq!(error_of(safe(w).buy_avatar_item(9, 0)), not_for_sale);
+    assert_eq!(error_of(safe(w).buy_avatar_item(0, 0, 0xffff)), not_for_sale);
+    assert_eq!(error_of(safe(w).buy_avatar_item(0, 6, 0xffff)), not_for_sale);
+    assert_eq!(error_of(safe(w).buy_avatar_item(9, 0, 0xffff)), not_for_sale);
     stop(w);
     as_owner(w);
     w.avatar.withdraw_item(1, 5);
@@ -452,7 +482,7 @@ fn test_free_unlisted_and_withdrawn_items_are_not_for_sale() {
     assert_eq!(error_of(safe(w).withdraw_item(0, 6)), 'Avatar: item not listed');
     stop(w);
     as_player(w, PLAYER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5)), not_for_sale);
+    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5, 0xffff)), not_for_sale);
     stop(w);
     // Relisted, on sale again
     as_owner(w);
@@ -476,7 +506,7 @@ fn test_the_limits_in_quantity_and_in_time() {
     stop(w);
     buy(w, PLAYER(), 0, 3);
     as_player(w, OTHER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(0, 3)), 'Avatar: item sold out');
+    assert_eq!(error_of(safe(w).buy_avatar_item(0, 3, 0xffff)), 'Avatar: item sold out');
     stop(w);
     // Relisting keeps the count sold: one more copy
     as_owner(w);
@@ -489,7 +519,7 @@ fn test_the_limits_in_quantity_and_in_time() {
     buy(w, PLAYER(), 0, 4);
     start_cheat_block_timestamp_global(1000);
     as_player(w, OTHER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(0, 4)), 'Avatar: sale ended');
+    assert_eq!(error_of(safe(w).buy_avatar_item(0, 4, 0xffff)), 'Avatar: sale ended');
     stop(w);
     // The season over, the item bought stays usable
     set(w, PLAYER(), look(array![4, 0, 0, 0]));
@@ -517,7 +547,7 @@ fn test_only_an_allowlisted_spender_spends() {
         .set_spender(w.avatar.contract_address, false);
     stop_cheat_caller_address(w.setup);
     as_player(w, PLAYER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5)), 'Setup: not spender');
+    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5, 0xffff)), 'Setup: not spender');
     stop(w);
     assert_eq!(cobbles_of(w, PLAYER()), 100);
     assert_eq!(w.avatar.owned(PLAYER().into(), 1), 0);
@@ -651,7 +681,7 @@ fn test_fuzz_buys_and_sets(seed: u64) {
         let mine = *owned.at(pick);
         let safe_avatar = safe(w);
         as_player(w, PLAYER());
-        let result = safe_avatar.buy_avatar_item(part, id);
+        let result = safe_avatar.buy_avatar_item(part, id, price.try_into().unwrap());
         stop(w);
         if !mine && balance >= price {
             assert!(result.is_ok());

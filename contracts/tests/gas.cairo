@@ -1123,7 +1123,7 @@ fn avatar_scenario(owned: bool) -> IAvatarDispatcher {
     start_cheat_caller_address(address, PLAYER());
     if owned {
         for part in 0..10_u8 {
-            avatar.buy_avatar_item(part, 4);
+            avatar.buy_avatar_item(part, 4, 50);
         }
     }
     avatar
@@ -1152,7 +1152,7 @@ fn test_gas_z24_avatar_set_item() {
 fn test_gas_z25_avatar_buy() {
     let avatar = avatar_scenario(false);
     let before = get_available_gas();
-    avatar.buy_avatar_item(3, 4);
+    avatar.buy_avatar_item(3, 4, 50);
     let after = get_available_gas();
     report("z25_avatar_buy", before - after, CEILING_AVATAR_BUY);
 }

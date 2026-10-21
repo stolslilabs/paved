@@ -41,8 +41,10 @@ pub trait IAvatar<TContractState> {
     /// is owned stays owned. Emits `AvatarItemListed`.
     fn withdraw_item(ref self: TContractState, part: u8, id: u8);
     /// The caller buys a listed paid item for itself, once, for its price in cobbles (debited by
-    /// `Setup`). Buying does not set the avatar. Emits `AvatarItemBought`.
-    fn buy_avatar_item(ref self: TContractState, part: u8, id: u8);
+    /// `Setup`), refused when that price is above `max_cobbles`, the price the player confirmed (an
+    /// owner's change between the player's read and the purchase never charges more). Buying does
+    /// not set the avatar. Emits `AvatarItemBought`.
+    fn buy_avatar_item(ref self: TContractState, part: u8, id: u8, max_cobbles: u16);
     /// The caller sets its avatar: `look` 0 clears it; any other must be of the format's version,
     /// hold no byte past the parts in use, and each of its items be listed and free, or owned.
     /// Emits `AvatarSet`.
@@ -87,6 +89,7 @@ pub mod Avatar {
         pub const INVALID_PART: felt252 = 'Avatar: invalid part';
         pub const INVALID_LOOK: felt252 = 'Avatar: invalid look';
         pub const NOT_OWNED: felt252 = 'Avatar: item not owned';
+        pub const PRICE_ABOVE_MAX: felt252 = 'Avatar: price above max';
     }
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -199,11 +202,13 @@ pub mod Avatar {
             self.catalogue.withdraw(part, id);
         }
 
-        fn buy_avatar_item(ref self: ContractState, part: u8, id: u8) {
+        fn buy_avatar_item(ref self: ContractState, part: u8, id: u8, max_cobbles: u16) {
             let player_id: felt252 = get_caller_address().into();
             // [Check] [Effect] On sale, not owned: owned, one more sold (an item is listed only in
             // a part in use)
             let item = self.catalogue.buy(player_id, part, id);
+            // [Check] Not above the price the player confirmed (the whole call reverts otherwise)
+            assert(item.cobbles <= max_cobbles, errors::PRICE_ABOVE_MAX);
             // [Interaction] The cobbles debited on `Setup`'s ledger (reverts on a short balance)
             let setup = ISetupSpendDispatcher { contract_address: self.setup_address() };
             let balance = setup.spend_cobbles(player_id, item.cobbles.into(), AVATAR_REASON);

@@ -291,7 +291,7 @@ function skinRevert(error: unknown): never {
 }
 
 /** Why `Avatar` refused an item's purchase or a `set_avatar`, by its revert (`avatar.cairo`, `errors`; `setup.cairo` for the Cobbles). */
-export type AvatarRefusal = "owned" | "not-for-sale" | "sold-out" | "sale-ended" | "not-enough-cobbles" | "not-owned" | "invalid-look";
+export type AvatarRefusal = "owned" | "not-for-sale" | "sold-out" | "sale-ended" | "price-changed" | "not-enough-cobbles" | "not-owned" | "invalid-look";
 
 /** Each refusal's revert reason; `item not owned` before `item owned`, so the one is never read as the other. */
 const AVATAR_REVERTS: Array<[string, AvatarRefusal]> = [
@@ -300,6 +300,7 @@ const AVATAR_REVERTS: Array<[string, AvatarRefusal]> = [
   ["Avatar: item not for sale", "not-for-sale"],
   ["Avatar: item sold out", "sold-out"],
   ["Avatar: sale ended", "sale-ended"],
+  ["Avatar: price above max", "price-changed"],
   ["Setup: not enough cobbles", "not-enough-cobbles"],
   ["Avatar: invalid look", "invalid-look"],
 ];
@@ -310,6 +311,7 @@ export const AVATAR_REFUSAL_TEXT: Record<AvatarRefusal, string> = {
   "not-for-sale": "This item is not for sale.",
   "sold-out": "This item is sold out.",
   "sale-ended": "This item's sale has ended.",
+  "price-changed": "This item's price went up before your purchase landed: no Cobbles were spent. Check the new price and buy again.",
   "not-enough-cobbles": "Not enough Cobbles for this item: earn them from quests and achievements, or buy a pack.",
   "not-owned": "A part of this avatar is not yours: buy it first. Nothing was saved.",
   "invalid-look": "This avatar is not in the format the chain reads. Nothing was saved.",
@@ -651,11 +653,13 @@ export class PavedWriter {
   }
 
   /**
-   * `Avatar.buy_avatar_item(part, id)`: the caller buys a paid avatar item for itself, once, for its price in Cobbles
-   * (debited on `Setup`'s ledger); buying does not set the avatar. The receipt's `AvatarItemBought` carries the price and
-   * the balance after. A refusal is an `AvatarRefusedError` (owned, not for sale, sold out, sale ended, not enough Cobbles):
-   * nothing moved. The item is read again inside the serialised send (`views.avatarItem`): a price other than
-   * `confirmedPrice` is an `AvatarPriceChangedError` and nothing is sent; a failed read sends nothing.
+   * `Avatar.buy_avatar_item(part, id, confirmedPrice)`: the caller buys a paid avatar item for itself, once, for its price
+   * in Cobbles (debited on `Setup`'s ledger), never above `confirmedPrice`: the contract refuses a higher price, so an owner's
+   * change after the read below never charges more (`AvatarRefusedError` `price-changed`). Buying does not set the avatar.
+   * The receipt's `AvatarItemBought` carries the price and the balance after. A refusal is an `AvatarRefusedError` (owned,
+   * not for sale, sold out, sale ended, price changed, not enough Cobbles): nothing moved. The item is read again inside the
+   * serialised send (`views.avatarItem`): a price other than `confirmedPrice` is an `AvatarPriceChangedError` and nothing is
+   * sent; a failed read sends nothing.
    */
   buyAvatarItem(request: BuyAvatarItemRequest, views: Pick<AvatarViews, "avatarItem">): Promise<WriteResult> {
     const { part, id, confirmedPrice } = request;
@@ -673,7 +677,7 @@ export class PavedWriter {
         throw new WriteError(`Cannot read the item's price: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
       }
       if (current !== confirmedPrice) throw new AvatarPriceChangedError(confirmedPrice, current);
-      return this.sendNow("Avatar", [this.call("Avatar", "buy_avatar_item", [part, id])]);
+      return this.sendNow("Avatar", [this.call("Avatar", "buy_avatar_item", [part, id, confirmedPrice])]);
     }).catch(avatarRevert);
   }
 

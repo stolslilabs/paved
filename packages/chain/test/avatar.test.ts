@@ -161,12 +161,21 @@ describe("the views follow Avatar.json", () => {
 });
 
 describe("the writes", () => {
-  test("buyAvatarItem reads the price again, then sends buy_avatar_item(part, id)", async () => {
+  test("buyAvatarItem reads the price again, then sends buy_avatar_item(part, id, confirmed price)", async () => {
     const { writer, execute } = writerWith();
     const read = vi.fn(async (part: number, id: number) => item({ part, id, cobbles: 30 }));
     await writer.buyAvatarItem({ part: 2, id: 255, confirmedPrice: 30 }, { avatarItem: read });
     expect(read).toHaveBeenCalledWith(2, 255);
-    expect(sent(execute)).toEqual([[7n, "buy_avatar_item", [2n, 255n]]]);
+    expect(sent(execute)).toEqual([[7n, "buy_avatar_item", [2n, 255n, 30n]]]);
+  });
+
+  test("a price raised after the read: the contract refuses it (the confirmed price is the maximum), no Cobbles spent", async () => {
+    const { writer, execute } = writerWith({ receipt: { execution_status: "REVERTED", revert_reason: "Avatar: price above max" } });
+    await expect(writer.buyAvatarItem({ part: 1, id: 5, confirmedPrice: 50 }, { avatarItem: async () => item({ part: 1, id: 5, cobbles: 50 }) })).rejects.toMatchObject({
+      name: "AvatarRefusedError",
+      reason: "price-changed",
+    });
+    expect(sent(execute)).toEqual([[7n, "buy_avatar_item", [1n, 5n, 50n]]]);
   });
 
   test("a price changed, or withdrawn, at send sends nothing", async () => {
@@ -210,6 +219,7 @@ describe("the writes", () => {
       ["Avatar: item not for sale", "not-for-sale"],
       ["Avatar: item sold out", "sold-out"],
       ["Avatar: sale ended", "sale-ended"],
+      ["Avatar: price above max", "price-changed"],
       ["Setup: not enough cobbles", "not-enough-cobbles"],
       ["Avatar: invalid look", "invalid-look"],
     ];

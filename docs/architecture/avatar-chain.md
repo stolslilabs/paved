@@ -74,7 +74,7 @@ free, or owned (`'Avatar: item not owned'`).
 | `set_price_bounds(min, max)` | owner | 1 <= `min` <= `max` | the bounds | `PriceBoundsSet` |
 | `set_item(part, id, cobbles, supply, until)` | owner | `part` in use, `cobbles` 0 or within the bounds | the item listed (or relisted), `sold` kept | `AvatarItemListed` |
 | `withdraw_item(part, id)` | owner | listed | `state` 2 | `AvatarItemListed` (state 2) |
-| `buy_avatar_item(part, id)` | the player, for itself | listed, `cobbles` != 0, `sold` < `supply` (if set), block time < `until` (if set), not owned | owned bit set, `sold` + 1, then `Setup.spend_cobbles` (reverts the whole purchase on a short balance) | `AvatarItemBought`; `Setup`'s `CobblesSpent` |
+| `buy_avatar_item(part, id, max_cobbles)` | the player, for itself | listed, `cobbles` != 0, `sold` < `supply` (if set), block time < `until` (if set), not owned, `cobbles` <= `max_cobbles` (`'Avatar: price above max'`) | owned bit set, `sold` + 1, then `Setup.spend_cobbles` (reverts the whole purchase on a short balance) | `AvatarItemBought`; `Setup`'s `CobblesSpent` |
 | `set_avatar(look)` | the player, for itself | section 4 | `avatars` written | `AvatarSet` |
 | `set_setup(setup)` | owner | not zero | `setup` | `SetupSet` |
 
@@ -125,6 +125,10 @@ whole from `Setup`'s events alone, as it does for the matchmaker and the village
   without the debit (tested: the bit, `sold` and the balance unchanged).
 - **Cobbles never below zero**: `Setup` refuses a debit above the balance (`'Setup: not enough cobbles'`); exactly the price
   takes it to 0 (tested).
+- **The price the player confirmed is a maximum.** The creator shows a price, the writer reads it again before sending,
+  and the call carries it as `max_cobbles`: an owner's relisting at a higher price between the player's read and the
+  purchase reverts the whole call (tested: nothing debited, nothing recorded), so a player is never charged more than they
+  confirmed. A lower price is charged as it is.
 - **Price bounds**: a paid price is within the owner's bounds when listed; narrowing the bounds later keeps the prices listed
   (the owner relists to change them). A price is a `u16` and `spend_cobbles` takes a `u32`: no truncation.
 - **`sold` against `supply`**: `sold < supply` is checked before `sold + 1`; relisting keeps `sold`, so a lower `supply`
