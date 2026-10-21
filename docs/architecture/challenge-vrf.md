@@ -158,6 +158,11 @@ The first review asked for the client in this PR, so a released client and a dep
     - A free spawn and a paid one (`EconomyWriter.purchase`) put `request_random(Challenge, Salt(spawn_salt))` first.
     - A build or a discard reads `draw(game_id)` inside the serialised send, and puts the request first when `draws`.
     - With no provider in the deployment, the write goes alone (a devnet file without the mock).
+    - On a deployed class from before #645, the views answer `not-available` (the node: "Requested entrypoint does not
+      exist"). This is Sepolia's `Challenge` until its fresh deployment. That class draws from its seed and takes no
+      request, so the writer sends every write as before #645 from then on. The predicted session replays such a game
+      from its seed, and the game-over replay tries the seed first. So this client still buys and plays on the
+      deployment it is configured for.
   - **Session policy.** `request_random` on the provider (`controllerPolicies`), so a move still signs in the session.
 - **`@paved/game-core`.**
   - **The engine** has the queue (`EngineConfig.vrf`; `queue`, `drawsNext`, `supply(random)`, `supplyPlan(id, plan)`),

@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 import { createCodecs } from "../src/abis";
 import { CARTRIDGE_VRF_PROVIDER, resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
-import { FakeGameViews, RpcGameViews, type DrawView, type FakeGame } from "../src/views";
+import { FakeGameViews, RpcGameViews, ViewError, toViewError, type DrawView, type FakeGame } from "../src/views";
 import { WriteError } from "../src/writer";
 
 const PLAYER = "0xc";
@@ -66,6 +66,38 @@ describe("a drawing write requests its draw first", () => {
     await writer.discard(KEY);
     expect(sent[0]!.map((c) => c.entrypoint)).toEqual(["discard"]);
     expect(views.calls.filter((c) => c.startsWith("draw"))).toEqual([]);
+  });
+});
+
+describe("a deployed class from before #645 (no draw, no spawn_salt): the writes go as before", () => {
+  // The node's answer for an entry point the class lacks (Sepolia's Challenge before #645, RPC error 21)
+  const missing = () => toViewError(new Error("RPC: starknet_call with params {...} 21: Requested entrypoint does not exist"));
+
+  test("the node's error reads as not-available", () => {
+    expect(missing()).toBeInstanceOf(ViewError);
+    expect(missing().kind).toBe("not-available");
+  });
+
+  test("a move goes alone, and the writer reads no draw again", async () => {
+    const { writer, sent, views } = writerOn(sepolia, drawing);
+    views.draw = async () => Promise.reject(missing());
+    await writer.discard(KEY);
+    await writer.build(KEY, { orientation: 1, x: 2, y: 3 });
+    expect(sent.map((calls) => calls.map((c) => c.entrypoint))).toEqual([["discard"], ["build"]]);
+  });
+
+  test("a spawn goes alone", async () => {
+    const { writer, sent, views } = writerOn(sepolia, drawing);
+    views.spawnSalt = async () => Promise.reject(missing());
+    await writer.spawnFree().catch(() => undefined);
+    expect(sent[0]!.map((c) => c.entrypoint)).toEqual(["spawn_free"]);
+  });
+
+  test("another failure of the read still sends nothing", async () => {
+    const { writer, sent, views } = writerOn(sepolia, drawing);
+    views.spawnSalt = async () => Promise.reject(toViewError(new Error("timeout")));
+    await expect(writer.spawnFree()).rejects.toBeInstanceOf(WriteError);
+    expect(sent).toEqual([]);
   });
 });
 

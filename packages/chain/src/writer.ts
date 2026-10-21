@@ -612,19 +612,33 @@ export class PavedWriter {
   }
 
   /**
+   * The deployed `Challenge` has no VRF reads (`not-available`: a class from before #645, which draws from its seed and
+   * takes no request): from then on this writer sends every write as before #645, with no read and no request.
+   */
+  private drawsUnavailable = false;
+
+  /** Whether a failed VRF read says the deployed class predates #645 (the view's `not-available`, as `toViewError` names it). */
+  private beforeVrf(error: unknown): boolean {
+    if ((error as { kind?: unknown } | null)?.kind !== "not-available") return false;
+    this.drawsUnavailable = true;
+    return true;
+  }
+
+  /**
    * A build or discard (#645): `draw(game_id)` is read inside the serialised send, after any earlier move has landed, and
    * a move that draws requests its draw first. Without the VRF reads or a provider the move goes alone (a deployment
-   * from before #645, or the devnet mock, which needs no request).
+   * from before #645, or the devnet mock, which needs no request); so it does when the deployed class has no `draw`.
    */
   private sendMove(key: GameKey, calls: Call[]): Promise<WriteResult> {
     const contract = gameContract(key.mode);
     return this.serialised(async () => {
       const { draws, deployment } = this.options;
-      if (!draws || !deployment.vrfProvider) return this.sendNow(contract, calls);
+      if (!draws || !deployment.vrfProvider || this.drawsUnavailable) return this.sendNow(contract, calls);
       let draw: DrawView;
       try {
         draw = await draws.draw(key);
       } catch (error) {
+        if (this.beforeVrf(error)) return this.sendNow(contract, calls);
         throw new WriteError(`Cannot read the game's next draw: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
       }
       const sent = draw.draws ? withVrfRequest(calls, { provider: deployment.vrfProvider, consumer: deployment.addresses[contract], salt: draw.salt }) : calls;
@@ -634,15 +648,16 @@ export class PavedWriter {
 
   /**
    * A spawn's calls with its draw requested first (#645): the salt of `player`'s next spawn (`spawn_salt`). Without the
-   * VRF reads or a provider, the calls as they are.
+   * VRF reads or a provider, or on a deployed class that has no `spawn_salt` (before #645), the calls as they are.
    */
   async withSpawnDraw(calls: Call[], player: string): Promise<Call[]> {
     const { draws, deployment } = this.options;
-    if (!draws || !deployment.vrfProvider) return calls;
+    if (!draws || !deployment.vrfProvider || this.drawsUnavailable) return calls;
     let salt: string;
     try {
       salt = await draws.spawnSalt(player);
     } catch (error) {
+      if (this.beforeVrf(error)) return calls;
       throw new WriteError(`Cannot read the spawn's draw: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
     }
     return withVrfRequest(calls, { provider: deployment.vrfProvider, consumer: deployment.addresses.Challenge, salt });
