@@ -66,8 +66,11 @@ describe("/ (P6): home on its data", () => {
     // The page header's avatar and the navigation's (one shown at each width).
     const avatars = screen.getAllByRole("button", { name: /^Profile: / });
     expect(avatars).toHaveLength(2);
+    // The XP ring's seam (#625): level 1 and 0 XP for everyone until the contracts define XP.
+    expect(avatars[0]).toHaveAccessibleName(/, level 1$/);
     await userEvent.click(avatars[0]!);
     const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("0 / 100 XP")).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
     expect(wallet.calls).toContain("disconnect");
     await waitFor(() => expect(screen.getAllByRole("button", { name: "Profile: guest" })).toHaveLength(2));
