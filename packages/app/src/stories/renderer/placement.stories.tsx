@@ -8,9 +8,10 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
  * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours), lying at the tiles' bottom
  * (#588). One grey with no hue for both states, told apart by opacity alone: playable (some rotation fits) 0.55,
  * invalid (none fits) 0.2. The tile in hand is tinted on the model
- * itself: no tint at 50 % opacity on a hover, opaque with a faint yellow once placed (Faint, the owner's pick of #605's
- * proposals, #657: 0.12, 0.4 before; #568, blue and 90 % before that), a temporary green on confirm fading to none. The
- * tile in hand has the placed tiles' outlines at its own opacity (#657): half on a hover, full once placed. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
+ * itself: no tint at 50 % opacity on a hover; once placed, drawn plain, its opacity pulsing from 60 to 90 % and back
+ * on a sine every 1.6 s (#681, the owner's; the faint yellow of #605 and #657 read as a filter), a fixed 75 % under reduced
+ * motion; a temporary green on confirm fading to none. The tile in hand has the placed tiles' outlines at its own opacity
+ * (#657): half on a hover, pulsing with the tile once placed. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
  * the hold on Validate, the voxel drop, then the green. Each change eases over 150 ms (at once under reduced
  * motion). Every setting is a control (colours, strengths, opacities, durations, the plates' radius and opacities; sizes
  * in voxels, a tile is 40); the ring grid is one, off by default.
@@ -24,7 +25,7 @@ const meta = {
       control: "inline-radio",
       options: PLACEMENT_STATES,
       type: { name: "enum", value: [...PLACEMENT_STATES] },
-      description: "idle: no plate; in-hand: the plates; hover: untinted, half opacity; placed: a faint yellow, opaque; confirm: green tint fading out; tour: hover, placed, confirm in turn; sequence: hover, placed with the bubble, the hold, the drop, the green",
+      description: "idle: no plate; in-hand: the plates; hover: untinted, half opacity; placed: plain, its opacity pulsing 60 to 90 %; confirm: green tint fading out; tour: hover, placed, confirm in turn; sequence: hover, placed with the bubble, the hold, the drop, the green",
     },
     holdMs: { control: { type: "range", min: 200, max: 10000, step: 50 }, description: "sequence: Validate's hold, ms (800 in the game)" },
     dropSpeed: { control: { type: "range", min: 0.05, max: 2, step: 0.05 }, description: "The voxel drop's clock (1 in the game); slowed for a capture played back faster" },
@@ -84,12 +85,12 @@ export const Hover: Story = { args: { state: "hover" } };
 /** Hover, placed, confirm in turn: the states of the owner's feedback, for a capture. */
 export const Tour: Story = { args: { state: "tour" } };
 
-/** The tile placed on a plate its rotation fits: the model opaque, a faint yellow (Faint, the board's default, #657), its outlines. */
+/** The tile placed on a plate its rotation fits: the model plain, its opacity pulsing 60 to 90 % (#681), its outlines with it. */
 export const Placed: Story = { args: { state: "placed" } };
 
 /**
  * The tile in hand close up (#657), at the game's tilt on its cell, side by side (stacked at 375 px): the hover preview at
- * 50 % with its outlines at 50 %, and the pending tile with Faint and its outlines. The outlines are forced on, as software
+ * 50 % with its outlines at 50 %, and the pending tile pulsing, its outlines with it. The outlines are forced on, as software
  * WebGL turns them off.
  */
 export const PendingDay: StoryObj<typeof PendingLooks> = {
@@ -103,8 +104,12 @@ export const PendingNight: StoryObj<typeof PendingLooks> = {
   args: { view: "default", distance: 45, onPlaced: true, force: "on", dayPhase: "night" },
 };
 
-/** The pending tile alone, close: Faint (0.12 of the yellow's hue, the tile's light kept), opaque, its outlines. */
-export const PendingFaint: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, force: "on" } };
+/**
+ * The pending tile alone, close (#681): drawn plain, its opacity from 60 to 90 % and back on a sine (`tintsPendingPulseMin`,
+ * `tintsPendingPulseMax`, one cycle every `tintsPendingPulseMs`, 1.6 s), its outlines with it; at 60 % no inner face shows
+ * (the ghost's depth pre-pass). The GIF of the pull request is this story at 375 px.
+ */
+export const PendingPulse: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, force: "on" } };
 
 /** The hover preview alone, close: half opacity, its outlines at half. */
 export const HoverOutlines: Story = { args: { state: "hover", view: "default", distance: 45, onPlaced: true, force: "on" } };
@@ -112,12 +117,12 @@ export const HoverOutlines: Story = { args: { state: "hover", view: "default", d
 /** Confirmed: the tile green, then a fade to its own look (played again every 1.6 s). */
 export const ConfirmGreen: Story = { args: { state: "confirm" } };
 
-/** Reduced motion: every change at once, the confirm a short fade. */
+/** Reduced motion: every change at once, the pending tile held at 75 % (no pulse), the confirm a short fade. */
 export const ReducedMotion: Story = { args: { state: "placed", reducedMotion: true } };
 
 /**
- * The game's placement (PLACE-POLISH, #568), at 375 px first: the tile hovers (untinted, half opacity), is placed (yellow,
- * opaque) with its bubble; hold Validate (about 0.8 s, the ring fills): the tile lands voxel by voxel, then a green tint
+ * The game's placement (PLACE-POLISH, #568), at 375 px first: the tile hovers (untinted, half opacity), is placed (plain,
+ * pulsing) with its bubble; hold Validate (about 0.8 s, the ring fills): the tile lands voxel by voxel, then a green tint
  * fades on it. The next tile hovers again after `replayMs`. Under reduced motion the drop is skipped: straight to the green.
  */
 export const Sequence: Story = { args: { state: "sequence", replayMs: 3000 } };
