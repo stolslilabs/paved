@@ -10,7 +10,7 @@ export interface PlayerProgress {
   level: number;
   xp: number;
   xpForNext: number;
-  /** The player's whole XP, when the source knows it (`Setup.player_level`, #641): what a gain across levels is measured on. */
+  /** The player's whole XP, when the source knows it (`Setup.player_level`, issue 641): what a gain across levels is measured on. */
   total?: number;
 }
 
