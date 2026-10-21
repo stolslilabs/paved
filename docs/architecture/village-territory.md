@@ -154,9 +154,36 @@ owner-set `levels` address, level 1 while unset) is gone; it was never deployed,
 | 3 | Demolition | Allowed, at a fixed price that doubles after each use and resets every day: 5 Cobbles (5, 10, 20, 40, 80...), the chain's day (the quests' clock), a per-account daily counter in storage, no refund of the tile, no daily cap (section 3a). |
 | 4 | A tile with no legal cell | As proposed: the normal rule (at least one placed side neighbour) is kept; a reward whose tiles fit nowhere offers only the Cobbles or the merge (#642). |
 
-## 8. Size, gas and tests
+## 8. Size, gas and tests (as built)
 
-Measured after the code (section 9, as built): `Village`'s and `Setup`'s CASM against the cap
-(`scripts/class-sizes.sh`), the gas of `found`, `buy_parcel` and `place` (`contracts/tests/gas.cairo`), snforge
-tests under `paved::tests::village`, a fuzz of the territory invariant (connected, within the cap, the price paid equals
-the sum of the curve), and the audit of the Cobbles path (`spend_cobbles`, the spender allowlist).
+Class sizes (`scripts/class-sizes.sh`, release build on the VPS, 3.4 GB peak RSS; CASM is the binding cap of 81,920):
+
+| Class | Sierra | CASM | Of the cap | Note |
+|---|---:|---:|---:|---|
+| `Village` (new) | 24,932 | 57,155 | 69.8 % | one copy of the engine, as `Story` (58,650, 71.6 %) |
+| `Setup` | 19,604 | 43,431 | 53.0 % | unchanged by #640 (its source is main's; #641 took it there) |
+
+L2 gas of each new call (test profile), measured in CI: the contracts' test build does not fit the VPS's 8 GB cap, so
+the `Test game` job of PR #669 ran `paved::tests::village` (run 39600293782). The ceilings of
+`contracts/src/tests/village.cairo` are these + 5 %.
+
+| Call | Scenario | L2 gas |
+|---|---|---:|
+| `found` | a new village | 1,375,619 |
+| `buy_parcel` | parcel 2 (level and spend on `Setup`) | 1,790,305 |
+| `place` | a tile that closes nothing | 4,138,220 |
+| `place` | a tile that closes a road of 4 | 6,742,891 |
+| `demolish` | 3 tiles replayed | 10,475,680 |
+| `demolish` | 36 tiles replayed (a village of 38 tiles) | 117,124,175 |
+
+A demolition costs about 3.25 M per tile replayed. At the technical limit of 100 cells (98 tiles replayed) that is about
+320 M, 29 % of the 1.11 x 10^9 a transaction may use: the reason for `MAX_CELLS_LIMIT`. These figures are from the
+CI run before `max_cells` replaced the constant (one more storage read in `buy_parcel`), within the 5 % margin.
+
+Tests: `paved::tests::village` (founding, parcels and their refusals, the level gate read from `Setup`, the owner's cap,
+a fuzz of the territory invariant (connected, within the cap, the price paid equals the sum of the curve), placement
+and its refusals, no border rule, demolition (its sequence 5, 10, 20, 40, the day boundary, a refused one keeping its
+price, the rebuild), admin, storage pins, the parity replay, gas). Cobbles move only through `Setup.spend_cobbles`, for
+the caller of `buy_parcel` and `demolish`, at the price of the curve: the access lens is the spender allowlist (an
+allowed `Village` debits only its own caller) and the value lens the curve and the reverting balance check, both
+tested.

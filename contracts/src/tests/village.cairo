@@ -29,14 +29,15 @@ use snforge_std::{
 };
 use starknet::ContractAddress;
 
-// Ceilings of the L2 gas of `found`, `buy_parcel` and `place` (the test profile): the figure
-// measured on the VPS + 5 %, rounded up (`test_village_gas_*`).
-pub const CEILING_FOUND: u128 = 1;
-pub const CEILING_BUY_PARCEL: u128 = 1;
-pub const CEILING_PLACE_OPEN: u128 = 1;
-pub const CEILING_PLACE_CLOSING: u128 = 1;
-pub const CEILING_DEMOLISH_4: u128 = 1;
-pub const CEILING_DEMOLISH_FULL: u128 = 1;
+// Ceilings of the L2 gas of `found`, `buy_parcel`, `place` and `demolish` (the test profile): the
+// figure measured in CI (the `Test game` job of PR #669, run 39600293782; the contracts' test build
+// does not fit the VPS's cap) + 5 %, rounded up (`test_village_gas_*`).
+pub const CEILING_FOUND: u128 = 1444400;
+pub const CEILING_BUY_PARCEL: u128 = 1879821;
+pub const CEILING_PLACE_OPEN: u128 = 4345131;
+pub const CEILING_PLACE_CLOSING: u128 = 7080036;
+pub const CEILING_DEMOLISH_4: u128 = 10999464;
+pub const CEILING_DEMOLISH_FULL: u128 = 122980384;
 
 /// The territory's cap these tests deploy with (the owner's `max_cells`; 38 is the value proposed
 /// for the deployment), and the parcels it allows past the 9 of the start.
