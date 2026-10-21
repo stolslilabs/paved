@@ -172,7 +172,7 @@ export function TileStack({
         )}
         {/* The next two tiles (#645), in order, smaller than the one to place; one not drawn yet pulses. */}
         {!readOnly && next && next.length > 0 && (
-          <ol data-testid="next-tiles" aria-label="Next tiles" className="mb-1 flex items-end gap-1.5">
+          <ol data-testid="next-tiles" aria-label="Next tiles" className="mb-3 flex items-end gap-2">
             {next.map((plan, i) => (
               <li key={i} data-next-tile={plan ?? "pending"} aria-label={plan === null ? "Not drawn yet" : `Next tile ${i + 1}`}>
                 {/* The item names it; the chip's own name ("Tile ...") is the tile in hand's alone */}
