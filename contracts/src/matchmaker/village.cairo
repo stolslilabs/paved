@@ -1,10 +1,9 @@
 //! A village's slot in the matchmaker (#639, `docs/architecture/matchmaker.md`, section 3): one
 //! packed felt per village, read and written once per call.
 //!
-//! Layout, low half: `crowns` [0, 32) · `bucket` [32, 40) · `index` [40, 72) · `status` [72, 80)
-//! ·
-//! `queue` [80, 88) · `draws` [88, 120) · `npc` [120]; high half: `seq` [128, 192) ·
-//! `shield_until` [192, 248) (a timestamp below 2^56). Bits 121..128 and 248..251 are free.
+//! Layout, low half: `crowns` [0, 32), `bucket` [32, 40), `index` [40, 72), `status` [72, 80),
+//! `queue` [80, 88), `draws` [88, 120), `npc` [120]; high half: `seq` [128, 192), `shield_until`
+//! [192, 248) (a timestamp below 2^56). Bits 121..128 and 248..251 are free.
 
 /// Not in the matchmaker: never joined, or an NPC removed.
 pub const STATUS_NONE: u8 = 0;
