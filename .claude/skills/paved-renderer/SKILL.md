@@ -30,21 +30,26 @@ with `docs/`, `scripts/` or `packages/`.
   (`core/cloud-shader.ts`, in the board's chunk) dims only the shadow-casting directional lights' direct light (the sun and its
   twin). A light term, not a caster: a cloud's move draws a frame, never the shadow map (`game-scene-ambient.test.ts` counts it).
   A step draws only once the clouds moved `CLOUD_MIN_MOVE` (a quarter of a voxel).
-- The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`): the story registers them on
-  `scene.ambient` itself; the board does not call them until the owner validates them.
-- The **weather** (#607 PR 2, `core/weather.ts`, loaded by `loadWeather`, settings in `core/weather-settings.ts`) is stories only
-  (`Renderer/Weather`), like the birds: the story adds `Weather.object` to the scene, registers it on `scene.ambient`, and feeds
-  it the cycle's point (`setCycle`), the clouds' wind (`setWind`) and `weatherMode` (off on Low and with the effects off; "still"
-  under reduced motion: nothing falls, the grades, glare, shafts and snow cover stay). One instanced draw per falling layer, one
-  full-screen draw for the grade, glare, shimmer and shafts (it keeps the target's alpha, so the cycle's backdrop still fills the
-  sky). The snow on the tops is a term of the tile shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`), off at 0: the
-  board never sets it.
-- The **fog of war** (FOG-STUDY, `core/fog-of-war.ts`, loaded by `loadFogOfWar`, reveal logic and settings in
-  `core/fog-of-war-settings.ts`) is stories only (`Renderer/Fog of war`): the story adds `FogOfWar.object` to the board's group
-  (`scene.tiles.getGroup()`), registers it on `scene.ambient` and hands it the clear cells (`boardReveal`, `villageReveal`) and
-  `fogMode` ("still" on Low, with the effects off and under reduced motion: no drift, a cell lifts at once; it stays on at every
-  tier). One field texture (the distance to the nearest clear cell, built on the CPU when the reveal changes and while a cell
-  lifts) drives the floor, the mist, the landscape's ground and its instanced props: one draw each, no per-cell draw.
+- The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`, and the spring switch of
+  `Renderer/Weather`): the story registers them on `scene.ambient` itself; the board does not call them until the owner validates them.
+- The **weather** (#607 PR 2, wired by #658: `core/weather.ts`, settings in `core/weather-settings.ts`, `RendererSettings.weather`)
+  is on every board: `GameScene.syncWeather` loads its chunk the first time it shows, adds `Weather.object` to the scene, registers
+  it on `scene.ambient`, and feeds it the cycle's point (`setCycle`, from `applyDayNight`: the wheel's season, auto or fixed, by day
+  and at night), the clouds' wind (`setWind`) and its mode (`weatherModeNow`: off with the weather or the "Ambient effects" off, or on
+  Low; with the cycle off, summer's noon, the wheel's summer day; "still" under reduced motion: nothing falls, the grades, the brightness and the snow veil stay). Autumn
+  raises the clouds' coverage (`cloudSettings`). One instanced draw per falling layer, one full-screen tint for the grade and the
+  brightness (no glare, shimmer or shafts: the owner removed every glow, 2026-10-20). The snow on the tops is a term of the tile
+  shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`): a veil (`winter.veil`) in rounded patches from a noise read at the
+  fragment's place, never per voxel or cell. `GameScene.getWeather()` gives its stats (`Renderer/Weather` stories, the bench).
+- The **fog of war** (FOG-STUDY #633, wired by FOG-EVERYWHERE #648: `core/fog-of-war.ts`, reveal logic and settings in
+  `core/fog-of-war-settings.ts`, `RendererSettings.fog`) is on every board the app draws: `GameScene.setFogReveal` (from
+  `GameCanvas`'s `fogReveal`, set by `BoardViewport`: the tiles and their free slots, or `fogOwned`'s owned cells and their
+  neighbours in a village or an attack) loads its chunk the first time it shows, adds `FogOfWar.object` to the board's group and
+  registers it on `scene.ambient`; its mode is `fogMode` ("still" on Low, with the effects off and under reduced motion: no drift,
+  a cell lifts at once; it stays on at every tier). The owner's look is `LANDSCAPE_FOG` (falloff 2.5, billow 0.7, the landscape).
+  One field texture (the signed distance to the clear cells, blurred so every corner is round: `cornerRadius`) drives the floor,
+  the mist, the landscape's ground and its instanced props: one draw each, no per-cell draw. A lift rebuilds only the part of the
+  field its cells reach.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
@@ -74,6 +79,9 @@ with `docs/`, `scripts/` or `packages/`.
   (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
   faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the
   bias, order, depth, the dark grey and the viewport each draw is told.
+- The tile in hand (hover preview and pending tile, #657) is drawn with the same outline pass on its own material
+  (`TileRenderer.ghostEdgeMaterial`): the placed tiles' stroke, its opacity times the ghost's (half on a hover), drawn
+  after the ghost's faces and depth pre-pass. The confirm's overlay draws none (`placement.test.ts`, "the tile in hand's outlines").
 - The width is `widthVoxels` of a voxel (default **0.015**), converted to device px at the zoom (`outlineStroke`), at least
   `minWidthDevicePx` (1) and at most `maxWidthPx` (2) CSS px; the colour is `#1f1f1f`. The opacity follows the tile's
   on-screen size in CSS px (`tilePixels`) against S, the tile size the board opens at on this viewport

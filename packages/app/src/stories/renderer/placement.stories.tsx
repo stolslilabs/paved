@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { DAY_PHASES, LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
-import { PENDING_PROPOSALS, PLACEMENT_STATES, PendingProposals, PlacementBoard, placementArgTypes } from "./placement-board";
+import { PLACEMENT_STATES, PendingLooks, PlacementBoard, placementArgTypes } from "./placement-board";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
 
 /**
@@ -8,9 +8,9 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
  * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours), lying at the tiles' bottom
  * (#588). One grey with no hue for both states, told apart by opacity alone: playable (some rotation fits) 0.55,
  * invalid (none fits) 0.2. The tile in hand is tinted on the model
- * itself: no tint at 50 % opacity on a hover, opaque with a faint yellow once placed (#605: 0.12, 0.4 before; #568, blue
- * and 90 % before that), a temporary
- * green on confirm fading to none. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
+ * itself: no tint at 50 % opacity on a hover, opaque with a faint yellow once placed (Faint, the owner's pick of #605's
+ * proposals, #657: 0.12, 0.4 before; #568, blue and 90 % before that), a temporary green on confirm fading to none. The
+ * tile in hand has the placed tiles' outlines at its own opacity (#657): half on a hover, full once placed. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
  * the hold on Validate, the voxel drop, then the green. Each change eases over 150 ms (at once under reduced
  * motion). Every setting is a control (colours, strengths, opacities, durations, the plates' radius and opacities; sizes
  * in voxels, a tile is 40); the ring grid is one, off by default.
@@ -78,43 +78,36 @@ export const Idle: Story = { args: { state: "idle" } };
 /** The ring grid of SLOTS2, a setting now off by default, turned on. */
 export const IdleGrid: Story = { args: { state: "idle", gridEnabled: true } };
 
-/** The tile hovering a plate: the model untinted at half opacity, no inner face showing through. */
+/** The tile hovering a plate: the model untinted at half opacity, its outlines at half too (#657), no inner face showing through. */
 export const Hover: Story = { args: { state: "hover" } };
 
 /** Hover, placed, confirm in turn: the states of the owner's feedback, for a capture. */
 export const Tour: Story = { args: { state: "tour" } };
 
-/** The tile placed on a plate its rotation fits: the model opaque, a faint yellow (the board's default, proposal 1 of #605). */
+/** The tile placed on a plate its rotation fits: the model opaque, a faint yellow (Faint, the board's default, #657), its outlines. */
 export const Placed: Story = { args: { state: "placed" } };
 
 /**
- * The pending tile's three looks (#605) side by side, the owner picks: (1) the faint yellow, the board's default meanwhile;
- * (2) no tint, a gold frame on the tile's edges and a gold plate under it; (3) the faint tint breathing. Stacked at 375 px.
- * Seen close, at the game's tilt, on the placed tile. The outlines are forced on: the gold frame is drawn with their stroke,
- * which software WebGL turns off.
+ * The tile in hand close up (#657), at the game's tilt on its cell, side by side (stacked at 375 px): the hover preview at
+ * 50 % with its outlines at 50 %, and the pending tile with Faint and its outlines. The outlines are forced on, as software
+ * WebGL turns them off.
  */
-export const PendingProposalsDay: StoryObj<typeof PendingProposals> = {
-  render: (args) => <PendingProposals {...args} />,
+export const PendingDay: StoryObj<typeof PendingLooks> = {
+  render: (args) => <PendingLooks {...args} />,
   args: { view: "default", distance: 45, onPlaced: true, force: "on" },
 };
 
-/** The three looks at night, the cycle held there. */
-export const PendingProposalsNight: StoryObj<typeof PendingProposals> = {
-  render: (args) => <PendingProposals {...args} />,
+/** The same at night, the cycle held there. */
+export const PendingNight: StoryObj<typeof PendingLooks> = {
+  render: (args) => <PendingLooks {...args} />,
   args: { view: "default", distance: 45, onPlaced: true, force: "on", dayPhase: "night" },
 };
 
-/** Proposal 1 (#605): the same yellow at 0.12 instead of 0.4, opaque. The board's default until the owner picks. */
-export const PendingFaint: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, ...PENDING_PROPOSALS.faint.args } };
+/** The pending tile alone, close: Faint (0.12 of the yellow's hue, the tile's light kept), opaque, its outlines. */
+export const PendingFaint: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, force: "on" } };
 
-/** Proposal 2 (#605): no tint; a thin gold frame on the tile's top edges, the plate under it gold, its rim around the tile. */
-export const PendingGoldEdge: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, force: "on", ...PENDING_PROPOSALS.gold.args } };
-
-/** Proposal 3 (#605): a faint tint breathing from 0 to 0.12 and back over 2.4 s. */
-export const PendingPulse: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, ...PENDING_PROPOSALS.pulse.args } };
-
-/** Proposal 3 under reduced motion: no breathing, the faint tint held at 0.12. */
-export const PendingPulseReducedMotion: Story = { args: { state: "placed", view: "default", distance: 45, onPlaced: true, reducedMotion: true, ...PENDING_PROPOSALS.pulse.args } };
+/** The hover preview alone, close: half opacity, its outlines at half. */
+export const HoverOutlines: Story = { args: { state: "hover", view: "default", distance: 45, onPlaced: true, force: "on" } };
 
 /** Confirmed: the tile green, then a fade to its own look (played again every 1.6 s). */
 export const ConfirmGreen: Story = { args: { state: "confirm" } };

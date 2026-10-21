@@ -133,16 +133,15 @@ export { DEFAULT_BIRD_SETTINGS, MAX_BIRDS, resolveBirdSettings } from "./core/bi
 export type { BirdSettings, BirdSettingsInput } from "./core/bird-settings";
 export type { BirdSource, BirdState, Birds } from "./core/birds";
 export const loadBirds = (): Promise<typeof import("./core/birds")> => import("./core/birds");
-// The weather (WEATHER-STUDY, #607 PR 2), stories only: the board does not call it. Its settings are small and eager; the effect is a
-// chunk of its own, loaded by `loadWeather` (nothing in the app's board calls it, so the app's build has no such chunk). The snow on
-// the tops is a term of the tile shader (`TileRenderer.snowUniforms`), off until the weather sets it.
+// The weather (WEATHER-STUDY, #607 PR 2; WEATHER-WIRE, #658): every board's scene shows it (`RendererSettings.weather`,
+// `GameScene.getWeather`). Its settings are small and eager; the effect is a chunk of its own, which `GameScene` loads the first time
+// it shows. The snow on the tops is a term of the tile shader (`TileRenderer.snowUniforms`), off until the weather sets it.
 export {
   DEFAULT_WEATHER_SETTINGS,
   PARTICLE_FALL,
   PARTICLE_LAYERS,
   PARTICLE_MAX,
   PARTICLE_SIZE,
-  RAYS_MAX,
   SPLASH_MAX,
   resolveWeatherSettings,
   weatherCloudFactor,
@@ -161,9 +160,9 @@ export type {
   WinterSettings,
 } from "./core/weather-settings";
 export type { Weather, WeatherStats } from "./core/weather";
-export const loadWeather = (): Promise<typeof import("./core/weather")> => import("./core/weather");
-// The fog of war (FOG-STUDY), stories only: the board does not call it. Its reveal logic and settings are small and eager; the fog
-// is a chunk of its own, loaded by `loadFogOfWar` (nothing in the app's board calls it, so the app's build has no such chunk).
+// The fog of war (FOG-STUDY, #633; FOG-EVERYWHERE, #648): every board's scene shows it with `RendererSettings.fog` on and a reveal
+// (`GameScene.setFogReveal`). Its reveal logic and settings are small and eager; the fog is a chunk of its own, which `GameScene`
+// loads the first time it shows (the stories load it with `loadFogOfWar`).
 export {
   DEFAULT_FOG_SETTINGS,
   FIELD_REACH,

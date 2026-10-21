@@ -4,6 +4,7 @@ import { Icon } from "../ui/icon";
 import { Amount } from "../elements/amount";
 import { type ErrorDetail, InlineError } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
+import { TokenIcon } from "../elements/token-icon";
 import { Cobbles, formatCobbles } from "../elements/cobbles";
 import { CobblePacks, formatUsd, packsOnSale } from "../containers/cobble-packs";
 import { formatBps } from "../containers/split-bar";
@@ -79,9 +80,7 @@ export interface CobblesSceneProps {
 function BalancePlate({ cobbles, connected }: { cobbles: number; connected: boolean }) {
   return (
     <section aria-labelledby="cobble-balance-title" className="flex items-center gap-3 rounded-xl border border-primary/30 bg-card p-4 desktop:col-span-2">
-      <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-background">
-        <Icon name="cubes-stacked" size="lg" className="text-primary" />
-      </span>
+      <TokenIcon kind="cobbles" size="xl" />
       <span className="flex min-w-0 flex-1 flex-col">
         <h2 id="cobble-balance-title" className="text-xs text-muted-foreground">
           Your Cobbles
@@ -116,7 +115,6 @@ export function CobblesScene(props: CobblesSceneProps) {
       <TopBar
         title="Cobbles"
         onBack={props.onBack}
-        end={<span className="pr-2 text-xs text-muted-foreground">{balance === null ? <span className="numeric">— USDC</span> : <Amount value={balance} token="usdc" />}</span>}
       />
       <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
         <BalancePlate cobbles={cobbles.balance} connected={connected} />
@@ -194,7 +192,7 @@ export function CobblesScene(props: CobblesSceneProps) {
                 label
               ) : (
                 <>
-                  Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.cobbles} className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                  Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.cobbles} className="text-primary-foreground" />
                 </>
               )}
             </Button>

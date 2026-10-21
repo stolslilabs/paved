@@ -9,7 +9,7 @@ import { Wordmark } from "../elements/wordmark";
 import { BoardHero } from "../elements/board-hero";
 import modeChallenge from "../../assets/renders/mode-challenge.webp";
 import { BalancesSlot } from "../containers/balances-context";
-import { AppNav } from "../containers/app-nav";
+import { TabFrame } from "../containers/tab-frame";
 import { ModeCard } from "../containers/mode-card";
 import { PlayerStatus, type PlayerStatusData } from "../containers/player-status";
 
@@ -57,17 +57,16 @@ export interface HomeSceneProps {
 export function HomeScene(props: HomeSceneProps) {
   const { player, activeGame, training, spawnPaused, now, cobbles } = props;
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <AppNav active="home" onNavigate={props.onNavigate} />
+    <TabFrame tab="home" onNavigate={props.onNavigate}>
       <header className="relative h-64 w-full tablet:h-80">
         <BoardHero />
         <h1 className="sr-only">Home</h1>
         <div className="relative mx-auto flex h-full w-full max-w-md flex-col items-center px-4 pt-4 tablet:max-w-2xl desktop:max-w-5xl desktop:items-start desktop:justify-center desktop:px-8 desktop:pt-0">
-          <BalancesSlot layout="pill" className="self-end" />
+          <BalancesSlot layout="pill" className="self-end desktop:hidden" />
           <Wordmark tagline="Build · Connect · Score" className="mt-2 desktop:mt-0 desktop:items-start [&_span]:[text-shadow:0_1px_3px_var(--color-board)]" />
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-2 pb-6 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pb-10">
+      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 pb-6 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pb-10">
         <div className="grid grid-cols-1 gap-4 wide:grid-cols-[minmax(0,1fr)_24rem] wide:items-start">
           <div className="flex flex-col gap-4">
             <Button size="lg" className="text-lg" onClick={props.onPlay}>
@@ -134,6 +133,6 @@ export function HomeScene(props: HomeSceneProps) {
           />
         </div>
       </main>
-    </div>
+    </TabFrame>
   );
 }

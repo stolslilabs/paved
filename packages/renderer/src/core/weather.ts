@@ -1,6 +1,6 @@
-// The weather (WEATHER-STUDY, #607 PR 2): its own chunk, an ambient effect on the one ambient loop (`ambient-loop.ts`). A weather
-// tied to the season: a blazing sun in summer, the rain and the leaves in autumn, the snow in winter, sun rays and petals in spring.
-// The board does not call it: the stories (`Renderer/Weather`) do (`loadWeather`), for the owner to judge it first.
+// The weather (WEATHER-STUDY, #607 PR 2; wired by WEATHER-WIRE, #658): its own chunk, an ambient effect on the one ambient loop
+// (`ambient-loop.ts`). A weather tied to the season: a brighter, warmer light in summer, the rain and the leaves in autumn, the snow
+// in winter, a fresh brighter light in spring. `GameScene` loads it the first time it shows (`syncWeather`); the stories too.
 //
 // Everything that moves moves in its vertex shader, from the loop's time uniform: the CPU sets uniforms and counts, nothing more.
 // The particles fall in a box around the camera's target that wraps (`mod`), so they stay put in the world as the camera pans and
@@ -15,7 +15,6 @@ import {
   PARTICLE_FALL,
   PARTICLE_MAX,
   PARTICLE_SIZE,
-  RAYS_MAX,
   SPLASH_MAX,
   type GradeSettings,
   type ParticleLayer,
@@ -187,49 +186,20 @@ void main() {
 `;
 
 const OVERLAY_VERTEX = /* glsl */ `
-varying vec2 vUv;
 void main() {
-  vUv = position.xy * 0.5 + 0.5;
   gl_Position = vec4(position.xy, 0.0, 1.0);
 }
 `;
 
 /**
- * The grade, the glare, the shimmer and the light shafts in one full-screen draw: the colour it writes, `tint`, multiplies the
- * board's light; its alpha, the glare and the shafts, adds `tint * alpha` (the blend `src * src.a + dst * src`). Its alpha leaves
- * the target's as it is, so the backdrop of the cycle still fills the sky (the finish pass adds it where the board leaves the
- * target clear, the light over it). The shafts fan out from the sun's side of the screen (`uSun`), as the game's camera, looking
- * down, would see light falling through the air between it and the board; they turn slowly, from the loop's time.
+ * The grade in one full-screen draw: the colour it writes, `tint`, multiplies the board's light (the blend `src * src.a + dst *
+ * src`, its alpha 0). It leaves the target's alpha as it is, so the backdrop of the cycle still fills the sky (the finish pass adds
+ * it where the board leaves the target clear). No glow, no halo, no shaft (owner, 2026-10-20): the tint only.
  */
 const OVERLAY_FRAGMENT = /* glsl */ `
 uniform vec3 uTint;
-uniform float uGlare;
-uniform float uGlareSize;
-uniform vec2 uSun;
-uniform float uAspect;
-uniform float uShimmer;
-uniform float uShimmerSpeed;
-uniform float uRays;
-uniform float uRayCount;
-uniform float uRaySize;
-uniform float uRaySpeed;
-uniform float uTime;
-varying vec2 vUv;
 void main() {
-  vec2 d = (vUv * 2.0 - 1.0 - uSun) * vec2(uAspect, 1.0);
-  vec2 g = d / (2.0 * uGlareSize);
-  float light = uGlare * exp(-dot(g, g) * 2.0);
-  if (uRays > 0.0) {
-    float r = length(d);
-    float angle = atan(d.y, d.x);
-    float shafts = smoothstep(0.55, 1.0, sin(angle * uRayCount + uTime * uRaySpeed * 0.12));
-    shafts += 0.6 * smoothstep(0.7, 1.0, sin(angle * uRayCount * 1.7 - uTime * uRaySpeed * 0.08 + 1.3));
-    light += uRays * shafts * exp(-r / (1.6 * uRaySize)) * smoothstep(0.05, 0.5, r);
-  }
-  float shimmerTime = uTime * uShimmerSpeed;
-  float ripple = sin(vUv.y * 140.0 - shimmerTime * 2.4 + sin(vUv.x * 9.0 + shimmerTime * 0.9) * 2.5);
-  float shimmer = uShimmer * ripple * smoothstep(0.45, 1.0, vUv.y);
-  gl_FragColor = vec4(uTint * (1.0 + shimmer), light);
+  gl_FragColor = vec4(uTint, 0.0);
 }
 `;
 
@@ -324,7 +294,6 @@ export interface WeatherStats {
   /** The particles drawn now, by layer. */
   particles: Record<ParticleLayer, number>;
   splashes: number;
-  rays: number;
   /** The draws the weather adds to a frame. */
   drawCalls: number;
   /** The share of the faces up under snow now. */
@@ -332,9 +301,6 @@ export interface WeatherStats {
   /** The daylight the weather sees, 0 (night) to 1. */
   daylight: number;
 }
-
-/** How far past the screen's centre the glare's middle sits at most (the screen's edge is 1). */
-const GLARE_EDGE = 1.35;
 
 const SEASON_LIST: Season[] = ["summer", "autumn", "winter", "spring"];
 
@@ -349,7 +315,6 @@ export class Weather implements AmbientEffect {
   readonly object = new THREE.Group();
   /** A frame is wanted (a setting, the season, the mode changed): the caller sets it to `requestRender`. */
   onChange: (() => void) | null = null;
-  private readonly time: { value: number };
   private readonly center = { value: new THREE.Vector3() };
   private readonly layers: Record<ParticleLayer, Particles>;
   private readonly splashes: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
@@ -361,8 +326,6 @@ export class Weather implements AmbientEffect {
   private wind: [number, number] = [0, 0];
   private readonly presence: Record<Season, number> = { summer: 0, autumn: 0, winter: 0, spring: 0 };
   private last: number | null = null;
-  private keyLight: THREE.DirectionalLight | null = null;
-  private readonly sunDir = new THREE.Vector3(0.4, 0.8, 0.4).normalize();
   private disposed = false;
 
   constructor(
@@ -370,7 +333,6 @@ export class Weather implements AmbientEffect {
     private readonly snow: SnowUniforms,
     settings: WeatherSettings,
   ) {
-    this.time = time;
     this.settings = settings;
     this.object.name = "weather";
     this.layers = {
@@ -417,20 +379,7 @@ export class Weather implements AmbientEffect {
       name: "weather-grade",
       vertexShader: OVERLAY_VERTEX,
       fragmentShader: OVERLAY_FRAGMENT,
-      uniforms: {
-        uTint: { value: new THREE.Color(1, 1, 1) },
-        uGlare: { value: 0 },
-        uGlareSize: { value: 0.7 },
-        uSun: { value: new THREE.Vector2(0, 2) },
-        uAspect: { value: 1 },
-        uShimmer: { value: 0 },
-        uShimmerSpeed: { value: 1 },
-        uRays: { value: 0 },
-        uRayCount: { value: 6 },
-        uRaySize: { value: 1 },
-        uRaySpeed: { value: 1 },
-        uTime: time,
-      },
+      uniforms: { uTint: { value: new THREE.Color(1, 1, 1) } },
       transparent: true,
       depthWrite: false,
       depthTest: false,
@@ -443,14 +392,14 @@ export class Weather implements AmbientEffect {
     this.overlay.renderOrder = 30;
     this.overlay.visible = false;
     this.object.add(this.overlay);
-    // Each frame drawn, whatever drew it (the camera, the loop), before the first of the weather's draws: the box under the
-    // camera's look, the sun's place on the screen. Once a frame (three's frame counter), whichever mesh draws first.
+    // Each frame drawn, whatever drew it (the camera, the loop), before the first of the falling draws: the box under the camera's
+    // look. Once a frame (three's frame counter), whichever mesh draws first.
     let followed = -1;
-    for (const mesh of this.meshes()) {
-      mesh.onBeforeRender = (renderer, scene, camera) => {
+    for (const mesh of [...Object.values(this.layers).map((l) => l.mesh), this.splashes]) {
+      mesh.onBeforeRender = (renderer, _scene, camera) => {
         if (renderer.info.render.frame === followed) return;
         followed = renderer.info.render.frame;
-        this.follow(scene, camera as THREE.PerspectiveCamera);
+        this.follow(camera);
       };
     }
     this.apply();
@@ -525,13 +474,9 @@ export class Weather implements AmbientEffect {
     return fading || this.moves();
   }
 
-  /** Something on the board moves on its own: a layer falling, the splashes, the shafts' turn, the shimmer. */
+  /** Something on the board moves on its own: a layer falling, the splashes. The grade is still: it asks for no frame. */
   private moves(): boolean {
-    return (
-      Object.values(this.layers).some((l) => l.mesh.visible) ||
-      this.splashes.visible ||
-      (this.overlay.visible && (this.overlay.material.uniforms.uShimmer!.value > 0 || this.overlay.material.uniforms.uRays!.value > 0))
-    );
+    return Object.values(this.layers).some((l) => l.mesh.visible) || this.splashes.visible;
   }
 
   private apply(): void {
@@ -557,62 +502,30 @@ export class Weather implements AmbientEffect {
     this.splashes.geometry.instanceCount = splashCount;
     this.splashes.visible = moving && s.autumn.rain.enabled && splashCount > 0 && p.autumn > 0.001;
 
-    // The shafts: held (their turn frozen) under reduced motion, gone with the sun.
-    const r = s.spring.rays;
-    const rayCount = Math.round(r.density * RAYS_MAX);
-    const rays = r.enabled && rayCount > 0 ? sun(r.opacity * p.spring) : 0;
-
     // The grade: each season's tint at its share and the daylight (a grade of the night would only darken it more).
     const tint = new THREE.Color(1, 1, 1);
     for (const season of SEASON_LIST) tint.multiply(gradeOf(s[season].grade, sun(p[season])));
-    // Summer's stronger sun: the light raised by its brightness.
-    tint.multiplyScalar(1 + sun(s.summer.brightness * p.summer));
-    const overlay = this.overlay.material.uniforms;
-    overlay.uTint!.value.copy(tint);
-    overlay.uGlare!.value = sun(s.summer.glare * p.summer);
-    overlay.uGlareSize!.value = s.summer.glareSize;
-    // The shimmer moves only with the loop and a speed: held still, a ripple would read as a fixed pattern on the board.
-    overlay.uShimmer!.value = moving && s.summer.shimmerSpeed > 0 ? sun(s.summer.shimmer * p.summer) : 0;
-    overlay.uShimmerSpeed!.value = s.summer.shimmerSpeed;
-    overlay.uRays!.value = rays > 5e-4 ? rays : 0;
-    overlay.uRayCount!.value = Math.max(1, rayCount);
-    overlay.uRaySize!.value = r.size;
-    overlay.uRaySpeed!.value = r.speed;
+    // Summer's and spring's stronger sun: the light raised by their brightness (with no glow: owner, 2026-10-20).
+    tint.multiplyScalar(1 + sun(s.summer.brightness * p.summer + s.spring.brightness * p.spring));
+    this.overlay.material.uniforms.uTint!.value.copy(tint);
     const graded = Math.abs(tint.r - 1) + Math.abs(tint.g - 1) + Math.abs(tint.b - 1) > 1e-3;
-    this.overlay.visible = this.mode !== "off" && (graded || overlay.uGlare!.value > 1e-4 || overlay.uShimmer!.value > 0 || overlay.uRays!.value > 0);
+    this.overlay.visible = this.mode !== "off" && graded;
 
-    // The snow on the tops: static, it stays under reduced motion; it comes and goes with winter's share.
-    this.snow.uSnowCover.value = this.mode !== "off" && s.winter.enabled ? s.winter.cover * p.winter : 0;
+    // The snow on the tops, a light veil: static, it stays under reduced motion; it comes and goes with winter's share.
+    const snowy = this.mode !== "off" && s.winter.enabled && s.winter.veil > 0;
+    this.snow.uSnowCover.value = snowy ? s.winter.cover * p.winter : 0;
+    this.snow.uSnowVeil.value = snowy ? s.winter.veil : 0;
 
     this.onChange?.();
   }
 
-  /** Before a frame: the box's centre where the camera looks at the ground, the sun's direction and its place on the screen. */
-  private follow(scene: THREE.Object3D, camera: THREE.PerspectiveCamera): void {
+  /** Before a frame: the box's centre where the camera looks at the ground. */
+  private follow(camera: THREE.Camera): void {
     const origin = camera.getWorldPosition(new THREE.Vector3());
     const look = camera.getWorldDirection(new THREE.Vector3());
     const along = look.y < -1e-3 ? (PLACEHOLDER_HEIGHT - origin.y) / look.y : 60;
     this.center.value.copy(origin).addScaledVector(look, Math.min(along, 400));
     this.center.value.y = PLACEHOLDER_HEIGHT;
-
-    this.keyLight ??= findKeyLight(scene);
-    if (this.keyLight) {
-      const from = this.keyLight.getWorldPosition(new THREE.Vector3());
-      const to = this.keyLight.target.getWorldPosition(new THREE.Vector3());
-      const dir = from.sub(to);
-      if (dir.lengthSq() > 0) this.sunDir.copy(dir.normalize());
-    }
-    // Where the glare and the shafts come from: the sun's place on the screen (-1 to 1) when it is ahead of the camera; when it is behind or
-    // above (the game's camera looks down, the noon sun is at its back), a light leak just past the screen's edge on the sun's
-    // side, or past the top when the sun is straight behind.
-    const view = this.sunDir.clone().transformDirection(camera.matrixWorldInverse);
-    const fy = 1 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const sun = this.overlay.material.uniforms.uSun!.value as THREE.Vector2;
-    if (view.z < -0.2) sun.set((view.x * fy) / camera.aspect / -view.z, (view.y * fy) / -view.z);
-    else if (Math.hypot(view.x, view.y) > 0.15) sun.set(view.x, view.y).normalize().multiplyScalar(GLARE_EDGE);
-    else sun.set(0, GLARE_EDGE);
-    if (sun.length() > GLARE_EDGE) sun.setLength(GLARE_EDGE);
-    this.overlay.material.uniforms.uAspect!.value = camera.aspect;
   }
 
   stats(): WeatherStats {
@@ -624,7 +537,6 @@ export class Weather implements AmbientEffect {
       presence: { ...this.presence },
       particles,
       splashes: this.splashes.visible ? this.splashes.geometry.instanceCount : 0,
-      rays: this.overlay.visible && this.overlay.material.uniforms.uRays!.value > 0 ? this.overlay.material.uniforms.uRayCount!.value : 0,
       drawCalls: meshes.filter((m) => m.visible).length,
       cover: this.snow.uSnowCover.value,
       daylight: this.daylight,
@@ -635,6 +547,7 @@ export class Weather implements AmbientEffect {
     if (this.disposed) return;
     this.disposed = true;
     this.snow.uSnowCover.value = 0;
+    this.snow.uSnowVeil.value = 0;
     for (const layer of Object.values(this.layers)) layer.dispose();
     for (const mesh of [this.splashes, this.overlay]) {
       mesh.geometry.dispose();
@@ -642,7 +555,6 @@ export class Weather implements AmbientEffect {
     }
     this.object.removeFromParent();
     this.object.clear();
-    this.keyLight = null;
     this.onChange = null;
   }
 }
@@ -650,13 +562,4 @@ export class Weather implements AmbientEffect {
 /** A grade's tint at `share`: white (no change) at 0, its colour mixed in by `amount` at 1. */
 export function gradeOf(grade: GradeSettings, share: number): THREE.Color {
   return new THREE.Color(1, 1, 1).lerp(new THREE.Color(grade.color), grade.amount * Math.min(1, Math.max(0, share)));
-}
-
-/** The scene's sun: its shadow-casting directional light (`GameScene`'s key light, which the cycle moves). */
-function findKeyLight(scene: THREE.Object3D): THREE.DirectionalLight | null {
-  let found: THREE.DirectionalLight | null = null;
-  scene.traverse((child) => {
-    if (!found && child instanceof THREE.DirectionalLight && child.castShadow) found = child;
-  });
-  return found;
 }

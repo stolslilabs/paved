@@ -26,6 +26,7 @@ import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_VAULT } from "./stress";
+import { SKIN_TIER_GATES } from "./village";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
@@ -304,6 +305,8 @@ export const THEME_SHOP = {
   error: { ...shopBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
   /** WRAP360: the largest Cobble balance. */
   stress: { ...shopBase, skins: { ...forestShop, balance: BIG_NUMBER } },
+  /** Some skins reserved to a tier of their plan (#646): the plan's tier reached or not. */
+  tierGated: { ...shopBase, skins: { ...forestShop, balance: 600 }, tierGates: SKIN_TIER_GATES },
 } satisfies Record<string, Data<ThemeShopSceneProps>>;
 
 const myTiles: MyTiles = { ...ownedSkins, changes: {} };

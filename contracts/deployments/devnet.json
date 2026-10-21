@@ -42,6 +42,10 @@
     "MockRouter": {
       "address": "0x04050ed9f37dfcb5beddab4c0171798447241389032b8c560d69cd0e476e6a72",
       "class_hash": "0x07c2bb76a82808e2e0f7c82bde477847f34b51bf7ff5c42b54b071af4d8297aa"
+    },
+    "MockVrfProvider": {
+      "address": "0x02c5080ff1342f6dce78ce3253ac008e0551927f99bc120023e3708955ddb46d",
+      "class_hash": "0x02abc54e2e9be52d2213f3bba04ffe1a224caa704a62882b1bd8134ba1e1e5d7"
     }
   },
   "test_paved": {

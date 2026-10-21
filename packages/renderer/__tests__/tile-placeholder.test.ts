@@ -547,7 +547,7 @@ describe("no leak after many swaps", () => {
     }
     renderer.setHover(null);
     // The plan's quad material, the model's (one source), the outline's, the model's one tinted copy (kept across swaps),
-    // and the pending frame's (#605).
+    // and the tile in hand's outlines' (#657).
     expect(seen.size).toBeLessThanOrEqual(5);
     const spies = [...seen].map((m) => vi.spyOn(m, "dispose"));
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();

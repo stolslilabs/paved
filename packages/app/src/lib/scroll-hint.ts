@@ -2,7 +2,7 @@
  * NO-SCROLLBARS (#609): no scrollbar shows on desktop (`styles/theme.css`), so a region that scrolls says so by a soft fade
  * on the side where more content waits. The fade is the `scroll-hint` utility (theme.css); this module tells it which
  * sides have more, as `data-scroll-start` and `data-scroll-end` on the scroller, and the axis as `data-scroll-axis`.
- * `ScrollRegion` (`components/ui/scroll-region.tsx`) and `ScrollArea` take it; the document takes `usePageScrollHint`
+ * `ScrollRegion` (`components/ui/scroll-region.tsx`) and `ScrollArea` take it; a tab page's region takes `pageScrollHintRef`
  * (`page-scroll-hint.ts`, apart so that the first load, Home's, does not carry this module).
  */
 

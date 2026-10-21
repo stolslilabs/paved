@@ -3,9 +3,9 @@ import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { AppNav } from "./app-nav";
 import { BalancesSlot } from "./balances-context";
 import { MockMarkSlot } from "./mock-mark";
+import { TabFrame } from "./tab-frame";
 
 export interface TabPageProps {
   /** The tab shown as active (the route map's `nav`). */
@@ -25,13 +25,12 @@ export interface TabPageProps {
 /**
  * A page of the five tabs (section 6.2), as Home lays itself out: the bottom bar below `desktop`, the header across the top
  * from it (direction D, #537); the title in the display font, an action on its right, the content in one column that widens
- * with the viewport. The page scrolls as one document; `AppNav` brings its edge hint (NO-SCROLLBARS, #609).
+ * with the viewport, in the frame of the tab pages (`TabFrame`).
  */
 export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, children, className }: TabPageProps) {
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <AppNav active={tab} onNavigate={onNavigate} />
-      <main className={cn("mx-auto flex w-full flex-1 max-w-md flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
+    <TabFrame tab={tab} onNavigate={onNavigate}>
+      <main className={cn("mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1">
             {onBack && (
@@ -48,11 +47,11 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
               {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
             </div>
           </div>
-          <BalancesSlot layout="pill" className="ml-auto" />
+          <BalancesSlot layout="pill" className="ml-auto desktop:hidden" />
           {end}
         </header>
         {children}
       </main>
-    </div>
+    </TabFrame>
   );
 }

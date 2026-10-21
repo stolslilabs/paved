@@ -152,6 +152,21 @@ export { IndexerProvider, useIndexer, useIndexerRead } from "./indexer-react";
 export { CONTROLLER_ENTRY_POINTS, controllerPolicies, createControllerConnector } from "./auth/controller";
 export type { ControllerConfig } from "./auth/controller";
 
+// Cartridge's VRF per draw (#638)
+export {
+  CARTRIDGE_VRF_NETWORKS,
+  CARTRIDGE_VRF_PROVIDER,
+  VRF_DRAW_DOMAIN,
+  VRF_REQUEST_ENTRY_POINT,
+  VRF_SOURCE,
+  vrfPolicies,
+  vrfProvider,
+  vrfRequestCall,
+  vrfSalt,
+  withVrfRequest,
+} from "./vrf";
+export type { VrfRequest } from "./vrf";
+
 // Economy (P8, E1 to E3: the committed ABIs)
 export { ECONOMY_ABIS, createEconomyCodecs } from "./abis";
 export type { EconomyCodecs, EconomyContractName } from "./abis";

@@ -1,5 +1,6 @@
 import { formatUnits } from "@paved/game-core";
 import { cn } from "../../lib/utils";
+import { TokenIcon } from "./token-icon";
 
 /** The tokens a screen shows, with their decimals on chain. `PAVED` is the token's name on screen. */
 export const TOKENS = {
@@ -17,17 +18,20 @@ export { formatUnits };
 export interface AmountProps {
   value: bigint;
   token: Token;
+  /** The token's coin before the figure (issue 620); off where the coin already stands beside it. */
+  icon?: boolean;
   className?: string;
 }
 
 /**
- * A token amount in the mono font, its symbol after it in the body font. The figure never breaks; in a column too narrow
- * for both, the symbol goes under it (WRAP360).
+ * A token amount: the token's coin (`TokenIcon`), the figure in the mono font, its symbol after it in the body font. The figure
+ * never breaks; in a column too narrow for both, the symbol goes under it (WRAP360).
  */
-export function Amount({ value, token, className }: AmountProps) {
+export function Amount({ value, token, icon = true, className }: AmountProps) {
   const t = TOKENS[token];
   return (
     <span className={cn("inline-flex flex-wrap items-baseline gap-x-1", className)}>
+      {icon && <TokenIcon kind={token} size="em" className="self-center" />}
       <span className="numeric font-semibold whitespace-nowrap">{formatUnits(value, t.decimals, t.fraction)}</span>
       <span className="text-[max(12px,0.85em)] whitespace-nowrap text-muted-foreground">{t.symbol}</span>
     </span>

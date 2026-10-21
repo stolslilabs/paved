@@ -5,7 +5,7 @@
 /* iPhone Safari in a tab (not an installed app): its floating bottom toolbar overlays the page's end, and
    `env(safe-area-inset-bottom)` does not count it. `-webkit-touch-callout` exists only on iOS WebKit, so Android Chrome, desktop
    browsers and a home-screen app of an older manifest (`display-mode: standalone`, dropped in #589) never match; the width keeps iPad out. */
-/* NO-SCROLLBARS (#609): the document has more below (`usePageScrollHint`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
+/* NO-SCROLLBARS (#609): the tab page's region has more below (`pageScrollHintRef`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
 @custom-variant page-more (&:where(html[data-scroll-end] *));
 @custom-variant iphone-tab {
   @supports (-webkit-touch-callout: none) {
@@ -187,6 +187,15 @@
   --medal-2: var(--color-charcoal-200);
   --medal-3: var(--color-amber-400);
   --board: var(--color-board);
+  /* The village's tiers (#646): the base under a tile, whatever its skin. Dirt, silver, gold, diamond, ruby (a proposal for
+     the fifth). */
+  --tier-0: var(--color-amber-800);
+  --tier-1: var(--color-charcoal-300);
+  --tier-2: var(--color-gold-400);
+  --tier-3: var(--color-river-300);
+  --tier-4: var(--color-ember-500);
+  /* The village's fog in the plan view (#633's rule, until #648 draws the chosen one): a grey veil over the board. */
+  --fog: var(--color-charcoal-400);
 }
 
 /* 3b. The season dial (#607): each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle
@@ -226,6 +235,47 @@
   --dial-shade: rgb(0 0 0 / 0.55);
 }
 
+/* 3c. The balances' resource bar (#620): each currency on a dark plate, sunk a little, a hairline edge; the light that
+   crosses the Cobbles' plate. */
+:root {
+  --resource-plate: var(--color-charcoal-950);
+  --resource-edge: var(--color-charcoal-700);
+  --resource-shade: rgb(0 0 0 / 0.45);
+  --resource-glint: rgb(255 255 255 / 0.14);
+}
+
+/* 3d. The PvP flow (#647): the search's clouds over their sky, the crowns, and each league's crest (a proposal until #644
+   names the leagues). The crests are told apart by their names too, never by colour alone. */
+:root {
+  --cloud: var(--color-charcoal-50);
+  --cloud-shade: var(--color-charcoal-300);
+  --sky-search-top: var(--color-river-900);
+  --sky-search-bottom: var(--color-river-500);
+  --crown: var(--color-gold-300);
+  --league-bronze: var(--color-amber-500);
+  --league-silver: var(--color-charcoal-300);
+  --league-gold: var(--color-gold-400);
+  --league-crystal: var(--color-river-300);
+  --league-master: var(--color-ember-400);
+  --league-champion: var(--color-meadow-400);
+  --league-legend: var(--color-gold-100);
+}
+
+@theme inline {
+  --color-cloud: var(--cloud);
+  --color-cloud-shade: var(--cloud-shade);
+  --color-sky-search-top: var(--sky-search-top);
+  --color-sky-search-bottom: var(--sky-search-bottom);
+  --color-crown: var(--crown);
+  --color-league-bronze: var(--league-bronze);
+  --color-league-silver: var(--league-silver);
+  --color-league-gold: var(--league-gold);
+  --color-league-crystal: var(--league-crystal);
+  --color-league-master: var(--league-master);
+  --color-league-champion: var(--league-champion);
+  --color-league-legend: var(--league-legend);
+}
+
 /* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
 @theme inline {
   --color-background: var(--background);
@@ -259,6 +309,14 @@
   --color-medal-1: var(--medal-1);
   --color-medal-2: var(--medal-2);
   --color-medal-3: var(--medal-3);
+  --color-resource-plate: var(--resource-plate);
+  --color-resource-edge: var(--resource-edge);
+  --color-tier-0: var(--tier-0);
+  --color-tier-1: var(--tier-1);
+  --color-tier-2: var(--tier-2);
+  --color-tier-3: var(--tier-3);
+  --color-tier-4: var(--tier-4);
+  --color-fog: var(--fog);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -279,8 +337,9 @@
   input, textarea, [contenteditable="true"] { @apply select-text; -webkit-touch-callout: default; }
   canvas { touch-action: none; -webkit-touch-callout: none; }
   img, svg { -webkit-user-drag: none; user-drag: none; }
-  /* The board routes do not scroll: no pull-to-refresh and no bounce (`RootLayout` sets the flag). The other pages scroll as usual. */
-  html[data-board], html[data-board] body { overscroll-behavior: none; }
+  /* The document never bounces and never pulls to refresh (#611): a pull past the top would drag every page, its
+     navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
+  html, body { overscroll-behavior: none; }
 
   /* NO-SCROLLBARS (#609): no scrollbar is drawn from `desktop`, on any element, the document included; every scroller still
      scrolls by wheel, trackpad, keyboard and touch. Below `desktop` the OS draws overlay bars that hide themselves: unchanged.
@@ -360,6 +419,20 @@
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+}
+
+/* The Cobbles' plate (#620): a soft light crosses it now and then, an invitation to tap; none under reduced motion. */
+@keyframes plate-shine {
+  0%, 75% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@utility plate-shine {
+  background-image: linear-gradient(100deg, transparent 30%, var(--resource-glint) 50%, transparent 70%);
+  animation: plate-shine 7s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0;
   }
 }
 
