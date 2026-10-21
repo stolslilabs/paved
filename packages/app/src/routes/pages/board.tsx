@@ -130,6 +130,8 @@ function TrainingBoard() {
         preview,
         error: state.writeError,
         errorDetail: handErrorDetail,
+        // The two tiles after the hand (#645): known on the queue, null while the chain has not drawn one yet
+        next: state.queue?.map((t) => t.plan),
       }}
       lastScored={board.lastScored}
       tileArt={tileArt}
@@ -355,6 +357,8 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
         preview,
         error: state.writeError,
         errorDetail: handErrorDetail,
+        // The two tiles after the hand (#645): known on the queue, null while the chain has not drawn one yet
+        next: state.queue?.map((t) => t.plan),
       }}
       lastScored={state.lastScored}
       tileArt={tileArt}

@@ -147,27 +147,37 @@ knows. The indexer can rebuild the queue from these events.
 move optimistically. The tile that comes into the hand is known (it was `next`), and the tile it appends is not. The
 UI shows the queue's last slot as pending until the receipt's `Queued` arrives.
 
-### What the client task needs (filed apart by the coordinator)
+### The client (as built, in the same PR)
 
-- `@paved/chain`:
-  - the `draw` and `spawn_salt` views;
-  - the `Queued` event;
-  - `withVrfRequest` on spawn, and on build and discard when `draws`;
-  - `request_random` as a session policy;
-  - the deployment's `vrfProvider`, which exists since #638.
-- `@paved/game-core`:
-  - the engine's draw takes a queue of three;
-  - Training draws locally into the same queue;
-  - the predicted session takes the appended tile from the receipt;
-  - the parity fixture is transcribed again from the regenerated goldens (`transcribe-goldens.ts`). Its games carry
-    their drawn plans, which the engine now takes as given, instead of predicting them from the seed.
-- `@paved/app`: the hand panel shows the current tile and the two next ones. The deck sheet counts the rest from
-  `tiles`.
-- `@paved/indexer`: `Queued`, if the API serves the queue.
+The first review asked for the client in this PR, so a released client and a deployed class go together.
 
-**Deployment gate.** A Sepolia deployment of this class goes with that client work. An older client sends no
-`request_random`, so every spawn and every drawing move reverts on Cartridge's provider (`NOT_FULFILLED`). The devnet
-mock answers without a request, so an older client still plays on devnet, with a wrong predicted tile.
+- **`@paved/chain`.**
+  - **Reads.** `RpcGameViews.draw(key)` and `spawnSalt(player)` (`DrawViews`; `FakeGameViews` answers them too). The
+    `Queued` event is decoded from the ABI.
+  - **Writes.**
+    - A free spawn and a paid one (`EconomyWriter.purchase`) put `request_random(Challenge, Salt(spawn_salt))` first.
+    - A build or a discard reads `draw(game_id)` inside the serialised send, and puts the request first when `draws`.
+    - With no provider in the deployment, the write goes alone (a devnet file without the mock).
+  - **Session policy.** `request_random` on the provider (`controllerPolicies`), so a move still signs in the session.
+- **`@paved/game-core`.**
+  - **The engine** has the queue (`EngineConfig.vrf`; `queue`, `drawsNext`, `supply(random)`, `supplyPlan(id, plan)`),
+    the mirror of `GameImpl::advance`.
+  - **Training** plays on the same queue. Its draws come from a local random, Poseidon(the game's random seed, tile id),
+    so a saved game replays (`SavedGame.v` 2). A game saved before (`v` 1) resumes on its old draws.
+  - **The predicted session.**
+    - It replays a VRF game from its tiles and its `draw()` (`replayVrfChallenge`).
+    - It shows the next tile at once after a move, and takes the tile two ahead from the receipt's `Queued`.
+    - At most two moves are unconfirmed, so the hand is always a known tile.
+  - **The parity fixture** carries each golden's spawn random (its `seed`) and each move's random (`random`). They are
+    computed by the transcriber from the Cairo test's own constants (`goldenDraws`), so the engine checks every golden
+    draw again (84 asserted plans).
+- **`@paved/app`.**
+  - The hand panel (`TileStack.next`) shows the tile to place and, smaller beside it, the next two, a tile not drawn yet
+    pulsing. There are stories `NextTwo`, `NextNotDrawnYet` and `NextLast`.
+  - The game-over replay (`replayGame`) replays a VRF game from its tiles.
+  - The deck sheet counts the rest as before (`remainingCount`: the queued tiles are in it).
+- **`@paved/indexer`:** `Queued` and `VrfProviderSet` are known by name and not indexed. The client reads the queue from
+  `draw()` and the receipts.
 
 ## 4. Tests, gas and size (as built)
 
@@ -271,5 +281,8 @@ test.
 
 1. **Cartridge's point 2 stays open** (`vrf-draws.md`, section 7). If a player can reach the server's `/proof` route,
    they read every future draw, not only the next two. The two-tile horizon bounds what the UI shows, not that leak.
-2. **The deck sheet.** It counts the rest from `tiles`, so the two queued tiles are not in the rest. The client task
-   decides whether the sheet lists them apart.
+2. **The deck sheet.** It counts the rest as before (`remainingCount`, the queued tiles included). Whether it lists the
+   two queued tiles apart is a UI choice for later.
+3. **`deploy.sh`'s Sepolia smoke.** On Sepolia `Challenge` draws through Cartridge's provider. A draw there needs
+   Cartridge's server to prove the seed inside its VRF wrapper, and the smoke's plain invokes cannot get that (its spawn
+   and build would revert `NOT_FULFILLED`). This is pending the owner's choice (section 6).

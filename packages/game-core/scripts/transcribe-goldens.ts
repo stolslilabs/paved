@@ -14,6 +14,7 @@
 // day, the tile limit, the score after each move and the final counters (`GoldenOutcome`). The few
 // values it adds are listed in `EXTRAS` and `DIFFERENTIAL`, each with the source it comes from.
 
+import { poseidonHashMany } from "@scure/starknet";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,6 +34,35 @@ const PLAN_CODES = [
 const ORIENTATION_CODES = ["None", "North", "East", "South", "West"];
 const CATEGORY_CODES = ["None", "Forest", "Road", "City", "Stop", "Wonder"];
 const DECK_COUNTS = { simple: 38, tutorial: 10 };
+
+// The golden games' VRF draws (#645, D-30, docs/architecture/challenge-vrf.md): each golden spawns on the devnet mock
+// (`MockVrfProvider`) as its player's spawn `n` for `day(n)` (`golden/harness.cairo`, `spawn_golden`), on `Challenge`
+// at its fixed test address (`setup::deploy_challenge`, the test's first deployment), as game 1. The mock's random of a
+// salt is Poseidon(Poseidon(Poseidon(salt, consumer, chain id), 'MOCK_VRF'), 0) (`mocks/vrf.cairo`), the salt
+// `draw_salt(kind, id, index)` (`vrf.cairo`): so each draw is computed here from the Cairo test's own constants.
+const short = (text: string) => BigInt(`0x${Buffer.from(text, "ascii").toString("hex")}`);
+/** `setup::CHALLENGE_ADDRESS` + 1: the address of the first `Challenge` a test deploys. */
+const CHALLENGE_ADDRESS = 0x4348414c4c454e474500n + 1n;
+/** snforge's chain id, SN_SEPOLIA. */
+const CHAIN_ID = short("SN_SEPOLIA");
+/** The golden games' game id: the first spawn of their deployment. */
+const GOLDEN_GAME_ID = 1n;
+
+function vrfRandom(kind: string, id: bigint, index: number): string {
+  const salt = poseidonHashMany([short("PAVED_DRAW"), short(kind), id, BigInt(index)]);
+  const seed = poseidonHashMany([salt, CHALLENGE_ADDRESS, CHAIN_ID]);
+  return `0x${poseidonHashMany([poseidonHashMany([seed, short("MOCK_VRF")]), 0n]).toString(16)}`;
+}
+
+/**
+ * A golden's spawn random (its seed) and the random each move draws: the move on the tile in hand `2 + k` draws tile
+ * `5 + k` while it is within the tile limit (`GameImpl::move_draw`), salted with the game and that id.
+ */
+function goldenDraws(player: string, dayIndex: number, moves: number, tileLimit: number): { seed: string; randoms: (string | null)[] } {
+  const seed = vrfRandom("CHALLENGE_SPAWN", short(player), dayIndex);
+  const randoms = Array.from({ length: moves }, (_, k) => (5 + k <= tileLimit ? vrfRandom("CHALLENGE", GOLDEN_GAME_ID, 5 + k) : null));
+  return { seed, randoms };
+}
 const GOLDEN_FILES = ["daily", "forest", "full_deck"].map(
   (name) => `contracts/src/tests/golden/${name}.cairo`,
 );
@@ -69,10 +99,10 @@ export interface ParityGame {
   seed: string;
   seedSource: string;
   /**
-   * The draws come from the VRF (#645, D-30, docs/architecture/challenge-vrf.md): the golden games spawn on the devnet
-   * mock, so their drawn plans are not computable from a seed. The fixture keeps the plans played and writes no `drawn`.
+   * The draws come from the VRF (#645, D-30): the seed is the spawn's random, and `randoms[k]` is the random move `k`
+   * draws (null when it draws nothing). See `goldenDraws`.
    */
-  vrf?: boolean;
+  randoms?: (string | null)[];
   /** The tile limit when the game cuts the deck, else `null` (the deck's count). */
   tileLimit: number | null;
   moves: ParityMove[];
@@ -284,11 +314,11 @@ function parseGoldens(file: string, source: string): ParityGame[] {
   for (const test of source.matchAll(tests)) {
     const name = test[1];
     const body = test[2];
-        const call = body.match(/play_daily(?:_checked(?:_lite)?)?\(\s*'(\w+)',\s*day\((\d+)\),\s*\w+\(\),\s*(true|false),\s*(\d+),\s*([\w.()]+)/);
+        const call = body.match(/play_daily(?:_checked(?:_lite)?)?\(\s*'(\w+)',\s*day\((\d+)\),\s*(\w+)\(\),\s*(true|false),\s*(\d+),\s*([\w.()]+)/);
     if (!call) throw new Error(`goldens: ${name} has no play_daily call`);
     let moves: ParityMove[];
     const inline = body.match(/let moves = array!\[([\s\S]*?)\];/);
-    const helper = call[5].match(/^(\w+)\(\)/) ?? body.match(/let moves = (\w+)\(\);/);
+    const helper = call[6].match(/^(\w+)\(\)/) ?? body.match(/let moves = (\w+)\(\);/);
     if (inline) {
       moves = parseMoves(inline[1]);
     } else if (helper && helpers.has(helper[1])) {
@@ -299,15 +329,17 @@ function parseGoldens(file: string, source: string): ParityGame[] {
     const outcomeText = body.match(/GoldenOutcome \{([\s\S]*?)\}/)?.[1] ??
       source.match(/fn \w+_outcome\(\) -> GoldenOutcome \{\s*GoldenOutcome \{([\s\S]*?)\}/)?.[1];
     if (!outcomeText) throw new Error(`goldens: ${name} has no outcome`);
-    const forced = call[3] === "true";
+    const forced = call[4] === "true";
+    const tileLimit = Number(call[5]) === 0 ? null : Number(call[5]);
+    const draws = goldenDraws(call[3], Number(call[2]), moves.length, tileLimit ?? DECK_COUNTS.simple);
     games.push({
       name: call[1],
       source: `${file} (${name})`,
       deck: "simple",
-      seed: "0x0",
-      seedSource: `the VRF mock (#645): the player's spawn ${call[2]} on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted`,
-      vrf: true,
-      tileLimit: Number(call[4]) === 0 ? null : Number(call[4]),
+      seed: draws.seed,
+      seedSource: `the VRF mock (#645): ${call[3]}'s spawn ${call[2]} on Challenge at its test address (golden/harness.cairo, spawn_golden), game 1; each move's draw from its salt (goldenDraws)`,
+      randoms: draws.randoms,
+      tileLimit,
       moves: moves.map((move) => (forced ? move : { ...move, plan: move.drawn as string })),
       outcome: parseOutcome(outcomeText),
     });
@@ -407,6 +439,8 @@ export interface FixtureMove {
   scored?: FixtureScored[];
   /** Absent where the Cairo source does not assert the score after the move. */
   score?: number;
+  /** A VRF game: the random of the tile this move draws, a hex felt; null when it draws nothing. */
+  random?: string | null;
 }
 
 export interface FixtureGame {
@@ -415,6 +449,8 @@ export interface FixtureGame {
   seed: string;
   tile_limit: number;
   forced: boolean;
+  /** The game draws from the VRF (#645): `seed` is the spawn's random, and each move's `random` the draw it makes. */
+  vrf?: boolean;
   moves: FixtureMove[];
   final: {
     score?: number;
@@ -458,10 +494,11 @@ export function toFixture(transcription: Transcription): ParityFixture {
         seed: game.seed,
         tile_limit: game.tileLimit ?? DECK_COUNTS[game.deck],
         forced: game.moves.some((move) => move.drawn !== move.plan),
-        moves: game.moves.map((move) => {
+        ...(game.randoms ? { vrf: true } : {}),
+        moves: game.moves.map((move, step) => {
           const discard = move.action === "discard";
           const entry: FixtureMove = {
-            drawn: move.drawn === null || game.vrf ? null : code(PLAN_CODES, move.drawn),
+            drawn: move.drawn === null ? null : code(PLAN_CODES, move.drawn),
             plan: code(PLAN_CODES, move.plan),
             orientation: discard ? 0 : code(ORIENTATION_CODES, move.orientation as string),
             x: discard ? 0 : CENTER + (move.x as number),
@@ -471,6 +508,7 @@ export function toFixture(transcription: Transcription): ParityFixture {
             entry.scored = move.scored.map((scored) => ({ ...scored, category: code(CATEGORY_CODES, scored.category) }));
           }
           if (move.score !== null) entry.score = move.score;
+          if (game.randoms) entry.random = game.randoms[step] ?? null;
           return entry;
         }),
         final,

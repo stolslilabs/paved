@@ -78,6 +78,8 @@ export interface BoardSceneProps {
     error?: string | null;
     /** The refusal's detail for support (`InlineError`). */
     errorDetail?: ErrorDetail;
+    /** The tiles after the hand, in order (#645: the queue of the Challenge on the VRF and of Training); null not drawn yet. */
+    next?: (number | null)[];
   };
   /** What the last move closed (`SessionState.lastScored`), shown as it arrives. */
   lastScored: ScoredStructure[];
@@ -266,6 +268,7 @@ export function BoardScene(props: BoardSceneProps) {
           )}
           <TileStack
             tile={hand.tile}
+            next={hand.next}
             state={hand.state}
             remaining={props.remaining}
             cellChosen={hand.cellChosen ?? hand.slotChosen}

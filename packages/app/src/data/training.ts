@@ -8,7 +8,9 @@ import {
   TRAINING_KEY,
   gameStats,
   loadGame,
+  playTraining,
   randomSeed,
+  startTraining,
   type KeyValueStore,
   type PageState,
   type PlaceMove,
@@ -93,7 +95,7 @@ export class TrainingGame {
 
   /** A new game of `seed`, saved at once. */
   static start(seed: bigint, store: () => KeyValueStore | null): TrainingGame {
-    return new TrainingGame(LocalSession.start(seed, store), EngineGame.start({ deck: "simple", seed }), seed, [], [], store);
+    return new TrainingGame(LocalSession.start(seed, store), startTraining(seed), seed, [], [], store);
   }
 
   /** The saved game replayed; null when it does not replay. */
@@ -101,10 +103,11 @@ export class TrainingGame {
     const session = LocalSession.resume(saved, store);
     if (!session) return null;
     const seed = BigInt(saved.seed);
-    const rules = EngineGame.start({ deck: "simple", seed });
+    // A game saved before #645 (`v: 1`) has no queue: its rules engine neither
+    const rules = startTraining(seed, saved.v !== 1);
     const closings: Closing[] = [];
     try {
-      for (const move of saved.moves) closings.push(...apply(rules, move));
+      for (const move of saved.moves) closings.push(...apply(rules, move, seed));
     } catch {
       return null;
     }
@@ -188,7 +191,7 @@ export class TrainingGame {
       this.set({ ...this.current, state: this.session.state });
       return false;
     }
-    const closed = apply(this.rules, move);
+    const closed = apply(this.rules, move, this.seed);
     this.moves.push(move);
     const state = this.session.state;
     this.set({
@@ -227,19 +230,10 @@ function toPlacement(move: PlaceMove) {
   return { orientation, x: move.x - CENTER, y: move.y - CENTER };
 }
 
-/** `move` played on `game`, as `LocalSession` plays it; what it closed, with the tile that closed it. */
-function apply(game: EngineGame, move: SavedMove): Closing[] {
-  if (move.k === "d") {
-    game.discard();
-    return [];
-  }
-  if (move.k === "s") {
-    game.surrender();
-    return [];
-  }
-  const orientation = ORIENTATIONS[move.o];
-  if (!orientation) throw new Error("Orientation: not valid");
-  const result = game.build({ orientation, x: move.x, y: move.y });
+/** `move` played on `game`, as `LocalSession` plays it (`playTraining`); what it closed, with the tile that closed it. */
+function apply(game: EngineGame, move: SavedMove, seed: bigint): Closing[] {
+  const result = playTraining(game, move, seed);
+  if (!result) return [];
   return result.scored.map((s) => ({ category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points, tileId: result.tileId }));
 }
 

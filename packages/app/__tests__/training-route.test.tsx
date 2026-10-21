@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { OrientationType, TRAINING_KEY, loadGame, replayTraining, type KeyValueStore, type SavedMove } from "@paved/game-core";
+import { OrientationType, TRAINING_KEY, loadGame, playTraining, replayTraining, type KeyValueStore, type SavedMove } from "@paved/game-core";
 import { App } from "../src/App";
 import { TRAINING_BEST_KEY, trainingPreviousBest } from "../src/data/training-best";
 import { createTestRouter } from "../src/routes/router";
@@ -11,7 +11,7 @@ import { holdToPlace, placeTile, preloadPages, validateButton, discardTile } fro
 
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
-const save = (moves: SavedMove[]) => JSON.stringify({ v: 1, seed: `0x${SEED.toString(16)}`, moves });
+const save = (moves: SavedMove[]) => JSON.stringify({ v: 2, seed: `0x${SEED.toString(16)}`, moves });
 
 /** The first legal placement of the game after `moves`, as the save writes it. */
 function firstMove(moves: SavedMove[]): SavedMove {
@@ -262,9 +262,10 @@ describe("/training/over (P3)", () => {
     const game = replayTraining(SEED, []);
     while (!game.over) {
       const p = game.legalPlacements()[0];
-      if (p) game.build(p);
-      else game.discard();
-      moves.push(p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" });
+      const move: SavedMove = p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" };
+      // As the session plays it: on the queue (#645), the tile two ahead drawn after each move
+      playTraining(game, move, SEED);
+      moves.push(move);
     }
     const store = memoryStore({ [TRAINING_KEY]: save(moves) });
     const { router } = open("/training/over", store);
@@ -283,9 +284,10 @@ describe("/training/over (P3)", () => {
     const game = replayTraining(SEED, []);
     while (!game.over) {
       const p = game.legalPlacements()[0];
-      if (p) game.build(p);
-      else game.discard();
-      moves.push(p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" });
+      const move: SavedMove = p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" };
+      // As the session plays it: on the queue (#645), the tile two ahead drawn after each move
+      playTraining(game, move, SEED);
+      moves.push(move);
     }
     expect(game.score).toBeGreaterThan(1);
     const store = memoryStore({ [TRAINING_KEY]: save(moves), [TRAINING_BEST_KEY]: JSON.stringify({ score: 1, seed: "0x1", previous: null }) });

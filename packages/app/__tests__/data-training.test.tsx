@@ -6,7 +6,7 @@ import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
 
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
-const save = (moves: SavedMove[]) => JSON.stringify({ v: 1, seed: `0x${SEED.toString(16)}`, moves });
+const save = (moves: SavedMove[]) => JSON.stringify({ v: 2, seed: `0x${SEED.toString(16)}`, moves });
 
 /** The first legal move of the game replayed from `moves`, in the chain's coordinates the page sends. */
 function firstMove(moves: SavedMove[]) {
@@ -48,7 +48,7 @@ describe("the board's Training session", () => {
     const first = firstMove([]);
     const f = fakeSources({ store: () => memoryStore({ [TRAINING_KEY]: save([first.saved]) }) });
     const { result } = renderData(() => useTrainingSave(), f.sources);
-    const resumed = LocalSession.resume({ v: 1, seed: `0x${SEED.toString(16)}`, moves: [first.saved] }, () => null)!;
+    const resumed = LocalSession.resume({ v: 2, seed: `0x${SEED.toString(16)}`, moves: [first.saved] }, () => null)!;
     expect(await dataOf(result)).toEqual({ score: resumed.score, remaining: boardOf(resumed.state).remaining });
     const none = renderData(() => useTrainingSave(), fakeSources({ store: () => memoryStore() }).sources);
     expect(await dataOf(none.result)).toBeNull();

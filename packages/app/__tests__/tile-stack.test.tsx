@@ -36,3 +36,31 @@ describe("the tile stack's hint", () => {
     expect(hint()).toBeNull();
   });
 });
+
+// CHALLENGE-VRF (#645): the tile to place and, beside it, the next two, in order; one not drawn yet pulses.
+describe("the tile stack's next tiles", () => {
+  const withNext = (next?: (number | null)[], readOnly = false) =>
+    wrap(<TileStack tile={{ plan: 1, orientation: 1 }} next={next} state="placing" remaining={30} readOnly={readOnly} />);
+
+  it("shows the next two in order, the first larger", () => {
+    render(withNext([13, 7]));
+    const items = screen.getByTestId("next-tiles").querySelectorAll("li");
+    expect([...items].map((li) => li.getAttribute("data-next-tile"))).toEqual(["13", "7"]);
+    expect(items[0]!.getAttribute("aria-label")).toBe("Next tile 1");
+  });
+
+  it("marks a tile not drawn yet", () => {
+    render(withNext([7, null]));
+    const items = screen.getByTestId("next-tiles").querySelectorAll("li");
+    expect(items[1]!.getAttribute("data-next-tile")).toBe("pending");
+    expect(items[1]!.getAttribute("aria-label")).toBe("Not drawn yet");
+  });
+
+  it("shows none without a queue (Story) or on a board the viewer does not play", () => {
+    const { unmount } = render(withNext(undefined));
+    expect(screen.queryByTestId("next-tiles")).toBeNull();
+    unmount();
+    render(withNext([13, 7], true));
+    expect(screen.queryByTestId("next-tiles")).toBeNull();
+  });
+});

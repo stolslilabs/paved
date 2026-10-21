@@ -5,7 +5,8 @@ import type { CobbleClaim } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
 import { SKIN_PLANS, isSkinPlan, type SkinChange, type SkinViews } from "./skins";
-import { gameContract, type GameKey } from "./views";
+import { gameContract, type DrawView, type DrawViews, type GameKey } from "./views";
+import { withVrfRequest } from "./vrf";
 
 export interface Call {
   contractAddress: string;
@@ -444,6 +445,11 @@ export class PavedWriter {
       receiptPollMs?: number;
       /** Called with the decoded events of every successful write (the event reader keeps them). */
       onEvents?: (contract: ContractName, events: DecodedEvent[]) => void;
+      /**
+       * The VRF reads of `Challenge` (#645): with them and the deployment's `vrfProvider`, a write that draws (a free
+       * spawn always, a build or discard when `draw(game_id).draws`) requests its draw first (`withVrfRequest`).
+       */
+      draws?: DrawViews;
     },
   ) {
     if (!options.deployment.configured) {
@@ -541,7 +547,9 @@ export class PavedWriter {
    * transaction (sent, outcome unknown): the credit may be spent, the player's games list shows the game if it exists.
    */
   async spawnFree(): Promise<WriteResult & { gameId: number }> {
-    const result = await this.send("Challenge", [this.call("Challenge", "spawn_free", [])]).catch(spawnFreeRevert);
+    const result = await this.serialised(async () =>
+      this.sendNow("Challenge", await this.withSpawnDraw([this.call("Challenge", "spawn_free", [])], this.address)),
+    ).catch(spawnFreeRevert);
     const spawned = result.events.find((e) => e.name === "GameSpawned");
     if (!spawned) throw new WriteError("The free game was sent but its receipt shows no game: check your games list.", result.transactionHash);
     return { ...result, gameId: Number(spawned.fields.gameId) };
@@ -595,12 +603,49 @@ export class PavedWriter {
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */
   build(key: GameKey, move: BuildMove): Promise<WriteResult> {
     const contract = gameContract(key.mode);
-    return this.send(contract, [this.call(contract, "build", [key.gameId, move.orientation, move.x, move.y])]).catch(expiredRevert);
+    return this.sendMove(key, [this.call(contract, "build", [key.gameId, move.orientation, move.x, move.y])]).catch(expiredRevert);
   }
 
   discard(key: GameKey): Promise<WriteResult> {
     const contract = gameContract(key.mode);
-    return this.send(contract, [this.call(contract, "discard", [key.gameId])]).catch(expiredRevert);
+    return this.sendMove(key, [this.call(contract, "discard", [key.gameId])]).catch(expiredRevert);
+  }
+
+  /**
+   * A build or discard (#645): `draw(game_id)` is read inside the serialised send, after any earlier move has landed, and
+   * a move that draws requests its draw first. Without the VRF reads or a provider the move goes alone (a deployment
+   * from before #645, or the devnet mock, which needs no request).
+   */
+  private sendMove(key: GameKey, calls: Call[]): Promise<WriteResult> {
+    const contract = gameContract(key.mode);
+    return this.serialised(async () => {
+      const { draws, deployment } = this.options;
+      if (!draws || !deployment.vrfProvider) return this.sendNow(contract, calls);
+      let draw: DrawView;
+      try {
+        draw = await draws.draw(key);
+      } catch (error) {
+        throw new WriteError(`Cannot read the game's next draw: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      const sent = draw.draws ? withVrfRequest(calls, { provider: deployment.vrfProvider, consumer: deployment.addresses[contract], salt: draw.salt }) : calls;
+      return this.sendNow(contract, sent);
+    });
+  }
+
+  /**
+   * A spawn's calls with its draw requested first (#645): the salt of `player`'s next spawn (`spawn_salt`). Without the
+   * VRF reads or a provider, the calls as they are.
+   */
+  async withSpawnDraw(calls: Call[], player: string): Promise<Call[]> {
+    const { draws, deployment } = this.options;
+    if (!draws || !deployment.vrfProvider) return calls;
+    let salt: string;
+    try {
+      salt = await draws.spawnSalt(player);
+    } catch (error) {
+      throw new WriteError(`Cannot read the spawn's draw: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+    }
+    return withVrfRequest(calls, { provider: deployment.vrfProvider, consumer: deployment.addresses.Challenge, salt });
   }
 
   surrender(key: GameKey): Promise<WriteResult> {

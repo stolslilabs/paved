@@ -34,6 +34,15 @@ type Story = StoryObj<typeof meta>;
 
 /** The start of a game: 38 tiles left (five bodies under the top), the hint, and the stack's Discard. */
 export const Left38: Story = {};
+
+/** The Challenge on the VRF and Training (#645): the tile to place and, beside it, the next two. */
+export const NextTwo: Story = { args: { next: [13, 7] } };
+
+/** A move sent: the next tile came into the hand, the tile two ahead comes with the receipt. */
+export const NextNotDrawnYet: Story = { args: { next: [7, null], state: "pending" } };
+
+/** The deck's end: one tile left after the hand. */
+export const NextLast: Story = { args: { next: [7], remaining: 2 } };
 /** Five tiles left: five bodies. */
 export const Left5: Story = { args: { remaining: 5 } };
 /** One tile left after this one: one body. */

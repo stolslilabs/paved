@@ -49,6 +49,11 @@ export interface PageState {
   /** Chain plan ids of the discarded tiles (the deck sheet crosses them out); absent when the session does not give them. */
   discardedPlans?: number[];
   hand: { tileId: number; plan: number } | null;
+  /**
+   * The tiles after the hand, in order (#645, D-30: the Challenge on the VRF and Training show the tile to place and the
+   * next two): `plan` null while the tile is not drawn yet. Absent when the session has no queue (Story).
+   */
+  queue?: { tileId: number; plan: number | null }[];
   lastScored: ScoredStructure[];
   readonly: boolean;
   pending: boolean;

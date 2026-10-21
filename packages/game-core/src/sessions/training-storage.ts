@@ -5,7 +5,8 @@ export type SavedMove = { k: "b"; o: number; x: number; y: number } | { k: "d" }
 
 /** The game in progress: the seed and the moves, replayed on load (the engine stays the only source of truth). */
 export interface SavedGame {
-  v: 1;
+  /** 1: a game before #645 (the seed reseeded by each placement); 2: the three-tile queue of #645. */
+  v: 1 | 2;
   /** The seed as a hex felt. */
   seed: string;
   moves: SavedMove[];
@@ -27,9 +28,9 @@ export function loadGame(store: () => KeyValueStore | null = browserStore): Save
     const raw = store()?.getItem(TRAINING_KEY);
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<SavedGame>;
-    if (value.v !== 1 || typeof value.seed !== "string" || !/^0x[0-9a-f]{1,64}$/.test(value.seed)) return null;
+    if ((value.v !== 1 && value.v !== 2) || typeof value.seed !== "string" || !/^0x[0-9a-f]{1,64}$/.test(value.seed)) return null;
     if (!Array.isArray(value.moves) || !value.moves.every(isMove)) return null;
-    return { v: 1, seed: value.seed, moves: value.moves };
+    return { v: value.v, seed: value.seed, moves: value.moves };
   } catch {
     return null;
   }

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { BoardTile, DayView, GameKey, GameView, IndexedGame, TermsView, TileView, WriteResult } from "@paved/chain";
-import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, gameStats, type GameStats } from "@paved/game-core";
+import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, gameStats, supplyKnown, type GameStats } from "@paved/game-core";
 import type { SettleProps } from "../components/scenes/over-scene";
 import { useCurrentDay, useGame, useEconomyDay, useTerms } from "./chain";
 import { addressKey, queryKeys } from "./keys";
@@ -90,12 +90,31 @@ export interface OverReplay {
  * refused, or the replay's score is not the chain's: the list is never shown from a replay that disagrees.
  */
 export function replayGame(initialSeed: bigint, tiles: readonly TileView[], game: Pick<GameView, "playerId" | "deckSize" | "over" | "score">): OverReplay {
-  const engine = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(game.playerId), tileLimit: game.deckSize });
+  // A game on the VRF (#645) draws its tiles apart from its seed: tried when the seed's draws are not the game's
+  try {
+    return replayOn(false, initialSeed, tiles, game);
+  } catch (seedError) {
+    try {
+      return replayOn(true, initialSeed, tiles, game);
+    } catch {
+      throw seedError;
+    }
+  }
+}
+
+/**
+ * `replayGame` on an engine that draws from the seed (`vrf` false: a game spawned before #645) or as a VRF game does
+ * (#645): the spawn's three tiles from the seed, every tile after them taken from `tiles()`.
+ */
+function replayOn(vrf: boolean, initialSeed: bigint, tiles: readonly TileView[], game: Pick<GameView, "playerId" | "deckSize" | "over" | "score">): OverReplay {
+  const engine = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(game.playerId), tileLimit: game.deckSize, vrf });
   const drawn = [...tiles].sort((a, b) => a.id - b.id);
   const starter = drawn[0];
   if (!starter || starter.id !== 1 || starter.x !== CENTER || starter.y !== CENTER) throw new Error("Replay: no starter at the centre");
+  const plans = new Map(drawn.map((tile) => [tile.id, tile.plan]));
   const closings: Closing[] = [];
   for (const tile of drawn.slice(1)) {
+    if (vrf) supplyKnown(engine, plans);
     const hand = engine.hand;
     if (!hand || hand.id !== tile.id || PLANS.indexOf(hand.plan) !== tile.plan) throw new Error(`Replay: tile ${tile.id} is not the engine's draw`);
     if (tile.status === PLACED) {

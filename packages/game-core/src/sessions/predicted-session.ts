@@ -44,12 +44,26 @@ export interface ChainTile {
   y: number;
 }
 
+/** What the session reads of `Challenge.draw(game_id)` (#645): the chain's `DrawView` has these fields. */
+export interface ChainDraw {
+  /** The plans of the tiles after the hand (0: none). */
+  next: number;
+  after: number;
+  /** The game draws from the VRF. */
+  vrf: boolean;
+}
+
 /** The reads of a game on chain: the chain's `GameViews` satisfies it. */
 export interface PredictedViews<K> {
   game(key: K): Promise<ChainGame>;
   tiles(key: K): Promise<ChainTile[]>;
   /** `Challenge.initial_seed(game_id)` (S1): the seed before the starter and the first draw. */
   initialSeed(key: K): Promise<string>;
+  /**
+   * `Challenge.draw(game_id)` (#645): the queue of a VRF game. Without it a VRF game is played without prediction (a
+   * deployment from before #645 has neither).
+   */
+  draw?(key: K): Promise<ChainDraw>;
 }
 
 /** A receipt's decoded events: the chain's `WriteResult` satisfies it. */
@@ -108,7 +122,8 @@ interface Expected {
   score: number;
   over: boolean;
   seed: bigint;
-  hand: { id: number; plan: number } | null;
+  /** The tile in hand after the move; `plan` null while a VRF game has not drawn it yet (only its id is checked). */
+  hand: { id: number; plan: number | null } | null;
 }
 
 interface Entry {
@@ -168,6 +183,73 @@ export function replayChallenge(initialSeed: bigint, tiles: readonly ChainTile[]
   // A surrendered game keeps its last tile in hand, as on chain.
   if (game.over && !engine.over) engine.surrender();
   return engine;
+}
+
+/** The plans the chain gives of a VRF game's tiles not drawn by the engine yet: each pending tile named by `plans`. */
+export function supplyKnown(engine: EngineGame, plans: ReadonlyMap<number, number>): void {
+  const slots = [...(engine.handPending ? [{ id: engine.tileCount, plan: null }] : []), ...engine.queue];
+  for (const slot of slots) {
+    const plan = plans.get(slot.id);
+    if (slot.plan === null && plan) engine.supplyPlan(slot.id, PLANS[plan] as PlanType);
+  }
+}
+
+/**
+ * Replays a VRF game (#645) on a new engine game of `initialSeed`: the spawn's random, which gives the deck and the first
+ * three tiles. A move's draw cannot be computed off chain: each tile two ahead is taken from `tiles()` (the drawn tiles)
+ * or, for the two after the hand, from `draw()`. Throws when a tile is not the engine's (the spawn's three) or a placement
+ * is refused.
+ */
+export function replayVrfChallenge(
+  initialSeed: bigint,
+  tiles: readonly ChainTile[],
+  game: Pick<ChainGame, "playerId" | "deckSize" | "over">,
+  draw: Pick<ChainDraw, "next" | "after">,
+): EngineGame {
+  const engine = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(game.playerId), tileLimit: game.deckSize, vrf: true });
+  const drawn = [...tiles].sort((a, b) => a.id - b.id);
+  const starter = drawn[0];
+  if (!starter || starter.id !== 1 || starter.x !== CENTER || starter.y !== CENTER) throw new Error("Replay: no starter at the centre");
+  const plans = new Map(drawn.map((tile) => [tile.id, tile.plan]));
+  for (const tile of drawn.slice(1)) {
+    supplyKnown(engine, plans);
+    const hand = engine.hand;
+    if (!hand || hand.id !== tile.id || PLANS.indexOf(hand.plan) !== tile.plan) {
+      throw new Error(`Replay: tile ${tile.id} is not the engine's draw`);
+    }
+    if (tile.status === PLACED) {
+      const placement = toPlacement(tile);
+      if (!placement) throw new Error(`Replay: tile ${tile.id} has no orientation`);
+      engine.build(placement);
+    } else if (tile.status === DISCARDED) {
+      engine.discard();
+    } else if (tile.status === HELD) {
+      break;
+    } else {
+      throw new Error(`Replay: tile ${tile.id} has status ${tile.status}`);
+    }
+  }
+  if (game.over && !engine.over) engine.surrender();
+  if (!engine.over) {
+    const hand = engine.tileCount;
+    const queued: [number, number][] = [
+      [hand + 1, draw.next],
+      [hand + 2, draw.after],
+    ];
+    supplyKnown(engine, new Map([...plans, ...queued.filter(([, plan]) => plan !== 0)]));
+  }
+  return engine;
+}
+
+/** Why a VRF game's queue is not the chain's `draw()`; null when it is (a tile the engine has not drawn is not compared). */
+function queueDivergence(engine: EngineGame, draw: ChainDraw): string | null {
+  if (engine.over) return null;
+  const chain = [draw.next, draw.after].filter((plan) => plan !== 0);
+  const queue = engine.queue.map((tile) => (tile.plan === null ? null : PLANS.indexOf(tile.plan)));
+  if (queue.length !== chain.length || queue.some((plan, i) => plan !== null && plan !== chain[i])) {
+    return `queue: engine ${queue.join(",")}, chain ${chain.join(",")}`;
+  }
+  return null;
 }
 
 /** Why the engine is not in step with `game`; null when its seed, hand, score and end equal the chain's. */
@@ -307,8 +389,14 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   private async load(keep: boolean): Promise<boolean> {
     let game: ChainGame;
     let tiles: ChainTile[];
+    let draw: ChainDraw | null;
     try {
-      [game, tiles] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key)]);
+      [game, tiles, draw] = await Promise.all([
+        this.views.game(this.key),
+        this.views.tiles(this.key),
+        // A deployment from before #645 has no `draw`: its games draw from their seed
+        this.views.draw ? this.views.draw(this.key).catch(() => null) : Promise.resolve(null),
+      ]);
     } catch (error) {
       if (keep) this.set({ stale: true, readError: message(error) });
       else this.set({ status: "error", error: errorKind(error), message: message(error) });
@@ -318,8 +406,13 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     let fallback: string | null = null;
     try {
       const initial = BigInt(await this.views.initialSeed(this.key));
-      this.engine = replayChallenge(initial, tiles, game);
-      fallback = divergence(this.engine, game);
+      if (draw?.vrf) {
+        this.engine = replayVrfChallenge(initial, tiles, game, draw);
+        fallback = divergence(this.engine, game) ?? queueDivergence(this.engine, draw);
+      } else {
+        this.engine = replayChallenge(initial, tiles, game);
+        fallback = divergence(this.engine, game);
+      }
     } catch (error) {
       fallback = message(error);
     }
@@ -339,7 +432,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       readError: null,
       expiresAt: game.expiresAt,
       // Without prediction the board and the hand are the chain's.
-      ...(fallback ? this.chainProjection(game, tiles, readonly) : {}),
+      ...(fallback ? this.chainProjection(game, tiles, readonly, draw) : {}),
     });
     if (fallback) this.onMismatch({ gameId: this.key.gameId, move: null, reason: `open: ${fallback}` });
     return true;
@@ -409,6 +502,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     }
     if (!s.predicting) return this.unpredicted(kind, send, placement);
     if (this.queue.length >= MAX_UNCONFIRMED) return false;
+    // A VRF game whose tile in hand is not drawn yet (#645): the hand waits for the receipt that names it
+    if (this.engine.handPending) return false;
 
     const before = this.engine.clone();
     let entry: Entry;
@@ -431,7 +526,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       } else {
         engine.surrender();
       }
-      const next = engine.hand;
+      const next = engine.over ? null : { id: engine.tileCount, plan: engine.hand ? PLANS.indexOf(engine.hand.plan) : null };
       entry = {
         kind,
         before,
@@ -444,7 +539,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
           score: engine.score,
           over: engine.over,
           seed: engine.seed,
-          hand: next && { id: next.id, plan: PLANS.indexOf(next.plan) },
+          hand: next,
         },
       };
     } catch (error) {
@@ -479,7 +574,26 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       this.set({ readError: message(error) });
     }
     if (entry.dropped) return true;
-    const after = reason ?? (game && this.divergenceOf(entry.expected, game));
+    // A VRF game (#645): the receipt names the tile the move drew; the engine, and the states the queued moves roll back
+    // to, take it
+    const queued = this.queuedOf(receipt);
+    let after = reason ?? (game && this.divergenceOf(entry.expected, game));
+    if (!after) {
+      try {
+        for (const [id, plan] of queued) this.engine?.supplyPlan(id, PLANS[plan] as PlanType);
+      } catch (error) {
+        after = message(error);
+      }
+      for (const e of this.queue) {
+        for (const [id, plan] of queued) {
+          try {
+            e.before.supplyPlan(id, PLANS[plan] as PlanType);
+          } catch {
+            // A state from before the tile was queued: it does not hold it
+          }
+        }
+      }
+    }
     if (after) {
       this.onMismatch({ gameId: this.key.gameId, move: { kind: entry.kind, placement: entry.expected.placement }, reason: after });
       await this.resync();
@@ -495,10 +609,17 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     if (game.score !== expected.score) return `score: engine ${expected.score}, chain ${game.score}`;
     if (game.over) return null;
     if (BigInt(game.seed) !== expected.seed) return `seed: engine 0x${expected.seed.toString(16)}, chain ${game.seed}`;
-    if (game.tileId !== (expected.hand?.id ?? 0) || (expected.hand && game.plan !== expected.hand.plan)) {
+    if (game.tileId !== (expected.hand?.id ?? 0) || (expected.hand && expected.hand.plan !== null && game.plan !== expected.hand.plan)) {
       return `tile in hand: engine ${expected.hand?.id ?? 0}/${expected.hand?.plan ?? 0}, chain ${game.tileId}/${game.plan}`;
     }
     return null;
+  }
+
+  /** The tiles a receipt's `Queued` events name for this game (#645), as (tile id, plan). */
+  private queuedOf(receipt: MoveReceipt): [number, number][] {
+    return receipt.events
+      .filter((e) => e.name === "Queued" && Number(e.fields.gameId) === this.key.gameId)
+      .map((e) => [Number(e.fields.tileId), Number(e.fields.plan)]);
   }
 
   /**
@@ -540,9 +661,13 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     }
     const before = s.game?.score ?? 0;
     try {
-      const [game, chainTiles] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key)]);
+      const [game, chainTiles, draw] = await Promise.all([
+        this.views.game(this.key),
+        this.views.tiles(this.key),
+        this.views.draw ? this.views.draw(this.key).catch(() => null) : Promise.resolve(null),
+      ]);
       this.engine = this.boardOf(game, chainTiles);
-      this.set({ ...this.chainProjection(game, chainTiles, s.readonly), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
+      this.set({ ...this.chainProjection(game, chainTiles, s.readonly, draw), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
     } catch (error) {
       // The move landed but the next tile is unknown: the next action re-reads the game (`stale`).
       this.set({ pending: false, unconfirmed: 0, readError: message(error), stale: true });
@@ -569,7 +694,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   }
 
   /** The board and the hand as the chain gives them (no prediction). */
-  private chainProjection(game: ChainGame, tiles: readonly ChainTile[], readonly: boolean): Partial<PredictedState> {
+  private chainProjection(game: ChainGame, tiles: readonly ChainTile[], readonly: boolean, draw: ChainDraw | null = null): Partial<PredictedState> {
     const placed = tiles.filter((t) => t.status === PLACED);
     return {
       game: {
@@ -583,6 +708,13 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       tiles: placed.map(({ id, plan, orientation, x, y }) => ({ id, plan, orientation, x, y })),
       discardedPlans: tiles.filter((t) => t.status === DISCARDED).map((t) => t.plan),
       hand: !readonly && !game.over && game.tileId ? { tileId: game.tileId, plan: game.plan } : null,
+      ...(draw?.vrf
+        ? {
+            queue: game.over
+              ? []
+              : [draw.next, draw.after].filter((plan) => plan !== 0).map((plan, i) => ({ tileId: game.tileId + 1 + i, plan })),
+          }
+        : {}),
       pending: false,
       unconfirmed: 0,
     };
@@ -615,7 +747,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       tiles,
       discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
-      pending: this.queue.length > 0,
+      ...(g.vrf ? { queue: g.over ? [] : g.queue.map((t) => ({ tileId: t.id, plan: t.plan === null ? null : PLANS.indexOf(t.plan) })) } : {}),
+      pending: this.queue.length > 0 || g.handPending,
       unconfirmed: this.queue.length,
     };
   }

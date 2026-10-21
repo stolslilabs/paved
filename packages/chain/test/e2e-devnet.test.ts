@@ -26,7 +26,7 @@
  */
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { EngineGame, OrientationType } from "@paved/game-core";
+import { PlanType, replayVrfChallenge } from "@paved/game-core";
 import { Account, RpcProvider, hash } from "starknet";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { FAUCET_USDC_AMOUNT } from "../src/abis";
@@ -50,7 +50,7 @@ import { IndexerClient, indexerPlayerId, type IndexedGame, type LeaderboardEntry
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
 import { GameSession } from "../src/session";
-import { TILE_STATUS, type GameKey } from "../src/views";
+import { TILE_STATUS, hasDrawViews, type DrawViews, type GameKey } from "../src/views";
 import { GameExpiredError, type BuildMove, type PavedWriter } from "../src/writer";
 import { ChallengePlayer } from "./challenge-player";
 import { dayMean, payout, PRIOR_WEIGHT, threshold } from "./economy-curve";
@@ -67,24 +67,24 @@ const NAIVE_MAX_MOVES: Record<string, number> = { bob: 3, carol: 2 };
 const EXPECTED_GAME_IDS: Record<string, number> = { alice: 2, bob: 3, carol: 4 };
 /** bob's second game, bought on the day D+2 and never played (the expired game). */
 const EXPECTED_BOB_SECOND_GAME = 5;
-/** The salt of every game (`Game::new` sets 0). */
-const SALT = 0n;
+/** A short string as a felt. */
+const felt = (text: string): bigint => BigInt(`0x${Buffer.from(text, "ascii").toString("hex")}`);
+/** starknet-devnet's chain id. */
+const SN_SEPOLIA = felt("SN_SEPOLIA");
 /**
- * A Challenge game's seed since D-23b: Poseidon(salt, the Challenge contract, token id), the token id being the game id
- * (`TokenSeed`, `contracts/src/seed.cairo`). The contract's address is the deployment file's: on a fresh seed-42 node it is
- * deterministic too, so are the decks.
+ * A Challenge game's seed since #645 (D-30): the random of its spawn's VRF draw, kept as the seed (it never changes). On
+ * devnet the provider is the mock (`deploy.sh devnet`), whose random of a salt for `consumer` is
+ * Poseidon(Poseidon(Poseidon(salt, consumer, chain id), 'MOCK_VRF'), 0) (`contracts/src/mocks/vrf.cairo`); the salt is the
+ * player's `spawn_salt`, read before the purchase.
  */
-const tokenSeed = (challenge: string, gameId: number): bigint =>
-  BigInt(hash.computePoseidonHashOnElements([SALT, BigInt(challenge), BigInt(gameId)]));
-/**
- * The seed the game view shows right after the spawn: the stored seed is the one after the first draw (`spawn_with` starts
- * the game and draws the tile in hand, which moves the seed on), so the spawn is replayed off chain from `tokenSeed` with
- * the engine, which the parity goldens pin to the contract.
- */
-const spawnedSeed = (challenge: string, gameId: number): bigint => EngineGame.start({ deck: "simple", seed: tokenSeed(challenge, gameId) }).seed;
+const spawnRandom = (salt: string, consumer: string): bigint => {
+  const seed = hash.computePoseidonHashOnElements([BigInt(salt), BigInt(consumer), SN_SEPOLIA]);
+  const random = hash.computePoseidonHashOnElements([BigInt(seed), felt("MOCK_VRF")]);
+  return BigInt(hash.computePoseidonHashOnElements([BigInt(random), 0n]));
+};
 
 /** The chain's orientation codes (1 to 4) as the engine's. */
-const ORIENTATIONS = [OrientationType.None, OrientationType.North, OrientationType.East, OrientationType.South, OrientationType.West];
+const PLANS = Object.values(PlanType);
 /** `GAME_VALIDITY` (S1): a Challenge game takes moves for 24 h from its start. */
 const GAME_VALIDITY = 86400;
 /** The contracts' `CENTER`: the starter tile's coordinates on chain. */
@@ -117,6 +117,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   let rpcUrl: string;
   let provider: RpcProvider;
   let client: PavedClient;
+  /** The VRF reads of `Challenge` (#645): the RPC views have them. */
+  let drawViews: DrawViews;
   let indexer: IndexerClient;
   let players: Player[];
   let price: bigint;
@@ -251,6 +253,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     rpcUrl = deployment.rpcUrl;
     provider = new RpcProvider({ nodeUrl: rpcUrl });
     client = new PavedClient(deployment, provider as unknown as PavedRpc);
+    if (!hasDrawViews(client.views)) throw new Error("the RPC views read no draw");
+    drawViews = client.views;
     const economyDeployment = resolveEconomyDeployment({ base: deployment, file: file as EconomyDeploymentFile });
     expect(economyDeployment.configured, economyDeployment.missing.join(", ")).toBe(true);
     economy = createEconomyClient(economyDeployment, client)!;
@@ -350,16 +354,18 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
         supply: await pavedSupply(),
       };
       const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: refAddress });
+      const salt = await drawViews.spawnSalt(p.address);
       // The floor the player confirmed: the plan's own min_out, as the purchase screen carries it.
       const purchase = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
       const purchaseHash = purchase.transactionHash;
-      // The token id is pinned (a fresh node), and so is the seed of its deck: the view's seed is the spawn's, replayed.
+      // The token id is pinned (a fresh node); the seed of its deck is the spawn's VRF random on the mock (#645).
       expect(purchase.gameId, `${p.name}'s token id on a fresh node after deploy.sh devnet`).toBe(EXPECTED_GAME_IDS[p.name]);
       const seed = BigInt((await client.views.game({ mode: "challenge", gameId: purchase.gameId })).seed);
-      expect(seed, `${p.name}'s game started from Poseidon(${SALT}, Challenge, ${purchase.gameId}) (the view's seed is after the first draw)`).toBe(spawnedSeed(client.deployment.addresses.Challenge, purchase.gameId));
-      // S1: `initial_seed` is that seed before the deck's withdrawal and the first draw, and `expires_at` is the start plus 24 h.
+      expect(seed, `${p.name}'s game seed is the mock's random of the spawn salt ${salt}`).toBe(spawnRandom(salt, client.deployment.addresses.Challenge));
+      // S1: `initial_seed` is that seed (a VRF game keeps it), and `expires_at` is the start plus 24 h.
       const initial = await client.views.initialSeed({ mode: "challenge", gameId: purchase.gameId });
-      expect(BigInt(initial), `${p.name}'s initial_seed is Poseidon(${SALT}, Challenge, ${purchase.gameId})`).toBe(tokenSeed(client.deployment.addresses.Challenge, purchase.gameId));
+      expect(BigInt(initial), `${p.name}'s initial_seed is the game's seed`).toBe(seed);
+      expect((await drawViews.draw({ mode: "challenge", gameId: purchase.gameId })).vrf, `${p.name}'s game draws from the VRF`).toBe(true);
       const spawned = await client.views.game({ mode: "challenge", gameId: purchase.gameId });
       expect(spawned.expiresAt, `${p.name}'s expires_at is start_time + ${GAME_VALIDITY}`).toBe(spawned.startTime + GAME_VALIDITY);
       challengeGames.set(p.name, purchase.gameId);
@@ -403,7 +409,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const terms = await economy.views.terms(purchase.gameId);
       expect(terms).toMatchObject({ stake: k, recorded: false, settled: false, expired: false });
       expect(BigInt(terms.player)).toBe(BigInt(p.address));
-      evidence.push(`${p.name} k=${k} game ${purchase.gameId} initial seed 0x${tokenSeed(client.deployment.addresses.Challenge, purchase.gameId).toString(16)} price ${quote.price} = burn ${burnedQuote} + referral ${referral} + margin ${margin}; one swap of ${planned.swapIn} USDC -> ${bought} PAVED (quote ${planned.poolOut}, min_out ${planned.minOut}): ${burned} burned, ${vaultPaved} to the Vault (total_assets +${vaultPaved}, supply unchanged), ${short(purchaseHash)}`);
+      evidence.push(`${p.name} k=${k} game ${purchase.gameId} initial seed ${initial} price ${quote.price} = burn ${burnedQuote} + referral ${referral} + margin ${margin}; one swap of ${planned.swapIn} USDC -> ${bought} PAVED (quote ${planned.poolOut}, min_out ${planned.minOut}): ${burned} burned, ${vaultPaved} to the Vault (total_assets +${vaultPaved}, supply unchanged), ${short(purchaseHash)}`);
     }
     pass("buy: approve + spawn with stake k and referrer; one swap of burn quote + margin (P-56); price, burn, referral, Vault PAVED vs balances", `day ${dayId}: ${evidence.join("; ")}`);
   }, 120_000);
@@ -626,10 +632,11 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     // It is bob's second game: bought on the day D+2, never played (the expired game below).
     const v0 = await economy.views.vault(vaultAddress);
     const valueBefore = (await economy.views.vault(carol.address)).value;
+    const salt = await drawViews.spawnSalt(bob.address);
     const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: null });
     bobSecondGame = purchase.gameId;
     expect(bobSecondGame, "bob's second token id on a fresh node").toBe(EXPECTED_BOB_SECOND_GAME);
-    expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(spawnedSeed(client.deployment.addresses.Challenge, bobSecondGame));
+    expect(BigInt((await client.views.game({ mode: "challenge", gameId: bobSecondGame })).seed)).toBe(spawnRandom(salt, client.deployment.addresses.Challenge));
     const vaultPaved = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { vaultPaved: bigint }).vaultPaved);
     const v1 = await economy.views.vault(vaultAddress);
     expect(vaultPaved).toBeGreaterThan(0n);
@@ -758,12 +765,13 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const [, bob] = players;
     const quote = await economy.views.quote(1);
     const planned = await bob.econ.planPurchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+    const salt = await drawViews.spawnSalt(bob.address);
     const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: null });
     const key: GameKey = { mode: "challenge", gameId: purchase.gameId };
 
-    // initial_seed is the token seed, and expires_at is the start plus 24 h.
+    // initial_seed is the spawn's VRF random (#645), and expires_at is the start plus 24 h.
     const initial = BigInt(await client.views.initialSeed(key));
-    expect(initial).toBe(tokenSeed(client.deployment.addresses.Challenge, key.gameId));
+    expect(initial).toBe(spawnRandom(salt, client.deployment.addresses.Challenge));
     const fresh = await client.views.game(key);
     expect(fresh.expiresAt).toBe(fresh.startTime + GAME_VALIDITY);
     expect(fresh.startTime).toBeGreaterThan(0);
@@ -775,19 +783,14 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     await bob.writer.build(key, placed!);
     await bob.writer.discard(key);
 
-    // The client's replay: the engine from initial_seed, the moves in draw order. tiles() reports a discarded tile at
-    // (0, 0); the engine reseeds it on (CENTER, CENTER), as the contract does.
-    const engine = EngineGame.start({ deck: "simple", seed: initial });
+    // The client's replay (#645): the engine from initial_seed draws the spawn's three tiles, the tiles after them come
+    // from tiles() and the queue from draw(), as the board opens a VRF game (`replayVrfChallenge`).
     const tiles = await client.views.tiles(key);
     expect(tiles.map((t) => t.status)).toEqual([TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.placed, TILE_STATUS.discarded, TILE_STATUS.held]);
-    for (const tile of tiles) {
-      if (tile.status === TILE_STATUS.held) break;
-      if (tile.id === 1) continue; // the start tile, on the board before the first draw
-      expect(engine.hand?.id, `tile ${tile.id} is the engine's draw`).toBe(tile.id);
-      if (tile.status === TILE_STATUS.discarded) engine.discard();
-      else engine.build({ orientation: ORIENTATIONS[tile.orientation], x: tile.x - CENTER, y: tile.y - CENTER });
-    }
     const now = await client.views.game(key);
+    const draw = await drawViews.draw(key);
+    const engine = replayVrfChallenge(initial, tiles, now, draw);
+    expect(engine.queue.map((t) => (t.plan === null ? 0 : PLANS.indexOf(t.plan)))).toEqual([draw.next, draw.after].filter((p) => p !== 0));
     expect(engine.seed).toBe(BigInt(now.seed));
     expect(engine.hand?.id).toBe(now.tileId);
     expect(engine.score).toBe(now.score);

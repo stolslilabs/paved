@@ -40,7 +40,8 @@ describe("saves written before the move", () => {
     expect(loadGame(() => store)).toEqual(JSON.parse(OLD_TRAINING_SAVE));
 
     // One more move appends to the same JSON: the saved prefix is unchanged.
-    const mirror = replayTraining(0x5eed1234abcdn, JSON.parse(OLD_TRAINING_SAVE).moves);
+    // [Info] A game saved before #645 (`v: 1`) replays on its reseeded draws, without the queue
+    const mirror = replayTraining(0x5eed1234abcdn, JSON.parse(OLD_TRAINING_SAVE).moves, false);
     const legal = mirror.legalPlacements();
     if (legal.length === 0) await session.discard();
     else {
@@ -51,6 +52,25 @@ describe("saves written before the move", () => {
     expect(next.startsWith(OLD_TRAINING_SAVE.slice(0, -2))).toBe(true);
   });
 
+});
+
+describe("Training on the three-tile queue (#645)", () => {
+  it("a new game shows the hand and the next two, saves version 2 and resumes with the same queue", async () => {
+    const store = memoryStore();
+    const session = LocalSession.start(0x1234abcdn, () => store);
+    expect(session.state.queue).toHaveLength(2);
+    expect(session.state.queue!.every((t) => t.plan !== null)).toBe(true);
+    const [next, after] = session.state.queue!;
+    await session.discard();
+    // The next tile came into the hand; the tile two ahead is drawn at once from the local random
+    expect(session.state.hand).toEqual({ tileId: next!.tileId, plan: next!.plan });
+    expect(session.state.queue![0]).toEqual(after);
+    expect(session.state.queue![1]!.plan).not.toBeNull();
+    expect(loadGame(() => store)?.v).toBe(2);
+    const resumed = openTraining(() => store);
+    expect(resumed.state.hand).toEqual(session.state.hand);
+    expect(resumed.state.queue).toEqual(session.state.queue);
+  });
 });
 
 describe("sessions keep their engine between moves", () => {

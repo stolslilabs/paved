@@ -102,13 +102,10 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   (`challenge-vrf.md`): the spawn's random gives the seed (so the deck, by G1's walk) and the first three tiles, and each
   move draws one tile two ahead. A game's `seed` no longer gives its draws, and nothing reseeds after a placement. The
   Cairo goldens spawn on the devnet mock and were recorded again (`golden-games.md`, "Regenerated in CHALLENGE-VRF"):
-  every `drawn` plan changes, the forced boards keep their scores, and `daily_full_deck` is a new game (6,558). **For
-  CLIENT** (the client task that follows #645): the engine takes the drawn plans as given (the queue of three tiles:
-  the hand and the next two) instead of drawing them from the seed, Training draws them locally into the same queue, and
-  the fixture carries the drawn plans again. **In #645's PR** the fixture is transcribed from the new Cairo files
-  (`transcribe-goldens.ts`, which game-core's guard test compares with the files), with the golden games marked VRF:
-  seed `0x0` and no `drawn` (the engine cannot draw them from a seed), so the engine replays their plans, scores and
-  counters, and asserts no draw.
+  every `drawn` plan changes, the forced boards keep their scores, and `daily_full_deck` is a new game (6,558). The fixture
+  carries each golden's spawn random as its `seed` and each move's random as `random` (`"vrf": true`), computed by
+  `transcribe-goldens.ts` from the Cairo test's constants (the mock's formula, the salts, the test's fixed `Challenge`
+  address), and the engine replays them on its queue (`EngineConfig.vrf`, `supply`), so every `drawn` plan is checked again.
 
 ## How a Cairo test keeps it current
 

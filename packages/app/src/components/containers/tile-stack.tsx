@@ -26,6 +26,11 @@ const RISE_MS = 220;
 export interface TileStackProps {
   /** The tile to place (`SessionState.hand` with its orientation); null when there is none. */
   tile: { plan: number; orientation: number } | null;
+  /**
+   * The tiles after it, in order (#645, D-30: the player sees the tile to place and the next two), drawn smaller beside the
+   * stack; null for a tile not drawn yet (the move's receipt brings it). None: no queue (Story).
+   */
+  next?: (number | null)[];
   state: HandState;
   /** Tiles still to draw (`GameView.remainingCount`): the badge, and the bodies under the top up to `STACK_CAP`. */
   remaining: number;
@@ -77,7 +82,7 @@ function useHint(active: boolean, moveKey: number, cellChosen: boolean): boolean
 
 /**
  * The hand as a tile stack (#606, after Dorfromantik's): bottom right, in the thumb's reach. Its top is the tile in hand,
- * as the board draws it and in its rotation (only that one: the stack never hints at the next); under it a few tile
+ * as the board draws it and in its rotation; beside it, smaller, the next two tiles in order (#645, D-30); under it a few tile
  * bodies, as many as the tiles left up to `STACK_CAP`; on it a round badge with the tiles left. A tap opens the deck.
  * While no cell is chosen, a small bubble on the stack offers Discard, held as the bubble's (the player can always
  * discard, also when the tile fits nowhere); while the tile is on a cell the top is dimmed: the tile is on the board.
@@ -87,6 +92,7 @@ function useHint(active: boolean, moveKey: number, cellChosen: boolean): boolean
  */
 export function TileStack({
   tile,
+  next,
   state,
   remaining,
   cellChosen = false,
@@ -163,6 +169,19 @@ export function TileStack({
             {fitsNowhere && <span className="pl-2 text-xs text-muted-foreground">This tile fits nowhere</span>}
             <DiscardHold onDiscard={onDiscard} cost={discardCost} holdMs={holdMs} className={cn("size-11 rounded-full focus-visible:ring-offset-card", coach === "discard" && cn(COACH_RING, "rounded-full"))} />
           </div>
+        )}
+        {/* The next two tiles (#645), in order, smaller than the one to place; one not drawn yet pulses. */}
+        {!readOnly && next && next.length > 0 && (
+          <ol data-testid="next-tiles" aria-label="Next tiles" className="mb-1 flex items-end gap-1.5">
+            {next.map((plan, i) => (
+              <li key={i} data-next-tile={plan ?? "pending"} aria-label={plan === null ? "Not drawn yet" : `Next tile ${i + 1}`}>
+                {/* The item names it; the chip's own name ("Tile ...") is the tile in hand's alone */}
+                <span aria-hidden>
+                  <TileChip plan={plan ?? 0} art={tileArt} size={i === 0 ? "md" : "sm"} state={plan === null ? "pending" : "default"} />
+                </span>
+              </li>
+            ))}
+          </ol>
         )}
         <button
           type="button"

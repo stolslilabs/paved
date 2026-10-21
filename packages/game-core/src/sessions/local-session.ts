@@ -1,4 +1,4 @@
-import { CENTER, EngineGame } from "../engine";
+import { CENTER, EngineGame, poseidon } from "../engine";
 import type { Scored } from "../engine";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
@@ -17,22 +17,51 @@ const PLAYER = "0x1";
 
 const hex = (seed: bigint) => `0x${seed.toString(16)}`;
 
-/** Plays `moves` on a new engine game of `seed`: the replay a resume does, and the tests do. */
-export function replayTraining(seed: bigint, moves: readonly SavedMove[]): EngineGame {
-  const game = EngineGame.start({ deck: "simple", seed });
-  for (const move of moves) apply(game, move);
+/** The saved game's version a new game takes: the three-tile queue of #645. */
+const QUEUE_VERSION = 2;
+
+/**
+ * Plays `moves` on a new engine game of `seed`: the replay a resume does, and the tests do. A game of the queue
+ * (`queue`, #645: a new game) draws as the Challenge on the VRF does, its draws from the local random of
+ * `trainingRandom`; a game saved before draws from its seed, reseeded by each placement.
+ */
+export function replayTraining(seed: bigint, moves: readonly SavedMove[], queue = true): EngineGame {
+  const game = startTraining(seed, queue);
+  for (const move of moves) playTraining(game, move, seed);
   return game;
 }
 
-function apply(game: EngineGame, move: SavedMove): ReturnType<EngineGame["build"]> | null {
-  if (move.k === "d") return game.discard();
-  if (move.k === "s") {
+/** A new engine game of Training: on the three-tile queue (#645) unless `queue` is false (a game saved before it). */
+export function startTraining(seed: bigint, queue = true): EngineGame {
+  return EngineGame.start({ deck: "simple", seed, vrf: queue });
+}
+
+/**
+ * The local random of the tile `id` of a Training game (#645): Poseidon of the game's random seed and the id. Training
+ * keeps its own random (it has no VRF): the queue is the Challenge's, its draws are local.
+ */
+export function trainingRandom(seed: bigint, id: number): bigint {
+  return poseidon(seed, id);
+}
+
+/**
+ * `move` played on a Training game of `seed`, as `LocalSession` plays it: on the queue (#645), the tile two ahead is then
+ * drawn at once from the local random (`trainingRandom`). The result of a build or a discard; null for a surrender.
+ */
+export function playTraining(game: EngineGame, move: SavedMove, seed: bigint): ReturnType<EngineGame["build"]> | null {
+  let result: ReturnType<EngineGame["build"]> | null;
+  if (move.k === "d") result = game.discard();
+  else if (move.k === "s") {
     game.surrender();
-    return null;
+    result = null;
+  } else {
+    const orientation = ORIENTATIONS[move.o];
+    if (!orientation) throw new Error("Orientation: not valid");
+    result = game.build({ orientation, x: move.x, y: move.y });
   }
-  const orientation = ORIENTATIONS[move.o];
-  if (!orientation) throw new Error("Orientation: not valid");
-  return game.build({ orientation, x: move.x, y: move.y });
+  // [Info] The queue's tile two ahead, drawn at once from the local random
+  for (const tile of game.queue) if (tile.plan === null) game.supply(trainingRandom(seed, tile.id));
+  return result;
 }
 
 function scoredOf(scored: readonly Scored[]): ScoredStructure[] {
@@ -55,6 +84,7 @@ export class LocalSession implements PageSession {
     private readonly seed: bigint,
     moves: SavedMove[],
     private readonly store: () => KeyValueStore | null,
+    private readonly version: 1 | 2 = QUEUE_VERSION,
   ) {
     this.moves = moves;
     this.current = this.project([], null);
@@ -71,7 +101,8 @@ export class LocalSession implements PageSession {
   static resume(saved: SavedGame, store: () => KeyValueStore | null): LocalSession | null {
     try {
       const seed = BigInt(saved.seed);
-      return new LocalSession(replayTraining(seed, saved.moves), seed, [...saved.moves], store);
+      const queue = saved.v === QUEUE_VERSION;
+      return new LocalSession(replayTraining(seed, saved.moves, queue), seed, [...saved.moves], store, saved.v);
     } catch {
       return null;
     }
@@ -107,7 +138,7 @@ export class LocalSession implements PageSession {
   private async run(move: SavedMove): Promise<boolean> {
     if (this.game.over) return false;
     try {
-      const result = apply(this.game, move);
+      const result = playTraining(this.game, move, this.seed);
       this.moves.push(move);
       this.save();
       this.set(this.project(result ? scoredOf(result.scored) : [], null));
@@ -119,7 +150,7 @@ export class LocalSession implements PageSession {
   }
 
   private save(): void {
-    saveGame({ v: 1, seed: hex(this.seed), moves: this.moves }, this.store);
+    saveGame({ v: this.version, seed: hex(this.seed), moves: this.moves }, this.store);
   }
 
   private project(lastScored: ScoredStructure[], writeError: string | null): PageState {
@@ -149,6 +180,7 @@ export class LocalSession implements PageSession {
       tiles,
       discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
+      ...(g.vrf ? { queue: g.over ? [] : g.queue.map((t) => ({ tileId: t.id, plan: t.plan === null ? null : PLANS.indexOf(t.plan) })) } : {}),
       lastScored,
       readonly: false,
       pending: false,
