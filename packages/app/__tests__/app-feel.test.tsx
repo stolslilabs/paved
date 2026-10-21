@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { InlineError } from "../src/components/elements/inline-error";
 import { Notice } from "../src/components/elements/notice";
 import { CopyField } from "../src/components/elements/copy-field";
-import { RefusalNotice } from "../src/components/scenes/purchase-scene";
+import { RefusalNotice } from "../src/components/containers/purchase-notices";
 import { ShortAddress } from "../src/components/elements/short-address";
 import { stopPageGesture, usePageGestures } from "../src/lib/page-gestures";
 
@@ -33,8 +33,8 @@ describe("the shell is select-none", () => {
     expect(rule("img, svg")).toContain("user-drag: none");
   });
 
-  it("the board routes have no pull-to-refresh or bounce", () => {
-    expect(baseLayer).toMatch(/html\[data-board\][^{]*\{[^}]*overscroll-behavior: none/);
+  it("the document has no pull-to-refresh or bounce on any page (#611)", () => {
+    expect(rule("html, body")).toContain("overscroll-behavior: none");
   });
 });
 
@@ -83,10 +83,10 @@ describe("the copy targets opt back in with select-text", () => {
       .map((f) => relative(dir, resolve(dir, f)))
       .sort();
     expect(found).toEqual([
+      "components/containers/purchase-notices.tsx",
       "components/elements/copy-field.tsx",
       "components/elements/inline-error.tsx",
       "components/elements/short-address.tsx",
-      "components/scenes/purchase-scene.tsx",
     ]);
   });
 });

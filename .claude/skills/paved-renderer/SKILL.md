@@ -30,15 +30,17 @@ with `docs/`, `scripts/` or `packages/`.
   (`core/cloud-shader.ts`, in the board's chunk) dims only the shadow-casting directional lights' direct light (the sun and its
   twin). A light term, not a caster: a cloud's move draws a frame, never the shadow map (`game-scene-ambient.test.ts` counts it).
   A step draws only once the clouds moved `CLOUD_MIN_MOVE` (a quarter of a voxel).
-- The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`): the story registers them on
-  `scene.ambient` itself; the board does not call them until the owner validates them.
-- The **weather** (#607 PR 2, `core/weather.ts`, loaded by `loadWeather`, settings in `core/weather-settings.ts`) is stories only
-  (`Renderer/Weather`), like the birds: the story adds `Weather.object` to the scene, registers it on `scene.ambient`, and feeds
-  it the cycle's point (`setCycle`), the clouds' wind (`setWind`) and `weatherMode` (off on Low and with the effects off; "still"
-  under reduced motion: nothing falls, the grades, glare, shafts and snow cover stay). One instanced draw per falling layer, one
-  full-screen draw for the grade, glare, shimmer and shafts (it keeps the target's alpha, so the cycle's backdrop still fills the
-  sky). The snow on the tops is a term of the tile shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`), off at 0: the
-  board never sets it.
+- The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`, and the spring switch of
+  `Renderer/Weather`): the story registers them on `scene.ambient` itself; the board does not call them until the owner validates them.
+- The **weather** (#607 PR 2, wired by #658: `core/weather.ts`, settings in `core/weather-settings.ts`, `RendererSettings.weather`)
+  is on every board: `GameScene.syncWeather` loads its chunk the first time it shows, adds `Weather.object` to the scene, registers
+  it on `scene.ambient`, and feeds it the cycle's point (`setCycle`, from `applyDayNight`: the wheel's season, auto or fixed, by day
+  and at night), the clouds' wind (`setWind`) and its mode (`weatherModeNow`: off with the weather or the "Ambient effects" off, or on
+  Low; with the cycle off, summer's noon, the wheel's summer day; "still" under reduced motion: nothing falls, the grades, the brightness and the snow veil stay). Autumn
+  raises the clouds' coverage (`cloudSettings`). One instanced draw per falling layer, one full-screen tint for the grade and the
+  brightness (no glare, shimmer or shafts: the owner removed every glow, 2026-10-20). The snow on the tops is a term of the tile
+  shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`): a veil (`winter.veil`) in rounded patches from a noise read at the
+  fragment's place, never per voxel or cell. `GameScene.getWeather()` gives its stats (`Renderer/Weather` stories, the bench).
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
@@ -68,6 +70,9 @@ with `docs/`, `scripts/` or `packages/`.
   (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
   faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the
   bias, order, depth, the dark grey and the viewport each draw is told.
+- The tile in hand (hover preview and pending tile, #657) is drawn with the same outline pass on its own material
+  (`TileRenderer.ghostEdgeMaterial`): the placed tiles' stroke, its opacity times the ghost's (half on a hover), drawn
+  after the ghost's faces and depth pre-pass. The confirm's overlay draws none (`placement.test.ts`, "the tile in hand's outlines").
 - The width is `widthVoxels` of a voxel (default **0.015**), converted to device px at the zoom (`outlineStroke`), at least
   `minWidthDevicePx` (1) and at most `maxWidthPx` (2) CSS px; the colour is `#1f1f1f`. The opacity follows the tile's
   on-screen size in CSS px (`tilePixels`) against S, the tile size the board opens at on this viewport

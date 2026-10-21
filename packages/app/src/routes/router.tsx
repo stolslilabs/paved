@@ -43,7 +43,12 @@ function gameRedirect({ request }: LoaderFunctionArgs) {
   return to("/", request);
 }
 
-const LOADERS: Record<string, RouteObject["loader"]> = { "": homeLoader, welcome: welcomeLoader };
+/** The Cobble packs left the Challenge's purchase for a page of their own (#621): the old tab's links land there. */
+function challengeLoader({ request }: LoaderFunctionArgs) {
+  return new URL(request.url).searchParams.get("tab") === "cobbles" ? to("/cobbles", request) : null;
+}
+
+const LOADERS: Record<string, RouteObject["loader"]> = { "": homeLoader, welcome: welcomeLoader, "play/challenge": challengeLoader };
 
 export const routes: RouteObject[] = [
   {
@@ -69,6 +74,15 @@ export const routes: RouteObject[] = [
     ],
   },
 ];
+
+/**
+ * A document's first entry (a typed URL, a link from outside) has no key: React Router names it "default", every document
+ * alike. Its own key, written where the router reads it (it keeps the state it finds), keeps what is stored by entry (a tab
+ * page's offset, `TabFrame`) apart from one document to the next, and across a reload of the entry.
+ */
+if (typeof window !== "undefined" && !window.history.state?.key) {
+  window.history.replaceState({ ...window.history.state, key: Math.random().toString(36).slice(2, 10) }, "");
+}
 
 export const router = createBrowserRouter(routes);
 

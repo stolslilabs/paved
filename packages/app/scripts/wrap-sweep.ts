@@ -61,6 +61,11 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
   // The same for ScrollRegion (NO-SCROLLBARS, #609): its horizontal story is a sideways scroller with the edge hint.
   { story: "ui-scroll-region--horizontal", kind: "scroll", element: "div[scroll-region]", why: "horizontal scroller" },
+  // The village board (#646): its cells keep the 44 px touch floor, so a village wider than a phone scrolls both ways in a
+  // ScrollRegion with the edge hint, by design.
+  { story: /^(scenes-village|containers-villageboard)--/, kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
+  // The same village board in the PvP result's reward dialog (#647), opened by Choose.
+  { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design
   // (a ScrollRegion since NO-SCROLLBARS, #609).
   { story: /^direction-[a-f]--palette$/, kind: "scroll", element: 'div[scroll-region] "Pair', why: "contrast table scroller" },

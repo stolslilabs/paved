@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { BalancesSlot } from "./balances-context";
 import { MockMark, useMockMarked } from "./mock-mark";
 
 export interface TopBarProps {
@@ -10,21 +11,24 @@ export interface TopBarProps {
   onBack?: () => void;
   /** The right side: a balance, a settings button. */
   end?: ReactNode;
+  /** The player's balances (#620), on by default: a strip under the title below `desktop`, the bar's right side from it. */
+  balances?: boolean;
   className?: string;
 }
 
 /**
  * The top bar of a full-screen flow (section 6.2): Back, the title centred, an action on the right; direction D (#537) closes it
  * with a hairline. The space under that line is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
- * flush, so every such page has the same gap.
+ * flush, so every such page has the same gap. The balances (#620) show as on the tab pages, where the shell provides them: on a
+ * phone in a strip under the title (the bar's sides stay narrow, so the title keeps its room), from `desktop` before `end`.
  */
-export function TopBar({ title, onBack, end, className }: TopBarProps) {
+export function TopBar({ title, onBack, end, balances = true, className }: TopBarProps) {
   const marked = useMockMarked();
   const bar = useRef<HTMLElement>(null);
   // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds.
   useLayoutEffect(() => {
     const el = bar.current!;
-    const sides = [el.firstElementChild!.firstElementChild!, el.lastElementChild!.firstElementChild!] as HTMLElement[];
+    const sides = [el.children[0]!.firstElementChild!, el.children[2]!.firstElementChild!] as HTMLElement[];
     const sync = () => el.style.setProperty("--side", `${Math.max(48, sides[0]!.offsetWidth, sides[1]!.offsetWidth)}px`);
     sync();
     if (typeof ResizeObserver === "undefined") return;
@@ -63,10 +67,16 @@ export function TopBar({ title, onBack, end, className }: TopBarProps) {
         )}
       </span>
       <span className="flex justify-end">
-        <span className="flex w-max shrink-0 justify-end">
+        <span className="flex w-max shrink-0 items-center justify-end gap-2">
+          {balances && <BalancesSlot layout="rail" className="hidden desktop:flex" />}
           {end}
         </span>
       </span>
+      {balances && (
+        <span className="col-span-3 flex justify-end empty:hidden desktop:hidden">
+          <BalancesSlot layout="pill" />
+        </span>
+      )}
     </header>
   );
 }

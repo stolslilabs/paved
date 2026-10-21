@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import { Outlet } from "react-router";
 import { AudioProvider } from "../components/containers/audio-provider";
 import { MockMarkProvider } from "../components/containers/mock-mark";
@@ -18,13 +18,14 @@ export const bootScreen = <LoadingScene progress={null} />;
 /** The music volume from the player's pause (0) or resume, stored like a move of the slider. */
 const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));
 
-/** The board routes: the scene fills the viewport (`h-dvh`) and the document does not scroll. */
+/** The board routes: the scene fills the viewport (`h-dvh`), and it shows no balances. */
 const BOARD_PATHS = new Set(["game/:gameId", "training", "story/:campaign/:level"]);
 
 /**
  * The root of every route. It draws nothing of its own (the Cartridge notice lives on the Credits page, D-15): a tab page
- * brings the sticky navigation (`TabPage`, `AppNav`), a full-screen flow its top bar, and every page is `min-h-dvh`, so a page
- * that fits does not scroll and a taller one scrolls as one document, nothing wrapping it in an overflow box. Pages load lazily; `Suspense` shows
+ * is one viewport tall, its navigation fixed to the bottom and its content in its own scrolling region (`TabFrame`, FOOTER-FIXED); a
+ * full-screen flow brings its top bar and is `min-h-dvh`, scrolling as one document. The document never bounces (`html, body`
+ * take no overscroll, styles/theme.css). Pages load lazily; `Suspense` shows
  * the loading scene while a page's code arrives; once the first render is done the browser fetches the tab pages' code in
  * its idle time (`prefetch.tsx`).
  */
@@ -33,14 +34,6 @@ export function RootLayout() {
   usePrefetchTabs();
   const [{ musicVolume, musicBefore, sfxVolume }] = useDeviceSettings();
   const onBoard = page !== null && BOARD_PATHS.has(page.path);
-  // A board route does not scroll: no pull-to-refresh, no bounce (`html[data-board]`, styles/theme.css; APP-FEEL, P-69).
-  useEffect(() => {
-    if (!onBoard) return;
-    document.documentElement.dataset.board = "";
-    return () => {
-      delete document.documentElement.dataset.board;
-    };
-  }, [onBoard]);
   return (
     // The audio engine is its own chunk and starts on the first gesture; the provider carries the two volumes, and a pause or a
     // resume of the music player (the settings, the lock screen) comes back as the music volume.

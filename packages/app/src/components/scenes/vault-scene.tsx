@@ -6,6 +6,7 @@ import { Skeleton } from "../ui/skeleton";
 import { Amount } from "../elements/amount";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
+import { TokenIcon } from "../elements/token-icon";
 import { SplitBar } from "../containers/split-bar";
 import { TabPage } from "../containers/tab-page";
 import { VaultForm, type VaultBusy, type VaultDone, type VaultMode } from "../containers/vault-form";
@@ -108,7 +109,7 @@ export function VaultScene(props: VaultSceneProps) {
           <section aria-label="Your position" data-slot="card" className="rounded-xl border border-primary/30 bg-card px-4 pt-4 pb-2">
             {none ? (
               <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Icon name="piggy-bank" size="xl" className="text-primary" />
+                <TokenIcon kind="vpaved" size="xl" />
                 <p className="text-sm font-semibold">No vPAVED yet</p>
                 <p className="max-w-xs text-xs text-muted-foreground">
                   Deposit PAVED to hold vPAVED. Its rate rises with every purchase; there is nothing to claim, you withdraw at the rate.

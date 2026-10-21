@@ -700,8 +700,9 @@ referral link, a full address, an error detail, and every input and textarea). P
 `user-scalable`, so `touch-action: manipulation` stops the double-tap zoom and `usePageGestures` (`lib/page-gestures.ts`)
 cancels its `gesturestart` and `gesturechange`. The board's canvas has `touch-action: none` and owns its pinch, pan and
 rotate; its context menu is off. There is no long-press menu (`-webkit-touch-callout: none`), no tap flash, and images
-are not draggable. A board route (`RootLayout` sets `data-board` on `html`) has `overscroll-behavior: none`: no
-pull-to-refresh and no bounce; the other pages scroll as usual. The cost: a player with low vision cannot pinch the
+are not draggable. The document has `overscroll-behavior: none` on `html` and `body` (#611): no pull-to-refresh and no
+bounce on any page. A tab page is one viewport tall and scrolls in its own region (`TabFrame`, `overscroll-behavior:
+contain`), so its navigation stays fixed to the bottom; a full-screen flow scrolls as one document. The cost: a player with low vision cannot pinch the
 page. The mitigations are text of 12 px or more, the 360 and 320 px wrap sweep, and a layout in `rem`, so the browser's
 text-size setting still applies where the layout allows. `scripts/mobile-feel.ts` (the CI `client` job) drives a mobile
 device context.
@@ -2072,7 +2073,7 @@ main's chain held at 1.5 (61 MiB against 155).
     first time a plan needs a quad and kept until `TileRenderer.dispose()`, which disposes them and the image copies
     (not the loader's images). A pending tile's quad takes the pending style (`pendingMaterial`, cached per source). The
     ghost's quad has its own copy of the plan's material (disposed with the ghost, as the ghost's model materials are) and
-    no outline, as the ghost's model has none; the ghost's tint and the invalid red apply to it. A plan whose image is not
+    its square's outline at the ghost's opacity, as the ghost's model has its own (#657); the ghost's tint applies to it. A plan whose image is not
     in (it failed to load) draws no quad: its tile waits for its model, as before, and gets its quad if the image comes
     first (the loader's retry after the first frame; the ghost's key goes from "none" to "quad"). `tile-placeholder.test.ts`
     checks the quad, the swap (never zero objects for a tile), the ghost, a live switch of skins both ways, a failed
@@ -2893,6 +2894,7 @@ maximum, both ways from the default (`core/CameraController.ts`).
 | home | `/` | Home | Play button, the Challenge card (no podium since D-29), Training and Tutorial, the active game to resume |
 | play | `/play` | hidden (back); the nav's Play opens it | Challenge, Training, Tutorial (P-57 B4), Multiplayer disabled ("coming soon") |
 | purchase | `/play/challenge` | hidden (back) | stake picker 1–10, price, boost, the 24 h validity, the minimum score to beat, confirm; then spawn |
+| cobbles | `/cobbles` | hidden (back) | the Cobble balance, the packs, pick one and pay its USDC (#621; `/play/challenge?tab=cobbles` redirects here) |
 | board | `/game/:gameId` (Challenge), `/training`, `/tutorial` | hidden | the board, the tile in hand, rotate / place / discard, give up |
 | over | `/game/:gameId/over`, `/training/over` | hidden | final score, the game's metrics, the reward or "below the threshold", settle when the day allows, Play again |
 | quests | `/quests/:day?` | Quests | the day's quests |
@@ -2916,13 +2918,17 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
 
 - **Direction D (#537, applied 2026-10-19; replaces the bar with a sliding indicator and the left rail, which read as
   Cartridge's):** `containers/app-nav.tsx`.
-- **Mobile and tablet:** a sticky bottom bar of five items, each an icon over its label (labels from `mobile`, icon only
+- **Mobile and tablet:** a bottom bar of five items, fixed to the viewport's bottom (outside the page's scrolling region,
+  `TabFrame`, #611; a pull past the top never moves it), each an icon over its label (labels from `mobile`, icon only
   below), safe-area padded, as the mockups draw it. Play, the centre item (D-29), is a larger gold disc raised above the bar,
   icon only (`aria-label="Play"`). The current item is gold (`text-primary`) on the white 15% layer; hover
   10%, pressed 20% (`state-layer`, section 2.2b). No indicator slides. Hidden on full-screen flows (welcome, play, purchase,
-  board, over), which get a top bar with Back, the title centred and a hairline under it.
-- **Desktop:** the same five items, icon beside label (Play a gold disc, icon only), in a sticky header across the top: the
-  voxel wordmark on the left, the items, then the three balances (#538) in a row at the header's end. No rail: every page is one column (`flex-col`) at every
+  board, over), which get a top bar with Back, the title centred and a hairline under it. The balances (#620) sit in the
+  page header (the Cobbles and USDC plates; USDC opens a sheet with every balance) and, on a flow, in a strip under the top
+  bar; on every screen but the board.
+- **Desktop:** the same five items, icon beside label (Play a gold disc, icon only), in a header fixed across the top: the
+  voxel wordmark on the left, the items, then the balances (#538, #620: a resource bar, each currency on a plate, vPAVED when
+  held) in a row at the header's end; a flow's top bar shows them on its right. No rail: every page is one column (`flex-col`) at every
   width. Dialogs instead of sheets.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
@@ -3029,8 +3035,8 @@ Podium none in v1) with the same claims; **home** and **play** show the balance 
 ruling), until D-29 removed both. The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
 `components/containers/cobble-types.ts`. Since P9 the ledger's (`CobbleAccount`, the claims of a period, a quest's and an
 achievement's Cobbles) are `@paved/chain`'s, named `cobbles` as CORE renamed them; the packs and the skins stay provisional
-until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
-`cubes-stacked`), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
+until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, the stones of
+`TokenIcon`, `src/assets/tokens/cobbles.svg`, #620), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
 `src/data/scene-types.ts` holds: the scenes' Cobbles props are optional (the leaderboard's free mark, a list of player ids, left with the
 leaderboard, D-29).
 
@@ -3496,7 +3502,7 @@ was unmounted are announced on return is P9's to decide; recommended yes, by kee
 hook as `previous`. Weekly progress is monotone inside one interval in the mocks, and the indexer's must be.
 The `Toaster` is mounted once above the pages (`App.tsx`).
 
-**As built (P7b).** `/play/challenge` reads its Game tab from the chain: `Economy.quote(stake)` (the price from
+**As built (P7b).** `/play/challenge` reads the game's purchase from the chain: `Economy.quote(stake)` (the price from
 `entry_price`, the threshold), `split_bps`, the USDC `balance_of`, `spawn_paused`, and the pool's `quote_swap` of the stake's
 swap for `min_out` (1 % slippage); Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall
 through `EconomyWriter.purchase`, which reads the price, the quote, the router pin, `Economy.seller()` and the guard's rate
@@ -3508,7 +3514,7 @@ wallet: nothing was sent."): a refusal, no hold. Only the controller's documente
 `null` or a node's "Transaction rejected", stays a plain refusal with its message. In both cases nothing was sent, so the
 record written at send gives way to the one that was there before (none, or a record the player released). A referrer equal to the seller (`Setup`) is sent as 0x0 even where the
 base deployment names no Setup (VALUE-FIX's note). While a new stake's quote is read the last one stays shown
-and Pay waits. The Cobbles tab (`?tab=cobbles`) reads the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
+and Pay waits. The Cobble packs, once a tab of this page (`?tab=cobbles`) and a page of their own since #621 (`/cobbles`, the old link redirects there), read the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
 indexer's `/v1/packs`: `buy_pack` charges the contract's price, the buyer reads it again at send, and the chain has a new
 price before the indexer does. Buy is `PackBuyer.buy` (`@paved/chain`, `packs.ts`): the same fresh checks as a game (the
 chain id, the pack on sale at the confirmed price, the router pin, the rate, the split, a fresh quote of the pack's swap,

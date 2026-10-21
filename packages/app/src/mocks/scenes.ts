@@ -5,6 +5,7 @@ import type { LoadingSceneProps } from "../components/scenes/loading-scene";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
+import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
 import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
@@ -25,6 +26,7 @@ import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_VAULT } from "./stress";
+import { SKIN_TIER_GATES } from "./village";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
@@ -209,19 +211,27 @@ export const PURCHASE = {
   buying: { ...purchaseBase, ...at(3), buying: true },
   /** WRAP360: a full referrer address (cut in the middle) and the largest balance. */
   stress: { ...purchaseBase, ...at(10), referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
-  /** P-61, the Cobbles tab: the four packs, none picked yet. */
-  cobblePacks: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: null } },
-  /** A pack picked (100 for $9): Pay confirms. */
-  cobblePackPicked: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2 } },
-  /** A referrer from `?ref=`: their share, as for a game. */
-  cobblePackReferred: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef", cobbles: { ...cobbleShop, selected: 3 } },
-  /** The approve and `buy_pack` on their way. */
-  cobblePackBuying: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2, buying: true } },
-  /** 1,000 for $70 with $3.40 in the wallet. */
-  cobblePackShort: { ...purchaseBase, ...at(1), tab: "cobbles", balance: BALANCE_LOW, cobbles: { ...cobbleShop, selected: 4 } },
-  /** WRAP360: the largest Cobble balance and USDC balance, a full referrer address. */
-  cobbleStress: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, cobbles: { ...cobbleShop, balance: BIG_NUMBER, selected: 4 } },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
+
+// Cobble packs (#621: their own page)
+
+const cobblesBase = { split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH };
+const REFERRER = "0x0456bb00000000000000000000000000000000000000000000000000000beef";
+
+export const COBBLES = {
+  /** P-61: the four packs, none picked yet. */
+  packs: { ...cobblesBase, cobbles: { ...cobbleShop, selected: null } },
+  /** A pack picked (100 for $9): Pay confirms. */
+  picked: { ...cobblesBase, cobbles: { ...cobbleShop, selected: 2 } },
+  /** A referrer from `?ref=`: their share, as for a game. */
+  referred: { ...cobblesBase, referrer: REFERRER, cobbles: { ...cobbleShop, selected: 3 } },
+  /** The approve and `buy_pack` on their way. */
+  buying: { ...cobblesBase, cobbles: { ...cobbleShop, selected: 2, buying: true } },
+  /** 1,000 for $70 with $3.40 in the wallet. */
+  short: { ...cobblesBase, balance: BALANCE_LOW, cobbles: { ...cobbleShop, selected: 4 } },
+  /** WRAP360: the largest Cobble balance and USDC balance, a full referrer address. */
+  stress: { ...cobblesBase, referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, cobbles: { ...cobbleShop, balance: BIG_NUMBER, selected: 4 } },
+} satisfies Record<string, Data<CobblesSceneProps>>;
 
 // Vault
 
@@ -308,6 +318,8 @@ export const THEME_SHOP = {
   error: { ...shopBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
   /** WRAP360: the largest Cobble balance. */
   stress: { ...shopBase, skins: { ...forestShop, balance: BIG_NUMBER } },
+  /** Some skins reserved to a tier of their plan (#646): the plan's tier reached or not. */
+  tierGated: { ...shopBase, skins: { ...forestShop, balance: 600 }, tierGates: SKIN_TIER_GATES },
 } satisfies Record<string, Data<ThemeShopSceneProps>>;
 
 const myTiles: MyTiles = { ...ownedSkins, changes: {} };

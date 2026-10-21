@@ -221,6 +221,10 @@
 #   (--repoint and --d18 keep theirs, run from 06c024d). The quests and achievements of quests.md v1 are defined on Setup
 #   by its owner after the wiring and before the file is written (F). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
 #   owner's stake (P-38: the stake is 199,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
+# The VRF mock (#638, docs/architecture/vrf-draws.md): on devnet only, MockVrfProvider is declared and deployed (no
+#   constructor argument) and keyed `contracts.MockVrfProvider`, the devnet's VRF provider for the client
+#   (`vrfProvider` in @paved/chain); `deploy` refuses it by name on every other network (Sepolia and mainnet draw through
+#   Cartridge's provider). The smoke reads its consume count (0) and a consume of a salt (not 0).
 # Upgrades (P-42, P-56, docs/architecture/upgrades.md): the `owner` of Economy, Challenge, Setup, Collection and Vault
 #   is the deployer, who alone may `upgrade` them (and set Challenge's Setup, Setup's reporters, Setup's wiring and the
 #   Vault's exit fee); the smoke reads owner() back on each. PavedToken has no owner and no upgrade.
@@ -881,10 +885,10 @@ declare_class() { # <Contract> -> class hash
 deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   local name="$1" class="$2"; shift 2
   # The mocks are for tests, devnet and Sepolia (E1's audit, P-39): the Faucet and MockRouter are refused by name on
-  # mainnet (the network check at the top refuses it already), the old mock Token off devnet.
+  # mainnet (the network check at the top refuses it already), the old mock Token and the VRF mock off devnet.
   case "$name" in
     Faucet|MockRouter) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
-    Token) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
+    Token|MockVrfProvider) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
   esac
   local args=() out
   if ((USE_SIGNER)); then
@@ -3111,6 +3115,9 @@ VAULT_CLASS="$(declare_class Vault)"
 ECONOMY_CLASS="$(declare_class Economy)"
 COLLECTION_CLASS="$(declare_class Collection)"
 STORY_CLASS="$(declare_class Story)"
+# The VRF mock (#638): devnet only.
+VRF_CLASS=""
+if [[ "$NETWORK" == "devnet" ]]; then VRF_CLASS="$(declare_class MockVrfProvider)"; fi
 RECORD_SENDING=""
 fr_set "classes.Challenge=$(felt64 "$CHALLENGE_CLASS")" "classes.Setup=$(felt64 "$SETUP_CLASS")" \
   "classes.Faucet=$(felt64 "$USDC_CLASS")" "classes.PavedToken=$(felt64 "$PAVED_CLASS")" \
@@ -3146,6 +3153,8 @@ USDC="$(fresh_deploy Faucet "$USDC_CLASS")"
 PAVED="$(fresh_deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
 ROUTER="$(fresh_deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
 VAULT="$(fresh_deploy Vault "$VAULT_CLASS" "$DEPLOYER_ARG" "$PAVED" "$EXIT_FEE")"
+VRF=""
+if [[ "$NETWORK" == "devnet" ]]; then VRF="$(fresh_deploy MockVrfProvider "$VRF_CLASS")"; fi
 
 echo "== pool and stake"
 # The launch pool, in the router's token order, from the initial supply and the Faucet's premint to the deployer (its
@@ -3339,7 +3348,8 @@ python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYE
   "$DECIMALS" "$SYMBOL" "Faucet=$USDC=$USDC_CLASS" \
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Challenge=$CHALLENGE=$CHALLENGE_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
-  "Collection=$COLLECTION=$COLLECTION_CLASS" "Story=$STORY=$STORY_CLASS" "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
+  "Collection=$COLLECTION=$COLLECTION_CLASS" "Story=$STORY=$STORY_CLASS" "MockVrfProvider=$VRF=$VRF_CLASS" \
+  "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
 import json, os, sys, tempfile
 out, network, chain_id, rpc_url, commit, block, decimals, symbol, *rest = sys.argv[1:]
 items = [r for r in rest if r.count("=") == 2]
@@ -3353,6 +3363,8 @@ for item in items:
         c[name] = {"address": "0x%064x" % int(address, 16), "class_hash": "0x%064x" % int(class_hash, 16)}
 # One key per contract (F): devnet and Sepolia both run the Faucet and MockRouter (P-39); no old mock Token since F.
 names = ["Challenge", "Setup", "Collection", "Economy", "PavedToken", "Vault", "Faucet", "MockRouter", "Story"]
+# The VRF mock (#638): devnet only, so only when deployed.
+names += [k for k in ["MockVrfProvider"] if k in c]
 doc = {
     "network": network,
     "chain_id": chain_id,
@@ -3420,6 +3432,12 @@ for entry in "Economy=$ECONOMY" "Challenge=$CHALLENGE" "Setup=$SETUP" "Collectio
   [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
 echo "   owner() of Economy, Challenge, Setup, Collection, Vault and Story: the deployer"
+# The VRF mock (#638, devnet only): no consume counted outside a transaction, and a salt's consume is not 0.
+if [[ "$NETWORK" == "devnet" ]]; then
+  [[ "$(hex_int "$(call "$VRF" get_consume_count)")" == 0 ]] || die "MockVrfProvider.get_consume_count() is not 0"
+  [[ "$(hex_int "$(call "$VRF" consume_random 1 1)")" != 0 ]] || die "MockVrfProvider.consume_random(Salt(1)) is 0"
+  echo "   MockVrfProvider: consume count 0, a salt's consume not 0"
+fi
 fresh_story_smoke
 # The guardian and the pause (PM, 2026-10-14): read by fresh_guardian_smoke.
 fresh_guardian_smoke

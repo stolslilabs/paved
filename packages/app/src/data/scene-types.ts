@@ -2,6 +2,7 @@
 // otherwise). The hooks' tests (`__tests__/data-*.test.tsx`) check the values on `@paved/chain`'s fakes.
 import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
+import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { HomeSceneProps } from "../components/scenes/home-scene";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
@@ -29,7 +30,10 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof chain.useQuote>, OrNull<PurchaseSceneProps["quote"]>>>,
   Expect<Equal<Data<typeof chain.useSplit>, OrNull<PurchaseSceneProps["split"]>>>,
   Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<PurchaseSceneProps["balance"]>>>,
-  Expect<Equal<Data<typeof purchase.usePacks>, OrNull<NonNullable<PurchaseSceneProps["cobbles"]>["packs"]>>>,
+  // the Cobble packs
+  Expect<Equal<Data<typeof chain.useSplit>, OrNull<CobblesSceneProps["split"]>>>,
+  Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<CobblesSceneProps["balance"]>>>,
+  Expect<Equal<Data<typeof purchase.usePacks>, OrNull<CobblesSceneProps["cobbles"]["packs"]>>>,
   // board
   Expect<Equal<training.SessionBoard["tiles"], BoardSceneProps["tiles"]>>,
   Expect<Equal<training.SessionBoard["lastScored"], BoardSceneProps["lastScored"]>>,
