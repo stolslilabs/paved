@@ -66,6 +66,23 @@ export type { AchievementCobbles, CobbleAccount, CobbleClaim, CobbleKind, Cobble
 export { DEFAULT_THEME, FOREST_THEME, SKIN_PLANS, activeThemes, isSkinPlan, ownsSkin } from "./skins";
 export { LEVEL_STEP, MAX_XP, PLAYER_LEVEL_FIELDS, XP_SOURCE, levelFloor, levelOf, playerLevelOf } from "./level";
 export type { LevelViews, PlayerLevel } from "./level";
+export {
+  DEMOLITION_OFFER_FIELDS,
+  VILLAGE_CELL_FIELDS,
+  VILLAGE_INFO_FIELDS,
+  VILLAGE_SPEND_REASON,
+  VILLAGE_TILE_FIELDS,
+  buyParcelCall,
+  demolishCall,
+  demolitionOffer,
+  foundVillageCall,
+  fromCell,
+  toCell,
+  villageCell,
+  villageInfo,
+  villageTile,
+} from "./village";
+export type { DemolitionOffer, VillageCell, VillageInfo, VillageTile } from "./village";
 export type { SkinChange, SkinViews } from "./skins";
 export {
   RECEIPT_POLL_MS,
