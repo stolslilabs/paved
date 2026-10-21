@@ -205,6 +205,18 @@ export type Decoded =
       balance: bigint;
     }
   | {
+      /**
+       * Cobbles spent for the player by a system `Setup` allows (#639: the matchmaker's "Next", reason `'MATCH_NEXT'`).
+       * `balance`: the player's cobbles after it.
+       */
+      name: "CobblesSpent";
+      playerId: bigint;
+      spender: bigint;
+      reason: bigint;
+      cobbles: number;
+      balance: bigint;
+    }
+  | {
       /** The player's active skins after a `set_skins`: the whole packed word and its `SKIN_PLANS` themes, plan 1 first (0: the default). */
       name: "SkinsActivated";
       playerId: bigint;
@@ -311,6 +323,8 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   SkinPriced: ["setup"],
   SkinBought: ["setup"],
   SkinsActivated: ["setup"],
+  // #639: the cobbles a system Setup allows spends for a player (the matchmaker's "Next").
+  CobblesSpent: ["setup"],
   Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
@@ -339,6 +353,8 @@ export const IGNORED = [
   "GameSet",
   // The owner's choice of the one account that may call `Economy.sell` (`set_seller`, cobbles-v1.md 2.3): Setup. No screen shows it.
   "SellerSet",
+  // The owner's allowlist of the systems that may spend a player's cobbles (#639, `Setup.set_spender`). No screen shows it.
+  "SpenderSet",
   // The owner's repoint of the router (E-9, set_router).
   "RouterSet",
   // The owner's one-time wiring of Collection's minters (`Collection.set_minters`, G7a): data `[challenge, tutorial]`, no keys. No screen shows the minters.
@@ -404,6 +420,7 @@ const INDEXED: readonly EventName[] = [
   "SkinPriced",
   "SkinBought",
   "SkinsActivated",
+  "CobblesSpent",
   "Sold",
   "Purchased",
   "Recorded",
@@ -749,6 +766,20 @@ export function decode(
         name,
         playerId: felt(keys[1]),
         ...skin(name, data[0], data[1]),
+        cobbles,
+        balance: u64(data[3], "balance"),
+      };
+    }
+    case "CobblesSpent": {
+      // key player_id; data spender, reason (felt252), cobbles (u32, not 0), balance (u64)
+      shape(name, keys, data, 1, 4);
+      const cobbles = small(data[2], 32, "cobbles");
+      if (cobbles === 0) throw new DecodeError(`${name}: 0 cobbles`);
+      return {
+        name,
+        playerId: felt(keys[1]),
+        spender: felt(data[0]),
+        reason: felt(data[1]),
         cobbles,
         balance: u64(data[3], "balance"),
       };

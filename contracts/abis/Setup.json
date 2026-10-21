@@ -950,6 +950,73 @@
   },
   {
     "type": "impl",
+    "name": "SetupSpendImpl",
+    "interface_name": "paved::systems::setup::ISetupSpend"
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupSpend",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_spender",
+        "inputs": [
+          {
+            "name": "spender",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "allowed",
+            "type": "core::bool"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "is_spender",
+        "inputs": [
+          {
+            "name": "spender",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "spend_cobbles",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "reason",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u64"
+          }
+        ],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "UpgradeableImpl",
     "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
   },
@@ -1658,6 +1725,55 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::setup::Setup::SpenderSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "allowed",
+        "type": "core::bool",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::CobblesSpent",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "reason",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "balance",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
@@ -1739,6 +1855,16 @@
       {
         "name": "SkinsActivated",
         "type": "paved::systems::setup::Setup::SkinsActivated",
+        "kind": "nested"
+      },
+      {
+        "name": "SpenderSet",
+        "type": "paved::systems::setup::Setup::SpenderSet",
+        "kind": "nested"
+      },
+      {
+        "name": "CobblesSpent",
+        "type": "paved::systems::setup::Setup::CobblesSpent",
         "kind": "nested"
       }
     ]
