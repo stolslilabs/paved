@@ -7,8 +7,8 @@
 # Vercel deploys only `main` from git (`git.deploymentEnabled` in `vercel.json` and `packages/app/vercel.json`); this is the
 # other way in, run by `.github/workflows/preview.yaml` (the label `preview` on a pull request) or by hand. The deployment
 # goes through Vercel's git source, so each project's ignore step runs as for a push (`ignore-build.sh`): a project whose
-# inputs did not change since the merge base with `main` ends CANCELED, not built. A commit Vercel already deployed is not
-# built again: Vercel returns that deployment. Exit 1 when a deployment fails or is still building after 15 minutes.
+# inputs did not change since the merge base with `main` ends CANCELED, not built. Each run creates new deployments, even of
+# a commit already deployed (seen on 2026-10-21). Exit 1 when a deployment fails or is still building after 15 minutes.
 # Needs curl and jq.
 set -eu
 
