@@ -39,6 +39,17 @@ describe("XpRing (#625)", () => {
     expect(container.querySelector("[data-slot=level-badge]")).toBeNull();
   });
 
+  it("read again: the filled arc empties, and the next reading is drawn without a gain", async () => {
+    const { container, rerender } = render(wrap(<XpRing progress={PROGRESS.partWay} />));
+    const arc = () => container.querySelectorAll("circle")[1]!;
+    await waitFor(() => expect(arc().getAttribute("stroke-dasharray")).toMatch(/^0\.4/));
+    rerender(wrap(<XpRing progress={undefined} />));
+    await waitFor(() => expect(arc().getAttribute("stroke-dasharray")).toMatch(/^0 /));
+    rerender(wrap(<XpRing progress={PROGRESS.nearlyFull} />));
+    expect(container.querySelector("[data-slot=xp-gain]")).toBeNull();
+    expect(container.querySelector("[data-slot=level-badge]")).toHaveTextContent("7");
+  });
+
   it("a gain rises as +N XP; a level up turns the badge to the next level with a burst", async () => {
     const { container, rerender } = render(wrap(<XpRing progress={{ level: 2, xp: 20, xpForNext: 200 }} />));
     expect(container.querySelector("[data-slot=xp-gain]")).toBeNull();

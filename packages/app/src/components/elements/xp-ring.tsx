@@ -75,7 +75,12 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
   const xp = progress?.xp;
   const next = progress?.xpForNext;
   useEffect(() => {
-    if (lv === undefined || xp === undefined || next === undefined) return;
+    if (lv === undefined || xp === undefined || next === undefined) {
+      // Read again: the empty track, and the next reading is drawn as it is (no gain from a stale one).
+      last.current = undefined;
+      share.jump(0);
+      return;
+    }
     const to = { level: lv, xp, xpForNext: next };
     const from = last.current;
     last.current = to;
