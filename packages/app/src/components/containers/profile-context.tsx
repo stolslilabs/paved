@@ -1,6 +1,7 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
+import { formatPoints } from "../elements/score";
 import { shortAddress } from "../elements/short-address";
 import type { ProfileSheetProps, ProfileState } from "./profile-sheet";
 
@@ -13,6 +14,8 @@ export const ProfileProvider = ProfileContext.Provider;
 /** The profile sheet in its own chunk (#624): fetched on the first tap (or when the pointer comes near), not with the page. */
 const loadSheet = () => import("./profile-sheet");
 const ProfileSheet = lazy(() => loadSheet().then((m) => ({ default: m.ProfileSheet })));
+/** The XP ring and level badge (#625) in their own chunk too, drawn once loaded (the avatar shows without them first). */
+const XpRing = lazy(() => import("../elements/xp-ring").then((m) => ({ default: m.XpRing })));
 
 /**
  * The avatar to give the focus back to: the one that opened the sheet while it is shown, else the one shown now. The page
@@ -24,7 +27,12 @@ function shownAvatar(opener: HTMLElement | null): HTMLElement | null {
   return [...document.querySelectorAll<HTMLElement>("[data-slot=profile-avatar]")].find(shown) ?? opener;
 }
 
-const label = (state: ProfileState) => (state.status === "connected" ? `Profile: ${state.data.player.name ?? shortAddress(state.data.player.playerId)}` : state.status === "guest" ? "Profile: guest" : "Profile");
+const label = (state: ProfileState, progress: ProfileValue["progress"]) =>
+  state.status === "connected"
+    ? `Profile: ${state.data.player.name ?? shortAddress(state.data.player.playerId)}${progress ? `, level ${formatPoints(progress.level)}` : ""}`
+    : state.status === "guest"
+      ? "Profile: guest"
+      : "Profile";
 
 /**
  * The player's avatar where a menu screen puts it (#624): the top left of the page's header below `desktop`, the left of the
@@ -42,14 +50,14 @@ export function ProfileSlot({ className }: { className?: string }) {
     if (!next) requestAnimationFrame(() => shownAvatar(avatar.current)?.focus());
   }, []);
   if (!value) return null;
-  const { state } = value;
+  const { state, progress } = value;
   return (
     <>
       <button
         ref={avatar}
         type="button"
         data-slot="profile-avatar"
-        aria-label={label(state)}
+        aria-label={label(state, progress)}
         aria-haspopup="dialog"
         onPointerEnter={() => void loadSheet()}
         onFocus={() => void loadSheet()}
@@ -59,7 +67,13 @@ export function ProfileSlot({ className }: { className?: string }) {
         }}
         className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
       >
-        <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"} />
+        <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"}>
+          {state.status === "connected" && (
+            <Suspense fallback={null}>
+              <XpRing progress={progress} />
+            </Suspense>
+          )}
+        </PlayerAvatar>
       </button>
       {opened && (
         <Suspense fallback={null}>
