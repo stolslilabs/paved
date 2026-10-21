@@ -71,6 +71,7 @@ COVERAGE_GROUPS=(
   "tests-draw-mask-2|paved::tests::draw_mask|--partition 2/3"
   "tests-draw-mask-3|paved::tests::draw_mask|--partition 3/3"
   "tests-economy|paved::tests::economy::|"
+  "tests-matchmaker|paved::tests::matchmaker|"
   "tests-owners|paved::tests::owners|"
   "tests-seed|paved::tests::seed|"
   "tests-story|paved::tests::story|"
