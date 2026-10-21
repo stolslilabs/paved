@@ -107,14 +107,16 @@ describe("/game/:gameId (P5)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("an expired game: the stack's banner offers only a surrender, and the Surrender dialog opens by itself", async () => {
+  it("an expired game: the stack's banner offers only a surrender, and the Surrender dialog opens by itself; once confirmed, the scores", async () => {
     const s = sources({ signer: true, expiresAt: 100 });
-    open(`/game/${GAME_ID}`, s);
+    const router = open(`/game/${GAME_ID}`, s);
     const dialog = await screen.findByRole("dialog", {}, { timeout: 5000 });
     expect(within(dialog).getByText(/24 hours are over/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Surrender" }));
     await waitFor(() => expect(s.signer.surrender).toHaveBeenCalledWith(key));
     expect(s.signer.discard).not.toHaveBeenCalled();
+    // A surrender has no last move to watch: no hold (`useAfterGameOver`'s `hold`, its own test), the scores once confirmed.
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`), { timeout: 5000 });
   });
 
   it("with a signer of another address: read only, with the Another player's game notice", async () => {
