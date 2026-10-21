@@ -8,6 +8,7 @@ import {
   loadGame,
   openTraining,
   replayTraining,
+  startTraining,
   type KeyValueStore,
 } from "../src";
 
@@ -40,7 +41,7 @@ describe("saves written before the move", () => {
     expect(loadGame(() => store)).toEqual(JSON.parse(OLD_TRAINING_SAVE));
 
     // One more move appends to the same JSON: the saved prefix is unchanged.
-    const mirror = replayTraining(0x5eed1234abcdn, JSON.parse(OLD_TRAINING_SAVE).moves);
+    const mirror = replayTraining(0x5eed1234abcdn, JSON.parse(OLD_TRAINING_SAVE).moves, 1);
     const legal = mirror.legalPlacements();
     if (legal.length === 0) await session.discard();
     else {
@@ -59,7 +60,7 @@ describe("sessions keep their engine between moves", () => {
     const build = vi.spyOn(EngineGame.prototype, "build");
     const discard = vi.spyOn(EngineGame.prototype, "discard");
     const session = LocalSession.start(0x1234abcdn, () => memoryStore());
-    const mirror = EngineGame.start({ deck: "simple", seed: 0x1234abcdn });
+    const mirror = startTraining(0x1234abcdn);
     start.mockClear();
     build.mockClear();
     discard.mockClear();

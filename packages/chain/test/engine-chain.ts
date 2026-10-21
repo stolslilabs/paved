@@ -3,7 +3,7 @@
 // the contract's events. A test can hold a receipt back, refuse a move, or move the game behind the session's back.
 import { CENTER, CategoryType, EngineGame, OrientationType, PlanType } from "@paved/game-core";
 import type { DecodedEvent } from "../src/codec";
-import { TILE_STATUS, type GameKey, type GameView, type TileView } from "../src/views";
+import { NOT_AVAILABLE_MESSAGE, TILE_STATUS, ViewError, type DrawView, type GameKey, type GameView, type TileView } from "../src/views";
 import { WriteError, type WriteResult } from "../src/writer";
 
 const PLANS = Object.values(PlanType);
@@ -27,8 +27,13 @@ export class EngineChain {
     readonly key: GameKey,
     readonly initialSeed: bigint,
     readonly expiresAt = 2 ** 40,
+    /**
+     * A game on the VRF (#645): the engine's three-tile queue stands in for the chain's, and `draw` reads it. Otherwise
+     * `draw` answers `not-available`, as a class before #645 does.
+     */
+    readonly vrf = false,
   ) {
-    this.game = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(PLAYER) });
+    this.game = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(PLAYER), lookahead: vrf ? 3 : 1 });
     this.drawn.push({ id: 1, status: TILE_STATUS.placed, plan: PLANS.indexOf(PlanType.RFFFRFCFR), orientation: 3, x: CENTER, y: CENTER });
     this.drawHand();
   }
@@ -47,7 +52,20 @@ export class EngineChain {
       this.calls.push(`initial_seed ${key.gameId}`);
       return `0x${this.initialSeed.toString(16)}`;
     },
+    draw: async (key: GameKey): Promise<DrawView> => {
+      this.calls.push(`draw ${key.gameId}`);
+      if (!this.vrf) throw new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+      return this.drawView();
+    },
   };
+
+  /** `draw(id)` of a game on the VRF: the queue after the hand, and whether the next move draws (a tile is left to queue). */
+  drawView(): DrawView {
+    const g = this.game;
+    const [next, after] = g.coming.map((t) => PLANS.indexOf(t.plan));
+    const draws = !g.over && g.tileCount < g.tileLimit;
+    return { gameId: this.key.gameId, next: next ?? 0, after: after ?? 0, tiles: g.tiles, vrf: true, draws, salt: draws ? "0x5a17" : "0x0" };
+  }
 
   view(): GameView {
     const g = this.game;

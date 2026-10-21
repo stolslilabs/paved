@@ -84,6 +84,14 @@ export interface EngineConfig {
   readonly territory?: readonly Cell[];
   /** A village's cap of cells (`Village.max_cells`, the owner's): `buyParcel` stops there. Default `VILLAGE_MAX_CELLS_LIMIT`. */
   readonly maxCells?: number;
+  /**
+   * The tiles known ahead, the tile in hand included (#645). 1, the default: each move draws the next tile, reseeded from
+   * the move's position (Simple), bit-exact with the contracts before #645. More (deck `simple` only): the queue of the
+   * VRF Challenge, as Training plays it with its local random: the start draws `lookahead` tiles, each move takes the
+   * tile in hand from the queue and draws one more at its end; no draw reads a position, so a move never steers it. The
+   * game is over once the queue is empty.
+   */
+  readonly lookahead?: number;
 }
 
 /** The id of the first tile of a story level's `placed`, clear of the ids of the drawn tiles. */
@@ -219,6 +227,9 @@ export class EngineGame {
   private scoredRoots = new Set<number>();
   private _over = false;
   private held: { id: number; plan: number } | null = null;
+  /** The tiles drawn after the one in hand, in order (`lookahead` above 1). */
+  private queued: { id: number; plan: number }[] = [];
+  private readonly lookahead: number;
   private counters = { structures: 0, forests: 0, wonders: 0, big: 0 };
   /** The owned cells (`territory`) by key, in order; `null`: no mask. */
   private _territory: Map<string, Cell> | null = null;
@@ -239,6 +250,9 @@ export class EngineGame {
     this.tileLimit =
       config.tileLimit ?? (config.deck === "story" ? this.sequence.length + 1 : this.rules.count);
     if (this.tileLimit > 255) throw new EngineError("Game: invalid tile limit");
+    this.lookahead = config.lookahead ?? 1;
+    if (!Number.isInteger(this.lookahead) || this.lookahead < 1) throw new EngineError("Game: invalid lookahead");
+    if (this.lookahead > 1 && config.deck !== "simple") throw new EngineError("Game: a queue needs a random deck");
     this._seed = config.seed;
     if (config.territory) this._territory = new Map(config.territory.map((c) => [cellKey(c), { x: c.x, y: c.y }]));
     if (config.maxCells !== undefined) {
@@ -286,7 +300,7 @@ export class EngineGame {
       game._tiles = withdrawExtra(game._tiles, game._seed, game.rules.total, game.rules.count);
     }
     config.placed?.forEach((tile, index) => game.write({ ...tile, id: PREPLACED_ID + index }));
-    if (game.deck !== "village") game.draw();
+    if (game.deck !== "village") game.advance();
     return game;
   }
 
@@ -295,6 +309,7 @@ export class EngineGame {
     Object.assign(game, this);
     game.board = this.board.clone();
     game.held = this.held ? { ...this.held } : null;
+    game.queued = this.queued.map((t) => ({ ...t }));
     game.counters = { ...this.counters };
     game._discardedPlans = [...this._discardedPlans];
     game._closings = [...this._closings];
@@ -372,6 +387,10 @@ export class EngineGame {
   /** The tile in hand, `null` once the game is over by its last tile. */
   get hand(): { id: number; plan: PlanType } | null {
     return this.held ? { id: this.held.id, plan: PLANS[this.held.plan] as PlanType } : null;
+  }
+  /** The tiles known after the one in hand, in draw order (`lookahead` - 1 of them, fewer at the deck's end). */
+  get coming(): { id: number; plan: PlanType }[] {
+    return this.queued.map((t) => ({ id: t.id, plan: PLANS[t.plan] as PlanType }));
   }
 
   /** The placed tiles, in id order. */
@@ -637,11 +656,7 @@ export class EngineGame {
     this.held = null;
 
     // [Effect] Assess game over, then draw a new tile if relevant (Challenge reseeds from the position)
-    this.assessOver();
-    if (!this._over) {
-      if (this.deck === "simple") this.reseed(CENTER + tile.x, CENTER + tile.y);
-      this.draw();
-    }
+    this.next(CENTER + tile.x, CENTER + tile.y);
 
     // [Effect] The assessment of the built tile
     const before = this._score;
@@ -668,12 +683,8 @@ export class EngineGame {
     this._score -= taken;
     this._discardPenalty += taken;
     this.held = null;
-    this.assessOver();
-    if (!this._over) {
-      // [Info] The discarded tile was never placed: it lies at `CENTER` on chain
-      if (this.deck === "simple") this.reseed(CENTER, CENTER);
-      this.draw();
-    }
+    // [Info] The discarded tile was never placed: it lies at `CENTER` on chain
+    this.next(CENTER, CENTER);
     this._discarded += 1;
     this._discardedPlans.push(held.plan);
     return {
@@ -701,8 +712,35 @@ export class EngineGame {
     this._seed = poseidon(this._seed, x, y);
   }
 
-  /** `Game::draw_plan`. */
-  private draw(): void {
+  /**
+   * After a build or a discard (its position `x`, `y` in the chain's coordinates): with one tile known, the game is over
+   * at the tile limit, else the seed takes the position (Simple) and the next tile is drawn; with a queue, the next tile
+   * comes from it and the game is over once it is empty.
+   */
+  private next(x: number, y: number): void {
+    if (this.lookahead > 1) {
+      this.advance();
+      this._over = this.held === null;
+      return;
+    }
+    this.assessOver();
+    if (this._over) return;
+    if (this.deck === "simple") this.reseed(x, y);
+    this.advance();
+  }
+
+  /** The tile in hand: the one drawn now, or with a queue, its first once it is topped up to `lookahead` tiles. */
+  private advance(): void {
+    if (this.lookahead === 1) {
+      this.held = this.draw();
+      return;
+    }
+    while (this.queued.length < this.lookahead && this._tileCount < this.tileLimit) this.queued.push(this.draw());
+    this.held = this.queued.shift() ?? null;
+  }
+
+  /** `Game::draw_plan`: the next tile of the deck, its id the count of tiles drawn. */
+  private draw(): { id: number; plan: number } {
     let plan: PlanType;
     if (this.deck === "story") {
       plan = this.sequence[this._tileCount - 1] as PlanType;
@@ -716,8 +754,8 @@ export class EngineGame {
       plan = this.rules.plan(card);
     }
     this._tileCount += 1;
-    this.held = { id: this._tileCount, plan: planCode(plan) };
     if (this.deck !== "story") this._seed = poseidon(this._seed, this._tileCount);
+    return { id: this._tileCount, plan: planCode(plan) };
   }
 
   /**
