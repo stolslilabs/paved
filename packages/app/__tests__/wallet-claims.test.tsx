@@ -53,12 +53,14 @@ afterEach(() => {
 });
 
 describe("the Cobbles' claims through the wallet", () => {
-  it("a connected wallet enables Claim on /missions, and the claim goes through its signer", async () => {
+  // Under load (load average about 18, 2026-10-21) the whole app run took 9.3 and 11.7 s here and the Claim button came
+  // after the 5 s it was given; run alone it passes. The waits and the test get room for that.
+  it("a connected wallet enables Claim on /missions, and the claim goes through its signer", { timeout: 40_000 }, async () => {
     const s = setup();
     render(<App router={createTestRouter("/")} sources={s.sources} connector={s.load} />);
     // Home restores the session; the Quests tab then reads the connected player.
-    await userEvent.click(await screen.findByRole("button", { name: "Missions" }, { timeout: 5000 }));
-    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: 5000 });
+    await userEvent.click(await screen.findByRole("button", { name: "Missions" }, { timeout: 15_000 }));
+    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: 15_000 });
     expect(claim).toBeEnabled();
     expect(screen.queryByText(/Connect to claim/)).toBeNull();
     await userEvent.click(claim);
