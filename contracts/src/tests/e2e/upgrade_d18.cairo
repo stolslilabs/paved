@@ -28,7 +28,7 @@ use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDisp
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
-use paved::systems::challenge::{Challenge, IChallengeDispatcher};
+use paved::systems::challenge::Challenge;
 use paved::tests::legacy::record::{chars_of, ref_of};
 use paved::tests::legacy::role::Role;
 use paved::tests::legacy::state::StructuresTrait as LegacyStructures;
@@ -37,7 +37,7 @@ use paved::tests::legacy::{IDailyBeforeD18Dispatcher, IDailyBeforeD18DispatcherT
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
+    IChallengeDispatcherTrait, OWNER, PLAYER, TestChallenge, TestStore, TestStoreTrait,
 };
 use paved::types::category::Category;
 use paved::types::mode::Mode;
@@ -54,6 +54,14 @@ use starknet::{ClassHash, ContractAddress};
 /// Gives `contract` the frozen class of 07aab8a, by its owner's `upgrade`; returns the class it
 /// had (the D-18 class).
 fn install_before_d18(contract: ContractAddress) -> ClassHash {
+    // [Info] The frozen class reads every bit of `GameState` above its counters as counters: game
+    // 1, spawned by the current class, is given the state a class before #645 wrote, no queue
+    let store = TestStoreTrait::new(contract);
+    let mut game = store.game(1);
+    if game.tile_count != 0 {
+        game.queue = 0;
+        store.set_game(game);
+    }
     let current = get_class_hash(contract);
     let frozen = *declare("DailyBeforeD18").unwrap().contract_class().class_hash;
     start_cheat_caller_address(contract, OWNER());
@@ -100,7 +108,7 @@ fn old(
 /// A build of the D-18 class, checked against the oracle.
 fn new(
     store: TestStore,
-    challenge: IChallengeDispatcher,
+    challenge: TestChallenge,
     game_id: u32,
     plan: Plan,
     orientation: Orientation,
@@ -120,9 +128,16 @@ fn role_bit(role: Role) -> u16 {
     paved::tests::legacy::placement::role_bit(role.into())
 }
 
-/// The roles placed, read as 07aab8a reads them (the bits 72 to 88 of `GameState`).
+/// The roles placed, read as 07aab8a reads them (the bits 72 to 88 of `GameState`). Read from the
+/// raw slot: 07aab8a's `live_game` takes every bit above 88 as its counters, and the queue of #645
+/// is there once the current class has moved.
 fn roles_placed(store: TestStore, game_id: u32) -> u16 {
-    interact_with_state(store.contract, || LegacyStore::new().live_game(game_id).characters)
+    let word: u256 = interact_with_state(
+        store.contract,
+        || paved::store::StoreTrait::game_state_word(paved::store::StoreImpl::new(), game_id),
+    )
+        .into();
+    ((word.high / 0x1000000000000000000) & 0xffff).try_into().unwrap()
 }
 
 /// The `chars` of the root of the structure on `spot` of the tile at (`x`, `y`), read as 07aab8a

@@ -24,6 +24,11 @@ pub struct Game {
     /// 23 bits as `GameState` holds them: see `GameImpl::counts_of` and
     /// `docs/architecture/quests.md`.
     pub counts: u32,
+    /// The two tiles after the tile in hand and the VRF mark (#645, D-30), packed in 11 bits as
+    /// `GameState` holds them: the plan of tile `held_tile + 1` (bits 0..5), of tile
+    /// `held_tile + 2` (bits 5..10), 0 for none, and the mark (bit 10). See `GameImpl::advance`
+    /// and `docs/architecture/challenge-vrf.md`.
+    pub queue: u16,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]

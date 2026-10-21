@@ -93,7 +93,8 @@ map). So, for every upgradable contract and for `Lobby`:
   new class of either side keeps the other's names; a new `Lobby` class set by `set_lobby_class` is held to the
   same rule as an upgrade.
 - **Pins.** `tests::e2e::cold_paths_audit::test_daily_pins_its_storage_variables_by_name` (`owner`,
-  `pending_owner`, `token_address`, `setup`, `guardian` and `spawn_paused` of `Challenge`; it replaced the pin of the variables `Lobby` shared with
+  `pending_owner`, `token_address`, `setup`, `guardian`, `spawn_paused`, and since #645 `vrf_provider`,
+  `vrf_last_draw_tx` and `vrf_spawn_counts` of `Challenge`; it replaced the pin of the variables `Lobby` shared with
   `Daily`, `test_lobby_and_daily_pin_every_shared_storage_variable_by_name`, at D-24) and `tests::e2e::upgrades::test_upgrade_layout_pins_setup_and_economy_by_name` (the
   ownable and the wiring of `Setup`, `economy` and `collection`, which were `Account`'s pins until D-25 E; the
   addresses, pool, packed records and purchase maps of `Economy`) read each variable at the
@@ -191,6 +192,48 @@ G4 class, and then reads no guardian and no pause; a new game spawns and the gam
 
 **On Sepolia (D-17)** the upgrade of `Challenge` to the G4 class is the owner's `upgrade` alone: no setter is needed,
 spawn stays open, games in flight are unaffected. The owner sets a guardian afterwards (`set_guardian`), if any.
+
+## New live slots and bits since CHALLENGE-VRF (#645, P-42)
+
+The Challenge on the VRF (`challenge-vrf.md`) appends three variables to `Challenge`, after `spawn_paused`, and takes 11
+bits of `GameState` that every slot written before holds as 0; nothing is renamed, retyped or reused:
+
+| Slot | Type | Written by | After an in-place upgrade |
+|---|---|---|---|
+| `vrf_provider` (the flat `drawable` substorage of `DrawableComponent`) | `ContractAddress` | the owner's `set_vrf_provider` only | 0: no provider, so no spawn and no drawing move until the owner sets it |
+| `vrf_last_draw_tx` (the same) | `felt252` | each draw: the hash of its transaction | 0 |
+| `vrf_spawn_counts` (`Map<ContractAddress, u32>`) | the spawns each player drew, the index of the next spawn's salt | 0 for every player |
+
+The high half of `GameState`'s second slot (`PavedStorage.game_states`), since #645:
+
+| Bits | Field |
+|---|---|
+| 0..8 | `tile_count` |
+| 8..40 | `score` |
+| 40..48 | `discarded` |
+| 48..56 | `built` |
+| 56 | `over` |
+| 64..72 | `held_tile` |
+| 72..88 | the roles before D-18: dead, written 0, never reused |
+| 88..111 | the four counters (23 bits) |
+| 111 | the free mark (cobbles v1) |
+| 112..117 | `next`: the plan of tile `held_tile + 1` (#645) |
+| 117..122 | `after`: the plan of tile `held_tile + 2` (#645) |
+| 122 | the VRF mark (#645) |
+
+The high half stays below 2^123, so the slot (`tiles + high x 2^128`) stays under the felt's bound. A game spawned
+before #645 reads its queue and mark as 0: its first move under the new class fills both from one draw
+(`challenge-vrf.md`, section 2.4).
+
+**A rollback is not free.** A class from before #645 reads every bit above 88 of `GameState` as its counters, into a
+`u32`: it cannot read a game that has a queue (the read panics). Roll `Challenge` back to such a class only with no VRF
+game in flight. The frozen classes of the tests are given a game without a queue
+(`tests::e2e::upgrade_d18::install_before_d18`).
+
+**Pins.** `test_daily_pins_its_storage_variables_by_name` reads `vrf_provider`, `vrf_last_draw_tx` and the entry of
+`vrf_spawn_counts` at the raw address of their names, before and after a spawn in a known transaction.
+`tests::e2e::store::test_store_round_trips_at_maximum_values` sets every bit of the queue with the counters and the free
+mark at their maximum, and reads them all back.
 
 ## The Vault's layout and Economy's split since P-56 (P-42)
 

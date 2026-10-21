@@ -1,17 +1,21 @@
 //! `SeedSource`: the initial seed of a game comes only through the source given to `spawn`.
-//! `TokenSeed` (D-23, with the contract's address since the PM's addition of 2026-10-14) is the
-//! source of every spawn; `DaySeed` is the source that was replaced (the
-//! seed of the day, D-13), kept here for the golden games recorded with it.
+//! Since #645 (D-30) the source of every spawn is `VrfSeed`, the random of the spawn's VRF draw.
+//! `TokenSeed` (D-23, with the contract's address since the PM's addition of 2026-10-14) was the
+//! source before it, and stays the `initial_seed` of the games spawned then; `DaySeed` is the
+//! source before that (the seed of the day, D-13), kept here for its own tests.
 
 use core::hash::HashStateTrait;
-use core::poseidon::PoseidonTrait;
+use core::poseidon::{PoseidonTrait, poseidon_hash_span};
 use paved::day::day_id;
+use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
 use paved::models::game::{Game, GameImpl, GameTrait};
 use paved::seed::{SeedSource, TokenSeed};
+use paved::systems::challenge::Challenge::SPAWN_KIND;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IChallengeDispatcherTrait, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::types::plan::Plan;
+use paved::vrf::draw_salt;
 use starknet::ContractAddress;
 
 /// A source that ignores the mode, the time and the salt.
@@ -27,8 +31,8 @@ impl StubSeedImpl of SeedSource<StubSeed> {
 }
 
 /// Test only: the seed of a Challenge game before D-23, Poseidon of the salt and the day id, the
-/// same for every game of a day. The golden games were recorded with it and still spawn with it
-/// (`golden::harness`), so their expected draws and scores stay those of P0.
+/// same for every game of a day. The golden games were recorded with it until #645, which spawns
+/// them on the VRF mock (`golden::harness`).
 #[derive(Copy, Drop)]
 pub struct DaySeed {}
 
@@ -105,41 +109,55 @@ fn test_token_seed_same_id_of_two_contracts_differ() {
     assert!(a != b);
 }
 
-/// The game a spawn writes from the initial seed `seed`: started, then its first tile drawn into
-/// the player's hand (`HostableComponent::spawn_with`), which moves the stored seed on.
+/// The game a spawn writes from the initial seed `seed`: started, then its hand and queue drawn
+/// from the same random (`HostableComponent::spawn_with`, #645); the seed is kept.
 fn spawned(game_id: u32, seed: felt252) -> Game {
     let mut game = GameImpl::new(game_id, TIME, Mode::Challenge, PLAYER().into());
     game.start(TIME, seed);
-    game.draw_plan();
+    game.advance(Option::Some(seed));
     game
 }
 
-/// `Challenge.spawn` seeds each game with `TokenSeed`: Poseidon(0, the Challenge address, game id),
-/// the salt being 0 (`Game::new`) and the token id the game id. The stored seed is the one after
-/// the first draw, so the game is replayed off chain from its initial seed and compared. Two spawns
-/// of one day differ.
+/// What the devnet mock's first consume of a transaction returns for `salt` to `consumer`.
+fn mock_random(salt: felt252, consumer: ContractAddress) -> felt252 {
+    let chain_id = starknet::get_tx_info().unbox().chain_id;
+    let seed = poseidon_hash_span(array![salt, consumer.into(), chain_id].span());
+    let random = poseidon_hash_span(array![seed, MOCK_TAG].span());
+    poseidon_hash_span(array![random, 0].span())
+}
+
+/// The random of `player`'s spawn `index` on `challenge`.
+fn spawn_random(challenge: ContractAddress, index: u32) -> felt252 {
+    mock_random(draw_salt(SPAWN_KIND, PLAYER().into(), index), challenge)
+}
+
+/// Since #645 (D-30) `Challenge.spawn` seeds each game with `VrfSeed`: the random of the spawn's
+/// VRF draw, salted with the player and its spawn count, kept as the game's seed. The game is
+/// replayed off chain from it and compared. It is not the token's seed; two spawns of one day
+/// differ.
 #[test]
-#[available_gas(l2_gas: 120212619)]
+#[available_gas(l2_gas: 129168542)]
 fn test_token_seed_is_the_seed_of_a_challenge_spawn() {
     snforge_std::start_cheat_block_timestamp_global(TIME);
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let challenge = systems.challenge.contract_address;
     let first = store.game(context.game_id);
-    let expected = spawned(context.game_id, token(0, challenge, context.game_id.into()));
+    let expected = spawned(context.game_id, spawn_random(challenge, 0));
     assert_eq!(first.seed, expected.seed);
     assert_eq!(first.tiles, expected.tiles);
-    // [Assert] Not the day's seed
-    let day = spawned(context.game_id, DaySeed {}.seed(Mode::Challenge, TIME, 1, 0));
-    assert!(first.seed != day.seed);
+    assert_eq!(first.queue, expected.queue);
+    // [Assert] Not the token's seed, nor the day's
+    assert!(first.seed != token(0, challenge, context.game_id.into()));
+    assert!(first.seed != DaySeed {}.seed(Mode::Challenge, TIME, 1, 0));
     let second_id = systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
     let second = store.game(second_id);
-    assert_eq!(second.seed, spawned(second_id, token(0, challenge, second_id.into())).seed);
+    assert_eq!(second.seed, spawned(second_id, spawn_random(challenge, 1)).seed);
     assert!(first.seed != second.seed);
     assert_eq!(first.day_id, second.day_id);
     assert_eq!(first.player_id, PLAYER().into());
 }
 
-/// Game 1 of two Challenge deployments draws two seeds, each that of its own contract.
+/// Game 1 of two Challenge deployments draws two seeds: one salt, two consumers.
 #[test]
 #[available_gas(l2_gas: 185128913)]
 fn test_token_seed_game_1_of_two_deployments_differ() {
@@ -151,8 +169,8 @@ fn test_token_seed_game_1_of_two_deployments_differ() {
     assert_eq!(context_a.game_id, context_b.game_id);
     let game_a = store_a.game(context_a.game_id);
     let game_b = store_b.game(context_b.game_id);
-    assert_eq!(game_a.seed, spawned(1, token(0, a, 1)).seed);
-    assert_eq!(game_b.seed, spawned(1, token(0, b, 1)).seed);
+    assert_eq!(game_a.seed, spawn_random(a, 0));
+    assert_eq!(game_b.seed, spawn_random(b, 0));
     assert!(game_a.seed != game_b.seed);
 }
 

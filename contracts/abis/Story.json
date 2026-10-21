@@ -638,6 +638,28 @@
   },
   {
     "type": "event",
+    "name": "paved::events::Queued",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::events::Event",
     "kind": "enum",
     "variants": [
@@ -664,6 +686,11 @@
       {
         "name": "GameOver",
         "type": "paved::events::GameOver",
+        "kind": "nested"
+      },
+      {
+        "name": "Queued",
+        "type": "paved::events::Queued",
         "kind": "nested"
       }
     ]
