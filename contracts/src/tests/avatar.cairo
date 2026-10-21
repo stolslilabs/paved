@@ -1,27 +1,31 @@
-//! The avatar on chain (#627, `systems/avatar.cairo`, `docs/architecture/avatar-chain.md`): the
-//! owner's layout, price bounds and catalogue, the player's `buy_avatar_item` and `set_avatar`, the
-//! cobbles debited by `Setup.spend_cobbles`, and the audit properties, each in a test named after
-//! it: an item bought once, never twice; cobbles never below zero; `set_avatar` never accepts a
-//! part neither free nor owned; only the spender spends; the limits in quantity and in time.
+//! The avatar on chain (#627, `systems/avatar.cairo`, `avatar/*.cairo`,
+//! `docs/architecture/avatar-chain.md`): the look in AVATAR-LOOK's format, the owner's parts, price
+//! bounds and catalogue, the player's `buy_avatar_item` and `set_avatar`, the cobbles debited by
+//! `Setup.spend_cobbles`, and the audit properties, each in a test named after it: an item bought
+//! once, never twice; cobbles never below zero; `set_avatar` never accepts a part neither free nor
+//! owned; only an allowlisted spender spends; the limits in quantity and in time.
 //!
-//! The layout, bounds and prices here are the tests' own: the owner's values are not set yet.
-//! The cobbles are written into `Setup`'s ledger directly (`give`): the earning paths have their
-//! own tests (`e2e::cobbles*`).
+//! The parts, bounds and prices here are the tests' own: the owner's values are not set yet. The
+//! cobbles are written into `Setup`'s ledger directly (`give`): the earning paths have their own
+//! tests (`e2e::cobbles*`). The gas of each call is measured in `tests/gas.cairo` (z24 to z28).
 
 use core::num::traits::Zero;
-use core::testing::get_available_gas;
-use paved::systems::avatar::Avatar::{
-    AvatarItemBought, AvatarItemListed, AvatarSet, Event as AvatarEvent,
+use paved::avatar::catalogue::CatalogueComponent::{
+    AvatarItemListed, Event as CatalogueEvent, PriceBoundsSet,
 };
+use paved::avatar::item::{
+    AvatarItem, LISTED, UNLISTED, WITHDRAWN, is_free_word, item_of, item_word,
+};
+use paved::avatar::look::{MAX_PARTS, look_ids, look_of};
+use paved::systems::avatar::Avatar::{AvatarItemBought, AvatarSet, Event as AvatarEvent, PartsSet};
 use paved::systems::avatar::{
-    AvatarItem, IAvatarDispatcher, IAvatarDispatcherTrait, IAvatarSafeDispatcher,
-    IAvatarSafeDispatcherTrait, LISTED, UNLISTED, WITHDRAWN, item_of, item_word, layout_widths,
-    layout_word, look_ids, look_of,
+    AVATAR_REASON, IAvatarDispatcher, IAvatarDispatcherTrait, IAvatarSafeDispatcher,
+    IAvatarSafeDispatcherTrait, PriceBounds,
 };
 use paved::systems::setup::Setup::{CobblesSpent, Event as SetupEvent};
 use paved::systems::setup::{
-    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
-    ISetupSpendSafeDispatcher, ISetupSpendSafeDispatcherTrait, SPEND_AVATAR,
+    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupSpendDispatcher,
+    ISetupSpendDispatcherTrait, ISetupSpendSafeDispatcher, ISetupSpendSafeDispatcherTrait,
 };
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, map_entry_address,
@@ -42,10 +46,8 @@ fn OTHER() -> ContractAddress {
     'OTHER'.try_into().unwrap()
 }
 
-/// The tests' layout: four categories of 3, 4, 7 and 2 bits.
-fn widths() -> Array<u8> {
-    array![3, 4, 7, 2]
-}
+/// The tests' parts in use.
+const PARTS: u8 = 4;
 
 #[derive(Copy, Drop)]
 struct World {
@@ -59,31 +61,30 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
     address
 }
 
-/// `Setup` and `Avatar`, `Avatar` allowlisted as a reporter (it spends); no layout, bounds or item
-/// yet.
+/// `Setup` and `Avatar`, `Avatar` an allowlisted spender of `Setup`; no parts, bounds or item yet.
 fn bare() -> World {
     let setup = deploy("Setup", array![OWNER().into()]);
     let avatar = deploy("Avatar", array![OWNER().into(), setup.into()]);
     start_cheat_caller_address(setup, OWNER());
-    ISetupDispatcher { contract_address: setup }.set_reporter(avatar, true);
+    ISetupSpendDispatcher { contract_address: setup }.set_spender(avatar, true);
     stop_cheat_caller_address(setup);
     World { avatar: IAvatarDispatcher { contract_address: avatar }, setup }
 }
 
-/// The tests' catalogue: items 0 and 1 of every category free, item 2 of category 0 at 30, item 5
-/// of category 1 at 50, item 127 of category 2 at 100; bounds 20 to 100.
+/// The tests' catalogue: four parts, items 0 and 1 of every part free, item 2 of part 0 at 30,
+/// item 5 of part 1 at 50, item 255 of part 2 at 100; bounds 20 to 100.
 fn world() -> World {
     let w = bare();
     as_owner(w);
-    w.avatar.set_layout(widths().span());
+    w.avatar.set_parts(PARTS);
     w.avatar.set_price_bounds(20, 100);
-    for category in 0..4_u8 {
-        w.avatar.set_item(category, 0, 0, 0, 0);
-        w.avatar.set_item(category, 1, 0, 0, 0);
+    for part in 0..PARTS {
+        w.avatar.set_item(part, 0, 0, 0, 0);
+        w.avatar.set_item(part, 1, 0, 0, 0);
     }
     w.avatar.set_item(0, 2, 30, 0, 0);
     w.avatar.set_item(1, 5, 50, 0, 0);
-    w.avatar.set_item(2, 127, 100, 0, 0);
+    w.avatar.set_item(2, 255, 100, 0, 0);
     stop(w);
     w
 }
@@ -117,20 +118,20 @@ fn cobbles_of(w: World, who: ContractAddress) -> u64 {
     ISetupCobblesDispatcher { contract_address: w.setup }.account(who.into()).cobbles
 }
 
-fn buy(w: World, who: ContractAddress, category: u8, id: u8) {
+fn buy(w: World, who: ContractAddress, part: u8, id: u8) {
     as_player(w, who);
-    w.avatar.buy_avatar_item(category, id);
+    w.avatar.buy_avatar_item(part, id);
     stop(w);
 }
 
-fn set(w: World, who: ContractAddress, look: felt252) {
+fn set(w: World, who: ContractAddress, look: u128) {
     as_player(w, who);
     w.avatar.set_avatar(look);
     stop(w);
 }
 
-fn look(ids: Array<u8>) -> felt252 {
-    look_of(ids.span(), widths().span())
+fn look(ids: Array<u8>) -> u128 {
+    look_of(ids.span())
 }
 
 fn error_of<T, +Drop<T>>(result: Result<T, Array<felt252>>) -> felt252 {
@@ -160,36 +161,57 @@ fn test_item_word_round_trips_at_zero_and_maximum() {
     assert_eq!(word.low, 1 + 2 * 0x100 + 3 * 0x100000000 + 4 * 0x10000000000000000);
     assert_eq!(word.high, 5);
     assert_eq!(item_of(item_word(one)), one);
+    // Free: listed at 0 cobbles, whatever its limits
+    assert!(
+        is_free_word(
+            item_word(AvatarItem { state: LISTED, cobbles: 0, sold: 9, supply: 9, until: 9 }),
+        ),
+    );
+    assert!(
+        !is_free_word(
+            item_word(AvatarItem { state: LISTED, cobbles: 20, sold: 0, supply: 0, until: 0 }),
+        ),
+    );
+    assert!(
+        !is_free_word(
+            item_word(AvatarItem { state: WITHDRAWN, cobbles: 0, sold: 0, supply: 0, until: 0 }),
+        ),
+    );
+    assert!(!is_free_word(0));
 }
 
+/// The vectors of AVATAR-LOOK's format (`packages/renderer/__tests__/avatar.test.ts` and
+/// `packages/chain/test/avatar.test.ts` pin the same ones): the version in byte 0, part `p` in byte
+/// `p + 1`.
 #[test]
-fn test_layout_and_look_round_trip() {
-    let widths = widths();
-    let word: u256 = layout_word(widths.span()).into();
-    assert_eq!(word, 4 + 3 * 0x100 + 4 * 0x10000 + 7 * 0x1000000 + 2 * 0x100000000);
-    assert_eq!(layout_widths(word.try_into().unwrap()), widths);
-    assert_eq!(layout_widths(0), array![]);
-    // Category 0 in the lowest bits; each id at its own offset
-    assert_eq!(look(array![1, 0, 0, 0]), 1);
-    assert_eq!(look(array![0, 1, 0, 0]), 8);
-    assert_eq!(look(array![0, 0, 1, 0]), 128);
-    assert_eq!(look(array![0, 0, 0, 1]), 0x4000);
-    let ids = array![7, 15, 127, 3];
+fn test_look_is_the_format_of_avatar_look() {
+    // Every part at its default: the version alone
+    assert_eq!(look(array![0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 1);
+    assert_eq!(look(array![]), 1);
+    // Each id in its own byte
+    assert_eq!(look(array![1]), 0x101);
+    assert_eq!(look(array![0, 1]), 0x10001);
+    assert_eq!(look(array![0, 0, 0, 0, 0, 0, 0, 0, 0, 16]), 0x1000000000000000000001);
+    let ids = array![8, 5, 5, 4, 5, 7, 5, 7, 7, 16];
     let full = look(ids.clone());
-    assert_eq!(full, 0xffff);
-    assert_eq!(look_ids(full, widths.span()), Some(ids));
-    // A bit above the layout (16 bits)
-    assert_eq!(look_ids(0x10000, widths.span()), None);
-    // Thirty categories of 7 bits: 210 bits in one felt
-    let mut wide: Array<u8> = array![];
+    assert_eq!(full, 0x1007070507050405050801);
+    assert_eq!(look_ids(full, 10), Some(ids));
+    // 0 (no avatar), another version, a byte past the parts: no ids
+    assert_eq!(look_ids(0, 10), None);
+    assert_eq!(look_ids(2, 10), None);
+    assert_eq!(look_ids(0x100, 0), None);
+    assert_eq!(look_ids(0x1000000000000000000001, 9), None);
+    assert_eq!(look_ids(0x1000000000000000000001, 10), Some(array![0, 0, 0, 0, 0, 0, 0, 0, 0, 16]));
+    // A shorter look reads as item 0 in the parts it does not set
+    assert_eq!(look_ids(0x0301, 3), Some(array![3, 0, 0]));
+    // Fifteen parts of 255: the whole u128
     let mut tops: Array<u8> = array![];
-    for _ in 0..30_u8 {
-        wide.append(7);
-        tops.append(127);
+    for _ in 0..MAX_PARTS {
+        tops.append(255);
     }
-    assert_eq!(layout_widths(layout_word(wide.span())), wide);
-    let top = look_of(tops.span(), wide.span());
-    assert_eq!(look_ids(top, wide.span()), Some(tops));
+    let top = look(tops.clone());
+    assert_eq!(top, 0xffffffffffffffffffffffffffffff01);
+    assert_eq!(look_ids(top, MAX_PARTS), Some(tops));
 }
 
 // The owner's settings
@@ -201,7 +223,7 @@ fn test_the_owner_settings_are_owner_only() {
     as_player(w, PLAYER());
     let s = safe(w);
     let not_owner = 'Ownable: caller is not owner';
-    assert_eq!(error_of(s.set_layout(array![3].span())), not_owner);
+    assert_eq!(error_of(s.set_parts(5)), not_owner);
     assert_eq!(error_of(s.set_price_bounds(1, 2)), not_owner);
     assert_eq!(error_of(s.set_item(0, 3, 0, 0, 0)), not_owner);
     assert_eq!(error_of(s.withdraw_item(0, 2)), not_owner);
@@ -211,82 +233,81 @@ fn test_the_owner_settings_are_owner_only() {
 
 #[test]
 #[feature("safe_dispatcher")]
-fn test_set_layout_bounds_and_growth() {
+fn test_set_parts_bounds_and_growth() {
     let w = bare();
+    assert_eq!(w.avatar.parts(), 0);
     as_owner(w);
     let s = safe(w);
-    let invalid = 'Avatar: invalid layout';
-    assert_eq!(error_of(s.set_layout(array![].span())), invalid);
-    assert_eq!(error_of(s.set_layout(array![3, 0].span())), invalid);
-    assert_eq!(error_of(s.set_layout(array![8].span())), invalid);
-    let mut too_many: Array<u8> = array![];
-    for _ in 0..31_u8 {
-        too_many.append(1);
-    }
-    assert_eq!(error_of(s.set_layout(too_many.span())), invalid);
-    w.avatar.set_layout(array![3, 4].span());
-    assert_eq!(w.avatar.layout(), array![3, 4]);
-    // It may only grow, the widths there kept
-    let changed = 'Avatar: layout changed';
-    assert_eq!(error_of(s.set_layout(array![3].span())), changed);
-    assert_eq!(error_of(s.set_layout(array![3, 5].span())), changed);
-    assert_eq!(error_of(s.set_layout(array![4, 4, 2].span())), changed);
-    w.avatar.set_layout(array![3, 4, 2].span());
-    assert_eq!(w.avatar.layout(), array![3, 4, 2]);
+    let invalid = 'Avatar: invalid parts';
+    assert_eq!(error_of(s.set_parts(0)), invalid);
+    assert_eq!(error_of(s.set_parts(MAX_PARTS + 1)), invalid);
+    let mut spy = spy_events();
+    w.avatar.set_parts(10);
+    assert_eq!(w.avatar.parts(), 10);
+    spy
+        .assert_emitted(
+            @array![(w.avatar.contract_address, AvatarEvent::PartsSet(PartsSet { parts: 10 }))],
+        );
+    // It may only grow
+    assert_eq!(error_of(s.set_parts(9)), invalid);
+    w.avatar.set_parts(10);
+    w.avatar.set_parts(MAX_PARTS);
+    assert_eq!(w.avatar.parts(), MAX_PARTS);
     stop(w);
 }
 
 #[test]
-fn test_items_lists_every_id_of_a_category() {
+fn test_items_lists_ids_up_to_the_highest_listed() {
     let w = world();
     let items = w.avatar.items(0);
-    assert_eq!(items.len(), 8);
+    assert_eq!(items.len(), 3);
     assert_eq!(
         *items.at(0), AvatarItem { state: LISTED, cobbles: 0, sold: 0, supply: 0, until: 0 },
     );
     assert_eq!(
         *items.at(2), AvatarItem { state: LISTED, cobbles: 30, sold: 0, supply: 0, until: 0 },
     );
-    assert_eq!(*items.at(7), Default::default());
-    assert_eq!(w.avatar.items(2).len(), 128);
-    assert_eq!(*w.avatar.items(2).at(127), w.avatar.item(2, 127));
-    assert_eq!(w.avatar.items(3).len(), 4);
+    let items = w.avatar.items(1);
+    assert_eq!(items.len(), 6);
+    assert_eq!(*items.at(3), Default::default());
+    assert_eq!(w.avatar.items(2).len(), 256);
+    assert_eq!(*w.avatar.items(2).at(255), w.avatar.item(2, 255));
+    assert_eq!(w.avatar.items(3).len(), 2);
+    // A part with nothing listed, a part not in use: empty
+    assert_eq!(w.avatar.items(14).len(), 0);
+    // Withdrawn items stay in the list
+    as_owner(w);
+    w.avatar.withdraw_item(0, 2);
+    stop(w);
+    assert_eq!(w.avatar.items(0).len(), 3);
+    assert_eq!(w.avatar.items(0).at(2).state, @WITHDRAWN);
 }
 
 #[test]
 #[feature("safe_dispatcher")]
-fn test_items_of_a_category_outside_the_layout_is_refused() {
-    let w = world();
-    assert_eq!(error_of(safe(w).items(4)), 'Avatar: invalid item');
-}
-
-#[test]
-#[feature("safe_dispatcher")]
-fn test_set_item_checks_the_layout_and_the_price_bounds() {
+fn test_set_item_checks_the_part_and_the_price_bounds() {
     let w = bare();
     as_owner(w);
     let s = safe(w);
-    // No layout: no item
-    assert_eq!(error_of(s.set_item(0, 0, 0, 0, 0)), 'Avatar: invalid item');
-    w.avatar.set_layout(widths().span());
-    // A category outside the layout, an id wider than its category
-    assert_eq!(error_of(s.set_item(4, 0, 0, 0, 0)), 'Avatar: invalid item');
-    assert_eq!(error_of(s.set_item(0, 8, 0, 0, 0)), 'Avatar: invalid item');
-    assert_eq!(error_of(s.set_item(3, 4, 0, 0, 0)), 'Avatar: invalid item');
+    // No parts: no item
+    assert_eq!(error_of(s.set_item(0, 0, 0, 0, 0)), 'Avatar: invalid part');
+    w.avatar.set_parts(PARTS);
+    // A part not in use
+    assert_eq!(error_of(s.set_item(PARTS, 0, 0, 0, 0)), 'Avatar: invalid part');
     // No bounds set: only free items
     assert_eq!(error_of(s.set_item(0, 7, 1, 0, 0)), 'Avatar: invalid cobbles');
     w.avatar.set_item(0, 7, 0, 0, 0);
     // The bounds are the owner's
     assert_eq!(error_of(s.set_price_bounds(0, 10)), 'Avatar: invalid bounds');
     assert_eq!(error_of(s.set_price_bounds(11, 10)), 'Avatar: invalid bounds');
+    let mut spy = spy_events();
     w.avatar.set_price_bounds(20, 100);
-    assert_eq!(w.avatar.price_bounds(), (20, 100));
+    assert_eq!(w.avatar.price_bounds(), PriceBounds { min: 20, max: 100 });
     assert_eq!(error_of(s.set_item(0, 7, 19, 0, 0)), 'Avatar: invalid cobbles');
     assert_eq!(error_of(s.set_item(0, 7, 101, 0, 0)), 'Avatar: invalid cobbles');
-    let mut spy = spy_events();
-    w.avatar.set_item(2, 127, 100, 5, 1000);
+    w.avatar.set_item(2, 255, 100, 5, 1000);
     assert_eq!(
-        w.avatar.item(2, 127),
+        w.avatar.item(2, 255),
         AvatarItem { state: LISTED, cobbles: 100, sold: 0, supply: 5, until: 1000 },
     );
     spy
@@ -294,22 +315,30 @@ fn test_set_item_checks_the_layout_and_the_price_bounds() {
             @array![
                 (
                     w.avatar.contract_address,
-                    AvatarEvent::AvatarItemListed(
-                        AvatarItemListed {
-                            category: 2,
-                            id: 127,
-                            state: LISTED,
-                            cobbles: 100,
-                            supply: 5,
-                            until: 1000,
-                        },
+                    AvatarEvent::CatalogueEvent(
+                        CatalogueEvent::PriceBoundsSet(PriceBoundsSet { min: 20, max: 100 }),
+                    ),
+                ),
+                (
+                    w.avatar.contract_address,
+                    AvatarEvent::CatalogueEvent(
+                        CatalogueEvent::AvatarItemListed(
+                            AvatarItemListed {
+                                part: 2,
+                                id: 255,
+                                state: LISTED,
+                                cobbles: 100,
+                                supply: 5,
+                                until: 1000,
+                            },
+                        ),
                     ),
                 ),
             ],
         );
     // Narrower bounds keep the items listed
     w.avatar.set_price_bounds(20, 50);
-    assert_eq!(w.avatar.item(2, 127).cobbles, 100);
+    assert_eq!(w.avatar.item(2, 255).cobbles, 100);
     stop(w);
 }
 
@@ -321,10 +350,12 @@ fn test_buy_spends_the_price_sets_the_bit_and_emits() {
     give(w, PLAYER(), 200);
     let player_id: felt252 = PLAYER().into();
     let mut spy = spy_events();
-    buy(w, PLAYER(), 2, 127);
+    buy(w, PLAYER(), 2, 255);
     assert_eq!(cobbles_of(w, PLAYER()), 100);
-    assert_eq!(w.avatar.owned(player_id, 2), 0x80000000000000000000000000000000);
-    assert_eq!(w.avatar.item(2, 127).sold, 1);
+    assert_eq!(
+        w.avatar.owned(player_id, 2), u256 { low: 0, high: 0x80000000000000000000000000000000 },
+    );
+    assert_eq!(w.avatar.item(2, 255).sold, 1);
     // Buying does not set the avatar
     assert_eq!(w.avatar.avatar(player_id), 0);
     spy
@@ -334,7 +365,7 @@ fn test_buy_spends_the_price_sets_the_bit_and_emits() {
                     w.avatar.contract_address,
                     AvatarEvent::AvatarItemBought(
                         AvatarItemBought {
-                            player_id, category: 2, id: 127, cobbles: 100, sold: 1, balance: 100,
+                            player_id, part: 2, id: 255, cobbles: 100, sold: 1, balance: 100,
                         },
                     ),
                 ),
@@ -348,8 +379,8 @@ fn test_buy_spends_the_price_sets_the_bit_and_emits() {
                     SetupEvent::CobblesSpent(
                         CobblesSpent {
                             player_id,
-                            kind: SPEND_AVATAR,
-                            id: 2 * 0x100 + 127,
+                            spender: w.avatar.contract_address,
+                            reason: AVATAR_REASON,
                             cobbles: 100,
                             balance: 100,
                         },
@@ -375,6 +406,12 @@ fn test_an_item_is_bought_once_never_twice() {
     stop(w);
     assert_eq!(cobbles_of(w, PLAYER()), 150);
     assert_eq!(w.avatar.item(1, 5).sold, 1);
+    // Item 128 + 5 is another bit, in the other half
+    as_owner(w);
+    w.avatar.set_item(1, 133, 50, 0, 0);
+    stop(w);
+    buy(w, PLAYER(), 1, 133);
+    assert_eq!(w.avatar.owned(PLAYER().into(), 1), u256 { low: 0x20, high: 0x20 });
 }
 
 #[test]
@@ -383,15 +420,15 @@ fn test_cobbles_never_below_zero() {
     let w = world();
     give(w, PLAYER(), 99);
     as_player(w, PLAYER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(2, 127)), 'Setup: not enough cobbles');
+    assert_eq!(error_of(safe(w).buy_avatar_item(2, 255)), 'Setup: not enough cobbles');
     stop(w);
     // Nothing written: the bit, the count sold, the balance
     assert_eq!(w.avatar.owned(PLAYER().into(), 2), 0);
-    assert_eq!(w.avatar.item(2, 127).sold, 0);
+    assert_eq!(w.avatar.item(2, 255).sold, 0);
     assert_eq!(cobbles_of(w, PLAYER()), 99);
     // Exactly the price: to zero
     give(w, PLAYER(), 100);
-    buy(w, PLAYER(), 2, 127);
+    buy(w, PLAYER(), 2, 255);
     assert_eq!(cobbles_of(w, PLAYER()), 0);
 }
 
@@ -431,7 +468,7 @@ fn test_the_limits_in_quantity_and_in_time() {
     give(w, PLAYER(), 500);
     give(w, OTHER(), 500);
     as_owner(w);
-    // Two copies of item 3 of category 0; item 4 sold until time 1000
+    // One copy of item 3 of part 0; item 4 a seasonal item, on sale until time 1000
     w.avatar.set_item(0, 3, 40, 1, 0);
     w.avatar.set_item(0, 4, 40, 0, 1000);
     stop(w);
@@ -452,13 +489,15 @@ fn test_the_limits_in_quantity_and_in_time() {
     as_player(w, OTHER());
     assert_eq!(error_of(safe(w).buy_avatar_item(0, 4)), 'Avatar: sale ended');
     stop(w);
+    // The season over, the item bought stays usable
+    set(w, PLAYER(), look(array![4, 0, 0, 0]));
 }
 
 // The spender
 
 #[test]
 #[feature("safe_dispatcher")]
-fn test_only_a_reporter_spends() {
+fn test_only_an_allowlisted_spender_spends() {
     let w = world();
     give(w, PLAYER(), 100);
     let spend = ISetupSpendSafeDispatcher { contract_address: w.setup };
@@ -466,27 +505,21 @@ fn test_only_a_reporter_spends() {
     for who in array![PLAYER(), OWNER(), OTHER(), Zero::zero()] {
         start_cheat_caller_address(w.setup, who);
         assert_eq!(
-            error_of(spend.spend_cobbles(PLAYER().into(), 10, SPEND_AVATAR, 0)),
-            'Quest: not reporter',
+            error_of(spend.spend_cobbles(PLAYER().into(), 10, AVATAR_REASON)), 'Setup: not spender',
         );
         stop_cheat_caller_address(w.setup);
     }
-    // The reporter: not zero cobbles
-    start_cheat_caller_address(w.setup, w.avatar.contract_address);
-    assert_eq!(
-        error_of(spend.spend_cobbles(PLAYER().into(), 0, SPEND_AVATAR, 0)),
-        'Setup: invalid cobbles',
-    );
-    stop_cheat_caller_address(w.setup);
-    // Avatar removed from the allowlist: it spends nothing
+    // Avatar removed from the allowlist: it spends nothing, and nothing is recorded
     start_cheat_caller_address(w.setup, OWNER());
-    ISetupDispatcher { contract_address: w.setup }.set_reporter(w.avatar.contract_address, false);
+    ISetupSpendDispatcher { contract_address: w.setup }
+        .set_spender(w.avatar.contract_address, false);
     stop_cheat_caller_address(w.setup);
     as_player(w, PLAYER());
-    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5)), 'Quest: not reporter');
+    assert_eq!(error_of(safe(w).buy_avatar_item(1, 5)), 'Setup: not spender');
     stop(w);
     assert_eq!(cobbles_of(w, PLAYER()), 100);
     assert_eq!(w.avatar.owned(PLAYER().into(), 1), 0);
+    assert_eq!(w.avatar.item(1, 5).sold, 0);
 }
 
 // The avatar
@@ -509,6 +542,9 @@ fn test_set_avatar_with_free_items_stores_and_emits() {
                 ),
             ],
         );
+    // Every part at its default: the version alone
+    set(w, PLAYER(), 1);
+    assert_eq!(w.avatar.avatar(player_id), 1);
     // Cleared with 0
     set(w, PLAYER(), 0);
     assert_eq!(w.avatar.avatar(player_id), 0);
@@ -525,16 +561,19 @@ fn test_set_avatar_never_accepts_a_part_neither_free_nor_owned() {
     // Paid and not owned, in each position
     assert_eq!(error_of(s.set_avatar(look(array![2, 0, 0, 0]))), not_owned);
     assert_eq!(error_of(s.set_avatar(look(array![0, 5, 0, 0]))), not_owned);
-    assert_eq!(error_of(s.set_avatar(look(array![1, 1, 127, 1]))), not_owned);
+    assert_eq!(error_of(s.set_avatar(look(array![1, 1, 255, 1]))), not_owned);
     // Never listed
     assert_eq!(error_of(s.set_avatar(look(array![0, 0, 0, 2]))), not_owned);
-    // A bit above the layout
-    assert_eq!(error_of(s.set_avatar(0x10000)), 'Avatar: invalid look');
+    // A part past the parts in use, another version
+    let invalid = 'Avatar: invalid look';
+    assert_eq!(error_of(s.set_avatar(look(array![0, 0, 0, 0, 1]))), invalid);
+    assert_eq!(error_of(s.set_avatar(2)), invalid);
+    assert_eq!(error_of(s.set_avatar(0x0100)), invalid);
     stop(w);
     // Owned: accepted
-    buy(w, PLAYER(), 2, 127);
+    buy(w, PLAYER(), 2, 255);
     buy(w, PLAYER(), 0, 2);
-    let value = look(array![2, 1, 127, 0]);
+    let value = look(array![2, 1, 255, 0]);
     set(w, PLAYER(), value);
     assert_eq!(w.avatar.avatar(PLAYER().into()), value);
     // Another player does not own them
@@ -559,10 +598,12 @@ fn test_withdrawn_items_owned_stay_usable_free_ones_do_not() {
     as_player(w, PLAYER());
     assert_eq!(error_of(safe(w).set_avatar(look(array![1, 0, 0, 0]))), 'Avatar: item not owned');
     stop(w);
-    // A free item made paid: no longer selectable without a purchase
+    // A free item made paid: no longer selectable without a purchase; a stored look keeps it
+    set(w, PLAYER(), look(array![0, 0, 0, 1]));
     as_owner(w);
     w.avatar.set_item(3, 1, 25, 0, 0);
     stop(w);
+    assert_eq!(w.avatar.avatar(PLAYER().into()), look(array![0, 0, 0, 1]));
     as_player(w, PLAYER());
     assert_eq!(error_of(safe(w).set_avatar(look(array![0, 0, 0, 1]))), 'Avatar: item not owned');
     stop(w);
@@ -570,25 +611,25 @@ fn test_withdrawn_items_owned_stay_usable_free_ones_do_not() {
 
 #[test]
 #[feature("safe_dispatcher")]
-fn test_set_avatar_needs_a_layout_and_a_grown_layout_keeps_old_looks() {
+fn test_set_avatar_needs_parts_and_more_parts_keep_old_looks() {
     let w = bare();
     as_player(w, PLAYER());
-    assert_eq!(error_of(safe(w).set_avatar(1)), 'Avatar: no layout');
-    // 0 needs nothing
+    // No parts: only the version, whose items (none) are all usable, and 0
+    assert_eq!(error_of(safe(w).set_avatar(0x0101)), 'Avatar: invalid look');
     w.avatar.set_avatar(0);
     stop(w);
     as_owner(w);
-    w.avatar.set_layout(array![3].span());
+    w.avatar.set_parts(1);
     w.avatar.set_item(0, 1, 0, 0, 0);
     stop(w);
-    set(w, PLAYER(), 1);
-    // A new category: an old look reads item 0 there, which the owner lists free
+    set(w, PLAYER(), look(array![1]));
+    // A new part: an old look reads item 0 there, which the owner lists free
     as_owner(w);
-    w.avatar.set_layout(array![3, 2].span());
+    w.avatar.set_parts(2);
     w.avatar.set_item(1, 0, 0, 0, 0);
     stop(w);
-    assert_eq!(look_ids(w.avatar.avatar(PLAYER().into()), array![3, 2].span()), Some(array![1, 0]));
-    set(w, PLAYER(), 1);
+    assert_eq!(look_ids(w.avatar.avatar(PLAYER().into()), 2), Some(array![1, 0]));
+    set(w, PLAYER(), look(array![1]));
 }
 
 #[test]
@@ -597,18 +638,18 @@ fn test_set_avatar_needs_a_layout_and_a_grown_layout_keeps_old_looks() {
 fn test_fuzz_buys_and_sets(seed: u64) {
     let w = world();
     give(w, PLAYER(), 150);
-    let paid: Array<(u8, u8, u64)> = array![(0, 2, 30), (1, 5, 50), (2, 127, 100)];
+    let paid: Array<(u8, u8, u64)> = array![(0, 2, 30), (1, 5, 50), (2, 255, 100)];
     let mut balance: u64 = 150;
     let mut owned: Array<bool> = array![false, false, false];
     let mut x = seed;
     for _ in 0..6_u8 {
         let pick: u32 = (x % 3).try_into().unwrap();
         x = x / 3 + 7919;
-        let (category, id, price) = *paid.at(pick);
+        let (part, id, price) = *paid.at(pick);
         let mine = *owned.at(pick);
         let safe_avatar = safe(w);
         as_player(w, PLAYER());
-        let result = safe_avatar.buy_avatar_item(category, id);
+        let result = safe_avatar.buy_avatar_item(part, id);
         stop(w);
         if !mine && balance >= price {
             assert!(result.is_ok());
@@ -623,103 +664,17 @@ fn test_fuzz_buys_and_sets(seed: u64) {
         }
         assert_eq!(cobbles_of(w, PLAYER()), balance);
     }
-    // The avatar of everything owned is accepted
-    let mut ids: Array<u8> = array![0, 0, 0, 0];
-    if *owned.at(0) {
-        ids = array![2, 0, 0, 0];
+    // The avatar of everything owned is accepted, anything else refused
+    let mut ids: Array<u8> = array![];
+    let mut i = 0;
+    for (part, id, _) in paid {
+        assert_eq!(part, i.try_into().unwrap());
+        ids.append(if *owned.at(i) {
+            id
+        } else {
+            1
+        });
+        i += 1;
     }
     set(w, PLAYER(), look(ids));
-}
-
-// Gas (the test profile; `get_available_gas` around the one call, as `tests/gas.cairo`). The
-// figures are printed for the pull request; each ceiling is the first measure on the VPS + 5 %,
-// rounded up (`avatar-chain.md`, "As built": above the design's estimates).
-
-/// A layout of ten categories of 7 bits, every item 0 to 3 free and item 4 at 50 in each; `PLAYER`
-/// owns item 4 of every category when `owned`.
-fn ten(owned: bool) -> World {
-    let w = bare();
-    let mut widths: Array<u8> = array![];
-    for _ in 0..10_u8 {
-        widths.append(7);
-    }
-    as_owner(w);
-    w.avatar.set_layout(widths.span());
-    w.avatar.set_price_bounds(20, 100);
-    for category in 0..10_u8 {
-        for id in 0..5_u8 {
-            w.avatar.set_item(category, id, if id == 4 {
-                50
-            } else {
-                0
-            }, 0, 0);
-        }
-    }
-    stop(w);
-    if owned {
-        give(w, PLAYER(), 500);
-        for category in 0..10_u8 {
-            buy(w, PLAYER(), category, 4);
-        }
-    }
-    w
-}
-
-fn ten_look(id: u8) -> felt252 {
-    let mut ids: Array<u8> = array![];
-    let mut widths: Array<u8> = array![];
-    for _ in 0..10_u8 {
-        ids.append(id);
-        widths.append(7);
-    }
-    look_of(ids.span(), widths.span())
-}
-
-#[test]
-fn test_gas_buy_avatar_item() {
-    let w = ten(false);
-    give(w, PLAYER(), 500);
-    as_player(w, PLAYER());
-    let before = get_available_gas();
-    w.avatar.buy_avatar_item(3, 4);
-    let gas = before - get_available_gas();
-    stop(w);
-    println!("gas: buy_avatar_item: {}", gas);
-    assert(gas <= 1220000, 'Avatar: gas of a buy');
-}
-
-#[test]
-fn test_gas_set_avatar_ten_free_parts() {
-    let w = ten(false);
-    as_player(w, PLAYER());
-    let before = get_available_gas();
-    w.avatar.set_avatar(ten_look(3));
-    let gas = before - get_available_gas();
-    stop(w);
-    println!("gas: set_avatar, 10 free parts: {}", gas);
-    assert(gas <= 3100000, 'Avatar: gas of 10 free');
-}
-
-#[test]
-fn test_gas_set_avatar_ten_owned_parts() {
-    let w = ten(true);
-    as_player(w, PLAYER());
-    let before = get_available_gas();
-    w.avatar.set_avatar(ten_look(4));
-    let gas = before - get_available_gas();
-    stop(w);
-    println!("gas: set_avatar, 10 owned parts: {}", gas);
-    assert(gas <= 4110000, 'Avatar: gas of 10 owned');
-}
-
-#[test]
-fn test_gas_set_item() {
-    let w = ten(false);
-    as_owner(w);
-    let before = get_available_gas();
-    w.avatar.set_item(9, 100, 80, 10, 5000);
-    let gas = before - get_available_gas();
-    stop(w);
-    println!("gas: set_item: {}", gas);
-    assert(gas <= 1070000, 'Avatar: gas of set_item');
 }

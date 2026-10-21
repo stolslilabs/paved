@@ -1,197 +1,134 @@
-# The avatar on chain and its cosmetics (#627, design)
+# The avatar on chain and its cosmetics (#627)
 
-Track CORE's proposal for the PM and the owner, before any Cairo is written. The owner's decisions of 2026-10-20 bind: **the
-avatar a player chooses is stored on chain** (the same on every device, visible to others later), and **avatar parts are bought
-with Cobbles**. Everything else here is a proposal; section 7 lists what the owner decides before the paid parts are built.
-
-The avatar's format comes from AVATAR-LOOK (#626, PR 1), not posted yet. This design stores the avatar as one `felt252` and
-reads it through a layout table (categories, field widths) that is a parameter, so #626's format slots in without a storage
-migration (section 3).
-
-Every gas and size figure below is an **estimate**, from the measured unit costs of `cobbles-v1.md` (a storage read 76,840 L2
-gas, a write 118,210, an event about 32,800) and the measured tile-skin calls (`buy_skin` 664,724, `set_skins` 456,713,
-`set_skin_price` 302,510). The implementation measures each one.
-
-## As built (skeleton, before the owner's values)
-
-The Overseer's ruling (2026-10-20): a separate `Avatar` system, the Cobbles debited through one `Setup` entry
-(`spend_cobbles`), as Story's precedent; the free base set, the price bounds and the limits are **parameters the owner
-sets**, never hard-coded; the pull request stays a draft until the owner's three answers (section 7, points 1 to 3).
-
-- **Code**: `contracts/src/systems/avatar.cairo` (`Avatar`), `ISetupSpend` in `contracts/src/systems/setup.cairo`, tests
-  `contracts/src/tests/avatar.cairo`; `packages/chain/src/avatar.ts` (packing, views, writes in `writer.ts`), the indexer's
-  `CobblesSpent` (schema 17), the data hooks `packages/app/src/data/avatar.ts`.
-- **Nothing is hard-coded but the packing.** The layout (`set_layout`: the width of each category, 1 to 7 bits, 1 to 30
-  categories, which may only grow), the price bounds (`set_price_bounds`), each item's price (0: free, the base set),
-  `supply` and `until` (`set_item`) are the owner's calls. Until the owner sets bounds, only free items can be listed.
-- **Placeholders** (no value is deployed: `scripts/deploy.sh` does not deploy `Avatar` yet, and sets nothing): the tests'
-  layout (four categories of 3, 4, 7 and 2 bits; ten of 7 bits for the gas), bounds (20 to 100) and catalogue (items 0
-  and 1 free, a few paid at 30 to 100) are the tests' own. The owner's free set, range and limits, and #626's layout, go into
-  the deployment once given.
-- **Departures from the proposal**: the layout is owner-set storage, not a constant table (the format of #626 PR 1 is not
-  posted; owner-set, it needs no class upgrade, and append-only, it keeps every stored look valid). `withdraw_item` of a
-  free item stops it being free (a player who does not own it can no longer select it); a stored avatar is never re-checked.
-  `items(category)` returns a category's whole catalogue in one call for the creator. `AvatarItemBought` carries `sold`.
-  `set_avatar(0)` clears the avatar, with no check.
+The owner's decisions of 2026-10-20 bind: **the avatar a player chooses is stored on chain** (the same on every device,
+visible to others later), and **avatar parts are bought with Cobbles**. Their answers to the design's open points (#627,
+2026-10-20): **items 0 to 3 of every part are free**, the rest paid; **paid items cost 20 to 100 Cobbles each**, the bounds
+and prices owner-set and rebalanced later; **rare items are seasonal** (summer, autumn, winter, spring: on sale during their
+season, with an end `until`), no quantity limit at launch, the mechanism kept for events. The Overseer's ruling: a separate
+`Avatar` system, the Cobbles debited through one `Setup` entry, `Setup` under its CASM review point (P-64, 50 %), no
+hard-coded prices. No deployment in this task: the owner lists the paid items with their art and seasons later.
 
 ## 1. Summary
 
-- **A new system, `Avatar`**, holds the catalogue of avatar parts, what each player owns, and each player's avatar. It is
-  ownable and upgradeable like `Story` and `Setup`.
-- **The Cobbles stay on `Setup`'s one ledger** (`accounts`). `Avatar` debits them through one new `Setup` entry point,
-  `spend_cobbles`, allowed to one address the owner sets (`Avatar`). No second ledger, no transfer.
-- **Why not in `Setup`**: `Setup` is at **39,861 CASM felts, 48.7 %** of the 81,920 cap (`story-mode.md`). The catalogue,
-  ownership and avatar code is about 3,000 to 4,000 felts by the tile skins' measure (+4,720 for part 3): `Setup` would reach
-  about 53 %, past P-64's 50 % review point, and the design would then have to include the `Shop` split. In its own system,
-  `Setup` grows only by `spend_cobbles` and its setter: about **+600 to +900 felts, 49.4 % to 49.7 %**, under 50 %.
-- **The calls**, after the tile skins: `set_item(category, id, ...)` (owner), `buy_avatar_item(category, id)`,
-  `set_avatar(look)`, and the views `item`, `owned`, `avatar(player_id)`.
+- **A new system, `Avatar`**, keeps each player's avatar and owns the catalogue through a component. It is ownable and
+  upgradeable like `Story` and `Setup`.
+- **The Cobbles stay on `Setup`'s one ledger** (`accounts`). `Avatar` debits them through `Setup`'s existing
+  `ISetupSpend::spend_cobbles` (#639), as an allowlisted spender (`Setup.set_spender(Avatar, true)`), with the reason
+  `'AVATAR_ITEM'`. No second ledger, no transfer, and **`Setup` is unchanged**: its class is the same to the felt as main's.
+- **The avatar's value is AVATAR-LOOK's format** (#626 PR 1, merged as #665, `packages/renderer/src/core/avatar/avatar-format.ts`):
+  one `u128`, byte 0 the format's version (1), byte `p + 1` the item id of part `p` (0 skin, 1 hair colour, 2 eyes,
+  3 eyebrows, 4 mouth, 5 hair, 6 beard, 7 headwear, 8 accessory, 9 background), bytes 11 to 15 reserved (0). The look the
+  renderer's `encodeAvatar` returns is the value `set_avatar` takes, and `decodeAvatar` reads what `avatar` returns.
+- **The calls**: `set_parts`, `set_price_bounds`, `set_item`, `withdraw_item`, `set_setup` (owner); `buy_avatar_item`,
+  `set_avatar` (any account, for itself); the views `avatar`, `owned`, `item`, `items`, `parts`, `price_bounds`, `setup`.
 
-## 2. The catalogue and the ownership
+## 2. Scopes (the owner's credo, #639 point 5: more components with smaller scopes)
 
-An item is a variant `id` of a part `category` (skin tone, eyes, eyebrows, mouth, hair, beard, headwear, accessory,
-background, as #626 lists them).
-
-| Storage (`Avatar`) | Key | Value | Written by |
+| Piece | Kind | Its one scope | Storage |
 |---|---|---|---|
-| `items` | `(category: u8, id: u8)` | one `felt252`: `state` [0, 8) (0 not in the catalogue, 1 listed, 2 withdrawn from sale), `cobbles` u16 [8, 24) (0: free), `sold` u32 [32, 64), `supply` u32 [64, 96) (0: no limit), `until` u64 [128, 192) (0: no end) | `set_item`, `buy_avatar_item` (`sold`) |
-| `owned` | `(player_id: felt252, category: u8)` | `u128`: bit `id` set when the player bought item `id` (ids 0 to 127) | `buy_avatar_item` |
-| `avatars` | `player_id: felt252` | the player's look, one `felt252` (0: none set, the client shows its default) | `set_avatar` |
-| `spender` (`Setup`) | | the one `ContractAddress` allowed to call `spend_cobbles` (zero: nobody) | `set_spender` (owner) |
+| `avatar::look` (`contracts/src/avatar/look.cairo`) | pure library | AVATAR-LOOK's format: a look's ids, a look from ids | none |
+| `avatar::item` (`contracts/src/avatar/item.cairo`) | pure library | an item's settings and their packing in one slot | none |
+| `CatalogueComponent` (`contracts/src/avatar/catalogue.cairo`) | component | the catalogue and what each player owns: price bounds, list, withdraw, record a purchase, "may use" | `price_min`, `price_max`, `items`, `item_ends`, `owned` |
+| `Avatar` (`contracts/src/systems/avatar.cairo`) | system | the owner gate, the parts in use, each player's look, and the payment through `Setup` | `setup`, `parts`, `avatars` |
 
-- **Free items** are listed with `cobbles` 0: every player may use them and nobody buys them. They are the base set (7, point
-  1).
-- **`sold`, `supply` and `until`** exist so that a rare item limited in quantity or in time (7, point 3) needs no new storage
-  later; with `supply` 0 and `until` 0 an item is on sale for as long as it is listed. The same slot is read and written once
-  per purchase, so they cost no extra storage access.
-- **What is bought stays owned**, as the tile skins: withdrawing an item or changing its price stops or changes new sales
-  only; nothing is refunded.
+The component never moves Cobbles and never checks who calls: the system gates the owner's calls, checks a part against the
+parts in use, and pays a purchase on `Setup` in the same transaction. Another system that sells cosmetics (a frame, a banner)
+can embed the same component with its own payment.
 
-## 3. The avatar's value and the format of #626
+## 3. The catalogue and the ownership
 
-`set_avatar(look: felt252)` stores `look` as given. The contract reads it through a **layout**: for each category its bit
-offset and its width (at most 7 bits, so ids 0 to 127, one `u128` of ownership per category). The layout is a constant table
-in `Avatar`'s code, filled from #626 PR 1's format. Until then the placeholder is **one byte per category, category `c` in
-bits [8c, 8c + 7)**, ten categories.
-
-- If #626's format differs, only the table changes, before the first deployment of `Avatar`: nothing is stored yet, so there
-  is no migration. After deployment, a new category goes in bits the stored values leave at 0 (read as "item 0", which the
-  owner lists as free, 7, point 1): old avatars stay valid with no rewrite.
-- `set_avatar` refuses a `look` with a bit set outside the layout (`'Avatar: invalid look'`), and an item not in the catalogue
-  (`state` 0).
-
-## 4. The calls
-
-| Call | Who | Checks | Effects | Event | Estimate |
-|---|---|---|---|---|---:|
-| `set_item(category, id, cobbles, supply, until)` | owner | category in the layout, `id` < 128, `cobbles` 0 or within the bounds (7, point 2) | the item listed (or relisted), `sold` kept | `AvatarItemListed` | 0.3M |
-| `withdraw_item(category, id)` | owner | listed | `state` 2 | `AvatarItemListed` (state 2) | 0.3M |
-| `buy_avatar_item(category, id)` | the player, for itself | listed, `cobbles` != 0, not owned, `sold` < `supply` (if set), block time < `until` (if set) | `Setup.spend_cobbles` (balance >= price, debited), owned bit set, `sold` + 1 | `AvatarItemBought` (and `Setup`'s `CobblesSpent`) | 0.9M to 1.1M |
-| `set_avatar(look)` | the player, for itself | per category: the item listed and free (`cobbles` 0), or owned | `avatars` written | `AvatarSet` | 1.0M to 1.6M (10 categories) |
-| `avatar(player_id) -> felt252`, `item(category, id) -> Item`, `owned(player_id, category) -> u128` | anyone | | | | view |
-| `Setup.spend_cobbles(player_id, cobbles, kind, id) -> u64` | `spender` only | `cobbles` != 0, balance >= `cobbles` | the balance debited | `CobblesSpent` | in `buy_avatar_item` |
-| `Setup.set_spender(spender)` | owner | | | `SpenderSet` | 0.3M |
-
-- **`set_avatar`'s cost** is one item read per category (10 reads, about 0.77M), one ownership read for each paid part, one
-  write and one event. A cheaper variant keeps a "free set" word per category (one `u128` maintained by `set_item`) and reads
-  the items not at all: same number of reads, smaller slots; the implementation measures both if the first exceeds 1.5M.
-- **A free item later made paid**: an avatar already stored keeps it (`set_avatar` checks at the time of the call only); the
-  player must buy it to select it again. The tile skins have no such case; flagged for the owner (7, point 4).
-- **Order of checks and effects**: all checks, then `spend_cobbles`, then `Avatar`'s writes; `spend_cobbles` reverts the whole
-  purchase on a short balance. `Avatar` is the only spender and calls only `Setup`, which calls nothing back.
-
-## 5. Events
-
-| Contract | Event | Keys | Data |
+| Storage | Key | Value | Written by |
 |---|---|---|---|
-| `Avatar` | `AvatarItemListed` | `category`, `id` | `state`, `cobbles`, `supply`, `until` |
-| `Avatar` | `AvatarItemBought` | `player_id` | `category`, `id`, `cobbles`, `balance` (the Cobbles after it) |
-| `Avatar` | `AvatarSet` | `player_id` | `look` |
-| `Setup` | `CobblesSpent` | `player_id` | `kind` (1: an avatar item), `id` (`(category << 8) \| id`), `cobbles`, `balance` |
-| `Setup` | `SpenderSet` | | `spender` |
+| `items` | `(part: u8, id: u8)` | one `felt252`: `state` [0, 8) (0 never listed, 1 listed, 2 withdrawn), `cobbles` u16 [8, 24) (0: free), `sold` u32 [32, 64), `supply` u32 [64, 96) (0: no limit), `until` u64 [128, 192) (0: no end) | `set_item`, `withdraw_item`, `buy_avatar_item` (`sold`) |
+| `item_ends` | `part` | `u16`: one more than the highest id ever listed (the length of `items(part)`) | `set_item` |
+| `owned` | `(player_id, part, half)` | `u128`: bit `id % 128` of half `id / 128`, set when the player bought item `id` (ids 0 to 255) | `buy_avatar_item` |
+| `price_min`, `price_max` | | the bounds of a paid item's price (0, 0: not set, only free items can be listed) | `set_price_bounds` |
+| `parts` (`Avatar`) | | the parts in use, 1 to 15, never fewer | `set_parts` |
+| `avatars` (`Avatar`) | `player_id` | the player's look, `u128` (0: none set, the client draws its default) | `set_avatar` |
 
-`CobblesSpent` keeps the indexer's ledger whole from `Setup`'s events alone, as `CobblesClaimed`, `PackBought` and `SkinBought`
-do; `AvatarItemBought` repeats the balance so a client reading `Avatar` alone needs no join.
+- **Free items** are listed with `cobbles` 0: every player may use them and nobody buys them (the base set: items 0 to 3).
+- **Seasonal items** are listed with `until` the end of their season; the owner lists a season's items when it starts. A start
+  time (`from`) is not built: listing at the season's start does the same at no cost. If the owner wants to schedule a
+  season ahead, `from` fits in the item slot's free bits [96, 128) with no migration.
+- **`supply`** (a quantity limit) is built and tested but not used at launch, kept for events.
+- **What is bought stays owned**: withdrawing an item or changing its price stops or changes new sales only; nothing is
+  refunded. A seasonal item bought stays usable after its season.
+
+## 4. The look and the parts in use
+
+`set_avatar(look)` stores `look` as given, after these checks: 0 clears the avatar with no check; any other must have the
+version 1 in byte 0 and no byte set past the parts in use (`'Avatar: invalid look'`), and each part's item must be listed and
+free, or owned (`'Avatar: item not owned'`).
+
+- **The parts in use only grow** (`set_parts`, `'Avatar: invalid parts'` otherwise): a new part takes the next byte, which an
+  older look leaves at 0, read as item 0, the free default of every part. A stored look keeps its meaning with no rewrite.
+- **A wider id or another packing is a new version** of the format: a class upgrade then reads both.
+- **A free item later made paid**: a stored avatar keeps it (`set_avatar` checks at the time of the call only); the player
+  must buy it to select it again. A withdrawn free item is no longer free.
+
+## 5. The calls and their events
+
+| Call | Who | Checks | Effects | Event |
+|---|---|---|---|---|
+| `set_parts(parts)` | owner | 1 to 15, not fewer than now | `parts` | `PartsSet` |
+| `set_price_bounds(min, max)` | owner | 1 <= `min` <= `max` | the bounds | `PriceBoundsSet` |
+| `set_item(part, id, cobbles, supply, until)` | owner | `part` in use, `cobbles` 0 or within the bounds | the item listed (or relisted), `sold` kept | `AvatarItemListed` |
+| `withdraw_item(part, id)` | owner | listed | `state` 2 | `AvatarItemListed` (state 2) |
+| `buy_avatar_item(part, id)` | the player, for itself | listed, `cobbles` != 0, `sold` < `supply` (if set), block time < `until` (if set), not owned | owned bit set, `sold` + 1, then `Setup.spend_cobbles` (reverts the whole purchase on a short balance) | `AvatarItemBought`; `Setup`'s `CobblesSpent` |
+| `set_avatar(look)` | the player, for itself | section 4 | `avatars` written | `AvatarSet` |
+| `set_setup(setup)` | owner | not zero | `setup` | `SetupSet` |
+
+`AvatarItemBought` carries `player_id` (key), `part`, `id`, `cobbles`, `sold` and `balance` (the Cobbles after it), so a client
+reading `Avatar` alone needs no join; `CobblesSpent` (`spender` Avatar, `reason` `'AVATAR_ITEM'`) keeps the indexer's ledger
+whole from `Setup`'s events alone, as it does for the matchmaker and the village.
 
 ## 6. Client, deployment, tests
 
-- **`@paved/chain`**: the reader's views (`avatar`, `item`, `owned`) and the writer's `buyAvatarItem` and `setAvatar`, after
-  `buySkin` and `setSkins` (`packages/chain/src/writer.ts`); the decoding of `look` by #626's layout, shared with the creator.
-- **The indexer**: `AvatarItemListed` (the catalogue), `AvatarItemBought`, `AvatarSet` (each player's avatar, for the menus
-  and later the leagues), `CobblesSpent` in the Cobbles ledger.
-- **Data hooks** in `packages/app/src/data`: the catalogue with the player's ownership (the creator, #626 PR 2) and any
-  player's avatar (the menus, #624), with their fakes.
-- **Deployment** (`scripts/deploy.sh`): declare and deploy `Avatar`, `Setup.set_spender(Avatar)`, the base set and the
-  catalogue's prices in the definitions' multicall, read back; the ABIs and `contracts/deployments` by the ABI PR pattern.
-- **Tests** (snforge, `paved::tests::avatar::`, under the 15 GiB cap): the packing, the bounds, a purchase once and never
-  twice, Cobbles never below zero, `set_avatar` never accepting a part neither free nor owned, the layout's out-of-range bits,
-  `supply` and `until`, `spend_cobbles` refused to anyone but the spender, a fuzz of buys and sets.
-- **Audit** (in the PR): correctness (the layout decoding, the bit arithmetic, `sold` against `supply`) and security (the
-  spender's access to every player's Cobbles, the owner's setters, the upgrade path).
+- **`@paved/chain`** (`packages/chain/src/avatar.ts`, `views.ts`, `writer.ts`): the views `avatarParts`, `avatarPriceBounds`,
+  `avatarItem`, `avatarItems`, `ownedAvatarItems` (a u256) and `avatar` on `RpcGameViews` and `FakeGameViews`; the writes
+  `buyAvatarItem` (the price read again inside the send: `AvatarPriceChangedError`) and `setAvatar`, their typed refusals
+  (`AvatarRefusedError`), the session policies; `lookOf`, `lookIds` and `canSetLook`, the contract's rules in TypeScript. An
+  `Avatar` address is optional in a deployment.
+- **The indexer**: nothing new. `CobblesSpent` is already decoded into the Cobbles ledger (since #639); `Avatar`'s own events
+  are not indexed yet (the creator and the menus read the views).
+- **Data hooks** (`packages/app/src/data/avatar.ts`): `useAvatar(player)` (the menus, #624: the look and its ids),
+  `useAvatarCatalogue(player)` (the creator, #626 PR 2: the parts, the bounds, every part's items, the player's owned bitmaps,
+  the look and the balance) and `useAvatarWrites(player)` (`buy`, `save`, receipts into the cache). The creator turns a look
+  into the renderer's `Avatar` with `decodeAvatar`, and back with `encodeAvatar`. The mock data source has no `Avatar`: the
+  hooks answer null there.
+- **Deployment** (`scripts/deploy.sh`, not run in this task): declare and deploy `Avatar(owner, Setup)`,
+  `Setup.set_spender(Avatar, true)` in the wiring, then the defaults (`FRESH_AVATAR_*`: ten parts, bounds 20 to 100, items 0
+  to 3 of every part free) in one multicall, read back. No paid item is listed by the script.
+- **Tests** (snforge): `paved::tests::avatar::` (the format's vectors, shared with `packages/chain/test/avatar.test.ts`, the
+  parts, the bounds, a purchase once and never twice, Cobbles never below zero, `set_avatar` never accepting a part neither
+  free nor owned, the version and the bytes past the parts, `supply` and `until`, only an allowlisted spender spends, a fuzz
+  of buys and sets); the gas in `contracts/tests/gas.cairo`, z24 to z28.
 
-## 7. Open points for the owner
+## 7. Size and gas
 
-1. **The free base set.** Proposed: in every category, items 0 to 3 free (item 0 the "none" of the optional parts: beard,
-   headwear, accessory), so every player can make a distinct avatar at no cost; everything else paid.
-2. **The price range of the paid items.** Proposed: **20 to 100 Cobbles** (`AVATAR_PRICE_MIN`, `AVATAR_PRICE_MAX`), below
-   and up to the tile skins' 50 to 100, since an avatar has about ten parts against one tile skin per plan; for example 20 to
-   40 for eyes, mouths and colours, 50 to 100 for headwear and scene backgrounds. The storage holds a `u16`, so a wider range
-   (rare items above 100) needs no migration.
-3. **Rare items, limited in time or in quantity?** Both are possible with the proposed storage (`until`, `supply`) at no extra
-   cost per purchase. Proposed: build both, list none limited at the first deployment.
-4. **A free item later made paid**: proposed as in section 4 (stored avatars keep it, selecting it again needs a purchase).
-5. **For the PM: the host system.** Proposed: the new `Avatar` system with `Setup.spend_cobbles` (section 1). The alternative,
-   the avatar in `Setup` with P-64's `Shop` split, moves packs and skins too and is a larger change.
+- **CASM** (`scripts/class-sizes.sh`, release, scarb 2.20.1, VPS, 2026-10-21): `Avatar` 4,027 Sierra, 10,091 CASM felts,
+  12.3 % of the Starknet cap, 63,637 under the P-44 cap of a class (73,728). `Setup` 43,431 (53.0 %), unchanged from main.
+  The hand-over's version (one class, a layout of widths) was 11,318.
+- **Gas** (`contracts/tests/gas.cairo`, the test profile): measured in CI, see `docs/measures/baseline.md`, "After
+  AVATAR-CHAIN".
 
-## Hand-over (2026-10-20, to the Mac)
+## 8. Audit (correctness and security, the Cobbles path)
 
-The owner moved the Cairo work of this task to the Mac. The branch holds the work in progress (commit "WIP AVATAR-CHAIN");
-no pull request is open.
-
-**Done.**
-
-- The owner's answers (2026-10-20, #627): items 0 to 3 of every category free; paid items 20 to 100 Cobbles, rebalanced later,
-  bounds and prices owner-set; rare items seasonal (listed for their season with `until`), no quantity limit at launch, the
-  mechanism kept. The Overseer's ruling: a separate `Avatar` system debiting the Cobbles through one `Setup` entry.
-- `contracts/src/systems/avatar.cairo`: the owner-set layout (append-only), price bounds and catalogue (`set_item`,
-  `withdraw_item`), `buy_avatar_item`, `set_avatar`, the views `avatar`, `owned`, `item`, `items`, `layout`, `price_bounds`,
-  `setup`, and their events.
-- `Setup.spend_cobbles` (`ISetupSpend`) with `CobblesSpent`. **Changed after the last measure**: it was first gated by a
-  dedicated spender (`set_spender`, `spender`, `SpenderSet`), which put `Setup` at 41,126 CASM felts, **50.2 %**, past P-64's
-  50 % review point; it is now gated by `Setup`'s reporter allowlist, as `credit_story` is for `Story` (Avatar is
-  allowlisted by `set_reporter`). That version is **not built or measured yet** (expected about -450 felts, under 50 %).
-- Measured on the VPS before that change (test profile, `get_available_gas` around the call): `set_item` 1,018,235;
-  `buy_avatar_item` 1,154,753; `set_avatar` with 10 free parts 2,677,046, with 10 owned parts 3,640,176 (above the design's
-  estimates; the ceilings in `src/tests/avatar.cairo` are these + 5 %). `Avatar` 11,318 CASM felts (13.8 %). The scoped
-  `snforge test paved::tests::avatar::` passed 22 of 22 with the spender version; it peaked at 11.5 to 14.3 GB VmPeak and
-  7.9 to 8.9 GB RSS.
-- `@paved/chain`: `Avatar` in the ABIs, the deployment (optional address), the views (`RpcGameViews`, `FakeGameViews`), the
-  writes `buyAvatarItem` and `setAvatar` with `AvatarRefusedError` and `AvatarPriceChangedError`, the session policies;
-  `packages/chain/src/avatar.ts` (the look's packing). The indexer decodes `CobblesSpent` into the Cobbles ledger (schema
-  17; its tests passed). The app's hooks `useAvatar`, `useAvatarCatalogue`, `useAvatarWrites` (`packages/app/src/data/avatar.ts`).
-- `scripts/deploy.sh`: declares and deploys `Avatar`, allowlists it on `Setup`, and sets the owner's defaults
-  (`FRESH_AVATAR_*`: bounds 20 to 100, items 0 to 3 of each category free), read back; `scripts/test-deploy-url.sh` counts
-  updated to 10 classes.
-
-**Placeholders.**
-
-- `FRESH_AVATAR_LAYOUT` in `deploy.sh` (nine categories of 7 bits) until AVATAR-LOOK (#626 PR 1) states the format: a layout
-  on chain only grows, so it must be #626's before any deployment. No paid item is listed by the script (the owner lists them
-  with their art and seasons). No deployment now.
-- The tests' layout, bounds and catalogue in `src/tests/avatar.cairo` and the client tests are their own.
-
-**Next.**
-
-1. Regenerate `contracts/abis/Setup.json` (`scripts/abis.sh`: the committed one still has `set_spender`, `spender` and
-   `SpenderSet`), then run `snforge test paved::tests::avatar::` and `scripts/class-sizes.sh` on the Mac: `Setup` under 50 %.
-2. Add `paved::tests::avatar` to a `COVERAGE_GROUPS` group of `scripts/measure.sh` (`measure.sh check-groups` fails without
-   it), and decide whether its `test_gas_*` tests stay there or move to `contracts/tests/gas.cairo`.
-3. The pre-push check of the WIP commit failed on **format** and **guard tests** (not investigated; the guard failure includes
-   the coverage group above). Run `check-run --lock -- bun run check`; the `@paved/chain` and `@paved/app` tests of this
-   branch were not run yet.
-4. The mock data source (`packages/app/src/data/mock/`): Sepolia's classes have no `Avatar`, so the hooks answer null there;
-   add the avatar reads and writes to `MockLedger` if the creator (#626 PR 2) must work on mock data.
-5. Seasonal items: the season calendar is the client's (listing a season's items with `until` its end is the owner's call
-   at each season); say in the PR whether a start time (`from`) is wanted later.
-6. The audit (correctness and security) in the PR: the reporter allowlist's trust (a reporter can already report progress
-   for any player), `set_layout`'s append-only rule, `sold` against `supply`, the bit arithmetic of the look.
+- **Who spends whose Cobbles.** `Setup.spend_cobbles` trusts an allowlisted spender for whom it debits. `Avatar` debits only
+  its caller (`get_caller_address()` as `player_id`, never an argument), only an item's listed price, and only for an item
+  not already owned: one purchase, one debit. The allowlist is the owner's (`set_spender`); removing `Avatar` stops every
+  purchase (tested) and leaves what is owned. An upgrade of `Avatar` to a class that spends for anyone is the owner's power
+  already (P-42: the owner may replace any class).
+- **Checks, effects, interaction.** `buy_avatar_item` checks everything, writes the owned bit and `sold`, then calls
+  `Setup`, which calls nothing back: no re-entry. A short balance reverts the whole transaction, so nothing is recorded
+  without the debit (tested: the bit, `sold` and the balance unchanged).
+- **Cobbles never below zero**: `Setup` refuses a debit above the balance (`'Setup: not enough cobbles'`); exactly the price
+  takes it to 0 (tested).
+- **Price bounds**: a paid price is within the owner's bounds when listed; narrowing the bounds later keeps the prices listed
+  (the owner relists to change them). A price is a `u16` and `spend_cobbles` takes a `u32`: no truncation.
+- **`sold` against `supply`**: `sold < supply` is checked before `sold + 1`; relisting keeps `sold`, so a lower `supply`
+  closes the sale. `sold` is a `u32`: with no limit, a purchase would revert (never wrap) only after 4,294,967,295 sales.
+- **The bit arithmetic**: an id is a `u8`; its half is `id / 128` (0 or 1) and its bit `2^(id % 128)`, at most `2^127`, within a
+  `u128`. The look is a `u128` read by `DivRem` by 256: no felt or u256 arithmetic, no overflow. `look_of` is test-side only.
+- **The parts in use only grow**, so no stored look gains a byte past the parts; a look's parts are each checked once.
+- **The owner's setters** are gated by `OwnableComponent` (tested for each); `set_setup` refuses zero.

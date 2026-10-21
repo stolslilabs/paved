@@ -86,14 +86,14 @@ export {
 export type { DemolitionOffer, VillageCell, VillageInfo, VillageTile } from "./village";
 export type { SkinChange, SkinViews } from "./skins";
 export {
+  AVATAR_FORMAT_VERSION,
   AVATAR_LISTED,
-  AVATAR_MAX_CATEGORIES,
-  AVATAR_MAX_WIDTH,
+  AVATAR_MAX_ID,
+  AVATAR_MAX_PARTS,
   AVATAR_UNLISTED,
   AVATAR_WITHDRAWN,
   canSetLook,
   isFreeItem,
-  isLayout,
   isOnSale,
   lookIds,
   lookOf,

@@ -74,6 +74,7 @@ COVERAGE_GROUPS=(
   "tests-matchmaker|paved::tests::matchmaker|"
   "tests-owners|paved::tests::owners|"
   "tests-seed|paved::tests::seed|"
+  "tests-avatar|paved::tests::avatar|"
   "tests-story|paved::tests::story|"
   "tests-village|paved::tests::village|"
   "tests-vrf|paved::tests::vrf|"

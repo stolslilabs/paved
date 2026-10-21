@@ -57,6 +57,12 @@ pub mod economy {
     pub mod mean;
 }
 
+pub mod avatar {
+    pub mod catalogue;
+    pub mod item;
+    pub mod look;
+}
+
 pub mod helpers {
     pub mod bitmap;
     pub mod math;

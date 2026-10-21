@@ -714,3 +714,18 @@ Measured on the Mac on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 
 `Setup` is 31,616 CASM felts under the P-44 cap (73,728). After merging main at `b98a6452` (with #639's `ISetupSpend`):
 `Setup` 19,604 Sierra, 43,431 CASM felts, 53.0 % (main 41,179: +2,252), 30,297 under the P-44 cap. `Story` (58,650) and `Challenge` (64,826) are unchanged to the felt:
 they call `Setup` as before, and the XP is credited inside `Setup`'s `report` and `credit_story`.
+
+## After AVATAR-CHAIN (#627)
+
+Measured on the VPS on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 2.20.1 through the machine's shim, under
+`prlimit --as=12884901888`, peak 8,827,316 kB VmPeak, 4,592,776 kB RSS), main `b7a544ef` merged.
+
+| Class | Sierra | CASM | Share of the Starknet cap | Under the P-44 cap (73,728) |
+|---|---:|---:|---:|---:|
+| `Avatar` | 4,027 | 10,091 | 12.3 % | 63,637 |
+
+`Avatar` is a class of its own (`docs/architecture/avatar-chain.md`, section 2): the format and the item are pure libraries,
+the catalogue a component it embeds. `Setup` is unchanged (43,431, 53.0 %): `Avatar` pays through #639's
+`ISetupSpend::spend_cobbles`, so no entry point is added to `Setup`. `Challenge` (64,826) and `Story` (58,650) are unchanged
+to the felt. The hand-over's single-class version (a layout of widths, its own `spend_cobbles` on `Setup`) measured 11,318
+for `Avatar` and put `Setup` at 50.2 %.

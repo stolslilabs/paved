@@ -57,7 +57,7 @@
 #   1. declare the 10 classes; 2. deploy Faucet, PavedToken, MockRouter, Vault (vPAVED), then the pool (one multicall)
 #   and the Vault's dead shares with the owner's stake (one multicall), Economy (its router, pool key and the P-46 configuration in its constructor),
 #   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection, Story(owner, Setup), Avatar(owner, Setup); 3. wire, one multicall of what is
-#   missing: Setup.set_reporter(Challenge), Setup.set_reporter(Story), Setup.set_reporter(Avatar), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
+#   missing: Setup.set_reporter(Challenge), Setup.set_reporter(Story), Setup.set_spender(Avatar), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
 #   quests.md v1 and v2a sets on Setup (quests 1 and 5 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
 #   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the shop
@@ -66,13 +66,13 @@
 #   set_achievement_cobbles x 15, FRESH_QUEST_COBBLES and FRESH_ACHIEVEMENT_COBBLES) that are not there yet, read back through
 #   the views seller, pack, skin_price, quest_cobbles and achievement_cobbles; then Story's campaigns and levels
 #   (FRESH_STORY_CAMPAIGNS, FRESH_STORY_LEVELS: set_campaign, set_level), one multicall of what Story lacks, read back
-#   through its views campaign and level (docs/architecture/story-mode.md, 8); then Avatar's defaults (FRESH_AVATAR_*: set_layout,
+#   through its views campaign and level (docs/architecture/story-mode.md, 8); then Avatar's defaults (FRESH_AVATAR_*: set_parts,
 #   set_price_bounds, set_item for the free base set), one multicall of what Avatar lacks, read back through its views
-#   layout, price_bounds and item (docs/architecture/avatar-chain.md);
+#   parts, price_bounds and item (docs/architecture/avatar-chain.md);
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
 #   MockRouter, Story, Avatar) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
 #   owner() on Economy, Challenge, Setup, Collection, Vault, Story and Avatar, Story's Setup, reporter and levels, Avatar's Setup,
-#   reporter and defaults, the Vault's exit fee, Setup.wiring(), every definition
+#   spender and defaults, the Vault's exit fee, Setup.wiring(), every definition
 #   held, a paid spawn at stake 1 (the Vault's PAVED grows by its margin),
 #   one D-18 build next to the starter, the surrender (a game over reported to Setup: 2 events or more), the token,
 #   claim_tutorial once, pack 1 bought (buy_pack: its USDC through Economy's game split, its cobbles credited); the
@@ -2300,14 +2300,14 @@ FRESH_STORY_LEVELS=(
   "1 11 1578 7,15,6,17,6,4 -"
 )
 # The avatar on chain (#627, docs/architecture/avatar-chain.md): the defaults Avatar's owner sets after the wiring, one multicall
-# of what Avatar lacks, read back through its views layout, price_bounds and item. Every value stays the owner's to change
-# (set_price_bounds, set_item, withdraw_item; set_layout may only add categories). The owner's answers of 2026-10-20 (#627):
-# items 0 to 3 of every category are free (the base set), the rest paid at 20 to 100 Cobbles each (rebalanced later with
-# the economy), rare items seasonal (listed for their season with `until`, no quantity limit at launch). The layout is a
-# PLACEHOLDER until AVATAR-LOOK (#626 PR 1) states the format: the nine parts of #626 (skin tone, eyes, eyebrows, mouth,
-# hair, beard, headwear, accessory, background), 7 bits each; replace it with #626's widths before the fresh deployment,
-# since a layout set on chain only grows. No paid item is listed here: the owner lists them (set_item) with their art.
-FRESH_AVATAR_LAYOUT=(7 7 7 7 7 7 7 7 7)
+# of what Avatar lacks, read back through its views parts, price_bounds and item. Every value stays the owner's to change
+# (set_price_bounds, set_item, withdraw_item; set_parts may only add parts). The owner's answers of 2026-10-20 (#627):
+# items 0 to 3 of every part are free (the base set), the rest paid at 20 to 100 Cobbles each (rebalanced later with
+# the economy), rare items seasonal (listed for their season with `until`, no quantity limit at launch). The parts are
+# AVATAR-LOOK's ten (#626 PR 1, packages/renderer/src/core/avatar/avatar-format.ts: skin, hair colour, eyes, eyebrows,
+# mouth, hair, beard, headwear, accessory, background), one byte each after the format's version. No paid item is listed
+# here: the owner lists them (set_item) with their art and seasons.
+FRESH_AVATAR_PARTS=10
 FRESH_AVATAR_PRICE_MIN=20
 FRESH_AVATAR_PRICE_MAX=100
 FRESH_AVATAR_FREE_IDS=(0 1 2 3)
@@ -2542,8 +2542,8 @@ fresh_wiring_calls() {
   [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $CHALLENGE 1"
   raw="$(call "$SETUP" is_reporter "$STORY")" || return 1
   [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $STORY 1"
-  raw="$(call "$SETUP" is_reporter "$AVATAR")" || return 1
-  [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $AVATAR 1"
+  raw="$(call "$SETUP" is_spender "$AVATAR")" || return 1
+  [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_spender $AVATAR 1"
   raw="$(call "$ECONOMY" addresses)" || return 1
   read -r -a w <<<"$raw"
   felt_eq "${w[4]:-}" "$CHALLENGE" || echo "$ECONOMY set_game $CHALLENGE"
@@ -2623,31 +2623,22 @@ fresh_story_smoke() {
   echo "   Story: setup() is Setup, a reporter of Setup; campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) as specified (views campaign and level)"
 }
 
-# fresh_avatar_calls: the Avatar calls still missing, one spec per line: the layout when the view is not FRESH_AVATAR_LAYOUT
-# (an empty one is set; another one stops the run: a layout only grows, the owner's is kept), the price bounds when no bounds
-# are set, then each free item of every category that is not listed (an item the owner changed since is kept). Fails when a
-# read fails.
+# fresh_avatar_calls: the Avatar calls still missing, one spec per line: the parts when the view is below FRESH_AVATAR_PARTS
+# (more parts set by the owner are kept: they only grow), the price bounds when no bounds are set, then each free item of every
+# part that is not listed (an item the owner changed since is kept). Fails when a read fails.
 fresh_avatar_calls() {
-  local raw want category id
-  want="${#FRESH_AVATAR_LAYOUT[@]} ${FRESH_AVATAR_LAYOUT[*]}"
-  raw="$(call "$AVATAR" layout)" || return 1
-  # shellcheck disable=SC2086 # the view's felts, one argument each
-  raw="$(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $raw)"
-  if [[ "$raw" == 0 ]]; then
-    echo "$AVATAR set_layout $want"
-  elif [[ "$raw" != "$want" ]]; then
-    echo "layout $raw, not $want" >&2
-    return 1
-  fi
+  local raw part id
+  raw="$(call "$AVATAR" parts)" || return 1
+  (( $(hex_int "$raw") >= FRESH_AVATAR_PARTS )) || echo "$AVATAR set_parts $FRESH_AVATAR_PARTS"
   raw="$(call "$AVATAR" price_bounds)" || return 1
   # shellcheck disable=SC2086 # the view's felts, one argument each
   [[ "$(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $raw)" != "0 0" ]] ||
     echo "$AVATAR set_price_bounds $FRESH_AVATAR_PRICE_MIN $FRESH_AVATAR_PRICE_MAX"
-  for ((category = 0; category < ${#FRESH_AVATAR_LAYOUT[@]}; category++)); do
+  for ((part = 0; part < FRESH_AVATAR_PARTS; part++)); do
     for id in "${FRESH_AVATAR_FREE_IDS[@]}"; do
-      raw="$(call "$AVATAR" item "$category" "$id")" || return 1
+      raw="$(call "$AVATAR" item "$part" "$id")" || return 1
       read -r -a raw <<<"$raw"
-      [[ "$(hex_int "${raw[0]:-0x0}")" != 0 ]] || echo "$AVATAR set_item $category $id 0 0 0"
+      [[ "$(hex_int "${raw[0]:-0x0}")" != 0 ]] || echo "$AVATAR set_item $part $id 0 0 0"
     done
   done
 }
@@ -2661,9 +2652,9 @@ fresh_avatar_step() {
   v AVATAR_RAW fresh_avatar_calls
   while IFS= read -r spec; do [[ -n "$spec" ]] && AVATAR_CALLS+=("$spec"); done <<<"$AVATAR_RAW"
   if [[ "${#AVATAR_CALLS[@]}" == 0 ]]; then
-    echo "   set already: the layout, the price bounds and the free items$( [[ -n "$(fr_get avatar_tx)" ]] && echo ", tx $(fr_get avatar_tx)")"
+    echo "   set already: the parts, the price bounds and the free items$( [[ -n "$(fr_get avatar_tx)" ]] && echo ", tx $(fr_get avatar_tx)")"
   else
-    echo "   ${#AVATAR_CALLS[@]} layout, bounds and free item call(s) to send"
+    echo "   ${#AVATAR_CALLS[@]} parts, bounds and free item call(s) to send"
     RECORD_SENDING=avatar_tx
     invoke_all "${AVATAR_CALLS[@]}"
     RECORD_SENDING=""
@@ -2671,14 +2662,14 @@ fresh_avatar_step() {
   fresh_avatar_smoke
 }
 
-# fresh_avatar_smoke: Avatar's Setup is Setup, Setup allows it as a reporter (it spends the Cobbles of an item), and the
-# layout, the bounds and the free items read back as set. Read on a complete record too.
+# fresh_avatar_smoke: Avatar's Setup is Setup, Setup allows it as a spender (it spends the Cobbles of an item), and the
+# parts, the bounds and the free items read back as set. Read on a complete record too.
 fresh_avatar_smoke() {
   [[ "$(hex_int "$(call "$AVATAR" setup)")" == "$(hex_int "$SETUP")" ]] || die "Avatar.setup() is not Setup"
-  [[ "$(hex_int "$(call "$SETUP" is_reporter "$AVATAR")")" == 1 ]] || die "Setup does not allow Avatar as a reporter"
+  [[ "$(hex_int "$(call "$SETUP" is_spender "$AVATAR")")" == 1 ]] || die "Setup does not allow Avatar as a spender"
   v AVATAR_RAW fresh_avatar_calls
   [[ -z "$AVATAR_RAW" ]] || die "Avatar lacks: $(cut -d' ' -f2,3,4 <<<"$AVATAR_RAW" | tr '\n' ' ')"
-  echo "   Avatar: setup() is Setup, a reporter of Setup; ${#FRESH_AVATAR_LAYOUT[@]} categories, bounds set, items ${FRESH_AVATAR_FREE_IDS[*]} of each listed (views layout, price_bounds and item)"
+  echo "   Avatar: setup() is Setup, a spender of Setup; $FRESH_AVATAR_PARTS parts, bounds set, items ${FRESH_AVATAR_FREE_IDS[*]} of each listed (views parts, price_bounds and item)"
 }
 
 # fresh_guardian_step: Challenge's guardian is the deployer (PM, 2026-10-14), set in the run that deploys it, with the
@@ -2884,7 +2875,7 @@ fresh_check_only() {
   else
     echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then the skin prices (set_skin_price x 19 for each of the theme(s) ${FRESH_SKIN_THEMES[*]}, the rarity table), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
     echo "   story (story_tx): campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) on Story (set_campaign, set_level); a run sends the ones Story lacks and reads each back"
-    echo "   avatar (avatar_tx): the layout (${#FRESH_AVATAR_LAYOUT[@]} categories), the price bounds $FRESH_AVATAR_PRICE_MIN to $FRESH_AVATAR_PRICE_MAX and items ${FRESH_AVATAR_FREE_IDS[*]} of each category free on Avatar; a run sends what Avatar lacks and reads it back"
+    echo "   avatar (avatar_tx): the parts ($FRESH_AVATAR_PARTS), the price bounds $FRESH_AVATAR_PRICE_MIN to $FRESH_AVATAR_PRICE_MAX and items ${FRESH_AVATAR_FREE_IDS[*]} of each part free on Avatar; a run sends what Avatar lacks and reads it back"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx Avatar.deploy_tx wiring_tx guardian_tx \
         definitions_tx story_tx avatar_tx \
@@ -3349,7 +3340,7 @@ COLLECTION="$(fresh_deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
 # Story mode (docs/architecture/story-mode.md): the levels and the runs; Setup pays its stars, so it is a reporter.
 STORY="$(fresh_deploy Story "$STORY_CLASS" "$DEPLOYER_ARG" "$SETUP")"
 # The avatar (docs/architecture/avatar-chain.md): the items and the avatars; Setup debits the Cobbles of an item for it,
-# so it is a reporter.
+# so it is a spender (ISetupSpend).
 AVATAR="$(fresh_deploy Avatar "$AVATAR_CLASS" "$DEPLOYER_ARG" "$SETUP")"
 
 echo "== wire"
@@ -3370,7 +3361,7 @@ fi
 v WIRING_RAW fresh_wiring_calls
 [[ -z "$WIRING_RAW" ]] || die "after the wiring, still missing: $(cut -d' ' -f2 <<<"$WIRING_RAW" | tr '\n' ' ')"
 [[ "$(hex_int "$(call "$CHALLENGE" setup)")" == "$(hex_int "$SETUP")" ]] || die "Challenge.setup() is not Setup"
-echo "   Setup: its reporters Challenge (game overs), Story (the stars of the levels) and Avatar (the items' Cobbles); Challenge.setup() is Setup"
+echo "   Setup: its reporters Challenge (game overs) and Story (the stars of the levels), its spender Avatar (the items' Cobbles); Challenge.setup() is Setup"
 echo "   Setup: wiring Economy and Collection; Collection: minter Challenge; Economy: game Challenge"
 # Challenge's guardian (PM, 2026-10-14): the deployer, set in this run (fresh_guardian_step).
 fresh_guardian_step
@@ -3412,7 +3403,7 @@ echo "== story"
 fresh_story_step
 
 echo "== avatar"
-# The layout, the price bounds and the free base set on Avatar (FRESH_AVATAR_*), as its owner, before its address reaches
+# The parts, the price bounds and the free base set on Avatar (FRESH_AVATAR_*), as its owner, before its address reaches
 # the deployment file.
 fresh_avatar_step
 

@@ -334,26 +334,26 @@ export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinView
     return themes.map(Number);
   }
 
-  async avatarLayout(): Promise<number[]> {
-    return ((await this.call("Avatar", "layout", [])) as unknown[]).map(Number);
+  async avatarParts(): Promise<number> {
+    return Number(await this.call("Avatar", "parts", []));
   }
 
   async avatarPriceBounds(): Promise<[number, number]> {
-    const bounds = (await this.call("Avatar", "price_bounds", [])) as unknown[];
-    return [Number(bounds[0]), Number(bounds[1])];
+    const bounds = (await this.call("Avatar", "price_bounds", [])) as Struct;
+    return [Number(bounds.min), Number(bounds.max)];
   }
 
-  async avatarItem(category: number, id: number): Promise<AvatarItem> {
-    return avatarItem(category, id, (await this.call("Avatar", "item", [category, id])) as Struct);
+  async avatarItem(part: number, id: number): Promise<AvatarItem> {
+    return avatarItem(part, id, (await this.call("Avatar", "item", [part, id])) as Struct);
   }
 
-  async avatarItems(category: number): Promise<AvatarItem[]> {
-    const items = (await this.call("Avatar", "items", [category])) as Struct[];
-    return items.map((raw, id) => avatarItem(category, id, raw));
+  async avatarItems(part: number): Promise<AvatarItem[]> {
+    const items = (await this.call("Avatar", "items", [part])) as Struct[];
+    return items.map((raw, id) => avatarItem(part, id, raw));
   }
 
-  async ownedAvatarItems(playerId: string, category: number): Promise<bigint> {
-    return BigInt((await this.call("Avatar", "owned", [playerId, category])) as bigint | string | number);
+  async ownedAvatarItems(playerId: string, part: number): Promise<bigint> {
+    return BigInt((await this.call("Avatar", "owned", [playerId, part])) as bigint | string | number);
   }
 
   async avatar(playerId: string): Promise<bigint> {
@@ -421,14 +421,14 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinVie
   readonly skinPlayers = new Map<string, FakeSkinPlayer>();
   /** Set to an Error to make every skins read fail. */
   skinsFail: Error | null = null;
-  /** The avatar: the layout, the bounds, the catalogue (`category:id`; an item not listed reads unlisted) and the players. */
-  readonly avatars: FakeAvatarState = { layout: [], bounds: [0, 0], items: new Map(), players: new Map() };
+  /** The avatar: the parts in use, the bounds, the catalogue (`part:id`; an item not listed reads unlisted) and the players. */
+  readonly avatars: FakeAvatarState = { parts: 0, bounds: [0, 0], items: new Map(), players: new Map() };
   /** Set to an Error to make every avatar read fail. */
   avatarFail: Error | null = null;
 
   /** Lists an item of the fake catalogue (state listed unless given). */
-  listAvatarItem(item: Partial<AvatarItem> & { category: number; id: number }): void {
-    this.avatars.items.set(`${item.category}:${item.id}`, { ...unlistedItem(item.category, item.id), state: 1, ...item });
+  listAvatarItem(item: Partial<AvatarItem> & { part: number; id: number }): void {
+    this.avatars.items.set(`${item.part}:${item.id}`, { ...unlistedItem(item.part, item.id), state: 1, ...item });
   }
 
   /** The player's avatar state, created empty on first use: a test edits it in place. */
@@ -582,9 +582,9 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinVie
     return [...(this.skinPlayers.get(BigInt(playerId).toString())?.active ?? new Array<number>(SKIN_PLANS).fill(0))];
   }
 
-  async avatarLayout(): Promise<number[]> {
-    this.avatarCall("layout");
-    return [...this.avatars.layout];
+  async avatarParts(): Promise<number> {
+    this.avatarCall("parts");
+    return this.avatars.parts;
   }
 
   async avatarPriceBounds(): Promise<[number, number]> {
@@ -592,21 +592,22 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinVie
     return [...this.avatars.bounds];
   }
 
-  async avatarItem(category: number, id: number): Promise<AvatarItem> {
-    this.avatarCall(`item ${category} ${id}`);
-    return { ...(this.avatars.items.get(`${category}:${id}`) ?? unlistedItem(category, id)) };
+  async avatarItem(part: number, id: number): Promise<AvatarItem> {
+    this.avatarCall(`item ${part} ${id}`);
+    return { ...(this.avatars.items.get(`${part}:${id}`) ?? unlistedItem(part, id)) };
   }
 
-  async avatarItems(category: number): Promise<AvatarItem[]> {
-    this.avatarCall(`items ${category}`);
-    const width = this.avatars.layout[category];
-    if (width === undefined) throw new ViewError("rpc", "Avatar: invalid item");
-    return Array.from({ length: 2 ** width }, (_, id) => ({ ...(this.avatars.items.get(`${category}:${id}`) ?? unlistedItem(category, id)) }));
+  async avatarItems(part: number): Promise<AvatarItem[]> {
+    this.avatarCall(`items ${part}`);
+    // Id 0 up to the highest ever listed, as the contract's `items`
+    let end = 0;
+    for (const item of this.avatars.items.values()) if (item.part === part) end = Math.max(end, item.id + 1);
+    return Array.from({ length: end }, (_, id) => ({ ...(this.avatars.items.get(`${part}:${id}`) ?? unlistedItem(part, id)) }));
   }
 
-  async ownedAvatarItems(playerId: string, category: number): Promise<bigint> {
-    this.avatarCall(`owned ${BigInt(playerId)} ${category}`);
-    return this.avatars.players.get(BigInt(playerId).toString())?.owned.get(category) ?? 0n;
+  async ownedAvatarItems(playerId: string, part: number): Promise<bigint> {
+    this.avatarCall(`owned ${BigInt(playerId)} ${part}`);
+    return this.avatars.players.get(BigInt(playerId).toString())?.owned.get(part) ?? 0n;
   }
 
   async avatar(playerId: string): Promise<bigint> {

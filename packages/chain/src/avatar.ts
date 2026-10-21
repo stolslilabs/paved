@@ -1,21 +1,23 @@
 // The avatar on chain (#627, `docs/architecture/avatar-chain.md`): the `Avatar` system holds the catalogue of avatar items
-// (a part category and an item id, priced in Cobbles by the owner, 0 for the free base set, with optional limits in quantity
-// and time), what each player owns (one bitmap per category), and each player's look: one felt, one item id per category,
-// read through the owner's layout (the width in bits of each category, category 0 in the lowest bits). The views are read
-// here; the writes and their typed refusals are the writer's (`PavedWriter.buyAvatarItem`, `PavedWriter.setAvatar`).
+// (a part and an item id, priced in Cobbles by the owner, 0 for the free base set, with optional limits in quantity and
+// time), what each player owns (one bitmap per part), and each player's look in AVATAR-LOOK's format (#626 PR 1,
+// `@paved/renderer`'s `avatar-format.ts`): one u128, the format's version in byte 0, the item id of part `p` in byte `p + 1`.
+// The parts in use are a count the owner sets, which only grows. The views are read here; the writes and their typed
+// refusals are the writer's (`PavedWriter.buyAvatarItem`, `PavedWriter.setAvatar`).
 
 /** The states of an item (`AvatarItem.state`): never listed, listed (on sale, or free), withdrawn from sale. */
 export const AVATAR_UNLISTED = 0;
 export const AVATAR_LISTED = 1;
 export const AVATAR_WITHDRAWN = 2;
 
-/** The most categories of a layout, and the widest category in bits (item ids 0 to 127). */
-export const AVATAR_MAX_CATEGORIES = 30;
-export const AVATAR_MAX_WIDTH = 7;
+/** The version of the look's format (byte 0), the most parts a look holds, and the highest item id (one byte). */
+export const AVATAR_FORMAT_VERSION = 1;
+export const AVATAR_MAX_PARTS = 15;
+export const AVATAR_MAX_ID = 255;
 
-/** An item of the catalogue as `Avatar.item(category, id)` returns it. */
+/** An item of the catalogue as `Avatar.item(part, id)` returns it. */
 export interface AvatarItem {
-  category: number;
+  part: number;
   id: number;
   state: number;
   /** The price in Cobbles; 0: free (when listed). */
@@ -24,7 +26,7 @@ export interface AvatarItem {
   sold: number;
   /** The most copies sold; 0: no limit. */
   supply: number;
-  /** The block time sales stop at, in seconds; 0: no end. */
+  /** The block time sales stop at, in seconds (a seasonal item's end); 0: no end. */
   until: number;
 }
 
@@ -44,58 +46,46 @@ export function isOnSale(item: AvatarItem, now: number): boolean {
 /** Bit `id` of an owned bitmap: the item is owned. */
 export const ownsItem = (owned: bigint, id: number): boolean => ((owned >> BigInt(id)) & 1n) === 1n;
 
-/** True for a layout the contract accepts: 1 to 30 categories, each 1 to 7 bits wide. */
-export function isLayout(widths: readonly number[]): boolean {
-  return (
-    widths.length >= 1 &&
-    widths.length <= AVATAR_MAX_CATEGORIES &&
-    widths.every((w) => Number.isInteger(w) && w >= 1 && w <= AVATAR_MAX_WIDTH)
-  );
-}
-
-/** The item id of each category of a look, category 0 first; null when the look has a bit set above the layout. */
-export function lookIds(look: bigint, widths: readonly number[]): number[] | null {
-  let rest = look;
+/** The item id of each of the first `parts` parts of a look, part 0 first; null for 0 (no avatar), another version, or a byte past the parts. */
+export function lookIds(look: bigint, parts: number): number[] | null {
+  if (look < 0n || (look & 0xffn) !== BigInt(AVATAR_FORMAT_VERSION)) return null;
+  let rest = look >> 8n;
   const ids: number[] = [];
-  for (const width of widths) {
-    const unit = 1n << BigInt(width);
-    ids.push(Number(rest % unit));
-    rest /= unit;
+  for (let part = 0; part < parts; part++) {
+    ids.push(Number(rest & 0xffn));
+    rest >>= 8n;
   }
   return rest === 0n ? ids : null;
 }
 
-/** The look of one item id per category (category 0 in the lowest bits); an id wider than its category throws. */
-export function lookOf(ids: readonly number[], widths: readonly number[]): bigint {
-  if (ids.length !== widths.length) throw new RangeError(`${ids.length} ids for ${widths.length} categories`);
-  let look = 0n;
-  let shift = 0n;
-  ids.forEach((id, i) => {
-    const width = BigInt(widths[i]!);
-    if (!Number.isInteger(id) || id < 0 || BigInt(id) >= 1n << width) throw new RangeError(`item ${id} does not fit category ${i}`);
-    look |= BigInt(id) << shift;
-    shift += width;
+/** The look of one item id per part, part 0 first (at most 15, each 0 to 255; another throws). */
+export function lookOf(ids: readonly number[]): bigint {
+  if (ids.length > AVATAR_MAX_PARTS) throw new RangeError(`${ids.length} parts, at most ${AVATAR_MAX_PARTS}`);
+  let look = BigInt(AVATAR_FORMAT_VERSION);
+  ids.forEach((id, part) => {
+    if (!Number.isInteger(id) || id < 0 || id > AVATAR_MAX_ID) throw new RangeError(`item ${id} of part ${part} is not a byte`);
+    look |= BigInt(id) << BigInt(8 * (part + 1));
   });
   return look;
 }
 
 /**
- * Whether a player may set a look, as `set_avatar` checks it: 0 always (it clears the avatar); any other must fit the layout,
- * and each of its items be listed and free, or owned. `items(category, id)` and `owned(category)` answer from what was read.
+ * Whether a player may set a look, as `set_avatar` checks it: 0 always (it clears the avatar); any other must be of the
+ * format's version with no byte past the parts in use, and each of its items be listed and free, or owned. `item(part, id)`
+ * and `owned(part)` answer from what was read.
  */
 export function canSetLook(
   look: bigint,
-  widths: readonly number[],
-  item: (category: number, id: number) => AvatarItem | undefined,
-  owned: (category: number) => bigint,
+  parts: number,
+  item: (part: number, id: number) => AvatarItem | undefined,
+  owned: (part: number) => bigint,
 ): boolean {
   if (look === 0n) return true;
-  if (widths.length === 0) return false;
-  const ids = lookIds(look, widths);
+  const ids = lookIds(look, parts);
   if (!ids) return false;
-  return ids.every((id, category) => {
-    const found = item(category, id);
-    return (found !== undefined && isFreeItem(found)) || ownsItem(owned(category), id);
+  return ids.every((id, part) => {
+    const found = item(part, id);
+    return (found !== undefined && isFreeItem(found)) || ownsItem(owned(part), id);
   });
 }
 
@@ -104,24 +94,24 @@ export function canSetLook(
  * address) and `FakeGameViews` answers them in memory.
  */
 export interface AvatarViews {
-  /** `layout()`: the width in bits of each category, category 0 first; empty before the owner sets one. */
-  avatarLayout(): Promise<number[]>;
+  /** `parts()`: the number of parts in use; 0 before the owner sets it. */
+  avatarParts(): Promise<number>;
   /** `price_bounds()`: the bounds of a paid item's price, `[0, 0]` before the owner sets them. */
   avatarPriceBounds(): Promise<[number, number]>;
-  /** `item(category, id)`. */
-  avatarItem(category: number, id: number): Promise<AvatarItem>;
-  /** `items(category)`: every item of a category, id 0 first (2^width of them). */
-  avatarItems(category: number): Promise<AvatarItem[]>;
-  /** `owned(player_id, category)`: bit `id` is item `id`, owned. */
-  ownedAvatarItems(playerId: string, category: number): Promise<bigint>;
+  /** `item(part, id)`. */
+  avatarItem(part: number, id: number): Promise<AvatarItem>;
+  /** `items(part)`: the items of a part, id 0 up to the highest ever listed. */
+  avatarItems(part: number): Promise<AvatarItem[]>;
+  /** `owned(player_id, part)`: bit `id` is item `id`, owned (a u256). */
+  ownedAvatarItems(playerId: string, part: number): Promise<bigint>;
   /** `avatar(player_id)`: any player's look; 0n: none set. */
   avatar(playerId: string): Promise<bigint>;
 }
 
 /** The decoded `AvatarItem` struct of the ABI, with its key. */
-export function avatarItem(category: number, id: number, raw: Record<string, unknown>): AvatarItem {
+export function avatarItem(part: number, id: number, raw: Record<string, unknown>): AvatarItem {
   return {
-    category,
+    part,
     id,
     state: Number(raw.state),
     cobbles: Number(raw.cobbles),
@@ -132,8 +122,8 @@ export function avatarItem(category: number, id: number, raw: Record<string, unk
 }
 
 /** An item never listed. */
-export const unlistedItem = (category: number, id: number): AvatarItem => ({
-  category,
+export const unlistedItem = (part: number, id: number): AvatarItem => ({
+  part,
   id,
   state: AVATAR_UNLISTED,
   cobbles: 0,
@@ -142,11 +132,11 @@ export const unlistedItem = (category: number, id: number): AvatarItem => ({
   until: 0,
 });
 
-/** The avatar side of `FakeGameViews`: the layout, the bounds, the catalogue by `category:id`, and each player's look and items. */
+/** The avatar side of `FakeGameViews`: the parts in use, the bounds, the catalogue by `part:id`, and each player's look and items. */
 export interface FakeAvatarState {
-  layout: number[];
+  parts: number;
   bounds: [number, number];
   items: Map<string, AvatarItem>;
-  /** By player (`BigInt` of the id as a string): the look and the owned bitmap of each category. */
+  /** By player (`BigInt` of the id as a string): the look and the owned bitmap of each part. */
   players: Map<string, { look: bigint; owned: Map<number, bigint> }>;
 }
