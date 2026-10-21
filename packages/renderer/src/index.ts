@@ -160,6 +160,31 @@ export type {
   WinterSettings,
 } from "./core/weather-settings";
 export type { Weather, WeatherStats } from "./core/weather";
+// The fog of war (FOG-STUDY, #633; FOG-EVERYWHERE, #648): every board's scene shows it with `RendererSettings.fog` on and a reveal
+// (`GameScene.setFogReveal`). Its reveal logic and settings are small and eager; the fog is a chunk of its own, which `GameScene`
+// loads the first time it shows (the stories load it with `loadFogOfWar`).
+export {
+  DEFAULT_FOG_SETTINGS,
+  FIELD_REACH,
+  FIELD_TEXELS,
+  FOG_NEIGHBOURS,
+  RevealTransition,
+  VILLAGE_MAX_CELLS,
+  boardReveal,
+  buildRevealField,
+  cellKey,
+  fieldDistance,
+  LANDSCAPE_FOG,
+  MAX_CORNER_RADIUS,
+  fogMode,
+  freeSlots,
+  liftedCells,
+  resolveFogSettings,
+  villageReveal,
+} from "./core/fog-of-war-settings";
+export type { FogCell, FogMode, FogSettings, FogSettingsInput, LandscapeSettings, RevealField, RevealedCell } from "./core/fog-of-war-settings";
+export type { FogOfWar, FogStats } from "./core/fog-of-war";
+export const loadFogOfWar = (): Promise<typeof import("./core/fog-of-war")> => import("./core/fog-of-war");
 export { dropDuration, planDrop } from "./core/voxel-drop-schedule";
 export type { DropSchedule, ScheduleGrid } from "./core/voxel-drop-schedule";
 export type { DropInfo, DropResult, DropSkip } from "./core/tile-drops";

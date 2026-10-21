@@ -19,8 +19,8 @@ export const PARCEL_COBBLES = 10;
 
 /** The Cobbles of a chain day's first demolition (`DEMOLITION_COBBLES`); each one doubles the next. */
 export const DEMOLITION_COBBLES = 5;
-/** The exponent stops here (`MAX_DOUBLINGS`): `5 x 2^58`, the last price under a `u64`. */
-export const MAX_DOUBLINGS = 58;
+/** The exponent stops here (`MAX_DOUBLINGS`): `5 x 2^29`, the last price under a `u32` (what `Setup.spend_cobbles` takes). */
+export const MAX_DOUBLINGS = 29;
 
 /** `demolition_price`: the Cobbles of a demolition after `count` of them that chain day (5, 10, 20, 40...). */
 export function demolitionPrice(count: number): number {

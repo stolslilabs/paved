@@ -52,7 +52,6 @@ Coordinates, not a bitmap (the issue left it to the design):
 | Variable | Key | Value |
 |---|---|---|
 | `setup: ContractAddress` | | the `Setup` whose ledger is debited (constructor, `set_setup`) |
-| `levels: ContractAddress` | | the contract whose `level(player_id)` gates the parcels (#641); zero: every player is level 1 (section 5) |
 | `placers: Map<ContractAddress, bool>` | placer | allowed to place tiles (owner, `set_placer`) |
 | `villages: Map<felt252, felt252>` | `player_id` | `game_id` [0, 32) · `cells` [32, 40) (the 9 included) · `tiles` [40, 48) (placed, the starter excluded); 0: no village |
 | `parcels: Map<(felt252, u8), felt252>` | `(player_id, parcel)` | the cell of parcel `parcel` (1 to 29): `x` [0, 32) · `y` [32, 64) |
@@ -78,22 +77,24 @@ Upgrades (`upgrades.md`): every name is new, `Village` is upgradable (OpenZeppel
 | `buy_parcel(x, y)` | the village's player | a village (`Village: no village`); the cell not owned (`Village: cell owned`); a side neighbour owned (`Village: not adjacent`); under 38 cells (`Village: territory full`); level >= parcel (`Village: level too low`); the price on `Setup` (`Setup: not enough cobbles`) | the cell; the Cobbles debited; emits `ParcelBought` |
 | `place(player_id, plan, orientation, x, y)` | an allowed placer (`Village: not placer`) | a village; a plan 1 to 19, an orientation 1 to 4; the cell owned (`Village: cell not owned`); free (`Tile: already exists`); fits (`Tile: no neighbors`, `Tile: cannot place`) | the tile built and assessed (the engine's `Built` and `Scored`); emits `TilePlaced`; returns the points |
 | `demolish(x, y)` | the village's player | a village; a placed tile there (`Village: no tile`), not the starter (`Village: starter stays`); the price on `Setup` (`Setup: not enough cobbles`) | the day's counter; the village rebuilt in a new game; the Cobbles debited; emits `TileDemolished`; returns the price |
-| `set_setup`, `set_levels`, `set_placer`, `upgrade` | the owner | non-zero (`set_setup`) | emit `SetupSet`, `LevelsSet`, `PlacerSet` |
+| `set_setup`, `set_placer`, `upgrade` | the owner | non-zero (`set_setup`) | emit `SetupSet`, `PlacerSet` |
 
 Views: `village(player_id)` (game, cells, tiles, score, next parcel's price and level), `cells(player_id)` (in order:
 the 9, then the parcels), `tiles(player_id)` (plan, orientation, x, y, by id), `is_owned(player_id, x, y)`,
 `parcel_price(parcel)`, `parcel_level(parcel)`, `next_demolition(player_id)` (the chain day, the demolitions made that
-day, the price of the next: what the client shows), `setup`, `levels`, `is_placer`.
+day, the price of the next: what the client shows), `setup`, `is_placer`.
 
-`Setup` gains `ISetupVillage::spend_parcel(player_id, parcel, cobbles) -> u64`: an allowlisted reporter only (as
-`credit_story`), it debits the account or reverts `Setup: not enough cobbles`, emits `ParcelPaid` with the balance,
-and returns it; `spend_demolition(player_id, day, count, cobbles) -> u64` does the same for a demolition and emits
-`DemolitionPaid`. The owner adds `Village` to the reporters, as for `Story`.
+`Setup` is not changed. `Village` pays with `ISetupSpend::spend_cobbles(player_id, cobbles, reason)` (#639's spender
+allowlist, `Setup: not spender` otherwise): it debits the account or reverts `Setup: not enough cobbles`, and emits
+`CobblesSpent` with the reason `'VILLAGE_PARCEL'` or `'VILLAGE_DEMOLISH'` and the balance. The owner adds `Village` to
+the spenders (`set_spender`). An earlier draft added `spend_parcel` and `spend_demolition` to `Setup`; the shared spend
+path landed on main meanwhile, and using it keeps `Setup` at its size (it was 50.5 % of the cap with the draft, past
+P-64's 50 % review point).
 
 ## 3a. Demolition (the owner's decision of 2026-10-21)
 
 - **The price**: `demolition_price(count) = 5 x 2^count`, `count` the demolitions the player already made that chain
-  day; the exponent stops at 58 (`5 x 2^58`, the last price under `u64`, far above any balance). No daily cap: the price
+  day; the exponent stops at 29 (`5 x 2^29`, the last price under `u32`, what `spend_cobbles` takes, far above any balance). No daily cap: the price
   explodes.
 - **The day**: the quests' clock, `block_time / 86400` (`Setup`'s `DAY`). The counter is one slot per account (`day`,
   `count`); a slot of an earlier day reads as count 0, so the reset costs no write. A demolition that reverts (short of
@@ -118,21 +119,19 @@ and returns it; `spend_demolition(player_id, day, count, cobbles) -> u64` does t
 - The engine's own `Built` and `Scored` (game id, tile id, category, size, points), from `Village`.
 - `TileDemolished { #[key] player_id, tile_id, plan, x, y, day, count, cobbles, game_id, score }`: `tile_id` in the game
   it left, `count` the day's demolitions after it, `game_id` and `score` the rebuilt village's.
-- `Setup`'s `ParcelPaid { #[key] player_id, parcel, cobbles, balance }` and
-  `DemolitionPaid { #[key] player_id, day, count, cobbles, balance }`.
+- `Setup`'s `CobblesSpent { #[key] player_id, spender, reason, cobbles, balance }` (#639), `reason` `'VILLAGE_PARCEL'`
+  or `'VILLAGE_DEMOLISH'`.
 
-The indexer applies `ParcelPaid` and `DemolitionPaid` to the Cobbles balance (`parcel_purchases`,
-`demolition_purchases`, schema 17; it halts on a parcel out of order, a day's demolition out of order or at another
-price, or a balance that does not follow). The tables of `Village`'s own events (`villages`, `village_cells`,
-`village_tiles`) wait for `Village`'s deployment: a follow-up (section 9).
+The indexer already applies `CobblesSpent` to the Cobbles balance (`cobble_spends`): nothing to add for the ledger. The
+tables of `Village`'s own events (`villages`, `village_cells`, `village_tiles`) wait for `Village`'s deployment
+(`scripts/deploy.sh` and the indexer's sources): a follow-up.
 
 ## 5. The level gate and #641
 
-#641 (XP and level) has no interface yet. `Village` reads the level through a one-function interface,
-`IPlayerLevel::level(player_id) -> u32`, at the address `levels` the owner sets. Until #641 lands, `levels` is zero and
-every player is level 1, so only parcel 1 can be bought: the gate fails closed. When #641 lands, the owner sets
-`levels` to the contract that holds the level (or #641 implements `IPlayerLevel` where it stores it); no upgrade of
-`Village` is needed if the signature is kept.
+#641 landed (`docs/architecture/xp-level.md`): the level is a pure function of the XP that `Setup` keeps, read with
+`ISetupLevel::player_level(player_id).level` (level 1 at 0 XP, level `L` from `50 L (L - 1)` XP). `buy_parcel` reads it
+from the same `Setup` it pays, so parcel 1 is open at once, and parcel `k` needs level `k`. The draft's stand-in (an
+owner-set `levels` address, level 1 while unset) is gone; it was never deployed, so no slot is left behind.
 
 ## 6. The off-chain engine (`packages/game-core/src/engine`)
 
@@ -159,4 +158,4 @@ every player is level 1, so only parcel 1 can be bought: the gate fails closed. 
 Measured after the code (section 9, as built): `Village`'s and `Setup`'s CASM against the cap
 (`scripts/class-sizes.sh`), the gas of `found`, `buy_parcel` and `place` (`contracts/tests/gas.cairo`), snforge
 tests under `paved::tests::village`, a fuzz of the territory invariant (connected, at most 38, the price paid equals
-the sum of the curve), and the audit of the Cobbles path (`spend_parcel`, the reporter allowlist).
+the sum of the curve), and the audit of the Cobbles path (`spend_cobbles`, the spender allowlist).

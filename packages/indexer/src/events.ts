@@ -206,26 +206,14 @@ export type Decoded =
     }
   | {
       /**
-       * A parcel of the player's village paid on Setup's ledger (#640, `Setup.spend_parcel`, run by `Village.buy_parcel`):
-       * `parcel` its number (1 to 29), `cobbles` its price, `balance` the player's cobbles after it.
+       * Cobbles spent for the player by a system `Setup` allows (#639: the matchmaker's "Next", reason `'MATCH_NEXT'`).
+       * `balance`: the player's cobbles after it.
        */
-      name: "ParcelPaid";
+      name: "CobblesSpent";
       playerId: bigint;
-      parcel: number;
+      spender: bigint;
+      reason: bigint;
       cobbles: number;
-      balance: bigint;
-    }
-  | {
-      /**
-       * A demolition in the player's village paid on Setup's ledger (#640, `Setup.spend_demolition`, run by
-       * `Village.demolish`): the `count`-th of chain day `day`, `cobbles` its price (5, doubled after each one of the day),
-       * `balance` the player's cobbles after it.
-       */
-      name: "DemolitionPaid";
-      playerId: bigint;
-      day: bigint;
-      count: number;
-      cobbles: bigint;
       balance: bigint;
     }
   | {
@@ -234,6 +222,18 @@ export type Decoded =
       playerId: bigint;
       active: bigint;
       themes: number[];
+    }
+  | {
+      /**
+       * XP credited to a player (#641, `docs/architecture/xp-level.md`): `source` 1 a Challenge game over, 2 Story stars, 3 a
+       * PvP attack, 4 a PvP defence; `xp` the XP added (0 at the ceiling), `total` and `level` the player's after it.
+       */
+      name: "XpGained";
+      playerId: bigint;
+      source: number;
+      xp: number;
+      total: number;
+      level: number;
     }
   | {
       /** Economy's split of a pack's USDC (`Economy.sell`), emitted before `PackBought` in the same transaction. */
@@ -283,11 +283,24 @@ export const SKIN_PLANS = 19;
 /** The price of a skin when set, in cobbles (`SKIN_PRICE_MIN` and `SKIN_PRICE_MAX` of `Setup`); 0 withdraws it. */
 export const SKIN_PRICE_MIN = 50;
 export const SKIN_PRICE_MAX = 100;
-/** The most parcels a village buys (`MAX_PARCELS` of `Village`, #640): 38 cells, the 9 of the start included. */
-export const MAX_PARCELS = 29;
-/** The price of a day's demolition after `count` of them (`demolition_price` of `Village`): 5 x 2^count, the exponent at most 58. */
-export function demolitionPrice(count: number): bigint {
-  return 5n << BigInt(Math.min(count, 58));
+/** The sources of an `XpGained` (`Setup`'s `XP_CHALLENGE` to `XP_DEFENCE`, xp-level.md 5). */
+export const XP_SOURCES = 4;
+/** The XP saturates at 2^27 - 1 (`Setup`'s `MAX_XP`). */
+export const MAX_XP = 0x7ffffff;
+/** The level curve (`Setup`'s `LEVEL_STEP`): level `L` starts at `LEVEL_STEP x L (L - 1) / 2` XP. */
+export const LEVEL_STEP = 100;
+
+/** The XP at which `level` (1 or more) starts, as `Setup`'s `level_floor`. */
+export const levelFloor = (level: number): number => (LEVEL_STEP * level * (level - 1)) / 2;
+
+/** The level of `xp` XP, as `Setup`'s `level_of`: the highest `L` with `levelFloor(L) <= xp`; 1 at 0 XP. */
+export function levelOf(xp: number): number {
+  const q = Math.floor((2 * xp) / LEVEL_STEP);
+  let level = Math.floor((1 + Math.sqrt(4 * q + 1)) / 2);
+  // `Math.sqrt` is exact for these sizes; the two steps make it so for any rounding
+  while (levelFloor(level) > xp) level -= 1;
+  while (levelFloor(level + 1) <= xp) level += 1;
+  return level;
 }
 
 /**
@@ -341,9 +354,10 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   SkinPriced: ["setup"],
   SkinBought: ["setup"],
   SkinsActivated: ["setup"],
-  // The village (#640): the parcels paid in cobbles.
-  ParcelPaid: ["setup"],
-  DemolitionPaid: ["setup"],
+  // #639: the cobbles a system Setup allows spends for a player (the matchmaker's "Next").
+  CobblesSpent: ["setup"],
+  // XP-LEVEL (#641): the XP of every credit (a Challenge game over, Story stars, PvP).
+  XpGained: ["setup"],
   Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
@@ -372,6 +386,8 @@ export const IGNORED = [
   "GameSet",
   // The owner's choice of the one account that may call `Economy.sell` (`set_seller`, cobbles-v1.md 2.3): Setup. No screen shows it.
   "SellerSet",
+  // The owner's allowlist of the systems that may spend a player's cobbles (#639, `Setup.set_spender`). No screen shows it.
+  "SpenderSet",
   // The owner's repoint of the router (E-9, set_router).
   "RouterSet",
   // The owner's one-time wiring of Collection's minters (`Collection.set_minters`, G7a): data `[challenge, tutorial]`, no keys. No screen shows the minters.
@@ -437,8 +453,8 @@ const INDEXED: readonly EventName[] = [
   "SkinPriced",
   "SkinBought",
   "SkinsActivated",
-  "ParcelPaid",
-  "DemolitionPaid",
+  "CobblesSpent",
+  "XpGained",
   "Sold",
   "Purchased",
   "Recorded",
@@ -788,32 +804,37 @@ export function decode(
         balance: u64(data[3], "balance"),
       };
     }
-    case "ParcelPaid": {
-      // key player_id; data parcel (u8), cobbles (u32), balance (u64). A parcel is 1 to 29 (`MAX_PARCELS`), never free.
-      shape(name, keys, data, 1, 3);
-      const parcel = small(data[0], 8, "parcel");
-      if (parcel < 1 || parcel > MAX_PARCELS) throw new DecodeError(`${name}: parcel ${parcel}, expected 1 to ${MAX_PARCELS}`);
-      const cobbles = small(data[1], 32, "cobbles");
-      if (cobbles === 0) throw new DecodeError(`${name}: a parcel of 0 cobbles`);
-      return { name, playerId: felt(keys[1]), parcel, cobbles, balance: u64(data[2], "balance") };
-    }
-    case "DemolitionPaid": {
-      // key player_id; data day (u64), count (u32), cobbles (u64), balance (u64). The count-th demolition of the day costs
-      // 5 x 2^(count - 1).
+    case "CobblesSpent": {
+      // key player_id; data spender, reason (felt252), cobbles (u32, not 0), balance (u64)
       shape(name, keys, data, 1, 4);
-      const count = small(data[1], 32, "count");
-      if (count < 1) throw new DecodeError(`${name}: count 0`);
-      const cobbles = u64(data[2], "cobbles");
-      if (cobbles !== demolitionPrice(count - 1)) {
-        throw new DecodeError(`${name}: price ${cobbles} for demolition ${count} of the day, expected ${demolitionPrice(count - 1)}`);
-      }
-      return { name, playerId: felt(keys[1]), day: u64(data[0], "day"), count, cobbles, balance: u64(data[3], "balance") };
+      const cobbles = small(data[2], 32, "cobbles");
+      if (cobbles === 0) throw new DecodeError(`${name}: 0 cobbles`);
+      return {
+        name,
+        playerId: felt(keys[1]),
+        spender: felt(data[0]),
+        reason: felt(data[1]),
+        cobbles,
+        balance: u64(data[3], "balance"),
+      };
     }
     case "SkinsActivated": {
       // key player_id; data active (felt252): 19 bytes, the theme of plan p in byte p - 1
       shape(name, keys, data, 1, 1);
       const active = felt(data[0]);
       return { name, playerId: felt(keys[1]), active, themes: unpackSkins(active) };
+    }
+    case "XpGained": {
+      // key player_id; data source (u8), xp (u32), total (u32), level (u16)
+      shape(name, keys, data, 1, 4);
+      const source = small(data[0], 8, "source");
+      if (source === 0 || source > XP_SOURCES) throw new DecodeError(`${name}: source ${source}, expected 1 to ${XP_SOURCES}`);
+      const xp = small(data[1], 32, "xp");
+      const total = small(data[2], 32, "total");
+      const level = small(data[3], 16, "level");
+      if (total > MAX_XP || xp > total) throw new DecodeError(`${name}: xp ${xp} of a total ${total}, above the ceiling or the total`);
+      if (level !== levelOf(total)) throw new DecodeError(`${name}: level ${level}, the curve gives ${levelOf(total)} for ${total} XP`);
+      return { name, playerId: felt(keys[1]), source, xp, total, level };
     }
     case "Sold":
       // key player_id; data price, referrer, referral, burned_quote, burned, margin, supply, vault_paved (u256 each, but the referrer)

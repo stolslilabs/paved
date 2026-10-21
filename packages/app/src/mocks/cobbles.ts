@@ -66,7 +66,7 @@ export const activeOn = (theme: number, ...plans: number[]): number[] => Array.f
  * `mocks/scenes.ts` (home, purchase, theme: P6, P7b, P11b), which still reads the old name; it goes with them.
  */
 export const ACCOUNT: CobbleAccount & { gems: number } = {
-  cobbles: 240, gems: 240, credits: 0, games: 12, forests: 9, wonders: 1, big: 2, high: 0, achievementsClaimed: bits(1, 2),
+  cobbles: 240, gems: 240, credits: 0, games: 12, forests: 9, wonders: 1, big: 2, high: 0, achievementsClaimed: bits(1, 2), xp: 0,
 };
 
 /** Every claim of a period open. */

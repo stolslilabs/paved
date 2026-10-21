@@ -145,13 +145,13 @@ export const ev = {
   skinPriced: (theme: number, plan: number, cobbles: number) => raw("setup", "SkinPriced", [theme, plan], [cobbles]),
   skinBought: (player: bigint | number, theme: number, plan: number, cobbles: number, balance: number) =>
     raw("setup", "SkinBought", [player], [theme, plan, cobbles, balance]),
+  /** #639. `CobblesSpent { player_id; spender, reason, cobbles, balance }`. */
+  cobblesSpent: (player: bigint | number, spender: bigint | number, reason: bigint | number, cobbles: number, balance: number) =>
+    raw("setup", "CobblesSpent", [player], [spender, reason, cobbles, balance]),
   skinsActivated: (player: bigint | number, active: bigint | number) => raw("setup", "SkinsActivated", [player], [active]),
-  /** The village (#640). `ParcelPaid { player_id; parcel, cobbles, balance }`. */
-  parcelPaid: (player: bigint | number, parcel: number, cobbles: number, balance: number) =>
-    raw("setup", "ParcelPaid", [player], [parcel, cobbles, balance]),
-  /** `DemolitionPaid { player_id; day, count, cobbles, balance }`. */
-  demolitionPaid: (player: bigint | number, day: number, count: number, cobbles: number, balance: number) =>
-    raw("setup", "DemolitionPaid", [player], [day, count, cobbles, balance]),
+  /** `XpGained { player_id; source, xp, total, level }` (#641). */
+  xpGained: (player: bigint | number, source: number, xp: number, total: number, level: number) =>
+    raw("setup", "XpGained", [player], [source, xp, total, level]),
   /** Economy's `Sold { player_id; price, referrer, referral, burned_quote, burned, margin, supply, vault_paved }` (u256 but the referrer). */
   sold: (
     player: bigint | number,

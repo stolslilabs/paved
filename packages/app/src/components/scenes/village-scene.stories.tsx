@@ -1,7 +1,11 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
+import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { BOARD_FOG } from "../../data/settings";
+import { VillageViewport } from "../containers/village-viewport";
+import type { VillageBoardProps } from "../containers/village-board";
 import { REWARD, VILLAGE, VILLAGE_START, parcelFor } from "../../mocks/village";
 import { cellKey, type Cell, type Village } from "../containers/village-rules";
 import type { RewardOffer } from "../containers/reward-sheet";
@@ -114,3 +118,22 @@ function Playground(props: VillageSceneProps) {
 
 /** Play it: drag a tile from the reward to a lit cell (or tap it, then a cell), onto a ringed tile for a copy; take Cobbles, then buy parcels. */
 export const Interactive: Story = { render: (args) => <Playground {...args} /> };
+
+/** The game's board settings with the fog (`BOARD_FOG`), the ambient effects on, held at a summer's day or night. */
+const held = (phase: "day" | "night"): RendererSettingsInput => ({ ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT[phase] } });
+const DAY = held("day");
+const NIGHT = held("night");
+/** The 3D village (`VillageViewport`) as the page gives it. */
+const in3d = (settings: RendererSettingsInput) => (board: VillageBoardProps) => <VillageViewport {...board} settings={settings} basePath={APP_ASSETS} />;
+
+/**
+ * The village in 3D (#648): the real renderer, the fog of war over everything but the owned cells and the cells next to them
+ * (the parcels), the landscape beyond; a tap on a parcel opens its sheet. Held at a summer's day.
+ */
+export const Board3D: Story = { args: { ...VILLAGE.growing, renderBoard: in3d(DAY) } };
+/** The same at night: the fog's moonlit blue. */
+export const Board3DNight: Story = { args: { ...VILLAGE.growing, renderBoard: in3d(NIGHT) } };
+/** A reward's tile chosen in 3D: its legal cells are the plates; a tap on one places it. */
+export const Board3DReward: Story = { args: { ...VILLAGE.rewardChosen, renderBoard: in3d(DAY) } };
+/** Play it in 3D: tap a reward's tile, then a lit cell; take Cobbles, then tap a parcel; the fog lifts over a parcel bought. */
+export const Board3DInteractive: Story = { args: { renderBoard: in3d(DAY) }, render: (args) => <Playground {...args} /> };

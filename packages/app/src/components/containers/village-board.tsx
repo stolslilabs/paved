@@ -8,8 +8,8 @@ import { ScrollRegion } from "../ui/scroll-region";
 import { TIERS, buyableCells, cellKey, clearCells, tierOf, tierProgress, type Cell, type LegalCell, type Village } from "./village-rules";
 
 /**
- * The fog over the village (#633's village variant, a story prop until #648 wires the chosen one): `village` clears the
- * owned cells and the cells next to them, the rest of the ground is veiled; `off` draws no fog.
+ * The plan's fog (#633's village variant): `village` clears the owned cells and the cells next to them, the rest of the ground
+ * is veiled; `off` draws no fog. The 3D village (`VillageViewport`, #648) draws the renderer's fog of war instead.
  */
 export type VillageFog = "village" | "off";
 
@@ -49,7 +49,7 @@ const FOG_RINGS = 2;
 
 /**
  * The fog in the plan view: one veil over the board, cut out over the clear cells, its edge blurred so it rolls off them (#633's
- * rule; its 3D fog replaces this once #648 picks it). Decorative: the cells say what is there.
+ * rule; the 3D village, `VillageViewport`, draws the renderer's fog instead). Decorative: the cells say what is there.
  */
 function FogVeil({ clear, minX, maxY, cols, rows }: { clear: readonly Cell[]; minX: number; maxY: number; cols: number; rows: number }) {
   const id = useId();

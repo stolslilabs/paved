@@ -9,11 +9,10 @@ use core::num::traits::Zero;
 use core::testing::get_available_gas;
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::constants::CENTER;
-use paved::mocks::levels::{IMockLevelsDispatcher, IMockLevelsDispatcherTrait};
-use paved::systems::setup::Setup::{DemolitionPaid, Event as SetupEvent, ParcelPaid};
+use paved::systems::setup::Setup::{CobblesSpent, Event as SetupEvent};
 use paved::systems::setup::{
     ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
-    ISetupVillageDispatcher, ISetupVillageDispatcherTrait,
+    ISetupSpendDispatcher, ISetupSpendDispatcherTrait, level_floor,
 };
 use paved::systems::village::Village::{
     Event as VillageEvent, ParcelBought, TileDemolished, TilePlaced, VillageFounded,
@@ -61,7 +60,6 @@ struct World {
     village: IVillageDispatcher,
     admin: IVillageAdminDispatcher,
     setup: ISetupDispatcher,
-    levels: IMockLevelsDispatcher,
 }
 
 fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
@@ -70,43 +68,43 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
     address
 }
 
-/// `Setup` and `Village`, `Village` allowlisted as a reporter, `PLACER` as a placer, the mock
-/// levels wired (every player level 0 until a test sets it: `levels` 0 is not the unwired 1).
+/// `Setup` and `Village`, `Village` allowlisted as a spender of `Setup`, `PLACER` as a placer.
 fn world() -> World {
     let setup = deploy("Setup", array![OWNER().into()]);
     let village = deploy("Village", array![OWNER().into(), setup.into()]);
-    let levels = deploy("MockLevels", array![]);
     let world = World {
         village: IVillageDispatcher { contract_address: village },
         admin: IVillageAdminDispatcher { contract_address: village },
         setup: ISetupDispatcher { contract_address: setup },
-        levels: IMockLevelsDispatcher { contract_address: levels },
     };
     start_cheat_caller_address(setup, OWNER());
-    world.setup.set_reporter(village, true);
+    ISetupSpendDispatcher { contract_address: setup }.set_spender(village, true);
     stop_cheat_caller_address(setup);
     start_cheat_caller_address(village, OWNER());
     world.admin.set_placer(PLACER(), true);
-    world.admin.set_levels(levels);
     stop_cheat_caller_address(village);
     world
 }
 
-/// `world()`, `PLAYER`'s village founded, its level and cobbles set.
-fn founded(level: u32, cobbles: u64) -> World {
+/// `world()`, `PLAYER`'s village founded, its level (its XP, at the level's floor) and cobbles set.
+fn founded(level: u16, cobbles: u64) -> World {
     let world = world();
     start_cheat_caller_address(world.village.contract_address, PLAYER());
     world.village.found();
     stop_cheat_caller_address(world.village.contract_address);
-    world.levels.set_level(PLAYER().into(), level);
-    fund(world, PLAYER(), cobbles);
+    fund(world, PLAYER(), cobbles, level);
     world
 }
 
-/// Writes `cobbles` as the whole account of `who` on `Setup` (the cobbles are its low 64 bits).
-fn fund(world: World, who: ContractAddress, cobbles: u64) {
+/// The unit of the XP in `Setup`'s account slot: its bits [224, 251).
+const XP_UNIT: felt252 = 0x100000000000000000000000000000000000000000000000000000000;
+
+/// Writes the whole account of `who` on `Setup`: `cobbles` (its low 64 bits) and the XP at the
+/// floor of `level` (`level_floor`, #641), nothing else.
+fn fund(world: World, who: ContractAddress, cobbles: u64, level: u16) {
     let slot = map_entry_address(selector!("accounts"), array![who.into()].span());
-    store(world.setup.contract_address, slot, array![cobbles.into()].span());
+    let xp: felt252 = level_floor(level).into();
+    store(world.setup.contract_address, slot, array![cobbles.into() + xp * XP_UNIT].span());
 }
 
 fn cobbles_of(world: World, who: ContractAddress) -> u64 {
@@ -138,7 +136,7 @@ fn place_tile(world: World, plan: u8, orientation: u8, x: i32, y: i32) -> u32 {
     points
 }
 
-fn demolish_cell(world: World, x: i32, y: i32) -> u64 {
+fn demolish_cell(world: World, x: i32, y: i32) -> u32 {
     start_cheat_caller_address(world.village.contract_address, PLAYER());
     let price = world.village.demolish(at(x), at(y));
     stop_cheat_caller_address(world.village.contract_address);
@@ -205,8 +203,7 @@ fn test_village_views_without_village() {
 #[should_panic(expected: 'Village: no village')]
 fn test_village_buy_needs_a_village() {
     let world = world();
-    fund(world, PLAYER(), 100);
-    world.levels.set_level(PLAYER().into(), 1);
+    fund(world, PLAYER(), 100, 1);
     buy_cell(world, 2, 0);
 }
 
@@ -255,9 +252,13 @@ fn test_village_buy_parcel() {
             @array![
                 (
                     world.setup.contract_address,
-                    SetupEvent::ParcelPaid(
-                        ParcelPaid {
-                            player_id: PLAYER().into(), parcel: 1, cobbles: 10, balance: 90,
+                    SetupEvent::CobblesSpent(
+                        CobblesSpent {
+                            player_id: PLAYER().into(),
+                            spender: world.village.contract_address,
+                            reason: 'VILLAGE_PARCEL',
+                            cobbles: 10,
+                            balance: 90,
                         },
                     ),
                 ),
@@ -308,31 +309,31 @@ fn test_village_level_gate() {
     buy_cell(world, 6, 0);
 }
 
+/// Level 1 at 0 XP (#641): parcel 1 only.
 #[test]
 #[should_panic(expected: 'Village: level too low')]
-fn test_village_level_zero() {
-    let world = founded(0, 100);
-    buy_cell(world, 2, 0);
-}
-
-#[test]
-fn test_village_level_unwired_is_one() {
-    let world = founded(0, 100);
-    start_cheat_caller_address(world.village.contract_address, OWNER());
-    world.admin.set_levels(Zero::zero());
-    stop_cheat_caller_address(world.village.contract_address);
+fn test_village_level_one_stops_at_two() {
+    let world = founded(1, 100);
     assert_eq!(buy_cell(world, 2, 0), 1);
+    buy_cell(world, 3, 0);
 }
 
+/// The gate reads `Setup.player_level`: XP one short of level 2 is still level 1.
 #[test]
-#[should_panic(expected: 'Village: level too low')]
-fn test_village_level_unwired_stops_at_two() {
-    let world = founded(0, 100);
-    start_cheat_caller_address(world.village.contract_address, OWNER());
-    world.admin.set_levels(Zero::zero());
-    stop_cheat_caller_address(world.village.contract_address);
+#[feature("safe_dispatcher")]
+fn test_village_level_from_setup_xp() {
+    let world = founded(1, 100);
     buy_cell(world, 2, 0);
-    buy_cell(world, 3, 0);
+    let slot = map_entry_address(selector!("accounts"), array![PLAYER().into()].span());
+    let xp: felt252 = (level_floor(2) - 1).into();
+    store(world.setup.contract_address, slot, array![90 + xp * XP_UNIT].span());
+    start_cheat_caller_address(world.village.contract_address, PLAYER());
+    let result = IVillageSafeDispatcher { contract_address: world.village.contract_address }
+        .buy_parcel(at(3), at(0));
+    stop_cheat_caller_address(world.village.contract_address);
+    assert_eq!(*result.unwrap_err().span().at(0), 'Village: level too low');
+    fund(world, PLAYER(), 90, 2);
+    assert_eq!(buy_cell(world, 3, 0), 2);
 }
 
 #[test]
@@ -590,8 +591,8 @@ fn test_village_demolition_curve() {
     assert_eq!(demolition_price(0), 5);
     assert_eq!(demolition_price(1), 10);
     assert_eq!(demolition_price(4), 80);
-    assert_eq!(demolition_price(58), 5 * 0x400000000000000);
-    assert_eq!(demolition_price(1000), 5 * 0x400000000000000);
+    assert_eq!(demolition_price(29), 5 * 0x20000000);
+    assert_eq!(demolition_price(1000), 5 * 0x20000000);
 }
 
 #[test]
@@ -639,9 +640,13 @@ fn test_village_demolish_rebuilds() {
             @array![
                 (
                     world.setup.contract_address,
-                    SetupEvent::DemolitionPaid(
-                        DemolitionPaid {
-                            player_id: PLAYER().into(), day: 0, count: 1, cobbles: 5, balance: 985,
+                    SetupEvent::CobblesSpent(
+                        CobblesSpent {
+                            player_id: PLAYER().into(),
+                            spender: world.village.contract_address,
+                            reason: 'VILLAGE_DEMOLISH',
+                            cobbles: 5,
+                            balance: 985,
                         },
                     ),
                 ),
@@ -655,7 +660,7 @@ fn test_village_demolish_rebuilds() {
 #[test]
 fn test_village_demolition_price_doubles_and_resets() {
     let world = founded(1, 1_000);
-    let mut paid: u64 = 0;
+    let mut paid: u32 = 0;
     let mut i: u32 = 0;
     while i < 4 {
         assert_eq!(world.village.next_demolition(PLAYER().into()).price, demolition_price(i));
@@ -684,7 +689,7 @@ fn test_village_demolition_price_doubles_and_resets() {
     assert_eq!(world.village.next_demolition(ANYONE().into()).price, 5);
 }
 
-fn demolish_cell_after_place(world: World) -> u64 {
+fn demolish_cell_after_place(world: World) -> u32 {
     place_tile(world, 10, 1, 1, 0);
     demolish_cell(world, 1, 0)
 }
@@ -733,16 +738,6 @@ fn test_village_demolish_refused_keeps_the_price() {
     assert_eq!(world.village.village(PLAYER().into()).tiles, 1);
 }
 
-#[test]
-#[should_panic(expected: 'Quest: not reporter')]
-fn test_village_spend_demolition_reporter_only() {
-    let world = world();
-    fund(world, PLAYER(), 100);
-    start_cheat_caller_address(world.setup.contract_address, PLAYER());
-    ISetupVillageDispatcher { contract_address: world.setup.contract_address }
-        .spend_demolition(PLAYER().into(), 0, 1, 5);
-}
-
 // Parity with the off-chain engine
 
 #[derive(Copy, Drop)]
@@ -751,7 +746,7 @@ enum Step {
     Refused: (u8, u8, i32, i32, felt252),
     Buy: (i32, i32, u8),
     BuyRefused: (i32, i32, felt252),
-    Demolish: (i32, i32, u64, u32),
+    Demolish: (i32, i32, u32, u32),
     DemolishRefused: (i32, i32, felt252),
 }
 
@@ -771,7 +766,7 @@ fn buy_refused(x: i32, y: i32, reason: felt252) -> Step {
     Step::BuyRefused((x, y, reason))
 }
 
-fn demolish(x: i32, y: i32, price: u64, score: u32) -> Step {
+fn demolish(x: i32, y: i32, price: u32, score: u32) -> Step {
     Step::Demolish((x, y, price, score))
 }
 
@@ -880,14 +875,6 @@ fn test_village_set_placer_owner_only() {
 
 #[test]
 #[should_panic(expected: 'Ownable: caller is not owner')]
-fn test_village_set_levels_owner_only() {
-    let world = world();
-    start_cheat_caller_address(world.village.contract_address, ANYONE());
-    world.admin.set_levels(ANYONE());
-}
-
-#[test]
-#[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_village_set_setup_owner_only() {
     let world = world();
     start_cheat_caller_address(world.village.contract_address, ANYONE());
@@ -911,21 +898,22 @@ fn test_village_upgrade_owner_only() {
         .upgrade('CLASS'.try_into().unwrap());
 }
 
+/// `Village` spends through `Setup`'s spender allowlist: revoked, a parcel cannot be paid.
 #[test]
-#[should_panic(expected: 'Quest: not reporter')]
-fn test_village_spend_parcel_reporter_only() {
-    let world = world();
-    fund(world, PLAYER(), 100);
-    start_cheat_caller_address(world.setup.contract_address, PLAYER());
-    ISetupVillageDispatcher { contract_address: world.setup.contract_address }
-        .spend_parcel(PLAYER().into(), 1, 10);
+#[should_panic(expected: 'Setup: not spender')]
+fn test_village_needs_the_spender_allowlist() {
+    let world = founded(1, 100);
+    start_cheat_caller_address(world.setup.contract_address, OWNER());
+    ISetupSpendDispatcher { contract_address: world.setup.contract_address }
+        .set_spender(world.village.contract_address, false);
+    stop_cheat_caller_address(world.setup.contract_address);
+    buy_cell(world, 2, 0);
 }
 
 #[test]
 fn test_village_wiring_views() {
     let world = world();
     assert_eq!(world.admin.setup(), world.setup.contract_address);
-    assert_eq!(world.admin.levels(), world.levels.contract_address);
     assert!(world.admin.is_placer(PLACER()));
     assert!(!world.admin.is_placer(ANYONE()));
 }
@@ -942,7 +930,6 @@ fn test_village_pins_its_storage_variables_by_name() {
     let village = world.village.contract_address;
     assert_eq!(raw(village, selector!("owner")), OWNER().into());
     assert_eq!(raw(village, selector!("setup")), world.setup.contract_address.into());
-    assert_eq!(raw(village, selector!("levels")), world.levels.contract_address.into());
     assert_eq!(
         raw(village, map_entry_address(selector!("placers"), array![PLACER().into()].span())), 1,
     );

@@ -194,8 +194,8 @@ describe("village territory", () => {
 
   it("prices a day's demolitions at 5, doubled after each one", () => {
     expect([0, 1, 2, 3, 4].map(demolitionPrice)).toEqual([5, 10, 20, 40, 80]);
-    expect(demolitionPrice(58)).toBe(5 * 2 ** 58);
-    expect(demolitionPrice(200)).toBe(5 * 2 ** 58);
+    expect(demolitionPrice(29)).toBe(5 * 2 ** 29);
+    expect(demolitionPrice(200)).toBe(5 * 2 ** 29);
   });
 
   it("prices parcel k at 10 x k Cobbles and level k", () => {

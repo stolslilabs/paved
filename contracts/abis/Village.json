@@ -106,7 +106,7 @@
       },
       {
         "name": "price",
-        "type": "core::integer::u64"
+        "type": "core::integer::u32"
       }
     ]
   },
@@ -160,7 +160,7 @@
         ],
         "outputs": [
           {
-            "type": "core::integer::u64"
+            "type": "core::integer::u32"
           }
         ],
         "state_mutability": "external"
@@ -342,18 +342,6 @@
       },
       {
         "type": "function",
-        "name": "set_levels",
-        "inputs": [
-          {
-            "name": "levels",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
         "name": "set_placer",
         "inputs": [
           {
@@ -371,17 +359,6 @@
       {
         "type": "function",
         "name": "setup",
-        "inputs": [],
-        "outputs": [
-          {
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "levels",
         "inputs": [],
         "outputs": [
           {
@@ -803,18 +780,6 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::village::Village::LevelsSet",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "levels",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
     "name": "paved::systems::village::Village::PlacerSet",
     "kind": "struct",
     "members": [
@@ -983,7 +948,7 @@
       },
       {
         "name": "cobbles",
-        "type": "core::integer::u64",
+        "type": "core::integer::u32",
         "kind": "data"
       },
       {
@@ -1021,11 +986,6 @@
       {
         "name": "SetupSet",
         "type": "paved::systems::village::Village::SetupSet",
-        "kind": "nested"
-      },
-      {
-        "name": "LevelsSet",
-        "type": "paved::systems::village::Village::LevelsSet",
         "kind": "nested"
       },
       {

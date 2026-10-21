@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "17";
+export const SCHEMA_VERSION = "18";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -242,25 +242,15 @@ const SCHEMA = `
     UNIQUE (player_id, theme, plan)
   );
   CREATE INDEX IF NOT EXISTS skin_purchases_player ON skin_purchases (player_id, block, tx, idx);
-  -- ParcelPaid (the village, #640): a parcel of a player's village paid, once per (player, parcel), in order (1 to 29); cobbles is
-  -- its price, balance the player's cobbles after it, in the same running ledger as cobble_claims, pack_purchases and skin_purchases.
-  CREATE TABLE IF NOT EXISTS parcel_purchases (
+  -- CobblesSpent (#639, schema 17): cobbles a system Setup allows spent for a player (the matchmaker's "Next"); balance the
+  -- player's cobbles after it, in the same running ledger as cobble_claims, pack_purchases and skin_purchases.
+  CREATE TABLE IF NOT EXISTS cobble_spends (
     block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
-    player_id TEXT NOT NULL, parcel INTEGER NOT NULL, cobbles INTEGER NOT NULL, balance INTEGER NOT NULL, time INTEGER NOT NULL,
-    PRIMARY KEY (block, tx, idx),
-    UNIQUE (player_id, parcel)
-  );
-  CREATE INDEX IF NOT EXISTS parcel_purchases_player ON parcel_purchases (player_id, block, tx, idx);
-  -- DemolitionPaid (the village, #640): a demolition paid, the count-th of the player's chain day (count follows count - 1 of the
-  -- same day); cobbles is its price, balance the player's cobbles after it, in the same running ledger.
-  CREATE TABLE IF NOT EXISTS demolition_purchases (
-    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
-    player_id TEXT NOT NULL, day INTEGER NOT NULL, count INTEGER NOT NULL, cobbles INTEGER NOT NULL, balance INTEGER NOT NULL,
+    player_id TEXT NOT NULL, spender TEXT NOT NULL, reason TEXT NOT NULL, cobbles INTEGER NOT NULL, balance INTEGER NOT NULL,
     time INTEGER NOT NULL,
-    PRIMARY KEY (block, tx, idx),
-    UNIQUE (player_id, day, count)
+    PRIMARY KEY (block, tx, idx)
   );
-  CREATE INDEX IF NOT EXISTS demolition_purchases_player ON demolition_purchases (player_id, block, tx, idx);
+  CREATE INDEX IF NOT EXISTS cobble_spends_player ON cobble_spends (player_id, block, tx, idx);
   -- SkinsActivated: the player's whole active word after a set_skins (a 0x felt, 66 characters); the last row of a player is its
   -- active set (19 themes, plan 1 first, 0 the default).
   CREATE TABLE IF NOT EXISTS skin_actives (
@@ -269,6 +259,15 @@ const SCHEMA = `
     PRIMARY KEY (block, tx, idx)
   );
   CREATE INDEX IF NOT EXISTS skin_actives_player ON skin_actives (player_id, block, tx, idx);
+  -- XP-LEVEL (#641, schema 18). XpGained: XP credited to a player (source 1 a Challenge game over, 2 Story stars, 3 a PvP attack,
+  -- 4 a PvP defence); total and level are the player's after it, so the last row of a player is its XP and level.
+  CREATE TABLE IF NOT EXISTS xp_gains (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, source INTEGER NOT NULL, xp INTEGER NOT NULL, total INTEGER NOT NULL, level INTEGER NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS xp_gains_player ON xp_gains (player_id, block, tx, idx);
   -- DayClosed: a day's mean, fixed at its first settlement.
   CREATE TABLE IF NOT EXISTS economy_days (
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
@@ -901,49 +900,23 @@ export class Store {
             });
             break;
           }
-          case "ParcelPaid": {
+          case "CobblesSpent": {
             const player = padded(event.playerId);
-            const what = `ParcelPaid of ${player} (parcel ${event.parcel}) ${where}`;
-            // Village buys a player's parcels one by one: parcel k follows parcel k - 1.
-            const bought = Number((this.sql.parcelCount.get(player) as Row).n);
-            if (event.parcel !== bought + 1) throw new Halt(`${what}: the player has ${bought} parcels before it`);
-            // The running balance is the chain's own: claims, packs, skins and parcels all move it.
+            const what = `CobblesSpent of ${player} (${event.cobbles} by ${padded(event.spender)}) ${where}`;
+            // The running balance is the chain's own: claims, packs, skins and spends all move it.
             const expected = this.sql.cobbleBalance(player) - BigInt(event.cobbles);
             if (expected !== event.balance) {
               throw new Halt(`${what}: balance ${event.balance}, the ledger before it gives ${expected}`);
             }
             this.sql.insertPlayer.run(player, at, block.timestamp);
-            this.sql.insertParcelPurchase.run({
+            this.sql.insertCobbleSpend.run({
               block: at,
               tx: raw.transactionIndex,
               idx: raw.eventIndex,
               player_id: player,
-              parcel: event.parcel,
+              spender: padded(event.spender),
+              reason: padded(event.reason),
               cobbles: event.cobbles,
-              balance: Number(event.balance),
-              time: block.timestamp,
-            });
-            break;
-          }
-          case "DemolitionPaid": {
-            const player = padded(event.playerId);
-            const what = `DemolitionPaid of ${player} (day ${event.day}, demolition ${event.count}) ${where}`;
-            // A day's demolitions are counted one by one: demolition k of a day follows demolition k - 1 of the same day.
-            const made = Number((this.sql.demolitionCount.get(player, Number(event.day)) as Row).n);
-            if (event.count !== made + 1) throw new Halt(`${what}: the player made ${made} that day before it`);
-            const expected = this.sql.cobbleBalance(player) - event.cobbles;
-            if (expected !== event.balance) {
-              throw new Halt(`${what}: balance ${event.balance}, the ledger before it gives ${expected}`);
-            }
-            this.sql.insertPlayer.run(player, at, block.timestamp);
-            this.sql.insertDemolitionPurchase.run({
-              block: at,
-              tx: raw.transactionIndex,
-              idx: raw.eventIndex,
-              player_id: player,
-              day: Number(event.day),
-              count: event.count,
-              cobbles: Number(event.cobbles),
               balance: Number(event.balance),
               time: block.timestamp,
             });
@@ -966,6 +939,27 @@ export class Store {
               idx: raw.eventIndex,
               player_id: player,
               active: padded(event.active),
+              time: block.timestamp,
+            });
+            break;
+          }
+          case "XpGained": {
+            const player = padded(event.playerId);
+            // The running total is the chain's own: each credit adds its XP to the last total (0 before the first).
+            const expected = this.sql.xpTotal(player) + event.xp;
+            if (expected !== event.total) {
+              throw new Halt(`XpGained of ${player} ${where}: total ${event.total}, the gains before it give ${expected}`);
+            }
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertXpGain.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              source: event.source,
+              xp: event.xp,
+              total: event.total,
+              level: event.level,
               time: block.timestamp,
             });
             break;
@@ -1119,9 +1113,9 @@ export class Store {
       this.sql.rewindCreditClaims.run(to);
       this.sql.rewindCreditSpends.run(to);
       this.sql.rewindSkinActives.run(to);
+      this.sql.rewindXpGains.run(to);
       this.sql.rewindSkinPurchases.run(to);
-      this.sql.rewindParcelPurchases.run(to);
-      this.sql.rewindDemolitionPurchases.run(to);
+      this.sql.rewindCobbleSpends.run(to);
       this.sql.rewindSkinPrices.run(to);
       this.sql.rewindPackPurchases.run(to);
       this.sql.rewindSales.run(to);
@@ -1167,8 +1161,8 @@ export class Store {
     | "skin_prices"
     | "skin_purchases"
     | "skin_actives"
-    | "parcel_purchases"
-    | "demolition_purchases"
+    | "cobble_spends"
+    | "xp_gains"
     | "events"
     | "blocks",
     Row[]
@@ -1194,8 +1188,8 @@ export class Store {
       skin_prices: all("SELECT * FROM skin_prices ORDER BY block, tx, idx"),
       skin_purchases: all("SELECT * FROM skin_purchases ORDER BY block, tx, idx"),
       skin_actives: all("SELECT * FROM skin_actives ORDER BY block, tx, idx"),
-      parcel_purchases: all("SELECT * FROM parcel_purchases ORDER BY block, tx, idx"),
-      demolition_purchases: all("SELECT * FROM demolition_purchases ORDER BY block, tx, idx"),
+      cobble_spends: all("SELECT * FROM cobble_spends ORDER BY block, tx, idx"),
+      xp_gains: all("SELECT * FROM xp_gains ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1386,6 +1380,21 @@ function statements(db: DatabaseSync) {
       `INSERT INTO skin_purchases (block, tx, idx, player_id, theme, plan, cobbles, balance, time)
        VALUES (:block, :tx, :idx, :player_id, :theme, :plan, :cobbles, :balance, :time)`,
     ),
+    insertCobbleSpend: db.prepare(
+      `INSERT INTO cobble_spends (block, tx, idx, player_id, spender, reason, cobbles, balance, time)
+       VALUES (:block, :tx, :idx, :player_id, :spender, :reason, :cobbles, :balance, :time)`,
+    ),
+    insertXpGain: db.prepare(
+      `INSERT INTO xp_gains (block, tx, idx, player_id, source, xp, total, level, time)
+       VALUES (:block, :tx, :idx, :player_id, :source, :xp, :total, :level, :time)`,
+    ),
+    // A player's XP: the total of its last XpGained, 0 before the first.
+    xpTotal: (player: string): number => {
+      const row = db
+        .prepare("SELECT total FROM xp_gains WHERE player_id = ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1")
+        .get(player) as { total: number } | undefined;
+      return Number(row?.total ?? 0);
+    },
     insertSkinActive: db.prepare(
       `INSERT INTO skin_actives (block, tx, idx, player_id, active, time)
        VALUES (:block, :tx, :idx, :player_id, :active, :time)`,
@@ -1395,23 +1404,14 @@ function statements(db: DatabaseSync) {
       "SELECT cobbles FROM skin_prices WHERE theme = ? AND plan = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
     ),
     skinOwned: db.prepare("SELECT 1 FROM skin_purchases WHERE player_id = ? AND theme = ? AND plan = ?"),
-    insertParcelPurchase: db.prepare(
-      `INSERT INTO parcel_purchases (block, tx, idx, player_id, parcel, cobbles, balance, time)
-       VALUES (:block, :tx, :idx, :player_id, :parcel, :cobbles, :balance, :time)`,
-    ),
-    parcelCount: db.prepare("SELECT count(*) AS n FROM parcel_purchases WHERE player_id = ?"),
-    insertDemolitionPurchase: db.prepare(
-      `INSERT INTO demolition_purchases (block, tx, idx, player_id, day, count, cobbles, balance, time)
-       VALUES (:block, :tx, :idx, :player_id, :day, :count, :cobbles, :balance, :time)`,
-    ),
-    demolitionCount: db.prepare("SELECT count(*) AS n FROM demolition_purchases WHERE player_id = ? AND day = ?"),
     cobbleClaim: db.prepare("SELECT 1 FROM cobble_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
     creditClaim: db.prepare("SELECT 1 FROM credit_claims WHERE player_id = ? AND kind = ? AND period = ?"),
     creditSpend: db.prepare("SELECT 1 FROM credit_spends WHERE game_id = ?"),
     freeGame: db.prepare(
       `SELECT player_id FROM games WHERE contract = 'challenge' AND game_id = ? AND price = '${padded(0n)}'`,
     ),
-    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack, skin, parcel and demolition purchases), 0 / 0 before any.
+    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack purchases, skin purchases
+    // and spends), 0 / 0 before any.
     cobbleBalance: (player: string): bigint => {
       const row = db
         .prepare(
@@ -1422,9 +1422,7 @@ function statements(db: DatabaseSync) {
              UNION ALL
              SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p
              UNION ALL
-             SELECT block, tx, idx, balance FROM parcel_purchases WHERE player_id = :p
-             UNION ALL
-             SELECT block, tx, idx, balance FROM demolition_purchases WHERE player_id = :p
+             SELECT block, tx, idx, balance FROM cobble_spends WHERE player_id = :p
            ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
         )
         .get({ p: player }) as { balance: number } | undefined;
@@ -1449,9 +1447,9 @@ function statements(db: DatabaseSync) {
     rewindPackPurchases: db.prepare("DELETE FROM pack_purchases WHERE block > ?"),
     rewindSkinPrices: db.prepare("DELETE FROM skin_prices WHERE block > ?"),
     rewindSkinPurchases: db.prepare("DELETE FROM skin_purchases WHERE block > ?"),
-    rewindParcelPurchases: db.prepare("DELETE FROM parcel_purchases WHERE block > ?"),
-    rewindDemolitionPurchases: db.prepare("DELETE FROM demolition_purchases WHERE block > ?"),
     rewindSkinActives: db.prepare("DELETE FROM skin_actives WHERE block > ?"),
+    rewindCobbleSpends: db.prepare("DELETE FROM cobble_spends WHERE block > ?"),
+    rewindXpGains: db.prepare("DELETE FROM xp_gains WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),

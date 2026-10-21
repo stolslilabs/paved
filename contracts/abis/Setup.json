@@ -402,6 +402,10 @@
       {
         "name": "achievements_claimed",
         "type": "core::integer::u64"
+      },
+      {
+        "name": "xp",
+        "type": "core::integer::u32"
       }
     ]
   },
@@ -722,64 +726,70 @@
   },
   {
     "type": "impl",
-    "name": "SetupVillageImpl",
-    "interface_name": "paved::systems::setup::ISetupVillage"
+    "name": "SetupLevelImpl",
+    "interface_name": "paved::systems::setup::ISetupLevel"
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::PlayerLevel",
+    "members": [
+      {
+        "name": "xp",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "level",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "floor",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "next",
+        "type": "core::integer::u32"
+      }
+    ]
   },
   {
     "type": "interface",
-    "name": "paved::systems::setup::ISetupVillage",
+    "name": "paved::systems::setup::ISetupLevel",
     "items": [
       {
         "type": "function",
-        "name": "spend_parcel",
+        "name": "credit_xp",
         "inputs": [
           {
             "name": "player_id",
             "type": "core::felt252"
           },
           {
-            "name": "parcel",
+            "name": "source",
             "type": "core::integer::u8"
           },
           {
-            "name": "cobbles",
+            "name": "xp",
             "type": "core::integer::u32"
           }
         ],
-        "outputs": [
-          {
-            "type": "core::integer::u64"
-          }
-        ],
+        "outputs": [],
         "state_mutability": "external"
       },
       {
         "type": "function",
-        "name": "spend_demolition",
+        "name": "player_level",
         "inputs": [
           {
             "name": "player_id",
             "type": "core::felt252"
-          },
-          {
-            "name": "day",
-            "type": "core::integer::u64"
-          },
-          {
-            "name": "count",
-            "type": "core::integer::u32"
-          },
-          {
-            "name": "cobbles",
-            "type": "core::integer::u64"
           }
         ],
         "outputs": [
           {
-            "type": "core::integer::u64"
+            "type": "paved::systems::setup::PlayerLevel"
           }
         ],
-        "state_mutability": "external"
+        "state_mutability": "view"
       }
     ]
   },
@@ -1008,6 +1018,73 @@
           }
         ],
         "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "SetupSpendImpl",
+    "interface_name": "paved::systems::setup::ISetupSpend"
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupSpend",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_spender",
+        "inputs": [
+          {
+            "name": "spender",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "allowed",
+            "type": "core::bool"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "is_spender",
+        "inputs": [
+          {
+            "name": "spender",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "spend_cobbles",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "reason",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u64"
+          }
+        ],
+        "state_mutability": "external"
       }
     ]
   },
@@ -1721,7 +1798,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::setup::Setup::ParcelPaid",
+    "name": "paved::systems::setup::Setup::XpGained",
     "kind": "struct",
     "members": [
       {
@@ -1730,25 +1807,47 @@
         "kind": "key"
       },
       {
-        "name": "parcel",
+        "name": "source",
         "type": "core::integer::u8",
         "kind": "data"
       },
       {
-        "name": "cobbles",
+        "name": "xp",
         "type": "core::integer::u32",
         "kind": "data"
       },
       {
-        "name": "balance",
-        "type": "core::integer::u64",
+        "name": "total",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "level",
+        "type": "core::integer::u16",
         "kind": "data"
       }
     ]
   },
   {
     "type": "event",
-    "name": "paved::systems::setup::Setup::DemolitionPaid",
+    "name": "paved::systems::setup::Setup::SpenderSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "allowed",
+        "type": "core::bool",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::CobblesSpent",
     "kind": "struct",
     "members": [
       {
@@ -1757,18 +1856,18 @@
         "kind": "key"
       },
       {
-        "name": "day",
-        "type": "core::integer::u64",
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress",
         "kind": "data"
       },
       {
-        "name": "count",
-        "type": "core::integer::u32",
+        "name": "reason",
+        "type": "core::felt252",
         "kind": "data"
       },
       {
         "name": "cobbles",
-        "type": "core::integer::u64",
+        "type": "core::integer::u32",
         "kind": "data"
       },
       {
@@ -1864,13 +1963,18 @@
         "kind": "nested"
       },
       {
-        "name": "ParcelPaid",
-        "type": "paved::systems::setup::Setup::ParcelPaid",
+        "name": "XpGained",
+        "type": "paved::systems::setup::Setup::XpGained",
         "kind": "nested"
       },
       {
-        "name": "DemolitionPaid",
-        "type": "paved::systems::setup::Setup::DemolitionPaid",
+        "name": "SpenderSet",
+        "type": "paved::systems::setup::Setup::SpenderSet",
+        "kind": "nested"
+      },
+      {
+        "name": "CobblesSpent",
+        "type": "paved::systems::setup::Setup::CobblesSpent",
         "kind": "nested"
       }
     ]

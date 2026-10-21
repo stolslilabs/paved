@@ -30,6 +30,8 @@ export interface CobbleAccount {
   high: number;
   /** Bit `i` is achievement `i`, claimed. */
   achievementsClaimed: bigint;
+  /** The player's XP (#641, `level.ts`); its level is `levelOf(xp)`. */
+  xp: number;
 }
 
 /** `Setup.day_progress(player_id, day)` and `week_progress(player_id, week)`: the period's sums and its claims. */
@@ -65,7 +67,7 @@ export interface AchievementCobbles {
 
 /** The struct fields of the four views, in ABI order (camelCased); a test checks them against `contracts/abis/Setup.json`. */
 export const COBBLE_VIEW_FIELDS = {
-  "paved::systems::setup::Account": ["cobbles", "credits", "games", "forests", "wonders", "big", "high", "achievementsClaimed"],
+  "paved::systems::setup::Account": ["cobbles", "credits", "games", "forests", "wonders", "big", "high", "achievementsClaimed", "xp"],
   "paved::systems::setup::Progress": ["games", "structures", "forests", "points", "claimed", "credit"],
   "paved::systems::setup::QuestCobbles": ["cobbles", "kind", "task", "total", "start", "interval"],
   "paved::systems::setup::AchievementCobbles": ["cobbles", "task", "total"],
@@ -97,6 +99,7 @@ export const cobbleAccount = (s: Struct): CobbleAccount => ({
   big: int(s.big),
   high: int(s.high),
   achievementsClaimed: word(s.achievementsClaimed),
+  xp: int(s.xp),
 });
 
 export const periodProgress = (s: Struct): PeriodProgress => ({
@@ -138,5 +141,5 @@ export interface FakeCobblePlayer {
   weeks: Map<number, PeriodProgress>;
 }
 
-export const NO_ACCOUNT: CobbleAccount = { cobbles: 0, credits: 0, games: 0, forests: 0, wonders: 0, big: 0, high: 0, achievementsClaimed: 0n };
+export const NO_ACCOUNT: CobbleAccount = { cobbles: 0, credits: 0, games: 0, forests: 0, wonders: 0, big: 0, high: 0, achievementsClaimed: 0n, xp: 0 };
 export const NO_PROGRESS: PeriodProgress = { games: 0, structures: 0, forests: 0, points: 0, claimed: 0n, credit: false };

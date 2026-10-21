@@ -4,12 +4,12 @@
 //! A village is a game of this contract's own storage that never ends: founding it writes the usual
 //! starter at the centre and gives the 3 x 3 of cells around it. The territory grows one parcel at
 //! a time (`buy_parcel`): a cell next to an owned one, at most `MAX_CELLS` cells, gated by the
-//! player's level (`IPlayerLevel`, #641) and paid in cobbles on `Setup`'s ledger
-//! (`ISetupVillage::spend_parcel`). Tiles are placed on owned cells only, by the placers the owner
-//! allows (forced placement: the tile comes from a reward, #642), with the engine `Story` and
-//! `Challenge` play: the same matching against placed neighbours, structure state and
-//! assessment, so a structure scores when it closes. A side facing a cell not owned is an empty
-//! position for the engine: the structure stays open (no border rule).
+//! player's level (`Setup.player_level`, #641) and paid in cobbles on `Setup`'s ledger
+//! (`ISetupSpend::spend_cobbles`, `Village` an allowlisted spender). Tiles are placed on owned
+//! cells only, by the placers the owner allows (forced placement: the tile comes from a reward,
+//! #642), with the engine `Story` and `Challenge` play: the same matching against placed
+//! neighbours, structure state and assessment, so a structure scores when it closes. A side facing
+//! a cell not owned is an empty position for the engine: the structure stays open (no border rule).
 //!
 //! A player demolishes a placed tile for cobbles (`demolish`, the owner's decision of 2026-10-21):
 //! `DEMOLITION_COBBLES` for the first of a chain day, doubled after each one, back to the base
@@ -26,9 +26,13 @@ pub const MAX_PARCELS: u8 = 29;
 /// The cobbles of parcel `k` are `PARCEL_COBBLES x k` (open point 7.2 of the design, proposal (a)).
 pub const PARCEL_COBBLES: u32 = 10;
 /// The cobbles of a chain day's first demolition; each one doubles the next (5, 10, 20, 40...).
-pub const DEMOLITION_COBBLES: u64 = 5;
-/// The exponent stops here: `5 x 2^58` is the last price under `u64` (and far above any balance).
-pub const MAX_DOUBLINGS: u32 = 58;
+pub const DEMOLITION_COBBLES: u32 = 5;
+/// The exponent stops here: `5 x 2^29` is the last price under `u32`, what `spend_cobbles` takes
+/// (and far above any balance a player earns).
+pub const MAX_DOUBLINGS: u32 = 29;
+/// The reasons of `Village`'s `CobblesSpent` on `Setup`.
+pub const PARCEL_REASON: felt252 = 'VILLAGE_PARCEL';
+pub const DEMOLITION_REASON: felt252 = 'VILLAGE_DEMOLISH';
 /// The demolition day: the quests' clock, `time / DAY` (`Setup`'s calendar).
 pub const DAY: u64 = 86400;
 
@@ -70,13 +74,7 @@ pub struct VillageInfo {
 pub struct DemolitionOffer {
     pub day: u64,
     pub count: u32,
-    pub price: u64,
-}
-
-/// The player's level (#641), as `Village` reads it for the parcels' gate.
-#[starknet::interface]
-pub trait IPlayerLevel<TContractState> {
-    fn level(self: @TContractState, player_id: felt252) -> u32;
+    pub price: u32,
 }
 
 #[starknet::interface]
@@ -95,7 +93,7 @@ pub trait IVillage<TContractState> {
     /// (`demolition_price`), debited on `Setup`'s ledger (`'Setup: not enough cobbles'`). The
     /// village is rebuilt from the tiles left, in their order, in a new game. Emits
     /// `TileDemolished`; returns the price paid.
-    fn demolish(ref self: TContractState, x: u32, y: u32) -> u64;
+    fn demolish(ref self: TContractState, x: u32, y: u32) -> u32;
     /// Places a tile of `plan` (1 to 19) turned to `orientation` (1 to 4) at `(x, y)` in the
     /// village of `player_id`: an allowed placer only (`'Village: not placer'`), on an owned cell
     /// (`'Village: cell not owned'`), free (`'Tile: already exists'`) and fitting its placed
@@ -124,13 +122,9 @@ pub trait IVillage<TContractState> {
 pub trait IVillageAdmin<TContractState> {
     /// Sets the `Setup` whose ledger is debited: the owner only, never zero. Emits `SetupSet`.
     fn set_setup(ref self: TContractState, setup: starknet::ContractAddress);
-    /// Sets the contract whose `level` gates the parcels (#641): the owner only; zero makes every
-    /// player level 1. Emits `LevelsSet`.
-    fn set_levels(ref self: TContractState, levels: starknet::ContractAddress);
     /// Allows or forbids `placer` to place tiles: the owner only. Emits `PlacerSet`.
     fn set_placer(ref self: TContractState, placer: starknet::ContractAddress, allowed: bool);
     fn setup(self: @TContractState) -> starknet::ContractAddress;
-    fn levels(self: @TContractState) -> starknet::ContractAddress;
     fn is_placer(self: @TContractState, placer: starknet::ContractAddress) -> bool;
 }
 
@@ -153,7 +147,7 @@ pub fn parcel_level(parcel: u8) -> u32 {
 
 /// The price of a day's demolition after `count` of them that day: `DEMOLITION_COBBLES x 2^count`,
 /// the exponent capped at `MAX_DOUBLINGS`.
-pub fn demolition_price(count: u32) -> u64 {
+pub fn demolition_price(count: u32) -> u32 {
     let doublings = if count > MAX_DOUBLINGS {
         MAX_DOUBLINGS
     } else {
@@ -187,7 +181,10 @@ pub mod Village {
     use paved::store::{Store, StoreImpl};
     use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
-    use paved::systems::setup::{ISetupVillageDispatcher, ISetupVillageDispatcherTrait};
+    use paved::systems::setup::{
+        ISetupLevelDispatcher, ISetupLevelDispatcherTrait, ISetupSpendDispatcher,
+        ISetupSpendDispatcherTrait,
+    };
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::types::plan::Plan;
@@ -197,9 +194,9 @@ pub mod Village {
     };
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
     use super::{
-        DAY, DemolitionOffer, IPlayerLevelDispatcher, IPlayerLevelDispatcherTrait, IVillage,
-        IVillageAdmin, MAX_CELLS, START_CELLS, VillageCell, VillageInfo, VillageTile,
-        demolition_price, is_start_cell, parcel_level, parcel_price,
+        DAY, DEMOLITION_REASON, DemolitionOffer, IVillage, IVillageAdmin, MAX_CELLS, PARCEL_REASON,
+        START_CELLS, VillageCell, VillageInfo, VillageTile, demolition_price, is_start_cell,
+        parcel_level, parcel_price,
     };
 
     pub mod errors {
@@ -247,8 +244,6 @@ pub mod Village {
         upgradeable: UpgradeableComponent::Storage,
         /// The `Setup` whose ledger is debited; written by the constructor and `set_setup`.
         setup: ContractAddress,
-        /// The contract whose `level` gates the parcels (#641); zero: every player is level 1.
-        levels: ContractAddress,
         /// The placers the owner allows (`set_placer`).
         placers: Map<ContractAddress, bool>,
         /// A player's village (key `player_id`): `game_id` [0, 32) · `cells` [32, 40) (the 9 of
@@ -277,7 +272,6 @@ pub mod Village {
         #[flat]
         UpgradeableEvent: UpgradeableComponent::Event,
         SetupSet: SetupSet,
-        LevelsSet: LevelsSet,
         PlacerSet: PlacerSet,
         VillageFounded: VillageFounded,
         ParcelBought: ParcelBought,
@@ -288,11 +282,6 @@ pub mod Village {
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct SetupSet {
         pub setup: ContractAddress,
-    }
-
-    #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct LevelsSet {
-        pub levels: ContractAddress,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -311,7 +300,7 @@ pub mod Village {
     }
 
     /// A parcel bought: its number and cell, the territory's cells after it, its price (`Setup`'s
-    /// `ParcelPaid` carries the balance) and the level the gate read.
+    /// `CobblesSpent` carries the balance) and the level the gate read (`Setup.player_level`).
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct ParcelBought {
         #[key]
@@ -353,7 +342,7 @@ pub mod Village {
         pub y: u32,
         pub day: u64,
         pub count: u32,
-        pub cobbles: u64,
+        pub cobbles: u32,
         pub game_id: u32,
         pub score: u32,
     }
@@ -408,7 +397,11 @@ pub mod Village {
             assert(header.cells < MAX_CELLS, errors::TERRITORY_FULL);
             // [Check] The level gate (#641)
             let parcel = header.cells - START_CELLS + 1;
-            let level = self.level_of(player_id);
+            let setup = self.setup_address();
+            let level: u32 = ISetupLevelDispatcher { contract_address: setup }
+                .player_level(player_id)
+                .level
+                .into();
             assert(level >= parcel_level(parcel), errors::LEVEL_TOO_LOW);
             // [Effect] The cell
             let cobbles = parcel_price(parcel);
@@ -418,13 +411,13 @@ pub mod Village {
             let cells = header.cells + 1;
             self.write_header(player_id, Header { cells, ..header });
             // [Interaction] The price, from `Setup`'s ledger (reverts when the balance is short)
-            ISetupVillageDispatcher { contract_address: self.setup_address() }
-                .spend_parcel(player_id, parcel, cobbles);
+            ISetupSpendDispatcher { contract_address: setup }
+                .spend_cobbles(player_id, cobbles, PARCEL_REASON);
             self.emit(ParcelBought { player_id, parcel, x, y, cells, cobbles, level });
             parcel
         }
 
-        fn demolish(ref self: ContractState, x: u32, y: u32) -> u64 {
+        fn demolish(ref self: ContractState, x: u32, y: u32) -> u32 {
             let player_id: felt252 = get_caller_address().into();
             // [Check] A village, a placed tile at the cell, not the starter
             let header = self.header_of(player_id);
@@ -469,8 +462,8 @@ pub mod Village {
                     player_id, Header { game_id: game.id, tiles: header.tiles - 1, ..header },
                 );
             // [Interaction] The price, from `Setup`'s ledger (reverts when the balance is short)
-            ISetupVillageDispatcher { contract_address: self.setup_address() }
-                .spend_demolition(player_id, offer.day, count, offer.price);
+            ISetupSpendDispatcher { contract_address: self.setup_address() }
+                .spend_cobbles(player_id, offer.price, DEMOLITION_REASON);
             self
                 .emit(
                     TileDemolished {
@@ -638,12 +631,6 @@ pub mod Village {
             self.emit(SetupSet { setup });
         }
 
-        fn set_levels(ref self: ContractState, levels: ContractAddress) {
-            self.ownable.assert_only_owner();
-            self.levels.write(levels);
-            self.emit(LevelsSet { levels });
-        }
-
         fn set_placer(ref self: ContractState, placer: ContractAddress, allowed: bool) {
             self.ownable.assert_only_owner();
             self.placers.write(placer, allowed);
@@ -652,10 +639,6 @@ pub mod Village {
 
         fn setup(self: @ContractState) -> ContractAddress {
             self.setup.read()
-        }
-
-        fn levels(self: @ContractState) -> ContractAddress {
-            self.levels.read()
         }
 
         fn is_placer(self: @ContractState, placer: ContractAddress) -> bool {
@@ -678,15 +661,6 @@ pub mod Village {
             let setup = self.setup.read();
             assert(setup.is_non_zero(), errors::ZERO_SETUP_ADDRESS);
             setup
-        }
-
-        /// The player's level: 1 while no `levels` contract is set (#641 not wired).
-        fn level_of(self: @ContractState, player_id: felt252) -> u32 {
-            let levels = self.levels.read();
-            if levels.is_zero() {
-                return 1;
-            }
-            IPlayerLevelDispatcher { contract_address: levels }.level(player_id)
         }
 
         /// Whether the cell is in the player's territory (its village founded or not).

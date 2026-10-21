@@ -30,6 +30,7 @@
 //! prices the skin of a tile plan in a theme, the player buys it for itself (`buy_skin`), once, and
 //! sets which owned skin is active for each of the 19 plans (`set_skins`, one write).
 
+use core::num::traits::Sqrt;
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
 use quiver_achievement::types::window::AchievementWindow;
@@ -84,14 +85,32 @@ pub const PLANS: u8 = 19;
 /// The price of a skin when set (0 withdraws it from sale), in cobbles (cobbles v1, 5.2).
 pub const SKIN_PRICE_MIN: u8 = 50;
 pub const SKIN_PRICE_MAX: u8 = 100;
+/// The XP of a player (#641, `docs/architecture/xp-level.md`; the amounts and the curve below are
+/// the owner's ruling of 2026-10-21, with no backfill): the sources of an `XpGained`, a Challenge
+/// game over (`report`), a Story star won for the first time (`credit_story`), a PvP attack and a
+/// PvP defence (`ISetupLevel::credit_xp`, #643).
+pub const XP_CHALLENGE: u8 = 1;
+pub const XP_STORY: u8 = 2;
+pub const XP_ATTACK: u8 = 3;
+pub const XP_DEFENCE: u8 = 4;
+/// The XP of a Challenge game over, paid or free, whatever its stake or score.
+pub const GAME_XP: u32 = 20;
+/// The XP of a Story star, paid once per star, level and account, as its cobbles.
+pub const STAR_XP: u32 = 10;
+/// The most XP one `credit_xp` may give.
+pub const MAX_CREDIT_XP: u32 = 100;
+/// The XP saturates at 2^27 - 1: its 27 bits of the account slot.
+pub const MAX_XP: u32 = 0x7ffffff;
+/// The level curve: going from level `n` to `n + 1` costs `LEVEL_STEP x n` XP, so level `L` starts
+/// at `LEVEL_STEP x L (L - 1) / 2` XP (`level_floor`).
+pub const LEVEL_STEP: u64 = 100;
 
 /// A player's account (one slot, key `player_id`): the cobbles, the free-game credits, the lifetime
 /// counts of every reported game over (each saturating at `u16::MAX`) and the claimed
-/// achievements (bit `i` = achievement `i`). Layout: `cobbles` [0, 64) · `credits` [64, 80) ·
-/// `games`
-/// [80, 96) · `forests` [96, 112) · `wonders` [112, 128) · `big` [128, 144) · `high` [144, 160)
-/// ·
-/// `achievements_claimed` [160, 224).
+/// achievements (bit `i` = achievement `i`), and the XP (#641, saturating at `MAX_XP`). Layout:
+/// `cobbles` [0, 64) · `credits` [64, 80) · `games` [80, 96) · `forests` [96, 112) · `wonders`
+/// [112, 128) · `big` [128, 144) · `high` [144, 160) · `achievements_claimed` [160, 224) · `xp`
+/// [224, 251).
 #[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
 pub struct Account {
     pub cobbles: u64,
@@ -102,6 +121,48 @@ pub struct Account {
     pub big: u16,
     pub high: u16,
     pub achievements_claimed: u64,
+    pub xp: u32,
+}
+
+/// A player's XP and level (#641, `ISetupLevel::player_level`): its level starts at `floor` XP and
+/// the next one at `next`.
+#[derive(Copy, Drop, Debug, PartialEq, Serde)]
+pub struct PlayerLevel {
+    pub xp: u32,
+    pub level: u16,
+    pub floor: u32,
+    pub next: u32,
+}
+
+/// The level of `xp` XP: the highest `L` with `level_floor(L) <= xp`, 1 at 0 XP. `L (L - 1) <= q`,
+/// `q = 2 xp / LEVEL_STEP`, is `2 L - 1 <= sqrt(4 q + 1)`: one integer square root, exact.
+pub fn level_of(xp: u32) -> u16 {
+    let q: u64 = 2 * xp.into() / LEVEL_STEP;
+    let root: u64 = (4 * q + 1).sqrt().into();
+    ((root + 1) / 2).try_into().unwrap()
+}
+
+/// The XP at which `level` starts (1 or more): `LEVEL_STEP x level (level - 1) / 2`.
+pub fn level_floor(level: u16) -> u64 {
+    let level: u64 = level.into();
+    LEVEL_STEP * level * (level - 1) / 2
+}
+
+/// The XP of a report: `GAME_XP` per game its achievement entries of task 1 count (every game
+/// over carries one), at most `MAX_XP`.
+fn report_xp(entries: Span<AchievementProgress>) -> u32 {
+    let mut games: u64 = 0;
+    for entry in entries {
+        if *entry.task_id == 1 {
+            games += (*entry.count).into();
+        }
+    }
+    let xp = games * GAME_XP.into();
+    if xp > MAX_XP.into() {
+        MAX_XP
+    } else {
+        xp.try_into().unwrap()
+    }
 }
 
 /// A player's day or week (one slot, key `(player_id, period)`): the sums of the paid game overs
@@ -186,6 +247,7 @@ const TWO_POW_64: u128 = 0x10000000000000000;
 const TWO_POW_80: u128 = 0x100000000000000000000;
 const TWO_POW_96: u128 = 0x1000000000000000000000000;
 const TWO_POW_112: u128 = 0x10000000000000000000000000000;
+const TWO_POW_64_NZ: NonZero<u128> = 0x10000000000000000;
 const MASK_8: u128 = 0xff;
 const MASK_16: u128 = 0xffff;
 const MASK_32: u128 = 0xffffffff;
@@ -197,7 +259,7 @@ fn halves(value: felt252) -> (u128, u128) {
     (word.low, word.high)
 }
 
-/// A packed slot from its halves; every layout keeps `high` under 2^96, so it fits a felt.
+/// A packed slot from its halves; every layout keeps `high` under 2^123, so it fits a felt.
 fn word(low: u128, high: u128) -> felt252 {
     let word = u256 { low, high };
     word.try_into().unwrap()
@@ -217,12 +279,14 @@ pub impl AccountPacking of starknet::storage_access::StorePacking<Account, felt2
             + value.wonders.into() * TWO_POW_112;
         let high: u128 = value.big.into()
             + value.high.into() * TWO_POW_16
-            + value.achievements_claimed.into() * TWO_POW_32;
+            + value.achievements_claimed.into() * TWO_POW_32
+            + value.xp.into() * TWO_POW_96;
         word(low, high)
     }
 
     fn unpack(value: felt252) -> Account {
         let (low, high) = halves(value);
+        let (xp, claimed) = DivRem::div_rem(high / TWO_POW_32, TWO_POW_64_NZ);
         Account {
             cobbles: (low & MASK_64).try_into().unwrap(),
             credits: field(low, TWO_POW_64, MASK_16).try_into().unwrap(),
@@ -231,7 +295,8 @@ pub impl AccountPacking of starknet::storage_access::StorePacking<Account, felt2
             wonders: (low / TWO_POW_112).try_into().unwrap(),
             big: (high & MASK_16).try_into().unwrap(),
             high: field(high, TWO_POW_16, MASK_16).try_into().unwrap(),
-            achievements_claimed: (high / TWO_POW_32).try_into().unwrap(),
+            achievements_claimed: claimed.try_into().unwrap(),
+            xp: xp.try_into().unwrap(),
         }
     }
 }
@@ -457,6 +522,18 @@ pub impl AccountImpl of AccountTrait {
         }
     }
 
+    /// Adds `xp` to the XP, saturating at `MAX_XP`; returns the XP added.
+    fn add_xp(ref self: Account, xp: u32) -> u32 {
+        let room = MAX_XP - self.xp;
+        let added = if xp > room {
+            room
+        } else {
+            xp
+        };
+        self.xp += added;
+        added
+    }
+
     /// The lifetime count of an achievement task (1, 4, 5, 6 or 7); 0 for any other. Task 10 (the
     /// tutorial) is read from `tutorial_claims` by the claim.
     fn count(self: @Account, task: u32) -> u32 {
@@ -648,22 +725,17 @@ pub trait ISetupStory<TContractState> {
     ) -> u32;
 }
 
-/// The village (#640, `docs/architecture/village-territory.md`): the parcels a player buys, paid in
-/// cobbles from this ledger for the `Village` system, an allowlisted reporter.
+/// The player's XP and level (#641, `docs/architecture/xp-level.md`): credited by the allowlisted
+/// reporters only (a Challenge game over by `report`, a Story star by `credit_story`, PvP by
+/// `credit_xp`); the level is computed from the XP (`level_of`), never stored.
 #[starknet::interface]
-pub trait ISetupVillage<TContractState> {
-    /// Debits `player_id` the `cobbles` of parcel `parcel` of its village (`'Setup: not enough
-    /// cobbles'` when its balance is short). An allowlisted reporter only (`'Quest: not
-    /// reporter'`); it trusts the reporter for whom, which parcel and its price (`Village` debits
-    /// the buyer, at the price of its curve). Emits `ParcelPaid`; returns the balance after it.
-    fn spend_parcel(ref self: TContractState, player_id: felt252, parcel: u8, cobbles: u32) -> u64;
-    /// Debits `player_id` the `cobbles` of its `count`-th demolition of chain day `day` (the
-    /// owner's decision of 2026-10-21: 5, doubled after each one, reset each day). The same
-    /// reporter rule and trust as `spend_parcel` (`Village` debits the demolisher, at the price
-    /// of its curve). Emits `DemolitionPaid`; returns the balance after it.
-    fn spend_demolition(
-        ref self: TContractState, player_id: felt252, day: u64, count: u32, cobbles: u64,
-    ) -> u64;
+pub trait ISetupLevel<TContractState> {
+    /// Credits `player_id` `xp` XP (1 to `MAX_CREDIT_XP`) for `source`, `XP_ATTACK` or
+    /// `XP_DEFENCE`: an allowlisted reporter only (`'Quest: not reporter'`), which it trusts for
+    /// whom and how much. Emits `XpGained` (with the XP added, 0 at the ceiling).
+    fn credit_xp(ref self: TContractState, player_id: felt252, source: u8, xp: u32);
+    /// The XP and level of a player; level 1 at 0 XP.
+    fn player_level(self: @TContractState, player_id: felt252) -> PlayerLevel;
 }
 
 /// Cobbles v1, part 3 (P-61, `docs/architecture/cobbles-v1.md`, 5): the skins of the tile plans,
@@ -686,6 +758,21 @@ pub trait ISetupSkins<TContractState> {
     fn skins(self: @TContractState, player_id: felt252, theme: u8) -> u32;
     /// The theme active for each plan of a player: 19 ids, plan 1 first; 0 the default theme.
     fn active_skins(self: @TContractState, player_id: felt252) -> Array<u8>;
+}
+
+/// The Cobbles another system spends for a player (#639: the matchmaker's "Next"): an allowlist of
+/// spenders the owner sets, separate from the reporters (a spender can only lower a balance).
+#[starknet::interface]
+pub trait ISetupSpend<TContractState> {
+    /// Allows or revokes a spender, owner only. Emits `SpenderSet`.
+    fn set_spender(ref self: TContractState, spender: ContractAddress, allowed: bool);
+    fn is_spender(self: @TContractState, spender: ContractAddress) -> bool;
+    /// Spends `cobbles` (not 0) of `player_id`'s balance for `reason`, an allowlisted spender only;
+    /// reverts if the balance is short. It trusts the spender for whom (the matchmaker spends only
+    /// for the caller of its own entry point). Emits `CobblesSpent`; returns the balance after it.
+    fn spend_cobbles(
+        ref self: TContractState, player_id: felt252, cobbles: u32, reason: felt252,
+    ) -> u64;
 }
 
 #[starknet::contract]
@@ -715,12 +802,13 @@ pub mod Setup {
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, ISetupStory,
-        ISetupVillage, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS,
-        Pack, Progress, ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles,
-        QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN,
-        STAR_COBBLES, WEEKLY, Wiring, active_themes, bit, list_ids, list_word, schedule_kind,
-        week_of,
+        CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupLevel, ISetupPacks, ISetupSkins,
+        ISetupSpend, ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID,
+        MAX_QUEST_TOTAL, PLANS, Pack, PlayerLevel, Progress, ProgressTrait, QUEST_COBBLES_MAX,
+        QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask,
+        SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES, STAR_XP, WEEKLY, Wiring, XP_ATTACK,
+        XP_CHALLENGE, XP_DEFENCE, XP_STORY, active_themes, bit, level_floor, level_of, list_ids,
+        list_word, report_xp, schedule_kind, week_of,
     };
 
     // Errors
@@ -759,6 +847,9 @@ pub mod Setup {
         pub const NOT_ENOUGH_COBBLES: felt252 = 'Setup: not enough cobbles';
         pub const INVALID_STARS: felt252 = 'Setup: invalid stars';
         pub const SKIN_NOT_OWNED: felt252 = 'Setup: skin not owned';
+        pub const INVALID_XP_SOURCE: felt252 = 'Setup: invalid xp source';
+        pub const INVALID_XP: felt252 = 'Setup: invalid xp';
+        pub const NOT_SPENDER: felt252 = 'Setup: not spender';
     }
 
     // Components
@@ -865,6 +956,9 @@ pub mod Setup {
         /// The theme active for each plan of a player (`super::active_word`); written by
         /// `set_skins`.
         active_skins: Map<felt252, felt252>,
+        /// #639 (appended, P-42). The systems allowed to spend a player's cobbles
+        /// (`ISetupSpend`); written by `set_spender`.
+        spenders: Map<ContractAddress, bool>,
     }
 
     // Events
@@ -892,8 +986,9 @@ pub mod Setup {
         SkinPriced: SkinPriced,
         SkinBought: SkinBought,
         SkinsActivated: SkinsActivated,
-        ParcelPaid: ParcelPaid,
-        DemolitionPaid: DemolitionPaid,
+        XpGained: XpGained,
+        SpenderSet: SpenderSet,
+        CobblesSpent: CobblesSpent,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -1008,6 +1103,25 @@ pub mod Setup {
         pub balance: u64,
     }
 
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SpenderSet {
+        #[key]
+        pub spender: ContractAddress,
+        pub allowed: bool,
+    }
+
+    /// Cobbles spent for the player by an allowlisted spender, for `reason` (`'MATCH_NEXT'`: the
+    /// matchmaker's "Next"); `balance` the player's cobbles after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CobblesSpent {
+        #[key]
+        pub player_id: felt252,
+        pub spender: ContractAddress,
+        pub reason: felt252,
+        pub cobbles: u32,
+        pub balance: u64,
+    }
+
     /// The player's active skins after a `set_skins`: the whole packed word
     /// (`super::active_word`, the theme of plan `p` in byte `p - 1`).
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -1017,29 +1131,17 @@ pub mod Setup {
         pub active: felt252,
     }
 
-    /// A parcel of a player's village paid (#640): `parcel` its number (1 to 29), `cobbles` its
-    /// price, `balance` the player's cobbles after it. `Village` emits `ParcelBought` in the same
-    /// transaction.
+    /// XP credited to a player (#641): `source` 1 a Challenge game over, 2 Story stars (one event
+    /// per `credit_story`), 3 a PvP attack, 4 a PvP defence; `xp` the XP added (0 at the
+    /// ceiling), `total` and `level` the player's after it.
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct ParcelPaid {
+    pub struct XpGained {
         #[key]
         pub player_id: felt252,
-        pub parcel: u8,
-        pub cobbles: u32,
-        pub balance: u64,
-    }
-
-    /// A demolition in a player's village paid (#640): the `count`-th of chain day `day`,
-    /// `cobbles` its price, `balance` the player's cobbles after it. `Village` emits
-    /// `TileDemolished` in the same transaction.
-    #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct DemolitionPaid {
-        #[key]
-        pub player_id: felt252,
-        pub day: u64,
-        pub count: u32,
-        pub cobbles: u64,
-        pub balance: u64,
+        pub source: u8,
+        pub xp: u32,
+        pub total: u32,
+        pub level: u16,
     }
 
     // Constructor
@@ -1151,6 +1253,12 @@ pub mod Setup {
             if achievements.len() != 0 {
                 let mut account = self.accounts.read(player_id);
                 account.add(achievements);
+                // [Effect] The XP of the game over (#641), in the same write
+                let xp = report_xp(achievements);
+                if xp != 0 {
+                    let xp = account.add_xp(xp);
+                    self.emit_xp(player_id, XP_CHALLENGE, xp, account.xp);
+                }
                 self.accounts.write(player_id, account);
             }
         }
@@ -1444,39 +1552,37 @@ pub mod Setup {
                     );
                 star += 1;
             }
+            // [Effect] The XP of the stars (#641), in the same write
+            let xp = account.add_xp((stars - paid).into() * STAR_XP);
+            self.emit_xp(player_id, XP_STORY, xp, account.xp);
             self.accounts.write(player_id, account);
             total
         }
     }
 
     #[abi(embed_v0)]
-    impl SetupVillageImpl of ISetupVillage<ContractState> {
-        fn spend_parcel(
-            ref self: ContractState, player_id: felt252, parcel: u8, cobbles: u32,
-        ) -> u64 {
-            // [Check] Caller is a reporter (`Village`), the balance covers the price
+    impl SetupLevelImpl of ISetupLevel<ContractState> {
+        fn credit_xp(ref self: ContractState, player_id: felt252, source: u8, xp: u32) {
+            // [Check] Caller is a reporter, a PvP source, an amount
             self.quest.assert_reporter(get_caller_address());
+            assert(source == XP_ATTACK || source == XP_DEFENCE, errors::INVALID_XP_SOURCE);
+            assert(xp != 0 && xp <= MAX_CREDIT_XP, errors::INVALID_XP);
+            // [Effect] The XP
             let mut account = self.accounts.read(player_id);
-            assert(account.cobbles >= cobbles.into(), errors::NOT_ENOUGH_COBBLES);
-            // [Effect] The cobbles spent
-            account.cobbles -= cobbles.into();
+            let added = account.add_xp(xp);
             self.accounts.write(player_id, account);
-            self.emit(ParcelPaid { player_id, parcel, cobbles, balance: account.cobbles });
-            account.cobbles
+            self.emit_xp(player_id, source, added, account.xp);
         }
 
-        fn spend_demolition(
-            ref self: ContractState, player_id: felt252, day: u64, count: u32, cobbles: u64,
-        ) -> u64 {
-            // [Check] Caller is a reporter (`Village`), the balance covers the price
-            self.quest.assert_reporter(get_caller_address());
-            let mut account = self.accounts.read(player_id);
-            assert(account.cobbles >= cobbles, errors::NOT_ENOUGH_COBBLES);
-            // [Effect] The cobbles spent
-            account.cobbles -= cobbles;
-            self.accounts.write(player_id, account);
-            self.emit(DemolitionPaid { player_id, day, count, cobbles, balance: account.cobbles });
-            account.cobbles
+        fn player_level(self: @ContractState, player_id: felt252) -> PlayerLevel {
+            let xp = self.accounts.read(player_id).xp;
+            let level = level_of(xp);
+            PlayerLevel {
+                xp,
+                level,
+                floor: level_floor(level).try_into().unwrap(),
+                next: level_floor(level + 1).try_into().unwrap(),
+            }
         }
     }
 
@@ -1634,8 +1740,45 @@ pub mod Setup {
         }
     }
 
+    #[abi(embed_v0)]
+    impl SetupSpendImpl of ISetupSpend<ContractState> {
+        fn set_spender(ref self: ContractState, spender: ContractAddress, allowed: bool) {
+            self.ownable.assert_only_owner();
+            self.spenders.write(spender, allowed);
+            self.emit(SpenderSet { spender, allowed });
+        }
+
+        fn is_spender(self: @ContractState, spender: ContractAddress) -> bool {
+            self.spenders.read(spender)
+        }
+
+        fn spend_cobbles(
+            ref self: ContractState, player_id: felt252, cobbles: u32, reason: felt252,
+        ) -> u64 {
+            // [Check] An allowlisted spender, cobbles to spend, a balance that covers them
+            let spender = get_caller_address();
+            assert(self.spenders.read(spender), errors::NOT_SPENDER);
+            assert(cobbles != 0, errors::INVALID_COBBLES);
+            let mut account = self.accounts.read(player_id);
+            assert(account.cobbles >= cobbles.into(), errors::NOT_ENOUGH_COBBLES);
+            // [Effect] The cobbles spent
+            account.cobbles -= cobbles.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    CobblesSpent { player_id, spender, reason, cobbles, balance: account.cobbles },
+                );
+            account.cobbles
+        }
+    }
+
     #[generate_trait]
     impl CobblesInternalImpl of CobblesInternalTrait {
+        /// The `XpGained` of a credit: `xp` added, `total` the player's XP after it.
+        fn emit_xp(ref self: ContractState, player_id: felt252, source: u8, xp: u32, total: u32) {
+            self.emit(XpGained { player_id, source, xp, total, level: level_of(total) });
+        }
+
         /// Removes the cobbles of a quest: its copy, and its id from its kind's list.
         fn clear_quest_cobbles(ref self: ContractState, quest_id: u32) {
             let entry = self.quest_cobbles.read(quest_id);
