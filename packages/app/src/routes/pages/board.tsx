@@ -24,6 +24,7 @@ import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
+import { useAfterGameOver } from "../game-over";
 import { usePlacement, type Slot } from "../../data/placement";
 
 /**
@@ -44,7 +45,7 @@ export default function Page() {
 /**
  * The Training board on its `LocalSession` (P3). The player picks a lit slot (a tap or a click; on a mouse, the hover
  * shows the ghost too), turns the tile, then places it: the move sent is built from the slot the ghost shows, through
- * `toChainSlot` (D1, #379). A finished game goes to `/training/over`.
+ * `toChainSlot` (D1, #379). A finished game goes to `/training/over`, once its last move has played out on the board.
  */
 function TrainingBoard() {
   const { game, snapshot, board, restart } = useTrainingSession();
@@ -69,9 +70,8 @@ function TrainingBoard() {
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
   const handErrorDetail = useErrorDetail(snapshot.state.writeError);
 
-  useEffect(() => {
-    if (board.over) go("/training/over", { replace: true });
-  }, [board.over, go]);
+  // The last move plays out on the board first (`GAME_OVER_HOLD_MS`), then the scores.
+  useAfterGameOver(board.over, () => go("/training/over", { replace: true }));
 
   // Confirm only a placed tile whose rotation fits (red: disabled). The green flash once the session took the move;
   // refused, the tile stays placed (its error in the hand).
@@ -198,7 +198,8 @@ function challengeHand(state: PredictedState, expired: boolean): HandState {
  * places it; the engine shows the tile, its points and the next tile at once, and the move stays pending until the
  * chain confirms it. Without a signer the board is read only ("Connect to play"); a refused move rolls back and shows
  * its error; a result the chain does not share resyncs the board ("Board resynced"); past `expiresAt` the hand only
- * offers a surrender, and the Surrender dialog opens by itself. A finished game goes to `/game/:gameId/over`.
+ * offers a surrender, and the Surrender dialog opens by itself. A finished game goes to `/game/:gameId/over`, once its last
+ * move has played out on the board and the chain has confirmed it.
  */
 function ChallengeBoard({ gameId }: { gameId: number }) {
   const { session, state, senders } = useChallengeSession(gameId);
@@ -240,10 +241,13 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
     if (resynced > 0) toast("Board resynced", { description: "The chain's game differed from the prediction: the board now shows the chain's." });
   }, [resynced]);
 
-  const over = ready?.game?.over ?? false;
-  useEffect(() => {
-    if (over && ready?.unconfirmed === 0) go(`/game/${gameId}/over`, { replace: true });
-  }, [over, ready?.unconfirmed, gameId, go]);
+  // The scores once the last move has played out on the board (`GAME_OVER_HOLD_MS`, from the move, predicted or not) and the
+  // chain has confirmed every move. A surrender has nothing to watch: the scores once it is confirmed.
+  const [surrendered, setSurrendered] = useState(false);
+  useAfterGameOver(ready?.game ? ready.game.over : null, () => go(`/game/${gameId}/over`, { replace: true }), {
+    settled: ready?.unconfirmed === 0,
+    hold: !surrendered,
+  });
 
   // Confirm only a placed tile whose rotation fits (red: disabled). The green flash when the move is accepted: with
   // prediction, at once when the engine takes it (`place` applies it before it resolves; the receipt can come seconds and
@@ -268,7 +272,9 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   }, [session, senders, placement]);
 
   const surrender = useCallback(() => {
-    if (session && senders) void session.surrender(() => senders.surrender());
+    if (!session || !senders) return;
+    setSurrendered(true);
+    void session.surrender(() => senders.surrender()).then((ok) => ok || setSurrendered(false));
   }, [session, senders]);
 
   if (!state || state.status !== "ready") {

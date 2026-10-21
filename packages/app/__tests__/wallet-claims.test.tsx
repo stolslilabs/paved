@@ -39,7 +39,7 @@ function setup() {
   return { sources: fakes.sources, claimer, load: async () => connector };
 }
 
-preloadPages("home");
+preloadPages("home", "quests");
 
 beforeEach(() => {
   queryClient.clear();
