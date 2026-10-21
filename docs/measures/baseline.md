@@ -1712,4 +1712,5 @@ and -36,972 on z5). m and n stay under their ceilings; z5 is reset to measured +
 (main: 18,024 and 39,861, 48.7 %: +2,251 CASM); `Story` (58,650) and `Challenge` (64,826) unchanged.
 
 **Memory** (`/usr/bin/time -l`, no cap, the Mac rule): `snforge test paved::tests::xp_level` 9.9 GB resident, `paved::tests::e2e::`
-11.0 GB, `paved::tests::story` 8.7 GB, `test_gas_` 8.7 GB; `scripts/class-sizes.sh` 4.2 GB.
+11.0 GB, `paved::tests::story` 8.7 GB, `test_gas_` 8.7 GB; `scripts/class-sizes.sh` 4.2 GB. The whole `snforge test --max-threads 2` (`RAYON_NUM_THREADS=1`):
+964 passed, 0 failed, 38 ignored, 9.4 GB resident, 3 min 7 s.
