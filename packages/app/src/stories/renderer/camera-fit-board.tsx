@@ -46,6 +46,8 @@ export interface CameraFitBoardProps {
   enabled: boolean;
   /** Shade the HUD's room (the insets the frame keeps clear). */
   showInsets: boolean;
+  /** Draw the outlines on software WebGL too (captures), where "auto" leaves them off. */
+  forceOutlines: boolean;
 }
 
 interface Readout {
@@ -62,10 +64,13 @@ interface Readout {
  * frame's figures: the distance, what binds it, the tile's size against S (the outlines' reference at 240) and the
  * outlines' opacity there.
  */
-export function CameraFitBoard({ viewport, board, floorCells, ring, followBoard, enabled, showInsets }: CameraFitBoardProps) {
+export function CameraFitBoard({ viewport, board, floorCells, ring, followBoard, enabled, showInsets, forceOutlines }: CameraFitBoardProps) {
   const size = FIT_VIEWPORTS[viewport];
   const tiles = FIT_BOARDS[board];
-  const settings = useMemo<RendererSettingsInput>(() => ({ cameraFit: { enabled, floorCells, ring, followBoard } }), [enabled, floorCells, ring, followBoard]);
+  const settings = useMemo<RendererSettingsInput>(
+    () => ({ cameraFit: { enabled, floorCells, ring, followBoard }, ...(forceOutlines ? { outlines: { force: "on" as const } } : {}) }),
+    [enabled, floorCells, ring, followBoard, forceOutlines],
+  );
   const [scene, setScene] = useState<GameScene | null>(null);
   const [readout, setReadout] = useState<Readout | null>(null);
   const read = useCallback(() => {

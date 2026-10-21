@@ -13,12 +13,13 @@ export interface FrameInsets {
 }
 
 /**
- * The game page's HUD (`BoardScene`): the top bar (and the season dial under it) and the tile stack. Below the `tablet`
- * breakpoint (640 px, `theme.css`) the phone's, from it the larger one's (their `tablet:` paddings and sizes).
+ * The game page's HUD (`BoardScene`), measured on the Storybook board at 375 x 812 and 1440 x 900: the top bar ends at
+ * about 74 and 78 px, the tile stack with its hint starts about 140 px from the bottom. Below the `tablet` breakpoint
+ * (640 px, `theme.css`) the phone's, from it the larger one's (their `tablet:` paddings and sizes).
  */
 export const FRAME_INSETS = {
-  phone: { top: 64, bottom: 120, left: 8, right: 8 },
-  tablet: { top: 88, bottom: 136, left: 16, right: 16 },
+  phone: { top: 80, bottom: 144, left: 8, right: 8 },
+  tablet: { top: 88, bottom: 144, left: 16, right: 16 },
 } as const satisfies Record<string, FrameInsets>;
 
 /** The width from which the larger HUD's insets apply: the app's `tablet` breakpoint, in CSS px. */

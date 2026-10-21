@@ -27,6 +27,7 @@ const meta = {
     followBoard: { control: "boolean", description: "Re-fit after each move while the camera is untouched (the open point; default off)" },
     enabled: { control: "boolean", description: "The frame; off: today's fixed 240 over the starter" },
     showInsets: { control: "boolean", description: "Shade the HUD's room" },
+    forceOutlines: { control: "boolean", description: "Draw the outlines on software WebGL too (captures)" },
   },
   args: {
     viewport: "375x812",
@@ -36,6 +37,7 @@ const meta = {
     followBoard: FIT_DEFAULTS.followBoard,
     enabled: true,
     showInsets: true,
+    forceOutlines: false,
   },
 } satisfies Meta<typeof CameraFitBoard>;
 export default meta;
