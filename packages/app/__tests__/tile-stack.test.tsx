@@ -97,7 +97,9 @@ describe("the coming tiles' renders", () => {
       expect(img.getAttribute("src")).toBe(`/r/${key}-top.0.webp`);
       expect(img.getAttribute("style")).toBeNull();
     }
-    expect(screen.getByRole("img", { name: "Tile 3" })).toBeTruthy();
+    // The chip's name on the slot (what the Training e2e reads), the image itself decorative.
+    expect(slot(1).querySelector('[role="img"]')!.getAttribute("aria-label")).toBe(`Tile ${key3}, north`);
+    expect(slot(1).querySelector("img")!.getAttribute("alt")).toBe("");
   });
 
   it("each plan in the theme the board draws it in; the base models where the skin has no render", () => {

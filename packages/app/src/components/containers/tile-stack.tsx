@@ -212,8 +212,9 @@ export function TileStack({
                 <li key={i} data-coming={i + 1} className={cn("flex flex-col items-center", i > 0 && "opacity-80")}>
                   <span className="sr-only">{i === 0 ? "Next: " : "Then: "}</span>
                   {theme != null ? (
-                    <span data-view="render" data-theme={theme} className={cn(chipVariants({ size: "md" }), "shadow-md")}>
-                      <TileRender plan={t.plan} theme={theme} renders={renders} top />
+                    // The chip's name and role, so the slot reads the same to a screen reader (and to the Training e2e).
+                    <span role="img" aria-label={`Tile ${planCode(t.plan).toLowerCase()}, north`} data-view="render" data-theme={theme} className={cn(chipVariants({ size: "md" }), "shadow-md")}>
+                      <TileRender plan={t.plan} theme={theme} renders={renders} alt="" top />
                     </span>
                   ) : (
                     <TileChip plan={t.plan} art={tileArt} size="md" className="shadow-md" />
