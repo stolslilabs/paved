@@ -22,7 +22,7 @@
 //! #645 (D-30, the Challenge on the VRF): the draws come from the VRF (the devnet mock here), one
 //! per move, so the moves were chosen again by the same bot on the commit of #645 and the
 //! expected scores derived again from the oracle's walks (a record run of `..._structures_agree`):
-//! 37 builds, final 7,586.
+//! 37 builds, final 6,558.
 //!
 //! The case did not exist before P5-6: a Daily build cost about 100M L2 gas at P0 (O-12), so the
 //! whole deck did not fit a test. It fits since P5 (`docs/measures/golden-games.md`).
@@ -105,48 +105,48 @@ fn fits(
 
 fn full_deck_moves() -> Array<GoldenMove> {
     array![
-        mv(Plan::RFRFCCCFR, Orientation::North, CENTER, CENTER + 1, 0),
-        mv(Plan::SFRFRFFFR, Orientation::North, CENTER + 1, CENTER, 0),
-        mv(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
-        mv(Plan::RFRFRFCFF, Orientation::East, CENTER + 1, CENTER + 1, 643),
-        mv(Plan::FFFFCCCFF, Orientation::East, CENTER - 1, CENTER - 1, 643),
-        mv(Plan::FFFFCCCFF, Orientation::South, CENTER + 1, CENTER + 2, 643),
-        mv(Plan::RFRFFFFFR, Orientation::East, CENTER - 1, CENTER, 643),
-        mv(Plan::RFRFCCCFR, Orientation::West, CENTER, CENTER + 2, 643),
-        mv(Plan::CFFFCFFFC, Orientation::East, CENTER - 1, CENTER - 2, 643),
-        mv(Plan::RFFFRFCFR, Orientation::North, CENTER + 1, CENTER - 1, 643),
-        mv(Plan::RFFFRFFFR, Orientation::East, CENTER, CENTER - 2, 643),
-        mv(Plan::SFRFRFFFR, Orientation::East, CENTER - 1, CENTER + 1, 1081),
-        mv(Plan::RFFFRFFFR, Orientation::North, CENTER + 2, CENTER, 1081),
-        mv(Plan::WFFFFFFFR, Orientation::North, CENTER + 2, CENTER + 1, 1402),
-        mv(Plan::RFRFRFCFF, Orientation::East, CENTER - 1, CENTER + 2, 2292),
-        mv(Plan::WFFFFFFFF, Orientation::North, CENTER + 2, CENTER + 2, 2292),
-        mv(Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER - 2, 2292),
-        mv(Plan::RFRFFFFFR, Orientation::West, CENTER + 2, CENTER - 1, 2292),
-        mv(Plan::RFRFFFCFR, Orientation::West, CENTER - 2, CENTER - 1, 2292),
-        mv(Plan::FFFFCCCFF, Orientation::South, CENTER - 2, CENTER, 2292),
-        mv(Plan::FFCFFFCFF, Orientation::North, CENTER - 2, CENTER + 1, 2292),
-        mv(Plan::RFRFFFCFR, Orientation::North, CENTER - 2, CENTER - 2, 2292),
-        mv(Plan::RFRFCCCFR, Orientation::North, CENTER - 2, CENTER + 2, 2935),
-        mv(Plan::FFCFFFCFF, Orientation::North, CENTER + 1, CENTER + 3, 2935),
-        mv(Plan::SFRFRFFFR, Orientation::East, CENTER + 2, CENTER - 2, 2935),
-        mv(Plan::RFRFFFCFR, Orientation::North, CENTER, CENTER + 3, 3812),
-        mv(Plan::FFFFFFCFF, Orientation::South, CENTER + 2, CENTER + 3, 3812),
-        mv(Plan::SFRFRFCFR, Orientation::South, CENTER - 1, CENTER - 3, 4689),
-        mv(Plan::CCCCCFRFC, Orientation::West, CENTER - 2, CENTER - 3, 4898),
-        mv(Plan::CCCCCFFFC, Orientation::East, CENTER + 3, CENTER + 1, 4898),
-        mv(Plan::SFRFRFCFR, Orientation::North, CENTER, CENTER - 3, 5796),
-        mv(Plan::SFRFRFRFR, Orientation::North, CENTER - 3, CENTER - 1, 5796),
-        mv(Plan::WFFFFFFFR, Orientation::South, CENTER - 1, CENTER + 3, 5796),
-        mv(Plan::RFRFFFFFR, Orientation::East, CENTER - 3, CENTER - 2, 6686),
-        mv(Plan::RFFFRFCFR, Orientation::South, CENTER + 3, CENTER, 6686),
-        mv(Plan::RFFFRFFFR, Orientation::East, CENTER - 2, CENTER + 3, 6686),
-        mv(Plan::CCCCCFFFC, Orientation::East, CENTER + 3, CENTER + 2, 7586),
+        mv(Plan::FFCFFFFFC, Orientation::South, CENTER, CENTER + 1, 419),
+        mv(Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER, 419),
+        mv(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 419),
+        mv(Plan::RFRFCCCFR, Orientation::East, CENTER - 1, CENTER, 419),
+        mv(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER + 2, 419),
+        mv(Plan::SFRFRFFFR, Orientation::West, CENTER - 1, CENTER + 1, 857),
+        mv(Plan::FFFFCCCFF, Orientation::South, CENTER + 1, CENTER + 1, 857),
+        mv(Plan::RFRFCCCFR, Orientation::North, CENTER, CENTER - 2, 857),
+        mv(Plan::RFRFFFCFR, Orientation::West, CENTER + 1, CENTER - 1, 857),
+        mv(Plan::SFRFRFCFR, Orientation::East, CENTER + 1, CENTER - 2, 857),
+        mv(Plan::RFRFFFCFR, Orientation::South, CENTER + 2, CENTER, 857),
+        mv(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER + 3, 857),
+        mv(Plan::RFRFFFFFR, Orientation::West, CENTER - 1, CENTER + 2, 857),
+        mv(Plan::FFFFFFCFF, Orientation::South, CENTER - 1, CENTER - 1, 857),
+        mv(Plan::CCCCCFRFC, Orientation::South, CENTER + 2, CENTER - 1, 857),
+        mv(Plan::RFRFCCCFR, Orientation::West, CENTER + 2, CENTER - 2, 857),
+        mv(Plan::WFFFFFFFF, Orientation::North, CENTER - 1, CENTER + 3, 857),
+        mv(Plan::CCCCCCCCC, Orientation::North, CENTER - 2, CENTER, 857),
+        mv(Plan::RFRFFFFFR, Orientation::South, CENTER - 1, CENTER - 2, 857),
+        mv(Plan::FFFFCCCFF, Orientation::North, CENTER + 1, CENTER + 2, 857),
+        mv(Plan::RFRFCCCFR, Orientation::East, CENTER - 2, CENTER + 1, 857),
+        mv(Plan::RFRFFFFFR, Orientation::East, CENTER + 1, CENTER + 3, 1757),
+        mv(Plan::SFRFRFFFR, Orientation::East, CENTER - 2, CENTER + 2, 3057),
+        mv(Plan::FFCFFFCFF, Orientation::North, CENTER + 2, CENTER + 1, 4376),
+        mv(Plan::CCCCCFFFC, Orientation::West, CENTER - 2, CENTER - 1, 4376),
+        mv(Plan::SFRFRFFFR, Orientation::West, CENTER - 2, CENTER + 3, 4585),
+        mv(Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 3, 4585),
+        mv(Plan::FFFFCCCFF, Orientation::South, CENTER - 2, CENTER - 2, 4585),
+        mv(Plan::CFFFCFFFC, Orientation::North, CENTER, CENTER + 4, 4585),
+        mv(Plan::CCCCCFRFC, Orientation::West, CENTER, CENTER - 3, 4906),
+        mv(Plan::RFFFRFFFR, Orientation::East, CENTER + 2, CENTER - 3, 4906),
+        mv(Plan::SFRFRFRFR, Orientation::North, CENTER + 3, CENTER, 5227),
+        mv(Plan::RFRFCCCFR, Orientation::East, CENTER + 3, CENTER - 1, 5227),
+        mv(Plan::FFFFCCCFF, Orientation::South, CENTER + 3, CENTER - 2, 6349),
+        mv(Plan::RFRFRFCFF, Orientation::West, CENTER - 1, CENTER + 4, 6349),
+        mv(Plan::SFRFRFFFR, Orientation::East, CENTER + 3, CENTER + 1, 6558),
+        mv(Plan::RFFFRFFFR, Orientation::North, CENTER + 2, CENTER + 3, 6558),
     ]
 }
 
 fn full_deck_outcome() -> GoldenOutcome {
-    GoldenOutcome { score: 7586, built: 37, discarded: 0, tile_count: 38, over: true }
+    GoldenOutcome { score: 6558, built: 37, discarded: 0, tile_count: 38, over: true }
 }
 
 #[test]

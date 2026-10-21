@@ -71,20 +71,21 @@ use crate::setup::setup::{
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
 // CHALLENGE-VRF (#645): every move that leaves a tile to queue draws it from the VRF (about 1.0M on
-// the devnet mock, z24 against a0), and every spawn draws once; a0 to f, m, n, s and z5 are reset
-// to measured + 5 % (`docs/measures/baseline.md`, "After CHALLENGE-VRF").
-pub const CEILING_OPEN: u128 = 5987611;
-pub const CEILING_SIMPLE: u128 = 6486547;
+// the devnet mock, z24 against a0), and every spawn draws once; a0 to f, l, m, n, s and z5 are
+// reset to measured + 5 % (l and s: a move that ends the game reads it once more), as
+// `docs/measures/baseline.md`, "After CHALLENGE-VRF", says.
+pub const CEILING_OPEN: u128 = 6092759;
+pub const CEILING_SIMPLE: u128 = 6591695;
 // G5 cut the draw that follows each build (a table of bits, popcount by one product) and reset
 // a0 to e, m and n to measured + 5 % (`docs/measures/baseline.md`, "After G5"). c and e had been
 // raised by G1 (the draw read another deck on the same seed). f's measured + 5 % (19,032,185)
 // would be above its ceiling, which is kept.
 // G7a (P-59) reset a0, d, e, f, l, m and n to measured + 5 % (`docs/measures/baseline.md`, "After
 // G7a"); a's and c's measured + 5 % would be above their ceilings, which are kept.
-pub const CEILING_CLOSE_LARGE: u128 = 6369697;
-pub const CEILING_WORST_CASE: u128 = 6844712;
-pub const CEILING_FOREST: u128 = 10307945;
-pub const CEILING_FOREST_WORST: u128 = 20173323;
+pub const CEILING_CLOSE_LARGE: u128 = 6535866;
+pub const CEILING_WORST_CASE: u128 = 7282198;
+pub const CEILING_FOREST: u128 = 10036628;
+pub const CEILING_FOREST_WORST: u128 = 20549788;
 // g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
 // external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the economy read (from
@@ -98,13 +99,13 @@ pub const CEILING_CLOSING_IN_DAY: u128 = 4011404;
 // (2,531,088).
 pub const CEILING_CLOSING_AFTER: u128 = 3530987;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4547964;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7588501;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 8089321;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
-pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 4609113;
+pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 4744364;
 // m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
 // `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
-pub const CEILING_SPAWN_DAILY: u128 = 18354203;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19293817;
+pub const CEILING_SPAWN_DAILY: u128 = 18515090;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19454704;
 // t to w: the Vault, vPAVED (P-56), each call by a holder who delegated to themselves (the votes'
 // checkpoints included), after a paid spawn (its margin in the Vault, so the rate is above 1).
 pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
@@ -121,7 +122,7 @@ pub const CEILING_CLAIM_QUEST: u128 = 949842;
 pub const CEILING_CLAIM_ACHIEVEMENT: u128 = 578407;
 pub const CEILING_CLAIM_DAILY_CREDIT: u128 = 2438641;
 pub const CEILING_CLAIM_WEEKLY_CREDIT: u128 = 1545317;
-pub const CEILING_SPAWN_FREE: u128 = 8757800;
+pub const CEILING_SPAWN_FREE: u128 = 8937440;
 pub const CEILING_FREE_GAME_OVER: u128 = 1983591;
 // Cobbles v1, part 2 (P-61): z7 and z8, `buy_pack` with no referrer and with one; z9, `set_pack`
 // (measured + 5 %, `docs/measures/baseline.md`, "After cobbles v1, part 2").
@@ -1058,6 +1059,8 @@ fn test_gas_z23_player_level() {
     let after = get_available_gas();
     assert(progress.xp != 0, 'Gas: the player has played');
     report("z23_player_level", before - after, CEILING_PLAYER_LEVEL);
+}
+
 /// z24. a0's move with nothing left to queue (#645): the tile limit is cut so that the tile
 /// `held + 3` is beyond it; the next tile comes into the hand and nothing is drawn. Against a0, the
 /// cost of a move's VRF draw.

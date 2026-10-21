@@ -21,10 +21,10 @@ use paved::types::plan::Plan;
 /// Starter (city cap) + three vertical city corridors + a city cap.
 fn city5_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFRFFFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
-        forced(Plan::CCCCCFRFC, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2, 0),
-        forced(Plan::RFRFFFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3, 0),
-        forced(Plan::RFFFRFFFR, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 4, 1122),
+        forced(Plan::RFFFRFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::FFCFFFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2, 0),
+        forced(Plan::FFFFFFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3, 0),
+        forced(Plan::RFRFFFFFR, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 4, 1122),
     ]
 }
 
@@ -32,10 +32,10 @@ fn city5_moves() -> Array<GoldenMove> {
 fn road6_moves() -> Array<GoldenMove> {
     array![
         forced(Plan::RFFFRFFFR, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, 0),
-        forced(Plan::RFRFFFCFR, Plan::RFFFRFFFR, Orientation::North, CENTER + 2, CENTER, 0),
-        forced(Plan::FFFFCCCFF, Plan::RFFFRFFFR, Orientation::North, CENTER + 3, CENTER, 0),
-        forced(Plan::RFFFRFFFR, Plan::SFRFRFFFR, Orientation::North, CENTER + 4, CENTER, 0),
-        forced(Plan::SFRFRFFFR, Plan::SFRFRFFFR, Orientation::North, CENTER - 1, CENTER, 689),
+        forced(Plan::CFFFCFFFC, Plan::RFFFRFFFR, Orientation::North, CENTER + 2, CENTER, 0),
+        forced(Plan::RFFFRFFFR, Plan::RFFFRFFFR, Orientation::North, CENTER + 3, CENTER, 0),
+        forced(Plan::SFRFRFCFR, Plan::SFRFRFFFR, Orientation::North, CENTER + 4, CENTER, 0),
+        forced(Plan::RFFFRFFFR, Plan::SFRFRFFFR, Orientation::North, CENTER - 1, CENTER, 689),
     ]
 }
 
@@ -44,10 +44,10 @@ fn road6_moves() -> Array<GoldenMove> {
 /// forest (the Woodsman and the Herdsman, of P4, are: see `forest.cairo`).
 fn mixed_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFRFFFFFR, Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER, 0),
-        forced(Plan::CCCCCCCCC, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 1, 419),
-        forced(Plan::FFCFFFCFF, Plan::RFFFRFFFR, Orientation::North, CENTER - 1, CENTER, 419),
-        forced(Plan::RFRFRFCFF, Plan::SFRFRFFFR, Orientation::North, CENTER - 2, CENTER, 857),
+        forced(Plan::SFRFRFFFR, Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER, 0),
+        forced(Plan::FFFFCCCFF, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 1, 419),
+        forced(Plan::RFFFRFCFR, Plan::RFFFRFFFR, Orientation::North, CENTER - 1, CENTER, 419),
+        forced(Plan::RFRFFFFFR, Plan::SFRFRFFFR, Orientation::North, CENTER - 2, CENTER, 857),
     ]
 }
 
@@ -101,9 +101,9 @@ fn test_golden_daily_mixed_roles() {
 #[available_gas(l2_gas: 153788270)]
 fn test_golden_daily_real_deck_discards_to_game_over() {
     let moves = array![
-        discard(Plan::WFFFFFFFF, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::SFRFRFCFR, 0),
-        discard(Plan::RFRFRFCFF, 0), discard(Plan::FFFFCCCFF, 0), discard(Plan::FFFFCCCFF, 0),
-        discard(Plan::RFRFFFFFR, 0),
+        discard(Plan::RFFFRFFFR, 0), discard(Plan::RFRFRFCFF, 0), discard(Plan::RFFFRFFFR, 0),
+        discard(Plan::RFRFCCCFR, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::SFRFRFFFR, 0),
+        discard(Plan::SFRFRFRFR, 0),
     ];
     play_daily(
         'daily_deck',
@@ -165,9 +165,9 @@ fn test_golden_daily_mixed_roles_structures_agree() {
 #[available_gas(l2_gas: 176647857)]
 fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
     let moves = array![
-        discard(Plan::WFFFFFFFF, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::SFRFRFCFR, 0),
-        discard(Plan::RFRFRFCFF, 0), discard(Plan::FFFFCCCFF, 0), discard(Plan::FFFFCCCFF, 0),
-        discard(Plan::RFRFFFFFR, 0),
+        discard(Plan::RFFFRFFFR, 0), discard(Plan::RFRFRFCFF, 0), discard(Plan::RFFFRFFFR, 0),
+        discard(Plan::RFRFCCCFR, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::SFRFRFFFR, 0),
+        discard(Plan::SFRFRFRFR, 0),
     ];
     play_daily_checked(
         'daily_deck',

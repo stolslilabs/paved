@@ -135,6 +135,25 @@ pub mod setup {
         }
     }
 
+    /// The storage key, in the test's own contract, of the `Challenge` deployments of the test.
+    const CHALLENGES_KEY: felt252 = 'PAVED_TEST_CHALLENGES';
+
+    /// Deploys `Challenge` at a fixed address: `CHALLENGE_ADDRESS` + 1 for the first deployment of
+    /// a test, + 2 for the next. The mock's random is keyed by its consumer's address (#645), and a
+    /// deployed address follows the class hashes of `Challenge` and `Setup`: a fixed one keeps the
+    /// draws of the goldens and of the gas scenarios through any change of a class.
+    pub fn deploy_challenge(calldata: Array<felt252>) -> ContractAddress {
+        let n = *load(test_address(), CHALLENGES_KEY, 1)[0] + 1;
+        store(test_address(), CHALLENGES_KEY, array![n].span());
+        let address: ContractAddress = (CHALLENGE_ADDRESS + n).try_into().unwrap();
+        let class = declare("Challenge").unwrap().contract_class();
+        let (address, _) = class.deploy_at(@calldata, address).unwrap();
+        address
+    }
+
+    /// The base of the fixed addresses of `Challenge` in the tests.
+    pub const CHALLENGE_ADDRESS: felt252 = 0x4348414c4c454e474500;
+
     /// Deploys the devnet's VRF mock and sets it as `challenge`'s provider, as `deploy.sh devnet`
     /// does (#645). Returns the mock.
     pub fn set_mock_vrf(challenge: ContractAddress) -> ContractAddress {
@@ -300,8 +319,8 @@ pub mod setup {
         let (economy_address, token_address) = deploy_economy();
         let collection_address = deploy("Collection", array![owner]);
         let setup_address = deploy("Setup", array![owner]);
-        let daily_address = deploy(
-            "Challenge", array![owner, token_address.into(), setup_address.into()],
+        let daily_address = deploy_challenge(
+            array![owner, token_address.into(), setup_address.into()],
         );
         set_mock_vrf(daily_address);
         let systems = Systems {

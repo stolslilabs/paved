@@ -102,7 +102,7 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   (`challenge-vrf.md`): the spawn's random gives the seed (so the deck, by G1's walk) and the first three tiles, and each
   move draws one tile two ahead. A game's `seed` no longer gives its draws, and nothing reseeds after a placement. The
   Cairo goldens spawn on the devnet mock and were recorded again (`golden-games.md`, "Regenerated in CHALLENGE-VRF"):
-  every `drawn` plan changes, the forced boards keep their scores, and `daily_full_deck` is a new game (7,586). **For
+  every `drawn` plan changes, the forced boards keep their scores, and `daily_full_deck` is a new game (6,558). **For
   CLIENT** (the client task that follows #645): the engine takes the drawn plans as given (the queue of three tiles:
   the hand and the next two) instead of drawing them from the seed, Training draws them locally into the same queue, and
   the fixture is transcribed again from the new Cairo files (`transcribe-goldens.ts`). Until then CLIENT's fixture is

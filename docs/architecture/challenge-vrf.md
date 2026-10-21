@@ -176,10 +176,12 @@ mock answers without a request, so an older client still plays on devnet, with a
 - **Every test that plays a Challenge game runs on the mock VRF.** `setup::spawn_game` deploys `MockVrfProvider` and
   sets it on `Challenge` (`setup::set_mock_vrf`). The test dispatcher (`setup::TestChallenge`) runs each `spawn`,
   `spawn_free`, `build`, `discard` and `surrender` in a transaction of its own (`setup::next_tx`), and the test goes on in
-  a fresh one. One draw per transaction is the rule, and snforge's hash is otherwise one for the whole test.
+  a fresh one. One draw per transaction is the rule, and snforge's hash is otherwise one for the whole test. `Challenge`
+  is deployed at a fixed address (`setup::deploy_challenge`): the mock's random is keyed by its consumer, so the draws of
+  the goldens and of the gas scenarios do not move when a class hash does.
 - **The goldens.** They spawn through `Challenge.spawn` on the mock (`harness::spawn_golden`, the player's spawn `n` for
   `day(n)`), not on the day seed any more. The forced games keep their boards and scores, and their `drawn` plans are
-  recorded again. `daily_deck` keeps its 0. `daily_full_deck` is a new game (final 7,586), chosen by its generator, with
+  recorded again. `daily_deck` keeps its 0. `daily_full_deck` is a new game (final 6,558), chosen by its generator, with
   the oracle's walks giving every score (`golden-games.md`, "Regenerated in CHALLENGE-VRF"). The differential boards
   force every plan and do not change.
 - **New tests** (`tests::challenge_vrf`, coverage group `tests-challenge-vrf`). Each expected draw is computed from the
@@ -201,27 +203,27 @@ mock answers without a request, so an older client still plays on devnet, with a
   - The storage pins and the store's round trip cover the new slots and bits (`upgrades.md`, "CHALLENGE-VRF").
 
 **Gas** (`contracts/tests/gas.cairo`, one external call each, L2 gas, scarb 2.20.1, snforge 0.64.0, the Mac; the base is
-an export of `704ff688`, measured the same way):
+an export of main at `17b07a14`, measured the same way):
 
 | Scenario | Base | #645 | Change |
 |---|---:|---:|---:|
-| a0, an open move (draws) | 4,577,029 | 5,702,486 | +1,125,457 |
-| a, a simple move (draws) | 4,948,265 | 6,177,663 | +1,229,398 |
-| e, a forest closes (draws) | 8,328,395 | 9,817,090 | +1,488,695 |
-| f, the worst forest scan (draws) | 17,823,234 | 19,212,688 | +1,389,454 |
-| l, game over on a build (no draw) | 7,230,343 | 7,575,305 | +344,962 |
-| s, game over on a discard (no draw) | 4,044,769 | 4,389,631 | +344,862 |
-| g, a surrender | 3,823,584 | 3,847,810 | +24,226 |
-| m, a paid spawn | 15,662,732 | 17,480,193 | +1,817,461 |
-| z5, a free spawn | 6,523,290 | 8,340,761 | +1,817,471 |
-| z16, a0 with nothing to queue | | 4,694,160 | |
-| z17, a0 filling a legacy game's queue (three tiles, one draw) | | 6,270,729 | |
-| z18, `set_vrf_provider` | | 272,150 | |
+| a0, an open move (draws) | 4,577,029 | 5,802,627 | +1,225,598 |
+| a, a simple move (draws) | 4,948,265 | 6,277,804 | +1,329,539 |
+| e, a forest closes (draws) | 8,328,395 | 9,558,693 | +1,230,298 |
+| f, the worst forest scan (draws) | 17,823,234 | 19,571,226 | +1,747,992 |
+| l, game over on a build (no draw) | 7,359,153 | 7,704,115 | +344,962 |
+| s, game over on a discard (no draw) | 4,173,579 | 4,518,441 | +344,862 |
+| g, a surrender | 3,952,394 | 3,976,620 | +24,226 |
+| m, a paid spawn | 15,604,817 | 17,633,419 | +2,028,602 |
+| z5, a free spawn | 6,483,235 | 8,511,847 | +2,028,612 |
+| z24, a0 with nothing to queue | | 4,694,160 | |
+| z25, a0 filling a legacy game's queue (three tiles, one draw) | | 6,270,729 | |
+| z26, `set_vrf_provider` | | 272,150 | |
 
-- **A move's draw** costs about 1.0M (a0 against z16). That is the component (#638's z15: 986,461) and the pick.
+- **A move's draw** costs about 1.0M to 1.7M (a0 against z24: 1.1M); a pick's cost follows the deck bitmap it walks. That is the component (#638's z15: 986,461) and the pick.
 - **A move that does not draw** costs about 0.12M to 0.34M more than before. That is the second read of the game, to
   decide whether it draws, before the provider's call (`Challenge::move_random`).
-- **The spawn's draw** costs about 1.8M, its three picks included.
+- **The spawn's draw** costs about 2.0M, its three picks included.
 - Cartridge's part (`submit_random`, `assert_consumed`) is measured on Sepolia, as #638 rules.
 - The ceilings that the change crossed are reset to measured + 5 % (`baseline.md`, "After CHALLENGE-VRF").
 

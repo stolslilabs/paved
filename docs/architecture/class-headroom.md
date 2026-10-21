@@ -717,8 +717,8 @@ they call `Setup` as before, and the XP is credited inside `Setup`'s `report` an
 
 ## After CHALLENGE-VRF (#645, the Challenge on the VRF)
 
-Measured with `scripts/class-sizes.sh` (scarb 2.20.1, release, the Mac, 2026-10-21). The base is an export of `704ff688`
-(`git archive`), measured the same way.
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, release, the Mac, 2026-10-21). The base is an export of main at
+`17b07a14` (`git archive`), measured the same way; its `Challenge` and `Story` are those of `704ff688`.
 
 | Class | Sierra base | CASM base | Sierra #645 | CASM #645 | Change (CASM) | Share of the Starknet cap |
 |---|---:|---:|---:|---:|---:|---:|

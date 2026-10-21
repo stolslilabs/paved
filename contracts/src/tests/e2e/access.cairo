@@ -42,7 +42,7 @@ fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
 }
 
 #[test]
-#[available_gas(l2_gas: 62292279)]
+#[available_gas(l2_gas: 65789787)]
 fn test_access_owner_is_set_at_deployment() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
