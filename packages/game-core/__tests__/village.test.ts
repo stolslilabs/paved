@@ -10,7 +10,7 @@ import {
   EngineError,
   EngineGame,
   PARCEL_COBBLES,
-  VILLAGE_MAX_CELLS,
+  VILLAGE_MAX_CELLS_LIMIT,
   VILLAGE_MAX_PARCELS,
   parcelLevel,
   parcelPrice,
@@ -117,14 +117,27 @@ describe("village territory", () => {
     expect(game.over).toBe(false);
   });
 
-  it("buys parcels next to the territory, up to 38 cells", () => {
-    const game = EngineGame.village();
-    for (let parcel = 1; parcel <= VILLAGE_MAX_PARCELS; parcel++) {
+  it("buys parcels next to the territory, up to the owner's cap", () => {
+    const game = EngineGame.village({ maxCells: 38 });
+    for (let parcel = 1; parcel <= 29; parcel++) {
       expect(game.buyParcel({ x: 1 + parcel, y: 0 })).toBe(parcel);
     }
-    expect(game.territory()).toHaveLength(VILLAGE_MAX_CELLS);
+    expect(game.territory()).toHaveLength(38);
     expect(game.parcelRefusal({ x: 31, y: 0 })).toBe("Village: territory full");
     expect(() => game.buyParcel({ x: -2, y: 0 })).toThrow("Village: territory full");
+    // The demolition's rebuild keeps the cap
+    game.place(PlanType.RFFFRFFFR, { orientation: North, x: 1, y: 0 });
+    game.demolish({ x: 1, y: 0 });
+    expect(game.parcelRefusal({ x: -2, y: 0 })).toBe("Village: territory full");
+  });
+
+  it("takes no size from the deck: the cap is the chain's, at most the technical limit", () => {
+    const game = EngineGame.village();
+    for (let parcel = 1; parcel <= VILLAGE_MAX_PARCELS; parcel++) game.buyParcel({ x: 1 + parcel, y: 0 });
+    expect(game.territory()).toHaveLength(VILLAGE_MAX_CELLS_LIMIT);
+    expect(game.parcelRefusal({ x: -2, y: 0 })).toBe("Village: territory full");
+    expect(() => EngineGame.village({ maxCells: 8 })).toThrow("Village: invalid max cells");
+    expect(() => EngineGame.village({ maxCells: 101 })).toThrow("Village: invalid max cells");
   });
 
   it("keeps the territory connected", () => {
@@ -202,9 +215,11 @@ describe("village territory", () => {
     expect([parcelPrice(1), parcelLevel(1)]).toEqual([PARCEL_COBBLES, 1]);
     expect([parcelPrice(5), parcelLevel(5)]).toEqual([50, 5]);
     expect([parcelPrice(29), parcelLevel(29)]).toEqual([290, 29]);
-    expect([parcelPrice(0), parcelLevel(0), parcelPrice(30), parcelLevel(30)]).toEqual([0, 0, 0, 0]);
+    expect([parcelPrice(91), parcelLevel(91)]).toEqual([910, 91]);
+    expect([parcelPrice(0), parcelLevel(0), parcelPrice(92), parcelLevel(92)]).toEqual([0, 0, 0, 0]);
     let total = 0;
-    for (let k = 1; k <= VILLAGE_MAX_PARCELS; k++) total += parcelPrice(k);
+    for (let k = 1; k <= 29; k++) total += parcelPrice(k);
+    // The 29 parcels of a cap of 38 cells
     expect(total).toBe(4350);
   });
 });

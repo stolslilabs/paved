@@ -6,7 +6,7 @@ The owner's decisions of 2026-10-20 bind:
 
 - The territory is bought cell by cell (parcels) and stays connected.
 - No border rule: a side facing a cell not owned has no constraint and stays open, so a forest facing out is not
-  closed. At most 38 cells.
+  closed. At most 38 cells (refined on 2026-10-21, decision 1: no size tied to a game's 38 tiles; section 7).
 - Parcels cost Cobbles and are gated by the player's level (#641): a player at level 4 cannot buy the 5th parcel,
   whatever their Cobbles, until they reach level 5.
 - Forced placement: a tile is placed when it is received (#642), with no rearranging.
@@ -28,7 +28,7 @@ proposal the team may improve.
   cell not owned is an empty position for the engine, so a structure that reaches it stays open until the cell is
   bought and a tile placed on it: that is the "no border rule" with no code of its own.
 - **`buy_parcel(x, y)`**: the caller's village, a cell not owned, next to an owned one (so the territory stays
-  connected), at most 38 cells, the caller's level at least the parcel's number, then the price debited on `Setup`'s
+  connected), under the owner's cap (`max_cells`), the caller's level at least the parcel's number, then the price debited on `Setup`'s
   ledger. The 9 starting cells are not parcels: the first one bought is parcel 1.
 - **Placement is not a player call.** Forced placement means the tile comes from #642's reward. `Village` exposes
   `place(player_id, plan, orientation, x, y)` to the placers the owner allows (#642's system, as `Story` is a
@@ -43,18 +43,19 @@ proposal the team may improve.
 
 Coordinates, not a bitmap (the issue left it to the design):
 
-- The territory is at most 38 cells and connected, so a cell is at most 30 cells from the starter (29 parcels in a
-  line beyond the 3 x 3). A bitmap over that bounded grid would be 61 x 61 = 3,721 bits, 15 felts, and a parcel's
-  four neighbours would span three rows. A map keyed by the cell reads one slot per neighbour, and the view lists the
+- The territory is at most `MAX_CELLS_LIMIT` (100) cells and connected, so a cell is at most 92 cells from the starter
+  (91 parcels in a line beyond the 3 x 3). A bitmap over that bounded grid would be 185 x 185 = 34,225 bits, 137 felts,
+  and a parcel's four neighbours would span three rows. A map keyed by the cell reads one slot per neighbour, and the view lists the
   cells in purchase order.
-- Every coordinate stays within 31 of `CENTER` (`0x7fffffff`), so the engine's `u32` bounds are never near.
+- Every coordinate stays within 93 of `CENTER` (`0x7fffffff`), so the engine's `u32` bounds are never near.
 
 | Variable | Key | Value |
 |---|---|---|
 | `setup: ContractAddress` | | the `Setup` whose ledger is debited (constructor, `set_setup`) |
 | `placers: Map<ContractAddress, bool>` | placer | allowed to place tiles (owner, `set_placer`) |
+| `max_cells: u8` | | the most cells a territory may hold, the 9 included (constructor, `set_max_cells`; 9 to `MAX_CELLS_LIMIT` = 100) |
 | `villages: Map<felt252, felt252>` | `player_id` | `game_id` [0, 32) · `cells` [32, 40) (the 9 included) · `tiles` [40, 48) (placed, the starter excluded); 0: no village |
-| `parcels: Map<(felt252, u8), felt252>` | `(player_id, parcel)` | the cell of parcel `parcel` (1 to 29): `x` [0, 32) · `y` [32, 64) |
+| `parcels: Map<(felt252, u8), felt252>` | `(player_id, parcel)` | the cell of parcel `parcel` (1 to `max_cells - 9`): `x` [0, 32) · `y` [32, 64) |
 | `owned: Map<(felt252, u32, u32), u8>` | `(player_id, x, y)` | the parcel's number, 0 when not bought |
 | `demolitions: Map<felt252, felt252>` | `player_id` | `day` [0, 64) · `count` [64, 96): the demolitions of that chain day; a word of another day reads as 0 |
 
@@ -63,8 +64,8 @@ That saves 18 writes at founding.
 
 The village's tiles, structures and score are the game's, in `PavedStorage` under `selector!("paved")` (no member
 named `paved`): `game_configs`, `game_states`, `tiles`, `tile_positions`, `structures`. Tile 1 is the starter; placed
-tiles take ids 2 to 38, which fit the 8 bits of `tile_positions`. The game's mode is `Challenge` (solo: one player,
-nothing walked at scoring), its `tile_limit` 38; it is never over and never draws.
+tiles take ids 2 on (at most 100, within the 8 bits of `tile_positions`). The game's mode is `Challenge` (solo: one
+player, nothing walked at scoring), its `tile_limit` 100; it is never over and never draws.
 
 Upgrades (`upgrades.md`): every name is new, `Village` is upgradable (OpenZeppelin's `upgrade`, the repository's
 `OwnableComponent`), and a pin test reads each variable at the raw address of its name.
@@ -74,14 +75,14 @@ Upgrades (`upgrades.md`): every name is new, `Village` is upgradable (OpenZeppel
 | Call | Who | Checks, in order | Effects |
 |---|---|---|---|
 | `found()` | any account, once | no village yet (`Village: already founded`) | a game; the starter; emits `VillageFounded` |
-| `buy_parcel(x, y)` | the village's player | a village (`Village: no village`); the cell not owned (`Village: cell owned`); a side neighbour owned (`Village: not adjacent`); under 38 cells (`Village: territory full`); level >= parcel (`Village: level too low`); the price on `Setup` (`Setup: not enough cobbles`) | the cell; the Cobbles debited; emits `ParcelBought` |
+| `buy_parcel(x, y)` | the village's player | a village (`Village: no village`); the cell not owned (`Village: cell owned`); a side neighbour owned (`Village: not adjacent`); under `max_cells` (`Village: territory full`); level >= parcel (`Village: level too low`); the price on `Setup` (`Setup: not enough cobbles`) | the cell; the Cobbles debited; emits `ParcelBought` |
 | `place(player_id, plan, orientation, x, y)` | an allowed placer (`Village: not placer`) | a village; a plan 1 to 19, an orientation 1 to 4; the cell owned (`Village: cell not owned`); free (`Tile: already exists`); fits (`Tile: no neighbors`, `Tile: cannot place`) | the tile built and assessed (the engine's `Built` and `Scored`); emits `TilePlaced`; returns the points |
 | `demolish(x, y)` | the village's player | a village; a placed tile there (`Village: no tile`), not the starter (`Village: starter stays`); the price on `Setup` (`Setup: not enough cobbles`) | the day's counter; the village rebuilt in a new game; the Cobbles debited; emits `TileDemolished`; returns the price |
-| `set_setup`, `set_placer`, `upgrade` | the owner | non-zero (`set_setup`) | emit `SetupSet`, `PlacerSet` |
+| `set_setup`, `set_max_cells`, `set_placer`, `upgrade` | the owner | non-zero (`set_setup`); 9 to 100 (`set_max_cells`, `Village: invalid max cells`) | emit `SetupSet`, `MaxCellsSet`, `PlacerSet`; a cap lowered under a village leaves its cells, it buys no more |
 
 Views: `village(player_id)` (game, cells, tiles, score, next parcel's price and level), `cells(player_id)` (in order:
 the 9, then the parcels), `tiles(player_id)` (plan, orientation, x, y, by id), `is_owned(player_id, x, y)`,
-`parcel_price(parcel)`, `parcel_level(parcel)`, `next_demolition(player_id)` (the chain day, the demolitions made that
+`parcel_price(parcel)`, `parcel_level(parcel)` (defined for parcels 1 to 91), `max_cells`, `next_demolition(player_id)` (the chain day, the demolitions made that
 day, the price of the next: what the client shows), `setup`, `is_placer`.
 
 `Setup` is not changed. `Village` pays with `ISetupSpend::spend_cobbles(player_id, cobbles, reason)` (#639's spender
@@ -148,8 +149,8 @@ owner-set `levels` address, level 1 while unset) is gone; it was never deployed,
 
 | # | Point | Decision |
 |---|---|---|
-| 1 | The starting territory | 9 cells, the 3 x 3 around the starter. The "38 tiles" count does not matter: the starter is simply the first cell, and the territory keeps the issue's cap of 38 cells (9 + 29 parcels). |
-| 2 | The price and level table | (a): parcel `k` (1 to 29) needs level `k` and costs `10 x k` Cobbles (4,350 for all 29). |
+| 1 | The starting territory | 9 cells, the 3 x 3 around the starter; the starter is simply the first cell. The "38 tiles" count does not matter: **no village size is tied to it.** Built as: the cap is an owner-set parameter of `Village` (`max_cells`, given to the constructor and changed by `set_max_cells`), not a constant from the deck size. Why a cap stays at all: the level gate and the price bound how fast a territory grows, not how far, and the demolition replays every tile left in one transaction, so the cap keeps that rebuild (and the 8-bit tile ids) bounded; the owner may set it from 9 to `MAX_CELLS_LIMIT` (100), a technical limit to revisit with the demolition's gas. The deployment's value is the owner's (38 is the value proposed, the issue's first figure). |
+| 2 | The price and level table | (a): parcel `k` needs level `k` and costs `10 x k` Cobbles (4,350 for 29 parcels, a cap of 38). |
 | 3 | Demolition | Allowed, at a fixed price that doubles after each use and resets every day: 5 Cobbles (5, 10, 20, 40, 80...), the chain's day (the quests' clock), a per-account daily counter in storage, no refund of the tile, no daily cap (section 3a). |
 | 4 | A tile with no legal cell | As proposed: the normal rule (at least one placed side neighbour) is kept; a reward whose tiles fit nowhere offers only the Cobbles or the merge (#642). |
 
@@ -157,5 +158,5 @@ owner-set `levels` address, level 1 while unset) is gone; it was never deployed,
 
 Measured after the code (section 9, as built): `Village`'s and `Setup`'s CASM against the cap
 (`scripts/class-sizes.sh`), the gas of `found`, `buy_parcel` and `place` (`contracts/tests/gas.cairo`), snforge
-tests under `paved::tests::village`, a fuzz of the territory invariant (connected, at most 38, the price paid equals
+tests under `paved::tests::village`, a fuzz of the territory invariant (connected, within the cap, the price paid equals
 the sum of the curve), and the audit of the Cobbles path (`spend_cobbles`, the spender allowlist).

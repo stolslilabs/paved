@@ -58,7 +58,7 @@ export const toCell = (x: number, y: number): VillageCell => ({ x: x - CENTER, y
 /** A cell relative to the starter to the chain's coordinates, as calldata. */
 export function fromCell(cell: VillageCell): [string, string] {
   for (const d of [cell.x, cell.y]) {
-    if (!Number.isInteger(d) || Math.abs(d) > 64) throw new Error(`Not a village cell: (${cell.x}, ${cell.y})`);
+    if (!Number.isInteger(d) || Math.abs(d) > 128) throw new Error(`Not a village cell: (${cell.x}, ${cell.y})`);
   }
   return [`0x${(CENTER + cell.x).toString(16)}`, `0x${(CENTER + cell.y).toString(16)}`];
 }

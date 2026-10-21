@@ -397,10 +397,10 @@ working.
     over emits one.
 - **The village** (#640, `docs/architecture/village-territory.md`; not deployed yet).
   - A new contract, `Village` (`contracts/abis/Village.json`): `found`, `buy_parcel` and `demolish` (any account, for
-    itself), `place` (the placers the owner allows), `set_setup` and `set_placer` (owner), the views `village`, `cells`,
-    `tiles`, `is_owned`, `parcel_price`, `parcel_level`, `next_demolition`, `setup` and `is_placer`, and the events
-    `VillageFounded`, `ParcelBought`, `TilePlaced`, `TileDemolished`, `SetupSet` and `PlacerSet`, beside the engine's own
-    (`Scored`).
+    itself), `place` (the placers the owner allows), `set_setup`, `set_max_cells` and `set_placer` (owner), the views
+    `village`, `cells`, `tiles`, `is_owned`, `parcel_price`, `parcel_level`, `next_demolition`, `max_cells`, `setup` and
+    `is_placer`, and the events `VillageFounded`, `ParcelBought`, `TilePlaced`, `TileDemolished`, `SetupSet`,
+    `MaxCellsSet` and `PlacerSet`, beside the engine's own (`Scored`). Its constructor takes `(owner, setup, max_cells)`.
   - `Setup` is unchanged: `Village` reads the level with `ISetupLevel::player_level` (#641) and pays with
     `ISetupSpend::spend_cobbles` (#639), as an allowlisted spender, with the reasons `'VILLAGE_PARCEL'` and
     `'VILLAGE_DEMOLISH'` (`CobblesSpent`, which the indexer already applies).

@@ -1,9 +1,9 @@
 //! The village (`systems/village.cairo`, `docs/architecture/village-territory.md`, #640): founding,
-//! the parcels (adjacent, at most 38 cells, the level gate, the price debited on `Setup`'s ledger),
-//! placement on owned cells with the game's matching and scoring, the views, the events, the
-//! storage pins, and the parity with the off-chain engine: `parity_steps` are the steps of
-//! `packages/game-core/__tests__/fixtures/village-parity.json`, which `village.test.ts` replays on
-//! the engine and checks against this file.
+//! the parcels (adjacent, up to the owner's cap of cells, the level gate, the price debited on
+//! `Setup`'s ledger), placement on owned cells with the game's matching and scoring, the views, the
+//! events, the storage pins, and the parity with the off-chain engine: `parity_steps` are the steps
+//! of `packages/game-core/__tests__/fixtures/village-parity.json`, which `village.test.ts` replays
+//! on the engine and checks against this file.
 
 use core::num::traits::Zero;
 use core::testing::get_available_gas;
@@ -15,13 +15,12 @@ use paved::systems::setup::{
     ISetupSpendDispatcher, ISetupSpendDispatcherTrait, level_floor,
 };
 use paved::systems::village::Village::{
-    Event as VillageEvent, ParcelBought, TileDemolished, TilePlaced, VillageFounded,
+    Event as VillageEvent, MaxCellsSet, ParcelBought, TileDemolished, TilePlaced, VillageFounded,
 };
 use paved::systems::village::{
     DemolitionOffer, IVillageAdminDispatcher, IVillageAdminDispatcherTrait, IVillageDispatcher,
-    IVillageDispatcherTrait, IVillageSafeDispatcher, IVillageSafeDispatcherTrait, MAX_CELLS,
-    MAX_PARCELS, VillageCell, VillageTile, demolition_price, is_start_cell, parcel_level,
-    parcel_price,
+    IVillageDispatcherTrait, IVillageSafeDispatcher, IVillageSafeDispatcherTrait, MAX_CELLS_LIMIT,
+    VillageCell, VillageTile, demolition_price, is_start_cell, parcel_level, parcel_price,
 };
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, load,
@@ -38,6 +37,11 @@ pub const CEILING_PLACE_OPEN: u128 = 1;
 pub const CEILING_PLACE_CLOSING: u128 = 1;
 pub const CEILING_DEMOLISH_4: u128 = 1;
 pub const CEILING_DEMOLISH_FULL: u128 = 1;
+
+/// The territory's cap these tests deploy with (the owner's `max_cells`; 38 is the value proposed
+/// for the deployment), and the parcels it allows past the 9 of the start.
+const CAP: u8 = 38;
+const CAP_PARCELS: u8 = 29;
 
 fn OWNER() -> ContractAddress {
     'OWNER'.try_into().unwrap()
@@ -71,7 +75,7 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 /// `Setup` and `Village`, `Village` allowlisted as a spender of `Setup`, `PLACER` as a placer.
 fn world() -> World {
     let setup = deploy("Setup", array![OWNER().into()]);
-    let village = deploy("Village", array![OWNER().into(), setup.into()]);
+    let village = deploy("Village", array![OWNER().into(), setup.into(), CAP.into()]);
     let world = World {
         village: IVillageDispatcher { contract_address: village },
         admin: IVillageAdminDispatcher { contract_address: village },
@@ -345,10 +349,10 @@ fn test_village_buy_short_of_cobbles() {
 
 #[test]
 fn test_village_territory_full() {
-    // 29 parcels in a line east: 38 cells, the sum of the curve paid
-    let world = founded(MAX_PARCELS.into(), 5_000);
+    // 29 parcels in a line east: the cap of 38 cells, the sum of the curve paid
+    let world = founded(CAP_PARCELS.into(), 5_000);
     let mut parcel: u8 = 1;
-    while parcel <= MAX_PARCELS {
+    while parcel <= CAP_PARCELS {
         let x: i32 = 1 + parcel.into();
         assert_eq!(buy_cell(world, x, 0), parcel);
         parcel += 1;
@@ -356,13 +360,13 @@ fn test_village_territory_full() {
     assert_eq!(cobbles_of(world, PLAYER()), 5_000 - 4_350);
     let info = world.village.village(PLAYER().into());
     assert_eq!((info.cells, info.next_parcel, info.next_price, info.next_level), (38, 0, 0, 0));
-    assert_eq!(world.village.cells(PLAYER().into()).len(), MAX_CELLS.into());
+    assert_eq!(world.village.cells(PLAYER().into()).len(), CAP.into());
 }
 
 #[test]
 #[should_panic(expected: 'Village: territory full')]
 fn test_village_territory_full_refuses() {
-    let world = founded(MAX_PARCELS.into(), 5_000);
+    let world = founded(CAP_PARCELS.into(), 5_000);
     let mut x: i32 = 2;
     while x <= 30 {
         buy_cell(world, x, 0);
@@ -392,17 +396,17 @@ fn test_village_parcels_per_player() {
 }
 
 /// Fuzz: a walk of parcel attempts from a seed keeps the territory connected (each cell bought has
-/// a side neighbour bought before it or in the start), within 38 cells, and the cobbles paid are
+/// a side neighbour bought before it or in the start), within the cap, and the cobbles paid are
 /// the sum of the curve over the parcels bought.
 #[test]
 #[fuzzer(runs: 12, seed: 640)]
 fn test_village_fuzz_territory(seed: u64) {
-    let world = founded(MAX_PARCELS.into(), 10_000);
+    let world = founded(CAP_PARCELS.into(), 10_000);
     let mut state: u128 = seed.into();
     let mut bought: u8 = 0;
     let mut paid: u64 = 0;
     let mut tries: u32 = 0;
-    while tries < 60 && bought < MAX_PARCELS {
+    while tries < 60 && bought < CAP_PARCELS {
         state = (state * 6364136223846793005 + 1442695040888963407) % 0x10000000000000000;
         let pick = (state / 0x100000000) % 4;
         let cells = world.village.cells(PLAYER().into());
@@ -430,7 +434,7 @@ fn test_village_fuzz_territory(seed: u64) {
     }
     let cells = world.village.cells(PLAYER().into());
     assert_eq!(cells.len(), 9 + bought.into());
-    assert!(cells.len() <= MAX_CELLS.into());
+    assert!(cells.len() <= CAP.into());
     assert_eq!(cobbles_of(world, PLAYER()), 10_000 - paid);
     // Connected: every parcel touches a cell listed before it
     let mut i = 9;
@@ -460,6 +464,97 @@ fn test_village_fuzz_territory(seed: u64) {
     }
 }
 
+// The territory's cap (the owner's decision 1 of 2026-10-21: no size tied to a game's 38 tiles)
+
+#[test]
+fn test_village_max_cells_set_by_the_owner() {
+    let world = founded(CAP_PARCELS.into(), 5_000);
+    assert_eq!(world.admin.max_cells(), CAP);
+    let mut x: i32 = 2;
+    while x <= 30 {
+        buy_cell(world, x, 0);
+        x += 1;
+    }
+    // Full at 38; raised to 40, two more; the next one past the new cap is refused
+    let mut spy = spy_events();
+    start_cheat_caller_address(world.village.contract_address, OWNER());
+    world.admin.set_max_cells(40);
+    stop_cheat_caller_address(world.village.contract_address);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.village.contract_address,
+                    VillageEvent::MaxCellsSet(MaxCellsSet { max_cells: 40 }),
+                ),
+            ],
+        );
+    fund(world, PLAYER(), 5_000, 31);
+    assert_eq!(world.village.village(PLAYER().into()).next_parcel, 30);
+    assert_eq!(buy_cell(world, 31, 0), 30);
+    assert_eq!(buy_cell(world, 32, 0), 31);
+    assert_eq!(world.village.village(PLAYER().into()).next_parcel, 0);
+    // Lowered under the village: it keeps its 40 cells and buys no more
+    start_cheat_caller_address(world.village.contract_address, OWNER());
+    world.admin.set_max_cells(20);
+    stop_cheat_caller_address(world.village.contract_address);
+    let info = world.village.village(PLAYER().into());
+    assert_eq!((info.cells, info.next_parcel), (40, 0));
+}
+
+#[test]
+#[should_panic(expected: 'Village: territory full')]
+fn test_village_max_cells_lowered_stops_buying() {
+    let world = founded(5, 1_000);
+    start_cheat_caller_address(world.village.contract_address, OWNER());
+    world.admin.set_max_cells(10);
+    stop_cheat_caller_address(world.village.contract_address);
+    assert_eq!(buy_cell(world, 2, 0), 1);
+    buy_cell(world, 3, 0);
+}
+
+#[test]
+fn test_village_max_cells_bounds() {
+    let world = world();
+    start_cheat_caller_address(world.village.contract_address, OWNER());
+    world.admin.set_max_cells(9);
+    assert_eq!(world.admin.max_cells(), 9);
+    world.admin.set_max_cells(MAX_CELLS_LIMIT);
+    assert_eq!(world.admin.max_cells(), 100);
+}
+
+#[test]
+#[should_panic(expected: 'Village: invalid max cells')]
+fn test_village_max_cells_above_the_limit() {
+    let world = world();
+    start_cheat_caller_address(world.village.contract_address, OWNER());
+    world.admin.set_max_cells(MAX_CELLS_LIMIT + 1);
+}
+
+#[test]
+#[should_panic(expected: 'Village: invalid max cells')]
+fn test_village_max_cells_under_the_start() {
+    let world = world();
+    start_cheat_caller_address(world.village.contract_address, OWNER());
+    world.admin.set_max_cells(8);
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_village_max_cells_owner_only() {
+    let world = world();
+    start_cheat_caller_address(world.village.contract_address, ANYONE());
+    world.admin.set_max_cells(40);
+}
+
+#[test]
+fn test_village_constructor_refuses_a_bad_cap() {
+    let setup = deploy("Setup", array![OWNER().into()]);
+    let class = declare("Village").unwrap().contract_class();
+    assert!(class.deploy(@array![OWNER().into(), setup.into(), 8]).is_err());
+    assert!(class.deploy(@array![OWNER().into(), setup.into(), 101]).is_err());
+}
+
 // The curve
 
 #[test]
@@ -467,8 +562,10 @@ fn test_village_curve() {
     assert_eq!((parcel_price(1), parcel_level(1)), (10, 1));
     assert_eq!((parcel_price(5), parcel_level(5)), (50, 5));
     assert_eq!((parcel_price(29), parcel_level(29)), (290, 29));
+    // Defined to the technical limit's 91 parcels: the owner's cap decides how far a village goes
+    assert_eq!((parcel_price(91), parcel_level(91)), (910, 91));
     assert_eq!(
-        (parcel_price(0), parcel_level(0), parcel_price(30), parcel_level(30)), (0, 0, 0, 0),
+        (parcel_price(0), parcel_level(0), parcel_price(92), parcel_level(92)), (0, 0, 0, 0),
     );
     assert!(is_start_cell(CENTER - 1, CENTER + 1));
     assert!(!is_start_cell(CENTER + 2, CENTER));
@@ -840,7 +937,7 @@ fn refusal_of(world: World, step: Step) -> felt252 {
 #[test]
 #[feature("safe_dispatcher")]
 fn test_village_parity() {
-    let world = founded(MAX_PARCELS.into(), 1_000);
+    let world = founded(CAP_PARCELS.into(), 1_000);
     for step in parity_steps() {
         match step {
             Step::Place((
@@ -930,6 +1027,7 @@ fn test_village_pins_its_storage_variables_by_name() {
     let village = world.village.contract_address;
     assert_eq!(raw(village, selector!("owner")), OWNER().into());
     assert_eq!(raw(village, selector!("setup")), world.setup.contract_address.into());
+    assert_eq!(raw(village, selector!("max_cells")), CAP.into());
     assert_eq!(
         raw(village, map_entry_address(selector!("placers"), array![PLACER().into()].span())), 1,
     );
@@ -1015,11 +1113,11 @@ fn test_village_gas_demolish_4() {
     report("village_demolish_4", before - after, CEILING_DEMOLISH_4);
 }
 
-/// The worst demolition: the first placed tile of a village of 38 tiles (the 9 of the start and 29
-/// parcels in a line east, a road along it), so 36 tiles are replayed.
+/// A full demolition at the tests' cap: the first placed tile of a village of 38 tiles (the 9 of
+/// the start and 29 parcels in a line east, a road along it), so 36 tiles are replayed.
 #[test]
 fn test_village_gas_demolish_full() {
-    let world = founded(MAX_PARCELS.into(), 5_000);
+    let world = founded(CAP_PARCELS.into(), 5_000);
     let mut x: i32 = 2;
     while x <= 30 {
         buy_cell(world, x, 0);

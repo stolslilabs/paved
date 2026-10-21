@@ -342,6 +342,29 @@
       },
       {
         "type": "function",
+        "name": "set_max_cells",
+        "inputs": [
+          {
+            "name": "max_cells",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "max_cells",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
         "name": "set_placer",
         "inputs": [
           {
@@ -471,6 +494,10 @@
       {
         "name": "setup_address",
         "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "max_cells",
+        "type": "core::integer::u8"
       }
     ]
   },
@@ -797,6 +824,18 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::village::Village::MaxCellsSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "max_cells",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::village::Village::VillageFounded",
     "kind": "struct",
     "members": [
@@ -991,6 +1030,11 @@
       {
         "name": "PlacerSet",
         "type": "paved::systems::village::Village::PlacerSet",
+        "kind": "nested"
+      },
+      {
+        "name": "MaxCellsSet",
+        "type": "paved::systems::village::Village::MaxCellsSet",
         "kind": "nested"
       },
       {

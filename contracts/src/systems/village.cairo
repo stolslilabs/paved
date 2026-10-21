@@ -3,8 +3,8 @@
 //!
 //! A village is a game of this contract's own storage that never ends: founding it writes the usual
 //! starter at the centre and gives the 3 x 3 of cells around it. The territory grows one parcel at
-//! a time (`buy_parcel`): a cell next to an owned one, at most `MAX_CELLS` cells, gated by the
-//! player's level (`Setup.player_level`, #641) and paid in cobbles on `Setup`'s ledger
+//! a time (`buy_parcel`): a cell next to an owned one, up to the owner's cap (`max_cells`), gated
+//! by the player's level (`Setup.player_level`, #641) and paid in cobbles on `Setup`'s ledger
 //! (`ISetupSpend::spend_cobbles`, `Village` an allowlisted spender). Tiles are placed on owned
 //! cells only, by the placers the owner allows (forced placement: the tile comes from a reward,
 //! #642), with the engine `Story` and `Challenge` play: the same matching against placed
@@ -17,12 +17,16 @@
 //! village is rebuilt: the tiles left are replayed in their placement order in a new game, and
 //! its score is that game's.
 
-/// The most cells a village owns, the 9 of the start included: the length of a game (#637).
-pub const MAX_CELLS: u8 = 38;
+/// The highest cap the owner may set on a territory, the 9 of the start included
+/// (`set_max_cells`). Not a game rule (the owner's decision 1 of 2026-10-21: no village size tied
+/// to the 38 tiles of a game): the technical bound of a village, so that a demolition's rebuild
+/// (one move per tile left) stays well inside a transaction, and the tile ids within the 8 bits of
+/// `tile_positions`.
+pub const MAX_CELLS_LIMIT: u8 = 100;
 /// The cells of the start: the 3 x 3 around the starter.
 pub const START_CELLS: u8 = 9;
-/// The most parcels a village buys: `MAX_CELLS - START_CELLS`.
-pub const MAX_PARCELS: u8 = 29;
+/// The most parcels a village can ever buy: `MAX_CELLS_LIMIT - START_CELLS`.
+pub const MAX_PARCELS: u8 = 91;
 /// The cobbles of parcel `k` are `PARCEL_COBBLES x k` (open point 7.2 of the design, proposal (a)).
 pub const PARCEL_COBBLES: u32 = 10;
 /// The cobbles of a chain day's first demolition; each one doubles the next (5, 10, 20, 40...).
@@ -43,7 +47,7 @@ pub struct VillageCell {
     pub y: u32,
 }
 
-/// A tile of a village: its id (1 the starter, then 2 to 38 in placement order), plan code (1 to
+/// A tile of a village: its id (1 the starter, then 2 on in placement order), plan code (1 to
 /// 19), orientation code (1 North to 4 West) and position.
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct VillageTile {
@@ -83,7 +87,7 @@ pub trait IVillage<TContractState> {
     /// the centre, the 3 x 3 around it owned. Emits `VillageFounded`; returns the game id.
     fn found(ref self: TContractState) -> u32;
     /// The caller buys the cell `(x, y)` for its village: not owned (`'Village: cell owned'`),
-    /// next to an owned cell (`'Village: not adjacent'`), the territory under `MAX_CELLS`
+    /// next to an owned cell (`'Village: not adjacent'`), the territory under `max_cells`
     /// (`'Village: territory full'`), the caller's level at least the parcel's
     /// (`'Village: level too low'`); its price is debited on `Setup`'s ledger
     /// (`'Setup: not enough cobbles'`). Emits `ParcelBought`; returns the parcel's number.
@@ -122,6 +126,11 @@ pub trait IVillage<TContractState> {
 pub trait IVillageAdmin<TContractState> {
     /// Sets the `Setup` whose ledger is debited: the owner only, never zero. Emits `SetupSet`.
     fn set_setup(ref self: TContractState, setup: starknet::ContractAddress);
+    /// Sets the most cells a territory may hold, the 9 of the start included: the owner only,
+    /// `START_CELLS` to `MAX_CELLS_LIMIT` (`'Village: invalid max cells'`). A village already
+    /// above a lowered cap keeps its cells and buys no more. Emits `MaxCellsSet`.
+    fn set_max_cells(ref self: TContractState, max_cells: u8);
+    fn max_cells(self: @TContractState) -> u8;
     /// Allows or forbids `placer` to place tiles: the owner only. Emits `PlacerSet`.
     fn set_placer(ref self: TContractState, placer: starknet::ContractAddress, allowed: bool);
     fn setup(self: @TContractState) -> starknet::ContractAddress;
@@ -194,9 +203,9 @@ pub mod Village {
     };
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
     use super::{
-        DAY, DEMOLITION_REASON, DemolitionOffer, IVillage, IVillageAdmin, MAX_CELLS, PARCEL_REASON,
-        START_CELLS, VillageCell, VillageInfo, VillageTile, demolition_price, is_start_cell,
-        parcel_level, parcel_price,
+        DAY, DEMOLITION_REASON, DemolitionOffer, IVillage, IVillageAdmin, MAX_CELLS_LIMIT,
+        PARCEL_REASON, START_CELLS, VillageCell, VillageInfo, VillageTile, demolition_price,
+        is_start_cell, parcel_level, parcel_price,
     };
 
     pub mod errors {
@@ -214,6 +223,7 @@ pub mod Village {
         pub const INVALID_POSITION: felt252 = 'Village: invalid position';
         pub const NO_TILE: felt252 = 'Village: no tile';
         pub const STARTER_STAYS: felt252 = 'Village: starter stays';
+        pub const INVALID_MAX_CELLS: felt252 = 'Village: invalid max cells';
     }
 
     // Packing
@@ -224,7 +234,7 @@ pub mod Village {
     const MASK_32: u128 = 0xffffffff;
 
     /// A village's tiles: the starter and one per cell at most.
-    const TILE_LIMIT: u16 = 38;
+    const TILE_LIMIT: u16 = 100;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
@@ -258,6 +268,9 @@ pub mod Village {
         /// A player's demolitions of a chain day (key `player_id`): `day` [0, 64) · `count`
         /// [64, 96), the demolitions made that day. A word of another day reads as 0 today.
         demolitions: Map<felt252, felt252>,
+        /// The most cells a territory may hold, the 9 of the start included (the owner's,
+        /// `set_max_cells`; `START_CELLS` to `MAX_CELLS_LIMIT`).
+        max_cells: u8,
     }
 
     // Events
@@ -273,6 +286,7 @@ pub mod Village {
         UpgradeableEvent: UpgradeableComponent::Event,
         SetupSet: SetupSet,
         PlacerSet: PlacerSet,
+        MaxCellsSet: MaxCellsSet,
         VillageFounded: VillageFounded,
         ParcelBought: ParcelBought,
         TilePlaced: TilePlaced,
@@ -289,6 +303,11 @@ pub mod Village {
         #[key]
         pub placer: ContractAddress,
         pub allowed: bool,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct MaxCellsSet {
+        pub max_cells: u8,
     }
 
     /// A village founded: its game in this contract (the starter is its tile 1).
@@ -357,11 +376,16 @@ pub mod Village {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, owner: ContractAddress, setup_address: ContractAddress,
+        ref self: ContractState,
+        owner: ContractAddress,
+        setup_address: ContractAddress,
+        max_cells: u8,
     ) {
         assert(setup_address.is_non_zero(), errors::ZERO_SETUP_ADDRESS);
+        assert_max_cells(max_cells);
         self.ownable.initialize(owner);
         self.setup.write(setup_address);
+        self.max_cells.write(max_cells);
     }
 
     #[abi(embed_v0)]
@@ -394,7 +418,7 @@ pub mod Village {
                     || self.owns(player_id, x, y - 1),
                 errors::NOT_ADJACENT,
             );
-            assert(header.cells < MAX_CELLS, errors::TERRITORY_FULL);
+            assert(header.cells < self.max_cells.read(), errors::TERRITORY_FULL);
             // [Check] The level gate (#641)
             let parcel = header.cells - START_CELLS + 1;
             let setup = self.setup_address();
@@ -532,7 +556,7 @@ pub mod Village {
             };
             let (next_parcel, next_price, next_level) = if header.game_id == 0 {
                 (1, parcel_price(1), parcel_level(1))
-            } else if header.cells >= MAX_CELLS {
+            } else if header.cells >= self.max_cells.read() {
                 (0, 0, 0)
             } else {
                 let parcel = header.cells - START_CELLS + 1;
@@ -629,6 +653,17 @@ pub mod Village {
             assert(setup.is_non_zero(), errors::ZERO_SETUP_ADDRESS);
             self.setup.write(setup);
             self.emit(SetupSet { setup });
+        }
+
+        fn set_max_cells(ref self: ContractState, max_cells: u8) {
+            self.ownable.assert_only_owner();
+            assert_max_cells(max_cells);
+            self.max_cells.write(max_cells);
+            self.emit(MaxCellsSet { max_cells });
+        }
+
+        fn max_cells(self: @ContractState) -> u8 {
+            self.max_cells.read()
         }
 
         fn set_placer(ref self: ContractState, placer: ContractAddress, allowed: bool) {
@@ -738,6 +773,11 @@ pub mod Village {
         structures.flush(store);
         game.built += 1;
         id
+    }
+
+    /// A territory's cap: the 9 of the start to `MAX_CELLS_LIMIT`.
+    fn assert_max_cells(max_cells: u8) {
+        assert(max_cells >= START_CELLS && max_cells <= MAX_CELLS_LIMIT, errors::INVALID_MAX_CELLS);
     }
 
     /// As `Challenge.build`: the position has its 8 neighbours in `u32`.

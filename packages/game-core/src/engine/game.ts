@@ -32,7 +32,7 @@ import {
   wonderArea,
 } from "./geometry";
 import { Board, type BoardTile } from "./structures";
-import { VILLAGE_MAX_CELLS, startTerritory, type Cell } from "./village";
+import { VILLAGE_MAX_CELLS_LIMIT, VILLAGE_START_CELLS, startTerritory, type Cell } from "./village";
 
 /** The contracts' `CENTER`: the starter's coordinates on chain, hashed by the reseeds. */
 export const CENTER = 0x7fffffff;
@@ -82,6 +82,8 @@ export interface EngineConfig {
    * structure that reaches it stays open (no border rule).
    */
   readonly territory?: readonly Cell[];
+  /** A village's cap of cells (`Village.max_cells`, the owner's): `buyParcel` stops there. Default `VILLAGE_MAX_CELLS_LIMIT`. */
+  readonly maxCells?: number;
 }
 
 /** The id of the first tile of a story level's `placed`, clear of the ids of the drawn tiles. */
@@ -220,6 +222,7 @@ export class EngineGame {
   private counters = { structures: 0, forests: 0, wonders: 0, big: 0 };
   /** The owned cells (`territory`) by key, in order; `null`: no mask. */
   private _territory: Map<string, Cell> | null = null;
+  private maxCells = VILLAGE_MAX_CELLS_LIMIT;
 
   private constructor(config: EngineConfig) {
     this.deck = config.deck;
@@ -238,6 +241,12 @@ export class EngineGame {
     if (this.tileLimit > 255) throw new EngineError("Game: invalid tile limit");
     this._seed = config.seed;
     if (config.territory) this._territory = new Map(config.territory.map((c) => [cellKey(c), { x: c.x, y: c.y }]));
+    if (config.maxCells !== undefined) {
+      if (!Number.isInteger(config.maxCells) || config.maxCells < VILLAGE_START_CELLS || config.maxCells > VILLAGE_MAX_CELLS_LIMIT) {
+        throw new EngineError("Village: invalid max cells");
+      }
+      this.maxCells = config.maxCells;
+    }
   }
 
   /**
@@ -245,12 +254,15 @@ export class EngineGame {
    * `territory` is given (a village read from the chain), no deck and no tile in hand. Tiles come by `place`, cells by
    * `buyParcel`.
    */
-  static village(config: { readonly player?: bigint; readonly territory?: readonly Cell[] } = {}): EngineGame {
+  static village(
+    config: { readonly player?: bigint; readonly territory?: readonly Cell[]; readonly maxCells?: number } = {},
+  ): EngineGame {
     return EngineGame.start({
       deck: "village",
       seed: 0n,
       player: config.player,
       territory: config.territory ?? startTerritory(),
+      maxCells: config.maxCells,
     });
   }
 
@@ -493,8 +505,8 @@ export class EngineGame {
   }
 
   /**
-   * Why `Village.buy_parcel` refuses `cell`, or `null`: the territory's rule only (owned, a side neighbour owned, at
-   * most `VILLAGE_MAX_CELLS`), in the contract's order. The level gate and the Cobbles are the chain's
+   * Why `Village.buy_parcel` refuses `cell`, or `null`: the territory's rule only (owned, a side neighbour owned, under
+   * the cap, `maxCells`), in the contract's order. The level gate and the Cobbles are the chain's
    * (`parcelPrice`, `parcelLevel`).
    */
   parcelRefusal(cell: Cell): string | null {
@@ -506,7 +518,7 @@ export class EngineGame {
       return owned.has(cellKey({ x, y }));
     });
     if (!adjacent) return "Village: not adjacent";
-    if (owned.size >= VILLAGE_MAX_CELLS) return "Village: territory full";
+    if (owned.size >= this.maxCells) return "Village: territory full";
     return null;
   }
 
@@ -570,7 +582,7 @@ export class EngineGame {
     if (refused) throw new EngineError(refused);
     const gone = (this.board.at(cell.x, cell.y) as BoardTile).id;
     const kept = [...this.board.byId.values()].filter((t) => t.id !== 1 && t.id !== gone).sort((a, b) => a.id - b.id);
-    const fresh = EngineGame.village({ player: this.player, territory: this.territory() ?? undefined });
+    const fresh = EngineGame.village({ player: this.player, territory: this.territory() ?? undefined, maxCells: this.maxCells });
     for (const tile of kept) fresh.rebuild(tile);
     Object.assign(this, fresh);
     return this._score;

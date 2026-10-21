@@ -29,7 +29,7 @@ describe("Village's ABI", () => {
   });
 
   test("it has the writes and views the client uses", () => {
-    for (const name of ["found", "buy_parcel", "demolish", "village", "cells", "tiles", "next_demolition", "parcel_price", "parcel_level"]) {
+    for (const name of ["found", "buy_parcel", "demolish", "village", "cells", "tiles", "next_demolition", "parcel_price", "parcel_level", "max_cells"]) {
       expect(codec.hasFunction(name), name).toBe(true);
     }
   });
@@ -45,7 +45,7 @@ describe("the writes", () => {
     });
     expect(demolishCall("0x9", { x: 0, y: 1 }).calldata).toEqual(["0x7fffffff", "0x80000000"]);
     expect(() => fromCell({ x: 0.5, y: 0 })).toThrow("Not a village cell");
-    expect(() => fromCell({ x: 0, y: 65 })).toThrow("Not a village cell");
+    expect(() => fromCell({ x: 0, y: 129 })).toThrow("Not a village cell");
   });
 });
 

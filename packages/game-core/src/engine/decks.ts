@@ -49,10 +49,10 @@ export const DECKS: Record<EngineDeck, DeckRules> = {
     starter: 0,
     placement: () => null,
   },
-  // A village (#640): no cards, the starter and one tile per owned cell at most (38).
+  // A village (#640): no cards, the starter and one tile per owned cell at most (`VILLAGE_MAX_CELLS_LIMIT`).
   village: {
     total: 0,
-    count: 38,
+    count: 100,
     plan: () => PlanType.None,
     starter: 0,
     placement: () => null,
