@@ -27,6 +27,8 @@ export interface ProfileSheetProps {
   onDisconnect?: () => void;
   /** Copies the address; a rejection is a failed copy (nothing said). The page does the copying. */
   onCopy?: (address: string) => Promise<void>;
+  /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
+  returnFocus?: () => HTMLElement | null;
 }
 
 /** The side panel from `desktop`, where the avatar sits at the left of the navigation's header; the bottom sheet under it. */
@@ -37,7 +39,7 @@ const DESKTOP_QUERY = "(min-width: 64rem)";
  * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (disabled until the creator,
  * #626) and Disconnect; a guest gets the Training line and Connect. The level and XP come with #625.
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy }: ProfileSheetProps) {
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, returnFocus }: ProfileSheetProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
   const connected = state.status === "connected" ? state.data : null;
@@ -49,7 +51,15 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
         onOpenChange(next);
       }}
     >
-      <SheetContent side={desktop ? "left" : "bottom"}>
+      <SheetContent
+        side={desktop ? "left" : "bottom"}
+        onCloseAutoFocus={(e) => {
+          const target = returnFocus?.();
+          if (!target) return;
+          e.preventDefault();
+          target.focus();
+        }}
+      >
         <SheetHeader className="items-center text-center">
           <PlayerAvatar size="lg" player={connected ? { name: connected.player.name, address: connected.player.playerId } : null} loading={state.status === "loading"} />
           <SheetTitle className="flex w-full min-w-0 justify-center">
@@ -61,7 +71,7 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
         {connected && (
           <>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/60 p-1.5 pl-3">
-              <ShortAddress address={connected.player.playerId} className="min-w-0 flex-1 truncate text-xs" />
+              <ShortAddress address={connected.player.playerId} className="flex-1 text-xs" />
               <Button
                 size="sm"
                 variant={copied ? "secondary" : "default"}

@@ -78,6 +78,22 @@ describe("ProfileSlot (#624)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("Escape closes the sheet and the focus returns to the avatar (keyboard)", async () => {
+    render(withProfile(value(PROFILE.guest), <ProfileSlot />));
+    const avatar = screen.getByRole("button", { name: "Profile: guest" });
+    avatar.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(avatar).toHaveFocus());
+    // A second open still works and returns the focus again.
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(avatar).toHaveFocus());
+  });
+
   it("is at the top left of a tab page and in the navigation; Back takes its place on a sub-page", () => {
     const { rerender } = render(withProfile(value(PROFILE.guest), <TabPage tab="vault" title="Vault">x</TabPage>));
     const avatars = screen.getAllByRole("button", { name: "Profile: guest" });

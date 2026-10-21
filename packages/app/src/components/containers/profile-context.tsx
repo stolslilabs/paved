@@ -1,11 +1,11 @@
-import { createContext, lazy, Suspense, useContext, useState } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { shortAddress } from "../elements/short-address";
 import type { ProfileSheetProps, ProfileState } from "./profile-sheet";
 
 /** What the shell hands the menu screens' headers: who is connected and what the sheet's actions do. Absent (stories, tests): no avatar is drawn. */
-export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange">;
+export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus">;
 
 const ProfileContext = createContext<ProfileValue | null>(null);
 export const ProfileProvider = ProfileContext.Provider;
@@ -24,11 +24,19 @@ export function ProfileSlot({ className }: { className?: string }) {
   const value = useContext(ProfileContext);
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
+  const avatar = useRef<HTMLButtonElement>(null);
+  const returnFocus = useCallback(() => avatar.current, []);
+  // The focus back on the avatar as the sheet closes (the trap lets go at once; the panel leaves after its slide).
+  const change = useCallback((next: boolean) => {
+    setOpen(next);
+    if (!next) requestAnimationFrame(() => avatar.current?.focus());
+  }, []);
   if (!value) return null;
   const { state } = value;
   return (
     <>
       <button
+        ref={avatar}
         type="button"
         aria-label={label(state)}
         aria-haspopup="dialog"
@@ -47,9 +55,10 @@ export function ProfileSlot({ className }: { className?: string }) {
           <ProfileSheet
             {...value}
             open={open}
-            onOpenChange={setOpen}
+            onOpenChange={change}
+            returnFocus={returnFocus}
             onDisconnect={() => {
-              setOpen(false);
+              change(false);
               value.onDisconnect?.();
             }}
           />
