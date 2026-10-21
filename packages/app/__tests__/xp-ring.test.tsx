@@ -6,6 +6,7 @@ import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/componen
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
 import { levelShare, xpGained, XpRing } from "../src/components/elements/xp-ring";
 import { FIRST_LEVEL, progressOf, usePlayerProgress } from "../src/data/player-progress";
+import { playerLevelOf } from "@paved/chain";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
 import { PLAYER_ID, PROGRESS } from "../src/mocks/players";
 import { PROFILE } from "../src/mocks/scenes";
@@ -29,7 +30,7 @@ describe("usePlayerProgress (#625, #641)", () => {
 
   it("maps the view's floors: level 10 starts at 4,500 XP, level 11 at 5,500", () => {
     expect(progressOf({ xp: 4600, level: 10, floor: 4500, next: 5500 })).toEqual({ level: 10, xp: 100, xpForNext: 1000 });
-    expect(FIRST_LEVEL).toEqual({ level: 1, xp: 0, xpForNext: 100 });
+    expect(FIRST_LEVEL).toEqual(progressOf(playerLevelOf(0)));
   });
 
   it("a failed read ends the wait with its error", async () => {

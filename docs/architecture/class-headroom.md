@@ -711,5 +711,6 @@ Measured on the Mac on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 
 |---|---:|---:|---:|---:|---:|---:|
 | `Setup` | 18,024 | 39,861 | 19,067 | 42,112 | +2,251 | 51.4 % |
 
-`Setup` is 31,616 CASM felts under the P-44 cap (73,728). `Story` (58,650) and `Challenge` (64,826) are unchanged to the felt:
+`Setup` is 31,616 CASM felts under the P-44 cap (73,728). After merging main at `b98a6452` (with #639's `ISetupSpend`):
+`Setup` 19,604 Sierra, 43,431 CASM felts, 53.0 % (main 41,179: +2,252), 30,297 under the P-44 cap. `Story` (58,650) and `Challenge` (64,826) are unchanged to the felt:
 they call `Setup` as before, and the XP is credited inside `Setup`'s `report` and `credit_story`.

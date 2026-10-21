@@ -1,11 +1,15 @@
-import { playerLevelOf, type GameViews, type LevelViews, type PlayerLevel } from "@paved/chain";
+import type { GameViews, LevelViews, PlayerLevel } from "@paved/chain";
 import { useQuery } from "@tanstack/react-query";
 import type { PlayerProgress } from "../components/elements/xp-ring";
 import { queryKeys } from "./keys";
 import { useDataSources } from "./sources";
 
-/** The first level (#641's curve): 0 XP, the next level at 100. What a player with no XP, or a views double without the XP view, shows. */
-export const FIRST_LEVEL: PlayerProgress = progressOf(playerLevelOf(0));
+/**
+ * The first level of #641's curve (`playerLevelOf(0)` of `@paved/chain`: the next level at `LEVEL_STEP`, 100 XP). What a player
+ * with no XP, or a views double without the XP view, shows. A literal: this module is on the first load of `/`, which takes
+ * nothing but types from the chain client (FIRST-LOAD).
+ */
+export const FIRST_LEVEL: PlayerProgress = { level: 1, xp: 0, xpForNext: 100 };
 
 /** The ring's share of a level: the XP made in the current level, out of the level's span (`Setup.player_level`, #641). */
 export function progressOf({ level, xp, floor, next }: PlayerLevel): PlayerProgress {

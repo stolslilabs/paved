@@ -1679,8 +1679,8 @@ this worktree with main's `contracts/src` and `contracts/tests`. **After**: this
 
 | Scenario | L2 gas | Ceiling (measured + 5 %) |
 |---|---:|---:|
-| z16, `credit_xp` of a PvP attack, 25 XP (the account read and written, one `XpGained`) | 550,888 | 578,433 |
-| z17, the `player_level` view (the account read, the level's square root, two floors) | 273,178 | 286,837 |
+| z22, `credit_xp` of a PvP attack, 25 XP (the account read and written, one `XpGained`) | 550,888 | 578,433 |
+| z23, the `player_level` view (the account read, the level's square root, two floors) | 273,178 | 286,837 |
 
 **What every game over pays.** A game over's `report` adds `GAME_XP` in the account write it already made, computes the level
 and emits one `XpGained`.
@@ -1713,4 +1713,7 @@ and -36,972 on z5). m and n stay under their ceilings; z5 is reset to measured +
 
 **Memory** (`/usr/bin/time -l`, no cap, the Mac rule): `snforge test paved::tests::xp_level` 9.9 GB resident, `paved::tests::e2e::`
 11.0 GB, `paved::tests::story` 8.7 GB, `test_gas_` 8.7 GB; `scripts/class-sizes.sh` 4.2 GB. The whole `snforge test --max-threads 2` (`RAYON_NUM_THREADS=1`):
-964 passed, 0 failed, 38 ignored, 9.4 GB resident, 3 min 7 s.
+964 passed, 0 failed, 38 ignored, 9.4 GB resident, 3 min 7 s. After merging main at `b98a6452` (the matchmaker's
+z16 to z21 took those names, so the XP scenarios are z22 and z23): 1,047 passed, 0 failed, 38 ignored, 9.9 GB, 4 min 42 s; z22
+551,188, z23 273,278, g 3,952,394, every ceiling held. `Setup` on the merged tree: 19,604 Sierra, 43,431 CASM, 53.0 % (main
+with `ISetupSpend`: 41,179; +2,252).

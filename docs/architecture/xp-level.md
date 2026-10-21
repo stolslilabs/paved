@@ -120,7 +120,7 @@ Built on the proposals of sections 2 to 5, before the owner's answers (posted on
   `queryKeys.chain.playerLevel`) and returns `{ level, xp: xp - floor, xpForNext: next - floor }`. The mock data source
   answers it where the network's class lacks the view (`MockLedger.playerLevel`, XP 0).
 - **Size and gas** (`docs/measures/baseline.md`, "After XP-LEVEL"; `class-headroom.md`, "After XP-LEVEL"): `Setup` +2,251 CASM
-  felts, 51.4 % of the cap; a game over +128,110 L2 gas (+3.0 to 3.4 %), moves that do not end a game unchanged; `credit_xp`
+  felts (43,431 after merging #639's spends, 53.0 % of the cap); a game over +128,110 L2 gas (+3.0 to 3.4 %), moves that do not end a game unchanged; `credit_xp`
   550,888, `player_level` 273,178.
 
 ### Audit (correctness and security)
