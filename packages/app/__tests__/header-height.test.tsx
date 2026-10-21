@@ -8,10 +8,14 @@ import { TopBar } from "../src/components/containers/top-bar";
 import { HomeScene } from "../src/components/scenes/home-scene";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { HOME, WELCOME } from "../src/mocks/scenes";
+import { PAGES } from "../src/routes/pages";
+import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 
 // HEADER-HEIGHT (#676): every page's header takes its height from the token, never its own. The heights themselves are
 // measured in a browser at 375 and 1440 px by `scripts/header-sweep.ts` (jsdom lays nothing out).
-const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-(?!\(--header-h\))/;
+const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-/;
+/** The board's routes (`Shell.tsx`): the scene fills the viewport, no header. */
+const BOARD = ["game/:gameId", "training", "story/:campaign/:level"];
 
 function header(container: HTMLElement): HTMLElement {
   const found = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');
@@ -37,7 +41,13 @@ describe("the page headers", () => {
     const { container } = render(page());
     const el = header(container);
     expect(el).toHaveClass("page-header");
-    expect(el.className).not.toMatch(OWN_HEIGHT);
+    // A tab page's title row is the content's first row from `desktop` (the navigation is the header): 56 px there.
+    expect(el.className.replace(el.closest("main") ? "desktop:h-14" : "", "")).not.toMatch(OWN_HEIGHT);
+  });
+
+  it("the page shells of Pages/Headers cover every route but the board's", () => {
+    const covered = Object.values(PAGE_HEADER_STORIES).flat();
+    expect([...covered].sort()).toEqual(PAGES.map((p) => p.path).filter((p) => !BOARD.includes(p)).sort());
   });
 
   it("the navigation is a page header from desktop only (below it, the bottom bar)", () => {

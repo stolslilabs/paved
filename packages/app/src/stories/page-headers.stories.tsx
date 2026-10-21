@@ -6,13 +6,15 @@ import { TRACKS } from "../lib/music/tracks";
 import { UPCOMING_CAMPAIGNS } from "../data/story";
 import { appRenders } from "../mocks/assets";
 import { PROGRESS } from "../mocks/players";
-import { COBBLES, HOME, MY_TILES, PLAY, PROFILE, PURCHASE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
+import { ACHIEVEMENTS, COBBLES, HOME, MY_TILES, OVER, PLAY, PROFILE, PURCHASE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
+import { AchievementsScene } from "../components/scenes/achievements-scene";
 import { BalancesProvider } from "../components/containers/balances-context";
 import { ProfileProvider } from "../components/containers/profile-context";
 import { CobblesScene } from "../components/scenes/cobbles-scene";
 import { CreditsScene } from "../components/scenes/credits-scene";
 import { HomeScene } from "../components/scenes/home-scene";
 import { MyTilesScene } from "../components/scenes/my-tiles-scene";
+import { OverScene } from "../components/scenes/over-scene";
 import { PlayScene } from "../components/scenes/play-scene";
 import { PurchaseScene } from "../components/scenes/purchase-scene";
 import { QuestsScene } from "../components/scenes/quests-scene";
@@ -34,10 +36,11 @@ const withShell: Decorator = (Story) => (
 );
 
 /**
- * HEADER-HEIGHT (#676): every page outside the board, one story each, in the shell's providers (the avatar, the balances).
- * Each page's header, the one marked `data-slot="page-header"` (the `TopBar`, the tab pages' title row, Home's top row, and
- * from `desktop` the navigation's header), is `--header-h` tall, one value per breakpoint (theme.css), so the content starts
- * at the same height on every page. `scripts/header-sweep.ts` measures them at 375 and 1440 px. Captures, Home, Vault and
+ * HEADER-HEIGHT (#676): every page outside the board, one story each (`page-headers.ts` lists the routes each covers), in
+ * the shell's providers (the avatar, the balances). Each page has one header at its top, `--header-h` tall, one value per
+ * breakpoint (theme.css): the `TopBar`, a tab page's title row below `desktop`, Home's top row, the navigation's header from
+ * `desktop` (where a tab page's title row is the first row of its content). The content starts at the same height on every
+ * page but the heroes (Home, Welcome). `scripts/header-sweep.ts` measures both at 375 and 1440 px. Captures, Home, Vault and
  * Play side by side before and after: `captures/header-height/header-height-{375,1440}-{before,after}.webp`.
  */
 const meta = { title: "Pages/Headers", decorators: [withShell], parameters: { layout: "fullscreen" } } satisfies Meta;
@@ -47,6 +50,7 @@ type Story = StoryObj<typeof meta>;
 export const Home: Story = { render: () => <HomeScene {...HOME.connected} /> };
 export const Play: Story = { render: () => <PlayScene {...PLAY.connected} onBack={fn()} /> };
 export const Missions: Story = { render: () => <QuestsScene {...QUESTS.today} /> };
+export const MissionsLifetime: Story = { render: () => <AchievementsScene {...ACHIEVEMENTS.mixed} /> };
 export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> };
 export const Settings: Story = { render: () => <SettingsScene {...SETTINGS.connected} /> };
 export const StoryCampaigns: Story = {
@@ -60,4 +64,5 @@ export const Referral: Story = { render: () => <ReferralScene {...REFERRAL.earne
 export const Credits: Story = { render: () => <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} /> };
 export const Cobbles: Story = { render: () => <CobblesScene {...COBBLES.packs} onBack={fn()} /> };
 export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
+export const GameOver: Story = { render: () => <OverScene {...OVER.rewarded} /> };
 export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} /> };

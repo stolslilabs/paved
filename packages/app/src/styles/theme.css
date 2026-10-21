@@ -155,8 +155,9 @@
 
 /* 2c. HEADER-HEIGHT (#676, owner decision of 2026-10-21): one header height per breakpoint, the same on every page outside
    the board. Below `desktop` a page's header holds two rows, its title row (Back or the avatar, the title, an action) and the
-   balances' strip; from `desktop` one row (the navigation's header, a flow's top bar, a tab page's title row). The
-   `page-header` utility below puts a header on it; the content below starts at the same height on every page. The values
+   balances' strip; from `desktop` one row (the navigation's header, a flow's top bar; a tab page's title row is then the
+   first row of its content). The `page-header` utility below puts a header on it; every page has one at its top, and the
+   content below starts at the same height on every page. The values
    are the flows' top bar as measured at 375 px (96 px, its title row 56) and the navigation's header at 1440 px (64 px). */
 :root {
   --header-h: 6rem;
