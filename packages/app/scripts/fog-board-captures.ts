@@ -1,6 +1,7 @@
 /**
- * FOG-EVERYWHERE (#648): stills of the fog of war on the game's board (`Scenes/Board`, the stories Fog, FogAtNight and
- * FogVillage), on a phone (375 x 812 at DPR 2) and on desktop (1440 x 900 at DPR 1).
+ * FOG-EVERYWHERE (#648): stills of the fog of war on the game's board (`Scenes/Board`: Fog, FogAtNight, FogVillage), the
+ * village's and the PvP attack's 3D boards (`Scenes/Village`, `Scenes/PvP/Attack`: Board3D and its night), on a phone (375 x 812
+ * at DPR 2) and on desktop (1440 x 900 at DPR 1).
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up)
  *   node scripts/fog-board-captures.ts --out <folder> [--url http://localhost:6006] [--gpu] [--only night]
@@ -26,9 +27,15 @@ const SETTLE_MS = Number(arg("settle", "8000"));
 if (!OUT) throw new Error("--out <folder> is required (captures are not committed from here)");
 
 const STORIES = [
-  ["fog-board-day", "fog"],
-  ["fog-board-night", "fog-at-night"],
-  ["fog-board-village", "fog-village"],
+  ["fog-board-day", "scenes-board--fog"],
+  ["fog-board-night", "scenes-board--fog-at-night"],
+  ["fog-board-village", "scenes-board--fog-village"],
+  // The village and the PvP attack in 3D: the fog clear over the owned cells and their neighbours.
+  ["fog-village-day", "scenes-village--board-3-d"],
+  ["fog-village-night", "scenes-village--board-3-d-night"],
+  ["fog-village-reward", "scenes-village--board-3-d-reward"],
+  ["fog-attack-day", "scenes-pvp-attack--board-3-d"],
+  ["fog-attack-night", "scenes-pvp-attack--board-3-d-night"],
 ] as const;
 const VIEWPORTS = [
   ["375", { width: 375, height: 812 }, 2],
@@ -46,7 +53,7 @@ for (const [name, story] of STORIES) {
     const file = `${name}-${label}${GPU ? "-gpu" : ""}`;
     if (ONLY && !file.includes(ONLY)) continue;
     const page = await browser.newPage({ viewport, deviceScaleFactor });
-    await page.goto(`${URL_BASE}/iframe.html?id=scenes-board--${story}&viewMode=story`, { timeout: 180_000, waitUntil: "commit" });
+    await page.goto(`${URL_BASE}/iframe.html?id=${story}&viewMode=story`, { timeout: 180_000, waitUntil: "commit" });
     await page.waitForSelector("canvas", { timeout: 300_000 });
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: join(OUT, `${file}.jpg`), type: "jpeg", quality: 82 });
