@@ -5,6 +5,7 @@ import type { WebGLRenderer } from "three";
 import { decodePng } from "./helpers/png";
 import {
   AVATAR_PARTS,
+  AVATAR_PART_BITS,
   AVATAR_PART_KEYS,
   AVATAR_USED_BITS,
   AVATAR_VALUE_BITS,
@@ -30,7 +31,9 @@ const voxelsOf = (head: VoxelHead) => [...head.voxels()].map(([x, y, z, hex]) =>
 
 describe("the avatar's format", () => {
   it("packs the version and a byte a part into 88 of a u128's bits, under a felt252", () => {
-    expect(AVATAR_USED_BITS).toBe(88);
+    expect(AVATAR_USED_BITS).toBe(AVATAR_PART_BITS * (1 + AVATAR_PART_KEYS.length));
+    expect(Object.keys(DEFAULT_AVATAR)).toEqual([...AVATAR_PART_KEYS]);
+    expect(Object.values(DEFAULT_AVATAR).every((id) => id === 0)).toBe(true);
     expect(AVATAR_USED_BITS).toBeLessThanOrEqual(AVATAR_VALUE_BITS);
     const max = Object.fromEntries(AVATAR_PART_KEYS.map((p) => [p, AVATAR_PARTS[p].length - 1])) as Avatar;
     const value = encodeAvatar(max);

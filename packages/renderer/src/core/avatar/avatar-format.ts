@@ -55,14 +55,14 @@ export const AVATAR_PARTS = {
 export type Avatar = { readonly [K in AvatarPart]: number };
 
 export const AVATAR_FORMAT_VERSION = 1;
-/** Bits per part id, and the bits the format uses (version and parts). */
+/** Bits per part id, and the bits the format uses: the version and the ten parts (literals, so a bundle that does not use them drops them). */
 export const AVATAR_PART_BITS = 8;
-export const AVATAR_USED_BITS = AVATAR_PART_BITS * (1 + AVATAR_PART_KEYS.length);
+export const AVATAR_USED_BITS = 88;
 /** The width of the stored value. */
 export const AVATAR_VALUE_BITS = 128;
 
 /** Every part at its default: the avatar of a player who chose none. */
-export const DEFAULT_AVATAR: Avatar = Object.freeze(Object.fromEntries(AVATAR_PART_KEYS.map((k) => [k, 0])) as Avatar);
+export const DEFAULT_AVATAR: Avatar = { skin: 0, hairColour: 0, eyes: 0, eyebrows: 0, mouth: 0, hair: 0, beard: 0, headwear: 0, accessory: 0, background: 0 };
 
 /** How many variants a part has. */
 export const variantCount = (part: AvatarPart): number => AVATAR_PARTS[part].length;
