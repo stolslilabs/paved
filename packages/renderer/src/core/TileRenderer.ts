@@ -285,7 +285,7 @@ export class TileRenderer {
    */
   readonly cloudUniforms = createCloudUniforms();
   /**
-   * The snow on the tops (`snow-shader.ts`, #607 PR 2), shared as the others: only the weather's chunk (stories only) writes them;
+   * The snow on the tops (`snow-shader.ts`, #607, #658), shared as the others: only the weather's chunk writes them (in winter);
    * until it does, the term is off.
    */
   readonly snowUniforms = createSnowUniforms();
