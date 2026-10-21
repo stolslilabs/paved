@@ -184,10 +184,15 @@ export function OverScene(props: OverSceneProps) {
       {onBoard && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
           <div data-slot="card" className="pointer-events-auto w-full max-w-2xl rounded-xl border border-border bg-card/95 shadow-lg backdrop-blur">
+            {/*
+              No balances over the board (#620: on every screen but the board). In this card (`max-w-2xl`) the desktop rail beside
+              the score made each side wider than half the bar: the title had no room left and stood a letter a line.
+            */}
             <TopBar
               title="Final board"
               onBack={() => setView("scores")}
               end={<Score value={props.game.score} size="sm" tone="gold" className="pr-2" />}
+              balances={false}
               className="mb-0 pt-0"
             />
           </div>

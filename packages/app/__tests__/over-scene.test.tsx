@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { describe, expect, it, vi } from "vitest";
+import { BalancesProvider } from "../src/components/containers/balances-context";
 import { OverScene, type SettleProps } from "../src/components/scenes/over-scene";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { OVER } from "../src/mocks/scenes";
@@ -122,6 +123,26 @@ describe("OverScene: the figures and the final board (#539)", () => {
     expect(onViewChange).toHaveBeenLastCalledWith("scores");
     expect(screen.getByTestId("final-board")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+  });
+
+  it("the final board's top bar keeps the title and the score, no balances over the board, after any number of switches (#620)", async () => {
+    show(
+      <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 10 } }}>
+        <OverScene {...OVER.training} />
+      </BalancesProvider>,
+    );
+    const toggle = screen.getByRole("radiogroup", { name: "Show" });
+    // The scores' bar carries them (the strip and the rail).
+    const scores = screen.getByRole("heading", { level: 1, name: "Final score" }).closest("header")!;
+    expect(await within(scores).findAllByRole("region", { name: "Balances" })).toHaveLength(2);
+    for (let i = 0; i < 2; i++) {
+      await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
+      const bar = screen.getByRole("heading", { level: 1, name: "Final board" }).closest("header")!;
+      expect(within(bar).queryByRole("region", { name: "Balances" })).toBeNull();
+      expect(within(bar).queryByRole("button", { name: /Connect/ })).toBeNull();
+      expect(bar).toHaveTextContent(/^Final board[\d,]+$/);
+      await userEvent.click(within(bar).getByRole("button", { name: "Back" }));
+    }
   });
 
   it("has no toggle without a board", () => {

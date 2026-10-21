@@ -31,7 +31,7 @@ const noRawErrors = () => {
   expect(screen.queryByText(/RPC|entrypoint|starknet_call/i)).not.toBeInTheDocument();
 };
 
-preloadPages("quests");
+preloadPages("quests", "vault");
 
 beforeEach(() => {
   queryClient.clear();
