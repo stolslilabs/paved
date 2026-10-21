@@ -10,6 +10,7 @@ import { VIEWPORT_OPTIONS } from "../src/components/scenes/viewports";
 import { board } from "../src/styles/tokens";
 import { provideManifest } from "@paved/renderer";
 import { APP_ASSETS, APP_MANIFEST } from "../src/mocks/assets";
+import { ProfileProvider, type ProfileValue } from "../src/components/containers/profile-context";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
 document.documentElement.dataset.theme = "dark";
@@ -30,11 +31,13 @@ declare module "storybook/internal/csf" {
     route?: string;
     /** `MotionConfig reducedMotion` for the story: "never" (off), "always" (on), or the OS setting ("user", the default). */
     reducedMotion?: "user" | "never" | "always";
+    /** Who the menu screens' avatar shows (`ProfileProvider`, #624); none drawn when omitted. */
+    profile?: ProfileValue;
   }
 }
 
 /** A fresh client per story, seeded and never refetching: a story shows its fixtures, not a network. */
-function Providers({ fixtures, route, reducedMotion, children }: { fixtures: QueryFixtures; route: string; reducedMotion: "user" | "never" | "always"; children: React.ReactNode }) {
+function Providers({ fixtures, route, reducedMotion, profile, children }: { fixtures: QueryFixtures; route: string; reducedMotion: "user" | "never" | "always"; profile?: ProfileValue; children: React.ReactNode }) {
   const [client] = useState(() => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, refetchOnWindowFocus: false } } });
     for (const [key, data] of fixtures) qc.setQueryData(key, data);
@@ -45,7 +48,7 @@ function Providers({ fixtures, route, reducedMotion, children }: { fixtures: Que
       <MemoryRouter initialEntries={[route]}>
         {/* Sync `domMax` (layout animation included): stories use `m` and `motion` alike. */}
         <LazyMotion features={domMax}>
-          <MotionConfig reducedMotion={reducedMotion}>{children}</MotionConfig>
+          <MotionConfig reducedMotion={reducedMotion}>{profile ? <ProfileProvider value={profile}>{children}</ProfileProvider> : children}</MotionConfig>
         </LazyMotion>
       </MemoryRouter>
     </QueryClientProvider>
@@ -53,7 +56,7 @@ function Providers({ fixtures, route, reducedMotion, children }: { fixtures: Que
 }
 
 const withProviders: Decorator = (Story, { parameters }) => (
-  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"} reducedMotion={parameters.reducedMotion ?? "user"}>
+  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"} reducedMotion={parameters.reducedMotion ?? "user"} profile={parameters.profile}>
     <Story />
   </Providers>
 );

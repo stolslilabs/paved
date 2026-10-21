@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { BalancesSlot } from "./balances-context";
 import { MockMarkSlot } from "./mock-mark";
+import { ProfileSlot } from "./profile-context";
 import { TabFrame } from "./tab-frame";
 
 export interface TabPageProps {
@@ -33,10 +34,13 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
       <main className={cn("mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pb-10", className)}>
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1">
-            {onBack && (
+            {/* The top left is Back on a page reached from another, the player's avatar on a tab's own page (#624; from `desktop` it is in the navigation). */}
+            {onBack ? (
               <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack} className="-ml-2">
                 <Icon name="chevron-left" />
               </Button>
+            ) : (
+              <ProfileSlot className="mr-2 desktop:hidden" />
             )}
             <div className="flex min-w-0 flex-col wrap-anywhere">
               {/* The mark on the title's line, after its last word when the title wraps (#622). */}

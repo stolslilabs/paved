@@ -89,10 +89,12 @@ describe("Loading", () => {
 });
 
 describe("Home", () => {
-  it("shows the player, the game to resume, no podium, and the nav with Play in the centre", async () => {
+  it("shows the game to resume, no player card, no podium, and the nav with Play in the centre", async () => {
     const onResume = vi.fn();
     render(wrap(<HomeScene {...HOME.connected} onResume={onResume} />));
-    expect(screen.getAllByText("bal7hazar").length).toBeGreaterThan(0);
+    // The player is the avatar at the top left, which the shell supplies (#624, `profile.test.tsx`): no card names them.
+    expect(screen.queryByText("bal7hazar")).not.toBeInTheDocument();
+    expect(screen.queryByText("Playing as a guest")).not.toBeInTheDocument();
     // The ranks left the UI (#623): no podium on the Challenge card.
     expect(screen.queryByRole("list", { name: "Top 3" })).not.toBeInTheDocument();
     expect(screen.queryByText("stonemaster")).not.toBeInTheDocument();

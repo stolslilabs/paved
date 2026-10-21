@@ -3,15 +3,15 @@ import { useEffect, useState } from "react";
 /** The side panel from this width (`--breakpoint-tablet`), the bottom sheet under it. */
 const SIDE_PANEL_QUERY = "(min-width: 40rem)";
 
-/** Whether the screen is wide enough for a side panel over the board instead of a bottom sheet. */
-export function useSidePanel(): boolean {
-  const [side, setSide] = useState(() => typeof matchMedia === "function" && matchMedia(SIDE_PANEL_QUERY).matches);
+/** Whether the screen is wide enough for a side panel over the board instead of a bottom sheet; `query` sets another width. */
+export function useSidePanel(query: string = SIDE_PANEL_QUERY): boolean {
+  const [side, setSide] = useState(() => typeof matchMedia === "function" && matchMedia(query).matches);
   useEffect(() => {
     if (typeof matchMedia !== "function") return;
-    const query = matchMedia(SIDE_PANEL_QUERY);
-    const on = () => setSide(query.matches);
-    query.addEventListener("change", on);
-    return () => query.removeEventListener("change", on);
-  }, []);
+    const list = matchMedia(query);
+    const on = () => setSide(list.matches);
+    list.addEventListener("change", on);
+    return () => list.removeEventListener("change", on);
+  }, [query]);
   return side;
 }
