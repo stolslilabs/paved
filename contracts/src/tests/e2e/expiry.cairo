@@ -9,9 +9,11 @@ use core::num::traits::Zero;
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::constants;
 use paved::mocks::token::IERC20Dispatcher;
+use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::{CENTER, Tile};
 use paved::seed::{SeedSource, TokenSeed};
+use paved::systems::challenge::Challenge::{MOVE_KIND, SPAWN_KIND};
 use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
 use paved::systems::economy::{
     DAY, IEconomyDispatcherTrait, IEconomySafeDispatcher, IEconomySafeDispatcherTrait,
@@ -29,6 +31,7 @@ use paved::views::{
     IGameViewDispatcher, IGameViewDispatcherTrait, IGameViewSafeDispatcher,
     IGameViewSafeDispatcherTrait, TILE_HELD, TILE_PLACED,
 };
+use paved::vrf::draw_salt;
 use snforge_std::{
     DeclareResultTrait, declare, get_class_hash, start_cheat_block_timestamp_global,
     start_cheat_caller_address,
@@ -283,44 +286,45 @@ fn test_expiry_initial_seed_replays_the_draws() {
     let (store, systems, context) = spawn_at_start();
     let game_id = context.game_id;
     let contract = systems.challenge.contract_address;
+    // [Info] Since #645 the seed is the random of the spawn's VRF draw, stored
     let seed = views(@systems).initial_seed(game_id);
-    let token = TokenSeed { contract }.seed(Mode::Challenge, 0, game_id, 0);
-    assert(seed == token, 'Expiry: not the token seed');
+    let salt = draw_salt(SPAWN_KIND, PLAYER().into(), 0);
+    assert(seed == mock_random(salt, contract), 'Expiry: not the spawn random');
 
     build_city(store, @systems, game_id);
     systems.challenge.discard(game_id);
     systems.challenge.discard(game_id);
 
-    // [Replay] the spawn: the starter tile, the deck's withdrawal, the first draw
+    // [Replay] the spawn: the starter tile, the deck's withdrawal, the hand and the queue
     let mut game = GameImpl::new(game_id, START, Mode::Challenge, PLAYER().into());
     game.start(START, seed);
-    let (_, mut plan) = game.draw_plan();
-    // [Replay] each move, in draw order: a reseed on the position, then a draw. A discarded tile
-    // reseeds on the position it was drawn with, the centre (`TileImpl::new`), though `tiles()`
-    // reports it at (0, 0)
-    let tiles = views(@systems).tiles(game_id, 1, 64);
-    for tile in tiles.span() {
-        if *tile.status == TILE_HELD {
-            break;
-        }
-        let (x, y) = if *tile.status == TILE_PLACED {
-            (*tile.x, *tile.y)
+    let (_, mut plan, _) = game.advance(Option::Some(seed));
+    // [Replay] each move: the tile `held + 3` drawn from its own salt, while within the deck
+    let view = views(@systems).game(game_id);
+    while game.tile_count < view.tile_id {
+        let index = game.tile_count + 3;
+        let random = if index <= game.tile_limit.into() {
+            Option::Some(mock_random(draw_salt(MOVE_KIND, game_id.into(), index), contract))
         } else {
-            (CENTER, CENTER)
+            Option::None
         };
-        game
-            .reseed(
-                Tile { game_id, id: *tile.id, plan: *tile.plan, orientation: 0, x, y, owner: 0 },
-            );
-        let (_, next) = game.draw_plan();
+        let (_, next, _) = game.advance(random);
         plan = next;
     }
-    let view = views(@systems).game(game_id);
     assert(game.seed == view.seed, 'Expiry: replayed seed');
     assert(game.tiles == store.game(game_id).tiles, 'Expiry: replayed deck');
+    assert(game.queue == store.game(game_id).queue, 'Expiry: replayed queue');
     assert(game.tile_count == view.tile_id, 'Expiry: replayed tile id');
     let plan: u8 = plan.into();
     assert(plan == view.plan, 'Expiry: replayed plan');
+}
+
+/// What the devnet mock's first consume of a transaction returns for `salt` to `consumer`.
+fn mock_random(salt: felt252, consumer: starknet::ContractAddress) -> felt252 {
+    let chain_id = starknet::get_tx_info().unbox().chain_id;
+    let seed = core::poseidon::poseidon_hash_span(array![salt, consumer.into(), chain_id].span());
+    let random = core::poseidon::poseidon_hash_span(array![seed, MOCK_TAG].span());
+    core::poseidon::poseidon_hash_span(array![random, 0].span())
 }
 
 #[test]

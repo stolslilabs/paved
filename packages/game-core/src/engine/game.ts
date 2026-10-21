@@ -92,6 +92,21 @@ export interface EngineConfig {
    * game is over once the queue is empty.
    */
   readonly lookahead?: number;
+  /**
+   * Deck `simple` only: the game draws as a Challenge game on the VRF does (#645, D-30,
+   * `docs/architecture/challenge-vrf.md`, `GameImpl::advance`). The seed is the spawn's random: it
+   * builds the deck, then draws the hand from itself and the next two tiles from Poseidon(seed, 1) and
+   * Poseidon(seed, 2). The seed never changes. Each move brings the next tile into the hand and leaves
+   * the tile two ahead to draw (`queue`), given by `supply` (a random, as the VRF's) or
+   * `supplyPlan` (the plan a receipt's `Queued` names).
+   */
+  readonly vrf?: boolean;
+}
+
+/** A tile of the hand or of the queue; `plan` is `null` while it is not drawn yet. */
+export interface QueuedTile {
+  readonly id: number;
+  readonly plan: PlanType | null;
 }
 
 /** The id of the first tile of a story level's `placed`, clear of the ids of the drawn tiles. */
@@ -226,7 +241,11 @@ export class EngineGame {
   private _closings: ClosedStructure[] = [];
   private scoredRoots = new Set<number>();
   private _over = false;
+  /** The tile in hand; its plan is 0 while a VRF game has not drawn it yet. */
   private held: { id: number; plan: number } | null = null;
+  /** VRF games: the two tiles after the hand, in id order (plan 0: not drawn yet). */
+  private _queue: { id: number; plan: number }[] = [];
+  readonly vrf: boolean;
   /** The tiles drawn after the one in hand, in order (`lookahead` above 1). */
   private queued: { id: number; plan: number }[] = [];
   private readonly lookahead: number;
@@ -249,10 +268,13 @@ export class EngineGame {
     }
     this.tileLimit =
       config.tileLimit ?? (config.deck === "story" ? this.sequence.length + 1 : this.rules.count);
+    this.vrf = config.vrf === true;
+    if (this.vrf && config.deck !== "simple") throw new EngineError("Game: only a simple deck draws from the VRF");
     if (this.tileLimit > 255) throw new EngineError("Game: invalid tile limit");
     this.lookahead = config.lookahead ?? 1;
     if (!Number.isInteger(this.lookahead) || this.lookahead < 1) throw new EngineError("Game: invalid lookahead");
     if (this.lookahead > 1 && config.deck !== "simple") throw new EngineError("Game: a queue needs a random deck");
+    if (this.lookahead > 1 && this.vrf) throw new EngineError("Game: the VRF's queue is its own (no lookahead)");
     this._seed = config.seed;
     if (config.territory) this._territory = new Map(config.territory.map((c) => [cellKey(c), { x: c.x, y: c.y }]));
     if (config.maxCells !== undefined) {
@@ -300,7 +322,8 @@ export class EngineGame {
       game._tiles = withdrawExtra(game._tiles, game._seed, game.rules.total, game.rules.count);
     }
     config.placed?.forEach((tile, index) => game.write({ ...tile, id: PREPLACED_ID + index }));
-    if (game.deck !== "village") game.advance();
+    if (game.vrf) game.fill(game._seed);
+    else if (game.deck !== "village") game.advance();
     return game;
   }
 
@@ -309,6 +332,7 @@ export class EngineGame {
     Object.assign(game, this);
     game.board = this.board.clone();
     game.held = this.held ? { ...this.held } : null;
+    game._queue = this._queue.map((tile) => ({ ...tile }));
     game.queued = this.queued.map((t) => ({ ...t }));
     game.counters = { ...this.counters };
     game._discardedPlans = [...this._discardedPlans];
@@ -384,9 +408,78 @@ export class EngineGame {
   get counts(): Counters {
     return { ...this.counters };
   }
-  /** The tile in hand, `null` once the game is over by its last tile. */
+  /** The tile in hand, `null` once the game is over by its last tile, or while a VRF game has not drawn it yet. */
   get hand(): { id: number; plan: PlanType } | null {
-    return this.held ? { id: this.held.id, plan: PLANS[this.held.plan] as PlanType } : null;
+    return this.held && this.held.plan !== 0 ? { id: this.held.id, plan: PLANS[this.held.plan] as PlanType } : null;
+  }
+
+  /** A VRF game whose tile in hand is not drawn yet: no move until it is supplied. */
+  get handPending(): boolean {
+    return this.held !== null && this.held.plan === 0;
+  }
+
+  /** VRF games: the two tiles after the hand (fewer at the deck's end), `plan` null while not drawn. */
+  get queue(): readonly QueuedTile[] {
+    return this._queue.map((tile) => ({ id: tile.id, plan: tile.plan === 0 ? null : (PLANS[tile.plan] as PlanType) }));
+  }
+
+  /** Whether the next build or discard leaves a tile to draw (a VRF game: the tile `hand + 2` is within the limit). */
+  get drawsNext(): boolean {
+    return this.vrf && !this._over && this._tileCount + 3 <= this.tileLimit;
+  }
+
+  /**
+   * Draws the first tile not drawn yet (the hand, then the queue, in id order) from `random`, as the
+   * contract draws a move's tile from the VRF's random (`GameImpl::pick`). Returns its id and plan.
+   */
+  supply(random: bigint): { id: number; plan: PlanType } {
+    const slot = this.firstPending();
+    if (!slot) throw new EngineError("Engine: no tile to draw");
+    slot.plan = this.pick(random);
+    return { id: slot.id, plan: PLANS[slot.plan] as PlanType };
+  }
+
+  /**
+   * The plan of the tile `id`, as a receipt's `Queued` names it, for a tile not drawn yet. The deck
+   * bitmap is not touched: which card of that plan left the deck is not known (the session reads the
+   * chain's). A tile already drawn must be named with its own plan.
+   */
+  supplyPlan(id: number, plan: PlanType): void {
+    const slot = [this.held, ...this._queue].find((tile) => tile?.id === id);
+    if (!slot) throw new EngineError(`Engine: tile ${id} is not in the hand or the queue`);
+    const code = planCode(plan);
+    if (slot.plan !== 0 && slot.plan !== code) throw new EngineError(`Engine: tile ${id} is ${PLANS[slot.plan]}, not ${plan}`);
+    slot.plan = code;
+  }
+
+  private firstPending(): { id: number; plan: number } | undefined {
+    return [this.held, ...this._queue].find((tile): tile is { id: number; plan: number } => tile !== null && tile.plan === 0);
+  }
+
+  /** `GameImpl::pick`: one card of the deck from `seed`, out of the bitmap (which empties with the deck's last card). */
+  private pick(seed: bigint): number {
+    const { card, remaining } = drawFromBitmap(seed, this.rules.total, this._tiles);
+    this._tiles = remaining === 0 ? 0n : this._tiles | bit(card - 1);
+    return planCode(this.rules.plan(card));
+  }
+
+  /** The spawn's fill (`GameImpl::advance` on a game with no queue): the hand and the next two from one random. */
+  private fill(random: bigint): void {
+    const hand = this._tileCount + 1;
+    this.held = { id: hand, plan: this.pick(random) };
+    this._queue = [];
+    if (hand + 1 <= this.tileLimit) this._queue.push({ id: hand + 1, plan: this.pick(poseidon(random, 1)) });
+    if (hand + 2 <= this.tileLimit) this._queue.push({ id: hand + 2, plan: this.pick(poseidon(random, 2)) });
+    this._tileCount = hand;
+  }
+
+  /** A move's advance on a VRF game: the next tile comes into the hand, the tile two ahead is left to draw. */
+  private advanceVrf(): void {
+    const hand = this._tileCount + 1;
+    const next = this._queue.shift();
+    this.held = { id: hand, plan: next?.id === hand ? next.plan : 0 };
+    if (hand + 2 <= this.tileLimit) this._queue.push({ id: hand + 2, plan: 0 });
+    this._tileCount = hand;
   }
   /** The tiles known after the one in hand, in draw order (`lookahead` - 1 of them, fewer at the deck's end). */
   get coming(): { id: number; plan: PlanType }[] {
@@ -422,6 +515,7 @@ export class EngineGame {
    */
   force(plan: PlanType): void {
     if (!this.held) throw new EngineError("Builder: does not exist");
+    // [Info] A VRF game's queue is not touched: it was drawn apart
     this.held.plan = planCode(plan);
   }
 
@@ -619,6 +713,7 @@ export class EngineGame {
   private assertPlaying(): { id: number; plan: number } {
     if (this._over) throw new EngineError("Game: is over");
     if (!this.held) throw new EngineError("Builder: does not exist");
+    if (this.held.plan === 0) throw new EngineError("Engine: the tile in hand is not drawn yet");
     return this.held;
   }
 
@@ -656,7 +751,10 @@ export class EngineGame {
     this.held = null;
 
     // [Effect] Assess game over, then draw a new tile if relevant (Challenge reseeds from the position)
-    this.next(CENTER + tile.x, CENTER + tile.y);
+    if (this.vrf) {
+      this.assessOver();
+      if (!this._over) this.advanceVrf();
+    } else this.next(CENTER + tile.x, CENTER + tile.y);
 
     // [Effect] The assessment of the built tile
     const before = this._score;
@@ -683,8 +781,13 @@ export class EngineGame {
     this._score -= taken;
     this._discardPenalty += taken;
     this.held = null;
-    // [Info] The discarded tile was never placed: it lies at `CENTER` on chain
-    this.next(CENTER, CENTER);
+    if (this.vrf) {
+      this.assessOver();
+      if (!this._over) this.advanceVrf();
+    } else {
+      // [Info] The discarded tile was never placed: it lies at `CENTER` on chain
+      this.next(CENTER, CENTER);
+    }
     this._discarded += 1;
     this._discardedPlans.push(held.plan);
     return {

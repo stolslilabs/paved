@@ -225,7 +225,9 @@ What waits on the answers:
   - Whether the matchmaker's opponent draw (#639) can share the same source.
   - If any answer is yes, #643 needs another source of hidden order before it ships, since the owner dropped the
     future block hash.
-- **#645 (the Challenge on the VRF).**
+- **#645 (the Challenge on the VRF).** The owner gave the go on 2026-10-21 without waiting for the answers, with a
+  two-tile lookahead (D-30, `challenge-vrf.md`): the questions below stay open, and the exposure is bounded by the
+  horizon the UI shows.
   - Whether moving the Challenge to the VRF removes the selective buyer's edge (R-4,
     `docs/measures/selective-buyer.md`). If a player can read the draws in advance, the VRF does not remove it, and
     D-3, D-13 and D-28 stay as they are.

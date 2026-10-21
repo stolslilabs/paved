@@ -3,7 +3,7 @@ import { FAUCET_ABI, createCodecs, type Codecs } from "./abis";
 import { AbiCodec } from "./codec";
 import type { Deployment } from "./deployment";
 import { EventReader, type EventProvider } from "./events";
-import { RpcGameViews, ViewError, toViewError, type CallProvider, type GameViews } from "./views";
+import { RpcGameViews, ViewError, hasDrawViews, toViewError, type CallProvider, type GameViews } from "./views";
 import { PavedWriter, type ReceiptProvider, type WriteAccount } from "./writer";
 
 /** The ERC20 view of the entry token: the Faucet's ABI (`balance_of`, `allowance`, `approve`) is the USDC's interface. */
@@ -39,6 +39,8 @@ export class PavedClient {
       deployment: this.deployment,
       codecs: this.codecs,
       onEvents: (contract, events) => this.events.remember(contract, events),
+      // The VRF reads (#645), where the views have them: a drawing write requests its draw
+      ...(hasDrawViews(this.views) ? { draws: this.views } : {}),
       ...options,
     });
   }

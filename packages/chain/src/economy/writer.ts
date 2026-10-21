@@ -376,7 +376,11 @@ export class EconomyWriter {
   async purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
     let result: WriteResult;
     try {
-      result = await this.options.writer.sendCalls(async () => ({ calls: (await this.planPurchase(request)).calls, events: "Challenge" }));
+      // [Info] The spawn draws from the VRF (#645): its draw is requested first, with the player's next spawn salt
+      result = await this.options.writer.sendCalls(async () => ({
+        calls: await this.options.writer.withSpawnDraw((await this.planPurchase(request)).calls, this.options.writer.address),
+        events: "Challenge",
+      }));
     } catch (error) {
       // Sent, but its receipt could not be read (timeout, RPC drop): the USDC may have moved. Not a failure, unlike a
       // revert, which is a known one.

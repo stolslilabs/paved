@@ -62,7 +62,7 @@ fn plans_of_free(bitmap: u128) -> Array<u8> {
 }
 
 #[test]
-#[available_gas(l2_gas: 435125833)]
+#[available_gas(l2_gas: 473572161)]
 fn test_upgrade_g1_game_spawned_before_keeps_its_deck() {
     let (store, systems, _) = setup::spawn_game(Mode::None);
     let contract = systems.challenge.contract_address;
@@ -97,9 +97,11 @@ fn test_upgrade_g1_game_spawned_before_keeps_its_deck() {
     assert_eq!(get_class_hash(contract), class_g1);
 
     // [After the upgrade] every tile is discarded until the game ends; each draw comes from the
-    // old deck, once
+    // old deck, once. Since #645 the first move fills the hand and the queue (three tiles from
+    // one VRF draw), then each move queues one tile while one is left to queue
     let mut drawn: Array<u8> = array![];
     let mut tiles = game.tiles;
+    let mut first = true;
     loop {
         let game = store.game(g);
         let builder = store.builder(game, PLAYER().into());
@@ -110,10 +112,18 @@ fn test_upgrade_g1_game_spawned_before_keeps_its_deck() {
             break;
         }
         if after.tiles != 0 {
-            // One more tile out, and it was in the old deck
-            assert_eq!(popcount(after.tiles), popcount(tiles) + 1);
+            // The tiles drawn are out, and they were in the old deck
+            let queued: u32 = if first {
+                3
+            } else if after.held_tile + 2 <= 38 {
+                1
+            } else {
+                0
+            };
+            assert_eq!(popcount(after.tiles), popcount(tiles) + queued);
             assert_eq!((after.tiles - tiles) & old, 0);
         }
+        first = false;
         tiles = after.tiles;
     }
     let game = store.game(g);

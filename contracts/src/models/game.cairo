@@ -45,6 +45,7 @@ pub mod errors {
     pub const GAME_NOT_OVER: felt252 = 'Game: not over';
     pub const GAME_EXPIRED: felt252 = 'Game: expired';
     pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
+    pub const NO_RANDOM: felt252 = 'Game: no random';
 }
 
 /// Where each counter starts in `Game.counts` (the structures start at bit 0).
@@ -54,6 +55,11 @@ const BIG_UNIT: u32 = 0x20000;
 /// The free-game mark (cobbles v1, 4.2): bit 23 of `Game.counts`, above the four counters (23 bits,
 /// each clamped to its width, so never carried into it). Set at a free spawn, never cleared.
 pub const FREE_GAME: u32 = 0x800000;
+/// The queue (#645, D-30, `Game.queue`): the plan of the next tile in bits 0..5, of the one after
+/// it in bits 5..10 (plan codes are 1 to 19), and the VRF mark in bit 10.
+const QUEUE_PLAN: u16 = 0x1f;
+const QUEUE_AFTER: u16 = 0x20;
+pub const QUEUE_VRF: u16 = 0x400;
 
 #[inline]
 fn min_u32(value: u32, max: u32) -> u32 {
@@ -101,6 +107,7 @@ pub impl GameImpl of GameTrait {
             day_id: 0,
             tile_limit,
             counts: 0,
+            queue: 0,
         }
     }
 
@@ -298,6 +305,102 @@ pub impl GameImpl of GameTrait {
         self.score -= score;
     }
 
+    /// The plan of the tile after the tile in hand (0: none).
+    #[inline]
+    fn next_plan(self: Game) -> u8 {
+        (self.queue & QUEUE_PLAN).try_into().unwrap()
+    }
+
+    /// The plan of the second tile after the tile in hand (0: none).
+    #[inline]
+    fn after_plan(self: Game) -> u8 {
+        ((self.queue / QUEUE_AFTER) & QUEUE_PLAN).try_into().unwrap()
+    }
+
+    /// Whether the game draws from the VRF: spawned since #645, or moved to it by its first move
+    /// since (`advance`).
+    #[inline]
+    fn is_vrf(self: Game) -> bool {
+        self.queue & QUEUE_VRF != 0
+    }
+
+    /// Draws one plan from the deck with `seed`: the deck bitmap takes it out (and empties when
+    /// it was the last tile, as `draw_plan`). The seed is not changed.
+    fn pick(ref self: Game, seed: felt252) -> u8 {
+        let deck: Deck = self.deck();
+        let (plan_id, remaining) = draw_from_bitmap(seed, deck.total_count().into(), self.tiles);
+        self.tiles = if remaining == 0 {
+            0
+        } else {
+            self.tiles | bit(plan_id - 1)
+        };
+        deck.plan(plan_id.into()).into()
+    }
+
+    /// The draw index of the VRF draw that a build or a discard of `player_id` at `time` makes
+    /// (#645): none when the move cannot be played (the game is over or expired, the caller is not
+    /// its player; the move then reverts in `PlayableComponent`), ends the game, or leaves no tile
+    /// to queue. A VRF game queues the tile `held + 3` while it is within the tile limit; a game
+    /// spawned before #645 fills its hand and queue from one draw, salted with the id of the tile
+    /// that comes into the hand.
+    fn move_draw(self: Game, player_id: felt252, time: u64) -> Option<u32> {
+        if self.over
+            || player_id == 0
+            || player_id != self.player_id
+            || time >= self.expires_at()
+            || self.tile_count >= self.tile_limit.into() {
+            return Option::None;
+        }
+        if !self.is_vrf() {
+            return Option::Some(self.tile_count + 1);
+        }
+        let index = self.tile_count + 3;
+        if index <= self.tile_limit.into() {
+            Option::Some(index)
+        } else {
+            Option::None
+        }
+    }
+
+    /// Brings the next tile into the hand (#645, D-30): the game is not over. A VRF game takes
+    /// the tile `next`, shifts `after` to `next` and draws the new `after` from `random` when its
+    /// id is within the tile limit. A game with no queue (at spawn, or spawned before #645) draws
+    /// the hand and both queue slots from one `random`: the hand from it, the next two from
+    /// Poseidon(`random`, 1) and Poseidon(`random`, 2), each within the tile limit; it is then a
+    /// VRF game. Returns the hand's tile id and plan, and the id of the first tile drawn (for the
+    /// `Queued` events; above the queue's last id when nothing is drawn).
+    fn advance(ref self: Game, random: Option<felt252>) -> (u32, Plan, u32) {
+        let limit: u32 = self.tile_limit.into();
+        let hand = self.tile_count + 1;
+        let (plan, next, after, first) = if self.is_vrf() {
+            let after = if hand + 2 <= limit {
+                self.pick(random.expect(errors::NO_RANDOM))
+            } else {
+                0
+            };
+            (self.next_plan(), self.after_plan(), after, hand + 2)
+        } else {
+            let random = random.expect(errors::NO_RANDOM);
+            let plan = self.pick(random);
+            let next = if hand + 1 <= limit {
+                self.pick(PoseidonTrait::new().update(random).update(1).finalize())
+            } else {
+                0
+            };
+            let after = if hand + 2 <= limit {
+                self.pick(PoseidonTrait::new().update(random).update(2).finalize())
+            } else {
+                0
+            };
+            (plan, next, after, hand)
+        };
+        self.tile_count = hand;
+        // The drawn tile is the tile in hand
+        self.held_tile = hand;
+        self.queue = QUEUE_VRF + next.into() + after.into() * QUEUE_AFTER;
+        (hand, plan.into(), first)
+    }
+
     #[inline]
     fn draw_plan(ref self: Game) -> (u32, Plan) {
         let deck: Deck = self.deck();
@@ -466,6 +569,7 @@ pub impl ZeroableGame of ZeroableGameTrait {
             day_id: 0,
             tile_limit: 0,
             counts: 0,
+            queue: 0,
         }
     }
 

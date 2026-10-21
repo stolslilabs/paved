@@ -8,7 +8,8 @@
 //! is the caller's address, with no registration), and D-23 removed its `PlayerCreated`, which no
 //! game contract ever emitted: a past event, documented in `public-interface.md`.
 
-use paved::models::game::Game;
+use paved::models::game::{Game, GameImpl};
+use paved::store::{Store, StoreImpl};
 
 #[derive(Drop, starknet::Event)]
 pub enum Event {
@@ -17,6 +18,7 @@ pub enum Event {
     Discarded: Discarded,
     Scored: Scored,
     GameOver: GameOver,
+    Queued: Queued,
 }
 
 #[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]
@@ -77,6 +79,16 @@ pub struct GameOver {
     pub end_time: u64,
 }
 
+/// A tile drawn into a game's queue (#645, D-30): `tile_id` is the id it takes when it comes into
+/// the hand. A spawn emits three (the tile in hand and the next two), a move that draws one.
+#[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]
+pub struct Queued {
+    #[key]
+    pub game_id: u32,
+    pub tile_id: u32,
+    pub plan: u8,
+}
+
 /// The `GameOver` event of a game that is over.
 pub fn game_over(game: Game, player_id: felt252) -> Event {
     Event::GameOver(
@@ -90,4 +102,24 @@ pub fn game_over(game: Game, player_id: felt252) -> Event {
             end_time: game.end_time,
         },
     )
+}
+
+/// Emits a `Queued` for each tile `GameImpl::advance` drew: from `first` to the queue's last tile,
+/// the tile in hand (`plan`) and the two next ones, skipping a slot left empty at the deck's end.
+pub fn emit_queued(store: Store, game: Game, plan: u8, first: u32) {
+    let hand = game.held_tile;
+    let mut tile_id = first;
+    while tile_id <= hand + 2 {
+        let tile_plan = if tile_id == hand {
+            plan
+        } else if tile_id == hand + 1 {
+            game.next_plan()
+        } else {
+            game.after_plan()
+        };
+        if tile_plan != 0 {
+            store.emit(Event::Queued(Queued { game_id: game.id, tile_id, plan: tile_plan }));
+        }
+        tile_id += 1;
+    };
 }

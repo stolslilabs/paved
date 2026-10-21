@@ -13,6 +13,7 @@ use paved::seed::{SeedSource, TokenSeed};
 use paved::store::{Store, StoreImpl};
 use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
+use paved::vrf::draw_salt;
 use starknet::ContractAddress;
 
 // Constants
@@ -51,6 +52,25 @@ pub struct GameView {
     /// The first second at which `build` and `discard` revert with `'Game: expired'`: `start_time`
     /// + 24 h (S1, appended). `surrender` stays open after it.
     pub expires_at: u64,
+}
+
+/// The queue of a Challenge game and its next draw (#645, D-30, `IChallengeDraw::draw`).
+#[derive(Copy, Drop, Serde, Debug, PartialEq)]
+pub struct DrawView {
+    pub game_id: u32,
+    /// The plans of the tiles `held + 1` and `held + 2` (0: none).
+    pub next: u8,
+    pub after: u8,
+    /// The deck bitmap: a set bit is out of the deck (left out by the deck's walk, the starter,
+    /// or drawn, the queue included), so the clear bits under the deck's total are the tiles
+    /// still to draw. 0 once the deck's last tile is drawn (`draw_from_bitmap` empties it).
+    pub tiles: u128,
+    /// Whether the game draws from the VRF (spawned since #645, or moved to it by a move).
+    pub vrf: bool,
+    /// Whether the next build or discard of the game's player draws, and the salt it draws with
+    /// (0 if not): the multicall then requests it first.
+    pub draws: bool,
+    pub salt: felt252,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
@@ -192,16 +212,37 @@ pub impl ViewsImpl of ViewsTrait {
         BuilderView { game_id, player_id, tile_id: builder.tile_id, plan }
     }
 
-    /// The initial seed of an existing game of the contract `contract`: its token's seed
-    /// (`TokenSeed`, D-23), the only `SeedSource` that `spawn` uses, and the one the Sepolia
-    /// `Challenge` has used since its deployment (5dbc692b), so it holds for every game spawned
-    /// there. It is computed, not stored: a seed source that cannot be recomputed (a VRF) must
-    /// store the seed at spawn and this view read it.
+    /// The initial seed of an existing game of the contract `contract`. A VRF game (#645) stores
+    /// it and never changes it: the spawn's random (for a game moved to the VRF by a move, its
+    /// seed at that move). A game spawned before has its token's seed (`TokenSeed`, D-23), the
+    /// one the Sepolia `Challenge` used from its deployment (5dbc692b), computed, not stored.
     fn initial_seed(store: Store, contract: ContractAddress, game_id: u32) -> felt252 {
         let game = Self::existing_game(store, game_id);
+        if game.is_vrf() {
+            return game.seed;
+        }
         let mode: Mode = game.mode.into();
         // [Info] The salt is the seed of a new game, 0 (`GameImpl::new`)
         TokenSeed { contract }.seed(mode, game.start_time, game_id, 0)
+    }
+
+    /// The queue of `game` and the draw of its next move, `index` from `GameImpl::move_draw`,
+    /// salted with `kind`.
+    fn draw(game: Game, index: Option<u32>, kind: felt252) -> DrawView {
+        game.assert_exists();
+        let (draws, salt) = match index {
+            Option::Some(index) => (true, draw_salt(kind, game.id.into(), index)),
+            Option::None => (false, 0),
+        };
+        DrawView {
+            game_id: game.id,
+            next: game.next_plan(),
+            after: game.after_plan(),
+            tiles: game.tiles,
+            vrf: game.is_vrf(),
+            draws,
+            salt,
+        }
     }
 
     fn current_day(time: u64) -> u64 {
