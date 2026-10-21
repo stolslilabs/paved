@@ -169,8 +169,8 @@
   },
   {
     "type": "impl",
-    "name": "ChallengeGuardianImpl",
-    "interface_name": "paved::systems::challenge::IChallengeGuardian"
+    "name": "ChallengeDrawImpl",
+    "interface_name": "paved::systems::challenge::IChallengeDraw"
   },
   {
     "type": "enum",
@@ -185,6 +185,95 @@
         "type": "()"
       }
     ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::DrawView",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "next",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "after",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "tiles",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "vrf",
+        "type": "core::bool"
+      },
+      {
+        "name": "draws",
+        "type": "core::bool"
+      },
+      {
+        "name": "salt",
+        "type": "core::felt252"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::challenge::IChallengeDraw",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_vrf_provider",
+        "inputs": [
+          {
+            "name": "provider",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "draw",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::views::DrawView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "spawn_salt",
+        "inputs": [
+          {
+            "name": "player",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::felt252"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "ChallengeGuardianImpl",
+    "interface_name": "paved::systems::challenge::IChallengeGuardian"
   },
   {
     "type": "interface",
@@ -576,6 +665,28 @@
     ]
   },
   {
+    "type": "impl",
+    "name": "DrawableImpl",
+    "interface_name": "paved::components::drawable::IDrawable"
+  },
+  {
+    "type": "interface",
+    "name": "paved::components::drawable::IDrawable",
+    "items": [
+      {
+        "type": "function",
+        "name": "vrf_provider",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
     "type": "constructor",
     "name": "constructor",
     "inputs": [
@@ -780,6 +891,28 @@
   },
   {
     "type": "event",
+    "name": "paved::events::Queued",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::events::Event",
     "kind": "enum",
     "variants": [
@@ -806,6 +939,11 @@
       {
         "name": "GameOver",
         "type": "paved::events::GameOver",
+        "kind": "nested"
+      },
+      {
+        "name": "Queued",
+        "type": "paved::events::Queued",
         "kind": "nested"
       }
     ]
@@ -905,6 +1043,30 @@
   },
   {
     "type": "event",
+    "name": "paved::components::drawable::DrawableComponent::VrfProviderSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "provider",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::drawable::DrawableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "VrfProviderSet",
+        "type": "paved::components::drawable::DrawableComponent::VrfProviderSet",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::challenge::SetupSet",
     "kind": "struct",
     "members": [
@@ -978,6 +1140,11 @@
       {
         "name": "UpgradeableEvent",
         "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "DrawableEvent",
+        "type": "paved::components::drawable::DrawableComponent::Event",
         "kind": "flat"
       },
       {

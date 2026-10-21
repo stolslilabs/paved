@@ -13,8 +13,10 @@ pub mod setup {
     use paved::models::game::{Game, GameImpl};
     use paved::models::tile::Tile;
     use paved::store::{StoreImpl, StoreTrait};
-    use paved::systems::challenge::IChallengeDispatcher;
-    pub use paved::systems::challenge::IChallengeDispatcherTrait;
+    use paved::systems::challenge::{
+        IChallengeDispatcher, IChallengeDispatcherTrait as ChallengeDispatcherTrait,
+        IChallengeDrawDispatcher, IChallengeDrawDispatcherTrait,
+    };
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
 
     // Internal imports
@@ -25,10 +27,12 @@ pub mod setup {
     use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
     use paved::systems::vault::{DEAD_ASSETS, DEFAULT_EXIT_FEE_BPS};
     pub use paved::types::mode::Mode;
+    use paved::types::orientation::Orientation;
     use paved::types::plan::{Plan, PlanImpl};
     use snforge_std::{
-        ContractClassTrait, DeclareResultTrait, declare, interact_with_state,
-        start_cheat_caller_address, stop_cheat_caller_address,
+        ContractClassTrait, DeclareResultTrait, declare, interact_with_state, load,
+        start_cheat_caller_address, start_cheat_transaction_hash_global, stop_cheat_caller_address,
+        store, test_address,
     };
     use starknet::ContractAddress;
 
@@ -70,9 +74,100 @@ pub mod setup {
     pub const NOONE_NAME: felt252 = 'NOONE';
     pub const GAME_NAME: felt252 = 'GAME';
 
+    /// The storage key, in the test's own contract, of the last transaction hash `next_tx` gave.
+    const TX_KEY: felt252 = 'PAVED_TEST_TX';
+
+    /// Runs what follows in a transaction of its own: a new transaction hash for every contract
+    /// (the hashes count up from 1 in each test). `Challenge` draws once per transaction (#645,
+    /// `DrawableComponent`), and snforge's hash is otherwise one for the whole test.
+    pub fn next_tx() {
+        let tx = *load(test_address(), TX_KEY, 1)[0] + 1;
+        store(test_address(), TX_KEY, array![tx].span());
+        start_cheat_transaction_hash_global(tx);
+    }
+
+    /// `Challenge` as the tests call it: each call that can draw (`spawn`, `spawn_free`, `build`,
+    /// `discard`, and `surrender` for its order) runs in a transaction of its own (`next_tx`), as
+    /// a player's calls do on chain, and the test goes on in a fresh one, so that a raw or safe
+    /// call that follows draws as the first of its transaction too.
+    #[derive(Copy, Drop)]
+    pub struct TestChallenge {
+        pub contract_address: ContractAddress,
+    }
+
+    #[generate_trait]
+    pub impl TestChallengeImpl of IChallengeDispatcherTrait {
+        fn spawn(self: TestChallenge, stake: u8, referrer: ContractAddress, min_out: u256) -> u32 {
+            next_tx();
+            let game_id = self.dispatcher().spawn(stake, referrer, min_out);
+            next_tx();
+            game_id
+        }
+
+        fn spawn_free(self: TestChallenge) -> u32 {
+            next_tx();
+            let game_id = self.dispatcher().spawn_free();
+            next_tx();
+            game_id
+        }
+
+        fn discard(self: TestChallenge, game_id: u32) {
+            next_tx();
+            self.dispatcher().discard(game_id);
+            next_tx();
+        }
+
+        fn surrender(self: TestChallenge, game_id: u32) {
+            next_tx();
+            self.dispatcher().surrender(game_id);
+            next_tx();
+        }
+
+        fn build(self: TestChallenge, game_id: u32, orientation: Orientation, x: u32, y: u32) {
+            next_tx();
+            self.dispatcher().build(game_id, orientation, x, y);
+            next_tx();
+        }
+
+        fn dispatcher(self: TestChallenge) -> IChallengeDispatcher {
+            IChallengeDispatcher { contract_address: self.contract_address }
+        }
+    }
+
+    /// The storage key, in the test's own contract, of the `Challenge` deployments of the test.
+    const CHALLENGES_KEY: felt252 = 'PAVED_TEST_CHALLENGES';
+
+    /// Deploys `Challenge` at a fixed address: `CHALLENGE_ADDRESS` + 1 for the first deployment of
+    /// a test, + 2 for the next. The mock's random is keyed by its consumer's address (#645), and a
+    /// deployed address follows the class hashes of `Challenge` and `Setup`: a fixed one keeps the
+    /// draws of the goldens and of the gas scenarios through any change of a class.
+    pub fn deploy_challenge(calldata: Array<felt252>) -> ContractAddress {
+        let n = *load(test_address(), CHALLENGES_KEY, 1)[0] + 1;
+        store(test_address(), CHALLENGES_KEY, array![n].span());
+        let address: ContractAddress = (CHALLENGE_ADDRESS + n).try_into().unwrap();
+        let class = declare("Challenge").unwrap().contract_class();
+        let (address, _) = class.deploy_at(@calldata, address).unwrap();
+        address
+    }
+
+    /// The base of the fixed addresses of `Challenge` in the tests.
+    pub const CHALLENGE_ADDRESS: felt252 = 0x4348414c4c454e474500;
+
+    /// Deploys the devnet's VRF mock and sets it as `challenge`'s provider, as `deploy.sh devnet`
+    /// does (#645). Returns the mock.
+    pub fn set_mock_vrf(challenge: ContractAddress) -> ContractAddress {
+        let provider = deploy("MockVrfProvider", array![]);
+        start_cheat_caller_address(challenge, OWNER());
+        IChallengeDrawDispatcher { contract_address: challenge }.set_vrf_provider(provider);
+        stop_cheat_caller_address(challenge);
+        // [Info] snforge's hash is 0 until cheated, the stored hash of the last draw too
+        next_tx();
+        provider
+    }
+
     #[derive(Drop)]
     pub struct Systems {
-        pub challenge: IChallengeDispatcher,
+        pub challenge: TestChallenge,
         pub setup: ISetupDispatcher,
         pub economy: IEconomyDispatcher,
         pub collection: ICollectionDispatcher,
@@ -223,11 +318,12 @@ pub mod setup {
         let (economy_address, token_address) = deploy_economy();
         let collection_address = deploy("Collection", array![owner]);
         let setup_address = deploy("Setup", array![owner]);
-        let daily_address = deploy(
-            "Challenge", array![owner, token_address.into(), setup_address.into()],
+        let daily_address = deploy_challenge(
+            array![owner, token_address.into(), setup_address.into()],
         );
+        set_mock_vrf(daily_address);
         let systems = Systems {
-            challenge: IChallengeDispatcher { contract_address: daily_address },
+            challenge: TestChallenge { contract_address: daily_address },
             setup: ISetupDispatcher { contract_address: setup_address },
             economy: IEconomyDispatcher { contract_address: economy_address },
             collection: ICollectionDispatcher { contract_address: collection_address },

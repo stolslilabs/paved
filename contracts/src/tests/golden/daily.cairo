@@ -21,21 +21,21 @@ use paved::types::plan::Plan;
 /// Starter (city cap) + three vertical city corridors + a city cap.
 fn city5_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::WFFFFFFFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
-        forced(Plan::FFFFCCCFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2, 0),
-        forced(Plan::FFCFFFFFC, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3, 0),
-        forced(Plan::FFCFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 4, 1122),
+        forced(Plan::RFFFRFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::FFCFFFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2, 0),
+        forced(Plan::FFFFFFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3, 0),
+        forced(Plan::RFRFFFFFR, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 4, 1122),
     ]
 }
 
 /// Road of 6 tiles closed on the last move: stop, starter, 3 straights, stop.
 fn road6_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFRFFFFFR, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, 0),
-        forced(Plan::WFFFFFFFF, Plan::RFFFRFFFR, Orientation::North, CENTER + 2, CENTER, 0),
+        forced(Plan::RFFFRFFFR, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, 0),
+        forced(Plan::CFFFCFFFC, Plan::RFFFRFFFR, Orientation::North, CENTER + 2, CENTER, 0),
         forced(Plan::RFFFRFFFR, Plan::RFFFRFFFR, Orientation::North, CENTER + 3, CENTER, 0),
-        forced(Plan::WFFFFFFFF, Plan::SFRFRFFFR, Orientation::North, CENTER + 4, CENTER, 0),
-        forced(Plan::CCCCCFRFC, Plan::SFRFRFFFR, Orientation::North, CENTER - 1, CENTER, 689),
+        forced(Plan::SFRFRFCFR, Plan::SFRFRFFFR, Orientation::North, CENTER + 4, CENTER, 0),
+        forced(Plan::RFFFRFFFR, Plan::SFRFRFFFR, Orientation::North, CENTER - 1, CENTER, 689),
     ]
 }
 
@@ -44,15 +44,15 @@ fn road6_moves() -> Array<GoldenMove> {
 /// forest (the Woodsman and the Herdsman, of P4, are: see `forest.cairo`).
 fn mixed_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFFFRFFFR, Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER, 0),
-        forced(Plan::RFRFCCCFR, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 1, 419),
-        forced(Plan::WFFFFFFFR, Plan::RFFFRFFFR, Orientation::North, CENTER - 1, CENTER, 419),
-        forced(Plan::FFCFFFCFF, Plan::SFRFRFFFR, Orientation::North, CENTER - 2, CENTER, 857),
+        forced(Plan::SFRFRFFFR, Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER, 0),
+        forced(Plan::FFFFCCCFF, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 1, 419),
+        forced(Plan::RFFFRFCFR, Plan::RFFFRFFFR, Orientation::North, CENTER - 1, CENTER, 419),
+        forced(Plan::RFRFFFFFR, Plan::SFRFRFFFR, Orientation::North, CENTER - 2, CENTER, 857),
     ]
 }
 
 #[test]
-#[available_gas(l2_gas: 136321278)]
+#[available_gas(l2_gas: 146149769)]
 fn test_golden_daily_city5_game_over() {
     let moves = city5_moves();
     play_daily(
@@ -67,7 +67,7 @@ fn test_golden_daily_city5_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 139938339)]
+#[available_gas(l2_gas: 156670818)]
 fn test_golden_daily_road6() {
     let moves = road6_moves();
     play_daily(
@@ -82,7 +82,7 @@ fn test_golden_daily_road6() {
 }
 
 #[test]
-#[available_gas(l2_gas: 129818455)]
+#[available_gas(l2_gas: 146499610)]
 fn test_golden_daily_mixed_roles() {
     let moves = mixed_moves();
     play_daily(
@@ -98,12 +98,12 @@ fn test_golden_daily_mixed_roles() {
 
 /// Real deck, no forced plan: pins the draw order of the seed (day 3) through discards.
 #[test]
-#[available_gas(l2_gas: 136212421)]
+#[available_gas(l2_gas: 153788270)]
 fn test_golden_daily_real_deck_discards_to_game_over() {
     let moves = array![
-        discard(Plan::CCCCCCCCC, 0), discard(Plan::FFFFFFCFF, 0), discard(Plan::RFRFFFFFR, 0),
-        discard(Plan::RFRFFFFFR, 0), discard(Plan::RFRFRFCFF, 0), discard(Plan::RFRFRFCFF, 0),
-        discard(Plan::SFRFRFFFR, 0),
+        discard(Plan::RFFFRFFFR, 0), discard(Plan::RFRFRFCFF, 0), discard(Plan::RFFFRFFFR, 0),
+        discard(Plan::RFRFCCCFR, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::SFRFRFFFR, 0),
+        discard(Plan::SFRFRFRFR, 0),
     ];
     play_daily(
         'daily_deck',
@@ -162,12 +162,12 @@ fn test_golden_daily_mixed_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 159003657)]
+#[available_gas(l2_gas: 176647857)]
 fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
     let moves = array![
-        discard(Plan::CCCCCCCCC, 0), discard(Plan::FFFFFFCFF, 0), discard(Plan::RFRFFFFFR, 0),
-        discard(Plan::RFRFFFFFR, 0), discard(Plan::RFRFRFCFF, 0), discard(Plan::RFRFRFCFF, 0),
-        discard(Plan::SFRFRFFFR, 0),
+        discard(Plan::RFFFRFFFR, 0), discard(Plan::RFRFRFCFF, 0), discard(Plan::RFFFRFFFR, 0),
+        discard(Plan::RFRFCCCFR, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::SFRFRFFFR, 0),
+        discard(Plan::SFRFRFRFR, 0),
     ];
     play_daily_checked(
         'daily_deck',

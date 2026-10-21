@@ -22,6 +22,21 @@ pub trait IChallenge<TContractState> {
     fn build(ref self: TContractState, game_id: u32, orientation: Orientation, x: u32, y: u32);
 }
 
+/// The VRF draws of `Challenge` (#645, D-30, `docs/architecture/challenge-vrf.md`): every random of
+/// a game is drawn from Cartridge's provider (the devnet mock on devnet), one draw per transaction.
+/// A call that draws puts the provider's `request_random(Challenge, Source::Salt(salt))` first in
+/// its multicall: `spawn` and `spawn_free` always, with `spawn_salt(player)`; `build` and `discard`
+/// when `draw(game_id).draws`, with its `salt`; `surrender` never.
+#[starknet::interface]
+pub trait IChallengeDraw<TContractState> {
+    /// Sets the VRF provider: the owner only, never zero. Emits `VrfProviderSet`.
+    fn set_vrf_provider(ref self: TContractState, provider: starknet::ContractAddress);
+    /// The queue of a game and what its next build or discard draws.
+    fn draw(self: @TContractState, game_id: u32) -> paved::views::DrawView;
+    /// The salt that the next spawn of `player` draws with.
+    fn spawn_salt(self: @TContractState, player: starknet::ContractAddress) -> felt252;
+}
+
 /// The `Setup` that `Challenge` reports its game overs to (D-24) and reads its wiring from (D-25
 /// E):
 /// the owner sets it (needed on a contract upgraded in place, whose constructor does not run
@@ -84,6 +99,7 @@ pub mod Challenge {
     use core::num::traits::Zero;
     use openzeppelin_interfaces::upgrades::IUpgradeable;
     use openzeppelin_upgrades::UpgradeableComponent;
+    use paved::components::drawable::DrawableComponent;
     use paved::components::hostable::HostableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::payable::{IERC20Dispatcher, IERC20DispatcherTrait, PayableComponent};
@@ -92,8 +108,9 @@ pub mod Challenge {
     // Internal imports
 
     use paved::events::Event as PavedEvent;
+    use paved::models::game::GameImpl;
     use paved::quests::{achievement_entries, decode, is_free, quest_entries};
-    use paved::seed::{SeedSource, TokenSeed};
+    use paved::seed::VrfSeed;
     use paved::store::StoreImpl;
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
@@ -104,13 +121,17 @@ pub mod Challenge {
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::views::{
-        BuilderView, GameView, IChallengeView, IGameView, PriceView, TileView, ViewsImpl,
+        BuilderView, DrawView, GameView, IChallengeView, IGameView, PriceView, TileView, ViewsImpl,
     };
+    use paved::vrf::draw_salt;
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
+    };
     #[cfg(test)]
     use starknet::storage::{StorageAsPath, StorageAsPointer, StoragePathEntry};
-    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{
         ClassHash, ContractAddress, get_block_timestamp, get_caller_address, get_contract_address,
     };
@@ -118,9 +139,15 @@ pub mod Challenge {
     // Local imports
 
     use super::{
-        GuardianSet, IChallenge, IChallengeGuardian, IChallengeSetup, SetupSet, SpawnPaused,
-        SpawnUnpaused,
+        GuardianSet, IChallenge, IChallengeDraw, IChallengeGuardian, IChallengeSetup, SetupSet,
+        SpawnPaused, SpawnUnpaused,
     };
+
+    /// The kinds of `Challenge`'s draws (`paved::vrf::draw_salt`): a spawn, salted with the
+    /// player's address and spawn count, and a move, salted with the game id and the id of the
+    /// tile it queues.
+    pub const SPAWN_KIND: felt252 = 'CHALLENGE_SPAWN';
+    pub const MOVE_KIND: felt252 = 'CHALLENGE';
 
     // Errors
 
@@ -149,6 +176,10 @@ pub mod Challenge {
     impl PayableInternalImpl = PayableComponent::InternalImpl<ContractState>;
     component!(path: PlayableComponent, storage: playable, event: PlayableEvent);
     impl PlayableInternalImpl = PlayableComponent::InternalImpl<ContractState>;
+    component!(path: DrawableComponent, storage: drawable, event: DrawableEvent);
+    #[abi(embed_v0)]
+    impl DrawableImpl = DrawableComponent::DrawableImpl<ContractState>;
+    impl DrawableInternalImpl = DrawableComponent::InternalImpl<ContractState>;
 
     // Storage
 
@@ -183,6 +214,14 @@ pub mod Challenge {
         /// Whether `spawn` is paused (G4, P-42: appended); written by `pause_spawn` and
         /// `unpause_spawn` only: false on a fresh deployment and after an in-place upgrade.
         spawn_paused: bool,
+        /// The VRF provider and the transaction of the last draw (#645, P-42: appended, flat, so
+        /// at their own names `vrf_provider` and `vrf_last_draw_tx`). Zero after an in-place
+        /// upgrade until the owner's `set_vrf_provider`: no spawn or drawing move until then.
+        #[substorage(v0)]
+        drawable: DrawableComponent::Storage,
+        /// The spawns each player drew (#645, P-42: appended): the index of the player's next
+        /// spawn draw, in its salt.
+        vrf_spawn_counts: Map<ContractAddress, u32>,
     }
 
     // Events
@@ -202,6 +241,8 @@ pub mod Challenge {
         PlayableEvent: PlayableComponent::Event,
         #[flat]
         UpgradeableEvent: UpgradeableComponent::Event,
+        #[flat]
+        DrawableEvent: DrawableComponent::Event,
         SetupSet: SetupSet,
         GuardianSet: GuardianSet,
         SpawnPaused: SpawnPaused,
@@ -233,11 +274,7 @@ pub mod Challenge {
         fn spawn(
             ref self: ContractState, stake: u8, referrer: ContractAddress, min_out: u256,
         ) -> u32 {
-            // [Effect] The seed of the game's token in this contract (D-23)
-            self
-                .spawn_from(
-                    @TokenSeed { contract: get_contract_address() }, stake, referrer, min_out,
-                )
+            self.spawn_paid(stake, referrer, min_out)
         }
 
         fn spawn_free(ref self: ContractState) -> u32 {
@@ -247,10 +284,9 @@ pub mod Challenge {
             let setup = self.setup_dispatcher();
             let collection = setup.wiring().collection;
             assert(collection.is_non_zero(), errors::NO_COLLECTION);
-            // [Effect] Spawn a free game, marked free, `GameSpawned.price` 0
-            let (game_id, _) = self
-                .hostable
-                .spawn_with(Mode::Challenge, @TokenSeed { contract: get_contract_address() }, true);
+            // [Effect] Spawn a free game, marked free, `GameSpawned.price` 0, its seed drawn
+            let random = self.spawn_random();
+            let (game_id, _) = self.hostable.spawn_with(Mode::Challenge, @VrfSeed { random }, true);
             // [Interaction] One credit of the caller spent for it (reverts without one)
             ISetupCobblesDispatcher { contract_address: setup.contract_address }
                 .spend_credit(get_caller_address().into(), game_id);
@@ -260,8 +296,9 @@ pub mod Challenge {
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
-            // [Effect] Discard tile
-            let over = self.playable.discard(game_id);
+            // [Effect] Discard tile, the queue's draw first if it draws
+            let random = self.move_random(game_id);
+            let over = self.playable.discard(game_id, random);
             self.finish(game_id, over);
         }
 
@@ -281,8 +318,9 @@ pub mod Challenge {
                     && y != core::num::traits::Bounded::<u32>::MAX,
                 errors::INVALID_POSITION,
             );
-            // [Effect] Build a tile
-            let over = self.playable.build(game_id, orientation, x, y);
+            // [Effect] Build a tile, the queue's draw first if it draws
+            let random = self.move_random(game_id);
+            let over = self.playable.build(game_id, orientation, x, y, random);
             self.finish(game_id, over);
         }
     }
@@ -300,6 +338,26 @@ pub mod Challenge {
 
         fn setup(self: @ContractState) -> ContractAddress {
             self.setup.read()
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl ChallengeDrawImpl of IChallengeDraw<ContractState> {
+        fn set_vrf_provider(ref self: ContractState, provider: ContractAddress) {
+            // [Check] The owner
+            self.ownable.assert_only_owner();
+            // [Effect] Draw from it from now on (the component refuses zero)
+            self.drawable.set_provider(provider);
+        }
+
+        fn draw(self: @ContractState, game_id: u32) -> DrawView {
+            let game = StoreImpl::new().game(game_id);
+            let index = game.move_draw(game.player_id, get_block_timestamp());
+            ViewsImpl::draw(game, index, MOVE_KIND)
+        }
+
+        fn spawn_salt(self: @ContractState, player: ContractAddress) -> felt252 {
+            draw_salt(SPAWN_KIND, player.into(), self.vrf_spawn_counts.read(player))
         }
     }
 
@@ -438,28 +496,48 @@ pub mod Challenge {
 
     #[generate_trait]
     pub impl InternalImpl of InternalTrait {
-        /// A paid game whose initial seed comes from `source`: `spawn` gives `TokenSeed`; the
-        /// golden games give the seed of the day they were recorded with
-        /// (`tests::golden::harness`), through the same path.
-        fn spawn_from<S, +SeedSource<S>, +Drop<S>>(
-            ref self: ContractState,
-            source: @S,
-            stake: u8,
-            referrer: ContractAddress,
-            min_out: u256,
+        /// A paid game, its seed and first three tiles from the spawn's VRF draw (#645).
+        fn spawn_paid(
+            ref self: ContractState, stake: u8, referrer: ContractAddress, min_out: u256,
         ) -> u32 {
             // [Check] Spawn is not paused (G4), before any call or transfer
             assert(!self.spawn_paused.read(), errors::SPAWN_PAUSED);
             // [Interaction] The wiring, in one call to `Setup`
             let wiring = wiring(self.setup_dispatcher(), true);
+            // [Interaction] The spawn's draw
+            let random = self.spawn_random();
             // [Effect] Spawn a game
-            let (game_id, unit) = self.hostable.spawn_with(Mode::Challenge, source, false);
+            let (game_id, unit) = self
+                .hostable
+                .spawn_with(Mode::Challenge, @VrfSeed { random }, false);
             // [Interaction] The game is purchased
             self.purchase(wiring.economy, game_id, unit, stake, referrer, min_out);
             // [Interaction] The game is minted to its player, under its own id and no other
             self.mint(wiring.collection, game_id);
             // [Return] Game ID
             game_id
+        }
+
+        /// The random of the caller's spawn (#645): salted with the caller's address and spawn
+        /// count, which the draw increments. The salt is known before the transaction and no other
+        /// player's spawn moves it; a reverted spawn counts nothing, so its retry draws the same.
+        fn spawn_random(ref self: ContractState) -> felt252 {
+            let player = get_caller_address();
+            let index = self.vrf_spawn_counts.read(player);
+            self.vrf_spawn_counts.write(player, index + 1);
+            self.drawable.draw_random(SPAWN_KIND, player.into(), index)
+        }
+
+        /// The random of a build or discard of `game_id` by the caller, if the move draws
+        /// (`GameImpl::move_draw`): salted with the game id and the id of the tile it queues.
+        fn move_random(ref self: ContractState, game_id: u32) -> Option<felt252> {
+            let game = StoreImpl::new().live_game(game_id);
+            match game.move_draw(get_caller_address().into(), get_block_timestamp()) {
+                Option::Some(index) => Option::Some(
+                    self.drawable.draw_random(MOVE_KIND, game_id.into(), index),
+                ),
+                Option::None => Option::None,
+            }
         }
 
         /// The `Setup` of the wiring and the reports; the wiring is read from it in one call

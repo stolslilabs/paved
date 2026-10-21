@@ -65,6 +65,7 @@ COVERAGE_GROUPS=(
   "golden|paved::tests::golden::|"
   "differential|paved::tests::differential|"
   "oracle|paved::tests::oracle|"
+  "tests-challenge-vrf|paved::tests::challenge_vrf|"
   "tests-collection|paved::tests::collection|"
   "tests-deck-walk|paved::tests::deck_walk|"
   "tests-draw-mask-1|paved::tests::draw_mask|--partition 1/3"

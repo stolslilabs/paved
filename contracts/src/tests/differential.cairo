@@ -53,7 +53,7 @@ impl BoardImpl of BoardTrait {
 
 /// Gas scenarios a0 and a (and b, whose move is a's since D-18 took its Lord): one move each.
 #[test]
-#[available_gas(l2_gas: 238124091)]
+#[available_gas(l2_gas: 251335715)]
 fn test_differential_gas_scenarios_a0_a_b() {
     let board = BoardTrait::new();
     board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
@@ -63,7 +63,7 @@ fn test_differential_gas_scenarios_a0_a_b() {
 
 /// Gas scenario c: a 6-tile city closed and scored.
 #[test]
-#[available_gas(l2_gas: 262543877)]
+#[available_gas(l2_gas: 281262480)]
 fn test_differential_gas_scenario_c() {
     let board = BoardTrait::new();
     board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -77,7 +77,7 @@ fn test_differential_gas_scenario_c() {
 
 /// Gas scenario d: a 12-tile city tree closed and scored.
 #[test]
-#[available_gas(l2_gas: 538209575)]
+#[available_gas(l2_gas: 566907627)]
 fn test_differential_gas_scenario_d() {
     let board = BoardTrait::new();
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -98,7 +98,7 @@ fn test_differential_gas_scenario_d() {
 /// Gas scenario e: four road curves close a loop of road and the forest of 4 tiles inside it. The
 /// score the oracle's walks give the board is `SCORE_E` of `contracts/tests/gas.cairo`.
 #[test]
-#[available_gas(l2_gas: 316138572)]
+#[available_gas(l2_gas: 334525836)]
 fn test_differential_gas_scenario_e() {
     let board = BoardTrait::new();
     board.step(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
