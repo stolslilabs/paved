@@ -81,7 +81,10 @@ for (const capture of CAPTURES) {
   await page.goto(`${URL_BASE}/iframe.html?id=renderer-weather--${capture.story}&viewMode=story${args ? `&args=${args}` : ""}`, { timeout: 180_000, waitUntil: "commit" });
   await page.waitForSelector("[data-ready]", { timeout: 300_000 });
   await page.waitForFunction(() => {
-    const s = (window as any).__weatherScene?.getWeather();
+    const scene = (window as any).__weatherScene;
+    const s = scene?.getWeather();
+    // The weather off in the settings: its chunk never loads, there is nothing to wait for.
+    if (scene && !s && !scene.getSettings().weather.enabled) return true;
     return !!s && Object.values(s.presence as Record<string, number>).every((p) => p === 0 || p === 1);
   });
   // The models and the shadows settled; the readout hidden (the board alone).
