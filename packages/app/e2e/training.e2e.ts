@@ -264,7 +264,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
 describe("Training, played by a bot in a headless browser", () => {
   it(`plays ${GAMES} complete games, with Play again between them`, async () => {
     await withPage("games", async (page) => {
-      if (FIRST_SEED) await page.addInitScript(([k, seed]) => localStorage.setItem(k, JSON.stringify({ v: 1, seed, moves: [] })), [TRAINING_KEY, FIRST_SEED] as [string, string]);
+      if (FIRST_SEED) await page.addInitScript(([k, seed]) => localStorage.setItem(k, JSON.stringify({ v: 2, seed, moves: [] })), [TRAINING_KEY, FIRST_SEED] as [string, string]);
       await openTraining(page, base);
       const seeds = new Set<string>();
       let closed = 0;

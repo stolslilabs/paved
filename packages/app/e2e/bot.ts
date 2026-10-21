@@ -46,7 +46,7 @@ export async function readSave(page: Page): Promise<SavedGame | null> {
 }
 
 /** The engine's own replay of what the browser saved: the oracle of every check. */
-export const replaySave = (save: SavedGame): EngineGame => replayTraining(BigInt(save.seed), save.moves);
+export const replaySave = (save: SavedGame): EngineGame => replayTraining(BigInt(save.seed), save.moves, save.v);
 
 /** A figure as `formatPoints` writes it ("1,234", "−12") as a number. */
 export function points(text: string): number {
