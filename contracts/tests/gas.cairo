@@ -139,10 +139,10 @@ pub const CEILING_VRF_DRAW: u128 = 1035785;
 // z16 to z21: the matchmaker's calls (#639, `docs/architecture/matchmaker.md`): measured on the VPS
 // (snforge 0.64.0, test profile) + 5 %, rounded up.
 pub const CEILING_MM_JOIN: u128 = 905454;
-pub const CEILING_MM_SEARCH: u128 = 2500654;
+pub const CEILING_MM_SEARCH: u128 = 2511217;
 pub const CEILING_MM_NEXT: u128 = 3074204;
 pub const CEILING_MM_START: u128 = 4095643;
-pub const CEILING_MM_SETTLE: u128 = 1024508;
+pub const CEILING_MM_SETTLE: u128 = 2817341;
 pub const CEILING_MM_RELEASE: u128 = 1854105;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
@@ -991,21 +991,41 @@ fn test_gas_z19_matchmaker_start_attack() {
     report("z19_matchmaker_start_attack", before - after, CEILING_MM_START);
 }
 
-/// z20. An attack settled with 3 stars, both villages' crowns written (the defender shielded).
+/// z20. A player-versus-player attack settled with 3 stars, its worst case: both villages in the
+/// pool (the defender's attack shield ended and released) and both change bucket. The attacker at
+/// 90 crowns wins 26 from the defender at 110: 116 (bucket 0 to 1) and 84 (bucket 1 to 0); the
+/// registry is written once.
 #[test]
 fn test_gas_z20_matchmaker_settle() {
     let matchmaker = matchmaker();
     let address = matchmaker.contract_address;
+    let defender = village_at(0);
+    // No NPC: the attacker can only draw the defender
     start_cheat_caller_address(address, OWNER());
+    let admin = IMatchmakerAdminDispatcher { contract_address: address };
+    admin.remove_npc(1);
+    admin.remove_npc(2);
     matchmaker.join(PLAYER());
+    matchmaker.join(defender);
+    matchmaker.set_crowns(PLAYER(), 90);
+    matchmaker.set_crowns(defender, 110);
+    // Both initial shields end and are released
+    start_cheat_block_timestamp_global(START_MM + 3 * 86400);
+    assert(matchmaker.release_shields(2) == 2, 'initial shields not released');
     start_cheat_caller_address(address, PLAYER());
     start_cheat_transaction_hash_global('TX1');
-    matchmaker.search();
+    assert(matchmaker.search() == defender, 'not the defender');
     start_cheat_caller_address(address, OWNER());
     matchmaker.start_attack(PLAYER());
+    // The defender's attack shield ends and is released: it is back in bucket 1
+    start_cheat_block_timestamp_global(START_MM + 3 * 86400 + 8 * 3600);
+    assert(matchmaker.release_shields(1) == 1, 'attack shield not released');
     let before = get_available_gas();
-    matchmaker.settle(PLAYER(), 3);
+    let outcome = matchmaker.settle(PLAYER(), 3);
     let after = get_available_gas();
+    assert(outcome.gained == 26, 'not 26 crowns');
+    assert(matchmaker.village(PLAYER()).bucket == 1, 'attacker not in bucket 1');
+    assert(matchmaker.village(defender).bucket == 0, 'defender not in bucket 0');
     report("z20_matchmaker_settle", before - after, CEILING_MM_SETTLE);
 }
 

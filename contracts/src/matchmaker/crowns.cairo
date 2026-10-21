@@ -86,44 +86,37 @@ pub fn loss_of(offer: u8) -> u8 {
 /// - 0 stars costs the attacker `loss_of(offer)`, at most its crowns, given to the defender.
 /// - Against an NPC (`npc`), the defender's crowns never change: a win mints the attacker's gain,
 ///   a loss burns its cost.
-/// Crowns are conserved between players and never negative; an attacker's sum saturates at
-/// `u32`'s bound (never reached in play).
+/// Every amount is also at most what the receiving side can still hold under `u32`'s bound, so
+/// crowns are conserved between players at every count, never negative, and never overflow; the
+/// amount reported is the amount that moved.
 pub fn settle(attacker: u32, defender: u32, offer: u8, stars: u8, npc: bool) -> Settlement {
     assert(stars <= MAX_STARS, errors::INVALID_STARS);
     if stars == 0 {
-        let cost: u32 = loss_of(offer).into();
-        let lost = if cost > attacker {
-            attacker
-        } else {
-            cost
-        };
-        let defender = if npc {
-            defender
-        } else {
-            saturating_add(defender, lost)
-        };
-        return Settlement { attacker: attacker - lost, defender, gained: 0, lost };
+        let mut lost: u32 = min(loss_of(offer).into(), attacker);
+        if npc {
+            return Settlement { attacker: attacker - lost, defender, gained: 0, lost };
+        }
+        lost = min(lost, room(defender));
+        return Settlement { attacker: attacker - lost, defender: defender + lost, gained: 0, lost };
     }
     let prize: u32 = offer.into() * stars.into() / MAX_STARS.into();
+    let mut gained = min(prize, room(attacker));
     if npc {
-        return Settlement {
-            attacker: saturating_add(attacker, prize), defender, gained: prize, lost: 0,
-        };
+        return Settlement { attacker: attacker + gained, defender, gained, lost: 0 };
     }
-    let gained = if prize > defender {
-        defender
-    } else {
-        prize
-    };
-    Settlement {
-        attacker: saturating_add(attacker, gained), defender: defender - gained, gained, lost: 0,
-    }
+    gained = min(gained, defender);
+    Settlement { attacker: attacker + gained, defender: defender - gained, gained, lost: 0 }
 }
 
-fn saturating_add(a: u32, b: u32) -> u32 {
-    let sum: u64 = a.into() + b.into();
-    match sum.try_into() {
-        Option::Some(value) => value,
-        Option::None => core::num::traits::Bounded::<u32>::MAX,
+/// What a crown count can still receive under `u32`'s bound.
+fn room(crowns: u32) -> u32 {
+    core::num::traits::Bounded::<u32>::MAX - crowns
+}
+
+fn min(a: u32, b: u32) -> u32 {
+    if a < b {
+        a
+    } else {
+        b
     }
 }

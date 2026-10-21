@@ -152,7 +152,8 @@ start shields it, and the second's start fails (`'Matchmaker: opponent shielded'
 - **Win** (1 to 3 stars): the attacker gains `offer × stars / 3`, taken from the defender, at most the defender's
   crowns. Crowns are conserved between players.
 - **Loss** (0 stars): the attacker loses `clamp(offer / 4, 2, 10)`, at most its crowns, given to the defender.
-- **Crowns are never negative**; a new village starts at 0.
+- **Crowns are never negative and never overflow**: every amount is also at most what the receiver can still hold under
+  `u32`'s bound. A new village starts at 0.
 - **The season reset** (crowns above a threshold brought down) is #644's: the library exposes `set_crowns` for it.
 
 ## 7. Shields
@@ -238,10 +239,10 @@ No other class changes.
 | Test | Call | L2 gas |
 |---|---|---:|
 | z16 | `join` (a village behind its initial shield) | 862,337 |
-| z17 | `search`, free (the VRF draw, the nearest bucket, the offer) | 2,381,575 |
+| z17 | `search`, free (the VRF draw, the nearest bucket, the offer) | 2,391,635 |
 | z18 | `next` (one Cobble spent in `Setup`, then a draw) | 2,927,813 |
 | z19 | `start_attack`, the worst case: 2 shields released, the attacker's dropped, the defender's raised | 3,900,612 |
-| z20 | `settle` (3 stars, both villages written) | 975,721 |
+| z20 | `settle`, player against player, the worst case: 3 stars, both villages in the pool, both change bucket | 2,683,181 |
 | z21 | `release_shields(2)` | 1,765,814 |
 
 The draw costs about 1.4M above the VRF draw alone (z15, 986,461): the bitmap search computes powers of two through
@@ -250,7 +251,7 @@ needs it.
 
 **Local runs.** The full `contracts/` test build peaks above the VPS's 8 GB Cairo scope (`vrf-draws.md`, section 8). So
 the matchmaker's modules and the gas tests ran locally in a scratch copy of the crate that keeps every source but only the
-test modules named: 73 tests of `paved::tests::matchmaker*` pass (peak RSS 4.5 GB), and the 21 `test_gas_z*` pass (peak RSS
+test modules named: 77 tests of `paved::tests::matchmaker*` pass (peak RSS 4.5 GB), and the 21 `test_gas_z*` pass (peak RSS
 4.5 GB, z15 equal to its committed figure). CI runs the whole suite.
 
 **Audit, value and access** (Cobbles and crowns move):
@@ -263,7 +264,9 @@ test modules named: 73 tests of `paved::tests::matchmaker*` pass (peak RSS 4.5 G
 - **Crowns.**
   - They move only through operators: `settle` (an attack started, 0 to 3 stars, at the offer fixed at the draw) and
     `set_crowns` (#644). Both are trusted, like `Setup`'s reporters.
-  - Between players, crowns are conserved and never negative (fuzzed). Against an NPC, a win mints the attacker's gain:
+  - Between players, crowns are conserved and never negative at every `u32` count (fuzzed over the whole range and near
+    the bound). Every amount is capped by what the receiver can still hold, so nothing saturates and the amount reported is
+    the amount that moved. Against an NPC, a win mints the attacker's gain:
     a cold-start trade-off, bounded by the owner removing the NPCs (open point 4).
   - A high player draws an NPC only if no player sits in a nearer bucket.
 - **The draw.**

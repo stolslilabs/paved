@@ -247,19 +247,64 @@ fn test_settle_refuses_four_stars() {
 
 #[test]
 #[fuzzer(runs: 64, seed: 639)]
-fn test_settle_conserves_crowns(attacker: u16, defender: u16, offer: u8, stars: u8) {
+fn test_settle_conserves_crowns(attacker: u32, defender: u32, offer: u8, stars: u8) {
+    assert_settle_conserves(attacker, defender, offer, stars);
+}
+
+#[test]
+#[fuzzer(runs: 64, seed: 639)]
+fn test_settle_conserves_crowns_near_the_bound(attacker: u8, defender: u8, offer: u8, stars: u8) {
+    // Both counts within 255 of u32's bound, where a receiver can overflow
+    let attacker: u32 = 0xffffffff - attacker.into();
+    let defender: u32 = 0xffffffff - defender.into();
+    assert_settle_conserves(attacker, defender, offer, stars);
+}
+
+/// Crowns are conserved between players, and the amount reported is what moved.
+fn assert_settle_conserves(attacker: u32, defender: u32, offer: u8, stars: u8) {
     let offer = OFFER_MIN + offer % (OFFER_MAX - OFFER_MIN + 1);
     let stars = stars % 4;
-    let outcome = settle(attacker.into(), defender.into(), offer, stars, false);
+    let outcome = settle(attacker, defender, offer, stars, false);
     let before: u64 = attacker.into() + defender.into();
     let after: u64 = outcome.attacker.into() + outcome.defender.into();
     assert(before == after, 'crowns not conserved');
     assert(outcome.gained <= offer.into() && outcome.lost <= 10, 'too much moved');
+    // The reported amount is what moved
     if stars == 0 {
         assert(outcome.gained == 0, 'gain at 0 stars');
+        assert(attacker - outcome.attacker == outcome.lost, 'loss not what moved');
     } else {
         assert(outcome.lost == 0, 'loss on a win');
+        assert(outcome.attacker - attacker == outcome.gained, 'gain not what moved');
     }
+}
+
+#[test]
+fn test_settle_win_capped_by_the_attackers_room() {
+    let outcome = settle(0xffffffff, 100, 10, 3, false);
+    assert_eq!(outcome.gained, 0);
+    assert_eq!(outcome.attacker, 0xffffffff);
+    assert_eq!(outcome.defender, 100);
+    let outcome = settle(0xfffffffb, 100, 30, 3, false);
+    assert_eq!(outcome.gained, 4);
+    assert_eq!(outcome.attacker, 0xffffffff);
+    assert_eq!(outcome.defender, 96);
+}
+
+#[test]
+fn test_settle_loss_capped_by_the_defenders_room() {
+    let outcome = settle(100, 0xfffffffe, 40, 0, false);
+    assert_eq!(outcome.lost, 1);
+    assert_eq!(outcome.attacker, 99);
+    assert_eq!(outcome.defender, 0xffffffff);
+}
+
+#[test]
+fn test_settle_npc_win_capped_by_the_attackers_room() {
+    let outcome = settle(0xfffffffe, 100, 30, 3, true);
+    assert_eq!(outcome.gained, 1);
+    assert_eq!(outcome.attacker, 0xffffffff);
+    assert_eq!(outcome.defender, 100);
 }
 
 // Packing
