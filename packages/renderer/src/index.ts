@@ -67,6 +67,15 @@ export {
 } from "./core/settings";
 export type { RendererSettings, RendererSettingsInput, CameraZoomSettings, PixelRatioDevice } from "./core/settings";
 export {
+  computeCameraFit,
+  projectGround,
+  frameInsetsFor,
+  FRAME_INSETS,
+  FRAME_TABLET_PX,
+  DEFAULT_CAMERA_FIT_SETTINGS,
+} from "./core/camera-fit";
+export type { CameraFit, CameraFitInput, CameraFitLimit, CameraFitSettings, CellExtent, FrameInsets } from "./core/camera-fit";
+export {
   DEFAULT_PLACEMENT_SETTINGS,
   GRID_RINGS,
   PLATE_GAP_VOXELS,

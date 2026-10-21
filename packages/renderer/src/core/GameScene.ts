@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
-import { CameraController, TALLEST_TILE_HEIGHT } from "./CameraController";
+import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
+import { computeCameraFit, frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
@@ -148,6 +149,10 @@ export class GameScene {
   private isWebGPU = false;
   private disposed = false;
   private latestTiles: TileRenderData[] = [];
+  /** The camera was framed on placed tiles (not only the starter's floor of an empty board): later tiles refit only with `followBoard`. */
+  private framedTiles = false;
+  /** The frame settings the camera was last framed with: a change frames it again (`setSettings`). */
+  private fitSettingsKey = "";
   /** The theme of each plan (`setSkins`), kept for the tile renderer `init` makes. */
   private skins: TileSkins = NO_SKINS;
   private renderProfile: RenderProfile = "play";
@@ -299,6 +304,8 @@ export class GameScene {
     this.controls = cameraControllerFactory(surface);
     this.camera = this.controls.camera;
     this.applyCameraLimits();
+    // The opening frame (CAMERA-FIT): the tiles given so far, or the starter's floor until they come.
+    this.fitCamera();
 
     // Re-render when camera moves (orbit, pan, zoom)
     this.controls.controls.addEventListener("change", () => {
@@ -383,6 +390,8 @@ export class GameScene {
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(width, height, false);
     this.controls?.resize(width, height);
+    // A resize or a turn of the screen frames the board again, as long as the player has not moved the camera.
+    if (!this.webCamera()?.userMoved) this.fitCamera();
     this.effects.resize(width, height, this.pixelRatio);
     this.notifyCamera();
     // `multisampling: "auto"` follows the window: one shrunk to a small screen turns the faces' antialiasing on.
@@ -864,6 +873,9 @@ export class GameScene {
     this.tiles.updateTiles(tiles);
     if (this.controls) {
       this.controls.setBoardBounds(this.computeBoardBounds());
+      // The first tiles open the frame on them; later ones only with `followBoard`, while the player has not moved.
+      const follow = this.settings.cameraFit.followBoard && !this.webCamera()?.userMoved;
+      if (tiles.length > 0 && (!this.framedTiles || follow)) this.fitCamera();
     }
     this.requestShadowUpdate();
     this.requestRender();
@@ -1041,6 +1053,8 @@ export class GameScene {
     this.outlineTilePx = Number.NaN;
     this.logOutlinePath();
     this.applyCameraLimits();
+    // New frame settings (the story's floor, insets) apply at once while the player has not moved the camera.
+    if (!this.webCamera()?.userMoved && JSON.stringify(this.settings.cameraFit) !== this.fitSettingsKey) this.fitCamera();
     this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
     this.applyLook();
@@ -1148,6 +1162,69 @@ export class GameScene {
     const { min, max } = cameraDistanceLimits(this.settings.camera);
     this.controls.controls.minDistance = min;
     this.controls.controls.maxDistance = max;
+  }
+
+  /**
+   * The frame of the board on this surface (CAMERA-FIT, #678, `computeCameraFit`): the tiles and their ring of free slots,
+   * at least `floorCells` square, in the screen less the HUD, never farther than `OPENING_DISTANCE` (nor the zoom limits).
+   * Null before `init`.
+   */
+  getCameraFit(): CameraFit | null {
+    if (!this.surface || !this.camera) return null;
+    const { width, height } = this.surface.getSize();
+    const fit = this.settings.cameraFit;
+    const { min, max } = cameraDistanceLimits(this.settings.camera);
+    return computeCameraFit({
+      cells: this.cellExtent(),
+      width,
+      height,
+      fov: this.camera.fov,
+      zoom: this.camera.zoom,
+      insets: fit.insets === "auto" ? frameInsetsFor(width) : fit.insets,
+      floorCells: fit.floorCells,
+      ring: fit.ring,
+      minDistance: min,
+      maxDistance: Math.min(OPENING_DISTANCE, max),
+    });
+  }
+
+  /** Frames the board again (the re-centre action), whether or not the player moved the camera; resizes follow it again. */
+  recenter(): void {
+    this.fitCamera(true);
+  }
+
+  /** The web controller (`CameraController`), the one that frames; null before `init` or for another controller. */
+  private webCamera(): CameraController | null {
+    return this.controls instanceof CameraController ? this.controls : null;
+  }
+
+  /** Puts the camera on the board's frame (`getCameraFit`), in play mode with the frame on (or `force`d by `recenter`). */
+  private fitCamera(force = false): void {
+    const controls = this.webCamera();
+    if (!controls || !this.surface) return;
+    const { width, height } = this.surface.getSize();
+    this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
+    if (!(width > 0) || !(height > 0)) return;
+    if (!force && (!this.settings.cameraFit.enabled || controls.getMode() !== "play")) return;
+    const fit = this.getCameraFit();
+    if (!fit) return;
+    controls.frame(fit.target, fit.distance);
+    this.framedTiles = this.latestTiles.length > 0;
+    this.notifyCamera();
+    this.requestRender();
+  }
+
+  /** The placed tiles' extent in cells, null on an empty board. */
+  private cellExtent(): CellExtent | null {
+    if (this.latestTiles.length === 0) return null;
+    const extent = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    for (const tile of this.latestTiles) {
+      extent.minX = Math.min(extent.minX, tile.worldX);
+      extent.maxX = Math.max(extent.maxX, tile.worldX);
+      extent.minZ = Math.min(extent.minZ, tile.worldZ);
+      extent.maxZ = Math.max(extent.maxZ, tile.worldZ);
+    }
+    return extent;
   }
 
   focusBoard(): void {
