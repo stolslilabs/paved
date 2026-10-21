@@ -11,7 +11,7 @@ are in `docs/client/f-release.md`, "Vercel"):
 
 - **Production** is a deployment of `main` on every merge, at `https://paved-storybook.vercel.app` and
   `https://storybook.paved.bal7hazar.com`.
-- **Previews:** every pull request gets one.
+- **Previews:** on demand only, with the label `preview` on a pull request (`f-release.md`, "Vercel", "Previews, on demand").
 - **Build:** `bun run build --filter @paved/app^...` (the stories import `@paved/renderer/react`, which a fresh checkout has not
   built), then `build-storybook` with a 3072 MB heap (`NODE_OPTIONS=--max-old-space-size=3072`; no measured peak, the value is
   the one the project has always used); it serves `packages/app/storybook-static`.
