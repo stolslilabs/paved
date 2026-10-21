@@ -188,3 +188,23 @@ export const loadFogOfWar = (): Promise<typeof import("./core/fog-of-war")> => i
 export { dropDuration, planDrop } from "./core/voxel-drop-schedule";
 export type { DropSchedule, ScheduleGrid } from "./core/voxel-drop-schedule";
 export type { DropInfo, DropResult, DropSkip } from "./core/tile-drops";
+// The avatar (AVATAR-LOOK, #626 PR 1), stories only for now: its format and parts are small and eager; its rendering (the head
+// in three.js, the cached stills of the menus, the creator's live preview) is a chunk of its own, loaded by `loadAvatarRender`.
+export {
+  AVATAR_FORMAT_VERSION,
+  AVATAR_PARTS,
+  AVATAR_PART_BITS,
+  AVATAR_PART_KEYS,
+  AVATAR_USED_BITS,
+  AVATAR_VALUE_BITS,
+  DEFAULT_AVATAR,
+  avatarKey,
+  decodeAvatar,
+  encodeAvatar,
+  randomAvatar,
+  seededRandom,
+  variantCount,
+} from "./core/avatar/avatar-format";
+export type { Avatar, AvatarPart } from "./core/avatar/avatar-format";
+export type { AvatarObject, AvatarPreview, AvatarPreviewOptions, AvatarStillOptions, AvatarStillStats, AvatarStills, AvatarStyle } from "./core/avatar/avatar-render";
+export const loadAvatarRender = (): Promise<typeof import("./core/avatar/avatar-render")> => import("./core/avatar/avatar-render");
