@@ -280,7 +280,9 @@ fn test_items_lists_ids_up_to_the_highest_listed() {
     w.avatar.withdraw_item(0, 2);
     stop(w);
     assert_eq!(w.avatar.items(0).len(), 3);
-    assert_eq!(w.avatar.items(0).at(2).state, @WITHDRAWN);
+    let items = w.avatar.items(0);
+    assert_eq!(items.len(), 3);
+    assert_eq!((*items.at(2)).state, WITHDRAWN);
 }
 
 #[test]
@@ -664,17 +666,17 @@ fn test_fuzz_buys_and_sets(seed: u64) {
         }
         assert_eq!(cobbles_of(w, PLAYER()), balance);
     }
-    // The avatar of everything owned is accepted, anything else refused
+    // The avatar of each paid item owned (the free item 1 elsewhere) is accepted
     let mut ids: Array<u8> = array![];
-    let mut i = 0;
-    for (part, id, _) in paid {
-        assert_eq!(part, i.try_into().unwrap());
+    for i in 0..3_u32 {
+        let (part, id, _) = *paid.at(i);
+        let part: u32 = part.into();
+        assert_eq!(part, i);
         ids.append(if *owned.at(i) {
             id
         } else {
             1
         });
-        i += 1;
     }
     set(w, PLAYER(), look(ids));
 }
