@@ -68,6 +68,10 @@ export interface BoardSceneProps {
   hand: {
     tile: { plan: number; orientation: number } | null;
     state: HandState;
+    /** The tiles known after the one to place, in draw order (#645, `PageState.coming`): beside the stack, read only. */
+    coming?: readonly { plan: number }[];
+    /** The chain draws the queue's last tile (`PageState.drawing`): its slot waits. */
+    drawing?: boolean;
     slotChosen?: boolean;
     /** A cell is chosen (the tile is on it, valid or not): the stack dims its top and leaves Discard to the bubble. */
     cellChosen?: boolean;
@@ -268,6 +272,8 @@ export function BoardScene(props: BoardSceneProps) {
             tile={hand.tile}
             state={hand.state}
             remaining={props.remaining}
+            coming={hand.coming}
+            drawing={hand.drawing}
             cellChosen={hand.cellChosen ?? hand.slotChosen}
             fitsNowhere={hand.fitsNowhere}
             error={hand.error}

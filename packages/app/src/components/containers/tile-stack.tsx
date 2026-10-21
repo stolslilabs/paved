@@ -3,6 +3,7 @@ import { useReducedMotionConfig } from "motion/react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { SpinnerIcon } from "../ui/icons";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { TileChip, chipVariants, type TileArt } from "../elements/tile-chip";
 import { COACH_RING, type CoachTarget } from "./coach";
@@ -22,6 +23,8 @@ const BODY_STEP_PX = 5;
 export const HINT_IDLE_MS = 20_000;
 /** The next tile comes up: a short rise, ms. */
 const RISE_MS = 220;
+/** The tiles shown after the one to place (#645): the next and the one after it. */
+export const QUEUE_SLOTS = 2;
 
 export interface TileStackProps {
   /** The tile to place (`SessionState.hand` with its orientation); null when there is none. */
@@ -29,6 +32,13 @@ export interface TileStackProps {
   state: HandState;
   /** Tiles still to draw (`GameView.remainingCount`): the badge, and the bodies under the top up to `STACK_CAP`. */
   remaining: number;
+  /**
+   * The tiles known after the one to place, in draw order (#645): the next and the one after it, drawn smaller beside the
+   * stack, the next nearest. Read only: no rotation, no placement. None in a game that knows only its tile in hand.
+   */
+  coming?: readonly { plan: number }[];
+  /** The chain is drawing the queue's last tile (a Challenge move on its way): its slot waits, after the known ones. */
+  drawing?: boolean;
   /** A cell is chosen on the board (the tile is on it, the bubble's): the top is dimmed and the stack's Discard goes. */
   cellChosen?: boolean;
   /** No cell takes the tile in any rotation: the stack's Discard says so. */
@@ -77,7 +87,8 @@ function useHint(active: boolean, moveKey: number, cellChosen: boolean): boolean
 
 /**
  * The hand as a tile stack (#606, after Dorfromantik's): bottom right, in the thumb's reach. Its top is the tile in hand,
- * as the board draws it and in its rotation (only that one: the stack never hints at the next); under it a few tile
+ * as the board draws it and in its rotation; beside it, smaller, the tiles known to come (#645: the next two, read only,
+ * the next nearest; a slot waits while the chain draws one); under it a few tile
  * bodies, as many as the tiles left up to `STACK_CAP`; on it a round badge with the tiles left. A tap opens the deck.
  * While no cell is chosen, a small bubble on the stack offers Discard, held as the bubble's (the player can always
  * discard, also when the tile fits nowhere); while the tile is on a cell the top is dimmed: the tile is on the board.
@@ -89,6 +100,8 @@ export function TileStack({
   tile,
   state,
   remaining,
+  coming = [],
+  drawing = false,
   cellChosen = false,
   fitsNowhere = false,
   error,
@@ -112,6 +125,9 @@ export function TileStack({
   const hint = useHint(state === "placing" && tile !== null && !fitsNowhere, remaining, cellChosen);
   const bodies = Math.max(0, Math.min(STACK_CAP, remaining));
   const top = useRef<HTMLSpanElement>(null);
+  // The queue after the tile to place: at most two slots, the known tiles first, then the one the chain is drawing.
+  const known = coming.slice(0, QUEUE_SLOTS);
+  const waiting = drawing && known.length < QUEUE_SLOTS;
 
   // The next tile comes up: a short rise from the pile (the Web Animations API, no frame of React's); none under reduced motion.
   const last = useRef(remaining);
@@ -135,7 +151,7 @@ export function TileStack({
       data-state={state}
       data-input-surface
       data-bubble-avoid
-      className={cn("pointer-events-none flex max-w-[min(20rem,calc(100vw-1rem))] flex-col items-end gap-2", className)}
+      className={cn("pointer-events-none flex max-w-[min(24rem,calc(100vw-1rem))] flex-col items-end gap-2", className)}
     >
       {/* Refused and expired say why in the one error component (P-67); always rendered, so its height animates. */}
       <InlineError
@@ -163,6 +179,28 @@ export function TileStack({
             {fitsNowhere && <span className="pl-2 text-xs text-muted-foreground">This tile fits nowhere</span>}
             <DiscardHold onDiscard={onDiscard} cost={discardCost} holdMs={holdMs} className={cn("size-11 rounded-full focus-visible:ring-offset-card", coach === "discard" && cn(COACH_RING, "rounded-full"))} />
           </div>
+        )}
+        {/* The coming tiles (#645), the next nearest the stack: smaller, read only. A list in draw order, laid out reversed. */}
+        {(known.length > 0 || waiting) && (
+          <ol aria-label="Coming tiles" data-testid="coming-tiles" className="mb-3 flex flex-row-reverse items-end gap-1.5">
+            {known.map((t, i) => (
+              <li key={i} data-coming={i + 1} className={cn("flex flex-col items-center", i > 0 && "opacity-80")}>
+                <span className="sr-only">{i === 0 ? "Next: " : "Then: "}</span>
+                <TileChip plan={t.plan} art={tileArt} size="md" className="shadow-md" />
+              </li>
+            ))}
+            {waiting && (
+              <li data-coming="drawing" className="flex flex-col items-center">
+                <span
+                  role="img"
+                  aria-label="The chain draws this tile"
+                  className="flex size-14 items-center justify-center rounded-md border-2 border-dashed border-input bg-card/80 text-muted-foreground shadow-md"
+                >
+                  <SpinnerIcon />
+                </span>
+              </li>
+            )}
+          </ol>
         )}
         <button
           type="button"

@@ -11,7 +11,7 @@ import { holdToPlace, placeTile, preloadPages, validateButton, discardTile } fro
 
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
-const save = (moves: SavedMove[]) => JSON.stringify({ v: 1, seed: `0x${SEED.toString(16)}`, moves });
+const save = (moves: SavedMove[]) => JSON.stringify({ v: 2, seed: `0x${SEED.toString(16)}`, moves });
 
 /** The first legal placement of the game after `moves`, as the save writes it. */
 function firstMove(moves: SavedMove[]): SavedMove {
@@ -30,6 +30,8 @@ function open(path: string, store: KeyValueStore | null) {
 const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).getAttribute("aria-label")!.match(/\d+/)![0]);
 const tilesLeft = () => Number(screen.getByTestId("tiles-left").textContent);
 const hand = () => screen.getByRole("region", { name: "Your tile" });
+/** The tile to place, on top of the stack (the coming tiles beside it are tiles too, #645). */
+const handTop = () => hand().querySelector<HTMLElement>("[data-stack-top]")!;
 
 /** Chooses the first lit slot: the tile turns to a rotation that fits there. */
 async function chooseSlot() {
@@ -68,13 +70,23 @@ describe("/training (P3)", () => {
     expect(loadGame(() => store)!.moves).toHaveLength(2);
   });
 
+  it("the hand panel shows the tile to place and the two coming tiles of the engine's queue (#645)", async () => {
+    const store = memoryStore();
+    open("/training", store);
+    expect(await tilesOnBoard()).toBe(1);
+    const engine = replayTraining(BigInt(loadGame(() => store)!.seed), []);
+    const coming = within(hand()).getByRole("list", { name: "Coming tiles" });
+    const codes = within(coming).getAllByRole("img").map((i) => i.getAttribute("aria-label")!.split(" ")[1]!.replace(",", ""));
+    expect(codes).toEqual(engine.coming.map((t) => t.plan.toLowerCase()));
+  });
+
   it("each hand action reaches the session: rotate, choose a slot, place by the bubble's hold with its preview points on the score, discard", async () => {
     const store = memoryStore();
     open("/training", store);
     expect(await tilesOnBoard()).toBe(1);
     const left = tilesLeft();
 
-    const chip = within(hand()).getByRole("img", { name: /^Tile / });
+    const chip = within(handTop()).getByRole("img", { name: /^Tile / });
     expect(chip).toHaveAccessibleName(/north$/);
     expect(within(hand()).queryByRole("button", { name: /Rotate/ })).not.toBeInTheDocument();
 
@@ -205,7 +217,7 @@ describe("/training (P3)", () => {
     });
     expect(await tilesOnBoard()).toBe(2);
     expect(validateButton()).toBeNull();
-    expect(within(hand()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
+    expect(within(handTop()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
 
