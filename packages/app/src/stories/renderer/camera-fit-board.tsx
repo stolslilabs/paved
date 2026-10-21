@@ -50,6 +50,9 @@ export interface CameraFitBoardProps {
   forceOutlines: boolean;
 }
 
+/** The HUD's room, shaded. */
+const SHADE = { position: "absolute", background: "rgb(0 0 0 / 0.25)" } as const;
+
 interface Readout {
   distance: number;
   fit: number;
@@ -93,8 +96,9 @@ export function CameraFitBoard({ viewport, board, floorCells, ring, followBoard,
   }, [scene, read]);
   const insets = frameInsetsFor(size.width);
   return (
-    <div className="flex min-h-dvh flex-col items-start gap-2 overflow-auto bg-background p-2 text-foreground">
-      <div className="flex flex-wrap items-center gap-3 font-mono text-xs" data-testid="camera-fit-readout">
+    // Inline styles: a story class the app does not use would grow the app's CSS (Tailwind scans the stories).
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, padding: 8, minHeight: "100dvh", overflow: "auto", background: "var(--background)", color: "var(--foreground)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, fontFamily: "var(--font-mono)", fontSize: 12 }} data-testid="camera-fit-readout">
         <span>
           {viewport} · {board} · N {floorCells}
         </span>
@@ -110,19 +114,19 @@ export function CameraFitBoard({ viewport, board, floorCells, ring, followBoard,
             <span>outlines {readout.opacity.toFixed(2)}</span>
           </>
         )}
-        <button type="button" className="rounded border px-2 py-0.5" onClick={() => scene?.recenter()}>
+        <button type="button" style={{ border: "1px solid currentColor", borderRadius: 4, padding: "2px 8px" }} onClick={() => scene?.recenter()}>
           Re-centre
         </button>
       </div>
-      <div className="relative shrink-0 overflow-hidden border border-border" style={{ width: size.width, height: size.height }} data-testid="camera-fit-box">
+      <div style={{ position: "relative", flexShrink: 0, overflow: "hidden", width: size.width, height: size.height }} data-testid="camera-fit-box">
         {/* A new board opens fresh, as a game does. */}
         <BoardViewport key={board} tiles={tiles} gameId={1} basePath={APP_ASSETS} settings={settings} tilePreview={false} placementHighlight={false} onScene={setScene} />
         {showInsets && enabled && (
-          <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div className="absolute inset-x-0 top-0 bg-black/25" style={{ height: insets.top }} />
-            <div className="absolute inset-x-0 bottom-0 bg-black/25" style={{ height: insets.bottom }} />
-            <div className="absolute left-0 bg-black/25" style={{ top: insets.top, bottom: insets.bottom, width: insets.left }} />
-            <div className="absolute right-0 bg-black/25" style={{ top: insets.top, bottom: insets.bottom, width: insets.right }} />
+          <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+            <div style={{ ...SHADE, left: 0, right: 0, top: 0, height: insets.top }} />
+            <div style={{ ...SHADE, left: 0, right: 0, bottom: 0, height: insets.bottom }} />
+            <div style={{ ...SHADE, left: 0, top: insets.top, bottom: insets.bottom, width: insets.left }} />
+            <div style={{ ...SHADE, right: 0, top: insets.top, bottom: insets.bottom, width: insets.right }} />
           </div>
         )}
       </div>
