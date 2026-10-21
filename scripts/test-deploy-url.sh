@@ -1589,14 +1589,14 @@ PY2
   : >"$log"
   out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
   listed="$(grep -c '^   [A-Za-z.]*_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out")"
-  if [[ $rc -ne 0 || "$listed" != 26 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
+  if [[ $rc -ne 0 || "$listed" != 28 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
       ! cmp -s "$new" "$est/record.before" || grep -q '^fake-node: asked starknet_add' "$est/node.log" ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || leaks -q "$new" || grep -qi "$KEY_MARK" "$new" ||
       grep '^[a-z]* argv' "$log" | leaks -q || grep '^[a-z]* argv' "$log" | grep -qi "$KEY_MARK"; then
-    echo "FAIL: sepolia --check-only over a record of 26 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
+    echo "FAIL: sepolia --check-only over a record of 28 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
   else
-    echo "ok: sepolia --check-only over a record of 26 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
+    echo "ok: sepolia --check-only over a record of 28 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
   fi
   # guardian_tx (PM, 2026-10-14) and vrf_tx (#645) are among them: their status lines are listed, in that order, between
   # wiring_tx and definitions_tx.
