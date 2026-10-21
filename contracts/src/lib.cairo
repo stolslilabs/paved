@@ -5,6 +5,7 @@ pub mod quests;
 pub mod seed;
 pub mod store;
 pub mod views;
+pub mod vrf;
 
 pub mod types {
     pub mod area;
@@ -71,6 +72,7 @@ pub mod models {
 }
 
 pub mod components {
+    pub mod drawable;
     pub mod hostable;
     pub mod ownable;
     pub mod payable;
@@ -102,9 +104,11 @@ pub mod structure {
 
 pub mod mocks {
     pub mod account;
+    pub mod drawer;
     pub mod reentrant_token;
     pub mod router;
     pub mod token;
+    pub mod vrf;
     pub mod erc20 {
         pub mod erc20;
         pub mod interface;
@@ -131,5 +135,6 @@ pub mod tests {
     pub mod seed;
     pub mod setup;
     pub mod story;
+    pub mod vrf;
     pub mod walk_cost;
 }

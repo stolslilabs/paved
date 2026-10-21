@@ -8,7 +8,8 @@ export interface DeploymentFile {
   deployed_block?: number;
   /** The symbol is for the record only: the app labels the token `PAVED` whatever it says (D-10, which replaces D-2's old label); reading it waits for P8's token. */
   token?: { address?: string; class_hash?: string; decimals?: number; symbol?: string };
-  contracts?: Partial<Record<ContractName | "Faucet" | "Collection", { address?: string; class_hash?: string }>>;
+  /** `MockVrfProvider`: the devnet's VRF provider (#638), read by `vrfProvider`. */
+  contracts?: Partial<Record<ContractName | "Faucet" | "Collection" | "MockVrfProvider", { address?: string; class_hash?: string }>>;
 }
 
 /** Values from the environment; each one set overrides the file. */
@@ -35,6 +36,11 @@ export interface Deployment {
   /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
   collection: string;
   /**
+   * The VRF provider a drawing write requests from (#638, `vrfProvider`): Cartridge's on Sepolia and mainnet, the file's
+   * `contracts.MockVrfProvider` on the devnet; an empty string where there is none. Not part of `configured`.
+   */
+  vrfProvider: string;
+  /**
    * True when the RPC URL and the required address (Challenge) are known: the only case where writes are offered.
    * `Account` is not one since D-25 (E): it left the deployment, and a file that still names it is read without it.
    */
@@ -51,6 +57,12 @@ const NAMES: ContractName[] = ["Challenge"];
  */
 export const FAUCET_NETWORKS: readonly string[] = ["devnet", "sepolia"];
 
+/** Cartridge's VRF provider (#638), the same address on mainnet and on Sepolia (cartridge-gg/vrf, README). */
+export const CARTRIDGE_VRF_PROVIDER = "0x051fea4450da9d6aee758bdeba88b2f665bcbf549d2c61421aa724e9ac0ced8f";
+
+/** The networks that draw through Cartridge's provider. The devnet draws through the mock (`contracts.MockVrfProvider`). */
+export const CARTRIDGE_VRF_NETWORKS: readonly string[] = ["sepolia", "mainnet"];
+
 /** An RPC URL a client can call: the file of a public network keeps a `$STARKNET_RPC_URL` placeholder, which is not one. */
 function isRpcUrl(value: string | undefined): value is string {
   return !!value && /^https?:\/\/[^\s$]+$/i.test(value);
@@ -63,6 +75,18 @@ function isAddress(value: string | undefined): value is string {
   } catch {
     return false;
   }
+}
+
+/**
+ * The VRF provider of a network (#638, `docs/architecture/vrf-draws.md`): Cartridge's on Sepolia and mainnet; on the devnet
+ * the mock the deployment file records (`contracts.MockVrfProvider`); an empty string where there is none. Here rather
+ * than in ./vrf, which imports starknet: this module is in the client's entry chunk.
+ */
+export function vrfProvider(network: string, file?: DeploymentFile | null): string {
+  if (CARTRIDGE_VRF_NETWORKS.includes(network)) return CARTRIDGE_VRF_PROVIDER;
+  if (network !== "devnet") return "";
+  const address = file?.contracts?.MockVrfProvider?.address;
+  return isAddress(address) ? address : "";
 }
 
 /**
@@ -115,6 +139,7 @@ export function resolveDeployment(input: {
     addresses,
     faucet: isAddress(faucet) ? faucet : "",
     collection: [env.collection, file.contracts?.Collection?.address].find(isAddress) ?? "",
+    vrfProvider: vrfProvider(input.network, file),
     configured: missing.length === 0,
     missing,
   };

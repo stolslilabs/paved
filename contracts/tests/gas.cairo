@@ -31,6 +31,7 @@ use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
 use paved::constants::{self, CENTER};
+use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
 use paved::systems::challenge::Challenge;
@@ -49,8 +50,9 @@ use quiver_achievement::types::window::AchievementWindow;
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
-    CheatSpan, cheat_caller_address, interact_with_state, start_cheat_block_timestamp_global,
-    start_cheat_caller_address, stop_cheat_caller_address, test_address,
+    CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare,
+    interact_with_state, start_cheat_block_timestamp_global, start_cheat_caller_address,
+    start_cheat_transaction_hash_global, stop_cheat_caller_address, test_address,
 };
 use starknet::ContractAddress;
 use crate::setup::setup;
@@ -122,6 +124,13 @@ pub const CEILING_BUY_SKIN: u128 = 697961;
 pub const CEILING_SET_SKINS_1: u128 = 479549;
 pub const CEILING_SET_SKINS_19: u128 = 2789690;
 pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
+// VRF-DRAWS (#638): z15, one draw of `DrawableComponent` in the test harness over the devnet mock
+// (the consumer's side: the one-draw check, the provider's consume count, the salt, the provider's
+// call, the count). Cartridge's
+// part of a real draw (`submit_random`'s proof check, `assert_consumed`) is measured on Sepolia
+// (`docs/architecture/vrf-draws.md`, section 6). Measured in CI 986,461, + 5 % (599,559 before the
+// first-consume check and the mock's count of the transaction's consumes, two slots written).
+pub const CEILING_VRF_DRAW: u128 = 1035785;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -823,4 +832,28 @@ fn test_gas_z14_set_skin_price() {
     skins.set_skin_price(2, 7, 75);
     let after = get_available_gas();
     report("z14_set_skin_price", before - after, CEILING_SET_SKIN_PRICE);
+}
+
+/// z15. One draw through `DrawableComponent` (the test harness over the devnet mock), the game's
+/// second draw (its count already written), in a transaction of its own.
+#[test]
+fn test_gas_z15_vrf_draw() {
+    let (provider, _) = declare("MockVrfProvider")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![])
+        .unwrap();
+    let (harness, _) = declare("DrawHarness")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![OWNER().into(), provider.into()])
+        .unwrap();
+    let harness = IDrawHarnessDispatcher { contract_address: harness };
+    start_cheat_transaction_hash_global('TX1');
+    harness.draw(7);
+    start_cheat_transaction_hash_global('TX2');
+    let before = get_available_gas();
+    harness.draw(7);
+    let after = get_available_gas();
+    report("z15_vrf_draw", before - after, CEILING_VRF_DRAW);
 }
