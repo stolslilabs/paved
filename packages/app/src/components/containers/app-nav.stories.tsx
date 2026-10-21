@@ -34,15 +34,15 @@ type Story = StoryObj<typeof meta>;
  * Direction D (#537): the bottom bar on a phone, each item an icon over its label (labels from 360 px); from 1024 px (the
  * theme's `desktop`) a header across the top, the voxel wordmark, the items icon beside label. The Viewport control switches
  * between them. The current item is gold on the white 15% layer; hover is 10%, a press 20%. No rail, no sliding indicator.
- * Play (#623), in the centre, has no label: a gold disc raised above the bar on a phone, a gold disc in the header's row.
- * One story per item active.
+ * Play (#623), in the centre, has no label: a gold disc raised above the bar on a phone. The desktop header has no Play
+ * (#668): Home, Missions, Vault, Settings, and Play is reached from the Home page. One story per item active.
  */
 export const Default: Story = {};
 
 /** Starts on Missions. */
 export const ActiveMissions: Story = { args: { active: "quests" } };
 
-/** Play active: it never is in the app (the mode choice is a full-screen page, without the bar), shown for the states. */
+/** Play active: it never is in the app (the mode choice is a full-screen page, without the bar), shown for the states. Phone only: the desktop header has no Play (#668). */
 export const ActivePlay: Story = { args: { active: "play" } };
 
 /** Starts on the Vault tab (Font Awesome's `piggy-bank`). */
