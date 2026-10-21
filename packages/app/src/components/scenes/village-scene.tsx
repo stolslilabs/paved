@@ -6,6 +6,7 @@ import { TileChip, type TileArt } from "../elements/tile-chip";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { pickCellAt } from "../containers/cell-picker";
 import { ParcelSheet, type ParcelOffer } from "../containers/parcel-sheet";
 import { RewardSheet, type RewardOffer } from "../containers/reward-sheet";
 import { TiersSheet } from "../containers/tiers-sheet";
@@ -63,10 +64,14 @@ export interface VillageSceneProps {
   onOpenSkins?: () => void;
 }
 
-/** What is under the pointer while a reward's tile is dragged: a board cell (`data-cell`), or nothing. */
+/**
+ * What is under the pointer while a reward's tile is dragged: a board cell (the plan's `data-cell`, or the 3D board's picker,
+ * `pickCellAt`), or nothing.
+ */
 function cellUnder(x: number, y: number): (Cell & { kind: string }) | null {
-  const el = document.elementFromPoint?.(x, y)?.closest<HTMLElement>("[data-cell]");
-  if (!el) return null;
+  const under = document.elementFromPoint?.(x, y);
+  const el = under?.closest<HTMLElement>("[data-cell]");
+  if (!el) return pickCellAt(under, x, y);
   const [cx, cy] = (el.dataset.cell ?? "").split(",").map(Number);
   return { x: cx!, y: cy!, kind: el.dataset.kind ?? "" };
 }

@@ -1,11 +1,12 @@
-import { render } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { LazyMotion, domMax } from "motion/react";
 import { describe, expect, it, vi } from "vitest";
 import type { GameCanvasProps } from "@paved/renderer/react";
 import { PvpAttackBoard } from "../src/components/containers/pvp-attack-board";
 import { VillageViewport } from "../src/components/containers/village-viewport";
 import { buyableCells, legalCells, type Village } from "../src/components/containers/village-rules";
 import { VillageScene } from "../src/components/scenes/village-scene";
-import { VILLAGE_START } from "../src/mocks/village";
+import { REWARD, VILLAGE, VILLAGE_GROWING, VILLAGE_START } from "../src/mocks/village";
 
 // The fog of war in the village and the PvP attack (#648): their 3D boards hand the renderer the owned cells and their neighbours.
 
@@ -54,6 +55,35 @@ describe("the village in 3D (#648)", () => {
     canvas.props = null;
     render(<VillageScene village={village} renderBoard={(board) => <VillageViewport {...board} />} />);
     expect(canvas.props?.fogReveal?.cells.length).toBeGreaterThan(village.cells.length);
+  });
+});
+
+describe("a reward's tile dragged onto the 3D village (#648)", () => {
+  it("shows over a lit cell and is placed there on release, through the board's picker", () => {
+    const onPlace = vi.fn();
+    render(
+      <LazyMotion features={domMax}>
+        <VillageScene {...VILLAGE.reward} onPlace={onPlace} renderBoard={(board) => <VillageViewport {...board} />} />
+      </LazyMotion>,
+    );
+    const legal = legalCells(VILLAGE_GROWING, REWARD.plans[0]!)[0]!;
+    // The renderer's cell under the pointer: the lit one (in its grid, y south).
+    act(() => canvas.props?.onReady?.({ gridAt: () => ({ x: legal.x, y: -legal.y }) } as never));
+    const tile = within(screen.getByRole("list", { name: "Reward tiles" })).getAllByRole("button")[0]!;
+    fireEvent.pointerDown(tile, { button: 0, clientX: 10, clientY: 10 });
+    // jsdom lays nothing out: the element under the pointer is the 3D board.
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => document.querySelector("[data-cell-picker]");
+    try {
+      // The first move starts the drag (the cells light up), the next one is over a lit cell.
+      fireEvent.pointerMove(window, { clientX: 90, clientY: 90 });
+      fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
+      expect(canvas.props?.hover).toMatchObject({ x: legal.x, y: -legal.y, planIndex: REWARD.plans[0] });
+      fireEvent.pointerUp(window, { clientX: 100, clientY: 100 });
+    } finally {
+      document.elementFromPoint = original;
+    }
+    expect(onPlace).toHaveBeenCalledWith(expect.objectContaining({ plan: REWARD.plans[0], x: legal.x, y: legal.y }));
   });
 });
 

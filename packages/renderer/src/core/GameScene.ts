@@ -769,6 +769,17 @@ export class GameScene {
     return this.dayNightOn ? this.dayNightPoint : null;
   }
 
+  /**
+   * The grid cell under a point of the surface (its own pixels, from its top left), as a tap there would name it; null off the
+   * ground or before `init`. A drag that ends over the board (a village's reward tile) finds its cell with it.
+   */
+  gridAt(point: { x: number; y: number }): { x: number; y: number } | null {
+    const size = this.surface?.getSize();
+    if (!size || size.width <= 0 || size.height <= 0 || !this.camera) return null;
+    this.camera.updateMatrixWorld();
+    return screenToGrid({ x: (point.x / size.width) * 2 - 1, y: -(point.y / size.height) * 2 + 1 }, this.camera, this.sceneGroup.matrixWorld, 3);
+  }
+
   private setupInteraction(surface: RenderSurfaceAdapter): void {
     const toNdc = (event: { x: number; y: number }): { x: number; y: number } | null => {
       const size = surface.getSize();

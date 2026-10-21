@@ -440,6 +440,15 @@ describe("GameScene: the fog of war (#648)", () => {
     scene.dispose();
   });
 
+  it("names the grid cell under a point of the surface (a drag's drop on the board), none before init", async () => {
+    expect(new GameScene().gridAt({ x: 10, y: 10 })).toBeNull();
+    const { scene } = await createScene(FOG);
+    // The camera at (0, 30, 30) looks at the board's origin: the screen's middle is over cell (0, 0).
+    (scene as any).camera.lookAt(0, 0, 0);
+    expect(scene.gridAt({ x: 375 / 2, y: 812 / 2 })).toEqual({ x: 0, y: 0 });
+    scene.dispose();
+  });
+
   it("ends a lift at once when the device turns reduced motion on mid-lift", async () => {
     const device = { reduce: false, listeners: [] as Array<() => void> };
     vi.stubGlobal("matchMedia", (q: string) => ({
