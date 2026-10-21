@@ -715,6 +715,27 @@ Measured on the Mac on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 
 `Setup` 19,604 Sierra, 43,431 CASM felts, 53.0 % (main 41,179: +2,252), 30,297 under the P-44 cap. `Story` (58,650) and `Challenge` (64,826) are unchanged to the felt:
 they call `Setup` as before, and the XP is credited inside `Setup`'s `report` and `credit_story`.
 
+## After CHALLENGE-VRF (#645, the Challenge on the VRF)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, release, the Mac, 2026-10-21). The base is an export of main at
+`17b07a14` (`git archive`), measured the same way; its `Challenge` and `Story` are those of `704ff688`.
+
+| Class | Sierra base | CASM base | Sierra #645 | CASM #645 | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Challenge` | 29,831 | 64,826 | 31,512 | 69,494 | +4,668 | 84.8 % |
+| `Story` | 25,656 | 58,650 | 25,698 | 58,837 | +187 | 71.8 % |
+
+**`Challenge` is 3,453 CASM felts under the P-44 cap (72,947; 4.7 % of the cap)**, against 8,121 on the base.
+
+- What it adds:
+  - `DrawableComponent` (about 800 felts, `vrf-draws.md`, section 6);
+  - the queue (`GameImpl::advance`, the legacy fill's two extra picks, `move_draw`), the `Queued` events and the second
+    read of the game before a move;
+  - the views `draw` and `spawn_salt` and the owner's `set_vrf_provider`.
+- `Story` grows by the `Queued` variant of `paved::events::Event`, which it declares and never emits.
+- No split now (P-44). The next feature that adds that much to `Challenge` takes the split first: the cold paths
+  (`set_setup`, the guardian, `set_vrf_provider`) or the views are the first candidates.
+
 ## After AVATAR-CHAIN (#627)
 
 Measured on the VPS on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 2.20.1 through the machine's shim, under
@@ -726,6 +747,6 @@ Measured on the VPS on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 
 
 `Avatar` is a class of its own (`docs/architecture/avatar-chain.md`, section 2): the format and the item are pure libraries,
 the catalogue a component it embeds. `Setup` is unchanged (43,431, 53.0 %): `Avatar` pays through #639's
-`ISetupSpend::spend_cobbles`, so no entry point is added to `Setup`. `Challenge` (64,826) and `Story` (58,650) are unchanged
-to the felt. The hand-over's single-class version (a layout of widths, its own `spend_cobbles` on `Setup`) measured 11,318
+`ISetupSpend::spend_cobbles`, so no entry point is added to `Setup`. `Challenge` and `Story` are unchanged by this
+change. The hand-over's single-class version (a layout of widths, its own `spend_cobbles` on `Setup`) measured 11,318
 for `Avatar` and put `Setup` at 50.2 %.

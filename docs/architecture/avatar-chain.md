@@ -102,7 +102,7 @@ whole from `Setup`'s events alone, as it does for the matchmaker and the village
 - **Tests** (snforge): `paved::tests::avatar::` (the format's vectors, shared with `packages/chain/test/avatar.test.ts`, the
   parts, the bounds, a purchase once and never twice, Cobbles never below zero, `set_avatar` never accepting a part neither
   free nor owned, the version and the bytes past the parts, `supply` and `until`, only an allowlisted spender spends, a fuzz
-  of buys and sets); the gas in `contracts/tests/gas.cairo`, z24 to z28.
+  of buys and sets); the gas in `contracts/tests/gas.cairo`, z27 to z31.
 
 ## 7. Size and gas
 

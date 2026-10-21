@@ -36,8 +36,11 @@ use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
 use paved::systems::avatar::{IAvatarDispatcher, IAvatarDispatcherTrait};
-use paved::systems::challenge::Challenge;
 use paved::systems::challenge::Challenge::InternalTrait;
+use paved::systems::challenge::{
+    Challenge, IChallengeDispatcherTrait as ChallengeDispatcherTrait, IChallengeDrawDispatcher,
+    IChallengeDrawDispatcherTrait,
+};
 use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::matchmaker::{
     IMatchmakerAdminDispatcher, IMatchmakerAdminDispatcherTrait, IMatchmakerDispatcher,
@@ -67,21 +70,26 @@ use starknet::ContractAddress;
 use crate::setup::setup;
 use crate::setup::setup::{
     ANYONE, IChallengeDispatcherTrait, OWNER, PAVED, PLAYER, Systems, TestStore, TestStoreTrait,
+    next_tx,
 };
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 4805849;
-pub const CEILING_SIMPLE: u128 = 5172772;
+// CHALLENGE-VRF (#645): every move that leaves a tile to queue draws it from the VRF (about 1.0M on
+// the devnet mock, z24 against a0), and every spawn draws once; a0 to f, l, m, n, s and z5 are
+// reset to measured + 5 % (l and s: a move that ends the game reads it once more), as
+// `docs/measures/baseline.md`, "After CHALLENGE-VRF", says.
+pub const CEILING_OPEN: u128 = 6092759;
+pub const CEILING_SIMPLE: u128 = 6591695;
 // G5 cut the draw that follows each build (a table of bits, popcount by one product) and reset
 // a0 to e, m and n to measured + 5 % (`docs/measures/baseline.md`, "After G5"). c and e had been
 // raised by G1 (the draw read another deck on the same seed). f's measured + 5 % (19,032,185)
 // would be above its ceiling, which is kept.
 // G7a (P-59) reset a0, d, e, f, l, m and n to measured + 5 % (`docs/measures/baseline.md`, "After
 // G7a"); a's and c's measured + 5 % would be above their ceilings, which are kept.
-pub const CEILING_CLOSE_LARGE: u128 = 5602221;
-pub const CEILING_WORST_CASE: u128 = 5448875;
-pub const CEILING_FOREST: u128 = 8744784;
-pub const CEILING_FOREST_WORST: u128 = 18714365;
+pub const CEILING_CLOSE_LARGE: u128 = 6535866;
+pub const CEILING_WORST_CASE: u128 = 7282198;
+pub const CEILING_FOREST: u128 = 10036628;
+pub const CEILING_FOREST_WORST: u128 = 20549788;
 // g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
 // external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the economy read (from
@@ -95,13 +103,13 @@ pub const CEILING_CLOSING_IN_DAY: u128 = 4011404;
 // (2,531,088).
 pub const CEILING_CLOSING_AFTER: u128 = 3530987;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4547964;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7588501;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 8089321;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
-pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 4243648;
+pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 4744364;
 // m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
 // `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
-pub const CEILING_SPAWN_DAILY: u128 = 16869631;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 17765302;
+pub const CEILING_SPAWN_DAILY: u128 = 18515090;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19454704;
 // t to w: the Vault, vPAVED (P-56), each call by a holder who delegated to themselves (the votes'
 // checkpoints included), after a paid spawn (its margin in the Vault, so the rate is above 1).
 pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
@@ -118,7 +126,7 @@ pub const CEILING_CLAIM_QUEST: u128 = 949842;
 pub const CEILING_CLAIM_ACHIEVEMENT: u128 = 578407;
 pub const CEILING_CLAIM_DAILY_CREDIT: u128 = 2438641;
 pub const CEILING_CLAIM_WEEKLY_CREDIT: u128 = 1545317;
-pub const CEILING_SPAWN_FREE: u128 = 7305484;
+pub const CEILING_SPAWN_FREE: u128 = 8937440;
 pub const CEILING_FREE_GAME_OVER: u128 = 1983591;
 // Cobbles v1, part 2 (P-61): z7 and z8, `buy_pack` with no referrer and with one; z9, `set_pack`
 // (measured + 5 %, `docs/measures/baseline.md`, "After cobbles v1, part 2").
@@ -157,7 +165,12 @@ pub const CEILING_MM_RELEASE: u128 = 1854105;
 // `player_level` view, measured + 5 % (`docs/measures/baseline.md`, "After XP-LEVEL").
 pub const CEILING_CREDIT_XP: u128 = 578433;
 pub const CEILING_PLAYER_LEVEL: u128 = 286837;
-// z24 to z28: the avatar on chain (#627, `docs/architecture/avatar-chain.md`), ten parts in use:
+// CHALLENGE-VRF (#645): z24, a move with nothing left to queue; z25, the move that fills the queue
+// of a game spawned before #645; z26, `set_vrf_provider` (measured + 5 %).
+pub const CEILING_MOVE_WITHOUT_DRAW: u128 = 4928868;
+pub const CEILING_MOVE_FILLS_THE_QUEUE: u128 = 6584266;
+pub const CEILING_SET_VRF_PROVIDER: u128 = 285758;
+// z27 to z31: the avatar on chain (#627, `docs/architecture/avatar-chain.md`), ten parts in use:
 // `set_item`, `buy_avatar_item` (`Setup.spend_cobbles` included), `set_avatar` with ten free and
 // ten owned parts, and the `items` view of a part of 17 items. Measured in CI (the `Test game` job
 // of PR #675, run 39650025352, snforge 0.64.0, test profile) + 5 %, rounded up.
@@ -184,14 +197,13 @@ struct Scenario {
 
 #[generate_trait]
 impl ScenarioImpl of ScenarioTrait {
-    /// A Challenge game of `PLAYER` on the seed the ceilings were measured with: the day seed of
-    /// the spawn's time, Poseidon(0, day id), which D-23 replaced by the token's (`DaySeed`). The
-    /// plans are forced, but the draw that follows each build reads the seed, and its cost moves
-    /// with it (scenario a: 6,551,754 on Poseidon(0, game id), the token seed before the contract
-    /// address joined it, 5,129,292 on the day seed).
+    /// A Challenge game of `PLAYER`, spawned on the VRF mock (#645): the plans are forced, and
+    /// each build that leaves a tile to queue draws it from the mock (`MockVrfProvider`), which the
+    /// figures below include. Before #645 the game spawned on the day seed (`DaySeed`, removed),
+    /// whose draws read the seed.
     fn new() -> Scenario {
         let (store, systems, context) = setup::spawn_game(Mode::None);
-        let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, PLAYER());
+        let game_id = systems.challenge.spawn(1, Zero::zero(), 0);
         Scenario { systems, store, game_id, player_id: context.player_id }
     }
 
@@ -204,8 +216,10 @@ impl ScenarioImpl of ScenarioTrait {
         tile.plan = plan.into();
         self.store.set_tile(tile);
 
+        // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+        next_tx();
         let before = get_available_gas();
-        self.systems.challenge.build(*self.game_id, orientation, x, y);
+        self.systems.challenge.dispatcher().build(*self.game_id, orientation, x, y);
         let after = get_available_gas();
         before - after
     }
@@ -216,47 +230,6 @@ impl ScenarioImpl of ScenarioTrait {
     }
 }
 
-/// The seed of a Challenge game before D-23: Poseidon of the salt and the day id.
-#[derive(Copy, Drop)]
-struct DaySeed {}
-
-impl DaySeedImpl of SeedSource<DaySeed> {
-    fn seed(self: @DaySeed, mode: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
-        // As the removed `Mode::seed`, and `src/tests/seed.cairo`'s copy: 0 for any other mode
-        match mode {
-            Mode::Challenge => PoseidonTrait::new()
-                .update(salt)
-                .update((time / constants::CHALLENGE_DURATION).into())
-                .finalize(),
-            _ => 0,
-        }
-    }
-}
-
-/// Spawns a paid Challenge game (stake 1, no referrer) for `player` through `Challenge`'s own path
-/// (`spawn_from`) with `DaySeed`, as `src/tests/golden/harness.cairo` does: the path runs in
-/// Challenge's state, so its caller is cheated on the test's address, and USDC, `Economy` and
-/// `Collection` are told, for one call each, that Challenge calls them.
-fn spawn_on_the_day_seed(
-    systems: @Systems, token: ContractAddress, player: ContractAddress,
-) -> u32 {
-    let challenge = *systems.challenge.contract_address;
-    start_cheat_caller_address(test_address(), player);
-    for callee in array![
-        token, *systems.economy.contract_address, *systems.collection.contract_address,
-    ] {
-        cheat_caller_address(callee, challenge, CheatSpan::TargetCalls(1));
-    }
-    let game_id = interact_with_state(
-        challenge,
-        || {
-            let mut state = Challenge::contract_state_for_testing();
-            state.spawn_from(@DaySeed {}, 1, Zero::zero(), 0)
-        },
-    );
-    stop_cheat_caller_address(test_address());
-    game_id
-}
 
 fn report(name: ByteArray, gas: u128, ceiling: u128) {
     println!("GAS {}: {}", name, gas);
@@ -413,8 +386,10 @@ fn scored_game() -> Scenario {
 }
 
 fn surrender(s: @Scenario) -> u128 {
+    // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+    next_tx();
     let before = get_available_gas();
-    s.systems.challenge.surrender(*s.game_id);
+    s.systems.challenge.dispatcher().surrender(*s.game_id);
     let after = get_available_gas();
     before - after
 }
@@ -476,8 +451,10 @@ fn test_gas_s_game_over_on_discard() {
     let mut game = s.store.game(s.game_id);
     game.tile_limit = game.tile_count.try_into().unwrap();
     s.store.set_game(game);
+    // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+    next_tx();
     let before = get_available_gas();
-    s.systems.challenge.discard(s.game_id);
+    s.systems.challenge.dispatcher().discard(s.game_id);
     let after = get_available_gas();
     assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
     report("s_game_over_on_discard", before - after, CEILING_GAME_OVER_ON_DISCARD);
@@ -504,8 +481,10 @@ fn test_gas_k_closing_move_full_report() {
 #[test]
 fn test_gas_m_spawn_daily() {
     let (_, systems, _) = setup::spawn_game(Mode::Challenge);
+    // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+    next_tx();
     let before = get_available_gas();
-    systems.challenge.spawn(1, core::num::traits::Zero::zero(), 0);
+    systems.challenge.dispatcher().spawn(1, core::num::traits::Zero::zero(), 0);
     let after = get_available_gas();
     report("m_spawn_daily", before - after, CEILING_SPAWN_DAILY);
 }
@@ -515,8 +494,10 @@ fn test_gas_m_spawn_daily() {
 #[test]
 fn test_gas_n_spawn_daily_referred() {
     let (_, systems, _) = setup::spawn_game(Mode::Challenge);
+    // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+    next_tx();
     let before = get_available_gas();
-    systems.challenge.spawn(10, ANYONE(), 0);
+    systems.challenge.dispatcher().spawn(10, ANYONE(), 0);
     let after = get_available_gas();
     report("n_spawn_daily_referred", before - after, CEILING_SPAWN_DAILY_REFERRED);
 }
@@ -717,8 +698,10 @@ fn test_gas_z5_spawn_free() {
     let (systems, _, cobbles) = cobbles_scenario();
     cobbles.claim_daily_credit(COBBLES_DAY);
     stop_cheat_caller_address(systems.setup.contract_address);
+    // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+    next_tx();
     let before = get_available_gas();
-    systems.challenge.spawn_free();
+    systems.challenge.dispatcher().spawn_free();
     let after = get_available_gas();
     report("z5_spawn_free", before - after, CEILING_SPAWN_FREE);
 }
@@ -731,8 +714,10 @@ fn test_gas_z6_free_game_over() {
     cobbles.claim_daily_credit(COBBLES_DAY);
     stop_cheat_caller_address(systems.setup.contract_address);
     let game_id = systems.challenge.spawn_free();
+    // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+    next_tx();
     let before = get_available_gas();
-    systems.challenge.surrender(game_id);
+    systems.challenge.dispatcher().surrender(game_id);
     let after = get_available_gas();
     report("z6_free_game_over", before - after, CEILING_FREE_GAME_OVER);
 }
@@ -1089,6 +1074,46 @@ fn test_gas_z23_player_level() {
     report("z23_player_level", before - after, CEILING_PLAYER_LEVEL);
 }
 
+/// z24. a0's move with nothing left to queue (#645): the tile limit is cut so that the tile
+/// `held + 3` is beyond it; the next tile comes into the hand and nothing is drawn. Against a0, the
+/// cost of a move's VRF draw.
+#[test]
+fn test_gas_z24_move_without_draw() {
+    let s = ScenarioTrait::new();
+    let mut game = s.store.game(s.game_id);
+    game.tile_limit = (game.tile_count + 2).try_into().unwrap();
+    s.store.set_game(game);
+    let gas = s.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
+    assert(s.store.game(s.game_id).after_plan() == 0, 'Gas: drew');
+    report("z24_move_without_draw", gas, CEILING_MOVE_WITHOUT_DRAW);
+}
+
+/// z25. a0's move on a game spawned before #645 (no queue, no VRF mark): one draw fills the hand
+/// and both queue slots (three tiles from one random).
+#[test]
+fn test_gas_z25_move_fills_the_queue() {
+    let s = ScenarioTrait::new();
+    let mut game = s.store.game(s.game_id);
+    game.queue = 0;
+    s.store.set_game(game);
+    let gas = s.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
+    assert(s.store.game(s.game_id).is_vrf(), 'Gas: no queue');
+    report("z25_move_fills_the_queue", gas, CEILING_MOVE_FILLS_THE_QUEUE);
+}
+
+/// z26. `Challenge.set_vrf_provider`, by the owner.
+#[test]
+fn test_gas_z26_set_vrf_provider() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let challenge = systems.challenge.contract_address;
+    let draw = IChallengeDrawDispatcher { contract_address: challenge };
+    start_cheat_caller_address(challenge, OWNER());
+    let before = get_available_gas();
+    draw.set_vrf_provider('PROVIDER'.try_into().unwrap());
+    let after = get_available_gas();
+    report("z26_set_vrf_provider", before - after, CEILING_SET_VRF_PROVIDER);
+}
+
 /// `Setup` and `Avatar` (an allowlisted spender), ten parts in use, bounds 20 to 100, in every part
 /// items 0 to 3 free (the owner's base set) and item 4 at 50; `PLAYER` holds 500 cobbles, and owns
 /// item 4 of every part when `owned`.
@@ -1134,53 +1159,53 @@ fn ten_parts(id: u8) -> u128 {
     look_of(array![id, id, id, id, id, id, id, id, id, id].span())
 }
 
-/// z24. `set_item` by the owner: a seasonal paid item (a supply and an end), the item's slot and
+/// z27. `set_item` by the owner: a seasonal paid item (a supply and an end), the item's slot and
 /// the part's end read and written, one event.
 #[test]
-fn test_gas_z24_avatar_set_item() {
+fn test_gas_z27_avatar_set_item() {
     let avatar = avatar_scenario(false);
     start_cheat_caller_address(avatar.contract_address, OWNER());
     let before = get_available_gas();
     avatar.set_item(9, 16, 80, 0, 5000);
     let after = get_available_gas();
-    report("z24_avatar_set_item", before - after, CEILING_AVATAR_SET_ITEM);
+    report("z27_avatar_set_item", before - after, CEILING_AVATAR_SET_ITEM);
 }
 
-/// z25. `buy_avatar_item`: the item and the ownership read and written, `Setup.spend_cobbles` (the
+/// z28. `buy_avatar_item`: the item and the ownership read and written, `Setup.spend_cobbles` (the
 /// account read and written, `CobblesSpent`), `AvatarItemBought`.
 #[test]
-fn test_gas_z25_avatar_buy() {
+fn test_gas_z28_avatar_buy() {
     let avatar = avatar_scenario(false);
     let before = get_available_gas();
     avatar.buy_avatar_item(3, 4, 50);
     let after = get_available_gas();
-    report("z25_avatar_buy", before - after, CEILING_AVATAR_BUY);
+    report("z28_avatar_buy", before - after, CEILING_AVATAR_BUY);
 }
 
-/// z26. `set_avatar` with ten free parts: the parts in use, ten item reads, one write, one event.
+/// z29. `set_avatar` with ten free parts: the parts in use, ten item reads, one write, one event.
 #[test]
-fn test_gas_z26_avatar_set_free() {
+fn test_gas_z29_avatar_set_free() {
     let avatar = avatar_scenario(false);
     let before = get_available_gas();
     avatar.set_avatar(ten_parts(3));
     let after = get_available_gas();
-    report("z26_avatar_set_free", before - after, CEILING_AVATAR_SET_FREE);
+    report("z29_avatar_set_free", before - after, CEILING_AVATAR_SET_FREE);
 }
 
-/// z27. `set_avatar` with ten owned parts, its worst case: ten item reads and ten ownership reads.
+/// z30. `set_avatar` with ten owned parts, its worst case: ten item reads and ten ownership reads.
 #[test]
-fn test_gas_z27_avatar_set_owned() {
+fn test_gas_z30_avatar_set_owned() {
     let avatar = avatar_scenario(true);
     let before = get_available_gas();
     avatar.set_avatar(ten_parts(4));
     let after = get_available_gas();
-    report("z27_avatar_set_owned", before - after, CEILING_AVATAR_SET_OWNED);
+    report("z30_avatar_set_owned", before - after, CEILING_AVATAR_SET_OWNED);
 }
 
-/// z28. The `items` view of a part of 17 items (the backgrounds of AVATAR-LOOK), the creator's
+/// z31. The `items` view of a part of 17 items (the backgrounds of AVATAR-LOOK), the creator's
 /// read.
 #[test]
-fn test_gas_z28_avatar_items() {
+fn test_gas_z31_avatar_items() {
     let avatar = avatar_scenario(false);
     start_cheat_caller_address(avatar.contract_address, OWNER());
     avatar.set_item(9, 16, 0, 0, 0);
@@ -1188,5 +1213,5 @@ fn test_gas_z28_avatar_items() {
     let items = avatar.items(9);
     let after = get_available_gas();
     assert(items.len() == 17, 'Gas: 17 items');
-    report("z28_avatar_items", before - after, CEILING_AVATAR_ITEMS);
+    report("z31_avatar_items", before - after, CEILING_AVATAR_ITEMS);
 }

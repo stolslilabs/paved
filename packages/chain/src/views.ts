@@ -85,13 +85,10 @@ export interface BuilderView {
 }
 
 /**
- * `Challenge.draw(game_id)` (#645, `IChallengeDraw`): the game's queue on the VRF and what its next move draws. The tile in
- * hand is `GameView`'s (`tileId`, `plan`); `next` and `after` are the plans of tiles `tileId + 1` and `tileId + 2`, 0 for
- * none (the deck's end). `tiles` is the deck bitmap (a set bit is out, the queue included). `vrf`: the game draws from the
- * VRF. `draws`: its next `build` or `discard` draws, with `salt` (0 if none), which the write requests first.
- *
- * The shape is that of the draft PR of #645 (`docs/architecture/challenge-vrf.md` there); it is not in
- * `contracts/abis/` yet, so `VIEW_FIELDS` does not pin it, and `RpcGameViews.draw` answers `not-available` until it is.
+ * `Challenge.draw(game_id)` (#645, D-30, `docs/architecture/challenge-vrf.md`): the two tiles after the hand (`next`,
+ * `after`: plan codes, 0 for none), the deck bitmap (`tiles`: a set bit is out of the deck), whether the game draws from
+ * the VRF, and whether the next build or discard of its player draws (`draws`) with which salt (0x0 if not): that write
+ * then requests the draw first (`withVrfRequest`).
  */
 export interface DrawView {
   gameId: number;
@@ -102,6 +99,20 @@ export interface DrawView {
   draws: boolean;
   salt: string;
 }
+
+/**
+ * The VRF reads of `Challenge` (#645). `RpcGameViews` reads them and `FakeGameViews` answers them in memory; `GameViews`
+ * does not require them, as the packs' view: a deployment from before #645 has neither.
+ */
+export interface DrawViews {
+  draw(key: GameKey): Promise<DrawView>;
+  /** `Challenge.spawn_salt(player)`: the salt the player's next spawn (paid or free) draws with. */
+  spawnSalt(playerId: string): Promise<string>;
+}
+
+/** Whether `views` reads the VRF draws (#645). */
+export const hasDrawViews = <T extends object>(views: T): views is T & DrawViews =>
+  typeof (views as Partial<DrawViews>).draw === "function" && typeof (views as Partial<DrawViews>).spawnSalt === "function";
 
 /** What a Challenge `spawn` pulls from the player: the ERC20 and the amount (`Challenge.entry_price`). */
 export interface PriceView {
@@ -117,6 +128,7 @@ export const VIEW_FIELDS = {
   ] satisfies (keyof GameView)[],
   "paved::views::TileView": ["id", "status", "plan", "orientation", "x", "y"] satisfies (keyof TileView)[],
   "paved::views::BuilderView": ["gameId", "playerId", "tileId", "plan"] satisfies (keyof BuilderView)[],
+  "paved::views::DrawView": ["gameId", "next", "after", "tiles", "vrf", "draws", "salt"] satisfies (keyof DrawView)[],
   "paved::views::PriceView": ["token", "amount"] satisfies (keyof PriceView)[],
 };
 
@@ -225,7 +237,7 @@ export interface CallProvider {
 export const MAX_PAGE = 64;
 
 /** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`), and `Avatar`'s (`avatar.ts`). */
-export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
+export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -266,6 +278,10 @@ export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinView
       draws: Boolean(view.draws),
       salt: String(view.salt),
     };
+  }
+
+  async spawnSalt(playerId: string): Promise<string> {
+    return (await this.call("Challenge", "spawn_salt", [playerId])) as string;
   }
 
   async currentDay(): Promise<number> {
@@ -377,6 +393,17 @@ export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinView
   }
 }
 
+/** The decoded `DrawView`, its numbers as numbers and its bitmap as a bigint. */
+export const drawView = (s: Struct): DrawView => ({
+  gameId: Number(s.gameId ?? 0),
+  next: Number(s.next ?? 0),
+  after: Number(s.after ?? 0),
+  tiles: BigInt((s.tiles as number | bigint | string | undefined) ?? 0),
+  vrf: s.vrf === true,
+  draws: s.draws === true,
+  salt: String(s.salt ?? "0x0"),
+});
+
 /** One game held by `FakeGameViews`. */
 export interface FakeGame {
   game: GameView;
@@ -396,7 +423,7 @@ function gameKeyId(key: GameKey): string {
 }
 
 /** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins and the avatar too. */
-export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
+export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -500,6 +527,14 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinVie
     const draw = this.get(key).draw;
     if (!draw) throw new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
     return { ...draw };
+  }
+
+  /** `spawn_salt` by player (`BigInt` of the id as a string); a player not listed reads 0x0. */
+  readonly spawnSalts = new Map<string, string>();
+
+  async spawnSalt(playerId: string): Promise<string> {
+    this.calls.push("spawn_salt");
+    return this.spawnSalts.get(BigInt(playerId).toString()) ?? "0x0";
   }
 
   async currentDay(): Promise<number> {

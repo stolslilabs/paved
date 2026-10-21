@@ -17,12 +17,12 @@ use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDisp
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
-use paved::systems::challenge::{Challenge, IChallengeDispatcher};
+use paved::systems::challenge::Challenge;
 use paved::tests::legacy_d18::{IDailyBeforeD19Dispatcher, IDailyBeforeD19DispatcherTrait};
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
+    IChallengeDispatcherTrait, OWNER, PLAYER, TestChallenge, TestStore, TestStoreTrait,
 };
 use paved::types::category::Category;
 use paved::types::mode::Mode;
@@ -73,7 +73,7 @@ fn old(store: TestStore, game_id: u32, plan: Plan, orientation: Orientation, x: 
 /// A build of the D-19 class, checked against the oracle (owners included).
 fn new(
     store: TestStore,
-    challenge: IChallengeDispatcher,
+    challenge: TestChallenge,
     game_id: u32,
     plan: Plan,
     orientation: Orientation,
@@ -90,7 +90,7 @@ fn new(
 
 /// The moves of the game, `before` those played before the upgrade or the others. Each build
 /// goes to the D-18 class (`old`) or to the D-19 class (`new`, when `challenge` is given).
-fn play(store: TestStore, g: u32, challenge: Option<IChallengeDispatcher>, before: bool) {
+fn play(store: TestStore, g: u32, challenge: Option<TestChallenge>, before: bool) {
     let moves: Array<(Plan, Orientation, u32, u32)> = if before {
         array![
             // Closes the starter's city: 2 x 200 x 10475 / 10000 = 419
@@ -127,7 +127,7 @@ fn play(store: TestStore, g: u32, challenge: Option<IChallengeDispatcher>, befor
 }
 
 /// A Daily game, its D-18 class installed and enough tiles not to end.
-fn start() -> (TestStore, IChallengeDispatcher, u32, ClassHash) {
+fn start() -> (TestStore, TestChallenge, u32, ClassHash) {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let g = context.game_id;
     let mut game = store.game(g);

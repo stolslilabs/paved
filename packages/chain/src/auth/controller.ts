@@ -39,6 +39,9 @@ export const CONTROLLER_ENTRY_POINTS = {
   Avatar: ["buy_avatar_item", "set_avatar"],
 } as const;
 
+/** The VRF provider's entry point in the session (#645): `request_random`, which does nothing on chain. */
+export const VRF_REQUEST_METHOD = "request_random";
+
 /** The Economy's only entry point in the session (P7a): anyone may settle, and it pays the game's player. */
 export const ECONOMY_ENTRY_POINT = "settle";
 
@@ -65,6 +68,8 @@ export function controllerPolicies(
     .filter((contract) => isAddress(deployment.addresses[contract]))
     .flatMap((contract) => CONTROLLER_ENTRY_POINTS[contract].map((method) => ({ target: deployment.addresses[contract], method })));
   if (isAddress(deployment.faucet)) policies.push(faucetPolicy(deployment.faucet));
+  // The VRF provider's `request_random` (#638, #645): the first call of every drawing write; it moves no token (P-65)
+  if (isAddress(deployment.vrfProvider)) policies.push({ target: deployment.vrfProvider, method: VRF_REQUEST_METHOD });
   if (options.economy && isAddress(options.economy)) policies.push({ target: options.economy, method: ECONOMY_ENTRY_POINT });
   return policies;
 }

@@ -7,7 +7,7 @@
 //!
 //! The parts, bounds and prices here are the tests' own: the owner's values are not set yet. The
 //! cobbles are written into `Setup`'s ledger directly (`give`): the earning paths have their own
-//! tests (`e2e::cobbles*`). The gas of each call is measured in `tests/gas.cairo` (z24 to z28).
+//! tests (`e2e::cobbles*`). The gas of each call is measured in `tests/gas.cairo` (z27 to z31).
 
 use core::num::traits::Zero;
 use paved::avatar::catalogue::CatalogueComponent::{

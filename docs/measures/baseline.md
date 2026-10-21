@@ -1718,20 +1718,61 @@ z16 to z21 took those names, so the XP scenarios are z22 and z23): 1,047 passed,
 551,188, z23 273,278, g 3,952,394, every ceiling held. `Setup` on the merged tree: 19,604 Sierra, 43,431 CASM, 53.0 % (main
 with `ISetupSpend`: 41,179; +2,252).
 
+## After CHALLENGE-VRF (#645, the Challenge on the VRF)
+
+Every move that leaves a tile to queue draws it from the VRF, and every spawn draws once (D-30,
+`docs/architecture/challenge-vrf.md`). Measured on the Mac, 2026-10-21, scarb 2.20.1, snforge 0.64.0 (`/usr/bin/time -l`,
+peak 10.36 GB RSS for the gas run of the base, 11.76 GB for the whole suite of the branch). `contracts/tests/gas.cairo`
+gives one external call each, through the devnet mock. The base is an export of main at `17b07a14` (`git archive`), measured the
+same way. The tests' own `next_tx` (a transaction of its own per call) runs outside each measure.
+
+| Scenario | Base | #645 | Change | Ceiling #645 |
+|---|---:|---:|---:|---:|
+| a0_open_simple_move | 4,577,029 | 5,802,627 | +1,225,598 | 6,092,759 |
+| a_simple_move | 4,948,265 | 6,277,804 | +1,329,539 | 6,591,695 |
+| c_close_large_city | 5,353,974 | 6,224,634 | +870,660 | 6,535,866 |
+| d_worst_case | 5,189,434 | 6,935,426 | +1,745,992 | 7,282,198 |
+| e_close_forest | 8,328,395 | 9,558,693 | +1,230,298 | 10,036,628 |
+| f_worst_forest_scan | 17,823,234 | 19,571,226 | +1,747,992 | 20,549,788 |
+| g_closing_move_in_its_day | 3,952,394 | 3,976,620 | +24,226 | 4,011,404 (kept) |
+| l_game_over_on_build | 7,359,153 | 7,704,115 | +344,962 | 8,089,321 |
+| m_spawn_daily | 15,604,817 | 17,633,419 | +2,028,602 | 18,515,090 |
+| n_spawn_daily_referred | 16,499,687 | 18,528,289 | +2,028,602 | 19,454,704 |
+| s_game_over_on_discard | 4,173,579 | 4,518,441 | +344,862 | 4,744,364 |
+| z5_spawn_free | 6,483,235 | 8,511,847 | +2,028,612 | 8,937,440 |
+| z24_move_without_draw (new) | | 4,694,160 | | 4,928,868 |
+| z25_move_fills_the_queue (new) | | 6,270,729 | | 6,584,266 |
+| z26_set_vrf_provider (new) | | 272,150 | | 285,758 |
+
+The other surrenders and game overs (i, k, x, y, z6) move by +24,226 or less, under their ceilings, which are kept. The
+Vault, the packs, the skins, the claims and z15 do not move.
+
+- **A move's draw** is about 1.0M (a0 against z24, its twin with nothing to queue). That is the component's call (z15,
+  986,461) and the pick of the tile.
+- **A move with no draw** costs 0.12M (z24 against a0 before) to 0.34M (l, s) more. That is `Challenge` reading the game
+  to decide whether the move draws, before the provider's call.
+- **A spawn's draw** is about 2.0M, with its three picks. A pick's cost follows the deck bitmap it walks, so the moves'
+  rises differ (c +0.87M, d and f +1.75M).
+
+**Test budgets.** Every `#[available_gas]` that the change pushed over (103 tests: e2e, golden, differential, seed and the
+others) is reset to the measured figure + 5 %, from a whole run of the branch with those budgets lifted (1,064 passed, 2
+failed: the d and l ceilings, reset since with the others above). Part of the rise is the tests' own: each Challenge call runs in a
+transaction of its own (`setup::next_tx`, two cheatcodes per call).
+
 ## After AVATAR-CHAIN (#627)
 
-Measured in CI (the `Test game` job of PR #675, run 39655062606; the ceilings from run 39650025352, whose z26 and z27 were
+Measured in CI (the `Test game` job of PR #675, run 39655062606; the ceilings from run 39650025352, whose z29 and z30 were
 14,000 higher with the test's earlier `look_of`, computed inside the measured call's arguments; scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo`,
 the test profile): the contracts' test build is above the VPS's memory scope, so no figure here was measured locally. Ten
 parts in use, items 0 to 3 of every part free and item 4 at 50 Cobbles.
 
 | Scenario | L2 gas | Ceiling (measured + 5 %) |
 |---|---:|---:|
-| z24, `set_item` of a seasonal paid item (the item's slot and the part's end read and written, one event) | 704,759 | 739,997 |
-| z25, `buy_avatar_item` (the item and the ownership read and written, the confirmed-price check, `Setup.spend_cobbles`, two events; 1,181,563 before that check, run 39655062606, measured in run 39662976974) | 1,191,653 | 1,240,642 |
-| z26, `set_avatar` with ten free parts (ten item reads, one write, one event) | 1,357,620 | 1,440,201 |
-| z27, `set_avatar` with ten owned parts (ten item and ten ownership reads) | 2,466,150 | 2,604,158 |
-| z28, the `items` view of a part of 17 items | 2,393,093 | 2,512,748 |
+| z27, `set_item` of a seasonal paid item (the item's slot and the part's end read and written, one event) | 704,759 | 739,997 |
+| z28, `buy_avatar_item` (the item and the ownership read and written, the confirmed-price check, `Setup.spend_cobbles`, two events; 1,181,563 before that check, run 39655062606, measured in run 39662976974) | 1,191,653 | 1,240,642 |
+| z29, `set_avatar` with ten free parts (ten item reads, one write, one event) | 1,357,620 | 1,440,201 |
+| z30, `set_avatar` with ten owned parts (ten item and ten ownership reads) | 2,466,150 | 2,604,158 |
+| z31, the `items` view of a part of 17 items | 2,393,093 | 2,512,748 |
 
 The hand-over's single-class version measured 1,154,753 for a purchase and 2,677,046 and 3,640,176 for `set_avatar` with ten
 free and ten owned parts (VPS): reading the look as bytes of a `u128` instead of a layout of widths in a `u256` halves the

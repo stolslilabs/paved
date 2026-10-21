@@ -133,6 +133,7 @@ pub mod mocks {
 #[cfg(test)]
 pub mod tests {
     pub mod avatar;
+    pub mod challenge_vrf;
     pub mod collection;
     pub mod deck_walk;
     pub mod differential;
