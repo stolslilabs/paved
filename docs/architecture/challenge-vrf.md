@@ -165,20 +165,20 @@ The first review asked for the client in this PR, so a released client and a dep
       deployment it is configured for.
   - **Session policy.** `request_random` on the provider (`controllerPolicies`), so a move still signs in the session.
 - **`@paved/game-core`.**
-  - **The engine** has the queue (`EngineConfig.vrf`; `queue`, `drawsNext`, `supply(random)`, `supplyPlan(id, plan)`),
-    the mirror of `GameImpl::advance`.
-  - **Training** plays on the same queue. Its draws come from a local random, Poseidon(the game's random seed, tile id),
-    so a saved game replays (`SavedGame.v` 2). A game saved before (`v` 1) resumes on its old draws.
-  - **The predicted session.**
-    - It replays a VRF game from its tiles and its `draw()` (`replayVrfChallenge`).
-    - It shows the next tile at once after a move, and takes the tile two ahead from the receipt's `Queued`.
-    - At most two moves are unconfirmed, so the hand is always a known tile.
+  - **The engine** has two queues.
+    - `lookahead` (NEXT-TILES-UI, #672): Training's three known tiles, and the display.
+    - `vrf`: the mirror of `GameImpl::advance` (`queue`, `drawsNext`, `supply(random)`, `supplyPlan(id, plan)`), which
+      the parity replay and the VRF replays use.
+  - **Training** plays on the three-tile queue with its local random (#672; `SavedGame.v` 2, old saves resume on their
+    old draws).
+  - **The predicted session** (#672) plays a VRF game without prediction. It shows the queue read from `draw()`, and
+    the queue's last slot waits while a move is on its way (`PageState.coming`, `drawing`). `replayVrfChallenge` replays
+    a VRF game from its tiles and `draw()` (the devnet end-to-end scenario).
   - **The parity fixture** carries each golden's spawn random (its `seed`) and each move's random (`random`). They are
     computed by the transcriber from the Cairo test's own constants (`goldenDraws`), so the engine checks every golden
     draw again (84 asserted plans).
 - **`@paved/app`.**
-  - The hand panel (`TileStack.next`) shows the tile to place and, smaller beside it, the next two, a tile not drawn yet
-    pulsing. There are stories `NextTwo`, `NextNotDrawnYet` and `NextLast`.
+  - The hand panel shows the tile to place and the next two (#672, `TileStack`).
   - The game-over replay (`replayGame`) replays a VRF game from its tiles.
   - The deck sheet counts the rest as before (`remainingCount`: the queued tiles are in it).
 - **`@paved/indexer`:** `Queued` and `VrfProviderSet` are known by name and not indexed. The client reads the queue from

@@ -3,10 +3,19 @@ import { browserStore, type KeyValueStore } from "./storage";
 /** One move of a saved game: the placement of the tile in hand, or a discard, or the surrender. */
 export type SavedMove = { k: "b"; o: number; x: number; y: number } | { k: "d" } | { k: "s" };
 
+/**
+ * The rules a save was played under: 1, one tile known (each draw reseeded from the move's position, the Challenge's draw
+ * before #645); 2, the three-tile queue of #645 (`TRAINING_LOOKAHEAD`). A new game is saved as 2; a save of 1 resumes
+ * under its own rules, so a game in progress is not lost.
+ */
+export type SavedVersion = 1 | 2;
+
+/** The version a new Training game is saved as. */
+export const TRAINING_VERSION: SavedVersion = 2;
+
 /** The game in progress: the seed and the moves, replayed on load (the engine stays the only source of truth). */
 export interface SavedGame {
-  /** 1: a game before #645 (the seed reseeded by each placement); 2: the three-tile queue of #645. */
-  v: 1 | 2;
+  v: SavedVersion;
   /** The seed as a hex felt. */
   seed: string;
   moves: SavedMove[];

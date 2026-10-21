@@ -16,7 +16,7 @@ import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
 import { useBoardSettings } from "../../data/board-settings";
-import { useChallengeSession } from "../../data/challenge";
+import { challengeQueue, useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { useDataSources } from "../../data/sources";
 import { useErrorDetail } from "../error-detail";
@@ -124,14 +124,13 @@ function TrainingBoard() {
       hand={{
         tile: hand && { plan: hand.plan, orientation },
         state: handState,
+        coming: board.coming,
         slotChosen: placement.canConfirm && preview !== null,
         cellChosen: placement.chosen !== null,
         fitsNowhere: hand !== null && slots?.length === 0,
         preview,
         error: state.writeError,
         errorDetail: handErrorDetail,
-        // The two tiles after the hand (#645): known on the queue, null while the chain has not drawn one yet
-        next: state.queue?.map((t) => t.plan),
       }}
       lastScored={board.lastScored}
       tileArt={tileArt}
@@ -322,6 +321,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   );
   // The bubble stays while the move is on its way (no prediction, or the queue full): Validate shows its spinner.
   const handState = challengeHand(state, expired);
+  const queue = challengeQueue(state);
   const bubble =
     placement.chosen && playable && handState !== "expired" && handState !== "empty"
       ? {
@@ -349,16 +349,17 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       expiresAt={state.expiresAt || null}
       now={now}
       hand={{
-        tile: hand && { plan: hand.plan, orientation },
+        // The tile to place in its rotation; one waiting with the move is shown as drawn (#645).
+        tile: queue.tile && { plan: queue.tile.plan, orientation: hand ? orientation : 1 },
         state: handState,
+        coming: queue.coming,
+        drawing: queue.drawing,
         slotChosen: placement.canConfirm && preview !== null,
         cellChosen: placement.chosen !== null,
         fitsNowhere: hand !== null && slots?.length === 0,
         preview,
         error: state.writeError,
         errorDetail: handErrorDetail,
-        // The two tiles after the hand (#645): known on the queue, null while the chain has not drawn one yet
-        next: state.queue?.map((t) => t.plan),
       }}
       lastScored={state.lastScored}
       tileArt={tileArt}

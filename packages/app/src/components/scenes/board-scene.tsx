@@ -68,6 +68,10 @@ export interface BoardSceneProps {
   hand: {
     tile: { plan: number; orientation: number } | null;
     state: HandState;
+    /** The tiles known after the one to place, in draw order (#645, `PageState.coming`): beside the stack, read only. */
+    coming?: readonly { plan: number }[];
+    /** The chain draws the queue's last tile (`PageState.drawing`): its slot waits. */
+    drawing?: boolean;
     slotChosen?: boolean;
     /** A cell is chosen (the tile is on it, valid or not): the stack dims its top and leaves Discard to the bubble. */
     cellChosen?: boolean;
@@ -78,8 +82,6 @@ export interface BoardSceneProps {
     error?: string | null;
     /** The refusal's detail for support (`InlineError`). */
     errorDetail?: ErrorDetail;
-    /** The tiles after the hand, in order (#645: the queue of the Challenge on the VRF and of Training); null not drawn yet. */
-    next?: (number | null)[];
   };
   /** What the last move closed (`SessionState.lastScored`), shown as it arrives. */
   lastScored: ScoredStructure[];
@@ -268,9 +270,10 @@ export function BoardScene(props: BoardSceneProps) {
           )}
           <TileStack
             tile={hand.tile}
-            next={hand.next}
             state={hand.state}
             remaining={props.remaining}
+            coming={hand.coming}
+            drawing={hand.drawing}
             cellChosen={hand.cellChosen ?? hand.slotChosen}
             fitsNowhere={hand.fitsNowhere}
             error={hand.error}

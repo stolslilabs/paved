@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { OrientationType, TRAINING_KEY, loadGame, playTraining, replayTraining, type KeyValueStore, type SavedMove } from "@paved/game-core";
+import { OrientationType, TRAINING_KEY, loadGame, replayTraining, type KeyValueStore, type SavedMove } from "@paved/game-core";
 import { App } from "../src/App";
 import { TRAINING_BEST_KEY, trainingPreviousBest } from "../src/data/training-best";
 import { createTestRouter } from "../src/routes/router";
@@ -30,6 +30,8 @@ function open(path: string, store: KeyValueStore | null) {
 const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).getAttribute("aria-label")!.match(/\d+/)![0]);
 const tilesLeft = () => Number(screen.getByTestId("tiles-left").textContent);
 const hand = () => screen.getByRole("region", { name: "Your tile" });
+/** The tile to place, on top of the stack (the coming tiles beside it are tiles too, #645). */
+const handTop = () => hand().querySelector<HTMLElement>("[data-stack-top]")!;
 
 /** Chooses the first lit slot: the tile turns to a rotation that fits there. */
 async function chooseSlot() {
@@ -68,13 +70,23 @@ describe("/training (P3)", () => {
     expect(loadGame(() => store)!.moves).toHaveLength(2);
   });
 
+  it("the hand panel shows the tile to place and the two coming tiles of the engine's queue (#645)", async () => {
+    const store = memoryStore();
+    open("/training", store);
+    expect(await tilesOnBoard()).toBe(1);
+    const engine = replayTraining(BigInt(loadGame(() => store)!.seed), []);
+    const coming = within(hand()).getByRole("list", { name: "Coming tiles" });
+    const codes = within(coming).getAllByRole("img").map((i) => i.getAttribute("aria-label")!.split(" ")[1]!.replace(",", ""));
+    expect(codes).toEqual(engine.coming.map((t) => t.plan.toLowerCase()));
+  });
+
   it("each hand action reaches the session: rotate, choose a slot, place by the bubble's hold with its preview points on the score, discard", async () => {
     const store = memoryStore();
     open("/training", store);
     expect(await tilesOnBoard()).toBe(1);
     const left = tilesLeft();
 
-    const chip = within(hand()).getByRole("img", { name: /^Tile / });
+    const chip = within(handTop()).getByRole("img", { name: /^Tile / });
     expect(chip).toHaveAccessibleName(/north$/);
     expect(within(hand()).queryByRole("button", { name: /Rotate/ })).not.toBeInTheDocument();
 
@@ -205,7 +217,7 @@ describe("/training (P3)", () => {
     });
     expect(await tilesOnBoard()).toBe(2);
     expect(validateButton()).toBeNull();
-    expect(within(hand()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
+    expect(within(handTop()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
 
@@ -262,10 +274,9 @@ describe("/training/over (P3)", () => {
     const game = replayTraining(SEED, []);
     while (!game.over) {
       const p = game.legalPlacements()[0];
-      const move: SavedMove = p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" };
-      // As the session plays it: on the queue (#645), the tile two ahead drawn after each move
-      playTraining(game, move, SEED);
-      moves.push(move);
+      if (p) game.build(p);
+      else game.discard();
+      moves.push(p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" });
     }
     const store = memoryStore({ [TRAINING_KEY]: save(moves) });
     const { router } = open("/training/over", store);
@@ -284,10 +295,9 @@ describe("/training/over (P3)", () => {
     const game = replayTraining(SEED, []);
     while (!game.over) {
       const p = game.legalPlacements()[0];
-      const move: SavedMove = p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" };
-      // As the session plays it: on the queue (#645), the tile two ahead drawn after each move
-      playTraining(game, move, SEED);
-      moves.push(move);
+      if (p) game.build(p);
+      else game.discard();
+      moves.push(p ? { k: "b", o: ORIENTATIONS.indexOf(p.orientation), x: p.x, y: p.y } : { k: "d" });
     }
     expect(game.score).toBeGreaterThan(1);
     const store = memoryStore({ [TRAINING_KEY]: save(moves), [TRAINING_BEST_KEY]: JSON.stringify({ score: 1, seed: "0x1", previous: null }) });

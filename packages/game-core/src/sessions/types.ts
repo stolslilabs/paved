@@ -50,10 +50,16 @@ export interface PageState {
   discardedPlans?: number[];
   hand: { tileId: number; plan: number } | null;
   /**
-   * The tiles after the hand, in order (#645, D-30: the Challenge on the VRF and Training show the tile to place and the
-   * next two): `plan` null while the tile is not drawn yet. Absent when the session has no queue (Story).
+   * The tiles known after the one in hand, in draw order (#645): the next and the one after it, fewer at the deck's end.
+   * Read only: only the tile in hand is placed. Absent or empty when the session knows none (a game drawn one tile at a
+   * time, a Story level, whose deck sheet shows its order).
    */
-  queue?: { tileId: number; plan: number | null }[];
+  coming?: { tileId: number; plan: number }[];
+  /**
+   * The chain is drawing the queue's last tile (a VRF Challenge, a move sent and not yet confirmed): the hand panel shows
+   * its slot waiting. The tiles already known stay shown.
+   */
+  drawing?: boolean;
   lastScored: ScoredStructure[];
   readonly: boolean;
   pending: boolean;

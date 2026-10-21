@@ -60,3 +60,19 @@ export function useChallengeSession(gameId: number): {
 
   return { session, state, senders };
 }
+
+/**
+ * The hand panel's queue of a Challenge game (#645): the tile to place and the tiles known after it. While a move on the
+ * VRF is on its way the session holds no hand, but the next tile is known: it shows as the one to place, waiting with the
+ * move, and the chain's draw takes the last slot.
+ */
+export function challengeQueue(state: Pick<PredictedState, "hand" | "coming" | "pending" | "drawing">): {
+  tile: { plan: number } | null;
+  coming: { plan: number }[];
+  drawing: boolean;
+} {
+  const coming = state.coming ?? [];
+  if (state.hand) return { tile: state.hand, coming, drawing: false };
+  if (state.pending && coming.length > 0) return { tile: coming[0]!, coming: coming.slice(1), drawing: state.drawing ?? false };
+  return { tile: null, coming: [], drawing: false };
+}

@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import { StrictMode, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,30 +37,39 @@ describe("the tile stack's hint", () => {
   });
 });
 
-// CHALLENGE-VRF (#645): the tile to place and, beside it, the next two, in order; one not drawn yet pulses.
-describe("the tile stack's next tiles", () => {
-  const withNext = (next?: (number | null)[], readOnly = false) =>
-    wrap(<TileStack tile={{ plan: 1, orientation: 1 }} next={next} state="placing" remaining={30} readOnly={readOnly} />);
+// #645: the tile to place, and the two coming tiles smaller beside it, read only.
+describe("the coming tiles", () => {
+  const queue = (props: Partial<Parameters<typeof TileStack>[0]> = {}) =>
+    render(wrap(<TileStack tile={{ plan: 1, orientation: 2 }} state="placing" remaining={20} {...props} />));
+  const slots = () => [...(screen.queryByTestId("coming-tiles")?.querySelectorAll("li") ?? [])];
 
-  it("shows the next two in order, the first larger", () => {
-    render(withNext([13, 7]));
-    const items = screen.getByTestId("next-tiles").querySelectorAll("li");
-    expect([...items].map((li) => li.getAttribute("data-next-tile"))).toEqual(["13", "7"]);
-    expect(items[0]!.getAttribute("aria-label")).toBe("Next tile 1");
+  it("shows the next two in draw order, the next first, as tiles only (nothing to press)", () => {
+    queue({ coming: [{ plan: 3 }, { plan: 7 }] });
+    expect(screen.getByRole("list", { name: "Coming tiles" })).toBeTruthy();
+    expect(slots().map((li) => li.getAttribute("data-coming"))).toEqual(["1", "2"]);
+    expect(slots()[0]!.textContent).toContain("Next");
+    expect(slots().flatMap((li) => [...li.querySelectorAll("button")])).toEqual([]);
+    // The tile to place keeps its rotation; the coming ones are drawn unturned.
+    const turns = screen.getAllByRole("img").map((i) => i.getAttribute("aria-label")!.split(", ")[1]);
+    expect(turns).toEqual(["north", "north", "east"]);
   });
 
-  it("marks a tile not drawn yet", () => {
-    render(withNext([7, null]));
-    const items = screen.getByTestId("next-tiles").querySelectorAll("li");
-    expect(items[1]!.getAttribute("data-next-tile")).toBe("pending");
-    expect(items[1]!.getAttribute("aria-label")).toBe("Not drawn yet");
+  it("nothing beside the stack when no tile is known after the one to place", () => {
+    queue();
+    expect(screen.queryByTestId("coming-tiles")).toBeNull();
   });
 
-  it("shows none without a queue (Story) or on a board the viewer does not play", () => {
-    const { unmount } = render(withNext(undefined));
-    expect(screen.queryByTestId("next-tiles")).toBeNull();
-    unmount();
-    render(withNext([13, 7], true));
-    expect(screen.queryByTestId("next-tiles")).toBeNull();
+  it("the last tiles: one coming, then none", () => {
+    queue({ coming: [{ plan: 3 }] });
+    expect(slots()).toHaveLength(1);
+  });
+
+  it("the chain drawing: the known tiles, then a waiting slot; never more than two", () => {
+    queue({ state: "pending", coming: [{ plan: 3 }], drawing: true });
+    expect(slots().map((li) => li.getAttribute("data-coming"))).toEqual(["1", "drawing"]);
+    expect(screen.getByRole("img", { name: "The chain draws this tile" })).toBeTruthy();
+    cleanup();
+    queue({ coming: [{ plan: 3 }, { plan: 7 }], drawing: true });
+    expect(slots().map((li) => li.getAttribute("data-coming"))).toEqual(["1", "2"]);
   });
 });

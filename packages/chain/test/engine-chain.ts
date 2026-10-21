@@ -1,9 +1,9 @@
 // A Challenge game held by the engine as a stand-in for the contract (the parity goldens pin the engine to it), for the
 // tests of `PredictedSession`: the views it reads (`game`, `tiles`, `initial_seed`) and the receipts its moves get, with
 // the contract's events. A test can hold a receipt back, refuse a move, or move the game behind the session's back.
-import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, poseidon } from "@paved/game-core";
+import { CENTER, CategoryType, EngineGame, OrientationType, PlanType } from "@paved/game-core";
 import type { DecodedEvent } from "../src/codec";
-import { TILE_STATUS, type DrawView, type GameKey, type GameView, type TileView } from "../src/views";
+import { NOT_AVAILABLE_MESSAGE, TILE_STATUS, ViewError, type DrawView, type GameKey, type GameView, type TileView } from "../src/views";
 import { WriteError, type WriteResult } from "../src/writer";
 
 const PLANS = Object.values(PlanType);
@@ -27,17 +27,13 @@ export class EngineChain {
     readonly key: GameKey,
     readonly initialSeed: bigint,
     readonly expiresAt = 2 ** 40,
-    /** A game on the VRF (#645): the tile two ahead of each move is drawn from `vrfRandom` and named by a `Queued`. */
+    /**
+     * A game on the VRF (#645): the engine's three-tile queue stands in for the chain's, and `draw` reads it. Otherwise
+     * `draw` answers `not-available`, as a class before #645 does.
+     */
     readonly vrf = false,
   ) {
-    this.game = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(PLAYER), vrf });
-    if (vrf) {
-      this.views.draw = async (key: GameKey): Promise<DrawView> => {
-        this.calls.push(`draw ${key.gameId}`);
-        const [next, after] = this.game.over ? [] : this.game.queue.map((t) => PLANS.indexOf(t.plan!));
-        return { gameId: key.gameId, next: next ?? 0, after: after ?? 0, tiles: this.game.tiles, vrf: true, draws: this.game.drawsNext, salt: "0x0" };
-      };
-    }
+    this.game = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(PLAYER), lookahead: vrf ? 3 : 1 });
     this.drawn.push({ id: 1, status: TILE_STATUS.placed, plan: PLANS.indexOf(PlanType.RFFFRFCFR), orientation: 3, x: CENTER, y: CENTER });
     this.drawHand();
   }
@@ -56,13 +52,19 @@ export class EngineChain {
       this.calls.push(`initial_seed ${key.gameId}`);
       return `0x${this.initialSeed.toString(16)}`;
     },
-    /** `Challenge.draw` (#645): set by the constructor for a VRF game only, as a deployment from before #645 has none. */
-    draw: undefined as ((key: GameKey) => Promise<DrawView>) | undefined,
+    draw: async (key: GameKey): Promise<DrawView> => {
+      this.calls.push(`draw ${key.gameId}`);
+      if (!this.vrf) throw new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+      return this.drawView();
+    },
   };
 
-  /** The random the stand-in VRF gives the tile `id`. */
-  static vrfRandom(id: number): bigint {
-    return poseidon(0x7672666e, id);
+  /** `draw(id)` of a game on the VRF: the queue after the hand, and whether the next move draws (a tile is left to queue). */
+  drawView(): DrawView {
+    const g = this.game;
+    const [next, after] = g.coming.map((t) => PLANS.indexOf(t.plan));
+    const draws = !g.over && g.tileCount < g.tileLimit;
+    return { gameId: this.key.gameId, next: next ?? 0, after: after ?? 0, tiles: g.tiles, vrf: true, draws, salt: draws ? "0x5a17" : "0x0" };
   }
 
   view(): GameView {
@@ -95,7 +97,6 @@ export class EngineChain {
       this.settle(hand.id, { status: TILE_STATUS.placed, ...move });
       const events = [
         this.event("Built", { playerId: PLAYER, tileId: hand.id, plan: PLANS.indexOf(hand.plan), ...move }),
-        ...this.queued(),
         ...result.scored.map((s) => this.event("Scored", { playerId: PLAYER, category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points })),
       ];
       return result.over ? [...events, this.over()] : events;
@@ -107,7 +108,7 @@ export class EngineChain {
       const hand = this.game.hand!;
       const result = this.game.discard();
       this.settle(hand.id, { status: TILE_STATUS.discarded, orientation: 0, x: 0, y: 0 });
-      const events = [this.event("Discarded", { playerId: PLAYER, tileId: hand.id, plan: PLANS.indexOf(hand.plan), points: result.points }), ...this.queued()];
+      const events = [this.event("Discarded", { playerId: PLAYER, tileId: hand.id, plan: PLANS.indexOf(hand.plan), points: result.points })];
       return result.over ? [...events, this.over()] : events;
     });
   }
@@ -160,17 +161,6 @@ export class EngineChain {
     if (!this.game.over && hand && !this.drawn.some((t) => t.id === hand.id)) {
       this.drawn.push({ id: hand.id, status: TILE_STATUS.held, plan: PLANS.indexOf(hand.plan), orientation: 0, x: 0, y: 0 });
     }
-  }
-
-  /** A VRF game's draw after a move (#645): the tile two ahead, drawn and named by a `Queued`, as the contract emits it. */
-  private queued(): DecodedEvent[] {
-    if (!this.vrf || this.game.over) return [];
-    return this.game.queue
-      .filter((t) => t.plan === null)
-      .map((t) => {
-        const drawn = this.game.supply(EngineChain.vrfRandom(t.id));
-        return this.event("Queued", { tileId: drawn.id, plan: PLANS.indexOf(drawn.plan) });
-      });
   }
 
   private over(): DecodedEvent {

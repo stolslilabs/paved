@@ -183,6 +183,8 @@ export interface GameViews {
   builder(key: GameKey, playerId: string): Promise<BuilderView>;
   /** `Challenge.initial_seed(game_id)` (S1): the seed the game started with, before any draw; `game().seed` is the current one. */
   initialSeed(key: GameKey): Promise<string>;
+  /** `Challenge.draw(game_id)` (#645): the game's queue; a `not-available` ViewError on a class before #645. */
+  draw(key: GameKey): Promise<DrawView>;
   currentDay(): Promise<number>;
   /** The Challenge entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
@@ -263,7 +265,18 @@ export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackView
   }
 
   async draw(key: GameKey): Promise<DrawView> {
-    return drawView((await this.call(gameContract(key.mode), "draw", [key.gameId])) as Struct);
+    // The ABI the client ships has no `draw` before #645's: the class is taken to have none either.
+    if (!this.codecs.Challenge.hasFunction("draw")) throw new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+    const view = (await this.call(gameContract(key.mode), "draw", [key.gameId])) as Record<string, unknown>;
+    return {
+      gameId: Number(view.gameId),
+      next: Number(view.next),
+      after: Number(view.after),
+      tiles: BigInt(view.tiles as bigint),
+      vrf: Boolean(view.vrf),
+      draws: Boolean(view.draws),
+      salt: String(view.salt),
+    };
   }
 
   async spawnSalt(playerId: string): Promise<string> {
@@ -371,7 +384,10 @@ export interface FakeGame {
   builder: BuilderView;
   /** `initial_seed`; defaults to the game's seed. */
   initialSeed?: string;
-  /** `draw` (#645); a game without it reads as one with no queue and no draw. */
+  /**
+   * `draw(id)` (#645): the game's queue on the VRF. Absent: a game of a class before #645, `draw` answers `not-available`
+   * (the fake of the chain view until its ABI lands; see `DrawView`).
+   */
   draw?: DrawView;
 }
 
@@ -461,8 +477,9 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
 
   async draw(key: GameKey): Promise<DrawView> {
     this.calls.push(`draw ${gameKeyId(key)}`);
-    const game = this.get(key);
-    return { ...(game.draw ?? { gameId: key.gameId, next: 0, after: 0, tiles: 0n, vrf: false, draws: false, salt: "0x0" }) };
+    const draw = this.get(key).draw;
+    if (!draw) throw new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+    return { ...draw };
   }
 
   /** `spawn_salt` by player (`BigInt` of the id as a string); a player not listed reads 0x0. */

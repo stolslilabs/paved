@@ -1,6 +1,6 @@
 // `PredictedSession` (`@paved/game-core`, P5) against the chain's types: the views and the receipts of a Challenge game
 // held by `EngineChain`, and the writer's typed errors.
-import { CENTER, MAX_UNCONFIRMED, PredictedSession, poseidon, replayChallenge, type Mismatch } from "@paved/game-core";
+import { CENTER, MAX_UNCONFIRMED, PlanType, PredictedSession, poseidon, replayChallenge, type Mismatch } from "@paved/game-core";
 import { describe, expect, test } from "vitest";
 import { TILE_STATUS, type GameKey } from "../src/views";
 import { GAME_EXPIRED_TEXT, GameExpiredError, WriteError } from "../src/writer";
@@ -9,8 +9,8 @@ import { EngineChain, PLAYER, legalMove } from "./engine-chain";
 const key: GameKey = { mode: "challenge", gameId: 7 };
 const SEED = 0x5eed1234abcdn;
 
-function setup(options: { expiresAt?: number; now?: number; player?: string | null } = {}) {
-  const chain = new EngineChain(key, SEED, options.expiresAt);
+function setup(options: { expiresAt?: number; now?: number; player?: string | null; vrf?: boolean } = {}) {
+  const chain = new EngineChain(key, SEED, options.expiresAt, options.vrf);
   const mismatches: Mismatch[] = [];
   const session = new PredictedSession(chain.views, key, options.player === undefined ? PLAYER : options.player, {
     now: () => options.now ?? 0,
@@ -40,7 +40,7 @@ describe("PredictedSession: open", () => {
     const { chain, session } = setup();
     await playOnChain(chain, 7);
     await session.open();
-    expect(chain.calls.filter((c) => c !== "write")).toEqual(["game 7", "tiles 7", "initial_seed 7"]);
+    expect(chain.calls.filter((c) => c !== "write")).toEqual(["game 7", "tiles 7", "draw 7", "initial_seed 7"]);
     expect(session.state).toMatchObject({ status: "ready", predicting: true, fallback: null, readonly: false, hand: chainHand(chain) });
     expect(session.state.game).toMatchObject({ score: chain.game.score, placedCount: chain.game.built + 1, discardedCount: chain.game.discarded });
     expect(session.state.tiles.map((t) => t.id)).toEqual(chain.drawn.filter((t) => t.status === TILE_STATUS.placed).map((t) => t.id));
@@ -384,5 +384,75 @@ describe("PredictedSession: expiry", () => {
     chain.refuseNext = new GameExpiredError("0x5");
     expect(await session.discard(send.discard())).toBe(false);
     expect(session.state).toMatchObject({ writeError: GAME_EXPIRED_TEXT, hand });
+  });
+});
+
+/** The known tiles after the chain's hand, as the session's `coming`. */
+const chainComing = (chain: EngineChain) => chain.game.coming.map((t) => ({ tileId: t.id, plan: PLANS.indexOf(t.plan) }));
+const PLANS = Object.values(PlanType);
+
+describe("PredictedSession: a game on the VRF (#645)", () => {
+  test("open: the chain's queue, no replay and no prediction, no mismatch", async () => {
+    const { chain, session, mismatches } = setup({ vrf: true });
+    await playOnChain(chain, 3);
+    await session.open();
+    expect(chain.calls.filter((c) => c !== "write")).toEqual(["game 7", "tiles 7", "draw 7"]);
+    expect(session.state).toMatchObject({ status: "ready", predicting: false, fallback: null, hand: chainHand(chain), drawing: false });
+    expect(session.state.coming).toEqual(chainComing(chain));
+    expect(session.state.coming).toHaveLength(2);
+    expect(mismatches).toEqual([]);
+  });
+
+  test("a move: the known tiles stay shown while the chain draws the last one; then the queue moves up", async () => {
+    const { chain, session, send } = setup({ vrf: true });
+    await session.open();
+    const [next, after] = session.state.coming!;
+    chain.hold = true;
+    const move = legalMove(chain.game)!;
+    const placing = session.place(move, send.build(move));
+    await settle();
+    expect(session.state).toMatchObject({ pending: true, hand: null, coming: [next, after], drawing: true });
+    chain.release();
+    expect(await placing).toBe(true);
+    expect(session.state).toMatchObject({ pending: false, drawing: false, hand: next });
+    expect(session.state.coming).toEqual([after, chainComing(chain)[1]]);
+    expect(session.state.coming![1]!.tileId).toBe(after!.tileId + 1);
+  });
+
+  test("a refused move: the hand and its queue come back, nothing is drawing", async () => {
+    const { chain, session, send } = setup({ vrf: true });
+    await session.open();
+    const before = { hand: session.state.hand, coming: session.state.coming };
+    chain.refuseNext = new WriteError("Tile: cannot place", "0xbad", true);
+    expect(await session.discard(send.discard())).toBe(false);
+    expect(session.state).toMatchObject({ ...before, drawing: false, pending: false, writeError: "Tile: cannot place" });
+  });
+
+  test("the deck's end: the last moves draw nothing, the queue shortens to the last tile", async () => {
+    const { chain, session, send } = setup({ vrf: true });
+    await playOnChain(chain, chain.game.tileLimit - 4);
+    await session.open();
+    expect(session.state.coming).toHaveLength(2);
+    chain.hold = true;
+    const discarding = session.discard(send.discard());
+    await settle();
+    // Tile 38 is in the queue: the move draws nothing, so no slot waits.
+    expect(session.state).toMatchObject({ pending: true, drawing: false });
+    chain.release();
+    await discarding;
+    expect(session.state.coming).toHaveLength(1);
+    chain.hold = false;
+    await session.discard(send.discard());
+    expect(session.state.coming).toEqual([]);
+    expect(session.state.hand).not.toBeNull();
+    await session.discard(send.discard());
+    expect(session.state.game?.over).toBe(true);
+  });
+
+  test("a class before #645 (draw not available): the game is predicted as before", async () => {
+    const { session } = setup();
+    await session.open();
+    expect(session.state).toMatchObject({ predicting: true, fallback: null });
+    expect(session.state.coming ?? []).toEqual([]);
   });
 });

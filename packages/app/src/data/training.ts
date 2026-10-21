@@ -4,19 +4,19 @@ import {
   CategoryType,
   EngineGame,
   LocalSession,
+  startTraining,
   OrientationType,
   TRAINING_KEY,
   gameStats,
   loadGame,
-  playTraining,
   randomSeed,
-  startTraining,
   type KeyValueStore,
   type PageState,
   type PlaceMove,
   type SavedGame,
   type GameStats,
   type SavedMove,
+  type SavedVersion,
   type ScoredStructure,
 } from "@paved/game-core";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
@@ -30,6 +30,8 @@ export { remainingOf, useTrainingSave } from "./training-save";
 export type SessionBoard = Pick<BoardSceneProps, "tiles" | "score" | "remaining" | "discardedPlans" | "lastScored"> & {
   /** The tile in hand, null once the game is over. */
   hand: { plan: number } | null;
+  /** The tiles known after it, in draw order (#645): the next two, fewer at the deck's end. */
+  coming: { plan: number }[];
   over: boolean;
 };
 
@@ -42,6 +44,7 @@ export function boardOf(state: PageState): SessionBoard {
     discardedPlans: state.discardedPlans ?? [],
     lastScored: state.lastScored,
     hand: state.hand ? { plan: state.hand.plan } : null,
+    coming: (state.coming ?? []).map((t) => ({ plan: t.plan })),
     over: state.game?.over ?? false,
   };
 }
@@ -95,7 +98,8 @@ export class TrainingGame {
 
   /** A new game of `seed`, saved at once. */
   static start(seed: bigint, store: () => KeyValueStore | null): TrainingGame {
-    return new TrainingGame(LocalSession.start(seed, store), startTraining(seed), seed, [], [], store);
+    const session = LocalSession.start(seed, store);
+    return new TrainingGame(session, startTraining(seed, session.version), seed, [], [], store);
   }
 
   /** The saved game replayed; null when it does not replay. */
@@ -103,11 +107,10 @@ export class TrainingGame {
     const session = LocalSession.resume(saved, store);
     if (!session) return null;
     const seed = BigInt(saved.seed);
-    // A game saved before #645 (`v: 1`) has no queue: its rules engine neither
-    const rules = startTraining(seed, saved.v !== 1);
+    const rules = startTraining(seed, saved.v);
     const closings: Closing[] = [];
     try {
-      for (const move of saved.moves) closings.push(...apply(rules, move, seed));
+      for (const move of saved.moves) closings.push(...apply(rules, move));
     } catch {
       return null;
     }
@@ -118,6 +121,11 @@ export class TrainingGame {
   static open(store: () => KeyValueStore | null): TrainingGame {
     const saved = loadGame(store);
     return (saved && TrainingGame.resume(saved, store)) || TrainingGame.start(randomSeed(), store);
+  }
+
+  /** The rules the game plays under (`SavedVersion`): a resumed save keeps its own. */
+  get version(): SavedVersion {
+    return this.session.version;
   }
 
   get snapshot(): TrainingSnapshot {
@@ -139,7 +147,7 @@ export class TrainingGame {
    * this game's: a save that was dropped after them), or `other` (another seed, or moves this game lacks: another tab's).
    */
   relation(saved: SavedGame): "same" | "behind" | "other" {
-    if (saved.seed !== hex(this.seed) || saved.moves.length > this.moves.length) return "other";
+    if (saved.v !== this.version || saved.seed !== hex(this.seed) || saved.moves.length > this.moves.length) return "other";
     if (!saved.moves.every((m, i) => sameMove(m, this.moves[i]!))) return "other";
     return saved.moves.length === this.moves.length ? "same" : "behind";
   }
@@ -191,7 +199,7 @@ export class TrainingGame {
       this.set({ ...this.current, state: this.session.state });
       return false;
     }
-    const closed = apply(this.rules, move, this.seed);
+    const closed = apply(this.rules, move);
     this.moves.push(move);
     const state = this.session.state;
     this.set({
@@ -230,10 +238,19 @@ function toPlacement(move: PlaceMove) {
   return { orientation, x: move.x - CENTER, y: move.y - CENTER };
 }
 
-/** `move` played on `game`, as `LocalSession` plays it (`playTraining`); what it closed, with the tile that closed it. */
-function apply(game: EngineGame, move: SavedMove, seed: bigint): Closing[] {
-  const result = playTraining(game, move, seed);
-  if (!result) return [];
+/** `move` played on `game`, as `LocalSession` plays it; what it closed, with the tile that closed it. */
+function apply(game: EngineGame, move: SavedMove): Closing[] {
+  if (move.k === "d") {
+    game.discard();
+    return [];
+  }
+  if (move.k === "s") {
+    game.surrender();
+    return [];
+  }
+  const orientation = ORIENTATIONS[move.o];
+  if (!orientation) throw new Error("Orientation: not valid");
+  const result = game.build({ orientation, x: move.x, y: move.y });
   return result.scored.map((s) => ({ category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points, tileId: result.tileId }));
 }
 
