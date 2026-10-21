@@ -1728,7 +1728,7 @@ parts in use, items 0 to 3 of every part free and item 4 at 50 Cobbles.
 | Scenario | L2 gas | Ceiling (measured + 5 %) |
 |---|---:|---:|
 | z24, `set_item` of a seasonal paid item (the item's slot and the part's end read and written, one event) | 704,759 | 739,997 |
-| z25, `buy_avatar_item` (the item and the ownership read and written, `Setup.spend_cobbles`, two events) | 1,181,563 | 1,240,642 |
+| z25, `buy_avatar_item` (the item and the ownership read and written, the confirmed-price check, `Setup.spend_cobbles`, two events; 1,181,563 before that check, run 39655062606, measured in run 39662976974) | 1,191,653 | 1,240,642 |
 | z26, `set_avatar` with ten free parts (ten item reads, one write, one event) | 1,357,620 | 1,440,201 |
 | z27, `set_avatar` with ten owned parts (ten item and ten ownership reads) | 2,466,150 | 2,604,158 |
 | z28, the `items` view of a part of 17 items | 2,393,093 | 2,512,748 |
