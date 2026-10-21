@@ -4,6 +4,7 @@
 //! stores.
 
 use core::num::traits::Zero;
+use paved::components::drawable::{IDrawableDispatcher, IDrawableDispatcherTrait};
 use paved::components::hostable::HostableComponent;
 use paved::components::hostable::HostableComponent::DeadFieldsTrait as HostableDeadFieldsTrait;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
@@ -16,15 +17,17 @@ use paved::models::tile::CENTER;
 use paved::store::PavedStorage;
 use paved::systems::challenge::Challenge::DeadFieldsTrait;
 use paved::systems::challenge::{
-    Challenge, IChallengeDispatcher, IChallengeGuardianDispatcher,
-    IChallengeGuardianDispatcherTrait,
+    Challenge, IChallengeDispatcherTrait as RawChallengeDispatcherTrait,
+    IChallengeGuardianDispatcher, IChallengeGuardianDispatcherTrait,
 };
 use paved::tests::e2e::cold_paths::{
     ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in,
 };
 use paved::tests::e2e::quests::define_accepted_list;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{
+    ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestChallenge, TestStoreTrait,
+};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -49,7 +52,7 @@ fn raw(contract: ContractAddress, name: felt252) -> felt252 {
 /// The dead ones are pinned by `test_daily_pins_the_dead_fields_by_name`. `UpgradeableComponent`
 /// has no storage.
 #[test]
-#[available_gas(l2_gas: 65850624)]
+#[available_gas(l2_gas: 96675533)]
 fn test_daily_pins_its_storage_variables_by_name() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let challenge = systems.challenge.contract_address;
@@ -83,6 +86,21 @@ fn test_daily_pins_its_storage_variables_by_name() {
     guardian.unpause_spawn();
     assert(raw(challenge, selector!("spawn_paused")) == 0, 'Pin: spawn_paused after');
     stop_cheat_caller_address(challenge);
+    // #645 (appended): the VRF provider and the last draw's transaction (the flat `drawable`), the
+    // spawn count of each player
+    let provider = IDrawableDispatcher { contract_address: challenge }.vrf_provider();
+    assert(raw(challenge, selector!("vrf_provider")) == provider.into(), 'Pin: vrf_provider');
+    assert(raw(challenge, selector!("vrf_last_draw_tx")) == 0, 'Pin: vrf_last_draw_tx before');
+    let count = snforge_std::map_entry_address(
+        selector!("vrf_spawn_counts"), array![PLAYER().into()].span(),
+    );
+    assert(raw(challenge, count) == 0, 'Pin: vrf_spawn_counts before');
+    start_cheat_caller_address(challenge, PLAYER());
+    snforge_std::start_cheat_transaction_hash_global('PIN_TX');
+    systems.challenge.dispatcher().spawn(1, core::num::traits::Zero::zero(), 0);
+    stop_cheat_caller_address(challenge);
+    assert(raw(challenge, selector!("vrf_last_draw_tx")) == 'PIN_TX', 'Pin: vrf_last_draw_tx');
+    assert(raw(challenge, count) == 1, 'Pin: vrf_spawn_counts');
 }
 
 // Dead since D-20, D-24 and D-25 E (P-42): declared, never written or read, never reused
@@ -116,7 +134,7 @@ fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
 /// The names `test_daily_pins_*` are kept from before D-23 (`Daily` became `Challenge`) on purpose:
 /// the docs and the comments of the code cite them.
 #[test]
-#[available_gas(l2_gas: 135825905)]
+#[available_gas(l2_gas: 148014460)]
 fn test_daily_pins_the_dead_fields_by_name() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -217,18 +235,16 @@ fn test_daily_pins_the_dead_fields_by_name() {
 
 // Re-entry: a token that calls back into `Daily` during its spawn
 
-fn reentrant_with_economy() -> (
-    IChallengeDispatcher, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
-) {
+fn reentrant_with_economy() -> (TestChallenge, IReentrantTokenDispatcher, ISpyEconomyDispatcher) {
     start_cheat_block_timestamp_global(100);
     let (challenge, token, economy, _) = daily_paid_in("ReentrantToken");
     (challenge, IReentrantTokenDispatcher { contract_address: token }, economy)
 }
 
 /// A spawn pays by `transferFrom` after the game is stored; the token calls `spawn` again from
-/// inside it, as the player. The nested spawn succeeds (its transfer is not re-entered: one
-/// re-entry is armed): the player holds two games, each with its own purchase, each paid once, and
-/// the first game is as it was written.
+/// inside it, as the player. Since #645 the nested spawn is refused: it would be a second VRF draw
+/// in the transaction (`'VRF: one draw per tx'`), and the token swallows its revert. The player
+/// holds one game, paid once, as it was written.
 #[test]
 #[available_gas(l2_gas: 48136700)]
 fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
@@ -238,25 +254,22 @@ fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
     let price: u256 = constants::CHALLENGE_PRICE.into();
     let first = challenge.spawn(1, Zero::zero(), 0);
     let (attempts, reverted) = token.outcome();
-    assert(attempts == 1 && reverted == 0, 'Reentry: nested spawn refused');
+    assert(attempts == 1 && reverted == 1, 'Reentry: nested spawn passed');
+    assert(token.error() == 'VRF: one draw per tx', 'Reentry: nested spawn reason');
     assert(first == 1, 'Reentry: first id');
-    // [Nested game] exists, is the player's, is a Daily game
-    let nested = views.game(2);
-    assert(nested.id == 2 && nested.player_id == PLAYER().into(), 'Reentry: nested game');
-    assert(nested.mode == Mode::Challenge.into() && nested.tile_id != 0, 'Reentry: nested mode');
-    // [First game] unchanged
+    // [First game] as written, the only one
     let game = views.game(1);
     assert(game.id == 1 && game.player_id == PLAYER().into(), 'Reentry: first game');
     assert(game.mode == Mode::Challenge.into() && game.tile_count == 2, 'Reentry: first changed');
     assert(game.tile_id != 0 && !game.over, 'Reentry: first state');
-    // [Terms] one purchase per game; the outer one is the last, on game 1
+    // [Terms] one purchase, on game 1
     let purchase = economy.purchased();
-    assert(purchase.count == 2, 'Reentry: two purchases');
+    assert(purchase.count == 1, 'Reentry: one purchase');
     assert(purchase.game_id == 1 && purchase.player == PLAYER(), 'Reentry: purchase game');
     assert(purchase.price == price, 'Reentry: purchase price');
-    // [Paid] exactly twice the price, all of it to Economy
+    // [Paid] exactly the price, all of it to Economy
     let (paid, recipient) = token.paid();
-    assert(paid == 2 * price, 'Reentry: paid twice');
+    assert(paid == price, 'Reentry: paid once');
     assert(recipient == economy.contract_address, 'Reentry: paid to economy');
 }
 
@@ -265,7 +278,7 @@ fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
 /// `Daily.spawn` has no mode argument (it passes `Mode::Challenge`): the game it stores has that
 /// mode, for any caller.
 #[test]
-#[available_gas(l2_gas: 88910759)]
+#[available_gas(l2_gas: 94052313)]
 fn test_daily_spawn_mode_is_fixed_by_the_game_contract() {
     start_cheat_block_timestamp_global(100);
     let (_, systems, _) = setup::spawn_game(Mode::None);

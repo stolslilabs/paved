@@ -68,7 +68,7 @@ fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
 /// A USDC donation already on `Economy` does not pay for the game: the full price still comes
 /// from the player, and the donation leaves with the purchase (to the Vault, as margin).
 #[test]
-#[available_gas(l2_gas: 91635157)]
+#[available_gas(l2_gas: 96578648)]
 fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     IFaucetDispatcher { contract_address: context.token.contract_address }
@@ -108,7 +108,7 @@ fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
 /// it then gets 5 % of the price, whether it ever played or not; the payer itself gets nothing,
 /// and a zero referrer is no referral.
 #[test]
-#[available_gas(l2_gas: 155101283)]
+#[available_gas(l2_gas: 169493041)]
 fn test_economy_referrer_is_any_address_but_the_payer() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
@@ -168,7 +168,7 @@ fn assert_recorded(store: setup::TestStore, systems: @setup::Systems, game_id: u
 }
 
 #[test]
-#[available_gas(l2_gas: 103845608)]
+#[available_gas(l2_gas: 111682273)]
 fn test_economy_records_a_game_over_on_build() {
     let (store, systems, context) = almost_over_daily();
     let game = store.game(context.game_id);
@@ -181,7 +181,7 @@ fn test_economy_records_a_game_over_on_build() {
 }
 
 #[test]
-#[available_gas(l2_gas: 96432913)]
+#[available_gas(l2_gas: 104871429)]
 fn test_economy_records_a_game_over_on_discard() {
     let (store, systems, context) = almost_over_daily();
     systems.challenge.discard(context.game_id);
@@ -189,7 +189,7 @@ fn test_economy_records_a_game_over_on_discard() {
 }
 
 #[test]
-#[available_gas(l2_gas: 92611401)]
+#[available_gas(l2_gas: 99823765)]
 fn test_economy_records_a_game_over_on_surrender() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     systems.challenge.surrender(context.game_id);
@@ -228,7 +228,7 @@ fn test_economy_spawn_reverts_before_set_economy() {
 /// A game over at its expiry (24 h after the purchase, P-34) is recorded as expired: it enters no
 /// mean, its day closes empty, and its settlement pays 0.
 #[test]
-#[available_gas(l2_gas: 96343301)]
+#[available_gas(l2_gas: 104255051)]
 fn test_economy_records_an_expired_game_over() {
     snforge_std::start_cheat_block_timestamp_global(10 * 86400 + 3600);
     let (store, systems, _) = setup::spawn_game(Mode::None);

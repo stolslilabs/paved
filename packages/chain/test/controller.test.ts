@@ -16,7 +16,7 @@ import { MAX_STAKE, createEconomyClient, priceOf, resolveEconomyDeployment, sett
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import { packBuyerOf } from "../src/packs";
-import { FakeGameViews } from "../src/views";
+import { FakeGameViews, type FakeGame } from "../src/views";
 
 const deployment = resolveDeployment({
   network: "sepolia",
@@ -38,6 +38,12 @@ const LEGACY_APPROVE = { token: ECON.usdc, cap: BigInt(MAX_STAKE) * FAKE_UNIT };
 const onEveryNetwork = () =>
   [deployment, mainnet].flatMap((d) => [controllerPolicies(d), controllerPolicies(d, { economy: ECON.economy }), controllerPolicies(d, { approve: LEGACY_APPROVE, economy: ECON.economy })]);
 const PLAYER = "0xc";
+/** The salts the fake views give: game 1's next move, the player's next spawn (#645). */
+const MOVE_SALT = "0x5a17";
+const SPAWN_SALT = "0x59a3";
+/** `request_random(Challenge, Source::Salt(salt))` on the network's provider: the first call of a drawing write. */
+const vrfRequest = (salt: string) => [BigInt(deployment.vrfProvider), "request_random", [BigInt(deployment.addresses.Challenge), 1n, BigInt(salt)]];
+const asTuple = (c: Call) => [BigInt(c.contractAddress), c.entrypoint, (c.calldata as string[]).map((v) => BigInt(v))];
 const DAY = 20_000;
 const P = 10n ** 18n;
 
@@ -61,6 +67,14 @@ async function sentByEveryWrite(executions: Record<string, Call[][]> = {}): Prom
   // The default packs' ends (CORE #453).
   gameViews.packs.set(1, { packId: 1, cobbles: 50, price: 5_000_000n, active: true });
   gameViews.packs.set(4, { packId: 4, cobbles: 1_000, price: 70_000_000n, active: true });
+  // The VRF draws (#645): game 1's next move draws, and the player's next spawn has its salt
+  gameViews.setGame({ mode: "challenge", gameId: 1 }, {
+    game: { id: 1, playerId: PLAYER } as FakeGame["game"],
+    tiles: [],
+    builder: { gameId: 1, playerId: PLAYER, tileId: 2, plan: 1 },
+    draw: { gameId: 1, next: 2, after: 3, tiles: 0n, vrf: true, draws: true, salt: MOVE_SALT },
+  });
+  gameViews.spawnSalts.set(BigInt(PLAYER).toString(), SPAWN_SALT);
   const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
   const writer = client.writer(account);
   // Mainnet never resolves a Faucet, whatever the env says: its writer has no faucet.
@@ -150,7 +164,12 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       expect(sent[label].length, label).toBeGreaterThan(0);
       for (const call of sent[label]) expect(inSession(call, policies), `${label}: ${call.entrypoint}`).toBe(true);
     }
-    expect(sent["play free"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[2n, "spawn_free", []]]);
+    // #645: the free spawn and every drawing move request their draw first, in the session too
+    expect(sent["play free"].map(asTuple)).toEqual([vrfRequest(SPAWN_SALT), [2n, "spawn_free", []]]);
+    expect(sent["challenge build"].map(asTuple)[0]).toEqual(vrfRequest(MOVE_SALT));
+    expect(sent["challenge discard"].map(asTuple)).toEqual([vrfRequest(MOVE_SALT), [2n, "discard", [1n]]]);
+    // A surrender draws nothing: no request
+    expect(sent["challenge surrender"].map((c) => c.entrypoint)).toEqual(["surrender"]);
     expect(sent["tutorial claim"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[3n, "claim_tutorial", []]]);
   });
 
@@ -247,8 +266,10 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     await sentByEveryWrite(executions);
     for (const label of PAID) {
       expect(executions[label], label).toHaveLength(1);
-      const [[approve, spawn, ...rest]] = executions[label];
+      const [[request, approve, spawn, ...rest]] = executions[label];
       expect(rest).toEqual([]);
+      // #645: the spawn's draw is requested first, in the same multicall (one prompt still: the approve prompts)
+      expect(asTuple(request)).toEqual(vrfRequest(SPAWN_SALT));
       expect([BigInt(approve.contractAddress), approve.entrypoint]).toEqual([BigInt(ECON.usdc), "approve"]);
       expect([BigInt(spawn.contractAddress), spawn.entrypoint]).toEqual([BigInt(deployment.addresses.Challenge), "spawn"]);
       for (const ps of [policies, ...onEveryNetwork()]) {
@@ -321,7 +342,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
   test("the purchase approves USDC to Challenge for exactly stake x unit, in the multicall that prompts", async () => {
     const sent = await sentByEveryWrite();
     for (const [label, stake] of [["purchase, stake 1", 1], ["purchase, stake 10", MAX_STAKE]] as const) {
-      const [approve, spawn] = sent[label];
+      const [, approve, spawn] = sent[label];
       expect(BigInt(approve.contractAddress)).toBe(BigInt(ECON.usdc));
       expect(approve.entrypoint).toBe("approve");
       const data = approve.calldata as string[];

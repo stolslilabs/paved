@@ -5,7 +5,7 @@ pub mod PlayableComponent {
     // Internal imports
 
     use paved::day::day_id;
-    use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
+    use paved::events::{Built, Discarded, Event as PavedEvent, emit_queued, game_over};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
@@ -46,7 +46,10 @@ pub mod PlayableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn discard(self: @ComponentState<TContractState>, game_id: u32) -> u128 {
+        /// `random`: the move's VRF draw, when `GameImpl::move_draw` asks for one (#645).
+        fn discard(
+            self: @ComponentState<TContractState>, game_id: u32, random: Option<felt252>,
+        ) -> u128 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -94,12 +97,12 @@ pub mod PlayableComponent {
             // [Effect] Assess game over
             game.assess_over();
 
-            // [Effect] Draw a new tile if relevant
+            // [Effect] The next tile comes into the hand, and the queue draws one if relevant
             if !game.is_over() {
-                game.reseed(tile);
-                let (tile_id, plan) = game.draw_plan();
+                let (tile_id, plan, first) = game.advance(random);
                 let tile = builder.reveal(tile_id, plan);
                 store.set_tile(tile);
+                emit_queued(store, game, plan.into(), first);
             }
 
             // [Effect] Update builder
@@ -174,6 +177,7 @@ pub mod PlayableComponent {
             orientation: Orientation,
             x: u32,
             y: u32,
+            random: Option<felt252>,
         ) -> u128 {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new();
@@ -238,12 +242,12 @@ pub mod PlayableComponent {
             // [Effect] Assess game over
             game.assess_over();
 
-            // [Effect] Draw a new tile if relevant
+            // [Effect] The next tile comes into the hand, and the queue draws one if relevant
             if !game.is_over() {
-                game.reseed(tile);
-                let (tile_id, plan) = game.draw_plan();
+                let (tile_id, plan, first) = game.advance(random);
                 let new_tile = builder.reveal(tile_id, plan);
                 store.set_tile(new_tile);
+                emit_queued(store, game, plan.into(), first);
             }
 
             // [Effect] Update builder: the tile in hand is part of the game state

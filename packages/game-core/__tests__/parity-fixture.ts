@@ -37,9 +37,12 @@ export function replayParityGame(game: FixtureGame): { engine: EngineGame; moves
     deck: game.source === "tutorial" ? "tutorial" : "simple",
     seed: BigInt(game.seed),
     tileLimit: game.tile_limit,
+    vrf: game.vrf === true,
   });
   const moves = game.moves.map((move) => {
     const drawn = PLANS.indexOf(engine.hand?.plan ?? PlanType.None);
+    // A VRF game (#645): the engine says whether the move draws, the fixture gives the random it draws
+    const draws = engine.drawsNext;
     if (move.plan !== drawn) engine.force(PLANS[move.plan] as PlanType);
     const result =
       move.orientation === 0
@@ -49,6 +52,10 @@ export function replayParityGame(game: FixtureGame): { engine: EngineGame; moves
             x: move.x - CENTER,
             y: move.y - CENTER,
           });
+    if (game.vrf) {
+      if (draws !== (move.random !== null && move.random !== undefined)) throw new Error(`parity: ${game.name} draws ${draws}, fixture ${move.random}`);
+      if (move.random && !result.over) engine.supply(BigInt(move.random));
+    }
     const scored = result.scored.map(({ category, size, points }) => ({
       category: CATEGORIES.indexOf(category),
       size,

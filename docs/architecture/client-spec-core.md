@@ -140,6 +140,12 @@ and P-46: the owner's and the PM's to rule, then a change in `economy.cairo` (pa
 
 ## 3. Next-tile prediction
 
+**Superseded for the Challenge by #645 (D-30, `challenge-vrf.md`).** A Challenge game draws its tiles from the VRF: the
+next tile is no longer computable from the seed, and nothing reseeds after a placement. The game holds the tile in hand
+and the next two (`Challenge.draw(game_id)`), and each move that draws emits `Queued` with the tile two ahead: the client
+shows the queue it reads, and the queue's last slot is pending until the move's receipt arrives. Training keeps a local
+random with the same queue. What follows is the design before #645, kept for the games spawned before it.
+
 What the draw reads, and where the client gets it:
 
 | The draw reads | Contract | The client gets it from |
