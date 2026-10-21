@@ -24,6 +24,7 @@ import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
+import { useAfterGameOver } from "../game-over";
 import { usePlacement, type Slot } from "../../data/placement";
 
 /**
@@ -44,7 +45,7 @@ export default function Page() {
 /**
  * The Training board on its `LocalSession` (P3). The player picks a lit slot (a tap or a click; on a mouse, the hover
  * shows the ghost too), turns the tile, then places it: the move sent is built from the slot the ghost shows, through
- * `toChainSlot` (D1, #379). A finished game goes to `/training/over`.
+ * `toChainSlot` (D1, #379). A finished game goes to `/training/over`, once its last move has played out on the board.
  */
 function TrainingBoard() {
   const { game, snapshot, board, restart } = useTrainingSession();
@@ -69,9 +70,8 @@ function TrainingBoard() {
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
   const handErrorDetail = useErrorDetail(snapshot.state.writeError);
 
-  useEffect(() => {
-    if (board.over) go("/training/over", { replace: true });
-  }, [board.over, go]);
+  // The last move plays out on the board first (`GAME_OVER_HOLD_MS`), then the scores.
+  useAfterGameOver(board.over, () => go("/training/over", { replace: true }));
 
   // Confirm only a placed tile whose rotation fits (red: disabled). The green flash once the session took the move;
   // refused, the tile stays placed (its error in the hand).

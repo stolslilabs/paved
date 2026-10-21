@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OrientationType, TRAINING_KEY, loadGame, replayTraining, type KeyValueStore, type SavedMove } from "@paved/game-core";
 import { App } from "../src/App";
 import { TRAINING_BEST_KEY, trainingPreviousBest } from "../src/data/training-best";
+import { GAME_OVER_HOLD_MS } from "../src/routes/game-over";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
@@ -30,6 +31,8 @@ function open(path: string, store: KeyValueStore | null) {
 const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).getAttribute("aria-label")!.match(/\d+/)![0]);
 const tilesLeft = () => Number(screen.getByTestId("tiles-left").textContent);
 const hand = () => screen.getByRole("region", { name: "Your tile" });
+/** The game is over on the board: no tile in hand (the scores open after `GAME_OVER_HOLD_MS`). */
+const handEmpty = () => hand().dataset.state === "empty";
 
 /** Chooses the first lit slot: the tile turns to a rotation that fits there. */
 async function chooseSlot() {
@@ -108,7 +111,9 @@ describe("/training (P3)", () => {
     const { router } = open("/training", store);
     await tilesOnBoard();
     // Place where a slot is lit, discard otherwise, until the deck runs out.
-    while (router.state.location.pathname === "/training") {
+    let lastMoveAt = 0;
+    while (!handEmpty()) {
+      lastMoveAt = Date.now();
       const slots = screen.queryAllByRole("button", { name: /^Slot / });
       if (slots.length) {
         await userEvent.click(slots[0]!);
@@ -117,7 +122,11 @@ describe("/training (P3)", () => {
         await discardTile();
       }
     }
-    expect(router.state.location.pathname).toBe("/training/over");
+    // The finished game stays on its board for the hold, its last points on the score, then the scores open.
+    expect(router.state.location.pathname).toBe("/training");
+    expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + 5000 });
+    expect(Date.now() - lastMoveAt).toBeGreaterThanOrEqual(GAME_OVER_HOLD_MS);
     expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     const saved = loadGame(() => store)!;
     expect(replayTraining(BigInt(saved.seed), saved.moves).over).toBe(true);
@@ -179,8 +188,8 @@ describe("/training (P3)", () => {
     await discardTile();
     // Every save from here on is refused: the save stays one move in, behind the game.
     full = true;
-    while (router.state.location.pathname === "/training") await discardTile();
-    expect(router.state.location.pathname).toBe("/training/over");
+    while (!handEmpty()) await discardTile();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + 5000 });
     expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Tiles placed0");
     expect(router.state.location.pathname).toBe("/training/over");
