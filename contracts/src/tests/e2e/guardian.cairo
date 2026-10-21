@@ -308,7 +308,7 @@ fn test_guardian_paused_spawn_reverts_before_any_transfer() {
 /// a discard, a surrender, and the game over on a build (reported to `Setup`, recorded by
 /// `Economy`). Two days later each recorded game settles, still paused.
 #[test]
-#[available_gas(l2_gas: 182094993)]
+#[available_gas(l2_gas: 205117742)]
 fn test_guardian_paused_lets_games_end_and_settle() {
     // Game 1 is one tile from its end (day 10); games 2 and 3 are bought the same day
     let (store, systems, context) = almost_over_daily();

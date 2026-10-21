@@ -1549,7 +1549,7 @@ SH
   new="$est/fresh-new.json"
   out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
   if [[ $rc -ne 0 || "$out" != *"== fresh: check only: every check passed; nothing was sent"* || "$out" == *"== declare"* ||
-      "$out" != *"no record: a run would declare 9 classes"* || "$out" != *"define quests 1 and 5 to 16 and achievements 1 to 16 on Setup (v1 and v2a)"* ]] || [[ -e "$new" ]] ||
+      "$out" != *"no record: a run would declare 10 classes"* || "$out" != *"define quests 1 and 5 to 16 and achievements 1 to 16 on Setup (v1 and v2a)"* ]] || [[ -e "$new" ]] ||
       grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
     echo "FAIL: sepolia --check-only --out <new file>: expected exit 0, 'every check passed; nothing was sent', no file, no add*, got $rc:"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
@@ -1574,8 +1574,8 @@ SH
 import json, sys
 keys = ["declare_tx", "Faucet.deploy_tx", "PavedToken.deploy_tx", "MockRouter.deploy_tx", "Vault.deploy_tx", "pool_tx",
         "stake_tx", "Economy.deploy_tx", "minter_tx", "Setup.deploy_tx", "Challenge.deploy_tx", "Collection.deploy_tx",
-        "Story.deploy_tx", "wiring_tx", "guardian_tx", "definitions_tx", "story_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
-        "smoke.pack_tx", "smoke.skin_tx", "smoke.settle_tx"]
+        "Story.deploy_tx", "wiring_tx", "guardian_tx", "vrf_tx", "definitions_tx", "story_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
+        "smoke.pack_tx", "smoke.skin_tx", "smoke.settle_tx", "smoke.provider_tx"]
 fresh = {"salt": "0x1", "at": "unmerged-test"}
 for i, key in enumerate(keys):
     node = fresh
@@ -1589,21 +1589,22 @@ PY2
   : >"$log"
   out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
   listed="$(grep -c '^   [A-Za-z.]*_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out")"
-  if [[ $rc -ne 0 || "$listed" != 24 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
+  if [[ $rc -ne 0 || "$listed" != 26 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
       ! cmp -s "$new" "$est/record.before" || grep -q '^fake-node: asked starknet_add' "$est/node.log" ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || leaks -q "$new" || grep -qi "$KEY_MARK" "$new" ||
       grep '^[a-z]* argv' "$log" | leaks -q || grep '^[a-z]* argv' "$log" | grep -qi "$KEY_MARK"; then
-    echo "FAIL: sepolia --check-only over a record of 24 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
+    echo "FAIL: sepolia --check-only over a record of 26 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
   else
-    echo "ok: sepolia --check-only over a record of 24 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
+    echo "ok: sepolia --check-only over a record of 26 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
   fi
-  # guardian_tx (PM, 2026-10-14) is one of the 22: its status line is listed, between wiring_tx and definitions_tx.
-  if [[ "$(grep -n '^   [A-Za-z.]*_tx ' <<<"$out" | sed -n '/wiring_tx/,/definitions_tx/p' | grep -o '[a-z.A-Z]*_tx ' | tr -d '\n')" == "wiring_tx guardian_tx definitions_tx " ]] &&
-      grep -q '^   guardian_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out"; then
-    echo "ok: sepolia --check-only lists guardian_tx between wiring_tx and definitions_tx"
+  # guardian_tx (PM, 2026-10-14) and vrf_tx (#645) are among them: their status lines are listed, in that order, between
+  # wiring_tx and definitions_tx.
+  if [[ "$(grep -n '^   [A-Za-z.]*_tx ' <<<"$out" | sed -n '/wiring_tx/,/definitions_tx/p' | grep -o '[a-z.A-Z]*_tx ' | tr -d '\n')" == "wiring_tx guardian_tx vrf_tx definitions_tx " ]] &&
+      grep -q '^   guardian_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out" && grep -q '^   vrf_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out"; then
+    echo "ok: sepolia --check-only lists guardian_tx and vrf_tx between wiring_tx and definitions_tx"
   else
-    echo "FAIL: sepolia --check-only does not list guardian_tx between wiring_tx and definitions_tx:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
+    echo "FAIL: sepolia --check-only does not list guardian_tx and vrf_tx between wiring_tx and definitions_tx:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
   fi
   # The definitions (v1 and v2a) are listed with the record's keys: quests 1 and 5 to 16, achievements 1 to 16, then the shop
   # (cobbles v1, part 2) and their cobbles (cobbles v1), in the same multicall.

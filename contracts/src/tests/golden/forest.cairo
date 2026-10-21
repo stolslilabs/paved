@@ -28,9 +28,9 @@ use paved::types::plan::Plan;
 /// once), 1 x 300 x 10972 / 10000 = 329. 438 + 329 = 767. (P4: the Woodsman alone, 329.)
 fn woodsman_ring_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFRFCCCFR, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
+        forced(Plan::FFFFCCCFF, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
         forced(Plan::FFFFCCCFF, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
-        forced(Plan::WFFFFFFFF, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
+        forced(Plan::FFFFFFCFF, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
         forced(Plan::RFRFFFFFR, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 767),
     ]
 }
@@ -42,11 +42,11 @@ fn woodsman_ring_moves() -> Array<GoldenMove> {
 /// 2 x 300 x 10475 / 10000 = 628 (628.5 rounded down). (P4: the Herdsman alone, 628.)
 fn herdsman_caps_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFRFRFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
-        forced(Plan::FFCFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 2, 643),
-        forced(Plan::FFFFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER + 1, CENTER + 2, 643),
-        forced(Plan::FFFFCCCFF, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 643),
-        forced(Plan::FFFFCCCFF, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1914),
+        forced(Plan::RFFFRFCFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::FFFFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 2, 643),
+        forced(Plan::WFFFFFFFF, Plan::FFFFFFCFF, Orientation::North, CENTER + 1, CENTER + 2, 643),
+        forced(Plan::RFRFFFCFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 643),
+        forced(Plan::CFFFCFFFC, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1914),
     ]
 }
 
@@ -57,15 +57,15 @@ fn herdsman_caps_moves() -> Array<GoldenMove> {
 /// Herdsman and the Woodsman alone, 643.)
 fn both_roles_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::RFRFFFCFR, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
-        forced(Plan::FFFFCCCFF, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
-        forced(Plan::RFRFFFCFR, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
-        forced(Plan::WFFFFFFFF, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
-        forced(Plan::RFFFRFCFR, Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 2, 0),
-        forced(Plan::RFRFFFFFR, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
-        forced(Plan::SFRFRFFFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
+        forced(Plan::RFRFRFCFF, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
+        forced(Plan::RFFFRFFFR, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
+        forced(Plan::RFRFFFFFR, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
+        forced(Plan::RFRFFFCFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::WFFFFFFFR, Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 2, 0),
+        forced(Plan::FFFFCCCFF, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
+        forced(Plan::RFRFCCCFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
         forced(Plan::SFRFRFCFR, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1693),
-        forced(Plan::FFCFFFFFC, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 2460),
+        forced(Plan::CCCCCCCCC, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 2460),
     ]
 }
 
@@ -86,16 +86,16 @@ fn both_roles_moves() -> Array<GoldenMove> {
 /// `Scored` of 0 points (D-18b, ruling 3).
 fn herdsman_open_city_moves() -> Array<GoldenMove> {
     array![
-        forced(Plan::FFFFFFCFF, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
-        forced(Plan::RFRFFFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 0),
-        forced(Plan::RFFFRFFFR, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
-        forced(Plan::RFRFFFFFR, Plan::CCCCCFFFC, Orientation::South, CENTER, CENTER + 2, 0),
-        forced(Plan::RFFFRFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::RFRFFFFFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
+        forced(Plan::RFFFRFCFR, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 0),
+        forced(Plan::SFRFRFFFR, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
+        forced(Plan::RFRFRFCFF, Plan::CCCCCFFFC, Orientation::South, CENTER, CENTER + 2, 0),
+        forced(Plan::CFFFCFFFC, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
     ]
 }
 
 #[test]
-#[available_gas(l2_gas: 131687064)]
+#[available_gas(l2_gas: 147344855)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -110,7 +110,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 140040998)]
+#[available_gas(l2_gas: 158089084)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -125,7 +125,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 192269683)]
+#[available_gas(l2_gas: 210967329)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
@@ -142,7 +142,7 @@ fn test_golden_daily_forest_both_roles() {
 /// The new case of P5-5: the rule correction P-15, see `herdsman_open_city_moves`. Not a rule of
 /// 2024: its 2024 figure was 314.
 #[test]
-#[available_gas(l2_gas: 143085179)]
+#[available_gas(l2_gas: 157305203)]
 fn test_golden_daily_forest_herdsman_open_city() {
     let moves = herdsman_open_city_moves();
     play_daily(
@@ -174,7 +174,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 381998697)]
+#[available_gas(l2_gas: 401427425)]
 fn test_golden_daily_forest_herdsman_caps_structures_agree() {
     play_daily_checked(
         'forest_caps',

@@ -10,7 +10,7 @@ pub mod HostableComponent {
     // Internal imports
 
     use paved::day::day_id;
-    use paved::events::{Event as PavedEvent, GameSpawned};
+    use paved::events::{Event as PavedEvent, GameSpawned, emit_queued};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
     use paved::models::game::{FREE_GAME, Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition};
@@ -91,9 +91,10 @@ pub mod HostableComponent {
             // [Effect] Store the starter tile, its refs and its page, from constants (G7a, C2)
             placement::place_starter(store, tile);
 
-            // [Effect] The first tile is in the builder's hand (`GameState`, stored with the game)
+            // [Effect] The first tile is in the builder's hand and the next two in the queue
+            // (`GameState`, stored with the game), all three drawn from the seed (#645)
             let mut builder = BuilderImpl::new(game.id, player_id);
-            let (tile_id, plan) = game.draw_plan();
+            let (tile_id, plan, first) = game.advance(Option::Some(seed));
             let tile = builder.reveal(tile_id, plan);
 
             // [Effect] Store tile
@@ -123,6 +124,9 @@ pub mod HostableComponent {
                         },
                     ),
                 );
+
+            // [Event] The three tiles drawn
+            emit_queued(store, game, plan.into(), first);
 
             // [Return] Game ID and the price of one stake unit
             let amount: u256 = game.price().into();

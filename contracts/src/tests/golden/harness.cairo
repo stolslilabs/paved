@@ -14,10 +14,7 @@
 use paved::constants::DISCARD_POINTS;
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
-use paved::systems::challenge::Challenge;
-use paved::systems::challenge::Challenge::InternalTrait;
 use paved::tests::oracle::check;
-use paved::tests::seed::DaySeed;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IChallengeDispatcherTrait, Systems, TestStore, TestStoreTrait};
 use paved::types::mode::Mode;
@@ -56,36 +53,27 @@ pub fn day(index: u64) -> u64 {
     86400 * (1000 + index) + 3600
 }
 
-/// Spawns a paid Challenge game (stake 1, no referrer) for `player`,
-/// through `Challenge.spawn`'s own path (`spawn_from`: the wiring, the purchase, the mint), with
-/// the seed of the day the goldens were recorded with (`seed::DaySeed`) instead of the token's
-/// (D-23). Every expected draw and score of the goldens stays that of P0. The path runs in
-/// Challenge's state (`interact_with_state`), where the caller is the test's own: it is cheated to
-/// `player`, and USDC, `Economy` and `Collection` are told that Challenge calls them, as on chain.
-pub fn spawn_on_the_day_seed(
-    systems: @Systems, token: ContractAddress, player: ContractAddress,
-) -> u32 {
+/// Spawns a paid Challenge game (stake 1, no referrer) for `player`, through `Challenge.spawn`
+/// on the devnet's VRF mock (#645, D-30), as the player's spawn `index`: its seed and its first
+/// three tiles come from the spawn's draw, salted with `player` and `index`, so every golden's
+/// draws are fixed by its player, its index and the deployment of the test. The player's spawn
+/// count is written to `index` first (a test-only write of `Challenge.vrf_spawn_counts`), so each
+/// day of a golden or of a bot game draws its own game without spawning the ones before. The
+/// goldens of the day seed (P0 to G1) were recorded again on it (`docs/measures/golden-games.md`,
+/// "Regenerated in #645").
+pub fn spawn_golden(systems: @Systems, player: ContractAddress, index: u32) -> u32 {
     let challenge = *systems.challenge.contract_address;
-    snforge_std::start_cheat_caller_address(snforge_std::test_address(), player);
-    let callees = array![
-        token, *systems.economy.contract_address, *systems.collection.contract_address,
-    ];
-    // [Info] One call each, Challenge's own: the purchase's `transferFrom`, `Economy.purchase` and
-    // `Collection.mint` (the calls `Economy` then makes are its own)
-    for callee in callees {
-        snforge_std::cheat_caller_address(
-            callee, challenge, snforge_std::CheatSpan::TargetCalls(1),
-        );
-    }
-    let game_id = snforge_std::interact_with_state(
-        challenge,
-        || {
-            let mut state = Challenge::contract_state_for_testing();
-            state.spawn_from(@DaySeed {}, 1, core::num::traits::Zero::zero(), 0)
-        },
+    let slot = snforge_std::map_entry_address(
+        selector!("vrf_spawn_counts"), array![player.into()].span(),
     );
-    snforge_std::stop_cheat_caller_address(snforge_std::test_address());
-    game_id
+    snforge_std::store(challenge, slot, array![index.into()].span());
+    snforge_std::start_cheat_caller_address(challenge, player);
+    (*systems.challenge).spawn(1, core::num::traits::Zero::zero(), 0)
+}
+
+/// The index of the spawn of the golden games of `timestamp` (`day(n)` gives `n`).
+pub fn day_index(timestamp: u64) -> u32 {
+    (timestamp / 86400 - 1000).try_into().unwrap()
 }
 
 /// A move on a tile of the real deck.
@@ -192,7 +180,7 @@ fn replay_daily(
     snforge_std::start_cheat_block_timestamp_global(timestamp);
     let (store, systems, context) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.challenge.contract_address, caller);
-    let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, caller);
+    let game_id = spawn_golden(@systems, caller, day_index(timestamp));
     if checked != Check::None {
         // The starter tile is placed by the spawn: its records agree with the walks too
         run_check(store, game_id, 1, checked);

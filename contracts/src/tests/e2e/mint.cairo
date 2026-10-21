@@ -208,6 +208,8 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     let collection = deploy_one("Collection", array![owner]);
     let setup_address = deploy_one("Setup", array![owner]);
     let challenge = deploy_one("Challenge", array![owner, usdc.into(), setup_address.into()]);
+    // [Setup] The VRF mock: the spawn draws before it mints (#645)
+    setup::set_mock_vrf(challenge);
     start_cheat_caller_address(setup_address, OWNER());
     ISetupDispatcher { contract_address: setup_address }.set_economy(economy);
     ISetupDispatcher { contract_address: setup_address }.set_collection(collection);

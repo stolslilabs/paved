@@ -20,10 +20,13 @@ export {
   modeFromCode,
   toViewError,
   NOT_AVAILABLE_MESSAGE,
+  drawView,
+  hasDrawViews,
 } from "./views";
 export type {
   BuilderView,
   DrawView,
+  DrawViews,
   FakeGame,
   GameKey,
   GameMode,

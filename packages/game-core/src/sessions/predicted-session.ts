@@ -194,6 +194,62 @@ function comingOf(tileId: number, draw: ChainDraw): { tileId: number; plan: numb
   return plans.slice(0, known < 0 ? plans.length : known).map((plan, i) => ({ tileId: tileId + i + 1, plan }));
 }
 
+/** The plans the chain gives of a VRF game's tiles not drawn by the engine yet: each pending tile named by `plans`. */
+export function supplyKnown(engine: EngineGame, plans: ReadonlyMap<number, number>): void {
+  const slots = [...(engine.handPending ? [{ id: engine.tileCount, plan: null }] : []), ...engine.queue];
+  for (const slot of slots) {
+    const plan = plans.get(slot.id);
+    if (slot.plan === null && plan) engine.supplyPlan(slot.id, PLANS[plan] as PlanType);
+  }
+}
+
+/**
+ * Replays a VRF game (#645) on a new engine game of `initialSeed`: the spawn's random, which gives the deck and the first
+ * three tiles. A move's draw cannot be computed off chain: each tile two ahead is taken from `tiles()` (the drawn tiles)
+ * or, for the two after the hand, from `draw()`. Throws when a tile is not the engine's (the spawn's three) or a placement
+ * is refused.
+ */
+export function replayVrfChallenge(
+  initialSeed: bigint,
+  tiles: readonly ChainTile[],
+  game: Pick<ChainGame, "playerId" | "deckSize" | "over">,
+  draw: Pick<ChainDraw, "next" | "after">,
+): EngineGame {
+  const engine = EngineGame.start({ deck: "simple", seed: initialSeed, player: BigInt(game.playerId), tileLimit: game.deckSize, vrf: true });
+  const drawn = [...tiles].sort((a, b) => a.id - b.id);
+  const starter = drawn[0];
+  if (!starter || starter.id !== 1 || starter.x !== CENTER || starter.y !== CENTER) throw new Error("Replay: no starter at the centre");
+  const plans = new Map(drawn.map((tile) => [tile.id, tile.plan]));
+  for (const tile of drawn.slice(1)) {
+    supplyKnown(engine, plans);
+    const hand = engine.hand;
+    if (!hand || hand.id !== tile.id || PLANS.indexOf(hand.plan) !== tile.plan) {
+      throw new Error(`Replay: tile ${tile.id} is not the engine's draw`);
+    }
+    if (tile.status === PLACED) {
+      const placement = toPlacement(tile);
+      if (!placement) throw new Error(`Replay: tile ${tile.id} has no orientation`);
+      engine.build(placement);
+    } else if (tile.status === DISCARDED) {
+      engine.discard();
+    } else if (tile.status === HELD) {
+      break;
+    } else {
+      throw new Error(`Replay: tile ${tile.id} has status ${tile.status}`);
+    }
+  }
+  if (game.over && !engine.over) engine.surrender();
+  if (!engine.over) {
+    const hand = engine.tileCount;
+    const queued: [number, number][] = [
+      [hand + 1, draw.next],
+      [hand + 2, draw.after],
+    ];
+    supplyKnown(engine, new Map([...plans, ...queued.filter(([, plan]) => plan !== 0)]));
+  }
+  return engine;
+}
+
 /** Why the engine is not in step with `game`; null when its seed, hand, score and end equal the chain's. */
 function divergence(engine: EngineGame, game: ChainGame): string | null {
   if (engine.over !== game.over) return `over: engine ${engine.over}, chain ${game.over}`;
