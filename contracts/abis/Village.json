@@ -1,0 +1,1062 @@
+[
+  {
+    "type": "impl",
+    "name": "VillageImpl",
+    "interface_name": "paved::systems::village::IVillage"
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::village::VillageInfo",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "cells",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "tiles",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "next_parcel",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "next_price",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "next_level",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::village::VillageCell",
+    "members": [
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::village::VillageTile",
+    "members": [
+      {
+        "name": "id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::village::DemolitionOffer",
+    "members": [
+      {
+        "name": "day",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "price",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::village::IVillage",
+    "items": [
+      {
+        "type": "function",
+        "name": "found",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "buy_parcel",
+        "inputs": [
+          {
+            "name": "x",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "y",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "demolish",
+        "inputs": [
+          {
+            "name": "x",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "y",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "place",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "plan",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "orientation",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "x",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "y",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "village",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::village::VillageInfo"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "cells",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<paved::systems::village::VillageCell>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "tiles",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<paved::systems::village::VillageTile>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "is_owned",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "x",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "y",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "parcel_price",
+        "inputs": [
+          {
+            "name": "parcel",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "parcel_level",
+        "inputs": [
+          {
+            "name": "parcel",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "next_demolition",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::village::DemolitionOffer"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "VillageAdminImpl",
+    "interface_name": "paved::systems::village::IVillageAdmin"
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::village::IVillageAdmin",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_setup",
+        "inputs": [
+          {
+            "name": "setup",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_max_cells",
+        "inputs": [
+          {
+            "name": "max_cells",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "max_cells",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "set_placer",
+        "inputs": [
+          {
+            "name": "placer",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "allowed",
+            "type": "core::bool"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "setup",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "is_placer",
+        "inputs": [
+          {
+            "name": "placer",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "UpgradeableImpl",
+    "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
+  },
+  {
+    "type": "interface",
+    "name": "openzeppelin_interfaces::upgrades::IUpgradeable",
+    "items": [
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "new_class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "OwnableImpl",
+    "interface_name": "paved::components::ownable::IOwnable"
+  },
+  {
+    "type": "interface",
+    "name": "paved::components::ownable::IOwnable",
+    "items": [
+      {
+        "type": "function",
+        "name": "owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "pending_owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "transfer_ownership",
+        "inputs": [
+          {
+            "name": "new_owner",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "accept_ownership",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "setup_address",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "max_cells",
+        "type": "core::integer::u8"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::GameSpawned",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "day_id",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "price",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Built",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Discarded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Scored",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "category",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "size",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::GameOver",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "day_id",
+        "type": "core::integer::u64",
+        "kind": "key"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "end_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "GameSpawned",
+        "type": "paved::events::GameSpawned",
+        "kind": "nested"
+      },
+      {
+        "name": "Built",
+        "type": "paved::events::Built",
+        "kind": "nested"
+      },
+      {
+        "name": "Discarded",
+        "type": "paved::events::Discarded",
+        "kind": "nested"
+      },
+      {
+        "name": "Scored",
+        "type": "paved::events::Scored",
+        "kind": "nested"
+      },
+      {
+        "name": "GameOver",
+        "type": "paved::events::GameOver",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "OwnershipTransferStarted",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+        "kind": "nested"
+      },
+      {
+        "name": "OwnershipTransferred",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "Upgraded",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::SetupSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "setup",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::PlacerSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "placer",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "allowed",
+        "type": "core::bool",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::MaxCellsSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "max_cells",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::VillageFounded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::ParcelBought",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "parcel",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "cells",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "level",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::TilePlaced",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::TileDemolished",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "day",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "count",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::village::Village::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "PavedEvent",
+        "type": "paved::events::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "OwnableEvent",
+        "type": "paved::components::ownable::OwnableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "UpgradeableEvent",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "SetupSet",
+        "type": "paved::systems::village::Village::SetupSet",
+        "kind": "nested"
+      },
+      {
+        "name": "PlacerSet",
+        "type": "paved::systems::village::Village::PlacerSet",
+        "kind": "nested"
+      },
+      {
+        "name": "MaxCellsSet",
+        "type": "paved::systems::village::Village::MaxCellsSet",
+        "kind": "nested"
+      },
+      {
+        "name": "VillageFounded",
+        "type": "paved::systems::village::Village::VillageFounded",
+        "kind": "nested"
+      },
+      {
+        "name": "ParcelBought",
+        "type": "paved::systems::village::Village::ParcelBought",
+        "kind": "nested"
+      },
+      {
+        "name": "TilePlaced",
+        "type": "paved::systems::village::Village::TilePlaced",
+        "kind": "nested"
+      },
+      {
+        "name": "TileDemolished",
+        "type": "paved::systems::village::Village::TileDemolished",
+        "kind": "nested"
+      }
+    ]
+  }
+]
