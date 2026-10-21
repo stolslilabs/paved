@@ -5,41 +5,46 @@
     {
       "name": "daily_city5",
       "source": "golden",
-      "seed": "0x75f339a886d70f2ec353584db1d5d5359c2ed1fb1524e53b54fdde0ee9fad37",
+      "seed": "0x6878e5e65148c3977f8f4c5f3de067ef7139fb419ac77a002bb315539d7e7d8",
       "tile_limit": 5,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 18,
+          "drawn": 10,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
           "y": 2147483648,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
-          "drawn": 7,
+          "drawn": 5,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
           "y": 2147483649,
-          "score": 0
+          "score": 0,
+          "random": null
         },
         {
-          "drawn": 6,
+          "drawn": 8,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
           "y": 2147483650,
-          "score": 0
+          "score": 0,
+          "random": null
         },
         {
-          "drawn": 5,
+          "drawn": 13,
           "plan": 8,
           "orientation": 1,
           "x": 2147483647,
           "y": 2147483651,
-          "score": 1122
+          "score": 1122,
+          "random": null
         }
       ],
       "final": {
@@ -53,25 +58,28 @@
     {
       "name": "daily_road6",
       "source": "golden",
-      "seed": "0xa370e644a9538df1614364866cbbc10391e5136af41dcd90f53a0a8892715",
+      "seed": "0x2a9cf95d0c4983dd068c75b32e13944d10bf0e86d51b32a071a022b0ea06e79",
       "tile_limit": 38,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 13,
+          "drawn": 10,
           "plan": 10,
           "orientation": 1,
           "x": 2147483648,
           "y": 2147483647,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
-          "drawn": 18,
+          "drawn": 4,
           "plan": 10,
           "orientation": 1,
           "x": 2147483649,
           "y": 2147483647,
-          "score": 0
+          "score": 0,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
         },
         {
           "drawn": 10,
@@ -79,23 +87,26 @@
           "orientation": 1,
           "x": 2147483650,
           "y": 2147483647,
-          "score": 0
+          "score": 0,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
         },
         {
-          "drawn": 18,
+          "drawn": 15,
           "plan": 16,
           "orientation": 1,
           "x": 2147483651,
           "y": 2147483647,
-          "score": 0
+          "score": 0,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
         },
         {
-          "drawn": 3,
+          "drawn": 10,
           "plan": 16,
           "orientation": 1,
           "x": 2147483646,
           "y": 2147483647,
-          "score": 689
+          "score": 689,
+          "random": "0x2aebcc5949a5bacc09623c182e62194ba6880865a5cf6eb5d6c3b2ad7f5c8b0"
         }
       ],
       "final": {
@@ -109,41 +120,46 @@
     {
       "name": "daily_mixed",
       "source": "golden",
-      "seed": "0x66e020c8c83c2ccdf9a57627dc805efba881071c38babad038d94364a1b980c",
+      "seed": "0x140b37b4baa9c492792f835a82e88200f6441a0c012b652468f13368531ef26",
       "tile_limit": 38,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 10,
+          "drawn": 16,
           "plan": 19,
           "orientation": 1,
           "x": 2147483648,
           "y": 2147483647,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
-          "drawn": 11,
+          "drawn": 7,
           "plan": 8,
           "orientation": 1,
           "x": 2147483647,
           "y": 2147483648,
-          "score": 419
+          "score": 419,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
         },
         {
-          "drawn": 19,
+          "drawn": 9,
           "plan": 10,
           "orientation": 1,
           "x": 2147483646,
           "y": 2147483647,
-          "score": 419
+          "score": 419,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
         },
         {
-          "drawn": 5,
+          "drawn": 13,
           "plan": 16,
           "orientation": 1,
           "x": 2147483645,
           "y": 2147483647,
-          "score": 857
+          "score": 857,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
         }
       ],
       "final": {
@@ -157,41 +173,19 @@
     {
       "name": "daily_deck",
       "source": "golden",
-      "seed": "0x2e5ef8ae965c274538bcfc83dc5a9daa98de2f53057b2acf9b196aec476d05f",
+      "seed": "0x15c66f9f837f09a5c22680776dfcc9cfb39e807a66272c12dee01fa34edf5c4",
       "tile_limit": 8,
       "forced": false,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 1,
-          "plan": 1,
+          "drawn": 10,
+          "plan": 10,
           "orientation": 0,
           "x": 0,
           "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 8,
-          "plan": 8,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
           "drawn": 14,
@@ -199,15 +193,35 @@
           "orientation": 0,
           "x": 0,
           "y": 0,
-          "score": 0
+          "score": 0,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
         },
         {
-          "drawn": 14,
-          "plan": 14,
+          "drawn": 10,
+          "plan": 10,
           "orientation": 0,
           "x": 0,
           "y": 0,
-          "score": 0
+          "score": 0,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0,
+          "random": null
         },
         {
           "drawn": 16,
@@ -215,7 +229,17 @@
           "orientation": 0,
           "x": 0,
           "y": 0,
-          "score": 0
+          "score": 0,
+          "random": null
+        },
+        {
+          "drawn": 17,
+          "plan": 17,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0,
+          "random": null
         }
       ],
       "final": {
@@ -229,17 +253,19 @@
     {
       "name": "forest_ring",
       "source": "golden",
-      "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
+      "seed": "0x35728c3c5ce8dd4ac7b50acb127aacef9c93decf8700f7c6c927d0fdc6fc78b",
       "tile_limit": 38,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 11,
+          "drawn": 7,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
           "y": 2147483646,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
           "drawn": 7,
@@ -247,15 +273,17 @@
           "orientation": 4,
           "x": 2147483648,
           "y": 2147483646,
-          "score": 0
+          "score": 0,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
         },
         {
-          "drawn": 18,
+          "drawn": 8,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
           "y": 2147483645,
-          "score": 0
+          "score": 0,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
         },
         {
           "drawn": 13,
@@ -275,7 +303,8 @@
               "points": 329
             }
           ],
-          "score": 767
+          "score": 767,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
         }
       ],
       "final": {
@@ -289,20 +318,22 @@
     {
       "name": "forest_caps",
       "source": "golden",
-      "seed": "0x3da61630f793f42accec0e235a3b3efefcd0fa3bdfc8bcc79e342b3959cb1cf",
+      "seed": "0x7b2fc38d426720e8383ee4dab917d22abbe656380ccc985eb9ce89573057383",
       "tile_limit": 38,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 14,
+          "drawn": 9,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
           "y": 2147483648,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
-          "drawn": 5,
+          "drawn": 8,
           "plan": 8,
           "orientation": 1,
           "x": 2147483647,
@@ -314,26 +345,29 @@
               "points": 643
             }
           ],
-          "score": 643
+          "score": 643,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
         },
         {
-          "drawn": 8,
+          "drawn": 18,
           "plan": 8,
           "orientation": 1,
           "x": 2147483648,
           "y": 2147483649,
-          "score": 643
+          "score": 643,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
         },
         {
-          "drawn": 7,
+          "drawn": 12,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
           "y": 2147483647,
-          "score": 643
+          "score": 643,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
         },
         {
-          "drawn": 7,
+          "drawn": 4,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
@@ -350,7 +384,8 @@
               "points": 628
             }
           ],
-          "score": 1914
+          "score": 1914,
+          "random": "0x2aebcc5949a5bacc09623c182e62194ba6880865a5cf6eb5d6c3b2ad7f5c8b0"
         }
       ],
       "final": {
@@ -364,65 +399,73 @@
     {
       "name": "forest_both",
       "source": "golden",
-      "seed": "0x37cfe4aa1a11307ac67e2d3180d100289834a60ebc363bef931de22977ae61f",
+      "seed": "0x474028751f64e4e7c37d83441e0b71a3e08ffc82cbd9b524df6ca1d21395647",
       "tile_limit": 38,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 12,
+          "drawn": 14,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
           "y": 2147483646,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
-          "drawn": 7,
+          "drawn": 10,
           "plan": 13,
           "orientation": 4,
           "x": 2147483648,
           "y": 2147483646,
-          "score": 0
+          "score": 0,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
         },
         {
-          "drawn": 12,
+          "drawn": 13,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
           "y": 2147483645,
-          "score": 0
+          "score": 0,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
         },
         {
-          "drawn": 18,
+          "drawn": 12,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
           "y": 2147483648,
-          "score": 0
+          "score": 0,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
         },
         {
-          "drawn": 9,
+          "drawn": 19,
           "plan": 7,
           "orientation": 1,
           "x": 2147483647,
           "y": 2147483649,
-          "score": 0
+          "score": 0,
+          "random": "0x2aebcc5949a5bacc09623c182e62194ba6880865a5cf6eb5d6c3b2ad7f5c8b0"
         },
         {
-          "drawn": 13,
+          "drawn": 7,
           "plan": 7,
           "orientation": 2,
           "x": 2147483648,
           "y": 2147483649,
-          "score": 0
+          "score": 0,
+          "random": "0xde56a936245a128734d570477493ba458fa57a0dd1e057905020daf95e7033"
         },
         {
-          "drawn": 16,
+          "drawn": 11,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
           "y": 2147483647,
-          "score": 0
+          "score": 0,
+          "random": "0x235c81ff0e887952cf38deb320f3383e8369d9ebb603eeee64dbfca3337e8b2"
         },
         {
           "drawn": 15,
@@ -430,10 +473,11 @@
           "orientation": 2,
           "x": 2147483648,
           "y": 2147483648,
-          "score": 1693
+          "score": 1693,
+          "random": "0x680361abf9dad8166a3e483cbddb907677c35f4a3f57c27cc6b957e99490227"
         },
         {
-          "drawn": 6,
+          "drawn": 1,
           "plan": 13,
           "orientation": 2,
           "x": 2147483647,
@@ -450,7 +494,8 @@
               "points": 329
             }
           ],
-          "score": 2460
+          "score": 2460,
+          "random": "0x6a0977afb65c3ac40fd59258da4eb918d2816008c861ed4710dfa87985e83e9"
         }
       ],
       "final": {
@@ -464,44 +509,49 @@
     {
       "name": "forest_open",
       "source": "golden",
-      "seed": "0x325cf6d40ecf3a3e2f5295c4d7a3d89fe71fdd812faa7b88e281208c3f5da5e",
+      "seed": "0x70aba56b8cd092ab4c59052cc2e3008a30e8692b68a8b1c5f71c79bd9f2f33a",
       "tile_limit": 38,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 8,
+          "drawn": 13,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
           "y": 2147483647,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
-          "drawn": 13,
+          "drawn": 9,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
           "y": 2147483648,
-          "score": 0
+          "score": 0,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
         },
         {
-          "drawn": 10,
+          "drawn": 16,
           "plan": 7,
           "orientation": 2,
           "x": 2147483648,
           "y": 2147483649,
-          "score": 0
+          "score": 0,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
         },
         {
-          "drawn": 13,
+          "drawn": 14,
           "plan": 2,
           "orientation": 3,
           "x": 2147483647,
           "y": 2147483649,
-          "score": 0
+          "score": 0,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
         },
         {
-          "drawn": 10,
+          "drawn": 4,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -513,7 +563,8 @@
               "points": 0
             }
           ],
-          "score": 0
+          "score": 0,
+          "random": "0x2aebcc5949a5bacc09623c182e62194ba6880865a5cf6eb5d6c3b2ad7f5c8b0"
         }
       ],
       "final": {
@@ -527,17 +578,19 @@
     {
       "name": "forest_last",
       "source": "golden",
-      "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
+      "seed": "0x35728c3c5ce8dd4ac7b50acb127aacef9c93decf8700f7c6c927d0fdc6fc78b",
       "tile_limit": 5,
       "forced": true,
+      "vrf": true,
       "moves": [
         {
-          "drawn": 11,
+          "drawn": 7,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
           "y": 2147483646,
-          "score": 0
+          "score": 0,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
         },
         {
           "drawn": 7,
@@ -545,15 +598,17 @@
           "orientation": 4,
           "x": 2147483648,
           "y": 2147483646,
-          "score": 0
+          "score": 0,
+          "random": null
         },
         {
-          "drawn": 18,
+          "drawn": 8,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
           "y": 2147483645,
-          "score": 0
+          "score": 0,
+          "random": null
         },
         {
           "drawn": 13,
@@ -573,7 +628,8 @@
               "points": 329
             }
           ],
-          "score": 767
+          "score": 767,
+          "random": null
         }
       ],
       "final": {
@@ -587,309 +643,347 @@
     {
       "name": "daily_full_deck",
       "source": "golden",
-      "seed": "0x6a53ba54aaa22d5a7cae2a4b45d2b63ac4548a51178abb0fa3d3edc3b268982",
+      "seed": "0x3c5033e3340c36e8b9f37aa342cc2f36c0f12ce629a1fbfc32947672ee5ceb7",
       "tile_limit": 38,
       "forced": false,
+      "vrf": true,
       "moves": [
+        {
+          "drawn": 6,
+          "plan": 6,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483648,
+          "score": 419,
+          "random": "0x2f0c9bc308b6c6655dcf26f534bdc6df33981fada3c8fe48bdd035db926a804"
+        },
+        {
+          "drawn": 19,
+          "plan": 19,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 419,
+          "random": "0x7b9c9bd1fb471f48c223396005de891cabfad43dfd0046b5eaad6b610e360ad"
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
+          "score": 419,
+          "random": "0x7ed38e304500e9c527d72cdf7ca31a46b94d3bac1f8be9ab0f22b486a3a53b5"
+        },
         {
           "drawn": 11,
           "plan": 11,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483648,
-          "score": 0
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483646,
-          "score": 0
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
           "orientation": 2,
-          "x": 2147483648,
-          "y": 2147483648,
-          "score": 0
-        },
-        {
-          "drawn": 8,
-          "plan": 8,
-          "orientation": 2,
-          "x": 2147483648,
-          "y": 2147483646,
-          "score": 0
+          "x": 2147483646,
+          "y": 2147483647,
+          "score": 419,
+          "random": "0xd7349f8282369809184bdfb29d8a05a9241247980bfceb5a60aa839eff8d72"
         },
         {
           "drawn": 18,
           "plan": 18,
           "orientation": 1,
-          "x": 2147483646,
-          "y": 2147483646,
-          "score": 0
-        },
-        {
-          "drawn": 5,
-          "plan": 5,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483645,
-          "score": 643
-        },
-        {
-          "drawn": 9,
-          "plan": 9,
-          "orientation": 3,
-          "x": 2147483648,
-          "y": 2147483647,
-          "score": 1520
-        },
-        {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 3,
           "x": 2147483647,
           "y": 2147483649,
-          "score": 1520
+          "score": 419,
+          "random": "0x2aebcc5949a5bacc09623c182e62194ba6880865a5cf6eb5d6c3b2ad7f5c8b0"
         },
         {
           "drawn": 16,
           "plan": 16,
-          "orientation": 1,
-          "x": 2147483646,
-          "y": 2147483647,
-          "score": 1520
-        },
-        {
-          "drawn": 15,
-          "plan": 15,
-          "orientation": 2,
-          "x": 2147483646,
-          "y": 2147483648,
-          "score": 1729
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 1,
-          "x": 2147483648,
-          "y": 2147483649,
-          "score": 1729
-        },
-        {
-          "drawn": 18,
-          "plan": 18,
-          "orientation": 1,
-          "x": 2147483648,
-          "y": 2147483645,
-          "score": 1729
-        },
-        {
-          "drawn": 6,
-          "plan": 6,
           "orientation": 4,
           "x": 2147483646,
-          "y": 2147483645,
-          "score": 1729
+          "y": 2147483648,
+          "score": 857,
+          "random": "0xde56a936245a128734d570477493ba458fa57a0dd1e057905020daf95e7033"
         },
         {
           "drawn": 7,
           "plan": 7,
-          "orientation": 1,
-          "x": 2147483649,
+          "orientation": 3,
+          "x": 2147483648,
           "y": 2147483648,
-          "score": 1729
+          "score": 857,
+          "random": "0x235c81ff0e887952cf38deb320f3383e8369d9ebb603eeee64dbfca3337e8b2"
         },
         {
-          "drawn": 13,
-          "plan": 13,
+          "drawn": 11,
+          "plan": 11,
           "orientation": 1,
-          "x": 2147483649,
-          "y": 2147483649,
-          "score": 1729
-        },
-        {
-          "drawn": 4,
-          "plan": 4,
-          "orientation": 2,
-          "x": 2147483649,
-          "y": 2147483646,
-          "score": 1729
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 1,
-          "x": 2147483645,
-          "y": 2147483646,
-          "score": 1729
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
-          "orientation": 4,
-          "x": 2147483649,
+          "x": 2147483647,
           "y": 2147483645,
-          "score": 1729
+          "score": 857,
+          "random": "0x680361abf9dad8166a3e483cbddb907677c35f4a3f57c27cc6b957e99490227"
         },
         {
           "drawn": 12,
           "plan": 12,
           "orientation": 4,
-          "x": 2147483646,
-          "y": 2147483649,
-          "score": 1729
-        },
-        {
-          "drawn": 8,
-          "plan": 8,
-          "orientation": 4,
-          "x": 2147483645,
-          "y": 2147483645,
-          "score": 2148
-        },
-        {
-          "drawn": 2,
-          "plan": 2,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483644,
-          "score": 2148
-        },
-        {
-          "drawn": 5,
-          "plan": 5,
-          "orientation": 2,
           "x": 2147483648,
-          "y": 2147483644,
-          "score": 2148
-        },
-        {
-          "drawn": 14,
-          "plan": 14,
-          "orientation": 2,
-          "x": 2147483645,
-          "y": 2147483647,
-          "score": 3048
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 1,
-          "x": 2147483648,
-          "y": 2147483650,
-          "score": 3048
-        },
-        {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 2,
-          "x": 2147483647,
-          "y": 2147483650,
-          "score": 3048
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 2,
-          "x": 2147483649,
-          "y": 2147483650,
-          "score": 3048
-        },
-        {
-          "drawn": 14,
-          "plan": 14,
-          "orientation": 4,
-          "x": 2147483645,
-          "y": 2147483648,
-          "score": 3467
-        },
-        {
-          "drawn": 19,
-          "plan": 19,
-          "orientation": 2,
-          "x": 2147483650,
-          "y": 2147483649,
-          "score": 3467
+          "y": 2147483646,
+          "score": 857,
+          "random": "0x6a0977afb65c3ac40fd59258da4eb918d2816008c861ed4710dfa87985e83e9"
         },
         {
           "drawn": 15,
           "plan": 15,
           "orientation": 2,
-          "x": 2147483645,
-          "y": 2147483649,
-          "score": 3788
-        },
-        {
-          "drawn": 4,
-          "plan": 4,
-          "orientation": 1,
-          "x": 2147483650,
-          "y": 2147483648,
-          "score": 3788
-        },
-        {
-          "drawn": 19,
-          "plan": 19,
-          "orientation": 4,
-          "x": 2147483650,
-          "y": 2147483650,
-          "score": 3997
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 2,
-          "x": 2147483650,
-          "y": 2147483646,
-          "score": 3997
-        },
-        {
-          "drawn": 9,
-          "plan": 9,
-          "orientation": 2,
-          "x": 2147483650,
+          "x": 2147483648,
           "y": 2147483645,
-          "score": 3997
+          "score": 857,
+          "random": "0x3990681a0f25f0e58465b33d093dfa5338103004f98a687d483d87fdde0af69"
         },
         {
-          "drawn": 2,
-          "plan": 2,
+          "drawn": 12,
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483647,
+          "score": 857,
+          "random": "0x1c02c73190e67bc09d312e68e88559f8a11af53d03956c440e40786a9e48285"
+        },
+        {
+          "drawn": 18,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483650,
+          "score": 857,
+          "random": "0x6dcb9acc6435a4e8acf3709014de4f44dbf04d94d7718b9856eb48d7d0d8345"
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483649,
+          "score": 857,
+          "random": "0x6291cbc6143950f56e9f64dc1a17ae6a19ab937838b91700cc8f3137e6d3732"
+        },
+        {
+          "drawn": 8,
+          "plan": 8,
+          "orientation": 3,
+          "x": 2147483646,
+          "y": 2147483646,
+          "score": 857,
+          "random": "0x6c06a102fbfae0ed1ec6070947b2099f85577f832967e172b10da874dc7779e"
+        },
+        {
+          "drawn": 3,
+          "plan": 3,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483646,
+          "score": 857,
+          "random": "0x6e5a838e8e3f77145a0332406f485e65950787565cf8513ec9a07a70fe77a46"
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483645,
+          "score": 857,
+          "random": "0x77d36eb268f615e393c5998790c556dea9af851a1afb910bc1ee1858bee7c17"
+        },
+        {
+          "drawn": 18,
+          "plan": 18,
           "orientation": 1,
           "x": 2147483646,
-          "y": 2147483644,
-          "score": 3997
+          "y": 2147483650,
+          "score": 857,
+          "random": "0x3226b6bd1bac1213043333ac17be3e850cf8670e1de8e87682ebd131148b388"
+        },
+        {
+          "drawn": 1,
+          "plan": 1,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483647,
+          "score": 857,
+          "random": "0xd2640c087a2d5cfba9008921bd63605604c4cf5d1943356d44841c27d6d751"
         },
         {
           "drawn": 13,
           "plan": 13,
           "orientation": 3,
+          "x": 2147483646,
+          "y": 2147483645,
+          "score": 857,
+          "random": "0x2535cd3e378a1a1fbc0774b02dbf692e7ba00bc667c5c3749272e7e4ca24ee7"
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483649,
+          "score": 857,
+          "random": "0x71591e426c4bdf623864ad28801c310ce5ad92480859d7abf5c41bb217c610a"
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483648,
+          "score": 857,
+          "random": "0x5634005dc64ff1b572f34b23b6f4d0780d429c9854444ccb59dedefcb83b790"
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483650,
+          "score": 1757,
+          "random": "0x43a43730212626c38a58630efc3ed867dadc6191338a90afae99a798a8734b0"
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483649,
+          "score": 3057,
+          "random": "0x7fa1b03a52b623d3bbf296979bbf27efce4c6592f6e55dd011a89b2dce32e3d"
+        },
+        {
+          "drawn": 5,
+          "plan": 5,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483648,
+          "score": 4376,
+          "random": "0x62dca6b11d9f62627a7846fddfbee1ebf600a723a4fc02653ca150e8dd05c4e"
+        },
+        {
+          "drawn": 2,
+          "plan": 2,
+          "orientation": 4,
+          "x": 2147483645,
+          "y": 2147483646,
+          "score": 4376,
+          "random": "0x6b8df992fa98fc654fcae596f2368f4ed9c001ed2872963a04cbd0e118b3e07"
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 4,
+          "x": 2147483645,
+          "y": 2147483650,
+          "score": 4585,
+          "random": "0x51a857f3d16f184de6f9d453c8a48d0431267df826f607d77ef51b8261de435"
+        },
+        {
+          "drawn": 13,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483644,
+          "score": 4585,
+          "random": "0x70e20f67dc810949f8272d8189a789b5608d1fad8f264e9941a8dd475d14b6f"
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483645,
+          "score": 4585,
+          "random": "0x516005fcc42f11d90149cd0dca9bba9ca0c07e37311e7ce8596fcb784c442aa"
+        },
+        {
+          "drawn": 4,
+          "plan": 4,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483651,
+          "score": 4585,
+          "random": "0x35631951d899611f1349142e3a7c02a537382fe7b51da3ac164ca16a8210dcd"
+        },
+        {
+          "drawn": 3,
+          "plan": 3,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483644,
+          "score": 4906,
+          "random": "0x6caca9a479ad01e9499e783a8e144f5cd8e7d3e9054f324a7a23ae0e61fc59"
+        },
+        {
+          "drawn": 10,
+          "plan": 10,
+          "orientation": 2,
+          "x": 2147483649,
+          "y": 2147483644,
+          "score": 4906,
+          "random": "0x7a9ae00d7f1c0ccfd3feaff2fb136a11db5789be2fdcfac9aaa5c9d4452a469"
+        },
+        {
+          "drawn": 17,
+          "plan": 17,
+          "orientation": 1,
           "x": 2147483650,
           "y": 2147483647,
-          "score": 3997
+          "score": 5227,
+          "random": "0x11719d1143cb7bcc363944d2dbae5d919fe51fd890a83c15961f02121e7844d"
+        },
+        {
+          "drawn": 11,
+          "plan": 11,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483646,
+          "score": 5227,
+          "random": "0x58f5df36feb61effa3c06ac24f8d876b10009e67888051a47edc9467cce6a0"
+        },
+        {
+          "drawn": 7,
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483650,
+          "y": 2147483645,
+          "score": 6349,
+          "random": "0x6048e70b7d349818355b247c05f3810e1c72d2aaba78acc7e8a87150c141bb4"
+        },
+        {
+          "drawn": 14,
+          "plan": 14,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483651,
+          "score": 6349,
+          "random": null
+        },
+        {
+          "drawn": 16,
+          "plan": 16,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483648,
+          "score": 6558,
+          "random": null
         },
         {
           "drawn": 10,
           "plan": 10,
           "orientation": 1,
-          "x": 2147483644,
-          "y": 2147483646,
-          "score": 3997
-        },
-        {
-          "drawn": 8,
-          "plan": 8,
-          "orientation": 2,
           "x": 2147483649,
-          "y": 2147483644,
-          "score": 5316
+          "y": 2147483650,
+          "score": 6558,
+          "random": null
         }
       ],
       "final": {
-        "score": 5316,
+        "score": 6558,
         "built": 37,
         "discarded": 0,
         "tile_count": 38,

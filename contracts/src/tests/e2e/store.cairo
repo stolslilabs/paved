@@ -4,7 +4,7 @@
 use core::num::traits::Bounded;
 use paved::constants;
 use paved::models::builder::Builder;
-use paved::models::game::{Game, GameImpl};
+use paved::models::game::{FREE_GAME, Game, GameImpl};
 use paved::models::tile::{Tile, TilePosition};
 use paved::store::{StoreImpl, StoreTrait};
 use paved::tests::setup::setup;
@@ -44,7 +44,10 @@ fn test_store_round_trips_at_maximum_values() {
                     constants::MAX_FORESTS,
                     constants::MAX_WONDERS,
                     constants::MAX_BIG,
-                ),
+                )
+                    + FREE_GAME,
+                // #645: the queue's 11 bits, above the counters, all set
+                queue: 0x7ff,
             };
             store.set_game(game);
             assert_eq!(store.game(game.id), game);
@@ -60,6 +63,7 @@ fn test_store_round_trips_at_maximum_values() {
             let after = store.live_game(game.id);
             assert_eq!(after.held_tile, 7);
             assert_eq!(after.counts, game.counts);
+            assert_eq!(after.queue, game.queue);
             assert_eq!(after.tiles, game.tiles);
             assert_eq!(after.score, game.score);
             assert_eq!(after.seed, game.seed);
