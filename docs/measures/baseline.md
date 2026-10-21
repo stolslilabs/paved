@@ -1717,3 +1717,21 @@ and -36,972 on z5). m and n stay under their ceilings; z5 is reset to measured +
 z16 to z21 took those names, so the XP scenarios are z22 and z23): 1,047 passed, 0 failed, 38 ignored, 9.9 GB, 4 min 42 s; z22
 551,188, z23 273,278, g 3,952,394, every ceiling held. `Setup` on the merged tree: 19,604 Sierra, 43,431 CASM, 53.0 % (main
 with `ISetupSpend`: 41,179; +2,252).
+
+## After AVATAR-CHAIN (#627)
+
+Measured in CI (the `Test game` job of PR #675, run 39650025352, scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo`,
+the test profile): the contracts' test build is above the VPS's memory scope, so no figure here was measured locally. Ten
+parts in use, items 0 to 3 of every part free and item 4 at 50 Cobbles.
+
+| Scenario | L2 gas | Ceiling (measured + 5 %) |
+|---|---:|---:|
+| z24, `set_item` of a seasonal paid item (the item's slot and the part's end read and written, one event) | 704,759 | 739,997 |
+| z25, `buy_avatar_item` (the item and the ownership read and written, `Setup.spend_cobbles`, two events) | 1,181,563 | 1,240,642 |
+| z26, `set_avatar` with ten free parts (ten item reads, one write, one event) | 1,371,620 | 1,440,201 |
+| z27, `set_avatar` with ten owned parts (ten item and ten ownership reads) | 2,480,150 | 2,604,158 |
+| z28, the `items` view of a part of 17 items | 2,393,093 | 2,512,748 |
+
+The hand-over's single-class version measured 1,154,753 for a purchase and 2,677,046 and 3,640,176 for `set_avatar` with ten
+free and ten owned parts (VPS): reading the look as bytes of a `u128` instead of a layout of widths in a `u256` halves the
+free case.

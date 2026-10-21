@@ -159,12 +159,13 @@ pub const CEILING_CREDIT_XP: u128 = 578433;
 pub const CEILING_PLAYER_LEVEL: u128 = 286837;
 // z24 to z28: the avatar on chain (#627, `docs/architecture/avatar-chain.md`), ten parts in use:
 // `set_item`, `buy_avatar_item` (`Setup.spend_cobbles` included), `set_avatar` with ten free and
-// ten owned parts, and the `items` view of a part of 17 items. Measured + 5 %, rounded up.
-pub const CEILING_AVATAR_SET_ITEM: u128 = 10000000;
-pub const CEILING_AVATAR_BUY: u128 = 10000000;
-pub const CEILING_AVATAR_SET_FREE: u128 = 10000000;
-pub const CEILING_AVATAR_SET_OWNED: u128 = 10000000;
-pub const CEILING_AVATAR_ITEMS: u128 = 10000000;
+// ten owned parts, and the `items` view of a part of 17 items. Measured in CI (the `Test game` job
+// of PR #675, run 39650025352, snforge 0.64.0, test profile) + 5 %, rounded up.
+pub const CEILING_AVATAR_SET_ITEM: u128 = 739997;
+pub const CEILING_AVATAR_BUY: u128 = 1240642;
+pub const CEILING_AVATAR_SET_FREE: u128 = 1440201;
+pub const CEILING_AVATAR_SET_OWNED: u128 = 2604158;
+pub const CEILING_AVATAR_ITEMS: u128 = 2512748;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).

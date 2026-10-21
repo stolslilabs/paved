@@ -37,11 +37,12 @@ pub fn look_ids(look: u128, parts: u8) -> Option<Array<u8>> {
 
 /// The look of version 1 of one item id per part, part 0 first (at most `MAX_PARTS` ids).
 pub fn look_of(ids: Span<u8>) -> u128 {
-    let mut look: u128 = FORMAT_VERSION.into();
-    let mut unit: u128 = 0x100;
-    for id in ids {
-        look += (*id).into() * unit;
-        unit *= 0x100;
+    // From the last part down, so no power of 256 past the last byte is ever computed
+    let mut look: u128 = 0;
+    let mut i = ids.len();
+    while i != 0 {
+        i -= 1;
+        look = look * 0x100 + (*ids.at(i)).into();
     }
-    look
+    look * 0x100 + FORMAT_VERSION.into()
 }

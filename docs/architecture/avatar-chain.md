@@ -109,8 +109,9 @@ whole from `Setup`'s events alone, as it does for the matchmaker and the village
 - **CASM** (`scripts/class-sizes.sh`, release, scarb 2.20.1, VPS, 2026-10-21): `Avatar` 4,027 Sierra, 10,091 CASM felts,
   12.3 % of the Starknet cap, 63,637 under the P-44 cap of a class (73,728). `Setup` 43,431 (53.0 %), unchanged from main.
   The hand-over's version (one class, a layout of widths) was 11,318.
-- **Gas** (`contracts/tests/gas.cairo`, the test profile): measured in CI, see `docs/measures/baseline.md`, "After
-  AVATAR-CHAIN".
+- **Gas** (`contracts/tests/gas.cairo`, the test profile, measured in CI; `docs/measures/baseline.md`, "After AVATAR-CHAIN"):
+  `set_item` 704,759; `buy_avatar_item` 1,181,563 (`Setup.spend_cobbles` included); `set_avatar` 1,371,620 with ten free
+  parts and 2,480,150 with ten owned parts; the `items` view of 17 items 2,393,093.
 
 ## 8. Audit (correctness and security, the Cobbles path)
 
