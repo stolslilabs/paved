@@ -36,8 +36,8 @@ use paved::tests::legacy::store::StoreImpl as LegacyStore;
 use paved::tests::legacy::{IDailyBeforeD18Dispatcher, IDailyBeforeD18DispatcherTrait};
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{TestChallenge, 
-    IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
+use paved::tests::setup::setup::{
+    IChallengeDispatcherTrait, OWNER, PLAYER, TestChallenge, TestStore, TestStoreTrait,
 };
 use paved::types::category::Category;
 use paved::types::mode::Mode;
@@ -128,9 +128,16 @@ fn role_bit(role: Role) -> u16 {
     paved::tests::legacy::placement::role_bit(role.into())
 }
 
-/// The roles placed, read as 07aab8a reads them (the bits 72 to 88 of `GameState`).
+/// The roles placed, read as 07aab8a reads them (the bits 72 to 88 of `GameState`). Read from the
+/// raw slot: 07aab8a's `live_game` takes every bit above 88 as its counters, and the queue of #645
+/// is there once the current class has moved.
 fn roles_placed(store: TestStore, game_id: u32) -> u16 {
-    interact_with_state(store.contract, || LegacyStore::new().live_game(game_id).characters)
+    let word: u256 = interact_with_state(
+        store.contract,
+        || paved::store::StoreTrait::game_state_word(paved::store::StoreImpl::new(), game_id),
+    )
+        .into();
+    ((word.high / 0x1000000000000000000) & 0xffff).try_into().unwrap()
 }
 
 /// The `chars` of the root of the structure on `spot` of the tile at (`x`, `y`), read as 07aab8a

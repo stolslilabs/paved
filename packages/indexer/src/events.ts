@@ -365,6 +365,11 @@ export const IGNORED = [
   "GuardianSet",
   "SpawnPaused",
   "SpawnUnpaused",
+  // The Challenge on the VRF (#645, docs/architecture/challenge-vrf.md): a tile drawn into a game's queue, and the owner's
+  // choice of the VRF provider. No table reads them yet: the client reads the queue from `Challenge.draw` and the move's
+  // receipt. Known by name so that the strict decoder never halts on a Challenge that emits them.
+  "Queued",
+  "VrfProviderSet",
 ] as const;
 
 /**

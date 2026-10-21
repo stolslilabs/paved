@@ -98,6 +98,16 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   the high lane, 10 draws each); once `need == free` every free index left goes. Then run `bun run generate:parity`.
   The frozen `tutorial_full` (from 38f1c95) is untouched.
 
+- **As built (#645, D-30, 2026-10-21): the draws leave the seed.** A Challenge game draws its tiles from the VRF
+  (`challenge-vrf.md`): the spawn's random gives the seed (so the deck, by G1's walk) and the first three tiles, and each
+  move draws one tile two ahead. A game's `seed` no longer gives its draws, and nothing reseeds after a placement. The
+  Cairo goldens spawn on the devnet mock and were recorded again (`golden-games.md`, "Regenerated in CHALLENGE-VRF"):
+  every `drawn` plan changes, the forced boards keep their scores, and `daily_full_deck` is a new game (7,586). **For
+  CLIENT** (the client task that follows #645): the engine takes the drawn plans as given (the queue of three tiles:
+  the hand and the next two) instead of drawing them from the seed, Training draws them locally into the same queue, and
+  the fixture is transcribed again from the new Cairo files (`transcribe-goldens.ts`). Until then CLIENT's fixture is
+  the transcription of the G1 goldens, which its engine still replays.
+
 ## How a Cairo test keeps it current
 
 A test `tests::parity` reads the file (`snforge_std`'s `fs` module, `read_txt`; part B checks the reader against

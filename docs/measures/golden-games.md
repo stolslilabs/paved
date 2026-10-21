@@ -442,3 +442,31 @@ the new deck, so its cost moves with it; the figures are whole games.
 **Unchanged.** CLIENT's frozen `tutorial_full` (2,794, from 38f1c95, `parity-fixture.md`): its deck lives in the client
 and G1 does not touch it. The "Rule" above holds: a golden value changes only with a rule change named in the title of
 its pull request (G1's: `perf: G1, spawn's deck walk cut (gas), goldens re-derived`).
+
+## Regenerated in CHALLENGE-VRF (#645, the Challenge on the VRF, 2026-10-21)
+
+**A rule change, ruled by the owner on 2026-10-21** (D-30, `docs/architecture/challenge-vrf.md`). The draws of a Challenge
+game come from the VRF: the spawn's random gives the seed (the deck) and the first three tiles, and each move that leaves
+a tile to queue draws one, two tiles ahead. The goldens run on the devnet mock (`MockVrfProvider`): the harness spawns
+through `Challenge.spawn` (`harness::spawn_golden`), as the player's spawn `n` for `day(n)`, instead of `spawn_from` on the
+day seed (`DaySeed`, which stays test-only for its own tests). So every golden's draws are fixed by its player, its day
+index and the deployment of the test, and every drawn plan changes. The scoring rules do not change.
+
+**What changed.**
+
+| Case | Before | #645 | What moved |
+|---|---:|---:|---|
+| `daily_city5`, `daily_road6`, `daily_mixed`, `forest_ring`, `forest_caps`, `forest_both`, `forest_open`, `forest_last` | 1,122, 689, 857, 767, 1,914, 2,460, 0, 767 | the same | Forced plans: the boards and every score are unchanged; only the `drawn` plan of each move changes. |
+| `daily_deck` (discards) | 0 | 0 | The 7 drawn plans: `WFFFFFFFF`, `RFFFRFFFR`, `SFRFRFCFR`, `RFRFRFCFF`, `FFFFCCCFF`, `FFFFCCCFF`, `RFRFFFFFR`. |
+| `daily_full_deck` | 5,316 | **7,586** | Real draws and placements: the bot (`test_full_deck_generate`) chose the 37 moves again on the VRF's draws; 37 builds, 0 discards, tile count 38, game over. |
+
+**Independence.** As in G1. The drawn plans come from a record run (`RECORD` in `harness.cairo`) that prints the plan in
+hand before each move. The full deck's moves come from the bot, which only picks a legal position. Its score after each
+move comes from a record run of the checked twin `test_golden_daily_full_deck_structures_agree`
+(`--max-n-steps 1000000000`, peak 8.78 GB RSS on the Mac): the oracle's walks give the bot's 37 scores, from 0 to 7,586.
+The checked replays then pass: the structure state agrees with the walks after every build, and every finished
+structure of each board scored once. The differential boards force every plan and do not change.
+
+**Budgets.** Every move that draws now calls the provider (about 1.0M L2 gas on the mock), and the tests run each call in
+a transaction of its own (`setup::next_tx`), so every `#[available_gas]` that the change pushed over its budget is
+reset to the measured figure + 5 % (`baseline.md`, "After CHALLENGE-VRF").

@@ -330,6 +330,13 @@ pub impl StoreImpl of StoreTrait {
         storage().game_states.entry(game.id).write(slots);
     }
 
+    /// Test only: the second slot of `GameState` as stored, for the tests that read bits no
+    /// field of `Game` holds (the dead roles of before D-18).
+    #[cfg(test)]
+    fn game_state_word(self: Store, game_id: u32) -> felt252 {
+        storage().game_states.entry(game_id).read().b
+    }
+
     /// `GameEnd`: the end time and the day id of a game that ended in time.
     fn set_game_end(self: Store, game: Game) {
         let word: u128 = game.end_time.into() + game.day_id.into() * TWO_POW_64;

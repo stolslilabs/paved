@@ -17,7 +17,6 @@ pub mod setup {
         IChallengeDispatcher, IChallengeDispatcherTrait as ChallengeDispatcherTrait,
         IChallengeDrawDispatcher, IChallengeDrawDispatcherTrait,
     };
-    use paved::types::orientation::Orientation;
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
 
     // Internal imports
@@ -28,6 +27,7 @@ pub mod setup {
     use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
     use paved::systems::vault::{DEAD_ASSETS, DEFAULT_EXIT_FEE_BPS};
     pub use paved::types::mode::Mode;
+    use paved::types::orientation::Orientation;
     use paved::types::plan::{Plan, PlanImpl};
     use snforge_std::{
         ContractClassTrait, DeclareResultTrait, declare, interact_with_state, load,

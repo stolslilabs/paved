@@ -430,9 +430,7 @@ fn test_challenge_vrf_the_view_draws_for_the_player_only() {
     assert_eq!(game.move_draw('OTHER', game.start_time), Option::None);
     assert_eq!(game.move_draw(0, game.start_time), Option::None);
     assert_eq!(game.move_draw(game.player_id, game.expires_at()), Option::None);
-    assert_eq!(
-        game.move_draw(game.player_id, game.start_time), Option::Some(game.tile_count + 3),
-    );
+    assert_eq!(game.move_draw(game.player_id, game.start_time), Option::Some(game.tile_count + 3));
     let _ = systems;
 }
 

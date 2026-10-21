@@ -118,7 +118,7 @@ fn test_cobbles_e2e_paid_game_over_writes_the_ledger() {
 
 /// A move that does not end the game writes nothing.
 #[test]
-#[available_gas(l2_gas: 175863450)]
+#[available_gas(l2_gas: 185422355)]
 fn test_cobbles_e2e_a_move_that_does_not_end_writes_nothing() {
     let (store, systems, context) = cobbles_game();
     let game = store.game(context.game_id);
@@ -136,7 +136,7 @@ fn test_cobbles_e2e_a_move_that_does_not_end_writes_nothing() {
 /// claims their cobbles and the credit, spawns free, and ends the free game. The credit is spent,
 /// the day's sums are those of the paid game, and the free game reported its achievements only.
 #[test]
-#[available_gas(l2_gas: 204698562)]
+#[available_gas(l2_gas: 217653156)]
 fn test_cobbles_e2e_day_credit_end_to_end() {
     let (store, systems, context) = cobbles_game();
     let setup_address = systems.setup.contract_address;
@@ -231,7 +231,7 @@ fn test_cobbles_e2e_day_credit_end_to_end() {
 /// A7: a free game brings nothing into the Vault and takes nothing out. Its spawn makes no token
 /// transfer and no `Economy` call, its game over no `Economy.record`, and no `settle` can pay it.
 #[test]
-#[available_gas(l2_gas: 200895211)]
+#[available_gas(l2_gas: 213696699)]
 #[feature("safe_dispatcher")]
 fn test_cobbles_A7_free_game_brings_nothing_into_the_vault() {
     let (store, systems, context) = cobbles_game();
@@ -278,7 +278,7 @@ fn test_cobbles_A7_free_game_brings_nothing_into_the_vault() {
 /// A8: a free game cannot earn a credit: its game over reports no quest entries, so a day played
 /// on free games alone stays empty, however high its tally.
 #[test]
-#[available_gas(l2_gas: 197321664)]
+#[available_gas(l2_gas: 209915357)]
 #[feature("safe_dispatcher")]
 fn test_cobbles_A8_free_game_cannot_earn_a_credit() {
     let (store, systems, context, game_id) = free_game();
@@ -300,7 +300,7 @@ fn test_cobbles_A8_free_game_cannot_earn_a_credit() {
 
 /// The spawn pause stops free games too; a free game in flight still ends (7.2, G4).
 #[test]
-#[available_gas(l2_gas: 235233210)]
+#[available_gas(l2_gas: 252816438)]
 #[feature("safe_dispatcher")]
 fn test_cobbles_spawn_free_obeys_the_pause() {
     let (store, systems, _, game_id) = free_game();
@@ -324,7 +324,7 @@ fn test_cobbles_spawn_free_obeys_the_pause() {
 
 /// Without a credit, `spawn_free` reverts: no game is created and no token minted.
 #[test]
-#[available_gas(l2_gas: 194710590)]
+#[available_gas(l2_gas: 206880128)]
 #[feature("safe_dispatcher")]
 fn test_cobbles_spawn_free_without_a_credit() {
     let (store, systems, _) = cobbles_game();
@@ -364,7 +364,7 @@ fn assert_game_over(
 
 /// On the last `build`, in its day: `GameOver` with its day id, score and end time.
 #[test]
-#[available_gas(l2_gas: 202439895)]
+#[available_gas(l2_gas: 215041784)]
 fn test_cobbles_free_game_over_on_the_last_build_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let mut game = store.game(game_id);
@@ -386,7 +386,7 @@ fn test_cobbles_free_game_over_on_the_last_build_emits_game_over() {
 
 /// On the last `discard`, in its day.
 #[test]
-#[available_gas(l2_gas: 197618300)]
+#[available_gas(l2_gas: 210227870)]
 fn test_cobbles_free_game_over_on_the_last_discard_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let spy = spy_events();
@@ -399,7 +399,7 @@ fn test_cobbles_free_game_over_on_the_last_discard_emits_game_over() {
 
 /// On a `surrender`, in its day.
 #[test]
-#[available_gas(l2_gas: 194253791)]
+#[available_gas(l2_gas: 206493249)]
 fn test_cobbles_free_game_over_on_surrender_emits_game_over() {
     let (store, systems, _, game_id) = free_game();
     let spy = spy_events();
@@ -413,7 +413,7 @@ fn test_cobbles_free_game_over_on_surrender_emits_game_over() {
 /// On expiry: an expired game takes no move but a `surrender`, which ends it after its day:
 /// `GameOver` with day id 0 and end time 0, as a paid game's, and still no `Economy` call.
 #[test]
-#[available_gas(l2_gas: 198147405)]
+#[available_gas(l2_gas: 211246822)]
 #[feature("safe_dispatcher")]
 fn test_cobbles_free_game_over_after_expiry_emits_game_over() {
     let (store, systems, _, game_id) = free_game();

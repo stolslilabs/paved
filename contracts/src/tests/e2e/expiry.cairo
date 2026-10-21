@@ -9,13 +9,12 @@ use core::num::traits::Zero;
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::constants;
 use paved::mocks::token::IERC20Dispatcher;
+use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::{CENTER, Tile};
 use paved::seed::{SeedSource, TokenSeed};
-use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
 use paved::systems::challenge::Challenge::{MOVE_KIND, SPAWN_KIND};
 use paved::systems::challenge::{IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait};
-use paved::vrf::draw_salt;
 use paved::systems::economy::{
     DAY, IEconomyDispatcherTrait, IEconomySafeDispatcher, IEconomySafeDispatcherTrait,
 };
@@ -32,6 +31,7 @@ use paved::views::{
     IGameViewDispatcher, IGameViewDispatcherTrait, IGameViewSafeDispatcher,
     IGameViewSafeDispatcherTrait, TILE_HELD, TILE_PLACED,
 };
+use paved::vrf::draw_salt;
 use snforge_std::{
     DeclareResultTrait, declare, get_class_hash, start_cheat_block_timestamp_global,
     start_cheat_caller_address,

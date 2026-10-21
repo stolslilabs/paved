@@ -63,7 +63,9 @@ pub fn day(index: u64) -> u64 {
 /// "Regenerated in #645").
 pub fn spawn_golden(systems: @Systems, player: ContractAddress, index: u32) -> u32 {
     let challenge = *systems.challenge.contract_address;
-    let slot = snforge_std::map_entry_address(selector!("vrf_spawn_counts"), array![player.into()].span());
+    let slot = snforge_std::map_entry_address(
+        selector!("vrf_spawn_counts"), array![player.into()].span(),
+    );
     snforge_std::store(challenge, slot, array![index.into()].span());
     snforge_std::start_cheat_caller_address(challenge, player);
     (*systems.challenge).spawn(1, core::num::traits::Zero::zero(), 0)

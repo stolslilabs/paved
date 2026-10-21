@@ -21,8 +21,8 @@ use paved::systems::challenge::Challenge;
 use paved::tests::legacy_d18::{IDailyBeforeD19Dispatcher, IDailyBeforeD19DispatcherTrait};
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{TestChallenge, 
-    IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
+use paved::tests::setup::setup::{
+    IChallengeDispatcherTrait, OWNER, PLAYER, TestChallenge, TestStore, TestStoreTrait,
 };
 use paved::types::category::Category;
 use paved::types::mode::Mode;

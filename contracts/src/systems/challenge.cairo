@@ -108,8 +108,8 @@ pub mod Challenge {
     // Internal imports
 
     use paved::events::Event as PavedEvent;
-    use paved::quests::{achievement_entries, decode, is_free, quest_entries};
     use paved::models::game::GameImpl;
+    use paved::quests::{achievement_entries, decode, is_free, quest_entries};
     use paved::seed::VrfSeed;
     use paved::store::StoreImpl;
     use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
@@ -126,12 +126,12 @@ pub mod Challenge {
     use paved::vrf::draw_salt;
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
-    #[cfg(test)]
-    use starknet::storage::{StorageAsPath, StorageAsPointer, StoragePathEntry};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
+    #[cfg(test)]
+    use starknet::storage::{StorageAsPath, StorageAsPointer, StoragePathEntry};
     use starknet::{
         ClassHash, ContractAddress, get_block_timestamp, get_caller_address, get_contract_address,
     };

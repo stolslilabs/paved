@@ -126,6 +126,11 @@ tile, ids `1..=tile_count` in the order they were drawn, with its status. A disc
 
 ### `initial_seed(game_id: u32) -> felt252`
 
+**Since #645 (D-30)**, a game spawned on the VRF stores its seed and never changes it: `initial_seed` reads it, the
+random of the spawn's VRF draw (for a game moved to the VRF by its first move after the upgrade, its seed at that move).
+It still gives the deck (G1's walk), but no longer the draws: they come from the VRF, one per move, and the client reads
+them from the chain (`draw`, below, and the `Queued` events). What follows holds for the games spawned before #645.
+
 The seed the game started with, before the deck's withdrawal and the first draw (S1): its token's
 seed, `Poseidon(0, Challenge, game_id)` (`TokenSeed`, D-23), right for every game. With `tiles`, what a
 client replays to compute the next draw locally (`client-spec-core.md`, section 3), for every game spawned
@@ -211,6 +216,46 @@ token. A client reads `spawn_paused()` to disable its "play" button and say why,
 
 A fresh deployment has no guardian and is not paused; so is a `Challenge` upgraded in place to this class (both
 storage slots read zero).
+
+## The VRF draws of `Challenge` (`IChallengeDraw`, #645)
+
+Since #645 (D-30, `challenge-vrf.md`) every random of a Challenge game comes from Cartridge's VRF provider (the devnet
+mock on devnet), one draw per transaction: the spawn's random gives the seed (the deck) and the first three tiles, and
+each `build` or `discard` that leaves a tile to queue draws one, two tiles ahead. The game holds the tile in hand and the
+next two (`next`, `after`).
+
+| Entry point or view | Who | What |
+|---|---|---|
+| `set_vrf_provider(provider: ContractAddress)` | owner | sets the provider; zero reverts `'VRF: provider is zero'`. Emits `VrfProviderSet { provider }`. Others revert `'Ownable: caller is not owner'` |
+| `vrf_provider() -> ContractAddress` | anyone | the provider, zero until set (a spawn or a drawing move then reverts `'VRF: no provider'`) |
+| `draw(game_id: u32) -> DrawView` | anyone | the queue of a game and what its next `build` or `discard` draws. Reverts `Game: does not exist` for no game |
+| `spawn_salt(player: ContractAddress) -> felt252` | anyone | the salt the player's next spawn draws with: `draw_salt('CHALLENGE_SPAWN', player, spawn count)` |
+
+`DrawView`, serialized in this order:
+
+| # | Field | Type | Meaning |
+|---|---|---|---|
+| 0 | `game_id` | `u32` | the game |
+| 1 | `next` | `u8` | the plan of tile `tile_id + 1` (0: none, at the deck's end) |
+| 2 | `after` | `u8` | the plan of tile `tile_id + 2` (0: none) |
+| 3 | `tiles` | `u128` | the deck bitmap: a set bit is out of the deck (left out by the deck's walk, the starter, or drawn, the queue included); the clear bits under the deck's 72 are the tiles still to draw. 0 once the deck's last tile is drawn |
+| 4 | `vrf` | `bool` | the game draws from the VRF (always, once it has moved under this class) |
+| 5 | `draws` | `bool` | the next `build` or `discard` of the game's player draws (false when the move ends the game, leaves no tile to queue, or cannot be played) |
+| 6 | `salt` | `felt252` | the salt of that draw, `draw_salt('CHALLENGE', game_id, the queued tile's id)`; 0 if none |
+
+**The multicall.** A call that draws puts the provider's `request_random(Challenge, Source::Salt(salt))` first
+(`withVrfRequest` in `@paved/chain`): `spawn` and `spawn_free` always, with `spawn_salt(player)`; `build` and `discard`
+when `draw(game_id).draws`, with its `salt`; `surrender` never. A call that requests and does not draw reverts in
+Cartridge's `assert_consumed`; one that draws without a request reverts `NOT_FULFILLED`. The draw is the transaction's
+first consume (`'VRF: not first consume'`), and a second draw in a transaction reverts `'VRF: one draw per tx'`.
+
+**The event.** Each tile that enters the queue emits `Queued { game_id, tile_id, plan }`: `tile_id` is the id the tile
+takes in the hand. A spawn emits three (tiles 2, 3 and 4), a drawing move one (tile `tile_id + 2` after the move).
+
+| Event | `keys` | `data` |
+|---|---|---|
+| `Queued` | `[selector("Queued"), game_id]` | `[tile_id, plan]` |
+| `VrfProviderSet` | `[selector("VrfProviderSet")]` | `[provider]` |
 
 ## The errors of `Challenge.build`
 
@@ -355,6 +400,16 @@ working.
     changes: a client that never reads the new views keeps working, and sees that revert only once the guardian
     pauses. An indexer that refuses unknown selectors must know the three events before the owner first calls
     `set_guardian`.
+
+- **CHALLENGE-VRF, the Challenge on the VRF** (#645, D-30; above, "The VRF draws of `Challenge`").
+  - `Challenge` gains `set_vrf_provider(provider)` (owner), the views `vrf_provider()`, `draw(game_id)` and
+    `spawn_salt(player)`, and two events, `Queued { game_id, tile_id, plan }` (in `paved::events::Event`, so in `Story`'s
+    ABI too, which never emits it) and `VrfProviderSet { provider }`. `contracts/abis/Challenge.json` and `Story.json`
+    are regenerated. `GameView` and every other view keep their shape.
+  - Every entry point keeps its signature, but `spawn`, `spawn_free`, and every `build` or `discard` that leaves a tile
+    to queue, now draw from the VRF: on Cartridge's provider they revert unless the client requests the draw first. A
+    client that predicted the next tile from the seed no longer can: it reads the queue (`draw`) and the `Queued`
+    events. An indexer that refuses unknown selectors must know `Queued` and `VrfProviderSet`.
 
 - **Cobbles v1, part 1** (P-61, `docs/architecture/cobbles-v1.md`; below, "Cobbles v1, part 1: `Setup` and `Challenge`").
   - `Setup` gains the interface `ISetupCobbles`: seven entry points and five views, and five events. `Challenge` gains
@@ -903,6 +958,8 @@ written. `native-storage.md`'s event table is history and is not this list.
 | `GuardianSet` | none | `guardian` | `set_guardian`, every call | `challenge.cairo:59-62` |
 | `SpawnPaused` | none | `by` | `pause_spawn`, when it pauses | `challenge.cairo:64-68` |
 | `SpawnUnpaused` | none | none | `unpause_spawn`, when it unpauses | `challenge.cairo:70-72` |
+| `Queued` | `game_id` | `tile_id`, `plan` | a spawn (three) and a move that draws (one), #645 | `events.cairo`; `events::emit_queued` |
+| `VrfProviderSet` | none | `provider` | `set_vrf_provider` | `components/drawable.cairo` |
 | `OwnershipTransferStarted` | none | `previous_owner`, `new_owner` | `transfer_ownership` | `components/ownable.cairo:42-46` |
 | `OwnershipTransferred` | none | `previous_owner`, `new_owner` | `accept_ownership`, and the constructor | `components/ownable.cairo:48-52` |
 | `Upgraded` | none | `class_hash` | `upgrade` | OpenZeppelin's `UpgradeableComponent` (`Challenge.json`) |

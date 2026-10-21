@@ -40,7 +40,9 @@ use paved::systems::challenge::Challenge;
 use paved::tests::oracle::check;
 use paved::tests::oracle::forest::ForestCount;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{TestChallenge, IChallengeDispatcherTrait, TestStore, TestStoreTrait};
+use paved::tests::setup::setup::{
+    IChallengeDispatcherTrait, TestChallenge, TestStore, TestStoreTrait,
+};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -200,7 +202,7 @@ fn corridors(
 // The forest walk of the oracle alone.
 
 #[test]
-#[available_gas(l2_gas: 276614804)]
+#[available_gas(l2_gas: 294968678)]
 fn test_forest_walk_ring_open_then_closed() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -213,7 +215,7 @@ fn test_forest_walk_ring_open_then_closed() {
 }
 
 #[test]
-#[available_gas(l2_gas: 357064417)]
+#[available_gas(l2_gas: 375163116)]
 fn test_forest_walk_crossings_count_each_road() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -222,7 +224,7 @@ fn test_forest_walk_crossings_count_each_road() {
 }
 
 #[test]
-#[available_gas(l2_gas: 150658009)]
+#[available_gas(l2_gas: 158999429)]
 fn test_forest_walk_sandwich_open_roads() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -232,7 +234,7 @@ fn test_forest_walk_sandwich_open_roads() {
 }
 
 #[test]
-#[available_gas(l2_gas: 275588922)]
+#[available_gas(l2_gas: 294732505)]
 fn test_forest_walk_one_city_touched_twice_counts_once() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -241,7 +243,7 @@ fn test_forest_walk_one_city_touched_twice_counts_once() {
 }
 
 #[test]
-#[available_gas(l2_gas: 264644413)]
+#[available_gas(l2_gas: 284219357)]
 fn test_forest_walk_two_cities_count_twice() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -250,7 +252,7 @@ fn test_forest_walk_two_cities_count_twice() {
 }
 
 #[test]
-#[available_gas(l2_gas: 149874553)]
+#[available_gas(l2_gas: 165569891)]
 fn test_forest_walk_open_cities_do_not_count_nor_block() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -277,7 +279,7 @@ fn test_forest_oracle_finds_a_closed_structure_left_unscored() {
 }
 
 #[test]
-#[available_gas(l2_gas: 188068364)]
+#[available_gas(l2_gas: 204369131)]
 fn test_forest_ring_one_tile_short_scores_nothing() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -290,7 +292,7 @@ fn test_forest_ring_one_tile_short_scores_nothing() {
 /// the road has 4 nodes, 4 x 100 x 10972 / 10000 = 438; the forest has 4 tiles and one closed
 /// road around it (the loop, counted once), 1 x 300 x 10972 / 10000 = 329. The move scores 767.
 #[test]
-#[available_gas(l2_gas: 271404161)]
+#[available_gas(l2_gas: 289852724)]
 fn test_forest_ring_closes_with_its_road() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -312,7 +314,7 @@ fn test_forest_ring_closes_with_its_road() {
 /// By hand: the forest scores its 4 closed roads x 300 x bonus(4) = 4 x 300 x 10972 / 10000 =
 /// 1316 (the roads that close on the same move score too: the oracle checks the total).
 #[test]
-#[available_gas(l2_gas: 351293759)]
+#[available_gas(l2_gas: 369515963)]
 fn test_forest_scores_four_roads() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -331,7 +333,7 @@ fn test_forest_scores_four_roads() {
 /// A forest bounded by open roads (and with open ends of its own) does not score: no `Scored`, no
 /// forest counted.
 #[test]
-#[available_gas(l2_gas: 150362411)]
+#[available_gas(l2_gas: 158831406)]
 fn test_forest_bounded_by_open_roads_does_not_score() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -345,7 +347,7 @@ fn test_forest_bounded_by_open_roads_does_not_score() {
 /// corners, one more cap: 6 tiles, closed) is one city, touched twice: 1 x 300 x 10475 / 10000 =
 /// 314.
 #[test]
-#[available_gas(l2_gas: 271166506)]
+#[available_gas(l2_gas: 290373009)]
 fn test_forest_scores_one_city_touched_twice_once() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -360,7 +362,7 @@ fn test_forest_scores_one_city_touched_twice_once() {
 
 /// By hand: 2 cities x 300 x bonus(2) = 2 x 300 x 10475 / 10000 = 628 (628.5 rounded down).
 #[test]
-#[available_gas(l2_gas: 260710384)]
+#[available_gas(l2_gas: 280348982)]
 fn test_forest_scores_two_cities() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -376,7 +378,7 @@ fn test_forest_scores_two_cities() {
 /// Ruling 3 of D-18b: a forest that closes with 0 points (no closed road or city around it)
 /// still emits its `Scored`, category FOREST, points 0, and counts once in `count_forest`.
 #[test]
-#[available_gas(l2_gas: 148274729)]
+#[available_gas(l2_gas: 164109339)]
 fn test_forest_closing_with_zero_points_emits_and_counts_once() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -396,7 +398,7 @@ fn test_forest_closing_with_zero_points_emits_and_counts_once() {
 /// `golden/forest.cairo`, `herdsman_open_city_moves`). The 2024 walk counted it once (314); an open
 /// city never counts: the forest scores 0, with its `Scored`.
 #[test]
-#[available_gas(l2_gas: 265261511)]
+#[available_gas(l2_gas: 284191496)]
 fn test_forest_open_city_touched_twice_scores_nothing() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -425,7 +427,7 @@ const OY: u32 = CENTER + 20;
 /// loop (4 corners, one road around it) closes too, 1 x 300 x 10972 / 10000 = 329. The move scores
 /// 890.
 #[test]
-#[available_gas(l2_gas: 202893641)]
+#[available_gas(l2_gas: 217070374)]
 fn test_once_per_move_road_reached_from_two_start_spots() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);
@@ -446,7 +448,7 @@ fn test_once_per_move_road_reached_from_two_start_spots() {
 /// that joins its north and south caps, two start spots of one city. By hand: the city has 7
 /// nodes, 7 x 200 x 11763 / 10000 = 1646, once.
 #[test]
-#[available_gas(l2_gas: 178797809)]
+#[available_gas(l2_gas: 193052891)]
 fn test_once_per_move_city_reached_from_two_start_spots() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let (g, p) = (context.game_id, context.player_id);

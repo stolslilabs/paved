@@ -62,7 +62,7 @@ fn plans_of_free(bitmap: u128) -> Array<u8> {
 }
 
 #[test]
-#[available_gas(l2_gas: 435125833)]
+#[available_gas(l2_gas: 473572161)]
 fn test_upgrade_g1_game_spawned_before_keeps_its_deck() {
     let (store, systems, _) = setup::spawn_game(Mode::None);
     let contract = systems.challenge.contract_address;

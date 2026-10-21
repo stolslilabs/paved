@@ -195,7 +195,7 @@ fn test_quests_retire_achievement_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 80262840)]
+#[available_gas(l2_gas: 86030809)]
 #[feature("safe_dispatcher")]
 fn test_quests_owner_retires() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -275,7 +275,7 @@ fn test_quests_define_twice() {
 
 /// A game over with nothing scored reports the finished game only, after `GameOver`.
 #[test]
-#[available_gas(l2_gas: 110891985)]
+#[available_gas(l2_gas: 118103614)]
 fn test_quests_game_over_every_count_zero() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let challenge = systems.challenge.contract_address;
@@ -303,7 +303,7 @@ fn test_quests_game_over_every_count_zero() {
 /// the first game of its day (rank 1 before D-20): the largest lists (4 and 5 entries), after
 /// `GameOver`, and no task 9.
 #[test]
-#[available_gas(l2_gas: 119009422)]
+#[available_gas(l2_gas: 127108467)]
 fn test_quests_game_over_every_counter_at_maximum() {
     // [Setup] Not day 0, whose day id is the unset id 0
     start_cheat_block_timestamp_global(10 * 86400);
@@ -359,7 +359,7 @@ fn test_quests_game_over_every_counter_at_maximum() {
 
 /// A game over after its day closed gets no day id but still reports (Q-6): no WIN.
 #[test]
-#[available_gas(l2_gas: 95236613)]
+#[available_gas(l2_gas: 102504182)]
 fn test_quests_game_over_after_its_day_reports_without_win() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let setup_address = systems.setup.contract_address;
@@ -388,7 +388,7 @@ fn test_quests_game_over_after_its_day_reports_without_win() {
 /// (rank 1 before D-20, which reported `WIN`), surrenders: `GameOver`, then exactly the entries
 /// it reported before less task 9 (quests 1 and 3, achievements 1 and 7), and no `WIN`.
 #[test]
-#[available_gas(l2_gas: 97881700)]
+#[available_gas(l2_gas: 105865833)]
 fn test_quests_game_over_first_of_its_day_reports_no_task_9() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
@@ -422,7 +422,7 @@ fn test_quests_game_over_first_of_its_day_reports_no_task_9() {
 /// The counters follow the scoring: a 2-tile city closed with a Lord scores one structure, not a
 /// big one.
 #[test]
-#[available_gas(l2_gas: 97870004)]
+#[available_gas(l2_gas: 104921023)]
 fn test_quests_counters_follow_the_scoring() {
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
     let game = store.game(context.game_id);
@@ -526,7 +526,7 @@ pub fn assert_daily_report(
 
 /// A Daily game over on the last `build` reports to `Setup`.
 #[test]
-#[available_gas(l2_gas: 107273386)]
+#[available_gas(l2_gas: 115109840)]
 fn test_quests_daily_game_over_on_the_last_build() {
     let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();
@@ -543,7 +543,7 @@ fn test_quests_daily_game_over_on_the_last_build() {
 
 /// A Daily game over on the last `discard` reports to `Setup`.
 #[test]
-#[available_gas(l2_gas: 99829169)]
+#[available_gas(l2_gas: 108266531)]
 fn test_quests_daily_game_over_on_the_last_discard() {
     let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();

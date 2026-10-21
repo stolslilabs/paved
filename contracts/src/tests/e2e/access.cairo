@@ -63,7 +63,7 @@ fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
 }
 
 #[test]
-#[available_gas(l2_gas: 68982281)]
+#[available_gas(l2_gas: 73596653)]
 fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -81,7 +81,7 @@ fn test_access_transfer_ownership_only_proposes() {
 }
 
 #[test]
-#[available_gas(l2_gas: 71195754)]
+#[available_gas(l2_gas: 76361943)]
 fn test_access_pending_owner_accepts_ownership() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {

@@ -221,6 +221,10 @@
 #   (--repoint and --d18 keep theirs, run from 06c024d). The quests and achievements of quests.md v1 are defined on Setup
 #   by its owner after the wiring and before the file is written (F). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
 #   owner's stake (P-38: the stake is 199,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
+# Challenge's VRF provider (#645, docs/architecture/challenge-vrf.md): the fresh path sets it right after the guardian, as
+#   Challenge's owner (fresh_vrf_step): the devnet's MockVrfProvider on devnet, Cartridge's provider on Sepolia. On Sepolia
+#   the smoke's spawn and build then draw through Cartridge's provider, which needs the request_random call and Cartridge's
+#   VRF wrapper (paymaster) around them: a plain invoke reverts there. The smoke on the VRF is a follow-up of #645.
 # The VRF mock (#638, docs/architecture/vrf-draws.md): on devnet only, MockVrfProvider is declared and deployed (no
 #   constructor argument) and keyed `contracts.MockVrfProvider`, the devnet's VRF provider for the client
 #   (`vrfProvider` in @paved/chain); `deploy` refuses it by name on every other network (Sepolia and mainnet draw through
@@ -2627,6 +2631,32 @@ fresh_guardian_step() {
   esac
 }
 
+# fresh_vrf_step (#645, docs/architecture/challenge-vrf.md): Challenge draws every tile from a VRF provider, which its owner
+# sets: the devnet's MockVrfProvider on devnet, Cartridge's provider (CARTRIDGE_VRF_PROVIDER) on Sepolia. Until it is set,
+# every spawn reverts ('VRF: no provider'), so it is set before the smoke. The provider read back first: one already set
+# is not sent again; another address stops the run. The hash is recorded as vrf_tx.
+CARTRIDGE_VRF_PROVIDER=0x051fea4450da9d6aee758bdeba88b2f665bcbf549d2c61421aa724e9ac0ced8f
+fresh_vrf_step() {
+  ((FRESH_COMPLETE == 0)) || return 0
+  local provider="$CARTRIDGE_VRF_PROVIDER"
+  [[ "$NETWORK" == "devnet" ]] && provider="$VRF"
+  [[ -n "$provider" ]] || die "no VRF provider for Challenge on $NETWORK"
+  fr_settled vrf_tx || true
+  v RAW call "$CHALLENGE" vrf_provider
+  if [[ "$(hex_int "$RAW")" == "$(hex_int "$provider")" ]]; then
+    echo "   Challenge.vrf_provider() is set already$( [[ -n "$(fr_get vrf_tx)" ]] && echo ", tx $(fr_get vrf_tx)")"
+  elif [[ "$(hex_int "$RAW")" == 0 ]]; then
+    RECORD_SENDING=vrf_tx
+    invoke "$CHALLENGE" set_vrf_provider "$provider" >/dev/null || die "Challenge.set_vrf_provider failed"
+    RECORD_SENDING=""
+    v RAW call "$CHALLENGE" vrf_provider
+    [[ "$(hex_int "$RAW")" == "$(hex_int "$provider")" ]] || die "after set_vrf_provider, Challenge.vrf_provider() is not $provider"
+    echo "   Challenge.set_vrf_provider($( [[ "$NETWORK" == "devnet" ]] && echo MockVrfProvider || echo "Cartridge's provider")): set"
+  else
+    die "Challenge.vrf_provider() is another address: not replaced; nothing more was sent"
+  fi
+}
+
 # fresh_guardian_smoke: the smoke reads guardian() (the deployer) and spawn_paused() (false) and fails otherwise. A
 # complete record's rerun reads neither (the owner's set_guardian and the guardian's pause are live state since).
 fresh_guardian_smoke() {
@@ -2811,7 +2841,7 @@ fresh_check_only() {
     echo "   story (story_tx): campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) on Story (set_campaign, set_level); a run sends the ones Story lacks and reads each back"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx wiring_tx guardian_tx \
-        definitions_tx story_tx \
+        vrf_tx definitions_tx story_tx \
         smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.skin_tx smoke.settle_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
@@ -3294,6 +3324,8 @@ echo "   Setup: its reporters Challenge (game overs) and Story (the stars of the
 echo "   Setup: wiring Economy and Collection; Collection: minter Challenge; Economy: game Challenge"
 # Challenge's guardian (PM, 2026-10-14): the deployer, set in this run (fresh_guardian_step).
 fresh_guardian_step
+# Challenge's VRF provider (#645): the mock on devnet, Cartridge's on Sepolia (fresh_vrf_step).
+fresh_vrf_step
 # Economy's router and pool (its constructor's): the MockRouter, its key and the limit 0; the P-46 configuration and
 # the initial mean, read back.
 [[ "$(hex_int "$(call "$ECONOMY" router)")" == "$(hex_int "$ROUTER")" ]] || die "Economy.router() is not MockRouter"

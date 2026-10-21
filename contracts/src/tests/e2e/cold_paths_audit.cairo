@@ -4,6 +4,7 @@
 //! stores.
 
 use core::num::traits::Zero;
+use paved::components::drawable::{IDrawableDispatcher, IDrawableDispatcherTrait};
 use paved::components::hostable::HostableComponent;
 use paved::components::hostable::HostableComponent::DeadFieldsTrait as HostableDeadFieldsTrait;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
@@ -16,15 +17,17 @@ use paved::models::tile::CENTER;
 use paved::store::PavedStorage;
 use paved::systems::challenge::Challenge::DeadFieldsTrait;
 use paved::systems::challenge::{
-    Challenge, IChallengeGuardianDispatcher,
-    IChallengeGuardianDispatcherTrait,
+    Challenge, IChallengeDispatcherTrait as RawChallengeDispatcherTrait,
+    IChallengeGuardianDispatcher, IChallengeGuardianDispatcherTrait,
 };
 use paved::tests::e2e::cold_paths::{
     ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in,
 };
 use paved::tests::e2e::quests::define_accepted_list;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{TestChallenge, ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{
+    ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestChallenge, TestStoreTrait,
+};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -83,6 +86,21 @@ fn test_daily_pins_its_storage_variables_by_name() {
     guardian.unpause_spawn();
     assert(raw(challenge, selector!("spawn_paused")) == 0, 'Pin: spawn_paused after');
     stop_cheat_caller_address(challenge);
+    // #645 (appended): the VRF provider and the last draw's transaction (the flat `drawable`), the
+    // spawn count of each player
+    let provider = IDrawableDispatcher { contract_address: challenge }.vrf_provider();
+    assert(raw(challenge, selector!("vrf_provider")) == provider.into(), 'Pin: vrf_provider');
+    assert(raw(challenge, selector!("vrf_last_draw_tx")) == 0, 'Pin: vrf_last_draw_tx before');
+    let count = snforge_std::map_entry_address(
+        selector!("vrf_spawn_counts"), array![PLAYER().into()].span(),
+    );
+    assert(raw(challenge, count) == 0, 'Pin: vrf_spawn_counts before');
+    start_cheat_caller_address(challenge, PLAYER());
+    snforge_std::start_cheat_transaction_hash_global('PIN_TX');
+    systems.challenge.dispatcher().spawn(1, core::num::traits::Zero::zero(), 0);
+    stop_cheat_caller_address(challenge);
+    assert(raw(challenge, selector!("vrf_last_draw_tx")) == 'PIN_TX', 'Pin: vrf_last_draw_tx');
+    assert(raw(challenge, count) == 1, 'Pin: vrf_spawn_counts');
 }
 
 // Dead since D-20, D-24 and D-25 E (P-42): declared, never written or read, never reused
@@ -116,7 +134,7 @@ fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
 /// The names `test_daily_pins_*` are kept from before D-23 (`Daily` became `Challenge`) on purpose:
 /// the docs and the comments of the code cite them.
 #[test]
-#[available_gas(l2_gas: 135825905)]
+#[available_gas(l2_gas: 148014460)]
 fn test_daily_pins_the_dead_fields_by_name() {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -217,9 +235,7 @@ fn test_daily_pins_the_dead_fields_by_name() {
 
 // Re-entry: a token that calls back into `Daily` during its spawn
 
-fn reentrant_with_economy() -> (
-    TestChallenge, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
-) {
+fn reentrant_with_economy() -> (TestChallenge, IReentrantTokenDispatcher, ISpyEconomyDispatcher) {
     start_cheat_block_timestamp_global(100);
     let (challenge, token, economy, _) = daily_paid_in("ReentrantToken");
     (challenge, IReentrantTokenDispatcher { contract_address: token }, economy)

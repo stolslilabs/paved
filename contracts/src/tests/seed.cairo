@@ -136,7 +136,7 @@ fn spawn_random(challenge: ContractAddress, index: u32) -> felt252 {
 /// replayed off chain from it and compared. It is not the token's seed; two spawns of one day
 /// differ.
 #[test]
-#[available_gas(l2_gas: 120212619)]
+#[available_gas(l2_gas: 129168542)]
 fn test_token_seed_is_the_seed_of_a_challenge_spawn() {
     snforge_std::start_cheat_block_timestamp_global(TIME);
     let (store, systems, context) = setup::spawn_game(Mode::Challenge);
