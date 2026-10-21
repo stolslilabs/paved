@@ -3,6 +3,7 @@ import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { Wordmark } from "../elements/wordmark";
 import { BalancesSlot } from "./balances-context";
+import { ProfileSlot } from "./profile-context";
 
 /**
  * The five destinations of section 6.1, Home · Missions · Play · Vault · Settings (the route map's `TABS`, with icons).
@@ -25,7 +26,7 @@ export interface AppNavProps {
 /**
  * The tabbed pages' navigation (section 6.2), direction D (#537, the owner's pick): the mockups' bar of five items, each an
  * icon over its label (labels from `mobile`), at the bottom of the page below `desktop`; from `desktop` the same items, icon
- * beside label, in a header across the top, after the voxel wordmark and before the balances (#620). No rail and no sliding
+ * beside label, in a header across the top, after the player's avatar and the voxel wordmark and before the balances (#620). No rail and no sliding
  * indicator: the current item is gold on the white 15% layer (`state-layer`, theme.css), hover 10%, pressed 20%.
  * Play, the centre item (#623), has no label (`aria-label`) and stands out as the app's accent: a larger gold disc raised
  * above the bar on a phone, a gold disc among the items from `desktop`. It opens the mode choice (`/play`).
@@ -48,6 +49,8 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
         )}
       >
         <span aria-hidden data-slot="page-scroll-hint" className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-linear-to-b to-background opacity-0 transition-opacity motion-reduce:transition-none page-more:opacity-100 desktop:hidden" />
+        {/* From `desktop`, the player's avatar opens the header, beside the wordmark (#624); below it the pages' headers carry it. */}
+        <ProfileSlot className="hidden desktop:block" />
         <Wordmark size="sm" className="hidden shrink-0 desktop:flex" />
         <div className="flex min-w-0 flex-1 justify-between gap-1 desktop:flex-none desktop:justify-start desktop:gap-1.5">
           {NAV_TABS.map((tab) => {
