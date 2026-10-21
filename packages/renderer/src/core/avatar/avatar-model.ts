@@ -241,18 +241,18 @@ const EYEBROWS: readonly ((head: VoxelHead, t: Tones) => void)[] = [
 ];
 
 const MOUTHS: readonly ((head: VoxelHead, t: Tones) => void)[] = [
-  // Smile.
+  // Smile: its corners up, clear of the eyes.
   (head, t) => {
-    pair(head, 5, 2, t.lip);
-    frontRow(head, 6, 3, 4, t.lip);
+    pair(head, 6, 2, t.lip);
+    frontRow(head, 7, 3, 4, t.lip);
   },
   // Neutral.
   (head, t) => frontRow(head, 6, 2, 5, t.lip),
   // Grin: teeth.
   (head, t) => {
-    pair(head, 5, 2, t.lip);
-    frontRow(head, 6, 3, 4, hexOf("white"));
     pair(head, 6, 2, t.lip);
+    frontRow(head, 6, 3, 4, hexOf("white"));
+    frontRow(head, 7, 3, 4, t.lip);
   },
   // Open: surprise.
   (head) => {
@@ -261,8 +261,8 @@ const MOUTHS: readonly ((head: VoxelHead, t: Tones) => void)[] = [
   },
   // Smirk: one corner up.
   (head, t) => {
-    frontRow(head, 6, 2, 4, t.lip);
-    front(head, 5, 5, t.lip);
+    frontRow(head, 7, 2, 4, t.lip);
+    front(head, 6, 5, t.lip);
   },
   // Frown.
   (head, t) => {
