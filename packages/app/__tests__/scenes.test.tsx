@@ -154,6 +154,18 @@ describe("Board", () => {
     expect(screen.getByRole("timer", { name: "Expires in 19:00:00" })).toBeInTheDocument();
   });
 
+  it("the queue (#645): the two coming tiles beside the hand; a move on its way waits for the chain's draw", () => {
+    const { unmount } = render(wrap(<BoardScene {...BOARD.queue} />));
+    const coming = within(screen.getByRole("region", { name: "Your tile" })).getByRole("list", { name: "Coming tiles" });
+    expect(within(coming).getAllByRole("listitem")).toHaveLength(2);
+    unmount();
+    render(wrap(<BoardScene {...BOARD.queueDrawing} />));
+    const waiting = within(screen.getByRole("region", { name: "Your tile" })).getByRole("list", { name: "Coming tiles" });
+    expect(within(waiting).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(waiting).getByRole("img", { name: "The chain draws this tile" })).toBeInTheDocument();
+    expect(screen.getByText("Placing…")).toBeInTheDocument();
+  });
+
   it("shows the tile in hand with the board's art, turned to its orientation", () => {
     render(wrap(<BoardScene {...BOARD.placing} />));
     const chip = within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / });

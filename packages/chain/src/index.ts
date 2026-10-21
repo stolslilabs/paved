@@ -23,6 +23,7 @@ export {
 } from "./views";
 export type {
   BuilderView,
+  DrawView,
   FakeGame,
   GameKey,
   GameMode,

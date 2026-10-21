@@ -49,6 +49,17 @@ export interface PageState {
   /** Chain plan ids of the discarded tiles (the deck sheet crosses them out); absent when the session does not give them. */
   discardedPlans?: number[];
   hand: { tileId: number; plan: number } | null;
+  /**
+   * The tiles known after the one in hand, in draw order (#645): the next and the one after it, fewer at the deck's end.
+   * Read only: only the tile in hand is placed. Absent or empty when the session knows none (a game drawn one tile at a
+   * time, a Story level, whose deck sheet shows its order).
+   */
+  coming?: { tileId: number; plan: number }[];
+  /**
+   * The chain is drawing the queue's last tile (a VRF Challenge, a move sent and not yet confirmed): the hand panel shows
+   * its slot waiting. The tiles already known stay shown.
+   */
+  drawing?: boolean;
   lastScored: ScoredStructure[];
   readonly: boolean;
   pending: boolean;

@@ -5,7 +5,7 @@ import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
 import { randomSeed } from "./seed";
 import { browserStore, type KeyValueStore } from "./storage";
-import { loadGame, saveGame, type SavedGame, type SavedMove } from "./training-storage";
+import { TRAINING_VERSION, loadGame, saveGame, type SavedGame, type SavedMove, type SavedVersion } from "./training-storage";
 import type { BoardTile, PageSession, PageState, PlaceMove, ScoredStructure } from "./types";
 
 const PLANS = Object.values(PlanType);
@@ -17,9 +17,17 @@ const PLAYER = "0x1";
 
 const hex = (seed: bigint) => `0x${seed.toString(16)}`;
 
+/** The tiles a Training game knows ahead, the tile in hand included: the VRF Challenge's queue (#645), so both play alike. */
+export const TRAINING_LOOKAHEAD = 3;
+
+/** A new engine game of Training of `seed`, under the rules of the save's `version` (`SavedVersion`). */
+export function startTraining(seed: bigint, version: SavedVersion = TRAINING_VERSION): EngineGame {
+  return EngineGame.start({ deck: "simple", seed, lookahead: version === 1 ? 1 : TRAINING_LOOKAHEAD });
+}
+
 /** Plays `moves` on a new engine game of `seed`: the replay a resume does, and the tests do. */
-export function replayTraining(seed: bigint, moves: readonly SavedMove[]): EngineGame {
-  const game = EngineGame.start({ deck: "simple", seed });
+export function replayTraining(seed: bigint, moves: readonly SavedMove[], version: SavedVersion = TRAINING_VERSION): EngineGame {
+  const game = startTraining(seed, version);
   for (const move of moves) apply(game, move);
   return game;
 }
@@ -55,6 +63,8 @@ export class LocalSession implements PageSession {
     private readonly seed: bigint,
     moves: SavedMove[],
     private readonly store: () => KeyValueStore | null,
+    /** The rules the game plays under (`SavedVersion`): a resumed save keeps its own. */
+    readonly version: SavedVersion = TRAINING_VERSION,
   ) {
     this.moves = moves;
     this.current = this.project([], null);
@@ -71,7 +81,7 @@ export class LocalSession implements PageSession {
   static resume(saved: SavedGame, store: () => KeyValueStore | null): LocalSession | null {
     try {
       const seed = BigInt(saved.seed);
-      return new LocalSession(replayTraining(seed, saved.moves), seed, [...saved.moves], store);
+      return new LocalSession(replayTraining(seed, saved.moves, saved.v), seed, [...saved.moves], store, saved.v);
     } catch {
       return null;
     }
@@ -119,7 +129,7 @@ export class LocalSession implements PageSession {
   }
 
   private save(): void {
-    saveGame({ v: 1, seed: hex(this.seed), moves: this.moves }, this.store);
+    saveGame({ v: this.version, seed: hex(this.seed), moves: this.moves }, this.store);
   }
 
   private project(lastScored: ScoredStructure[], writeError: string | null): PageState {
@@ -149,6 +159,7 @@ export class LocalSession implements PageSession {
       tiles,
       discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
+      coming: hand ? g.coming.map((t) => ({ tileId: t.id, plan: PLANS.indexOf(t.plan) })) : [],
       lastScored,
       readonly: false,
       pending: false,

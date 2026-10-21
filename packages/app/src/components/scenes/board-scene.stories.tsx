@@ -53,6 +53,7 @@ function slotsOf(tiles: BoardTile[], plan: number, orientation: number): Slot[] 
 }
 
 /** The tile in hand on the 38-tile board (the recorded next move) and its slots in every rotation. */
+const QUEUE = BOARD.queue.hand.coming;
 const TILES = BOARD_38.tiles;
 const HAND = { plan: BOARD_38.next.plan, orientation: BOARD_38.next.orientation };
 const slotsAt = (orientation: number) => slotsOf(TILES, HAND.plan, orientation);
@@ -343,3 +344,14 @@ function BoardWithToast(args: BoardSceneProps) {
 
 /** #595: a mission completed during the game toasts on the board, at the top, clear of the hand. */
 export const MissionCompleted: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <BoardWithToast {...args} /> };
+
+/** #645: the tile to place and, smaller beside it, the two coming tiles (read only), in a Challenge on the VRF. */
+export const Queue: Story = { args: { ...BOARD.queue, ...inHand(HAND.orientation, null), hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE } } };
+/** #645: a Challenge move on its way: the next tile waits as the one to place, the one after it is shown, the chain draws the last. */
+export const QueueDrawing: Story = { args: BOARD.queueDrawing };
+/** #645: Training, the same queue from its local random. */
+export const QueueTraining: Story = {
+  args: { ...BOARD.queueTraining, ...inHand(HAND.orientation, null), hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE } },
+};
+/** #645: the deck's last two tiles: one coming. */
+export const QueueLast: Story = { args: BOARD.queueLast };

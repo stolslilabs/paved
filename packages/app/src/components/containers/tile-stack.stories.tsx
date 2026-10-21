@@ -89,3 +89,24 @@ export const NextTile: Story = {
     return <TileStack {...args} remaining={left} tile={left >= 0 ? { plan: plans[left % plans.length]!, orientation: (left % 4) + 1 } : null} onDiscard={() => setLeft((n) => n - 1)} />;
   },
 };
+
+/** #645: the plans of two coming tiles. */
+const COMING = [{ plan: 7 }, { plan: 12 }];
+/** #645, game start: the tile to place and the two drawn with it, 37 tiles left. */
+export const QueueStart: Story = { args: { remaining: 37, coming: COMING } };
+/** #645, three tiles known mid-game: the next nearest the stack, the one after it beyond. */
+export const QueueKnown: Story = { args: { remaining: 20, coming: COMING } };
+/** #645, the last three tiles of the deck: still two coming. */
+export const QueueLastThree: Story = { args: { remaining: 3, coming: COMING } };
+/** #645, the last two: one coming. */
+export const QueueLastTwo: Story = { args: { remaining: 2, coming: COMING.slice(0, 1) } };
+/** #645, the last tile: nothing coming. */
+export const QueueLastTile: Story = { args: { remaining: 1, coming: [] } };
+/** #645, a Challenge move on its way: the next tile waits with it, the one after it is shown, the chain draws the last. */
+export const QueueDrawing: Story = { args: { remaining: 19, state: "pending", tile: { plan: 7, orientation: 1 }, coming: COMING.slice(1), drawing: true } };
+/** #645, Training: the same queue, from the local random. */
+export const QueueTraining: Story = { args: { remaining: 30, coming: [{ plan: 4 }, { plan: 9 }] } };
+/** #645, the queue on the bubble's tile: the stack dims, the coming tiles stay. */
+export const QueueOnACell: Story = { args: { remaining: 20, coming: COMING, cellChosen: true } };
+/** #645, the tile fits nowhere: the stack's Discard says so beside the coming tiles (the widest hand, 360 px). */
+export const QueueFitsNowhere: Story = { args: { remaining: 20, coming: COMING, fitsNowhere: true } };
