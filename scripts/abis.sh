@@ -11,7 +11,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-contracts=(Challenge Setup Token Faucet MockRouter PavedToken Vault Economy Collection Story Matchmaker)
+contracts=(Challenge Setup Token Faucet MockRouter PavedToken Vault Economy Collection Story Matchmaker Village)
 
 cd "$root/contracts"
 RAYON_NUM_THREADS=1 scarb build

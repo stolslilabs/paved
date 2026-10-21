@@ -95,6 +95,7 @@ pub mod systems {
     pub mod story;
     pub mod token;
     pub mod vault;
+    pub mod village;
 }
 
 pub mod structure {
@@ -144,6 +145,7 @@ pub mod tests {
     pub mod seed;
     pub mod setup;
     pub mod story;
+    pub mod village;
     pub mod vrf;
     pub mod walk_cost;
     pub mod xp_level;

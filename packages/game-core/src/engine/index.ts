@@ -20,3 +20,17 @@ export type { GameStats, CategoryStats, ScoringCategory } from "./stats";
 export { DECKS } from "./decks";
 export type { EngineDeck, DeckRules } from "./decks";
 export { drawFromBitmap, withdrawExtra, poseidon, popcount } from "./draw";
+export {
+  VILLAGE_MAX_CELLS_LIMIT,
+  VILLAGE_START_CELLS,
+  VILLAGE_MAX_PARCELS,
+  PARCEL_COBBLES,
+  startTerritory,
+  parcelPrice,
+  parcelLevel,
+  DEMOLITION_COBBLES,
+  demolitionPrice,
+  demolitionPayable,
+  MAX_DEMOLITION_PRICE,
+} from "./village";
+export type { Cell as TerritoryCell } from "./village";
