@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Cobbles } from "../elements/cobbles";
 import { Score } from "../elements/score";
@@ -6,11 +6,12 @@ import { TileChip, type TileArt } from "../elements/tile-chip";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { pickCellAt } from "../containers/cell-picker";
 import { ParcelSheet, type ParcelOffer } from "../containers/parcel-sheet";
 import { RewardSheet, type RewardOffer } from "../containers/reward-sheet";
 import { TiersSheet } from "../containers/tiers-sheet";
 import { TopBar } from "../containers/top-bar";
-import { VillageBoard, type VillageFog, type VillagePlacing } from "../containers/village-board";
+import { VillageBoard, type VillageBoardProps, type VillageFog, type VillagePlacing } from "../containers/village-board";
 import { MAX_CELLS, copyTargets, dropOrientation, legalCells, type Cell, type Village } from "../containers/village-rules";
 
 /** A reward's tile placed on a free cell: the chain's write once wired (#642). */
@@ -39,8 +40,13 @@ export interface VillageSceneProps {
   reward?: RewardOffer | null;
   /** The next parcel's price and level gate; null: none (the village is full). */
   parcel?: ParcelOffer | null;
-  /** The fog (#633's village variant; #648 wires the chosen one). */
+  /** The plan's fog (#633's village variant), when the plan is drawn. */
   fog?: VillageFog;
+  /**
+   * The board, given by the page: the 3D village with the fog of war (`VillageViewport`, #648), from the board's props the scene
+   * computes. Unset: the plan (`VillageBoard`), which is also the fallback without WebGL.
+   */
+  renderBoard?: (board: VillageBoardProps) => ReactNode;
   /** The board's tile art (`useTileArt`); the plans' areas without it. */
   tileArt?: TileArt;
   /** A write on its way: the reward's and the parcel's controls wait. */
@@ -58,10 +64,14 @@ export interface VillageSceneProps {
   onOpenSkins?: () => void;
 }
 
-/** What is under the pointer while a reward's tile is dragged: a board cell (`data-cell`), or nothing. */
+/**
+ * What is under the pointer while a reward's tile is dragged: a board cell (the plan's `data-cell`, or the 3D board's picker,
+ * `pickCellAt`), or nothing.
+ */
 function cellUnder(x: number, y: number): (Cell & { kind: string }) | null {
-  const el = document.elementFromPoint?.(x, y)?.closest<HTMLElement>("[data-cell]");
-  if (!el) return null;
+  const under = document.elementFromPoint?.(x, y);
+  const el = under?.closest<HTMLElement>("[data-cell]");
+  if (!el) return pickCellAt(under, x, y);
   const [cx, cy] = (el.dataset.cell ?? "").split(",").map(Number);
   return { x: cx!, y: cy!, kind: el.dataset.kind ?? "" };
 }
@@ -85,6 +95,7 @@ export function VillageScene({
   reward = null,
   parcel = null,
   fog = "village",
+  renderBoard,
   tileArt,
   busy,
   initialSelected = null,
@@ -235,19 +246,19 @@ export function VillageScene({
               </Button>
             </div>
           </div>
-          <VillageBoard
-            village={village}
-            fog={fog}
-            parcels={own && !offer}
-            parcel={openParcel}
-            placing={placing}
-            over={drag?.over ?? null}
-            tileArt={tileArt}
-            onParcel={setChosenParcel}
-            onPlace={(cell) => activePlan != null && place(activePlan, cell)}
-            onCopy={(tile) => activePlan != null && copy(activePlan, tile.id)}
-            className="min-h-0 flex-1"
-          />
+          {(renderBoard ?? ((props: VillageBoardProps) => <VillageBoard {...props} />))({
+            village,
+            fog,
+            parcels: own && !offer,
+            parcel: openParcel,
+            placing,
+            over: drag?.over ?? null,
+            tileArt,
+            onParcel: setChosenParcel,
+            onPlace: (cell) => activePlan != null && place(activePlan, cell),
+            onCopy: (tile) => activePlan != null && copy(activePlan, tile.id),
+            className: "min-h-0 flex-1",
+          })}
           {own && !offer && (
             <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">
               {parcel ? "Tap a plus to buy the parcel next to your village." : "Your village is full."}

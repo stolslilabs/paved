@@ -40,6 +40,9 @@ import { AmbientLoop } from "./ambient-loop";
 import { ambientAllowed, type CloudShadowSettings } from "./ambient-settings";
 // The cloud shadows are their own chunk: loaded only once the ambient effects are first on with the clouds (`syncAmbient`).
 import type * as Clouds from "./cloud-shadows";
+// The fog of war is its own chunk too: loaded only once it is first on with a reveal (`syncFog`).
+import type * as Fog from "./fog-of-war";
+import { fogMode, type FogCell } from "./fog-of-war-settings";
 // The weather is its own chunk too: loaded only once it first shows (`syncWeather`).
 import type * as WeatherChunk from "./weather";
 import { weatherCloudFactor, weatherMode, type WeatherMode } from "./weather-settings";
@@ -201,6 +204,11 @@ export class GameScene {
   private cloudsLoad: Promise<void> | null = null;
   /** The cycle's night level last drawn (0 by day, or with the cycle off): the clouds' share on the moon's light. */
   private nightLevel = 0;
+  /** The fog of war (`fog-of-war.ts`, FOG-EVERYWHERE), once its chunk is in; its load, started the first time it is on. */
+  private fog: Fog.FogOfWar | null = null;
+  private fogLoad: Promise<void> | null = null;
+  /** The clear cells the board gave (`setFogReveal`) and the cells they lift from; null: no reveal, no fog. */
+  private fogReveal: { cells: ReadonlyArray<FogCell>; origin: ReadonlyArray<FogCell> } | null = null;
   /** The weather (`weather.ts`, #607, #658), once its chunk is in; its load, started the first time it shows. */
   private weather: WeatherChunk.Weather | null = null;
   private weatherLoad: Promise<void> | null = null;
@@ -470,6 +478,7 @@ export class GameScene {
     this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
     this.syncDayNight();
     this.syncAmbient();
+    this.syncFog();
     this.requestRender();
   }
 
@@ -492,6 +501,58 @@ export class GameScene {
     }
     this.syncWeather();
     this.requestRender();
+  }
+
+  /**
+   * The clear cells of the fog of war (FOG-EVERYWHERE, #648), in the grid: the board's tiles and free slots (`boardReveal`), or
+   * in a village or an attack the owned cells and the cells next to them (`villageReveal`). A cell added lifts from the side of
+   * `origin` (the tile just placed, the cell just bought). Null: no fog (a tile's preview). The fog shows only with
+   * `RendererSettings.fog` on.
+   */
+  setFogReveal(cells: ReadonlyArray<FogCell> | null, origin: ReadonlyArray<FogCell> = []): void {
+    this.fogReveal = cells ? { cells, origin } : null;
+    this.syncFog();
+  }
+
+  /**
+   * The fog of war: on with the settings and a reveal, its chunk loaded the first time; its mode from the tier, the ambient
+   * effects and reduced motion (`fogMode`: it stays on at every tier, still where the effects cannot move it); off, hidden.
+   */
+  private syncFog(): void {
+    const settings = this.settings.fog;
+    const reveal = this.fogReveal;
+    const on = settings.enabled && !!reveal && !!this.renderer;
+    const fog = this.fog;
+    if (!fog) {
+      if (on) this.loadFog();
+      return;
+    }
+    fog.setSettings(settings);
+    fog.setMode(on ? fogMode(settings, this.settings.ambient, this.getQuality(), prefersReducedMotion()) : "off");
+    if (reveal) fog.setRevealed(reveal.cells, reveal.origin);
+    fog.setCycle(this.getDayNight());
+    this.requestRender();
+  }
+
+  /** Loads the fog's chunk once, in the board's group (it turns with the compass), on the ambient loop. */
+  private loadFog(): void {
+    this.fogLoad ??= import("./fog-of-war").then(
+      (module) => {
+        if (this.disposed) return;
+        const fog = new module.FogOfWar(this.ambient.time, this.settings.fog);
+        fog.onChange = () => this.requestRender();
+        this.fog = fog;
+        this.tiles.getGroup().add(fog.object);
+        this.ambient.register(fog);
+        this.syncFog();
+      },
+      (error: unknown) => console.warn("[renderer] the fog of war did not load, the board stays clear:", error),
+    );
+  }
+
+  /** The fog of war now (`FogOfWar.stats`), or null before its chunk is in: the bench and the stories' readout. */
+  getFog(): ReturnType<Fog.FogOfWar["stats"]> | null {
+    return this.fog?.stats() ?? null;
   }
 
   /** The cloud shadows' settings, with autumn's more clouds while the weather shows (`weatherCloudFactor`). */
@@ -581,6 +642,8 @@ export class GameScene {
    * night: the clouds then step no frame unless they dim the moon) and its night level; with the cycle off, the look's sun.
    */
   private syncCloudLight(): void {
+    // The fog dims with the cycle as well (its moonlit blue at night).
+    this.fog?.setCycle(this.getDayNight());
     const clouds = this.clouds;
     if (!clouds) return;
     const point = this.getDayNight();
@@ -704,6 +767,17 @@ export class GameScene {
   /** Where the day and night cycle is (its season, phase and blend), or null while it does not draw the board. */
   getDayNight(): DayNight.CyclePoint | null {
     return this.dayNightOn ? this.dayNightPoint : null;
+  }
+
+  /**
+   * The grid cell under a point of the surface (its own pixels, from its top left), as a tap there would name it; null off the
+   * ground or before `init`. A drag that ends over the board (a village's reward tile) finds its cell with it.
+   */
+  gridAt(point: { x: number; y: number }): { x: number; y: number } | null {
+    const size = this.surface?.getSize();
+    if (!size || size.width <= 0 || size.height <= 0 || !this.camera) return null;
+    this.camera.updateMatrixWorld();
+    return screenToGrid({ x: (point.x / size.width) * 2 - 1, y: -(point.y / size.height) * 2 + 1 }, this.camera, this.sceneGroup.matrixWorld, 3);
   }
 
   private setupInteraction(surface: RenderSurfaceAdapter): void {
@@ -879,6 +953,8 @@ export class GameScene {
         this.applyPlacementSettings();
         this.syncDayNight();
         this.syncAmbient();
+        // The fog stands still under reduced motion: a lift under way ends at once.
+        this.syncFog();
         this.requestRender();
       };
       query.addEventListener?.("change", onChange);
@@ -1233,6 +1309,9 @@ export class GameScene {
     this.clouds?.dispose();
     this.clouds = null;
     this.cloudsLoad = null;
+    this.fog?.dispose();
+    this.fog = null;
+    this.fogLoad = null;
     this.weather?.dispose();
     this.weather = null;
     this.weatherLoad = null;

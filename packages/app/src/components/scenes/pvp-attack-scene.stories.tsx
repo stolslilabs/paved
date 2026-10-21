@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { ATTACK_STEPS, PVP_ATTACK, PVP_REPLAY, REPLAY_STEPS, attackAt, replayAt } from "../../mocks/pvp";
-import { PvpAttackScene } from "./pvp-attack-scene";
+import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
+import { BOARD_FOG } from "../../data/settings";
+import { APP_ASSETS } from "../../mocks/assets";
+import { PvpAttackBoard } from "../containers/pvp-attack-board";
+import { PvpAttackScene, type PvpAttackSceneProps } from "./pvp-attack-scene";
 
 /**
  * A PvP attack (#647) on the rival's village, played on the engine: the defender's 37 tiles drawn at random, each placed on a
@@ -76,3 +80,22 @@ function ReplayPlayer() {
   );
 }
 export const Replay: Story = { render: () => <ReplayPlayer /> };
+
+/** The game's board settings with the fog (`BOARD_FOG`), the ambient effects on, a summer's day held. */
+const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
+const NIGHT_3D: RendererSettingsInput = { ...DAY_3D, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
+
+/** The attack on the 3D board as the page gives it (`PvpAttackBoard`): the fog of war clear over the territory and its neighbours. */
+function Attack3D({ settings, ...args }: PvpAttackSceneProps & { settings: RendererSettingsInput }) {
+  return (
+    <PvpAttackScene
+      {...args}
+      canvas={<PvpAttackBoard territory={args.territory} tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
+    />
+  );
+}
+
+/** Halfway, in 3D (#648): the fog over everything but the defender's territory and the cells next to it. */
+export const Board3D: Story = { args: PVP_ATTACK.midway, render: (args) => <Attack3D {...args} settings={DAY_3D} /> };
+/** The same at night. */
+export const Board3DNight: Story = { args: PVP_ATTACK.midway, render: (args) => <Attack3D {...args} settings={NIGHT_3D} /> };
