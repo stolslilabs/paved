@@ -92,6 +92,11 @@ export interface BoardViewportProps {
   tilePreview?: boolean;
   /** Draw the plates. Default true; off: no plate is drawn. */
   placementHighlight?: boolean;
+  /**
+   * Every other free cell next to a tile gets an invalid plate (`boardPlates`). Default true; off: only `slots` get plates (a
+   * village, whose plates are its own cells and parcels).
+   */
+  otherPlates?: boolean;
   /** A cell was clicked or tapped (the contracts' coordinates); the page decides whether it is a slot. */
   onCellClick?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
@@ -243,7 +248,7 @@ export function useFogReveal(tiles: TileRenderData[], owned?: ReadonlyArray<{ x:
   return reveal;
 }
 
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, otherPlates = true, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
   const covered = useContext(BoardCovered);
@@ -257,9 +262,9 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
   const gridSlots = useMemo(
     () =>
       placementHighlight
-        ? boardPlates(tiles, slots).map((p) => ({ ...toGridSlot(p.x, p.y), ...(p.state === "invalid" ? { legal: false } : {}) }))
+        ? boardPlates(otherPlates ? tiles : [], slots).map((p) => ({ ...toGridSlot(p.x, p.y), ...(p.state === "invalid" ? { legal: false } : {}) }))
         : [],
-    [tiles, slots, placementHighlight],
+    [tiles, slots, placementHighlight, otherPlates],
   );
   // The ghost draws the variant the tile would have in the cell it hovers. The tile preview setting hides only the hover
   // preview: a placed tile is always drawn, with its tint (yellow, red: Confirm is disabled, the board says why).
