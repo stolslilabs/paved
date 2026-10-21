@@ -9,11 +9,14 @@ import { useDataSources } from "./sources";
  * with no XP, or a views double without the XP view, shows. A literal: this module is on the first load of `/`, which takes
  * nothing but types from the chain client (FIRST-LOAD).
  */
-export const FIRST_LEVEL: PlayerProgress = { level: 1, xp: 0, xpForNext: 100 };
+export const FIRST_LEVEL: PlayerProgress = { level: 1, xp: 0, xpForNext: 100, total: 0 };
 
-/** The ring's share of a level: the XP made in the current level, out of the level's span (`Setup.player_level`, #641). */
+/**
+ * The ring's share of a level: the XP made in the current level, out of the level's span, and the whole XP, on which a gain
+ * across levels is measured (`Setup.player_level`, #641).
+ */
 export function progressOf({ level, xp, floor, next }: PlayerLevel): PlayerProgress {
-  return { level, xp: xp - floor, xpForNext: next - floor };
+  return { level, xp: xp - floor, xpForNext: next - floor, total: xp };
 }
 
 /** The XP view of the sources' views, or null for a views double without it. */

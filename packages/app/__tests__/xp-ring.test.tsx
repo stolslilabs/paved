@@ -23,13 +23,14 @@ describe("usePlayerProgress (#625, #641)", () => {
     expect(await dataOf(renderData(() => usePlayerProgress(PLAYER_ID), fakes.sources).result)).toEqual(FIRST_LEVEL);
     fakes.views.cobblePlayer(PLAYER_ID).account.xp = 125;
     const later = fakeSources({ views: fakes.views });
-    expect(await dataOf(renderData(() => usePlayerProgress(PLAYER_ID), later.sources).result)).toEqual({ level: 2, xp: 25, xpForNext: 200 });
+    expect(await dataOf(renderData(() => usePlayerProgress(PLAYER_ID), later.sources).result)).toEqual({ level: 2, xp: 25, xpForNext: 200, total: 125 });
     expect(fakes.views.calls).toContain(`player_level ${BigInt(PLAYER_ID)}`);
     expect(renderData(() => usePlayerProgress(null), fakes.sources).result.current).toEqual({ data: null, isPending: false, error: null });
   });
 
+
   it("maps the view's floors: level 10 starts at 4,500 XP, level 11 at 5,500", () => {
-    expect(progressOf({ xp: 4600, level: 10, floor: 4500, next: 5500 })).toEqual({ level: 10, xp: 100, xpForNext: 1000 });
+    expect(progressOf({ xp: 4600, level: 10, floor: 4500, next: 5500 })).toEqual({ level: 10, xp: 100, xpForNext: 1000, total: 4600 });
     expect(FIRST_LEVEL).toEqual(progressOf(playerLevelOf(0)));
   });
 
@@ -50,6 +51,10 @@ describe("XpRing (#625)", () => {
     expect(xpGained({ level: 2, xp: 20, xpForNext: 200 }, { level: 2, xp: 70, xpForNext: 200 })).toBe(50);
     expect(xpGained({ level: 2, xp: 160, xpForNext: 200 }, { level: 3, xp: 30, xpForNext: 200 })).toBe(70);
     expect(xpGained({ level: 3, xp: 30, xpForNext: 200 }, { level: 2, xp: 160, xpForNext: 200 })).toBe(0);
+    // With the totals of the curve (#641): 0 XP to 300 XP passes level 2 (200 XP), a gain of 300, not 100 + 300
+    expect(xpGained(progressOf(playerLevelOf(0)), progressOf(playerLevelOf(300)))).toBe(300);
+    expect(xpGained(progressOf(playerLevelOf(4600)), progressOf(playerLevelOf(19050)))).toBe(14450);
+    expect(xpGained(progressOf(playerLevelOf(300)), progressOf(playerLevelOf(0)))).toBe(0);
   });
 
   it("shows the level badge; none while the progress is read", () => {
@@ -81,6 +86,14 @@ describe("XpRing (#625)", () => {
     expect(container.querySelector("[data-slot=level-badge]")).toHaveTextContent("2");
     await waitFor(() => expect(container.querySelector("[data-slot=level-badge]")).toHaveTextContent("3"));
     expect(container.querySelector("[data-slot=xp-burst]")).not.toBeNull();
+  });
+
+  it("a refresh that skips a level shows the XP really gained, on the chain's curve (#641)", async () => {
+    // 0 XP (level 1) to 300 XP (level 3): level 2 costs 200, so +300, not 100 + 300
+    const { container, rerender } = render(wrap(<XpRing progress={progressOf(playerLevelOf(0))} />));
+    rerender(wrap(<XpRing progress={progressOf(playerLevelOf(300))} />));
+    expect(screen.getByText("+300 XP")).toBeInTheDocument();
+    await waitFor(() => expect(container.querySelector("[data-slot=level-badge]")).toHaveTextContent("3"));
   });
 
   it("reduced motion: the values change at once with a flash, no rising text, no burst", () => {

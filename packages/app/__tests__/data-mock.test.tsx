@@ -176,7 +176,7 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
 
   it("a new player's ring is level 1 with 0 XP (Setup.player_level, #641)", async () => {
     const sources = make();
-    expect(await dataOf(renderData(() => usePlayerProgress(PLAYER), sources).result)).toEqual({ level: 1, xp: 0, xpForNext: 100 });
+    expect(await dataOf(renderData(() => usePlayerProgress(PLAYER), sources).result)).toEqual({ level: 1, xp: 0, xpForNext: 100, total: 0 });
   });
 
   it("a deposit in the Vault turns PAVED into vPAVED; withdraw all gives it back less the exit fee", async () => {
