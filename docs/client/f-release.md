@@ -134,8 +134,19 @@ What the files set:
   hashed models, `forest/` included) and `renderer-assets/tiles/*` (the `<plan>.256.<hash>.png` images). `/`, `index.html`,
   `renderer-assets/manifest.json`, `THIRD_PARTY_NOTICES.txt`, `fontawesome/*` and `backgrounds/*` (unhashed) are `no-cache`. The
   Storybook adds `iframe.html`, `index.json` and `project.json` to the `no-cache` list. Everything else keeps Vercel's default.
-- **Previews.** Both projects deploy every pull request's branch (the default; the files do not restrict it). A preview of the client
-  shows no indexer data: its `*.vercel.app` origin is not in the indexer's `--allow-origin` (CORS refuses it; `indexer-hosting.md`).
+- **Previews, on demand (2026-10-21).** Both files set `git.deploymentEnabled` to `{ "main": true, "**": false }`: a push deploys
+  `main` only, and no branch or pull request gets a preview by itself (every push to a branch deployed both projects, about 145
+  previews a day from 2026-10-17, and the CI job below already builds them). The label `preview` on a pull request deploys its head commit to both projects, and so does every later push
+  while the label stays (`.github/workflows/preview.yaml`, which runs `scripts/vercel/preview.sh` with the repository secret
+  `VERCEL_TOKEN`, a token of the Vercel team); the job comments the URLs on the pull request. The script also runs by hand
+  (`VERCEL_TOKEN=<token> sh scripts/vercel/preview.sh <branch> <sha>`). It deploys through Vercel's git source, so the ignore step
+  below still runs: a project whose inputs did not change ends CANCELED. Previews stay behind Vercel Authentication. A preview of the
+  client shows no indexer data: its `*.vercel.app` origin is not in the indexer's `--allow-origin` (CORS refuses it;
+  `indexer-hosting.md`).
+- **Build machine (dashboard, 2026-10-21).** Both projects build on a fixed Standard machine (4 vCPU, 8 GB; Build and Deployment,
+  "Build Machine"), not Elastic, and the team's on-demand concurrent builds stay off. Vercel bills Standard builds by the CPU minute
+  only when Elastic machines or on-demand concurrency are on: Elastic, the team's default, billed about 4 USD a day of builds from
+  2026-10-17. The Storybook's 3072 MB heap fits in the 8 GB.
 - **Ignore step (GUARDS, P-71).** Each file's `ignoreCommand` runs `scripts/vercel/ignore-build.sh client` or `storybook`: a
   deployment builds only when one of its project's inputs changed since the merge base with `main` (a pull request) or the last
   production build (`main`); on any doubt it builds. The Storybook's inputs are `packages/app`, `game-core`, `renderer`, `chain`,
@@ -150,7 +161,7 @@ What the files set:
 
 **Release.** The client release is a Vercel production deploy of `packages/app` from `main`, after the release gates (the value
 re-check of the diff first). `paved.bal7hazar.com` is served by the `paved` project and `storybook.paved.bal7hazar.com` by
-`paved-storybook` (published from `main` on every merge, previews per pull request; `storybook-hosting.md`). Only
+`paved-storybook` (published from `main` on every merge, previews on demand with the label `preview`; `storybook-hosting.md`). Only
 `api.paved.bal7hazar.com` stays on the VPS. CORS: the indexer's `--allow-origin` is `https://paved.bal7hazar.com`; a preview's
 `*.vercel.app` origin is not in it, so previews show no indexer data. Domains are never deleted by an agent and DNS is the owner's.
 Until 2026-10-17 the VPS served the client and the Storybook (see git history).
