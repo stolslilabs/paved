@@ -14,6 +14,16 @@ export const ProfileProvider = ProfileContext.Provider;
 const loadSheet = () => import("./profile-sheet");
 const ProfileSheet = lazy(() => loadSheet().then((m) => ({ default: m.ProfileSheet })));
 
+/**
+ * The avatar to give the focus back to: the one that opened the sheet while it is shown, else the one shown now. The page
+ * header's and the navigation's swap at `desktop`, so a resize while the sheet is open hides the opener (#624).
+ */
+function shownAvatar(opener: HTMLElement | null): HTMLElement | null {
+  const shown = (el: HTMLElement) => el.getClientRects().length > 0;
+  if (!opener || shown(opener)) return opener;
+  return [...document.querySelectorAll<HTMLElement>("[data-slot=profile-avatar]")].find(shown) ?? opener;
+}
+
 const label = (state: ProfileState) => (state.status === "connected" ? `Profile: ${state.data.player.name ?? shortAddress(state.data.player.playerId)}` : state.status === "guest" ? "Profile: guest" : "Profile");
 
 /**
@@ -25,11 +35,11 @@ export function ProfileSlot({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
   const avatar = useRef<HTMLButtonElement>(null);
-  const returnFocus = useCallback(() => avatar.current, []);
+  const returnFocus = useCallback(() => shownAvatar(avatar.current), []);
   // The focus back on the avatar as the sheet closes (the trap lets go at once; the panel leaves after its slide).
   const change = useCallback((next: boolean) => {
     setOpen(next);
-    if (!next) requestAnimationFrame(() => avatar.current?.focus());
+    if (!next) requestAnimationFrame(() => shownAvatar(avatar.current)?.focus());
   }, []);
   if (!value) return null;
   const { state } = value;
@@ -38,6 +48,7 @@ export function ProfileSlot({ className }: { className?: string }) {
       <button
         ref={avatar}
         type="button"
+        data-slot="profile-avatar"
         aria-label={label(state)}
         aria-haspopup="dialog"
         onPointerEnter={() => void loadSheet()}

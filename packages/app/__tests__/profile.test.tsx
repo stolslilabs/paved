@@ -94,6 +94,27 @@ describe("ProfileSlot (#624)", () => {
     await waitFor(() => expect(avatar).toHaveFocus());
   });
 
+  it("the width crosses `desktop` while open: the focus goes to the avatar shown now, not the hidden one that opened it", async () => {
+    render(withProfile(value(PROFILE.connected), <TabPage tab="vault" title="Vault">x</TabPage>));
+    const nav = within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Profile: bal7hazar" });
+    const header = screen.getAllByRole("button", { name: "Profile: bal7hazar" }).find((b) => b !== nav)!;
+    const shown = (el: HTMLElement, on: boolean) => vi.spyOn(el, "getClientRects").mockReturnValue((on ? [new DOMRect(0, 0, 44, 44)] : []) as unknown as DOMRectList);
+    // A phone: the header's avatar is shown, the navigation's hidden.
+    shown(header, true);
+    shown(nav, false);
+    header.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    // Resized to desktop: the header's avatar hides, the navigation's shows.
+    shown(header, false);
+    shown(nav, true);
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(nav).toHaveFocus());
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
   it("is at the top left of a tab page and in the navigation; Back takes its place on a sub-page", () => {
     const { rerender } = render(withProfile(value(PROFILE.guest), <TabPage tab="vault" title="Vault">x</TabPage>));
     const avatars = screen.getAllByRole("button", { name: "Profile: guest" });
