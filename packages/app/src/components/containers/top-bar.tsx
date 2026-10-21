@@ -16,24 +16,45 @@ export interface TopBarProps {
   className?: string;
 }
 
+/** The least width the title keeps before the bar stops centring it: under it, a title breaks a letter a line. */
+const TITLE_MIN_PX = 96;
+
+/**
+ * The width of the bar's two side columns (`--side`): both as wide as the wider side, so the title sits at the bar's centre
+ * (#622). When two such sides would leave the title less than `TITLE_MIN_PX` of `room` (the bar's width inside its padding and
+ * gaps: a bar in a card, a wide `end` beside the balances), `auto`: each side takes its own width and the title the rest, off
+ * centre rather than a letter a line.
+ */
+export function sideWidth(left: number, right: number, room: number): string {
+  const side = Math.max(48, left, right);
+  return 2 * side + TITLE_MIN_PX <= room ? `${side}px` : "auto";
+}
+
+const px = (value: string) => Number.parseFloat(value) || 0;
+
 /**
  * The top bar of a full-screen flow (section 6.2): Back, the title centred, an action on the right; direction D (#537) closes it
  * with a hairline. The space under that line is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
  * flush, so every such page has the same gap. The balances (#620) show as on the tab pages, where the shell provides them: on a
  * phone in a strip under the title (the bar's sides stay narrow, so the title keeps its room), from `desktop` before `end`.
+ * A bar too narrow to centre its title between two such sides keeps the title readable instead (`sideWidth`).
  */
 export function TopBar({ title, onBack, end, balances = true, className }: TopBarProps) {
   const marked = useMockMarked();
   const bar = useRef<HTMLElement>(null);
-  // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds.
+  // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds, while the bar has the room.
   useLayoutEffect(() => {
     const el = bar.current!;
     const sides = [el.children[0]!.firstElementChild!, el.children[2]!.firstElementChild!] as HTMLElement[];
-    const sync = () => el.style.setProperty("--side", `${Math.max(48, sides[0]!.offsetWidth, sides[1]!.offsetWidth)}px`);
+    const sync = () => {
+      const style = getComputedStyle(el);
+      const room = el.clientWidth - px(style.paddingLeft) - px(style.paddingRight) - 2 * px(style.columnGap);
+      el.style.setProperty("--side", sideWidth(sides[0]!.offsetWidth, sides[1]!.offsetWidth, room));
+    };
     sync();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(sync);
-    sides.forEach((side) => observer.observe(side));
+    [el, ...sides].forEach((node) => observer.observe(node));
     return () => observer.disconnect();
   }, []);
   return (
