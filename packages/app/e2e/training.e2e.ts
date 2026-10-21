@@ -16,6 +16,7 @@ import {
   noWebGL,
   openTraining,
   points,
+  readComing,
   readHand,
   readPreview,
   readSave,
@@ -181,6 +182,8 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
 
     // The hand holds the engine's tile, in the rotation the bot expects.
     expect(await readHand(page), `${at}: the tile in hand`).toEqual({ plan: model.hand!.plan.toLowerCase(), orientation });
+    // Beside it, the two tiles of the engine's queue, the next first (#645), fewer at the deck's end.
+    expect(await readComing(page), `${at}: the coming tiles`).toEqual(model.coming.map((t) => t.plan.toLowerCase()));
     // No tile stands on a slot yet: no bubble, so no Validate, and no points preview over the score.
     await expect.poll(() => validateButton(page).count(), { message: `${at}: Validate shows only once a slot is picked`, timeout: 10_000 }).toBe(0);
     expect(await readPreview(page), `${at}: no preview before a slot is picked`).toBeNull();

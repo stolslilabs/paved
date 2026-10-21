@@ -68,12 +68,22 @@ export async function readUi(page: Page): Promise<Ui> {
   return { score: points(score), remaining: Number(remaining) };
 }
 
-/** The tile in hand as the hand panel draws it: its plan's letters (lower case) and its orientation (1 North to 4 West). */
+/**
+ * The tile in hand as the hand panel draws it, on top of its stack: its plan's letters (lower case) and its orientation
+ * (1 North to 4 West). The coming tiles beside the stack (#645) are tiles too, and come first in the panel.
+ */
 export async function readHand(page: Page): Promise<{ plan: string; orientation: number }> {
-  const label = (await page.getByRole("region", { name: "Your tile" }).getByRole("img").first().getAttribute("aria-label", { timeout: 10_000 })) ?? "";
+  const top = page.getByRole("region", { name: "Your tile" }).locator("[data-stack-top]");
+  const label = (await top.getByRole("img").first().getAttribute("aria-label", { timeout: 10_000 })) ?? "";
   const match = /^Tile (\w+), (north|east|south|west)$/.exec(label);
   if (!match) throw new Error(`the hand shows no tile: "${label}"`);
   return { plan: match[1]!, orientation: SIDES.indexOf(match[2]!) + 1 };
+}
+
+/** The coming tiles beside the stack (#645), in draw order: their plans' letters (lower case); none when no list shows. */
+export async function readComing(page: Page): Promise<string[]> {
+  const labels = await page.getByRole("region", { name: "Your tile" }).getByRole("list", { name: "Coming tiles" }).locator('[role="img"]').evaluateAll((imgs) => imgs.map((i) => i.getAttribute("aria-label") ?? ""));
+  return labels.map((label) => /^Tile (\w+), /.exec(label)?.[1] ?? label);
 }
 
 export interface ShownSlot {
@@ -188,7 +198,7 @@ export async function openTraining(page: Page, base: string): Promise<void> {
 export async function ready(page: Page): Promise<void> {
   await page.waitForFunction(
     () =>
-      (!!document.querySelector('[data-testid="tiles-left"]') && !!document.querySelector('section[aria-label="Your tile"] [role="img"][aria-label^="Tile "]')) ||
+      (!!document.querySelector('[data-testid="tiles-left"]') && !!document.querySelector('section[aria-label="Your tile"] [data-stack-top] [role="img"][aria-label^="Tile "]')) ||
       !!document.querySelector('[data-testid="final-score"]'),
     null,
     { timeout: 120_000 },
