@@ -151,7 +151,7 @@ export function TileStack({
       data-state={state}
       data-input-surface
       data-bubble-avoid
-      className={cn("pointer-events-none flex max-w-[min(24rem,calc(100vw-1rem))] flex-col items-end gap-2", className)}
+      className={cn("pointer-events-none flex max-w-[min(20rem,calc(100vw-1rem))] flex-col items-end gap-2", className)}
     >
       {/* Refused and expired say why in the one error component (P-67); always rendered, so its height animates. */}
       <InlineError
@@ -180,9 +180,10 @@ export function TileStack({
             <DiscardHold onDiscard={onDiscard} cost={discardCost} holdMs={holdMs} className={cn("size-11 rounded-full focus-visible:ring-offset-card", coach === "discard" && cn(COACH_RING, "rounded-full"))} />
           </div>
         )}
-        {/* The coming tiles (#645), the next nearest the stack: smaller, read only. A list in draw order, laid out reversed. */}
+        {/* The coming tiles (#645), the next nearest the stack: smaller, read only. A list in draw order, laid out reversed
+            (an inline style: the class would be the bundle's only one). */}
         {(known.length > 0 || waiting) && (
-          <ol aria-label="Coming tiles" data-testid="coming-tiles" className="mb-3 flex flex-row-reverse items-end gap-1.5">
+          <ol aria-label="Coming tiles" data-testid="coming-tiles" className="mb-3 flex items-end gap-1.5" style={{ flexDirection: "row-reverse" }}>
             {known.map((t, i) => (
               <li key={i} data-coming={i + 1} className={cn("flex flex-col items-center", i > 0 && "opacity-80")}>
                 <span className="sr-only">{i === 0 ? "Next: " : "Then: "}</span>
@@ -194,7 +195,7 @@ export function TileStack({
                 <span
                   role="img"
                   aria-label="The chain draws this tile"
-                  className="flex size-14 items-center justify-center rounded-md border-2 border-dashed border-input bg-card/80 text-muted-foreground shadow-md"
+                  className="flex size-14 items-center justify-center rounded-md border-2 border-dashed border-input bg-card text-muted-foreground shadow-md"
                 >
                   <SpinnerIcon />
                 </span>

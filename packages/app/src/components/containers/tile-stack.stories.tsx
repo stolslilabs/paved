@@ -108,3 +108,5 @@ export const QueueDrawing: Story = { args: { remaining: 19, state: "pending", ti
 export const QueueTraining: Story = { args: { remaining: 30, coming: [{ plan: 4 }, { plan: 9 }] } };
 /** #645, the queue on the bubble's tile: the stack dims, the coming tiles stay. */
 export const QueueOnACell: Story = { args: { remaining: 20, coming: COMING, cellChosen: true } };
+/** #645, the tile fits nowhere: the stack's Discard says so beside the coming tiles (the widest hand, 360 px). */
+export const QueueFitsNowhere: Story = { args: { remaining: 20, coming: COMING, fitsNowhere: true } };
