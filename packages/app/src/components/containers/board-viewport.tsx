@@ -241,7 +241,7 @@ export function useTileHold(cell: { x: number; y: number } | null, place?: Press
       },
     };
   });
-  const [onTilePress] = useState<TilePressListener>(() => (gx, gy, phase) => {
+  const listener = useRef<TilePressListener>((gx, gy, phase) => {
     if (phase === "down") {
       const s = showing.current;
       if (s?.timer) clearTimeout(s.timer);
@@ -280,6 +280,7 @@ export function useTileHold(cell: { x: number; y: number } | null, place?: Press
     if (!h) return;
     return phase === "released" && acted;
   });
+  const onTilePress = listener.current;
   // The tile shown by the press under way: once the bubble is up on its cell with Validate enabled, its hold starts. This
   // runs after the bubble's own effects, so the hold is not dropped as the change of cell it follows.
   useEffect(() => {

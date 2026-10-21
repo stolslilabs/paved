@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { MotionConfig } from "motion/react";
 import { act, cleanup as cleanupRender, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { CENTER, EngineGame, PlanType, PredictedSession } from "@paved/game-core";
 import { FakeGameViews, type GameKey, type GameView, type TileView } from "@paved/chain";
 import type { GameCanvasProps } from "@paved/renderer/react";
@@ -228,6 +228,10 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
 });
 
 describe("press and place (PRESS-PLACE, #680)", () => {
+  // The bubble's chunk in before the presses, so a press's hold starts within its delay.
+  beforeAll(async () => {
+    await import("../src/components/containers/tile-bubble");
+  });
   /** The Training board with the tile in hand and nothing shown yet. */
   async function empty() {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
@@ -242,6 +246,15 @@ describe("press and place (PRESS-PLACE, #680)", () => {
   };
   const wait = (ms: number) => act(async () => void (await new Promise((resolve) => setTimeout(resolve, ms))));
   const ring = () => validateButton()?.getAttribute("data-state");
+  /**
+   * A press that shows the tile, its hold started: a fixed wait just past the delay (the hold's own timer, due later, cannot
+   * fire before it, however loaded the machine), with the bubble's chunk already in.
+   */
+  async function pressShown(x: number, y: number) {
+    press(x, y, "down");
+    await wait(PRESS_SHOW_MS + 20);
+    expect(ring()).toBe("holding");
+  }
 
   it("a press held on an empty board shows the tile, fills Validate's ring and places it once; its let go clicks nothing", async () => {
     const slot = await empty();
@@ -261,8 +274,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
   it("let go early, the tile stays shown on that cell as after a tap, and a second press on it holds again", async () => {
     const slot = await empty();
     const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
-    press(slot.x, slot.y, "down");
-    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    await pressShown(slot.x, slot.y);
     expect(press(slot.x, slot.y, "released")).toBe(true);
     expect(ring()).toBe("idle");
     await wait(HOLD_MS);
@@ -289,8 +301,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     await wait(PRESS_SHOW_MS * 2);
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
     // A second finger once the hold runs: cancelled, the ring rewinds, the tile stays shown.
-    press(slot.x, slot.y, "down");
-    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    await pressShown(slot.x, slot.y);
     expect(press(slot.x, slot.y, "cancelled")).toBe(false);
     expect(ring()).toBe("idle");
     await wait(HOLD_MS);
