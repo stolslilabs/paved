@@ -180,13 +180,13 @@ describe("the board reads the settings", () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
     await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
-    expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true } });
+    expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true } });
     act(() => deviceSettings.set({ ...deviceSettings.get(), quality: "high" }));
-    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true } }));
+    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true } }));
     act(() => deviceSettings.set({ ...deviceSettings.get(), dayNight: false }));
-    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false, freezeAt: null }, ambient: { enabled: true } }));
+    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true } }));
     act(() => deviceSettings.set({ ...deviceSettings.get(), ambient: false }));
-    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false, freezeAt: null }, ambient: { enabled: false } }));
+    await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false, freezeAt: null }, ambient: { enabled: false }, fog: { enabled: true } }));
     // A render that changes nothing the renderer reads keeps the object, so the canvas does not call setSettings for nothing.
     const high = lastBoard()?.settings;
     act(() => deviceSettings.set(withVolume(deviceSettings.get(), "sfx", 0)));
