@@ -172,7 +172,8 @@ export function TileStack({
           {busy ? "Placing…" : "Tap a lit slot on the board."}
         </p>
       )}
-      <div className="flex items-end gap-2">
+      {/* The row wraps on the narrowest phones: the stack's Discard, with its "fits nowhere", goes above the queue. */}
+      <div className="flex flex-wrap items-end justify-end gap-2">
         {/* The stack's Discard: while no cell is chosen (then it is the bubble's, on the tile). */}
         {canDiscard && !cellChosen && onDiscard && (
           <div data-testid="stack-discard" className="pointer-events-auto mb-3 flex items-center gap-2 rounded-full border bg-card p-1 shadow-lg">
