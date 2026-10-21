@@ -5,6 +5,7 @@ import type { CobbleClaim } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
 import { SKIN_PLANS, isSkinPlan, type SkinChange, type SkinViews } from "./skins";
+import { AVATAR_MAX_CATEGORIES, AVATAR_MAX_WIDTH, type AvatarViews } from "./avatar";
 import { gameContract, type GameKey } from "./views";
 
 export interface Call {
@@ -287,6 +288,64 @@ function skinRevert(error: unknown): never {
     if (known) throw new SkinRefusedError(known[1], error.transactionHash);
   }
   throw error;
+}
+
+/** Why `Avatar` refused an item's purchase or a `set_avatar`, by its revert (`avatar.cairo`, `errors`; `setup.cairo` for the Cobbles). */
+export type AvatarRefusal = "owned" | "not-for-sale" | "sold-out" | "sale-ended" | "not-enough-cobbles" | "not-owned" | "invalid-look";
+
+/** Each refusal's revert reason; `item not owned` before `item owned`, so the one is never read as the other. */
+const AVATAR_REVERTS: Array<[string, AvatarRefusal]> = [
+  ["Avatar: item not owned", "not-owned"],
+  ["Avatar: item owned", "owned"],
+  ["Avatar: item not for sale", "not-for-sale"],
+  ["Avatar: item sold out", "sold-out"],
+  ["Avatar: sale ended", "sale-ended"],
+  ["Setup: not enough cobbles", "not-enough-cobbles"],
+  ["Avatar: invalid look", "invalid-look"],
+  ["Avatar: no layout", "invalid-look"],
+];
+
+/** What the player reads for each refusal. */
+export const AVATAR_REFUSAL_TEXT: Record<AvatarRefusal, string> = {
+  owned: "You already own this item.",
+  "not-for-sale": "This item is not for sale.",
+  "sold-out": "This item is sold out.",
+  "sale-ended": "This item's sale has ended.",
+  "not-enough-cobbles": "Not enough Cobbles for this item: earn them from quests and achievements, or buy a pack.",
+  "not-owned": "A part of this avatar is not yours: buy it first. Nothing was saved.",
+  "invalid-look": "This avatar does not fit the parts on chain. Nothing was saved.",
+};
+
+/** `Avatar` refused `buy_avatar_item` or `set_avatar`: no Cobbles were spent and nothing changed. */
+export class AvatarRefusedError extends WriteError {
+  constructor(readonly reason: AvatarRefusal, transactionHash?: string) {
+    super(AVATAR_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
+    this.name = "AvatarRefusedError";
+  }
+}
+
+/** The item's price at send is not the one the creator showed (the owner changed it, or took it off sale): nothing was sent. */
+export class AvatarPriceChangedError extends WriteError {
+  constructor(readonly confirmed: number, readonly current: number) {
+    super(current === 0 ? "This item is not for sale any more. Nothing was sent." : "This item's price changed: check the new price and buy again. Nothing was sent.");
+    this.name = "AvatarPriceChangedError";
+  }
+}
+
+/** A known revert of an avatar write as its `AvatarRefusedError`; any other error unchanged. */
+function avatarRevert(error: unknown): never {
+  if (error instanceof WriteError) {
+    const known = AVATAR_REVERTS.find(([reason]) => revertNames(error.message, reason));
+    if (known) throw new AvatarRefusedError(known[1], error.transactionHash);
+  }
+  throw error;
+}
+
+/** An avatar item's purchase as the player confirmed it: the category, the item id, and the price in Cobbles the creator showed. */
+export interface BuyAvatarItemRequest {
+  category: number;
+  id: number;
+  confirmedPrice: number;
 }
 
 /**
@@ -590,6 +649,44 @@ export class PavedWriter {
     const calldata = [changes.length, ...changes.flatMap((c) => [c.plan, c.theme])].map((n) => `0x${n.toString(16)}`);
     const call: Call = { contractAddress: this.options.deployment.addresses.Setup, entrypoint: "set_skins", calldata };
     return this.send("Setup", [call]).catch(skinRevert);
+  }
+
+  /**
+   * `Avatar.buy_avatar_item(category, id)`: the caller buys a paid avatar item for itself, once, for its price in Cobbles
+   * (debited on `Setup`'s ledger); buying does not set the avatar. The receipt's `AvatarItemBought` carries the price and
+   * the balance after. A refusal is an `AvatarRefusedError` (owned, not for sale, sold out, sale ended, not enough Cobbles):
+   * nothing moved. The item is read again inside the serialised send (`views.avatarItem`): a price other than
+   * `confirmedPrice` is an `AvatarPriceChangedError` and nothing is sent; a failed read sends nothing.
+   */
+  buyAvatarItem(request: BuyAvatarItemRequest, views: Pick<AvatarViews, "avatarItem">): Promise<WriteResult> {
+    const { category, id, confirmedPrice } = request;
+    if (!this.options.deployment.addresses.Avatar) return Promise.reject(new WriteError("No Avatar contract in this deployment: no item is for sale"));
+    if (!Number.isInteger(category) || category < 0 || category >= AVATAR_MAX_CATEGORIES || !Number.isInteger(id) || id < 0 || id >= 2 ** AVATAR_MAX_WIDTH) {
+      return Promise.reject(new AvatarRefusedError("not-for-sale"));
+    }
+    if (!Number.isInteger(confirmedPrice) || confirmedPrice <= 0) return Promise.reject(new WriteError("No confirmed price for this item: nothing was sent"));
+    return this.serialised(async () => {
+      let current: number;
+      try {
+        const item = await views.avatarItem(category, id);
+        current = item.state === 1 ? item.cobbles : 0;
+      } catch (error) {
+        throw new WriteError(`Cannot read the item's price: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      if (current !== confirmedPrice) throw new AvatarPriceChangedError(confirmedPrice, current);
+      return this.sendNow("Avatar", [this.call("Avatar", "buy_avatar_item", [category, id])]);
+    }).catch(avatarRevert);
+  }
+
+  /**
+   * `Avatar.set_avatar(look)`: stores the caller's avatar, one felt (`lookOf` builds it from the layout); 0n clears it. Every
+   * part must be listed and free, or owned, else an `AvatarRefusedError` (`not-owned`) and nothing is saved. The receipt's
+   * `AvatarSet` carries the look. A look outside a felt is refused before anything is sent.
+   */
+  setAvatar(look: bigint): Promise<WriteResult> {
+    if (!this.options.deployment.addresses.Avatar) return Promise.reject(new WriteError("No Avatar contract in this deployment: no avatar can be saved"));
+    if (look < 0n || look >= 2n ** 251n) return Promise.reject(new AvatarRefusedError("invalid-look"));
+    return this.send("Avatar", [this.call("Avatar", "set_avatar", [look])]).catch(avatarRevert);
   }
 
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */
