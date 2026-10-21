@@ -5,12 +5,12 @@
     {
       "name": "daily_city5",
       "source": "golden",
-      "seed": "0x75f339a886d70f2ec353584db1d5d5359c2ed1fb1524e53b54fdde0ee9fad37",
+      "seed": "0x0",
       "tile_limit": 5,
       "forced": true,
       "moves": [
         {
-          "drawn": 18,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -18,7 +18,7 @@
           "score": 0
         },
         {
-          "drawn": 7,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -26,7 +26,7 @@
           "score": 0
         },
         {
-          "drawn": 6,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -34,7 +34,7 @@
           "score": 0
         },
         {
-          "drawn": 5,
+          "drawn": null,
           "plan": 8,
           "orientation": 1,
           "x": 2147483647,
@@ -53,12 +53,12 @@
     {
       "name": "daily_road6",
       "source": "golden",
-      "seed": "0xa370e644a9538df1614364866cbbc10391e5136af41dcd90f53a0a8892715",
+      "seed": "0x0",
       "tile_limit": 38,
       "forced": true,
       "moves": [
         {
-          "drawn": 13,
+          "drawn": null,
           "plan": 10,
           "orientation": 1,
           "x": 2147483648,
@@ -66,7 +66,7 @@
           "score": 0
         },
         {
-          "drawn": 18,
+          "drawn": null,
           "plan": 10,
           "orientation": 1,
           "x": 2147483649,
@@ -74,7 +74,7 @@
           "score": 0
         },
         {
-          "drawn": 10,
+          "drawn": null,
           "plan": 10,
           "orientation": 1,
           "x": 2147483650,
@@ -82,7 +82,7 @@
           "score": 0
         },
         {
-          "drawn": 18,
+          "drawn": null,
           "plan": 16,
           "orientation": 1,
           "x": 2147483651,
@@ -90,7 +90,7 @@
           "score": 0
         },
         {
-          "drawn": 3,
+          "drawn": null,
           "plan": 16,
           "orientation": 1,
           "x": 2147483646,
@@ -109,12 +109,12 @@
     {
       "name": "daily_mixed",
       "source": "golden",
-      "seed": "0x66e020c8c83c2ccdf9a57627dc805efba881071c38babad038d94364a1b980c",
+      "seed": "0x0",
       "tile_limit": 38,
       "forced": true,
       "moves": [
         {
-          "drawn": 10,
+          "drawn": null,
           "plan": 19,
           "orientation": 1,
           "x": 2147483648,
@@ -122,7 +122,7 @@
           "score": 0
         },
         {
-          "drawn": 11,
+          "drawn": null,
           "plan": 8,
           "orientation": 1,
           "x": 2147483647,
@@ -130,7 +130,7 @@
           "score": 419
         },
         {
-          "drawn": 19,
+          "drawn": null,
           "plan": 10,
           "orientation": 1,
           "x": 2147483646,
@@ -138,7 +138,7 @@
           "score": 419
         },
         {
-          "drawn": 5,
+          "drawn": null,
           "plan": 16,
           "orientation": 1,
           "x": 2147483645,
@@ -157,44 +157,20 @@
     {
       "name": "daily_deck",
       "source": "golden",
-      "seed": "0x2e5ef8ae965c274538bcfc83dc5a9daa98de2f53057b2acf9b196aec476d05f",
+      "seed": "0x0",
       "tile_limit": 8,
       "forced": false,
       "moves": [
         {
-          "drawn": 1,
-          "plan": 1,
+          "drawn": null,
+          "plan": 10,
           "orientation": 0,
           "x": 0,
           "y": 0,
           "score": 0
         },
         {
-          "drawn": 8,
-          "plan": 8,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 0,
-          "x": 0,
-          "y": 0,
-          "score": 0
-        },
-        {
-          "drawn": 14,
+          "drawn": null,
           "plan": 14,
           "orientation": 0,
           "x": 0,
@@ -202,16 +178,40 @@
           "score": 0
         },
         {
-          "drawn": 14,
-          "plan": 14,
+          "drawn": null,
+          "plan": 10,
           "orientation": 0,
           "x": 0,
           "y": 0,
           "score": 0
         },
         {
-          "drawn": 16,
+          "drawn": null,
+          "plan": 11,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": null,
           "plan": 16,
+          "orientation": 0,
+          "x": 0,
+          "y": 0,
+          "score": 0
+        },
+        {
+          "drawn": null,
+          "plan": 17,
           "orientation": 0,
           "x": 0,
           "y": 0,
@@ -229,12 +229,12 @@
     {
       "name": "forest_ring",
       "source": "golden",
-      "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
+      "seed": "0x0",
       "tile_limit": 38,
       "forced": true,
       "moves": [
         {
-          "drawn": 11,
+          "drawn": null,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
@@ -242,7 +242,7 @@
           "score": 0
         },
         {
-          "drawn": 7,
+          "drawn": null,
           "plan": 13,
           "orientation": 4,
           "x": 2147483648,
@@ -250,7 +250,7 @@
           "score": 0
         },
         {
-          "drawn": 18,
+          "drawn": null,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
@@ -258,7 +258,7 @@
           "score": 0
         },
         {
-          "drawn": 13,
+          "drawn": null,
           "plan": 13,
           "orientation": 2,
           "x": 2147483647,
@@ -289,12 +289,12 @@
     {
       "name": "forest_caps",
       "source": "golden",
-      "seed": "0x3da61630f793f42accec0e235a3b3efefcd0fa3bdfc8bcc79e342b3959cb1cf",
+      "seed": "0x0",
       "tile_limit": 38,
       "forced": true,
       "moves": [
         {
-          "drawn": 14,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -302,7 +302,7 @@
           "score": 0
         },
         {
-          "drawn": 5,
+          "drawn": null,
           "plan": 8,
           "orientation": 1,
           "x": 2147483647,
@@ -317,7 +317,7 @@
           "score": 643
         },
         {
-          "drawn": 8,
+          "drawn": null,
           "plan": 8,
           "orientation": 1,
           "x": 2147483648,
@@ -325,7 +325,7 @@
           "score": 643
         },
         {
-          "drawn": 7,
+          "drawn": null,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
@@ -333,7 +333,7 @@
           "score": 643
         },
         {
-          "drawn": 7,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
@@ -364,12 +364,12 @@
     {
       "name": "forest_both",
       "source": "golden",
-      "seed": "0x37cfe4aa1a11307ac67e2d3180d100289834a60ebc363bef931de22977ae61f",
+      "seed": "0x0",
       "tile_limit": 38,
       "forced": true,
       "moves": [
         {
-          "drawn": 12,
+          "drawn": null,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
@@ -377,7 +377,7 @@
           "score": 0
         },
         {
-          "drawn": 7,
+          "drawn": null,
           "plan": 13,
           "orientation": 4,
           "x": 2147483648,
@@ -385,7 +385,7 @@
           "score": 0
         },
         {
-          "drawn": 12,
+          "drawn": null,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
@@ -393,7 +393,7 @@
           "score": 0
         },
         {
-          "drawn": 18,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -401,7 +401,7 @@
           "score": 0
         },
         {
-          "drawn": 9,
+          "drawn": null,
           "plan": 7,
           "orientation": 1,
           "x": 2147483647,
@@ -409,7 +409,7 @@
           "score": 0
         },
         {
-          "drawn": 13,
+          "drawn": null,
           "plan": 7,
           "orientation": 2,
           "x": 2147483648,
@@ -417,7 +417,7 @@
           "score": 0
         },
         {
-          "drawn": 16,
+          "drawn": null,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
@@ -425,7 +425,7 @@
           "score": 0
         },
         {
-          "drawn": 15,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
@@ -433,7 +433,7 @@
           "score": 1693
         },
         {
-          "drawn": 6,
+          "drawn": null,
           "plan": 13,
           "orientation": 2,
           "x": 2147483647,
@@ -464,12 +464,12 @@
     {
       "name": "forest_open",
       "source": "golden",
-      "seed": "0x325cf6d40ecf3a3e2f5295c4d7a3d89fe71fdd812faa7b88e281208c3f5da5e",
+      "seed": "0x0",
       "tile_limit": 38,
       "forced": true,
       "moves": [
         {
-          "drawn": 8,
+          "drawn": null,
           "plan": 9,
           "orientation": 3,
           "x": 2147483648,
@@ -477,7 +477,7 @@
           "score": 0
         },
         {
-          "drawn": 13,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483648,
@@ -485,7 +485,7 @@
           "score": 0
         },
         {
-          "drawn": 10,
+          "drawn": null,
           "plan": 7,
           "orientation": 2,
           "x": 2147483648,
@@ -493,7 +493,7 @@
           "score": 0
         },
         {
-          "drawn": 13,
+          "drawn": null,
           "plan": 2,
           "orientation": 3,
           "x": 2147483647,
@@ -501,7 +501,7 @@
           "score": 0
         },
         {
-          "drawn": 10,
+          "drawn": null,
           "plan": 4,
           "orientation": 2,
           "x": 2147483647,
@@ -527,12 +527,12 @@
     {
       "name": "forest_last",
       "source": "golden",
-      "seed": "0x460d8bd75b85e9512e763f9a94d1ab4a09082d265d2d7b60a0e7da385e7d264",
+      "seed": "0x0",
       "tile_limit": 5,
       "forced": true,
       "moves": [
         {
-          "drawn": 11,
+          "drawn": null,
           "plan": 13,
           "orientation": 3,
           "x": 2147483647,
@@ -540,7 +540,7 @@
           "score": 0
         },
         {
-          "drawn": 7,
+          "drawn": null,
           "plan": 13,
           "orientation": 4,
           "x": 2147483648,
@@ -548,7 +548,7 @@
           "score": 0
         },
         {
-          "drawn": 18,
+          "drawn": null,
           "plan": 13,
           "orientation": 1,
           "x": 2147483648,
@@ -556,7 +556,7 @@
           "score": 0
         },
         {
-          "drawn": 13,
+          "drawn": null,
           "plan": 13,
           "orientation": 2,
           "x": 2147483647,
@@ -587,309 +587,309 @@
     {
       "name": "daily_full_deck",
       "source": "golden",
-      "seed": "0x6a53ba54aaa22d5a7cae2a4b45d2b63ac4548a51178abb0fa3d3edc3b268982",
+      "seed": "0x0",
       "tile_limit": 38,
       "forced": false,
       "moves": [
         {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483648,
-          "score": 0
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483646,
-          "score": 0
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
-          "orientation": 2,
-          "x": 2147483648,
-          "y": 2147483648,
-          "score": 0
-        },
-        {
-          "drawn": 8,
-          "plan": 8,
-          "orientation": 2,
-          "x": 2147483648,
-          "y": 2147483646,
-          "score": 0
-        },
-        {
-          "drawn": 18,
-          "plan": 18,
-          "orientation": 1,
-          "x": 2147483646,
-          "y": 2147483646,
-          "score": 0
-        },
-        {
-          "drawn": 5,
-          "plan": 5,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483645,
-          "score": 643
-        },
-        {
-          "drawn": 9,
-          "plan": 9,
-          "orientation": 3,
-          "x": 2147483648,
-          "y": 2147483647,
-          "score": 1520
-        },
-        {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 3,
-          "x": 2147483647,
-          "y": 2147483649,
-          "score": 1520
-        },
-        {
-          "drawn": 16,
-          "plan": 16,
-          "orientation": 1,
-          "x": 2147483646,
-          "y": 2147483647,
-          "score": 1520
-        },
-        {
-          "drawn": 15,
-          "plan": 15,
-          "orientation": 2,
-          "x": 2147483646,
-          "y": 2147483648,
-          "score": 1729
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 1,
-          "x": 2147483648,
-          "y": 2147483649,
-          "score": 1729
-        },
-        {
-          "drawn": 18,
-          "plan": 18,
-          "orientation": 1,
-          "x": 2147483648,
-          "y": 2147483645,
-          "score": 1729
-        },
-        {
-          "drawn": 6,
+          "drawn": null,
           "plan": 6,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483648,
+          "score": 419
+        },
+        {
+          "drawn": null,
+          "plan": 19,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483647,
+          "score": 419
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 3,
+          "x": 2147483647,
+          "y": 2147483646,
+          "score": 419
+        },
+        {
+          "drawn": null,
+          "plan": 11,
+          "orientation": 2,
+          "x": 2147483646,
+          "y": 2147483647,
+          "score": 419
+        },
+        {
+          "drawn": null,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483649,
+          "score": 419
+        },
+        {
+          "drawn": null,
+          "plan": 16,
           "orientation": 4,
           "x": 2147483646,
-          "y": 2147483645,
-          "score": 1729
-        },
-        {
-          "drawn": 7,
-          "plan": 7,
-          "orientation": 1,
-          "x": 2147483649,
           "y": 2147483648,
-          "score": 1729
+          "score": 857
         },
         {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 1,
-          "x": 2147483649,
-          "y": 2147483649,
-          "score": 1729
-        },
-        {
-          "drawn": 4,
-          "plan": 4,
-          "orientation": 2,
-          "x": 2147483649,
-          "y": 2147483646,
-          "score": 1729
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 1,
-          "x": 2147483645,
-          "y": 2147483646,
-          "score": 1729
-        },
-        {
-          "drawn": 7,
+          "drawn": null,
           "plan": 7,
-          "orientation": 4,
-          "x": 2147483649,
-          "y": 2147483645,
-          "score": 1729
+          "orientation": 3,
+          "x": 2147483648,
+          "y": 2147483648,
+          "score": 857
         },
         {
-          "drawn": 12,
+          "drawn": null,
+          "plan": 11,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483645,
+          "score": 857
+        },
+        {
+          "drawn": null,
           "plan": 12,
           "orientation": 4,
-          "x": 2147483646,
-          "y": 2147483649,
-          "score": 1729
-        },
-        {
-          "drawn": 8,
-          "plan": 8,
-          "orientation": 4,
-          "x": 2147483645,
-          "y": 2147483645,
-          "score": 2148
-        },
-        {
-          "drawn": 2,
-          "plan": 2,
-          "orientation": 1,
-          "x": 2147483647,
-          "y": 2147483644,
-          "score": 2148
-        },
-        {
-          "drawn": 5,
-          "plan": 5,
-          "orientation": 2,
           "x": 2147483648,
-          "y": 2147483644,
-          "score": 2148
+          "y": 2147483646,
+          "score": 857
         },
         {
-          "drawn": 14,
-          "plan": 14,
-          "orientation": 2,
-          "x": 2147483645,
-          "y": 2147483647,
-          "score": 3048
-        },
-        {
-          "drawn": 13,
-          "plan": 13,
-          "orientation": 1,
-          "x": 2147483648,
-          "y": 2147483650,
-          "score": 3048
-        },
-        {
-          "drawn": 11,
-          "plan": 11,
-          "orientation": 2,
-          "x": 2147483647,
-          "y": 2147483650,
-          "score": 3048
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 2,
-          "x": 2147483649,
-          "y": 2147483650,
-          "score": 3048
-        },
-        {
-          "drawn": 14,
-          "plan": 14,
-          "orientation": 4,
-          "x": 2147483645,
-          "y": 2147483648,
-          "score": 3467
-        },
-        {
-          "drawn": 19,
-          "plan": 19,
-          "orientation": 2,
-          "x": 2147483650,
-          "y": 2147483649,
-          "score": 3467
-        },
-        {
-          "drawn": 15,
+          "drawn": null,
           "plan": 15,
           "orientation": 2,
-          "x": 2147483645,
-          "y": 2147483649,
-          "score": 3788
-        },
-        {
-          "drawn": 4,
-          "plan": 4,
-          "orientation": 1,
-          "x": 2147483650,
-          "y": 2147483648,
-          "score": 3788
-        },
-        {
-          "drawn": 19,
-          "plan": 19,
-          "orientation": 4,
-          "x": 2147483650,
-          "y": 2147483650,
-          "score": 3997
-        },
-        {
-          "drawn": 10,
-          "plan": 10,
-          "orientation": 2,
-          "x": 2147483650,
-          "y": 2147483646,
-          "score": 3997
-        },
-        {
-          "drawn": 9,
-          "plan": 9,
-          "orientation": 2,
-          "x": 2147483650,
+          "x": 2147483648,
           "y": 2147483645,
-          "score": 3997
+          "score": 857
         },
         {
-          "drawn": 2,
-          "plan": 2,
+          "drawn": null,
+          "plan": 12,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483647,
+          "score": 857
+        },
+        {
+          "drawn": null,
+          "plan": 18,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483650,
+          "score": 857
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483649,
+          "score": 857
+        },
+        {
+          "drawn": null,
+          "plan": 8,
+          "orientation": 3,
+          "x": 2147483646,
+          "y": 2147483646,
+          "score": 857
+        },
+        {
+          "drawn": null,
+          "plan": 3,
+          "orientation": 3,
+          "x": 2147483649,
+          "y": 2147483646,
+          "score": 857
+        },
+        {
+          "drawn": null,
+          "plan": 11,
+          "orientation": 4,
+          "x": 2147483649,
+          "y": 2147483645,
+          "score": 857
+        },
+        {
+          "drawn": null,
+          "plan": 18,
           "orientation": 1,
           "x": 2147483646,
-          "y": 2147483644,
-          "score": 3997
+          "y": 2147483650,
+          "score": 857
         },
         {
-          "drawn": 13,
+          "drawn": null,
+          "plan": 1,
+          "orientation": 1,
+          "x": 2147483645,
+          "y": 2147483647,
+          "score": 857
+        },
+        {
+          "drawn": null,
           "plan": 13,
           "orientation": 3,
-          "x": 2147483650,
-          "y": 2147483647,
-          "score": 3997
+          "x": 2147483646,
+          "y": 2147483645,
+          "score": 857
         },
         {
-          "drawn": 10,
-          "plan": 10,
+          "drawn": null,
+          "plan": 7,
           "orientation": 1,
-          "x": 2147483644,
-          "y": 2147483646,
-          "score": 3997
+          "x": 2147483648,
+          "y": 2147483649,
+          "score": 857
         },
         {
-          "drawn": 8,
-          "plan": 8,
+          "drawn": null,
+          "plan": 11,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483648,
+          "score": 857
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 2,
+          "x": 2147483648,
+          "y": 2147483650,
+          "score": 1757
+        },
+        {
+          "drawn": null,
+          "plan": 16,
+          "orientation": 2,
+          "x": 2147483645,
+          "y": 2147483649,
+          "score": 3057
+        },
+        {
+          "drawn": null,
+          "plan": 5,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483648,
+          "score": 4376
+        },
+        {
+          "drawn": null,
+          "plan": 2,
+          "orientation": 4,
+          "x": 2147483645,
+          "y": 2147483646,
+          "score": 4376
+        },
+        {
+          "drawn": null,
+          "plan": 16,
+          "orientation": 4,
+          "x": 2147483645,
+          "y": 2147483650,
+          "score": 4585
+        },
+        {
+          "drawn": null,
+          "plan": 13,
+          "orientation": 1,
+          "x": 2147483648,
+          "y": 2147483644,
+          "score": 4585
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483645,
+          "y": 2147483645,
+          "score": 4585
+        },
+        {
+          "drawn": null,
+          "plan": 4,
+          "orientation": 1,
+          "x": 2147483647,
+          "y": 2147483651,
+          "score": 4585
+        },
+        {
+          "drawn": null,
+          "plan": 3,
+          "orientation": 4,
+          "x": 2147483647,
+          "y": 2147483644,
+          "score": 4906
+        },
+        {
+          "drawn": null,
+          "plan": 10,
           "orientation": 2,
           "x": 2147483649,
           "y": 2147483644,
-          "score": 5316
+          "score": 4906
+        },
+        {
+          "drawn": null,
+          "plan": 17,
+          "orientation": 1,
+          "x": 2147483650,
+          "y": 2147483647,
+          "score": 5227
+        },
+        {
+          "drawn": null,
+          "plan": 11,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483646,
+          "score": 5227
+        },
+        {
+          "drawn": null,
+          "plan": 7,
+          "orientation": 3,
+          "x": 2147483650,
+          "y": 2147483645,
+          "score": 6349
+        },
+        {
+          "drawn": null,
+          "plan": 14,
+          "orientation": 4,
+          "x": 2147483646,
+          "y": 2147483651,
+          "score": 6349
+        },
+        {
+          "drawn": null,
+          "plan": 16,
+          "orientation": 2,
+          "x": 2147483650,
+          "y": 2147483648,
+          "score": 6558
+        },
+        {
+          "drawn": null,
+          "plan": 10,
+          "orientation": 1,
+          "x": 2147483649,
+          "y": 2147483650,
+          "score": 6558
         }
       ],
       "final": {
-        "score": 5316,
+        "score": 6558,
         "built": 37,
         "discarded": 0,
         "tile_count": 38,

@@ -2,27 +2,27 @@
   "games": {
     "daily_city5": {
       "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_city5_game_over)",
-      "seed": "Poseidon(0, 1000): Mode::seed of day(0) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 0 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": []
     },
     "daily_road6": {
       "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_road6)",
-      "seed": "Poseidon(0, 1001): Mode::seed of day(1) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 1 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": []
     },
     "daily_mixed": {
       "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_mixed_roles)",
-      "seed": "Poseidon(0, 1002): Mode::seed of day(2) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 2 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": []
     },
     "daily_deck": {
       "source": "contracts/src/tests/golden/daily.cairo (test_golden_daily_real_deck_discards_to_game_over)",
-      "seed": "Poseidon(0, 1003): Mode::seed of day(3) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 3 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": []
     },
     "forest_ring": {
       "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_woodsman_ring)",
-      "seed": "Poseidon(0, 1004): Mode::seed of day(4) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 4 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": [
         {
           "move": 3,
@@ -32,7 +32,7 @@
     },
     "forest_caps": {
       "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_herdsman_caps)",
-      "seed": "Poseidon(0, 1005): Mode::seed of day(5) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 5 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": [
         {
           "move": 1,
@@ -46,7 +46,7 @@
     },
     "forest_both": {
       "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_both_roles)",
-      "seed": "Poseidon(0, 1006): Mode::seed of day(6) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 6 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": [
         {
           "move": 8,
@@ -56,7 +56,7 @@
     },
     "forest_open": {
       "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_herdsman_open_city)",
-      "seed": "Poseidon(0, 1007): Mode::seed of day(7) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 7 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": [
         {
           "move": 4,
@@ -66,7 +66,7 @@
     },
     "forest_last": {
       "source": "contracts/src/tests/golden/forest.cairo (test_golden_daily_forest_woodsman_ring_last_tile_structures_agree)",
-      "seed": "Poseidon(0, 1004): Mode::seed of day(4) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 4 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": [
         {
           "move": 3,
@@ -76,7 +76,7 @@
     },
     "daily_full_deck": {
       "source": "contracts/src/tests/golden/full_deck.cairo (test_golden_daily_full_deck)",
-      "seed": "Poseidon(0, 1010): Mode::seed of day(10) (golden/harness.cairo), salt 0 (hostable.cairo)",
+      "seed": "the VRF mock (#645): the player's spawn 10 on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted",
       "scored": []
     },
     "tutorial_full": {

@@ -105,8 +105,10 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   every `drawn` plan changes, the forced boards keep their scores, and `daily_full_deck` is a new game (6,558). **For
   CLIENT** (the client task that follows #645): the engine takes the drawn plans as given (the queue of three tiles:
   the hand and the next two) instead of drawing them from the seed, Training draws them locally into the same queue, and
-  the fixture is transcribed again from the new Cairo files (`transcribe-goldens.ts`). Until then CLIENT's fixture is
-  the transcription of the G1 goldens, which its engine still replays.
+  the fixture carries the drawn plans again. **In #645's PR** the fixture is transcribed from the new Cairo files
+  (`transcribe-goldens.ts`, which game-core's guard test compares with the files), with the golden games marked VRF:
+  seed `0x0` and no `drawn` (the engine cannot draw them from a seed), so the engine replays their plans, scores and
+  counters, and asserts no draw.
 
 ## How a Cairo test keeps it current
 

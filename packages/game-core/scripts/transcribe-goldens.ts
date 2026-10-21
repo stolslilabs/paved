@@ -17,7 +17,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { poseidonHashMany } from "@scure/starknet";
 import { FROZEN_TUTORIAL_GAME } from "./tutorial-golden.frozen";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -38,7 +37,6 @@ const GOLDEN_FILES = ["daily", "forest", "full_deck"].map(
   (name) => `contracts/src/tests/golden/${name}.cairo`,
 );
 const DIFFERENTIAL_FILE = "contracts/src/tests/differential.cairo";
-const DAY_SECONDS = 86400;
 
 export interface ParityScored {
   category: string;
@@ -70,6 +68,11 @@ export interface ParityGame {
   /** The initial seed, a hex felt. */
   seed: string;
   seedSource: string;
+  /**
+   * The draws come from the VRF (#645, D-30, docs/architecture/challenge-vrf.md): the golden games spawn on the devnet
+   * mock, so their drawn plans are not computable from a seed. The fixture keeps the plans played and writes no `drawn`.
+   */
+  vrf?: boolean;
   /** The tile limit when the game cuts the deck, else `null` (the deck's count). */
   tileLimit: number | null;
   moves: ParityMove[];
@@ -270,13 +273,6 @@ function parseOutcome(text: string): ParityGame["outcome"] {
   };
 }
 
-/** The Daily seed of `spawn` at `day(index)`: Poseidon(salt 0, tournament id). */
-function dailySeed(dayIndex: number): string {
-  const time = DAY_SECONDS * (1000 + dayIndex) + 3600;
-  const tournament = BigInt(Math.floor(time / DAY_SECONDS));
-  return `0x${poseidonHashMany([0n, tournament]).toString(16)}`;
-}
-
 /** The golden games of one file. */
 function parseGoldens(file: string, source: string): ParityGame[] {
   const helpers = new Map<string, ParityMove[]>();
@@ -308,8 +304,9 @@ function parseGoldens(file: string, source: string): ParityGame[] {
       name: call[1],
       source: `${file} (${name})`,
       deck: "simple",
-      seed: dailySeed(Number(call[2])),
-      seedSource: `Poseidon(0, ${1000 + Number(call[2])}): Mode::seed of day(${call[2]}) (golden/harness.cairo), salt 0 (hostable.cairo)`,
+      seed: "0x0",
+      seedSource: `the VRF mock (#645): the player's spawn ${call[2]} on Challenge at its test address (golden/harness.cairo, spawn_golden); the draws are not asserted`,
+      vrf: true,
       tileLimit: Number(call[4]) === 0 ? null : Number(call[4]),
       moves: moves.map((move) => (forced ? move : { ...move, plan: move.drawn as string })),
       outcome: parseOutcome(outcomeText),
@@ -464,7 +461,7 @@ export function toFixture(transcription: Transcription): ParityFixture {
         moves: game.moves.map((move) => {
           const discard = move.action === "discard";
           const entry: FixtureMove = {
-            drawn: move.drawn === null ? null : code(PLAN_CODES, move.drawn),
+            drawn: move.drawn === null || game.vrf ? null : code(PLAN_CODES, move.drawn),
             plan: code(PLAN_CODES, move.plan),
             orientation: discard ? 0 : code(ORIENTATION_CODES, move.orientation as string),
             x: discard ? 0 : CENTER + (move.x as number),
