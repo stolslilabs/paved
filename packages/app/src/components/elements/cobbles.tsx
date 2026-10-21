@@ -1,9 +1,9 @@
 import { formatInteger } from "@paved/game-core";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
-import { TokenIcon } from "./token-icon";
+import { TOKEN_GAP, TokenIcon } from "./token-icon";
 
-const cobblesVariants = cva("inline-flex items-center gap-1 whitespace-nowrap", {
+const cobblesVariants = cva(["inline-flex items-center whitespace-nowrap", TOKEN_GAP], {
   variants: {
     size: { sm: "text-xs", md: "text-sm", lg: "text-2xl" },
     tone: { default: "text-foreground", muted: "text-muted-foreground" },
@@ -25,7 +25,7 @@ export interface CobblesProps extends VariantProps<typeof cobblesVariants> {
 
 /**
  * A Cobble count (P-61): the Cobbles' stones (`TokenIcon`, issue 620) and the figure in the mono font, one cell wide per digit, never
- * broken. Its accessible name says "N Cobbles"; the icon is decorative.
+ * broken, spaced by the balances' rule (`TOKEN_GAP`, issue 668). Its accessible name says "N Cobbles"; the icon is decorative.
  */
 export function Cobbles({ value, sign, size, tone, className }: CobblesProps) {
   const text = `${sign ?? ""}${formatCobbles(value)}`;

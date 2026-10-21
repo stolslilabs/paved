@@ -27,6 +27,14 @@ const tokenIconVariants = cva("inline-block shrink-0 select-none", {
 
 export type TokenIconSize = NonNullable<VariantProps<typeof tokenIconVariants>["size"]>;
 
+/**
+ * The balances' spacing rule (issue 668), the same for every balance (`Amount`, `Cobbles`, `ResourcePlate`, so the resource bar, the
+ * Vault and the shop): the gap between a token's icon and its figure is a quarter of the icon's size. In text the icon is
+ * `em` (1.25em), so the gap is 0.3125em, never under 4 px. In a plate the icon sits at the same inset on every side, half of
+ * the height left inside the border, and the figure ends one inset plus one gap before the rim (`ResourcePlate`).
+ */
+export const TOKEN_GAP = "gap-x-[max(0.25rem,0.3125em)]";
+
 export interface TokenIconProps extends VariantProps<typeof tokenIconVariants> {
   kind: TokenKind;
   /** The accessible name; none means decorative (the figure beside it names the token). */
@@ -35,9 +43,10 @@ export interface TokenIconProps extends VariantProps<typeof tokenIconVariants> {
 }
 
 /**
- * A token's icon (issue 620), one file per kind: USDC's mark (Circle's, from Nums), PAVED's Almendra "P" on a coin in the tiles'
- * colours, vPAVED's same P in gold on ink, and the Cobbles' stones (Font Awesome's `cubes-stacked`). Drawn as an image: the
- * colours are the file's own, the same on every background.
+ * A token's icon (issue 620), one file per kind: USDC's mark (Circle's, from Nums), vPAVED's Almendra "P" in gold on a dark ink
+ * coin with a gold rim, PAVED its negative (issue 668: a gold field, the P and the rim dark grey), and the Cobbles' stones (Font
+ * Awesome's `cubes-stacked`). The P and the stones keep an even margin to the edge of the coin's box (issue 668). Drawn as an image:
+ * the colours are the file's own, the same on every background.
  */
 export function TokenIcon({ kind, size, label, className }: TokenIconProps) {
   return (
