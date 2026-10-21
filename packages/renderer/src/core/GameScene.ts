@@ -43,6 +43,10 @@ import type * as Clouds from "./cloud-shadows";
 // The weather is its own chunk too: loaded only once it first shows (`syncWeather`).
 import type * as WeatherChunk from "./weather";
 import { weatherCloudFactor, weatherMode, type WeatherMode } from "./weather-settings";
+import { DAY_PHASE_AT } from "./daynight-settings";
+
+/** What the weather sees with the day and night cycle off: the look's fixed lights, a summer's noon (the wheel's summer day). */
+const CYCLE_OFF_POINT = { season: "summer", position: DAY_PHASE_AT.day } as const;
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -499,12 +503,12 @@ export class GameScene {
   }
 
   /**
-   * The weather's mode (`weatherMode`): off with the weather or the ambient effects off ("Ambient effects"), on the Low tier, or
-   * with the day and night cycle off (no season); still under reduced motion (nothing falls: the grade, the brightness and the
-   * snow on the tops only); else moving, on the ambient loop.
+   * The weather's mode (`weatherMode`): off with the weather or the ambient effects off ("Ambient effects"), or on the Low tier;
+   * still under reduced motion (nothing falls: the grade, the brightness and the snow on the tops only); else moving, on the
+   * ambient loop. With the day and night cycle off it shows too: that board is summer's day (`CYCLE_OFF_POINT`).
    */
   private weatherModeNow(): WeatherMode {
-    if (!this.renderer || !this.settings.dayNight.enabled) return "off";
+    if (!this.renderer) return "off";
     return weatherMode(this.settings.weather, this.settings.ambient, this.getQuality(), prefersReducedMotion());
   }
 
@@ -525,9 +529,13 @@ export class GameScene {
     weather.setMode(mode);
   }
 
-  /** The cycle's point to the weather: its season and daylight (none with the cycle off). */
+  /**
+   * The cycle's point to the weather: its season and daylight. With the cycle off in the settings, the look's own fixed lights are
+   * the wheel's summer day (`wheelDayNight`: summer with Day and night off), so summer's noon; with the cycle on but not drawn yet
+   * (its chunk on its way), none, so its first season shows at once rather than fading in from summer.
+   */
   private syncWeatherCycle(): void {
-    this.weather?.setCycle(this.getDayNight());
+    this.weather?.setCycle(this.getDayNight() ?? (this.settings.dayNight.enabled ? null : CYCLE_OFF_POINT));
   }
 
   /** Loads the weather's chunk once, adds it to the scene and registers it on the loop (a failed load leaves the board as it is). */

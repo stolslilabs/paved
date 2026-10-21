@@ -328,7 +328,7 @@ describe("GameScene: the weather (#658) in every board", () => {
     expect(tiles.snowUniforms.uSnowCover.value).toBe(0);
   });
 
-  it("is off with the 'Ambient effects' off, on the Low tier and with the cycle off; still under reduced motion", async () => {
+  it("is off with the 'Ambient effects' off and on the Low tier; still under reduced motion", async () => {
     const { scene, tiles } = await createScene(held(WINTER));
     await (scene as any).dayNightLoad;
     await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull());
@@ -341,9 +341,6 @@ describe("GameScene: the weather (#658) in every board", () => {
     scene.setSettings(held(WINTER, { quality: "low" }));
     expect(scene.getWeather()).toMatchObject({ mode: "off", drawCalls: 0 });
 
-    scene.setSettings(held(WINTER, { dayNight: { enabled: false } }));
-    expect(scene.getWeather()).toMatchObject({ mode: "off", season: null, drawCalls: 0 });
-
     // Reduced motion: nothing falls, the grade and the veil stay, the loop is off (nothing steps, nothing draws on its own).
     scene.setSettings(held(WINTER, { ambient: { enabled: true, reducedMotion: true, clouds: { enabled: false } } }));
     expect(scene.getWeather()).toMatchObject({ mode: "still", season: "winter", particles: { snow: 0 }, drawCalls: 1 });
@@ -352,12 +349,23 @@ describe("GameScene: the weather (#658) in every board", () => {
     scene.dispose();
   });
 
-  it("does not load with the effects off, on the Low tier, nor with the cycle off", async () => {
+  it("with Day and night off (the wheel's fixed summer, the look's lights): summer's brightness, by day", async () => {
+    const { scene } = await createScene(held(WINTER, { dayNight: { enabled: false } }));
+    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull());
+    expect(scene.getDayNight()).toBeNull();
+    expect(scene.getWeather()).toMatchObject({ mode: "moving", season: "summer", daylight: 1, presence: { summer: 1 }, drawCalls: 1 });
+    // Turned on, the cycle's season takes over (winter held by the wheel).
+    scene.setSettings(held(WINTER));
+    await (scene as any).dayNightLoad;
+    expect(scene.getWeather()!.season).toBe("winter");
+    scene.dispose();
+  });
+
+  it("does not load with the effects off, nor on the Low tier", async () => {
     const off = await createScene(held(AUTUMN, { ambient: { enabled: false } }));
     const low = await createScene(held(AUTUMN, { quality: "low" }));
-    const noCycle = await createScene(held(AUTUMN, { dayNight: { enabled: false } }));
     await new Promise((resolve) => setTimeout(resolve, 50));
-    for (const { scene } of [off, low, noCycle]) {
+    for (const { scene } of [off, low]) {
       expect((scene as any).weatherLoad).toBeNull();
       scene.dispose();
     }

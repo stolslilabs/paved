@@ -78,8 +78,8 @@ export interface RendererSettings {
    */
   ambient: AmbientSettings;
   /**
-   * The weather (WEATHER-WIRE, `weather-settings.ts`): on by default, it shows only with the ambient effects on, the day and
-   * night cycle drawing the board (its season, the wheel's), and not on the Low tier; under reduced motion nothing falls.
+   * The weather (WEATHER-WIRE, `weather-settings.ts`): on by default, it shows only with the ambient effects on and not on the Low
+   * tier; its season is the day and night cycle's (the wheel's), summer's day with the cycle off; under reduced motion nothing falls.
    */
   weather: WeatherSettings;
 }

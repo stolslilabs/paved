@@ -84,8 +84,8 @@ const ARGS: WeatherBoardProps = {
  * - **Spring**: a fresh, brighter light, nothing more (no shafts). The petals stay a knob, off; the birds of #574 are not validated,
  *   so the board does not draw them (the switch here shows them).
  *
- * Everything moves in its vertex shader on the one ambient loop: one draw per layer shown, one for the grade. Off on the Low tier,
- * with the 'Ambient effects' off and with the day and night cycle off; under reduced motion, nothing falls: the grades, the
+ * Everything moves in its vertex shader on the one ambient loop: one draw per layer shown, one for the grade. Off on the Low tier
+ * and with the 'Ambient effects' off; with the day and night cycle off, the board is the wheel's summer day, so summer's; under reduced motion, nothing falls: the grades, the
  * brightness and the snow on the tops stay. At night the grades and the brightness go with the sun; the rain and the snow fall on,
  * dimmer. A change of season fades over three seconds.
  *

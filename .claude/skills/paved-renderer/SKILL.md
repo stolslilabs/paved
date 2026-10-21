@@ -35,8 +35,8 @@ with `docs/`, `scripts/` or `packages/`.
 - The **weather** (#607 PR 2, wired by #658: `core/weather.ts`, settings in `core/weather-settings.ts`, `RendererSettings.weather`)
   is on every board: `GameScene.syncWeather` loads its chunk the first time it shows, adds `Weather.object` to the scene, registers
   it on `scene.ambient`, and feeds it the cycle's point (`setCycle`, from `applyDayNight`: the wheel's season, auto or fixed, by day
-  and at night), the clouds' wind (`setWind`) and its mode (`weatherModeNow`: off with the weather or the "Ambient effects" off, on
-  Low, or with the cycle off; "still" under reduced motion: nothing falls, the grades, the brightness and the snow veil stay). Autumn
+  and at night), the clouds' wind (`setWind`) and its mode (`weatherModeNow`: off with the weather or the "Ambient effects" off, or on
+  Low; with the cycle off, summer's noon, the wheel's summer day; "still" under reduced motion: nothing falls, the grades, the brightness and the snow veil stay). Autumn
   raises the clouds' coverage (`cloudSettings`). One instanced draw per falling layer, one full-screen tint for the grade and the
   brightness (no glare, shimmer or shafts: the owner removed every glow, 2026-10-20). The snow on the tops is a term of the tile
   shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`): a veil (`winter.veil`) in rounded patches from a noise read at the
