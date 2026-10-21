@@ -1,8 +1,7 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import { DAY_PHASE_AT, DEFAULT_PLACEMENT_SETTINGS, PLATE_GAP_VOXELS, type DayPhase, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles, useDropThenConfirm, useTileHold } from "../../components/containers/board-viewport";
-import type { Hold } from "../../lib/use-hold";
 import { LazyTileBubble } from "../../components/containers/lazy-tile-bubble";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -252,8 +251,7 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
     setAccepted((a) => ({ ...PLACED, placed: false, key: (a?.key ?? 0) + 1 }));
   }, []);
   // As on the board (TILE-HOLD, #630): a press on the placed tile itself holds Validate, its ring filling the same.
-  const tileHold = useRef<Hold | null>(null);
-  const onTilePress = useTileHold(state === "sequence" && step === "placed" ? PLACED : null, () => tileHold.current);
+  const { onTilePress, holdRef: tileHold } = useTileHold(state === "sequence" && step === "placed" ? PLACED : null);
 
   const confirming = state === "confirm" || (state === "tour" && phase === 2);
   const slots = state === "idle" || confirming || (state === "sequence" && step === "landed") ? NO_SLOTS : SLOTS;

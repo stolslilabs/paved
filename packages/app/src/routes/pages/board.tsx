@@ -161,6 +161,7 @@ function TrainingBoard() {
             confirmed={placement.confirmed}
             bubble={bubble}
             onCellClick={placement.choose}
+            onCellPress={placement.choose}
             onCellHover={placement.setHovered}
             onError={() => setView("plan")}
           />
@@ -392,6 +393,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
             confirmed={placement.confirmed}
             bubble={bubble}
             onCellClick={placement.choose}
+            onCellPress={placement.choose}
             onCellHover={placement.setHovered}
             onError={() => setView("plan")}
           />

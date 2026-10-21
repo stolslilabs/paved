@@ -1,12 +1,13 @@
-import { useEffect } from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { useEffect, useState } from "react";
+import { MotionConfig } from "motion/react";
+import { act, cleanup as cleanupRender, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CENTER, EngineGame, PlanType, PredictedSession } from "@paved/game-core";
 import { FakeGameViews, type GameKey, type GameView, type TileView } from "@paved/chain";
 import type { GameCanvasProps } from "@paved/renderer/react";
 import { App } from "../src/App";
-import { BoardViewport } from "../src/components/containers/board-viewport";
+import { BoardViewport, PRESS_SHOW_MS, type BoardBubble } from "../src/components/containers/board-viewport";
 import type { GameSigner } from "../src/data";
 import { TrainingGame } from "../src/data/training";
 import { createTestRouter } from "../src/routes/router";
@@ -223,6 +224,159 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
     expect(ring()).toBe("holding");
     press(grid.x, grid.y, "cancelled");
     expect(ring()).toBe("idle");
+  }, 20_000);
+});
+
+describe("press and place (PRESS-PLACE, #680)", () => {
+  /** The Training board with the tile in hand and nothing shown yet. */
+  async function empty() {
+    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
+    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await act(async () => {});
+    return legalSlots()[0]!;
+  }
+  const press = (x: number, y: number, phase: "down" | "released" | "cancelled") => {
+    let acted: boolean | void = undefined;
+    act(() => void (acted = canvas.props!.onTilePress!(x, y, phase)));
+    return acted;
+  };
+  const wait = (ms: number) => act(async () => void (await new Promise((resolve) => setTimeout(resolve, ms))));
+  const ring = () => validateButton()?.getAttribute("data-state");
+
+  it("a press held on an empty board shows the tile, fills Validate's ring and places it once; its let go clicks nothing", async () => {
+    const slot = await empty();
+    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    press(slot.x, slot.y, "down");
+    // Not yet: a pan may still start.
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true });
+    await waitFor(() => expect(place).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    expect(ring()).toBe("done");
+    expect(press(slot.x, slot.y, "released")).toBe(true);
+    await wait(HOLD_MS);
+    expect(place).toHaveBeenCalledOnce();
+  }, 20_000);
+
+  it("let go early, the tile stays shown on that cell as after a tap, and a second press on it holds again", async () => {
+    const slot = await empty();
+    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    press(slot.x, slot.y, "down");
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    expect(press(slot.x, slot.y, "released")).toBe(true);
+    expect(ring()).toBe("idle");
+    await wait(HOLD_MS);
+    expect(place).not.toHaveBeenCalled();
+    expect(await bubble()).toBeTruthy();
+    expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true });
+    press(slot.x, slot.y, "down");
+    expect(ring()).toBe("holding");
+    press(slot.x, slot.y, "released");
+  }, 20_000);
+
+  it("a pan or a short tap before the delay shows nothing from the press; a second finger after it cancels the hold, the tile stays", async () => {
+    const slot = await empty();
+    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    // A pan: cancelled within the delay, nothing shows, nothing is placed.
+    press(slot.x, slot.y, "down");
+    press(slot.x, slot.y, "cancelled");
+    await wait(PRESS_SHOW_MS + HOLD_MS);
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    expect(canvas.props!.hover ?? null).toBeNull();
+    // A tap: let go within the delay, the click that follows is the tap it was.
+    press(slot.x, slot.y, "down");
+    expect(press(slot.x, slot.y, "released")).toBeUndefined();
+    await wait(PRESS_SHOW_MS * 2);
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    // A second finger once the hold runs: cancelled, the ring rewinds, the tile stays shown.
+    press(slot.x, slot.y, "down");
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    expect(press(slot.x, slot.y, "cancelled")).toBe(false);
+    expect(ring()).toBe("idle");
+    await wait(HOLD_MS);
+    expect(place).not.toHaveBeenCalled();
+    expect(await bubble()).toBeTruthy();
+  }, 20_000);
+
+  /** BoardViewport with a page's choose: a cell chosen shows the tile and its bubble. */
+  function Board({ busy, canConfirm = true, onConfirm, onPress, first = null }: { busy?: boolean; canConfirm?: boolean; onConfirm: () => void; onPress: (cell: { x: number; y: number }) => void; first?: { x: number; y: number } | null }) {
+    const [chosen, setChosen] = useState(first);
+    const choose = (cell: { x: number; y: number }) => {
+      onPress(cell);
+      setChosen(cell);
+    };
+    const bubbleOf: BoardBubble | null = chosen ? { cell: chosen, rotations: 1, onRotate: () => {}, onClose: () => setChosen(null), onConfirm, canConfirm, busy } : null;
+    return (
+      <BoardViewport
+        tiles={[{ id: 1, plan: 3, orientation: 1, x: CENTER, y: CENTER }]}
+        slots={[{ x: CENTER + 1, y: CENTER }, { x: CENTER - 1, y: CENTER }]}
+        ghost={chosen ? { ...chosen, plan: 3, orientation: 1, placed: true, fits: canConfirm } : null}
+        bubble={bubbleOf}
+        onCellClick={choose}
+        onCellPress={choose}
+      />
+    );
+  }
+  const EAST = { x: 1, y: 0 };
+  const WEST = { x: -1, y: 0 };
+
+  it("a cell where the tile cannot go does nothing; Validate busy, a press shows nothing; disabled, the tile shows and holds nothing", async () => {
+    const onPress = vi.fn();
+    const onConfirm = vi.fn();
+    render(<Board onPress={onPress} onConfirm={onConfirm} />);
+    await act(async () => {});
+    press(0, 3, "down");
+    await wait(PRESS_SHOW_MS + 50);
+    expect(press(0, 3, "released")).toBeUndefined();
+    expect(onPress).not.toHaveBeenCalled();
+    // The move on its way: a long press elsewhere shows nothing.
+    cleanupRender();
+    render(<Board onPress={onPress} onConfirm={onConfirm} busy first={{ x: CENTER + 1, y: CENTER }} />);
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
+    press(WEST.x, WEST.y, "down");
+    await wait(PRESS_SHOW_MS + 50);
+    press(WEST.x, WEST.y, "released");
+    expect(onPress).not.toHaveBeenCalled();
+    cleanupRender();
+    // Validate disabled (a rotation that does not fit): the tile shows, as after a tap, and no hold starts.
+    render(<Board onPress={onPress} onConfirm={onConfirm} canConfirm={false} />);
+    await act(async () => {});
+    press(EAST.x, EAST.y, "down");
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
+    await wait(50);
+    expect(onPress).toHaveBeenCalledWith({ x: CENTER + 1, y: CENTER });
+    expect(ring()).toBe("idle");
+    await wait(HOLD_MS);
+    expect(press(EAST.x, EAST.y, "released")).toBe(true);
+    expect(onConfirm).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it("the tile shown on one cell, a long press on another legal cell moves it there and holds it", async () => {
+    const onPress = vi.fn();
+    const onConfirm = vi.fn();
+    render(<Board onPress={onPress} onConfirm={onConfirm} first={{ x: CENTER + 1, y: CENTER }} />);
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
+    press(WEST.x, WEST.y, "down");
+    await waitFor(() => expect(ring()).toBe("holding"));
+    expect(onPress).toHaveBeenCalledWith({ x: CENTER - 1, y: CENTER });
+    expect(canvas.props!.hover).toMatchObject({ ...WEST, placed: true });
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    expect(press(WEST.x, WEST.y, "released")).toBe(true);
+  }, 20_000);
+
+  it("under reduced motion, the same press places once", async () => {
+    const onConfirm = vi.fn();
+    render(
+      <MotionConfig reducedMotion="always">
+        <Board onPress={() => {}} onConfirm={onConfirm} />
+      </MotionConfig>,
+    );
+    await act(async () => {});
+    press(EAST.x, EAST.y, "down");
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    expect(press(EAST.x, EAST.y, "released")).toBe(true);
+    expect(onConfirm).toHaveBeenCalledOnce();
   }, 20_000);
 });
 
