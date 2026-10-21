@@ -145,6 +145,9 @@ export const ev = {
   skinPriced: (theme: number, plan: number, cobbles: number) => raw("setup", "SkinPriced", [theme, plan], [cobbles]),
   skinBought: (player: bigint | number, theme: number, plan: number, cobbles: number, balance: number) =>
     raw("setup", "SkinBought", [player], [theme, plan, cobbles, balance]),
+  /** #639. `CobblesSpent { player_id; spender, reason, cobbles, balance }`. */
+  cobblesSpent: (player: bigint | number, spender: bigint | number, reason: bigint | number, cobbles: number, balance: number) =>
+    raw("setup", "CobblesSpent", [player], [spender, reason, cobbles, balance]),
   skinsActivated: (player: bigint | number, active: bigint | number) => raw("setup", "SkinsActivated", [player], [active]),
   /** `XpGained { player_id; source, xp, total, level }` (#641). */
   xpGained: (player: bigint | number, source: number, xp: number, total: number, level: number) =>

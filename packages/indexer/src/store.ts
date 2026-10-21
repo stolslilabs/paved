@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "17";
+export const SCHEMA_VERSION = "18";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -242,6 +242,15 @@ const SCHEMA = `
     UNIQUE (player_id, theme, plan)
   );
   CREATE INDEX IF NOT EXISTS skin_purchases_player ON skin_purchases (player_id, block, tx, idx);
+  -- CobblesSpent (#639, schema 17): cobbles a system Setup allows spent for a player (the matchmaker's "Next"); balance the
+  -- player's cobbles after it, in the same running ledger as cobble_claims, pack_purchases and skin_purchases.
+  CREATE TABLE IF NOT EXISTS cobble_spends (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, spender TEXT NOT NULL, reason TEXT NOT NULL, cobbles INTEGER NOT NULL, balance INTEGER NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS cobble_spends_player ON cobble_spends (player_id, block, tx, idx);
   -- SkinsActivated: the player's whole active word after a set_skins (a 0x felt, 66 characters); the last row of a player is its
   -- active set (19 themes, plan 1 first, 0 the default).
   CREATE TABLE IF NOT EXISTS skin_actives (
@@ -250,7 +259,7 @@ const SCHEMA = `
     PRIMARY KEY (block, tx, idx)
   );
   CREATE INDEX IF NOT EXISTS skin_actives_player ON skin_actives (player_id, block, tx, idx);
-  -- XP-LEVEL (#641, schema 17). XpGained: XP credited to a player (source 1 a Challenge game over, 2 Story stars, 3 a PvP attack,
+  -- XP-LEVEL (#641, schema 18). XpGained: XP credited to a player (source 1 a Challenge game over, 2 Story stars, 3 a PvP attack,
   -- 4 a PvP defence); total and level are the player's after it, so the last row of a player is its XP and level.
   CREATE TABLE IF NOT EXISTS xp_gains (
     block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
@@ -891,6 +900,28 @@ export class Store {
             });
             break;
           }
+          case "CobblesSpent": {
+            const player = padded(event.playerId);
+            const what = `CobblesSpent of ${player} (${event.cobbles} by ${padded(event.spender)}) ${where}`;
+            // The running balance is the chain's own: claims, packs, skins and spends all move it.
+            const expected = this.sql.cobbleBalance(player) - BigInt(event.cobbles);
+            if (expected !== event.balance) {
+              throw new Halt(`${what}: balance ${event.balance}, the ledger before it gives ${expected}`);
+            }
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertCobbleSpend.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              spender: padded(event.spender),
+              reason: padded(event.reason),
+              cobbles: event.cobbles,
+              balance: Number(event.balance),
+              time: block.timestamp,
+            });
+            break;
+          }
           case "SkinsActivated": {
             const player = padded(event.playerId);
             const what = `SkinsActivated of ${player} ${where}`;
@@ -1084,6 +1115,7 @@ export class Store {
       this.sql.rewindSkinActives.run(to);
       this.sql.rewindXpGains.run(to);
       this.sql.rewindSkinPurchases.run(to);
+      this.sql.rewindCobbleSpends.run(to);
       this.sql.rewindSkinPrices.run(to);
       this.sql.rewindPackPurchases.run(to);
       this.sql.rewindSales.run(to);
@@ -1129,6 +1161,7 @@ export class Store {
     | "skin_prices"
     | "skin_purchases"
     | "skin_actives"
+    | "cobble_spends"
     | "xp_gains"
     | "events"
     | "blocks",
@@ -1155,6 +1188,7 @@ export class Store {
       skin_prices: all("SELECT * FROM skin_prices ORDER BY block, tx, idx"),
       skin_purchases: all("SELECT * FROM skin_purchases ORDER BY block, tx, idx"),
       skin_actives: all("SELECT * FROM skin_actives ORDER BY block, tx, idx"),
+      cobble_spends: all("SELECT * FROM cobble_spends ORDER BY block, tx, idx"),
       xp_gains: all("SELECT * FROM xp_gains ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
@@ -1346,6 +1380,10 @@ function statements(db: DatabaseSync) {
       `INSERT INTO skin_purchases (block, tx, idx, player_id, theme, plan, cobbles, balance, time)
        VALUES (:block, :tx, :idx, :player_id, :theme, :plan, :cobbles, :balance, :time)`,
     ),
+    insertCobbleSpend: db.prepare(
+      `INSERT INTO cobble_spends (block, tx, idx, player_id, spender, reason, cobbles, balance, time)
+       VALUES (:block, :tx, :idx, :player_id, :spender, :reason, :cobbles, :balance, :time)`,
+    ),
     insertXpGain: db.prepare(
       `INSERT INTO xp_gains (block, tx, idx, player_id, source, xp, total, level, time)
        VALUES (:block, :tx, :idx, :player_id, :source, :xp, :total, :level, :time)`,
@@ -1372,7 +1410,8 @@ function statements(db: DatabaseSync) {
     freeGame: db.prepare(
       `SELECT player_id FROM games WHERE contract = 'challenge' AND game_id = ? AND price = '${padded(0n)}'`,
     ),
-    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack purchases and skin purchases), 0 / 0 before any.
+    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack purchases, skin purchases
+    // and spends), 0 / 0 before any.
     cobbleBalance: (player: string): bigint => {
       const row = db
         .prepare(
@@ -1382,6 +1421,8 @@ function statements(db: DatabaseSync) {
              SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p
              UNION ALL
              SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p
+             UNION ALL
+             SELECT block, tx, idx, balance FROM cobble_spends WHERE player_id = :p
            ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
         )
         .get({ p: player }) as { balance: number } | undefined;
@@ -1407,6 +1448,7 @@ function statements(db: DatabaseSync) {
     rewindSkinPrices: db.prepare("DELETE FROM skin_prices WHERE block > ?"),
     rewindSkinPurchases: db.prepare("DELETE FROM skin_purchases WHERE block > ?"),
     rewindSkinActives: db.prepare("DELETE FROM skin_actives WHERE block > ?"),
+    rewindCobbleSpends: db.prepare("DELETE FROM cobble_spends WHERE block > ?"),
     rewindXpGains: db.prepare("DELETE FROM xp_gains WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),

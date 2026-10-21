@@ -383,7 +383,7 @@ export interface PlayerCobblesAnswer extends Envelope {
   /** The skins the player bought (`SkinBought`) and the cobbles they cost, already out of `cobbles`. Appended in schema 16. */
   skins_bought: number;
   skins_spent: number;
-  /** The player's XP and level (#641), the `total` and `level` of its last `XpGained`; 0 and 1 for a player with none. Appended in schema 17. */
+  /** The player's XP and level (#641), the `total` and `level` of its last `XpGained`; 0 and 1 for a player with none. Appended in schema 18. */
   xp: number;
   level: number;
 }

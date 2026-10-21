@@ -17,6 +17,7 @@ import { useAchievementRewards, useClaims, useCobbleAccount, useQuestRewards } f
 import { usePavedBalance, useUsdcBalance, useVaultPosition } from "../src/data/chain";
 import { dataSourceOf, MOCKED_PAGES } from "../src/data/data-source";
 import { MOCK_KEY, MOCK_SPLIT, MOCK_STARTING_PAVED, MOCK_VAULT, MockLedger, mockLock } from "../src/data/mock/ledger";
+import { usePlayerProgress } from "../src/data/player-progress";
 import { FREE_SPAWN_MOCKED, GAME_FELTS_BEFORE_EXPIRY, initialSeedOf, mockGameViews, mockSigner } from "../src/data/mock/overlay";
 import { poseidon } from "@paved/game-core";
 import { GAME_PLAYING } from "../src/mocks/games";
@@ -171,6 +172,11 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     await act(() => result.current.writes.save([{ plan: 13, theme: 1 }]));
     await waitFor(() => expect(result.current.skins.data?.active[12]).toBe(1));
     expect(result.current.writes.saved).toBe(true);
+  });
+
+  it("a new player's ring is level 1 with 0 XP (Setup.player_level, #641)", async () => {
+    const sources = make();
+    expect(await dataOf(renderData(() => usePlayerProgress(PLAYER), sources).result)).toEqual({ level: 1, xp: 0, xpForNext: 100 });
   });
 
   it("a deposit in the Vault turns PAVED into vPAVED; withdraw all gives it back less the exit fee", async () => {

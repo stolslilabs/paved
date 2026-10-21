@@ -1,4 +1,4 @@
-import type { PlayerStatusData } from "../components/containers/player-status";
+import type { PlayerStatusData, ProfileState } from "../components/containers/profile-sheet";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
 import type { HomeSceneProps } from "../components/scenes/home-scene";
 import type { LoadingSceneProps } from "../components/scenes/loading-scene";
@@ -59,6 +59,19 @@ export const LOADING = {
 export const PLAYER_STATUS: PlayerStatusData = { player: PLAYER, stats: PLAYER_STATS };
 
 const activeGame = GAME_PLAYING;
+
+/** The menu screens' avatar and its sheet (#624): one state each. */
+export const PROFILE = {
+  connected: { status: "connected", data: PLAYER_STATUS },
+  /** No Cartridge username: the address names the player, its first digit is the initial. */
+  noUsername: { status: "connected", data: { ...PLAYER_STATUS, player: { ...PLAYER, name: null } } },
+  guest: { status: "guest" },
+  connecting: { status: "guest", connecting: true },
+  /** The wallet still looks for an earlier session. */
+  loading: { status: "loading" },
+  /** WRAP360: the longest username, the largest figures. */
+  stress: { status: "connected", data: { player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE } } },
+} satisfies Record<string, ProfileState>;
 
 export const HOME = {
   connected: { player: PLAYER_STATUS, activeGame, training: { score: 420, remaining: 31 }, spawnPaused: false, now: MOCK_NOW },

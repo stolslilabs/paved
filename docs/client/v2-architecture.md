@@ -3422,7 +3422,7 @@ Where each would plug in; none is designed here.
 |---|---|
 | Daily and weekly challenges paid from entry fees | a mode on the Play page; a `PredictedSession` on a contract that takes a shared seed (the engine takes any seed); the leaderboard's day picker already takes a period id |
 | Story mode (predefined seeds, a non-empty starting board) | `LocalSession` with a preset seed and a preset board (the engine's `force` / `write` already place scripted tiles, as the Tutorial does); a `/story/:chapter` route; puzzles as data files |
-| XP and meta-progression | a `profile` query (indexer, then chain) and a header chip; unlocks gate themes and modes through one `useUnlocks()` hook, so the Theme page's "locked" states are data |
+| XP and meta-progression | a `profile` query (indexer, then chain) behind `usePlayerProgress()` (`packages/app/src/data/player-progress.ts`, #625: today level 1 and 0 XP for everyone, the one place the contracts' XP plugs in), drawn as the ring and level badge around the avatar; unlocks gate themes and modes through one `useUnlocks()` hook, so the Theme page's "locked" states are data |
 | Leagues (synchronous or asynchronous) | async: the leaderboard's tables with a league id; sync: the disabled Multiplayer card, the session interface (a remote session is one more `PageSession`) |
 | A native Swift client | everything the client computes lives in packages without React (`@paved/game-core` engine and sessions, `@paved/chain` clients); the contract views and the indexer API are the boundary a Swift client reads; the design tokens are one CSS file, exportable to Swift as a generated colour set |
 

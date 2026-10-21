@@ -1,10 +1,27 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { PROGRESS } from "../../mocks/players";
 import { HOME } from "../../mocks/scenes";
+import { ProfileProvider } from "../containers/profile-context";
 import { HomeScene } from "./home-scene";
 
-/** Home (`/`): the player's status, the game to resume, the modes, the Challenge, the five tabs. One story per state; the Viewport control reframes it. */
-const meta = { title: "Scenes/Home", component: HomeScene, args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onStory: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn(), onPlayFree: fn() } } satisfies Meta<typeof HomeScene>;
+/**
+ * Home (`/`): the avatar at the top left (#624), a guest's notice, the game to resume, the modes, the Challenge, the five tabs.
+ * One story per state; the Viewport control reframes it. The avatar is the shell's (`ProfileProvider`): here it follows the
+ * story's `player`.
+ */
+const meta = {
+  title: "Scenes/Home",
+  component: HomeScene,
+  args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onStory: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn(), onPlayFree: fn() },
+  decorators: [
+    (Story, { args }) => (
+      <ProfileProvider value={{ state: args.player ? { status: "connected", data: args.player } : { status: "guest", connecting: args.connecting }, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
+        <Story />
+      </ProfileProvider>
+    ),
+  ],
+} satisfies Meta<typeof HomeScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 

@@ -421,7 +421,7 @@ export class Queries {
   /** A player's cobbles and credits at `head`; zeros for a player with none. */
   playerCobbles(head: number, playerId: string): Omit<PlayerCobblesAnswer, keyof Envelope> {
     const one = (sql: string) => this.store.statement(sql).get(playerId, head) as Row | undefined;
-    // The running balance is the last row of the claims, the pack purchases and the skin purchases together.
+    // The running balance is the last row of the claims, the pack purchases, the skin purchases and the spends together.
     const balance = this.store
       .statement(
         `SELECT balance FROM (
@@ -430,6 +430,8 @@ export class Queries {
            SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p AND block <= :h
            UNION ALL
            SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p AND block <= :h
+           UNION ALL
+           SELECT block, tx, idx, balance FROM cobble_spends WHERE player_id = :p AND block <= :h
          ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
       )
       .get({ p: playerId, h: head }) as Row | undefined;

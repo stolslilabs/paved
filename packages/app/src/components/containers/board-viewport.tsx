@@ -1,7 +1,8 @@
 import { Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
-import type { GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
+import { boardReveal, villageReveal } from "@paved/renderer";
+import type { FogCell, GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
 import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
 import type { Hold } from "../../lib/use-hold";
@@ -91,12 +92,23 @@ export interface BoardViewportProps {
   tilePreview?: boolean;
   /** Draw the plates. Default true; off: no plate is drawn. */
   placementHighlight?: boolean;
+  /**
+   * Every other free cell next to a tile gets an invalid plate (`boardPlates`). Default true; off: only `slots` get plates (a
+   * village, whose plates are its own cells and parcels).
+   */
+  otherPlates?: boolean;
   /** A cell was clicked or tapped (the contracts' coordinates); the page decides whether it is a slot. */
   onCellClick?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
   onCellHover?: (slot: { x: number; y: number } | null) => void;
   /** The tile placed and not yet sent: the bubble (Cancel, Discard, Rotate, Validate) follows its corner. Unset: none. */
   bubble?: BoardBubble | null;
+  /**
+   * The fog of war's clear area in a village or an attack (the contracts' coordinates): the owned cells, and the cells next to
+   * them stay clear. Unset: the board's, its tiles and the free slots next to them (Challenge, Story, Training). The fog shows
+   * with `settings.fog` on.
+   */
+  fogOwned?: ReadonlyArray<{ x: number; y: number }>;
   /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
   onScene?: (scene: GameScene | null) => void;
   /** The renderer could not start (no WebGL, a model that does not load). */
@@ -213,7 +225,30 @@ function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
 }
 
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
+/**
+ * The fog of war's clear cells (FOG-EVERYWHERE, #648), in the renderer's grid: the board's tiles and their free slots, or the
+ * owned cells and their neighbours (`owned`); a cell new since the last reveal (the tile just placed, the cell just bought) is
+ * where the fog lifts from.
+ */
+export function useFogReveal(tiles: TileRenderData[], owned?: ReadonlyArray<{ x: number; y: number }>): { cells: FogCell[]; origin: FogCell[] } {
+  const source: FogCell[] = owned ? owned.map((c) => toGridSlot(c.x, c.y)) : tiles.map((t) => ({ x: t.worldX, y: t.worldZ }));
+  const sourceKey = `${owned ? "owned" : "tiles"}|${source.map((c) => `${c.x},${c.y}`).join(";")}`;
+  // The cells of the reveal last shown (set once it is), to tell the new ones.
+  const shown = useRef<string | null>(null);
+  const reveal = useMemo(() => {
+    const before = new Set(shown.current?.split("|")[1]?.split(";").filter(Boolean) ?? []);
+    const origin = before.size ? source.filter((c) => !before.has(`${c.x},${c.y}`)) : [];
+    return { cells: owned ? villageReveal(source) : boardReveal(source), origin };
+    // The reveal follows the cells, not each new array of the same ones.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceKey]);
+  useEffect(() => {
+    shown.current = sourceKey;
+  }, [sourceKey]);
+  return reveal;
+}
+
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, otherPlates = true, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
   const covered = useContext(BoardCovered);
@@ -222,13 +257,14 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
     return () => onScene?.(null);
   }, [scene, onScene]);
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
+  const fogReveal = useFogReveal(renderTiles, fogOwned);
   // A plate on every free cell next to a tile: playable or invalid (`boardPlates`), in the renderer's grid.
   const gridSlots = useMemo(
     () =>
       placementHighlight
-        ? boardPlates(tiles, slots).map((p) => ({ ...toGridSlot(p.x, p.y), ...(p.state === "invalid" ? { legal: false } : {}) }))
+        ? boardPlates(otherPlates ? tiles : [], slots).map((p) => ({ ...toGridSlot(p.x, p.y), ...(p.state === "invalid" ? { legal: false } : {}) }))
         : [],
-    [tiles, slots, placementHighlight],
+    [tiles, slots, placementHighlight, otherPlates],
   );
   // The ghost draws the variant the tile would have in the cell it hovers. The tile preview setting hides only the hover
   // preview: a placed tile is always drawn, with its tint (yellow, red: Confirm is disabled, the board says why).
@@ -255,6 +291,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
         skins={skins}
         settings={settings}
         covered={covered}
+        fogReveal={fogReveal}
         availableSlots={gridSlots}
         hover={hover}
         confirmed={green}

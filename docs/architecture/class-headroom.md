@@ -688,6 +688,20 @@ The four add up to +1,312 of the +1,383. Two variants were measured and dropped:
 - C5 as a flat table of one `u32` per plan saved 390 felts but cost 46,415 L2 gas per build;
 - C3 with the side tiles kept in the walker cost about 930 felts more (`baseline.md`, "After G7a").
 
+## After #639 (the matchmaker)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, VPS, 2026-10-21, under
+`prlimit --as=12884901888`, peak RSS 4,338,504 kB). The merge base `b6b4ee1a` is an export (`git archive`), measured the
+same way.
+
+| Class | Sierra base | CASM base | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Matchmaker` | | | 9,616 | 24,473 | new | 29.9 % |
+| `Setup` | 18,024 | 39,861 | 18,563 | 41,179 | +1,318 | 50.3 % |
+
+`Matchmaker` is a class of its own (`docs/architecture/matchmaker.md`, open point 5): the pool, the shields and the VRF
+draw add nothing to #643's attack system, which calls it. `Setup` grows by `ISetupSpend` (`spend_cobbles` and its
+allowlist). Every other class is unchanged to the felt (`Challenge` 64,826, `Story` 58,650).
 
 ## After XP-LEVEL (#641)
 

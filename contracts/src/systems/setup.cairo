@@ -759,6 +759,21 @@ pub trait ISetupSkins<TContractState> {
     fn active_skins(self: @TContractState, player_id: felt252) -> Array<u8>;
 }
 
+/// The Cobbles another system spends for a player (#639: the matchmaker's "Next"): an allowlist of
+/// spenders the owner sets, separate from the reporters (a spender can only lower a balance).
+#[starknet::interface]
+pub trait ISetupSpend<TContractState> {
+    /// Allows or revokes a spender, owner only. Emits `SpenderSet`.
+    fn set_spender(ref self: TContractState, spender: ContractAddress, allowed: bool);
+    fn is_spender(self: @TContractState, spender: ContractAddress) -> bool;
+    /// Spends `cobbles` (not 0) of `player_id`'s balance for `reason`, an allowlisted spender only;
+    /// reverts if the balance is short. It trusts the spender for whom (the matchmaker spends only
+    /// for the caller of its own entry point). Emits `CobblesSpent`; returns the balance after it.
+    fn spend_cobbles(
+        ref self: TContractState, player_id: felt252, cobbles: u32, reason: felt252,
+    ) -> u64;
+}
+
 #[starknet::contract]
 pub mod Setup {
     // Imports
@@ -787,7 +802,7 @@ pub mod Setup {
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
         CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupLevel, ISetupPacks, ISetupSkins,
-        ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID,
+        ISetupSpend, ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID,
         MAX_QUEST_TOTAL, PLANS, Pack, PlayerLevel, Progress, ProgressTrait, QUEST_COBBLES_MAX,
         QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask,
         SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES, STAR_XP, WEEKLY, Wiring, XP_ATTACK,
@@ -833,6 +848,7 @@ pub mod Setup {
         pub const SKIN_NOT_OWNED: felt252 = 'Setup: skin not owned';
         pub const INVALID_XP_SOURCE: felt252 = 'Setup: invalid xp source';
         pub const INVALID_XP: felt252 = 'Setup: invalid xp';
+        pub const NOT_SPENDER: felt252 = 'Setup: not spender';
     }
 
     // Components
@@ -939,6 +955,9 @@ pub mod Setup {
         /// The theme active for each plan of a player (`super::active_word`); written by
         /// `set_skins`.
         active_skins: Map<felt252, felt252>,
+        /// #639 (appended, P-42). The systems allowed to spend a player's cobbles
+        /// (`ISetupSpend`); written by `set_spender`.
+        spenders: Map<ContractAddress, bool>,
     }
 
     // Events
@@ -967,6 +986,8 @@ pub mod Setup {
         SkinBought: SkinBought,
         SkinsActivated: SkinsActivated,
         XpGained: XpGained,
+        SpenderSet: SpenderSet,
+        CobblesSpent: CobblesSpent,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -1078,6 +1099,25 @@ pub mod Setup {
         pub theme: u8,
         pub plan: u8,
         pub cobbles: u8,
+        pub balance: u64,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SpenderSet {
+        #[key]
+        pub spender: ContractAddress,
+        pub allowed: bool,
+    }
+
+    /// Cobbles spent for the player by an allowlisted spender, for `reason` (`'MATCH_NEXT'`: the
+    /// matchmaker's "Next"); `balance` the player's cobbles after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CobblesSpent {
+        #[key]
+        pub player_id: felt252,
+        pub spender: ContractAddress,
+        pub reason: felt252,
+        pub cobbles: u32,
         pub balance: u64,
     }
 
@@ -1696,6 +1736,38 @@ pub mod Setup {
 
         fn active_skins(self: @ContractState, player_id: felt252) -> Array<u8> {
             active_themes(self.active_skins.read(player_id))
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupSpendImpl of ISetupSpend<ContractState> {
+        fn set_spender(ref self: ContractState, spender: ContractAddress, allowed: bool) {
+            self.ownable.assert_only_owner();
+            self.spenders.write(spender, allowed);
+            self.emit(SpenderSet { spender, allowed });
+        }
+
+        fn is_spender(self: @ContractState, spender: ContractAddress) -> bool {
+            self.spenders.read(spender)
+        }
+
+        fn spend_cobbles(
+            ref self: ContractState, player_id: felt252, cobbles: u32, reason: felt252,
+        ) -> u64 {
+            // [Check] An allowlisted spender, cobbles to spend, a balance that covers them
+            let spender = get_caller_address();
+            assert(self.spenders.read(spender), errors::NOT_SPENDER);
+            assert(cobbles != 0, errors::INVALID_COBBLES);
+            let mut account = self.accounts.read(player_id);
+            assert(account.cobbles >= cobbles.into(), errors::NOT_ENOUGH_COBBLES);
+            // [Effect] The cobbles spent
+            account.cobbles -= cobbles.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    CobblesSpent { player_id, spender, reason, cobbles, balance: account.cobbles },
+                );
+            account.cobbles
         }
     }
 

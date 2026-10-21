@@ -11,6 +11,7 @@ import {
   VaultOverMaxWithdrawError,
   VaultZeroSharesError,
   WriteError,
+  playerLevelOf,
   redeemFee,
   withdrawFee,
   type AchievementCobbles,
@@ -22,12 +23,14 @@ import {
   type Definitions,
   type EconomyViews,
   type GameViews,
+  type LevelViews,
   type PackBought,
   type PackPurchaseRequest,
   type PackView,
   type PackViews,
   type PavedWriter,
   type PeriodProgress,
+  type PlayerLevel,
   type PlayerReferrals,
   type QuestCobbles,
   type SkinChange,
@@ -78,6 +81,7 @@ export interface MockedReads
   extends CobbleViews,
     PackViews,
     SkinViews,
+    LevelViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
     VaultViews,
     Pick<EconomyViews, "split" | "seller" | "usdcBalance"> {}
@@ -242,6 +246,13 @@ export class MockLedger {
   }
 
   // --- MockedReads -------------------------------------------------------------------------------------------------
+
+  /** `Setup.player_level` (#641): the mock credits no XP (its games are the chain's), so every player is at 0 XP. */
+  async playerLevel(playerId: string): Promise<PlayerLevel> {
+    this.sync();
+    this.peek(playerId);
+    return playerLevelOf(0);
+  }
 
   async account(playerId: string): Promise<CobbleAccount> {
     this.sync();

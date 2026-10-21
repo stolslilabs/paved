@@ -113,12 +113,12 @@ Built on the proposals of sections 2 to 5, before the owner's answers (posted on
 
 - **Contracts.** `Account.xp` at bits [224, 251); `level_of`, `level_floor`; `report` and `credit_story` credit in their account
   write; `ISetupLevel::credit_xp` and `player_level`; `XpGained`. `public-interface.md`, "XP-LEVEL".
-- **Indexer.** `xp_gains`, schema 17; `xp` and `level` on `/v1/players/{id}/cobbles` (`indexer.md`, "As built (IX-XP)").
+- **Indexer.** `xp_gains`, schema 18; `xp` and `level` on `/v1/players/{id}/cobbles` (`indexer.md`, "As built (IX-XP)").
 - **`@paved/chain`.** `CobbleAccount.xp`; `level.ts` (`levelOf`, `levelFloor`, `playerLevelOf`, `PlayerLevel`); the view
   `playerLevel` on `RpcGameViews` and `FakeGameViews`.
-- **#625's seam.** XP-RING is not merged: `usePlayerProgress()` does not exist on main yet. To plug it, read
-  `views.playerLevel(address)` (or the indexer's `xp` with `playerLevelOf(xp)`) and return
-  `{ level, xp: xp - floor, xpForNext: next - floor }`.
+- **#625's seam.** `usePlayerProgress()` (`packages/app/src/data/player-progress.ts`) reads `Setup.player_level` (key
+  `queryKeys.chain.playerLevel`) and returns `{ level, xp: xp - floor, xpForNext: next - floor }`. The mock data source
+  answers it where the network's class lacks the view (`MockLedger.playerLevel`, XP 0).
 - **Size and gas** (`docs/measures/baseline.md`, "After XP-LEVEL"; `class-headroom.md`, "After XP-LEVEL"): `Setup` +2,251 CASM
   felts, 51.4 % of the cap; a game over +128,110 L2 gas (+3.0 to 3.4 %), moves that do not end a game unchanged; `credit_xp`
   550,888, `player_level` 273,178.

@@ -7,6 +7,7 @@ import type { AmbientEffect } from "../src/core/ambient-loop";
 import { placementStubs } from "./helpers/placement-stubs";
 import { createCloudUniforms } from "../src/core/cloud-shader";
 import { createSnowUniforms } from "../src/core/snow-shader";
+import { boardReveal } from "../src/core/fog-of-war-settings";
 import { DEFAULT_WEATHER_SETTINGS } from "../src/core/weather-settings";
 
 const adapter: RenderSurfaceAdapter = {
@@ -87,6 +88,10 @@ async function createScene(settings: RendererSettingsInput, effects: AmbientEffe
     setNightLevel: vi.fn(),
     cloudUniforms: createCloudUniforms(),
     snowUniforms: createSnowUniforms(),
+    group: new THREE.Group(),
+    getGroup() {
+      return this.group;
+    },
     dispose: vi.fn(),
   };
   (scene as any).tiles = tiles;
@@ -377,6 +382,93 @@ describe("GameScene: the weather (#658) in every board", () => {
     expect(coverage).toBeCloseTo(1.2 * DEFAULT_WEATHER_SETTINGS.autumn.clouds);
     scene.setSettings(held(AUTUMN, { ambient: { enabled: true, reducedMotion: false }, weather: { enabled: false } }));
     expect((scene as any).cloudSettings().seasonCoverage.autumn).toBeCloseTo(1.2);
+    scene.dispose();
+  });
+});
+
+describe("GameScene: the fog of war (#648)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const FOG: RendererSettingsInput = { ...ON, fog: { enabled: true } };
+  const board = boardReveal([{ x: 0, y: 0 }]);
+
+  it("is off by default, and loads nothing without a reveal", async () => {
+    const off = await createScene(ON);
+    off.scene.setFogReveal(board);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(off.scene.getFog()).toBeNull();
+    off.scene.dispose();
+    const noReveal = await createScene(FOG);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(noReveal.scene.getFog()).toBeNull();
+    noReveal.scene.dispose();
+  });
+
+  it("on with a reveal: loads its chunk in the board's group, the owner's variant (the landscape, rounded corners)", async () => {
+    const { scene, tiles } = await createScene(FOG);
+    scene.setFogReveal(board);
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    expect(scene.getFog()).toMatchObject({ mode: "moving", cells: board.length });
+    expect(scene.getFog()!.props).toBeGreaterThan(0);
+    // The Landscape story's falloff and billow (#633), the study's drift and mist.
+    expect(scene.getSettings().fog).toMatchObject({ enabled: true, falloff: 2.5, billow: 0.7, drift: 0.6, mist: 0.35, cornerRadius: 0.5, landscape: { enabled: true } });
+    expect(tiles.group.children.some((o) => o.name === "fog-of-war")).toBe(true);
+    // A tile placed: the fog lifts on the loop.
+    scene.setFogReveal(boardReveal([{ x: 0, y: 0 }, { x: 1, y: 0 }]), [{ x: 1, y: 0 }]);
+    expect(scene.getFog()).toMatchObject({ lifting: true });
+    scene.dispose();
+    expect(tiles.group.children.some((o) => o.name === "fog-of-war")).toBe(false);
+  });
+
+  it("stays on at every tier: still on Low and with the effects off; gone without a reveal or with the setting off", async () => {
+    const { scene } = await createScene(FOG);
+    scene.setFogReveal(board);
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    scene.setSettings({ ...FOG, quality: "low" });
+    expect(scene.getFog()!.mode).toBe("still");
+    scene.setSettings({ ...FOG, ambient: { enabled: false } });
+    expect(scene.getFog()!.mode).toBe("still");
+    scene.setSettings({ ...FOG, fog: { enabled: false } });
+    expect(scene.getFog()!.mode).toBe("off");
+    scene.setSettings(FOG);
+    expect(scene.getFog()!.mode).toBe("moving");
+    scene.setFogReveal(null);
+    expect(scene.getFog()!.mode).toBe("off");
+    scene.dispose();
+  });
+
+  it("names the grid cell under a point of the surface (a drag's drop on the board), none before init", async () => {
+    expect(new GameScene().gridAt({ x: 10, y: 10 })).toBeNull();
+    const { scene } = await createScene(FOG);
+    // The camera at (0, 30, 30) looks at the board's origin: the screen's middle is over cell (0, 0).
+    (scene as any).camera.lookAt(0, 0, 0);
+    expect(scene.gridAt({ x: 375 / 2, y: 812 / 2 })).toEqual({ x: 0, y: 0 });
+    scene.dispose();
+  });
+
+  it("ends a lift at once when the device turns reduced motion on mid-lift", async () => {
+    const device = { reduce: false, listeners: [] as Array<() => void> };
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      get matches() {
+        return q.includes("reduce") && device.reduce;
+      },
+      addEventListener: (_: string, listener: () => void) => device.listeners.push(listener),
+      removeEventListener: vi.fn(),
+    }));
+    // The ambient effects follow the device's reduced motion ("auto").
+    const { scene, frames } = await createScene({ ...FOG, ambient: { enabled: true, reducedMotion: "auto", clouds: { enabled: false } } });
+    scene.setFogReveal(board);
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    frames(10);
+    scene.setFogReveal(boardReveal([{ x: 0, y: 0 }, { x: 1, y: 0 }]), [{ x: 1, y: 0 }]);
+    expect(scene.getFog()).toMatchObject({ mode: "moving", lifting: true });
+    device.reduce = true;
+    for (const listener of device.listeners) listener();
+    expect(scene.getAmbient().running).toBe(false);
+    expect(scene.getFog()).toMatchObject({ mode: "still", lifting: false });
     scene.dispose();
   });
 });
