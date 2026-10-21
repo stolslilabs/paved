@@ -10,6 +10,12 @@
 //! `Challenge` play: the same matching against placed neighbours, structure state and
 //! assessment, so a structure scores when it closes. A side facing a cell not owned is an empty
 //! position for the engine: the structure stays open (no border rule).
+//!
+//! A player demolishes a placed tile for cobbles (`demolish`, the owner's decision of 2026-10-21):
+//! `DEMOLITION_COBBLES` for the first of a chain day, doubled after each one, back to the base
+//! the next day; the tile is not refunded. The structure state cannot take a tile out, so the
+//! village is rebuilt: the tiles left are replayed in their placement order in a new game, and
+//! its score is that game's.
 
 /// The most cells a village owns, the 9 of the start included: the length of a game (#637).
 pub const MAX_CELLS: u8 = 38;
@@ -19,6 +25,12 @@ pub const START_CELLS: u8 = 9;
 pub const MAX_PARCELS: u8 = 29;
 /// The cobbles of parcel `k` are `PARCEL_COBBLES x k` (open point 7.2 of the design, proposal (a)).
 pub const PARCEL_COBBLES: u32 = 10;
+/// The cobbles of a chain day's first demolition; each one doubles the next (5, 10, 20, 40...).
+pub const DEMOLITION_COBBLES: u64 = 5;
+/// The exponent stops here: `5 x 2^58` is the last price under `u64` (and far above any balance).
+pub const MAX_DOUBLINGS: u32 = 58;
+/// The demolition day: the quests' clock, `time / DAY` (`Setup`'s calendar).
+pub const DAY: u64 = 86400;
 
 /// A cell of a territory, in the game's coordinates (the starter is at `CENTER`, `CENTER`).
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
@@ -52,6 +64,15 @@ pub struct VillageInfo {
     pub next_level: u32,
 }
 
+/// A player's next demolition: the chain day, the demolitions it already made that day and the
+/// price of the next one.
+#[derive(Copy, Drop, Serde, Debug, PartialEq)]
+pub struct DemolitionOffer {
+    pub day: u64,
+    pub count: u32,
+    pub price: u64,
+}
+
 /// The player's level (#641), as `Village` reads it for the parcels' gate.
 #[starknet::interface]
 pub trait IPlayerLevel<TContractState> {
@@ -69,6 +90,12 @@ pub trait IVillage<TContractState> {
     /// (`'Village: level too low'`); its price is debited on `Setup`'s ledger
     /// (`'Setup: not enough cobbles'`). Emits `ParcelBought`; returns the parcel's number.
     fn buy_parcel(ref self: TContractState, x: u32, y: u32) -> u8;
+    /// The caller demolishes the tile at `(x, y)` of its village (`'Village: no tile'`), never the
+    /// starter (`'Village: starter stays'`), for the price of its day's next demolition
+    /// (`demolition_price`), debited on `Setup`'s ledger (`'Setup: not enough cobbles'`). The
+    /// village is rebuilt from the tiles left, in their order, in a new game. Emits
+    /// `TileDemolished`; returns the price paid.
+    fn demolish(ref self: TContractState, x: u32, y: u32) -> u64;
     /// Places a tile of `plan` (1 to 19) turned to `orientation` (1 to 4) at `(x, y)` in the
     /// village of `player_id`: an allowed placer only (`'Village: not placer'`), on an owned cell
     /// (`'Village: cell not owned'`), free (`'Tile: already exists'`) and fitting its placed
@@ -88,6 +115,8 @@ pub trait IVillage<TContractState> {
     fn parcel_price(self: @TContractState, parcel: u8) -> u32;
     /// The level parcel `parcel` needs (1 to `MAX_PARCELS`; 0 otherwise).
     fn parcel_level(self: @TContractState, parcel: u8) -> u32;
+    /// The player's next demolition at the block's time: the day, today's count, the price.
+    fn next_demolition(self: @TContractState, player_id: felt252) -> DemolitionOffer;
 }
 
 /// The wiring of `Village`, set by the owner.
@@ -122,6 +151,23 @@ pub fn parcel_level(parcel: u8) -> u32 {
     parcel.into()
 }
 
+/// The price of a day's demolition after `count` of them that day: `DEMOLITION_COBBLES x 2^count`,
+/// the exponent capped at `MAX_DOUBLINGS`.
+pub fn demolition_price(count: u32) -> u64 {
+    let doublings = if count > MAX_DOUBLINGS {
+        MAX_DOUBLINGS
+    } else {
+        count
+    };
+    let mut price = DEMOLITION_COBBLES;
+    let mut i: u32 = 0;
+    while i < doublings {
+        price *= 2;
+        i += 1;
+    }
+    price
+}
+
 /// Whether `(x, y)` is one of the cells of the start, the 3 x 3 around `CENTER`.
 pub fn is_start_cell(x: u32, y: u32) -> bool {
     let center = paved::constants::CENTER;
@@ -137,7 +183,7 @@ pub mod Village {
     use paved::constants::CENTER;
     use paved::events::Event as PavedEvent;
     use paved::models::game::{Game, GameImpl};
-    use paved::models::tile::{TileImpl, TilePositionAssert};
+    use paved::models::tile::{TileImpl, TilePositionAssert, ZeroableTilePositionTrait};
     use paved::store::{Store, StoreImpl};
     use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
@@ -151,9 +197,9 @@ pub mod Village {
     };
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
     use super::{
-        IPlayerLevelDispatcher, IPlayerLevelDispatcherTrait, IVillage, IVillageAdmin, MAX_CELLS,
-        START_CELLS, VillageCell, VillageInfo, VillageTile, is_start_cell, parcel_level,
-        parcel_price,
+        DAY, DemolitionOffer, IPlayerLevelDispatcher, IPlayerLevelDispatcherTrait, IVillage,
+        IVillageAdmin, MAX_CELLS, START_CELLS, VillageCell, VillageInfo, VillageTile,
+        demolition_price, is_start_cell, parcel_level, parcel_price,
     };
 
     pub mod errors {
@@ -169,6 +215,8 @@ pub mod Village {
         pub const INVALID_PLAN: felt252 = 'Village: invalid plan';
         pub const INVALID_ORIENTATION: felt252 = 'Village: invalid orientation';
         pub const INVALID_POSITION: felt252 = 'Village: invalid position';
+        pub const NO_TILE: felt252 = 'Village: no tile';
+        pub const STARTER_STAYS: felt252 = 'Village: starter stays';
     }
 
     // Packing
@@ -212,6 +260,9 @@ pub mod Village {
         /// The parcel's number of a bought cell (key `(player_id, x, y)`); 0: not bought. The 9
         /// cells of the start are never written (`is_start_cell`).
         owned: Map<(felt252, u32, u32), u8>,
+        /// A player's demolitions of a chain day (key `player_id`): `day` [0, 64) · `count`
+        /// [64, 96), the demolitions made that day. A word of another day reads as 0 today.
+        demolitions: Map<felt252, felt252>,
     }
 
     // Events
@@ -231,6 +282,7 @@ pub mod Village {
         VillageFounded: VillageFounded,
         ParcelBought: ParcelBought,
         TilePlaced: TilePlaced,
+        TileDemolished: TileDemolished,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -288,6 +340,24 @@ pub mod Village {
         pub score: u32,
     }
 
+    /// A tile demolished: its id and plan in the game it left, its cell, the price paid and the
+    /// day's demolitions after it (`count`); the village's new game and its score once rebuilt
+    /// (the rebuild emits the `Scored` of its structures again, under the new game).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct TileDemolished {
+        #[key]
+        pub player_id: felt252,
+        pub tile_id: u32,
+        pub plan: u8,
+        pub x: u32,
+        pub y: u32,
+        pub day: u64,
+        pub count: u32,
+        pub cobbles: u64,
+        pub game_id: u32,
+        pub score: u32,
+    }
+
     /// A village's slot, unpacked.
     #[derive(Copy, Drop)]
     struct Header {
@@ -313,18 +383,9 @@ pub mod Village {
             assert(self.header_of(player_id).game_id == 0, errors::ALREADY_FOUNDED);
             // [Effect] The game and its starter, tile 1, at the centre
             let store: Store = StoreImpl::new();
-            let game_id = store.uuid();
-            let mut game: Game = GameImpl::new(
-                game_id, get_block_timestamp(), Mode::Challenge, player_id,
-            );
-            game.tile_limit = TILE_LIMIT;
-            game.start_time = get_block_timestamp();
-            let id = game.add_tile();
-            let mut tile = TileImpl::new(game_id, id, Plan::RFFFRFCFR);
-            tile.settle(Orientation::South, CENTER, CENTER);
-            placement::place_starter(store, tile);
-            store.set_game_config(game);
+            let game = new_game(store, player_id);
             store.set_game_state(game);
+            let game_id = game.id;
             self.write_header(player_id, Header { game_id, cells: START_CELLS, tiles: 0 });
             self.emit(VillageFounded { player_id, game_id });
             game_id
@@ -363,6 +424,71 @@ pub mod Village {
             parcel
         }
 
+        fn demolish(ref self: ContractState, x: u32, y: u32) -> u64 {
+            let player_id: felt252 = get_caller_address().into();
+            // [Check] A village, a placed tile at the cell, not the starter
+            let header = self.header_of(player_id);
+            assert(header.game_id != 0, errors::NO_VILLAGE);
+            assert_position(x, y);
+            let mut store: Store = StoreImpl::new();
+            let old = store.live_game(header.game_id);
+            let position = store.tile_position(old, x, y);
+            assert(position.is_non_zero(), errors::NO_TILE);
+            assert(position.tile_id != 1, errors::STARTER_STAYS);
+            // [Effect] The day's count, the price of this demolition
+            let offer = self.offer_of(player_id);
+            let count = offer.count + 1;
+            let word: u128 = offer.day.into() + count.into() * 0x10000000000000000;
+            self.demolitions.write(player_id, word.into());
+            // [Effect] The village rebuilt without the tile: a new game, the starter, then every
+            // other placed tile in its order, assessed as a move (the edges matched when it was
+            // placed; a tile whose only neighbour left is built all the same)
+            let mut game = new_game(store, player_id);
+            let mut id: u32 = 2;
+            let mut plan: u8 = 0;
+            while id <= old.tile_count {
+                let tile = store.tile(old, id);
+                if id == position.tile_id {
+                    plan = tile.plan;
+                } else {
+                    build_tile(
+                        ref game,
+                        ref store,
+                        tile.plan.into(),
+                        tile.orientation,
+                        tile.x,
+                        tile.y,
+                        false,
+                    );
+                }
+                id += 1;
+            }
+            store.set_game_state(game);
+            self
+                .write_header(
+                    player_id, Header { game_id: game.id, tiles: header.tiles - 1, ..header },
+                );
+            // [Interaction] The price, from `Setup`'s ledger (reverts when the balance is short)
+            ISetupVillageDispatcher { contract_address: self.setup_address() }
+                .spend_demolition(player_id, offer.day, count, offer.price);
+            self
+                .emit(
+                    TileDemolished {
+                        player_id,
+                        tile_id: position.tile_id,
+                        plan,
+                        x,
+                        y,
+                        day: offer.day,
+                        count,
+                        cobbles: offer.price,
+                        game_id: game.id,
+                        score: game.score,
+                    },
+                );
+            offer.price
+        }
+
         fn place(
             ref self: ContractState, player_id: felt252, plan: u8, orientation: u8, x: u32, y: u32,
         ) -> u32 {
@@ -383,19 +509,7 @@ pub mod Village {
             store.tile_position(game, x, y).assert_not_exists();
             // [Effect] Built, if it fits its neighbours, and assessed as a move of a game
             let before = game.score;
-            let id = game.add_tile();
-            let mut tile = TileImpl::new(game_id, id, code);
-            let around = NeighborhoodTrait::read(game_id, x, y);
-            tile.settle(orientation.into(), x, y);
-            placement::assert_fits(tile, @around);
-            let mut structures = StructuresTrait::new(game_id);
-            let (refs, closes) = placement::place_move(ref structures, tile, @around);
-            structures.track(tile, refs);
-            if closes {
-                game.assess(tile, refs, @around, ref structures, ref store);
-            }
-            structures.flush(store);
-            game.built += 1;
+            let id = build_tile(ref game, ref store, code, orientation, x, y, true);
             store.set_game_state(game);
             self.write_header(player_id, Header { tiles: header.tiles + 1, ..header });
             let points = game.score - before;
@@ -509,6 +623,10 @@ pub mod Village {
         fn parcel_level(self: @ContractState, parcel: u8) -> u32 {
             parcel_level(parcel)
         }
+
+        fn next_demolition(self: @ContractState, player_id: felt252) -> DemolitionOffer {
+            self.offer_of(player_id)
+        }
     }
 
     #[abi(embed_v0)]
@@ -576,6 +694,19 @@ pub mod Village {
             is_start_cell(x, y) || self.owned.read((player_id, x, y)) != 0
         }
 
+        /// The player's next demolition today: a counter of another day counts 0.
+        fn offer_of(self: @ContractState, player_id: felt252) -> DemolitionOffer {
+            let day = get_block_timestamp() / DAY;
+            let word: u256 = self.demolitions.read(player_id).into();
+            let stored: u64 = (word.low & 0xffffffffffffffff).try_into().unwrap();
+            let count: u32 = if stored == day {
+                ((word.low / 0x10000000000000000) & 0xffffffff).try_into().unwrap()
+            } else {
+                0
+            };
+            DemolitionOffer { day, count, price: demolition_price(count) }
+        }
+
         fn header_of(self: @ContractState, player_id: felt252) -> Header {
             let word: u256 = self.villages.read(player_id).into();
             Header {
@@ -591,6 +722,48 @@ pub mod Village {
                 + header.tiles.into() * TWO_POW_40;
             self.villages.write(player_id, word.into());
         }
+    }
+
+    /// A new game for a village of `player_id`: its config written, its starter (tile 1) at the
+    /// centre. The caller writes its state.
+    fn new_game(store: Store, player_id: felt252) -> Game {
+        let game_id = store.uuid();
+        let mut game: Game = GameImpl::new(
+            game_id, get_block_timestamp(), Mode::Challenge, player_id,
+        );
+        game.tile_limit = TILE_LIMIT;
+        game.start_time = get_block_timestamp();
+        let id = game.add_tile();
+        let mut tile = TileImpl::new(game_id, id, Plan::RFFFRFCFR);
+        tile.settle(Orientation::South, CENTER, CENTER);
+        placement::place_starter(store, tile);
+        store.set_game_config(game);
+        game
+    }
+
+    /// Builds `plan` at `(x, y)` as a move of `game` (the next tile id): checked against its
+    /// neighbours when `fits` (`placement::assert_fits`), placed on the structure state and
+    /// assessed when it closes a structure. Returns the tile's id; the caller writes the state.
+    fn build_tile(
+        ref game: Game, ref store: Store, plan: Plan, orientation: u8, x: u32, y: u32, fits: bool,
+    ) -> u32 {
+        let game_id = game.id;
+        let id = game.add_tile();
+        let mut tile = TileImpl::new(game_id, id, plan);
+        let around = NeighborhoodTrait::read(game_id, x, y);
+        tile.settle(orientation.into(), x, y);
+        if fits {
+            placement::assert_fits(tile, @around);
+        }
+        let mut structures = StructuresTrait::new(game_id);
+        let (refs, closes) = placement::place_move(ref structures, tile, @around);
+        structures.track(tile, refs);
+        if closes {
+            game.assess(tile, refs, @around, ref structures, ref store);
+        }
+        structures.flush(store);
+        game.built += 1;
+        id
     }
 
     /// As `Challenge.build`: the position has its 8 neighbours in `u32`.

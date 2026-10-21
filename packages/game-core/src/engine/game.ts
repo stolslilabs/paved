@@ -550,6 +550,41 @@ export class EngineGame {
     };
   }
 
+  /** Why `Village.demolish` refuses the tile at `cell`, or `null`: a village, a placed tile there, never the starter. */
+  demolitionRefusal(cell: Cell): string | null {
+    if (this.deck !== "village") return "Engine: not a village";
+    const tile = this.board.at(cell.x, cell.y);
+    if (!tile) return "Village: no tile";
+    if (tile.id === 1) return "Village: starter stays";
+    return null;
+  }
+
+  /**
+   * Demolishes the tile at `cell`, as `Village.demolish` does (the owner's decision of 2026-10-21): the village is
+   * rebuilt from the starter and the other placed tiles, replayed in their placement order and assessed as moves (their
+   * edges matched when they were placed; a tile that lost its only neighbour is rebuilt all the same). Returns the score
+   * after it. The price is the chain's (`demolitionPrice`).
+   */
+  demolish(cell: Cell): number {
+    const refused = this.demolitionRefusal(cell);
+    if (refused) throw new EngineError(refused);
+    const gone = (this.board.at(cell.x, cell.y) as BoardTile).id;
+    const kept = [...this.board.byId.values()].filter((t) => t.id !== 1 && t.id !== gone).sort((a, b) => a.id - b.id);
+    const fresh = EngineGame.village({ player: this.player, territory: this.territory() ?? undefined });
+    for (const tile of kept) fresh.rebuild(tile);
+    Object.assign(this, fresh);
+    return this._score;
+  }
+
+  /** Builds a tile of a demolition's rebuild: the next id, no neighbour check, assessed as a move. */
+  private rebuild(tile: BoardTile): void {
+    const { plan, orientation, x, y, owner } = tile;
+    const placed = this.board.place({ id: this._tileCount + 1, plan, orientation, x, y, owner });
+    this._tileCount += 1;
+    this.assess(placed);
+    this._built += 1;
+  }
+
   private assertPlaying(): { id: number; plan: number } {
     if (this._over) throw new EngineError("Game: is over");
     if (!this.held) throw new EngineError("Builder: does not exist");

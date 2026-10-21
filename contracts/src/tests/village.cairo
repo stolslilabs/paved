@@ -10,22 +10,24 @@ use core::testing::get_available_gas;
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::constants::CENTER;
 use paved::mocks::levels::{IMockLevelsDispatcher, IMockLevelsDispatcherTrait};
-use paved::systems::setup::Setup::{Event as SetupEvent, ParcelPaid};
+use paved::systems::setup::Setup::{DemolitionPaid, Event as SetupEvent, ParcelPaid};
 use paved::systems::setup::{
     ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
     ISetupVillageDispatcher, ISetupVillageDispatcherTrait,
 };
 use paved::systems::village::Village::{
-    Event as VillageEvent, ParcelBought, TilePlaced, VillageFounded,
+    Event as VillageEvent, ParcelBought, TileDemolished, TilePlaced, VillageFounded,
 };
 use paved::systems::village::{
-    IVillageAdminDispatcher, IVillageAdminDispatcherTrait, IVillageDispatcher,
+    DemolitionOffer, IVillageAdminDispatcher, IVillageAdminDispatcherTrait, IVillageDispatcher,
     IVillageDispatcherTrait, IVillageSafeDispatcher, IVillageSafeDispatcherTrait, MAX_CELLS,
-    MAX_PARCELS, VillageCell, VillageTile, is_start_cell, parcel_level, parcel_price,
+    MAX_PARCELS, VillageCell, VillageTile, demolition_price, is_start_cell, parcel_level,
+    parcel_price,
 };
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, load,
-    map_entry_address, spy_events, start_cheat_caller_address, stop_cheat_caller_address, store,
+    map_entry_address, spy_events, start_cheat_block_timestamp_global, start_cheat_caller_address,
+    stop_cheat_caller_address, store,
 };
 use starknet::ContractAddress;
 
@@ -35,6 +37,8 @@ pub const CEILING_FOUND: u128 = 1;
 pub const CEILING_BUY_PARCEL: u128 = 1;
 pub const CEILING_PLACE_OPEN: u128 = 1;
 pub const CEILING_PLACE_CLOSING: u128 = 1;
+pub const CEILING_DEMOLISH_4: u128 = 1;
+pub const CEILING_DEMOLISH_FULL: u128 = 1;
 
 fn OWNER() -> ContractAddress {
     'OWNER'.try_into().unwrap()
@@ -132,6 +136,13 @@ fn place_tile(world: World, plan: u8, orientation: u8, x: i32, y: i32) -> u32 {
     let points = world.village.place(PLAYER().into(), plan, orientation, at(x), at(y));
     stop_cheat_caller_address(world.village.contract_address);
     points
+}
+
+fn demolish_cell(world: World, x: i32, y: i32) -> u64 {
+    start_cheat_caller_address(world.village.contract_address, PLAYER());
+    let price = world.village.demolish(at(x), at(y));
+    stop_cheat_caller_address(world.village.contract_address);
+    price
 }
 
 // Plan codes (`types/plan.cairo`): 1 CCCCCCCCC, 5 FFCFFFCFF, 8 FFFFFFCFF, 10 RFFFRFFFR,
@@ -561,6 +572,177 @@ fn test_village_no_border_rule() {
     assert_eq!(world.village.village(PLAYER().into()).score, 0);
 }
 
+// Demolition (the owner's decision of 2026-10-21: 5 cobbles, doubled after each one, reset each
+// chain day, no refund)
+
+/// The road of 4 of the parity's first steps: starter, `(1, 0)`, stops at `(-1, 0)` and `(2, 0)`.
+fn road_of_four(cobbles: u64) -> World {
+    let world = founded(1, cobbles);
+    place_tile(world, 10, 1, 1, 0);
+    place_tile(world, 17, 1, -1, 0);
+    buy_cell(world, 2, 0);
+    place_tile(world, 17, 1, 2, 0);
+    world
+}
+
+#[test]
+fn test_village_demolition_curve() {
+    assert_eq!(demolition_price(0), 5);
+    assert_eq!(demolition_price(1), 10);
+    assert_eq!(demolition_price(4), 80);
+    assert_eq!(demolition_price(58), 5 * 0x400000000000000);
+    assert_eq!(demolition_price(1000), 5 * 0x400000000000000);
+}
+
+#[test]
+fn test_village_demolish_rebuilds() {
+    let world = road_of_four(1_000);
+    let before = world.village.village(PLAYER().into());
+    assert_eq!(before.score, 438);
+    let mut spy = spy_events();
+    // The road's middle tile: the road opens again, its points go
+    assert_eq!(demolish_cell(world, 1, 0), 5);
+    let after = world.village.village(PLAYER().into());
+    assert_eq!((after.tiles, after.score, after.cells), (2, 0, 10));
+    assert!(after.game_id != before.game_id);
+    // The tiles left, in their order, renumbered
+    let tiles = world.village.tiles(PLAYER().into());
+    assert_eq!(tiles.len(), 3);
+    assert_eq!(*tiles.at(1), VillageTile { id: 2, plan: 17, orientation: 1, x: at(-1), y: at(0) });
+    assert_eq!(*tiles.at(2), VillageTile { id: 3, plan: 17, orientation: 1, x: at(2), y: at(0) });
+    // 1,000 - 10 (the parcel) - 5
+    assert_eq!(cobbles_of(world, PLAYER()), 985);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.village.contract_address,
+                    VillageEvent::TileDemolished(
+                        TileDemolished {
+                            player_id: PLAYER().into(),
+                            tile_id: 2,
+                            plan: 10,
+                            x: at(1),
+                            y: at(0),
+                            day: 0,
+                            count: 1,
+                            cobbles: 5,
+                            game_id: after.game_id,
+                            score: 0,
+                        },
+                    ),
+                ),
+            ],
+        );
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.setup.contract_address,
+                    SetupEvent::DemolitionPaid(
+                        DemolitionPaid {
+                            player_id: PLAYER().into(), day: 0, count: 1, cobbles: 5, balance: 985,
+                        },
+                    ),
+                ),
+            ],
+        );
+    // The cell is free again: the same tile closes the road again
+    assert_eq!(place_tile(world, 10, 1, 1, 0), 438);
+}
+
+/// 5, 10, 20, 40 in one day; the next day starts at 5 again; the counter of a day ends with it.
+#[test]
+fn test_village_demolition_price_doubles_and_resets() {
+    let world = founded(1, 1_000);
+    let mut paid: u64 = 0;
+    let mut i: u32 = 0;
+    while i < 4 {
+        assert_eq!(world.village.next_demolition(PLAYER().into()).price, demolition_price(i));
+        place_tile(world, 10, 1, 1, 0);
+        paid += demolish_cell(world, 1, 0);
+        i += 1;
+    }
+    assert_eq!(paid, 5 + 10 + 20 + 40);
+    assert_eq!(
+        world.village.next_demolition(PLAYER().into()),
+        DemolitionOffer { day: 0, count: 4, price: 80 },
+    );
+    // The last second of day 0, then day 1
+    start_cheat_block_timestamp_global(86399);
+    assert_eq!(world.village.next_demolition(PLAYER().into()).price, 80);
+    start_cheat_block_timestamp_global(86400);
+    assert_eq!(
+        world.village.next_demolition(PLAYER().into()),
+        DemolitionOffer { day: 1, count: 0, price: 5 },
+    );
+    place_tile(world, 10, 1, 1, 0);
+    assert_eq!(demolish_cell(world, 1, 0), 5);
+    assert_eq!(demolish_cell_after_place(world), 10);
+    assert_eq!(cobbles_of(world, PLAYER()), 1_000 - 75 - 15);
+    // Another player's counter is its own
+    assert_eq!(world.village.next_demolition(ANYONE().into()).price, 5);
+}
+
+fn demolish_cell_after_place(world: World) -> u64 {
+    place_tile(world, 10, 1, 1, 0);
+    demolish_cell(world, 1, 0)
+}
+
+#[test]
+#[should_panic(expected: 'Village: starter stays')]
+fn test_village_demolish_starter() {
+    let world = founded(1, 100);
+    demolish_cell(world, 0, 0);
+}
+
+#[test]
+#[should_panic(expected: 'Village: no tile')]
+fn test_village_demolish_empty_cell() {
+    let world = founded(1, 100);
+    demolish_cell(world, 1, 0);
+}
+
+#[test]
+#[should_panic(expected: 'Village: no village')]
+fn test_village_demolish_needs_a_village() {
+    let world = world();
+    demolish_cell(world, 1, 0);
+}
+
+#[test]
+#[should_panic(expected: 'Setup: not enough cobbles')]
+fn test_village_demolish_short_of_cobbles() {
+    let world = founded(1, 4);
+    place_tile(world, 10, 1, 1, 0);
+    demolish_cell(world, 1, 0);
+}
+
+/// A failed demolition (short of cobbles) reverts its counter with it: the price stays.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_village_demolish_refused_keeps_the_price() {
+    let world = founded(1, 4);
+    place_tile(world, 10, 1, 1, 0);
+    start_cheat_caller_address(world.village.contract_address, PLAYER());
+    let result = IVillageSafeDispatcher { contract_address: world.village.contract_address }
+        .demolish(at(1), at(0));
+    assert!(result.is_err());
+    stop_cheat_caller_address(world.village.contract_address);
+    assert_eq!(world.village.next_demolition(PLAYER().into()).price, 5);
+    assert_eq!(world.village.village(PLAYER().into()).tiles, 1);
+}
+
+#[test]
+#[should_panic(expected: 'Quest: not reporter')]
+fn test_village_spend_demolition_reporter_only() {
+    let world = world();
+    fund(world, PLAYER(), 100);
+    start_cheat_caller_address(world.setup.contract_address, PLAYER());
+    ISetupVillageDispatcher { contract_address: world.setup.contract_address }
+        .spend_demolition(PLAYER().into(), 0, 1, 5);
+}
+
 // Parity with the off-chain engine
 
 #[derive(Copy, Drop)]
@@ -569,6 +751,8 @@ enum Step {
     Refused: (u8, u8, i32, i32, felt252),
     Buy: (i32, i32, u8),
     BuyRefused: (i32, i32, felt252),
+    Demolish: (i32, i32, u64, u32),
+    DemolishRefused: (i32, i32, felt252),
 }
 
 fn place(code: u8, o: u8, x: i32, y: i32, points: u32, score: u32) -> Step {
@@ -587,9 +771,18 @@ fn buy_refused(x: i32, y: i32, reason: felt252) -> Step {
     Step::BuyRefused((x, y, reason))
 }
 
+fn demolish(x: i32, y: i32, price: u64, score: u32) -> Step {
+    Step::Demolish((x, y, price, score))
+}
+
+fn demolish_refused(x: i32, y: i32, reason: felt252) -> Step {
+    Step::DemolishRefused((x, y, reason))
+}
+
 /// The steps of `village-parity.json`, in order: `place(code, orientation, x, y, points, score)`,
-/// `refused(code, orientation, x, y, reason)`, `buy(x, y, parcel)`, `buy_refused(x, y, reason)`
-/// (`village.test.ts` reads these calls back from this function).
+/// `refused(code, orientation, x, y, reason)`, `buy(x, y, parcel)`, `buy_refused(x, y, reason)`,
+/// `demolish(x, y, price, score)`, `demolish_refused(x, y, reason)` (`village.test.ts` reads these
+/// calls back from this function).
 fn parity_steps() -> Array<Step> {
     array![
         place(10, 1, 1, 0, 0, 0), place(17, 1, -1, 0, 0, 0),
@@ -602,7 +795,10 @@ fn parity_steps() -> Array<Step> {
         place(8, 1, -1, -2, 0, 1276), place(8, 3, 1, -2, 1319, 2595),
         refused(8, 1, 0, 0, 'Tile: already exists'), buy(3, 0, 6), buy(4, 0, 7),
         refused(1, 1, 3, 0, 'Tile: cannot place'), refused(17, 1, 4, 0, 'Tile: no neighbors'),
-        place(17, 1, 3, 0, 209, 2804),
+        place(17, 1, 3, 0, 209, 2804), demolish_refused(0, 0, 'Village: starter stays'),
+        demolish_refused(2, 2, 'Village: no tile'), demolish(1, -2, 5, 1485),
+        demolish(0, 1, 10, 647), demolish_refused(1, -2, 'Village: no tile'),
+        place(8, 3, 1, -2, 1319, 1966),
     ]
 }
 // End of parity_steps
@@ -631,6 +827,16 @@ fn refusal_of(world: World, step: Step) -> felt252 {
             let panic: Array<felt252> = result.unwrap_err();
             *panic.at(0)
         },
+        Step::DemolishRefused((
+            x, y, _,
+        )) => {
+            start_cheat_caller_address(world.village.contract_address, PLAYER());
+            let result = IVillageSafeDispatcher { contract_address: world.village.contract_address }
+                .demolish(at(x), at(y));
+            stop_cheat_caller_address(world.village.contract_address);
+            let panic: Array<felt252> = result.unwrap_err();
+            *panic.at(0)
+        },
         _ => 0,
     };
     reason
@@ -651,6 +857,13 @@ fn test_village_parity() {
             Step::Refused((_, _, _, _, reason)) => assert_eq!(refusal_of(world, step), reason),
             Step::Buy((x, y, parcel)) => assert_eq!(buy_cell(world, x, y), parcel),
             Step::BuyRefused((_, _, reason)) => assert_eq!(refusal_of(world, step), reason),
+            Step::Demolish((
+                x, y, price, score,
+            )) => {
+                assert_eq!(demolish_cell(world, x, y), price);
+                assert_eq!(world.village.village(PLAYER().into()).score, score);
+            },
+            Step::DemolishRefused((_, _, reason)) => assert_eq!(refusal_of(world, step), reason),
         }
     }
 }
@@ -745,6 +958,12 @@ fn test_village_pins_its_storage_variables_by_name() {
         selector!("owned"), array![PLAYER().into(), at(2).into(), at(0).into()].span(),
     );
     assert_eq!(raw(village, owned), 1);
+    // `demolitions`: day [0, 64) · count [64, 96)
+    start_cheat_block_timestamp_global(3 * 86400);
+    place_tile(world, 10, 1, 1, 0);
+    demolish_cell(world, 1, 0);
+    let demolitions = map_entry_address(selector!("demolitions"), array![PLAYER().into()].span());
+    assert_eq!(raw(village, demolitions), 3 + 1 * 0x10000000000000000);
 }
 
 // Gas (the test profile): the L2 gas of each new call, against its ceiling.
@@ -796,4 +1015,46 @@ fn test_village_gas_place_closing() {
     world.village.place(PLAYER().into(), 17, 1, at(2), at(0));
     let after = get_available_gas();
     report("village_place_closing", before - after, CEILING_PLACE_CLOSING);
+}
+
+/// A demolition in the road of 4: three tiles replayed.
+#[test]
+fn test_village_gas_demolish_4() {
+    let world = road_of_four(100);
+    start_cheat_caller_address(world.village.contract_address, PLAYER());
+    let before = get_available_gas();
+    world.village.demolish(at(1), at(0));
+    let after = get_available_gas();
+    report("village_demolish_4", before - after, CEILING_DEMOLISH_4);
+}
+
+/// The worst demolition: the first placed tile of a village of 38 tiles (the 9 of the start and 29
+/// parcels in a line east, a road along it), so 36 tiles are replayed.
+#[test]
+fn test_village_gas_demolish_full() {
+    let world = founded(MAX_PARCELS.into(), 5_000);
+    let mut x: i32 = 2;
+    while x <= 30 {
+        buy_cell(world, x, 0);
+        x += 1;
+    }
+    // A straight road from (1, 0) to (30, 0), then the 8 other cells of the start
+    let mut x: i32 = 1;
+    while x <= 30 {
+        place_tile(world, 10, 1, x, 0);
+        x += 1;
+    }
+    place_tile(world, 17, 1, -1, 0);
+    place_tile(world, 8, 3, 1, 1);
+    place_tile(world, 8, 1, 1, -1);
+    place_tile(world, 5, 1, 0, 1);
+    place_tile(world, 18, 1, 0, -1);
+    place_tile(world, 13, 4, -1, 1);
+    place_tile(world, 13, 1, -1, -1);
+    assert_eq!(world.village.village(PLAYER().into()).tiles, 37);
+    start_cheat_caller_address(world.village.contract_address, PLAYER());
+    let before = get_available_gas();
+    world.village.demolish(at(1), at(0));
+    let after = get_available_gas();
+    report("village_demolish_full", before - after, CEILING_DEMOLISH_FULL);
 }

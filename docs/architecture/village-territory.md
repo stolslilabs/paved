@@ -11,8 +11,9 @@ The owner's decisions of 2026-10-20 bind:
   whatever their Cobbles, until they reach level 5.
 - Forced placement: a tile is placed when it is received (#642), with no rearranging.
 
-Everything else here is a proposal. The open points are in section 7, and were posted for the owner on #640; the code
-builds on the proposals until the owner answers there.
+The owner ruled on the open points on 2026-10-21 (on #640; section 7 holds the decision rows): the 3 x 3 start, the price
+and level table (a), and demolition at a doubling daily price. Point 4 stays as proposed. Everything else here is a
+proposal the team may improve.
 
 ## 1. Summary
 
@@ -32,8 +33,11 @@ builds on the proposals until the owner answers there.
 - **Placement is not a player call.** Forced placement means the tile comes from #642's reward. `Village` exposes
   `place(player_id, plan, orientation, x, y)` to the placers the owner allows (#642's system, as `Story` is a
   reporter of `Setup`); #642 may instead add its entry point to `Village` and call the same internal function.
-- **The off-chain engine gets the same rule**: a territory mask on `EngineGame` (`territory`), and a parity test
-  that replays one village on both sides.
+- **`demolish(x, y)`** (the owner's decision): the caller takes a placed tile out of its village, never the starter, for 5
+  Cobbles doubled after each demolition of the chain day (5, 10, 20, 40...), back to 5 the next day; no refund. The
+  structure state cannot take a tile out, so the village is rebuilt (section 3a).
+- **The off-chain engine gets the same rules**: a territory mask on `EngineGame` (`territory`), the parcel rule, forced
+  placement and the demolition's rebuild, and a parity test that replays one village on both sides.
 
 ## 2. Storage (`Village`)
 
@@ -53,6 +57,7 @@ Coordinates, not a bitmap (the issue left it to the design):
 | `villages: Map<felt252, felt252>` | `player_id` | `game_id` [0, 32) · `cells` [32, 40) (the 9 included) · `tiles` [40, 48) (placed, the starter excluded); 0: no village |
 | `parcels: Map<(felt252, u8), felt252>` | `(player_id, parcel)` | the cell of parcel `parcel` (1 to 29): `x` [0, 32) · `y` [32, 64) |
 | `owned: Map<(felt252, u32, u32), u8>` | `(player_id, x, y)` | the parcel's number, 0 when not bought |
+| `demolitions: Map<felt252, felt252>` | `player_id` | `day` [0, 64) · `count` [64, 96): the demolitions of that chain day; a word of another day reads as 0 |
 
 The 9 starting cells are not written: a cell is owned when it is in the 3 x 3 around `CENTER` or `owned` is non-zero.
 That saves 18 writes at founding.
@@ -72,15 +77,37 @@ Upgrades (`upgrades.md`): every name is new, `Village` is upgradable (OpenZeppel
 | `found()` | any account, once | no village yet (`Village: already founded`) | a game; the starter; emits `VillageFounded` |
 | `buy_parcel(x, y)` | the village's player | a village (`Village: no village`); the cell not owned (`Village: cell owned`); a side neighbour owned (`Village: not adjacent`); under 38 cells (`Village: territory full`); level >= parcel (`Village: level too low`); the price on `Setup` (`Setup: not enough cobbles`) | the cell; the Cobbles debited; emits `ParcelBought` |
 | `place(player_id, plan, orientation, x, y)` | an allowed placer (`Village: not placer`) | a village; a plan 1 to 19, an orientation 1 to 4; the cell owned (`Village: cell not owned`); free (`Tile: already exists`); fits (`Tile: no neighbors`, `Tile: cannot place`) | the tile built and assessed (the engine's `Built` and `Scored`); emits `TilePlaced`; returns the points |
+| `demolish(x, y)` | the village's player | a village; a placed tile there (`Village: no tile`), not the starter (`Village: starter stays`); the price on `Setup` (`Setup: not enough cobbles`) | the day's counter; the village rebuilt in a new game; the Cobbles debited; emits `TileDemolished`; returns the price |
 | `set_setup`, `set_levels`, `set_placer`, `upgrade` | the owner | non-zero (`set_setup`) | emit `SetupSet`, `LevelsSet`, `PlacerSet` |
 
 Views: `village(player_id)` (game, cells, tiles, score, next parcel's price and level), `cells(player_id)` (in order:
 the 9, then the parcels), `tiles(player_id)` (plan, orientation, x, y, by id), `is_owned(player_id, x, y)`,
-`parcel_price(parcel)`, `parcel_level(parcel)`, `setup`, `levels`, `is_placer`.
+`parcel_price(parcel)`, `parcel_level(parcel)`, `next_demolition(player_id)` (the chain day, the demolitions made that
+day, the price of the next: what the client shows), `setup`, `levels`, `is_placer`.
 
 `Setup` gains `ISetupVillage::spend_parcel(player_id, parcel, cobbles) -> u64`: an allowlisted reporter only (as
 `credit_story`), it debits the account or reverts `Setup: not enough cobbles`, emits `ParcelPaid` with the balance,
-and returns it. The owner adds `Village` to the reporters, as for `Story`.
+and returns it; `spend_demolition(player_id, day, count, cobbles) -> u64` does the same for a demolition and emits
+`DemolitionPaid`. The owner adds `Village` to the reporters, as for `Story`.
+
+## 3a. Demolition (the owner's decision of 2026-10-21)
+
+- **The price**: `demolition_price(count) = 5 x 2^count`, `count` the demolitions the player already made that chain
+  day; the exponent stops at 58 (`5 x 2^58`, the last price under `u64`, far above any balance). No daily cap: the price
+  explodes.
+- **The day**: the quests' clock, `block_time / 86400` (`Setup`'s `DAY`). The counter is one slot per account (`day`,
+  `count`); a slot of an earlier day reads as count 0, so the reset costs no write. A demolition that reverts (short of
+  Cobbles) reverts its count with it.
+- **No refund**: the tile is gone; nothing is credited, no copy is kept (#642's tiers count what is placed).
+- **The rebuild**: the union-find structure state has no removal, and a closed structure may reopen. `demolish` starts a
+  new game for the village (the starter at the centre), replays every other placed tile in its placement order as a move
+  (placed on the structure state, assessed when it closes a structure; the neighbour check is skipped, since the edges
+  matched when each was placed and a tile may have lost its only neighbour), and points the village at it. The score is
+  the new game's: the village scores as if the demolished tile had never been placed. The old game stays as dead storage.
+  The tiles keep their order and are renumbered (ids 2 on); the territory does not change. The replay emits the `Scored`
+  of the rebuilt structures again, under the new game id.
+- **The engine** does the same (`EngineGame.demolish`, `demolitionRefusal`, `demolitionPrice`), and the parity fixture
+  holds demolitions.
 
 ## 4. Events
 
@@ -89,10 +116,15 @@ and returns it. The owner adds `Village` to the reporters, as for `Story`.
 - `TilePlaced { #[key] player_id, game_id, tile_id, plan, orientation, x, y, points, score }`: `points` the move
   scored, `score` the village's after it.
 - The engine's own `Built` and `Scored` (game id, tile id, category, size, points), from `Village`.
-- `Setup`'s `ParcelPaid { #[key] player_id, parcel, cobbles, balance }`.
+- `TileDemolished { #[key] player_id, tile_id, plan, x, y, day, count, cobbles, game_id, score }`: `tile_id` in the game
+  it left, `count` the day's demolitions after it, `game_id` and `score` the rebuilt village's.
+- `Setup`'s `ParcelPaid { #[key] player_id, parcel, cobbles, balance }` and
+  `DemolitionPaid { #[key] player_id, day, count, cobbles, balance }`.
 
-The indexer keeps a `villages` table (player, game, cells, tiles, score), `village_cells` (player, parcel, x, y) and
-`village_tiles` (player, tile id, plan, orientation, x, y), and applies `ParcelPaid` to the Cobbles balance.
+The indexer applies `ParcelPaid` and `DemolitionPaid` to the Cobbles balance (`parcel_purchases`,
+`demolition_purchases`, schema 17; it halts on a parcel out of order, a day's demolition out of order or at another
+price, or a balance that does not follow). The tables of `Village`'s own events (`villages`, `village_cells`,
+`village_tiles`) wait for `Village`'s deployment: a follow-up (section 9).
 
 ## 5. The level gate and #641
 
@@ -113,18 +145,14 @@ every player is level 1, so only parcel 1 can be bought: the gate fails closed. 
 - A parity test replays one village with the same parcels and tiles in snforge and in vitest and compares the score
   after every tile and the refusal of a tile placed outside the territory.
 
-## 7. Open points (for the owner, posted on #640)
+## 7. Decision rows (owner, 2026-10-21, on #640)
 
-1. **The starting territory.** Proposed: 9 cells, the 3 x 3 around the starter, which counts in the 38 (so 29
-   parcels and 37 tiles at most, the 37 draws of a 38-tile game). The starter is the usual one at the centre.
-2. **The price and level table.** Built as (a), which matches the owner's example (the 5th parcel needs level 5):
-   parcel `k` (1 to 29) needs level `k` and costs `10 x k` Cobbles (4,350 for all 29). The other proposal, (b), is
-   the client's fake: `20 x (cells - 8)` Cobbles and one more level every 4 cells. Both are two pure functions
-   (`parcel_price`, `parcel_level`): a ruling changes them and their tests only.
-3. **Demolition** of a placed tile: none (proposed). Forced placement and no rearranging; nothing is built for it.
-4. **A tile with no legal cell.** Forced placement needs a free owned cell where the tile fits. Proposed: the
-   normal rule (at least one placed side neighbour) is kept, so a parcel bought far from the tiles is used once the
-   tiles reach it; a reward whose tiles fit nowhere offers only the Cobbles or the merge (#642).
+| # | Point | Decision |
+|---|---|---|
+| 1 | The starting territory | 9 cells, the 3 x 3 around the starter. The "38 tiles" count does not matter: the starter is simply the first cell, and the territory keeps the issue's cap of 38 cells (9 + 29 parcels). |
+| 2 | The price and level table | (a): parcel `k` (1 to 29) needs level `k` and costs `10 x k` Cobbles (4,350 for all 29). |
+| 3 | Demolition | Allowed, at a fixed price that doubles after each use and resets every day: 5 Cobbles (5, 10, 20, 40, 80...), the chain's day (the quests' clock), a per-account daily counter in storage, no refund of the tile, no daily cap (section 3a). |
+| 4 | A tile with no legal cell | As proposed: the normal rule (at least one placed side neighbour) is kept; a reward whose tiles fit nowhere offers only the Cobbles or the merge (#642). |
 
 ## 8. Size, gas and tests
 

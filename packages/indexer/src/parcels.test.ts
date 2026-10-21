@@ -1,5 +1,6 @@
-// The village (#640, docs/architecture/village-territory.md): the parcels a player buys are paid on Setup's ledger
-// (`ParcelPaid`), in the one running balance of claims, packs and skins, from the events to the API.
+// The village (#640, docs/architecture/village-territory.md): the parcels a player buys and the demolitions it makes are
+// paid on Setup's ledger (`ParcelPaid`, `DemolitionPaid`), in the one running balance of claims, packs and skins, from the
+// events to the API.
 import { describe, expect, test } from "vitest";
 import { DecodeError, decode, padded } from "./events.ts";
 import { Queries } from "./queries.ts";
@@ -83,5 +84,36 @@ describe("ParcelPaid", () => {
     expect(indexer.status).toBe("ok");
     expect(indexer.store.dump()).toEqual(fresh.store.dump());
     expect(new Queries(indexer.store).playerCobbles(node.tip, PA)).toMatchObject({ cobbles: 95, parcels_bought: 1, parcels_spent: 10 });
+  });
+});
+
+describe("DemolitionPaid", () => {
+  test("decodes the event of Setup, at the price of its rank in the day", () => {
+    const e = ev.demolitionPaid(0x1234, 20_000, 3, 20, 80);
+    expect(decode("setup", e.keys, e.data)).toEqual({ name: "DemolitionPaid", playerId: 0x1234n, day: 20_000n, count: 3, cobbles: 20n, balance: 80n });
+    // count 0, a price that is not 5 x 2^(count - 1), a missing member
+    for (const bad of [ev.demolitionPaid(1, 0, 0, 5, 5), ev.demolitionPaid(1, 0, 1, 10, 5), ev.demolitionPaid(1, 0, 2, 5, 5)]) {
+      expect(() => decode("setup", bad.keys, bad.data)).toThrow(DecodeError);
+    }
+    expect(() => decode("setup", e.keys, [])).toThrow(DecodeError);
+  });
+
+  test("a day's demolitions move the balance; the next day counts from 1 again", async () => {
+    const { queries, head, indexer } = await open((node) => {
+      node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 100, 100)]);
+      node.mine([ev.demolitionPaid(A, DAY, 1, 5, 95)], [ev.demolitionPaid(A, DAY, 2, 10, 85)]);
+      node.mine([ev.demolitionPaid(A, DAY + 1, 1, 5, 80)]);
+      node.mine([ev.parcelPaid(A, 1, 10, 70)]);
+    });
+    expect(indexer.status).toBe("ok");
+    expect(queries.playerCobbles(head, PA)).toMatchObject({ cobbles: 70, demolitions: 3, demolitions_spent: 20, parcels_bought: 1 });
+  });
+
+  test("the halts: a demolition out of its day's order, a balance that does not follow", async () => {
+    await halts((node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 100, 100)], [ev.demolitionPaid(A, DAY, 2, 10, 90)]), /made 0 that day before it/);
+    await halts(
+      (node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 100, 100)], [ev.demolitionPaid(A, DAY, 1, 5, 96)]),
+      /balance 96, the ledger before it gives 95/,
+    );
   });
 });

@@ -14,6 +14,7 @@ import {
   VILLAGE_MAX_PARCELS,
   parcelLevel,
   parcelPrice,
+  demolitionPrice,
   startTerritory,
 } from "../src/engine";
 import { OrientationType } from "../src/types/orientation";
@@ -23,7 +24,7 @@ const { North } = OrientationType;
 const ORIENTATIONS = [OrientationType.None, OrientationType.North, OrientationType.East, OrientationType.South, OrientationType.West];
 
 interface Step {
-  action: "buy" | "place";
+  action: "buy" | "place" | "demolish";
   plan?: PlanType;
   code?: number;
   orientation?: number;
@@ -32,6 +33,7 @@ interface Step {
   refusal?: string;
   parcel?: number;
   points?: number;
+  price?: number;
   score?: number;
 }
 
@@ -42,7 +44,17 @@ const steps = (JSON.parse(readFileSync(FIXTURE, "utf8")) as { steps: Step[] }).s
 describe("village parity", () => {
   it("replays the fixture on the engine", () => {
     const game = EngineGame.village();
+    let demolitions = 0;
     for (const step of steps) {
+      if (step.action === "demolish") {
+        const cell = { x: step.x, y: step.y };
+        expect(game.demolitionRefusal(cell)).toBe(step.refusal ?? null);
+        if (step.refusal) continue;
+        expect(demolitionPrice(demolitions)).toBe(step.price);
+        demolitions += 1;
+        expect(game.demolish(cell)).toBe(step.score);
+        continue;
+      }
       if (step.action === "buy") {
         const cell = { x: step.x, y: step.y };
         expect(game.parcelRefusal(cell)).toBe(step.refusal ?? null);
@@ -69,7 +81,7 @@ describe("village parity", () => {
   it("is the list snforge replays (`parity_steps` of contracts/src/tests/village.cairo)", () => {
     const source = readFileSync(CAIRO, "utf8");
     const body = source.slice(source.indexOf("fn parity_steps"), source.indexOf("// End of parity_steps"));
-    const calls = [...body.matchAll(/\b(place|refused|buy|buy_refused)\(([^)]*)\)/g)].map(([, name, args]) => {
+    const calls = [...body.matchAll(/\b(place|refused|buy|buy_refused|demolish|demolish_refused)\(([^)]*)\)/g)].map(([, name, args]) => {
       const values = (args as string).split(",").map((a) => a.trim());
       const n = (i: number) => Number(values[i]);
       const text = (i: number) => (values[i] as string).replace(/^'|'$/g, "");
@@ -80,11 +92,15 @@ describe("village parity", () => {
           return { action: "place", code: n(0), orientation: n(1), x: n(2), y: n(3), refusal: text(4) };
         case "buy":
           return { action: "buy", x: n(0), y: n(1), parcel: n(2) };
+        case "demolish":
+          return { action: "demolish", x: n(0), y: n(1), price: n(2), score: n(3) };
+        case "demolish_refused":
+          return { action: "demolish", x: n(0), y: n(1), refusal: text(2) };
         default:
           return { action: "buy", x: n(0), y: n(1), refusal: text(2) };
       }
     });
-    const expected = steps.map(({ plan: _plan, ...rest }) => rest);
+    const expected = steps.map(({ plan: _plan, code, ...rest }) => (code === undefined ? rest : { code, ...rest }));
     expect(calls).toEqual(expected);
   });
 });
@@ -154,6 +170,32 @@ describe("village territory", () => {
     const game = EngineGame.start({ deck: "simple", seed: 0n });
     expect(() => game.place(PlanType.RFFFRFFFR, { orientation: North, x: 1, y: 0 })).toThrow(EngineError);
     expect(game.parcelRefusal({ x: 2, y: 0 })).toBe("Village: no village");
+  });
+
+  it("demolishes by rebuilding the village from the tiles left, in their order", () => {
+    const game = EngineGame.village();
+    game.place(PlanType.RFFFRFFFR, { orientation: North, x: 1, y: 0 });
+    game.place(PlanType.SFRFRFRFR, { orientation: North, x: -1, y: 0 });
+    game.buyParcel({ x: 2, y: 0 });
+    expect(game.place(PlanType.SFRFRFRFR, { orientation: North, x: 2, y: 0 }).score).toBe(438);
+    // The road loses its middle tile: open again, nothing scores; the tiles keep their order, renumbered
+    expect(game.demolish({ x: 1, y: 0 })).toBe(0);
+    expect(game.placed().map((t) => [t.id, t.x, t.y])).toEqual([
+      [1, 0, 0],
+      [2, -1, 0],
+      [3, 2, 0],
+    ]);
+    expect(game.territory()).toHaveLength(10);
+    expect(game.place(PlanType.RFFFRFFFR, { orientation: North, x: 1, y: 0 }).points).toBe(438);
+    expect(game.demolitionRefusal({ x: 0, y: 0 })).toBe("Village: starter stays");
+    expect(() => game.demolish({ x: 0, y: 2 })).toThrow("Village: no tile");
+    expect(EngineGame.start({ deck: "simple", seed: 0n }).demolitionRefusal({ x: 0, y: 0 })).toBe("Engine: not a village");
+  });
+
+  it("prices a day's demolitions at 5, doubled after each one", () => {
+    expect([0, 1, 2, 3, 4].map(demolitionPrice)).toEqual([5, 10, 20, 40, 80]);
+    expect(demolitionPrice(58)).toBe(5 * 2 ** 58);
+    expect(demolitionPrice(200)).toBe(5 * 2 ** 58);
   });
 
   it("prices parcel k at 10 x k Cobbles and level k", () => {

@@ -17,6 +17,16 @@ export const VILLAGE_MAX_PARCELS = VILLAGE_MAX_CELLS - VILLAGE_START_CELLS;
 /** The Cobbles of parcel `k` are `PARCEL_COBBLES x k` (`PARCEL_COBBLES`). */
 export const PARCEL_COBBLES = 10;
 
+/** The Cobbles of a chain day's first demolition (`DEMOLITION_COBBLES`); each one doubles the next. */
+export const DEMOLITION_COBBLES = 5;
+/** The exponent stops here (`MAX_DOUBLINGS`): `5 x 2^58`, the last price under a `u64`. */
+export const MAX_DOUBLINGS = 58;
+
+/** `demolition_price`: the Cobbles of a demolition after `count` of them that chain day (5, 10, 20, 40...). */
+export function demolitionPrice(count: number): number {
+  return DEMOLITION_COBBLES * 2 ** Math.min(Math.max(0, Math.floor(count)), MAX_DOUBLINGS);
+}
+
 /** The 9 cells of the start, as `Village.cells` lists them: rows from the south, west to east. */
 export function startTerritory(): Cell[] {
   const cells: Cell[] = [];

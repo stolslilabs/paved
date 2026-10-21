@@ -94,6 +94,8 @@ export {
   startTerritory,
   parcelPrice,
   parcelLevel,
+  DEMOLITION_COBBLES,
+  demolitionPrice,
 } from "./engine";
 export type {
   EngineConfig,

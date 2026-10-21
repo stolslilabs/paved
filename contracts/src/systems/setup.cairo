@@ -657,6 +657,13 @@ pub trait ISetupVillage<TContractState> {
     /// reporter'`); it trusts the reporter for whom, which parcel and its price (`Village` debits
     /// the buyer, at the price of its curve). Emits `ParcelPaid`; returns the balance after it.
     fn spend_parcel(ref self: TContractState, player_id: felt252, parcel: u8, cobbles: u32) -> u64;
+    /// Debits `player_id` the `cobbles` of its `count`-th demolition of chain day `day` (the
+    /// owner's decision of 2026-10-21: 5, doubled after each one, reset each day). The same
+    /// reporter rule and trust as `spend_parcel` (`Village` debits the demolisher, at the price
+    /// of its curve). Emits `DemolitionPaid`; returns the balance after it.
+    fn spend_demolition(
+        ref self: TContractState, player_id: felt252, day: u64, count: u32, cobbles: u64,
+    ) -> u64;
 }
 
 /// Cobbles v1, part 3 (P-61, `docs/architecture/cobbles-v1.md`, 5): the skins of the tile plans,
@@ -886,6 +893,7 @@ pub mod Setup {
         SkinBought: SkinBought,
         SkinsActivated: SkinsActivated,
         ParcelPaid: ParcelPaid,
+        DemolitionPaid: DemolitionPaid,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -1018,6 +1026,19 @@ pub mod Setup {
         pub player_id: felt252,
         pub parcel: u8,
         pub cobbles: u32,
+        pub balance: u64,
+    }
+
+    /// A demolition in a player's village paid (#640): the `count`-th of chain day `day`,
+    /// `cobbles` its price, `balance` the player's cobbles after it. `Village` emits
+    /// `TileDemolished` in the same transaction.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct DemolitionPaid {
+        #[key]
+        pub player_id: felt252,
+        pub day: u64,
+        pub count: u32,
+        pub cobbles: u64,
         pub balance: u64,
     }
 
@@ -1441,6 +1462,20 @@ pub mod Setup {
             account.cobbles -= cobbles.into();
             self.accounts.write(player_id, account);
             self.emit(ParcelPaid { player_id, parcel, cobbles, balance: account.cobbles });
+            account.cobbles
+        }
+
+        fn spend_demolition(
+            ref self: ContractState, player_id: felt252, day: u64, count: u32, cobbles: u64,
+        ) -> u64 {
+            // [Check] Caller is a reporter (`Village`), the balance covers the price
+            self.quest.assert_reporter(get_caller_address());
+            let mut account = self.accounts.read(player_id);
+            assert(account.cobbles >= cobbles, errors::NOT_ENOUGH_COBBLES);
+            // [Effect] The cobbles spent
+            account.cobbles -= cobbles;
+            self.accounts.write(player_id, account);
+            self.emit(DemolitionPaid { player_id, day, count, cobbles, balance: account.cobbles });
             account.cobbles
         }
     }

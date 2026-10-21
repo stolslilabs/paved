@@ -33,6 +33,13 @@ game.score; game.over; game.tileCount; game.built; game.discarded; game.counts;
   `openEdges()` gives that search the open structures with their open half-edges.
 - `build(placement?, owner?)`: a Tutorial game takes its scripted placement (`scriptedPlacement()`); a given
   placement must equal it. `owner` sets the tile's owner (D-19).
+- Deck `village` (#640, `docs/architecture/village-territory.md`): `EngineGame.village({ territory?, player? })` starts a
+  village (the starter, the 3 x 3 territory, nothing drawn); `place(plan, placement)` builds a given tile (forced
+  placement), `buyParcel(cell)` and `parcelRefusal(cell)` grow the territory by the contract's rule, and `demolish(cell)`
+  rebuilds the village without a tile, as `Village.demolish`. `territory` in any config is a mask: `refusal` gives
+  `Village: cell not owned` outside it and `legalPlacements` keeps to it (#643's replay). `village.ts` holds the curves
+  (`parcelPrice`, `parcelLevel`, `demolitionPrice`); `__tests__/village.test.ts` replays `fixtures/village-parity.json`,
+  the steps `contracts/src/tests/village.cairo` replays too.
 - `discard()`, `surrender()`. Illegal moves throw `EngineError` with the contract's revert message
   (`Tile: already exists`, `Tile: no neighbors`, `Tile: cannot place`, `Game: is over`, ...).
 - `clone()` copies a game (undo, look-ahead). `force(plan)` and `write(tile)` replace the plan in hand and

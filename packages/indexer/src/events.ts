@@ -216,6 +216,19 @@ export type Decoded =
       balance: bigint;
     }
   | {
+      /**
+       * A demolition in the player's village paid on Setup's ledger (#640, `Setup.spend_demolition`, run by
+       * `Village.demolish`): the `count`-th of chain day `day`, `cobbles` its price (5, doubled after each one of the day),
+       * `balance` the player's cobbles after it.
+       */
+      name: "DemolitionPaid";
+      playerId: bigint;
+      day: bigint;
+      count: number;
+      cobbles: bigint;
+      balance: bigint;
+    }
+  | {
       /** The player's active skins after a `set_skins`: the whole packed word and its `SKIN_PLANS` themes, plan 1 first (0: the default). */
       name: "SkinsActivated";
       playerId: bigint;
@@ -272,6 +285,10 @@ export const SKIN_PRICE_MIN = 50;
 export const SKIN_PRICE_MAX = 100;
 /** The most parcels a village buys (`MAX_PARCELS` of `Village`, #640): 38 cells, the 9 of the start included. */
 export const MAX_PARCELS = 29;
+/** The price of a day's demolition after `count` of them (`demolition_price` of `Village`): 5 x 2^count, the exponent at most 58. */
+export function demolitionPrice(count: number): bigint {
+  return 5n << BigInt(Math.min(count, 58));
+}
 
 /**
  * The themes of a `SkinsActivated` word (`Setup`'s `active_word`): the theme of plan `p` in byte `p - 1`, 19 bytes, plan 1
@@ -326,6 +343,7 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   SkinsActivated: ["setup"],
   // The village (#640): the parcels paid in cobbles.
   ParcelPaid: ["setup"],
+  DemolitionPaid: ["setup"],
   Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
@@ -420,6 +438,7 @@ const INDEXED: readonly EventName[] = [
   "SkinBought",
   "SkinsActivated",
   "ParcelPaid",
+  "DemolitionPaid",
   "Sold",
   "Purchased",
   "Recorded",
@@ -777,6 +796,18 @@ export function decode(
       const cobbles = small(data[1], 32, "cobbles");
       if (cobbles === 0) throw new DecodeError(`${name}: a parcel of 0 cobbles`);
       return { name, playerId: felt(keys[1]), parcel, cobbles, balance: u64(data[2], "balance") };
+    }
+    case "DemolitionPaid": {
+      // key player_id; data day (u64), count (u32), cobbles (u64), balance (u64). The count-th demolition of the day costs
+      // 5 x 2^(count - 1).
+      shape(name, keys, data, 1, 4);
+      const count = small(data[1], 32, "count");
+      if (count < 1) throw new DecodeError(`${name}: count 0`);
+      const cobbles = u64(data[2], "cobbles");
+      if (cobbles !== demolitionPrice(count - 1)) {
+        throw new DecodeError(`${name}: price ${cobbles} for demolition ${count} of the day, expected ${demolitionPrice(count - 1)}`);
+      }
+      return { name, playerId: felt(keys[1]), day: u64(data[0], "day"), count, cobbles, balance: u64(data[3], "balance") };
     }
     case "SkinsActivated": {
       // key player_id; data active (felt252): 19 bytes, the theme of plan p in byte p - 1

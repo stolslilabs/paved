@@ -28,5 +28,7 @@ export {
   startTerritory,
   parcelPrice,
   parcelLevel,
+  DEMOLITION_COBBLES,
+  demolitionPrice,
 } from "./village";
 export type { Cell as TerritoryCell } from "./village";

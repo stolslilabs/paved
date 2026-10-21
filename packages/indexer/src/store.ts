@@ -251,6 +251,16 @@ const SCHEMA = `
     UNIQUE (player_id, parcel)
   );
   CREATE INDEX IF NOT EXISTS parcel_purchases_player ON parcel_purchases (player_id, block, tx, idx);
+  -- DemolitionPaid (the village, #640): a demolition paid, the count-th of the player's chain day (count follows count - 1 of the
+  -- same day); cobbles is its price, balance the player's cobbles after it, in the same running ledger.
+  CREATE TABLE IF NOT EXISTS demolition_purchases (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, day INTEGER NOT NULL, count INTEGER NOT NULL, cobbles INTEGER NOT NULL, balance INTEGER NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx),
+    UNIQUE (player_id, day, count)
+  );
+  CREATE INDEX IF NOT EXISTS demolition_purchases_player ON demolition_purchases (player_id, block, tx, idx);
   -- SkinsActivated: the player's whole active word after a set_skins (a 0x felt, 66 characters); the last row of a player is its
   -- active set (19 themes, plan 1 first, 0 the default).
   CREATE TABLE IF NOT EXISTS skin_actives (
@@ -915,6 +925,30 @@ export class Store {
             });
             break;
           }
+          case "DemolitionPaid": {
+            const player = padded(event.playerId);
+            const what = `DemolitionPaid of ${player} (day ${event.day}, demolition ${event.count}) ${where}`;
+            // A day's demolitions are counted one by one: demolition k of a day follows demolition k - 1 of the same day.
+            const made = Number((this.sql.demolitionCount.get(player, Number(event.day)) as Row).n);
+            if (event.count !== made + 1) throw new Halt(`${what}: the player made ${made} that day before it`);
+            const expected = this.sql.cobbleBalance(player) - event.cobbles;
+            if (expected !== event.balance) {
+              throw new Halt(`${what}: balance ${event.balance}, the ledger before it gives ${expected}`);
+            }
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertDemolitionPurchase.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              day: Number(event.day),
+              count: event.count,
+              cobbles: Number(event.cobbles),
+              balance: Number(event.balance),
+              time: block.timestamp,
+            });
+            break;
+          }
           case "SkinsActivated": {
             const player = padded(event.playerId);
             const what = `SkinsActivated of ${player} ${where}`;
@@ -1087,6 +1121,7 @@ export class Store {
       this.sql.rewindSkinActives.run(to);
       this.sql.rewindSkinPurchases.run(to);
       this.sql.rewindParcelPurchases.run(to);
+      this.sql.rewindDemolitionPurchases.run(to);
       this.sql.rewindSkinPrices.run(to);
       this.sql.rewindPackPurchases.run(to);
       this.sql.rewindSales.run(to);
@@ -1133,6 +1168,7 @@ export class Store {
     | "skin_purchases"
     | "skin_actives"
     | "parcel_purchases"
+    | "demolition_purchases"
     | "events"
     | "blocks",
     Row[]
@@ -1159,6 +1195,7 @@ export class Store {
       skin_purchases: all("SELECT * FROM skin_purchases ORDER BY block, tx, idx"),
       skin_actives: all("SELECT * FROM skin_actives ORDER BY block, tx, idx"),
       parcel_purchases: all("SELECT * FROM parcel_purchases ORDER BY block, tx, idx"),
+      demolition_purchases: all("SELECT * FROM demolition_purchases ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1363,13 +1400,18 @@ function statements(db: DatabaseSync) {
        VALUES (:block, :tx, :idx, :player_id, :parcel, :cobbles, :balance, :time)`,
     ),
     parcelCount: db.prepare("SELECT count(*) AS n FROM parcel_purchases WHERE player_id = ?"),
+    insertDemolitionPurchase: db.prepare(
+      `INSERT INTO demolition_purchases (block, tx, idx, player_id, day, count, cobbles, balance, time)
+       VALUES (:block, :tx, :idx, :player_id, :day, :count, :cobbles, :balance, :time)`,
+    ),
+    demolitionCount: db.prepare("SELECT count(*) AS n FROM demolition_purchases WHERE player_id = ? AND day = ?"),
     cobbleClaim: db.prepare("SELECT 1 FROM cobble_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
     creditClaim: db.prepare("SELECT 1 FROM credit_claims WHERE player_id = ? AND kind = ? AND period = ?"),
     creditSpend: db.prepare("SELECT 1 FROM credit_spends WHERE game_id = ?"),
     freeGame: db.prepare(
       `SELECT player_id FROM games WHERE contract = 'challenge' AND game_id = ? AND price = '${padded(0n)}'`,
     ),
-    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack, skin and parcel purchases), 0 / 0 before any.
+    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack, skin, parcel and demolition purchases), 0 / 0 before any.
     cobbleBalance: (player: string): bigint => {
       const row = db
         .prepare(
@@ -1381,6 +1423,8 @@ function statements(db: DatabaseSync) {
              SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p
              UNION ALL
              SELECT block, tx, idx, balance FROM parcel_purchases WHERE player_id = :p
+             UNION ALL
+             SELECT block, tx, idx, balance FROM demolition_purchases WHERE player_id = :p
            ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
         )
         .get({ p: player }) as { balance: number } | undefined;
@@ -1406,6 +1450,7 @@ function statements(db: DatabaseSync) {
     rewindSkinPrices: db.prepare("DELETE FROM skin_prices WHERE block > ?"),
     rewindSkinPurchases: db.prepare("DELETE FROM skin_purchases WHERE block > ?"),
     rewindParcelPurchases: db.prepare("DELETE FROM parcel_purchases WHERE block > ?"),
+    rewindDemolitionPurchases: db.prepare("DELETE FROM demolition_purchases WHERE block > ?"),
     rewindSkinActives: db.prepare("DELETE FROM skin_actives WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
