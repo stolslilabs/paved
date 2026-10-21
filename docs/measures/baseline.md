@@ -1668,3 +1668,43 @@ A game's spawn and game over are unchanged by the skins beyond these figures: th
 (`oom-kill`, exit 143). The whole `snforge test --max-threads 2` that followed, on the warm build, peaked at 5,705,536 kB (5.4 GiB)
 and took 13 min 21 s.
 
+## After CHALLENGE-VRF (#645, the Challenge on the VRF)
+
+Every move that leaves a tile to queue draws it from the VRF, and every spawn draws once (D-30,
+`docs/architecture/challenge-vrf.md`). Measured on the Mac, 2026-10-21, scarb 2.20.1, snforge 0.64.0 (`/usr/bin/time -l`,
+peak 9.79 GB RSS for the gas run of the base, 9.75 GB for the whole suite of the branch). `contracts/tests/gas.cairo`
+gives one external call each, through the devnet mock. The base is an export of `704ff688` (`git archive`), measured the
+same way. The tests' own `next_tx` (a transaction of its own per call) runs outside each measure.
+
+| Scenario | Base | #645 | Change | Ceiling #645 |
+|---|---:|---:|---:|---:|
+| a0_open_simple_move | 4,577,029 | 5,702,486 | +1,125,457 | 5,987,611 |
+| a_simple_move | 4,948,265 | 6,177,663 | +1,229,398 | 6,486,547 |
+| c_close_large_city | 5,353,974 | 6,066,378 | +712,404 | 6,369,697 |
+| d_worst_case | 5,189,434 | 6,518,773 | +1,329,339 | 6,844,712 |
+| e_close_forest | 8,328,395 | 9,817,090 | +1,488,695 | 10,307,945 |
+| f_worst_forest_scan | 17,823,234 | 19,212,688 | +1,389,454 | 20,173,323 |
+| g_closing_move_in_its_day | 3,823,584 | 3,847,810 | +24,226 | 4,011,404 (kept) |
+| l_game_over_on_build | 7,230,343 | 7,575,305 | +344,962 | 7,588,501 (kept) |
+| m_spawn_daily | 15,662,732 | 17,480,193 | +1,817,461 | 18,354,203 |
+| n_spawn_daily_referred | 16,557,602 | 18,375,063 | +1,817,461 | 19,293,817 |
+| s_game_over_on_discard | 4,044,769 | 4,389,631 | +344,862 | 4,609,113 |
+| z5_spawn_free | 6,523,290 | 8,340,761 | +1,817,471 | 8,757,800 |
+| z16_move_without_draw (new) | | 4,694,160 | | 4,928,868 |
+| z17_move_fills_the_queue (new) | | 6,270,729 | | 6,584,266 |
+| z18_set_vrf_provider (new) | | 272,150 | | 285,758 |
+
+The other surrenders and game overs (i, k, x, y, z6) move by +24,226 or less, under their ceilings, which are kept. The
+Vault, the packs, the skins, the claims and z15 do not move.
+
+- **A move's draw** is about 1.0M (a0 against z16, its twin with nothing to queue). That is the component's call (z15,
+  986,461) and the pick of the tile.
+- **A move with no draw** costs 0.12M (z16 against a0 before) to 0.34M (l, s) more. That is `Challenge` reading the game
+  to decide whether the move draws, before the provider's call.
+- **A spawn's draw** is about 1.8M, with its three picks.
+- c rose less than the other drawing moves (+0.71M); the reason was not isolated.
+
+**Test budgets.** Every `#[available_gas]` that the change pushed over (99 tests: e2e, golden, differential, seed and the
+others) is reset to the measured figure + 5 %, from a whole run of the branch with those budgets lifted (957 passed, 10
+failed: the ten gas ceilings above, reset since). Part of the rise is the tests' own: each Challenge call runs in a
+transaction of its own (`setup::next_tx`, two cheatcodes per call).

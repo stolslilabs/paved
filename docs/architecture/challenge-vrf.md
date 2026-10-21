@@ -169,27 +169,101 @@ UI shows the queue's last slot as pending until the receipt's `Queued` arrives.
 `request_random`, so every spawn and every drawing move reverts on Cartridge's provider (`NOT_FULFILLED`). The devnet
 mock answers without a request, so an older client still plays on devnet, with a wrong predicted tile.
 
-## 4. Tests, gas and size
+## 4. Tests, gas and size (as built)
+
+**Tests.**
 
 - **Every test that plays a Challenge game runs on the mock VRF.** `setup::spawn_game` deploys `MockVrfProvider` and
-  sets it on `Challenge`. The test dispatcher gives each `spawn`, `build`, `discard` and `surrender` its own
-  transaction hash, since one draw per transaction is the rule and snforge's hash is otherwise one for the whole test.
-- **The goldens.** They spawn through `Challenge.spawn` on the mock, not on the day seed any more. The forced games
-  keep their boards and scores, and their `drawn` plans are recorded again. The real-deck games (`daily_deck`,
-  `daily_full_deck`) are recorded again, the full deck through its generator (`test_full_deck_generate`). The
-  differential boards force every plan and do not change.
-- **New tests** (`tests::e2e::challenge_vrf`):
-  - the queue at spawn and after moves;
-  - the draw index and salt of each draw;
-  - the end of the deck;
-  - the legacy path;
-  - the provider's rules (no provider, not first consume, a second draw in one transaction);
-  - fuzzing: the queue never holds a tile beyond `tile_limit`, the deck counts are conserved, and a retried move
-    draws the same tile.
-- **Gas.** `contracts/tests/gas.cairo` gets the spawn and a drawing move over the mock. Cartridge's part
-  (`submit_random`, `assert_consumed`) is measured on Sepolia, as #638 rules.
-- **CASM.** `Challenge` is measured with `scripts/class-sizes.sh` against the P-44 cap (72,947). It is split
-  (P-44) only if it crosses the cap.
+  sets it on `Challenge` (`setup::set_mock_vrf`). The test dispatcher (`setup::TestChallenge`) runs each `spawn`,
+  `spawn_free`, `build`, `discard` and `surrender` in a transaction of its own (`setup::next_tx`), and the test goes on in
+  a fresh one. One draw per transaction is the rule, and snforge's hash is otherwise one for the whole test.
+- **The goldens.** They spawn through `Challenge.spawn` on the mock (`harness::spawn_golden`, the player's spawn `n` for
+  `day(n)`), not on the day seed any more. The forced games keep their boards and scores, and their `drawn` plans are
+  recorded again. `daily_deck` keeps its 0. `daily_full_deck` is a new game (final 7,586), chosen by its generator, with
+  the oracle's walks giving every score (`golden-games.md`, "Regenerated in CHALLENGE-VRF"). The differential boards
+  force every plan and do not change.
+- **New tests** (`tests::challenge_vrf`, coverage group `tests-challenge-vrf`). Each expected draw is computed from the
+  mock's formula and the salt of section 2.1, then replayed on an in-memory `Game`:
+  - the spawn's seed, deck and three tiles, and the three `Queued`;
+  - the spawn salt per player, and a reverted spawn that counts nothing;
+  - a move's shift and its N+2 draw, the `draw` view, and a build that draws as a discard does;
+  - a retried move draws the same tile;
+  - the end of the deck: the last two moves and the game over draw nothing (the provider's consume count);
+  - the legacy fill: three tiles from one draw, and the mark set;
+  - the provider's rules: one draw per transaction, nothing draws without a provider, `set_vrf_provider` (owner only,
+    never zero, `VrfProviderSet`), and a surrender draws nothing;
+  - a fuzz over the tile limit (4 to 38). The queue never holds a tile beyond the limit and is full while it can be.
+    Every tile is drawn once (one `Queued` each), and each draw is its salt's.
+- **Changed tests.**
+  - The re-entrant spawn is now refused (`'VRF: one draw per tx'`). The spawn and the expiry replay use the VRF seed.
+  - G1's upgrade test counts the queue's fill.
+  - The frozen pre-D-18 class gets a game without a queue (section 2.4, "A rollback").
+  - The storage pins and the store's round trip cover the new slots and bits (`upgrades.md`, "CHALLENGE-VRF").
+
+**Gas** (`contracts/tests/gas.cairo`, one external call each, L2 gas, scarb 2.20.1, snforge 0.64.0, the Mac; the base is
+an export of `704ff688`, measured the same way):
+
+| Scenario | Base | #645 | Change |
+|---|---:|---:|---:|
+| a0, an open move (draws) | 4,577,029 | 5,702,486 | +1,125,457 |
+| a, a simple move (draws) | 4,948,265 | 6,177,663 | +1,229,398 |
+| e, a forest closes (draws) | 8,328,395 | 9,817,090 | +1,488,695 |
+| f, the worst forest scan (draws) | 17,823,234 | 19,212,688 | +1,389,454 |
+| l, game over on a build (no draw) | 7,230,343 | 7,575,305 | +344,962 |
+| s, game over on a discard (no draw) | 4,044,769 | 4,389,631 | +344,862 |
+| g, a surrender | 3,823,584 | 3,847,810 | +24,226 |
+| m, a paid spawn | 15,662,732 | 17,480,193 | +1,817,461 |
+| z5, a free spawn | 6,523,290 | 8,340,761 | +1,817,471 |
+| z16, a0 with nothing to queue | | 4,694,160 | |
+| z17, a0 filling a legacy game's queue (three tiles, one draw) | | 6,270,729 | |
+| z18, `set_vrf_provider` | | 272,150 | |
+
+- **A move's draw** costs about 1.0M (a0 against z16). That is the component (#638's z15: 986,461) and the pick.
+- **A move that does not draw** costs about 0.12M to 0.34M more than before. That is the second read of the game, to
+  decide whether it draws, before the provider's call (`Challenge::move_random`).
+- **The spawn's draw** costs about 1.8M, its three picks included.
+- Cartridge's part (`submit_random`, `assert_consumed`) is measured on Sepolia, as #638 rules.
+- The ceilings that the change crossed are reset to measured + 5 % (`baseline.md`, "After CHALLENGE-VRF").
+
+**CASM** (`scripts/class-sizes.sh`, release, the Mac): `Challenge` goes from 64,826 to 69,494 felts (+4,668).
+
+- That is 84.8 % of Starknet's cap, and **3,453 felts under the P-44 cap (72,947; 4.7 % of it)**, against 8,121 before.
+- No split is needed. The next feature that grows `Challenge` by that much needs one (`class-headroom.md`,
+  "After CHALLENGE-VRF").
+- `Story` grows by 187 felts, from the `Queued` variant of `paved::events::Event`.
+
+### 4.1 Audit: correctness and security
+
+The Challenge is where money comes out (R-10). Each point below was checked in the code and, where it says so, by a
+test.
+
+- **No player choice enters a draw.** The spawn's salt is the player and its spawn count. A move's salt is the game and
+  the id of the queued tile. Neither the position, the orientation, nor build against discard enters it. The draw reads
+  the deck bitmap, which only the draws change. Tested: a build and a discard draw the same tile.
+- **A revert does not reroll.**
+  - A reverted move or spawn writes nothing: not the spawn count, not the last draw's transaction. So its retry draws
+    the same random. Tested for a move and for a spawn.
+  - If Cartridge's paymaster lands a reverted transaction with its proof (open point 2), the player learns that draw
+    early. They cannot change it: the retry draws the same.
+  - At the spawn, the most such a player can do is spend that index on a free game (`spawn_free` shares the count),
+    since credits are limited.
+- **The draw is the transaction's first and only one** (#638's rules, in the component). A spawn re-entered from the
+  token's `transferFrom` is refused (`tests::e2e::cold_paths_audit`).
+- **Checks before the draw.**
+  - The spawn checks the pause and the wiring before it draws, and `spawn_free` checks the pause.
+  - A move draws only when it can be played: the game is live and not expired, and the caller is its player. So an
+    invalid move fails with its own error, not the provider's.
+  - The provider is called before `PlayableComponent` reads the game it writes, so no state read before the call is
+    written after it.
+- **Bits.**
+  - The queue is in bits that every slot written before holds as 0.
+  - The counters are now read through a 24-bit mask, so the queue does not leak into them.
+  - `Store::set_builder` keeps the queue. Tested at every bit's maximum.
+- **Trust.** The provider is the owner's (`set_vrf_provider`, owner only, never zero). An owner who sets a dishonest
+  provider chooses the draws, as an owner who upgrades the class can. The mock refuses mainnet, and `deploy.sh` refuses it
+  off devnet.
+- **A rollback to a class before #645** cannot read a VRF game: its counters' read takes the queue's bits and panics.
+  Roll back only with no VRF game in flight (`upgrades.md`).
 
 ## 5. Open points
 

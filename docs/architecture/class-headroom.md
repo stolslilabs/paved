@@ -688,3 +688,23 @@ The four add up to +1,312 of the +1,383. Two variants were measured and dropped:
 - C5 as a flat table of one `u32` per plan saved 390 felts but cost 46,415 L2 gas per build;
 - C3 with the side tiles kept in the walker cost about 930 felts more (`baseline.md`, "After G7a").
 
+## After CHALLENGE-VRF (#645, the Challenge on the VRF)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, release, the Mac, 2026-10-21). The base is an export of `704ff688`
+(`git archive`), measured the same way.
+
+| Class | Sierra base | CASM base | Sierra #645 | CASM #645 | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Challenge` | 29,831 | 64,826 | 31,512 | 69,494 | +4,668 | 84.8 % |
+| `Story` | 25,656 | 58,650 | 25,698 | 58,837 | +187 | 71.8 % |
+
+**`Challenge` is 3,453 CASM felts under the P-44 cap (72,947; 4.7 % of the cap)**, against 8,121 on the base.
+
+- What it adds:
+  - `DrawableComponent` (about 800 felts, `vrf-draws.md`, section 6);
+  - the queue (`GameImpl::advance`, the legacy fill's two extra picks, `move_draw`), the `Queued` events and the second
+    read of the game before a move;
+  - the views `draw` and `spawn_salt` and the owner's `set_vrf_provider`.
+- `Story` grows by the `Queued` variant of `paved::events::Event`, which it declares and never emits.
+- No split now (P-44). The next feature that adds that much to `Challenge` takes the split first: the cold paths
+  (`set_setup`, the guardian, `set_vrf_provider`) or the views are the first candidates.
