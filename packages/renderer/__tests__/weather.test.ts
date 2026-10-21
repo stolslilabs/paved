@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { AmbientLoop } from "../src/core/ambient-loop";
-import { createSnowUniforms } from "../src/core/snow-shader";
+import { SNOW_FRAGMENT_GLSL, createSnowUniforms } from "../src/core/snow-shader";
 import { TileRenderer } from "../src/core/TileRenderer";
 import { Weather, gradeOf } from "../src/core/weather";
 import {
@@ -24,23 +24,44 @@ function weatherOf(settings: WeatherSettings = DEFAULT_WEATHER_SETTINGS) {
   return { weather, snow, time };
 }
 
-describe("the weather (#607 PR 2): the settings", () => {
-  it("are subtle by default: a light rain and snow, grades of a fifth at most, faint shafts", () => {
+describe("the weather (#607 PR 2, #658): the settings", () => {
+  it("are subtle by default: a light rain and snow, grades of a fifth at most", () => {
     const d = DEFAULT_WEATHER_SETTINGS;
     expect(d.autumn.rain.density).toBeLessThanOrEqual(0.4);
     expect(d.winter.snow.density).toBeLessThanOrEqual(0.4);
     for (const season of ["summer", "autumn", "winter", "spring"] as const) expect(d[season].grade.amount).toBeLessThanOrEqual(0.25);
-    expect(d.spring.rays.opacity).toBeLessThanOrEqual(0.15);
-    expect(d.summer.shimmer).toBeLessThanOrEqual(0.02);
+  });
+
+  it("are the owner's review (2026-10-20): autumn as the study's defaults, a light snow veil, summer and spring a brightness only", () => {
+    const d = DEFAULT_WEATHER_SETTINGS;
+    // Autumn: the study's default settings, kept as they were (not the Exaggerated story's).
+    expect(d.autumn).toEqual({
+      enabled: true,
+      grade: { color: "#c9d0d8", amount: 0.2 },
+      rain: { enabled: true, density: 0.3, speed: 1, size: 1, opacity: 0.25, wind: 4 },
+      splashes: 0.35,
+      leaves: { enabled: true, density: 0.25, speed: 1, size: 1, opacity: 0.9, wind: 2.5 },
+      clouds: 1.4,
+    });
+    // Winter: the snowfall as it was, the snow on the tops a light veil (a tenth of the snow's colour, mixed in linear light).
+    expect(d.winter.snow).toEqual({ enabled: true, density: 0.3, speed: 1, size: 1, opacity: 0.75, wind: 0.6 });
+    expect(d.winter.veil).toBeLessThanOrEqual(0.12);
+    // Summer and spring: a raised brightness and their grade, no glare, shimmer or shafts; no petals in spring.
+    expect(Object.keys(d.summer).sort()).toEqual(["brightness", "enabled", "grade"]);
+    expect(Object.keys(d.spring).sort()).toEqual(["brightness", "enabled", "grade", "petals"]);
+    expect(d.summer.brightness).toBeGreaterThan(0);
+    expect(d.spring.brightness).toBeGreaterThan(0);
+    expect(d.spring.petals.enabled).toBe(false);
   });
 
   it("take the fields given over the base, and keep the base's for a value of the wrong kind or out of range", () => {
-    const s = resolveWeatherSettings({ area: 2, autumn: { rain: { density: 0.8, opacity: 3 } }, winter: { cover: 1 }, summer: { grade: { color: "orange" } } });
+    const s = resolveWeatherSettings({ area: 2, autumn: { rain: { density: 0.8, opacity: 3 } }, winter: { cover: 1, veil: 2 }, summer: { grade: { color: "orange" } } });
     expect(s.area).toBe(DEFAULT_WEATHER_SETTINGS.area);
     expect(s.autumn.rain.density).toBe(0.8);
     expect(s.autumn.rain.opacity).toBe(DEFAULT_WEATHER_SETTINGS.autumn.rain.opacity);
     expect(s.autumn.leaves).toEqual(DEFAULT_WEATHER_SETTINGS.autumn.leaves);
     expect(s.winter.cover).toBe(1);
+    expect(s.winter.veil).toBe(DEFAULT_WEATHER_SETTINGS.winter.veil);
     expect(s.summer.grade.color).toBe(DEFAULT_WEATHER_SETTINGS.summer.grade.color);
     expect(resolveWeatherSettings({ enabled: "yes" as never })).toEqual(DEFAULT_WEATHER_SETTINGS);
   });
@@ -67,14 +88,18 @@ describe("the weather (#607 PR 2): the settings", () => {
 });
 
 describe("the weather: what each season draws", () => {
-  it("draws each season's own: summer the grade and glare, autumn rain and leaves, winter snow and cover, spring rays and petals", () => {
+  it("draws each season's own: summer and spring a brighter grade, autumn rain and leaves, winter snow and its veil", () => {
     const { weather, snow } = weatherOf();
+    const overlay = weather.object.children.find((c) => c.name === "weather-grade") as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
     weather.setMode("moving");
     weather.setCycle(noon("summer"));
     let s = weather.stats();
     expect(s.particles).toEqual({ rain: 0, leaves: 0, snow: 0, petals: 0 });
-    expect([s.rays, s.cover]).toEqual([0, 0]);
+    expect(s.cover).toBe(0);
     expect(s.drawCalls).toBe(1);
+    // The grade raises the light (a tint above 1): the brightness.
+    const tint = overlay.material.uniforms.uTint!.value as THREE.Color;
+    expect(tint.r).toBeGreaterThan(1);
 
     weather.setCycle(noon("autumn"));
     // A change while the weather moves fades in on the loop: snap it by stepping past the fade.
@@ -91,13 +116,29 @@ describe("the weather: what each season draws", () => {
     expect(s.particles.snow).toBeGreaterThan(0);
     expect(s.particles.rain).toBe(0);
     expect(snow.uSnowCover.value).toBeCloseTo(DEFAULT_WEATHER_SETTINGS.winter.cover);
+    expect(snow.uSnowVeil.value).toBe(DEFAULT_WEATHER_SETTINGS.winter.veil);
 
     weather.setCycle(noon("spring"));
     for (let t = 20; t <= 30; t += 0.1) weather.step(t);
     s = weather.stats();
-    expect(s.rays).toBeGreaterThan(0);
-    expect(s.particles.petals).toBeGreaterThan(0);
+    expect(s.particles).toEqual({ rain: 0, leaves: 0, snow: 0, petals: 0 });
+    expect(s.drawCalls).toBe(1);
+    expect((overlay.material.uniforms.uTint!.value as THREE.Color).g).toBeGreaterThan(1);
     expect(snow.uSnowCover.value).toBe(0);
+    // Spring's grade is still: once faded in, it asks for no frame.
+    expect(weather.step(30.1)).toBe(false);
+    weather.dispose();
+  });
+
+  it("draws no glow: the grade is one tint, with no glare, shimmer, shafts or time in its shader", () => {
+    const { weather } = weatherOf();
+    const overlay = weather.object.children.find((c) => c.name === "weather-grade") as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    expect(Object.keys(overlay.material.uniforms)).toEqual(["uTint"]);
+    expect(overlay.material.fragmentShader).not.toMatch(/glare|shimmer|ray|uTime|exp\(/i);
+    // It writes an alpha of 0: it multiplies the board's light (`dst * tint`) and adds none.
+    expect(overlay.material.fragmentShader).toContain("vec4(uTint, 0.0)");
+    expect(overlay.material.blendSrc).toBe(THREE.SrcAlphaFactor);
+    expect(overlay.material.blendDst).toBe(THREE.SrcColorFactor);
     weather.dispose();
   });
 
@@ -115,7 +156,7 @@ describe("the weather: what each season draws", () => {
     weather.dispose();
   });
 
-  it("under reduced motion, nothing falls: the grades, the glare, the rays held and the snow on the tops stay; no frame is asked", () => {
+  it("under reduced motion, nothing falls: the grades, the brightness and the snow on the tops stay; no frame is asked", () => {
     const { weather, snow } = weatherOf();
     weather.setMode("still");
     weather.setCycle(noon("winter"));
@@ -126,8 +167,7 @@ describe("the weather: what each season draws", () => {
     expect(weather.stats()).toMatchObject({ particles: { rain: 0, leaves: 0 }, splashes: 0, drawCalls: 1 });
     expect(snow.uSnowCover.value).toBe(0);
     weather.setCycle(noon("spring"));
-    expect(weather.stats().rays).toBeGreaterThan(0);
-    expect(weather.stats().particles.petals).toBe(0);
+    expect(weather.stats()).toMatchObject({ particles: { petals: 0 }, drawCalls: 1 });
     weather.dispose();
   });
 
@@ -143,11 +183,11 @@ describe("the weather: what each season draws", () => {
     weather.dispose();
   });
 
-  it("at night the glare, the rays and the grades go with the sun; the snow still falls, dimmer", () => {
+  it("at night the grades and the brightness go with the sun; the snow still falls, dimmer", () => {
     const { weather } = weatherOf();
     weather.setMode("moving");
     weather.setCycle(night("spring"));
-    expect(weather.stats()).toMatchObject({ daylight: 0, rays: 0, drawCalls: 1 });
+    expect(weather.stats()).toMatchObject({ daylight: 0, drawCalls: 0 });
     weather.setCycle(night("winter"));
     weather.step(0);
     for (let t = 0; t <= 10; t += 0.1) weather.step(t);
@@ -182,10 +222,8 @@ describe("the weather: what each season draws", () => {
     expect(loop.tick(0)).toBe(true);
     expect(loop.tick(40)).toBe(true);
     weather.setCycle(noon("summer"));
-    const summer = resolveWeatherSettings({ summer: { shimmer: 0 } });
-    weather.setSettings(summer);
     for (let t = 80; t < 5000; t += 40) loop.tick(t);
-    // Summer with no shimmer: a still grade and glare, no frame of its own.
+    // Summer: a still grade, no frame of its own once autumn has faded out.
     expect(loop.tick(5040)).toBe(false);
     loop.dispose();
     weather.dispose();
@@ -196,26 +234,10 @@ describe("the weather: what each season draws", () => {
     weather.setMode("still");
     weather.setCycle(noon("spring"));
     expect(weather.stats()).toMatchObject({ presence: { spring: 1 }, drawCalls: 1 });
-    expect(weather.stats().rays).toBeGreaterThan(0);
     weather.setSettings(resolveWeatherSettings({ spring: { enabled: false } }));
-    expect(weather.stats()).toMatchObject({ presence: { spring: 0 }, rays: 0, drawCalls: 0 });
+    expect(weather.stats()).toMatchObject({ presence: { spring: 0 }, drawCalls: 0 });
     weather.setSettings(DEFAULT_WEATHER_SETTINGS);
     expect(weather.stats()).toMatchObject({ presence: { spring: 1 }, drawCalls: 1 });
-    weather.dispose();
-  });
-
-  it("the shimmer runs at its speed, and a speed of 0 stops it (no shimmer, no frame of its own)", () => {
-    const { weather } = weatherOf(resolveWeatherSettings({ summer: { shimmerSpeed: 2.5 } }));
-    const overlay = weather.object.children.find((c) => c.name === "weather-grade") as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
-    weather.setMode("moving");
-    weather.setCycle(noon("summer"));
-    expect(overlay.material.uniforms.uShimmerSpeed!.value).toBe(2.5);
-    expect(overlay.material.uniforms.uShimmer!.value).toBeGreaterThan(0);
-    expect(overlay.material.fragmentShader).toContain("uTime * uShimmerSpeed");
-    expect(weather.step(1)).toBe(true);
-    weather.setSettings(resolveWeatherSettings({ summer: { shimmerSpeed: 0 } }));
-    expect(overlay.material.uniforms.uShimmer!.value).toBe(0);
-    expect(weather.step(2)).toBe(false);
     weather.dispose();
   });
 
@@ -239,6 +261,7 @@ describe("the weather: what each season draws", () => {
     expect(disposed).toHaveLength(12);
     expect(parent.children).toHaveLength(0);
     expect(snow.uSnowCover.value).toBe(0);
+    expect(snow.uSnowVeil.value).toBe(0);
   });
 
   it("a grade is white at no share and its colour, mixed by its amount, at full share", () => {
@@ -250,6 +273,16 @@ describe("the weather: what each season draws", () => {
 });
 
 describe("the weather: the snow on the tiles' tops (the tile shader)", () => {
+  it("is a light veil in rounded, soft-edged patches: a noise read at the fragment's place, never on a voxel or a cell (owner, #607)", () => {
+    // No floor of the world place: no voxel, no cell, so no square edge.
+    expect(SNOW_FRAGMENT_GLSL).not.toMatch(/floor\(vCloudWorld|step\(n, uSnowCover\)/);
+    expect(SNOW_FRAGMENT_GLSL).toContain("vec2 p = vCloudWorld.xz /");
+    // A wide soft threshold, scaled by the veil.
+    expect(SNOW_FRAGMENT_GLSL).toMatch(/uSnowVeil \* smoothstep\(n - 0\.\d+, n \+ 0\.\d+, uSnowCover\)/);
+    // Two octaves, the second turned: no grid lines along the axes.
+    expect(SNOW_FRAGMENT_GLSL).toContain("mat2(0.8, -0.6, 0.6, 0.8)");
+  });
+
   it("whitens the faces up after the normal is known, through shared uniforms, off at 0", () => {
     const tiles = new TileRenderer({} as never);
     const material = new THREE.MeshStandardMaterial();
