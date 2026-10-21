@@ -2926,7 +2926,8 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
   board, over), which get a top bar with Back, the title centred and a hairline under it. The balances (#620) sit in the
   page header (the Cobbles and USDC plates; USDC opens a sheet with every balance) and, on a flow, in a strip under the top
   bar; on every screen but the board.
-- **Desktop:** the same five items, icon beside label (Play a gold disc, icon only), in a header fixed across the top: the
+- **Desktop:** four items, icon beside label, Home, Missions, Vault, Settings (no Play: the owner's review #668; Play is
+  reached from the Home page), in a header fixed across the top: the
   voxel wordmark on the left, the items, then the balances (#538, #620: a resource bar, each currency on a plate, vPAVED when
   held) in a row at the header's end; a flow's top bar shows them on its right. No rail: every page is one column (`flex-col`) at every
   width. Dialogs instead of sheets.
