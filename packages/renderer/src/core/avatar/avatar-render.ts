@@ -34,9 +34,14 @@ export const AVATAR_STYLES: readonly AvatarStyle[] = ["voxel", "grid"];
 /** The three-quarter view: the head turned this far (radians) and seen from this far above (radians). */
 export const ICON_YAW = -0.62;
 export const ICON_PITCH = 0.36;
-/** Half the height the camera frames, in voxels, and where it aims above the head's centre: room for a hat, the head ~60 % of the circle. */
-const FRAME_HALF = 8.8;
-const FRAME_TARGET_Y = 0.9;
+/**
+ * Half the height the camera frames, in voxels, and where it aims above the head's centre: the tallest hat and the longest
+ * beard stay inside the circle at every turn, the bare head about 55 % of it.
+ */
+const FRAME_HALF = 10;
+const FRAME_TARGET_Y = 1.3;
+/** The share of the circle's radius every avatar stays inside, whatever its parts and its turn (a test checks it). */
+export const AVATAR_FIT = 0.98;
 
 /** Each direction's quad: the normal and its four corners in a unit cube, counter-clockwise seen from outside. */
 const QUADS: readonly { n: [number, number, number]; c: [number, number, number][] }[] = [

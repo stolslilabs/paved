@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WebGLRenderer } from "three";
+import { Vector3, type WebGLRenderer } from "three";
 import { decodePng } from "./helpers/png";
 import {
   AVATAR_PARTS,
@@ -21,7 +21,7 @@ import {
 import { AVATAR_PALETTE } from "../src/core/avatar/avatar-palette";
 import { FACES, HEAD, PAINTED_VARIANTS, VoxelHead, buildHead, faceGrids, faceVoxel } from "../src/core/avatar/avatar-model";
 import { BACKGROUND_COUNT, BACKGROUND_GRID, backgroundPixels } from "../src/core/avatar/avatar-backgrounds";
-import { AvatarStills, buildAvatarObject, voxelGeometry } from "../src/core/avatar/avatar-render";
+import { AVATAR_FIT, AvatarStills, ICON_YAW, buildAvatarObject, createStage, voxelGeometry } from "../src/core/avatar/avatar-render";
 
 const MODELS = fileURLToPath(new URL("../../app/asset-sources/models", import.meta.url));
 /** The Starknet field's prime: a felt252 holds any value below it. */
@@ -168,6 +168,45 @@ describe("the head's geometry", () => {
     grid.dispose();
     expect(voxel.object.children).toHaveLength(0);
     expect(grid.object.children).toHaveLength(0);
+  });
+});
+
+describe("the frame", () => {
+  /** The farthest a voxel's corner reaches from the circle's centre, as a share of its radius, with the head at a turn. */
+  function reach(head: VoxelHead, yaw: number): number {
+    const { camera, pivot } = createStage();
+    pivot.rotation.y = yaw;
+    pivot.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    const v = new Vector3();
+    let far = 0;
+    for (const [x, y, z] of head.voxels()) {
+      for (let corner = 0; corner < 8; corner++) {
+        v.set(x + (corner & 1) - HEAD / 2, y + ((corner >> 1) & 1) - HEAD / 2, z + ((corner >> 2) & 1) - HEAD / 2)
+          .applyMatrix4(pivot.matrixWorld)
+          .project(camera);
+        far = Math.max(far, Math.hypot(v.x, v.y));
+      }
+    }
+    return far;
+  }
+
+  it("keeps every hair, beard and headwear, together, inside the circle at the icon's turn and all round", () => {
+    const yaws = [ICON_YAW, ...Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2)];
+    let worst = 0;
+    for (let hair = 0; hair < AVATAR_PARTS.hair.length; hair++) {
+      for (let beard = 0; beard < AVATAR_PARTS.beard.length; beard++) {
+        for (let headwear = 0; headwear < AVATAR_PARTS.headwear.length; headwear++) {
+          const head = buildHead({ ...DEFAULT_AVATAR, hair, beard, headwear, accessory: 1 });
+          for (const yaw of yaws) worst = Math.max(worst, reach(head, yaw));
+        }
+      }
+    }
+    expect(worst).toBeLessThanOrEqual(AVATAR_FIT);
+    // The wizard hat, the tallest part, whole: its tip is inside too.
+    expect(reach(buildHead({ ...DEFAULT_AVATAR, headwear: 7 }), ICON_YAW)).toBeLessThanOrEqual(AVATAR_FIT);
+    // And the bare head is not shrunk to a dot to make room: over half the circle.
+    expect(reach(buildHead(DEFAULT_AVATAR), ICON_YAW)).toBeGreaterThan(0.7);
   });
 });
 

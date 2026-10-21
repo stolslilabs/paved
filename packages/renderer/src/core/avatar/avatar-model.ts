@@ -109,12 +109,12 @@ const HAIRS: readonly ((head: VoxelHead, t: Tones) => void)[] = [
     for (let col = 0; col <= M; col++) before(head, 0, col, t.hair);
     for (let col = 0; col <= 4; col++) before(head, 1, col, col % 2 ? t.hair : t.hairShade);
   },
-  // Long: down the sides and the back, past the chin.
+  // Long: down the sides and the back, to the chin.
   (head, t) => {
     cap(head, t, 1, (z) => (z < 4 ? HEAD : 2), HEAD);
     pair(head, 1, 0, t.hair);
     topLayer(head, HEAD, (x, z) => ((x * z) % 4 === 1 ? t.hairShade : t.hair));
-    for (let y = -2; y <= M; y++) {
+    for (let y = -1; y <= M; y++) {
       for (let z = -1; z <= 4; z++) {
         const hex = (y + z) % 3 === 0 ? t.hairShade : t.hair;
         head.set(-1, y, z, hex);
@@ -335,8 +335,7 @@ const BEARDS: readonly ((head: VoxelHead, t: Tones) => void)[] = [
   (head, t) => {
     fullBeard(head, t);
     for (let x = 1; x <= 6; x++) for (let z = 5; z <= HEAD; z++) head.set(x, -2, z, (x + z) % 3 ? t.hair : t.hairShade);
-    for (let x = 2; x <= 5; x++) for (let z = 6; z <= HEAD; z++) head.set(x, -3, z, (x + z) % 2 ? t.hair : t.hairShade);
-    for (let z = 7; z <= HEAD; z++) for (const x of [3, 4]) head.set(x, -4, z, t.hairShade);
+    for (let x = 3; x <= 4; x++) for (let z = 7; z <= HEAD; z++) head.set(x, -3, z, (x + z) % 2 ? t.hair : t.hairShade);
   },
 ];
 
@@ -486,7 +485,7 @@ const HEADWEAR: readonly ((head: VoxelHead, t: Tones) => void)[] = [
     const light = hexOf("gold");
     clearAbove(head);
     cover(head, 1, straw);
-    for (let x = -2; x <= HEAD + 1; x++) for (let z = -2; z <= HEAD + 1; z++) head.set(x, HEAD, z, (x + z) % 2 ? straw : light);
+    for (let x = -1; x <= HEAD; x++) for (let z = -1; z <= HEAD; z++) head.set(x, HEAD, z, (x + z) % 2 ? straw : light);
     for (const y of [HEAD + 1, HEAD + 2]) topLayer(head, y, (x, z) => ((x + z) % 2 ? light : straw), () => true, 1, M - 1);
     ring(head, HEAD + 1, -1, () => hexOf("brick"));
   },
@@ -546,10 +545,8 @@ const HEADWEAR: readonly ((head: VoxelHead, t: Tones) => void)[] = [
       for (const [dx, y, hex] of [
         [1, M - 1, horn],
         [2, M, horn],
-        [3, HEAD, horn],
-        [3, HEAD + 1, horn],
-        [3, HEAD + 2, tip],
-        [2, HEAD + 3, tip],
+        [2, HEAD, horn],
+        [2, HEAD + 1, tip],
       ] as const) {
         head.set(-dx, y, z, hex);
         head.set(M + dx, y, z, hex);
@@ -577,7 +574,7 @@ const HEADWEAR: readonly ((head: VoxelHead, t: Tones) => void)[] = [
     head.set(0, base + 1, 4, hexOf("shallows"));
     if (base === HEAD) for (let x = 0; x <= M; x++) head.set(x, M, M, deep);
   },
-  // Wizard hat: a tall cone with gold stars, its tip bent back.
+  // Wizard hat: a cone with gold stars, its tip bent back (kept inside the circle: `AVATAR_FIT`).
   (head) => {
     const cloth = hexOf("violet");
     const dark = hexOf("plum");
@@ -586,9 +583,9 @@ const HEADWEAR: readonly ((head: VoxelHead, t: Tones) => void)[] = [
     cover(head, 1, cloth);
     for (let x = -1; x <= HEAD; x++) for (let z = -1; z <= HEAD; z++) head.set(x, HEAD, z, dark);
     const tiers: [number, number][] = [
-      [0, 2],
-      [1, 2],
-      [2, 2],
+      [0, 1],
+      [1, 1],
+      [2, 1],
       [3, 1],
     ];
     let y = HEAD + 1;
@@ -597,8 +594,8 @@ const HEADWEAR: readonly ((head: VoxelHead, t: Tones) => void)[] = [
     }
     head.set(3, y, 2, cloth);
     head.set(4, y, 2, cloth);
-    head.set(3, y + 1, 1, dark);
-    head.set(3, y + 1, 0, star);
+    head.set(3, y, 1, dark);
+    head.set(3, y, 0, star);
     ring(head, HEAD + 1, 0, () => star);
   },
 ];
