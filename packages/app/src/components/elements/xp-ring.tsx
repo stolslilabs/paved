@@ -5,7 +5,7 @@ import { useMotionValue, useReducedMotionConfig, useTransform } from "motion/rea
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
 
-/** Where the player stands (#625): their level, the XP made in it, and the XP that completes it. */
+/** Where the player stands (issue 625): their level, the XP made in it, and the XP that completes it. */
 export interface PlayerProgress {
   level: number;
   xp: number;
@@ -27,9 +27,12 @@ export function xpGained(from: PlayerProgress, to: PlayerProgress): number {
 
 /** Each avatar size's box (`PlayerAvatar`'s) and the ring's width in its band. */
 const GEOMETRY = {
-  md: { box: 44, stroke: 3, rise: -18 },
+  md: { box: 44, stroke: 3, rise: -22 },
   lg: { box: 96, stroke: 5, rise: -28 },
 } as const;
+
+/** Where the "+N XP" starts: the small avatar's centre (in a header at the top of the screen it ends at the avatar's top), the large one's top. */
+const GAIN_FROM = { md: "top-1/2 -mt-2", lg: "top-0" } as const;
 
 const BADGE = {
   md: "-right-1 -bottom-1 h-5 min-w-5 px-1 text-xs",
@@ -49,7 +52,7 @@ export interface XpRingProps {
 }
 
 /**
- * The XP ring and level badge around `PlayerAvatar` (#625), drawn in its band (pass it as the avatar's children). The arc is
+ * The XP ring and level badge around `PlayerAvatar` (issue 625), drawn in its band (pass it as the avatar's children). The arc is
  * the share of the current level. A gain fills the arc to its new share and a "+N XP" rises and fades; a level up completes
  * the arc, turns the badge over to the next number with a short burst, then fills the new level. Under reduced motion the
  * values change at once with a brief flash, and nothing moves. Decorative, like the avatar: the control that holds it says the level.
@@ -108,7 +111,7 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
   return (
     <span data-slot="xp-ring" aria-hidden className={cn("pointer-events-none absolute inset-0", className)}>
       <svg viewBox={`0 0 ${box} ${box}`} className="absolute inset-0 size-full -rotate-90 overflow-visible">
-        <circle cx={box / 2} cy={box / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-muted" />
+        <circle cx={box / 2} cy={box / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-primary/25" />
         <m.circle cx={box / 2} cy={box / 2} r={r} fill="none" strokeWidth={stroke} strokeLinecap="round" className="stroke-primary" style={{ pathLength: share, opacity: arcOpacity }} />
       </svg>
 
@@ -128,21 +131,22 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
         <span key={burst} data-slot="xp-burst" className="absolute inset-0">
           <m.span
             className="absolute inset-0 rounded-full border-2 border-primary"
-            initial={{ scale: 1, opacity: 0.7 }}
-            animate={{ scale: 1.45, opacity: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            initial={{ scale: 1, opacity: 0.6 }}
+            animate={{ scale: 1.3, opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
             onAnimationComplete={() => setBurst((b) => (b === burst ? null : b))}
           />
           {Array.from({ length: SPARKS }, (_, i) => {
             const angle = (i / SPARKS) * Math.PI * 2;
-            const reach = box * 0.62;
+            // From the ring's edge outwards, clear of the avatar's face.
+            const [from, to] = [box / 2, box * 0.7];
             return (
               <m.span
                 key={i}
                 className="absolute top-1/2 left-1/2 -mt-0.5 -ml-0.5 size-1 rounded-full bg-primary"
-                initial={{ x: 0, y: 0, opacity: 0.9 }}
-                animate={{ x: Math.cos(angle) * reach, y: Math.sin(angle) * reach, opacity: 0 }}
-                transition={{ duration: 0.55, ease: "easeOut" }}
+                initial={{ x: Math.cos(angle) * from, y: Math.sin(angle) * from, opacity: 0.8 }}
+                animate={{ x: Math.cos(angle) * to, y: Math.sin(angle) * to, opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
               />
             );
           })}
@@ -153,7 +157,7 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
         <m.span
           key={gain.id}
           data-slot="xp-gain"
-          className="numeric absolute top-0 left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap text-primary [text-shadow:0_1px_2px_var(--background)]"
+          className={cn("numeric absolute left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap text-primary [text-shadow:0_1px_2px_var(--background)]", GAIN_FROM[size])}
           initial={{ y: 0, opacity: 0 }}
           animate={{ y: rise, opacity: [0, 1, 1, 0] }}
           transition={{ duration: 1.2, ease: "easeOut", times: [0, 0.15, 0.7, 1] }}
@@ -163,14 +167,14 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
         </m.span>
       )}
 
-      {level !== undefined && (
+      {progress && level !== undefined && (
         <span data-slot="level-badge" className={cn("absolute grid place-items-center overflow-hidden rounded-full border-2 border-background bg-primary perspective-[200px]", BADGE[size])}>
           <m.span
             key={level}
             className="numeric leading-none font-bold text-primary-foreground"
-            initial={burst === null ? false : { rotateX: -90, opacity: 0 }}
-            animate={{ rotateX: 0, opacity: 1 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
+            initial={burst === null ? false : { rotateX: -90 }}
+            animate={{ rotateX: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
           >
             {formatInteger(level)}
           </m.span>
