@@ -24,6 +24,7 @@ const PAGES = {
   cobbles: () => import("../src/routes/pages/cobbles"),
   quests: () => import("../src/routes/pages/quests"),
   referral: () => import("../src/routes/pages/referral"),
+  vault: () => import("../src/routes/pages/vault"),
   settings: () => import("../src/routes/pages/settings"),
   achievements: () => import("../src/routes/pages/achievements"),
   theme: () => import("../src/routes/pages/theme"),
