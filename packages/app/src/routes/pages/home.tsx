@@ -1,5 +1,5 @@
 import { toastError } from "../../components/containers/error-toast";
-import type { PlayerStatusData } from "../../components/containers/player-status";
+import type { PlayerStatusData } from "../../components/containers/profile-sheet";
 import { HomeScene } from "../../components/scenes/home-scene";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { useCobbleAccount } from "../../data/cobbles";

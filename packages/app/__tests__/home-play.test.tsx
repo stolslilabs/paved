@@ -59,11 +59,25 @@ describe("/ (P6): home on its data", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_PLAYING.id}`));
   });
 
+  it("the player is the avatar at the top left (#624): its sheet names them and disconnects; no player card", async () => {
+    const { wallet } = open("/");
+    await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`, {}, { timeout: 5000 });
+    expect(screen.queryByText(/games · best/)).toBeNull();
+    // The page header's avatar and the navigation's (one shown at each width).
+    const avatars = screen.getAllByRole("button", { name: /^Profile: / });
+    expect(avatars).toHaveLength(2);
+    await userEvent.click(avatars[0]!);
+    const sheet = await screen.findByRole("dialog");
+    await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
+    expect(wallet.calls).toContain("disconnect");
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Profile: guest" })).toHaveLength(2));
+  });
+
   it("no wallet: the guest's connect call, no game to resume; Connect connects", async () => {
     const { wallet } = open("/", { guest: true });
     expect(await screen.findByText("Playing as a guest", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText(/in progress/)).toBeNull();
-    await userEvent.click(within(screen.getByText("Playing as a guest").closest("[data-slot=card]") as HTMLElement).getByRole("button", { name: "Connect" }));
+    await userEvent.click(within(screen.getByText("Playing as a guest").closest("[role=status]") as HTMLElement).getByRole("button", { name: "Connect" }));
     expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
     expect(wallet.calls).toContain("connect");
   });
