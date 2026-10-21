@@ -1,0 +1,60 @@
+name: Vercel preview
+
+# Previews on demand (docs/client/f-release.md, "Vercel"): Vercel deploys only `main` from git. The label `preview` on a pull
+# request deploys its head commit to the client and the Storybook, and so does every later push while the label stays; the
+# job then comments the URLs on the pull request. Remove the label to stop. Needs the repository secret VERCEL_TOKEN.
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    # The label just added is `preview`, or a push to a pull request that holds it. Not from a fork: it gets no secret.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      ((github.event.action == 'labeled' && github.event.label.name == 'preview') ||
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'preview')))
+    runs-on: ubuntu-latest
+    name: Deploy previews
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    # A newer push replaces the run of the older one.
+    concurrency:
+      group: vercel-preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      REF: ${{ github.event.pull_request.head.ref }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -o pipefail
+          sh scripts/vercel/preview.sh "$REF" "$SHA" | tee previews.txt
+        shell: bash
+      # One comment, edited by each run. CANCELED: none of the project's inputs changed since the merge base with main.
+      - name: Comment the URLs
+        if: always() && hashFiles('previews.txt') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "**Vercel previews** of ${SHA:0:7} (label \`preview\`; remove it to stop the previews of new pushes)"
+            echo
+            echo "| Project | State | URL |"
+            echo "|---|---|---|"
+            awk '{ printf "| `%s` | %s | %s |\n", $1, $2, $3 }' previews.txt
+            echo
+            echo "CANCELED: none of the project's inputs changed since the merge base with \`main\`, so nothing was built."
+          } > comment.md
+          gh pr comment "$PR" --edit-last --create-if-none --body-file comment.md
+        shell: bash

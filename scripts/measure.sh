@@ -77,6 +77,7 @@ COVERAGE_GROUPS=(
   "tests-story|paved::tests::story|"
   "tests-vrf|paved::tests::vrf|"
   "tests-walk-cost|paved::tests::walk_cost|"
+  "tests-xp-level|paved::tests::xp_level|"
   "gas|test_gas_|"
   "profile-g7|test_profile_g7_|"
 )

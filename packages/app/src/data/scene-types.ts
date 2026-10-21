@@ -4,12 +4,14 @@ import type { AchievementsSceneProps } from "../components/scenes/achievements-s
 import type { BoardSceneProps } from "../components/scenes/board-scene";
 import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { HomeSceneProps } from "../components/scenes/home-scene";
+import type { ProfileSheetProps } from "../components/containers/profile-sheet";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import type * as chain from "./chain";
 import type * as indexer from "./indexer";
+import type * as playerProgress from "./player-progress";
 import type * as purchase from "./purchase";
 import type * as training from "./training";
 
@@ -26,6 +28,8 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof chain.useActiveGame>, HomeSceneProps["activeGame"]>>,
   Expect<Equal<Data<typeof training.useTrainingSave>, HomeSceneProps["training"]>>,
   Expect<Equal<Data<typeof chain.useSpawnPaused>, HomeSceneProps["spawnPaused"]>>,
+  // the XP ring and the profile sheet (#625): null is no player, the sheet takes undefined for it
+  Expect<Equal<NonNullable<Data<typeof playerProgress.usePlayerProgress>>, NonNullable<ProfileSheetProps["progress"]>>>,
   // purchase
   Expect<Equal<Data<typeof chain.useQuote>, OrNull<PurchaseSceneProps["quote"]>>>,
   Expect<Equal<Data<typeof chain.useSplit>, OrNull<PurchaseSceneProps["split"]>>>,

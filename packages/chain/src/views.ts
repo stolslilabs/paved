@@ -17,6 +17,7 @@ import {
   type Struct,
 } from "./cobbles";
 import type { Deployment } from "./deployment";
+import { playerLevel, playerLevelOf, type LevelViews, type PlayerLevel } from "./level";
 import { SKIN_PLANS, type FakeSkinPlayer, type SkinViews } from "./skins";
 
 /**
@@ -202,7 +203,7 @@ export interface CallProvider {
 export const MAX_PAGE = 64;
 
 /** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`). */
-export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinViews {
+export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinViews, LevelViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -270,6 +271,10 @@ export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinView
     return achievementCobbles(achievementId, (await this.call("Setup", "achievement_cobbles", [achievementId])) as Struct);
   }
 
+  async playerLevel(playerId: string): Promise<PlayerLevel> {
+    return playerLevel((await this.call("Setup", "player_level", [playerId])) as Struct);
+  }
+
   async pack(packId: number): Promise<PackView> {
     return packView(packId, (await this.call("Setup", "pack", [packId])) as Struct);
   }
@@ -323,7 +328,7 @@ function gameKeyId(key: GameKey): string {
 }
 
 /** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins too. */
-export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinViews {
+export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinViews, LevelViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -451,6 +456,11 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinVie
   async achievementCobbles(achievementId: number): Promise<AchievementCobbles> {
     this.cobbleCall(`achievement_cobbles ${achievementId}`);
     return { ...(this.achievementRates.get(achievementId) ?? { achievementId, cobbles: 0, task: 0, total: 0 }) };
+  }
+
+  async playerLevel(playerId: string): Promise<PlayerLevel> {
+    this.cobbleCall(`player_level ${BigInt(playerId)}`);
+    return playerLevelOf(this.cobblePlayers.get(BigInt(playerId).toString())?.account.xp ?? 0);
   }
 
   async pack(packId: number): Promise<PackView> {

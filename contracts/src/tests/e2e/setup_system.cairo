@@ -4,7 +4,7 @@
 
 use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::constants;
-use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait, Setup};
+use paved::systems::setup::{GAME_XP, ISetupDispatcher, ISetupDispatcherTrait, Setup, XP_CHALLENGE};
 use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER, SOMEONE};
 use quiver_achievement::component::AchievementComponent;
 use quiver_achievement::events::index::{AchievementProgressed, AchievementReporterSet};
@@ -135,9 +135,10 @@ fn test_setup_report_owner_is_not_a_reporter() {
 }
 
 /// A reporter reports for the player it names: one `QuestProgressed` per quest entry and one
-/// `AchievementProgressed` per achievement entry, nothing else.
+/// `AchievementProgressed` per achievement entry, and the `XpGained` of its game over (#641),
+/// nothing else.
 #[test]
-#[available_gas(l2_gas: 7182725)]
+#[available_gas(l2_gas: 7699811)]
 fn test_setup_reporter_reports_every_entry() {
     let system = setup_with_reporter();
     let address = system.contract_address;
@@ -164,9 +165,21 @@ fn test_setup_reporter_reports_every_entry() {
                 (address, achievement_progressed('PLAYER', 1, 1)),
                 (address, achievement_progressed('PLAYER', 4, 2)),
                 (address, achievement_progressed('PLAYER', 7, 1)),
+                (
+                    address,
+                    Setup::Event::XpGained(
+                        Setup::XpGained {
+                            player_id: 'PLAYER',
+                            source: XP_CHALLENGE,
+                            xp: GAME_XP,
+                            total: GAME_XP,
+                            level: 1,
+                        },
+                    ),
+                ),
             ],
         );
-    assert(spy.get_events().events.len() == 5, 'Setup: other events');
+    assert(spy.get_events().events.len() == 6, 'Setup: other events');
 }
 
 // The tutorial claim

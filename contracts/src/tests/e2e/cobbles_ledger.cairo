@@ -8,10 +8,10 @@
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::num::traits::Bounded;
 use paved::systems::setup::{
-    Account, AccountPacking, AchievementCobbles, AchievementCobblesPacking, DAILY, DAY,
+    Account, AccountPacking, AchievementCobbles, AchievementCobblesPacking, DAILY, DAY, GAME_XP,
     ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupCobblesSafeDispatcher,
     ISetupCobblesSafeDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
-    ISetupSafeDispatcherTrait, Progress, ProgressPacking, QuestCobbles, QuestCobblesPacking,
+    ISetupSafeDispatcherTrait, MAX_XP, Progress, ProgressPacking, QuestCobbles, QuestCobblesPacking,
     QuestCobblesTrait, Setup, WEEK, WEEKLY, WEEK_START, list_ids, list_word, schedule_kind, week_of,
 };
 use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER};
@@ -201,7 +201,7 @@ fn round_trip_achievement(value: AchievementCobbles) {
 }
 
 #[test]
-#[available_gas(l2_gas: 1921093)]
+#[available_gas(l2_gas: 2410684)]
 fn test_cobbles_packing_round_trips_at_zero_one_and_maximum() {
     let m16 = Bounded::<u16>::MAX;
     let m32 = Bounded::<u32>::MAX;
@@ -217,6 +217,7 @@ fn test_cobbles_packing_round_trips_at_zero_one_and_maximum() {
             big: 1,
             high: 1,
             achievements_claimed: 1,
+            xp: 1,
         },
     );
     round_trip_account(
@@ -229,11 +230,14 @@ fn test_cobbles_packing_round_trips_at_zero_one_and_maximum() {
             big: m16,
             high: m16,
             achievements_claimed: m64,
+            xp: MAX_XP,
         },
     );
     // [Info] Each field alone at its maximum: no field spills into a neighbour
     round_trip_account(Account { wonders: m16, ..Default::default() });
     round_trip_account(Account { big: m16, ..Default::default() });
+    round_trip_account(Account { achievements_claimed: m64, ..Default::default() });
+    round_trip_account(Account { xp: MAX_XP, ..Default::default() });
     round_trip_progress(Default::default());
     round_trip_progress(
         Progress { games: 1, structures: 1, forests: 1, points: 1, claimed: 1, credit: true },
@@ -310,6 +314,8 @@ fn test_cobbles_counters_saturate() {
     assert_eq!(account.high, 65535);
     assert_eq!(account.cobbles, 0);
     assert_eq!(account.credits, 0);
+    // [Info] The XP of 2^32 games saturates too (#641)
+    assert_eq!(account.xp, MAX_XP);
 }
 
 // Calendar (7.1)
@@ -1160,6 +1166,7 @@ fn test_cobbles_report_writes_the_ledger() {
             big: 2,
             high: 1,
             achievements_claimed: 0,
+            xp: 2 * GAME_XP,
         },
     );
     // [Info] Day 1, before week 0: the day only

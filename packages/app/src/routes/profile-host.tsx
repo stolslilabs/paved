@@ -2,6 +2,7 @@ import { useCallback, useMemo, type ReactNode } from "react";
 import { ProfileProvider } from "../components/containers/profile-context";
 import type { ProfileState } from "../components/containers/profile-sheet";
 import { usePlayerStatus } from "../data/indexer";
+import { usePlayerProgress } from "../data/player-progress";
 import { useAccount } from "../wallet/wallet";
 
 /** The clipboard, or a failed copy without it (an insecure origin, an old browser). */
@@ -16,6 +17,8 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const wallet = useAccount();
   const address = wallet.address;
   const status = usePlayerStatus(address);
+  // The level and XP of the ring (#625): `Setup.player_level` (#641).
+  const progress = usePlayerProgress(address);
   const state = useMemo<ProfileState>(() => {
     if (wallet.status === "restoring") return { status: "loading" };
     if (!address) return { status: "guest", connecting: wallet.status === "connecting" };
@@ -29,6 +32,7 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   }, [wallet.status, wallet.username, address, status.data]);
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);
   const onDisconnect = useCallback(() => wallet.disconnect(), [wallet]);
-  const value = useMemo(() => ({ state, onConnect, onDisconnect, onCopy: copy }), [state, onConnect, onDisconnect]);
+  const shown = progress.isPending ? undefined : (progress.data ?? undefined);
+  const value = useMemo(() => ({ state, progress: shown, onConnect, onDisconnect, onCopy: copy }), [state, shown, onConnect, onDisconnect]);
   return <ProfileProvider value={value}>{children}</ProfileProvider>;
 }

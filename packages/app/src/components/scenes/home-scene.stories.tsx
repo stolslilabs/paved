@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { PROGRESS } from "../../mocks/players";
 import { HOME } from "../../mocks/scenes";
 import { ProfileProvider } from "../containers/profile-context";
 import { HomeScene } from "./home-scene";
@@ -15,7 +16,7 @@ const meta = {
   args: { onPlay: fn(), onChallenge: fn(), onTraining: fn(), onStory: fn(), onResume: fn(), onConnect: fn(), onNavigate: fn(), onPlayFree: fn() },
   decorators: [
     (Story, { args }) => (
-      <ProfileProvider value={{ state: args.player ? { status: "connected", data: args.player } : { status: "guest", connecting: args.connecting }, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
+      <ProfileProvider value={{ state: args.player ? { status: "connected", data: args.player } : { status: "guest", connecting: args.connecting }, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
         <Story />
       </ProfileProvider>
     ),
