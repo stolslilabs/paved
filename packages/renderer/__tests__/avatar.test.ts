@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Vector3, type WebGLRenderer } from "three";
+import { Matrix4, type WebGLRenderer } from "three";
 import { decodePng } from "./helpers/png";
 import {
   AVATAR_PARTS,
@@ -104,19 +104,29 @@ describe("the avatar's parts", () => {
   });
 
   it("keeps the head a whole cube and every part close round it", () => {
+    // Counted, then asserted once: an expect per voxel makes this test seconds long on a CI runner.
     const random = seededRandom(31);
+    const holes: string[] = [];
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
     for (let i = 0; i < 300; i++) {
-      const head = buildHead(randomAvatar(random));
-      for (let x = 0; x < HEAD; x++) for (let y = 0; y < HEAD; y++) for (let z = 0; z < HEAD; z++) expect(head.has(x, y, z)).toBe(true);
+      const avatar = randomAvatar(random);
+      const head = buildHead(avatar);
+      for (let x = 0; x < HEAD; x++) for (let y = 0; y < HEAD; y++) for (let z = 0; z < HEAD; z++) if (!head.has(x, y, z)) holes.push(`${avatarKey(avatar)} ${x},${y},${z}`);
       for (const [x, y, z] of head.voxels()) {
-        expect(x).toBeGreaterThanOrEqual(-3);
-        expect(x).toBeLessThanOrEqual(HEAD + 2);
-        expect(z).toBeGreaterThanOrEqual(-2);
-        expect(z).toBeLessThanOrEqual(HEAD + 2);
-        expect(y).toBeGreaterThanOrEqual(-4);
-        expect(y).toBeLessThanOrEqual(HEAD + 9);
+        [x, y, z].forEach((v, axis) => {
+          lo[axis] = Math.min(lo[axis], v);
+          hi[axis] = Math.max(hi[axis], v);
+        });
       }
     }
+    expect(holes).toEqual([]);
+    expect(lo[0]).toBeGreaterThanOrEqual(-3);
+    expect(hi[0]).toBeLessThanOrEqual(HEAD + 2);
+    expect(lo[1]).toBeGreaterThanOrEqual(-4);
+    expect(hi[1]).toBeLessThanOrEqual(HEAD + 9);
+    expect(lo[2]).toBeGreaterThanOrEqual(-2);
+    expect(hi[2]).toBeLessThanOrEqual(HEAD + 2);
   });
 
   it("paints with the base tile models' palette: each colour is its entry's", () => {
@@ -172,41 +182,56 @@ describe("the head's geometry", () => {
 });
 
 describe("the frame", () => {
-  /** The farthest a voxel's corner reaches from the circle's centre, as a share of its radius, with the head at a turn. */
-  function reach(head: VoxelHead, yaw: number): number {
-    const { camera, pivot } = createStage();
-    pivot.rotation.y = yaw;
-    pivot.updateMatrixWorld(true);
-    camera.updateMatrixWorld(true);
-    const v = new Vector3();
+  const stage = createStage();
+  /** The camera's matrix with the head turned to a yaw: the orthographic projection is affine, one matrix a turn. */
+  function view(yaw: number): Matrix4 {
+    stage.pivot.rotation.y = yaw;
+    stage.pivot.updateMatrixWorld(true);
+    stage.camera.updateMatrixWorld(true);
+    return new Matrix4().multiplyMatrices(stage.camera.projectionMatrix, stage.camera.matrixWorldInverse).multiply(stage.pivot.matrixWorld);
+  }
+
+  /**
+   * The corners that can reach farthest from the circle's centre: those of the voxels outside the head's cube, and the cube's
+   * own (the voxels inside it are skipped), as x, y, z triples centred on the head.
+   */
+  function outline(head: VoxelHead): number[] {
+    const points: number[] = [];
+    const corners = (x: number, y: number, z: number) => {
+      for (let k = 0; k < 8; k++) points.push(x + (k & 1) - HEAD / 2, y + ((k >> 1) & 1) - HEAD / 2, z + ((k >> 2) & 1) - HEAD / 2);
+    };
+    for (const [x, y, z] of head.voxels()) if (!VoxelHead.inHead(x, y, z)) corners(x, y, z);
+    for (let k = 0; k < 8; k++) corners((k & 1) * (HEAD - 1), ((k >> 1) & 1) * (HEAD - 1), ((k >> 2) & 1) * (HEAD - 1));
+    return points;
+  }
+
+  /** The farthest of the points from the circle's centre on screen, as a share of its radius (the projection is affine). */
+  function reach(points: number[], matrix: Matrix4): number {
+    const e = matrix.elements;
     let far = 0;
-    for (const [x, y, z] of head.voxels()) {
-      for (let corner = 0; corner < 8; corner++) {
-        v.set(x + (corner & 1) - HEAD / 2, y + ((corner >> 1) & 1) - HEAD / 2, z + ((corner >> 2) & 1) - HEAD / 2)
-          .applyMatrix4(pivot.matrixWorld)
-          .project(camera);
-        far = Math.max(far, Math.hypot(v.x, v.y));
-      }
+    for (let i = 0; i < points.length; i += 3) {
+      const [x, y, z] = [points[i], points[i + 1], points[i + 2]];
+      far = Math.max(far, Math.hypot(e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13]));
     }
     return far;
   }
 
   it("keeps every hair, beard and headwear, together, inside the circle at the icon's turn and all round", () => {
-    const yaws = [ICON_YAW, ...Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2)];
+    const views = [ICON_YAW, ...Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2)].map(view);
     let worst = 0;
     for (let hair = 0; hair < AVATAR_PARTS.hair.length; hair++) {
       for (let beard = 0; beard < AVATAR_PARTS.beard.length; beard++) {
         for (let headwear = 0; headwear < AVATAR_PARTS.headwear.length; headwear++) {
-          const head = buildHead({ ...DEFAULT_AVATAR, hair, beard, headwear, accessory: 1 });
-          for (const yaw of yaws) worst = Math.max(worst, reach(head, yaw));
+          const points = outline(buildHead({ ...DEFAULT_AVATAR, hair, beard, headwear, accessory: 1 }));
+          for (const matrix of views) worst = Math.max(worst, reach(points, matrix));
         }
       }
     }
     expect(worst).toBeLessThanOrEqual(AVATAR_FIT);
     // The wizard hat, the tallest part, whole: its tip is inside too.
-    expect(reach(buildHead({ ...DEFAULT_AVATAR, headwear: 7 }), ICON_YAW)).toBeLessThanOrEqual(AVATAR_FIT);
+    expect(reach(outline(buildHead({ ...DEFAULT_AVATAR, headwear: 7 })), view(ICON_YAW))).toBeLessThanOrEqual(AVATAR_FIT);
     // And the bare head is not shrunk to a dot to make room: over half the circle.
-    expect(reach(buildHead(DEFAULT_AVATAR), ICON_YAW)).toBeGreaterThan(0.7);
+    expect(reach(outline(buildHead(DEFAULT_AVATAR)), view(ICON_YAW))).toBeGreaterThan(0.7);
   });
 });
 
