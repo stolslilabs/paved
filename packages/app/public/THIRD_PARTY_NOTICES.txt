@@ -334,7 +334,7 @@ as images; the sources and terms of each follow.
   (MIT) follows.
 - cobbles.svg: Font Awesome Pro 6.6.0, solid `cubes-stacked`, under the
   owner's Font Awesome Commercial License (above), filled and outlined.
-- paved.svg, vpaved.svg, variants/: written for Paved (Apache 2.0). Their "P"
+- paved.svg, vpaved.svg: written for Paved (Apache 2.0). Their "P"
   is the letter of Almendra Bold (above, SIL Open Font License 1.1), turned
   into outlines: an image made with the font, not the Font Software.
 

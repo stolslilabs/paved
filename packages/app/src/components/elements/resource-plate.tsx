@@ -11,7 +11,9 @@ const plateVariants = cva(
   "relative inline-flex items-center rounded-full border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)] whitespace-nowrap",
   {
     variants: {
-      size: { sm: "h-8 gap-1.5 pr-2.5 pl-0.5 text-sm", md: "h-11 gap-2 pr-3.5 pl-1 text-lg" },
+      // The balances' rule (`TOKEN_GAP`, issue 668): the coin at the same inset on every side, half of the height left inside the border
+      // (sm 32 − 2 − 24 = 6, md 44 − 2 − 32 = 10), a gap of a quarter of the coin, the figure ending one inset plus one gap from the rim.
+      size: { sm: "h-8 gap-1.5 pr-[9px] pl-[3px] text-sm", md: "h-11 gap-2 pr-[13px] pl-[5px] text-lg" },
       /** `invite`: the Cobbles' plate (issue 620), a gold edge, a "+" and a slow shine: it leads to the packs. */
       tone: { default: "border-resource-edge", invite: "border-primary/60" },
     },
