@@ -46,7 +46,8 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
             )}
             <div className="flex min-w-0 flex-col">
               {/* The mark on the title's line, after it (#622). One line each: the header's height is fixed, a cut line keeps its whole text in `title`. */}
-              <span title={title} className="truncate">
+              {/* Cut sideways only (`overflow-x: clip`): the display font's glyphs stand taller than its line. */}
+              <span title={title} className="overflow-x-clip text-ellipsis whitespace-nowrap">
                 <h1 className="inline font-display text-3xl font-semibold tracking-wide">{title}</h1>
                 <MockMarkSlot className="ml-2 align-[0.375rem]" />
               </span>

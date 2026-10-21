@@ -37,7 +37,8 @@ const withShell: Decorator = (Story) => (
  * HEADER-HEIGHT (#676): every page outside the board, one story each, in the shell's providers (the avatar, the balances).
  * Each page's header, the one marked `data-slot="page-header"` (the `TopBar`, the tab pages' title row, Home's top row, and
  * from `desktop` the navigation's header), is `--header-h` tall, one value per breakpoint (theme.css), so the content starts
- * at the same height on every page. `scripts/header-sweep.ts` measures them at 375 and 1440 px.
+ * at the same height on every page. `scripts/header-sweep.ts` measures them at 375 and 1440 px. Captures, Home, Vault and
+ * Play side by side before and after: `captures/header-height/header-height-{375,1440}-{before,after}.webp`.
  */
 const meta = { title: "Pages/Headers", decorators: [withShell], parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
