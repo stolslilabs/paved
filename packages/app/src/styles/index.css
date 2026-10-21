@@ -3,3 +3,5 @@
 
 /* The Storybook-only directions (#537) carry their own utilities; the app's stylesheet must not scan them. */
 @source not "../directions";
+/* The avatar's stories (#626 PR 1) are Storybook-only too: their utilities stay out of the app's stylesheet. */
+@source not "../stories/avatar";
