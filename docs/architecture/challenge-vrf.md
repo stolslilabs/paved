@@ -283,6 +283,25 @@ test.
    they read every future draw, not only the next two. The two-tile horizon bounds what the UI shows, not that leak.
 2. **The deck sheet.** It counts the rest as before (`remainingCount`, the queued tiles included). Whether it lists the
    two queued tiles apart is a UI choice for later.
-3. **`deploy.sh`'s Sepolia smoke.** On Sepolia `Challenge` draws through Cartridge's provider. A draw there needs
-   Cartridge's server to prove the seed inside its VRF wrapper, and the smoke's plain invokes cannot get that (its spawn
-   and build would revert `NOT_FULFILLED`). This is pending the owner's choice (section 6).
+3. **`deploy.sh`'s Sepolia smoke:** ruled (section 6).
+
+## 6. The Sepolia smoke (the owner's ruling, 2026-10-21: option A)
+
+On Sepolia, `Challenge` draws through Cartridge's provider. That provider takes a draw only when Cartridge's server has
+proved its seed inside the server's VRF wrapper. `deploy.sh`'s smoke spawns, builds and surrenders with plain invokes, which
+would revert `NOT_FULFILLED`. The owner chose option A:
+
+- **Before the smoke.** The fresh Sepolia run deploys the devnet's `MockVrfProvider`. `fresh_vrf_step` sets it as
+  `Challenge`'s provider, right after the guardian, and the smoke's draws come from it.
+- **The file.** The mock is never written in the deployment file. On Sepolia the client draws through Cartridge's
+  provider (`vrfProvider` resolves it by network).
+- **After the smoke.** `fresh_vrf_final_step` sets Cartridge's provider and reads it back (`vrf_final_tx`, listed by
+  `--check-only`). A run that stops before that step leaves the mock set; the rerun's smoke is done already, and the step
+  sends it.
+- **The window.** It reverses #638's "the mock is refused off devnet" for the smoke's window only. During that window a
+  game spawned on the new address would draw from the mock, whose randoms anyone can compute. The window ends before the
+  address is published to players. The mock still refuses mainnet, and `deploy.sh` refuses it there by name.
+
+No deployment is made with #645 (the owner's rule). The change is in `deploy.sh`, untested on a live Sepolia node; the
+script's tests cover its key listing (`scripts/test-deploy-url.sh`).
+
