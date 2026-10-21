@@ -5,8 +5,8 @@ Track CORE's design for #641, part of the PvP plan #637. The owner's decisions o
 - The village's parcels are gated by the player's level (#640).
 - #625's ring shows XP 0 until the contracts define the XP.
 
-Everything else below is a proposal. The open points (section 6) go to the owner on #641. The code is built on the
-proposals, with every amount a named constant, so a ruling changes numbers and not the design.
+The owner ruled on 2026-10-21 on #641, **OK on the three open points as proposed** (section 6): the XP per mode of section
+2, the curve of section 3 and no backfill. Every amount is a named constant of `Setup`, set to the owner's values.
 
 ## 1. Summary
 
@@ -19,7 +19,7 @@ proposals, with every amount a named constant, so a ruling changes numbers and n
 - **One event, `XpGained`**, carries the gain, the new total and the new level. The indexer keeps one row per player.
 - **The client's seam** (`usePlayerProgress()`, #625, XP-RING) reads the `level` view, or the indexer's row.
 
-## 2. The XP of a game, per mode (proposal, open point 1)
+## 2. The XP of a game, per mode (owner's ruling of 2026-10-21, open point 1)
 
 | Mode | When | XP | Constant | Why |
 |---|---|---|---|---|
@@ -29,12 +29,12 @@ proposals, with every amount a named constant, so a ruling changes numbers and n
 | PvP defence (#643) | each attack that ends with 0 stars for the attacker | **5** | `DEFENCE_XP` (in #643) | The 8-hour shield limits it to three a day; a defence that loses gives nothing, so an alt account attacking badly on purpose gives its victim at most 15 XP a day. |
 
 The Challenge's XP does not depend on the score: the score's scale moves with the deck and the rules, a flat amount does
-not. A score-based bonus is an option for the owner (open point 1).
+not. No score-based bonus: the owner kept the flat amounts (open point 1).
 
 The PvP amounts are set in #643's code, which calls `credit_xp`. `Setup` bounds a single credit at `MAX_CREDIT_XP` (100)
 so a faulty reporter cannot grant a level in one call.
 
-## 3. The level curve (proposal, open point 2)
+## 3. The level curve (owner's ruling of 2026-10-21, open point 2)
 
 Level 1 at 0 XP; going from level `n` to `n + 1` costs `100 n` XP. So level `L` starts at `50 L (L - 1)` XP:
 
@@ -57,7 +57,7 @@ Level 1 at 0 XP; going from level `n` to `n + 1` costs `100 n` XP. So level `L` 
   XP 0 after the upgrade: no migration, no new member (`upgrades.md`, the storage discipline).
 - 251 bits fit a felt (any value under 2^251 is below the field's prime).
 - 27 bits are enough: at 20 XP a game it is 6.7 million games.
-- **No backfill** of the games played before the upgrade (open point 3): Sepolia is a playtest, and mainnet starts with
+- **No backfill** of the games played before the upgrade (open point 3, the owner's ruling): Sepolia is a playtest, and mainnet starts with
   the code.
 
 ## 5. Interface
@@ -96,7 +96,10 @@ that holds an XP value. #640 reads `player_level(player_id).level` from `Setup`.
 - **Client**: `@paved/chain` decodes `xp`, reads `player_level`; #625's `usePlayerProgress()` maps
   `{ level, xp: xp - floor, xpForNext: next - floor }`.
 
-## 6. Open points for the owner
+## 6. Open points for the owner (ruled 2026-10-21)
+
+The owner's decision on #641: **OK on all three points as proposed**. Points 1 to 3 are closed; point 4 stays with #640.
+
 
 1. **XP per mode** (section 2): Challenge 20 per game, Story 10 per new star, PvP attack 10 + 5 per star, defence 5 per
    defence won. Should the Challenge add a score-based bonus?
@@ -108,8 +111,9 @@ that holds an XP value. #640 reads `player_level(player_id).level` from `Setup`.
 
 ## 7. As built
 
-Built on the proposals of sections 2 to 5, before the owner's answers (posted on #641); every amount is one constant of
-`contracts/src/systems/setup.cairo` (`GAME_XP`, `STAR_XP`, `MAX_CREDIT_XP`, `LEVEL_STEP`), so a ruling changes numbers.
+Built on the proposals of sections 2 to 5, which the owner approved on 2026-10-21 (#641) without change: the amounts are the
+owner's, each one constant of `contracts/src/systems/setup.cairo` (`GAME_XP`, `STAR_XP`, `MAX_CREDIT_XP`, `LEVEL_STEP`). The
+PvP amounts (`ATTACK_XP` 10, `ATTACK_STAR_XP` 5, `DEFENCE_XP` 5) are #643's to set when it calls `credit_xp`.
 
 - **Contracts.** `Account.xp` at bits [224, 251); `level_of`, `level_floor`; `report` and `credit_story` credit in their account
   write; `ISetupLevel::credit_xp` and `player_level`; `XpGained`. `public-interface.md`, "XP-LEVEL".

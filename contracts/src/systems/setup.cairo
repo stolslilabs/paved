@@ -85,9 +85,10 @@ pub const PLANS: u8 = 19;
 /// The price of a skin when set (0 withdraws it from sale), in cobbles (cobbles v1, 5.2).
 pub const SKIN_PRICE_MIN: u8 = 50;
 pub const SKIN_PRICE_MAX: u8 = 100;
-/// The XP of a player (#641, `docs/architecture/xp-level.md`): the sources of an `XpGained`, a
-/// Challenge game over (`report`), a Story star won for the first time (`credit_story`), a PvP
-/// attack and a PvP defence (`ISetupLevel::credit_xp`, #643).
+/// The XP of a player (#641, `docs/architecture/xp-level.md`; the amounts and the curve below are
+/// the owner's ruling of 2026-10-21, with no backfill): the sources of an `XpGained`, a Challenge
+/// game over (`report`), a Story star won for the first time (`credit_story`), a PvP attack and a
+/// PvP defence (`ISetupLevel::credit_xp`, #643).
 pub const XP_CHALLENGE: u8 = 1;
 pub const XP_STORY: u8 = 2;
 pub const XP_ATTACK: u8 = 3;
