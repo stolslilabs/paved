@@ -83,6 +83,25 @@ export interface BuilderView {
   plan: number;
 }
 
+/**
+ * `Challenge.draw(game_id)` (#645, `IChallengeDraw`): the game's queue on the VRF and what its next move draws. The tile in
+ * hand is `GameView`'s (`tileId`, `plan`); `next` and `after` are the plans of tiles `tileId + 1` and `tileId + 2`, 0 for
+ * none (the deck's end). `tiles` is the deck bitmap (a set bit is out, the queue included). `vrf`: the game draws from the
+ * VRF. `draws`: its next `build` or `discard` draws, with `salt` (0 if none), which the write requests first.
+ *
+ * The shape is that of the draft PR of #645 (`docs/architecture/challenge-vrf.md` there); it is not in
+ * `contracts/abis/` yet, so `VIEW_FIELDS` does not pin it, and `RpcGameViews.draw` answers `not-available` until it is.
+ */
+export interface DrawView {
+  gameId: number;
+  next: number;
+  after: number;
+  tiles: bigint;
+  vrf: boolean;
+  draws: boolean;
+  salt: string;
+}
+
 /** What a Challenge `spawn` pulls from the player: the ERC20 and the amount (`Challenge.entry_price`). */
 export interface PriceView {
   token: string;
@@ -152,6 +171,8 @@ export interface GameViews {
   builder(key: GameKey, playerId: string): Promise<BuilderView>;
   /** `Challenge.initial_seed(game_id)` (S1): the seed the game started with, before any draw; `game().seed` is the current one. */
   initialSeed(key: GameKey): Promise<string>;
+  /** `Challenge.draw(game_id)` (#645): the game's queue; a `not-available` ViewError on a class before #645. */
+  draw(key: GameKey): Promise<DrawView>;
   currentDay(): Promise<number>;
   /** The Challenge entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
@@ -229,6 +250,21 @@ export class RpcGameViews implements GameViews, CobbleViews, PackViews, SkinView
 
   async initialSeed(key: GameKey): Promise<string> {
     return (await this.call("Challenge", "initial_seed", [key.gameId])) as string;
+  }
+
+  async draw(key: GameKey): Promise<DrawView> {
+    // The ABI the client ships has no `draw` before #645's: the class is taken to have none either.
+    if (!this.codecs.Challenge.hasFunction("draw")) throw new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+    const view = (await this.call(gameContract(key.mode), "draw", [key.gameId])) as Record<string, unknown>;
+    return {
+      gameId: Number(view.gameId),
+      next: Number(view.next),
+      after: Number(view.after),
+      tiles: BigInt(view.tiles as bigint),
+      vrf: Boolean(view.vrf),
+      draws: Boolean(view.draws),
+      salt: String(view.salt),
+    };
   }
 
   async currentDay(): Promise<number> {
@@ -321,6 +357,11 @@ export interface FakeGame {
   builder: BuilderView;
   /** `initial_seed`; defaults to the game's seed. */
   initialSeed?: string;
+  /**
+   * `draw(id)` (#645): the game's queue on the VRF. Absent: a game of a class before #645, `draw` answers `not-available`
+   * (the fake of the chain view until its ABI lands; see `DrawView`).
+   */
+  draw?: DrawView;
 }
 
 function gameKeyId(key: GameKey): string {
@@ -405,6 +446,13 @@ export class FakeGameViews implements GameViews, CobbleViews, PackViews, SkinVie
     this.calls.push(`initial_seed ${gameKeyId(key)}`);
     const game = this.get(key);
     return game.initialSeed ?? game.game.seed;
+  }
+
+  async draw(key: GameKey): Promise<DrawView> {
+    this.calls.push(`draw ${gameKeyId(key)}`);
+    const draw = this.get(key).draw;
+    if (!draw) throw new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
+    return { ...draw };
   }
 
   async currentDay(): Promise<number> {

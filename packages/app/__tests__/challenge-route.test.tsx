@@ -150,3 +150,61 @@ describe("/game/:gameId (P5)", () => {
     expect(await screen.findByTestId("page", {}, { timeout: 5000 })).toBeInTheDocument();
   });
 });
+
+// #645: a game on the VRF. `draw(id)` (the fake of the chain view) gives the queue; the client predicts no draw.
+describe("/game/:gameId on the VRF (#645)", () => {
+  /** A VRF game held by the fake: the engine's three-tile queue stands in for the chain's; a discard waits for `release`. */
+  function vrfSources() {
+    const engine = EngineGame.start({ deck: "simple", seed: SEED, player: BigInt(PLAYER), lookahead: 3 });
+    const views = new FakeGameViews();
+    const tiles: TileView[] = [{ id: 1, status: 1, plan: PLANS.indexOf(PlanType.RFFFRFCFR), orientation: 3, x: CENTER, y: CENTER }];
+    const put = () => {
+      const hand = engine.hand!;
+      if (!tiles.some((t) => t.id === hand.id)) tiles.push({ id: hand.id, status: 3, plan: PLANS.indexOf(hand.plan), orientation: 0, x: 0, y: 0 });
+      const [next, after] = engine.coming.map((t) => PLANS.indexOf(t.plan));
+      const game: GameView = {
+        id: GAME_ID, playerId: PLAYER, mode: 1, seed: "0x1", score: engine.score, over: engine.over, tileCount: engine.tileCount,
+        placedCount: engine.built + 1, discardedCount: engine.discarded, tileId: hand.id, plan: PLANS.indexOf(hand.plan),
+        remainingCount: 0, deckSize: 38, startTime: 1, endTime: 0, dayId: 0, expiresAt: 2 ** 40,
+      };
+      const draws = engine.tileCount < engine.tileLimit;
+      views.setGame(key, {
+        game, tiles, builder: { gameId: GAME_ID, playerId: PLAYER, tileId: hand.id, plan: game.plan },
+        draw: { gameId: GAME_ID, next: next ?? 0, after: after ?? 0, tiles: engine.tiles, vrf: true, draws, salt: draws ? "0x5a17" : "0x0" },
+      });
+    };
+    put();
+    let release = () => {};
+    const discard = vi.fn(async (): Promise<WriteResult> => {
+      await new Promise<void>((go) => (release = go));
+      const hand = engine.hand!;
+      const result = engine.discard();
+      tiles.find((t) => t.id === hand.id)!.status = 2;
+      put();
+      return { transactionHash: "0x1", events: [{ name: "Discarded", fields: { gameId: GAME_ID, tileId: hand.id, plan: PLANS.indexOf(hand.plan), points: result.points }, fromAddress: "0x2" }] };
+    });
+    const signer = { address: PLAYER, build: vi.fn(), discard, surrender: vi.fn() } as unknown as GameSigner;
+    return { ...fakeSources({ views, signer }), engine, views, release: () => release() };
+  }
+
+  const coming = () => [...(within(hand()!).queryByTestId("coming-tiles")?.querySelectorAll("li") ?? [])].map((li) => li.getAttribute("data-coming"));
+
+  it("shows the tile to place and the two coming tiles; a move keeps the known tiles shown while the chain draws the last", async () => {
+    const s = vrfSources();
+    open(`/game/${GAME_ID}`, s);
+    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: 5000 })).toBeInTheDocument();
+    await waitFor(() => expect(coming()).toEqual(["1", "2"]));
+    expect(s.views.calls).toContain(`draw challenge:${GAME_ID}`);
+    // No replay of the draw: the initial seed is never read.
+    expect(s.views.calls).not.toContain(`initial_seed challenge:${GAME_ID}`);
+    const next = s.engine.coming[0]!.plan;
+
+    await discardTile();
+    // The move on its way: the next tile is the one to place (waiting), the one after it next, the chain's draw last.
+    await waitFor(() => expect(coming()).toEqual(["1", "drawing"]));
+    expect(within(hand()!).getByText("Placing…")).toBeInTheDocument();
+    s.release();
+    await waitFor(() => expect(coming()).toEqual(["1", "2"]));
+    expect(s.engine.hand!.plan).toBe(next);
+  });
+});

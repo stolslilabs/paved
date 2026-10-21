@@ -4,6 +4,7 @@ import {
   CategoryType,
   EngineGame,
   LocalSession,
+  startTraining,
   OrientationType,
   TRAINING_KEY,
   gameStats,
@@ -15,6 +16,7 @@ import {
   type SavedGame,
   type GameStats,
   type SavedMove,
+  type SavedVersion,
   type ScoredStructure,
 } from "@paved/game-core";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
@@ -28,6 +30,8 @@ export { remainingOf, useTrainingSave } from "./training-save";
 export type SessionBoard = Pick<BoardSceneProps, "tiles" | "score" | "remaining" | "discardedPlans" | "lastScored"> & {
   /** The tile in hand, null once the game is over. */
   hand: { plan: number } | null;
+  /** The tiles known after it, in draw order (#645): the next two, fewer at the deck's end. */
+  coming: { plan: number }[];
   over: boolean;
 };
 
@@ -40,6 +44,7 @@ export function boardOf(state: PageState): SessionBoard {
     discardedPlans: state.discardedPlans ?? [],
     lastScored: state.lastScored,
     hand: state.hand ? { plan: state.hand.plan } : null,
+    coming: (state.coming ?? []).map((t) => ({ plan: t.plan })),
     over: state.game?.over ?? false,
   };
 }
@@ -93,7 +98,8 @@ export class TrainingGame {
 
   /** A new game of `seed`, saved at once. */
   static start(seed: bigint, store: () => KeyValueStore | null): TrainingGame {
-    return new TrainingGame(LocalSession.start(seed, store), EngineGame.start({ deck: "simple", seed }), seed, [], [], store);
+    const session = LocalSession.start(seed, store);
+    return new TrainingGame(session, startTraining(seed, session.version), seed, [], [], store);
   }
 
   /** The saved game replayed; null when it does not replay. */
@@ -101,7 +107,7 @@ export class TrainingGame {
     const session = LocalSession.resume(saved, store);
     if (!session) return null;
     const seed = BigInt(saved.seed);
-    const rules = EngineGame.start({ deck: "simple", seed });
+    const rules = startTraining(seed, saved.v);
     const closings: Closing[] = [];
     try {
       for (const move of saved.moves) closings.push(...apply(rules, move));
@@ -115,6 +121,11 @@ export class TrainingGame {
   static open(store: () => KeyValueStore | null): TrainingGame {
     const saved = loadGame(store);
     return (saved && TrainingGame.resume(saved, store)) || TrainingGame.start(randomSeed(), store);
+  }
+
+  /** The rules the game plays under (`SavedVersion`): a resumed save keeps its own. */
+  get version(): SavedVersion {
+    return this.session.version;
   }
 
   get snapshot(): TrainingSnapshot {
@@ -136,7 +147,7 @@ export class TrainingGame {
    * this game's: a save that was dropped after them), or `other` (another seed, or moves this game lacks: another tab's).
    */
   relation(saved: SavedGame): "same" | "behind" | "other" {
-    if (saved.seed !== hex(this.seed) || saved.moves.length > this.moves.length) return "other";
+    if (saved.v !== this.version || saved.seed !== hex(this.seed) || saved.moves.length > this.moves.length) return "other";
     if (!saved.moves.every((m, i) => sameMove(m, this.moves[i]!))) return "other";
     return saved.moves.length === this.moves.length ? "same" : "behind";
   }

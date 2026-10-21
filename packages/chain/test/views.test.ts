@@ -2,7 +2,7 @@
 import { describe, expect, test } from "vitest";
 import { createCodecs } from "../src/abis";
 import { resolveDeployment } from "../src/deployment";
-import { NOT_AVAILABLE_MESSAGE, RpcGameViews, ViewError, toViewError, type CallProvider } from "../src/views";
+import { FakeGameViews, NOT_AVAILABLE_MESSAGE, RpcGameViews, ViewError, toViewError, type CallProvider } from "../src/views";
 
 const deployment = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2", Setup: "0x3", Token: "0x4" } } });
 
@@ -68,5 +68,28 @@ describe("a view the deployed class does not have", () => {
   test("a read through RpcGameViews rejects with it", async () => {
     const failing = new RpcGameViews({ callContract: async () => { throw new Error(NO_ENTRYPOINT); } }, deployment, createCodecs());
     await expect(failing.spawnPaused()).rejects.toMatchObject({ kind: "not-available", message: NOT_AVAILABLE_MESSAGE });
+  });
+});
+
+// #645: `Challenge.draw(game_id)`, the game's queue on the VRF. Until its ABI lands, the read is `not-available` and the
+// fake carries the shape of the draft PR's `DrawView`.
+describe("draw, the queue of a game on the VRF", () => {
+  test("RpcGameViews: not-available while the shipped ABI has no draw, with no call sent", async () => {
+    const codecs = createCodecs();
+    const rpc = views(() => []);
+    if (codecs.Challenge.hasFunction("draw")) return; // The ABI landed: the decode is then pinned by VIEW_FIELDS.
+    await expect(rpc.views.draw({ mode: "challenge", gameId: 3 })).rejects.toMatchObject({ kind: "not-available", message: NOT_AVAILABLE_MESSAGE });
+    expect(rpc.calls).toEqual([]);
+  });
+
+  test("FakeGameViews: the game's queue when it has one, not-available for a game before #645", async () => {
+    const fake = new FakeGameViews();
+    const game = { id: 3, playerId: "0xabc", mode: 1, seed: "0x1", score: 0, over: false, tileCount: 4, placedCount: 1, discardedCount: 0, tileId: 2, plan: 5, remainingCount: 37, deckSize: 38, startTime: 1, endTime: 0, dayId: 0, expiresAt: 0 };
+    const draw = { gameId: 3, next: 7, after: 11, tiles: 0b1011n, vrf: true, draws: true, salt: "0x5a17" };
+    fake.setGame({ mode: "challenge", gameId: 3 }, { game, tiles: [], builder: { gameId: 3, playerId: "0xabc", tileId: 2, plan: 5 }, draw });
+    fake.setGame({ mode: "challenge", gameId: 4 }, { game: { ...game, id: 4 }, tiles: [], builder: { gameId: 4, playerId: "0xabc", tileId: 2, plan: 5 } });
+    expect(await fake.draw({ mode: "challenge", gameId: 3 })).toEqual(draw);
+    await expect(fake.draw({ mode: "challenge", gameId: 4 })).rejects.toMatchObject({ kind: "not-available" });
+    await expect(fake.draw({ mode: "challenge", gameId: 5 })).rejects.toMatchObject({ kind: "game-not-found" });
   });
 });

@@ -6,8 +6,8 @@ export type { BoardTile, Closure, MoveSenders, PageSession, PageState, PlaceMove
 export { browserStore } from "./storage";
 export type { KeyValueStore } from "./storage";
 export { randomSeed } from "./seed";
-export { TRAINING_KEY, clearGame, loadGame, saveGame } from "./training-storage";
-export type { SavedGame, SavedMove } from "./training-storage";
-export { LocalSession, openTraining, replayTraining, savedTrainingStatus } from "./local-session";
+export { TRAINING_KEY, TRAINING_VERSION, clearGame, loadGame, saveGame } from "./training-storage";
+export type { SavedGame, SavedMove, SavedVersion } from "./training-storage";
+export { LocalSession, TRAINING_LOOKAHEAD, openTraining, replayTraining, savedTrainingStatus, startTraining } from "./local-session";
 export { MAX_UNCONFIRMED, PredictedSession, replayChallenge } from "./predicted-session";
-export type { ChainGame, ChainTile, Mismatch, MoveReceipt, PredictedOptions, PredictedState, PredictedViews } from "./predicted-session";
+export type { ChainDraw, ChainGame, ChainTile, Mismatch, MoveReceipt, PredictedOptions, PredictedState, PredictedViews } from "./predicted-session";

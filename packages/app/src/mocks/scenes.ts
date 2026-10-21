@@ -117,8 +117,23 @@ const boardBase = {
   tileArt: originalTileArt(SOURCE_ASSETS),
 } satisfies Partial<Data<BoardSceneProps>>;
 
+/** The two tiles known after the one in hand (#645): plans of the 38-tile board's deck. */
+const coming = [{ plan: BOARD_38.tiles[3]!.plan }, { plan: BOARD_38.tiles[8]!.plan }];
+
 export const BOARD = {
   placing: { ...boardBase, hand: { tile: hand, state: "placing" } },
+  /** #645: the tile to place and the two coming tiles (a Challenge on the VRF). */
+  queue: { ...boardBase, hand: { tile: hand, state: "placing", coming } },
+  /** #645: a Challenge move on its way: the next tile waits with it, the one after it is shown, the chain draws the last. */
+  queueDrawing: {
+    ...boardBase,
+    tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }],
+    hand: { tile: { plan: coming[0]!.plan, orientation: 1 }, state: "pending", coming: coming.slice(1), drawing: true },
+  },
+  /** #645: Training plays the same queue from its local random. */
+  queueTraining: { ...boardBase, mode: "training", gameId: undefined, expiresAt: null, hand: { tile: hand, state: "placing", coming } },
+  /** #645: the deck's last two tiles: one coming, none after it. */
+  queueLast: { ...boardBase, remaining: 2, hand: { tile: hand, state: "placing", coming: coming.slice(0, 1) } },
   // The bubble's callbacks are the page's: no-ops here, the stories and tests pass their own.
   slotChosen: {
     ...boardBase,

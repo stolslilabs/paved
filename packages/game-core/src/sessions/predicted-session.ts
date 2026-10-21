@@ -44,12 +44,29 @@ export interface ChainTile {
   y: number;
 }
 
+/**
+ * What the session reads of `draw(id)` (#645, `docs/architecture/vrf-draws.md`): the plans of the two tiles after the one
+ * in hand (0 for none, at the deck's end), whether the game draws from the VRF, and whether its next build or discard
+ * draws. The chain's `DrawView` has these fields.
+ */
+export interface ChainDraw {
+  next: number;
+  after: number;
+  vrf: boolean;
+  draws: boolean;
+}
+
 /** The reads of a game on chain: the chain's `GameViews` satisfies it. */
 export interface PredictedViews<K> {
   game(key: K): Promise<ChainGame>;
   tiles(key: K): Promise<ChainTile[]>;
   /** `Challenge.initial_seed(game_id)` (S1): the seed before the starter and the first draw. */
   initialSeed(key: K): Promise<string>;
+  /**
+   * `Challenge.draw(game_id)` (#645): the game's queue. Absent, or a `not-available` view error (a class before #645): the
+   * game draws from its seed and the session predicts it.
+   */
+  draw?(key: K): Promise<ChainDraw>;
 }
 
 /** A receipt's decoded events: the chain's `WriteResult` satisfies it. */
@@ -170,6 +187,13 @@ export function replayChallenge(initialSeed: bigint, tiles: readonly ChainTile[]
   return engine;
 }
 
+/** The known tiles after the one in hand (`tileId`), as `draw(id)` gives them: ids follow the hand's, a 0 plan ends them. */
+function comingOf(tileId: number, draw: ChainDraw): { tileId: number; plan: number }[] {
+  const plans = [draw.next, draw.after];
+  const known = plans.indexOf(0);
+  return plans.slice(0, known < 0 ? plans.length : known).map((plan, i) => ({ tileId: tileId + i + 1, plan }));
+}
+
 /** Why the engine is not in step with `game`; null when its seed, hand, score and end equal the chain's. */
 function divergence(engine: EngineGame, game: ChainGame): string | null {
   if (engine.over !== game.over) return `over: engine ${engine.over}, chain ${game.over}`;
@@ -212,7 +236,9 @@ function receiptDivergence(kind: Kind, expected: Expected, receipt: MoveReceipt,
  * A Challenge game played with next-tile prediction (section 9.2), behind the `PageSession` interface of `LocalSession`.
  *
  * `open` reads the initial seed (`initial_seed`), replays `tiles()` with the engine and checks the engine's seed and hand
- * against `game()`. A move runs on the engine first: the board shows the tile, its points and the next tile at once,
+ * against `game()`. A game on the VRF (#645, `draw(id)` says so) is not predicted: the chain decides each draw, so the
+ * session plays it as without prediction, its queue read from `draw(id)`; while a move is on its way the known tiles stay
+ * shown and the queue's last slot waits for the chain's draw (`drawing`). Otherwise a move runs on the engine first: the board shows the tile, its points and the next tile at once,
  * then the move is sent and stays pending until its receipt; the receipt's events and one `game()` read confirm it. At
  * most `MAX_UNCONFIRMED` moves wait for their receipts, sent one after the other. The engine is kept between moves and
  * replayed only on open and on a resync.
@@ -233,6 +259,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   private readonly onMismatch: (mismatch: Mismatch) => void;
   /** A re-open is reading: moves are refused until it ends. */
   private reopening = false;
+  /** The game's queue on the VRF (#645) as last read; null for a game the session predicts. */
+  private chainQueue: ChainDraw | null = null;
 
   constructor(
     private readonly views: PredictedViews<K>,
@@ -307,8 +335,9 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   private async load(keep: boolean): Promise<boolean> {
     let game: ChainGame;
     let tiles: ChainTile[];
+    let draw: ChainDraw | null;
     try {
-      [game, tiles] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key)]);
+      [game, tiles, draw] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key), this.readDraw()]);
     } catch (error) {
       if (keep) this.set({ stale: true, readError: message(error) });
       else this.set({ status: "error", error: errorKind(error), message: message(error) });
@@ -316,14 +345,19 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     }
     const readonly = this.playerId === null || BigInt(game.playerId) !== BigInt(this.playerId);
     let fallback: string | null = null;
-    try {
-      const initial = BigInt(await this.views.initialSeed(this.key));
-      this.engine = replayChallenge(initial, tiles, game);
-      fallback = divergence(this.engine, game);
-    } catch (error) {
-      fallback = message(error);
+    // A game on the VRF is not replayed: its draws are the chain's (#645).
+    if (!draw) {
+      try {
+        const initial = BigInt(await this.views.initialSeed(this.key));
+        this.engine = replayChallenge(initial, tiles, game);
+        fallback = divergence(this.engine, game);
+      } catch (error) {
+        fallback = message(error);
+      }
     }
-    if (fallback) this.engine = this.boardOf(game, tiles);
+    this.chainQueue = draw;
+    const chain = fallback !== null || draw !== null;
+    if (chain) this.engine = this.boardOf(game, tiles);
     for (const e of this.queue) e.dropped = true;
     this.queue = [];
     // `project` reads `readonly` for the hand.
@@ -333,13 +367,13 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       status: "ready",
       error: null,
       message: null,
-      predicting: fallback === null,
+      predicting: !chain,
       fallback,
       stale: false,
       readError: null,
       expiresAt: game.expiresAt,
       // Without prediction the board and the hand are the chain's.
-      ...(fallback ? this.chainProjection(game, tiles, readonly) : {}),
+      ...(chain ? this.chainProjection(game, tiles, readonly) : {}),
     });
     if (fallback) this.onMismatch({ gameId: this.key.gameId, move: null, reason: `open: ${fallback}` });
     return true;
@@ -524,28 +558,48 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     if (await this.retry()) this.set({ writeError, lastScored: [], delta: null });
   }
 
-  /** Without prediction (the check at open failed): the hand waits for the chain, one move at a time. */
+  /**
+   * `draw(id)` when the game draws from the VRF; null for a game the session predicts (no such view, a class before #645,
+   * or a game not on the VRF). Another failure is the read's.
+   */
+  private async readDraw(): Promise<ChainDraw | null> {
+    if (!this.views.draw) return null;
+    try {
+      const draw = await this.views.draw(this.key);
+      return draw.vrf ? draw : null;
+    } catch (error) {
+      if (errorKind(error) === "not-available") return null;
+      throw error;
+    }
+  }
+
+  /**
+   * Without prediction (a game on the VRF, or the check at open failed): the hand waits for the chain, one move at a time.
+   * On the VRF the known tiles stay shown while the move is on its way, and the queue's last slot waits for its draw.
+   */
   private async unpredicted(kind: Kind, send: Send<R>, placement?: PlaceMove): Promise<boolean> {
     const s = this.current;
     if (s.pending || (kind !== "surrender" && !s.hand)) return false;
     const hand = s.hand;
     const tiles = kind === "build" && hand && placement ? [...s.tiles, { id: hand.tileId, plan: hand.plan, ...placement, pending: true }] : s.tiles;
-    this.set({ pending: true, unconfirmed: 1, hand: null, tiles, writeError: null, readError: null, lastScored: [], delta: null });
+    const queue = kind === "surrender" ? { coming: [], drawing: false } : { coming: s.coming ?? [], drawing: this.chainQueue?.draws ?? false };
+    this.set({ pending: true, unconfirmed: 1, hand: null, ...queue, tiles, writeError: null, readError: null, lastScored: [], delta: null });
     let receipt: R;
     try {
       receipt = await send();
     } catch (error) {
-      this.set({ pending: false, unconfirmed: 0, hand, tiles: s.tiles, writeError: message(error) });
+      this.set({ pending: false, unconfirmed: 0, hand, coming: s.coming, drawing: false, tiles: s.tiles, writeError: message(error) });
       return false;
     }
     const before = s.game?.score ?? 0;
     try {
-      const [game, chainTiles] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key)]);
+      const [game, chainTiles, draw] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key), this.readDraw()]);
+      this.chainQueue = draw;
       this.engine = this.boardOf(game, chainTiles);
       this.set({ ...this.chainProjection(game, chainTiles, s.readonly), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
     } catch (error) {
       // The move landed but the next tile is unknown: the next action re-reads the game (`stale`).
-      this.set({ pending: false, unconfirmed: 0, readError: message(error), stale: true });
+      this.set({ pending: false, unconfirmed: 0, drawing: false, readError: message(error), stale: true });
     }
     const scored = receipt.events
       .filter((e) => e.name === "Scored" && Number(e.fields.gameId) === this.key.gameId)
@@ -568,9 +622,10 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     return board;
   }
 
-  /** The board and the hand as the chain gives them (no prediction). */
+  /** The board and the hand as the chain gives them (no prediction), with the queue of a game on the VRF. */
   private chainProjection(game: ChainGame, tiles: readonly ChainTile[], readonly: boolean): Partial<PredictedState> {
     const placed = tiles.filter((t) => t.status === PLACED);
+    const hand = !readonly && !game.over && game.tileId ? { tileId: game.tileId, plan: game.plan } : null;
     return {
       game: {
         playerId: game.playerId,
@@ -582,7 +637,9 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       },
       tiles: placed.map(({ id, plan, orientation, x, y }) => ({ id, plan, orientation, x, y })),
       discardedPlans: tiles.filter((t) => t.status === DISCARDED).map((t) => t.plan),
-      hand: !readonly && !game.over && game.tileId ? { tileId: game.tileId, plan: game.plan } : null,
+      hand,
+      coming: hand && this.chainQueue ? comingOf(hand.tileId, this.chainQueue) : [],
+      drawing: false,
       pending: false,
       unconfirmed: 0,
     };
