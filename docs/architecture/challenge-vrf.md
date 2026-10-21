@@ -295,7 +295,7 @@ would revert `NOT_FULFILLED`. The owner chose option A:
   `Challenge`'s provider, right after the guardian, and the smoke's draws come from it.
 - **The file.** The mock is never written in the deployment file. On Sepolia the client draws through Cartridge's
   provider (`vrfProvider` resolves it by network).
-- **After the smoke.** `fresh_vrf_final_step` sets Cartridge's provider and reads it back (`vrf_final_tx`, listed by
+- **After the smoke.** `fresh_vrf_final_step` sets Cartridge's provider and reads it back (`smoke.provider_tx`, listed by
   `--check-only`). A run that stops before that step leaves the mock set; the rerun's smoke is done already, and the step
   sends it.
 - **The window.** It reverses #638's "the mock is refused off devnet" for the smoke's window only. During that window a

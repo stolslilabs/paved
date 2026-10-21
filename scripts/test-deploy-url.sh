@@ -1575,7 +1575,7 @@ import json, sys
 keys = ["declare_tx", "Faucet.deploy_tx", "PavedToken.deploy_tx", "MockRouter.deploy_tx", "Vault.deploy_tx", "pool_tx",
         "stake_tx", "Economy.deploy_tx", "minter_tx", "Setup.deploy_tx", "Challenge.deploy_tx", "Collection.deploy_tx",
         "Story.deploy_tx", "wiring_tx", "guardian_tx", "vrf_tx", "definitions_tx", "story_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
-        "smoke.pack_tx", "smoke.skin_tx", "smoke.settle_tx", "vrf_final_tx"]
+        "smoke.pack_tx", "smoke.skin_tx", "smoke.settle_tx", "smoke.provider_tx"]
 fresh = {"salt": "0x1", "at": "unmerged-test"}
 for i, key in enumerate(keys):
     node = fresh

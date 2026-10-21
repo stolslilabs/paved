@@ -225,7 +225,7 @@
 #   Challenge's owner (fresh_vrf_step): the devnet's MockVrfProvider, on devnet and, for the smoke only, on Sepolia (the
 #   owner's ruling of 2026-10-21): Cartridge's provider proves a draw only inside its server's VRF wrapper, which the smoke's
 #   plain invokes do not have. On Sepolia the mock is deployed but never written in the deployment file, and once the smoke
-#   passed fresh_vrf_final_step sets Cartridge's provider and reads it back (vrf_final_tx).
+#   passed fresh_vrf_final_step sets Cartridge's provider and reads it back (smoke.provider_tx).
 # The VRF mock (#638, docs/architecture/vrf-draws.md; Sepolia's smoke since #645, above): on devnet, MockVrfProvider is declared and deployed (no
 #   constructor argument) and keyed `contracts.MockVrfProvider`, the devnet's VRF provider for the client
 #   (`vrfProvider` in @paved/chain); on Sepolia it is deployed for the smoke only and never keyed in the file (the client
@@ -894,7 +894,8 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   # mainnet (the network check at the top refuses it already), the old mock Token off devnet. The VRF mock: devnet, and
   # Sepolia for its smoke only (#645, the owner's ruling of 2026-10-21: fresh_vrf_step, fresh_vrf_final_step).
   case "$name" in
-    Faucet|MockRouter|MockVrfProvider) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
+    Faucet|MockRouter) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
+    MockVrfProvider) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
     Token) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
   esac
   local args=() out
@@ -2665,18 +2666,18 @@ fresh_vrf_step() {
 }
 
 # fresh_vrf_final_step (#645, Sepolia only): once the smoke passed, Challenge draws from Cartridge's provider: the mock's
-# provider is replaced and Cartridge's read back. The hash is recorded as vrf_final_tx. A run that stops before it leaves
+# provider is replaced and Cartridge's read back. The hash is recorded as smoke.provider_tx. A run that stops before it leaves
 # the mock set: the rerun's smoke is done already, and this step sends it.
 fresh_vrf_final_step() {
   [[ "$NETWORK" == "sepolia" ]] || return 0
-  fr_settled vrf_final_tx || true
+  fr_settled smoke.provider_tx || true
   v RAW call "$CHALLENGE" vrf_provider
   if [[ "$(hex_int "$RAW")" == "$(hex_int "$CARTRIDGE_VRF_PROVIDER")" ]]; then
-    echo "   Challenge.vrf_provider() is Cartridge's$( [[ -n "$(fr_get vrf_final_tx)" ]] && echo ", tx $(fr_get vrf_final_tx)")"
+    echo "   Challenge.vrf_provider() is Cartridge's$( [[ -n "$(fr_get smoke.provider_tx)" ]] && echo ", tx $(fr_get smoke.provider_tx)")"
     return 0
   fi
   [[ "$(hex_int "$RAW")" == "$(hex_int "$VRF")" ]] || die "Challenge.vrf_provider() is neither the smoke's mock nor Cartridge's: not replaced"
-  RECORD_SENDING=vrf_final_tx
+  RECORD_SENDING=smoke.provider_tx
   invoke "$CHALLENGE" set_vrf_provider "$CARTRIDGE_VRF_PROVIDER" >/dev/null || die "Challenge.set_vrf_provider(Cartridge's) failed"
   RECORD_SENDING=""
   v RAW call "$CHALLENGE" vrf_provider
@@ -2870,7 +2871,7 @@ fresh_check_only() {
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx wiring_tx guardian_tx \
         vrf_tx definitions_tx story_tx \
-        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.skin_tx smoke.settle_tx vrf_final_tx; do
+        smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.skin_tx smoke.settle_tx smoke.provider_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
     done
