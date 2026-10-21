@@ -20,6 +20,8 @@ export interface RenderSpec {
   height: number;
   /** The camera's zoom at the fixed distance: larger frames tighter. */
   zoom: number;
+  /** Straight above the tiles, north up (the deck sheet's top-down renders, #606); at `POLAR` and `AZIMUTH` otherwise. */
+  top?: boolean;
 }
 
 /** Drawn at twice the output, then averaged down: the faces' edges come out smooth whatever the GPU's MSAA. */
@@ -97,11 +99,18 @@ async function render(spec: RenderSpec): Promise<{ webp: string; models: string[
   scene.focusBoard();
   const target = scene.controls.controls.target;
   const { camera } = scene;
-  camera.position.set(
-    target.x + DISTANCE * Math.sin(POLAR) * Math.sin(AZIMUTH),
-    DISTANCE * Math.cos(POLAR),
-    target.z + DISTANCE * Math.sin(POLAR) * Math.cos(AZIMUTH),
-  );
+  if (spec.top) {
+    // Looking straight down, "up" on the image is the board's north (-z): a top-down render turns as a tile chip does.
+    camera.up.set(0, 0, -1);
+    camera.position.set(target.x, DISTANCE, target.z);
+  } else {
+    camera.up.set(0, 1, 0);
+    camera.position.set(
+      target.x + DISTANCE * Math.sin(POLAR) * Math.sin(AZIMUTH),
+      DISTANCE * Math.cos(POLAR),
+      target.z + DISTANCE * Math.sin(POLAR) * Math.cos(AZIMUTH),
+    );
+  }
   camera.zoom = spec.zoom;
   camera.updateProjectionMatrix();
   camera.lookAt(target);

@@ -6,7 +6,7 @@ description: How to build UI in packages/app, the Paved client v2 (Vite, React 1
 # paved-ui
 
 `packages/app` is the v2 client (`docs/client/v2-architecture.md` is the design; `packages/app/README.md` the layout).
-`app/` is deprecated: build nothing new there. Paths below are relative to
+Paths below are relative to
 `packages/app/`.
 
 ## Tiers
@@ -33,7 +33,7 @@ description: How to build UI in packages/app, the Paved client v2 (Vite, React 1
 - Every new component has a `<name>.stories.tsx` beside it. Titles follow the tier: `Scenes/Home`, `Elements/...`.
 - **One story per state**, named after the state, on mock data: `export const Guest: Story = { args: HOME.guest };`
   (`scenes/home-scene.stories.tsx`). A scene's mock object and its stories list the same states.
-  `__tests__/scenes-2.test.tsx` ("SC2 stories") checks that match for the SC2 scenes only (leaderboard, player, vault,
+  `__tests__/scenes-2.test.tsx` ("SC2 stories") checks that match for the SC2 scenes only (vault,
   settings, theme, quests, achievements, referral); the SC1 scenes (such as Home) are matched by hand.
 - **Width is Storybook's Viewport toolbar**: mobile 360, tablet 640, desktop 1024, wide 1440
   (`scenes/viewports.ts`, `.storybook/preview.tsx`). No `viewport` arg, no frame decorator, no story per width;

@@ -1,4 +1,4 @@
-import type { GameView, Leaderboard } from "@paved/chain";
+import type { GameView } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
@@ -6,11 +6,13 @@ import { Icon } from "../ui/icon";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { Wordmark } from "../elements/wordmark";
+import { BoardHero } from "../elements/board-hero";
+import modeChallenge from "../../assets/renders/mode-challenge.webp";
 import { BalancesSlot } from "../containers/balances-context";
-import { AppNav } from "../containers/app-nav";
+import { TabFrame } from "../containers/tab-frame";
 import { ModeCard } from "../containers/mode-card";
-import { PlayerStatus, type PlayerStatusData } from "../containers/player-status";
-import { TopThree } from "../containers/top-three";
+import { ProfileSlot } from "../containers/profile-context";
+import type { PlayerStatusData } from "../containers/profile-sheet";
 
 /** The Training save on this device: enough to offer Resume. */
 export interface TrainingSave {
@@ -28,8 +30,6 @@ export interface HomeCobbles {
 export interface HomeSceneProps {
   /** Null: a guest (no wallet). */
   player: PlayerStatusData | null;
-  /** Today's leaderboard (`/v1/tournaments/:day/leaderboard`); its first three rows are the podium. */
-  leaderboard: Leaderboard;
   /** The viewer's Challenge game still running (`GameSpawned` events, then `game(id)`); its deadline is `expiresAt`. */
   activeGame: GameView | null;
   training: TrainingSave | null;
@@ -37,8 +37,6 @@ export interface HomeSceneProps {
   spawnPaused: boolean;
   now: number;
   connecting?: boolean;
-  /** The players of today's top 3 whose best game was free (P-61), marked as on the Leaderboard. */
-  free?: readonly string[];
   /** The Cobbles balance and free games; omitted for a guest or before Cobbles. */
   cobbles?: HomeCobbles | null;
   onPlay?: () => void;
@@ -46,32 +44,58 @@ export interface HomeSceneProps {
   onPlayFree?: () => void;
   onChallenge?: () => void;
   onTraining?: () => void;
-  onTutorial?: () => void;
+  onStory?: () => void;
   onResume?: (gameId: number) => void;
   onConnect?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
 
-/** Home (`/`): Play, the player's status, the game to resume, the mode cards with today's Challenge top 3; the five tabs. */
+/**
+ * Home (`/`), direction D (#537): the hero (a render of a real board under the voxel wordmark, as the mockups' first screen),
+ * then Play, a guest's notice (the player is the avatar at the top left, #624), the game to resume, the mode cards and the Challenge's banner card; the five tabs. No
+ * podium: the ranks left the UI (#623), to come back as leagues.
+ */
 export function HomeScene(props: HomeSceneProps) {
-  const { player, leaderboard, activeGame, training, spawnPaused, now, cobbles } = props;
+  const { player, activeGame, training, spawnPaused, now, cobbles } = props;
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground desktop:flex-row">
-      <AppNav active="home" onNavigate={props.onNavigate} className="desktop:min-h-dvh" />
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-6 pb-6 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pb-10">
-        <header className="flex items-center justify-between">
-          <h1 className="sr-only">Home</h1>
-          <Wordmark size="md" />
-          <BalancesSlot layout="pill" />
-        </header>
-
+    <TabFrame tab="home" onNavigate={props.onNavigate}>
+      <header className="relative h-64 w-full tablet:h-80">
+        <BoardHero />
+        <h1 className="sr-only">Home</h1>
+        <div className="relative mx-auto flex h-full w-full max-w-md flex-col items-center px-4 pt-4 tablet:max-w-2xl desktop:max-w-5xl desktop:items-start desktop:justify-center desktop:px-8 desktop:pt-0">
+          {/* The avatar at the top left, the balances on the right (#624); from `desktop` both are in the navigation's header. */}
+          <div className="flex w-full items-center justify-between gap-3 desktop:hidden">
+            <ProfileSlot />
+            <BalancesSlot layout="pill" className="ml-auto" />
+          </div>
+          <Wordmark tagline="Build · Connect · Score" className="mt-2 desktop:mt-0 desktop:items-start [&_span]:[text-shadow:0_1px_3px_var(--color-board)]" />
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-2 pb-6 tablet:max-w-2xl desktop:max-w-5xl desktop:px-8 desktop:pb-10">
         <div className="grid grid-cols-1 gap-4 wide:grid-cols-[minmax(0,1fr)_24rem] wide:items-start">
           <div className="flex flex-col gap-4">
-            <PlayerStatus data={player} onConnect={props.onConnect} connecting={props.connecting} />
+            <Button size="lg" className="text-lg" onClick={props.onPlay}>
+              Play <Icon name="chevron-right" size="md" />
+            </Button>
+
+            {/* The player card left for the avatar and its sheet (#624); a guest keeps its line, with Connect at hand. */}
+            {!player && (
+              <Notice
+                icon="user"
+                title="Playing as a guest"
+                action={
+                  <Button size="sm" onClick={props.onConnect} loading={props.connecting}>
+                    Connect
+                  </Button>
+                }
+              >
+                Training is free. Connect to enter the Challenge.
+              </Notice>
+            )}
 
             {activeGame && (
-              <div data-slot="card" className="flex items-center gap-3 rounded-xl border border-gold-800 bg-gold-950/50 p-4">
-                <Icon name="play" className="text-primary" size="md" />
+              <div data-slot="card" className="flex items-center gap-3 rounded-xl border border-primary/40 bg-card p-3">
+                <img src={modeChallenge} alt="" width={320} height={200} draggable={false} decoding="async" className="h-14 w-20 shrink-0 rounded-lg bg-secondary object-cover" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="text-sm font-semibold wrap-anywhere">Challenge #{activeGame.id} in progress</span>
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -83,10 +107,6 @@ export function HomeScene(props: HomeSceneProps) {
                 <Button size="sm" onClick={() => props.onResume?.(activeGame.id)}>Resume</Button>
               </div>
             )}
-
-            <Button size="lg" className="h-14 text-lg" onClick={props.onPlay}>
-              Play <Icon name="chevron-right" size="md" />
-            </Button>
 
             {cobbles && cobbles.credits > 0 && (
               <ModeCard
@@ -114,27 +134,23 @@ export function HomeScene(props: HomeSceneProps) {
                 badge="Free"
                 onSelect={props.onTraining}
               />
-              <ModeCard icon="book-open" title="Tutorial" description="Learn the rules, one stage at a time." onSelect={props.onTutorial} />
+              <ModeCard icon="book-open" title="Story" description="Learn the rules level by level, then go for three stars." onSelect={props.onStory} />
             </div>
           </div>
 
           <ModeCard
             featured
+            banner={modeChallenge}
             icon="trophy"
             title="Challenge"
-            description="A ranked game. Beat the threshold to earn PAVED."
-            badge="Ranked"
+            description="Stake, beat the threshold, earn PAVED."
+            badge="Paid"
             disabled={spawnPaused}
             reason="Purchases paused"
             onSelect={props.onChallenge}
-          >
-            <div className="flex flex-col gap-2 pt-1">
-              <span className="text-xs text-muted-foreground">Top 3</span>
-              <TopThree entries={leaderboard.entries} viewer={player?.today} free={props.free} />
-            </div>
-          </ModeCard>
+          />
         </div>
       </main>
-    </div>
+    </TabFrame>
   );
 }

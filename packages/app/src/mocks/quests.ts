@@ -1,4 +1,5 @@
 import type { PlayerAchievement, PlayerAchievements, TaskProgress } from "@paved/chain";
+import type { GameMission } from "../components/containers/game-missions";
 import { isLiveOnDay, questWindow, type QuestSchedule, type ScheduledQuest, type ScheduledQuests } from "../lib/quest-window";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER_ID, TODAY } from "./players";
@@ -167,3 +168,13 @@ export const ACHIEVEMENTS_NEW = achievements(ACHIEVEMENTS_MIXED.achievements.map
 export const ACHIEVEMENTS_ALL = achievements(
   ACHIEVEMENTS_MIXED.achievements.map((a, i) => achievement(a.achievementId, a.points, a.tasks.map((t) => ({ ...t, count: t.total })), MOCK_NOW - (20 - i) * DAY)),
 );
+
+/**
+ * What one game completed (#595), as the over page lists it: Public Works and Deep Woods of the day, and Forester (10 forests)
+ * reached by the same game over, each with its Cobbles.
+ */
+export const GAME_MISSIONS: readonly GameMission[] = [
+  { key: "quest:6:6913", kind: "quest", title: "Public Works", icon: "city", cobbles: 10 },
+  { key: "quest:9:6913", kind: "quest", title: "Deep Woods", icon: "tree", cobbles: 10 },
+  { key: "achievement:6", kind: "achievement", title: "Forester", icon: "tree", points: 20, cobbles: 20 },
+];

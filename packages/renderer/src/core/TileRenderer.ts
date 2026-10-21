@@ -16,8 +16,10 @@ import type { VoxelDropSettings } from "./voxel-drop-settings";
 // The classifier is its own chunk: loaded only once a highlight is first on (`scheduleLabels`), never for a board that
 // does not light anything.
 import type * as Classifier from "./features";
-import { DEFAULT_WINDOW_LIGHT, WINDOW_SPILL_LAYERS, type NightLightSource, type WindowLightSettings } from "./daynight-settings";
-// The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are set to "windows".
+import { DEFAULT_WINDOW_LIGHT, WINDOW_SPILL_LAYERS, type WindowLightSettings } from "./daynight-settings";
+import { CLOUD_FRAGMENT_GLSL, CLOUD_VERTEX_GLSL, cloudLightsFragment, createCloudUniforms } from "./cloud-shader";
+import { SNOW_APPLY_GLSL, SNOW_FRAGMENT_GLSL, createSnowUniforms } from "./snow-shader";
+// The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are on.
 import type * as Windows from "./windows";
 import type * as Voxelizer from "./voxelizer";
 
@@ -102,37 +104,18 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
   }
 `;
 
-// The night lights (DAYNIGHT): a voxel of a lit column (a city's, or a structure by a road: `features.ts`, `lightColumns`),
-// above the ground, is a window. Each window (its column and voxel level, on its tile's cell) has a level of its own, a
-// hash, at which it switches on: as the night comes (`uNightLevel` from 0 to 1) the windows light one by one, each over
-// 0.15 of the ramp, until about half of them are lit (the levels run to 1.6). A wall glows fully, a roof at 0.35. It adds
-// an emissive glow (`uNightColor` times `uNightGlow`). Off (`uNightOn` 0), it reads nothing.
-export const NIGHT_LIGHTS_GLSL = /* glsl */ `
-float nightLit = 0.0;
-if (uNightOn > 0.5 && uNightWindows < 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
-vec3 lightAt = vGrid - normalize(vGridNormal) * 0.5;
-ivec2 lightTexel = clamp(ivec2(floor(lightAt.xz)), ivec2(0), textureSize(uLightMap, 0) - 1);
-if (texelFetch(uLightMap, lightTexel, 0).r > 0.0) {
-uvec2 c = uvec2(ivec2(vCell) + 4096);
-uint h = (uint(lightTexel.x) | uint(lightTexel.y) << 6u | uint(int(floor(lightAt.y)) + 64) << 12u) ^ c.x * 73856093u ^ c.y * 19349663u;
-h = (h ^ h >> 16) * 0x7feb352du;
-h = (h ^ h >> 15) * 0x846ca68bu;
-float at = float((h ^ h >> 16) & 0xffffu) / 65535.0 * 1.6;
-nightLit = smoothstep(at, at + 0.15, uNightLevel) * (normalize(vGridNormal).y > 0.5 ? 0.35 : 1.0);
-}
-}
-`;
-
-// The night lights from the windows (NIGHT-WINDOWS, #513, `dayNight.lights` "windows"): the light volume baked per model type
+// The night lights (DAYNIGHT), from the windows and the doors (NIGHT-WINDOWS, #513, #571, #583): the light volume baked per model type
 // (`windows.ts`, an RG8 3D texture over the model's grid: the light of the air cell, and the window that gives it the most) is
 // read at the air cell in front of the fragment's face, trilinearly. The window's own switch-on level (`windowOn`), from the hash
 // of its owner and the tile's cell, gates it, so each window lights up with its pool of light as the night comes; the openings'
 // own faces and the rooms seen through them (light 1) are emissive twice over, so the bloom gives them a halo. A model with no
 // volume yet reads the empty one: dark. Past a tile's border (#571), the board's spill map (`uWindowSpill`, one texel a voxel
 // of the board, `rebuildWindowSpill`) holds the light the neighbours' windows cast there, with the owner and its tile's cell:
-// the ground and the foot of the walls read it, gated by that window's own switch-on.
+// the ground and the foot of the walls read it, gated by that window's own switch-on. It adds an emissive glow (`uNightColor`
+// times `uNightGlow`). Off (`uNightOn` 0), it reads nothing.
 export const NIGHT_WINDOWS_GLSL = /* glsl */ `
-if (uNightOn > 0.5 && uNightWindows > 0.5) {
+float nightLit = 0.0;
+if (uNightOn > 0.5) {
 vec3 frontCell = vGrid + normalize(vGridNormal) * 0.5;
 ivec3 volumeSize = textureSize(uWindowLight, 0);
 vec3 volumeAt = vec3(frontCell.x, frontCell.z, frontCell.y);
@@ -155,7 +138,7 @@ nightLit = max(nightLit, windowOn(floor(spill.g * 255.0 + 0.5), floor(spill.ba *
 
 // A window's switch-on (NIGHT-WINDOWS): the level of the night at which it lights, a hash of its owner (`windows.ts`: its own index
 // in its model's list, or its room's first window's) and its tile's cell, spread over 0 to 0.85 x `uWindowStagger` (#571: at 1,
-// every window is on by full night, its 0.15 ramp done; the columns' levels spread to 1.6, past the night's 1). Declared before main: the volume and the spill both call it.
+// every window is on by full night, its 0.15 ramp done). Declared before main: the volume and the spill both call it.
 const WINDOW_SWITCH_GLSL = /* glsl */ `
 float windowOn(float owner, vec2 cell) {
 uvec2 c = uvec2(ivec2(cell) + 4096);
@@ -181,8 +164,6 @@ export type TileLook = Pick<LookSettings, "highlights" | "water" | "featureHighl
 interface LabelUniforms {
   uLabelMap: { value: THREE.DataTexture };
   uGridMatrix: { value: THREE.Matrix4 };
-  /** The night lights' columns (`lightColumns`): 1 where a column's voxels above the ground are windows. */
-  uLightMap: { value: THREE.DataTexture };
   /** The windows' light volume (`windows.ts`, `NIGHT_WINDOWS_GLSL`): the empty one until the type's is baked. */
   uWindowLight: { value: THREE.Data3DTexture };
 }
@@ -237,6 +218,12 @@ export class TileRenderer {
   private confirmContainer: THREE.Group | null = null;
   private depthMaterial: THREE.MeshBasicMaterial | null = null;
   private edgeMaterial = createOutlineMaterial();
+  /**
+   * The tile in hand's outlines (#657): the placed tiles' outline pass and stroke, at the ghost's opacity (`applyGhostEdges`),
+   * so a hover at 50 % has its outlines at 50 %. Its own material, as the placed tiles' opacity must not follow the ghost.
+   */
+  private ghostEdgeMaterial = createOutlineMaterial();
+  private outlineStroke: OutlineStroke = { width: 0, opacity: 0 };
   private strategyGeometry: THREE.BoxGeometry | null = null;
   private strategySideMaterial: THREE.Material | null = null;
   private strategyTopMaterials: Map<string, THREE.MeshBasicMaterial> = new Map();
@@ -277,14 +264,12 @@ export class TileRenderer {
     // frame, so a turned compass (`GameScene.setCompassRotation`) does not move the lit cells.
     uBoardInverse: { value: new THREE.Matrix4() },
   };
-  /** The night lights' uniforms, shared as the others (`NIGHT_LIGHTS_GLSL`, `setNightLights`, `setNightLevel`). */
+  /** The night lights' uniforms, shared as the others (`NIGHT_WINDOWS_GLSL`, `setNightLights`, `setNightLevel`). */
   private nightUniforms = {
     uNightOn: { value: 0 },
     uNightLevel: { value: 0 },
     uNightColor: { value: new THREE.Color() },
     uNightGlow: { value: 0 },
-    // 1 when the night lights come from the windows' light volumes (`dayNight.lights`), 0 from the columns' map.
-    uNightWindows: { value: 0 },
     // The spread of the windows' switch-on levels (`WindowLightSettings.stagger`).
     uWindowStagger: { value: DEFAULT_WINDOW_LIGHT.stagger },
     // The board's spill map (`rebuildWindowSpill`): its first voxel and size (x, z, width, depth, in voxels of the board), the
@@ -294,17 +279,25 @@ export class TileRenderer {
     uSpillCell: { value: new THREE.Vector2(0, 0) },
     uSpillScale: { value: 0 },
   };
-  /** Where the night lights come from (`setNightLights`). */
-  private nightSource: NightLightSource = "columns";
+  /**
+   * The cloud shadows' uniforms (`cloud-shader.ts`, #573), shared as the others: the effect's chunk (`cloud-shadows.ts`) writes
+   * them; until it does, the term is off.
+   */
+  readonly cloudUniforms = createCloudUniforms();
+  /**
+   * The snow on the tops (`snow-shader.ts`, #607, #658), shared as the others: only the weather's chunk writes them (in winter);
+   * until it does, the term is off.
+   */
+  readonly snowUniforms = createSnowUniforms();
   /** The windows' chunk and the voxel grids (`VoxelCache`) and baked windows (`WindowCache`) it builds, per model type. */
   private windowsChunk: Promise<{ windows: typeof Windows; voxelizer: typeof Voxelizer }> | null = null;
   private voxelGrids: Voxelizer.VoxelCache | null = null;
   private windowBakes: Windows.WindowCache | null = null;
   /**
-   * What each labelled geometry needs for its windows: its type's key, its geometry-to-model matrix, its lit columns (the
-   * "columns" rule) and its palette's vegetation (the "structures" rule).
+   * What each labelled geometry needs for its windows: its type's key, its geometry-to-model matrix and its palette's vegetation
+   * (the openings in leaves are not windows).
    */
-  private windowSources = new Map<THREE.BufferGeometry, { key: string; toModel: THREE.Matrix4; lights: Uint8Array; vegetation: readonly number[] }>();
+  private windowSources = new Map<THREE.BufferGeometry, { key: string; toModel: THREE.Matrix4; vegetation: readonly number[] }>();
   /** The windows' light settings the volumes are baked with (`setNightLights`). */
   private windowLight: WindowLightSettings = DEFAULT_WINDOW_LIGHT;
   /** Each model type's baked light, by geometry: its volume's spill past the border, for the board's spill map. */
@@ -564,7 +557,7 @@ export class TileRenderer {
   private labelUniformsOf(geometry: THREE.BufferGeometry): LabelUniforms {
     let uniforms = this.labelMaps.get(geometry);
     if (!uniforms) {
-      uniforms = { uLabelMap: { value: this.emptyLabelMap }, uGridMatrix: { value: new THREE.Matrix4() }, uLightMap: { value: this.emptyLabelMap }, uWindowLight: { value: this.emptyWindowLight } };
+      uniforms = { uLabelMap: { value: this.emptyLabelMap }, uGridMatrix: { value: new THREE.Matrix4() }, uWindowLight: { value: this.emptyWindowLight } };
       this.labelMaps.set(geometry, uniforms);
     }
     return uniforms;
@@ -643,10 +636,9 @@ export class TileRenderer {
       const uniforms = this.labelUniformsOf(child.geometry);
       if (uniforms.uLabelMap.value !== this.emptyLabelMap) return;
       const toModel = toRoot.clone().multiply(child.matrixWorld);
-      const { columns, grid, lights } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
+      const { columns, grid } = classifier.labelTileColumns(child.geometry, layout, toModel, classifier.PALETTE_CLASSES[palette]);
       uniforms.uLabelMap.value = labelMapTexture(classifier.packLabels(columns), columns.size);
-      uniforms.uLightMap.value = labelMapTexture(lights, columns.size);
-      this.windowSources.set(child.geometry, { key, toModel, lights, vegetation: classifier.PALETTE_CLASSES[palette].vegetation });
+      this.windowSources.set(child.geometry, { key, toModel, vegetation: classifier.PALETTE_CLASSES[palette].vegetation });
       uniforms.uGridMatrix.value
         .makeScale(1 / grid.cell, 1 / grid.cell, 1 / grid.cell)
         .multiply(new THREE.Matrix4().makeTranslation(-grid.minX, -grid.minY, -grid.minZ))
@@ -659,12 +651,22 @@ export class TileRenderer {
    * palette is read, the roughness after it is set; then the feature highlight (`FEATURE_HIGHLIGHT_GLSL`), from the
    * fragment's place on the model's grid (`uGridMatrix`, `uLabelMap`) and the tile's cell, from its model matrix and the
    * footprint's centre (`uFootprint`): those three are the geometry's own, the rest shared. Every patched material
-   * compiles to one program.
+   * compiles to one program. The cloud shadows (`cloud-shader.ts`) dim the sun's direct light, from the fragment's place in the
+   * world.
    */
   private patchTileShader(material: THREE.MeshStandardMaterial, geometry: THREE.BufferGeometry, labels: LabelUniforms): void {
     if (!geometry.boundingBox) geometry.computeBoundingBox();
     const footprint = { value: geometry.boundingBox!.getCenter(new THREE.Vector3()) };
-    const uniforms = { ...this.waterUniforms, ...this.featureUniforms, ...this.structureUniforms, ...this.nightUniforms, ...labels, uFootprint: footprint };
+    const uniforms = {
+      ...this.waterUniforms,
+      ...this.featureUniforms,
+      ...this.structureUniforms,
+      ...this.nightUniforms,
+      ...this.cloudUniforms,
+      ...this.snowUniforms,
+      ...labels,
+      uFootprint: footprint,
+    };
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader.replace(
@@ -679,7 +681,9 @@ export class TileRenderer {
           "varying vec3 vGridNormal;",
           "flat varying vec2 vCell;",
           "varying vec2 vBoardVoxel;",
+          "varying vec3 vCloudWorld;",
           "void main() {",
+          CLOUD_VERTEX_GLSL,
           "  vGrid = (uGridMatrix * vec4(position, 1.0)).xyz;",
           "  vGridNormal = mat3(uGridMatrix) * normal;",
           "  vCell = floor((uBoardInverse * modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
@@ -707,8 +711,6 @@ export class TileRenderer {
             "uniform float uNightLevel;",
             "uniform vec3 uNightColor;",
             "uniform float uNightGlow;",
-            "uniform sampler2D uLightMap;",
-            "uniform float uNightWindows;",
             "uniform highp sampler3D uWindowLight;",
             "uniform float uWindowStagger;",
             "uniform sampler2D uWindowSpill;",
@@ -719,18 +721,24 @@ export class TileRenderer {
             "flat varying vec2 vCell;",
             "varying vec2 vBoardVoxel;",
             WINDOW_SWITCH_GLSL,
+            CLOUD_FRAGMENT_GLSL,
+            SNOW_FRAGMENT_GLSL,
             "void main() {",
           ].join("\n"),
         )
-        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}\n${NIGHT_LIGHTS_GLSL}\n${NIGHT_WINDOWS_GLSL}`)
+        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}\n${NIGHT_WINDOWS_GLSL}`)
         .replace(
           "#include <roughnessmap_fragment>",
           "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
         )
+        // The snow on the tops (`snow-shader.ts`): off until the weather sets its cover.
+        .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>\n${SNOW_APPLY_GLSL}`)
         .replace(
           "#include <emissivemap_fragment>",
           "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;\n  totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;",
-        );
+        )
+        // The cloud shadows dim the directional lights' direct light only (`cloudLightsFragment`).
+        .replace("#include <lights_fragment_begin>", cloudLightsFragment());
     };
     material.customProgramCacheKey = () => "paved-tile";
   }
@@ -775,22 +783,20 @@ export class TileRenderer {
   }
 
   /**
-   * The night lights of the day and night cycle (DAYNIGHT, `NIGHT_LIGHTS_GLSL`): on, the city voxels and the structures by
-   * the roads glow `color` (sRGB hex) at `intensity` as the night's level rises (`setNightLevel`). Turning them on labels
-   * the models drawn, and those drawn later, once each, as a highlight does. From the windows, `windowLight` gives their own
-   * strength and stagger, and what the volumes are baked with: a change of reach, falloff, margin, rule or detection bakes them again.
+   * The night lights of the day and night cycle (DAYNIGHT, `NIGHT_WINDOWS_GLSL`): on, the buildings' windows and doors and
+   * their pools of light glow `color` (sRGB hex) as the night's level rises (`setNightLevel`). Turning them on labels the
+   * models drawn, and those drawn later, once each, as a highlight does. `windowLight` gives their strength and stagger, and
+   * what the volumes are baked with: a change of reach, falloff, margin or detection bakes them again.
    */
-  setNightLights(on: boolean, color: string, intensity: number, source: NightLightSource = "columns", windowLight: WindowLightSettings = DEFAULT_WINDOW_LIGHT): void {
+  setNightLights(on: boolean, color: string, windowLight: WindowLightSettings = DEFAULT_WINDOW_LIGHT): void {
     this.nightLights = on;
-    this.nightSource = source;
-    this.nightUniforms.uNightWindows.value = source === "windows" ? 1 : 0;
     this.nightUniforms.uNightOn.value = on ? 1 : 0;
     this.nightUniforms.uNightColor.value.set(color);
-    this.nightUniforms.uNightGlow.value = source === "windows" ? windowLight.intensity : intensity;
+    this.nightUniforms.uNightGlow.value = windowLight.intensity;
     this.nightUniforms.uWindowStagger.value = windowLight.stagger;
     const baked = this.windowLight;
     this.windowLight = windowLight;
-    if (baked.reach !== windowLight.reach || baked.falloff !== windowLight.falloff || baked.margin !== windowLight.margin || baked.rule !== windowLight.rule || baked.detection !== windowLight.detection) {
+    if (baked.reach !== windowLight.reach || baked.falloff !== windowLight.falloff || baked.margin !== windowLight.margin || baked.detection !== windowLight.detection) {
       this.forgetWindowLights();
     }
     this.applyHighlight();
@@ -810,13 +816,13 @@ export class TileRenderer {
   }
 
   /**
-   * The windows' light volumes of the labelled model types (NIGHT-WINDOWS, #513): only while the night lights are on and come
-   * from the windows (nothing is built otherwise), each type once, its voxel grid then its windows and volume in idle slices
+   * The windows' light volumes of the labelled model types (NIGHT-WINDOWS, #513): only while the night lights are on (nothing
+   * is built otherwise), each type once, its voxel grid then its windows and volume in idle slices
    * (`VoxelCache`, `WindowCache`), then its 3D texture bound to the type's geometry and a frame asked for (`labelledListener`).
    */
   private bakeWindowLights(): void {
     if (!this.windowLightsWanted()) {
-      // Switched off (or back to the columns) with builds queued: they stop at their next step, and a later "on" asks again.
+      // Switched off with builds queued: they stop at their next step, and a later "on" asks again.
       if (this.windowAsked.size) {
         this.windowEpoch++;
         this.windowAsked.clear();
@@ -846,9 +852,8 @@ export class TileRenderer {
             if (this.voxelGrids.peek(source.key) === undefined) retry();
             return;
           }
-          const { reach, falloff, margin, rule, detection } = this.windowLight;
-          const recessesOnly = detection === "recesses";
-          const filter = rule === "columns" ? { lit: source.lights, recessesOnly } : { vegetation: windows.plantEntries(source.vegetation), recessesOnly };
+          const { reach, falloff, margin, detection } = this.windowLight;
+          const filter = { vegetation: windows.plantEntries(source.vegetation), recessesOnly: detection === "recesses" };
           const baked = await this.windowBakes.request(source.key, grid, filter, { reach, falloff, margin }, stale);
           if (stale()) return;
           if (!baked) return retry();
@@ -948,7 +953,7 @@ export class TileRenderer {
 
   /** Whether the windows' light is wanted now: the night lights on, from the windows, the renderer alive. */
   private windowLightsWanted(): boolean {
-    return this.nightLights && this.nightSource === "windows" && !this.disposed;
+    return this.nightLights && !this.disposed;
   }
 
   /** The number of light volumes baked so far (for tests and the stories' readout). */
@@ -1130,8 +1135,8 @@ export class TileRenderer {
 
   /**
    * The ghost: the tile in hand drawn on a cell as the board would draw it (its model, or its placeholder quad while the
-   * model loads), tinted on the model itself: blue at half opacity on a hover, yellow at 90 % once `placed`. It shares the type's geometry: nothing to
-   * dispose.
+   * model loads), tinted on the model itself: untinted at half opacity on a hover, opaque with a faint yellow once `placed`,
+   * with its outlines at its opacity (#657). It shares the type's geometry: nothing to dispose.
    */
   setHover(state: HoverState | null): void {
     this.hoverState = state;
@@ -1183,6 +1188,12 @@ export class TileRenderer {
     this.previewContainer = container;
   }
 
+  /** The tile in hand's outlines: the placed tiles' stroke and colour at this zoom, their opacity times the ghost's (`alpha`). */
+  private applyGhostEdges(alpha: number, color?: string): void {
+    const stroke = this.outlineStroke;
+    applyOutlineStroke(this.ghostEdgeMaterial, { ...stroke, opacity: stroke.opacity * alpha }, color);
+  }
+
   /**
    * The ghost's model: the tile as the board draws it, from the shared type (or its placeholder quad), casting no shadow
    * (the shadow map is the placed tiles'), neither lit nor dimmed by the feature highlight (`ghostMaterial`). Null when
@@ -1193,9 +1204,14 @@ export class TileRenderer {
     const tinted: THREE.Mesh[] = [];
     model?.traverse((child) => {
       child.castShadow = false;
-      // The tile's edge outlines are opaque lines: on a translucent model they would read as a frame, so the ghost has none.
-      if (isOutline(child)) child.visible = false;
-      else if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+      if (isOutline(child)) {
+        // The tile in hand has the placed tiles' outlines at its own opacity (#657), drawn after its faces so its depth
+        // pre-pass hides the edges behind them. The confirm's overlay has none: the tile under it has its own.
+        if (role === "hand") {
+          (child as THREE.Mesh).material = this.ghostEdgeMaterial;
+          child.renderOrder = GHOST_ORDER + 1;
+        } else child.visible = false;
+      } else if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
         const ghost = this.ghostMaterial(child.material, role);
         if (ghost !== child.material) tinted.push(child);
         child.material = ghost;
@@ -1246,9 +1262,11 @@ export class TileRenderer {
         shader.uniforms.uTintColor = look.color;
         shader.uniforms.uTintMix = look.mix;
         shader.uniforms.uGhostAlpha = look.alpha;
-        shader.fragmentShader = `uniform vec3 uTintColor;\nuniform float uTintMix;\nuniform float uGhostAlpha;\n${shader.fragmentShader.replace(
+        shader.uniforms.uTintKeepsLight = look.keepsLight;
+        // Keeping the light: the tint colour scaled to the pixel's luminance, so only the hue moves.
+        shader.fragmentShader = `uniform vec3 uTintColor;\nuniform float uTintMix;\nuniform float uGhostAlpha;\nuniform float uTintKeepsLight;\n${shader.fragmentShader.replace(
           "#include <tonemapping_fragment>",
-          "gl_FragColor.rgb = mix(gl_FragColor.rgb, uTintColor, uTintMix);\n  gl_FragColor.a *= uGhostAlpha;\n  #include <tonemapping_fragment>",
+          "vec3 tintLuma = vec3(0.2126, 0.7152, 0.0722);\n  vec3 tintTarget = mix(uTintColor, uTintColor * (dot(gl_FragColor.rgb, tintLuma) / max(dot(uTintColor, tintLuma), 1e-4)), uTintKeepsLight);\n  gl_FragColor.rgb = mix(gl_FragColor.rgb, tintTarget, uTintMix);\n  gl_FragColor.a *= uGhostAlpha;\n  #include <tonemapping_fragment>",
         )}`;
       };
       const programKey = patch ? "paved-tile-ghost" : "paved-quad-ghost";
@@ -1265,6 +1283,9 @@ export class TileRenderer {
     look.color.value.setRGB(r!, g!, b!);
     look.mix.value = mix!;
     look.alpha.value = alpha!;
+    if (role !== "hand") return;
+    look.keepsLight.value = this.placement.getSettings().tints.pendingKeepsLight ? 1 : 0;
+    this.applyGhostEdges(alpha!);
   }
 
   /** The tile in hand's tint now (its ease runs in `update`). */
@@ -1356,6 +1377,16 @@ export class TileRenderer {
     return this.drops.prepare(key);
   }
 
+  /**
+   * Loads what the drop of the tile in hand needs once it is on the board: the model it will draw at its cell (`state.cell`),
+   * so that the drop at the confirm begins in the call. False when that model is not in yet.
+   */
+  prepareDropAt(state: HoverState): Promise<boolean> {
+    const cell = state.cell ?? { x: CENTER_CELL, y: CENTER_CELL, gameId: 0 };
+    const model = this.modelOf(state.planIndex, cell.x, cell.y, cell.gameId);
+    return model ? this.drops.prepareModel(model) : Promise.resolve(false);
+  }
+
   /** The zoom the placement grid follows (its fade, `grid.farFade`). */
   setPlacementZoom(tilePx: number, openingTilePx: number): void {
     this.placement.setZoom(tilePx, openingTilePx);
@@ -1373,6 +1404,8 @@ export class TileRenderer {
   /** Width, opacity and colour of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
   setOutlineStroke(stroke: OutlineStroke, color?: string): void {
     applyOutlineStroke(this.edgeMaterial, stroke, color);
+    this.outlineStroke = stroke;
+    this.applyGhostEdges(this.ghostLooks.hand.alpha.value, color);
   }
 
   setStrategyMode(on: boolean): void {
@@ -1420,6 +1453,7 @@ export class TileRenderer {
     this.depthMaterial?.dispose();
     this.depthMaterial = null;
     this.edgeMaterial.dispose();
+    this.ghostEdgeMaterial.dispose();
     this.strategyGeometry?.dispose();
     this.strategyGeometry = null;
     this.strategySideMaterial?.dispose();
@@ -1440,10 +1474,7 @@ export class TileRenderer {
     this.placeholderOutline?.geometry.dispose();
     this.placeholderOutline = null;
     this.structureUniforms.uLitMap.value.dispose();
-    for (const { uLabelMap, uLightMap } of this.labelMaps.values()) {
-      if (uLabelMap.value !== this.emptyLabelMap) uLabelMap.value.dispose();
-      if (uLightMap.value !== this.emptyLabelMap) uLightMap.value.dispose();
-    }
+    for (const { uLabelMap } of this.labelMaps.values()) if (uLabelMap.value !== this.emptyLabelMap) uLabelMap.value.dispose();
     this.labelMaps.clear();
     this.emptyLabelMap.dispose();
     for (const texture of this.windowTextures.splice(0)) texture.dispose();
@@ -1528,15 +1559,19 @@ const GHOST_FEATURE_OFF = { value: 0 };
 /** The two ghosts at once: the tile in hand, and the confirm's overlay on the tile just placed. */
 type GhostRole = "hand" | "confirm";
 
-/** A role's tint uniforms: a linear colour, how far the model goes to it, the model's opacity. */
+/**
+ * A role's tint uniforms: a linear colour, how far the model goes to it, the model's opacity, and whether the tint keeps
+ * the pixel's light (the hand's `tints.pendingKeepsLight`; the confirm never does).
+ */
 interface GhostLook {
   color: { value: THREE.Color };
   mix: { value: number };
   alpha: { value: number };
+  keepsLight: { value: number };
 }
 
 function createGhostLook(): GhostLook {
-  return { color: { value: new THREE.Color() }, mix: { value: 0 }, alpha: { value: 1 } };
+  return { color: { value: new THREE.Color() }, mix: { value: 0 }, alpha: { value: 1 }, keepsLight: { value: 0 } };
 }
 
 /** Over the plates (-1) and the grid (-2); the depth-only copy of a ghost just before it. */

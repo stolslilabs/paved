@@ -1,12 +1,10 @@
 import { DayNightBoard, freezeAt } from "./daynight-board";
-import type { QualityTier, DayPhase, Season, WindowDetection, WindowRuleSetting } from "@paved/renderer";
+import type { QualityTier, DayPhase, Season, WindowDetection } from "@paved/renderer";
 import type { View } from "./outlines-tour";
 
 export interface NightWindowsBoardProps {
-  /** Both side by side, one with the toggle `lights`, or the windows at four moments of the evening (the stagger). */
-  layout: "side-by-side" | "single" | "moments";
-  /** The source shown when `layout` is "single". */
-  lights: "columns" | "windows";
+  /** One scene, or the windows at four moments of the evening (the stagger). */
+  layout: "single" | "moments";
   /** Held at dusk or at night, or running (the ramp: the windows light one by one as the night comes). */
   phase: DayPhase | "running";
   season: Season | "random";
@@ -14,16 +12,13 @@ export interface NightWindowsBoardProps {
   speed: number;
   view: View;
   distance?: number;
-  /** The columns' strength (today's night lights: 0.4). */
-  nightLightIntensity: number;
-  /** The windows' own light (NIGHT-WINDOWS-2, #571): strength, reach, falloff, margin past the border, stagger, rule. */
+  /** The windows' light (`dayNight.windowLight`): strength, reach, falloff, margin past the border, stagger. */
   windowIntensity: number;
   reach: number;
   falloff: number;
   margin: number;
   stagger: number;
-  rule: WindowRuleSetting;
-  /** Which openings are found: through the walls into rooms (#571), or the first pass's recesses only (#513). */
+  /** Which openings are found: through the walls into rooms (#571), or recesses only. */
   detection: WindowDetection;
   quality: QualityTier | "auto";
   force: "auto" | "on" | "off";
@@ -43,14 +38,14 @@ const MOMENTS: ReadonlyArray<readonly [string, number]> = [
 ];
 
 /**
- * The recorded 72-tile board at night with today's lights ("columns") against the windows' ("windows") (NIGHT-WINDOWS, #513;
- * NIGHT-WINDOWS-2, #571), side by side (two scenes, the same clock, season and view), one at a time with a toggle, or the windows
- * at four moments of the evening, at any of the game's views. Held at dusk or at night, or running through the ramp. Software
- * WebGL is marked: a capture there shows layout and colour, never a frame time or the outlines.
+ * The recorded 72-tile board with the board's night lights, the windows and doors (NIGHT-WINDOWS, #513; NIGHT-WINDOWS-2, #571;
+ * the default since NIGHT-WINDOWS-DEFAULT, #583), at one moment or at four moments of the evening, at any of the game's views.
+ * Held at dusk or at night, or running through the ramp. Software WebGL is marked: a capture there shows layout and colour,
+ * never a frame time or the outlines.
  */
-export function NightWindowsBoard({ layout, lights, phase, season, speed, view, distance, nightLightIntensity, windowIntensity, reach, falloff, margin, stagger, rule, detection, quality, force, forest }: NightWindowsBoardProps) {
-  const windowLight = { intensity: windowIntensity, reach, falloff, margin, stagger, rule, detection };
-  const board = (source: "columns" | "windows", label: string, at?: number) => (
+export function NightWindowsBoard({ layout, phase, season, speed, view, distance, windowIntensity, reach, falloff, margin, stagger, detection, quality, force, forest }: NightWindowsBoardProps) {
+  const windowLight = { intensity: windowIntensity, reach, falloff, margin, stagger, detection };
+  const board = (label: string, at?: number) => (
     <div className="relative h-full" style={{ minHeight: "50dvh" }}>
       <DayNightBoard
         cycleSeconds={120}
@@ -59,8 +54,6 @@ export function NightWindowsBoard({ layout, lights, phase, season, speed, view, 
         season={season}
         speed={speed}
         nightLights
-        lights={source}
-        nightLightIntensity={nightLightIntensity}
         windowLight={windowLight}
         quality={quality}
         view={view}
@@ -74,22 +67,14 @@ export function NightWindowsBoard({ layout, lights, phase, season, speed, view, 
       </output>
     </div>
   );
-  const name = (source: "columns" | "windows") => (source === "columns" ? "columns (today's night lights)" : `windows (${detection === "recesses" ? "first pass: recesses, " : ""}reach ${reach}, margin ${margin}, x${windowIntensity})`);
-  if (layout === "single") return <div className="min-h-dvh">{board(lights, name(lights))}</div>;
-  if (layout === "moments") {
-    const base = Math.max(0, freezeAt(season, "dawn") - 0.025);
-    return (
-      <div className="grid min-h-dvh gap-px bg-border" style={COLUMNS}>
-        {MOMENTS.map(([label, moment]) => (
-          <div key={label}>{board("windows", `windows, ${label}`, base + moment)}</div>
-        ))}
-      </div>
-    );
-  }
+  const name = `windows and doors (${detection === "recesses" ? "recesses only, " : ""}reach ${reach}, falloff ${falloff}, margin ${margin}, x${windowIntensity})`;
+  if (layout === "single") return <div className="min-h-dvh">{board(name)}</div>;
+  const base = Math.max(0, freezeAt(season, "dawn") - 0.025);
   return (
     <div className="grid min-h-dvh gap-px bg-border" style={COLUMNS}>
-      {board("columns", name("columns"))}
-      {board("windows", name("windows"))}
+      {MOMENTS.map(([label, moment]) => (
+        <div key={label}>{board(`windows, ${label}`, base + moment)}</div>
+      ))}
     </div>
   );
 }

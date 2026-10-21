@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
@@ -27,7 +27,7 @@ function open(path: string, wallet = fakeWallet()) {
 }
 
 // The Back button is the board's own: the real board is kept, loaded once before the first test.
-preloadPages("board", "home", "leaderboard", "quests", "play", "welcome");
+preloadPages("board", "home", "quests", "play", "welcome");
 
 beforeEach(() => {
   // Importing the router module creates the app's browser router, which writes `idx` into jsdom's history state: a memory
@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe("the active tab comes from the route's own entry", () => {
-  const TAB_LABEL = { home: "Home", ranks: "Ranks", quests: "Missions", vault: "Vault", settings: "Settings" } as const;
+  const TAB_LABEL = { home: "Home", quests: "Missions", play: "Play", vault: "Vault", settings: "Settings" } as const;
 
   it.each(PAGES.filter((p) => p.nav).map((p) => [p.path || "/", p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
@@ -54,13 +54,11 @@ describe("the active tab comes from the route's own entry", () => {
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
   });
 
-  it("holds for the nested routes: /player/:id is Ranks, /settings/theme and /referral are Settings, /missions/lifetime is Missions", async () => {
+  it("holds for the nested routes: /settings/theme and /referral are Settings, /missions/lifetime is Missions", async () => {
     for (const [path, tab] of [
-      ["/player/0x1", "Ranks"],
       ["/settings/theme", "Settings"],
       ["/referral", "Settings"],
       ["/missions/lifetime", "Missions"],
-      ["/leaderboard/20300", "Ranks"],
     ] as const) {
       const { unmount } = render(<App router={createTestRouter(path)} />);
       await screen.findByRole("navigation", { name: "Main" });
@@ -90,6 +88,14 @@ describe("the active tab comes from the route's own entry", () => {
     expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Missions");
   });
 
+  it("opens Choose a mode from the nav's Play, the centre item (#623)", async () => {
+    const router = open("/vault");
+    await screen.findByRole("heading", { level: 1, name: "Vault" });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Play" }));
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
+    expect(router.state.location.pathname).toBe("/play");
+  });
+
   it("has no tab on a full-screen flow", async () => {
     open("/play");
     await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
@@ -102,6 +108,10 @@ describe("redirects of the old links", () => {
     ["/game?mode=challenge&id=7", "/game/7"],
     ["/game?mode=training", "/training"],
     ["/economy", "/vault"],
+    // The ranks left the UI (#623): their links land Home.
+    ["/leaderboard", "/"],
+    ["/leaderboard/20300", "/"],
+    ["/player/0x1", "/"],
   ])("%s goes to %s", async (from, to) => {
     const router = open(from);
     await waitFor(() => expect(router.state.location.pathname).toBe(to));
@@ -118,6 +128,7 @@ describe("redirects of the old links", () => {
       ["/game?mode=challenge&id=7&ref=0xabc", "/game/7"],
       ["/game?mode=training&ref=0xabc", "/training"],
       ["/economy?ref=0xabc", "/vault"],
+      ["/leaderboard/20300?ref=0xabc", "/"],
     ] as const) {
       const router = createTestRouter(from);
       const { unmount } = render(<App router={router} />);
@@ -151,8 +162,8 @@ describe("?ref= survives", () => {
     await userEvent.click(screen.getByRole("button", { name: "Vault" }));
     await screen.findByRole("heading", { level: 1, name: "Vault" });
     expect(router.state.location.search).toBe("?ref=0xabc");
-    await userEvent.click(screen.getByRole("button", { name: "Ranks" }));
-    await screen.findByRole("heading", { level: 1, name: "Leaderboard" });
+    await userEvent.click(screen.getByRole("button", { name: "Missions" }));
+    await screen.findByRole("heading", { level: 1, name: "Missions" });
     expect(router.state.location.search).toBe("?ref=0xabc");
   });
 

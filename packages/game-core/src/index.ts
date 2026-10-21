@@ -10,7 +10,6 @@ export type { FeltLike, GameConfigInput, GameCreateOptions } from "./types/game-
 export { validateGameConfigInput } from "./types/game-config";
 export { PlanType, Plan } from "./types/plan";
 export { Layout } from "./types/layout";
-export { TutorialStage, TUTORIAL_STAGES } from "./types/tutorial-stage";
 
 // Models
 export { Game } from "./models/game";
@@ -46,8 +45,8 @@ export { Configuration as WfffffffrLayout } from "./layouts/wfffffffr";
 // Decks
 export { Base } from "./elements/decks/base";
 export { Tutorial } from "./elements/decks/tutorial";
-export { baseDeckPlans, deckSheetCounts } from "./deck-sheet";
-export type { DeckSheetCounts, DeckSheetPlan } from "./deck-sheet";
+export { baseDeckPlans, deckSheetCounts, deckSheetOrder } from "./deck-sheet";
+export type { DeckSheetCounts, DeckSheetOrder, DeckSheetPlan, DeckSheetSlot, DeckSheetSlotState } from "./deck-sheet";
 
 // Game logic
 export { Store } from "./store";
@@ -87,6 +86,7 @@ export {
   DECKS as ENGINE_DECKS,
   gameStats,
   SCORING_CATEGORIES,
+  DISCARD_POINTS,
 } from "./engine";
 export type {
   EngineConfig,
@@ -108,8 +108,11 @@ export { CENTER } from "./engine";
 export { StructureBoard } from "./engine/structures";
 export type { StructureAreas, StructureTileInput } from "./engine/structures";
 
-// Game sessions (P2): Training, the tutorial run, the page session's shape
+// Game sessions (P2): Training, Challenge's predicted session, the page session's shape
 export * from "./sessions";
+
+// Story mode (#546): campaigns, levels, runs and the device progress
+export * from "./story";
 
 // Formatting: every number and date on screen goes through here (P-66, en-US)
 export {

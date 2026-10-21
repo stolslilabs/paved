@@ -181,13 +181,16 @@ describe("/game/:gameId/over (P7a)", () => {
       expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
     });
 
-    it("shows the rank of today when the game is the player's best of the day", async () => {
+    it("shows no rank, even when the game is the player's best of the day (#623): the leaderboard is not read", async () => {
       const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null, counted_day_id: TODAY } });
       s.views.today = TODAY;
       const entry = { rank: 3, player_id: `0x${PLAYER.slice(2).padStart(64, "0")}`, best_score: played.game.score, best_game_id: GAME_ID, games_played: 1, games_finished: 1, finished_at: 1600, free: false, name: null };
       s.fixture.entries.set(TODAY, [entry, { ...entry, player_id: PLAYER }] as never);
       over(s);
-      expect(await screen.findByText("#3 today", {}, { timeout: 5000 })).toBeInTheDocument();
+      await screen.findByTestId("final-score", {}, { timeout: 5000 });
+      await waitFor(() => expect(s.fixture.requests.some((r) => r.startsWith("/v1/players/"))).toBe(true));
+      expect(screen.queryByText(/#\d+ today/)).toBeNull();
+      expect(s.fixture.requests.some((r) => r.includes("/entry/") || r.includes("/leaderboard"))).toBe(false);
     });
   });
 
@@ -538,6 +541,35 @@ function economyRow(fields: Record<string, unknown>) {
     purchased_at: READY_DAY * DAY_SECONDS, recorded: true, expired: false, settled: false, threshold: null, reward: null, ...fields,
   };
 }
+
+describe("/game/:gameId/over: the missions the game completed (#595)", () => {
+  it("lists the quests and achievements completed at the game's end, with their Cobbles, and leads to the Missions page", async () => {
+    const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
+    const end = played.game.endTime;
+    // Daily Run and Settler I completed by this game over; quest 4 by an earlier game, not listed. The game ends on day 0.
+    s.fixture.questsFromDay = 0;
+    // The indexer's client asks for the padded address.
+    s.fixture.progress.set(`0x${PLAYER.slice(2).padStart(64, "0")}`, {
+      quests: new Map([[1, { count: 1, completed_at: end }], [4, { count: 3_000, completed_at: end - 300 }]]),
+      achievements: new Map([[2, { count: 1, completed_at: end }]]),
+    });
+    const { router } = over(s);
+    const list = within(await screen.findByRole("region", { name: "Missions completed" }, { timeout: 5000 }));
+    await waitFor(() => expect(list.getAllByRole("listitem").map((li) => li.textContent)).toEqual([expect.stringContaining("Daily Run"), expect.stringContaining("Settler I")]));
+    // Daily Run's 5 Cobbles and Settler I's 10 points, from the definitions.
+    expect(list.getByRole("img", { name: "+5 Cobbles" })).toBeInTheDocument();
+    expect(list.getByText(/\+10 pts/)).toBeInTheDocument();
+    await userEvent.click(list.getByRole("button", { name: "Claim on the Missions page" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/missions"));
+  });
+
+  it("lists nothing when the game completed no mission", async () => {
+    const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
+    over(s);
+    await reward();
+    expect(screen.queryByRole("region", { name: "Missions completed" })).not.toBeInTheDocument();
+  });
+});
 
 describe("the over page's helpers", () => {
   it("mirror the chain's day arithmetic", () => {

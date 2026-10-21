@@ -67,7 +67,7 @@ export function ProgressCard(props: ProgressCardProps) {
       aria-label={title}
       className={cn(
         "flex flex-col gap-3 rounded-xl border p-4",
-        state === "complete" ? "border-gold-800 bg-gold-950/40" : "border-border bg-card",
+        state === "complete" ? "border-primary/40 bg-card" : "border-border bg-card",
         locked && "opacity-75",
         className,
       )}
@@ -76,7 +76,7 @@ export function ProgressCard(props: ProgressCardProps) {
         <span
           className={cn(
             "grid size-10 shrink-0 place-items-center rounded-lg",
-            state === "complete" ? "bg-gold-900 text-gold-200" : "bg-secondary text-muted-foreground",
+            state === "complete" ? "bg-secondary text-primary" : "bg-secondary text-muted-foreground",
           )}
         >
           <Icon name={locked ? "lock" : icon} size="md" />
@@ -123,7 +123,7 @@ export function ProgressCard(props: ProgressCardProps) {
             <Button size="sm" onClick={onClaim} loading={reward.claiming} disabled={reward.disabled} aria-label={`Claim ${reward.cobbles} Cobbles: ${title}`}>
               {reward.claiming ? "Claiming…" : (
                 <>
-                  Claim <Cobbles value={reward.cobbles} size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                  Claim <Cobbles value={reward.cobbles} size="sm" className="text-primary-foreground" />
                 </>
               )}
             </Button>

@@ -20,6 +20,36 @@ with `docs/`, `scripts/` or `packages/`.
 - A frame is requested by `requestRender()`, which every setter calls (`updateTiles`, `setHoveredTile`,
   `setAvailableSlots`, `setStrategyMode`, `setCompassRotation`, `setCameraMode`, `setSettings`), by a resize (`resize()`), and by camera
   damping. A new change to scene state ends with `requestRender()`; never add a loop or a timer that draws.
+- The one exception is the **ambient loop** (`core/ambient-loop.ts`, #572): `GameScene.ambient`, ticked from the same rAF, steps
+  at most `settings.ambient.fps` (30) times a second, and not while the tab is hidden, the board covered (`setCovered`) or the
+  effects off (setting, Low tier, reduced motion: `ambientAllowed`). An ambient effect (#573, #574) is a lazy chunk that
+  implements `AmbientEffect` (`step` returns whether it moved), `register`s on that loop, and reads `ambient.time` as its
+  shader's time uniform. Never a second loop. The particles of #572 were removed (owner, 2026-10-19).
+- The **cloud shadows** (#573) are that loop's one effect: `core/cloud-shadows.ts` (a lazy chunk: the noise map, the knobs of
+  `RendererSettings.ambient.clouds`, the drift) writes `TileRenderer.cloudUniforms`, and the tile shader's term
+  (`core/cloud-shader.ts`, in the board's chunk) dims only the shadow-casting directional lights' direct light (the sun and its
+  twin). A light term, not a caster: a cloud's move draws a frame, never the shadow map (`game-scene-ambient.test.ts` counts it).
+  A step draws only once the clouds moved `CLOUD_MIN_MOVE` (a quarter of a voxel).
+- The **birds** (#574, `core/birds.ts`, loaded by `loadBirds`) are stories only (`Renderer/Birds`, and the spring switch of
+  `Renderer/Weather`): the story registers them on `scene.ambient` itself; the board does not call them until the owner validates them.
+- The **weather** (#607 PR 2, wired by #658: `core/weather.ts`, settings in `core/weather-settings.ts`, `RendererSettings.weather`)
+  is on every board: `GameScene.syncWeather` loads its chunk the first time it shows, adds `Weather.object` to the scene, registers
+  it on `scene.ambient`, and feeds it the cycle's point (`setCycle`, from `applyDayNight`: the wheel's season, auto or fixed, by day
+  and at night), the clouds' wind (`setWind`) and its mode (`weatherModeNow`: off with the weather or the "Ambient effects" off, or on
+  Low; with the cycle off, summer's noon, the wheel's summer day; "still" under reduced motion: nothing falls, the grades, the brightness and the snow veil stay). Autumn
+  raises the clouds' coverage (`cloudSettings`). One instanced draw per falling layer, one full-screen tint for the grade and the
+  brightness (no glare, shimmer or shafts: the owner removed every glow, 2026-10-20). The snow on the tops is a term of the tile
+  shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`): a veil (`winter.veil`) in rounded patches from a noise read at the
+  fragment's place, never per voxel or cell. `GameScene.getWeather()` gives its stats (`Renderer/Weather` stories, the bench).
+- The **fog of war** (FOG-STUDY #633, wired by FOG-EVERYWHERE #648: `core/fog-of-war.ts`, reveal logic and settings in
+  `core/fog-of-war-settings.ts`, `RendererSettings.fog`) is on every board the app draws: `GameScene.setFogReveal` (from
+  `GameCanvas`'s `fogReveal`, set by `BoardViewport`: the tiles and their free slots, or `fogOwned`'s owned cells and their
+  neighbours in a village or an attack) loads its chunk the first time it shows, adds `FogOfWar.object` to the board's group and
+  registers it on `scene.ambient`; its mode is `fogMode` ("still" on Low, with the effects off and under reduced motion: no drift,
+  a cell lifts at once; it stays on at every tier). The owner's look is `LANDSCAPE_FOG` (falloff 2.5, billow 0.7, the landscape).
+  One field texture (the signed distance to the clear cells, blurred so every corner is round: `cornerRadius`) drives the floor,
+  the mist, the landscape's ground and its instanced props: one draw each, no per-cell draw. A lift rebuilds only the part of the
+  field its cells reach.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
@@ -49,6 +79,9 @@ with `docs/`, `scripts/` or `packages/`.
   (`renderOrder` 1) with `polygonOffset` factor -1, units -4 (`OUTLINE_DEPTH_BIAS`) so they stop flickering against the
   faces they lie on. They write no depth. `packages/renderer/__tests__/outlines.test.ts` ("outline material") checks the
   bias, order, depth, the dark grey and the viewport each draw is told.
+- The tile in hand (hover preview and pending tile, #657) is drawn with the same outline pass on its own material
+  (`TileRenderer.ghostEdgeMaterial`): the placed tiles' stroke, its opacity times the ghost's (half on a hover), drawn
+  after the ghost's faces and depth pre-pass. The confirm's overlay draws none (`placement.test.ts`, "the tile in hand's outlines").
 - The width is `widthVoxels` of a voxel (default **0.015**), converted to device px at the zoom (`outlineStroke`), at least
   `minWidthDevicePx` (1) and at most `maxWidthPx` (2) CSS px; the colour is `#1f1f1f`. The opacity follows the tile's
   on-screen size in CSS px (`tilePixels`) against S, the tile size the board opens at on this viewport
@@ -74,9 +107,12 @@ with `docs/`, `scripts/` or `packages/`.
   - Four-vertex quads: `createOutline` draws the four outer corners of `LineSegmentsGeometry`'s eight, two triangles a
     segment (same file, "the outline's quad").
   Do not change the two device-px defaults without a capture and a figure, as for the others below.
-- Camera limits (`camera.minDistance` 8 = `CLOSEST_DISTANCE`, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web
-  controller only; `NativeCameraController` ignores them. The near plane is 5 (`CAMERA_NEAR`) and the closest zoom 8 keeps the
-  tallest tile (2.625 units) beyond it: raise one only with the other (P4; a test reads every model's height).
+- Camera limits (`camera.minDistance` 10 = `CLOSEST_DISTANCE`, `maxDistance` 300, optional `capZoomOut` at 150) apply to the web
+  controller only; `NativeCameraController` ignores them. The near plane is 5 (`CAMERA_NEAR`) and the closest zoom 10 keeps the
+  tallest tile (2.625 units) beyond it at the steepest tilt: raise one only with the other (P4; a test reads every model's height).
+- The play camera opens at 27 degrees (`PLAY_DEFAULT_POLAR_ANGLE`) and tilts from straight down to 54 (`PLAY_MAX_POLAR_ANGLE`):
+  the right button on desktop, two fingers dragged up or down on touch (`DOLLY_ROTATE`; one finger pans). A second finger
+  down cancels the tap (TILT-54, `docs/client/v2-architecture.md` 5.10).
 - Change a default only with a capture and a figure (R-OUT, PR #411; stories "Renderer/Outlines" and "Renderer/Outlines
   comparison" in `packages/app/src/stories/renderer/`).
 

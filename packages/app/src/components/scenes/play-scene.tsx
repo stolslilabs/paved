@@ -1,6 +1,9 @@
 import { Notice } from "../elements/notice";
 import { ModeCard } from "../containers/mode-card";
 import { TopBar } from "../containers/top-bar";
+import modeChallenge from "../../assets/renders/mode-challenge.webp";
+import modeTraining from "../../assets/renders/mode-training.webp";
+import modeTutorial from "../../assets/renders/mode-tutorial.webp";
 
 export interface PlaySceneProps {
   /** A wallet is connected: the Challenge can be bought. */
@@ -14,22 +17,26 @@ export interface PlaySceneProps {
   onPlayFree?: () => void;
   onChallenge?: () => void;
   onTraining?: () => void;
-  onTutorial?: () => void;
+  onStory?: () => void;
   onConnect?: () => void;
 }
 
-/** The mode choice (`/play`): Challenge, Training, Tutorial, and Multiplayer disabled ("coming soon", owner D-4). */
-export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onTutorial, onConnect, onPlayFree }: PlaySceneProps) {
+/**
+ * The mode choice (`/play`): Challenge, Training, Story, and Multiplayer disabled ("coming soon", owner D-4). Direction D
+ * (#537): each mode a row with a render of its board on the left, as the mockups' Play list.
+ */
+export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onStory, onConnect, onPlayFree }: PlaySceneProps) {
   // A guest's tap on the Challenge connects first; a pause disables it.
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Choose a mode" onBack={onBack} />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pt-2 pb-8 tablet:max-w-2xl tablet:grid tablet:grid-cols-2 tablet:gap-4">
+      <main className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-8 tablet:max-w-2xl tablet:grid tablet:grid-cols-2 tablet:gap-4">
         <ModeCard
           featured
+          art={spawnPaused ? undefined : modeChallenge}
           icon="trophy"
           title="Challenge"
-          description="A ranked game: stake 1 to 10, beat the threshold, earn PAVED."
+          description="Stake 1 to 10, beat the threshold, earn PAVED."
           badge="Paid"
           disabled={spawnPaused}
           reason="Purchases are paused for now."
@@ -42,7 +49,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
           <ModeCard
             icon="ticket"
             title="Free Challenge"
-            description={`${credits} free ${credits === 1 ? "game" : "games"} from your missions: ranked, no PAVED at stake.`}
+            description={`${credits} free ${credits === 1 ? "game" : "games"} from your missions: no PAVED at stake.`}
             badge="Free"
             disabled={spawnPaused}
             reason="New games are paused for now."
@@ -50,8 +57,8 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
             className="tablet:col-span-2"
           />
         )}
-        <ModeCard icon="play" title="Training" description="A full game for free, saved on this device." badge="Free" onSelect={onTraining} />
-        <ModeCard icon="book-open" title="Tutorial" description="Learn the basics, one stage at a time." onSelect={onTutorial} />
+        <ModeCard art={modeTraining} icon="play" title="Training" description="A full game for free, saved on this device." badge="Free" onSelect={onTraining} />
+        <ModeCard art={modeTutorial} icon="book-open" title="Story" description="Learn the rules level by level, then earn three stars on fixed decks." badge="Free" onSelect={onStory} />
         <ModeCard
           icon="user-group"
           title="Multiplayer"
@@ -62,7 +69,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
         />
         {spawnPaused && (
           <Notice tone="warning" className="tablet:col-span-2">
-            New Challenge games are paused. Training and the Tutorial stay open.
+            New Challenge games are paused. Training and Story mode stay open.
           </Notice>
         )}
       </main>

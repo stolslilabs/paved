@@ -147,7 +147,11 @@ aliases, a runtime re-point, colour and type stories); the declension below is b
 
 ### 2.2 Proposed: the Paved palette as a Tailwind theme
 
-**Read (measured from the mockups,** `app/docs/mockup-01.png`, a 5×5-pixel mean per point): the gold of
+*Superseded in part by 2.2b (#537, 2026-10-19): the interface's neutral is direction D's `charcoal`; the navy `ink` scale stays
+in theme.css only as the 3D scene's night sky (the renderer's day/night keyframes), and no semantic token or component points
+at it. `gold`, the status scales and the method below stay. The block below is the first proposal, kept as the record.*
+
+**Read (measured from the mockups,** `mockup-01.png`, now in `packages/app/src/stories/renderer/mockups/`, a 5×5-pixel mean per point): the gold of
 the primary buttons is `#F0BF5B` (its gradient runs `#F3C15D` → `#E8B755`); the page is `#0A141C` and the
 board area `#07111A`; the cards `#172129`; the borders `#23303A`. These are the anchors of the `gold` and
 `ink` scales. **Chosen, not measured:** the anchors of `meadow` (success), `river` (info), `ember`
@@ -395,6 +399,62 @@ app. `packages/app/src/styles/theme.css` is this file.
 Transparent tints (glitchbomb's 80 % … 4 % steps) need no tokens: Tailwind v4 writes them as
 `bg-gold-300/20` or `border-ink-50/8` from the opaque scale.
 
+### 2.2b Applied: direction D, the charcoal page with gold as the one action colour (#537)
+
+**Owner decisions.** 2026-10-18: the navy and gold palette, the cards and layout and the navigation (bottom tab bar, left rail
+with a sliding indicator) read as Cartridge's Controller and Arcade; the interaction states become white with transparency on
+every button and nav item. 2026-10-19: of the six directions in Storybook (`Direction/A` to `F`, kept as a record), the owner
+picks **D, "Mockup"**: the owner's mockups (`packages/app/src/stories/renderer/mockups/mockup-01.png`, `mockup-02.png`) built as they are drawn. Almendra stays.
+
+**The palette** (`packages/app/src/styles/theme.css`, the only file with raw colours):
+
+| Token | Points at | Value | Role |
+|---|---|---|---|
+| `background` | `charcoal-950` | `#121316` | the page |
+| `card`, `popover` | `charcoal-900` | `#1C1E22` | cards, sheets, menus |
+| `secondary`, `muted`, `accent` | `charcoal-800` | `#2A2D33` | raised parts: keys, chips, segmented choices |
+| `border` | `charcoal-700` | `#363941` | the hairline (1.61:1 on the page, decorative) |
+| `input` / `input-surface` | `charcoal-600` / `-500` | `#61656E` / `#7D818A` | field edges, 3.17:1 on the page / 4.27:1 on a card |
+| `muted-foreground` | `charcoal-300` | `#CDCFD4` | secondary text, 10.68:1 on a card |
+| `foreground` | `charcoal-50` | `#F4F1EA` | text, warm, 16.49:1 on the page |
+| `primary` | `gold-300` | `#F0BF5B` | the one action colour: the main button, the current nav item, the switches, the icons of rows |
+| `board` | | `#0C0D0F` | under dialogs and sheets, the Storybook background |
+| `medal-1`, `-2`, `-3` | gold-300, charcoal-200, amber-400 | | the podium |
+| `glow` | `primary` at 14% | | the soft light behind a hero figure (loading, the final score) |
+
+`accent` is no longer a hover colour (it was `gold-950`, the brown block of the active rail item): it is a raised surface, and
+no part of the app paints it for a state. Every direct `gold-950` and `gold-800/900` use (the featured cards, the summary
+cards, the avatars) now goes through a token: `border-primary/40` (or `/30`) on `bg-card`, `bg-secondary text-primary`.
+
+**The interaction states** are tokens too, `--state-hover` (white 10%), `--state-selected` (15%), `--state-pressed` (20%),
+painted by one utility, `state-layer`: a white layer over the part's own background (`background-image` over
+`background-color`), so a gold button, a charcoal card and a transparent nav item take the same states. Selected covers
+`data-state="on"` (toggles), `"open"`, `"active"`, `"checked"`, `aria-current="page"` (nav), `aria-pressed`, `aria-selected`,
+`aria-checked` (a pack is a radio); a selected part keeps its 15% under the pointer; a press wins. Every `Button` variant (the
+link too, beside its underline), `ToggleGroupItem`, `Switch`, the tabs' triggers (the sliding highlight is their 15%), the
+dropdown's items (`data-highlighted` is hover), the dialog's and sheet's close keys, the nav items, the mode cards, the Cobble
+packs, the board map's slots and the rows that are buttons use it.
+
+**Cards.** Rounded 12 px (`rounded-xl`) charcoal with the hairline edge, led by an image where the mockups put one: a render on
+the left of a row (`ModeCard` `art`, the Play list), a banner across the top (`ModeCard` `banner`, the Challenge on Home; the
+final score's board). Settings groups are one card with dividers, titled in the display font. Buttons are 44 px by default
+(`lg` 56 px), 12 px corners.
+
+**Imagery.** Renders of the real board and tiles, drawn once by `packages/app/scripts/direction-renders.ts` (the bench's
+recorded 38- and 72-tile games and the voxel wordmark through the board's own `GameScene`, in headless Chromium; software
+WebGL on a machine with no GPU) and committed as the masters in `src/directions/renders/`. The app's copies are
+`src/assets/renders/` (`scripts/app-renders.ts`: each master resized to twice its largest box and re-encoded as WebP):
+
+| File | Size | Where |
+|---|---|---|
+| `wordmark.webp` | 840 x 240, 14,352 B | `Wordmark` (Home, the nav header, Welcome, Loading) |
+| `hero-tall.webp` / `hero-wide.webp` | 750 x 1000, 122,366 B / 1440 x 720, 112,264 B | `BoardHero` (Home, Welcome); one of the two is fetched |
+| `score-wide.webp` | 960 x 448, 62,554 B | the over screen's banner |
+| `mode-challenge.webp`, `mode-training.webp`, `mode-tutorial.webp` | 320 x 200; 21,056, 7,878 and 5,550 B | the mode cards, the game to resume |
+
+Total 346,020 B. Each is its own file in `dist/assets` (no JavaScript chunk grows), fetched when its `<img>` is drawn
+(`loading="lazy"` below the fold), with its width and height set; nothing is fetched from another host.
+
 ### 2.3 Fonts
 
 **Read, glitchbomb** (`client/src/themes/fonts.css`, `preset.ts`, `index.html`):
@@ -412,7 +472,7 @@ nums, for comparison, self-hosts PixelGame (otf), PPNeueBit, DMMono and Circular
 Lineto face) from `public/assets/fonts/`.
 
 **Read, Paved today:** `packages/ui/src/theme.ts` uses Rubik Mono One for headings and body;
-`app/public/assets/fonts/RubikMonoOne-Regular.ttf` is the only font file in the repository.
+`app/public/assets/fonts/RubikMonoOne-Regular.ttf` was the only font file in the repository (`app/` was removed in #591).
 
 **Chosen by the owner (2026-10-14, through the PM), replacing the proposal of Rubik Mono One and Inter** (F1b,
 t-0228), **then changed the same day to Almendra Bold, Rubik and Space Mono** (t-0260, which reverses F1b). Packages
@@ -596,7 +656,7 @@ Mobile first: the base styles are the small mobile; each breakpoint adds.
 | (base) small mobile | 320 px | iPhone SE, small Android | one column; the bottom navigation shows icons only; the tile hand is a compact bar (tile, rotate, place); 14 px body text; page titles 20 px |
 | `mobile` | 360 px (22.5 rem) | most phones | bottom navigation with labels (the mockups); hand panel as in the mockups (tile preview + Place / Discard); 16 px body |
 | `tablet` | 640 px (40 rem) | large phones landscape, tablets | lists and cards in two columns (quests, achievements, leaderboard + player); the board's hand panel becomes a floating card at the bottom right; dialogs centred instead of bottom sheets |
-| `desktop` | 1024 px (64 rem) | laptops | the bottom navigation becomes a left rail; the board takes the centre with a right panel (score, tile in hand, placement preview, actions); hover states and keyboard shortcuts shown (R rotate, D discard, V camera) |
+| `desktop` | 1024 px (64 rem) | laptops | the bottom navigation becomes a header across the top (direction D, section 6.2; the left rail is gone); the board takes the centre with a right panel (score, tile in hand, placement preview, actions); hover states and keyboard shortcuts shown (R rotate, D discard, V camera) |
 | `wide` | 1440 px (90 rem) | large screens | content capped at 1200 px except the board, which fills |
 
 Also: `100dvh` with a `100vh` fallback for full-height screens (as t-0126 did), `env(safe-area-inset-*)`
@@ -640,8 +700,9 @@ referral link, a full address, an error detail, and every input and textarea). P
 `user-scalable`, so `touch-action: manipulation` stops the double-tap zoom and `usePageGestures` (`lib/page-gestures.ts`)
 cancels its `gesturestart` and `gesturechange`. The board's canvas has `touch-action: none` and owns its pinch, pan and
 rotate; its context menu is off. There is no long-press menu (`-webkit-touch-callout: none`), no tap flash, and images
-are not draggable. A board route (`RootLayout` sets `data-board` on `html`) has `overscroll-behavior: none`: no
-pull-to-refresh and no bounce; the other pages scroll as usual. The cost: a player with low vision cannot pinch the
+are not draggable. The document has `overscroll-behavior: none` on `html` and `body` (#611): no pull-to-refresh and no
+bounce on any page. A tab page is one viewport tall and scrolls in its own region (`TabFrame`, `overscroll-behavior:
+contain`), so its navigation stays fixed to the bottom; a full-screen flow scrolls as one document. The cost: a player with low vision cannot pinch the
 page. The mitigations are text of 12 px or more, the 360 and 320 px wrap sweep, and a layout in `rem`, so the browser's
 text-size setting still applies where the layout allows. `scripts/mobile-feel.ts` (the CI `client` job) drives a mobile
 device context.
@@ -798,9 +859,9 @@ The sidebar follows the tiers:
 | **Board** | the board on recorded boards (the bench fixtures at 38 and 72 tiles), with the outline width control (section 5) |
 | **Scenes** | each page of section 6 on fixtures, one story per state, shown at the full width of the preview by default, and at the width Storybook's own viewport toolbar picks (mobile 360, tablet 640, desktop 1024, wide 1440); no frame, no `viewport` arg |
 
-**The background (spec A):** the board's colour, `--board` = `#07111A`, set as Storybook's only
-background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
-`create({ base: "dark", appBg: "#07111A" })`).
+**The background (spec A):** the board's colour, `--board` = `#0C0D0F` since direction D (section 2.2b; it was `#07111A`),
+set as Storybook's only background (`parameters.backgrounds`), and the Storybook UI itself themed dark (`storybook/theming`
+`create({ base: "dark", appBg: BOARD })`).
 
 ### 4.2 Hosting at `storybook.paved.bal7hazar.com`
 
@@ -1075,7 +1136,7 @@ pass, not a screen-space pass reading the target's depth and normals. No package
   depth precision at every distance. "The camera never comes closer than 5" was the distance to its target, on the
   ground; the tallest tile (`wfffffffr`) stands 2.625 units, so at 5 the near plane would cut its top. The closest zoom
   (`minDistance`, `CLOSEST_DISTANCE`) goes from 5 to **8**: 5 + 2.625 / cos 27 degrees (the play camera's steepest tilt)
-  = 7.95, rounded up. A test reads every tile model's height and checks it. The shadow camera is the light's own
+  = 7.95, rounded up; **10** since TILT-54 (5.10): 5 + 2.625 / cos 54 degrees = 9.47. A test reads every tile model's height and checks it. The shadow camera is the light's own
   orthographic camera (1 to 100), unchanged. The outlines' depth bias (`polygonOffset` -1, -4) is in depth-buffer
   units, so it shrinks in world units as the precision grows; the pan and sweep checks below show no new flicker.
 
@@ -1345,8 +1406,9 @@ zoomed in). The fade follows the tile size S the board opens at on this viewport
 the camera's opening distance, 0.8 of its farthest, 240), recomputed when the viewport is resized. It is `1 - t^p`
 (OUT-FADE2, owner 2026-10-17: OUT-FADE's range was too short): off at `fadeOffFactor` (0.85) x S, the historic threshold,
 and fully on from `fadeFullFactor`, **the fade's start**, a setting and a story control from 1.5 S up to the closest zoom
-(`CLOSEST_DISTANCE`, 8). The tile size is inversely proportional to the camera distance, so the tile at the closest zoom
-is 240 / 8 = **30 S** (`OUTLINE_CLOSEST_FACTOR`; 1,608 px measured at S = 54 on a 1280 x 800 window). With
+(`CLOSEST_DISTANCE`, 8; 10 since TILT-54, 5.10). The tile size is inversely proportional to the camera distance, so the tile at the closest zoom
+is 240 / 8 = **30 S** (`OUTLINE_CLOSEST_FACTOR`; 1,608 px measured at S = 54 on a 1280 x 800 window); since TILT-54,
+240 / 10 = **24 S**, and the "max zoom-in" start leaves 9.5 % at S with square (8.9 % at 30 S below). With
 `t = ln(full / tile px) / ln(full / off)`: 0 at the start and above, 1 at 0.85 S, on the log of the tile size so every
 wheel step moves t by the same amount; the opacity is clamped to 1 above the start and 0 below 0.85 S, and hidden under
 1/255. The exponent `fadeExponent` p is in [1, 4]; the story's presets are **linear** (p = 1), **square** (p = 2, the
@@ -1396,6 +1458,10 @@ is foreshortened by cos 27 degrees (0.89): at the phone's 0.85 S at DPR 1 it is 
 `segmentFullDevicePx`, so the cut draws it at about 0.96 of its opacity, above the 0.5 px cut. It is faded slightly, never
 dropped, and the factor changes continuously with the zoom, so it does not pop. At DPR 2 and above it is about 2 px or more,
 whole. A merged straight edge is several voxels long, so most such edges are far above the cut.
+**At 54 degrees (TILT-54, 5.10)** an edge along z is foreshortened by cos 54 degrees (0.59): about 0.65 device px at the
+phone's 0.85 S at DPR 1, so the cut draws it at about 0.3 of its opacity, still above the 0.5 px cut; at S, about 0.77 px
+(0.53). At DPR 2 and above it is 1.3 px or more, whole. A voxel's vertical edge grows to sin 54 degrees (0.81) of a voxel
+on screen, so more risers pass the cut than at 27 degrees; the frame time does not grow (measured, 5.10).
 
 **Zero flicker and cost (OUT-FADE).** The fade adds no step of its own: the opacity is one uniform, set per frame as before
 (`applyOutlineStroke`), so the frame cost is nil (no new pass, no new shader work). Checked on software WebGL here
@@ -1661,7 +1727,7 @@ Out of v1 (P-57 B3) unless the owner asks. **Estimate** of what it would take:
 ### 5.5 Lighting and post-processing (LIGHT)
 
 The owner's remark (P-63, 2026-10-15): the voxel assets and the outlines are right; the lighting and the scene's
-post-processing are what is missing to reach `app/docs/mockup-01.png` and `-02.png`. LIGHT takes over item 3 of 5.2 (the
+post-processing are what is missing to reach `mockup-01.png` and `-02.png` (`packages/app/src/stories/renderer/mockups/`). LIGHT takes over item 3 of 5.2 (the
 order of bloom, vignette and tone mapping, deferred to Q-polish by P4).
 
 **What was there.** `GameScene` drew an ambient, a hemisphere and one white directional light, set
@@ -1886,7 +1952,7 @@ threshold (main's slots do not glow) and the water mask; the tier contents chang
 **Stories:** "Renderer/Lighting" (`packages/app/src/stories/renderer/lighting.stories.tsx`): every field of the look
 is a control over the preset (unset fields keep the preset's), with the quality tier and a readout of the tier in
 effect and the passes that run; the stories Mockup, Soft, Off and Zoomed in; and "Side by side with the mockup", the
-board at the opening view beside `mockup-01.png` or `-02.png` (read from `app/docs`, which Vite serves: not copied).
+board at the opening view beside `mockup-01.png` or `-02.png` (kept beside the story in `mockups/`, moved from `app/docs` in #591).
 LIGHT-GPU added the controls the bench drives: `forest` (Forest on every plan), `force` (the outlines) and
 `maxPixelRatio`; `quality` is typed as an enum so a URL can set it (Storybook dropped it from a URL before: its docgen
 type was an unresolved union).
@@ -2007,7 +2073,7 @@ main's chain held at 1.5 (61 MiB against 155).
     first time a plan needs a quad and kept until `TileRenderer.dispose()`, which disposes them and the image copies
     (not the loader's images). A pending tile's quad takes the pending style (`pendingMaterial`, cached per source). The
     ghost's quad has its own copy of the plan's material (disposed with the ghost, as the ghost's model materials are) and
-    no outline, as the ghost's model has none; the ghost's tint and the invalid red apply to it. A plan whose image is not
+    its square's outline at the ghost's opacity, as the ghost's model has its own (#657); the ghost's tint applies to it. A plan whose image is not
     in (it failed to load) draws no quad: its tile waits for its model, as before, and gets its quad if the image comes
     first (the loader's retry after the first frame; the ghost's key goes from "none" to "quad"). `tile-placeholder.test.ts`
     checks the quad, the swap (never zero objects for a tile), the ghost, a live switch of skins both ways, a failed
@@ -2382,7 +2448,9 @@ gone, "not satisfying in any circumstance"; the states are filters on the tile m
 plate-state text above where they differ.
 
 - **Tile in hand** (`TileRenderer`, ghost materials; the states and their ease are `PlacementRenderer`'s, `ghostTint`): hover
-  blue at 50 % opacity; pre-validation (placed, waiting for Place tile) yellow at 90 %; confirm a temporary green tint on the
+  no tint at 50 % opacity; pre-validation (placed, waiting for the bubble's hold to validate) yellow at 100 % opacity
+  (PLACE-POLISH, #568, the owner's decisions of 2026-10-19: blue and 90 % before; the hover's colour and strength stay as
+  knobs, its strength 0 by default); confirm a temporary green tint on the
   tile the board then draws, fading to none over `motion.confirmMs`; placed (after the fade) none. There is no red: the board offers only
   the rotations that fit (#544). Each look eases over its own time (`tints.hoverMs`, `tints.pendingMs`; the confirm over `motion.confirmMs`).
   Every colour, strength (how far the model goes to the tint) and opacity is a `placement.tints` setting and a story control.
@@ -2397,6 +2465,24 @@ plate-state text above where they differ.
   `plates.invalidOpacity` 0.25; 0.9 and 0.45 before). The plate under the tile in hand fades out (`plates.hideUnderTile`, on
   by default: a translucent tile over a visible plate would show it through; turn it off in the story to judge).
 - **Plan view** (`BoardMap`, DOM): the same states with the palette's tokens; the tint is an overlay on the chip.
+
+**SLOT-PLATES-GREY (#588, the owner's decisions of 2026-10-19).** It supersedes the plates' colours and height above.
+
+- **One grey, no hue.** Playable and invalid plates take the same grey, `#C8C8C8` (`placement.colors.plate`; the
+  `invalid` colour is gone), and differ by opacity alone: playable `plates.opacity` 0.55 (0.6 and blue `#B7CCDC` before),
+  invalid `plates.invalidOpacity` 0.2 (0.25 before). Greyscale plus transparency fits every UI style and every backdrop
+  (stories `Renderer/Placement`: `Plates`, `PlatesDusk`, `PlatesNight`). Tuned at 375 x 812 on the GPU: the issue's
+  proposal (`#929292`, 0.4 and 0.25) left the two states hard to tell apart by day and nearly gone at night (the plates
+  are lit, so the night's light darkens them); a lighter grey and a wider gap between the two opacities keep them apart
+  by day, at dusk and at night.
+- **One token.** `--color-plate` is that grey; `--color-plate-off` is merged into it. The plan view (`BoardMap`) draws
+  `bg-plate/55` and `bg-plate/20`; `board-map-plates.test.tsx` keeps the hex and the opacities equal to the renderer's.
+- **At the tiles' bottom.** `PLATE_Y` (`placement.ts`) is a model's foot (y 0, `TileRenderer` sets each model's bottom
+  there), lifted a twentieth of a voxel, no longer the ground slab's top (4 voxels): from the side a plate lies level with
+  the foot of the tiles around it (story `PlatesSide`, the steepest tilt). The grid lines lie there with them. Nothing else
+  is drawn at that level (a plate is inset in its own cell, and the tile in hand's own foot is hidden under its ground), the
+  neighbours' shadows still reach the plates (they receive shadows, lit like the tiles), and the plate under the tile in
+  hand still fades out (`plates.hideUnderTile`).
 
 ### 5.8 Loading (LOAD-FAST)
 
@@ -2613,9 +2699,9 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
   - **Only while the cycle moves** (fix loop 1). A still scene (reduced motion, the Low tier), a held moment (`freezeAt`) and the cycle off draw with the key light alone. The twin is not made, or is released and its shadow map disposed, so there is one shadow map and one lookup compiled. `dispose` releases the twin too, with the context kept or not.
   - Cost while it moves: two shadow lookups per fragment. A program recompile happens when the cycle starts or stops moving (the light count changes).
 - **The night lights.**
-  - FEATURE-HL's classifier gives each model a light map beside its label map (`lightColumns`): a city's columns, and the structures labelled none (stops, houses, arches, bridges) within 2 columns (`ROAD_LIGHT_REACH`) of a road column.
-  - The tile shader (`NIGHT_LIGHTS_GLSL`, its own branch, one `texelFetch`, nothing while off) lights a lit column's voxels above the ground. Each window (its column × its voxel level × its tile's cell, by an integer hash) has its own level at which it switches on over 0.15 of the night's ramp. The levels run to 1.6, so about half of the windows are lit at full night.
-  - A wall glows fully and a roof at 0.35. The colour is amber-300 `#ffb57a`, the strength 0.4.
+  - Since NIGHT-WINDOWS-DEFAULT (#583) the night lights are the buildings' windows and doors, the only source: the first build's lit columns (`lightColumns`, `NIGHT_LIGHTS_GLSL`) are removed.
+  - The openings are found in each model's voxel grid (`windows.ts`, NIGHT-WINDOWS #513 and #571): the recesses and the holes through the hollow houses' and towers' walls, on every wall, but the pockets in leaves. The doors (on the slab, two cells high or more) light as the windows do; the gaps (one cell high) never.
+  - Their light is baked per model type into a 3D texture (`NIGHT_WINDOWS_GLSL` reads it at the air cell in front of the face) and past the tile's border into the board's spill map: strength 0.4, reach 6 voxels, falloff 1.5 (the first pass's), margin 6. Each window (its owner × its tile's cell, by an integer hash) switches on over 0.15 of the night's ramp, spread over 0.85 of it, so every window is lit at full night. The colour is amber-300 `#ffb57a`.
   - The level rises with the keyframes: 0 by day, 0.3 to 0.45 at dawn, 0.6 to 0.7 at dusk, 1 at night.
   - Turning the lights on labels the models drawn, once each, in idle slices, as a highlight does.
   - The ghost holds them off, as it holds the highlight.
@@ -2623,7 +2709,7 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
 - **Settings.** `RendererSettings.dayNight` (off in the renderer). The app's Settings has a row, "Day/night cycle", on by default (`paved.settings.v1`, `dayNight`). The board's renderer gets `{ dayNight: { enabled } }`; the hand's tile (`TileView`) does not run the cycle.
 - **Stories.** "Renderer/DayNight":
   - Cycle, Fast (×10), SummerDay, SummerNight, AutumnDusk, WinterDawn, NightNoLights, ReducedMotion, SlotsAtNight, PlacedAtDusk and ForestAtNight.
-  - Controls: the cycle length, a phase to hold, the season, ×1/×10, the lights, their strength, the floor, reduced motion and the tier. The scene is exposed as `window.__dayNightScene`.
+  - Controls: the cycle length, a phase to hold, the season, ×1/×10, the lights, the floor, reduced motion and the tier. The scene is exposed as `window.__dayNightScene`.
   - "Scenes/Board" has DayNight (×10) and DayNightAtNight.
 
 **Measured** (the GPU, Chrome in new headless mode, never on screen; this branch's static Storybook; the recorded 72-tile board; outlines forced on; quality and pixel-ratio cap auto (Medium; 1.75 desktop, 2 phone-like); 1-minute loads 1.3 to 3.3).
@@ -2733,6 +2819,68 @@ The still scene costs what the cycle off costs, within the runs' noise (one shad
 - *Reverse* by turning the row off (or `dayNight.enabled`). The crossfade goes back to one light by `SHADOW_STEP` → 0 and dropping the twin.
 
 
+
+### 5.10 The camera's tilt (TILT-54, owner 2026-10-19)
+
+The board opened straight down and the player could tilt it 27 degrees at most, with the mouse's right button only. The
+owner's decisions: the board **opens at 27 degrees** (`PLAY_DEFAULT_POLAR_ANGLE`, 0.15 PI, the former maximum), the
+maximum is **doubled to 54 degrees** (`PLAY_MAX_POLAR_ANGLE`, 0.30 PI), and the range stays 0 (straight down) to the
+maximum, both ways from the default (`core/CameraController.ts`).
+
+- **The opening.** The camera opens at the opening distance (240) from its target, tilted 27 degrees towards +z (the
+  azimuth stays locked at 0), looking at its target (`tiltedOffset`). OrbitControls saves that position, so `reset()`
+  comes back to it, and `focusBounds` keeps the tilted offset when it frames the board: the board's centre stays at the
+  centre of the screen. The target's clamp to the board (`update()`) is on the target, so it holds at any tilt. The
+  opening tile size S is measured at the target's distance, so the outline fade (OUT-FADE2) is unchanged by the tilt.
+- **The closest zoom** is re-derived for 54 degrees: 5 + 2.625 / cos 54 degrees = 9.47, so `CLOSEST_DISTANCE` is **10**
+  (8 before). It moves `OUTLINE_CLOSEST_FACTOR` from 30 S to 24 S (the "max zoom-in" start of the Outlines story; the
+  default start, 1.5 S, does not move), the default `minDistance` of the settings, and the face antialiasing's test of the
+  near plane on the tallest tile (`face-antialiasing.test.ts`, every model's height read).
+- **The gesture on touch.** In play mode two fingers now pinch to zoom and, dragged up or down together, tilt
+  (`touches.TWO = DOLLY_ROTATE`; the azimuth is locked, so the rotation is only a tilt and a sideways drag does nothing).
+  One finger still pans; desktop keeps the right button. The two-finger pan is gone: one finger pans. The rotate speed
+  doubles with the range (`PLAY_ROTATE_SPEED` 0.2, 0.1 before), so a drag over the surface's full height tilts 72
+  degrees, three quarters of it for the whole range, as before (27 of 36 degrees). Checked in headless
+  Chromium on the Mac's GPU at 375 x 812 with touch: two fingers dragged up 500 px reach 54 degrees, then down 700 px
+  reach 0, the distance unchanged; the right button does the same at 1440 x 900.
+- **The tap stays a tap.** A second finger down before the first comes up makes the gesture a pinch or a tilt: it places
+  nothing, whatever the fingers' travel (before, two fingers lifted in place could pass the 5 px rule). A `pointercancel`
+  forgets the tap. `SurfaceInputEvent` carries the `pointerId` for it (`surface-adapter.test.ts`). The bubble of #544
+  follows the camera through `onCameraChange`, which the tilt fires like a pan or a zoom.
+- **Beyond the board.** With the camera's `zoom` of 5 the vertical field of view is about 10 degrees, so at 54 degrees
+  the steepest ray is about 59 degrees from straight down: the horizon never shows. What the board leaves uncovered is the
+  backdrop (the day and night gradient of 5.9, or the background colour), as at 27 degrees; the fog is distance fog,
+  and at 240 the board's far edge is only a few units farther than its centre. The shadow map is the light's fixed
+  frustum (100 units around the board's origin, 2048 texels), independent of the camera: the same coverage and texel size
+  at any tilt; zoomed in at 54 degrees a texel is seen more obliquely on the tops, an estimate, not measured.
+- **The native controller** (`NativeCameraController`, `native-input-mapper.ts`) has the same default and range: it
+  opens at 27 degrees, `applyTilt(dy, height)` tilts as OrbitControls does, and the mapper emits a `tilt` event when two
+  fingers move up or down together, beside the pinch. Its default `minDistance` is the web's closest zoom (10; 5 before).
+- **Captures** (the "Renderer/Lighting" story, the 72-tile board, headless Chromium on the Mac's GPU, not SwiftShader;
+  the tilt reached by the gesture itself, in `packages/app/src/stories/renderer/captures/`): `tilt54-phone-0.webp`,
+  `tilt54-phone-27.webp` (as it opens), `tilt54-phone-54.webp` at 375 x 812 (DPR 3, stored at 1x);
+  `tilt54-desk-0.webp`, `tilt54-desk-27.webp`, `tilt54-desk-54.webp` at 1440 x 900 (DPR 2, stored at 1x);
+  `tilt54-phone-54-closest.webp`, the closest zoom (10) at 54 degrees, no cut; `tilt54-phone-54-day.webp` and
+  `tilt54-phone-54-night.webp`, the "Renderer/DayNight" story's sky at 54 degrees (summer day, autumn night).
+- **Frame time (measured, TILT-54, on the Mac's GPU, not SwiftShader).** Headless Chromium (new headless mode, never on
+  screen), the "Renderer/Lighting" story on the recorded 72-tile board at distance 240, the slots and ghost off, outlines
+  forced on, `redraw` on. Each configuration ran in a fresh context with 120 warm-up frames and 600 measured frames. Per
+  frame, the CPU time of the loop tick (`setFrameObserver`) plus the GPU time of an `EXT_disjoint_timer_query_webgl2` query
+  around the render (600 of 600 frames timed, no disjoint). Two rounds, the order of the angles alternated; the load
+  average was about 4 to 6. Desktop: 1440 x 900 at DPR 2, unthrottled. Phone: 360 x 780 at DPR 3, CPU throttled 4x (the
+  bench's phone approximation, still on the Mac's GPU). "auto" resolved to Medium on both profiles. CPU + GPU p95 in ms, round 1 / round 2:
+
+  | Profile | Tier | 27 degrees | 54 degrees |
+  |---|---|---|---|
+  | Desktop | Medium (auto) | 5.64 / 5.78 | 5.32 / 5.56 |
+  | Desktop | Low | 5.67 / 5.75 | 5.59 / 5.47 |
+  | Phone | Medium (auto) | 5.31 / 5.18 | 5.11 / 5.40 |
+  | Phone | Low | 5.38 / 5.09 | 5.16 / 4.88 |
+
+  54 degrees costs no more than 27: every pair is within the spread between rounds (at most 0.3 ms), and all are far
+  under the 12 ms desktop and 16.6 ms phone limits. The GPU p95 alone is 3.2 to 4.2 ms and the CPU p95 1.9 to 2.7 ms.
+  The draw calls and triangles were not recorded: `renderer.info` read after the frame counts only the composer's last pass.
+
 ---
 
 ## 6. The page map
@@ -2743,12 +2891,12 @@ The still scene costs what the cycle off costs, within the runs' noise (one shad
 |---|---|---|---|
 | welcome | `/welcome` | hidden | first visit only (a `localStorage` flag); the connect button; skip to Training |
 | loading | (no route) | hidden | the app's boot screen and every route's `Suspense` fallback; the scene's asset loading inside the board |
-| home | `/` | Home | Play button, the Challenge card with today's top 3, Training and Tutorial, the active game to resume |
-| play | `/play` | hidden (back) | Challenge, Training, Tutorial (P-57 B4), Multiplayer disabled ("coming soon") |
+| home | `/` | Home | Play button, the Challenge card (no podium since D-29), Training and Tutorial, the active game to resume |
+| play | `/play` | hidden (back); the nav's Play opens it | Challenge, Training, Tutorial (P-57 B4), Multiplayer disabled ("coming soon") |
 | purchase | `/play/challenge` | hidden (back) | stake picker 1–10, price, boost, the 24 h validity, the minimum score to beat, confirm; then spawn |
+| cobbles | `/cobbles` | hidden (back) | the Cobble balance, the packs, pick one and pay its USDC (#621; `/play/challenge?tab=cobbles` redirects here) |
 | board | `/game/:gameId` (Challenge), `/training`, `/tutorial` | hidden | the board, the tile in hand, rotate / place / discard, give up |
 | over | `/game/:gameId/over`, `/training/over` | hidden | final score, the game's metrics, the reward or "below the threshold", settle when the day allows, Play again |
-| leaderboard | `/leaderboard/:day?`, `/player/:id` | Ranks | as today, with the day picker |
 | quests | `/quests/:day?` | Quests | the day's quests |
 | achievements | `/achievements` | (from Quests, a tab) | split out of today's quests screen |
 | vault | `/vault` | Vault | stake, unstake, dividends |
@@ -2757,20 +2905,31 @@ The still scene costs what the cycle off costs, within the runs' noise (one shad
 | settings | `/settings` | Settings | graphics quality, sound, music, tile preview, placement highlight (the mockups), account, links to theme and referral |
 
 Old links keep working: `/game?mode=challenge&id=N` → `/game/N`, `/game?mode=training` → `/training`,
-`/economy` → `/vault`.
+`/economy` → `/vault`; since D-29, `/leaderboard`, `/leaderboard/:day` and `/player/:id` → `/`.
 
-**Decided for the owner:** five bottom tabs, Home · Ranks · Quests · Vault · Settings. The mockups' tabs
-were Home, Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme moves under Settings
-as one of its rows. Reversed if the owner wants Theme as a tab (it would replace Vault, which would move
-to Home).
+**The five destinations (D-29, the owner, 2026-10-20, #623):** Home · Missions · Play · Vault · Settings, on mobile and
+on desktop. Play, in the centre, has no label and is the accent: it opens Choose a mode (`/play`), a full-screen flow, so it
+is never the current item. The ranks are out of the UI (the Ranks and player pages, Home's podium, the score screen's rank),
+to come back later, probably as leagues; the indexer's leaderboard endpoint and the `@paved/chain` reads stay for them.
+Before D-29 the tabs were Home · Ranks · Quests · Vault · Settings ("decided for the owner"); the mockups' were Home,
+Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a row of Settings.
 
 ### 6.2 Navigation
 
-- **Mobile and tablet:** a fixed bottom bar of five tabs (icon + label from `mobile`, icon only below),
-  safe-area padded; the tab indicator slides (Motion `layoutId`). Hidden on full-screen flows (welcome,
-  play, purchase, board, over), which get a top bar with Back.
-- **Desktop:** the same five destinations in a left rail with labels; the board keeps the rail collapsed
-  to icons so the scene gets the width; dialogs instead of sheets.
+- **Direction D (#537, applied 2026-10-19; replaces the bar with a sliding indicator and the left rail, which read as
+  Cartridge's):** `containers/app-nav.tsx`.
+- **Mobile and tablet:** a bottom bar of five items, fixed to the viewport's bottom (outside the page's scrolling region,
+  `TabFrame`, #611; a pull past the top never moves it), each an icon over its label (labels from `mobile`, icon only
+  below), safe-area padded, as the mockups draw it. Play, the centre item (D-29), is a larger gold disc raised above the bar,
+  icon only (`aria-label="Play"`). The current item is gold (`text-primary`) on the white 15% layer; hover
+  10%, pressed 20% (`state-layer`, section 2.2b). No indicator slides. Hidden on full-screen flows (welcome, play, purchase,
+  board, over), which get a top bar with Back, the title centred and a hairline under it. The balances (#620) sit in the
+  page header (the Cobbles and USDC plates; USDC opens a sheet with every balance) and, on a flow, in a strip under the top
+  bar; on every screen but the board.
+- **Desktop:** the same five items, icon beside label (Play a gold disc, icon only), in a header fixed across the top: the
+  voxel wordmark on the left, the items, then the balances (#538, #620: a resource bar, each currency on a plate, vPAVED when
+  held) in a row at the header's end; a flow's top bar shows them on its right. No rail: every page is one column (`flex-col`) at every
+  width. Dialogs instead of sheets.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
 
@@ -2835,12 +2994,11 @@ Sources, read at the pinned versions: `@cartridge/controller` 0.13.16, whose key
 |---|---|---|---|---|
 | welcome | controller connect | — | — | `welcomed` flag |
 | loading | — | — | — | — |
-| home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/tournaments/:day/leaderboard` (top 3), `/v1/head` | — | the Training save (resume) |
+| home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/players/:id` (the player's status) | — | the Training save (resume) |
 | play | `spawn_paused` | — | — | — |
 | purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; `Economy.seller` (read at send); writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)`, each one multicall and one wallet prompt (neither the approve nor the call that pulls the USDC is a session policy, P-65) | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet has not answered, written when the send starts, and when it was sent) |
 | board | `game(id)`, `tiles(id, from, count)`, the initial seed (section 9); writes `build`, `discard`, `surrender` | — | `EngineGame` (prediction, legality, preview points) | the Training and Tutorial moves |
-| over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id` | the final counters (Training) | — |
-| leaderboard | — | tournaments, leaderboard, player, player games | — | — |
+| over | `game(id)`, `Economy.terms(id)` (reward, `expired`), `day(day)`; write `settle` | `/v1/games/:contract/:id`; "New best" from the player's own games and profile (`/v1/players/:id/games`, `/v1/players/:id`), no leaderboard (D-29) | the final counters (Training) | — |
 | quests | `Setup.account`, `day_progress`, `week_progress`; writes `claim_quest`, `claim_daily_credit`, `claim_weekly_credit` (P9) | `definitions` (with `cobbles`, `cobbles_kind`), `playerQuests`, `/v1/head` (the clock) | — | — |
 | achievements | `Setup.account`; write `claim_achievement` (P9) | `definitions`, `playerAchievements` | — | — |
 | vault | `Vault` (an ERC4626 over PAVED, vPAVED, P-56): `balance_of`, `convert_to_assets`, `max_withdraw`, `max_redeem`, `exit_fee`, `total_assets`, `total_supply` (the rate), `preview_deposit`, `preview_withdraw`, `delegates` (read only); PAVED `balance_of`; writes PAVED `approve` + `deposit(assets, receiver)` (one multicall), `withdraw(assets, receiver, owner)`, `redeem(shares, receiver, owner)` (Withdraw all), none a session policy (P10) | — | — | — |
@@ -2854,9 +3012,9 @@ and the execution, `buy_pack` takes the lower price and the rest of the allowanc
 own `buy_pack` can spend it (`Setup` moves USDC from the caller alone), so nothing is lost; the client does not reset it. No
 change: accepted as is.
 
-**As wired (P6).** Home reads the day from the chain's `currentDay()` (the clock's until it answers) and its top 3 from
-the indexer client on `VITE_INDEXER_URL`; `/v1/head` is not read. Each home read that has not answered, or failed,
-leaves its part empty instead of holding the page: an empty podium, no game to resume, not paused (purchase reads the
+**As wired (P6; the podium removed by D-29).** Home reads the player's profile from the indexer client on
+`VITE_INDEXER_URL`, and no leaderboard; `/v1/head` is not read. Each home read that has not answered, or failed,
+leaves its part empty instead of holding the page: no game to resume, not paused (purchase reads the
 pause again); a connected player the indexer has not answered for is shown by address with zero figures. The welcome's
 controller connect is the devnet burner on devnet. The shell has no footer since #536 (the D-15 notice moved to the Credits page, `/settings/credits`); Disconnect is Settings' (P11a), see "As built (P11a)". The tutorial's board (`/tutorial`) reads `Setup.tutorial_claimed` and writes
 `Setup.claim_tutorial` only at its end, for the claim.
@@ -2873,14 +3031,14 @@ them as scenes on typed mocks, no wiring:
 claimable, and the free games: every daily of a day, or weekly of a week, done earns one (`claim_daily_credit`,
 `claim_weekly_credit`), then a credit counter and Play free; **achievements** show their Cobbles (their points; On the
 Podium none in v1) with the same claims; **home** and **play** show the balance and a free game that spends a credit
-(`spawn_free`); the **leaderboard**, and Home's top 3, mark a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
-ruling). The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
+(`spawn_free`); the **leaderboard**, and Home's top 3, marked a row "Free" when its best game was free (`GameSpawned.price == 0`, PM
+ruling), until D-29 removed both. The views and entry points the pages read are `gems-v1.md` 6.1's; their types are in
 `components/containers/cobble-types.ts`. Since P9 the ledger's (`CobbleAccount`, the claims of a period, a quest's and an
 achievement's Cobbles) are `@paved/chain`'s, named `cobbles` as CORE renamed them; the packs and the skins stay provisional
-until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, Font Awesome's
-`cubes-stacked`), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
-`src/data/scene-types.ts` holds: the scenes' Cobbles props are optional, and the leaderboard's free mark is a list of
-player ids (`free`), not a field of `LeaderboardEntry`.
+until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, the stones of
+`TokenIcon`, `src/assets/tokens/cobbles.svg`, #620), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
+`src/data/scene-types.ts` holds: the scenes' Cobbles props are optional (the leaderboard's free mark, a list of player ids, left with the
+leaderboard, D-29).
 
 ### 6.5 What waits for CORE (P-57 B9)
 
@@ -2903,6 +3061,41 @@ player ids (`free`), not a field of `LeaderboardEntry`.
   a `VaultViews` interface.
 - **The prediction's view** (section 9).
 
+### 6.6 Deploys and open tabs (STALE-CHUNK-RELOAD, #589)
+
+Every page, scene and large module is a lazy chunk with a hashed name under `/assets/` (served `immutable`;
+`index.html` is `no-cache`). A deployment replaces them all: the production host serves the latest deployment's files
+only, so a tab opened before it asks for names that answer 404 (`over-R2jaf3I2.js` while the host has
+`over-Dzic5OIG.js`). The owner's ruling (2026-10-19): no skew protection and no keeping of old chunks; everyone is on the
+latest build.
+
+- **Reload once.** `lib/stale-chunk.ts`: a failed dynamic import (Vite's `vite:preloadError`, which every chunk of the
+  app and the renderer goes through, and `RouteError` for a route) asks the host for the failed file (`HEAD`,
+  `no-store`), or for the build's entry script when the error names none (Safari). A 404 or 410 reloads the tab onto the
+  latest build, after a key for that file is set in `sessionStorage`; with the key already set (the file fails again
+  after the reload: a real outage), a stale reload of the tab less than 30 s before (the new build's file is missing
+  too), or a host that does not answer within 5 s, nothing reloads and `RouteError` shows the error with
+  a "Reload" action. A route shows the loading scene while the host is asked (5 s at most).
+- **Chunks loaded on demand** (`useDeferred`: the Surrender dialog, the settings and deck sheets, the final board)
+  reload the same way. When their file is still gone after that reload, the failure is thrown into the route, whose
+  `RouteError` offers the Reload (a new try cannot fetch it); a file the host still serves, or a silent host, keeps
+  their own error toast, after which a new try may work.
+- **Chunks whose caller keeps the failure** (the renderer's: day and night, the voxel drop, SMAA;
+  the idle prefetches) go through Vite's event as well: when the file is still gone after the reload, the listener hands
+  it to `StaleChunkGate` (in `RootLayout`), which throws it into the route, so `RouteError` shows it with the Reload.
+  `RouteError` then forgets it, so Back home does not throw it again.
+- **Nothing to save first.** A Training game is saved at each move (`LocalSession`), and a Challenge placement is on
+  chain or not; the reload lands on the same URL.
+- **`reimport`** (`lib/reimport.ts`, #539) stays for a transient failure (the same file under a new query); a file that
+  is gone fails there too and reaches the reload.
+- **The web client is not a PWA.** It has no service worker and no precache, and `site.webmanifest` has no `display`
+  (the name and the icons stay, for the tab and the bookmarks): a home-screen launch is a browser tab, not a long-lived
+  installed app. Mobile will be a native app. A guard test (`__tests__/no-service-worker.test.ts`) keeps out
+  `vite-plugin-pwa`, workbox and any worker file. The previous client (`app/`) registered a `vite-plugin-pwa` service
+  worker (`registerType: autoUpdate`) on this origin; at startup, once per browser, `lib/legacy-sw.ts` unregisters every
+  service worker of the origin and deletes every Cache Storage entry (logged once). It stays for several releases.
+  `app/` still carries `vite-plugin-pwa` and its `generate-pwa-assets` script; removing them is the owner's decision.
+
 ---
 
 ## 7. A new app beside app-web, or in place
@@ -2922,7 +3115,7 @@ place would break every page at once, while app-web must keep shipping the Sepol
 | app-web's `training/` (`LocalSession`, `PageSession`, storage, seed) and `tutorial/tutorial-run.ts` | **moved** into `@paved/game-core` (`session/`) so both apps share them, then the session work of section 9 builds on them there |
 | app-web's pure helpers (`utils/*-view.ts`, `player-label`, `mode-routing`) | copied into the new app where used, deleted with app-web |
 | `public/models`, `public/assets/tiles` | moved to `@paved/renderer`'s assets (served by both apps through Vite's `publicDir`) |
-| `@paved/ui` (Tamagui) | dropped with app-web from the web; **`app-native` still depends on it** (dormant, P-2): it stays for app-native until the PM rules on app-native |
+| `@paved/ui` (Tamagui) | dropped with app-web from the web; `app-native`, its last user, was removed in #591; the package stays |
 | app-web's `bench/` and `scripts/bench` | the bench moves to the new app's board route (same method) |
 
 **How both live:** both build in CI; Vercel published app-web's build until the cut-over (app-web was removed in P-70, see git history), then the
@@ -2969,7 +3162,7 @@ Awesome **Pro 6.6.0 from these files**, under the owner's Commercial License. Th
 
 **The files in `packages/app`** (F4). Moved with `git mv`, not copied: nothing read `app/public/fontawesome`
 (`app/` imports `@fortawesome/*` from npm and never the scripts), so the deprecated folder no longer holds
-them. They are unmodified, and `sha256sum` equals that of `21788fb`:
+them (the folder itself was removed in #591). They are unmodified, and `sha256sum` equals that of `21788fb`:
 
 | File | Bytes | SHA-256 |
 |---|---|---|
@@ -3229,7 +3422,7 @@ Where each would plug in; none is designed here.
 |---|---|
 | Daily and weekly challenges paid from entry fees | a mode on the Play page; a `PredictedSession` on a contract that takes a shared seed (the engine takes any seed); the leaderboard's day picker already takes a period id |
 | Story mode (predefined seeds, a non-empty starting board) | `LocalSession` with a preset seed and a preset board (the engine's `force` / `write` already place scripted tiles, as the Tutorial does); a `/story/:chapter` route; puzzles as data files |
-| XP and meta-progression | a `profile` query (indexer, then chain) and a header chip; unlocks gate themes and modes through one `useUnlocks()` hook, so the Theme page's "locked" states are data |
+| XP and meta-progression | a `profile` query (indexer, then chain) behind `usePlayerProgress()` (`packages/app/src/data/player-progress.ts`, #625: today level 1 and 0 XP for everyone, the one place the contracts' XP plugs in), drawn as the ring and level badge around the avatar; unlocks gate themes and modes through one `useUnlocks()` hook, so the Theme page's "locked" states are data |
 | Leagues (synchronous or asynchronous) | async: the leaderboard's tables with a league id; sync: the disabled Multiplayer card, the session interface (a remote session is one more `PageSession`) |
 | A native Swift client | everything the client computes lives in packages without React (`@paved/game-core` engine and sessions, `@paved/chain` clients); the contract views and the indexer API are the boundary a Swift client reads; the design tokens are one CSS file, exportable to Swift as a generated colour set |
 
@@ -3309,7 +3502,7 @@ was unmounted are announced on return is P9's to decide; recommended yes, by kee
 hook as `previous`. Weekly progress is monotone inside one interval in the mocks, and the indexer's must be.
 The `Toaster` is mounted once above the pages (`App.tsx`).
 
-**As built (P7b).** `/play/challenge` reads its Game tab from the chain: `Economy.quote(stake)` (the price from
+**As built (P7b).** `/play/challenge` reads the game's purchase from the chain: `Economy.quote(stake)` (the price from
 `entry_price`, the threshold), `split_bps`, the USDC `balance_of`, `spawn_paused`, and the pool's `quote_swap` of the stake's
 swap for `min_out` (1 % slippage); Pay sends the approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall
 through `EconomyWriter.purchase`, which reads the price, the quote, the router pin, `Economy.seller()` and the guard's rate
@@ -3321,7 +3514,7 @@ wallet: nothing was sent."): a refusal, no hold. Only the controller's documente
 `null` or a node's "Transaction rejected", stays a plain refusal with its message. In both cases nothing was sent, so the
 record written at send gives way to the one that was there before (none, or a record the player released). A referrer equal to the seller (`Setup`) is sent as 0x0 even where the
 base deployment names no Setup (VALUE-FIX's note). While a new stake's quote is read the last one stays shown
-and Pay waits. The Cobbles tab (`?tab=cobbles`) reads the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
+and Pay waits. The Cobble packs, once a tab of this page (`?tab=cobbles`) and a page of their own since #621 (`/cobbles`, the old link redirects there), read the packs from `Setup.pack` (ids 1 to `MAX_PACK_ID`, 8), not from the
 indexer's `/v1/packs`: `buy_pack` charges the contract's price, the buyer reads it again at send, and the chain has a new
 price before the indexer does. Buy is `PackBuyer.buy` (`@paved/chain`, `packs.ts`): the same fresh checks as a game (the
 chain id, the pack on sale at the confirmed price, the router pin, the rate, the split, a fresh quote of the pack's swap,
@@ -3570,6 +3763,9 @@ and `tokens.test.ts` checks that they agree; `app-web`, the v1 client, keeps its
 - *Tutorial.* `useTutorialRun` builds its `TutorialRun` in a lazy state initialiser. A lazy initialiser does not stop React from rendering a first mount it then discards (two
   inits and one commit, measured with the page preloaded, as with a `useRef`), so the test counts engines from the committed page.
 
+*Removed by D-29 (#623, 2026-10-20): the pages, scenes, hooks and mocks below left the client, the routes redirect to Home; the
+indexer's endpoints and `@paved/chain`'s reads stay for the leagues. Kept as the record of P8.*
+
 **As built (P8).** `/leaderboard/:day?` and `/player/:id` (under Ranks) read the indexer. The leaderboard's day is the chain's
 `currentDay` (the browser's clock until it answers; nothing is read before the chain has answered or failed), a later day or a
 non-number is today, and the picker goes no earlier than the indexer's first tournament (`useFirstDay`, which walks
@@ -3683,7 +3879,8 @@ Each is reversed by the owner's word; the section says what else would reverse i
 5. Motion, lazy-loaded (3.2).
 6. TanStack Query + zustand + the engine session as the three owners of state; React Router 7 (3.3).
 7. Breakpoints 360 / 640 / 1024 / 1440 px on a 320 px base (3.4).
-8. Five bottom tabs: Home, Ranks, Quests, Vault, Settings; Theme under Settings (6.1).
+8. Five bottom tabs: Home, Ranks, Quests, Vault, Settings; Theme under Settings (6.1). Since D-29: Home, Missions, Play (the
+   centre, icon only), Vault, Settings; no ranks.
 9. A new `packages/app` beside app-web, app-web removed at the cut-over (7).
 10. Font Awesome Pro 6.6.0 from the owner's files, loaded after the first frame and drawn by React (8).
 11. Prediction with at most two unconfirmed moves; the chain wins on a mismatch (9).

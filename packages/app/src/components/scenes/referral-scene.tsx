@@ -8,6 +8,7 @@ import { Amount } from "../elements/amount";
 import { CopyField } from "../elements/copy-field";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
+import { TokenIcon } from "../elements/token-icon";
 import { SplitBar } from "../containers/split-bar";
 import { TabPage } from "../containers/tab-page";
 
@@ -72,9 +73,9 @@ export function ReferralScene(props: ReferralSceneProps) {
     <TabPage tab="settings" title="Referral" subtitle="Invite players, earn a share of their purchases" onBack={props.onBack} onNavigate={props.onNavigate}>
       <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
         <div className="flex flex-col gap-4">
-          <section aria-label="Your link" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-gold-900 bg-gold-950/40 p-4">
+          <section aria-label="Your link" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-card p-4">
             <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-lg bg-gold-900 text-gold-200">
+              <span className="grid size-10 place-items-center rounded-lg bg-secondary text-primary">
                 <Icon name="link" size="md" />
               </span>
               <div className="flex flex-col">
@@ -153,14 +154,12 @@ export function ReferralScene(props: ReferralSceneProps) {
                   <ul aria-label="Earned through your link" className="flex flex-col divide-y divide-border">
                     {(
                       [
-                        ["ticket", "Challenge games", earnings.games, "game"],
-                        ["cubes-stacked", "Cobbles packs", earnings.packs, "pack"],
+                        [<Icon name="ticket" size="sm" className="text-muted-foreground" />, "Challenge games", earnings.games, "game"],
+                        [<TokenIcon kind="cobbles" size="sm" />, "Cobbles packs", earnings.packs, "pack"],
                       ] as const
                     ).map(([icon, label, part, one]) => (
                       <li key={label} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 py-2">
-                        <span className="inline-flex h-5 items-center">
-                          <Icon name={icon} size="sm" className="text-muted-foreground" />
-                        </span>
+                        <span className="inline-flex h-5 items-center">{icon}</span>
                         <span className="min-w-0 text-sm leading-5 wrap-anywhere">{label}</span>
                         <Amount value={part.total} token="usdc" className="leading-5 text-success" />
                         <span className="col-span-2 col-start-2 min-w-0 text-xs wrap-anywhere text-muted-foreground">{plural(part.count, one)}</span>

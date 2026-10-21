@@ -11,7 +11,8 @@ makes at each game over, the tutorial claim, and every quiver event (`docs/archi
 `Lobby` class ended): their history is in git (`git show 38f1c959:contracts/abis/Tutorial.json`). `Faucet.json` is the
 ABI of the USDC that `Challenge` charges on devnet (`token` and `contracts.MockUSDC` in `deployments/devnet.json`);
 `Token.json` is the old mock ERC20, not USDC. `MockRouter.json` is the Ekubo router stand-in, devnet only.
-`Collection.json` is the soulbound game NFT.
+`Collection.json` is the soulbound game NFT. `Matchmaker.json` is the PvP matchmaker (#639, `docs/architecture/matchmaker.md`): the pool,
+the opponent draws, the shields and the crowns; no deployment and no client reads it yet.
 
 Regenerate them after any change of the contract interface (functions, events, types):
 

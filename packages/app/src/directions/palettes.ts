@@ -1,8 +1,9 @@
 /**
- * The visual directions of #537: Storybook proposals only, nothing here is imported by the app. PR 1 gave A, B and C, each a
+ * The visual directions of #537: Storybook proposals, kept as a record; nothing here is imported by the app. The owner picked D
+ * on 2026-10-19 and PR 2 applied it to the app itself (`styles/theme.css`, the primitives, the navigation, the scenes). PR 1 gave A, B and C, each a
  * palette taken from Paved's own assets (the logo and banner, the tiles' art, the 3D models), its own navigation and its own
  * card style; none was picked and they stay as a record. PR 1b gives D, E and F, derived from the owner's mockups
- * (`app/docs/mockup-01.png`, `mockup-02.png`): charcoal with gold as the one action colour, renders of the real board and tiles,
+ * (`stories/renderer/mockups/mockup-01.png`, `mockup-02.png`): charcoal with gold as the one action colour, renders of the real board and tiles,
  * the voxel wordmark. They differ by how far they go from the mockups, not by their palette. The interaction states are the
  * owner's decision of 2026-10-18: white with transparency, the same on every button and every nav item, whatever the direction.
  */
@@ -246,7 +247,7 @@ export const DIRECTION_IDS_2 = ["d", "e", "f"] as const satisfies readonly Direc
 /** The notes of a direction as the Docs description of its stories: assets, navigation, cards, why it is not Cartridge. */
 export function describeDirection(d: Direction): string {
   return [
-    `**Direction ${d.id.toUpperCase()}: ${d.name}.** ${d.tagline} (#537, PR ${d.mockups ? "1b" : "1"}: a proposal, no page of the app uses it.)`,
+    `**Direction ${d.id.toUpperCase()}: ${d.name}.** ${d.tagline} (#537, PR ${d.mockups ? "1b" : "1"}: ${d.id === "d" ? "the owner's pick of 2026-10-19, applied to the whole app by PR 2; this page stays as the record of the proposal." : "a proposal, kept as a record; no page of the app uses it."})`,
     ...(d.mockups ? [`**Against the mockups.** ${d.mockups}`] : []),
     `**Assets.** ${d.assets.join(" ")}`,
     `**Navigation.** Mobile: ${d.nav.mobile} Desktop: ${d.nav.desktop}`,

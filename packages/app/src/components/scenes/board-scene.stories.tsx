@@ -1,14 +1,20 @@
+import { useEffect, useMemo } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
-import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
+import { useBoardSettings } from "../../data/board-settings";
+import { BOARD_FOG } from "../../data/settings";
+import { APP_ASSETS, SOURCE_ASSETS, appRenders, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
 import { Notice } from "../elements/notice";
+import { toastCompletion } from "../containers/completion-toasts";
+import { Toaster } from "../ui/sonner";
 import { BoardViewport } from "../containers/board-viewport";
+import { StoryCoach, StoryEnd } from "../containers/story-panels";
 import { TileView } from "../containers/tile-view";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
 
@@ -63,13 +69,13 @@ function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps,
     tiles: TILES,
     slots,
     ghost: chosen ? { ...chosen, plan: HAND.plan, orientation, placed: true, fits } : null,
-    hand: { tile: { plan: HAND.plan, orientation }, state: "placing", slotChosen: chosen !== null && fits, preview: chosen && fits ? 30 : null },
-    bubble: chosen ? { cell: chosen, rotations: VALID.length, onRotate: fn(), onClose: fn() } : null,
+    hand: { tile: { plan: HAND.plan, orientation }, state: "placing", slotChosen: chosen !== null && fits, cellChosen: chosen !== null, preview: chosen && fits ? 30 : null },
+    bubble: chosen ? { cell: chosen, rotations: VALID.length, onRotate: fn(), onClose: fn(), onDiscard: fn(), discardCost: 50, onConfirm: fn(), canConfirm: fits } : null,
   };
 }
 
 /** The board scene over the real renderer, with the renderer's settings (the day and night cycle's stories). */
-function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
+function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput, fogOwned?: ReadonlyArray<{ x: number; y: number }>) {
   return (
     <BoardScene
       {...args}
@@ -84,6 +90,7 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
           bubble={args.bubble}
           placementHighlight={args.placementHighlight}
           settings={settings}
+          fogOwned={fogOwned}
         />
       }
       renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
@@ -94,19 +101,22 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
 /** The day and night cycle as the game turns it on (Settings, "Day/night cycle"), ten times as fast; and held at a night. */
 const DAY_NIGHT_FAST: RendererSettingsInput = { dayNight: { enabled: true, speed: 10 } };
 const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
+/** The fog as the game turns it on, the ambient effects on, held at a summer's day or night. */
+const FOG_DAY: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
+const FOG_NIGHT: RendererSettingsInput = { ...FOG_DAY, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
 
 /**
  * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
  * the score, the tiles left, the time before `expires_at`, the closing points. One story per state; the Viewport control
  * reframes it. The board draws the placement visuals as the game does (PLATES, P-74): a plate on every free cell next
- * to a tile, playable (blue) where a rotation of the tile in hand fits,
- * invalid (greyscale) where none does, and the tile placed on a plate (a yellow tint), from
+ * to a tile, one grey (#588): playable (less transparent) where a rotation of the tile in hand fits,
+ * invalid (more transparent) where none does, and the tile placed on a plate (a yellow tint), from
  * the engine's rule on the recorded board.
  */
 const meta = {
   title: "Scenes/Board",
   component: BoardScene,
-  args: { onBack: fn(), onConfirm: fn(), onDiscard: fn(), onSurrender: fn() },
+  args: { onBack: fn(), onDiscard: fn(), onSurrender: fn(), onRestart: fn(), tileRenders: appRenders },
   render: (args) => renderBoard(args),
 } satisfies Meta<typeof BoardScene>;
 export default meta;
@@ -118,16 +128,43 @@ export const Placing: Story = { args: { ...BOARD.placing, ...inHand(HAND.orienta
 /** No tile to place (a move on its way): no plate. */
 export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } };
 
-/** The tile placed on a plate its rotation fits: a yellow tint, Confirm on, the bubble (Rotate when several rotations fit, Close) on its corner. */
+/**
+ * The tile placed on a plate its rotation fits: opaque with a faint yellow (#605), the bubble on its corner (Close, Rotate when several
+ * rotations fit, Validate to hold), the points it would score over the HUD's score: "(+30)".
+ */
 export const PlacedLegal: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) } };
 
-/** The gear opened: the device settings over the board, a bottom sheet on a phone (375 px), a side panel on a desktop (1440 px). */
-export const SettingsOpen: Story = {
+/** Opens the gear's settings over the board. */
+const openSettings: Story["play"] = async ({ canvasElement }) => {
+  await userEvent.click(within(canvasElement).getByRole("button", { name: "Settings" }));
+  await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Settings" })).toBeInTheDocument());
+};
+
+/**
+ * The gear opened in a Challenge: the device settings over the board, a bottom sheet on a phone (375 px), a side panel on a
+ * desktop (1440 px); "This game" first, with Surrender (#606), which asks in its dialog.
+ */
+export const SettingsOpen: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, play: openSettings };
+/** The settings in Training: Restart (the same game from its first tile, same deck), confirmed by a dialog. No Surrender. */
+export const SettingsTraining: Story = { args: { ...BOARD.storageDisabled, storageDisabled: false, ...inHand(HAND.orientation, null) }, play: openSettings };
+/** The settings in Story mode: Restart level, confirmed by a dialog. */
+export const SettingsStory: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees" },
+  play: openSettings,
+};
+
+/** A tap on the tile stack: the deck sheet, its chips the real tiles seen from above (the toggle switches to the simplified view). */
+export const DeckOpen: Story = {
   args: { ...BOARD.placing, ...inHand(HAND.orientation, null) },
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Settings" }));
-    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Settings" })).toBeInTheDocument());
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Tiles left/ }));
+    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Deck" })).toBeInTheDocument());
   },
+};
+
+/** The tile in hand fits no cell in any rotation: no plate is playable, the stack's Discard says so and stays offered. */
+export const FitsNowhere: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null), slots: [], hand: { tile: HAND, state: "placing", fitsNowhere: true } },
 };
 
 type PlatesArgs = BoardSceneProps & { rotation: number; placed: boolean };
@@ -145,8 +182,8 @@ export const Plates: StoryObj<PlatesArgs> = {
   render: ({ rotation, placed, ...args }) => renderBoard({ ...args, ...inHand(rotation, placed ? CHOSEN : null) }),
 };
 
-/** A slot chosen: Confirm shows the points. */
-export const SlotChosen: Story = { args: BOARD.slotChosen };
+/** A slot chosen (plan view): the bubble above the tile stack (Cancel, Discard, Rotate, Validate), the points on the HUD's score. */
+export const SlotChosen: Story = { args: { ...BOARD.slotChosen, hand: { ...BOARD.slotChosen.hand, cellChosen: true }, bubble: { ...BOARD.slotChosen.bubble, onDiscard: fn(), discardCost: 50 } } };
 
 /** The last move closed a city and a forest: the points appear over the board. */
 export const ClosingPoints: Story = { args: BOARD.closing };
@@ -156,13 +193,13 @@ export const PendingMove: Story = { args: BOARD.pending };
 
 export const RefusedMove: Story = { args: BOARD.refused };
 
-/** 24 h passed: the hand asks to surrender. */
+/** 24 h passed: the banner above the stack carries Surrender, the only move left. */
 export const Expired: Story = { args: BOARD.expired };
 
 /** 24 h passed, as the Challenge board opens it (P5): the Surrender dialog opens by itself. */
 export const ExpiredPrompt: Story = { args: { ...BOARD.expired, promptSurrender: true } };
 
-/** A Challenge game with no account connected (P5): no hand, the board read only. */
+/** A Challenge game with no account connected (P5): no hand, the board read only; the stack keeps the tiles left and the deck. */
 export const ReadOnly: Story = {
   args: {
     ...BOARD.placing,
@@ -189,3 +226,120 @@ export const DayNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orient
 
 /** The same, held at a summer night: the cities and the road's buildings lit, the plates and the tint readable. */
 export const DayNightAtNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) }, render: (args) => renderBoard(args, DAY_NIGHT_NIGHT) };
+
+/**
+ * The fog of war as every mode draws it (FOG-EVERYWHERE, #648; the owner's variant of #633): fog over everything but the tiles
+ * and the free slots next to them, the landscape beyond a soft edge, every corner rounded. Held at a summer's noon; at night the
+ * fog dims to a moonlit blue.
+ */
+export const Fog: Story = { args: BOARD.large, render: (args) => renderBoard(args, FOG_DAY) };
+
+/** The fog at a summer night. */
+export const FogAtNight: Story = { args: BOARD.large, render: (args) => renderBoard(args, FOG_NIGHT) };
+
+/**
+ * The fog in a village or an attack (the prop `fogOwned`, which the village and PvP screens set): the owned cells and the cells
+ * next to them stay clear, built or not. Here the recorded board's first twelve cells, its first eight built.
+ */
+export const FogVillage: Story = {
+  args: { ...BOARD.large, tiles: BOARD.large.tiles.slice(0, 8) },
+  render: (args) => renderBoard(args, FOG_DAY, BOARD.large.tiles.slice(0, 12).map((t) => ({ x: t.x, y: t.y }))),
+};
+
+function WithDial(args: BoardSceneProps) {
+  const board = useBoardSettings();
+  // The cycle ten times as fast (a day and a night every 12 s), so the dial's turn shows.
+  const settings = useMemo<RendererSettingsInput>(() => ({ ...board.renderer, dayNight: { ...board.renderer.dayNight, speed: 10 } }), [board.renderer]);
+  return (
+    <BoardScene
+      {...args}
+      seasonWheel={board.wheel}
+      canvas={<BoardViewport tiles={args.tiles} basePath={APP_ASSETS} slots={args.slots} ghost={args.ghost} bubble={args.bubble} settings={settings} onScene={board.onScene} />}
+      renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
+    />
+  );
+}
+
+/**
+ * The season dial on the board (#607): under the HUD's right end on a phone, in the board's top right corner from desktop
+ * up. Wired as the game wires it (`useBoardSettings`), the cycle ten times as fast; a tap goes auto, summer, autumn, winter,
+ * spring, auto (the Day and night setting off starts it on summer).
+ */
+export const SeasonDial: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
+
+/** The dial ringed by a Story coach mark (Tutorial 6). */
+export const StoryCoachWheel: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, null),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 6: Seasons",
+    coach: "wheel",
+    notices: <StoryCoach tip="The season wheel turns the board through the seasons. Tap it to step on; the score does not change." onDismiss={fn()} />,
+  },
+  render: (args) => <WithDial {...args} />,
+};
+
+/** A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces ringed. */
+export const StoryCoachDeck: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, null),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 5: Under the trees",
+    coach: "deck",
+    notices: <StoryCoach tip="Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." onDismiss={fn()} />,
+  },
+};
+
+/** Story coach marks on the stack: its Discard ringed (Tutorial 3), no Surrender in Story mode. */
+export const StoryCoachDiscard: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, null),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 3: Not this one",
+    coach: "discard",
+    score: 0,
+    notices: <StoryCoach tip="This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." onDismiss={fn()} />,
+  },
+};
+
+/** A Story level's end over its board (#593): the stars fill, then the score and the points short of the next star; Replay (the last level: no Next). */
+export const StoryEndOnBoard: Story = {
+  args: {
+    ...BOARD.placing,
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Open Country 11: A full road",
+    score: 9120,
+    remaining: 0,
+    readOnly: true,
+    // The campaign's last level: no Next.
+    notices: <StoryEnd title="A full road" score={9120} stars={1} toNextStar={942} bestKnown previousBest={8400} onReplay={fn()} onLevels={fn()} />,
+  },
+};
+
+/** Raises a completion toast over the board a second in, as the app's tracking does when a game completes a mission (#595). */
+function BoardWithToast(args: BoardSceneProps) {
+  useEffect(() => {
+    const t = setTimeout(() => toastCompletion("quest", "quest:6:story", { title: "Public Works", icon: "city", cobbles: 10 }), 1_000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <>
+      {renderBoard(args)}
+      <Toaster />
+    </>
+  );
+}
+
+/** #595: a mission completed during the game toasts on the board, at the top, clear of the hand. */
+export const MissionCompleted: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <BoardWithToast {...args} /> };

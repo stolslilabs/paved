@@ -31,6 +31,14 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
   iconClassName?: string;
   /** Points the last move added: shown with the score, then gone when the next move clears it. */
   delta?: number | null;
+  /**
+   * The points the tile placed, not yet validated, would score (the engine's preview, PLACE-POLISH, issue 568): "(+154)" in
+   * the primary colour and in brackets, beside the value. With a label it rides on the label's line, in place of the last
+   * move's gain (`delta`, green, moving in), which it outdates, and in place of the label (kept for screen readers): "(+154)"
+   * over "1,000". The HUD keeps its width down to 320 px, where "1,000 (+154)" on one line left no room for the title beside
+   * the season wheel and the deck. Unset or null: none.
+   */
+  preview?: number | null;
   className?: string;
 }
 
@@ -38,7 +46,7 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
  * A score: the font token `mono` with tabular figures, so a counting score never shifts its neighbours. The last move's
  * points ride on the label's line, so a narrow header keeps its width.
  */
-export function Score({ value, label, icon, iconClassName, delta, size, tone, className }: ScoreProps) {
+export function Score({ value, label, icon, iconClassName, delta, preview, size, tone, className }: ScoreProps) {
   const gain = (
     <AnimatePresence>
       {delta ? (
@@ -54,17 +62,24 @@ export function Score({ value, label, icon, iconClassName, delta, size, tone, cl
       ) : null}
     </AnimatePresence>
   );
+  const previewed =
+    preview != null ? (
+      <span data-testid="score-preview" title="The points this tile would score" className="numeric text-xs font-semibold text-primary">
+        (+{formatPoints(preview)})<span className="sr-only"> if placed</span>
+      </span>
+    ) : null;
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       {label && (
         <span className="flex items-baseline gap-2 text-xs text-muted-foreground">
-          {label}
-          {gain}
+          {/* With a preview, the preview takes the label's place (the label read, not shown): the column keeps its width. */}
+          <span className={cn(previewed && "sr-only")}>{label}</span>
+          {previewed ?? gain}
         </span>
       )}
       <ValueRow icon={icon} iconSize={ICON_SIZE[size ?? "md"]} iconClassName={cn("text-primary", iconClassName)}>
         <span className={scoreVariants({ size, tone })} data-testid="score-value">{formatPoints(value)}</span>
-        {!label && gain}
+        {!label && (previewed ?? gain)}
       </ValueRow>
     </div>
   );

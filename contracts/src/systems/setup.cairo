@@ -58,6 +58,11 @@ pub const WEEKLY: u8 = 2;
 /// The kinds of a cobble claim (`CobblesClaimed.kind`).
 pub const CLAIM_QUEST: u8 = 1;
 pub const CLAIM_ACHIEVEMENT: u8 = 2;
+/// A star of a Story level (#548): `id` the level, `(campaign_id << 8) | level_id`; `period` the
+/// star, 1 to 3. Paid once per star, level and account (`ISetupStory::credit_story`).
+pub const CLAIM_STORY: u8 = 3;
+/// The cobbles of the first, second and third star of a Story level (#548): 30 per level at most.
+pub const STAR_COBBLES: u8 = 5;
 /// The ids that can carry cobbles: 1 to 63, one bit each in the claim bitmaps (`u64`).
 pub const MAX_COBBLE_ID: u32 = 63;
 /// The most quests of one kind with cobbles: the ids of a list are 15 `u16` in one slot.
@@ -624,6 +629,25 @@ pub trait ISetupPacks<TContractState> {
     fn pack(self: @TContractState, pack_id: u8) -> Pack;
 }
 
+/// Story mode (#548, `docs/architecture/story-mode.md`): the cobbles of the stars of a level, paid
+/// from this ledger for the `Story` system, an allowlisted reporter.
+#[starknet::interface]
+pub trait ISetupStory<TContractState> {
+    /// Credits `player_id` the cobbles of the stars `paid + 1` to `stars` of a Story level
+    /// (`paid` < `stars` <= 3): star `k` is worth `k x STAR_COBBLES` (5, 10, 15). An allowlisted
+    /// reporter only (`'Quest: not reporter'`); it trusts the reporter for whom and for which
+    /// stars (`Story` pays a star once: the best stars it keeps). Emits one `CobblesClaimed` per
+    /// star (`kind` 3, `id` `(campaign_id << 8) | level_id`, `period` the star); returns the sum.
+    fn credit_story(
+        ref self: TContractState,
+        player_id: felt252,
+        campaign_id: u8,
+        level_id: u8,
+        paid: u8,
+        stars: u8,
+    ) -> u32;
+}
+
 /// Cobbles v1, part 3 (P-61, `docs/architecture/cobbles-v1.md`, 5): the skins of the tile plans,
 /// priced by the owner, bought with cobbles by the player for itself, and the set the player shows.
 #[starknet::interface]
@@ -644,6 +668,21 @@ pub trait ISetupSkins<TContractState> {
     fn skins(self: @TContractState, player_id: felt252, theme: u8) -> u32;
     /// The theme active for each plan of a player: 19 ids, plan 1 first; 0 the default theme.
     fn active_skins(self: @TContractState, player_id: felt252) -> Array<u8>;
+}
+
+/// The Cobbles another system spends for a player (#639: the matchmaker's "Next"): an allowlist of
+/// spenders the owner sets, separate from the reporters (a spender can only lower a balance).
+#[starknet::interface]
+pub trait ISetupSpend<TContractState> {
+    /// Allows or revokes a spender, owner only. Emits `SpenderSet`.
+    fn set_spender(ref self: TContractState, spender: ContractAddress, allowed: bool);
+    fn is_spender(self: @TContractState, spender: ContractAddress) -> bool;
+    /// Spends `cobbles` (not 0) of `player_id`'s balance for `reason`, an allowlisted spender only;
+    /// reverts if the balance is short. It trusts the spender for whom (the matchmaker spends only
+    /// for the caller of its own entry point). Emits `CobblesSpent`; returns the balance after it.
+    fn spend_cobbles(
+        ref self: TContractState, player_id: felt252, cobbles: u32, reason: felt252,
+    ) -> u64;
 }
 
 #[starknet::contract]
@@ -673,11 +712,12 @@ pub mod Setup {
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, MAX_ACHIEVEMENT_TOTAL,
-        MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, Progress, ProgressTrait,
-        QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress,
-        QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, WEEKLY, Wiring, active_themes,
-        bit, list_ids, list_word, schedule_kind, week_of,
+        CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, ISetupSpend,
+        ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS,
+        Pack, Progress, ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles,
+        QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN,
+        STAR_COBBLES, WEEKLY, Wiring, active_themes, bit, list_ids, list_word, schedule_kind,
+        week_of,
     };
 
     // Errors
@@ -714,7 +754,9 @@ pub mod Setup {
         pub const SKIN_NOT_FOR_SALE: felt252 = 'Setup: skin not for sale';
         pub const SKIN_OWNED: felt252 = 'Setup: skin owned';
         pub const NOT_ENOUGH_COBBLES: felt252 = 'Setup: not enough cobbles';
+        pub const INVALID_STARS: felt252 = 'Setup: invalid stars';
         pub const SKIN_NOT_OWNED: felt252 = 'Setup: skin not owned';
+        pub const NOT_SPENDER: felt252 = 'Setup: not spender';
     }
 
     // Components
@@ -821,6 +863,9 @@ pub mod Setup {
         /// The theme active for each plan of a player (`super::active_word`); written by
         /// `set_skins`.
         active_skins: Map<felt252, felt252>,
+        /// #639 (appended, P-42). The systems allowed to spend a player's cobbles
+        /// (`ISetupSpend`); written by `set_spender`.
+        spenders: Map<ContractAddress, bool>,
     }
 
     // Events
@@ -848,6 +893,8 @@ pub mod Setup {
         SkinPriced: SkinPriced,
         SkinBought: SkinBought,
         SkinsActivated: SkinsActivated,
+        SpenderSet: SpenderSet,
+        CobblesSpent: CobblesSpent,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -882,7 +929,8 @@ pub mod Setup {
     }
 
     /// A player's claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an
-    /// achievement (`period` 0); `balance`, the player's cobbles after it.
+    /// achievement (`period` 0), 3 a star of a Story level (`id` `(campaign_id << 8) | level_id`,
+    /// `period` the star, 1 to 3); `balance`, the player's cobbles after it.
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct CobblesClaimed {
         #[key]
@@ -958,6 +1006,25 @@ pub mod Setup {
         pub theme: u8,
         pub plan: u8,
         pub cobbles: u8,
+        pub balance: u64,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SpenderSet {
+        #[key]
+        pub spender: ContractAddress,
+        pub allowed: bool,
+    }
+
+    /// Cobbles spent for the player by an allowlisted spender, for `reason` (`'MATCH_NEXT'`: the
+    /// matchmaker's "Next"); `balance` the player's cobbles after it.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CobblesSpent {
+        #[key]
+        pub player_id: felt252,
+        pub spender: ContractAddress,
+        pub reason: felt252,
+        pub cobbles: u32,
         pub balance: u64,
     }
 
@@ -1338,6 +1405,46 @@ pub mod Setup {
     }
 
     #[abi(embed_v0)]
+    impl SetupStoryImpl of ISetupStory<ContractState> {
+        fn credit_story(
+            ref self: ContractState,
+            player_id: felt252,
+            campaign_id: u8,
+            level_id: u8,
+            paid: u8,
+            stars: u8,
+        ) -> u32 {
+            // [Check] Caller is a reporter (`Story`), stars to pay
+            self.quest.assert_reporter(get_caller_address());
+            assert(paid < stars && stars <= 3, errors::INVALID_STARS);
+            // [Effect] Each star credited, one claim each, in one write of the account
+            let id: u32 = campaign_id.into() * 0x100 + level_id.into();
+            let mut account = self.accounts.read(player_id);
+            let mut total: u32 = 0;
+            let mut star = paid + 1;
+            while star <= stars {
+                let cobbles = star * STAR_COBBLES;
+                account.cobbles += cobbles.into();
+                total += cobbles.into();
+                self
+                    .emit(
+                        CobblesClaimed {
+                            player_id,
+                            kind: CLAIM_STORY,
+                            id,
+                            period: star.into(),
+                            cobbles,
+                            balance: account.cobbles,
+                        },
+                    );
+                star += 1;
+            }
+            self.accounts.write(player_id, account);
+            total
+        }
+    }
+
+    #[abi(embed_v0)]
     impl SetupPacksImpl of ISetupPacks<ContractState> {
         fn set_pack(ref self: ContractState, pack_id: u8, cobbles: u32, price: u128, active: bool) {
             // [Check] The owner, a pack id, cobbles and a price
@@ -1488,6 +1595,38 @@ pub mod Setup {
 
         fn active_skins(self: @ContractState, player_id: felt252) -> Array<u8> {
             active_themes(self.active_skins.read(player_id))
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupSpendImpl of ISetupSpend<ContractState> {
+        fn set_spender(ref self: ContractState, spender: ContractAddress, allowed: bool) {
+            self.ownable.assert_only_owner();
+            self.spenders.write(spender, allowed);
+            self.emit(SpenderSet { spender, allowed });
+        }
+
+        fn is_spender(self: @ContractState, spender: ContractAddress) -> bool {
+            self.spenders.read(spender)
+        }
+
+        fn spend_cobbles(
+            ref self: ContractState, player_id: felt252, cobbles: u32, reason: felt252,
+        ) -> u64 {
+            // [Check] An allowlisted spender, cobbles to spend, a balance that covers them
+            let spender = get_caller_address();
+            assert(self.spenders.read(spender), errors::NOT_SPENDER);
+            assert(cobbles != 0, errors::INVALID_COBBLES);
+            let mut account = self.accounts.read(player_id);
+            assert(account.cobbles >= cobbles.into(), errors::NOT_ENOUGH_COBBLES);
+            // [Effect] The cobbles spent
+            account.cobbles -= cobbles.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    CobblesSpent { player_id, spender, reason, cobbles, balance: account.cobbles },
+                );
+            account.cobbles
         }
     }
 

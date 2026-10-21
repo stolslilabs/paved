@@ -55,6 +55,7 @@ export function createFakeSceneClass(scenes: unknown[]) {
       this.disposed++;
     });
     onTileClick = vi.fn();
+    onTilePress = vi.fn();
     onTileHover = vi.fn();
     onHoverLeave = vi.fn();
     updateTiles = vi.fn();
@@ -66,6 +67,8 @@ export function createFakeSceneClass(scenes: unknown[]) {
     setCameraMode = vi.fn();
     setSettings = vi.fn();
     setSkins = vi.fn();
+    setCovered = vi.fn();
+    setFogReveal = vi.fn();
     constructor() {
       scenes.push(this);
     }

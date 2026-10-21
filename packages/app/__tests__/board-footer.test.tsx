@@ -31,7 +31,7 @@ afterEach(() => {
 // (the notice is on the Credits page, #536). The PR's captures measure it in a browser at 375 and 1440 px.
 describe("no footer, no Cartridge notice outside the Credits page (#536)", () => {
   // The Challenge board's own case is in `challenge-route.test.tsx`, on a game the fakes can replay.
-  it.each(["/training", "/tutorial"])("%s: nothing after the board, no notice", async (path) => {
+  it.each(["/training", "/story/1/1"])("%s: nothing after the board, no notice", async (path) => {
     open(path);
     const board = (await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).closest(".h-dvh");
     expect(screen.queryByRole("contentinfo")).toBeNull();

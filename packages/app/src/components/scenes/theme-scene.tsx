@@ -86,7 +86,7 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
         <button
           type="button"
           onClick={onMyTiles}
-          className="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors outline-none hover:border-gold-800 focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors outline-none state-layer focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Icon name="table-cells-large" size="md" className="text-primary" fixedWidth />
           <span className="flex min-w-0 flex-1 flex-col">

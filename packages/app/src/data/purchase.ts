@@ -28,7 +28,7 @@ import {
   type SplitView,
   type WriteResult,
 } from "@paved/chain";
-import type { PurchaseRefusal } from "../components/scenes/purchase-scene";
+import type { PurchaseRefusal } from "../components/containers/purchase-notices";
 import { usePoolQuote } from "./chain";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { addressKey, queryKeys } from "./keys";

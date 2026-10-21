@@ -3,8 +3,6 @@ import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
-import { PALETTE_CLASSES, labelTileColumns } from "../../src/core/features";
-import { planLayout } from "../../src/core/feature-layout";
 
 const APP = fileURLToPath(new URL("../../../app", import.meta.url));
 export const SHIPPED = `${APP}/public/renderer-assets/models`;
@@ -58,8 +56,3 @@ export const sourceOf = (mesh: THREE.Mesh) => ({ geometry: mesh.geometry, toMode
 
 /** The shipped file of a plan (`<plan>.<hash>.glb`). */
 export const shipped = (plan: string) => `${SHIPPED}/${readdirSync(SHIPPED).find((f) => f.startsWith(`${plan}.`) && f.endsWith(".glb"))!}`;
-
-/** The night lights' columns of a base plan's mesh (`lightColumns`, through the classifier as the renderer runs it). */
-export function litColumnsOf(plan: string, mesh: THREE.Mesh): Uint8Array {
-  return labelTileColumns(mesh.geometry, planLayout(plan), mesh.matrixWorld, PALETTE_CLASSES.base).lights;
-}

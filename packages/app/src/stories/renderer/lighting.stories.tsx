@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
-// The owner's target images, read where they are kept (not copied): Vite serves the workspace.
-import mockup01 from "../../../../../app/docs/mockup-01.png";
-import mockup02 from "../../../../../app/docs/mockup-02.png";
+// The owner's target images, kept beside this story (moved from the removed app/docs).
+import mockup01 from "./mockups/mockup-01.png";
+import mockup02 from "./mockups/mockup-02.png";
 import { LIT_STRUCTURES, LightingBoard } from "./lighting-board";
 import { lookArgTypes } from "./lighting-look";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";

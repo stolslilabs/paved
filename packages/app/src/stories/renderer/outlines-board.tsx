@@ -26,7 +26,7 @@ export interface OutlinesBoardProps {
   force?: "auto" | "on" | "off";
   /**
    * Where the fade starts (OUT-FADE2): "1.5 S" (the default) fully on from 1.5 x the opening tile size S; "max zoom-in"
-   * the closest zoom (30 S), the literal whole-range fade; "custom" leaves it to the start control below.
+   * the closest zoom (24 S), the literal whole-range fade; "custom" leaves it to the start control below.
    */
   fadeStart?: FadeStart;
   /** The curve 1 - t^p: "linear" p = 1, "square" p = 2 (the default), "cube" p = 3; "custom" leaves p to its control. */
@@ -61,7 +61,7 @@ const FADE_CURVES = { linear: 1, square: 2, cube: 3 } as const;
 
 /**
  * The starts' full factors (shares of the opening tile size S); the fade is off at 0.85 S. "max zoom-in" is the
- * renderer's closest zoom, `OUTLINE_CLOSEST_FACTOR` (30 S).
+ * renderer's closest zoom, `OUTLINE_CLOSEST_FACTOR` (24 S).
  */
 export function fadeStartOf(start: Exclude<FadeStart, "custom">): { fadeFullFactor: number } {
   if (start === "1.5 S") return { fadeFullFactor: DEFAULT_RENDERER_SETTINGS.outlines.fadeFullFactor };
@@ -128,7 +128,7 @@ function place(scene: GameScene, pose: Pose): void {
 
 /**
  * The recorded 72-tile board of the bench through the real renderer, filling the story, its camera on a tour of the
- * views where outlines used to fail: straight down, panning, the game's opening distance, fully zoomed out and in.
+ * views where outlines used to fail: straight down, panning, the game's opening view (240, tilted 27 degrees), fully zoomed out and in (54 degrees).
  * Stop the tour to hold one view, set its distance, or drag the board. `data-ready` is set once the board is drawn.
  */
 export function OutlinesBoard({ tour, view, distance, redraw = false, readout = true, ...rest }: OutlinesBoardProps) {

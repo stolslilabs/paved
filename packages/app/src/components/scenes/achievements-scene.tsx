@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import type { PlayerAchievements } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
@@ -8,7 +7,6 @@ import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { isClaimed, type AchievementCobbles } from "../containers/cobble-types";
-import { useCompletionToasts, type CompletionMemory } from "../containers/completion-toasts";
 import { ProgressCard, progressState, type ProgressReward } from "../containers/progress-card";
 import { achievementText } from "../containers/quest-text";
 import { QuestsTabs, type QuestsTab } from "../containers/quests-tabs";
@@ -40,8 +38,6 @@ export interface AchievementsSceneProps {
   rewards?: AchievementRewards | null;
   /** False: the player is known but cannot sign (P6): the rewards show, each claim says "Connect to claim". */
   canClaim?: boolean;
-  /** Where the completion toasts remember what they announced, above the scene (`CompletionMemory`). */
-  toasts?: CompletionMemory;
   onTab?: (tab: QuestsTab) => void;
   /** `claim_achievement(achievement_id)`. */
   onClaim?: (achievementId: number) => void;
@@ -61,11 +57,6 @@ const ORDER = { complete: 0, progress: 1, none: 2 } as const;
 export function AchievementsScene(props: AchievementsSceneProps) {
   const { achievements, connected, error, rewards, canClaim = true } = props;
   const list = achievements ? [...achievements.achievements].sort((a, b) => ORDER[progressState(a)] - ORDER[progressState(b)]) : [];
-  const tracked = useMemo(() => achievements?.achievements.map((a) => ({ id: a.achievementId, completed: a.completed, points: a.points })) ?? null, [achievements]);
-  useCompletionToasts("achievement", tracked, ({ id, points }) => {
-    const { title, icon } = achievementText(id);
-    return { title, icon, description: `+${points} pts` };
-  }, { memory: props.toasts });
   const earned = list.filter((a) => a.completed).length;
   const possible = list.reduce((sum, a) => sum + a.points, 0);
   const claiming = rewards?.claiming ?? null;
@@ -101,7 +92,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
         </div>
       ) : (
         <>
-          <section aria-label="Summary" data-slot="card" className="flex flex-col gap-2 rounded-xl border border-gold-900 bg-gold-950/40 p-4">
+          <section aria-label="Summary" data-slot="card" className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-card p-4">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm">
                 <span className="numeric font-semibold text-primary">{earned}</span>
@@ -118,14 +109,14 @@ export function AchievementsScene(props: AchievementsSceneProps) {
             </div>
             <Progress value={possible > 0 ? (achievements.points / possible) * 100 : 0} aria-label={`${achievements.points} of ${possible} points`} />
             {claimable.length > 0 && canClaim && (
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gold-900 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                 <span className="text-xs text-muted-foreground">
                   <span className="numeric">{claimable.length}</span> to claim
                 </span>
                 <Button size="sm" onClick={props.onClaimAll} loading={claiming === "all"} disabled={claiming !== null && claiming !== "all"}>
                   {claiming === "all" ? "Claiming…" : (
                     <>
-                      Claim all <Cobbles value={claimableCobbles} sign="+" size="sm" className="text-primary-foreground" iconClassName="text-primary-foreground" />
+                      Claim all <Cobbles value={claimableCobbles} sign="+" size="sm" className="text-primary-foreground" />
                     </>
                   )}
                 </Button>

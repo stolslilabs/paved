@@ -23,7 +23,7 @@ money). This design and its PRs stop at devnet, with a mock router and a mock US
 
 Sources read: `docs/programme/{PLAN,OPERATIONS,DECISIONS,RISKS}.md`;
 `docs/architecture/{class-headroom,leaderboard,quests,native-storage,public-interface,indexer}.md`;
-`docs/history/p1-removed.md`; `docs/measures/golden-games.md`; `contracts/src/` (systems `daily`, `lobby`, `tutorial`;
+`docs/history/p1-removed.md` (removed in #591: `git show 45c8bd05:docs/history/p1-removed.md`); `docs/measures/golden-games.md`; `contracts/src/` (systems `daily`, `lobby`, `tutorial`;
 components `hostable`, `payable`, `playable`; `models/{game,tournament}`, `types/mode`, `events`, `constants`,
 `tests/golden/full_deck`); Nums (`/home/claude/projects/nums`, commit `4f8f405`, read only: `components/purchase`,
 `helpers/rewarder`, `models/config`, `systems/{setup,token,vault,treasury}`, `components/{playable,rewardable}`,
@@ -940,7 +940,7 @@ lot as the contract**, per O-39's lesson.
 
 ## 7. What #181 left, reused and avoided
 
-From `docs/history/p1-removed.md` (recover with `git show 4778e18:<path>`):
+From `docs/history/p1-removed.md` (removed in #591; read it with `git show 45c8bd05:docs/history/p1-removed.md`; recover with `git show 4778e18:<path>`):
 
 | Piece | Reused? |
 |---|---|

@@ -186,23 +186,26 @@ describe("the cycle's settings", () => {
   });
 });
 
-describe("the night lights' source (NIGHT-WINDOWS, #513)", () => {
-  it("is the columns by default, so the board is unchanged, and takes only a known source", () => {
-    expect(DEFAULT_DAYNIGHT_SETTINGS.lights).toBe("columns");
-    expect(resolveRendererSettings().dayNight.lights).toBe("columns");
-    expect(resolveDayNightSettings({ lights: "windows" }).lights).toBe("windows");
-    expect(resolveDayNightSettings({ lights: "lasers" as never }).lights).toBe("columns");
-    expect(resolveDayNightSettings({ enabled: true }, resolveDayNightSettings({ lights: "windows" })).lights).toBe("windows");
+describe("the night lights: the windows and doors (NIGHT-WINDOWS-DEFAULT, #583)", () => {
+  it("are the board's default, with no other source to pick: the columns are gone", () => {
+    expect(DEFAULT_DAYNIGHT_SETTINGS.nightLights).toBe(true);
+    expect(DEFAULT_DAYNIGHT_SETTINGS).not.toHaveProperty("lights");
+    expect(DEFAULT_DAYNIGHT_SETTINGS).not.toHaveProperty("nightLightIntensity");
+    expect(resolveRendererSettings().dayNight.windowLight).toEqual(DEFAULT_WINDOW_LIGHT);
+    // An old caller's field is ignored, not kept.
+    expect(resolveDayNightSettings({ lights: "columns" } as never)).not.toHaveProperty("lights");
+    // The day look, the Low tier and reduced motion are the cycle's, unchanged: off by default, still on reduced motion.
+    expect(DEFAULT_DAYNIGHT_SETTINGS.enabled).toBe(false);
+    expect(DEFAULT_DAYNIGHT_SETTINGS.reducedMotion).toBe("auto");
   });
 
-  it("#571: the windows' own light, stronger and longer than the first pass's, set field by field; the columns' unchanged", () => {
-    expect(DEFAULT_WINDOW_LIGHT).toEqual({ intensity: 0.8, reach: 7, falloff: 2, margin: 6, stagger: 1, rule: "structures", detection: "through" });
+  it("the first pass's light (#513: 0.4, reach 6, falloff 1.5), the second pass's detection, set field by field", () => {
+    expect(DEFAULT_WINDOW_LIGHT).toEqual({ intensity: 0.4, reach: 6, falloff: 1.5, margin: 6, stagger: 1, detection: "through" });
     expect(DEFAULT_DAYNIGHT_SETTINGS.windowLight).toEqual(DEFAULT_WINDOW_LIGHT);
-    expect(DEFAULT_DAYNIGHT_SETTINGS.nightLightIntensity).toBe(0.4);
     expect(resolveDayNightSettings({ windowLight: { margin: 0 } }).windowLight).toEqual({ ...DEFAULT_WINDOW_LIGHT, margin: 0 });
-    expect(resolveWindowLight({ intensity: -1, reach: 0, falloff: Number.NaN, margin: 99, stagger: 0, rule: "lasers" as never, detection: "x" as never })).toEqual(DEFAULT_WINDOW_LIGHT);
+    expect(resolveWindowLight({ intensity: -1, reach: 0, falloff: Number.NaN, margin: 99, stagger: 0, detection: "x" as never })).toEqual(DEFAULT_WINDOW_LIGHT);
     expect(resolveWindowLight({ detection: "recesses" }).detection).toBe("recesses");
-    expect(resolveWindowLight({ margin: 3.6, rule: "columns" })).toMatchObject({ margin: 4, rule: "columns" });
+    expect(resolveWindowLight({ margin: 3.6, rule: "columns" } as never)).toEqual({ ...DEFAULT_WINDOW_LIGHT, margin: 4 });
     // A later partial keeps what an earlier one set.
     expect(resolveDayNightSettings({ enabled: true }, resolveDayNightSettings({ windowLight: { reach: 14 } })).windowLight.reach).toBe(14);
   });

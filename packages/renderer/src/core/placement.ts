@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { GROUND_VOXELS } from "./feature-codes";
 import { VOXEL_SIZE, outlineFadeOf, type OutlineFadeSettings } from "./outlines";
 import { TILE_SIZE } from "./types";
 
@@ -7,20 +6,24 @@ import { TILE_SIZE } from "./types";
  * The placement visuals (SLOTS, P-68; SLOTS2, P-72; PLATES, P-74; PLACEMENT-TINTS): a plate on every slot of the tile in
  * hand, and the tile in hand tinted on its cell.
  *
- * - The plates: flat (a rounded rectangle at the ground's top, no side faces, no bevel), inset in their cell so two
- *   neighbouring plates never touch, sized in voxels. Two states (`plateStateOf`): playable (some rotation fits there),
- *   blue and transparent; invalid (no rotation fits), grey and more transparent. One instance of one mesh each: a single
- *   draw call for any number of slots. A plate under the tile in hand fades out (`plates.hideUnderTile`).
+ * - The plates: flat (a rounded rectangle at the tiles' bottom, level with the foot of the models around it, no side
+ *   faces, no bevel), inset in their cell so two neighbouring plates never touch, sized in voxels. Two states
+ *   (`plateStateOf`), one grey with no hue (#588, the owner's: it fits every UI style and backdrop) told apart by opacity
+ *   alone: playable (some rotation fits there) a little less transparent, invalid (no rotation fits) more transparent.
+ *   One instance of one mesh each: a single draw call for any number of slots. A plate under the tile in hand fades out
+ *   (`plates.hideUnderTile`).
  * - The tile in hand is tinted on the model itself (`TileRenderer` draws it, this class owns the states and their ease):
- *   a hover preview is blue at 50 % opacity, a tile placed and not confirmed (pending) yellow at 90 %, a confirm a
- *   temporary green that fades to no tint on the tile the board now draws. There is no red: the board offers
- *   only the rotations that fit (#544). No rim, no aura.
+ *   a hover preview has no tint at 50 % opacity (#568: the blue is gone, its colour and strength stay as knobs), a tile
+ *   placed and not confirmed (pending) opaque (100 %) with a faint yellow that keeps the tile's light (#605: 0.12 of the
+ *   hue, it was 0.4 of the colour and read as a yellow filter; the owner's pick, #657), a confirm a temporary green that
+ *   fades to no tint on the tile the board now draws. There is no red: the board offers only the rotations that fit (#544).
+ *   The tile in hand (hover and pending) has the placed tiles' outlines, at its own opacity (#657, `TileRenderer`).
  * - Each change of state eases over `motion.colorMs` (150 ms); under reduced motion it is instant and the confirm short.
  * - The grid (SLOTS2's ring hairlines) stays as a setting, off by default (`grid.enabled`).
  */
 export interface PlacementSettings {
-  /** The plates' colours, CSS hex (the app's tokens: plate and plate-off). */
-  colors: { plate: string; invalid: string };
+  /** The plates' colour, CSS hex, one grey for both states (the app's token: plate); the states differ by opacity. */
+  colors: { plate: string };
   /** The tile in hand's tints: a colour, how far the model goes to it (0 to 1) and the model's opacity, per state. */
   tints: {
     hoverColor: string;
@@ -33,6 +36,11 @@ export interface PlacementSettings {
     pendingOpacity: number;
     /** The ease into the pending look, ms. */
     pendingMs: number;
+    /**
+     * The pending tint keeps each pixel's brightness, only its hue goes to `pendingColor` (#605: a fixed gold over a tile
+     * lit by night read as a yellow filter); off, the pixel goes to the colour itself, as the confirm's does.
+     */
+    pendingKeepsLight: boolean;
     /** The confirm: the tint at its start, fading to none; the opacity is the overlay's at its start. */
     confirmColor: string;
     confirmStrength: number;
@@ -63,7 +71,7 @@ export interface PlacementSettings {
     radius: number;
     /** A playable plate's opacity. */
     opacity: number;
-    /** An invalid plate's opacity: more transparent. */
+    /** An invalid plate's opacity: more transparent, the one thing that tells it from a playable plate. */
     invalidOpacity: number;
     /** The plate under the tile in hand (hover or placed) fades out; off, it stays. */
     hideUnderTile: boolean;
@@ -86,22 +94,23 @@ export type PlacementSettingsInput = { [K in keyof PlacementSettings]?: Partial<
 export const PLATE_GAP_VOXELS = { min: 1, max: 12 } as const;
 
 export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
-  colors: { plate: "#b7ccdc", invalid: "#929292" },
+  colors: { plate: "#c8c8c8" },
   tints: {
     hoverColor: "#4f8dff",
-    hoverStrength: 0.45,
+    hoverStrength: 0,
     hoverOpacity: 0.5,
     hoverMs: 150,
     pendingColor: "#f0bf5b",
-    pendingStrength: 0.4,
-    pendingOpacity: 0.9,
+    pendingStrength: 0.12,
+    pendingOpacity: 1,
     pendingMs: 150,
+    pendingKeepsLight: true,
     confirmColor: "#6eca6f",
     confirmStrength: 0.6,
     confirmOpacity: 1,
   },
   grid: { enabled: false, color: "#d1d9df", opacity: 0.32, rings: [1, 0.5, 0.1], widthDevicePx: 1, farFade: false, farFadeStart: 1 },
-  plates: { enabled: true, gap: 4, radius: 3, opacity: 0.6, invalidOpacity: 0.25, hideUnderTile: true },
+  plates: { enabled: true, gap: 4, radius: 3, opacity: 0.55, invalidOpacity: 0.2, hideUnderTile: true },
   motion: { colorMs: 150, confirmMs: 700, reducedConfirmMs: 150, reducedMotion: "auto" },
 };
 
@@ -358,14 +367,18 @@ function createPlateMaterial(): THREE.MeshStandardMaterial {
 const GRID_ORDER = -2;
 const PLATE_ORDER = -1;
 
-/** The plates lie at the tiles' ground top. */
-const PLATE_Y = GROUND_VOXELS * VOXEL_SIZE;
+/**
+ * The plates and the grid lie at the tiles' bottom (#588: a model's foot is at y 0, `TileRenderer`), lifted a twentieth
+ * of a voxel so they never share a depth with a model's bottom face. Nothing else is drawn at that level: a plate is
+ * inset in its own cell (no neighbour's foot under it), and the tile in hand's own foot is under its ground.
+ */
+export const PLATE_Y = 0.05 * VOXEL_SIZE;
 
 /** A slot as the board gives it: grid coordinates, and whether some rotation of the tile in hand fits it at all. */
 export interface PlacementSlot {
   x: number;
   y: number;
-  /** Some rotation fits here. False: an invalid plate (grey, more transparent). Unset: it does. */
+  /** Some rotation fits here. False: an invalid plate (more transparent). Unset: it does. */
   legal?: boolean;
 }
 
@@ -514,7 +527,7 @@ export class PlacementRenderer {
     } else this.gridMesh.geometry = this.gridGeometry;
     this.gridMesh.visible = true;
     // The field's centre, in world units: cells from minX to minX + width - 1.
-    this.gridMesh.position.set((field.minX + (field.width - 1) / 2) * TILE_SIZE, 0.005, (field.minY + (field.height - 1) / 2) * TILE_SIZE);
+    this.gridMesh.position.set((field.minX + (field.width - 1) / 2) * TILE_SIZE, PLATE_Y, (field.minY + (field.height - 1) / 2) * TILE_SIZE);
     this.applyGrid();
   }
 
@@ -644,7 +657,7 @@ export class PlacementRenderer {
   private targetOf(entry: Pick<PlateEntry, "x" | "y" | "state">): Float32Array {
     const { colors, plates } = this.settings;
     const covered = plates.hideUnderTile && this.ghost !== null && this.ghost.x === entry.x && this.ghost.y === entry.y;
-    const plate = new THREE.Color(entry.state === "invalid" ? colors.invalid : colors.plate);
+    const plate = new THREE.Color(colors.plate);
     const values = new Float32Array(VALUES);
     values.set([plate.r, plate.g, plate.b], 0);
     values[OPACITY] = plates.enabled && !covered ? (entry.state === "invalid" ? plates.invalidOpacity : plates.opacity) : 0;

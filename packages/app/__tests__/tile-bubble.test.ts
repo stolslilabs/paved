@@ -8,6 +8,11 @@ describe("the tile bubble's position", () => {
   it("has 44 px touch targets", () => {
     expect(bubbleSize(2)).toEqual({ width: 100, height: 52 });
     expect(bubbleSize(1)).toEqual({ width: 52, height: 52 });
+    // Close, Rotate and Validate (#568).
+    expect(bubbleSize(3)).toEqual({ width: 148, height: 52 });
+    // Cancel, Discard, Rotate and Validate (#606): inside a 375 px board with its 8 px margins.
+    expect(bubbleSize(4)).toEqual({ width: 196, height: 52 });
+    expect(bubbleSize(4).width).toBeLessThanOrEqual(375 - 2 * 8);
   });
 
   it("stands above and right of the tile's corner, overlapping it", () => {

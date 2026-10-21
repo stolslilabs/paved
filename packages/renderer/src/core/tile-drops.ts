@@ -21,7 +21,8 @@ export interface DropInfo {
   buildMs: number;
 }
 
-export type DropSkip = "reduced-motion" | "no-tile" | "no-model" | "no-voxels" | "disposed";
+/** `load-failed`: the drop's chunk did not download (offline, a new deploy); the next drop tries again. */
+export type DropSkip = "reduced-motion" | "no-tile" | "no-model" | "no-voxels" | "load-failed" | "disposed";
 
 /** `finished` settles when the last voxel has landed and the real model is back (or the drop was cut short by a change of the tile). */
 export type DropResult =
@@ -63,7 +64,14 @@ export class TileDrops {
   /** A drop ended since the last `update`: the real model is back, so the shadow map is stale. */
   private swapped = false;
 
-  constructor(private readonly host: DropHost) {}
+  /** The chunk failed at the last try: `start` reports it as `load-failed` rather than `no-voxels`. */
+  private failed = false;
+
+  /** `load` fetches the drop's chunk (`voxel-drop.ts`); a test hands one that fails. */
+  constructor(
+    private readonly host: DropHost,
+    private readonly load: () => Promise<typeof import("./voxel-drop")> = () => import("./voxel-drop"),
+  ) {}
 
   setSettings(settings: VoxelDropSettings): void {
     this.settings = settings;
@@ -87,14 +95,34 @@ export class TileDrops {
    */
   async prepare(key: string): Promise<boolean> {
     const tile = this.host.tile(key);
-    const mesh = tile?.model ? this.typeMesh(tile.model) : null;
-    if (!tile?.model || !mesh) return false;
-    this.chunk ??= import("./voxel-drop");
-    const chunk = await this.chunk;
+    return tile?.model ? this.prepareModel(tile.model) : false;
+  }
+
+  /**
+   * Loads the chunk and the grid of `model` before any tile draws it: the board prepares the drop of a tile still in hand
+   * (placed, not confirmed), whose model is known but whose tile is not on the board yet. True when it is ready.
+   */
+  async prepareModel(model: string): Promise<boolean> {
+    if (this.disposed) return false;
+    const mesh = this.typeMesh(model);
+    if (!mesh) return false;
+    this.chunk ??= this.load();
+    let chunk: typeof import("./voxel-drop");
+    try {
+      chunk = await this.chunk;
+      this.failed = false;
+    } catch (error) {
+      // A failed download is never kept: the next drop or prepare asks for the chunk again. The drop is optional, so the
+      // caller only learns it was skipped (and confirms the move without it).
+      this.chunk = null;
+      this.failed = true;
+      console.warn("[renderer] the voxel drop's chunk did not load; the tile lands without its drop", error);
+      return false;
+    }
     if (this.disposed) return false;
     this.loaded = chunk;
     this.cache ??= new chunk.VoxelCache();
-    return !!(await this.cache.request(tile.model, { geometry: mesh.geometry, toModel: mesh.matrixWorld }));
+    return !!(await this.cache.request(model, { geometry: mesh.geometry, toModel: mesh.matrixWorld }));
   }
 
   /**
@@ -111,7 +139,7 @@ export class TileDrops {
     return this.prepare(key).then((ready) => {
       if (this.disposed) return { status: "skipped", reason: "disposed" } as const;
       const grid = ready && tile.model ? this.cache?.peek(tile.model) : null;
-      return grid ? this.begin(key, tile, grid) : ({ status: "skipped", reason: "no-voxels" } as const);
+      return grid ? this.begin(key, tile, grid) : ({ status: "skipped", reason: this.failed ? "load-failed" : "no-voxels" } as const);
     });
   }
 

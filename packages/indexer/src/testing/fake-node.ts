@@ -120,7 +120,7 @@ export const ev = {
   achievementCobblesSet: (achievementId: number, cobbles: number) =>
     raw("setup", "AchievementCobblesSet", [achievementId], [cobbles]),
   /** `CobblesClaimed { player_id; kind (1 quest, 2 achievement), id, period, cobbles, balance }`. */
-  cobblesClaimed: (player: bigint | number, kind: 1 | 2, id: number, period: number, cobbles: number, balance: number) =>
+  cobblesClaimed: (player: bigint | number, kind: 1 | 2 | 3, id: number, period: number, cobbles: number, balance: number) =>
     raw("setup", "CobblesClaimed", [player], [kind, id, period, cobbles, balance]),
   /** `CreditClaimed { player_id; kind (1 day, 2 week), period, credits }`, `CreditSpent { player_id; game_id, credits }`. */
   creditClaimed: (player: bigint | number, kind: 1 | 2, period: number, credits: number) =>
@@ -145,6 +145,9 @@ export const ev = {
   skinPriced: (theme: number, plan: number, cobbles: number) => raw("setup", "SkinPriced", [theme, plan], [cobbles]),
   skinBought: (player: bigint | number, theme: number, plan: number, cobbles: number, balance: number) =>
     raw("setup", "SkinBought", [player], [theme, plan, cobbles, balance]),
+  /** #639. `CobblesSpent { player_id; spender, reason, cobbles, balance }`. */
+  cobblesSpent: (player: bigint | number, spender: bigint | number, reason: bigint | number, cobbles: number, balance: number) =>
+    raw("setup", "CobblesSpent", [player], [spender, reason, cobbles, balance]),
   skinsActivated: (player: bigint | number, active: bigint | number) => raw("setup", "SkinsActivated", [player], [active]),
   /** Economy's `Sold { player_id; price, referrer, referral, burned_quote, burned, margin, supply, vault_paved }` (u256 but the referrer). */
   sold: (

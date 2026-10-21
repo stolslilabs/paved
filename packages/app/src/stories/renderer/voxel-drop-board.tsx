@@ -4,6 +4,7 @@ import {
   DEFAULT_VOXEL_DROP_SETTINGS,
   DROP_EASES,
   DROP_LANDINGS,
+  PLAY_DEFAULT_POLAR_ANGLE,
   TILE_SIZE,
   type DropInfo,
   type DropResult,
@@ -155,7 +156,7 @@ export function VoxelDropOneTile({ plan, forest, replayMs, force, distance, ...a
   const [run, replay] = useReplay(replayMs, !!scene);
 
   useEffect(() => {
-    if (scene) aim(scene, [0, 1, 0], distance, 0.42);
+    if (scene) aim(scene, [0, 1, 0], distance, PLAY_DEFAULT_POLAR_ANGLE);
   }, [scene, distance]);
 
   useEffect(() => {
@@ -199,7 +200,7 @@ export function VoxelDropAllTiles({ stagger, forest, replayMs, force, distance, 
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
-    if (scene) aim(scene, [0, 0, -TILE_SIZE * 0.5], distance, 0.3);
+    if (scene) aim(scene, [0, 0, -TILE_SIZE * 0.5], distance, PLAY_DEFAULT_POLAR_ANGLE);
   }, [scene, distance]);
 
   // Every model is in before the first run: the loader brings the rest after the first frame.

@@ -54,3 +54,41 @@ export function deckSheetCounts(deck: readonly PlanType[], placedPlans: readonly
 }
 
 const sum = (plans: DeckSheetPlan[], key: "placed" | "discarded") => plans.reduce((n, p) => n + p[key], 0);
+
+/** Where a tile of a Story level's draw stands: on the board, discarded, in hand, or still to come. */
+export type DeckSheetSlotState = "placed" | "discarded" | "hand" | "next";
+
+/** One tile of a Story level's draw, at its position. */
+export interface DeckSheetSlot {
+  /** Chain plan id (`PlanType`'s index, as `BoardTile.plan`). */
+  plan: number;
+  /** The plan's nine letters. */
+  code: string;
+  state: DeckSheetSlotState;
+}
+
+export interface DeckSheetOrder {
+  /** The level's draw after the starter, the first drawn first. */
+  slots: DeckSheetSlot[];
+  /** Tiles of the draw on the board. */
+  placed: number;
+  /** Tiles of the draw discarded. */
+  discarded: number;
+}
+
+/**
+ * What the deck sheet shows in a Story level (#613): its fixed draw (`sequence`, after the starter) in draw order, each tile
+ * where it stands. Every move takes the next tile of the draw, so the `moves` played (each a place or a discard) say which
+ * tiles are out and how; the tile after them is in hand. Only for a known draw: a random deck keeps the counts
+ * (`deckSheetCounts`), which never reveal the order.
+ */
+export function deckSheetOrder(sequence: readonly PlanType[], moves: readonly { readonly discard: boolean }[]): DeckSheetOrder {
+  const ids = Object.values(PlanType);
+  const slots = sequence.map((code, i): DeckSheetSlot => {
+    const move = moves[i];
+    const state = move ? (move.discard ? "discarded" : "placed") : i === moves.length ? "hand" : "next";
+    return { plan: ids.indexOf(code), code, state };
+  });
+  const out = (state: DeckSheetSlotState) => slots.filter((s) => s.state === state).length;
+  return { slots, placed: out("placed"), discarded: out("discarded") };
+}

@@ -292,4 +292,29 @@ describe("RenderSurfaceAdapter integration", () => {
     expect(onTileClick).toHaveBeenCalledTimes(1);
     expect(onTileClick).toHaveBeenCalledWith(0, 0);
   });
+
+  it("places nothing from a two-finger pinch or tilt, nor a cancelled touch, and taps again after (TILT-54)", async () => {
+    const adapter = createSurfaceAdapter({ width: 400, height: 400 }, 1);
+    const { scene } = createSceneHarness();
+    const onTileClick = vi.fn();
+
+    await scene.init({ surface: adapter.surface });
+    scene.onTileClick(onTileClick);
+
+    // Two fingers down and up in place: within 5 px each, but a two-finger gesture.
+    adapter.emitInput({ type: "pointerdown", x: 180, y: 200, button: 0, pointerId: 1 });
+    adapter.emitInput({ type: "pointerdown", x: 220, y: 200, button: 0, pointerId: 2 });
+    adapter.emitInput({ type: "pointerup", x: 220, y: 200, button: 0, pointerId: 2 });
+    adapter.emitInput({ type: "pointerup", x: 180, y: 200, button: 0, pointerId: 1 });
+    // The browser takes a touch over (a scroll, a system gesture).
+    adapter.emitInput({ type: "pointerdown", x: 200, y: 200, button: 0, pointerId: 3 });
+    adapter.emitInput({ type: "pointercancel", x: 200, y: 200, button: 0, pointerId: 3 });
+    adapter.emitInput({ type: "pointerup", x: 200, y: 200, button: 0, pointerId: 3 });
+    expect(onTileClick).not.toHaveBeenCalled();
+
+    adapter.emitInput({ type: "pointerdown", x: 200, y: 200, button: 0, pointerId: 4 });
+    adapter.emitInput({ type: "pointerup", x: 202, y: 201, button: 0, pointerId: 4 });
+    expect(onTileClick).toHaveBeenCalledTimes(1);
+    expect(onTileClick).toHaveBeenCalledWith(0, 0);
+  });
 });

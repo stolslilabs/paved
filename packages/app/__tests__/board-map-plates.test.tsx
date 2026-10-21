@@ -11,10 +11,12 @@ const theme = readFileSync(join(__dirname, "../src/styles/theme.css"), "utf8");
 const hexOf = (token: string) => new RegExp(`--color-${token}: [^;]+; /\\* (#[0-9A-F]{6}) \\*/`).exec(theme)?.[1]?.toLowerCase();
 
 describe("the plates' colours (PLATES)", () => {
-  it("are the palette's tokens, the renderer's colours the same values", () => {
+  it("are the palette's token, the renderer's colour the same value: one grey for both states (#588)", () => {
     const { colors, tints } = DEFAULT_PLACEMENT_SETTINGS;
     expect(hexOf("plate")).toBe(colors.plate);
-    expect(hexOf("plate-off")).toBe(colors.invalid);
+    expect(colors.plate).toBe("#c8c8c8");
+    // One token: the states differ by opacity alone.
+    expect(theme).not.toContain("plate-off");
     expect(hexOf("gold-300")).toBe(tints.pendingColor);
     expect(hexOf("meadow-400")).toBe(tints.confirmColor);
     // No aura token any more.
@@ -33,13 +35,15 @@ describe("the plan view's plates", () => {
     expect(none.container.querySelectorAll("[data-plate]")).toHaveLength(0);
   });
 
-  it("draws the two states: playable (blue, transparent) and every other free neighbour invalid (grey, more transparent)", () => {
+  it("draws the two states in one grey: playable (transparent) and every other free neighbour invalid (more transparent)", () => {
     const { container } = render(<BoardMap tiles={tiles} slots={[{ x: 1, y: 0, fits: true }, { x: 0, y: 1, fits: false }]} />);
     const states = [...container.querySelectorAll("[data-plate]")].map((p) => p.getAttribute("data-plate"));
     expect(states.sort()).toEqual(["invalid", "invalid", "playable", "playable"]);
     const cls = (state: string) => container.querySelector(`[data-plate="${state}"]`)!.className;
-    expect(cls("playable")).toContain("bg-plate/60");
-    expect(cls("invalid")).toContain("bg-plate-off/25");
+    // The board's opacities (`DEFAULT_PLACEMENT_SETTINGS.plates`), in percent.
+    const opacity = DEFAULT_PLACEMENT_SETTINGS.plates;
+    expect(cls("playable")).toContain(`bg-plate/${Math.round(opacity.opacity * 100)}`);
+    expect(cls("invalid")).toContain(`bg-plate/${Math.round(opacity.invalidOpacity * 100)}`);
     expect(cls("playable")).not.toMatch(/shadow|aura/);
     // Inset in the cell (a gap between neighbours), rounded, each change eased over 150 ms.
     for (const state of ["playable", "invalid"]) {

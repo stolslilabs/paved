@@ -31,15 +31,21 @@ use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
 use paved::constants::{self, CENTER};
+use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
 use paved::systems::challenge::Challenge;
 use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::economy::IEconomyDispatcherTrait;
+use paved::systems::matchmaker::{
+    IMatchmakerAdminDispatcher, IMatchmakerAdminDispatcherTrait, IMatchmakerDispatcher,
+    IMatchmakerDispatcherTrait,
+};
 use paved::systems::setup::{
-    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcherTrait,
+    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
     ISetupPacksDispatcher, ISetupPacksDispatcherTrait, ISetupSkinsDispatcher,
-    ISetupSkinsDispatcherTrait,
+    ISetupSkinsDispatcherTrait, ISetupSpendDispatcher, ISetupSpendDispatcherTrait,
+    ISetupStoryDispatcher, ISetupStoryDispatcherTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -49,8 +55,9 @@ use quiver_achievement::types::window::AchievementWindow;
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
-    CheatSpan, cheat_caller_address, interact_with_state, start_cheat_block_timestamp_global,
-    start_cheat_caller_address, stop_cheat_caller_address, test_address,
+    CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare,
+    interact_with_state, start_cheat_block_timestamp_global, start_cheat_caller_address,
+    start_cheat_transaction_hash_global, stop_cheat_caller_address, test_address,
 };
 use starknet::ContractAddress;
 use crate::setup::setup;
@@ -122,6 +129,21 @@ pub const CEILING_BUY_SKIN: u128 = 697961;
 pub const CEILING_SET_SKINS_1: u128 = 479549;
 pub const CEILING_SET_SKINS_19: u128 = 2789690;
 pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
+// VRF-DRAWS (#638): z15, one draw of `DrawableComponent` in the test harness over the devnet mock
+// (the consumer's side: the one-draw check, the provider's consume count, the salt, the provider's
+// call, the count). Cartridge's
+// part of a real draw (`submit_random`'s proof check, `assert_consumed`) is measured on Sepolia
+// (`docs/architecture/vrf-draws.md`, section 6). Measured in CI 986,461, + 5 % (599,559 before the
+// first-consume check and the mock's count of the transaction's consumes, two slots written).
+pub const CEILING_VRF_DRAW: u128 = 1035785;
+// z16 to z21: the matchmaker's calls (#639, `docs/architecture/matchmaker.md`): measured on the VPS
+// (snforge 0.64.0, test profile) + 5 %, rounded up.
+pub const CEILING_MM_JOIN: u128 = 905454;
+pub const CEILING_MM_SEARCH: u128 = 2511217;
+pub const CEILING_MM_NEXT: u128 = 3074204;
+pub const CEILING_MM_START: u128 = 4095643;
+pub const CEILING_MM_SETTLE: u128 = 2817341;
+pub const CEILING_MM_RELEASE: u128 = 1854105;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -823,4 +845,198 @@ fn test_gas_z14_set_skin_price() {
     skins.set_skin_price(2, 7, 75);
     let after = get_available_gas();
     report("z14_set_skin_price", before - after, CEILING_SET_SKIN_PRICE);
+}
+
+/// z15. One draw through `DrawableComponent` (the test harness over the devnet mock), the game's
+/// second draw (its count already written), in a transaction of its own.
+#[test]
+fn test_gas_z15_vrf_draw() {
+    let (provider, _) = declare("MockVrfProvider")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![])
+        .unwrap();
+    let (harness, _) = declare("DrawHarness")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![OWNER().into(), provider.into()])
+        .unwrap();
+    let harness = IDrawHarnessDispatcher { contract_address: harness };
+    start_cheat_transaction_hash_global('TX1');
+    harness.draw(7);
+    start_cheat_transaction_hash_global('TX2');
+    let before = get_available_gas();
+    harness.draw(7);
+    let after = get_available_gas();
+    report("z15_vrf_draw", before - after, CEILING_VRF_DRAW);
+}
+
+// The matchmaker (#639)
+
+/// `Setup`, the VRF mock and `Matchmaker` at `START_MM`: `OWNER` its operator, `Matchmaker` a
+/// spender of `Setup`, `PLAYER` 30 cobbles; NPC 1 at 0 crowns, NPC 2 at 150.
+fn matchmaker() -> IMatchmakerDispatcher {
+    start_cheat_block_timestamp_global(START_MM);
+    let (setup, _) = declare("Setup")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![OWNER().into()])
+        .unwrap();
+    let (provider, _) = declare("MockVrfProvider")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![])
+        .unwrap();
+    let (matchmaker, _) = declare("Matchmaker")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![OWNER().into(), setup.into(), provider.into()])
+        .unwrap();
+    start_cheat_caller_address(setup, OWNER());
+    ISetupDispatcher { contract_address: setup }.set_reporter(OWNER(), true);
+    ISetupSpendDispatcher { contract_address: setup }.set_spender(matchmaker, true);
+    ISetupStoryDispatcher { contract_address: setup }.credit_story(PLAYER().into(), 1, 1, 0, 3);
+    stop_cheat_caller_address(setup);
+    start_cheat_caller_address(matchmaker, OWNER());
+    let admin = IMatchmakerAdminDispatcher { contract_address: matchmaker };
+    admin.set_operator(OWNER(), true);
+    admin.set_npc(1, 0);
+    admin.set_npc(2, 150);
+    stop_cheat_caller_address(matchmaker);
+    IMatchmakerDispatcher { contract_address: matchmaker }
+}
+
+const START_MM: u64 = 1_800_000_000;
+
+fn village_at(id: felt252) -> ContractAddress {
+    (0x1000 + id).try_into().unwrap()
+}
+
+/// `count` villages joined at `START_MM` by the operator (each behind its initial shield).
+fn join_villages(matchmaker: IMatchmakerDispatcher, count: felt252) {
+    start_cheat_caller_address(matchmaker.contract_address, OWNER());
+    let mut id = 0;
+    while id != count {
+        matchmaker.join(village_at(id));
+        id += 1;
+    }
+    stop_cheat_caller_address(matchmaker.contract_address);
+}
+
+/// z16. A village joins, behind its initial shield (the pool already holds two NPCs).
+#[test]
+fn test_gas_z16_matchmaker_join() {
+    let matchmaker = matchmaker();
+    join_villages(matchmaker, 1);
+    start_cheat_caller_address(matchmaker.contract_address, OWNER());
+    let before = get_available_gas();
+    matchmaker.join(PLAYER());
+    let after = get_available_gas();
+    report("z16_matchmaker_join", before - after, CEILING_MM_JOIN);
+}
+
+/// z17. A free search: the VRF draw, the nearest bucket and the offer, the player shielded.
+#[test]
+fn test_gas_z17_matchmaker_search() {
+    let matchmaker = matchmaker();
+    join_villages(matchmaker, 0);
+    start_cheat_caller_address(matchmaker.contract_address, OWNER());
+    matchmaker.join(PLAYER());
+    start_cheat_caller_address(matchmaker.contract_address, PLAYER());
+    start_cheat_transaction_hash_global('TX1');
+    let before = get_available_gas();
+    matchmaker.search();
+    let after = get_available_gas();
+    report("z17_matchmaker_search", before - after, CEILING_MM_SEARCH);
+}
+
+/// z18. A "Next": one cobble spent in `Setup`, then a draw again.
+#[test]
+fn test_gas_z18_matchmaker_next() {
+    let matchmaker = matchmaker();
+    start_cheat_caller_address(matchmaker.contract_address, OWNER());
+    matchmaker.join(PLAYER());
+    start_cheat_caller_address(matchmaker.contract_address, PLAYER());
+    start_cheat_transaction_hash_global('TX1');
+    matchmaker.search();
+    start_cheat_transaction_hash_global('TX2');
+    let before = get_available_gas();
+    matchmaker.next();
+    let after = get_available_gas();
+    report("z18_matchmaker_next", before - after, CEILING_MM_NEXT);
+}
+
+/// z19. An attack start on a player, its worst case: two expired shields released, the
+/// attacker's shield dropped, the defender shielded.
+#[test]
+fn test_gas_z19_matchmaker_start_attack() {
+    let matchmaker = matchmaker();
+    let address = matchmaker.contract_address;
+    join_villages(matchmaker, 3);
+    // No NPC; village 0's shield released by hand, villages 1 and 2 left expired in the queue
+    start_cheat_caller_address(address, OWNER());
+    let admin = IMatchmakerAdminDispatcher { contract_address: address };
+    admin.remove_npc(1);
+    admin.remove_npc(2);
+    start_cheat_block_timestamp_global(START_MM + 3 * 86400);
+    matchmaker.release_shields(1);
+    matchmaker.join(PLAYER());
+    start_cheat_caller_address(address, PLAYER());
+    start_cheat_transaction_hash_global('TX1');
+    assert(matchmaker.search() == village_at(0), 'not village 0');
+    start_cheat_caller_address(address, OWNER());
+    let before = get_available_gas();
+    matchmaker.start_attack(PLAYER());
+    let after = get_available_gas();
+    report("z19_matchmaker_start_attack", before - after, CEILING_MM_START);
+}
+
+/// z20. A player-versus-player attack settled with 3 stars, its worst case: both villages in the
+/// pool (the defender's attack shield ended and released) and both change bucket. The attacker at
+/// 90 crowns wins 26 from the defender at 110: 116 (bucket 0 to 1) and 84 (bucket 1 to 0); the
+/// registry is written once.
+#[test]
+fn test_gas_z20_matchmaker_settle() {
+    let matchmaker = matchmaker();
+    let address = matchmaker.contract_address;
+    let defender = village_at(0);
+    // No NPC: the attacker can only draw the defender
+    start_cheat_caller_address(address, OWNER());
+    let admin = IMatchmakerAdminDispatcher { contract_address: address };
+    admin.remove_npc(1);
+    admin.remove_npc(2);
+    matchmaker.join(PLAYER());
+    matchmaker.join(defender);
+    matchmaker.set_crowns(PLAYER(), 90);
+    matchmaker.set_crowns(defender, 110);
+    // Both initial shields end and are released
+    start_cheat_block_timestamp_global(START_MM + 3 * 86400);
+    assert(matchmaker.release_shields(2) == 2, 'initial shields not released');
+    start_cheat_caller_address(address, PLAYER());
+    start_cheat_transaction_hash_global('TX1');
+    assert(matchmaker.search() == defender, 'not the defender');
+    start_cheat_caller_address(address, OWNER());
+    matchmaker.start_attack(PLAYER());
+    // The defender's attack shield ends and is released: it is back in bucket 1
+    start_cheat_block_timestamp_global(START_MM + 3 * 86400 + 8 * 3600);
+    assert(matchmaker.release_shields(1) == 1, 'attack shield not released');
+    let before = get_available_gas();
+    let outcome = matchmaker.settle(PLAYER(), 3);
+    let after = get_available_gas();
+    assert(outcome.gained == 26, 'not 26 crowns');
+    assert(matchmaker.village(PLAYER()).bucket == 1, 'attacker not in bucket 1');
+    assert(matchmaker.village(defender).bucket == 0, 'defender not in bucket 0');
+    report("z20_matchmaker_settle", before - after, CEILING_MM_SETTLE);
+}
+
+/// z21. `release_shields(2)` with two expired initial shields.
+#[test]
+fn test_gas_z21_matchmaker_release_shields() {
+    let matchmaker = matchmaker();
+    join_villages(matchmaker, 2);
+    start_cheat_block_timestamp_global(START_MM + 3 * 86400);
+    let before = get_available_gas();
+    matchmaker.release_shields(2);
+    let after = get_available_gas();
+    report("z21_matchmaker_release_shields", before - after, CEILING_MM_RELEASE);
 }

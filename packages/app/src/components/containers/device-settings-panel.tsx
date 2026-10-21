@@ -15,6 +15,8 @@ export interface DevicePreferences {
   quality: GraphicsQuality;
   /** The board's day and night cycle: a moving sky, the sun's shadows, the city lights at night. */
   dayNight: boolean;
+  /** The ambient effects (#572 to #574): what moves on the board on its own. Off on the Low tier and under reduced motion. */
+  ambient: boolean;
   /** The music volume, 0 to 1; 0 is muted, and `musicBefore` the level an unmute returns to. */
   musicVolume: number;
   musicBefore: number;
@@ -48,7 +50,7 @@ const QUALITY: { value: GraphicsQuality; label: string }[] = [
 ];
 
 /**
- * The device settings, once (#541): Visuals (quality, the day and night cycle), Sound (the music and sound effects sliders, the
+ * The device settings, once (#541): Visuals (quality, the day and night cycle, the ambient effects), Sound (the music and sound effects sliders, the
  * music player of #569) and Gameplay (tile preview, placement highlight). The Settings page and the sheet over the board both
  * draw this; the account, the theme and the referral stay on the page.
  */
@@ -61,7 +63,7 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
             <Icon name="display" className="text-muted-foreground" size="sm" fixedWidth />
             Graphics quality
           </span>
-          <ToggleGroup type="single" variant="outline" aria-labelledby="quality-label" value={p.quality} onValueChange={(v) => v && onChange?.("quality", v as GraphicsQuality)} className="w-full">
+          <ToggleGroup type="single" variant="outline" aria-labelledby="quality-label" value={p.quality} onValueChange={(v) => v && onChange?.("quality", v as GraphicsQuality)} className="w-full gap-1">
             {QUALITY.map((q) => (
               // "Auto (Medium)" is the one long label: Auto gets double width so it fits at 320 px (WRAP360).
               <ToggleGroupItem key={q.value} value={q.value} className={`h-auto min-h-9 min-w-0 ${q.value === "auto" ? "flex-[2]" : "flex-1"} px-1 py-1 text-center text-xs leading-tight whitespace-normal`}>
@@ -83,6 +85,13 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
           icon="sun"
           checked={p.dayNight}
           onCheckedChange={(v) => onChange?.("dayNight", v)}
+        />
+        <SettingSwitch
+          label="Ambient effects"
+          hint="Gentle motion on the board. Off on Low quality and with reduced motion"
+          icon="sparkles"
+          checked={p.ambient}
+          onCheckedChange={(v) => onChange?.("ambient", v)}
         />
         {visualsExtra}
       </SettingsGroup>

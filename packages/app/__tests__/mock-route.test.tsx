@@ -52,7 +52,7 @@ describe("the mocked pages (Sepolia's default)", { timeout: 20_000 }, () => {
     expect(screen.queryByText("Rewards unavailable")).not.toBeInTheDocument();
     noRawErrors();
     await userEvent.click(claim);
-    expect((await screen.findAllByRole("img", { name: "5 Cobbles" }, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "5 Cobbles: Buy packs" }, { timeout: 5000 })).length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).not.toBeInTheDocument());
     expect((await s.ledger.dayProgress(FIXTURE_ADA, TODAY)).claimed).toBe(1n << 1n);
     noRawErrors();
@@ -69,6 +69,16 @@ describe("the mocked pages (Sepolia's default)", { timeout: 20_000 }, () => {
     expect((await s.ledger.vault(FIXTURE_ADA)).shares).toBeGreaterThan(0n);
     expect(await s.ledger.pavedBalance(FIXTURE_ADA)).toBe(MOCK_STARTING_PAVED - 100n * 10n ** 18n);
     await waitFor(() => expect(screen.getByRole("region", { name: "Your position" })).not.toHaveTextContent("No vPAVED yet"));
+    noRawErrors();
+  });
+
+  it("the balances' Cobbles lead to the packs' own page (#621), its packs from the mock", async () => {
+    open("/vault");
+    const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: 5000 });
+    await userEvent.click(cobbles!);
+    expect(await screen.findByRole("heading", { level: 1, name: "Cobbles" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
     noRawErrors();
   });
 });

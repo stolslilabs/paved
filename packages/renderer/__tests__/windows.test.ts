@@ -4,7 +4,7 @@ import { cellIndex, voxelize, type VoxelGrid } from "../src/core/voxelizer";
 import { PALETTE_CLASSES } from "../src/core/features";
 import { NIGHT_WINDOWS_GLSL } from "../src/core/TileRenderer";
 import { DEFAULT_LIGHT_VOLUME, WindowCache, bakeWindows, buildLightVolume, detectWindows, findOpenings, lightOf, ownerAt, plantEntries, spillOf, windowCells, windowSwitch, type Window } from "../src/core/windows";
-import { PLANS, loadMesh, litColumnsOf, shipped, sourceOf } from "./helpers/model-meshes";
+import { PLANS, loadMesh, shipped, sourceOf } from "./helpers/model-meshes";
 
 const HEAVY_TEST_MS = 60_000;
 
@@ -74,14 +74,6 @@ describe("the window detection", () => {
     expect(edge.windows.filter((w) => w.layer === 8)).toHaveLength(0);
   });
 
-  it("keeps only the openings on lit columns when the lights are given", () => {
-    const grid = gridOf(house);
-    expect(detectWindows(grid, new Uint8Array(144))).toHaveLength(0);
-    const lit = new Uint8Array(144).fill(1);
-    expect(detectWindows(grid, lit)).toHaveLength(1);
-    expect(findOpenings(grid, new Uint8Array(144)).rejected.map((r) => r.reason)).toContain("unlit column");
-  });
-
   it.each(Object.entries(TABLE))(
     "still finds #513's windows of %s (its recesses), among the windows through the walls",
     async (plan, [count, sizes]) => {
@@ -98,9 +90,9 @@ describe("the window detection", () => {
   );
 
   it(
-    "finds #513's 84 windows over the 19 plans and those through the walls; the structures keep more than the lit columns",
+    "finds #513's 84 windows over the 19 plans and those through the walls; the structures keep most of them",
     async () => {
-      const total = { recesses: 0, all: 0, structures: 0, columns: 0, firstPass: 0, firstPassThrough: 0 };
+      const total = { recesses: 0, all: 0, structures: 0 };
       for (const plan of PLANS) {
         const mesh = await loadMesh(shipped(plan));
         const grid = voxelize(sourceOf(mesh), { name: plan })!;
@@ -109,20 +101,13 @@ describe("the window detection", () => {
         total.recesses += all.filter((w) => w.kind === "window" && !w.through).length;
         total.all += count(all);
         total.structures += count(detectWindows(grid, { vegetation: plantEntries(PALETTE_CLASSES.base.vegetation) }));
-        total.columns += count(detectWindows(grid, litColumnsOf(plan, mesh)));
-        // The first pass's detection and rule together: #523's 65 kept windows, none through a wall.
-        const first = detectWindows(grid, { lit: litColumnsOf(plan, mesh), recessesOnly: true });
-        total.firstPass += count(first);
-        total.firstPassThrough += first.filter((w) => w.through).length;
       }
       expect(PLANS).toHaveLength(19);
       expect(total.recesses).toBe(84);
-      expect(total.firstPass).toBe(65);
-      expect(total.firstPassThrough).toBe(0);
-      // Measured on 2026-10-19: 872 windows, 836 kept on the structures, 720 on the lit columns.
+      // Measured on 2026-10-19: 872 windows, 836 kept on the structures.
       expect(total.all).toBeGreaterThan(800);
       expect(total.structures).toBeLessThanOrEqual(total.all);
-      expect(total.structures).toBeGreaterThan(total.columns);
+      expect(total.structures).toBeGreaterThan(800);
     },
     HEAVY_TEST_MS,
   );
@@ -195,8 +180,6 @@ describe("the windows through the walls (#571)", () => {
     expect(leaves.windows.filter((w) => w.kind === "window")).toHaveLength(0);
     expect(leaves.dropped.map((w) => w.reason)).toEqual(["vegetation", "vegetation", "vegetation", "vegetation"]);
     expect(findOpenings(gridOf(hollow, 12, 12), { vegetation: [3] }).windows.filter((w) => w.kind === "window")).toHaveLength(4);
-    // The first pass's rule, the lit columns, still drops what is not on a lit column.
-    expect(findOpenings(gridOf(hollow, 12, 12), new Uint8Array(144)).dropped.map((w) => w.reason)).toContain("unlit column");
   });
 
   it("the stone greys of the vegetation class are walls, not plants", () => {
@@ -251,17 +234,76 @@ describe("the light volume", () => {
     expect(lightOf(volume, 5, 0, 6)).toBe(0);
   });
 
-  it("the doors light too unless told not to, and the gaps never", () => {
+  it("#583: a door lights as a window does, by default; a gap never", () => {
+    // A door (6, 4, layers 4 to 5) in the north face, a gap (5, 7, layer 4) in the south face, the window at (5, 4, 6).
     const withDoor = gridOf((x, y, l) => house(x, y, l) && !(x === 6 && y === 4 && l >= 4 && l <= 5) && !(x === 5 && y === 7 && l === 4));
     const found = detectWindows(withDoor);
     expect(found.map((w) => w.kind).sort()).toEqual(["door", "gap", "window"]);
-    expect(buildLightVolume(withDoor, found).sources.map((w) => w.kind).sort()).toEqual(["door", "window"]);
-    expect(buildLightVolume(withDoor, found, { doors: false }).sources.map((w) => w.kind)).toEqual(["window"]);
+    const volume = buildLightVolume(withDoor, found);
+    expect(volume.sources.map((w) => w.kind).sort()).toEqual(["door", "window"]);
+    // The door's cells glow full, as the window's, and its pool of light lies on the ground in front of it.
+    expect(lightOf(volume, 6, 4, 4)).toBe(255);
+    expect(lightOf(volume, 6, 4, 5)).toBe(255);
+    expect(lightOf(volume, 5, 4, 6)).toBe(255);
+    expect(lightOf(volume, 6, 2, 4)).toBeGreaterThan(0);
+    expect(ownerAt(volume, 6, 4, 4)?.kind).toBe("door");
+    // The gap is dark, and so is the ground in front of it (nothing else reaches the south face).
+    expect(lightOf(volume, 5, 7, 4)).toBe(0);
+    expect(lightOf(volume, 5, 9, 4)).toBe(0);
+    // Told not to (the stories' toggle), a door casts nothing: only the window's light, fallen off, reaches it.
+    const dark = buildLightVolume(withDoor, found, { doors: false });
+    expect(dark.sources.map((w) => w.kind)).toEqual(["window"]);
+    expect(lightOf(dark, 6, 4, 4)).toBeLessThan(255);
+    expect(ownerAt(dark, 6, 4, 4)?.kind).toBe("window");
   });
 
-  it("the second pass's defaults: a longer reach, a softer falloff, a margin", () => {
-    expect(DEFAULT_LIGHT_VOLUME).toEqual({ reach: 7, falloff: 2, method: "flood", doors: true, margin: 6 });
+  it("the defaults (#583): the first pass's reach and falloff, the doors lit, a margin as far as the light reaches", () => {
+    expect(DEFAULT_LIGHT_VOLUME).toEqual({ reach: 6, falloff: 1.5, method: "flood", doors: true, margin: 6 });
   });
+
+  it(
+    "#583: the doors of the 19 base models, kept by the structures' rule, are all sources of the light and lit",
+    async () => {
+      const doors: Record<string, number> = {};
+      let gaps = 0;
+      for (const plan of PLANS) {
+        const grid = voxelize(sourceOf(await loadMesh(shipped(plan))), { name: plan })!;
+        const kept = detectWindows(grid, { vegetation: plantEntries(PALETTE_CLASSES.base.vegetation) });
+        const volume = buildLightVolume(grid, kept);
+        doors[plan] = kept.filter((w) => w.kind === "door").length;
+        for (const door of kept.filter((w) => w.kind === "door")) {
+          expect(volume.sources).toContain(door);
+          for (const [x, y, l] of windowCells(door)) expect(lightOf(volume, x, y, l), `${plan} door at ${x},${y},${l}`).toBeGreaterThan(0);
+        }
+        expect(volume.sources.some((w) => w.kind === "gap")).toBe(false);
+        gaps += kept.filter((w) => w.kind === "gap").length;
+      }
+      // Measured on 2026-10-19 (the counts the pull request gives).
+      expect(doors).toEqual({
+        ccccccccc: 41,
+        cccccfffc: 7,
+        cccccfrfc: 13,
+        cfffcfffc: 3,
+        ffcfffcff: 3,
+        ffcfffffc: 1,
+        ffffcccff: 7,
+        ffffffcff: 4,
+        rfffrfcfr: 2,
+        rfffrfffr: 1,
+        rfrfcccfr: 1,
+        rfrfffcfr: 1,
+        rfrfffffr: 2,
+        rfrfrfcff: 7,
+        sfrfrfcfr: 5,
+        sfrfrfffr: 1,
+        sfrfrfrfr: 0,
+        wffffffff: 4,
+        wfffffffr: 2,
+      });
+      expect(gaps).toBeGreaterThan(0);
+    },
+    HEAVY_TEST_MS,
+  );
 
   it.each(["flood", "rays"] as const)("%s: the light goes past the tile's border within the margin, kept as the spill", (method) => {
     // The window faces north at y 4: the border is 4 cells in front of it.
@@ -303,10 +345,10 @@ describe("the switch-on (#571: never three windows out of four dark every time)"
     expect(NIGHT_WINDOWS_GLSL).toContain("windowOn(");
   });
 
-  it("at the windows' stagger (1) every window is on at full night and most at dusk; the columns' 1.6 kept about half dark", () => {
+  it("at the windows' stagger (1) every window is on at full night and most at dusk; a spread of 1.6 kept about half dark", () => {
     expect(share(1, 1)).toBeGreaterThan(0.95);
     expect(share(0.6, 1)).toBeGreaterThan(0.5);
-    // The columns spread their levels to 1.6 (no 0.85): about half stay dark all night.
+    // The first pass's spread, 1.6 (no 0.85): about half stay dark all night.
     expect(share(1, 1.6 / 0.85)).toBeLessThan(0.65);
   });
 });

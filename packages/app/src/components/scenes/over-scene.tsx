@@ -8,11 +8,13 @@ import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import { errorDetail } from "../../routes/error-detail";
 import { toastError } from "../containers/error-toast";
 import type { FinalBoardProps } from "../containers/final-board";
+import { BoardCovered } from "../containers/board-covered";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollArea } from "../ui/scroll-area";
+import { ScrollRegion } from "../ui/scroll-region";
 import { Separator } from "../ui/separator";
 import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
 import { Score, formatPoints } from "../elements/score";
@@ -22,7 +24,9 @@ import { Notice } from "../elements/notice";
 import { useSfx } from "../containers/audio-provider";
 import { Boundary, useClock } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
+import { GameMissions, type GameMission } from "../containers/game-missions";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
+import scoreWide from "../../assets/renders/score-wide.webp";
 import { TopBar } from "../containers/top-bar";
 
 // The final board (#539) is its own chunk, with the renderer: loaded at the first "Board", and in the browser's idle time
@@ -71,8 +75,6 @@ export interface OverSceneProps {
   closings: (ScoredStructure & { tileId: number })[];
   /** The player's best before this game: "New best" when beaten. */
   previousBest?: number | null;
-  /** The rank this score holds today, Challenge only. */
-  rank?: number | null;
   reward: {
     state: RewardState;
     /** PAVED base units. */
@@ -108,6 +110,10 @@ export interface OverSceneProps {
   onViewChange?: (view: OverView) => void;
   /** Seconds since the epoch: the scene's clock for the relative times (the browser's when omitted). Stories and tests fix it. */
   now?: number;
+  /** The missions this game completed (#595), Challenge only: listed under the reward. None or empty: no list. */
+  missions?: readonly GameMission[];
+  /** The list's way to the Missions page, where their Cobbles are claimed. */
+  onMissions?: () => void;
   onPlayAgain?: () => void;
   onHome?: () => void;
 }
@@ -164,7 +170,10 @@ export function OverScene(props: OverSceneProps) {
       {board && wanted && (
         <div data-testid="final-board" aria-hidden={!onBoard} className={cn("absolute inset-0 bg-board", !onBoard && "invisible")}>
           {finalBoard ? (
-            <finalBoard.default {...board} />
+            // Kept mounted under the scores: covered there, its ambient effects stop (#572).
+            <BoardCovered.Provider value={!onBoard}>
+              <finalBoard.default {...board} />
+            </BoardCovered.Provider>
           ) : (
             <p role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
               Loading the board…
@@ -179,14 +188,14 @@ export function OverScene(props: OverSceneProps) {
               title="Final board"
               onBack={() => setView("scores")}
               end={<Score value={props.game.score} size="sm" tone="gold" className="pr-2" />}
-              className="pt-0"
+              className="mb-0 pt-0"
             />
           </div>
         </div>
       )}
-      <div aria-hidden={onBoard} className={cn("absolute inset-0 overflow-y-auto", onBoard && "invisible")}>
+      <ScrollRegion aria-hidden={onBoard} className={cn("absolute inset-0", onBoard && "invisible")}>
         <Scores {...props} />
-      </div>
+      </ScrollRegion>
       {board && (
         // Over the scores, a bar under the toggle so the rows it passes over do not show through; over the board, none.
         <div
@@ -202,10 +211,10 @@ export function OverScene(props: OverSceneProps) {
             aria-label="Show"
             value={view}
             onValueChange={(next) => next && setView(next as OverView)}
-            className="pointer-events-auto rounded-md bg-card/95 shadow-lg backdrop-blur"
+            className="pointer-events-auto rounded-xl bg-card/95 p-1 shadow-lg backdrop-blur"
           >
             <ToggleGroupItem value="scores" className="min-w-32">
-              <Icon name="ranking-star" fixedWidth />
+              <Icon name="star" fixedWidth />
               Scores
             </ToggleGroupItem>
             <ToggleGroupItem value="board" className="min-w-32">
@@ -220,7 +229,7 @@ export function OverScene(props: OverSceneProps) {
 }
 
 /** The scores: the over screen's page, scrolled inside the scene so the board can sit under it. */
-function Scores({ mode, game, closings, previousBest, rank, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, onPlayAgain, onHome }: OverSceneProps) {
+function Scores({ mode, game, closings, previousBest, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
   const play = useSfx();
   useEffect(() => play("gameover"), [play]);
@@ -235,19 +244,20 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
   return (
     <>
       <TopBar title="Final score" onBack={onHome} />
-      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
+      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
         <div className="flex flex-col gap-4">
+          {/* Direction D (#537): the mockups' banner, a render of a finished board (the bench's 38-tile game). Decorative. */}
+          <img src={scoreWide} alt="" width={960} height={448} draggable={false} decoding="async" className="h-36 w-full rounded-xl bg-secondary object-cover desktop:h-56" />
           <section
             data-slot="card"
             data-testid="final-score"
-            className="flex flex-col items-center gap-2 rounded-2xl border border-gold-900 bg-[radial-gradient(80%_70%_at_50%_0%,var(--color-gold-950),var(--color-ink-900))] px-4 py-6 text-center"
+            className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-[radial-gradient(80%_70%_at_50%_0%,var(--glow),var(--card))] px-4 py-6 text-center"
           >
             <span className="text-sm text-muted-foreground">{mode === "challenge" ? `Challenge #${game.id}` : "Training"}</span>
             <Score value={game.score} size="xl" tone="gold" className="items-center" />
             <span className="flex flex-wrap justify-center gap-2">
               {freeGame && <Badge variant="secondary">Free game</Badge>}
               {best && <Badge>New best</Badge>}
-              {rank != null && <Badge variant="outline">#{rank} today</Badge>}
             </span>
             {previousBest != null && !best && previousBest > 0 && <span className="text-xs text-muted-foreground">Best: <span className="numeric">{formatPoints(previousBest)}</span></span>}
           </section>
@@ -318,6 +328,8 @@ function Scores({ mode, game, closings, previousBest, rank, reward, settling, on
               {settle && <SettleArea {...settle} now={clock} />}
             </>
           )}
+
+          {missions && <GameMissions missions={missions} onOpen={onMissions} />}
         </div>
 
         <div className="flex flex-col gap-4">
@@ -412,7 +424,7 @@ function BestClosing({ best }: { best: ClosedStructure | null }) {
   if (!best) return null;
   const { label, icon, color } = info(best.category);
   return (
-    <div data-testid="highlight-best" className="flex items-center gap-3 rounded-lg border border-gold-900 bg-secondary/40 px-3 py-2">
+    <div data-testid="highlight-best" className="flex items-center gap-3 rounded-lg border border-primary/30 bg-secondary/40 px-3 py-2">
       <Icon name="medal" className="text-primary" fixedWidth />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="text-xs text-muted-foreground">Best closing</span>

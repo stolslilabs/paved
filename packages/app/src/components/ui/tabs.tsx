@@ -1,22 +1,30 @@
 /*
- * Source: the highlight is motion-primitives' AnimatedBackground (components/core/animated-background.tsx,
- * https://github.com/ibelick/motion-primitives at commit 120f64f6ca60348e251f929e9c81f11ccbe45eda, MIT, (c) 2024 ibelick),
- * on F3's Radix tabs (shadcn/ui). Adapted: `m` for LazyMotion, the active value from Radix instead of its own click
- * state, no hover mode and so no `AnimatePresence` fade (a tab list always has an active tab: the highlight only
- * moves), the semantic tokens.
+ * F3's Radix tabs (shadcn/ui), with the list of issue 594: equal columns sized by the widest label (the group keeps one footprint
+ * whatever the active tab), a gap between the triggers (a hover layer never touches the active fill), and one active
+ * indicator that the list moves to the active trigger with a CSS transform transition, under the white state layers (2b).
  */
-import { createContext, useCallback, useContext, useId, useState, type ComponentProps } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
-import * as m from "motion/react-m";
+import { useReducedMotionConfig } from "motion/react";
 import { cn } from "../../lib/utils";
 
-/** The selected value (controlled or not) and the highlight's `layoutId`, unique per Tabs. */
-const TabsContext = createContext<{ value: string | undefined; layoutId: string }>({ value: undefined, layoutId: "" });
+/** The last value of each remembered Tabs (`rememberAs`), kept across a route change that remounts the list. */
+const remembered = new Map<string, string>();
 
-export function Tabs({ className, value, defaultValue, onValueChange, ...props }: ComponentProps<typeof TabsPrimitive.Root>) {
+/** The selected value (controlled or not) and the key the list remembers it under. */
+const TabsContext = createContext<{ value: string | undefined; rememberAs?: string }>({ value: undefined });
+
+export interface TabsProps extends ComponentProps<typeof TabsPrimitive.Root> {
+  /**
+   * Remember the active value under this key, so a list that mounts again with another value (a tab per route, as the
+   * Missions' Limited and Lifetime) slides its indicator from the old tab instead of appearing on the new one.
+   */
+  rememberAs?: string;
+}
+
+export function Tabs({ className, value, defaultValue, onValueChange, rememberAs, ...props }: TabsProps) {
   const [inner, setInner] = useState(defaultValue);
   const current = value ?? inner;
-  const layoutId = `tabs-highlight-${useId()}`;
   const change = useCallback(
     (next: string) => {
       setInner(next);
@@ -25,48 +33,113 @@ export function Tabs({ className, value, defaultValue, onValueChange, ...props }
     [onValueChange],
   );
   return (
-    <TabsContext.Provider value={{ value: current, layoutId }}>
+    <TabsContext.Provider value={{ value: current, rememberAs }}>
       <TabsPrimitive.Root data-slot="tabs" value={current} onValueChange={change} className={cn("flex flex-col gap-3", className)} {...props} />
     </TabsContext.Provider>
   );
 }
 
-export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
+/**
+ * Equal columns (`1fr`): in a `w-fit` list each column takes the widest label, in a `w-full` list the width is
+ * shared. A column never shrinks below its own label (a plain `1fr` keeps its `auto` minimum, where `auto-cols-fr` is
+ * `minmax(0, 1fr)`; no `min-w-0` on a trigger), so a narrow screen widens the long label's column rather than letting
+ * the text spill over its neighbours. The indicator is placed on the active trigger by measure (its left and width),
+ * then moved with a transform transition (section 3.2); the first placement, a resize and reduced motion have none.
+ */
+export function TabsList({ className, children, ref, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
+  const { value, rememberAs } = useContext(TabsContext);
+  const reduced = useReducedMotionConfig() ?? false;
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const setList = useCallback(
+    (node: HTMLDivElement | null) => {
+      listRef.current = node;
+      if (typeof ref === "function") return ref(node);
+      if (ref) ref.current = node;
+    },
+    [ref],
+  );
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const placed = useRef(false);
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const indicator = indicatorRef.current;
+    if (!list || !indicator) return;
+    const place = (target: string | undefined, animate: boolean) => {
+      const triggers = list.querySelectorAll<HTMLElement>('[data-slot="tabs-trigger"]');
+      const trigger = Array.from(triggers).find((t) => t.dataset.value === target);
+      if (!trigger) {
+        indicator.style.opacity = "0";
+        return;
+      }
+      indicator.dataset.animate = animate ? "true" : "false";
+      indicator.style.transition = animate ? "transform 200ms ease-out, width 200ms ease-out" : "none";
+      indicator.style.opacity = "1";
+      indicator.style.width = `${trigger.offsetWidth}px`;
+      indicator.style.transform = `translateX(${trigger.offsetLeft}px)`;
+    };
+    const previous = rememberAs === undefined ? undefined : remembered.get(rememberAs);
+    if (!placed.current && previous !== undefined && previous !== value && !reduced) {
+      // Mounted on another tab than the remembered one: start there, commit that frame (a forced layout), then move.
+      place(previous, false);
+      void indicator.offsetWidth;
+      place(value, true);
+    } else {
+      place(value, placed.current && !reduced);
+    }
+    placed.current = true;
+    if (rememberAs !== undefined && value !== undefined) remembered.set(rememberAs, value);
+
+    // A resize re-places without a transition; the observer's first call (the size it starts from) is not one.
+    let size = `${list.offsetWidth}x${list.offsetHeight}`;
+    const observer = new ResizeObserver(() => {
+      const next = `${list.offsetWidth}x${list.offsetHeight}`;
+      if (next === size) return;
+      size = next;
+      place(value, false);
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [value, rememberAs, reduced]);
+
   return (
     <TabsPrimitive.List
+      ref={setList}
       data-slot="tabs-list"
-      className={cn("relative inline-flex h-10 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground", className)}
-      {...props}
-    />
-  );
-}
-
-/**
- * The active trigger holds the highlight, one `m.span` with the Tabs' shared `layoutId`: Motion moves it from the old
- * trigger to the new one (section 3.2). Under reduced motion Motion makes the layout animation instant.
- */
-export function TabsTrigger({ className, value, children, ...props }: ComponentProps<typeof TabsPrimitive.Trigger>) {
-  const { value: active, layoutId } = useContext(TabsContext);
-  return (
-    <TabsPrimitive.Trigger
-      data-slot="tabs-trigger"
-      value={value}
       className={cn(
-        "relative inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground",
+        "relative inline-grid h-10 w-fit auto-cols-[1fr] grid-flow-col items-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground",
         className,
       )}
       {...props}
     >
-      {active === value && (
-        <m.span
-          data-slot="tabs-indicator"
-          aria-hidden
-          layoutId={layoutId}
-          className="absolute inset-0 rounded-md bg-background shadow-sm"
-          transition={{ type: "spring", stiffness: 500, damping: 36 }}
-        />
+      <span
+        ref={indicatorRef}
+        data-slot="tabs-indicator"
+        aria-hidden
+        className="pointer-events-none absolute top-1 bottom-1 left-0 rounded-md bg-state-selected opacity-0"
+      />
+      {children}
+    </TabsPrimitive.List>
+  );
+}
+
+/**
+ * A trigger paints the hover and pressed layers (2b) on its own rounded box; the selected 15% is the list's indicator,
+ * so the active trigger's own layer stays clear (it would double the fill) unless pressed.
+ */
+export function TabsTrigger({ className, value, children, ...props }: ComponentProps<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      data-slot="tabs-trigger"
+      data-value={value}
+      value={value}
+      className={cn(
+        "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium state-layer whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground data-[state=active]:not-active:[--layer:transparent]",
+        className,
       )}
-      <span className="relative z-10 inline-flex items-center gap-1.5">{children}</span>
+      {...props}
+    >
+      {children}
     </TabsPrimitive.Trigger>
   );
 }

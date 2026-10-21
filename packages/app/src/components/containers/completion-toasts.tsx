@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { newlyCompleted, completionKey, type Trackable } from "../../lib/quest-toasts";
+import { Cobbles, formatCobbles } from "../elements/cobbles";
 import { Icon } from "../ui/icon";
 import { toast } from "../ui/sonner";
 
@@ -8,6 +9,34 @@ export interface CompletionToast {
   icon: string;
   /** The line under the title: an achievement's points. */
   description?: string;
+  /** Its Cobbles, to claim on the Missions page (#595); none: no reward. */
+  cobbles?: number;
+}
+
+/** The line under a completion's title: its points and its Cobbles to claim ("+20 pts · +20 Cobbles to claim"). */
+export function completionLine({ description, cobbles }: Pick<CompletionToast, "description" | "cobbles">): string | undefined {
+  const reward = cobbles ? `+${formatCobbles(cobbles)} ${cobbles === 1 ? "Cobble" : "Cobbles"} to claim` : undefined;
+  return [description, reward].filter(Boolean).join(" · ") || undefined;
+}
+
+/** The line under a completion's title with the Cobbles' icon (issue 620); its words are `completionLine`'s. */
+export function CompletionReward({ entry }: { entry: Pick<CompletionToast, "description" | "cobbles"> }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1">
+      {entry.description && <span>{entry.description} ·</span>}
+      <Cobbles value={entry.cobbles ?? 0} sign="+" size="sm" /> to claim
+    </span>
+  );
+}
+
+/** A completion's toast: at the top, clear of the board's hand and the pages' bottom bar, once per key (Sonner's `id`). */
+export function toastCompletion(kind: "quest" | "achievement", key: string, entry: CompletionToast) {
+  toast.success(`${kind === "quest" ? "Mission completed" : "Lifetime mission earned"}: ${entry.title}`, {
+    id: key,
+    description: entry.cobbles ? <CompletionReward entry={entry} /> : completionLine(entry),
+    icon: <Icon name={entry.icon} size="md" />,
+    position: "top-center",
+  });
 }
 
 /**
@@ -27,9 +56,10 @@ export interface CompletionMemory {
 
 /**
  * A toast when a quest or an achievement completes between two reads of `entries`: "Mission completed: <title>" with its
- * icon, once per (id, interval) (`lib/quest-toasts.ts` decides which). `null` is a read on its way and changes nothing.
- * The `Toaster` is the app's, mounted once above the pages (`App.tsx`); without one the call shows nothing. The route
- * passes the indexer's list on each refresh. Reduced motion is the Toaster's.
+ * icon and its reward, once per (id, interval) (`lib/quest-toasts.ts` decides which). `null` is a read on its way and changes
+ * nothing. The `Toaster` is the app's, mounted once above the pages (`App.tsx`); without one the call shows nothing. The app
+ * tracks the player's progress on every page (`routes/completion-host.tsx`, #595), so a mission completed during a game
+ * toasts on the board. Reduced motion is the Toaster's.
  *
  * `scope` names what the entries are a read of (the day shown): when it changes, the last list is dropped, so stepping to
  * another day compares nothing with the day before. `live: false` (a past day's data) never toasts and forgets the last
@@ -66,14 +96,7 @@ export function useCompletionToasts<T extends Trackable>(
     const keys = fresh.map((entry) => completionKey(kind, entry));
     if (store) store.announce(keys);
     else for (const key of keys) announced.current.add(key);
-    fresh.forEach((entry, i) => {
-      const { title, icon, description } = describeRef.current(entry);
-      toast.success(`${kind === "quest" ? "Mission completed" : "Lifetime mission earned"}: ${title}`, {
-        id: keys[i],
-        description,
-        icon: <Icon name={icon} size="md" />,
-      });
-    });
+    fresh.forEach((entry, i) => toastCompletion(kind, keys[i], describeRef.current(entry)));
     if (store) store.remember(scope, entries);
     else previous.current = entries;
   }, [kind, entries, scope, live]);

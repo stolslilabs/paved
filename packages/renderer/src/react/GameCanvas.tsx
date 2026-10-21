@@ -6,6 +6,8 @@ import type { RendererSettingsInput } from "../core/settings";
 import type { AssetManifest } from "../core/AssetLoader";
 import { NO_SKINS, type TileSkins } from "../core/skins";
 import type { PlacementSlot } from "../core/placement";
+import type { TilePressListener } from "../core/interaction";
+import type { FogCell } from "../core/fog-of-war-settings";
 import type {
   TileRenderData,
   HoverState,
@@ -34,10 +36,19 @@ export interface GameCanvasProps {
   skins?: TileSkins;
   /** A manifest the host gives instead of `<basePath>/manifest.json` (`RendererConfig.manifest`); read at init. */
   manifest?: AssetManifest;
+  /** The board is covered (a full-screen sheet, the score panel): the ambient loop stops (`GameScene.setCovered`). */
+  covered?: boolean;
+  /**
+   * The fog of war's clear cells and the cells a new one lifts from (`GameScene.setFogReveal`): the board's tiles and free
+   * slots, or a village's owned cells and their neighbours. Unset: no fog. It shows with `settings.fog` on.
+   */
+  fogReveal?: { cells: ReadonlyArray<FogCell>; origin?: ReadonlyArray<FogCell> } | null;
   onReady?: (scene: GameScene) => void;
   /** Called when the scene cannot start, for example without a WebGL context. */
   onError?: (error: unknown) => void;
   onTileClick?: (gridX: number, gridY: number) => void;
+  /** A press on a cell (`GameScene.onTilePress`): `down`, then `released` or `cancelled`; true on `released` keeps the click. */
+  onTilePress?: TilePressListener;
   onTileHover?: (gridX: number, gridY: number) => void;
   onHoverLeave?: () => void;
 }
@@ -56,12 +67,15 @@ export function GameCanvas({
   settings,
   skins = NO_SKINS,
   manifest,
+  covered = false,
+  fogReveal = null,
   basePath = "",
   style,
   className,
   onReady,
   onError,
   onTileClick,
+  onTilePress,
   onTileHover,
   onHoverLeave,
 }: GameCanvasProps) {
@@ -71,17 +85,23 @@ export function GameCanvas({
   const onReadyRef = useRef(onReady);
   const onErrorRef = useRef(onError);
   const onTileClickRef = useRef(onTileClick);
+  const onTilePressRef = useRef(onTilePress);
   const onTileHoverRef = useRef(onTileHover);
   const onHoverLeaveRef = useRef(onHoverLeave);
 
   useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
+  useEffect(() => { onTilePressRef.current = onTilePress; }, [onTilePress]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
   // Read at init; later changes go through setSettings.
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
+  const coveredRef = useRef(covered);
+  useEffect(() => { coveredRef.current = covered; }, [covered]);
+  const fogRevealRef = useRef(fogReveal);
+  useEffect(() => { fogRevealRef.current = fogReveal; }, [fogReveal]);
   const manifestRef = useRef(manifest);
   useEffect(() => { manifestRef.current = manifest; }, [manifest]);
 
@@ -108,8 +128,11 @@ export function GameCanvas({
         // Unmounted while init was pending: never start the scene.
         if (cancelled) return;
         gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
+        gameScene.onTilePress((gx, gy, phase) => onTilePressRef.current?.(gx, gy, phase));
         gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
         gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
+        gameScene.setCovered(coveredRef.current);
+        gameScene.setFogReveal(fogRevealRef.current?.cells ?? null, fogRevealRef.current?.origin);
         // The first frame is drawn inside `start()`: the load trace times it (shader compiles and uploads included).
         const firstFrame = traceStart();
         gameScene.start();
@@ -167,6 +190,14 @@ export function GameCanvas({
   useEffect(() => {
     sceneRef.current?.setSettings(settings ?? {});
   }, [settings]);
+
+  useEffect(() => {
+    sceneRef.current?.setCovered(covered);
+  }, [covered]);
+
+  useEffect(() => {
+    sceneRef.current?.setFogReveal(fogReveal?.cells ?? null, fogReveal?.origin);
+  }, [fogReveal]);
 
   return (
     <div

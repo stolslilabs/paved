@@ -7,7 +7,7 @@ import { TRAINING_BEST_KEY, trainingPreviousBest } from "../src/data/training-be
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
-import { preloadPages } from "./route-helpers";
+import { holdToPlace, placeTile, preloadPages, validateButton, discardTile } from "./route-helpers";
 
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
@@ -63,12 +63,12 @@ describe("/training (P3)", () => {
     open("/training", store);
     expect(await tilesOnBoard()).toBe(2);
     await chooseSlot();
-    await userEvent.click(within(hand()).getByRole("button", { name: /Place tile/ }));
+    await holdToPlace();
     expect(await tilesOnBoard()).toBe(3);
     expect(loadGame(() => store)!.moves).toHaveLength(2);
   });
 
-  it("each hand action reaches the session: rotate, choose a slot, place with its preview points, discard", async () => {
+  it("each hand action reaches the session: rotate, choose a slot, place by the bubble's hold with its preview points on the score, discard", async () => {
     const store = memoryStore();
     open("/training", store);
     expect(await tilesOnBoard()).toBe(1);
@@ -78,22 +78,27 @@ describe("/training (P3)", () => {
     expect(chip).toHaveAccessibleName(/north$/);
     expect(within(hand()).queryByRole("button", { name: /Rotate/ })).not.toBeInTheDocument();
 
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    // No Place tile (#568): the bubble's Validate, held, is the only way to place.
+    expect(screen.queryByRole("button", { name: /Place tile/ })).not.toBeInTheDocument();
+    expect(validateButton()).toBeNull();
     await chooseSlot();
     // The bubble: Cancel always; Rotate only with several valid rotations, and only through those.
     await userEvent.click(await screen.findByRole("button", { name: "Cancel placement" }));
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    expect(validateButton()).toBeNull();
+    expect(screen.queryByTestId("score-preview")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel placement" })).not.toBeInTheDocument();
     await chooseSlot();
-    const place = within(hand()).getByRole("button", { name: /Place tile/ });
-    expect(place).toBeEnabled();
-    expect(place).toHaveTextContent(/\+\d+/);
-    await userEvent.click(place);
+    expect(await screen.findByRole("button", { name: "Hold to place the tile" })).toBeEnabled();
+    expect(screen.getByTestId("score-preview")).toHaveTextContent(/^\(\+\d+\)/);
+    // A tap is not a hold: nothing is placed.
+    await userEvent.click(validateButton()!);
+    expect(await tilesOnBoard()).toBe(1);
+    await holdToPlace();
     expect(await tilesOnBoard()).toBe(2);
     expect(tilesLeft()).toBe(left - 1);
     expect(loadGame(() => store)!.moves.map((m) => m.k)).toEqual(["b"]);
 
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     expect(loadGame(() => store)!.moves.map((m) => m.k)).toEqual(["b", "d"]);
     expect(await tilesOnBoard()).toBe(2);
   });
@@ -107,9 +112,9 @@ describe("/training (P3)", () => {
       const slots = screen.queryAllByRole("button", { name: /^Slot / });
       if (slots.length) {
         await userEvent.click(slots[0]!);
-        await userEvent.click(within(hand()).getByRole("button", { name: /Place tile/ }));
+        await placeTile();
       } else {
-        await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+        await discardTile();
       }
     }
     expect(router.state.location.pathname).toBe("/training/over");
@@ -125,16 +130,16 @@ describe("/training (P3)", () => {
     open("/training", memoryStore());
     await tilesOnBoard();
     const left = tilesLeft();
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     await waitFor(() => expect(tilesLeft()).toBe(left - 1));
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     await waitFor(() => expect(tilesLeft()).toBe(left - 2));
   });
 
   it("says when storage is off, and still plays", async () => {
     open("/training", null);
     expect(await screen.findByText("Storage is off")).toBeInTheDocument();
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     expect(screen.getByText("Storage is off")).toBeInTheDocument();
   });
 
@@ -154,7 +159,7 @@ describe("/training (P3)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
     full = true;
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     expect(await screen.findByText("Last move not saved")).toBeInTheDocument();
   });
 
@@ -171,10 +176,10 @@ describe("/training (P3)", () => {
     };
     const { router } = open("/training", quota);
     await tilesOnBoard();
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     // Every save from here on is refused: the save stays one move in, behind the game.
     full = true;
-    while (router.state.location.pathname === "/training") await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    while (router.state.location.pathname === "/training") await discardTile();
     expect(router.state.location.pathname).toBe("/training/over");
     expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Tiles placed0");
@@ -187,10 +192,10 @@ describe("/training (P3)", () => {
     open("/training", store);
     expect(await tilesOnBoard()).toBe(1);
     // This tab discards; it then chooses a slot for its next tile, unsent.
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     expect(loadGame(() => store)!.moves).toEqual([{ k: "d" }]);
     await chooseSlot();
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Hold to place the tile" })).toBeEnabled();
 
     // The other tab, one move in too, placed a tile instead: its save is written last, so it wins.
     const other = [firstMove([])];
@@ -199,12 +204,12 @@ describe("/training (P3)", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: TRAINING_KEY, newValue: save(other) }));
     });
     expect(await tilesOnBoard()).toBe(2);
-    expect(within(hand()).getByRole("button", { name: /Place tile/ })).toBeDisabled();
+    expect(validateButton()).toBeNull();
     expect(within(hand()).getByRole("img", { name: /^Tile / })).toHaveAccessibleName(/north$/);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
 
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     expect(loadGame(() => store)!.moves).toEqual([...other, { k: "d" }]);
   });
 
@@ -222,25 +227,31 @@ describe("/training (P3)", () => {
     expect(await tilesOnBoard()).toBe(2);
 
     // This tab plays on the other's game: its save keeps the other tab's moves.
-    await userEvent.click(within(hand()).getByRole("button", { name: /Discard/ }));
+    await discardTile();
     expect(loadGame(() => store)!.moves).toEqual([...other, { k: "d" }]);
   });
 
-  it("Esc closes the Surrender dialog; a confirmed surrender ends on the over scene", async () => {
-    const store = memoryStore();
-    const { router } = open("/training", store);
-    await tilesOnBoard();
-    await userEvent.click(within(hand()).getByRole("button", { name: /Surrender/ }));
-    expect(await screen.findByRole("dialog", { name: "Surrender this game?" })).toBeInTheDocument();
+  it("Restart, from the settings, asks first, then plays the same game again from its start (#606); no Surrender", async () => {
+    const store = memoryStore({ [TRAINING_KEY]: save([firstMove([])]) });
+    open("/training", store);
+    expect(await tilesOnBoard()).toBe(2);
+    const restart = async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: 5000 });
+      expect(within(sheet).queryByRole("button", { name: /Surrender/ })).toBeNull();
+      await userEvent.click(within(sheet).getByRole("button", { name: /^Restart/ }));
+      return screen.findByRole("dialog", { name: "Restart this game?" });
+    };
+    await restart();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(loadGame(() => store)!.moves).toEqual([]);
+    expect(loadGame(() => store)!.moves).toHaveLength(1);
 
-    await userEvent.click(within(hand()).getByRole("button", { name: /Surrender/ }));
-    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Surrender" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"));
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
-    expect(loadGame(() => store)!.moves).toEqual([{ k: "s" }]);
+    await userEvent.click(within(await restart()).getByRole("button", { name: "Restart" }));
+    expect(await tilesOnBoard()).toBe(1);
+    const saved = loadGame(() => store)!;
+    expect(saved.moves).toEqual([]);
+    expect(saved.seed).toBe(`0x${SEED.toString(16)}`);
   });
 });
 

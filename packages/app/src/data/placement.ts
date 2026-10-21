@@ -61,7 +61,7 @@ export function boardPlates(tiles: ReadonlyArray<Slot>, slots: ReadonlyArray<Slo
 /** The four rotations, 1 North to 4 West. */
 export const ORIENTATIONS = [1, 2, 3, 4] as const;
 
-/** The next rotation: all four in turn. Only the Tutorial uses it (its own rules, until #546); the boards use `nextValid`. */
+/** The next rotation: all four in turn. The boards use `nextValid`. */
 export function nextOrientation(orientation: number): number {
   return (orientation % 4) + 1;
 }

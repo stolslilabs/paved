@@ -4,7 +4,7 @@ import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController, TALLEST_TILE_HEIGHT } from "./CameraController";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
-import { screenToGrid, cellCorner, isClick, createThrottled, type CellCorner } from "./interaction";
+import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
   RendererConfig,
   TileRenderData,
@@ -36,6 +36,20 @@ import { prefersReducedMotion } from "./placement";
 import type { DropResult } from "./tile-drops";
 // The day and night cycle is its own chunk: loaded only once the cycle is first on (`loadDayNight`).
 import type * as DayNight from "./daynight";
+import { AmbientLoop } from "./ambient-loop";
+import { ambientAllowed, type CloudShadowSettings } from "./ambient-settings";
+// The cloud shadows are their own chunk: loaded only once the ambient effects are first on with the clouds (`syncAmbient`).
+import type * as Clouds from "./cloud-shadows";
+// The fog of war is its own chunk too: loaded only once it is first on with a reveal (`syncFog`).
+import type * as Fog from "./fog-of-war";
+import { fogMode, type FogCell } from "./fog-of-war-settings";
+// The weather is its own chunk too: loaded only once it first shows (`syncWeather`).
+import type * as WeatherChunk from "./weather";
+import { weatherCloudFactor, weatherMode, type WeatherMode } from "./weather-settings";
+import { DAY_PHASE_AT } from "./daynight-settings";
+
+/** What the weather sees with the day and night cycle off: the look's fixed lights, a summer's noon (the wheel's summer day). */
+const CYCLE_OFF_POINT = { season: "summer", position: DAY_PHASE_AT.day } as const;
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
   cameraDistanceLimits,
@@ -160,8 +174,10 @@ export class GameScene {
   /** The renderer's pixel ratio: device px per CSS px of the drawing buffer, the device's capped at `maxPixelRatio`. */
   private pixelRatio = 1;
 
-  private pointerDownPos: { x: number; y: number } | null = null;
+  /** The board's taps and presses (`PointerTap`): a two-finger pinch or tilt places nothing, whatever its fingers' travel. */
+  private pointerTap: PointerTap | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
+  private onTilePressCallback: TilePressListener | null = null;
   private onTileHoverCallback: ((gridX: number, gridY: number) => void) | null = null;
   private onHoverLeaveCallback: (() => void) | null = null;
   private boundInputHandler: ((event: SurfaceInputEvent) => void) | null = null;
@@ -178,6 +194,24 @@ export class GameScene {
   private dayNightOn = false;
   /** The cycle's point last drawn (`getDayNight`). */
   private dayNightPoint: DayNight.CyclePoint | null = null;
+  /**
+   * The one ambient loop (`ambient-loop.ts`): every ambient effect moves on its time uniform, stepped from this scene's render
+   * loop at its capped rate, paused while the tab is hidden or the board covered (`setCovered`), off with the effects.
+   */
+  readonly ambient = new AmbientLoop();
+  /** The cloud shadows (`cloud-shadows.ts`, #573), once their chunk is in; its load, started the first time they are on. */
+  private clouds: Clouds.CloudShadows | null = null;
+  private cloudsLoad: Promise<void> | null = null;
+  /** The cycle's night level last drawn (0 by day, or with the cycle off): the clouds' share on the moon's light. */
+  private nightLevel = 0;
+  /** The fog of war (`fog-of-war.ts`, FOG-EVERYWHERE), once its chunk is in; its load, started the first time it is on. */
+  private fog: Fog.FogOfWar | null = null;
+  private fogLoad: Promise<void> | null = null;
+  /** The clear cells the board gave (`setFogReveal`) and the cells they lift from; null: no reveal, no fog. */
+  private fogReveal: { cells: ReadonlyArray<FogCell>; origin: ReadonlyArray<FogCell> } | null = null;
+  /** The weather (`weather.ts`, #607, #658), once its chunk is in; its load, started the first time it shows. */
+  private weather: WeatherChunk.Weather | null = null;
+  private weatherLoad: Promise<void> | null = null;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -220,6 +254,8 @@ export class GameScene {
     }
 
     this.surface = surface;
+    // The ambient loop stops while the tab is hidden.
+    this.ambient.followVisibility();
 
     // Set asset base path (and the host's manifest, when it gives one)
     if (basePath || manifest) {
@@ -441,7 +477,197 @@ export class GameScene {
     }
     this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
     this.syncDayNight();
+    this.syncAmbient();
+    this.syncFog();
     this.requestRender();
+  }
+
+  /**
+   * The ambient effects (AMBIENT, #572): on when the settings say so, but not on the Low tier or under reduced motion
+   * (`ambientAllowed`). Off, the loop stops. An effect is a chunk of its own that registers on `ambient` (`AmbientLoop`): the
+   * cloud shadows (#573) load the first time they are on; off, they leave the light as it was (their chunk stays).
+   */
+  private syncAmbient(): void {
+    const settings = this.settings.ambient;
+    const on = ambientAllowed(settings, this.getQuality(), prefersReducedMotion()) && !!this.renderer;
+    this.ambient.setRate(settings.fps);
+    this.ambient.setEnabled(on);
+    const clouds = this.clouds;
+    if (clouds) {
+      clouds.setSettings(this.cloudSettings());
+      clouds.setActive(on && settings.clouds.enabled);
+    } else if (on && settings.clouds.enabled) {
+      this.loadClouds();
+    }
+    this.syncWeather();
+    this.requestRender();
+  }
+
+  /**
+   * The clear cells of the fog of war (FOG-EVERYWHERE, #648), in the grid: the board's tiles and free slots (`boardReveal`), or
+   * in a village or an attack the owned cells and the cells next to them (`villageReveal`). A cell added lifts from the side of
+   * `origin` (the tile just placed, the cell just bought). Null: no fog (a tile's preview). The fog shows only with
+   * `RendererSettings.fog` on.
+   */
+  setFogReveal(cells: ReadonlyArray<FogCell> | null, origin: ReadonlyArray<FogCell> = []): void {
+    this.fogReveal = cells ? { cells, origin } : null;
+    this.syncFog();
+  }
+
+  /**
+   * The fog of war: on with the settings and a reveal, its chunk loaded the first time; its mode from the tier, the ambient
+   * effects and reduced motion (`fogMode`: it stays on at every tier, still where the effects cannot move it); off, hidden.
+   */
+  private syncFog(): void {
+    const settings = this.settings.fog;
+    const reveal = this.fogReveal;
+    const on = settings.enabled && !!reveal && !!this.renderer;
+    const fog = this.fog;
+    if (!fog) {
+      if (on) this.loadFog();
+      return;
+    }
+    fog.setSettings(settings);
+    fog.setMode(on ? fogMode(settings, this.settings.ambient, this.getQuality(), prefersReducedMotion()) : "off");
+    if (reveal) fog.setRevealed(reveal.cells, reveal.origin);
+    fog.setCycle(this.getDayNight());
+    this.requestRender();
+  }
+
+  /** Loads the fog's chunk once, in the board's group (it turns with the compass), on the ambient loop. */
+  private loadFog(): void {
+    this.fogLoad ??= import("./fog-of-war").then(
+      (module) => {
+        if (this.disposed) return;
+        const fog = new module.FogOfWar(this.ambient.time, this.settings.fog);
+        fog.onChange = () => this.requestRender();
+        this.fog = fog;
+        this.tiles.getGroup().add(fog.object);
+        this.ambient.register(fog);
+        this.syncFog();
+      },
+      (error: unknown) => console.warn("[renderer] the fog of war did not load, the board stays clear:", error),
+    );
+  }
+
+  /** The fog of war now (`FogOfWar.stats`), or null before its chunk is in: the bench and the stories' readout. */
+  getFog(): ReturnType<Fog.FogOfWar["stats"]> | null {
+    return this.fog?.stats() ?? null;
+  }
+
+  /** The cloud shadows' settings, with autumn's more clouds while the weather shows (`weatherCloudFactor`). */
+  private cloudSettings(): CloudShadowSettings {
+    const clouds = this.settings.ambient.clouds;
+    const factor = this.weatherModeNow() !== "off" ? weatherCloudFactor(this.settings.weather, "autumn") : 1;
+    if (factor === 1) return clouds;
+    return { ...clouds, seasonCoverage: { ...clouds.seasonCoverage, autumn: clouds.seasonCoverage.autumn * factor } };
+  }
+
+  /**
+   * The weather's mode (`weatherMode`): off with the weather or the ambient effects off ("Ambient effects"), or on the Low tier;
+   * still under reduced motion (nothing falls: the grade, the brightness and the snow on the tops only); else moving, on the
+   * ambient loop. With the day and night cycle off it shows too: that board is summer's day (`CYCLE_OFF_POINT`).
+   */
+  private weatherModeNow(): WeatherMode {
+    if (!this.renderer) return "off";
+    return weatherMode(this.settings.weather, this.settings.ambient, this.getQuality(), prefersReducedMotion());
+  }
+
+  /**
+   * The weather (WEATHER-WIRE, #658) in every board: its chunk loads the first time it shows, then it follows the settings, the
+   * clouds' wind, its mode and the cycle's point (`syncWeatherCycle`: the wheel's season, auto or fixed, by day and at night).
+   */
+  private syncWeather(): void {
+    const mode = this.weatherModeNow();
+    const weather = this.weather;
+    if (!weather) {
+      if (mode !== "off") this.loadWeather();
+      return;
+    }
+    weather.setSettings(this.settings.weather);
+    weather.setWind(this.settings.ambient.clouds.windDirection, this.settings.ambient.clouds.windSpeed);
+    this.syncWeatherCycle();
+    weather.setMode(mode);
+  }
+
+  /**
+   * The cycle's point to the weather: its season and daylight. With the cycle off in the settings, the look's own fixed lights are
+   * the wheel's summer day (`wheelDayNight`: summer with Day and night off), so summer's noon; with the cycle on but not drawn yet
+   * (its chunk on its way), none, so its first season shows at once rather than fading in from summer.
+   */
+  private syncWeatherCycle(): void {
+    this.weather?.setCycle(this.getDayNight() ?? (this.settings.dayNight.enabled ? null : CYCLE_OFF_POINT));
+  }
+
+  /** Loads the weather's chunk once, adds it to the scene and registers it on the loop (a failed load leaves the board as it is). */
+  private loadWeather(): void {
+    this.weatherLoad ??= import("./weather").then(
+      (module) => {
+        if (this.disposed) return;
+        const weather = new module.Weather(this.ambient.time, this.tiles.snowUniforms, this.settings.weather);
+        weather.onChange = () => this.requestRender();
+        this.weather = weather;
+        this.scene.add(weather.object);
+        this.ambient.register(weather);
+        this.syncWeather();
+      },
+      (error: unknown) => console.warn("[renderer] the weather did not load, the board stays as it is:", error),
+    );
+  }
+
+  /** The weather now (`Weather.stats`), or null before its chunk is in: the stories' readout and the tests. */
+  getWeather(): WeatherChunk.WeatherStats | null {
+    return this.weather?.stats() ?? null;
+  }
+
+  /** Loads the cloud shadows' chunk once and registers them on the loop (a failed load leaves the board as it is). */
+  private loadClouds(): void {
+    this.cloudsLoad ??= import("./cloud-shadows").then(
+      (module) => {
+        if (this.disposed) return;
+        const clouds = new module.CloudShadows(this.tiles.cloudUniforms, this.cloudSettings());
+        clouds.onChange = () => this.requestRender();
+        this.clouds = clouds;
+        this.syncCloudLight();
+        this.scene.add(clouds.object);
+        this.ambient.register(clouds);
+        this.syncAmbient();
+      },
+      (error: unknown) => console.warn("[renderer] the cloud shadows did not load, the board stays still:", error),
+    );
+  }
+
+  /**
+   * What the clouds can dim (`CloudShadows.setLight`): with the cycle drawing the board, its season, how up its sun is (0 at
+   * night: the clouds then step no frame unless they dim the moon) and its night level; with the cycle off, the look's sun.
+   */
+  private syncCloudLight(): void {
+    // The fog dims with the cycle as well (its moonlit blue at night).
+    this.fog?.setCycle(this.getDayNight());
+    const clouds = this.clouds;
+    if (!clouds) return;
+    const point = this.getDayNight();
+    clouds.setSeason(point?.season ?? null);
+    const sun = point && this.dayNight ? this.dayNight.sunAt(point.season, point.position).up : 1;
+    clouds.setLight(sun, point ? this.nightLevel : 0);
+  }
+
+  /** The cloud shadows now (`CloudShadows.stats`), or null before their chunk is in: the stories' readout. */
+  getClouds(): ReturnType<Clouds.CloudShadows["stats"]> | null {
+    return this.clouds?.stats() ?? null;
+  }
+
+  /**
+   * The board is covered (a full-screen sheet, the score panel over it) or not: covered, the ambient loop stops, and the board
+   * draws nothing more until something on it changes.
+   */
+  setCovered(covered: boolean): void {
+    this.ambient.setPaused("covered", covered);
+  }
+
+  /** The ambient loop now: whether it runs, its rate and the steps it took. */
+  getAmbient(): { running: boolean; fps: number; steps: number } {
+    return { running: this.ambient.running, fps: this.ambient.getRate(), steps: this.ambient.steps };
   }
 
   /**
@@ -459,8 +685,11 @@ export class GameScene {
         this.effects.setBackdrop(false);
         this.dayNight?.releaseDayNight(this.directionalLight);
         this.renderer?.setClearColor(0x000000, 1);
-        this.tiles.setNightLights(false, settings.nightLightColor, settings.nightLightIntensity, settings.lights, settings.windowLight);
+        this.tiles.setNightLights(false, settings.nightLightColor, settings.windowLight);
+        this.nightLevel = 0;
+        this.syncCloudLight();
       }
+      this.syncWeather();
       return;
     }
     if (!this.dayNight) {
@@ -471,7 +700,7 @@ export class GameScene {
     // The scene is cleared to transparent: the finish pass lays the backdrop under what it leaves uncovered.
     this.scene.background = null;
     this.renderer.setClearColor(0x000000, 0);
-    this.tiles.setNightLights(settings.nightLights && !this.dayNightStill(), settings.nightLightColor, settings.nightLightIntensity, settings.lights, settings.windowLight);
+    this.tiles.setNightLights(settings.nightLights && !this.dayNightStill(), settings.nightLightColor, settings.windowLight);
     const now = performance.now();
     this.dayNightClock ??= new this.dayNight.DayNightClock(now, this.dayNight.pageCycleTime(now, settings.cycleMs));
     this.applyDayNight(this.dayNightSeasons());
@@ -522,11 +751,16 @@ export class GameScene {
         crossfade: this.dayNightRuns(),
         shadowMoved: () => this.requestShadowUpdate(),
         backdrop: (top, bottom) => this.effects.setBackdrop(true, top, bottom),
-        lights: (level) => this.tiles.setNightLevel(level),
+        lights: (level) => {
+          this.tiles.setNightLevel(level);
+          this.nightLevel = level;
+        },
       },
       seasons,
       this.settings.dayNight.brightnessFloor,
     );
+    this.syncCloudLight();
+    this.syncWeatherCycle();
     this.requestRender();
   }
 
@@ -535,8 +769,19 @@ export class GameScene {
     return this.dayNightOn ? this.dayNightPoint : null;
   }
 
+  /**
+   * The grid cell under a point of the surface (its own pixels, from its top left), as a tap there would name it; null off the
+   * ground or before `init`. A drag that ends over the board (a village's reward tile) finds its cell with it.
+   */
+  gridAt(point: { x: number; y: number }): { x: number; y: number } | null {
+    const size = this.surface?.getSize();
+    if (!size || size.width <= 0 || size.height <= 0 || !this.camera) return null;
+    this.camera.updateMatrixWorld();
+    return screenToGrid({ x: (point.x / size.width) * 2 - 1, y: -(point.y / size.height) * 2 + 1 }, this.camera, this.sceneGroup.matrixWorld, 3);
+  }
+
   private setupInteraction(surface: RenderSurfaceAdapter): void {
-    const toNdc = (event: SurfaceInputEvent): { x: number; y: number } | null => {
+    const toNdc = (event: { x: number; y: number }): { x: number; y: number } | null => {
       const size = surface.getSize();
       if (size.width <= 0 || size.height <= 0) {
         return null;
@@ -561,35 +806,24 @@ export class GameScene {
       }
     }, 50); // ~20fps throttle
 
+    const toGrid = (point: { x: number; y: number }): { x: number; y: number } | null => {
+      const ndc = toNdc(point);
+      if (!ndc) return null;
+      // Ensure camera matrix is fresh (controls may have updated between frames)
+      this.camera.updateMatrixWorld();
+      return screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
+    };
+    this.pointerTap = new PointerTap(
+      {
+        toGrid,
+        onPress: (x, y, phase) => this.onTilePressCallback?.(x, y, phase),
+        onClick: (x, y) => this.onTileClickCallback?.(x, y),
+      },
+      CLICK_THRESHOLD,
+    );
+
     this.boundInputHandler = (event: SurfaceInputEvent) => {
-      if (event.type === "pointerdown") {
-        if ((event.button ?? 0) === 0) {
-          this.pointerDownPos = { x: event.x, y: event.y };
-        }
-        return;
-      }
-
-      if (event.type === "pointerup") {
-        if ((event.button ?? 0) === 0 && this.pointerDownPos) {
-          const up = { x: event.x, y: event.y };
-          if (isClick(this.pointerDownPos, up, CLICK_THRESHOLD)) {
-            const ndc = toNdc(event);
-            if (!ndc) {
-              this.pointerDownPos = null;
-              return;
-            }
-
-            // Ensure camera matrix is fresh (controls may have updated between frames)
-            this.camera.updateMatrixWorld();
-            const grid = screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
-            if (grid && this.onTileClickCallback) {
-              this.onTileClickCallback(grid.x, grid.y);
-            }
-          }
-          this.pointerDownPos = null;
-        }
-        return;
-      }
+      this.pointerTap?.handle(event);
 
       if (event.type === "pointermove") {
         handlePointerMove(event);
@@ -606,6 +840,14 @@ export class GameScene {
 
   onTileClick(cb: ((gridX: number, gridY: number) => void) | null): void {
     this.onTileClickCallback = cb;
+  }
+
+  /**
+   * A press on a cell, from the down (TILE-HOLD, #630): `down`, then `released` or `cancelled` (`PointerTap`). The board holds
+   * the placed tile with it; returning true on `released` (the hold acted) keeps the click that would follow from firing.
+   */
+  onTilePress(cb: TilePressListener | null): void {
+    this.onTilePressCallback = cb;
   }
 
   onTileHover(cb: ((gridX: number, gridY: number) => void) | null): void {
@@ -666,7 +908,8 @@ export class GameScene {
 
   /**
    * Drops a tile placed on the board (`TileRenderer.dropTile`): its voxels fall and land layer by layer, then its model is back.
-   * Explicit, for the stories for now: the board does not call it. Resolves when the drop has started, or was skipped.
+   * Explicit, never at a first load: the app calls it when the session accepts a move (PLACE-POLISH, #568). Resolves when
+   * the drop has started, or was skipped.
    */
   async dropTile(tile: { id: number | string; game_id?: number }): Promise<DropResult> {
     const result = await this.tiles.dropTile(`${tile.game_id ?? 1}-${tile.id}`);
@@ -681,6 +924,14 @@ export class GameScene {
   /** Loads the drop's chunk and the grid of a drawn tile's model, so that its `dropTile` begins in the call: true when ready. */
   prepareDrop(tile: { id: number | string; game_id?: number }): Promise<boolean> {
     return this.tiles.prepareDrop(`${tile.game_id ?? 1}-${tile.id}`);
+  }
+
+  /**
+   * Loads the drop's chunk and the grid of the model the tile in hand will draw at its cell (`state.cell`), before it is on
+   * the board: the app calls it once the tile is placed (pre-validated), so that the drop at the confirm begins at once.
+   */
+  prepareDropAt(state: HoverState): Promise<boolean> {
+    return this.tiles.prepareDropAt(state);
   }
 
   /** The placement visuals' settings and reduced motion, from the renderer's settings. */
@@ -701,6 +952,9 @@ export class GameScene {
       const onChange = () => {
         this.applyPlacementSettings();
         this.syncDayNight();
+        this.syncAmbient();
+        // The fog stands still under reduced motion: a lift under way ends at once.
+        this.syncFog();
         this.requestRender();
       };
       query.addEventListener?.("change", onChange);
@@ -977,6 +1231,8 @@ export class GameScene {
         this.requestShadowUpdate();
         this.needsRender = true;
       }
+      // The ambient effects move on the one ambient loop, at its capped rate: a step that moves something draws a frame.
+      if (this.ambient.tick(now)) this.needsRender = true;
       // The day and night cycle moves in steps of `frameMs`: each step draws a frame (`applyDayNight` requests it).
       if (this.dayNightRuns()) {
         const { speed, frameMs } = this.settings.dayNight;
@@ -1049,14 +1305,25 @@ export class GameScene {
     this.assets.dispose();
     this.directionalLight?.shadow.dispose();
     this.dayNight?.releaseDayNight(this.directionalLight);
+    this.ambient.dispose();
+    this.clouds?.dispose();
+    this.clouds = null;
+    this.cloudsLoad = null;
+    this.fog?.dispose();
+    this.fog = null;
+    this.fogLoad = null;
+    this.weather?.dispose();
+    this.weather = null;
+    this.weatherLoad = null;
     this.scene.clear();
     this.latestTiles = [];
     this.cameraListeners.clear();
     this.onTileClickCallback = null;
+    this.onTilePressCallback = null;
     this.onTileHoverCallback = null;
     this.onHoverLeaveCallback = null;
     this.boundInputHandler = null;
-    this.pointerDownPos = null;
+    this.pointerTap = null;
     this.ambientLight = null;
     this.hemisphereLight = null;
     this.directionalLight = null;

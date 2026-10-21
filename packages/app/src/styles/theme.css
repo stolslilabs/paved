@@ -4,7 +4,9 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 /* iPhone Safari in a tab (not an installed app): its floating bottom toolbar overlays the page's end, and
    `env(safe-area-inset-bottom)` does not count it. `-webkit-touch-callout` exists only on iOS WebKit, so Android Chrome, desktop
-   browsers and the installed app (`display-mode: standalone`) never match; the width keeps iPad out. */
+   browsers and a home-screen app of an older manifest (`display-mode: standalone`, dropped in #589) never match; the width keeps iPad out. */
+/* NO-SCROLLBARS (#609): the tab page's region has more below (`pageScrollHintRef`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
+@custom-variant page-more (&:where(html[data-scroll-end] *));
 @custom-variant iphone-tab {
   @supports (-webkit-touch-callout: none) {
     @media (display-mode: browser) and (max-width: 40rem) {
@@ -28,7 +30,24 @@
   --color-gold-900: oklch(0.320 0.065 83.0); /* #432F00 */
   --color-gold-950: oklch(0.235 0.048 83.0); /* #291C00 */
 
-  /* ink: neutral, page, panels and borders; measured anchors 800 = #23303A, 900 = #172129, 950 = #0A141C */
+  /* charcoal: neutral, page, panels and borders (#537, direction D, the owner's pick of 2026-10-19): the mockups' charcoal,
+     anchors 950 = #121316 (page), 900 = #1C1E22 (cards), 800 = #2A2D33 (raised), 700 = #363941 (hairlines), 300 = #CDCFD4
+     (secondary text), 50 = #F4F1EA (text, warm). It replaces the navy `ink`, which read as Cartridge's. */
+  --color-charcoal-50: oklch(0.959 0.010 87.5); /* #F4F1EA */
+  --color-charcoal-100: oklch(0.929 0.003 286.3); /* #E7E7E9 */
+  --color-charcoal-200: oklch(0.892 0.006 275.0); /* #DADBDF */
+  --color-charcoal-300: oklch(0.854 0.007 268.5); /* #CDCFD4 */
+  --color-charcoal-400: oklch(0.722 0.012 269.5); /* #A2A5AD */
+  --color-charcoal-500: oklch(0.603 0.014 266.6); /* #7D818A */
+  --color-charcoal-600: oklch(0.506 0.015 266.6); /* #61656E */
+  --color-charcoal-700: oklch(0.345 0.015 269.3); /* #363941 */
+  --color-charcoal-800: oklch(0.297 0.012 264.4); /* #2A2D33 */
+  --color-charcoal-900: oklch(0.235 0.008 264.4); /* #1C1E22 */
+  --color-charcoal-950: oklch(0.187 0.006 271.1); /* #121316 */
+
+  /* ink: the 3D scene's night sky only. The renderer's day/night keyframes paint the backdrop with these steps (a test in
+     packages/renderer holds them to this file); no part of the interface paints them since direction D (#537), whose
+     neutral is `charcoal` above. It was the navy of the first palette (anchors 800 = #23303A, 900 = #172129, 950 = #0A141C). */
   --color-ink-50: oklch(0.975 0.006 241.7); /* #F3F7FB */
   --color-ink-100: oklch(0.940 0.006 241.7); /* #E8ECEF */
   --color-ink-200: oklch(0.880 0.012 241.7); /* #D1D9DF */
@@ -93,13 +112,14 @@
   --color-amber-900: oklch(0.320 0.075 59.2); /* #4E2800 */
   --color-amber-950: oklch(0.235 0.055 59.2); /* #311600 */
 
-  /* The board: the 3D scene's clear colour and the Storybook background; measured #07111A. */
-  --color-board: oklch(0.173 0.024 246.1); /* #07111A */
+  /* The board: behind the 3D scene, the overlays of dialogs and sheets, and the Storybook background; direction D's
+     shade under the page, #0C0D0F (was the navy #07111A). */
+  --color-board: oklch(0.159 0.005 264.4); /* #0C0D0F */
 
-  /* The placement plates (PLATES, P-74): a pale neutral blue, a grey with no hue (a slot no rotation fits). The renderer's
-     colours (`DEFAULT_PLACEMENT_SETTINGS.colors`) are these hex values; a test keeps them in step. */
-  --color-plate: oklch(0.834 0.032 240.7); /* #B7CCDC */
-  --color-plate-off: oklch(0.660 0.000 0.0); /* #929292 */
+  /* The placement plates (PLATES, P-74; #588): one grey with no hue for both states, told apart by opacity alone (the
+     playable plate less transparent than the invalid one). The renderer's colour (`DEFAULT_PLACEMENT_SETTINGS.colors.plate`)
+     is this hex value; a test keeps them in step. */
+  --color-plate: oklch(0.833 0.000 0.0); /* #C8C8C8 */
 
   /* Fonts (section 2.3): the owner's choice, 2026-10-14. Fallbacks are system fonts of the same kind. */
   --font-sans: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
@@ -121,38 +141,139 @@
 :root {
   --accent-scale-300: var(--color-gold-300);
   --accent-scale-400: var(--color-gold-400);
-  --accent-scale-950: var(--color-gold-950);
+}
+
+/* 2b. Interaction states (#537, owner decision of 2026-10-18): white with transparency, the same on every button, toggle,
+   menu item and nav item, whatever its own colour. Painted over the part's background by the `state-layer` utility below. */
+:root {
+  --state-hover: rgb(255 255 255 / 0.1);
+  --state-selected: rgb(255 255 255 / 0.15);
+  --state-pressed: rgb(255 255 255 / 0.2);
+  /* The soft light behind a hero figure (loading, welcome, the final score): the one action colour, faint. */
+  --glow: color-mix(in oklab, var(--primary) 14%, transparent);
 }
 
 /* 3. Semantic tokens (shadcn names), dark values. Dark only: no light block yet. */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: var(--color-ink-950);
-  --foreground: var(--color-ink-50);
-  --card: var(--color-ink-900);
-  --card-foreground: var(--color-ink-50);
-  --popover: var(--color-ink-900);
-  --popover-foreground: var(--color-ink-50);
+  --background: var(--color-charcoal-950);
+  --foreground: var(--color-charcoal-50);
+  --card: var(--color-charcoal-900);
+  --card-foreground: var(--color-charcoal-50);
+  --popover: var(--color-charcoal-900);
+  --popover-foreground: var(--color-charcoal-50);
   --primary: var(--accent-scale-300);
-  --primary-foreground: var(--color-ink-950);
-  --secondary: var(--color-ink-800);
-  --secondary-foreground: var(--color-ink-50);
-  --muted: var(--color-ink-800);
-  --muted-foreground: var(--color-ink-400);
-  --accent: var(--accent-scale-950);
-  --accent-foreground: var(--accent-scale-300);
+  --primary-foreground: var(--color-charcoal-950);
+  --secondary: var(--color-charcoal-800);
+  --secondary-foreground: var(--color-charcoal-50);
+  --muted: var(--color-charcoal-800);
+  --muted-foreground: var(--color-charcoal-300); /* the mockups' secondary text: 10.68:1 on --card */
+  /* shadcn's accent is a raised surface here, not a hover colour: hover, selected and pressed are the white states (2b). */
+  --accent: var(--color-charcoal-800);
+  --accent-foreground: var(--color-charcoal-50);
   --destructive: var(--color-ember-700);
-  --destructive-foreground: var(--color-ink-50);
-  --destructive-text: var(--color-ember-300); /* destructive text on --popover / --card: 9.34:1 (AA) */
+  --destructive-foreground: var(--color-charcoal-50);
+  --destructive-text: var(--color-ember-300); /* destructive text on --popover / --card */
   --success: var(--color-meadow-400);
   --info: var(--color-river-400);
   --warning: var(--color-amber-400);
-  --border: var(--color-ink-800);
-  --input: var(--color-ink-600); /* 3.11:1 on --background (WCAG 1.4.11); ink-700 gave 2.11:1 */
-  --input-surface: var(--color-ink-500); /* --input on --card / --popover: 4.16:1 (ink-600 gives 2.73 there) */
+  --border: var(--color-charcoal-700); /* the mockups' hairline, 1.61:1 on --background: decorative */
+  --input: var(--color-charcoal-600); /* 3.17:1 on --background (WCAG 1.4.11) */
+  --input-surface: var(--color-charcoal-500); /* --input on --card / --popover: 4.27:1 */
   --ring: var(--accent-scale-400);
+  /* The podium's medals: gold, silver, bronze. */
+  --medal-1: var(--color-gold-300);
+  --medal-2: var(--color-charcoal-200);
+  --medal-3: var(--color-amber-400);
   --board: var(--color-board);
+  /* The village's tiers (#646): the base under a tile, whatever its skin. Dirt, silver, gold, diamond, ruby (a proposal for
+     the fifth). */
+  --tier-0: var(--color-amber-800);
+  --tier-1: var(--color-charcoal-300);
+  --tier-2: var(--color-gold-400);
+  --tier-3: var(--color-river-300);
+  --tier-4: var(--color-ember-500);
+  /* The village's fog in the plan view (#633's rule, until #648 draws the chosen one): a grey veil over the board. */
+  --fog: var(--color-charcoal-400);
+}
+
+/* 3b. The season dial (#607): each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle
+   paints them (`KEYFRAMES` in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in
+   step). Hex, not palette steps: the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The
+   icons' tint is the day's bottom, lightly, over the foreground. The ring is paving stones set in a gold rim. */
+:root {
+  --sky-summer-day-top: #1f65a1;
+  --sky-summer-day-bottom: #6bb7ff;
+  --sky-summer-night-top: #0a141c;
+  --sky-summer-night-bottom: #083559;
+  --sky-autumn-day-top: #114c7c;
+  --sky-autumn-day-bottom: #ffb57a;
+  --sky-autumn-night-top: #0a141c;
+  --sky-autumn-night-bottom: #3e0503;
+  --sky-winter-day-top: #3e4c57;
+  --sky-winter-day-bottom: #93a0ab;
+  --sky-winter-night-top: #0a141c;
+  --sky-winter-night-bottom: #23303a;
+  --sky-spring-day-top: #3180c5;
+  --sky-spring-day-bottom: #95dc94;
+  --sky-spring-night-top: #0a141c;
+  --sky-spring-night-bottom: #012604;
+  --season-summer-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-summer-day-bottom));
+  --season-autumn-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-autumn-day-bottom));
+  --season-winter-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-winter-day-bottom));
+  --season-spring-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-spring-day-bottom));
+  /* The dial's gold, toned into its stones (#634): it reads as one piece with the sky quarters. */
+  --dial-rim: color-mix(in oklab, var(--primary) 45%, var(--color-charcoal-600));
+  --dial-mark: color-mix(in oklab, var(--primary) 65%, var(--color-charcoal-600));
+  --dial-band: var(--color-charcoal-900);
+  --dial-stone: var(--color-charcoal-600);
+  --dial-stone-alt: var(--color-charcoal-700);
+  --dial-stone-edge: var(--color-charcoal-500);
+  --dial-night: var(--color-river-900);
+  --dial-night-foreground: var(--color-river-200);
+  --dial-shade: rgb(0 0 0 / 0.55);
+}
+
+/* 3c. The balances' resource bar (#620): each currency on a dark plate, sunk a little, a hairline edge; the light that
+   crosses the Cobbles' plate. */
+:root {
+  --resource-plate: var(--color-charcoal-950);
+  --resource-edge: var(--color-charcoal-700);
+  --resource-shade: rgb(0 0 0 / 0.45);
+  --resource-glint: rgb(255 255 255 / 0.14);
+}
+
+/* 3d. The PvP flow (#647): the search's clouds over their sky, the crowns, and each league's crest (a proposal until #644
+   names the leagues). The crests are told apart by their names too, never by colour alone. */
+:root {
+  --cloud: var(--color-charcoal-50);
+  --cloud-shade: var(--color-charcoal-300);
+  --sky-search-top: var(--color-river-900);
+  --sky-search-bottom: var(--color-river-500);
+  --crown: var(--color-gold-300);
+  --league-bronze: var(--color-amber-500);
+  --league-silver: var(--color-charcoal-300);
+  --league-gold: var(--color-gold-400);
+  --league-crystal: var(--color-river-300);
+  --league-master: var(--color-ember-400);
+  --league-champion: var(--color-meadow-400);
+  --league-legend: var(--color-gold-100);
+}
+
+@theme inline {
+  --color-cloud: var(--cloud);
+  --color-cloud-shade: var(--cloud-shade);
+  --color-sky-search-top: var(--sky-search-top);
+  --color-sky-search-bottom: var(--sky-search-bottom);
+  --color-crown: var(--crown);
+  --color-league-bronze: var(--league-bronze);
+  --color-league-silver: var(--league-silver);
+  --color-league-gold: var(--league-gold);
+  --color-league-crystal: var(--league-crystal);
+  --color-league-master: var(--league-master);
+  --color-league-champion: var(--league-champion);
+  --color-league-legend: var(--league-legend);
 }
 
 /* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
@@ -181,6 +302,21 @@
   --color-input: var(--input);
   --color-input-surface: var(--input-surface);
   --color-ring: var(--ring);
+  --color-state-hover: var(--state-hover);
+  --color-state-selected: var(--state-selected);
+  --color-state-pressed: var(--state-pressed);
+  --color-glow: var(--glow);
+  --color-medal-1: var(--medal-1);
+  --color-medal-2: var(--medal-2);
+  --color-medal-3: var(--medal-3);
+  --color-resource-plate: var(--resource-plate);
+  --color-resource-edge: var(--resource-edge);
+  --color-tier-0: var(--tier-0);
+  --color-tier-1: var(--tier-1);
+  --color-tier-2: var(--tier-2);
+  --color-tier-3: var(--tier-3);
+  --color-tier-4: var(--tier-4);
+  --color-fog: var(--fog);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -201,8 +337,17 @@
   input, textarea, [contenteditable="true"] { @apply select-text; -webkit-touch-callout: default; }
   canvas { touch-action: none; -webkit-touch-callout: none; }
   img, svg { -webkit-user-drag: none; user-drag: none; }
-  /* The board routes do not scroll: no pull-to-refresh and no bounce (`RootLayout` sets the flag). The other pages scroll as usual. */
-  html[data-board], html[data-board] body { overscroll-behavior: none; }
+  /* The document never bounces and never pulls to refresh (#611): a pull past the top would drag every page, its
+     navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
+  html, body { overscroll-behavior: none; }
+
+  /* NO-SCROLLBARS (#609): no scrollbar is drawn from `desktop`, on any element, the document included; every scroller still
+     scrolls by wheel, trackpad, keyboard and touch. Below `desktop` the OS draws overlay bars that hide themselves: unchanged.
+     What tells the player a region scrolls is the edge fade, `scroll-hint` below. */
+  @variant desktop {
+    * { scrollbar-width: none; }
+    *::-webkit-scrollbar { display: none; }
+  }
 
   /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
      `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
@@ -214,6 +359,80 @@
   [data-slot="dropdown-menu-sub-content"],
   [data-input-surface] {
     --input: var(--input-surface);
+  }
+}
+
+/*
+ * The interaction states (2b) as one utility: a white layer painted over the part's own background (a gradient image over
+ * the background colour), so a gold button, a charcoal card and a transparent nav item take the same 10% on hover, 15% when
+ * selected or current, 20% while pressed. A selected part keeps its 15% under the pointer. `data-force` pins a state (stories).
+ */
+@utility state-layer {
+  --layer: transparent;
+  background-image: linear-gradient(var(--layer), var(--layer));
+  &:where(:hover:not(:disabled, [aria-disabled="true"]), [data-highlighted], [data-force="hover"]) {
+    --layer: var(--state-hover);
+  }
+  &:where([data-state="on"], [data-state="open"], [data-state="active"], [aria-current="page"], [aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [data-state="checked"], [data-selected], [data-force="selected"]) {
+    --layer: var(--state-selected);
+  }
+  &:where(:active:not(:disabled, [aria-disabled="true"]), [data-force="pressed"]) {
+    --layer: var(--state-pressed);
+  }
+}
+
+/*
+ * NO-SCROLLBARS (#609), the edge hint: a scroller fades its content out over `--scroll-hint-size` on each side where more
+ * waits, so the cut row reads as "there is more". The sides come from `data-scroll-start` / `data-scroll-end` and the axis
+ * from `data-scroll-axis` (`scrollHintRef`, lib/scroll-hint.ts); with nothing to scroll there is no fade. The mask is on the
+ * scroller itself, so a scroller is never the panel that draws a surface (a sheet scrolls an inner `ScrollRegion`). A focused
+ * scroller drops the fade so its ring shows whole, and the scroll padding keeps a focused child clear of the fade.
+ */
+@property --scroll-hint-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-hint-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@utility scroll-hint {
+  --scroll-hint-size: 2rem;
+  --scroll-hint-dir: to bottom;
+  --scroll-hint-mask: linear-gradient(var(--scroll-hint-dir), transparent, black var(--scroll-hint-start), black calc(100% - var(--scroll-hint-end)), transparent);
+  mask-image: var(--scroll-hint-mask);
+  scroll-padding: var(--scroll-hint-size);
+  transition: --scroll-hint-start 150ms ease-out, --scroll-hint-end 150ms ease-out;
+  &[data-scroll-axis="x"] {
+    --scroll-hint-dir: to right;
+  }
+  &[data-scroll-start] {
+    --scroll-hint-start: var(--scroll-hint-size);
+  }
+  &[data-scroll-end] {
+    --scroll-hint-end: var(--scroll-hint-size);
+  }
+  &:focus-visible {
+    mask-image: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* The Cobbles' plate (#620): a soft light crosses it now and then, an invitation to tap; none under reduced motion. */
+@keyframes plate-shine {
+  0%, 75% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@utility plate-shine {
+  background-image: linear-gradient(100deg, transparent 30%, var(--resource-glint) 50%, transparent 70%);
+  animation: plate-shine 7s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0;
   }
 }
 

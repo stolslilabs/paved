@@ -3,15 +3,15 @@ import { DEFAULT_WINDOW_LIGHT } from "@paved/renderer";
 import { NIGHT_WINDOW_PLANS, NightWindowsTable, NightWindowsTile } from "./night-windows-tile";
 
 /**
- * The night windows (NIGHT-WINDOWS, #513; second pass NIGHT-WINDOWS-2, #571): the buildings' windows found in the model's voxels,
- * and the light they cast, baked per model type. This is where the owner judges the look before it replaces anything: the board
- * keeps today's "columns" night lights (`dayNight.lights`, default "columns"); "windows" is set by these stories only.
+ * The night windows (NIGHT-WINDOWS, #513; second pass NIGHT-WINDOWS-2, #571; NIGHT-WINDOWS-DEFAULT, #583): the buildings' windows
+ * and doors found in the model's voxels, and the light they cast, baked per model type. They are the board's night lights.
  *
- * The second pass: the houses and the towers are hollow, their walls one voxel thick, so their windows are holes through the
- * wall into a room; they are found now (the first pass took only recesses), on every wall. The rule that keeps them is the
- * structures' (every building, but the pockets in leaves, dropped as "vegetation"); the first pass's lit columns (a building
- * within 2 columns of a road) is the `rule` "columns". The windows of one room share its switch-on, so a tower's four light
- * together. The light reaches further, is stronger, and goes past the tile's border (`margin`, drawn on the ground round it).
+ * The houses and the towers are hollow, their walls one voxel thick, so their windows are holes through the wall into a room;
+ * they are found on every wall, with the recesses. The rule that keeps them is the structures' (every building, but the pockets
+ * in leaves, dropped as "vegetation"). The doors (openings on the slab, two cells high or more) light as the windows do; the
+ * gaps (one cell high, between trees and stones) never. The windows of one room share its switch-on, so a tower's four light
+ * together. The light is the first pass's (strength 0.4, reach 6, falloff 1.5) and goes past the tile's border (`margin`, drawn
+ * on the ground round it).
  *
  * Each tile is drawn on a 2D canvas (isometric, turn it with `rotation`), so it reads the same on any WebGL, software included.
  * 1. "WindowsFound": each of the 19 plans (and its Forest variants, through the skin), the detected windows boxed in cyan, doors
@@ -32,15 +32,15 @@ const meta = {
     rotation: { control: { type: "range", min: 0, max: 3, step: 1 }, description: "Quarter turns of the view" },
     step: { control: "inline-radio", options: ["found", "glow", "volume", "slice"], description: "Windows found; windows glowing alone; the light volume; the volume with a slice" },
     marks: { control: "check", options: ["window", "door", "gap", "unlit"], description: "Which openings are boxed (unlit: those the rule drops)" },
-    rule: { control: "inline-radio", options: ["structures", "columns", "none"], description: "Which openings are kept: every structure's (#571), the lit columns (#513), or all" },
-    detection: { control: "inline-radio", options: ["through", "recesses"], description: "Which openings are found: through the walls into rooms (#571), or the first pass's recesses only (#513)" },
+    rule: { control: "inline-radio", options: ["structures", "none"], description: "Which openings are kept: every structure's but the pockets in leaves (the renderer's), or all" },
+    detection: { control: "inline-radio", options: ["through", "recesses"], description: "Which openings are found: through the walls into rooms (#571, the renderer's), or recesses only (#513)" },
     method: { control: "inline-radio", options: ["flood", "rays"], description: "How the light is cast into the air in front of a window" },
-    reach: { control: { type: "range", min: 1, max: 20, step: 0.5 }, description: `How far the light reaches, in voxels (default ${DEFAULT_WINDOW_LIGHT.reach}; the first pass's 6)` },
-    falloff: { control: { type: "range", min: 0.5, max: 4, step: 0.1 }, description: `The falloff's exponent (default ${DEFAULT_WINDOW_LIGHT.falloff}; the first pass's 1.5)` },
+    reach: { control: { type: "range", min: 1, max: 20, step: 0.5 }, description: `How far the light reaches, in voxels (default ${DEFAULT_WINDOW_LIGHT.reach})` },
+    falloff: { control: { type: "range", min: 0.5, max: 4, step: 0.1 }, description: `The falloff's exponent (default ${DEFAULT_WINDOW_LIGHT.falloff})` },
     margin: { control: { type: "range", min: 0, max: 16, step: 1 }, description: `How far past the tile's border the light goes, in voxels (default ${DEFAULT_WINDOW_LIGHT.margin}; 0: it stops there)` },
     intensity: { control: { type: "range", min: 0, max: 3, step: 0.05 }, description: "The light's strength on this view" },
     lightColor: { control: "color", description: "The light's colour (the game's amber)" },
-    doorsLight: { control: "boolean", description: "A door casts light too" },
+    doorsLight: { control: "boolean", description: "A door casts light too (the renderer's default)" },
     nightLevel: { control: { type: "range", min: 0, max: 1, step: 0.05 }, description: "The night's level the switch-on is read at: dusk is 0.6, the night 1" },
     stagger: { control: { type: "range", min: 0.1, max: 2, step: 0.05 }, description: `The spread of the switch-on levels (default ${DEFAULT_WINDOW_LIGHT.stagger}: every window on by full night)` },
     cellX: { control: { type: "range", min: -8, max: 8, step: 1 }, description: "The tile's cell (x): another cell lights other windows first" },
@@ -87,8 +87,11 @@ export const Walls: Story = { args: { plan: "ffcfffcff", rotation: 0 } };
 /** A house (#571): the city's houses, hollow, a window on each wall; the first pass found one of four at most. */
 export const House: Story = { args: { plan: "ccccccccc", rotation: 1 } };
 
-/** The first pass's rule on the same houses: the lit columns (by a road) drop the field's houses, in orange. */
-export const RuleColumns: Story = { args: { plan: "sfrfrfrfr", rule: "columns" } };
+/** The doors (#583): the openings on the ground of a road tile's buildings, boxed in magenta, in the per-structure readout. */
+export const Doors: Story = { args: { plan: "rfrfffffr", marks: ["door", "gap"] } };
+
+/** The same doors at night: lit as the windows are, with their pool of light on the ground; the gaps stay dark. */
+export const DoorsAtNight: Story = { args: { plan: "rfrfffffr", step: "volume", marks: [] } };
 
 /** The plan with the most windows, seen from the other side. */
 export const MostWindows: Story = { args: { plan: "cccccfrfc", rotation: 2 } };
@@ -111,15 +114,6 @@ export const TowersAtNight: Story = { args: { plan: "cccccfffc", step: "volume",
 /** The stagger at dusk (level 0.6): some windows still dark, a room's windows on or off together; move `cellX` for another draw. */
 export const Dusk: Story = { args: { step: "volume", marks: [], nightLevel: 0.6 } };
 
-/**
- * The first pass for comparison, as #513 shipped it: its detection (recesses only, so no room), its rule (the lit columns), its
- * light (reach 6, falloff 1.5, no margin, 0.4) and its switch-on spread (1.6).
- */
-export const FirstPassLight: Story = { args: { step: "volume", marks: [], detection: "recesses", rule: "columns", reach: 6, falloff: 1.5, margin: 0, intensity: 0.4, stagger: 1.6 / 0.85 } };
-
-/** The first pass's detection on the houses: what #513 found (one window of four at most), for the House story. */
-export const FirstPassHouse: Story = { args: { plan: "ccccccccc", rotation: 1, detection: "recesses", rule: "columns" } };
-
 /** 2c. The same with rays instead of the flood: sharper beams out of the openings. */
 export const LightVolumeRays: Story = { args: { step: "volume", marks: [], method: "rays" } };
 
@@ -128,12 +122,6 @@ export const VolumeSlice: Story = { args: { step: "slice", marks: ["window"], la
 
 /** 3. The readout: windows per model, the volume's size and the build time of each step in this browser (the 19 base models). */
 export const Readout: Story = { render: () => <NightWindowsTable skin="base" /> };
-
-/** The same under the first pass's rule (the lit columns), with the second pass's detection. */
-export const ReadoutColumns: Story = { render: () => <NightWindowsTable skin="base" rule="columns" /> };
-
-/** The first pass as it was: its detection (recesses only) and its rule (the lit columns): #523's 65 windows. */
-export const ReadoutFirstPass: Story = { render: () => <NightWindowsTable skin="base" rule="columns" detection="recesses" /> };
 
 /** The same for the Forest variants, through the skin. */
 export const ReadoutForest: Story = { render: () => <NightWindowsTable skin="forest" /> };

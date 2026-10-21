@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { EngineGame } from "../src/engine";
 import { solve } from "../src/engine/solver";
-import { STORY_LEVELS, twoStars } from "../src/story/plan";
+import { beam } from "../src/engine/beam";
+import { designer } from "../src/engine/designer";
+import { seededDeck } from "../src/story/deck";
+import { decodeLine, encodeLine, replayLine } from "../src/story/line";
+import { CAMPAIGNS, OPEN_COUNTRY, TUTORIAL, twoStars } from "../src/story/plan";
 import { PlanType } from "../src/types/plan";
 
 const DOC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "docs", "client", "story-mode.md");
@@ -58,10 +62,13 @@ describe("story deck", () => {
 });
 
 describe("story plan", () => {
-  it("has 8 to 12 levels", () => {
-    expect(STORY_LEVELS.length).toBeGreaterThanOrEqual(8);
-    expect(STORY_LEVELS.length).toBeLessThanOrEqual(12);
-    expect(STORY_LEVELS.map((level) => level.id)).toEqual(STORY_LEVELS.map((_, index) => index + 1));
+  it("has campaigns numbered from 1, each with its own levels numbered from 1 (the Tutorial keeps 11)", () => {
+    expect(CAMPAIGNS.map((c) => c.id)).toEqual([1, 2]);
+    expect(TUTORIAL.levels).toHaveLength(11);
+    for (const campaign of CAMPAIGNS) {
+      expect(campaign.levels.length).toBeGreaterThan(0);
+      expect(campaign.levels.map((level) => level.id)).toEqual(campaign.levels.map((_, index) => index + 1));
+    }
   });
 
   it("rounds the 2-star threshold up", () => {
@@ -71,31 +78,101 @@ describe("story plan", () => {
     expect(twoStars(1)).toBe(1);
   });
 
-  const doc = readFileSync(DOC, "utf8");
-  for (const level of STORY_LEVELS) {
-    it(`level ${level.id} "${level.title}": the solver finds the stored optimum`, () => {
-      const started = performance.now();
-      const solution = solve(level.deck, { placed: level.placed });
-      const elapsed = Math.round(performance.now() - started);
-      console.info(`story level ${level.id}: optimum ${solution.optimum}, ${solution.nodes} nodes, ${elapsed} ms`);
-      expect(solution.optimum).toBe(level.optimum);
-      // The moves replay to the same score on the engine
-      const game = EngineGame.start({ deck: "story", seed: 0n, sequence: level.deck, placed: level.placed });
-      for (const move of solution.moves) {
-        if (move.action === "discard") game.discard();
-        else game.build(move.placement);
-      }
-      expect(game.over).toBe(true);
-      expect(game.score).toBe(level.optimum);
-    }, 120_000);
+  it("grows the second campaign from about 10 tiles to the simple deck's 38", () => {
+    const tiles = OPEN_COUNTRY.levels.map((level) => level.deck.length + 1);
+    expect(tiles[0]).toBe(10);
+    expect(tiles.at(-1)).toBe(38);
+    for (let index = 1; index < tiles.length; index++) expect(tiles[index]).toBeGreaterThan(tiles[index - 1] as number);
+  });
 
-    it(`level ${level.id}: the plan document states its deck, optimum and 2-star threshold`, () => {
-      const row = doc.split("\n").find((line) => line.startsWith(`| ${level.id} |`));
-      expect(row, `row of level ${level.id} in story-mode.md`).toBeDefined();
-      expect(row).toContain(level.title);
-      expect(row).toContain(level.deck.join(" "));
-      expect(row).toContain(`**${level.optimum}**`);
-      expect(row).toContain(String(twoStars(level.optimum)));
-    });
+  // The seeded draws are CPU-bound: the test passed 5 s, the default timeout, on CI (main included).
+  it("takes each deck of the second campaign from the Challenge's draw of its seed", () => {
+    for (const level of OPEN_COUNTRY.levels) {
+      expect(level.seed, `level ${level.id} has a seed`).toBeDefined();
+      expect(level.deck).toEqual(seededDeck(BigInt(level.seed as number), level.deck.length));
+      expect(level.method).toBe("best-known");
+    }
+  }, 30_000);
+
+  it("encodes and decodes a line", () => {
+    const line = "N1,0 D E-1,2 S0,-3 W10,10";
+    expect(encodeLine(decodeLine(line))).toBe(line);
+    expect(decodeLine("")).toEqual([]);
+    expect(() => decodeLine("X1,0")).toThrow("not a move");
+  });
+
+  it("the beam search finds the exact optimum of the Tutorial's levels (a check of the search, not of the plan)", () => {
+    for (const level of TUTORIAL.levels.slice(0, 5)) {
+      const found = beam(level.deck, { width: 64, placed: level.placed, tail: 2 });
+      expect(found.score).toBe(level.target);
+      const game = replayLine(level.deck, encodeLine(found.moves), level.placed);
+      expect(game.score).toBe(found.score);
+    }
+  }, 60_000);
+
+  it("keeps a seed line in the beam: even the narrowest search ends at least at the seed's score", () => {
+    // Tutorial 7's stored line is its exact optimum (asserted below): no need to solve it again here.
+    const level = TUTORIAL.levels[6]!;
+    const seed = decodeLine(level.line).map((move, index) =>
+      move.action === "build" ? { ...move, plan: level.deck[index]! } : { action: "discard" as const, plan: level.deck[index]! },
+    );
+    expect(beam(level.deck, { width: 1, placed: level.placed }).score).toBeLessThan(level.target);
+    const seeded = beam(level.deck, { width: 1, placed: level.placed, seed });
+    expect(seeded.score).toBe(level.target);
+    expect(replayLine(level.deck, encodeLine(seeded.moves), level.placed).score).toBe(level.target);
+  }, 30_000);
+
+  it("plays the designer's rules: score what can be scored, else keep the board tidy, discard only what fits nowhere", () => {
+    // Tutorial 1: the designer closes the road of 3 (two crossroads around the starter's road)
+    const level = TUTORIAL.levels[0]!;
+    expect(designer(level.deck).score).toBe(level.target);
+    // Tutorial 3: the full city fits north of the starter, so the designer keeps it (never discards a tile that fits)
+    const three = designer(TUTORIAL.levels[2]!.deck);
+    expect(three.moves.every((move) => move.action === "build")).toBe(true);
+  });
+
+  const doc = readFileSync(DOC, "utf8");
+  for (const campaign of CAMPAIGNS) {
+    for (const level of campaign.levels) {
+      const name = `${campaign.name} ${level.id} "${level.title}"`;
+      if (level.method === "exact") {
+        it(`${name}: the solver finds the stored optimum`, () => {
+          const started = performance.now();
+          const solution = solve(level.deck, { placed: level.placed });
+          const elapsed = Math.round(performance.now() - started);
+          console.info(`story ${campaign.id}-${level.id}: optimum ${solution.optimum}, ${solution.nodes} nodes, ${elapsed} ms`);
+          expect(solution.optimum).toBe(level.target);
+        }, 120_000);
+      }
+
+      if (level.method === "best-known") {
+        it(`${name}: the designer's line is the rules' line, and the target is not below it`, () => {
+          expect(level.designer, "a designer's line").toBeTruthy();
+          const played = designer(level.deck, level.placed);
+          expect(level.designer).toBe(encodeLine(played.moves));
+          const game = replayLine(level.deck, level.designer as string, level.placed);
+          expect(game.over).toBe(true);
+          expect(game.score).toBe(played.score);
+          expect(level.target).toBeGreaterThanOrEqual(played.score);
+          expect(doc).toContain(`designer ${played.score}`);
+        });
+      }
+
+      it(`${name}: the stored line replays to the target`, () => {
+        const game = replayLine(level.deck, level.line, level.placed);
+        expect(game.over).toBe(true);
+        expect(game.score).toBe(level.target);
+      });
+
+      it(`${name}: the plan document states its deck, target and 2-star threshold`, () => {
+        const row = doc.split("\n").find((line) => line.startsWith(`| ${campaign.id}-${level.id} |`));
+        expect(row, `row of level ${campaign.id}-${level.id} in story-mode.md`).toBeDefined();
+        expect(row).toContain(level.title);
+        expect(row).toContain(`**${level.target}**`);
+        expect(row).toContain(String(twoStars(level.target)));
+        expect(row).toContain(level.method === "exact" ? "exact" : "best known");
+        expect(doc).toContain(level.deck.join(" "));
+      });
+    }
   }
 });

@@ -1,208 +1,16 @@
 import type { QuoteView, SplitView } from "@paved/chain";
 import { Button } from "../ui/button";
-import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import { Amount, formatUnits, TOKENS } from "../elements/amount";
 import { GAME_VALIDITY_S } from "../elements/countdown";
 import { Deadline } from "../elements/deadline";
 import { Icon } from "../ui/icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
-import { Cobbles } from "../elements/cobbles";
 import { formatPoints } from "../elements/score";
-import { CobblePacks, formatUsd, packsOnSale } from "../containers/cobble-packs";
-import { formatBps } from "../containers/split-bar";
-import type { Pack } from "../containers/cobble-types";
+import { BalanceNotice, ConnectButton, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "../containers/purchase-notices";
 import { PriceBreakdown } from "../containers/price-breakdown";
 import { StakePicker } from "../containers/stake-picker";
 import { TopBar } from "../containers/top-bar";
-
-/**
- * Why the last purchase did not go through, as the page reads it from the writer's typed error: `moved`, the price changed
- * since the confirm; `quote-moved`, the pool's quote moved (the swap's `min_out`; the price did not); `low-quote`, a quote far
- * below the guard rate (Buy anyway sends it); `paused`, new games paused; `unknown`, sent but the receipt could not tell (Pay
- * is held while it is checked, then offers Buy again only); `landed`, the receipt of an unknown purchase read since: it went
- * through; `ready`, a send that landed after a change of player: its game waits to be opened; `busy`, another write of the account is on its way; `refused`, anything else.
- */
-export interface PurchaseRefusal {
-  kind: "moved" | "quote-moved" | "low-quote" | "paused" | "unknown" | "landed" | "ready" | "busy" | "refused";
-  message: string;
-  /** The typed error's detail for support (`InlineError`): its name, its hash, the version, the time. */
-  detail?: ErrorDetail;
-}
-
-/**
- * The refusals that are errors (P-67), shown by `InlineError`: the write was refused, or the price or the pool's quote
- * moved under it. The others are states with a way on (paused, a low quote to accept, an outcome to check, a game
- * ready, another write busy) and stay a `Notice`.
- */
-const ERROR_KINDS: ReadonlySet<PurchaseRefusal["kind"]> = new Set(["refused", "moved", "quote-moved"]);
-
-const REFUSAL_TITLE: Record<PurchaseRefusal["kind"], string> = {
-  moved: "The price moved",
-  "quote-moved": "The pool's quote moved",
-  "low-quote": "Low pool quote",
-  paused: "Purchases paused",
-  unknown: "Outcome unknown",
-  landed: "Purchase went through",
-  ready: "Your game is ready",
-  busy: "Another transaction",
-  refused: "Purchase refused",
-};
-
-/** How an unknown purchase is checked: where the player looks, and whether the check's reads failed (Retry). */
-interface Check {
-  label: string;
-  onCheck?: () => void;
-  failed?: boolean;
-  /** Retry is fetching: Retry and Dismiss wait for its answer. */
-  retrying?: boolean;
-  onRetry?: () => void;
-  /** The game a landed send opened (`ready`). */
-  onOpen?: () => void;
-  /** Forget the unknown purchase after a failed check: Pay is offered again, with the warning. */
-  onDismiss?: () => void;
-  /**
-   * Dismiss is offered with Retry; false while the purchase may still be answered in the wallet (under its 5 minutes): the
-   * record is not forgotten then, Retry only. Offered when omitted.
-   */
-  dismissable?: boolean;
-  /** The check cannot tell: Check again, or confirm that nothing landed. */
-  unresolved?: boolean;
-  onCheckAgain?: () => void;
-  onConfirmNone?: () => void;
-}
-
-/** The message with its transaction hash (`0x…`) selectable: the one copy target of a notice that is not an error (APP-FEEL, P-69). */
-function WithHash({ message }: { message: string }) {
-  return (
-    <>
-      {message.split(/(0x[0-9a-fA-F]+)/).map((part, i) =>
-        i % 2 ? (
-          <span key={i} className="select-text">
-            {part}
-          </span>
-        ) : (
-          part
-        ),
-      )}
-    </>
-  );
-}
-
-export function RefusalNotice({ refusal, check }: { refusal: PurchaseRefusal; check?: Check }) {
-  if (ERROR_KINDS.has(refusal.kind)) return <InlineError title={REFUSAL_TITLE[refusal.kind]} message={refusal.message} detail={refusal.detail} />;
-  const tone = refusal.kind === "busy" || refusal.kind === "landed" || refusal.kind === "ready" ? "info" : "warning";
-  const checkable = (refusal.kind === "unknown" || refusal.kind === "landed") && check;
-  const ready = refusal.kind === "ready" && check?.onOpen;
-  return (
-    <Notice
-      tone={tone}
-      title={REFUSAL_TITLE[refusal.kind]}
-      action={
-        ready ? (
-          <Button size="sm" onClick={check.onOpen}>
-            Open game
-          </Button>
-        ) : checkable ? (
-          <span className="flex flex-col gap-1.5">
-            {refusal.kind === "unknown" && check.failed && (
-              <>
-                <Button size="sm" onClick={check.onRetry} disabled={check.retrying}>
-                  Retry
-                </Button>
-                {check.dismissable !== false && (
-                  <Button size="sm" variant="ghost" onClick={check.onDismiss} disabled={check.retrying}>
-                    Dismiss
-                  </Button>
-                )}
-              </>
-            )}
-            {refusal.kind === "unknown" && check.unresolved && (
-              <>
-                <Button size="sm" onClick={check.onCheckAgain}>
-                  Check again
-                </Button>
-                <Button size="sm" variant="ghost" onClick={check.onConfirmNone}>
-                  It did not land
-                </Button>
-              </>
-            )}
-            <Button size="sm" variant="outline" onClick={check.onCheck}>
-              {check.label}
-            </Button>
-          </span>
-        ) : undefined
-      }
-    >
-      <WithHash message={refusal.message} />
-      {refusal.kind === "unknown" &&
-        check?.failed &&
-        (check.dismissable === false
-          ? " It could not be checked: Retry. Dismiss is offered once your wallet's 5 minutes have passed."
-          : " It could not be checked: Retry. Dismiss only if you are sure it did not go through: buying again may pay twice.")}
-    </Notice>
-  );
-}
-
-/** "Not enough USDC" as plain text, for the copy and the tooltip (the shown line draws the amounts with `Amount`). */
-function shortText(what: "stake" | "pack", price: bigint, balance: bigint): string {
-  return `This ${what} costs ${formatUnits(price, TOKENS.usdc.decimals, TOKENS.usdc.fraction)} USDC; the wallet holds ${formatUnits(balance, TOKENS.usdc.decimals, TOKENS.usdc.fraction)}.`;
-}
-
-/** The wallet's USDC could not be read: no "not enough" claim, Pay waits, and Retry reads it again. */
-function BalanceNotice({ error, detail, onRetry }: { error: string; detail?: ErrorDetail; onRetry?: () => void }) {
-  return (
-    <InlineError
-      title="Your USDC balance cannot be read"
-      message={error}
-      detail={detail}
-      action={
-        <Button size="sm" variant="outline" onClick={onRetry}>
-          Retry
-        </Button>
-      }
-    />
-  );
-}
-
-/** The `?ref=` address is one the contracts would not pay: the purchase goes on without a referrer. */
-function DroppedReferrerNotice() {
-  return <Notice title="Referral link not used">This referral link cannot be used; buying without a referrer.</Notice>;
-}
-
-/** The Cobble packs (P-61, cobbles v1, part 2: `Setup.pack`, `buy_pack`). */
-export interface CobbleShop {
-  /** `Setup.account(player).cobbles`. */
-  balance: number;
-  /** The packs on sale (`Setup.pack` of ids 1 to 8); the scene keeps only those with Cobbles and a price. */
-  packs: readonly Pack[];
-  selected: number | null;
-  /** The approve + `buy_pack` is on its way. */
-  buying?: boolean;
-  /** The pack's `min_out` is being quoted: Pay waits for it. */
-  quoting?: boolean;
-  /** Why the last pack's purchase did not go through. */
-  refusal?: PurchaseRefusal | null;
-  /** After an unknown outcome, the receipt, the Cobbles and the USDC are being read again: Pay waits. */
-  checking?: boolean;
-  /** That check failed: Pay stays held, and Retry checks again. */
-  checkFailed?: boolean;
-  /** Retry is fetching: Retry and Dismiss wait for its answer. */
-  checkRetrying?: boolean;
-  /** Dismiss is offered beside Retry; false while the purchase may still be answered in the wallet. Offered when omitted. */
-  checkDismissable?: boolean;
-  /** The check answered but cannot tell (a receipt still unknown, or a wallet that never answered): Pay stays held. */
-  checkUnresolved?: boolean;
-  /** The packs are being read (`Setup.pack`). */
-  loading?: boolean;
-  /** The packs could not be read: why (Retry reads them again). */
-  error?: string | null;
-  errorDetail?: ErrorDetail;
-  /** The last pack bought (its receipt's `PackBought`): its Cobbles. */
-  bought?: { cobbles: number } | null;
-}
-
-export type PurchaseTab = "game" | "cobbles";
 
 export interface PurchaseSceneProps {
   stake: number;
@@ -246,18 +54,10 @@ export interface PurchaseSceneProps {
   now: number;
   /** The player's time zone for the deadline; their own when omitted (stories fix it). */
   timeZone?: string;
-  /** The tab shown: the game's stake, or the Cobble packs; the game when omitted. */
-  tab?: PurchaseTab;
-  /** The Cobble packs; omitted: the game alone, no tabs (before Cobbles). */
-  cobbles?: CobbleShop | null;
-  onTab?: (tab: PurchaseTab) => void;
-  onSelectPack?: (packId: number) => void;
-  onBuyPack?: () => void;
   onStakeChange?: (stake: number) => void;
   onConfirm?: () => void;
   onConnect?: () => void;
   onRetryBalance?: () => void;
-  onRetryPacks?: () => void;
   /** Check an unknown purchase again after a failed check. */
   onRetryCheck?: () => void;
   /** Forget an unknown purchase whose check keeps failing (the deliberate way out, with its warning). */
@@ -270,70 +70,33 @@ export interface PurchaseSceneProps {
   onOpenReady?: () => void;
   /** After an unknown outcome: where the player sees whether the game was bought. */
   onCheckGames?: () => void;
-  /** After an unknown outcome: read the Cobbles again. */
-  onCheckCobbles?: () => void;
   onBack?: () => void;
 }
 
-/** Pay's label after a refusal: Buy anyway for a low quote, Buy again after an unknown outcome; null for the default. */
-const retryLabel = (refusal: PurchaseRefusal | null | undefined): string | null =>
-  refusal?.kind === "low-quote" ? "Buy anyway" : refusal?.kind === "unknown" ? "Buy again" : null;
-
-/** A guest's Pay: connect first, whatever the balance. */
-function ConnectButton({ onConnect }: { onConnect?: () => void }) {
-  return (
-    <Button size="lg" className="h-14 text-base" onClick={onConnect}>
-      <Icon name="wallet" size="sm" />
-      Connect to buy
-    </Button>
-  );
-}
 
 /**
- * The Challenge purchase (`/play/challenge`): stake, price and boost, split, the 24 h validity, the threshold, confirm.
- * With Cobbles (P-61), a Cobbles tab beside it sells the four packs, confirmed and pending as a game is.
+ * The Challenge purchase (`/play/challenge`): stake, price and boost, split, the 24 h validity, the threshold, confirm. The
+ * Cobble packs have a page of their own (`/cobbles`, #621).
  */
 export function PurchaseScene(props: PurchaseSceneProps) {
-  const { balance, cobbles } = props;
-  const tab = cobbles ? (props.tab ?? "game") : "game";
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar
-        title={tab === "cobbles" ? "Cobbles" : "Challenge"}
+        title="Challenge"
         onBack={props.onBack}
-        end={
-          <span className="flex flex-col items-end gap-0.5 pr-2 text-xs text-muted-foreground">
-            {balance === null ? <span className="numeric">— USDC</span> : <Amount value={balance} token="usdc" />}
-            {cobbles && <Cobbles value={cobbles.balance} size="sm" tone="muted" />}
-          </span>
-        }
       />
-      {cobbles && (
-        <Tabs value={tab} onValueChange={(v) => props.onTab?.(v as PurchaseTab)} className="mx-auto w-full max-w-md px-4 tablet:max-w-2xl desktop:max-w-4xl">
-          <TabsList className="w-full tablet:w-auto">
-            <TabsTrigger value="game" className="flex-1 gap-2 px-4">
-              <Icon name="trophy" size="sm" />
-              Game
-            </TabsTrigger>
-            <TabsTrigger value="cobbles" className="flex-1 gap-2 px-4">
-              <Icon name="cubes-stacked" size="sm" />
-              Cobbles
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
-      {tab === "cobbles" && cobbles ? <CobblesTab {...props} cobbles={cobbles} /> : <GameTab {...props} />}
+      <GameForm {...props} />
     </div>
   );
 }
 
-function GameTab(props: PurchaseSceneProps) {
+function GameForm(props: PurchaseSceneProps) {
   const { stake, quote, balance, spawnPaused, buying, now, refusal, connected = true } = props;
   const short = connected && balance !== null && balance < quote.price;
   const blocked = spawnPaused || short || props.quoting || (connected && balance === null) || props.checking || props.checkFailed || props.checkUnresolved;
   const label = retryLabel(refusal);
   return (
-    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
+    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
       <div className="flex flex-col gap-4">
         <section data-slot="card" aria-labelledby="stake-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-baseline justify-between">
@@ -350,7 +113,7 @@ function GameTab(props: PurchaseSceneProps) {
       </div>
 
       <div className="flex flex-col gap-4">
-        <section data-slot="card" aria-label="Terms" className="flex flex-col gap-3 rounded-xl border border-gold-900 bg-gold-950/40 p-4">
+        <section data-slot="card" aria-label="Terms" className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-card p-4">
           <div className="flex items-center gap-3">
             <Icon name="trophy" className="text-primary" size="md" />
             <div className="flex flex-1 flex-col">
@@ -363,7 +126,7 @@ function GameTab(props: PurchaseSceneProps) {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Below the threshold the stake is lost; above it, PAVED is minted when the day closes.</p>
-          <div className="flex items-center gap-3 border-t border-gold-900 pt-3">
+          <div className="flex items-center gap-3 border-t border-border pt-3">
             <Icon name="clock" className="text-muted-foreground" size="md" />
             <div className="flex flex-col">
               <span className="text-sm">Valid 24 h</span>
@@ -414,98 +177,3 @@ function GameTab(props: PurchaseSceneProps) {
   );
 }
 
-/** The Cobble packs: pick one, then pay its USDC (approve + `buy_pack`), as a game's purchase; its USDC takes a game's split. */
-function CobblesTab(props: PurchaseSceneProps & { cobbles: CobbleShop }) {
-  const { cobbles, balance, referrer, split, connected = true, onSelectPack, onBuyPack, onConnect } = props;
-  // The selected pack among those shown: a pack without Cobbles or a price is never offered, so nothing divides by zero.
-  const onSale = packsOnSale(cobbles.packs);
-  const pack = onSale.find((p) => p.packId === cobbles.selected) ?? null;
-  const short = connected && pack != null && balance !== null && balance < pack.price;
-  const { refusal, bought } = cobbles;
-  const label = retryLabel(refusal);
-  return (
-    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pt-2 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
-      <section aria-labelledby="packs-title" className="flex flex-col gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h2 id="packs-title" className="font-display text-sm font-semibold">Cobble packs</h2>
-          <p className="text-xs text-muted-foreground">Cobbles buy tile skins. They stay on your account: they cannot be sent or sold.</p>
-        </div>
-        {cobbles.error ? (
-          <InlineError
-            title="The packs cannot be read"
-            message={cobbles.error}
-            detail={cobbles.errorDetail}
-            action={
-              <Button size="sm" variant="outline" onClick={props.onRetryPacks}>
-                Retry
-              </Button>
-            }
-          />
-        ) : cobbles.loading ? (
-          <Notice title="Reading the packs…">The packs on sale and their prices.</Notice>
-        ) : onSale.length === 0 ? (
-          <Notice title="No packs on sale">No pack of Cobbles is on sale right now. Come back later.</Notice>
-        ) : (
-          <CobblePacks packs={cobbles.packs} selected={cobbles.selected} disabled={cobbles.buying || cobbles.checking} onSelect={onSelectPack} />
-        )}
-      </section>
-
-      <div className="flex flex-col gap-4">
-        <section data-slot="card" aria-label="Pack price" className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
-          <p>Paid in USDC like a game: swapped to PAVED, 70% burned, 25% to the Vault, 5% to the pool.</p>
-          {referrer && (
-            <p className="wrap-anywhere">
-              Your referrer gets {formatBps(split.referral)} of the price, out of the Vault's part.
-            </p>
-          )}
-        </section>
-        <InlineError title="Not enough USDC" message={short && pack ? shortText("pack", pack.price, balance!) : null}>
-          {pack && (
-            <>
-              This pack costs <Amount value={pack.price} token="usdc" />; the wallet holds <Amount value={balance ?? 0n} token="usdc" />.
-            </>
-          )}
-        </InlineError>
-        {connected && props.balanceError && <BalanceNotice error={props.balanceError} detail={props.balanceErrorDetail} onRetry={props.onRetryBalance} />}
-        {props.referrerDropped && <DroppedReferrerNotice />}
-        {refusal && !cobbles.buying && (
-          <RefusalNotice refusal={refusal} check={{ label: "Check my Cobbles", onCheck: props.onCheckCobbles, failed: cobbles.checkFailed, retrying: cobbles.checkRetrying, onRetry: props.onRetryCheck, onOpen: props.onOpenReady, onDismiss: props.onDismissCheck, dismissable: cobbles.checkDismissable, unresolved: cobbles.checkUnresolved, onCheckAgain: props.onCheckAgain, onConfirmNone: props.onConfirmNone }} />
-        )}
-        {bought && !refusal && !cobbles.buying && (
-          <Notice tone="info" title="Pack bought">
-            <Cobbles value={bought.cobbles} size="sm" /> added: your balance is <Cobbles value={cobbles.balance} size="sm" />.
-          </Notice>
-        )}
-        {!connected ? (
-          <ConnectButton onConnect={onConnect} />
-        ) : (
-          <Button
-            size="lg"
-            className="h-14 text-base"
-            onClick={onBuyPack}
-            disabled={!pack || short || cobbles.quoting || balance === null || cobbles.checking || cobbles.checkFailed || cobbles.checkUnresolved}
-            loading={cobbles.buying}
-          >
-            {cobbles.buying ? (
-              "Confirm in your wallet…"
-            ) : !pack ? (
-              "Pick a pack"
-            ) : cobbles.checking ? (
-              "Checking your Cobbles…"
-            ) : cobbles.checkFailed ? (
-              "Could not check your Cobbles"
-            ) : cobbles.checkUnresolved ? (
-              "Check your Cobbles first"
-            ) : label ? (
-              label
-            ) : (
-              <>
-                Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.cobbles} className="text-primary-foreground" iconClassName="text-primary-foreground" />
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-    </main>
-  );
-}

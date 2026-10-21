@@ -1,15 +1,11 @@
-import { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO } from "../../mocks/quests";
 import { QUESTS } from "../../mocks/scenes";
-import { Button } from "../ui/button";
-import { Toaster } from "../ui/sonner";
 import { QuestsScene } from "./quests-scene";
 
 /**
- * The quests (`/missions/:day?`, Limited): the day's rotating Daily set and the Weekly ones, each with a countdown, a toast when a
- * quest completes, and the day picker. One story per state; the viewport is the toolbar's (VP).
+ * The quests (`/missions/:day?`, Limited): the day's rotating Daily set and the Weekly ones, a section each with its countdown,
+ * a card per mission, and the day picker. The completion toasts are the app's (Containers/CompletionToasts). One story per state; the viewport is the toolbar's (VP).
  */
 const meta = { title: "Scenes/Missions (Limited)", component: QuestsScene, args: { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() } } satisfies Meta<typeof QuestsScene>;
 export default meta;
@@ -62,27 +58,3 @@ export const CobblesWeekDone: Story = { args: QUESTS.cobblesWeekDone };
 
 /** P9: the player is known but has no wallet to sign yet (P6): the rewards show, the claims ask to connect. */
 export const CobblesReadOnly: Story = { args: { ...QUESTS.cobblesPastDay, canClaim: false } };
-
-type SceneProps = React.ComponentProps<typeof QuestsScene>;
-
-function CompletingScene(args: SceneProps) {
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setDone(true), 2_000);
-    return () => clearTimeout(t);
-  }, []);
-  return (
-    <>
-      <Toaster position="top-center" />
-      <QuestsScene {...args} quests={done ? QUESTS_TODAY_COMPLETED : QUESTS_TODAY_ONE_TO_GO} />
-      <div className="mt-4 flex gap-3">
-        <Button size="sm" variant="outline" onClick={() => setDone((d) => !d)}>
-          {done ? "Undo the structure" : "Score a structure"}
-        </Button>
-      </div>
-    </>
-  );
-}
-
-/** Public Works is one structure short; two seconds in (or on the button) the read comes back at 8 of 8 and the toast shows, once: undo and score again, and it stays quiet. */
-export const Completing: Story = { args: QUESTS.today, render: (args) => <CompletingScene {...args} /> };

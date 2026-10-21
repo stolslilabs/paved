@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { appRenders } from "../../mocks/assets";
-import { ThemeCover, TileRender } from "./tile-render";
+import { ThemeCover, TileMosaic, TileRender } from "./tile-render";
 
 /** A tile's build-time render (THEMES-RENDERS): one image, no WebGL context; the plan's chip without one. */
 const meta = {
@@ -25,6 +25,14 @@ export const Covers: Story = {
     <div className="flex w-72 flex-col gap-2">
       <ThemeCover theme={1} renders={appRenders} alt="Forest: a few of its tiles" />
       <ThemeCover theme={0} renders={appRenders} blurred alt="Snow" />
+    </div>
+  ),
+};
+/** A Story campaign's background (#592): the first tiles of its decks, two rows of four. */
+export const Mosaic: Story = {
+  render: () => (
+    <div className="w-72">
+      <TileMosaic plans={[17, 4, 13, 8, 1, 5, 18, 14]} renders={appRenders} />
     </div>
   ),
 };

@@ -29,7 +29,7 @@ export function StatRow({ label, value, icon, hint, tone = "default", className 
     <div className={cn("grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 py-2", !icon && "grid-cols-[minmax(0,1fr)_auto]", className)}>
       {icon && (
         <span className="inline-flex h-5 items-center">
-          <Icon name={icon} className="text-muted-foreground" size="sm" />
+          <Icon name={icon} className="text-primary" size="sm" />
         </span>
       )}
       <span className="text-sm leading-5 wrap-anywhere text-foreground">{label}</span>

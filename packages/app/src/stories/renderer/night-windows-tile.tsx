@@ -8,10 +8,8 @@ import {
   buildLightVolume,
   cellIndex,
   findOpenings,
-  labelTileColumns,
   paletteOfModel,
   plantEntries,
-  planLayout,
   voxelize,
   windowSwitch,
   type DropReason,
@@ -31,8 +29,8 @@ export { VOXELIZER_PLANS as NIGHT_WINDOW_PLANS };
 
 export type TileSkin = "base" | "forest";
 
-/** Which openings are kept (NIGHT-WINDOWS-2, #571): every structure's but the pockets in leaves, the first pass's lit columns, or all. */
-export type StoryRule = "structures" | "columns" | "none";
+/** Which openings are kept (NIGHT-WINDOWS-2, #571): every structure's but the pockets in leaves (the renderer's), or all. */
+export type StoryRule = "structures" | "none";
 
 export interface NightWindowsTileProps {
   plan: string;
@@ -116,16 +114,14 @@ function useLoader(wanted: readonly string[] = []): AssetLoader | null {
 /** The ids of a plan's Forest variants, or of every plan's. */
 const forestIds = (plans: readonly string[]): string[] => plans.flatMap((plan) => Array.from({ length: forestVariantCount(plan) }, (_, i) => modelId(plan, "forest", i + 1)));
 
-/** The filter a rule gives (`findOpenings`): the renderer's, from the model's lit columns or its palette's vegetation. */
-function filterOf(rule: StoryRule, lights: Uint8Array | undefined, plants: number[], detection: WindowDetection): OpeningFilter {
+/** The filter a rule gives (`findOpenings`): the renderer's, from the model's palette's vegetation, or none. */
+function filterOf(rule: StoryRule, plants: number[], detection: WindowDetection): OpeningFilter {
   const recessesOnly = detection === "recesses";
-  if (rule === "columns" && lights) return { lit: lights, recessesOnly };
-  if (rule === "structures") return { vegetation: plants, recessesOnly };
-  return { recessesOnly };
+  return rule === "structures" ? { vegetation: plants, recessesOnly } : { recessesOnly };
 }
 
 /** Loads one model by id (a Forest variant loads on demand) and detects its windows under `rule`; `null` while it comes. */
-function useBaked(loader: AssetLoader | null, id: string, plan: string, rule: StoryRule, detection: WindowDetection): Baked | null {
+function useBaked(loader: AssetLoader | null, id: string, rule: StoryRule, detection: WindowDetection): Baked | null {
   const [baked, setBaked] = useState<Baked | null>(null);
   useEffect(() => {
     if (!loader) return;
@@ -138,10 +134,9 @@ function useBaked(loader: AssetLoader | null, id: string, plan: string, rule: St
       if (!grid) return;
       const paletteName = paletteOfModel(id);
       const classes = paletteName ? PALETTE_CLASSES[paletteName] : undefined;
-      const lights = classes ? labelTileColumns(source.geometry, planLayout(plan), source.toModel, classes).lights : undefined;
       const plants = plantEntries(classes?.vegetation ?? []);
       const started = performance.now();
-      const found = findOpenings(grid, filterOf(rule, lights, plants, detection));
+      const found = findOpenings(grid, filterOf(rule, plants, detection));
       const detectMs = performance.now() - started;
       if (alive) setBaked({ grid, kept: found.windows, dropped: found.dropped, plants, detectMs, voxelMs, colors: paletteRgb(palette), id });
     };
@@ -158,7 +153,7 @@ function useBaked(loader: AssetLoader | null, id: string, plan: string, rule: St
     return () => {
       alive = false;
     };
-  }, [loader, id, plan, rule, detection]);
+  }, [loader, id, rule, detection]);
   return baked?.id === id ? baked : null;
 }
 
@@ -204,7 +199,9 @@ export interface StructureRow {
   kept: [number, number, number, number];
   dropped: [number, number, number, number];
   reasons: string;
-  /** The kept windows lit (switch-on at least a half) at full night and at the story's level. */
+  /** The doors kept (#583: lit as the windows are). */
+  doors: number;
+  /** The kept windows and doors lit (a source of the volume, switch-on at least a half) at full night and at the story's level. */
   litNight: number;
   litNow: number;
   windows: number;
@@ -212,9 +209,9 @@ export interface StructureRow {
 
 /**
  * The structures of a tile and their windows, per wall (#571, the owner's hint: a rectangular structure has a window on each
- * wall, and each should light). A structure is a connected body of solid cells over the slab that are not leaves or trunks
- * (`plants`); a window belongs to the structure of the wall round it. Lit: its owner's switch-on (`windowSwitch`, the shader's)
- * at full night and at `level`, on the tile's cell.
+ * wall, and each should light), and their doors (#583). A structure is a connected body of solid cells over the slab that are
+ * not leaves or trunks (`plants`); a window or a door belongs to the structure of the wall round it. Lit: a source of the volume
+ * whose owner's switch-on (`windowSwitch`, the shader's) is on at full night and at `level`, on the tile's cell.
  */
 export function structuresOf(grid: VoxelGrid, kept: readonly Window[], dropped: ReadonlyArray<Window & { reason: DropReason }>, volume: LightVolume, plants: readonly number[], level: number, stagger: number, cell: readonly [number, number]): StructureRow[] {
   const { sizeX, sizeY, layers, groundTop } = grid;
@@ -275,6 +272,7 @@ export function structuresOf(grid: VoxelGrid, kept: readonly Window[], dropped: 
         kept: [0, 0, 0, 0],
         dropped: [0, 0, 0, 0],
         reasons: "",
+        doors: 0,
         litNight: 0,
         litNow: 0,
         windows: 0,
@@ -284,12 +282,15 @@ export function structuresOf(grid: VoxelGrid, kept: readonly Window[], dropped: 
     return r;
   };
   for (const w of kept) {
-    if (w.kind !== "window") continue;
+    if (w.kind === "gap") continue;
     const id = of(w);
     if (id < 0) continue;
     const r = row(id);
-    r.kept[w.facing]!++;
-    r.windows++;
+    if (w.kind === "door") r.doors++;
+    else {
+      r.kept[w.facing]!++;
+      r.windows++;
+    }
     const source = volume.sources.indexOf(w);
     if (source < 0) continue;
     const owner = volume.owners[source]!;
@@ -308,7 +309,7 @@ export function structuresOf(grid: VoxelGrid, kept: readonly Window[], dropped: 
   }
   for (const [id, counts] of reasons) row(id).reasons = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ");
   return [...rows.values()]
-    .sort((a, b) => b.windows + b.dropped.reduce((p, q) => p + q) - (a.windows + a.dropped.reduce((p, q) => p + q)) || a.y - b.y || a.x - b.x)
+    .sort((a, b) => b.windows + b.doors + b.dropped.reduce((p, q) => p + q) - (a.windows + a.doors + a.dropped.reduce((p, q) => p + q)) || a.y - b.y || a.x - b.x)
     .map((r, i) => ({ ...r, label: i + 1 }));
 }
 
@@ -321,7 +322,7 @@ export function NightWindowsTile(props: NightWindowsTileProps) {
   const wanted = useMemo(() => (skin === "forest" ? forestIds([plan]) : []), [plan, skin]);
   const loader = useLoader(wanted);
   const id = modelId(plan, skin, variant);
-  const baked = useBaked(loader, id, plan, rule, detection);
+  const baked = useBaked(loader, id, rule, detection);
   const iso = useRef<HTMLCanvasElement>(null);
   const slice = useRef<HTMLCanvasElement>(null);
 
@@ -371,11 +372,11 @@ export function NightWindowsTile(props: NightWindowsTileProps) {
             <div>{volume.sources.length} sources, {new Set(volume.owners).size} owners (a room's windows share one), {method}, build {volume.buildMs.toFixed(2)} ms</div>
             <div>switch-on at level {nightLevel.toFixed(2)} (stagger {stagger}) on cell {cellX}, {cellY}</div>
             {/* One line a structure, wrapping on a phone (a table would not fit 320 px). */}
-            <div className="mt-2">Structures (numbered on the view): windows kept per wall N E S W (/dropped), lit at full night and at the level</div>
+            <div className="mt-2">Structures (numbered on the view): windows kept per wall N E S W (/dropped), doors, windows and doors lit at full night and at the level</div>
             <ul className="flex flex-col gap-1">
               {structures.slice(0, STRUCTURE_ROWS).map((s) => (
                 <li key={s.label} className="break-words">
-                  #{s.label} {s.size} at {s.x},{s.y} · {FACING.map((f, i) => `${f} ${s.kept[i]}${s.dropped[i] ? `/${s.dropped[i]}` : ""}`).join(" ")} · lit {s.litNight}/{s.windows} night, {s.litNow}/{s.windows} now
+                  #{s.label} {s.size} at {s.x},{s.y} · {FACING.map((f, i) => `${f} ${s.kept[i]}${s.dropped[i] ? `/${s.dropped[i]}` : ""}`).join(" ")} · doors {s.doors} · lit {s.litNight}/{s.windows + s.doors} night, {s.litNow}/{s.windows + s.doors} now
                   {s.reasons && ` · dropped ${s.reasons}`}
                 </li>
               ))}
@@ -440,9 +441,8 @@ export function NightWindowsTable({ skin, rule = "structures", detection = "thro
           if (!grid) continue;
           const name = paletteOfModel(id);
           const classes = name ? PALETTE_CLASSES[name] : undefined;
-          const lights = classes ? labelTileColumns(source.geometry, planLayout(plan), source.toModel, classes).lights : undefined;
           const detectBegan = performance.now();
-          const found = findOpenings(grid, filterOf(rule, lights, plantEntries(classes?.vegetation ?? []), detection));
+          const found = findOpenings(grid, filterOf(rule, plantEntries(classes?.vegetation ?? []), detection));
           const detectMs = performance.now() - detectBegan;
           const kept = found.windows;
           const volume = buildLightVolume(grid, kept, { ...DEFAULT_LIGHT_VOLUME, reach: DEFAULT_WINDOW_LIGHT.reach, falloff: DEFAULT_WINDOW_LIGHT.falloff, margin: DEFAULT_WINDOW_LIGHT.margin });

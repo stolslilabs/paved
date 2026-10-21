@@ -20,7 +20,7 @@ import { TILE_VOXELS } from "../src/core/outlines";
 import { labelTileGeometry, type TileLabels } from "./helpers/per-vertex";
 import { FOREST, FOREST_FILES, loadForestVariant } from "./helpers/forest-variants";
 import { decodePng } from "./helpers/png";
-import { FEATURE_HIGHLIGHT_GLSL, NIGHT_LIGHTS_GLSL, NIGHT_WINDOWS_GLSL, TileRenderer } from "../src/core/TileRenderer";
+import { FEATURE_HIGHLIGHT_GLSL, NIGHT_WINDOWS_GLSL, TileRenderer } from "../src/core/TileRenderer";
 import { GameScene } from "../src/core/GameScene";
 import { DEFAULT_WINDOW_LIGHT } from "../src/core/daynight-settings";
 import { LOOK_PRESETS } from "../src/core/look";
@@ -534,7 +534,7 @@ describe("the feature highlight in the tile shader", () => {
     // The same program and the same water; the highlight's switch its own, and off while the board's is on.
     // (the ghost's own program: the tile's, plus the tint and the opacity at the end of the fragment shader)
     expect(ghosts[0].customProgramCacheKey()).toBe("paved-tile-ghost");
-    expect(own.fragmentShader).toContain("mix(gl_FragColor.rgb, uTintColor, uTintMix)");
+    expect(own.fragmentShader).toContain("mix(gl_FragColor.rgb, tintTarget, uTintMix)");
     expect(own.fragmentShader).toContain(its.fragmentShader.slice(its.fragmentShader.indexOf("void main() {"), its.fragmentShader.indexOf("void main() {") + 40));
     expect(own.uniforms.uWaterOn).toBe(its.uniforms.uWaterOn);
     expect(its.uniforms.uFeatureOn.value).toBe(1);
@@ -807,73 +807,59 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
 describe("the night lights (DAYNIGHT)", () => {
   const nightTile = (plan: string, id: number) => ({ game_id: 1, id, plan: Object.values(PlanType).indexOf(plan.toUpperCase() as PlanType), orientation: 1, x: id, y: 0, worldX: id, worldZ: 0 });
 
-  it("lights every city column, the structures by a road, and no road, forest or open ground", () => {
-    let structures = 0;
-    for (const [key, { columns, lights }] of labelled) {
-      for (let k = 0; k < lights.length; k++) {
-        const feature = columns.feature[k];
-        if (feature === FEATURE_CODE.city) expect(lights[k], `${key} column ${k}`).toBe(1);
-        if (feature === FEATURE_CODE.road || feature === FEATURE_CODE.forest || feature === FEATURE_CODE.wonder) expect(lights[k]).toBe(0);
-        if (feature === FEATURE_CODE.none && lights[k]) structures++;
-      }
-    }
-    // The stops, houses and arches by the roads: some lit on the base models.
-    expect(structures).toBeGreaterThan(0);
-    // A plan with no city and no road (all forest) lights nothing.
-    const forest = labelled.get("fffffffff");
-    if (forest) expect(forest.lights.every((v) => v === 0)).toBe(true);
-  });
-
-  it("labels the models drawn once the night lights are on, and gives each geometry its light map", async () => {
+  it("labels the models drawn once the night lights are on, at the windows' strength (#583: no light map of columns)", async () => {
     const { tiles } = renderer();
     tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
     const uniforms = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material).uniforms;
     expect(uniforms.uNightOn.value).toBe(0);
-    tiles.setNightLights(true, "#ffb57a", 0.4);
+    tiles.setNightLights(true, "#ffb57a");
     await tiles.whenLabelled();
     expect(uniforms.uNightOn.value).toBe(1);
-    expect(uniforms.uNightGlow.value).toBe(0.4);
-    const map = uniforms.uLightMap.value as THREE.DataTexture;
-    expect((map.image as { width: number }).width).toBe(LABEL_COLUMNS);
+    expect(uniforms.uNightGlow.value).toBe(DEFAULT_WINDOW_LIGHT.intensity);
+    expect(uniforms.uLightMap).toBeUndefined();
+    expect(uniforms.uNightWindows).toBeUndefined();
     tiles.setNightLevel(0.7);
     expect(uniforms.uNightLevel.value).toBe(0.7);
     tiles.dispose();
   });
 
-  it("reads nothing while off, lights only above the ground, and adds its glow to the emissive term", () => {
-    const glsl = NIGHT_LIGHTS_GLSL;
-    expect(glsl.trim().startsWith("float nightLit = 0.0;")).toBe(true);
-    expect(glsl).toContain(`if (uNightOn > 0.5 && uNightWindows < 0.5 && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {`);
-    expect(glsl.split("texelFetch").length - 1).toBe(1);
+  it("reads nothing while off, has no columns' branch (#583), and adds its glow to the emissive term", () => {
+    const glsl = NIGHT_WINDOWS_GLSL;
+    expect(glsl.trim().startsWith("float nightLit = 0.0;\nif (uNightOn > 0.5) {")).toBe(true);
+    expect(glsl).not.toContain("uLightMap");
+    expect(glsl).not.toContain("uNightWindows");
     const { tiles } = renderer();
     tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
     const { fragmentShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
     expect(fragmentShader).toContain("totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;");
+    expect(fragmentShader).not.toContain("uLightMap");
+    expect(fragmentShader.split("float nightLit").length - 1).toBe(1);
+    tiles.dispose();
+  });
+
+  it("#573: dims the sun's direct light under the clouds through the shared cloud uniforms, from the fragment's world place", () => {
+    const { tiles } = renderer();
+    tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
+    const { uniforms, vertexShader, fragmentShader } = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material);
+    expect(uniforms.uCloudDark).toBe(tiles.cloudUniforms.uCloudDark);
+    expect(uniforms.uCloudMap).toBe(tiles.cloudUniforms.uCloudMap);
+    expect(vertexShader).toContain("vCloudWorld = (modelMatrix * vec4(position, 1.0)).xyz;");
+    expect(fragmentShader).toContain("float cloudLight(vec3 lightDirection, float strength)");
+    expect(fragmentShader).toContain("directLight.color *= cloudLight( directionalLight.direction, 1.0 );");
+    expect(fragmentShader).not.toContain("#include <lights_fragment_begin>");
     tiles.dispose();
   });
 
   describe("the windows' light (NIGHT-WINDOWS, #513)", () => {
     const volumeOf = (tiles: TileRenderer, key: string) => shaderOf(typeMesh(tiles, key).material as THREE.Material).uniforms.uWindowLight.value as THREE.Data3DTexture;
 
-    it("keeps the columns by default: no window chunk, no voxel grid, no volume", async () => {
+    it("builds nothing while the night lights are off: no window chunk, no voxel grid, no volume", async () => {
       const { tiles } = renderer();
       tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
-      tiles.setNightLights(true, "#ffb57a", 0.4);
+      tiles.setNightLights(false, "#ffb57a");
       await tiles.whenLabelled();
-      const uniforms = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material).uniforms;
-      expect(uniforms.uNightWindows.value).toBe(0);
-      expect(tiles.windowVolumeCount).toBe(0);
       expect((tiles as any).windowsChunk).toBeNull();
       expect((tiles as any).voxelGrids).toBeNull();
-      tiles.dispose();
-    });
-
-    it("builds nothing while the night lights are off, even set to windows", async () => {
-      const { tiles } = renderer();
-      tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
-      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
-      await tiles.whenLabelled();
-      expect((tiles as any).windowsChunk).toBeNull();
       expect(tiles.windowVolumeCount).toBe(0);
       tiles.dispose();
     });
@@ -881,43 +867,43 @@ describe("the night lights (DAYNIGHT)", () => {
     it("stops the builds queued when the lights are switched off, and builds again when they come back", async () => {
       const { tiles } = renderer();
       tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a");
       await tiles.whenLabelled();
       // Asked, not built: the chunk and the idle slices are still to come.
       expect((tiles as any).windowAsked.size).toBe(1);
-      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(false, "#ffb57a");
       expect((tiles as any).windowAsked.size).toBe(0);
       await new Promise((resolve) => setTimeout(resolve, 600));
       expect(tiles.windowVolumeCount).toBe(0);
       expect((tiles as any).voxelGrids?.size ?? 0).toBe(0);
       expect((tiles as any).windowBakes?.size ?? 0).toBe(0);
-      // Back on, and back to the columns again before it builds: nothing either.
-      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
-      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
+      // Back on, and off again before it builds: nothing either.
+      tiles.setNightLights(true, "#ffb57a");
+      tiles.setNightLights(false, "#ffb57a");
       await new Promise((resolve) => setTimeout(resolve, 600));
       expect(tiles.windowVolumeCount).toBe(0);
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a");
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
       // Switching off and on again reuses the type's texture: no second one for the same model.
       const first = (tiles as any).windowTextures[0];
       for (let i = 0; i < 2; i++) {
-        tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
-        tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+        tiles.setNightLights(false, "#ffb57a");
+        tiles.setNightLights(true, "#ffb57a");
         await new Promise((resolve) => setTimeout(resolve, 600));
       }
       expect(tiles.windowVolumeCount).toBe(1);
       expect((tiles as any).windowTextures[0]).toBe(first);
       tiles.dispose();
-    });
+      // About 3.6 s of fixed waits and a build of up to 20 s: the default 5 s deadline fails it on a loaded machine.
+    }, 30_000);
 
     it("builds after a rapid off and on: the skipped request is asked again, not left unbuilt", async () => {
       const { tiles } = renderer();
       tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a");
       await tiles.whenLabelled();
-      tiles.setNightLights(false, "#ffb57a", 0.4, "windows");
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(false, "#ffb57a");
+      tiles.setNightLights(true, "#ffb57a");
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
       expect((tiles as any).windowAsked.size).toBe(1);
       tiles.dispose();
@@ -928,11 +914,9 @@ describe("the night lights (DAYNIGHT)", () => {
       tiles.updateTiles([nightTile("ffcfffcff", 1), nightTile("ffcfffcff", 2), nightTile("ccccccccc", 3)] as never);
       let frames = 0;
       tiles.onLabelled(() => frames++);
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows");
+      tiles.setNightLights(true, "#ffb57a");
       await tiles.whenLabelled();
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(2), { timeout: 20_000 });
-      const uniforms = shaderOf(typeMesh(tiles, "ffcfffcff").material as THREE.Material).uniforms;
-      expect(uniforms.uNightWindows.value).toBe(1);
       const volume = volumeOf(tiles, "ffcfffcff");
       expect([volume.image.width, volume.image.height]).toEqual([40, 40]);
       expect(volume.image.depth).toBeGreaterThan(10);
@@ -948,7 +932,7 @@ describe("the night lights (DAYNIGHT)", () => {
     it("#571: the windows' own strength and stagger, a spill map past the borders, baked again on a new reach, freed on dispose", async () => {
       const { tiles } = renderer();
       tiles.updateTiles([nightTile("ccccccccc", 1), nightTile("ccccccccc", 2)] as never);
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, intensity: 1.5, stagger: 0.8 });
+      tiles.setNightLights(true, "#ffb57a", { ...DEFAULT_WINDOW_LIGHT, intensity: 1.5, stagger: 0.8 });
       const uniforms = shaderOf(typeMesh(tiles, "ccccccccc").material as THREE.Material).uniforms;
       expect(uniforms.uNightGlow.value).toBe(1.5);
       expect(uniforms.uWindowStagger.value).toBe(0.8);
@@ -969,23 +953,20 @@ describe("the night lights (DAYNIGHT)", () => {
         expect([0, 1]).toContain(data[i + 2]);
       }
       expect(lit).toBeGreaterThan(0);
-      // The columns' strength is theirs: back to the columns, 0.4.
-      tiles.setNightLights(true, "#ffb57a", 0.4, "columns");
-      expect(uniforms.uNightGlow.value).toBe(0.4);
       // A new reach lets go of the volumes and the spill, and bakes again.
       const first = (tiles as any).windowTextures[0] as THREE.Data3DTexture;
       const freed = vi.spyOn(first, "dispose");
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6 });
+      tiles.setNightLights(true, "#ffb57a", { ...DEFAULT_WINDOW_LIGHT, reach: 8 });
       expect(freed).toHaveBeenCalled();
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
       // No margin, no spill: the light stops at the border.
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6, margin: 0 });
+      tiles.setNightLights(true, "#ffb57a", { ...DEFAULT_WINDOW_LIGHT, reach: 8, margin: 0 });
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
       expect((uniforms.uSpillRect.value as THREE.Vector4).z).toBe(0);
       // The first pass's detection is a bake of its own too.
       const through = (tiles as any).windowTextures[0] as THREE.Data3DTexture;
       const rebaked = vi.spyOn(through, "dispose");
-      tiles.setNightLights(true, "#ffb57a", 0.4, "windows", { ...DEFAULT_WINDOW_LIGHT, reach: 6, margin: 0, detection: "recesses" });
+      tiles.setNightLights(true, "#ffb57a", { ...DEFAULT_WINDOW_LIGHT, reach: 8, margin: 0, detection: "recesses" });
       expect(rebaked).toHaveBeenCalled();
       await vi.waitFor(() => expect(tiles.windowVolumeCount).toBe(1), { timeout: 20_000 });
       const last = uniforms.uWindowSpill.value as THREE.DataTexture;
@@ -1006,9 +987,8 @@ describe("the night lights (DAYNIGHT)", () => {
       tiles.dispose();
     });
 
-    it("reads the volume at the air cell in front of the face, and keeps the columns' branch off in this mode", () => {
+    it("reads the volume at the air cell in front of the face", () => {
       expect(NIGHT_WINDOWS_GLSL).toContain("vGrid + normalize(vGridNormal) * 0.5");
-      expect(NIGHT_WINDOWS_GLSL).toContain("uNightWindows > 0.5");
       expect(NIGHT_WINDOWS_GLSL.split("texture(uWindowLight").length - 1).toBe(1);
       const { tiles } = renderer();
       tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
@@ -1022,7 +1002,7 @@ describe("the night lights (DAYNIGHT)", () => {
     const { tiles } = renderer();
     const plan = nightTile("ffcfffcff", 1).plan;
     tiles.updateTiles([nightTile("ffcfffcff", 1)] as never);
-    tiles.setNightLights(true, "#ffb57a", 0.4);
+    tiles.setNightLights(true, "#ffb57a");
     tiles.setHover({ x: 3, y: 0, planIndex: plan, orientation: 1, valid: true, placed: true } as never);
     const ghosts = [...((tiles as any).ghostMaterials.hand as Map<THREE.Material, THREE.Material>).values()];
     expect(ghosts.length).toBeGreaterThan(0);

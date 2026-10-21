@@ -1,14 +1,13 @@
-import type { PlayerStatusData } from "../components/containers/player-status";
+import type { PlayerStatusData, ProfileState } from "../components/containers/profile-sheet";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
 import type { HomeSceneProps } from "../components/scenes/home-scene";
 import type { LoadingSceneProps } from "../components/scenes/loading-scene";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
+import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
 import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
-import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
-import type { PlayerSceneProps } from "../components/scenes/player-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
 import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
@@ -22,23 +21,12 @@ import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } fro
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
 import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
-import {
-  BOARD_CLOSED,
-  BOARD_EMPTY,
-  BOARD_OFF_TOP,
-  BOARD_TODAY,
-  FIRST_DAY,
-  OTHER_PROFILE,
-  PLAYER_GAMES,
-  SELF_PROFILE,
-  UNKNOWN_PROFILE,
-  VIEWER_OFF_TOP,
-} from "./leaderboard";
-import { LEADERBOARD_EMPTY, LEADERBOARD_TODAY, PLAYER, PLAYER_ID, PLAYER_STATS, TODAY, VIEWER_TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE } from "./quests";
+import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, GAME_MISSIONS } from "./quests";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
-import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_ENTRIES, STRESS_GAMES, STRESS_VAULT } from "./stress";
+import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_VAULT } from "./stress";
+import { SKIN_TIER_GATES } from "./village";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
@@ -68,30 +56,34 @@ export const LOADING = {
 
 // Home
 
-export const PLAYER_STATUS: PlayerStatusData = { player: PLAYER, stats: PLAYER_STATS, today: VIEWER_TODAY };
+export const PLAYER_STATUS: PlayerStatusData = { player: PLAYER, stats: PLAYER_STATS };
 
 const activeGame = GAME_PLAYING;
 
+/** The menu screens' avatar and its sheet (#624): one state each. */
+export const PROFILE = {
+  connected: { status: "connected", data: PLAYER_STATUS },
+  /** No Cartridge username: the address names the player, its first digit is the initial. */
+  noUsername: { status: "connected", data: { ...PLAYER_STATUS, player: { ...PLAYER, name: null } } },
+  guest: { status: "guest" },
+  connecting: { status: "guest", connecting: true },
+  /** The wallet still looks for an earlier session. */
+  loading: { status: "loading" },
+  /** WRAP360: the longest username, the largest figures. */
+  stress: { status: "connected", data: { player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE } } },
+} satisfies Record<string, ProfileState>;
+
 export const HOME = {
-  connected: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame, training: { score: 420, remaining: 31 }, spawnPaused: false, now: MOCK_NOW },
-  guest: { player: null, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW },
-  firstOfDay: {
-    player: { ...PLAYER_STATUS, today: null },
-    leaderboard: LEADERBOARD_EMPTY,
-    activeGame: null,
-    training: null,
-    spawnPaused: false,
-    now: MOCK_NOW,
-  },
-  paused: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame, training: null, spawnPaused: true, now: MOCK_NOW },
+  connected: { player: PLAYER_STATUS, activeGame, training: { score: 420, remaining: 31 }, spawnPaused: false, now: MOCK_NOW },
+  guest: { player: null, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW },
+  paused: { player: PLAYER_STATUS, activeGame, training: null, spawnPaused: true, now: MOCK_NOW },
   /** P-61: the Cobble balance in the header, no free game. */
-  cobbles: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 0 } },
+  cobbles: { player: PLAYER_STATUS, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 0 } },
   /** P-61: two free games from the quests: Free game spends one. */
-  freeGame: { player: PLAYER_STATUS, leaderboard: LEADERBOARD_TODAY, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 }, free: [LEADERBOARD_TODAY.entries[1].playerId] },
-  /** WRAP360: the longest username, the widest balances and scores, a podium of long names and a full address. */
+  freeGame: { player: PLAYER_STATUS, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 } },
+  /** WRAP360: the longest username, the widest balances and scores. */
   stress: {
-    player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE }, today: STRESS_ENTRIES[3] },
-    leaderboard: { ...LEADERBOARD_TODAY, entries: STRESS_ENTRIES.slice(0, 3) },
+    player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE } },
     activeGame: { ...activeGame, id: BIG_NUMBER, score: BIG_SCORE },
     training: { score: BIG_SCORE, remaining: 99 },
     spawnPaused: false,
@@ -127,7 +119,13 @@ const boardBase = {
 
 export const BOARD = {
   placing: { ...boardBase, hand: { tile: hand, state: "placing" } },
-  slotChosen: { ...boardBase, hand: { tile: hand, state: "placing", slotChosen: true, preview: 30 } },
+  // The bubble's callbacks are the page's: no-ops here, the stories and tests pass their own.
+  slotChosen: {
+    ...boardBase,
+    hand: { tile: hand, state: "placing", slotChosen: true, preview: 30 },
+    ghost: { x: BOARD_38.next.x, y: BOARD_38.next.y, ...hand, placed: true, fits: true },
+    bubble: { cell: { x: BOARD_38.next.x, y: BOARD_38.next.y }, rotations: 2, onRotate: () => {}, onClose: () => {}, onConfirm: () => {}, canConfirm: true },
+  },
   closing: { ...boardBase, delta: 370, hand: { tile: hand, state: "placing" }, lastScored: LAST_SCORED },
   pending: { ...boardBase, tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }], hand: { tile: hand, state: "pending", slotChosen: true } },
   refused: { ...boardBase, hand: { tile: hand, state: "refused", slotChosen: true, error: "Move refused by the contract: the edges do not match." } },
@@ -155,16 +153,16 @@ export const OVER = {
     closings: CLOSINGS_38,
     ...figures,
     previousBest: 1_180,
-    rank: 7,
     reward: { state: "rewarded", amount: 8_420_000_000_000_000_000n, stake: 3, threshold },
   },
-  awaiting: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, rank: 7, reward: { state: "awaiting", stake: 3, threshold } },
-  settle: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, rank: 7, reward: { state: "settle", stake: 3, threshold } },
+  awaiting: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "awaiting", stake: 3, threshold } },
+  /** #595: the missions the game completed, listed under the reward with their Cobbles. */
+  missions: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "awaiting", stake: 3, threshold }, missions: GAME_MISSIONS },
+  settle: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "settle", stake: 3, threshold } },
   below: {
     mode: "challenge",
     game: { ...GAME_OVER, score: 940 },
     closings: CLOSINGS_38.slice(0, 8),
-    rank: 18,
     reward: { state: "below", stake: 3, threshold },
   },
   expired: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "expired", stake: 3, threshold } },
@@ -172,7 +170,7 @@ export const OVER = {
   /** The final board shown, the scores under it (#539). */
   finalBoard: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, ...figures, view: "board", reward: { state: "free" } },
   /** The scores alone: no board to show (the game's tiles could not be read), no figures beyond the closings. */
-  noBoard: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, rank: 7, reward: { state: "awaiting", stake: 3, threshold } },
+  noBoard: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, reward: { state: "awaiting", stake: 3, threshold } },
   noClosing: {
     mode: "training",
     game: { ...GAME_OVER, score: 0, placedCount: 3 },
@@ -181,7 +179,7 @@ export const OVER = {
     board: { tiles: BOARD_38.tiles.slice(0, 3), basePath: APP_ASSETS },
     reward: { state: "free" },
   },
-  /** WRAP360: the widest score, rank, reward and closings. */
+  /** WRAP360: the widest score, reward and closings. */
   stress: {
     mode: "challenge",
     game: { ...GAME_OVER, id: BIG_NUMBER, score: BIG_SCORE },
@@ -192,7 +190,6 @@ export const OVER = {
     ),
     board: finalBoard,
     previousBest: BIG_SCORE - 1,
-    rank: 99_999,
     reward: { state: "rewarded", amount: BIG_AMOUNT_18, stake: 999, threshold: BIG_SCORE - 1 },
   },
 } satisfies Record<string, Data<OverSceneProps>>;
@@ -214,54 +211,27 @@ export const PURCHASE = {
   buying: { ...purchaseBase, ...at(3), buying: true },
   /** WRAP360: a full referrer address (cut in the middle) and the largest balance. */
   stress: { ...purchaseBase, ...at(10), referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
-  /** P-61, the Cobbles tab: the four packs, none picked yet. */
-  cobblePacks: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: null } },
-  /** A pack picked (100 for $9): Pay confirms. */
-  cobblePackPicked: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2 } },
-  /** A referrer from `?ref=`: their share, as for a game. */
-  cobblePackReferred: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef", cobbles: { ...cobbleShop, selected: 3 } },
-  /** The approve and `buy_pack` on their way. */
-  cobblePackBuying: { ...purchaseBase, ...at(1), tab: "cobbles", cobbles: { ...cobbleShop, selected: 2, buying: true } },
-  /** 1,000 for $70 with $3.40 in the wallet. */
-  cobblePackShort: { ...purchaseBase, ...at(1), tab: "cobbles", balance: BALANCE_LOW, cobbles: { ...cobbleShop, selected: 4 } },
-  /** WRAP360: the largest Cobble balance and USDC balance, a full referrer address. */
-  cobbleStress: { ...purchaseBase, ...at(1), tab: "cobbles", referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, cobbles: { ...cobbleShop, balance: BIG_NUMBER, selected: 4 } },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
 
-// Leaderboard
+// Cobble packs (#621: their own page)
 
-const ranks = { today: TODAY, firstDay: FIRST_DAY, viewerId: PLAYER_ID, now: MOCK_NOW };
+const cobblesBase = { split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH };
+const REFERRER = "0x0456bb00000000000000000000000000000000000000000000000000000beef";
 
-export const LEADERBOARD = {
-  today: { ...ranks, day: TODAY, leaderboard: BOARD_TODAY },
-  closed: { ...ranks, day: TODAY - 1, leaderboard: BOARD_CLOSED },
-  empty: { ...ranks, day: BOARD_EMPTY.tournamentId, leaderboard: BOARD_EMPTY },
-  offTop: { ...ranks, day: TODAY, leaderboard: BOARD_OFF_TOP, viewer: VIEWER_OFF_TOP },
-  guest: { ...ranks, day: TODAY, leaderboard: BOARD_TODAY, viewerId: null },
-  /** P-61: the second player's best game was a free one (`GameSpawned.price == 0`): marked Free, ranked like any other. */
-  freeGame: { ...ranks, day: TODAY, leaderboard: BOARD_TODAY, free: [BOARD_TODAY.entries[1].playerId] },
-  loading: { ...ranks, day: TODAY, leaderboard: null },
-  error: { ...ranks, day: TODAY, leaderboard: null, error: "The indexer did not answer (unreachable). The ranking will show once it is back.", errorDetail: READ_ERROR_DETAIL },
-  /** WRAP360: the longest usernames, a full address, the widest ranks and scores. */
-  stress: { ...ranks, day: TODAY, leaderboard: { ...BOARD_TODAY, total: 99_999, entries: STRESS_ENTRIES.slice(0, 3) }, viewer: STRESS_ENTRIES[3], viewerId: STRESS_ENTRIES[3].playerId },
-} satisfies Record<string, Data<LeaderboardSceneProps>>;
-
-export const PLAYER_PAGE = {
-  other: { playerId: OTHER_PROFILE.player!.playerId, profile: OTHER_PROFILE, today: LEADERBOARD_TODAY.entries[0], games: PLAYER_GAMES.slice(1) },
-  self: { playerId: PLAYER_ID, profile: SELF_PROFILE, today: VIEWER_TODAY, games: PLAYER_GAMES, self: true },
-  unknown: { playerId: "0x07a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f", profile: UNKNOWN_PROFILE, games: [] },
-  loading: { playerId: OTHER_PROFILE.player!.playerId, profile: null, games: null },
-  /** The indexer did not answer: the error with Retry, and its detail to copy (P-67). */
-  failed: { playerId: OTHER_PROFILE.player!.playerId, profile: null, games: null, error: "The indexer did not answer (HTTP 503).", errorDetail: READ_ERROR_DETAIL },
-  /** WRAP360: the longest username beside "You", the widest rank, stats and games. */
-  stress: {
-    playerId: LONG_ADDRESS,
-    profile: { ...SELF_PROFILE, player: { ...SELF_PROFILE.player!, playerId: LONG_ADDRESS, name: LONG_NAME } },
-    today: STRESS_ENTRIES[3],
-    games: STRESS_GAMES,
-    self: true,
-  },
-} satisfies Record<string, Data<PlayerSceneProps>>;
+export const COBBLES = {
+  /** P-61: the four packs, none picked yet. */
+  packs: { ...cobblesBase, cobbles: { ...cobbleShop, selected: null } },
+  /** A pack picked (100 for $9): Pay confirms. */
+  picked: { ...cobblesBase, cobbles: { ...cobbleShop, selected: 2 } },
+  /** A referrer from `?ref=`: their share, as for a game. */
+  referred: { ...cobblesBase, referrer: REFERRER, cobbles: { ...cobbleShop, selected: 3 } },
+  /** The approve and `buy_pack` on their way. */
+  buying: { ...cobblesBase, cobbles: { ...cobbleShop, selected: 2, buying: true } },
+  /** 1,000 for $70 with $3.40 in the wallet. */
+  short: { ...cobblesBase, balance: BALANCE_LOW, cobbles: { ...cobbleShop, selected: 4 } },
+  /** WRAP360: the largest Cobble balance and USDC balance, a full referrer address. */
+  stress: { ...cobblesBase, referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6, cobbles: { ...cobbleShop, balance: BIG_NUMBER, selected: 4 } },
+} satisfies Record<string, Data<CobblesSceneProps>>;
 
 // Vault
 
@@ -282,7 +252,7 @@ export const VAULT = {
 
 // Settings and theme
 
-export const PREFERENCES: Preferences = { quality: "high", dayNight: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, showSkins: true };
+export const PREFERENCES: Preferences = { quality: "high", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, showSkins: true };
 
 export const SETTINGS = {
   connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, autoQuality: "medium", version: "0.1.0" },
@@ -348,6 +318,8 @@ export const THEME_SHOP = {
   error: { ...shopBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
   /** WRAP360: the largest Cobble balance. */
   stress: { ...shopBase, skins: { ...forestShop, balance: BIG_NUMBER } },
+  /** Some skins reserved to a tier of their plan (#646): the plan's tier reached or not. */
+  tierGated: { ...shopBase, skins: { ...forestShop, balance: 600 }, tierGates: SKIN_TIER_GATES },
 } satisfies Record<string, Data<ThemeShopSceneProps>>;
 
 const myTiles: MyTiles = { ...ownedSkins, changes: {} };

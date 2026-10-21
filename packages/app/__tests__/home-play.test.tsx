@@ -43,25 +43,44 @@ afterEach(() => {
 });
 
 describe("/ (P6): home on its data", () => {
-  it("a connected player: their open game to resume, today's top 3 from the indexer", async () => {
+  it("a connected player: their open game to resume, no podium (#623)", async () => {
     const { router, fixture } = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 });
     // The newest open game of the player's `GameSpawned` events, read with `game(id)`.
     expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
     expect(screen.queryByText("Playing as a guest")).toBeNull();
-    // No day notion on Home (#538); the podium of the chain's day, from the indexer.
+    // No day notion on Home (#538), and no ranking (#623): the leaderboard is never read.
     expect(screen.queryByText(/Day \d+/)).toBeNull();
     expect(screen.queryByText("Daily")).toBeNull();
-    await waitFor(() => expect(fixture.requests.some((r) => r.startsWith(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?`) && r.includes("limit=3"))).toBe(true));
+    expect(screen.queryByText("Top 3")).toBeNull();
+    await waitFor(() => expect(fixture.requests.some((r) => r.startsWith("/v1/players/"))).toBe(true));
+    expect(fixture.requests.some((r) => r.includes("/leaderboard") || r.includes("/entry/"))).toBe(false);
     await userEvent.click(screen.getByRole("button", { name: "Resume" }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_PLAYING.id}`));
+  });
+
+  it("the player is the avatar at the top left (#624): its sheet names them and disconnects; no player card", async () => {
+    const { wallet } = open("/");
+    await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`, {}, { timeout: 5000 });
+    expect(screen.queryByText(/games · best/)).toBeNull();
+    // The page header's avatar and the navigation's (one shown at each width).
+    const avatars = screen.getAllByRole("button", { name: /^Profile: / });
+    expect(avatars).toHaveLength(2);
+    // The XP ring's seam (#625): level 1 and 0 XP for everyone until the contracts define XP.
+    expect(avatars[0]).toHaveAccessibleName(/, level 1$/);
+    await userEvent.click(avatars[0]!);
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("0 / 100 XP")).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
+    expect(wallet.calls).toContain("disconnect");
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Profile: guest" })).toHaveLength(2));
   });
 
   it("no wallet: the guest's connect call, no game to resume; Connect connects", async () => {
     const { wallet } = open("/", { guest: true });
     expect(await screen.findByText("Playing as a guest", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText(/in progress/)).toBeNull();
-    await userEvent.click(within(screen.getByText("Playing as a guest").closest("[data-slot=card]") as HTMLElement).getByRole("button", { name: "Connect" }));
+    await userEvent.click(within(screen.getByText("Playing as a guest").closest("[role=status]") as HTMLElement).getByRole("button", { name: "Connect" }));
     expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
     expect(wallet.calls).toContain("connect");
   });
@@ -82,16 +101,16 @@ describe("/ (P6): home on its data", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
   });
 
-  it("without a save, Training is a new game; the Tutorial card opens /tutorial", async () => {
+  it("without a save, Training is a new game; the Story card opens /story", async () => {
     const { router } = open("/", { guest: true });
     expect(await screen.findByText("A free game, saved on this device.", {}, { timeout: 5000 })).toBeInTheDocument();
-    await userEvent.click(screen.getByText("Learn the rules, one stage at a time."));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/tutorial"));
+    await userEvent.click(screen.getByText("Learn the rules level by level, then go for three stars."));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/story"));
   });
 });
 
 describe("/play (P6): the mode choice", () => {
-  const challenge = () => screen.getByText("A ranked game: stake 1 to 10, beat the threshold, earn PAVED.");
+  const challenge = () => screen.getByText("Stake 1 to 10, beat the threshold, earn PAVED.");
 
   it("a guest: the Challenge connects first; Multiplayer is coming soon", async () => {
     const { router, wallet } = open("/play", { guest: true });
@@ -111,9 +130,9 @@ describe("/play (P6): the mode choice", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
   });
 
-  it("spawn_paused: the Challenge is disabled with its notice; Training and the Tutorial stay open", async () => {
+  it("spawn_paused: the Challenge is disabled with its notice; Training and Story mode stay open", async () => {
     const { router } = open("/play", { paused: true });
-    expect(await screen.findByText("New Challenge games are paused. Training and the Tutorial stay open.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("New Challenge games are paused. Training and Story mode stay open.", {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.click(screen.getByText("A full game for free, saved on this device."));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
   });

@@ -162,6 +162,29 @@ describe("cobbles, claims and credits", () => {
   });
 });
 
+describe("the stars of Story levels (kind 3, docs/architecture/story-mode.md)", () => {
+  test("each star is a claim on the same running balance", async () => {
+    const { queries, head, indexer } = await open((node) =>
+      node.mine(
+        [ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)],
+        [ev.cobblesClaimed(A, 3, 0x101, 1, 5, 10), ev.cobblesClaimed(A, 3, 0x101, 2, 10, 20)],
+        [ev.cobblesClaimed(A, 3, 0x101, 3, 15, 35)],
+      ),
+    );
+    expect(indexer.status).toBe("ok");
+    expect(queries.playerCobbles(head, PA)).toMatchObject({ cobbles: 35 });
+    // the claims of a day list the quests and achievements only
+    expect(queries.playerClaims(head, PA, DAY).claims.map((c) => c.kind)).toEqual(["quest"]);
+  });
+
+  test("a star paid twice halts", async () => {
+    await halts(
+      (node) => node.mine([ev.cobblesClaimed(A, 3, 0x101, 1, 5, 5)], [ev.cobblesClaimed(A, 3, 0x101, 1, 5, 10)]),
+      /story star 257, period 1.*already claimed/,
+    );
+  });
+});
+
 describe("the ledger halts on what the chain would not do", () => {
   test("a second claim of the same quest and period, or achievement", async () => {
     await halts((node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)], [ev.cobblesClaimed(A, 1, 1, DAY, 5, 10)]), /already claimed/);

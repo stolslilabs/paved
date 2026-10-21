@@ -11,13 +11,14 @@ export const BalancesProvider = BalancesContext.Provider;
 const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balances })));
 
 /**
- * The balances where a page puts them: `pill` in a header below `desktop`, `rail` at the bottom of the left rail from it
- * (each hidden at the other size). The space is held while the chunk arrives, so nothing moves.
+ * The balances where a page puts them: `pill` in a header below `desktop`, `rail` at the end of the navigation's header from it.
+ * The place says where each shows (`className`: `desktop:hidden`, `hidden desktop:flex`), so a flow's top bar can choose its
+ * own widths. The space is held while the chunk arrives, so nothing moves.
  */
 export function BalancesSlot({ layout, className }: { layout: BalancesProps["layout"]; className?: string }) {
   const value = useContext(BalancesContext);
   if (!value) return null;
-  const hold = layout === "pill" ? <Skeleton className={cn("h-10 w-24 rounded-full desktop:hidden", className)} /> : <Skeleton className={cn("hidden h-32 w-full desktop:block", className)} />;
+  const hold = <Skeleton className={cn("h-8 rounded-full", layout === "pill" ? "w-44" : "w-80", className)} />;
   return (
     <Suspense fallback={hold}>
       <Balances {...value} layout={layout} className={className} />

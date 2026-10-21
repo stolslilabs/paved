@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { GameScene } from "@paved/renderer";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { HoldButton } from "../elements/hold-button";
 import { cn } from "../../lib/utils";
+import { haptic } from "../../lib/haptics";
+import { useHold, type Hold } from "../../lib/use-hold";
+import { useSfx } from "./audio-provider";
+import { COACH_RING } from "./coach";
+import { DiscardHold } from "./discard-hold";
 
 /** Where the bubble may stand, in CSS px of the board's box. */
 export interface BubbleLimits {
@@ -12,7 +18,7 @@ export interface BubbleLimits {
   bottom: number;
 }
 
-/** The bubble's size: two touch targets of 44 px (and one when there is a single choice), 4 px of padding, a 4 px gap. */
+/** The bubble's size: a touch target of 44 px per button (two to four: 196 px at most, inside a 375 px board), 4 px of padding, a 4 px gap. */
 export const BUTTON_PX = 44;
 const PAD_PX = 4;
 const GAP_PX = 4;
@@ -58,24 +64,68 @@ export interface TileBubbleProps {
   onRotate: () => void;
   /** Cancels the placement: the tile goes back to the hand. */
   onClose: () => void;
+  /** Discards the tile in hand: the end of a hold on the trash (`HoldButton`, destructive), as the stack's (#606). */
+  onDiscard?: () => void;
+  /** What a discard costs, said in its title ("Hold to discard: -50 points"); none: free. */
+  discardCost?: number;
+  /** Discard is enabled: no move on its way. */
+  canDiscard?: boolean;
+  /** Validates the placement: the end of a hold on the check (`HoldButton`), the only way to place a tile (#568). */
+  onConfirm?: () => void;
+  /** The tile can be placed (its rotation fits, the points are known): Validate is enabled. */
+  canConfirm?: boolean;
+  /** The move is on its way: Validate shows a spinner and is disabled. */
+  busy?: boolean;
+  /** A Story coach mark points at the placement (Validate is ringed) or at Discard (the trash is). */
+  coach?: boolean | "place" | "discard";
+  /** The tile's rotation now: a change during a hold on Validate drops the hold (it never places a rotation not shown). */
+  orientation?: number;
+  /** The hold's length, ms (`HOLD_MS` by default; the stories tune it). */
+  holdMs?: number;
   /**
    * The renderer's scene and the tile's cell (the renderer's grid): the bubble follows the tile's top-right corner. Without
    * a scene (the plan view) it stands still, centred above the hand panel.
    */
   scene?: GameScene | null;
   cell?: { x: number; y: number };
+  /**
+   * Where the board finds Validate's hold (TILE-HOLD, #630): a press on the placed tile starts and lets go of this same hold,
+   * so Validate's ring fills whichever of the two is held. Set while the bubble is up, null once it is gone.
+   */
+  holdRef?: RefObject<Hold | null>;
   className?: string;
 }
 
 /**
- * The bubble on the tile being handled: Rotate (clockwise through the valid rotations only) and Close (cancel), with the
- * R and Escape keys. It follows the tile through pans, zooms and the compass without a render of its own: the position is
- * written to the element on the renderer's camera notifications.
+ * The bubble's buttons: 44 px, round, the focus ring offset on the bubble's card. Their hover (desktop) and pressed (touch)
+ * states are every button's since #537 (`state-layer`, white at 10 % and 20 % over any fill, the gold Validate's too).
  */
-export function TileBubble({ rotations, onRotate, onClose, scene, cell, className }: TileBubbleProps) {
+const BUBBLE_BUTTON = "size-11 rounded-full focus-visible:ring-offset-card";
+/** Validate, the strongest: filled with the primary colour (the default variant), raised. */
+const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md focus-visible:ring-offset-card";
+
+/**
+ * The bubble on the tile being handled, in this order: Close (cancel), Rotate (clockwise through the valid rotations only,
+ * when there is more than one) and Validate, held to place the tile (PLACE-POLISH, #568). The primary action is last, at
+ * the end the reading and the thumb reach last, as a dialog's; Rotate, the step before it, is next to it, and Close is
+ * apart from both. Keys: R rotates, Escape closes, Enter or Space held on Validate places. Holding the placed tile itself
+ * places it too, with Validate's hold and ring (TILE-HOLD, #630: `holdRef`). It follows the tile through
+ * pans, zooms and the compass without a render of its own: the position is written to the element on the renderer's
+ * camera notifications.
+ */
+export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCost, canDiscard = true, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, holdRef, className }: TileBubbleProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // Each rotation asked from the bubble (its button or R): with the cell and the rotation, what Validate's hold validates.
+  const [turns, setTurns] = useState(0);
+  const rotate = useCallback(() => {
+    setTurns((t) => t + 1);
+    onRotate();
+  }, [onRotate]);
+  const coachPlace = coach === true || coach === "place";
+  const holdKey = `${cell?.x},${cell?.y}:${orientation ?? ""}:${turns}`;
+  const play = useSfx();
   const canRotate = rotations > 1;
-  const size = bubbleSize(canRotate ? 2 : 1);
+  const size = bubbleSize(1 + (onDiscard ? 1 : 0) + (canRotate ? 1 : 0) + (onConfirm ? 1 : 0));
 
   const place = useCallback(() => {
     const el = ref.current;
@@ -108,13 +158,30 @@ export function TileBubble({ rotations, onRotate, onClose, scene, cell, classNam
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable], [role=dialog]")) return;
       if (e.key === "Escape") onClose();
-      else if ((e.key === "r" || e.key === "R") && canRotate) onRotate();
+      else if ((e.key === "r" || e.key === "R") && canRotate) rotate();
       else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, onRotate, canRotate]);
+  }, [onClose, rotate, canRotate]);
+
+  // The hold completed: the place sound of #541 with the buzz the button gives.
+  const confirm = useCallback(() => {
+    play("place");
+    onConfirm?.();
+  }, [play, onConfirm]);
+  // Validate's hold, the button's and the board's (#630): one ring whichever holds it.
+  const hold = useHold({ onComplete: confirm, holdMs, holdKey, disabled: !onConfirm || !canConfirm || busy });
+  useLayoutEffect(() => {
+    if (holdRef) holdRef.current = hold;
+  }, [holdRef, hold]);
+  useLayoutEffect(() => {
+    if (!holdRef) return;
+    return () => {
+      holdRef.current = null;
+    };
+  }, [holdRef]);
 
   return (
     <div
@@ -130,14 +197,49 @@ export function TileBubble({ rotations, onRotate, onClose, scene, cell, classNam
         className,
       )}
     >
+      <Button
+        variant="ghost"
+        size="icon"
+        className={BUBBLE_BUTTON}
+        onClick={() => {
+          haptic("light");
+          onClose();
+        }}
+        aria-label="Cancel placement"
+        title="Cancel (Esc)"
+      >
+        <Icon name="xmark" size="md" />
+      </Button>
+      {onDiscard && (
+        <DiscardHold onDiscard={onDiscard} cost={discardCost} disabled={!canDiscard || busy} holdMs={holdMs} className={cn(BUBBLE_BUTTON, coach === "discard" && COACH_RING, coach === "discard" && "rounded-full")} />
+      )}
       {canRotate && (
-        <Button variant="secondary" size="icon" className="size-11 rounded-full" onClick={onRotate} aria-label="Rotate tile" title="Rotate (R)">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={BUBBLE_BUTTON}
+          onClick={() => {
+            haptic("light");
+            rotate();
+          }}
+          aria-label="Rotate tile"
+          title="Rotate (R)"
+        >
           <Icon name="rotate-right" size="md" />
         </Button>
       )}
-      <Button variant="ghost" size="icon" className="size-11 rounded-full" onClick={onClose} aria-label="Cancel placement" title="Cancel (Esc)">
-        <Icon name="xmark" size="md" />
-      </Button>
+      {onConfirm && (
+        <HoldButton
+          label="Hold to place the tile"
+          title="Hold to place"
+          icon="check"
+          hold={hold}
+          disabled={!canConfirm}
+          busy={busy}
+          onComplete={confirm}
+          className={cn(BUBBLE_PRIMARY, coachPlace && COACH_RING, coachPlace && "rounded-full")}
+        />
+      )}
     </div>
   );
 }

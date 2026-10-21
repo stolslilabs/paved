@@ -10,15 +10,15 @@ import { CobblePacks, formatUsd } from "../src/components/containers/cobble-pack
 import { PLANS, applySkinChanges, chooseTheme, isClaimed, packDiscount, pickSkin, referencePrice, themeInUse, themeSet } from "../src/components/containers/cobble-types";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { HomeScene } from "../src/components/scenes/home-scene";
-import { LeaderboardScene } from "../src/components/scenes/leaderboard-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
+import { CobblesScene } from "../src/components/scenes/cobbles-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { QuestsScene } from "../src/components/scenes/quests-scene";
 import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { QUEST_DEFINITIONS } from "../src/mocks/quests";
-import { ACHIEVEMENTS, HOME, LEADERBOARD, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
+import { ACHIEVEMENTS, COBBLES, HOME, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -104,21 +104,22 @@ describe("skin choices (5.3, THEMES-RENDERS)", () => {
   });
 });
 
-describe("Purchase: Cobbles", () => {
+describe("Cobble packs (#621: their own page)", () => {
   it("shows the four packs, the reference struck through, and asks for a pick", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.cobblePacks} />));
+    render(wrap(<CobblesScene {...COBBLES.packs} />));
     const packs = within(screen.getByRole("radiogroup", { name: "Cobble packs" })).getAllByRole("radio");
     expect(packs.map((p) => p.getAttribute("aria-label"))).toEqual(["50 Cobbles for $5, 50% off", "100 Cobbles for $9, 55% off", "500 Cobbles for $40, 60% off", "1000 Cobbles for $70, 65% off"]);
     expect(packs[1]).toHaveTextContent("instead of $20");
     expect(screen.getByRole("button", { name: "Pick a pack" })).toBeDisabled();
-    expect(screen.getByRole("tab", { name: "Cobbles", selected: true })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "240 Cobbles" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Your Cobbles" })).getByRole("img", { name: "240 Cobbles" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
   it("confirms the pack picked, and selects another", async () => {
     const onBuyPack = vi.fn();
     const onSelectPack = vi.fn();
-    render(wrap(<PurchaseScene {...PURCHASE.cobblePackPicked} onBuyPack={onBuyPack} onSelectPack={onSelectPack} />));
+    render(wrap(<CobblesScene {...COBBLES.picked} onBuyPack={onBuyPack} onSelectPack={onSelectPack} />));
     expect(screen.getByRole("radio", { name: /^100 Cobbles/ })).toHaveAttribute("aria-checked", "true");
     await userEvent.click(screen.getByRole("button", { name: /Pay \$9 for/ }));
     expect(onBuyPack).toHaveBeenCalledOnce();
@@ -127,28 +128,26 @@ describe("Purchase: Cobbles", () => {
   });
 
   it("names the referrer's share", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.cobblePackReferred} />));
+    render(wrap(<CobblesScene {...COBBLES.referred} />));
     expect(screen.getByText(/Your referrer gets 5% of the price/)).toBeInTheDocument();
   });
 
   it("waits for the wallet while buying, the packs locked", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.cobblePackBuying} />));
+    render(wrap(<CobblesScene {...COBBLES.buying} />));
     expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toBeDisabled();
     expect(screen.getAllByRole("radio").every((r) => (r as HTMLButtonElement).disabled)).toBe(true);
   });
 
   it("refuses a pack the wallet cannot pay", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.cobblePackShort} />));
+    render(wrap(<CobblesScene {...COBBLES.short} />));
     expect(screen.getByRole("alert")).toHaveTextContent("Not enough USDC");
     expect(screen.getByRole("button", { name: /Pay \$70/ })).toBeDisabled();
   });
 
-  it("keeps the game's purchase on the Game tab", async () => {
-    const onTab = vi.fn();
-    render(wrap(<PurchaseScene {...PURCHASE.cobblePacks} tab="game" onTab={onTab} />));
-    expect(screen.getByRole("heading", { name: "Stake" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Cobbles" }));
-    expect(onTab).toHaveBeenCalledWith("cobbles");
+  it("shows a guest's Cobbles as a dash, and Pay connects", () => {
+    render(wrap(<CobblesScene {...COBBLES.picked} balance={null} connected={false} />));
+    expect(within(screen.getByRole("region", { name: "Your Cobbles" })).getByText("–")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect to buy" })).toBeEnabled();
   });
 
   it("skips a pack of 0 Cobbles or at 0 USDC", () => {
@@ -157,13 +156,15 @@ describe("Purchase: Cobbles", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(4);
   });
 
-  it("shows no tab without Cobbles", () => {
+  it("leaves the Challenge's purchase to the game alone: no tab, no pack", () => {
     render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
+    expect(screen.getByRole("heading", { level: 1, name: "Challenge" })).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Cobble packs" })).not.toBeInTheDocument();
   });
 
   it("renders its stress state", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.cobbleStress} />));
+    render(wrap(<CobblesScene {...COBBLES.stress} />));
     expect(screen.getByRole("img", { name: "987,654,321 Cobbles" })).toBeInTheDocument();
   });
 });
@@ -379,7 +380,7 @@ describe("Achievements: Cobbles", () => {
   });
 });
 
-describe("Home, Play and Leaderboard: Cobbles", () => {
+describe("Home and Play: Cobbles", () => {
   it("keeps the free-game card on Home, with no day or Daily wording", () => {
     render(wrap(<HomeScene {...HOME.cobbles} />));
     expect(screen.queryByText(/^Day \d+/)).not.toBeInTheDocument();
@@ -397,26 +398,12 @@ describe("Home, Play and Leaderboard: Cobbles", () => {
     await userEvent.click(screen.getByRole("button", { name: /Free Challenge/ }));
     expect(onPlayFree).toHaveBeenCalledTimes(2);
   });
-
-  it("marks a free game in Home's top 3, as the Leaderboard does", () => {
-    render(wrap(<HomeScene {...HOME.freeGame} />));
-    const podium = within(screen.getByRole("list", { name: "Top 3" })).getAllByRole("listitem");
-    expect(podium[1]).toHaveTextContent("Free");
-    expect(podium.filter((r) => /Free/.test(r.textContent ?? ""))).toHaveLength(1);
-  });
-
-  it("marks a free game's row Free, ranked like any other", () => {
-    render(wrap(<LeaderboardScene {...LEADERBOARD.freeGame} />));
-    const rows = within(screen.getByRole("list", { name: "Ranking" })).getAllByRole("button");
-    expect(rows[1]).toHaveTextContent("Free");
-    expect(rows.filter((r) => /Free/.test(r.textContent ?? ""))).toHaveLength(1);
-  });
 });
 
 describe("SC3 stories", () => {
   // The SC1 scenes that gained states: their stories list the states of their mock object (the SC2 scenes are in scenes-2).
-  const fixtures = { home: HOME, play: PLAY, purchase: PURCHASE };
-  const names = { home: "HOME", play: "PLAY", purchase: "PURCHASE" } as const;
+  const fixtures = { home: HOME, play: PLAY, purchase: PURCHASE, cobbles: COBBLES };
+  const names = { home: "HOME", play: "PLAY", purchase: "PURCHASE", cobbles: "COBBLES" } as const;
   it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s in one story", (scene) => {
     const text = readFileSync(join(__dirname, `../src/components/scenes/${scene}-scene.stories.tsx`), "utf8");
     const stories = [...text.matchAll(/^export const (\w+): Story = \{ args: (\w+)\.(\w+) \};$/gm)];

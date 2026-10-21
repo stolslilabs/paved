@@ -1,12 +1,15 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isValidElement } from "react";
+import { completionLine, type CompletionToast } from "../src/components/containers/completion-toasts";
 import { NOT_AVAILABLE_MESSAGE, ViewError, type QuestCobbles } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD, FakeClaimer } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { toast } from "../src/components/ui/sonner";
 import type { GameSigner } from "../src/data";
 import { useCompletionStore } from "../src/data/completion-memory";
+import { queryKeys } from "../src/data/keys";
 import { queryClient } from "../src/lib/query-client";
 import { weekOfDay } from "../src/lib/quest-window";
 import { createTestRouter } from "../src/routes/router";
@@ -66,7 +69,8 @@ function open(path: string, s: ReturnType<typeof setup>) {
 }
 
 // The pill and the rail both hold the balance in the DOM (the breakpoint shows one).
-const balance = async (value: number) => (await screen.findAllByRole("img", { name: `${value} Cobbles` }, { timeout: 10000 }))[0];
+// The balance is the Cobbles' plate of the balances (#620).
+const balance = async (value: number) => (await screen.findAllByRole("button", { name: `${value} Cobbles: Buy packs` }, { timeout: 10000 }))[0];
 const claimButton = (cobbles: number, title: string | RegExp) => screen.findByRole("button", { name: typeof title === "string" ? `Claim ${cobbles} Cobbles: ${title}` : title }, { timeout: 3000 });
 
 preloadPages("quests", "achievements");
@@ -206,6 +210,44 @@ describe("the completion toast, once per completion (P9's note)", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(success).toHaveBeenCalledTimes(2);
     expect(success.mock.calls.map(([title]) => title)).toEqual([expect.stringMatching(/^Mission completed/), expect.stringMatching(/^Mission completed/)]);
+  });
+});
+
+describe("the completion toasts, app-wide (#595)", () => {
+  it("toast on any page, the Vault here, with the reward, and once: the Missions page then adds nothing", async () => {
+    const s = setup();
+    const success = vi.spyOn(toast, "success");
+    const router = open("/vault", s);
+    // The tracker's first read is not news: Daily Run was done before.
+    await waitFor(() => {
+      expect(queryClient.getQueryData(queryKeys.indexer.achievements(FIXTURE_ADA))).toBeDefined();
+      expect(queryClient.getQueryData(queryKeys.indexer.quests(FIXTURE_ADA, TODAY))).toBeDefined();
+    }, { timeout: 5000 });
+    expect(success).not.toHaveBeenCalled();
+
+    // A game over completes quest 4 and Settler II: the refresh after it toasts both, away from the Missions pages.
+    s.fixture.progress.get(FIXTURE_ADA)!.quests.set(4, { count: 3_000, completed_at: FIXTURE_HEAD.timestamp });
+    s.fixture.progress.get(FIXTURE_ADA)!.achievements.set(3, { count: 10, completed_at: FIXTURE_HEAD.timestamp });
+    await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(2));
+    // A reward's line is drawn with the Cobbles' icon (`CompletionReward`, #620); its words are `completionLine`'s.
+    const line = (d: unknown) => (isValidElement<{ entry: CompletionToast }>(d) ? completionLine(d.props.entry) : d);
+    const calls = Object.fromEntries(success.mock.calls.map(([title, options]) => [title, line((options as { description?: unknown }).description)]));
+    expect(calls).toEqual({ "Mission completed: Mission #4": "+15 Cobbles to claim", "Lifetime mission earned: Settler II": "+20 pts · +20 Cobbles to claim" });
+
+    await act(() => router.navigate("/missions"));
+    await claimButton(15, "Mission #4");
+    await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(success).toHaveBeenCalledTimes(2);
+  }, 20_000);
+
+  it("tracks nothing for a guest", async () => {
+    const s = setup({ signer: "none" });
+    const playerQuests = vi.spyOn(s.sources.indexer, "playerQuests");
+    open("/vault", s);
+    await screen.findByRole("heading", { level: 1 }, { timeout: 5000 });
+    expect(playerQuests).not.toHaveBeenCalled();
   });
 });
 

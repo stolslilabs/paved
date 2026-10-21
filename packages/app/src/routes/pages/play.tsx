@@ -7,17 +7,18 @@ import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { PrefetchOnIntent } from "../prefetch";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate, useUpTo } from "../ref";
 
 /**
  * `/play`, the mode choice (P6): the Challenge is bought on `/play/challenge` (P7b) once a wallet is connected, a guest's
- * tap connects first; `spawn_paused` disables it. Training and the Tutorial need no wallet; Multiplayer is "coming soon".
+ * tap connects first; `spawn_paused` disables it. Training and Story mode need no wallet; Multiplayer is "coming soon".
  * An unread pause counts as not paused: the purchase page reads it again. "Free Challenge" is there for a connected player
- * with a credit: it spends it (`Challenge.spawn_free`) and opens the new game's board.
+ * with a credit: it spends it (`Challenge.spawn_free`) and opens the new game's board. Back goes Home, never through the
+ * history: a level list's Back opens this page, so the entry before it may be that list, or a game's (#614).
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onBack = useBack();
+  const onBack = useUpTo("/");
   const wallet = useAccount();
   const paused = useSpawnPaused();
   useConnectError(wallet.error);
@@ -39,7 +40,7 @@ export default function Page() {
         onBack={onBack}
         onChallenge={() => go("/play/challenge")}
         onTraining={() => go("/training")}
-        onTutorial={() => go("/tutorial")}
+        onStory={() => go("/story")}
         onConnect={() => void wallet.connect()}
       />
     </PrefetchOnIntent>

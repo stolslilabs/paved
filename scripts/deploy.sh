@@ -54,20 +54,22 @@
 # names a new output path with --out <file>; a file with a `fresh` record for this network and chain is resumed. After
 # the build: a resumed record's classes are the ones built. Then the funding check (the declares still to send, as
 # below). In order, each step skipped when what it would send has landed (read from the chain):
-#   1. declare the 8 classes; 2. deploy Faucet, PavedToken, MockRouter, Vault (vPAVED), then the pool (one multicall)
+#   1. declare the 9 classes; 2. deploy Faucet, PavedToken, MockRouter, Vault (vPAVED), then the pool (one multicall)
 #   and the Vault's dead shares with the owner's stake (one multicall), Economy (its router, pool key and the P-46 configuration in its constructor),
-#   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection; 3. wire, one multicall of what is
-#   missing: Setup.set_reporter(Challenge), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
+#   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection, Story(owner, Setup); 3. wire, one multicall of what is
+#   missing: Setup.set_reporter(Challenge), Setup.set_reporter(Story), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
 #   quests.md v1 and v2a sets on Setup (quests 1 and 5 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
 #   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the shop
 #   (cobbles v1, part 2: Economy.set_seller(Setup) and Setup.set_pack x 4, FRESH_PACKS), the skin prices (part 3:
 #   Setup.set_skin_price for the 19 plans of each theme of FRESH_SKIN_THEMES, today theme 1, Forest) and the cobbles (set_quest_cobbles x 13,
 #   set_achievement_cobbles x 15, FRESH_QUEST_COBBLES and FRESH_ACHIEVEMENT_COBBLES) that are not there yet, read back through
-#   the views seller, pack, skin_price, quest_cobbles and achievement_cobbles;
+#   the views seller, pack, skin_price, quest_cobbles and achievement_cobbles; then Story's campaigns and levels
+#   (FRESH_STORY_CAMPAIGNS, FRESH_STORY_LEVELS: set_campaign, set_level), one multicall of what Story lacks, read back
+#   through its views campaign and level (docs/architecture/story-mode.md, 8);
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
-#   MockRouter) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
-#   owner() on Economy, Challenge, Setup, Collection and Vault, the Vault's exit fee, Setup.wiring(), every definition
+#   MockRouter, Story) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
+#   owner() on Economy, Challenge, Setup, Collection, Vault and Story, Story's Setup, reporter and levels, the Vault's exit fee, Setup.wiring(), every definition
 #   held, a paid spawn at stake 1 (the Vault's PAVED grows by its margin),
 #   one D-18 build next to the starter, the surrender (a game over reported to Setup: 2 events or more), the token,
 #   claim_tutorial once, pack 1 bought (buy_pack: its USDC through Economy's game split, its cobbles credited); the
@@ -219,6 +221,10 @@
 #   (--repoint and --d18 keep theirs, run from 06c024d). The quests and achievements of quests.md v1 are defined on Setup
 #   by its owner after the wiring and before the file is written (F). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
 #   owner's stake (P-38: the stake is 199,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
+# The VRF mock (#638, docs/architecture/vrf-draws.md): on devnet only, MockVrfProvider is declared and deployed (no
+#   constructor argument) and keyed `contracts.MockVrfProvider`, the devnet's VRF provider for the client
+#   (`vrfProvider` in @paved/chain); `deploy` refuses it by name on every other network (Sepolia and mainnet draw through
+#   Cartridge's provider). The smoke reads its consume count (0) and a consume of a salt (not 0).
 # Upgrades (P-42, P-56, docs/architecture/upgrades.md): the `owner` of Economy, Challenge, Setup, Collection and Vault
 #   is the deployer, who alone may `upgrade` them (and set Challenge's Setup, Setup's reporters, Setup's wiring and the
 #   Vault's exit fee); the smoke reads owner() back on each. PavedToken has no owner and no upgrade.
@@ -879,10 +885,10 @@ declare_class() { # <Contract> -> class hash
 deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   local name="$1" class="$2"; shift 2
   # The mocks are for tests, devnet and Sepolia (E1's audit, P-39): the Faucet and MockRouter are refused by name on
-  # mainnet (the network check at the top refuses it already), the old mock Token off devnet.
+  # mainnet (the network check at the top refuses it already), the old mock Token and the VRF mock off devnet.
   case "$name" in
     Faucet|MockRouter) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
-    Token) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
+    Token|MockVrfProvider) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
   esac
   local args=() out
   if ((USE_SIGNER)); then
@@ -2269,6 +2275,27 @@ FRESH_ACHIEVEMENT_COBBLES=(10 10 20 40 20 20 30 30 0 40 50 40 50 80 60 80)
 # decimals), all active: 50 cobbles for $5, 100 for $9, 500 for $40, 1,000 for $70. Set by Setup's owner (set_pack) in the
 # definitions' multicall, after Economy.set_seller(Setup), and read back through the views pack and seller.
 FRESH_PACKS=("1 50 5000000" "2 100 9000000" "3 500 40000000" "4 1000 70000000")
+# Story mode (#546, #548, docs/architecture/story-mode.md): the campaigns and levels set on Story by its owner (set_campaign,
+# set_level) after the wiring, one multicall of what Story lacks, and read back through its views campaign and level.
+# Campaigns: `id level_count unlock_average`. Levels: `campaign level target plans placed`, the plans by Plan code in draw
+# order (comma-separated), the placed tiles `plan:orientation:dx:dy` relative to the starter (comma-separated, `-` for
+# none); every level starts from the usual starter, RFFFRFCFR facing South at the centre. The Tutorial campaign of the
+# plan (packages/game-core/src/story/plan.ts at 2179cb2, docs/client/story-mode.md; target = its optimum); the
+# other campaigns are added here when the client plan has them (the wiring task).
+FRESH_STORY_CAMPAIGNS=("1 11 2")
+FRESH_STORY_LEVELS=(
+  "1 1 321 17,17 -"
+  "1 2 643 4,13,8 -"
+  "1 3 419 1,5,18 -"
+  "1 4 788 5,1,14,17 -"
+  "1 5 740 5,4,4 -"
+  "1 6 1066 17,10,3,19,8 -"
+  "1 7 1285 15,14,19,7,17 -"
+  "1 8 1515 6,12,3,3,1 -"
+  "1 9 971 10,2,18,3,3 -"
+  "1 10 900 5,13,3 18:1:0:-1,13:2:-1:0,14:4:1:0,7:2:-1:-1,7:1:1:-1"
+  "1 11 1578 7,15,6,17,6,4 -"
+)
 # Cobbles v1, part 3 (P-61, cobbles-v1.md 5.2 and 6.4): the themes whose 19 skins the fresh deployment prices, by the rarity
 # table. Theme 1 is Forest, the only theme with art (the PM's ruling of 2026-10-15); the other themes get no id here and
 # stay unpriced until their art ships (the owner's set_skin_price). Add a theme id to this one list to price it too.
@@ -2498,6 +2525,8 @@ fresh_wiring_calls() {
   local raw w
   raw="$(call "$SETUP" is_reporter "$CHALLENGE")" || return 1
   [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $CHALLENGE 1"
+  raw="$(call "$SETUP" is_reporter "$STORY")" || return 1
+  [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $STORY 1"
   raw="$(call "$ECONOMY" addresses)" || return 1
   read -r -a w <<<"$raw"
   felt_eq "${w[4]:-}" "$CHALLENGE" || echo "$ECONOMY set_game $CHALLENGE"
@@ -2507,6 +2536,74 @@ fresh_wiring_calls() {
   felt_eq "${w[1]:-}" "$COLLECTION" || echo "$SETUP set_collection $COLLECTION"
   raw="$(call "$COLLECTION" challenge)" || return 1
   felt_eq "$raw" "$CHALLENGE" || echo "$COLLECTION set_minters $CHALLENGE 0"
+}
+
+# fresh_story_level_args <campaign> <level> <target> <plans> <placed>: the calldata of set_level after its two ids (the
+# plans span, the starter, the placed span, the target), which is also what Story's view `level` answers.
+fresh_story_level_args() {
+  python3 -I -c '
+import sys
+target, plans, placed = sys.argv[1:4]
+center = 0x7fffffff
+out = [len(plans.split(","))] + [int(p) for p in plans.split(",")]
+out += [9, 3, center, center]
+tiles = [] if placed == "-" else [t.split(":") for t in placed.split(",")]
+out.append(len(tiles))
+for plan, orientation, dx, dy in tiles:
+    out += [int(plan), int(orientation), center + int(dx), center + int(dy)]
+out.append(int(target))
+print(" ".join(str(v) for v in out))
+' "$3" "$4" "$5"
+}
+
+# fresh_story_calls: the Story calls still missing, one spec per line: each campaign whose view is not as specified, then
+# each level whose view is not (a level set otherwise is set again: set_level corrects). Fails when a read fails.
+fresh_story_calls() {
+  local entry id count unlock raw campaign level target plans placed want
+  for entry in "${FRESH_STORY_CAMPAIGNS[@]}"; do
+    read -r id count unlock <<<"$entry"
+    raw="$(call "$STORY" campaign "$id")" || return 1
+    # shellcheck disable=SC2086 # the view's felts, one argument each
+    [[ "$(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $raw)" == "$count $unlock" ]] ||
+      echo "$STORY set_campaign $id $count $unlock"
+  done
+  for entry in "${FRESH_STORY_LEVELS[@]}"; do
+    read -r campaign level target plans placed <<<"$entry"
+    want="$(fresh_story_level_args "$campaign" "$level" "$target" "$plans" "$placed")" || return 1
+    raw="$(call "$STORY" level "$campaign" "$level")" || return 1
+    # shellcheck disable=SC2086 # the view's felts, one argument each
+    [[ "$(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $raw)" == "$want" ]] ||
+      echo "$STORY set_level $campaign $level $want"
+  done
+}
+
+# fresh_story_step: the campaigns and levels on Story, as its owner, in one multicall of what it lacks (its hash recorded as
+# story_tx), then read back; a rerun sends only what is missing and a complete record nothing.
+fresh_story_step() {
+  local spec
+  fr_settled story_tx || true
+  STORY_CALLS=()
+  v STORY_RAW fresh_story_calls
+  while IFS= read -r spec; do [[ -n "$spec" ]] && STORY_CALLS+=("$spec"); done <<<"$STORY_RAW"
+  if [[ "${#STORY_CALLS[@]}" == 0 ]]; then
+    echo "   set already: ${#FRESH_STORY_CAMPAIGNS[@]} campaign(s), ${#FRESH_STORY_LEVELS[@]} level(s)$( [[ -n "$(fr_get story_tx)" ]] && echo ", tx $(fr_get story_tx)")"
+  else
+    echo "   ${#STORY_CALLS[@]} campaign and level call(s) to send"
+    RECORD_SENDING=story_tx
+    invoke_all "${STORY_CALLS[@]}"
+    RECORD_SENDING=""
+  fi
+  fresh_story_smoke
+}
+
+# fresh_story_smoke: Story's Setup is Setup, Setup allows it as a reporter (it pays the stars), and every campaign and level
+# reads back as specified. Read on a complete record too: the owner corrects a level through the table, not by hand.
+fresh_story_smoke() {
+  [[ "$(hex_int "$(call "$STORY" setup)")" == "$(hex_int "$SETUP")" ]] || die "Story.setup() is not Setup"
+  [[ "$(hex_int "$(call "$SETUP" is_reporter "$STORY")")" == 1 ]] || die "Setup does not allow Story as a reporter"
+  v STORY_RAW fresh_story_calls
+  [[ -z "$STORY_RAW" ]] || die "Story lacks: $(cut -d' ' -f2,3,4 <<<"$STORY_RAW" | tr '\n' ' ')"
+  echo "   Story: setup() is Setup, a reporter of Setup; campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) as specified (views campaign and level)"
 }
 
 # fresh_guardian_step: Challenge's guardian is the deployer (PM, 2026-10-14), set in the run that deploys it, with the
@@ -2691,7 +2788,7 @@ PY
 fresh_classes_check() {
   local name recorded built
   [[ -e "$OUT" ]] || return 0
-  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection; do
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story; do
     recorded="$(fr_get "classes.$name")"
     [[ -n "$recorded" ]] || continue
     built="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')" || die "class-hash $name failed"
@@ -2705,14 +2802,16 @@ fresh_check_only() {
   local name key tx
   echo "== fresh: check only (nothing is sent, the file is not written)"
   if [[ ! -e "$OUT" ]]; then
-    echo "   no record: a run would declare 8 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
-    echo "   Challenge and Collection, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with the shop"
+    echo "   no record: a run would declare 9 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
+    echo "   Challenge, Collection and Story, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with the shop"
     echo "   (Economy.set_seller(Setup), set_pack x 4), the skin prices of theme(s) ${FRESH_SKIN_THEMES[*]} (set_skin_price x 19 each) and their cobbles, write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a"
     echo "   surrender reported to Setup, claim_tutorial once, pack 1 bought, a skin bought)"
   else
     echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then the skin prices (set_skin_price x 19 for each of the theme(s) ${FRESH_SKIN_THEMES[*]}, the rarity table), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
+    echo "   story (story_tx): campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) on Story (set_campaign, set_level); a run sends the ones Story lacks and reads each back"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
-        Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx wiring_tx guardian_tx definitions_tx \
+        Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx wiring_tx guardian_tx \
+        definitions_tx story_tx \
         smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.skin_tx smoke.settle_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
@@ -2848,7 +2947,7 @@ ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 # The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only, --d18 the D-18
 # Account, Daily, Tutorial and Lobby, --upgrade-challenge the new Challenge.
-FUNDING_CLASSES=(Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection)
+FUNDING_CLASSES=(Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 ((D18)) && FUNDING_CLASSES=(Account Daily Tutorial Lobby)
 ((UPGRADE_CHALLENGE)) && FUNDING_CLASSES=(Challenge)
@@ -3015,11 +3114,16 @@ ROUTER_CLASS="$(declare_class MockRouter)"
 VAULT_CLASS="$(declare_class Vault)"
 ECONOMY_CLASS="$(declare_class Economy)"
 COLLECTION_CLASS="$(declare_class Collection)"
+STORY_CLASS="$(declare_class Story)"
+# The VRF mock (#638): devnet only.
+VRF_CLASS=""
+if [[ "$NETWORK" == "devnet" ]]; then VRF_CLASS="$(declare_class MockVrfProvider)"; fi
 RECORD_SENDING=""
 fr_set "classes.Challenge=$(felt64 "$CHALLENGE_CLASS")" "classes.Setup=$(felt64 "$SETUP_CLASS")" \
   "classes.Faucet=$(felt64 "$USDC_CLASS")" "classes.PavedToken=$(felt64 "$PAVED_CLASS")" \
   "classes.MockRouter=$(felt64 "$ROUTER_CLASS")" "classes.Vault=$(felt64 "$VAULT_CLASS")" \
-  "classes.Economy=$(felt64 "$ECONOMY_CLASS")" "classes.Collection=$(felt64 "$COLLECTION_CLASS")"
+  "classes.Economy=$(felt64 "$ECONOMY_CLASS")" "classes.Collection=$(felt64 "$COLLECTION_CLASS")" \
+  "classes.Story=$(felt64 "$STORY_CLASS")"
 
 USDC_UNIT=1000000
 PAVED_UNIT=1000000000000000000
@@ -3049,6 +3153,8 @@ USDC="$(fresh_deploy Faucet "$USDC_CLASS")"
 PAVED="$(fresh_deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
 ROUTER="$(fresh_deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
 VAULT="$(fresh_deploy Vault "$VAULT_CLASS" "$DEPLOYER_ARG" "$PAVED" "$EXIT_FEE")"
+VRF=""
+if [[ "$NETWORK" == "devnet" ]]; then VRF="$(fresh_deploy MockVrfProvider "$VRF_CLASS")"; fi
 
 echo "== pool and stake"
 # The launch pool, in the router's token order, from the initial supply and the Faucet's premint to the deployer (its
@@ -3163,6 +3269,8 @@ SETUP="$(fresh_deploy Setup "$SETUP_CLASS" "$DEPLOYER_ARG")"
 CHALLENGE="$(fresh_deploy Challenge "$CHALLENGE_CLASS" "$DEPLOYER_ARG" "$USDC" "$SETUP")"
 # The game NFT: without it every spawn reverts ('Challenge: collection not set'), so it is wired before the smoke.
 COLLECTION="$(fresh_deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
+# Story mode (docs/architecture/story-mode.md): the levels and the runs; Setup pays its stars, so it is a reporter.
+STORY="$(fresh_deploy Story "$STORY_CLASS" "$DEPLOYER_ARG" "$SETUP")"
 
 echo "== wire"
 # Setup's reporter (Challenge), Economy's game (after the stake), Setup's wiring (D-25 E: Economy and Collection, read by
@@ -3182,7 +3290,7 @@ fi
 v WIRING_RAW fresh_wiring_calls
 [[ -z "$WIRING_RAW" ]] || die "after the wiring, still missing: $(cut -d' ' -f2 <<<"$WIRING_RAW" | tr '\n' ' ')"
 [[ "$(hex_int "$(call "$CHALLENGE" setup)")" == "$(hex_int "$SETUP")" ]] || die "Challenge.setup() is not Setup"
-echo "   Setup: Challenge reports to it, its one reporter; Challenge.setup() is Setup"
+echo "   Setup: its reporters Challenge (game overs) and Story (the stars of the levels); Challenge.setup() is Setup"
 echo "   Setup: wiring Economy and Collection; Collection: minter Challenge; Economy: game Challenge"
 # Challenge's guardian (PM, 2026-10-14): the deployer, set in this run (fresh_guardian_step).
 fresh_guardian_step
@@ -3218,6 +3326,11 @@ echo "== definitions"
 # not sent again (a definition cannot be sent twice: quiver refuses an id already defined).
 fresh_definitions_step
 
+echo "== story"
+# The campaigns and levels on Story (FRESH_STORY_CAMPAIGNS, FRESH_STORY_LEVELS), as its owner, before its address reaches
+# the deployment file.
+fresh_story_step
+
 FIRST_DEPLOY_TX="$(fr_get Faucet.deploy_tx)"
 [[ -n "$FIRST_DEPLOY_TX" ]] || FIRST_DEPLOY_TX="$(head -1 "$WORK_DIR/deploy-txs")"
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$FIRST_DEPLOY_TX\"]" | pyj 'd["result"]["block_number"]')"
@@ -3235,7 +3348,8 @@ python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYE
   "$DECIMALS" "$SYMBOL" "Faucet=$USDC=$USDC_CLASS" \
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Challenge=$CHALLENGE=$CHALLENGE_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
-  "Collection=$COLLECTION=$COLLECTION_CLASS" "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
+  "Collection=$COLLECTION=$COLLECTION_CLASS" "Story=$STORY=$STORY_CLASS" "MockVrfProvider=$VRF=$VRF_CLASS" \
+  "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
 import json, os, sys, tempfile
 out, network, chain_id, rpc_url, commit, block, decimals, symbol, *rest = sys.argv[1:]
 items = [r for r in rest if r.count("=") == 2]
@@ -3248,7 +3362,9 @@ for item in items:
         # O-19: `0x` and 64 hex digits.
         c[name] = {"address": "0x%064x" % int(address, 16), "class_hash": "0x%064x" % int(class_hash, 16)}
 # One key per contract (F): devnet and Sepolia both run the Faucet and MockRouter (P-39); no old mock Token since F.
-names = ["Challenge", "Setup", "Collection", "Economy", "PavedToken", "Vault", "Faucet", "MockRouter"]
+names = ["Challenge", "Setup", "Collection", "Economy", "PavedToken", "Vault", "Faucet", "MockRouter", "Story"]
+# The VRF mock (#638): devnet only, so only when deployed.
+names += [k for k in ["MockVrfProvider"] if k in c]
 doc = {
     "network": network,
     "chain_id": chain_id,
@@ -3312,10 +3428,17 @@ echo "== smoke"
 # Each transaction of the smoke is sent once: through the signer it is recorded (`fresh.smoke`), and a rerun reads what
 # landed (the game, its tiles, Economy's terms, Setup's flag) and cites it instead of sending again.
 # P-42, P-56: the upgrade owner of every ownable contract is the deployer. PavedToken has no owner.
-for entry in "Economy=$ECONOMY" "Challenge=$CHALLENGE" "Setup=$SETUP" "Collection=$COLLECTION" "Vault=$VAULT"; do
+for entry in "Economy=$ECONOMY" "Challenge=$CHALLENGE" "Setup=$SETUP" "Collection=$COLLECTION" "Vault=$VAULT" "Story=$STORY"; do
   [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
-echo "   owner() of Economy, Challenge, Setup, Collection and Vault: the deployer"
+echo "   owner() of Economy, Challenge, Setup, Collection, Vault and Story: the deployer"
+# The VRF mock (#638, devnet only): no consume counted outside a transaction, and a salt's consume is not 0.
+if [[ "$NETWORK" == "devnet" ]]; then
+  [[ "$(hex_int "$(call "$VRF" get_consume_count)")" == 0 ]] || die "MockVrfProvider.get_consume_count() is not 0"
+  [[ "$(hex_int "$(call "$VRF" consume_random 1 1)")" != 0 ]] || die "MockVrfProvider.consume_random(Salt(1)) is 0"
+  echo "   MockVrfProvider: consume count 0, a salt's consume not 0"
+fi
+fresh_story_smoke
 # The guardian and the pause (PM, 2026-10-14): read by fresh_guardian_smoke.
 fresh_guardian_smoke
 # The Vault's exit fee: the default at launch; the owner may have moved it since, within its bound

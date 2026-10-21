@@ -2,15 +2,16 @@
 // otherwise). The hooks' tests (`__tests__/data-*.test.tsx`) check the values on `@paved/chain`'s fakes.
 import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
+import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { HomeSceneProps } from "../components/scenes/home-scene";
-import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
+import type { ProfileSheetProps } from "../components/containers/profile-sheet";
 import type { OverSceneProps } from "../components/scenes/over-scene";
-import type { PlayerSceneProps } from "../components/scenes/player-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import type * as chain from "./chain";
 import type * as indexer from "./indexer";
+import type * as playerProgress from "./player-progress";
 import type * as purchase from "./purchase";
 import type * as training from "./training";
 
@@ -24,24 +25,23 @@ type OrNull<T> = T | null;
 export type SceneTypes = [
   // home
   Expect<Equal<Data<typeof indexer.usePlayerStatus>, HomeSceneProps["player"]>>,
-  Expect<Equal<Data<typeof indexer.useTopThree>, HomeSceneProps["leaderboard"]>>,
   Expect<Equal<Data<typeof chain.useActiveGame>, HomeSceneProps["activeGame"]>>,
   Expect<Equal<Data<typeof training.useTrainingSave>, HomeSceneProps["training"]>>,
   Expect<Equal<Data<typeof chain.useSpawnPaused>, HomeSceneProps["spawnPaused"]>>,
+  // the XP ring and the profile sheet (#625): null is no player, the sheet takes undefined for it
+  Expect<Equal<NonNullable<Data<typeof playerProgress.usePlayerProgress>>, NonNullable<ProfileSheetProps["progress"]>>>,
   // purchase
   Expect<Equal<Data<typeof chain.useQuote>, OrNull<PurchaseSceneProps["quote"]>>>,
   Expect<Equal<Data<typeof chain.useSplit>, OrNull<PurchaseSceneProps["split"]>>>,
   Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<PurchaseSceneProps["balance"]>>>,
-  Expect<Equal<Data<typeof purchase.usePacks>, OrNull<NonNullable<PurchaseSceneProps["cobbles"]>["packs"]>>>,
+  // the Cobble packs
+  Expect<Equal<Data<typeof chain.useSplit>, OrNull<CobblesSceneProps["split"]>>>,
+  Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<CobblesSceneProps["balance"]>>>,
+  Expect<Equal<Data<typeof purchase.usePacks>, OrNull<CobblesSceneProps["cobbles"]["packs"]>>>,
   // board
   Expect<Equal<training.SessionBoard["tiles"], BoardSceneProps["tiles"]>>,
   Expect<Equal<training.SessionBoard["lastScored"], BoardSceneProps["lastScored"]>>,
   Expect<Equal<Data<typeof chain.useGame>, OverSceneProps["game"]>>,
-  // leaderboard and player
-  Expect<Equal<Data<typeof indexer.useLeaderboard>, NonNullable<LeaderboardSceneProps["leaderboard"]>>>,
-  Expect<Equal<Data<typeof indexer.useLeaderboardEntry>, NonNullable<LeaderboardSceneProps["viewer"]> | null>>,
-  Expect<Equal<Data<typeof indexer.usePlayerProfile>, NonNullable<PlayerSceneProps["profile"]>>>,
-  Expect<Equal<Data<typeof indexer.useIndexedPlayerGames>, NonNullable<PlayerSceneProps["games"]>>>,
   // quests and achievements
   Expect<Equal<Data<typeof indexer.usePlayerQuests>, NonNullable<QuestsSceneProps["quests"]>>>,
   Expect<Equal<Data<typeof indexer.usePlayerAchievements>, NonNullable<AchievementsSceneProps["achievements"]>>>,

@@ -36,8 +36,9 @@ export function PackCard({ pack, selected, disabled, onSelect, className }: Pack
       disabled={disabled}
       onClick={() => onSelect?.(pack.packId)}
       className={cn(
-        "flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
-        selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-gold-800",
+        // The white states of every button (`state-layer`): `aria-checked` is the 15% selected layer, under the gold edge.
+        "state-layer flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
+        selected ? "border-primary ring-1 ring-primary" : "border-border",
         className,
       )}
     >

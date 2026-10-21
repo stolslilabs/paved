@@ -36,7 +36,7 @@ function declared(name: string, css: string): string | undefined {
 /** The semantic tokens of the dark block, each followed through `var(...)` to its scale step. */
 export interface Semantic {
   name: string;
-  /** What it points at, `--color-ink-950`. */
+  /** What it points at, `--color-charcoal-950`. */
   via: string;
   oklch: string;
   hex: string;

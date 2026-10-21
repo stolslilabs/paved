@@ -1,9 +1,12 @@
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
-import type { GameScene, HoverState, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
-import { boardPlates } from "../../data/placement";
+import { boardReveal, villageReveal } from "@paved/renderer";
+import type { FogCell, GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
+import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
+import type { Hold } from "../../lib/use-hold";
+import { BoardCovered } from "./board-covered";
 import { LazyTileBubble } from "./lazy-tile-bubble";
 
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
@@ -68,14 +71,17 @@ export interface BoardViewportProps {
    */
   basePath?: string;
   /**
-   * The legal slots of the tile in hand in any rotation (the contracts' coordinates): one blue plate each (`fits`, whether
+   * The legal slots of the tile in hand in any rotation (the contracts' coordinates): one playable plate each (`fits`, whether
    * the current rotation fits there, is the caller's, for its buttons). Every other free
    * cell next to a tile gets an invalid plate (`boardPlates`). Unset: no tile in hand, no plate; an empty list: a tile that
    * fits nowhere, invalid plates all around.
    */
   slots?: { x: number; y: number; fits?: boolean }[];
   ghost?: BoardGhost | null;
-  /** A move just sent (`useConfirmFlash`): a green tint on the tile fades out. A new `key` fades again. */
+  /**
+   * A move the session just accepted (`useConfirmFlash`): the tile drops voxel by voxel, then a green tint on it fades out
+   * (`useDropThenConfirm`). A new `key` plays again.
+   */
   confirmed?: (BoardGhost & { key: number }) | null;
   /**
    * The renderer's settings (`RendererSettingsInput`: the graphics quality). Keep the object between renders while the
@@ -86,12 +92,23 @@ export interface BoardViewportProps {
   tilePreview?: boolean;
   /** Draw the plates. Default true; off: no plate is drawn. */
   placementHighlight?: boolean;
+  /**
+   * Every other free cell next to a tile gets an invalid plate (`boardPlates`). Default true; off: only `slots` get plates (a
+   * village, whose plates are its own cells and parcels).
+   */
+  otherPlates?: boolean;
   /** A cell was clicked or tapped (the contracts' coordinates); the page decides whether it is a slot. */
   onCellClick?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
   onCellHover?: (slot: { x: number; y: number } | null) => void;
-  /** The tile placed and not yet sent: the Rotate and Cancel bubble follows its corner. Unset: none. */
+  /** The tile placed and not yet sent: the bubble (Cancel, Discard, Rotate, Validate) follows its corner. Unset: none. */
   bubble?: BoardBubble | null;
+  /**
+   * The fog of war's clear area in a village or an attack (the contracts' coordinates): the owned cells, and the cells next to
+   * them stay clear. Unset: the board's, its tiles and the free slots next to them (Challenge, Story, Training). The fog shows
+   * with `settings.fog` on.
+   */
+  fogOwned?: ReadonlyArray<{ x: number; y: number }>;
   /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
   onScene?: (scene: GameScene | null) => void;
   /** The renderer could not start (no WebGL, a model that does not load). */
@@ -105,6 +122,93 @@ export interface BoardBubble {
   rotations: number;
   onRotate: () => void;
   onClose: () => void;
+  /** The end of the hold on Discard (#606): the tile in hand is discarded, wherever it stands. */
+  onDiscard?: () => void;
+  /** What a discard costs now (at most the score): its label says it. */
+  discardCost?: number;
+  /** The end of the hold on Validate: the page sends the move (#568). */
+  onConfirm?: () => void;
+  /** Validate is enabled: the rotation fits and the points are known. */
+  canConfirm?: boolean;
+  /** The move is on its way: Validate's spinner. */
+  busy?: boolean;
+  /** A Story coach mark points at the placement (Validate is ringed) or at Discard (the trash is). */
+  coach?: boolean | "place" | "discard";
+  /** The tile's rotation now: a change drops a hold on Validate under way. */
+  orientation?: number;
+}
+
+/**
+ * The confirm on the 3D board (PLACE-POLISH, #568): when the session accepts a move (a new `confirmed.key`), the landed tile
+ * drops voxel by voxel (`GameScene.dropTile`), then the green tint fades on it, for the time `useConfirmFlash` holds it
+ * after the drop. A skipped or failed drop (reduced motion, the model not in, its chunk not downloaded) goes straight to the
+ * green; a tile gone when the drop ends (a refusal rolled the board back, which cuts the drop) gets no green. Nothing plays at the first frame or a reload:
+ * only a key that changes while the board is up. The next tile is never held: the drop plays on while the player places it,
+ * and a newer confirm's green wins over an older drop's.
+ */
+export function useDropThenConfirm(scene: GameScene | null, tiles: TileRenderData[], confirmed: (HoverState & { key: number }) | null | undefined, confirmMs?: number) {
+  const [green, setGreen] = useState<(HoverState & { key: number }) | null>(null);
+  const tilesRef = useRef(tiles);
+  tilesRef.current = tiles;
+  // The key the board opened with is never played (a remount with a confirm still held).
+  const seen = useRef(confirmed?.key ?? null);
+  const latest = useRef(0);
+  const holdMs = confirmHoldMs(confirmMs);
+  useEffect(() => {
+    if (!confirmed || confirmed.key === seen.current || !scene) return;
+    seen.current = confirmed.key;
+    const run = ++latest.current;
+    const at = (t: TileRenderData) => t.worldX === confirmed.x && t.worldZ === confirmed.y;
+    const tile = tilesRef.current.find(at);
+    const toGreen = () => {
+      if (run !== latest.current || !tilesRef.current.some(at)) return;
+      setGreen(confirmed);
+    };
+    if (!tile) return toGreen();
+    // The drop is optional: whatever becomes of it (skipped, cut short, failed), the move still gets its green.
+    void scene
+      .dropTile(tile)
+      .then((drop) => (drop.status === "started" ? drop.finished : undefined))
+      .catch(() => undefined)
+      .then(toGreen);
+  }, [confirmed, scene]);
+  useEffect(() => {
+    if (!green) return;
+    const id = setTimeout(() => setGreen(null), holdMs);
+    return () => clearTimeout(id);
+  }, [green, holdMs]);
+  return green;
+}
+
+/**
+ * The board's presses as a hold on the placed tile (TILE-HOLD, #630): a press down on `cell` (the bubble's, in the renderer's
+ * grid) starts Validate's hold (`hold()`, the bubble's), so its ring fills as if Validate were held; the let go releases it,
+ * a pan, a second finger or the pointer leaving cancels it (`PointerTap`). A press elsewhere, or with Validate disabled or
+ * busy, holds nothing: a tap or a pan as before. A completed hold says it acted, so its let go does not also click the cell.
+ */
+export function useTileHold(cell: { x: number; y: number } | null, hold: () => Hold | null): TilePressListener {
+  // The hold the press under way started, kept to its end even if the bubble goes (the move was sent).
+  const pressed = useRef<Hold | null>(null);
+  const cellRef = useRef(cell);
+  cellRef.current = cell;
+  const holdRef = useRef(hold);
+  holdRef.current = hold;
+  const listener = useRef<TilePressListener>((gx, gy, phase) => {
+    if (phase === "down") {
+      const at = cellRef.current;
+      const h = at && at.x === gx && at.y === gy ? holdRef.current() : null;
+      pressed.current = h?.start() ? h : null;
+      return;
+    }
+    const h = pressed.current;
+    pressed.current = null;
+    if (!h) return;
+    const acted = h.completed();
+    if (phase === "released") h.release();
+    else h.cancel();
+    return phase === "released" && acted;
+  });
+  return listener.current;
 }
 
 /** A ghost as the renderer's hover: its grid cell, its state, and the cell its skin variant is picked for. */
@@ -121,45 +225,100 @@ function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
 }
 
 /** The real renderer (`@paved/renderer`'s canvas) on a board: what the board scene puts under its overlays. */
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
+/**
+ * The fog of war's clear cells (FOG-EVERYWHERE, #648), in the renderer's grid: the board's tiles and their free slots, or the
+ * owned cells and their neighbours (`owned`); a cell new since the last reveal (the tile just placed, the cell just bought) is
+ * where the fog lifts from.
+ */
+export function useFogReveal(tiles: TileRenderData[], owned?: ReadonlyArray<{ x: number; y: number }>): { cells: FogCell[]; origin: FogCell[] } {
+  const source: FogCell[] = owned ? owned.map((c) => toGridSlot(c.x, c.y)) : tiles.map((t) => ({ x: t.worldX, y: t.worldZ }));
+  const sourceKey = `${owned ? "owned" : "tiles"}|${source.map((c) => `${c.x},${c.y}`).join(";")}`;
+  // The cells of the reveal last shown (set once it is), to tell the new ones.
+  const shown = useRef<string | null>(null);
+  const reveal = useMemo(() => {
+    const before = new Set(shown.current?.split("|")[1]?.split(";").filter(Boolean) ?? []);
+    const origin = before.size ? source.filter((c) => !before.has(`${c.x},${c.y}`)) : [];
+    return { cells: owned ? villageReveal(source) : boardReveal(source), origin };
+    // The reveal follows the cells, not each new array of the same ones.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceKey]);
+  useEffect(() => {
+    shown.current = sourceKey;
+  }, [sourceKey]);
+  return reveal;
+}
+
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, otherPlates = true, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
+  // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
+  const covered = useContext(BoardCovered);
   useEffect(() => {
     onScene?.(scene);
     return () => onScene?.(null);
   }, [scene, onScene]);
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
+  const fogReveal = useFogReveal(renderTiles, fogOwned);
   // A plate on every free cell next to a tile: playable or invalid (`boardPlates`), in the renderer's grid.
   const gridSlots = useMemo(
     () =>
       placementHighlight
-        ? boardPlates(tiles, slots).map((p) => ({ ...toGridSlot(p.x, p.y), ...(p.state === "invalid" ? { legal: false } : {}) }))
+        ? boardPlates(otherPlates ? tiles : [], slots).map((p) => ({ ...toGridSlot(p.x, p.y), ...(p.state === "invalid" ? { legal: false } : {}) }))
         : [],
-    [tiles, slots, placementHighlight],
+    [tiles, slots, placementHighlight, otherPlates],
   );
   // The ghost draws the variant the tile would have in the cell it hovers. The tile preview setting hides only the hover
   // preview: a placed tile is always drawn, with its tint (yellow, red: Confirm is disabled, the board says why).
   const hover = useMemo<HoverState | null>(() => (ghost && (tilePreview || ghost.placed) ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
   const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
+  const green = useDropThenConfirm(scene, renderTiles, confirm, settings?.placement?.motion?.confirmMs);
+  // Validate's hold, set by the bubble while it is up: holding the placed tile holds it too (#630).
+  const tileHold = useRef<Hold | null>(null);
+  const holdCell = bubble?.onConfirm ? toGridSlot(bubble.cell.x, bubble.cell.y) : null;
+  const onTilePress = useTileHold(holdCell, () => tileHold.current);
+  // The tile placed and not yet validated: the drop's chunk and its model's voxels load now, so the drop at the confirm
+  // begins in the call (`GameScene.prepareDropAt`).
+  const prepareKey = hover?.placed ? `${hover.planIndex}:${hover.cell?.x}:${hover.cell?.y}` : null;
+  useEffect(() => {
+    if (scene && hover?.placed) void scene.prepareDropAt(hover).catch(() => {});
+  }, [scene, prepareKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     // The canvas owns its pinch, pan and rotate (`touch-none`), and the browser's context menu stays off the board (APP-FEEL, P-69).
-    <div className={cn("absolute inset-0 touch-none bg-board", className)} onContextMenu={(e) => e.preventDefault()}>
+    // A long press on the tile holds it (#630): no text selection, loupe or iOS callout comes with it.
+    <div className={cn("absolute inset-0 touch-none bg-board select-none [-webkit-touch-callout:none]", className)} onContextMenu={(e) => e.preventDefault()}>
       <GameCanvas
         tiles={renderTiles}
         basePath={basePath}
         skins={skins}
         settings={settings}
+        covered={covered}
+        fogReveal={fogReveal}
         availableSlots={gridSlots}
         hover={hover}
-        confirmed={confirm}
+        confirmed={green}
         onReady={setScene}
         onError={onError}
         onTileClick={onCellClick && ((gx, gy) => onCellClick(toChainSlot(gx, gy)))}
+        onTilePress={onTilePress}
         onTileHover={onCellHover && ((gx, gy) => onCellHover(toChainSlot(gx, gy)))}
         onHoverLeave={onCellHover && (() => onCellHover(null))}
       />
       {bubble && scene && (
         <Suspense fallback={null}>
-          <LazyTileBubble scene={scene} cell={toGridSlot(bubble.cell.x, bubble.cell.y)} rotations={bubble.rotations} onRotate={bubble.onRotate} onClose={bubble.onClose} />
+          <LazyTileBubble
+            scene={scene}
+            cell={toGridSlot(bubble.cell.x, bubble.cell.y)}
+            rotations={bubble.rotations}
+            onRotate={bubble.onRotate}
+            onClose={bubble.onClose}
+            onDiscard={bubble.onDiscard}
+            discardCost={bubble.discardCost}
+            onConfirm={bubble.onConfirm}
+            canConfirm={bubble.canConfirm}
+            busy={bubble.busy}
+            coach={bubble.coach}
+            orientation={bubble.orientation}
+            holdRef={tileHold}
+          />
         </Suspense>
       )}
     </div>
