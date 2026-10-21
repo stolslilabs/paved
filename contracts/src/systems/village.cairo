@@ -29,11 +29,13 @@ pub const START_CELLS: u8 = 9;
 pub const MAX_PARCELS: u8 = 91;
 /// The cobbles of parcel `k` are `PARCEL_COBBLES x k` (open point 7.2 of the design, proposal (a)).
 pub const PARCEL_COBBLES: u32 = 10;
-/// The cobbles of a chain day's first demolition; each one doubles the next (5, 10, 20, 40...).
-pub const DEMOLITION_COBBLES: u32 = 5;
-/// The exponent stops here: `5 x 2^29` is the last price under `u32`, what `spend_cobbles` takes
-/// (and far above any balance a player earns).
-pub const MAX_DOUBLINGS: u32 = 29;
+/// The cobbles of a chain day's first demolition; each one doubles the next (5, 10, 20, 40...),
+/// with no cap.
+pub const DEMOLITION_COBBLES: u128 = 5;
+/// The most cobbles one demolition can be paid: `Setup.spend_cobbles` takes a `u32`. A price above
+/// it (from the 31st demolition of a day, `5 x 2^30`) is refused (`'Village: price too high'`),
+/// never charged lower: the price keeps doubling.
+pub const MAX_DEMOLITION_PRICE: u128 = 0xffffffff;
 /// The reasons of `Village`'s `CobblesSpent` on `Setup`.
 pub const PARCEL_REASON: felt252 = 'VILLAGE_PARCEL';
 pub const DEMOLITION_REASON: felt252 = 'VILLAGE_DEMOLISH';
@@ -78,7 +80,7 @@ pub struct VillageInfo {
 pub struct DemolitionOffer {
     pub day: u64,
     pub count: u32,
-    pub price: u32,
+    pub price: u128,
 }
 
 #[starknet::interface]
@@ -94,7 +96,8 @@ pub trait IVillage<TContractState> {
     fn buy_parcel(ref self: TContractState, x: u32, y: u32) -> u8;
     /// The caller demolishes the tile at `(x, y)` of its village (`'Village: no tile'`), never the
     /// starter (`'Village: starter stays'`), for the price of its day's next demolition
-    /// (`demolition_price`), debited on `Setup`'s ledger (`'Setup: not enough cobbles'`). The
+    /// (`demolition_price`; above `MAX_DEMOLITION_PRICE`, `'Village: price too high'`), debited on
+    /// `Setup`'s ledger (`'Setup: not enough cobbles'`). The
     /// village is rebuilt from the tiles left, in their order, in a new game. Emits
     /// `TileDemolished`; returns the price paid.
     fn demolish(ref self: TContractState, x: u32, y: u32) -> u32;
@@ -155,16 +158,16 @@ pub fn parcel_level(parcel: u8) -> u32 {
 }
 
 /// The price of a day's demolition after `count` of them that day: `DEMOLITION_COBBLES x 2^count`,
-/// the exponent capped at `MAX_DOUBLINGS`.
-pub fn demolition_price(count: u32) -> u32 {
-    let doublings = if count > MAX_DOUBLINGS {
-        MAX_DOUBLINGS
-    } else {
-        count
-    };
+/// doubled after each one with no cap. Past `u128` (from count 126, never reached: a demolition
+/// above `MAX_DEMOLITION_PRICE` is refused, so a day's count stops at 31) it saturates at the
+/// `u128` maximum, still above every earlier price.
+pub fn demolition_price(count: u32) -> u128 {
     let mut price = DEMOLITION_COBBLES;
     let mut i: u32 = 0;
-    while i < doublings {
+    while i < count {
+        if price > 0x7fffffffffffffffffffffffffffffff {
+            return 0xffffffffffffffffffffffffffffffff;
+        }
         price *= 2;
         i += 1;
     }
@@ -204,8 +207,8 @@ pub mod Village {
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
     use super::{
         DAY, DEMOLITION_REASON, DemolitionOffer, IVillage, IVillageAdmin, MAX_CELLS_LIMIT,
-        PARCEL_REASON, START_CELLS, VillageCell, VillageInfo, VillageTile, demolition_price,
-        is_start_cell, parcel_level, parcel_price,
+        MAX_DEMOLITION_PRICE, PARCEL_REASON, START_CELLS, VillageCell, VillageInfo, VillageTile,
+        demolition_price, is_start_cell, parcel_level, parcel_price,
     };
 
     pub mod errors {
@@ -224,6 +227,7 @@ pub mod Village {
         pub const NO_TILE: felt252 = 'Village: no tile';
         pub const STARTER_STAYS: felt252 = 'Village: starter stays';
         pub const INVALID_MAX_CELLS: felt252 = 'Village: invalid max cells';
+        pub const PRICE_TOO_HIGH: felt252 = 'Village: price too high';
     }
 
     // Packing
@@ -452,8 +456,11 @@ pub mod Village {
             let position = store.tile_position(old, x, y);
             assert(position.is_non_zero(), errors::NO_TILE);
             assert(position.tile_id != 1, errors::STARTER_STAYS);
-            // [Effect] The day's count, the price of this demolition
+            // [Check] The day's price, payable through `Setup.spend_cobbles` (a `u32`)
             let offer = self.offer_of(player_id);
+            assert(offer.price <= MAX_DEMOLITION_PRICE, errors::PRICE_TOO_HIGH);
+            let price: u32 = offer.price.try_into().unwrap();
+            // [Effect] The day's count
             let count = offer.count + 1;
             let word: u128 = offer.day.into() + count.into() * 0x10000000000000000;
             self.demolitions.write(player_id, word.into());
@@ -487,7 +494,7 @@ pub mod Village {
                 );
             // [Interaction] The price, from `Setup`'s ledger (reverts when the balance is short)
             ISetupSpendDispatcher { contract_address: self.setup_address() }
-                .spend_cobbles(player_id, offer.price, DEMOLITION_REASON);
+                .spend_cobbles(player_id, price, DEMOLITION_REASON);
             self
                 .emit(
                     TileDemolished {
@@ -498,12 +505,12 @@ pub mod Village {
                         y,
                         day: offer.day,
                         count,
-                        cobbles: offer.price,
+                        cobbles: price,
                         game_id: game.id,
                         score: game.score,
                     },
                 );
-            offer.price
+            price
         }
 
         fn place(

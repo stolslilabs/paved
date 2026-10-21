@@ -15,6 +15,8 @@ import {
   parcelLevel,
   parcelPrice,
   demolitionPrice,
+  demolitionPayable,
+  MAX_DEMOLITION_PRICE,
   startTerritory,
 } from "../src/engine";
 import { OrientationType } from "../src/types/orientation";
@@ -207,8 +209,13 @@ describe("village territory", () => {
 
   it("prices a day's demolitions at 5, doubled after each one", () => {
     expect([0, 1, 2, 3, 4].map(demolitionPrice)).toEqual([5, 10, 20, 40, 80]);
-    expect(demolitionPrice(29)).toBe(5 * 2 ** 29);
-    expect(demolitionPrice(200)).toBe(5 * 2 ** 29);
+    // Each one doubles the one before, with no cap: the 31st is twice the 30th, not the same
+    for (let count = 0; count < 200; count++) expect(demolitionPrice(count + 1)).toBe(2 * demolitionPrice(count));
+    expect(demolitionPrice(29)).toBe(2_684_354_560);
+    expect(demolitionPrice(30)).toBe(5_368_709_120);
+    // The 30th of a day is the last one Setup's u32 spend takes; the 31st is refused on chain, never charged lower
+    expect([demolitionPayable(29), demolitionPayable(30)]).toEqual([true, false]);
+    expect(MAX_DEMOLITION_PRICE).toBe(0xffffffff);
   });
 
   it("prices parcel k at 10 x k Cobbles and level k", () => {

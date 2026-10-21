@@ -96,6 +96,8 @@ export {
   parcelLevel,
   DEMOLITION_COBBLES,
   demolitionPrice,
+  demolitionPayable,
+  MAX_DEMOLITION_PRICE,
 } from "./engine";
 export type {
   EngineConfig,

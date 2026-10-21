@@ -30,5 +30,7 @@ export {
   parcelLevel,
   DEMOLITION_COBBLES,
   demolitionPrice,
+  demolitionPayable,
+  MAX_DEMOLITION_PRICE,
 } from "./village";
 export type { Cell as TerritoryCell } from "./village";

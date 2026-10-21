@@ -77,7 +77,7 @@ Upgrades (`upgrades.md`): every name is new, `Village` is upgradable (OpenZeppel
 | `found()` | any account, once | no village yet (`Village: already founded`) | a game; the starter; emits `VillageFounded` |
 | `buy_parcel(x, y)` | the village's player | a village (`Village: no village`); the cell not owned (`Village: cell owned`); a side neighbour owned (`Village: not adjacent`); under `max_cells` (`Village: territory full`); level >= parcel (`Village: level too low`); the price on `Setup` (`Setup: not enough cobbles`) | the cell; the Cobbles debited; emits `ParcelBought` |
 | `place(player_id, plan, orientation, x, y)` | an allowed placer (`Village: not placer`) | a village; a plan 1 to 19, an orientation 1 to 4; the cell owned (`Village: cell not owned`); free (`Tile: already exists`); fits (`Tile: no neighbors`, `Tile: cannot place`) | the tile built and assessed (the engine's `Built` and `Scored`); emits `TilePlaced`; returns the points |
-| `demolish(x, y)` | the village's player | a village; a placed tile there (`Village: no tile`), not the starter (`Village: starter stays`); the price on `Setup` (`Setup: not enough cobbles`) | the day's counter; the village rebuilt in a new game; the Cobbles debited; emits `TileDemolished`; returns the price |
+| `demolish(x, y)` | the village's player | a village; a placed tile there (`Village: no tile`), not the starter (`Village: starter stays`); the day's price at most `2^32 - 1` (`Village: price too high`); the price on `Setup` (`Setup: not enough cobbles`) | the day's counter; the village rebuilt in a new game; the Cobbles debited; emits `TileDemolished`; returns the price |
 | `set_setup`, `set_max_cells`, `set_placer`, `upgrade` | the owner | non-zero (`set_setup`); 9 to 100 (`set_max_cells`, `Village: invalid max cells`) | emit `SetupSet`, `MaxCellsSet`, `PlacerSet`; a cap lowered under a village leaves its cells, it buys no more |
 
 Views: `village(player_id)` (game, cells, tiles, score, next parcel's price and level), `cells(player_id)` (in order:
@@ -95,8 +95,11 @@ P-64's 50 % review point).
 ## 3a. Demolition (the owner's decision of 2026-10-21)
 
 - **The price**: `demolition_price(count) = 5 x 2^count`, `count` the demolitions the player already made that chain
-  day; the exponent stops at 29 (`5 x 2^29`, the last price under `u32`, what `spend_cobbles` takes, far above any balance). No daily cap: the price
-  explodes.
+  day, doubled after each one with no cap (a `u128`; it saturates only past count 125, never reached). No daily cap: the
+  price explodes. `Setup.spend_cobbles` takes a `u32`, so one demolition is paid at most `MAX_DEMOLITION_PRICE`
+  (`2^32 - 1`): the 30th of a day costs `5 x 2^29` (2,684,354,560), the 31st `5 x 2^30` (5,368,709,120) and is refused
+  (`Village: price too high`), whatever the balance; it is never charged a lower price. (The first build clamped the
+  exponent at 29, so the 31st cost the 30th's price again; the review of #669 caught it.)
 - **The day**: the quests' clock, `block_time / 86400` (`Setup`'s `DAY`). The counter is one slot per account (`day`,
   `count`); a slot of an earlier day reads as count 0, so the reset costs no write. A demolition that reverts (short of
   Cobbles) reverts its count with it.

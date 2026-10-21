@@ -690,7 +690,17 @@ fn test_village_demolition_curve() {
     assert_eq!(demolition_price(1), 10);
     assert_eq!(demolition_price(4), 80);
     assert_eq!(demolition_price(29), 5 * 0x20000000);
-    assert_eq!(demolition_price(1000), 5 * 0x20000000);
+    assert_eq!(demolition_price(30), 5 * 0x40000000);
+    assert_eq!(demolition_price(31), 5 * 0x80000000);
+    // Each one doubles the one before, with no cap (the review of #669: no fallback after the 30th)
+    let mut count: u32 = 0;
+    while count < 125 {
+        assert_eq!(demolition_price(count + 1), 2 * demolition_price(count));
+        count += 1;
+    }
+    // Past u128 it saturates, never under the price before it
+    assert!(demolition_price(126) >= demolition_price(125));
+    assert_eq!(demolition_price(1000), 0xffffffffffffffffffffffffffffffff);
 }
 
 #[test]
@@ -790,6 +800,40 @@ fn test_village_demolition_price_doubles_and_resets() {
 fn demolish_cell_after_place(world: World) -> u32 {
     place_tile(world, 10, 1, 1, 0);
     demolish_cell(world, 1, 0)
+}
+
+/// Writes `count` demolitions of day 0 in `PLAYER`'s counter.
+fn demolitions_made(world: World, count: u32) {
+    let slot = map_entry_address(selector!("demolitions"), array![PLAYER().into()].span());
+    let word: felt252 = count.into() * 0x10000000000000000;
+    store(world.village.contract_address, slot, array![word].span());
+}
+
+/// The 30th demolition of a day is paid `5 x 2^29`, the last price `Setup.spend_cobbles` takes.
+#[test]
+fn test_village_demolish_the_30th() {
+    let world = founded(1, 3_000_000_000);
+    place_tile(world, 10, 1, 1, 0);
+    demolitions_made(world, 29);
+    assert_eq!(world.village.next_demolition(PLAYER().into()).price, 2_684_354_560);
+    assert_eq!(demolish_cell(world, 1, 0), 2_684_354_560);
+    assert_eq!(cobbles_of(world, PLAYER()), 3_000_000_000 - 2_684_354_560);
+    assert_eq!(
+        world.village.next_demolition(PLAYER().into()),
+        DemolitionOffer { day: 0, count: 30, price: 5_368_709_120 },
+    );
+}
+
+/// The 31st costs `5 x 2^30`, twice the 30th: above what `spend_cobbles` takes, it is refused,
+/// even for a balance that covers it, and never charged lower.
+#[test]
+#[should_panic(expected: 'Village: price too high')]
+fn test_village_demolish_the_31st_is_refused() {
+    let world = founded(1, 10_000_000_000);
+    place_tile(world, 10, 1, 1, 0);
+    demolitions_made(world, 30);
+    assert_eq!(world.village.next_demolition(PLAYER().into()).price, 5_368_709_120);
+    demolish_cell(world, 1, 0);
 }
 
 #[test]

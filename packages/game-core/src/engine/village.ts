@@ -22,13 +22,22 @@ export const PARCEL_COBBLES = 10;
 
 /** The Cobbles of a chain day's first demolition (`DEMOLITION_COBBLES`); each one doubles the next. */
 export const DEMOLITION_COBBLES = 5;
-/** The exponent stops here (`MAX_DOUBLINGS`): `5 x 2^29`, the last price under a `u32` (what `Setup.spend_cobbles` takes). */
-export const MAX_DOUBLINGS = 29;
+/**
+ * The most Cobbles one demolition can be paid (`MAX_DEMOLITION_PRICE`: `Setup.spend_cobbles` takes a `u32`). A price above
+ * it, from the 31st demolition of a day, is refused (`Village: price too high`), never charged lower.
+ */
+export const MAX_DEMOLITION_PRICE = 0xffffffff;
 
-/** `demolition_price`: the Cobbles of a demolition after `count` of them that chain day (5, 10, 20, 40...). */
+/**
+ * `demolition_price`: the Cobbles of a demolition after `count` of them that chain day (5, 10, 20, 40...), doubled after
+ * each one with no cap (exact as a number: 5 x 2^k is a float with no rounding).
+ */
 export function demolitionPrice(count: number): number {
-  return DEMOLITION_COBBLES * 2 ** Math.min(Math.max(0, Math.floor(count)), MAX_DOUBLINGS);
+  return DEMOLITION_COBBLES * 2 ** Math.max(0, Math.floor(count));
 }
+
+/** Whether a demolition after `count` of them that day can be paid on chain (`demolitionPrice` within `MAX_DEMOLITION_PRICE`). */
+export const demolitionPayable = (count: number): boolean => demolitionPrice(count) <= MAX_DEMOLITION_PRICE;
 
 /** The 9 cells of the start, as `Village.cells` lists them: rows from the south, west to east. */
 export function startTerritory(): Cell[] {
