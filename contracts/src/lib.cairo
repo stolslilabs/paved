@@ -88,6 +88,7 @@ pub mod systems {
     pub mod story;
     pub mod token;
     pub mod vault;
+    pub mod village;
 }
 
 pub mod structure {
@@ -105,6 +106,7 @@ pub mod structure {
 pub mod mocks {
     pub mod account;
     pub mod drawer;
+    pub mod levels;
     pub mod reentrant_token;
     pub mod router;
     pub mod token;
@@ -135,6 +137,7 @@ pub mod tests {
     pub mod seed;
     pub mod setup;
     pub mod story;
+    pub mod village;
     pub mod vrf;
     pub mod walk_cost;
 }

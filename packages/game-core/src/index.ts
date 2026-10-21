@@ -87,6 +87,13 @@ export {
   gameStats,
   SCORING_CATEGORIES,
   DISCARD_POINTS,
+  VILLAGE_MAX_CELLS,
+  VILLAGE_START_CELLS,
+  VILLAGE_MAX_PARCELS,
+  PARCEL_COBBLES,
+  startTerritory,
+  parcelPrice,
+  parcelLevel,
 } from "./engine";
 export type {
   EngineConfig,
@@ -101,6 +108,7 @@ export type {
   GameStats,
   CategoryStats,
   ScoringCategory,
+  TerritoryCell,
 } from "./engine";
 // The starter's coordinates on chain (the contracts' `CENTER`)
 export { CENTER } from "./engine";

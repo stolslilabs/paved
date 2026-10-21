@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "16";
+export const SCHEMA_VERSION = "17";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -242,6 +242,15 @@ const SCHEMA = `
     UNIQUE (player_id, theme, plan)
   );
   CREATE INDEX IF NOT EXISTS skin_purchases_player ON skin_purchases (player_id, block, tx, idx);
+  -- ParcelPaid (the village, #640): a parcel of a player's village paid, once per (player, parcel), in order (1 to 29); cobbles is
+  -- its price, balance the player's cobbles after it, in the same running ledger as cobble_claims, pack_purchases and skin_purchases.
+  CREATE TABLE IF NOT EXISTS parcel_purchases (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, parcel INTEGER NOT NULL, cobbles INTEGER NOT NULL, balance INTEGER NOT NULL, time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx),
+    UNIQUE (player_id, parcel)
+  );
+  CREATE INDEX IF NOT EXISTS parcel_purchases_player ON parcel_purchases (player_id, block, tx, idx);
   -- SkinsActivated: the player's whole active word after a set_skins (a 0x felt, 66 characters); the last row of a player is its
   -- active set (19 themes, plan 1 first, 0 the default).
   CREATE TABLE IF NOT EXISTS skin_actives (
@@ -882,6 +891,30 @@ export class Store {
             });
             break;
           }
+          case "ParcelPaid": {
+            const player = padded(event.playerId);
+            const what = `ParcelPaid of ${player} (parcel ${event.parcel}) ${where}`;
+            // Village buys a player's parcels one by one: parcel k follows parcel k - 1.
+            const bought = Number((this.sql.parcelCount.get(player) as Row).n);
+            if (event.parcel !== bought + 1) throw new Halt(`${what}: the player has ${bought} parcels before it`);
+            // The running balance is the chain's own: claims, packs, skins and parcels all move it.
+            const expected = this.sql.cobbleBalance(player) - BigInt(event.cobbles);
+            if (expected !== event.balance) {
+              throw new Halt(`${what}: balance ${event.balance}, the ledger before it gives ${expected}`);
+            }
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertParcelPurchase.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              parcel: event.parcel,
+              cobbles: event.cobbles,
+              balance: Number(event.balance),
+              time: block.timestamp,
+            });
+            break;
+          }
           case "SkinsActivated": {
             const player = padded(event.playerId);
             const what = `SkinsActivated of ${player} ${where}`;
@@ -1053,6 +1086,7 @@ export class Store {
       this.sql.rewindCreditSpends.run(to);
       this.sql.rewindSkinActives.run(to);
       this.sql.rewindSkinPurchases.run(to);
+      this.sql.rewindParcelPurchases.run(to);
       this.sql.rewindSkinPrices.run(to);
       this.sql.rewindPackPurchases.run(to);
       this.sql.rewindSales.run(to);
@@ -1098,6 +1132,7 @@ export class Store {
     | "skin_prices"
     | "skin_purchases"
     | "skin_actives"
+    | "parcel_purchases"
     | "events"
     | "blocks",
     Row[]
@@ -1123,6 +1158,7 @@ export class Store {
       skin_prices: all("SELECT * FROM skin_prices ORDER BY block, tx, idx"),
       skin_purchases: all("SELECT * FROM skin_purchases ORDER BY block, tx, idx"),
       skin_actives: all("SELECT * FROM skin_actives ORDER BY block, tx, idx"),
+      parcel_purchases: all("SELECT * FROM parcel_purchases ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1322,13 +1358,18 @@ function statements(db: DatabaseSync) {
       "SELECT cobbles FROM skin_prices WHERE theme = ? AND plan = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
     ),
     skinOwned: db.prepare("SELECT 1 FROM skin_purchases WHERE player_id = ? AND theme = ? AND plan = ?"),
+    insertParcelPurchase: db.prepare(
+      `INSERT INTO parcel_purchases (block, tx, idx, player_id, parcel, cobbles, balance, time)
+       VALUES (:block, :tx, :idx, :player_id, :parcel, :cobbles, :balance, :time)`,
+    ),
+    parcelCount: db.prepare("SELECT count(*) AS n FROM parcel_purchases WHERE player_id = ?"),
     cobbleClaim: db.prepare("SELECT 1 FROM cobble_claims WHERE player_id = ? AND kind = ? AND id = ? AND period = ?"),
     creditClaim: db.prepare("SELECT 1 FROM credit_claims WHERE player_id = ? AND kind = ? AND period = ?"),
     creditSpend: db.prepare("SELECT 1 FROM credit_spends WHERE game_id = ?"),
     freeGame: db.prepare(
       `SELECT player_id FROM games WHERE contract = 'challenge' AND game_id = ? AND price = '${padded(0n)}'`,
     ),
-    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack purchases and skin purchases), 0 / 0 before any.
+    // The player's last running balance (cobbles) and credits: the last row of the ledger (claims, pack, skin and parcel purchases), 0 / 0 before any.
     cobbleBalance: (player: string): bigint => {
       const row = db
         .prepare(
@@ -1338,6 +1379,8 @@ function statements(db: DatabaseSync) {
              SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p
              UNION ALL
              SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p
+             UNION ALL
+             SELECT block, tx, idx, balance FROM parcel_purchases WHERE player_id = :p
            ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
         )
         .get({ p: player }) as { balance: number } | undefined;
@@ -1362,6 +1405,7 @@ function statements(db: DatabaseSync) {
     rewindPackPurchases: db.prepare("DELETE FROM pack_purchases WHERE block > ?"),
     rewindSkinPrices: db.prepare("DELETE FROM skin_prices WHERE block > ?"),
     rewindSkinPurchases: db.prepare("DELETE FROM skin_purchases WHERE block > ?"),
+    rewindParcelPurchases: db.prepare("DELETE FROM parcel_purchases WHERE block > ?"),
     rewindSkinActives: db.prepare("DELETE FROM skin_actives WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),

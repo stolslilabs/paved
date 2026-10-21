@@ -146,6 +146,9 @@ export const ev = {
   skinBought: (player: bigint | number, theme: number, plan: number, cobbles: number, balance: number) =>
     raw("setup", "SkinBought", [player], [theme, plan, cobbles, balance]),
   skinsActivated: (player: bigint | number, active: bigint | number) => raw("setup", "SkinsActivated", [player], [active]),
+  /** The village (#640). `ParcelPaid { player_id; parcel, cobbles, balance }`. */
+  parcelPaid: (player: bigint | number, parcel: number, cobbles: number, balance: number) =>
+    raw("setup", "ParcelPaid", [player], [parcel, cobbles, balance]),
   /** Economy's `Sold { player_id; price, referrer, referral, burned_quote, burned, margin, supply, vault_paved }` (u256 but the referrer). */
   sold: (
     player: bigint | number,

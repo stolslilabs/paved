@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "about": "One village played on the territory rule of #640, replayed by the engine (village.test.ts) and by snforge (contracts/src/tests/village.cairo, test_village_parity). Coordinates relative to the starter; plans by their nine letters, with their chain code; orientations 1 North to 4 West. A step is a parcel bought (`buy`) or a tile placed (`place`); `refusal` is the revert both sides give, else `parcel` (its number) or `points` and `score` after the tile.",
+  "steps": [
+    { "action": "place", "plan": "RFFFRFFFR", "code": 10, "orientation": 1, "x": 1, "y": 0, "points": 0, "score": 0 },
+    { "action": "place", "plan": "SFRFRFRFR", "code": 17, "orientation": 1, "x": -1, "y": 0, "points": 0, "score": 0 },
+    { "action": "place", "plan": "SFRFRFRFR", "code": 17, "orientation": 1, "x": 2, "y": 0, "refusal": "Village: cell not owned" },
+    { "action": "buy", "x": 2, "y": 0, "parcel": 1 },
+    { "action": "place", "plan": "SFRFRFRFR", "code": 17, "orientation": 1, "x": 2, "y": 0, "points": 438, "score": 438 },
+    { "action": "place", "plan": "FFCFFFCFF", "code": 5, "orientation": 1, "x": 0, "y": 1, "points": 419, "score": 857 },
+    { "action": "place", "plan": "WFFFFFFFF", "code": 18, "orientation": 1, "x": 0, "y": -1, "points": 0, "score": 857 },
+    { "action": "buy", "x": 0, "y": 2, "parcel": 2 },
+    { "action": "place", "plan": "FFFFFFCFF", "code": 8, "orientation": 1, "x": 0, "y": 2, "points": 419, "score": 1276 },
+    { "action": "place", "plan": "FFFFFFCFF", "code": 8, "orientation": 3, "x": 1, "y": 1, "points": 0, "score": 1276 },
+    { "action": "place", "plan": "RFRFFFFFR", "code": 13, "orientation": 4, "x": -1, "y": 1, "points": 0, "score": 1276 },
+    { "action": "place", "plan": "FFFFFFCFF", "code": 8, "orientation": 1, "x": 1, "y": -1, "points": 0, "score": 1276 },
+    { "action": "place", "plan": "RFRFFFFFR", "code": 13, "orientation": 1, "x": -1, "y": -1, "points": 0, "score": 1276 },
+    { "action": "buy", "x": 3, "y": 3, "refusal": "Village: not adjacent" },
+    { "action": "buy", "x": 0, "y": 0, "refusal": "Village: cell owned" },
+    { "action": "buy", "x": 0, "y": -2, "parcel": 3 },
+    { "action": "buy", "x": -1, "y": -2, "parcel": 4 },
+    { "action": "buy", "x": 1, "y": -2, "parcel": 5 },
+    { "action": "place", "plan": "FFFFFFCFF", "code": 8, "orientation": 1, "x": 0, "y": -2, "points": 0, "score": 1276 },
+    { "action": "place", "plan": "FFFFFFCFF", "code": 8, "orientation": 1, "x": -1, "y": -2, "points": 0, "score": 1276 },
+    { "action": "place", "plan": "FFFFFFCFF", "code": 8, "orientation": 3, "x": 1, "y": -2, "points": 1319, "score": 2595 },
+    { "action": "place", "plan": "FFFFFFCFF", "code": 8, "orientation": 1, "x": 0, "y": 0, "refusal": "Tile: already exists" },
+    { "action": "buy", "x": 3, "y": 0, "parcel": 6 },
+    { "action": "buy", "x": 4, "y": 0, "parcel": 7 },
+    { "action": "place", "plan": "CCCCCCCCC", "code": 1, "orientation": 1, "x": 3, "y": 0, "refusal": "Tile: cannot place" },
+    { "action": "place", "plan": "SFRFRFRFR", "code": 17, "orientation": 1, "x": 4, "y": 0, "refusal": "Tile: no neighbors" },
+    { "action": "place", "plan": "SFRFRFRFR", "code": 17, "orientation": 1, "x": 3, "y": 0, "points": 209, "score": 2804 }
+  ]
+}

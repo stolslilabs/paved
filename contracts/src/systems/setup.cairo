@@ -648,6 +648,17 @@ pub trait ISetupStory<TContractState> {
     ) -> u32;
 }
 
+/// The village (#640, `docs/architecture/village-territory.md`): the parcels a player buys, paid in
+/// cobbles from this ledger for the `Village` system, an allowlisted reporter.
+#[starknet::interface]
+pub trait ISetupVillage<TContractState> {
+    /// Debits `player_id` the `cobbles` of parcel `parcel` of its village (`'Setup: not enough
+    /// cobbles'` when its balance is short). An allowlisted reporter only (`'Quest: not
+    /// reporter'`); it trusts the reporter for whom, which parcel and its price (`Village` debits
+    /// the buyer, at the price of its curve). Emits `ParcelPaid`; returns the balance after it.
+    fn spend_parcel(ref self: TContractState, player_id: felt252, parcel: u8, cobbles: u32) -> u64;
+}
+
 /// Cobbles v1, part 3 (P-61, `docs/architecture/cobbles-v1.md`, 5): the skins of the tile plans,
 /// priced by the owner, bought with cobbles by the player for itself, and the set the player shows.
 #[starknet::interface]
@@ -698,10 +709,11 @@ pub mod Setup {
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
         CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupPacks, ISetupSkins, ISetupStory,
-        MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, Progress,
-        ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait,
-        QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES,
-        WEEKLY, Wiring, active_themes, bit, list_ids, list_word, schedule_kind, week_of,
+        ISetupVillage, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS,
+        Pack, Progress, ProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles,
+        QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN,
+        STAR_COBBLES, WEEKLY, Wiring, active_themes, bit, list_ids, list_word, schedule_kind,
+        week_of,
     };
 
     // Errors
@@ -873,6 +885,7 @@ pub mod Setup {
         SkinPriced: SkinPriced,
         SkinBought: SkinBought,
         SkinsActivated: SkinsActivated,
+        ParcelPaid: ParcelPaid,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -994,6 +1007,18 @@ pub mod Setup {
         #[key]
         pub player_id: felt252,
         pub active: felt252,
+    }
+
+    /// A parcel of a player's village paid (#640): `parcel` its number (1 to 29), `cobbles` its
+    /// price, `balance` the player's cobbles after it. `Village` emits `ParcelBought` in the same
+    /// transaction.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct ParcelPaid {
+        #[key]
+        pub player_id: felt252,
+        pub parcel: u8,
+        pub cobbles: u32,
+        pub balance: u64,
     }
 
     // Constructor
@@ -1400,6 +1425,23 @@ pub mod Setup {
             }
             self.accounts.write(player_id, account);
             total
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupVillageImpl of ISetupVillage<ContractState> {
+        fn spend_parcel(
+            ref self: ContractState, player_id: felt252, parcel: u8, cobbles: u32,
+        ) -> u64 {
+            // [Check] Caller is a reporter (`Village`), the balance covers the price
+            self.quest.assert_reporter(get_caller_address());
+            let mut account = self.accounts.read(player_id);
+            assert(account.cobbles >= cobbles.into(), errors::NOT_ENOUGH_COBBLES);
+            // [Effect] The cobbles spent
+            account.cobbles -= cobbles.into();
+            self.accounts.write(player_id, account);
+            self.emit(ParcelPaid { player_id, parcel, cobbles, balance: account.cobbles });
+            account.cobbles
         }
     }
 

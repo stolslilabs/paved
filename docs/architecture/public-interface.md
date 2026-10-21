@@ -388,6 +388,16 @@ working.
     of `kind`: 3, a star of a Story level (`id` `(campaign_id << 8) | level_id`, `period` the star, 1 to 3). No event is
     added to `Setup`, no entry point changes signature and none is removed. A client that reads `kind` as 1 or 2 only
     must accept 3; the indexer does since this change.
+- **The village** (#640, `docs/architecture/village-territory.md`; not deployed yet).
+  - A new contract, `Village` (`contracts/abis/Village.json`): `found` and `buy_parcel` (any account, for itself), `place`
+    (the placers the owner allows), `set_setup`, `set_levels` and `set_placer` (owner), the views `village`, `cells`,
+    `tiles`, `is_owned`, `parcel_price`, `parcel_level`, `setup`, `levels` and `is_placer`, and the events
+    `VillageFounded`, `ParcelBought`, `TilePlaced`, `SetupSet`, `LevelsSet` and `PlacerSet`, beside the engine's own
+    (`Scored`).
+  - `Setup` gains the interface `ISetupVillage`, `spend_parcel` (an allowlisted reporter only), and the event
+    `ParcelPaid { #[key] player_id, parcel, cobbles, balance }`, which moves the cobble balance. No entry point changes
+    signature and none is removed. An indexer that keeps the balance must apply `ParcelPaid`; this one does since this
+    change (schema 17, `parcel_purchases`).
 
 ## Breaking change D-18
 

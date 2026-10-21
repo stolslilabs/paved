@@ -32,6 +32,7 @@ import {
   wonderArea,
 } from "./geometry";
 import { Board, type BoardTile } from "./structures";
+import { VILLAGE_MAX_CELLS, startTerritory, type Cell } from "./village";
 
 /** The contracts' `CENTER`: the starter's coordinates on chain, hashed by the reseeds. */
 export const CENTER = 0x7fffffff;
@@ -75,6 +76,12 @@ export interface EngineConfig {
    * against the tile limit.
    */
   readonly placed?: readonly ({ plan: PlanType } & Placement)[];
+  /**
+   * The territory mask (#640): when given, a tile goes on these cells only (`Village: cell not owned`), as `Village.place`
+   * and #643's attack replay rule it. Relative coordinates. A side facing a cell outside it is an empty position, so a
+   * structure that reaches it stays open (no border rule).
+   */
+  readonly territory?: readonly Cell[];
 }
 
 /** The id of the first tile of a story level's `placed`, clear of the ids of the drawn tiles. */
@@ -186,6 +193,8 @@ function formula(count: number, base: number, size: number): number {
   return Number((BigInt(count) * BigInt(base) * BigInt(multiplier(size))) / BONUS_DIVISOR);
 }
 
+const cellKey = (cell: Cell): string => `${cell.x},${cell.y}`;
+
 export class EngineGame {
   readonly deck: EngineDeck;
   readonly player: bigint;
@@ -209,6 +218,8 @@ export class EngineGame {
   private _over = false;
   private held: { id: number; plan: number } | null = null;
   private counters = { structures: 0, forests: 0, wonders: 0, big: 0 };
+  /** The owned cells (`territory`) by key, in order; `null`: no mask. */
+  private _territory: Map<string, Cell> | null = null;
 
   private constructor(config: EngineConfig) {
     this.deck = config.deck;
@@ -226,6 +237,21 @@ export class EngineGame {
       config.tileLimit ?? (config.deck === "story" ? this.sequence.length + 1 : this.rules.count);
     if (this.tileLimit > 255) throw new EngineError("Game: invalid tile limit");
     this._seed = config.seed;
+    if (config.territory) this._territory = new Map(config.territory.map((c) => [cellKey(c), { x: c.x, y: c.y }]));
+  }
+
+  /**
+   * Starts a village as `Village.found` does (#640): the starter at (0, 0), the territory the 3 x 3 around it unless
+   * `territory` is given (a village read from the chain), no deck and no tile in hand. Tiles come by `place`, cells by
+   * `buyParcel`.
+   */
+  static village(config: { readonly player?: bigint; readonly territory?: readonly Cell[] } = {}): EngineGame {
+    return EngineGame.start({
+      deck: "village",
+      seed: 0n,
+      player: config.player,
+      territory: config.territory ?? startTerritory(),
+    });
   }
 
   /**
@@ -243,12 +269,12 @@ export class EngineGame {
       y: 0,
       owner: game.player,
     });
-    game._tiles = game.deck === "story" ? 0n : bit(game.rules.starter);
+    game._tiles = game.deck === "story" || game.deck === "village" ? 0n : bit(game.rules.starter);
     if (game.deck === "simple") {
       game._tiles = withdrawExtra(game._tiles, game._seed, game.rules.total, game.rules.count);
     }
     config.placed?.forEach((tile, index) => game.write({ ...tile, id: PREPLACED_ID + index }));
-    game.draw();
+    if (game.deck !== "village") game.draw();
     return game;
   }
 
@@ -261,6 +287,7 @@ export class EngineGame {
     game._discardedPlans = [...this._discardedPlans];
     game._closings = [...this._closings];
     game.scoredRoots = new Set(this.scoredRoots);
+    game._territory = this._territory ? new Map(this._territory) : null;
     return game;
   }
 
@@ -394,8 +421,8 @@ export class EngineGame {
 
   /**
    * Why a placement of `plan` (the tile in hand by default) is refused, or `null` when it is
-   * legal: the contract's rule, `assert_not_exists` on the position, then `assert_fits` (at least
-   * one side neighbour, and the same category on every facing edge).
+   * legal: the contract's rule, the territory mask when there is one (`Village.place`), `assert_not_exists` on the
+   * position, then `assert_fits` (at least one side neighbour, and the same category on every facing edge).
    */
   refusal(placement: Placement, plan?: PlanType): string | null {
     let code: number;
@@ -407,6 +434,7 @@ export class EngineGame {
       return (error as Error).message;
     }
     if (code === 0) return "Builder: does not exist";
+    if (this._territory && !this._territory.has(cellKey(placement))) return "Village: cell not owned";
     if (this.board.at(placement.x, placement.y)) return "Tile: already exists";
     let found = false;
     let fits = true;
@@ -441,6 +469,7 @@ export class EngineGame {
         const key = `${x},${y}`;
         if (seen.has(key) || this.board.at(x, y)) continue;
         seen.add(key);
+        if (this._territory && !this._territory.has(key)) continue;
         // The neighbours' facing edges, once per cell
         const facing: [number, number][] = [];
         for (const side of [NORTH, EAST, SOUTH, WEST]) {
@@ -456,6 +485,69 @@ export class EngineGame {
       }
     }
     return placements;
+  }
+
+  /** The owned cells, in order (the territory mask), or `null` when the game has none. */
+  territory(): Cell[] | null {
+    return this._territory ? [...this._territory.values()].map((c) => ({ ...c })) : null;
+  }
+
+  /**
+   * Why `Village.buy_parcel` refuses `cell`, or `null`: the territory's rule only (owned, a side neighbour owned, at
+   * most `VILLAGE_MAX_CELLS`), in the contract's order. The level gate and the Cobbles are the chain's
+   * (`parcelPrice`, `parcelLevel`).
+   */
+  parcelRefusal(cell: Cell): string | null {
+    const owned = this._territory;
+    if (!owned) return "Village: no village";
+    if (owned.has(cellKey(cell))) return "Village: cell owned";
+    const adjacent = [NORTH, EAST, SOUTH, WEST].some((d) => {
+      const [x, y] = toward(cell.x, cell.y, d);
+      return owned.has(cellKey({ x, y }));
+    });
+    if (!adjacent) return "Village: not adjacent";
+    if (owned.size >= VILLAGE_MAX_CELLS) return "Village: territory full";
+    return null;
+  }
+
+  /** Adds `cell` to the territory as `Village.buy_parcel` does (its rule, `parcelRefusal`); returns the parcel's number. */
+  buyParcel(cell: Cell): number {
+    const refused = this.parcelRefusal(cell);
+    if (refused) throw new EngineError(refused);
+    const owned = this._territory as Map<string, Cell>;
+    owned.set(cellKey(cell), { x: cell.x, y: cell.y });
+    return owned.size - startTerritory().length;
+  }
+
+  /**
+   * Places a given tile, as `Village.place` does (#640, forced placement): `plan` at `placement`, refused as `refusal`
+   * rules it (the territory mask included), then built and assessed as a move. Village games only; nothing is drawn.
+   */
+  place(plan: PlanType, placement: Placement, owner?: bigint): MoveResult {
+    if (this.deck !== "village") throw new EngineError("Engine: not a village");
+    const refused = this.refusal(placement, plan);
+    if (refused) throw new EngineError(refused);
+    const tile = this.board.place({
+      id: this._tileCount + 1,
+      plan: planCode(plan),
+      orientation: orientationCode(placement.orientation),
+      x: placement.x,
+      y: placement.y,
+      owner: owner ?? this.player,
+    });
+    this._tileCount += 1;
+    const before = this._score;
+    const scored = this.assess(tile);
+    this._built += 1;
+    return {
+      action: "build",
+      tileId: tile.id,
+      plan,
+      scored,
+      points: this._score - before,
+      score: this._score,
+      over: false,
+    };
   }
 
   private assertPlaying(): { id: number; plan: number } {

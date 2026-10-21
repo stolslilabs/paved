@@ -205,6 +205,17 @@ export type Decoded =
       balance: bigint;
     }
   | {
+      /**
+       * A parcel of the player's village paid on Setup's ledger (#640, `Setup.spend_parcel`, run by `Village.buy_parcel`):
+       * `parcel` its number (1 to 29), `cobbles` its price, `balance` the player's cobbles after it.
+       */
+      name: "ParcelPaid";
+      playerId: bigint;
+      parcel: number;
+      cobbles: number;
+      balance: bigint;
+    }
+  | {
       /** The player's active skins after a `set_skins`: the whole packed word and its `SKIN_PLANS` themes, plan 1 first (0: the default). */
       name: "SkinsActivated";
       playerId: bigint;
@@ -259,6 +270,8 @@ export const SKIN_PLANS = 19;
 /** The price of a skin when set, in cobbles (`SKIN_PRICE_MIN` and `SKIN_PRICE_MAX` of `Setup`); 0 withdraws it. */
 export const SKIN_PRICE_MIN = 50;
 export const SKIN_PRICE_MAX = 100;
+/** The most parcels a village buys (`MAX_PARCELS` of `Village`, #640): 38 cells, the 9 of the start included. */
+export const MAX_PARCELS = 29;
 
 /**
  * The themes of a `SkinsActivated` word (`Setup`'s `active_word`): the theme of plan `p` in byte `p - 1`, 19 bytes, plan 1
@@ -311,6 +324,8 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   SkinPriced: ["setup"],
   SkinBought: ["setup"],
   SkinsActivated: ["setup"],
+  // The village (#640): the parcels paid in cobbles.
+  ParcelPaid: ["setup"],
   Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
@@ -404,6 +419,7 @@ const INDEXED: readonly EventName[] = [
   "SkinPriced",
   "SkinBought",
   "SkinsActivated",
+  "ParcelPaid",
   "Sold",
   "Purchased",
   "Recorded",
@@ -752,6 +768,15 @@ export function decode(
         cobbles,
         balance: u64(data[3], "balance"),
       };
+    }
+    case "ParcelPaid": {
+      // key player_id; data parcel (u8), cobbles (u32), balance (u64). A parcel is 1 to 29 (`MAX_PARCELS`), never free.
+      shape(name, keys, data, 1, 3);
+      const parcel = small(data[0], 8, "parcel");
+      if (parcel < 1 || parcel > MAX_PARCELS) throw new DecodeError(`${name}: parcel ${parcel}, expected 1 to ${MAX_PARCELS}`);
+      const cobbles = small(data[1], 32, "cobbles");
+      if (cobbles === 0) throw new DecodeError(`${name}: a parcel of 0 cobbles`);
+      return { name, playerId: felt(keys[1]), parcel, cobbles, balance: u64(data[2], "balance") };
     }
     case "SkinsActivated": {
       // key player_id; data active (felt252): 19 bytes, the theme of plan p in byte p - 1

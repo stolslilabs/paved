@@ -1,13 +1,14 @@
 // The decks of the contracts (`contracts/src/types/deck.cairo`, `elements/decks/{base,simple,tutorial}.cairo`):
 // `simple` is the Challenge's (the 72 cards of the base deck, 38 played), `tutorial` is the scripted one,
-// `story` plays a fixed sequence given at start (no withdrawal, no reseed).
+// `story` plays a fixed sequence given at start (no withdrawal, no reseed), `village` draws nothing: its tiles are
+// given one by one (#640, forced placement).
 
 import { Base } from "../elements/decks/base";
 import { Tutorial } from "../elements/decks/tutorial";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
 
-export type EngineDeck = "simple" | "tutorial" | "story";
+export type EngineDeck = "simple" | "tutorial" | "story" | "village";
 
 export interface DeckRules {
   /** Cards of the deck (`total_count`). */
@@ -44,6 +45,14 @@ export const DECKS: Record<EngineDeck, DeckRules> = {
   story: {
     total: 0,
     count: 0,
+    plan: () => PlanType.None,
+    starter: 0,
+    placement: () => null,
+  },
+  // A village (#640): no cards, the starter and one tile per owned cell at most (38).
+  village: {
+    total: 0,
+    count: 38,
     plan: () => PlanType.None,
     starter: 0,
     placement: () => null,

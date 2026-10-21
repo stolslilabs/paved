@@ -74,6 +74,7 @@ COVERAGE_GROUPS=(
   "tests-owners|paved::tests::owners|"
   "tests-seed|paved::tests::seed|"
   "tests-story|paved::tests::story|"
+  "tests-village|paved::tests::village|"
   "tests-vrf|paved::tests::vrf|"
   "tests-walk-cost|paved::tests::walk_cost|"
   "gas|test_gas_|"

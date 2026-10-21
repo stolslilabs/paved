@@ -421,7 +421,7 @@ export class Queries {
   /** A player's cobbles and credits at `head`; zeros for a player with none. */
   playerCobbles(head: number, playerId: string): Omit<PlayerCobblesAnswer, keyof Envelope> {
     const one = (sql: string) => this.store.statement(sql).get(playerId, head) as Row | undefined;
-    // The running balance is the last row of the claims, the pack purchases and the skin purchases together.
+    // The running balance is the last row of the claims and the pack, skin and parcel purchases together.
     const balance = this.store
       .statement(
         `SELECT balance FROM (
@@ -430,6 +430,8 @@ export class Queries {
            SELECT block, tx, idx, balance FROM pack_purchases WHERE player_id = :p AND block <= :h
            UNION ALL
            SELECT block, tx, idx, balance FROM skin_purchases WHERE player_id = :p AND block <= :h
+           UNION ALL
+           SELECT block, tx, idx, balance FROM parcel_purchases WHERE player_id = :p AND block <= :h
          ) ORDER BY block DESC, tx DESC, idx DESC LIMIT 1`,
       )
       .get({ p: playerId, h: head }) as Row | undefined;
@@ -445,6 +447,9 @@ export class Queries {
     const skins = this.store
       .statement("SELECT count(*) AS n, coalesce(sum(cobbles), 0) AS spent FROM skin_purchases WHERE player_id = ? AND block <= ?")
       .get(playerId, head) as Row;
+    const parcels = this.store
+      .statement("SELECT count(*) AS n, coalesce(sum(cobbles), 0) AS spent FROM parcel_purchases WHERE player_id = ? AND block <= ?")
+      .get(playerId, head) as Row;
     return {
       player_id: playerId,
       cobbles: Number(balance?.balance ?? 0),
@@ -454,6 +459,8 @@ export class Queries {
       achievements_claimed: achievements,
       skins_bought: Number(skins.n),
       skins_spent: Number(skins.spent),
+      parcels_bought: Number(parcels.n),
+      parcels_spent: Number(parcels.spent),
     };
   }
 
