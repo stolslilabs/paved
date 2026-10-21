@@ -25,8 +25,9 @@ export function StatRow({ label, value, icon, hint, tone = "default", className 
   return (
     // The icon, the label and the value share the first row, on the label's first line (`items-start`, every cell one 20 px
     // line high): a label that wraps grows downwards and the icon stays with its first line. The hint hangs under the label.
-    // Label and hint wrap (WRAP360); the value keeps one line.
-    <div className={cn("grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 py-2", !icon && "grid-cols-[minmax(0,1fr)_auto]", className)}>
+    // Label and hint wrap (WRAP360); the value keeps one line while it fits. The label keeps 3rem at least: a very long value (an `Amount`)
+    // puts its symbol under its figure rather than crush the label to a letter a line.
+    <div className={cn("grid grid-cols-[auto_minmax(3rem,1fr)_auto] items-start gap-x-3 py-2", !icon && "grid-cols-[minmax(3rem,1fr)_auto]", className)}>
       {icon && (
         <span className="inline-flex h-5 items-center">
           <Icon name={icon} className="text-primary" size="sm" />
