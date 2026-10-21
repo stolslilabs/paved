@@ -28,7 +28,7 @@ use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDisp
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
-use paved::systems::challenge::{Challenge, IChallengeDispatcher};
+use paved::systems::challenge::Challenge;
 use paved::tests::legacy::record::{chars_of, ref_of};
 use paved::tests::legacy::role::Role;
 use paved::tests::legacy::state::StructuresTrait as LegacyStructures;
@@ -36,7 +36,7 @@ use paved::tests::legacy::store::StoreImpl as LegacyStore;
 use paved::tests::legacy::{IDailyBeforeD18Dispatcher, IDailyBeforeD18DispatcherTrait};
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{
+use paved::tests::setup::setup::{TestChallenge, 
     IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
 };
 use paved::types::category::Category;
@@ -54,6 +54,14 @@ use starknet::{ClassHash, ContractAddress};
 /// Gives `contract` the frozen class of 07aab8a, by its owner's `upgrade`; returns the class it
 /// had (the D-18 class).
 fn install_before_d18(contract: ContractAddress) -> ClassHash {
+    // [Info] The frozen class reads every bit of `GameState` above its counters as counters: game
+    // 1, spawned by the current class, is given the state a class before #645 wrote, no queue
+    let store = TestStoreTrait::new(contract);
+    let mut game = store.game(1);
+    if game.tile_count != 0 {
+        game.queue = 0;
+        store.set_game(game);
+    }
     let current = get_class_hash(contract);
     let frozen = *declare("DailyBeforeD18").unwrap().contract_class().class_hash;
     start_cheat_caller_address(contract, OWNER());
@@ -100,7 +108,7 @@ fn old(
 /// A build of the D-18 class, checked against the oracle.
 fn new(
     store: TestStore,
-    challenge: IChallengeDispatcher,
+    challenge: TestChallenge,
     game_id: u32,
     plan: Plan,
     orientation: Orientation,

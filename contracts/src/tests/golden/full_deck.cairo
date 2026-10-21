@@ -27,7 +27,7 @@ use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
 use paved::structure::{placement, tables};
 use paved::tests::golden::harness::{
-    GoldenMove, GoldenOutcome, day, mv, play_daily, play_daily_checked_lite, spawn_on_the_day_seed,
+    GoldenMove, GoldenOutcome, day, mv, play_daily, play_daily_checked_lite, spawn_golden,
 };
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IChallengeDispatcherTrait, PLAYER, TestStoreTrait};
@@ -172,7 +172,7 @@ fn test_full_deck_generate() {
     snforge_std::start_cheat_block_timestamp_global(day(10));
     let (store, systems, context) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.challenge.contract_address, PLAYER());
-    let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, PLAYER());
+    let game_id = spawn_golden(@systems, PLAYER(), 10);
     let table = edge_table();
     let mut board: Felt252Dict<u8> = Default::default();
     let mut seen: Felt252Dict<bool> = Default::default();

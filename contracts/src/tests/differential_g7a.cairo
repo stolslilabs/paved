@@ -47,7 +47,7 @@ use paved::structure::record::{open_of, ref_of};
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::walk::slot_of;
 use paved::structure::{oriented, tables};
-use paved::tests::golden::harness::{day, spawn_on_the_day_seed};
+use paved::tests::golden::harness::{day, spawn_golden};
 use paved::tests::legacy_g7a::{assess_before_g7a, scan_before_g7a};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IChallengeDispatcherTrait, PLAYER, TestStoreTrait};
@@ -385,7 +385,7 @@ fn bot_game(day_index: u64, dense: bool, moves: u32) -> Stats {
     snforge_std::start_cheat_block_timestamp_global(day(day_index));
     let (store, systems, context) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.challenge.contract_address, PLAYER());
-    let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, PLAYER());
+    let game_id = spawn_golden(@systems, PLAYER(), day_index.try_into().unwrap());
     // [Info] The board by position: the edge word of each tile (never 0)
     let mut board: Felt252Dict<u8> = Default::default();
     let mut frontier: Array<(u32, u32)> = array![];

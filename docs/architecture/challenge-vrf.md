@@ -98,8 +98,9 @@ the same function's answer to the client (section 3).
 A Challenge game spawned by an older class has no queue and no mark. Its first move after the upgrade draws once from
 the VRF, salted with the id of the tile that comes into the hand, and fills the hand and both queue slots from that
 random (section 2.1). It sets the mark, and the game then goes on as a VRF game. Its seed and its deck are kept.
-`initial_seed` keeps answering the token seed for such a game. For a VRF game it answers the stored seed, which is
-the spawn's random.
+`initial_seed` answers the stored seed for a game with the mark: the spawn's random, or, for a game moved to the VRF
+by a move, its seed at that move. For a game without the mark it answers the token seed, as before. The deck sheet
+reads `tiles` (section 3), not the seed.
 
 Since D-27, Sepolia starts again from a fresh deployment, so no live game is expected to take this path. It is kept
 because the upgrade discipline asks for it, and it costs little: it is the spawn's fill, run from a move.

@@ -16,7 +16,7 @@ use paved::models::tile::CENTER;
 use paved::store::PavedStorage;
 use paved::systems::challenge::Challenge::DeadFieldsTrait;
 use paved::systems::challenge::{
-    Challenge, IChallengeDispatcher, IChallengeGuardianDispatcher,
+    Challenge, IChallengeGuardianDispatcher,
     IChallengeGuardianDispatcherTrait,
 };
 use paved::tests::e2e::cold_paths::{
@@ -24,7 +24,7 @@ use paved::tests::e2e::cold_paths::{
 };
 use paved::tests::e2e::quests::define_accepted_list;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
+use paved::tests::setup::setup::{TestChallenge, ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -218,7 +218,7 @@ fn test_daily_pins_the_dead_fields_by_name() {
 // Re-entry: a token that calls back into `Daily` during its spawn
 
 fn reentrant_with_economy() -> (
-    IChallengeDispatcher, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
+    TestChallenge, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
 ) {
     start_cheat_block_timestamp_global(100);
     let (challenge, token, economy, _) = daily_paid_in("ReentrantToken");
@@ -226,9 +226,9 @@ fn reentrant_with_economy() -> (
 }
 
 /// A spawn pays by `transferFrom` after the game is stored; the token calls `spawn` again from
-/// inside it, as the player. The nested spawn succeeds (its transfer is not re-entered: one
-/// re-entry is armed): the player holds two games, each with its own purchase, each paid once, and
-/// the first game is as it was written.
+/// inside it, as the player. Since #645 the nested spawn is refused: it would be a second VRF draw
+/// in the transaction (`'VRF: one draw per tx'`), and the token swallows its revert. The player
+/// holds one game, paid once, as it was written.
 #[test]
 #[available_gas(l2_gas: 48136700)]
 fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
@@ -238,25 +238,22 @@ fn test_daily_reentry_during_spawn_cannot_change_the_game_written() {
     let price: u256 = constants::CHALLENGE_PRICE.into();
     let first = challenge.spawn(1, Zero::zero(), 0);
     let (attempts, reverted) = token.outcome();
-    assert(attempts == 1 && reverted == 0, 'Reentry: nested spawn refused');
+    assert(attempts == 1 && reverted == 1, 'Reentry: nested spawn passed');
+    assert(token.error() == 'VRF: one draw per tx', 'Reentry: nested spawn reason');
     assert(first == 1, 'Reentry: first id');
-    // [Nested game] exists, is the player's, is a Daily game
-    let nested = views.game(2);
-    assert(nested.id == 2 && nested.player_id == PLAYER().into(), 'Reentry: nested game');
-    assert(nested.mode == Mode::Challenge.into() && nested.tile_id != 0, 'Reentry: nested mode');
-    // [First game] unchanged
+    // [First game] as written, the only one
     let game = views.game(1);
     assert(game.id == 1 && game.player_id == PLAYER().into(), 'Reentry: first game');
     assert(game.mode == Mode::Challenge.into() && game.tile_count == 2, 'Reentry: first changed');
     assert(game.tile_id != 0 && !game.over, 'Reentry: first state');
-    // [Terms] one purchase per game; the outer one is the last, on game 1
+    // [Terms] one purchase, on game 1
     let purchase = economy.purchased();
-    assert(purchase.count == 2, 'Reentry: two purchases');
+    assert(purchase.count == 1, 'Reentry: one purchase');
     assert(purchase.game_id == 1 && purchase.player == PLAYER(), 'Reentry: purchase game');
     assert(purchase.price == price, 'Reentry: purchase price');
-    // [Paid] exactly twice the price, all of it to Economy
+    // [Paid] exactly the price, all of it to Economy
     let (paid, recipient) = token.paid();
-    assert(paid == 2 * price, 'Reentry: paid twice');
+    assert(paid == price, 'Reentry: paid once');
     assert(recipient == economy.contract_address, 'Reentry: paid to economy');
 }
 

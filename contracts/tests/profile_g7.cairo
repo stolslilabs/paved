@@ -74,41 +74,10 @@ struct Scenario {
     player_id: felt252,
 }
 
-/// The day seed of `gas.cairo` (`DaySeed`): the seed its ceilings were measured with.
-#[derive(Copy, Drop)]
-struct DaySeed {}
-
-impl DaySeedImpl of SeedSource<DaySeed> {
-    fn seed(self: @DaySeed, mode: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
-        match mode {
-            Mode::Challenge => PoseidonTrait::new()
-                .update(salt)
-                .update((time / constants::CHALLENGE_DURATION).into())
-                .finalize(),
-            _ => 0,
-        }
-    }
-}
-
-/// `gas.cairo`'s `ScenarioTrait::new`: a paid game of `PLAYER` on the day seed.
+/// `gas.cairo`'s `ScenarioTrait::new`: a paid game of `PLAYER` on the VRF mock (#645).
 fn scenario() -> Scenario {
     let (store, systems, context) = setup::spawn_game(Mode::None);
-    let challenge = systems.challenge.contract_address;
-    start_cheat_caller_address(test_address(), PLAYER());
-    for callee in array![
-        context.token.contract_address, systems.economy.contract_address,
-        systems.collection.contract_address,
-    ] {
-        cheat_caller_address(callee, challenge, CheatSpan::TargetCalls(1));
-    }
-    let game_id = interact_with_state(
-        challenge,
-        || {
-            let mut state = Challenge::contract_state_for_testing();
-            state.spawn_from(@DaySeed {}, 1, Zero::zero(), 0)
-        },
-    );
-    stop_cheat_caller_address(test_address());
+    let game_id = systems.challenge.spawn(1, Zero::zero(), 0);
     Scenario { systems, store, game_id, player_id: context.player_id }
 }
 

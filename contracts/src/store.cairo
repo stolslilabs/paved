@@ -29,11 +29,14 @@ const TWO_POW_72: u128 = 0x1000000000000000000;
 const TWO_POW_88: u128 = 0x10000000000000000000000;
 const TWO_POW_96: u128 = 0x1000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
+const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
 const TWO_POW_88_FELT: felt252 = 0x10000000000000000000000;
 const MASK_1: u128 = 0x1;
 const MASK_8: u128 = 0xff;
+const MASK_11: u128 = 0x7ff;
 const MASK_16: u128 = 0xffff;
+const MASK_24: u128 = 0xffffff;
 const MASK_32: u128 = 0xffffffff;
 const MASK_64: u128 = 0xffffffffffffffff;
 
@@ -175,9 +178,10 @@ pub impl StoreImpl of StoreTrait {
             mode: (c.low & MASK_8).try_into().unwrap(),
             day_id: 0,
             tile_limit: ((c.low / TWO_POW_72) & MASK_16).try_into().unwrap(),
-            // [Info] Nothing is above the counters and the free mark: the quotient is the 23
-            // counter bits and the free mark above them (bit 23, `FREE_GAME`)
-            counts: (s.high / TWO_POW_88).try_into().unwrap(),
+            // [Info] The 23 counter bits and the free mark above them (bit 23, `FREE_GAME`)
+            counts: ((s.high / TWO_POW_88) & MASK_24).try_into().unwrap(),
+            // [Info] Above them, the queue (#645): free in every slot written before, so 0 there
+            queue: ((s.high / TWO_POW_112) & MASK_11).try_into().unwrap(),
         }
     }
 
@@ -305,7 +309,9 @@ pub impl StoreImpl of StoreTrait {
     }
 
     /// `GameState`: the seed and the hot fields, rewritten by every action. Bits 72 to 88 of the
-    /// high half held the roles placed before D-18: dead, written 0.
+    /// high half held the roles placed before D-18: dead, written 0. Bits 112 to 123 hold the
+    /// queue (#645, `Game.queue`), so the high half stays below 2^123 and the slot under the
+    /// felt's bound.
     fn set_game_state(self: Store, game: Game) {
         let over: u128 = if game.over {
             1
@@ -318,7 +324,8 @@ pub impl StoreImpl of StoreTrait {
             + game.built.into() * TWO_POW_48
             + over * TWO_POW_56
             + game.held_tile.into() * TWO_POW_64
-            + game.counts.into() * TWO_POW_88;
+            + game.counts.into() * TWO_POW_88
+            + game.queue.into() * TWO_POW_112;
         let slots = Slots2 { a: game.seed, b: game.tiles.into() + high.into() * TWO_POW_128 };
         storage().game_states.entry(game.id).write(slots);
     }
@@ -333,7 +340,7 @@ pub impl StoreImpl of StoreTrait {
     fn set_builder(self: Store, builder: Builder) {
         let state = storage().game_states.entry(builder.game_id).read();
         let s: u256 = state.b.into();
-        // [Info] The counters (bit 88 up) are kept
+        // [Info] The counters and the queue (bit 88 up) are kept
         let kept: u128 = (s.high & (TWO_POW_64 - 1)) + (s.high / TWO_POW_88) * TWO_POW_88;
         let high: u128 = kept + builder.tile_id.into() * TWO_POW_64;
         storage()

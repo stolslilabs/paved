@@ -36,11 +36,11 @@ use paved::models::game::GameTrait;
 use paved::models::index::Tile;
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
-use paved::systems::challenge::{Challenge, IChallengeDispatcher};
+use paved::systems::challenge::Challenge;
 use paved::tests::oracle::check;
 use paved::tests::oracle::forest::ForestCount;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IChallengeDispatcherTrait, TestStore, TestStoreTrait};
+use paved::tests::setup::setup::{TestChallenge, IChallengeDispatcherTrait, TestStore, TestStoreTrait};
 use paved::types::category::Category;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -54,7 +54,7 @@ use snforge_std::{
 /// what the move scored against the oracle.
 fn put(
     store: TestStore,
-    challenge: IChallengeDispatcher,
+    challenge: TestChallenge,
     game_id: u32,
     player_id: felt252,
     plan: Plan,
@@ -131,7 +131,7 @@ fn count_scored(ref spy: EventSpy, category: Category) -> u32 {
 /// corner). Facing South the curve joins its east and south edges, facing West its west and
 /// south, North its north and west, East its north and east: the four roads make one closed loop
 /// under the starter, and the four corners inside make the forest of 4 tiles.
-fn ring(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252, closing: bool) {
+fn ring(store: TestStore, challenge: TestChallenge, g: u32, p: felt252, closing: bool) {
     put(store, challenge, g, p, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
     put(store, challenge, g, p, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
     put(store, challenge, g, p, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
@@ -144,7 +144,7 @@ fn ring(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252, c
 /// corner forest between two roads) in a 2x2 block east of the starter. The corner of each tile
 /// that faces the middle of the block belongs to the forest of 4 tiles; the 4 roads between the
 /// tiles of the block are closed (each runs from a stop to a stop).
-fn crossings(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252, closing: bool) {
+fn crossings(store: TestStore, challenge: TestChallenge, g: u32, p: felt252, closing: bool) {
     put(store, challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER);
     put(store, challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER);
     put(store, challenge, g, p, Plan::SFRFRFRFR, Orientation::North, CENTER + 1, CENTER - 1);
@@ -156,7 +156,7 @@ fn crossings(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt2
 /// Sandwich: a straight road east of the starter, and another one above it. The forest between
 /// them has 2 tiles; its ends look at empty positions (east of both tiles, west of the upper one),
 /// and both roads next to it are open at both ends.
-fn sandwich(store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252) {
+fn sandwich(store: TestStore, challenge: TestChallenge, g: u32, p: felt252) {
     put(store, challenge, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     put(store, challenge, g, p, Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER + 1);
 }
@@ -178,7 +178,7 @@ enum Top {
 /// is closed to the south by a city cap (a copy of the starter, east of it) that is built before,
 /// when `top` is not `Open`.
 fn corridors(
-    store: TestStore, challenge: IChallengeDispatcher, g: u32, p: felt252, top: Top, closing: bool,
+    store: TestStore, challenge: TestChallenge, g: u32, p: felt252, top: Top, closing: bool,
 ) {
     put(store, challenge, g, p, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
     if top == Top::Caps {

@@ -34,8 +34,7 @@ use paved::constants::{self, CENTER};
 use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
-use paved::systems::challenge::Challenge;
-use paved::systems::challenge::Challenge::InternalTrait;
+use paved::systems::challenge::IChallengeDispatcherTrait as ChallengeDispatcherTrait;
 use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::setup::{
     ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcherTrait,
@@ -57,7 +56,7 @@ use snforge_std::{
 use starknet::ContractAddress;
 use crate::setup::setup;
 use crate::setup::setup::{
-    ANYONE, IChallengeDispatcherTrait, OWNER, PAVED, PLAYER, Systems, TestStore, TestStoreTrait,
+    ANYONE, IChallengeDispatcherTrait, OWNER, PAVED, PLAYER, Systems, TestStore, TestStoreTrait, next_tx,
 };
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
@@ -149,14 +148,13 @@ struct Scenario {
 
 #[generate_trait]
 impl ScenarioImpl of ScenarioTrait {
-    /// A Challenge game of `PLAYER` on the seed the ceilings were measured with: the day seed of
-    /// the spawn's time, Poseidon(0, day id), which D-23 replaced by the token's (`DaySeed`). The
-    /// plans are forced, but the draw that follows each build reads the seed, and its cost moves
-    /// with it (scenario a: 6,551,754 on Poseidon(0, game id), the token seed before the contract
-    /// address joined it, 5,129,292 on the day seed).
+    /// A Challenge game of `PLAYER`, spawned on the VRF mock (#645): the plans are forced, and
+    /// each build that leaves a tile to queue draws it from the mock (`MockVrfProvider`), which the
+    /// figures below include. Before #645 the game spawned on the day seed (`DaySeed`, removed),
+    /// whose draws read the seed.
     fn new() -> Scenario {
         let (store, systems, context) = setup::spawn_game(Mode::None);
-        let game_id = spawn_on_the_day_seed(@systems, context.token.contract_address, PLAYER());
+        let game_id = systems.challenge.spawn(1, Zero::zero(), 0);
         Scenario { systems, store, game_id, player_id: context.player_id }
     }
 
@@ -169,8 +167,10 @@ impl ScenarioImpl of ScenarioTrait {
         tile.plan = plan.into();
         self.store.set_tile(tile);
 
+        // [Info] A transaction of its own (`setup::next_tx`), outside the measure
+        next_tx();
         let before = get_available_gas();
-        self.systems.challenge.build(*self.game_id, orientation, x, y);
+        self.systems.challenge.dispatcher().build(*self.game_id, orientation, x, y);
         let after = get_available_gas();
         before - after
     }
@@ -181,47 +181,6 @@ impl ScenarioImpl of ScenarioTrait {
     }
 }
 
-/// The seed of a Challenge game before D-23: Poseidon of the salt and the day id.
-#[derive(Copy, Drop)]
-struct DaySeed {}
-
-impl DaySeedImpl of SeedSource<DaySeed> {
-    fn seed(self: @DaySeed, mode: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
-        // As the removed `Mode::seed`, and `src/tests/seed.cairo`'s copy: 0 for any other mode
-        match mode {
-            Mode::Challenge => PoseidonTrait::new()
-                .update(salt)
-                .update((time / constants::CHALLENGE_DURATION).into())
-                .finalize(),
-            _ => 0,
-        }
-    }
-}
-
-/// Spawns a paid Challenge game (stake 1, no referrer) for `player` through `Challenge`'s own path
-/// (`spawn_from`) with `DaySeed`, as `src/tests/golden/harness.cairo` does: the path runs in
-/// Challenge's state, so its caller is cheated on the test's address, and USDC, `Economy` and
-/// `Collection` are told, for one call each, that Challenge calls them.
-fn spawn_on_the_day_seed(
-    systems: @Systems, token: ContractAddress, player: ContractAddress,
-) -> u32 {
-    let challenge = *systems.challenge.contract_address;
-    start_cheat_caller_address(test_address(), player);
-    for callee in array![
-        token, *systems.economy.contract_address, *systems.collection.contract_address,
-    ] {
-        cheat_caller_address(callee, challenge, CheatSpan::TargetCalls(1));
-    }
-    let game_id = interact_with_state(
-        challenge,
-        || {
-            let mut state = Challenge::contract_state_for_testing();
-            state.spawn_from(@DaySeed {}, 1, Zero::zero(), 0)
-        },
-    );
-    stop_cheat_caller_address(test_address());
-    game_id
-}
 
 fn report(name: ByteArray, gas: u128, ceiling: u128) {
     println!("GAS {}: {}", name, gas);

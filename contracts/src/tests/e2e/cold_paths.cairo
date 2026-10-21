@@ -11,11 +11,11 @@ use paved::models::game::GameImpl;
 use paved::models::tile::CENTER;
 use paved::quests::{achievement_entries, quest_entries, tally};
 use paved::systems::challenge::{
-    IChallengeDispatcher, IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait,
+    IChallengeSafeDispatcher, IChallengeSafeDispatcherTrait,
 };
 use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
 use paved::systems::setup::Wiring;
-use paved::tests::setup::setup::{
+use paved::tests::setup::setup::{TestChallenge, set_mock_vrf, 
     ANYONE, IChallengeDispatcherTrait, OWNER, PLAYER, TestStore, TestStoreTrait,
 };
 use paved::types::orientation::Orientation;
@@ -303,7 +303,7 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 /// `Setup` (which serves the wiring), with PLAYER calling `Daily`.
 #[derive(Copy, Drop)]
 pub struct Spied {
-    pub challenge: IChallengeDispatcher,
+    pub challenge: TestChallenge,
     pub token: ISpyTokenDispatcher,
     pub economy: ISpyEconomyDispatcher,
     pub setup: ISpySetupDispatcher,
@@ -326,12 +326,13 @@ pub fn spied_daily() -> Spied {
 /// The same `Daily`, paid in the token contract called `token_name` (no constructor arguments).
 pub fn daily_paid_in(
     token_name: ByteArray,
-) -> (IChallengeDispatcher, ContractAddress, ISpyEconomyDispatcher, ISpySetupDispatcher) {
+) -> (TestChallenge, ContractAddress, ISpyEconomyDispatcher, ISpySetupDispatcher) {
     let owner: felt252 = OWNER().into();
     let token = deploy(token_name, array![]);
     let economy = deploy("SpyEconomy", array![]);
     let setup = deploy("SpySetup", array![]);
     let challenge = deploy("Challenge", array![owner, token.into(), setup.into()]);
+    set_mock_vrf(challenge);
     ISpyEconomyDispatcher { contract_address: economy }.watch_setup(setup);
     let collection = deploy("Collection", array![owner]);
     ISpySetupDispatcher { contract_address: setup }.wire(economy, collection);
@@ -340,7 +341,7 @@ pub fn daily_paid_in(
     stop_cheat_caller_address(collection);
     start_cheat_caller_address(challenge, PLAYER());
     (
-        IChallengeDispatcher { contract_address: challenge },
+        TestChallenge { contract_address: challenge },
         token,
         ISpyEconomyDispatcher { contract_address: economy },
         ISpySetupDispatcher { contract_address: setup },
