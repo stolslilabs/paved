@@ -882,3 +882,27 @@ an active skin away.
 the top plan id and the widest word, the values the contract refuses), `skins.test.ts` (the prices; a buy moves the balance in
 the one ledger; the owned and active sets; activate, then re-activate in a batch; the halts; a reorg), `indexer.test.ts` (schema 16).
 The devnet scenario is `test/devnet/skins.test.ts` (`bun run test:devnet`, one Cairo build).
+
+## As built (IX-XP, XP-LEVEL #641: the player's XP and level)
+
+`xp-level.md` adds `Setup.credit_xp`, the view `player_level` and the event `XpGained`, emitted by every game over, every Story
+star credit and every PvP credit. Schema version 18 (`rebuild` on an older database).
+
+**Event** (from `Setup`)
+
+| Event | Keys, then data | Indexed as |
+|---|---|---|
+| `XpGained` | `player_id`; `source`, `xp`, `total`, `level` | `xp_gains` |
+
+The decoder refuses what the contract never emits: a `source` outside 1 to 4, a `total` above `MAX_XP` (2^27 - 1) or below its `xp`,
+and a `level` that is not the curve's level of `total` (`levelOf`, the mirror of `Setup`'s `level_of`).
+
+**Table.** `xp_gains (player_id, source, xp, total, level)`, one row per event at its chain position; a rewind is a delete by block.
+The last row of a player is its XP and level.
+
+**Halt.** An `XpGained` whose `total` is not the player's last `total` (0 before the first) plus its `xp`.
+
+**API.** `GET /v1/players/{player_id}/cobbles` appends `xp` and `level` (0 and 1 for a player with none).
+
+**Tests.** `xp.test.ts` (the curve against `Setup`'s table and every floor to the ceiling, the running total, the route, the
+ceiling, the halt, the decoder's refusals, a reorg), `indexer.test.ts` (schema 18).

@@ -17,7 +17,7 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const wallet = useAccount();
   const address = wallet.address;
   const status = usePlayerStatus(address);
-  // The level and XP of the ring (#625): level 1 and 0 XP for everyone until the contracts define XP.
+  // The level and XP of the ring (#625): `Setup.player_level` (#641).
   const progress = usePlayerProgress(address);
   const state = useMemo<ProfileState>(() => {
     if (wallet.status === "restoring") return { status: "loading" };

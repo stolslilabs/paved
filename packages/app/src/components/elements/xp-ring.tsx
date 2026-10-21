@@ -10,16 +10,20 @@ export interface PlayerProgress {
   level: number;
   xp: number;
   xpForNext: number;
+  /** The player's whole XP, when the source knows it (`Setup.player_level`, issue 641): what a gain across levels is measured on. */
+  total?: number;
 }
 
 /** The share of the current level the ring draws, from 0 to 1. */
 export const levelShare = ({ xp, xpForNext }: PlayerProgress): number => (xpForNext > 0 ? Math.min(1, Math.max(0, xp / xpForNext)) : 0);
 
 /**
- * The XP made between two readings, for the "+N XP": 0 when nothing was gained (a drop is not animated). Across levels: the
- * rest of the first, each full level passed (at the new threshold: the ring knows no curve) and the new level's XP.
+ * The XP made between two readings, for the "+N XP": 0 when nothing was gained (a drop is not animated). With both totals, their
+ * difference: the levels passed cost what the curve says, which the ring does not know. Without them, across levels: the rest
+ * of the first, each full level passed (at the new threshold) and the new level's XP.
  */
 export function xpGained(from: PlayerProgress, to: PlayerProgress): number {
+  if (from.total !== undefined && to.total !== undefined) return Math.max(0, to.total - from.total);
   if (to.level < from.level) return 0;
   if (to.level === from.level) return Math.max(0, to.xp - from.xp);
   return Math.max(0, from.xpForNext - from.xp) + (to.level - from.level - 1) * to.xpForNext + to.xp;
@@ -74,6 +78,7 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
   const lv = progress?.level;
   const xp = progress?.xp;
   const next = progress?.xpForNext;
+  const total = progress?.total;
   useEffect(() => {
     if (lv === undefined || xp === undefined || next === undefined) {
       // Read again: the empty track, and the next reading is drawn as it is (no gain from a stale one).
@@ -81,7 +86,7 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
       share.jump(0);
       return;
     }
-    const to = { level: lv, xp, xpForNext: next };
+    const to = { level: lv, xp, xpForNext: next, total };
     const from = last.current;
     last.current = to;
     const target = levelShare(to);
@@ -111,7 +116,7 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
       stopped = true;
       run.stop();
     };
-  }, [lv, xp, next, reduced, share]);
+  }, [lv, xp, next, total, reduced, share]);
 
   return (
     <span data-slot="xp-ring" aria-hidden className={cn("pointer-events-none absolute inset-0", className)}>

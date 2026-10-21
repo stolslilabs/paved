@@ -146,4 +146,5 @@ pub mod tests {
     pub mod story;
     pub mod vrf;
     pub mod walk_cost;
+    pub mod xp_level;
 }
