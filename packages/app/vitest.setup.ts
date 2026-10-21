@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, configure } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterAll, afterEach } from "vitest";
 import { toast } from "sonner";
 import { queryClient } from "./src/lib/query-client";
 
@@ -10,6 +10,14 @@ import { queryClient } from "./src/lib/query-client";
 afterEach(() => {
   toast.dismiss();
   cleanup();
+});
+
+// TanStack Query hands its notifications to React on a `setTimeout(0)` (`notifyManager`): one scheduled by the last test of a
+// file (a read that answered as it ended) ran after jsdom was torn down and threw "window is not defined" from React (CI, once,
+// in referral-route). After the last cleanup, the file waits one macrotask so such a flush runs while `window` still exists.
+afterAll(async () => {
+  queryClient.clear();
+  await new Promise((resolve) => setTimeout(resolve, 0));
 });
 
 // jsdom lacks what Radix reads for sizing, pointer capture and scrolling: inert stand-ins, the real thing is the browser's.

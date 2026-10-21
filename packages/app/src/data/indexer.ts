@@ -1,6 +1,6 @@
 import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import type { Definitions, IndexedGame, PlayerAchievements, PlayerProfile, PlayerQuests } from "@paved/chain";
-import type { PlayerStatusData } from "../components/containers/player-status";
+import type { PlayerStatusData } from "../components/containers/profile-sheet";
 import type { ScheduledQuests } from "../lib/quest-window";
 import { queryKeys } from "./keys";
 import { useDataSources } from "./sources";

@@ -144,11 +144,17 @@ export function autoQuality(): QualityTier {
 }
 
 /**
- * What the board takes of the settings: the renderer's settings (quality, the day and night cycle and the ambient effects, memoised so a change
+ * The fog of war on every board (FOG-EVERYWHERE, #648; the owner's choice of #633): the renderer's fog, the landscape beyond a
+ * soft edge, every corner rounded. It stays on at every tier, still where the ambient effects cannot move it.
+ */
+export const BOARD_FOG = { enabled: true } as const;
+
+/**
+ * What the board takes of the settings: the renderer's settings (quality, the day and night cycle, the ambient effects, the fog, memoised so a change
  * applies and a render does not), and the two board switches.
  */
 export function useBoardSettings(): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean } {
   const [{ quality, dayNight, ambient, tilePreview, placementHighlight }] = useDeviceSettings();
-  const renderer = useMemo<RendererSettingsInput>(() => ({ quality, dayNight: { enabled: dayNight }, ambient: { enabled: ambient } }), [quality, dayNight, ambient]);
+  const renderer = useMemo<RendererSettingsInput>(() => ({ quality, dayNight: { enabled: dayNight }, ambient: { enabled: ambient }, fog: BOARD_FOG }), [quality, dayNight, ambient]);
   return { renderer, tilePreview, placementHighlight };
 }

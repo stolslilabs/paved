@@ -443,6 +443,13 @@ working.
     of `kind`: 3, a star of a Story level (`id` `(campaign_id << 8) | level_id`, `period` the star, 1 to 3). No event is
     added to `Setup`, no entry point changes signature and none is removed. A client that reads `kind` as 1 or 2 only
     must accept 3; the indexer does since this change.
+- **XP-LEVEL** (#641, `docs/architecture/xp-level.md`; below, "XP-LEVEL: the player's XP and level (`Setup`)").
+  - `Setup` gains the interface `ISetupLevel`: `credit_xp` (an allowlisted reporter only) and the view `player_level`, and the
+    event `XpGained`. `report` and `credit_story` emit it too. **The `account` view changes shape**: `Account` gains a last
+    field, `xp: u32`, so a client that decodes `Account` by its ABI must take the new ABI (`@paved/chain` does). No entry point
+    changes signature and none is removed.
+  - An indexer that refuses unknown selectors must know `XpGained` before the contracts that emit it are indexed: every game
+    over emits one.
 
 ## Breaking change D-18
 
@@ -1271,3 +1278,34 @@ Events of `Setup` (flat variants: the selector is the name):
   variant of a plan's art a tile shows is the client's choice, deterministic per tile, with nothing on chain.
 - Theme 1 is Forest; the fresh deployment prices its 19 plans (`FRESH_SKIN_THEMES` in `deploy.sh`). A theme with no `SkinPriced`
   sells nothing.
+
+## XP-LEVEL: the player's XP and level (`Setup`)
+
+Built from `docs/architecture/xp-level.md` (#641). The XP is a count per account in `Setup`'s `accounts` slot (bits `[224, 251)`),
+saturating at `MAX_XP` (2^27 - 1); the level is computed from it (`level_of`), never stored. Only allowlisted reporters credit XP:
+`report` (`Challenge`, `GAME_XP` per game over), `credit_story` (`Story`, `STAR_XP` per star paid) and `credit_xp` (PvP, #643).
+
+### `Setup` (`paved::systems::setup::ISetupLevel`, impl `SetupLevelImpl`)
+
+| Entry point | Who | What | Errors |
+|---|---|---|---|
+| `credit_xp(player_id: felt252, source: u8, xp: u32)` | an allowlisted reporter | adds `xp` (1 to `MAX_CREDIT_XP`, 100) to the player's XP, saturating; `source` 3 a PvP attack or 4 a PvP defence | `'Quest: not reporter'`, `'Setup: invalid xp source'` (not 3 or 4), `'Setup: invalid xp'` (0 or above 100) |
+| `player_level(player_id: felt252) -> PlayerLevel` (view) | anyone | `{ xp: u32, level: u16, floor: u32, next: u32 }`: the XP, its level (1 at 0 XP), the XP at which the level starts and the next one starts | |
+
+`account(player_id) -> Account` returns `xp: u32` as its last field. The curve: level `L` starts at `LEVEL_STEP x L (L - 1) / 2`
+XP, `LEVEL_STEP` 100 (`level_floor`); the pure functions `level_of(xp: u32) -> u16` and `level_floor(level: u16) -> u64` are public in
+`paved::systems::setup` for any system that holds an XP value.
+
+Events of `Setup` (flat variant: the selector is the name):
+
+| Event | Keys | Data |
+|---|---|---|
+| `XpGained` | `player_id: felt252` | `source: u8` (1 a Challenge game over, 2 Story stars, 3 a PvP attack, 4 a PvP defence), `xp: u32` (added; 0 at the ceiling), `total: u32`, `level: u16` (the player's after it) |
+
+**For the indexer and the client.**
+
+- One `XpGained` per credit: one per game over reported (task 1 in the achievement entries), one per `credit_story` call (all its
+  stars together), one per `credit_xp`. A game over that reports no achievement entry of task 1 credits nothing and emits nothing.
+- `total` is the running XP: each event's `total` is the previous one's plus its `xp`. The last event of a player is its XP and level.
+- `Account` read from storage written before XP-LEVEL reads `xp` 0: no migration.
+

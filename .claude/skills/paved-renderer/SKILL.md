@@ -41,6 +41,15 @@ with `docs/`, `scripts/` or `packages/`.
   brightness (no glare, shimmer or shafts: the owner removed every glow, 2026-10-20). The snow on the tops is a term of the tile
   shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`): a veil (`winter.veil`) in rounded patches from a noise read at the
   fragment's place, never per voxel or cell. `GameScene.getWeather()` gives its stats (`Renderer/Weather` stories, the bench).
+- The **fog of war** (FOG-STUDY #633, wired by FOG-EVERYWHERE #648: `core/fog-of-war.ts`, reveal logic and settings in
+  `core/fog-of-war-settings.ts`, `RendererSettings.fog`) is on every board the app draws: `GameScene.setFogReveal` (from
+  `GameCanvas`'s `fogReveal`, set by `BoardViewport`: the tiles and their free slots, or `fogOwned`'s owned cells and their
+  neighbours in a village or an attack) loads its chunk the first time it shows, adds `FogOfWar.object` to the board's group and
+  registers it on `scene.ambient`; its mode is `fogMode` ("still" on Low, with the effects off and under reduced motion: no drift,
+  a cell lifts at once; it stays on at every tier). The owner's look is `LANDSCAPE_FOG` (falloff 2.5, billow 0.7, the landscape).
+  One field texture (the signed distance to the clear cells, blurred so every corner is round: `cornerRadius`) drives the floor,
+  the mist, the landscape's ground and its instanced props: one draw each, no per-cell draw. A lift rebuilds only the part of the
+  field its cells reach.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel

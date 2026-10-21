@@ -16,6 +16,8 @@ export const queryKeys = {
     spawnPaused: () => ["chain", "spawnPaused"] as const,
     /** `currentDay()`: the day the Challenge is on (home's top 3). */
     currentDay: () => ["chain", "currentDay"] as const,
+    /** `Setup.player_level(player)`: the XP and level of the ring (#641). */
+    playerLevel: (playerId: string) => ["chain", "playerLevel", addressKey(playerId)] as const,
     /** `Setup.tutorial_claimed(player)`. */
     tutorialClaimed: (playerId: string) => ["chain", "tutorialClaimed", addressKey(playerId)] as const,
     entryPrice: () => ["chain", "entryPrice"] as const,

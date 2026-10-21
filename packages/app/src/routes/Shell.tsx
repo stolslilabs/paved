@@ -7,6 +7,7 @@ import { deviceSettings, useDeviceSettings, withVolume } from "../data/settings"
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { useRoutePage } from "./handle";
 import { BalancesHost } from "./balances-host";
+import { ProfileHost } from "./profile-host";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
 import { StaleChunkGate } from "./stale-chunk-gate";
@@ -41,16 +42,18 @@ export function RootLayout() {
       <MockMarkProvider value={MOCKED && page !== null && MOCKED_PAGES.has(page.path)}>
         <HistoryTracker>
           <StaleChunkGate />
-          {/* A board shows no balances: it reads none (a board is the heaviest page, and its tests the most timing-bound). */}
+          {/* A board shows no balances and no avatar: it reads neither (a board is the heaviest page, and its tests the most timing-bound). */}
           {onBoard ? (
             <Suspense fallback={bootScreen}>
               <Outlet />
             </Suspense>
           ) : (
             <BalancesHost>
-              <Suspense fallback={bootScreen}>
-                <Outlet />
-              </Suspense>
+              <ProfileHost>
+                <Suspense fallback={bootScreen}>
+                  <Outlet />
+                </Suspense>
+              </ProfileHost>
             </BalancesHost>
           )}
         </HistoryTracker>

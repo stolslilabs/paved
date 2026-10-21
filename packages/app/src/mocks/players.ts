@@ -1,4 +1,5 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
+import type { PlayerProgress } from "../components/elements/xp-ring";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 
 /** The viewer of every mock: a controller account. */
@@ -17,3 +18,12 @@ export const PLAYER_STATS: PlayerStats = {
 
 /** Today's tournament: the UTC day of the mocks' clock (`timestamp / 86400`, the day id the contracts count from). */
 export const TODAY = Math.floor(MOCK_NOW / DAY);
+
+/** The XP ring's states (#625); the app shows `start` for everyone until the contracts define XP. */
+export const PROGRESS = {
+  start: { level: 1, xp: 0, xpForNext: 100 },
+  partWay: { level: 3, xp: 120, xpForNext: 300 },
+  nearlyFull: { level: 7, xp: 470, xpForNext: 500 },
+  /** WRAP360: a level and a threshold in the thousands. */
+  stress: { level: 1_234, xp: 98_765, xpForNext: 123_456 },
+} satisfies Record<string, PlayerProgress>;

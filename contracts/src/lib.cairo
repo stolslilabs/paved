@@ -64,6 +64,12 @@ pub mod helpers {
     pub mod random_deck;
 }
 
+pub mod matchmaker {
+    pub mod crowns;
+    pub mod pool;
+    pub mod village;
+}
+
 pub mod models {
     pub mod builder;
     pub mod game;
@@ -84,6 +90,7 @@ pub mod systems {
     pub mod collection;
     pub mod economy;
     pub mod faucet;
+    pub mod matchmaker;
     pub mod setup;
     pub mod story;
     pub mod token;
@@ -131,6 +138,8 @@ pub mod tests {
     pub mod legacy_g1;
     pub mod legacy_g5;
     pub mod legacy_g7a;
+    pub mod matchmaker;
+    pub mod matchmaker_system;
     pub mod oracle;
     pub mod owners;
     pub mod seed;
@@ -138,4 +147,5 @@ pub mod tests {
     pub mod story;
     pub mod vrf;
     pub mod walk_cost;
+    pub mod xp_level;
 }
