@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { DAY, MOCK_NOW } from "../../mocks/clock";
 import { OVER } from "../../mocks/scenes";
+import { BalancesProvider } from "../containers/balances-context";
 import { OverScene } from "./over-scene";
 
 /** The end of a game: final score, metrics, every closing (P7), the reward or its absence. One story per state; the Viewport control reframes it. */
@@ -11,6 +12,21 @@ type Story = StoryObj<typeof meta>;
 
 /** The final board (#539): the scores one tap away, the board panned and zoomed, no hand. */
 export const FinalBoard: Story = { args: OVER.finalBoard };
+
+/**
+ * The final board of a connected player, the shell's balances provided (#620): its top bar keeps only the title and the score,
+ * no balances over the board (from `desktop` they stood a letter a line beside the rail, in this card).
+ */
+export const FinalBoardConnected: Story = {
+  args: OVER.finalBoard,
+  decorators: [
+    (Story) => (
+      <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 10 }, faucet: true }}>
+        <Story />
+      </BalancesProvider>
+    ),
+  ],
+};
 
 /** No board to show (its tiles could not be read): no toggle, the closings' figures alone. */
 export const NoBoard: Story = { args: OVER.noBoard };
