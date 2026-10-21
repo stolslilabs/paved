@@ -6,6 +6,7 @@ import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
 import { useBoardSettings } from "../../data/board-settings";
+import { BOARD_FOG } from "../../data/settings";
 import { APP_ASSETS, SOURCE_ASSETS, appRenders, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
@@ -74,7 +75,7 @@ function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps,
 }
 
 /** The board scene over the real renderer, with the renderer's settings (the day and night cycle's stories). */
-function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
+function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput, fogOwned?: ReadonlyArray<{ x: number; y: number }>) {
   return (
     <BoardScene
       {...args}
@@ -89,6 +90,7 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
           bubble={args.bubble}
           placementHighlight={args.placementHighlight}
           settings={settings}
+          fogOwned={fogOwned}
         />
       }
       renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
@@ -99,6 +101,9 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
 /** The day and night cycle as the game turns it on (Settings, "Day/night cycle"), ten times as fast; and held at a night. */
 const DAY_NIGHT_FAST: RendererSettingsInput = { dayNight: { enabled: true, speed: 10 } };
 const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
+/** The fog as the game turns it on, the ambient effects on, held at a summer's day or night. */
+const FOG_DAY: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
+const FOG_NIGHT: RendererSettingsInput = { ...FOG_DAY, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
 
 /**
  * The game board, with the real renderer on the bench's recorded boards (`packages/game-core/bench/fixtures`): the hand,
@@ -221,6 +226,25 @@ export const DayNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orient
 
 /** The same, held at a summer night: the cities and the road's buildings lit, the plates and the tint readable. */
 export const DayNightAtNight: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN) }, render: (args) => renderBoard(args, DAY_NIGHT_NIGHT) };
+
+/**
+ * The fog of war as every mode draws it (FOG-EVERYWHERE, #648; the owner's variant of #633): fog over everything but the tiles
+ * and the free slots next to them, the landscape beyond a soft edge, every corner rounded. Held at a summer's noon; at night the
+ * fog dims to a moonlit blue.
+ */
+export const Fog: Story = { args: BOARD.large, render: (args) => renderBoard(args, FOG_DAY) };
+
+/** The fog at a summer night. */
+export const FogAtNight: Story = { args: BOARD.large, render: (args) => renderBoard(args, FOG_NIGHT) };
+
+/**
+ * The fog in a village or an attack (the prop `fogOwned`, which the village and PvP screens set): the owned cells and the cells
+ * next to them stay clear, built or not. Here the recorded board's first twelve cells, its first eight built.
+ */
+export const FogVillage: Story = {
+  args: { ...BOARD.large, tiles: BOARD.large.tiles.slice(0, 8) },
+  render: (args) => renderBoard(args, FOG_DAY, BOARD.large.tiles.slice(0, 12).map((t) => ({ x: t.x, y: t.y }))),
+};
 
 function WithDial(args: BoardSceneProps) {
   const board = useBoardSettings();
