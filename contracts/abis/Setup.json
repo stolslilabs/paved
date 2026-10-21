@@ -402,6 +402,10 @@
       {
         "name": "achievements_claimed",
         "type": "core::integer::u64"
+      },
+      {
+        "name": "xp",
+        "type": "core::integer::u32"
       }
     ]
   },
@@ -717,6 +721,75 @@
           }
         ],
         "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "SetupLevelImpl",
+    "interface_name": "paved::systems::setup::ISetupLevel"
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::PlayerLevel",
+    "members": [
+      {
+        "name": "xp",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "level",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "floor",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "next",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupLevel",
+    "items": [
+      {
+        "type": "function",
+        "name": "credit_xp",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "source",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "xp",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "player_level",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::PlayerLevel"
+          }
+        ],
+        "state_mutability": "view"
       }
     ]
   },
@@ -1658,6 +1731,38 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::setup::Setup::XpGained",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "source",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "xp",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "total",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "level",
+        "type": "core::integer::u16",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
@@ -1739,6 +1844,11 @@
       {
         "name": "SkinsActivated",
         "type": "paved::systems::setup::Setup::SkinsActivated",
+        "kind": "nested"
+      },
+      {
+        "name": "XpGained",
+        "type": "paved::systems::setup::Setup::XpGained",
         "kind": "nested"
       }
     ]

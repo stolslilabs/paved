@@ -39,8 +39,8 @@ use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::setup::{
     ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcherTrait,
-    ISetupPacksDispatcher, ISetupPacksDispatcherTrait, ISetupSkinsDispatcher,
-    ISetupSkinsDispatcherTrait,
+    ISetupLevelDispatcher, ISetupLevelDispatcherTrait, ISetupPacksDispatcher,
+    ISetupPacksDispatcherTrait, ISetupSkinsDispatcher, ISetupSkinsDispatcherTrait, XP_ATTACK,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -109,8 +109,8 @@ pub const CEILING_CLAIM_QUEST: u128 = 949842;
 pub const CEILING_CLAIM_ACHIEVEMENT: u128 = 578407;
 pub const CEILING_CLAIM_DAILY_CREDIT: u128 = 2438641;
 pub const CEILING_CLAIM_WEEKLY_CREDIT: u128 = 1545317;
-pub const CEILING_SPAWN_FREE: u128 = 6891797;
-pub const CEILING_FREE_GAME_OVER: u128 = 1848236;
+pub const CEILING_SPAWN_FREE: u128 = 7305484;
+pub const CEILING_FREE_GAME_OVER: u128 = 1983591;
 // Cobbles v1, part 2 (P-61): z7 and z8, `buy_pack` with no referrer and with one; z9, `set_pack`
 // (measured + 5 %, `docs/measures/baseline.md`, "After cobbles v1, part 2").
 pub const CEILING_BUY_PACK: u128 = 9897659;
@@ -131,6 +131,15 @@ pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
 // (`docs/architecture/vrf-draws.md`, section 6). Measured in CI 986,461, + 5 % (599,559 before the
 // first-consume check and the mock's count of the transaction's consumes, two slots written).
 pub const CEILING_VRF_DRAW: u128 = 1035785;
+// XP-LEVEL (#641): every game over credits its XP in the account write it already made, with one
+// `XpGained` (+128,110 on g, i, l, s, x and z6, +148,710 on k and y); every call that reads the
+// account unpacks the XP too (+17,660 on z1, z3, z4, z7, z8, z10, z11). The ceilings that still
+// hold are kept; z6 is reset to measured + 5 %, and z5 too: a spawn's seed follows `Challenge`'s
+// address, which follows `Setup`'s class hash, so any change of `Setup` moves m, n and z5 (here
+// +416,653 on m and n, under their ceilings). z16, `credit_xp` of a PvP attack, and z17, the
+// `player_level` view, measured + 5 % (`docs/measures/baseline.md`, "After XP-LEVEL").
+pub const CEILING_CREDIT_XP: u128 = 578433;
+pub const CEILING_PLAYER_LEVEL: u128 = 286837;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -856,4 +865,30 @@ fn test_gas_z15_vrf_draw() {
     harness.draw(7);
     let after = get_available_gas();
     report("z15_vrf_draw", before - after, CEILING_VRF_DRAW);
+}
+
+/// z16. `credit_xp` of a PvP attack (#641), by a reporter, to an account that has played: the
+/// account read and written, one `XpGained`.
+#[test]
+fn test_gas_z16_credit_xp() {
+    let (systems, _, _) = cobbles_scenario();
+    let setup = systems.setup.contract_address;
+    start_cheat_caller_address(setup, systems.challenge.contract_address);
+    let level = ISetupLevelDispatcher { contract_address: setup };
+    let before = get_available_gas();
+    level.credit_xp(PLAYER().into(), XP_ATTACK, 25);
+    let after = get_available_gas();
+    report("z16_credit_xp", before - after, CEILING_CREDIT_XP);
+}
+
+/// z17. The `player_level` view (#641): the account read, the level and its two floors.
+#[test]
+fn test_gas_z17_player_level() {
+    let (systems, _, _) = cobbles_scenario();
+    let level = ISetupLevelDispatcher { contract_address: systems.setup.contract_address };
+    let before = get_available_gas();
+    let progress = level.player_level(PLAYER().into());
+    let after = get_available_gas();
+    assert(progress.xp != 0, 'Gas: the player has played');
+    report("z17_player_level", before - after, CEILING_PLAYER_LEVEL);
 }

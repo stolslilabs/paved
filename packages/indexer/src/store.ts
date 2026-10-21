@@ -50,7 +50,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "16";
+export const SCHEMA_VERSION = "17";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
@@ -250,6 +250,15 @@ const SCHEMA = `
     PRIMARY KEY (block, tx, idx)
   );
   CREATE INDEX IF NOT EXISTS skin_actives_player ON skin_actives (player_id, block, tx, idx);
+  -- XP-LEVEL (#641, schema 17). XpGained: XP credited to a player (source 1 a Challenge game over, 2 Story stars, 3 a PvP attack,
+  -- 4 a PvP defence); total and level are the player's after it, so the last row of a player is its XP and level.
+  CREATE TABLE IF NOT EXISTS xp_gains (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, source INTEGER NOT NULL, xp INTEGER NOT NULL, total INTEGER NOT NULL, level INTEGER NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS xp_gains_player ON xp_gains (player_id, block, tx, idx);
   -- DayClosed: a day's mean, fixed at its first settlement.
   CREATE TABLE IF NOT EXISTS economy_days (
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
@@ -903,6 +912,27 @@ export class Store {
             });
             break;
           }
+          case "XpGained": {
+            const player = padded(event.playerId);
+            // The running total is the chain's own: each credit adds its XP to the last total (0 before the first).
+            const expected = this.sql.xpTotal(player) + event.xp;
+            if (expected !== event.total) {
+              throw new Halt(`XpGained of ${player} ${where}: total ${event.total}, the gains before it give ${expected}`);
+            }
+            this.sql.insertPlayer.run(player, at, block.timestamp);
+            this.sql.insertXpGain.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: player,
+              source: event.source,
+              xp: event.xp,
+              total: event.total,
+              level: event.level,
+              time: block.timestamp,
+            });
+            break;
+          }
           case "Purchased": {
             if (this.sql.purchase.get(event.gameId)) {
               throw new Halt(`Purchased of game ${event.gameId} ${where}: the game is already purchased`);
@@ -1052,6 +1082,7 @@ export class Store {
       this.sql.rewindCreditClaims.run(to);
       this.sql.rewindCreditSpends.run(to);
       this.sql.rewindSkinActives.run(to);
+      this.sql.rewindXpGains.run(to);
       this.sql.rewindSkinPurchases.run(to);
       this.sql.rewindSkinPrices.run(to);
       this.sql.rewindPackPurchases.run(to);
@@ -1098,6 +1129,7 @@ export class Store {
     | "skin_prices"
     | "skin_purchases"
     | "skin_actives"
+    | "xp_gains"
     | "events"
     | "blocks",
     Row[]
@@ -1123,6 +1155,7 @@ export class Store {
       skin_prices: all("SELECT * FROM skin_prices ORDER BY block, tx, idx"),
       skin_purchases: all("SELECT * FROM skin_purchases ORDER BY block, tx, idx"),
       skin_actives: all("SELECT * FROM skin_actives ORDER BY block, tx, idx"),
+      xp_gains: all("SELECT * FROM xp_gains ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1313,6 +1346,17 @@ function statements(db: DatabaseSync) {
       `INSERT INTO skin_purchases (block, tx, idx, player_id, theme, plan, cobbles, balance, time)
        VALUES (:block, :tx, :idx, :player_id, :theme, :plan, :cobbles, :balance, :time)`,
     ),
+    insertXpGain: db.prepare(
+      `INSERT INTO xp_gains (block, tx, idx, player_id, source, xp, total, level, time)
+       VALUES (:block, :tx, :idx, :player_id, :source, :xp, :total, :level, :time)`,
+    ),
+    // A player's XP: the total of its last XpGained, 0 before the first.
+    xpTotal: (player: string): number => {
+      const row = db
+        .prepare("SELECT total FROM xp_gains WHERE player_id = ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1")
+        .get(player) as { total: number } | undefined;
+      return Number(row?.total ?? 0);
+    },
     insertSkinActive: db.prepare(
       `INSERT INTO skin_actives (block, tx, idx, player_id, active, time)
        VALUES (:block, :tx, :idx, :player_id, :active, :time)`,
@@ -1363,6 +1407,7 @@ function statements(db: DatabaseSync) {
     rewindSkinPrices: db.prepare("DELETE FROM skin_prices WHERE block > ?"),
     rewindSkinPurchases: db.prepare("DELETE FROM skin_purchases WHERE block > ?"),
     rewindSkinActives: db.prepare("DELETE FROM skin_actives WHERE block > ?"),
+    rewindXpGains: db.prepare("DELETE FROM xp_gains WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),

@@ -246,7 +246,7 @@ export class MockLedger {
   async account(playerId: string): Promise<CobbleAccount> {
     this.sync();
     const p = this.peek(playerId);
-    return { cobbles: p.cobbles, credits: p.credits, games: 0, forests: 0, wonders: 0, big: 0, high: 0, achievementsClaimed: BigInt(p.achievementsClaimed) };
+    return { cobbles: p.cobbles, credits: p.credits, games: 0, forests: 0, wonders: 0, big: 0, high: 0, achievementsClaimed: BigInt(p.achievementsClaimed), xp: 0 };
   }
 
   async dayProgress(playerId: string, day: number): Promise<PeriodProgress> {

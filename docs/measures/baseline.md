@@ -1668,3 +1668,48 @@ A game's spawn and game over are unchanged by the skins beyond these figures: th
 (`oom-kill`, exit 143). The whole `snforge test --max-threads 2` that followed, on the warm build, peaked at 5,705,536 kB (5.4 GiB)
 and took 13 min 21 s.
 
+
+## After XP-LEVEL (the player's XP and level; #641)
+
+Measured on the Mac, 2026-10-21, scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo` (`snforge test test_gas_`, the test
+profile). L2 gas does not depend on the machine. **Before**: main `704ff688`, the same tests on the same build profile, run in
+this worktree with main's `contracts/src` and `contracts/tests`. **After**: this branch.
+
+**The new calls.** `PLAYER` after the cobbles scenario (a paid game over, a discard and its game over), so its account exists.
+
+| Scenario | L2 gas | Ceiling (measured + 5 %) |
+|---|---:|---:|
+| z16, `credit_xp` of a PvP attack, 25 XP (the account read and written, one `XpGained`) | 550,888 | 578,433 |
+| z17, the `player_level` view (the account read, the level's square root, two floors) | 273,178 | 286,837 |
+
+**What every game over pays.** A game over's `report` adds `GAME_XP` in the account write it already made, computes the level
+and emits one `XpGained`.
+
+| Scenario | Main | XP-LEVEL | Change |
+|---|---:|---:|---:|
+| g, closing move in its day | 3,823,584 | 3,951,694 | +128,110 |
+| i | 3,365,774 | 3,493,884 | +128,110 |
+| k, full report | 4,334,594 | 4,483,304 | +148,710 |
+| l | 7,230,343 | 7,358,453 | +128,110 |
+| s | 4,044,769 | 4,172,879 | +128,110 |
+| x | 4,118,766 | 4,246,876 | +128,110 |
+| y | 4,646,366 | 4,795,076 | +148,710 |
+| z6, a free game's game over | 1,761,024 | 1,889,134 | +128,110 |
+| z1, z3, z4, z7, z8, z10, z11 (each reads the account) | | | +17,660 |
+| z2, `claim_achievement` | 552,103 | 569,953 | +17,850 |
+| a0, a, c, d, e, f (moves that do not end the game), t to w, z9, z14, z15 | | | 0 |
+
++3.0 to 3.4 % on a game over, nothing on any other move. A first build unpacked the XP with a second division of the high half;
+one `div_rem` of the claims and the XP together cost 3,483 less per account read (+21,143 then).
+
+**Spawns.** m and n read +416,653 and z5 +434,313 against main; `spawn_free`'s own change is the account read (+17,660). The rest
+follows the build, not the code: a spawn's seed is `TokenSeed { contract: get_contract_address() }`, and `Challenge`'s address in
+the tests follows its constructor calldata, which holds `Setup`'s address, which follows `Setup`'s class hash. So any change of
+`Setup` moves the spawn's draw (read from the code, not isolated by a run; the first build of this branch read -58,115 on m and n
+and -36,972 on z5). m and n stay under their ceilings; z5 is reset to measured + 5 % (7,305,484), z6 too (1,983,591).
+
+**Class sizes** (`scripts/class-sizes.sh`, release profile): `Setup` 19,067 Sierra, 42,112 CASM felts, 51.4 % of the 81,920 cap
+(main: 18,024 and 39,861, 48.7 %: +2,251 CASM); `Story` (58,650) and `Challenge` (64,826) unchanged.
+
+**Memory** (`/usr/bin/time -l`, no cap, the Mac rule): `snforge test paved::tests::xp_level` 9.9 GB resident, `paved::tests::e2e::`
+11.0 GB, `paved::tests::story` 8.7 GB, `test_gas_` 8.7 GB; `scripts/class-sizes.sh` 4.2 GB.

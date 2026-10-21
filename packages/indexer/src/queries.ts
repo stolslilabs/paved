@@ -445,6 +445,9 @@ export class Queries {
     const skins = this.store
       .statement("SELECT count(*) AS n, coalesce(sum(cobbles), 0) AS spent FROM skin_purchases WHERE player_id = ? AND block <= ?")
       .get(playerId, head) as Row;
+    const xp = this.store
+      .statement("SELECT total, level FROM xp_gains WHERE player_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1")
+      .get(playerId, head) as Row | undefined;
     return {
       player_id: playerId,
       cobbles: Number(balance?.balance ?? 0),
@@ -454,6 +457,8 @@ export class Queries {
       achievements_claimed: achievements,
       skins_bought: Number(skins.n),
       skins_spent: Number(skins.spent),
+      xp: Number(xp?.total ?? 0),
+      level: Number(xp?.level ?? 1),
     };
   }
 

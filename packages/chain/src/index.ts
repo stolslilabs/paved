@@ -64,6 +64,8 @@ export {
 } from "./cobbles";
 export type { AchievementCobbles, CobbleAccount, CobbleClaim, CobbleKind, CobbleViews, PeriodProgress, QuestCobbles } from "./cobbles";
 export { DEFAULT_THEME, FOREST_THEME, SKIN_PLANS, activeThemes, isSkinPlan, ownsSkin } from "./skins";
+export { LEVEL_STEP, MAX_XP, PLAYER_LEVEL_FIELDS, XP_SOURCE, levelFloor, levelOf, playerLevelOf } from "./level";
+export type { LevelViews, PlayerLevel } from "./level";
 export type { SkinChange, SkinViews } from "./skins";
 export {
   RECEIPT_POLL_MS,

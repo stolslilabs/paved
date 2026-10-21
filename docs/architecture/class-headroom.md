@@ -688,3 +688,14 @@ The four add up to +1,312 of the +1,383. Two variants were measured and dropped:
 - C5 as a flat table of one `u32` per plan saved 390 felts but cost 46,415 L2 gas per build;
 - C3 with the side tiles kept in the walker cost about 930 felts more (`baseline.md`, "After G7a").
 
+
+## After XP-LEVEL (#641)
+
+Measured on the Mac on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 2.20.1), main `704ff688` measured the same way.
+
+| Class | Sierra main | CASM main | Sierra XP-LEVEL | CASM XP-LEVEL | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Setup` | 18,024 | 39,861 | 19,067 | 42,112 | +2,251 | 51.4 % |
+
+`Setup` is 31,616 CASM felts under the P-44 cap (73,728). `Story` (58,650) and `Challenge` (64,826) are unchanged to the felt:
+they call `Setup` as before, and the XP is credited inside `Setup`'s `report` and `credit_story`.

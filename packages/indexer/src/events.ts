@@ -212,6 +212,18 @@ export type Decoded =
       themes: number[];
     }
   | {
+      /**
+       * XP credited to a player (#641, `docs/architecture/xp-level.md`): `source` 1 a Challenge game over, 2 Story stars, 3 a
+       * PvP attack, 4 a PvP defence; `xp` the XP added (0 at the ceiling), `total` and `level` the player's after it.
+       */
+      name: "XpGained";
+      playerId: bigint;
+      source: number;
+      xp: number;
+      total: number;
+      level: number;
+    }
+  | {
       /** Economy's split of a pack's USDC (`Economy.sell`), emitted before `PackBought` in the same transaction. */
       name: "Sold";
       playerId: bigint;
@@ -259,6 +271,25 @@ export const SKIN_PLANS = 19;
 /** The price of a skin when set, in cobbles (`SKIN_PRICE_MIN` and `SKIN_PRICE_MAX` of `Setup`); 0 withdraws it. */
 export const SKIN_PRICE_MIN = 50;
 export const SKIN_PRICE_MAX = 100;
+/** The sources of an `XpGained` (`Setup`'s `XP_CHALLENGE` to `XP_DEFENCE`, xp-level.md 5). */
+export const XP_SOURCES = 4;
+/** The XP saturates at 2^27 - 1 (`Setup`'s `MAX_XP`). */
+export const MAX_XP = 0x7ffffff;
+/** The level curve (`Setup`'s `LEVEL_STEP`): level `L` starts at `LEVEL_STEP x L (L - 1) / 2` XP. */
+export const LEVEL_STEP = 100;
+
+/** The XP at which `level` (1 or more) starts, as `Setup`'s `level_floor`. */
+export const levelFloor = (level: number): number => (LEVEL_STEP * level * (level - 1)) / 2;
+
+/** The level of `xp` XP, as `Setup`'s `level_of`: the highest `L` with `levelFloor(L) <= xp`; 1 at 0 XP. */
+export function levelOf(xp: number): number {
+  const q = Math.floor((2 * xp) / LEVEL_STEP);
+  let level = Math.floor((1 + Math.sqrt(4 * q + 1)) / 2);
+  // `Math.sqrt` is exact for these sizes; the two steps make it so for any rounding
+  while (levelFloor(level) > xp) level -= 1;
+  while (levelFloor(level + 1) <= xp) level += 1;
+  return level;
+}
 
 /**
  * The themes of a `SkinsActivated` word (`Setup`'s `active_word`): the theme of plan `p` in byte `p - 1`, 19 bytes, plan 1
@@ -311,6 +342,8 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   SkinPriced: ["setup"],
   SkinBought: ["setup"],
   SkinsActivated: ["setup"],
+  // XP-LEVEL (#641): the XP of every credit (a Challenge game over, Story stars, PvP).
+  XpGained: ["setup"],
   Sold: ["economy"],
   Purchased: ["economy"],
   Recorded: ["economy"],
@@ -404,6 +437,7 @@ const INDEXED: readonly EventName[] = [
   "SkinPriced",
   "SkinBought",
   "SkinsActivated",
+  "XpGained",
   "Sold",
   "Purchased",
   "Recorded",
@@ -758,6 +792,18 @@ export function decode(
       shape(name, keys, data, 1, 1);
       const active = felt(data[0]);
       return { name, playerId: felt(keys[1]), active, themes: unpackSkins(active) };
+    }
+    case "XpGained": {
+      // key player_id; data source (u8), xp (u32), total (u32), level (u16)
+      shape(name, keys, data, 1, 4);
+      const source = small(data[0], 8, "source");
+      if (source === 0 || source > XP_SOURCES) throw new DecodeError(`${name}: source ${source}, expected 1 to ${XP_SOURCES}`);
+      const xp = small(data[1], 32, "xp");
+      const total = small(data[2], 32, "total");
+      const level = small(data[3], 16, "level");
+      if (total > MAX_XP || xp > total) throw new DecodeError(`${name}: xp ${xp} of a total ${total}, above the ceiling or the total`);
+      if (level !== levelOf(total)) throw new DecodeError(`${name}: level ${level}, the curve gives ${levelOf(total)} for ${total} XP`);
+      return { name, playerId: felt(keys[1]), source, xp, total, level };
     }
     case "Sold":
       // key player_id; data price, referrer, referral, burned_quote, burned, margin, supply, vault_paved (u256 each, but the referrer)

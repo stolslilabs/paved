@@ -55,8 +55,8 @@ describe("the Cobbles views follow Setup.json", () => {
 
   test("account: the balance, the credits and the claimed bits as a bigint (bit 63 included)", async () => {
     const top = (1n << 63n) | (1n << 2n);
-    const { views: v, calls } = views(() => ["0xf0", "0x2", "0x7", "0x3", "0x1", "0x0", "0x0", `0x${top.toString(16)}`]);
-    expect(await v.account(PLAYER)).toEqual({ cobbles: 240, credits: 2, games: 7, forests: 3, wonders: 1, big: 0, high: 0, achievementsClaimed: top });
+    const { views: v, calls } = views(() => ["0xf0", "0x2", "0x7", "0x3", "0x1", "0x0", "0x0", `0x${top.toString(16)}`, "0x8c"]);
+    expect(await v.account(PLAYER)).toEqual({ cobbles: 240, credits: 2, games: 7, forests: 3, wonders: 1, big: 0, high: 0, achievementsClaimed: top, xp: 140 });
     expect(calls.map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata.map(Number)])).toEqual([[3n, "account", [5]]]);
   });
 
