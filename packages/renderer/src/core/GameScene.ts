@@ -3,7 +3,7 @@ import { AssetLoader } from "./AssetLoader";
 import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
-import { computeCameraFit, frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit";
+import { frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
@@ -155,6 +155,9 @@ export class GameScene {
   private fitSettingsKey = "";
   /** Whether the frame was on (`cameraFit.enabled`) at the last `fitCamera`: turning it on or off moves the camera at once. */
   private fitEnabled: boolean | null = null;
+  /** The fit's chunk (`camera-fit.ts`, a chunk of its own), once loaded; the camera opens at its fixed distance without it. */
+  private fitModule: typeof import("./camera-fit") | null = null;
+  private fitLoad: Promise<void> | null = null;
   /** The theme of each plan (`setSkins`), kept for the tile renderer `init` makes. */
   private skins: TileSkins = NO_SKINS;
   private renderProfile: RenderProfile = "play";
@@ -247,6 +250,8 @@ export class GameScene {
       manifest,
     } = config;
     if (settings) this.settings = resolveRendererSettings(settings);
+    // The fit's chunk loads along the models, so the first frame is framed (no jump from the fixed opening).
+    const fitLoad = this.settings.cameraFit.enabled ? this.loadCameraFit() : null;
 
     this.disposed = false;
 
@@ -337,6 +342,7 @@ export class GameScene {
 
     // Preload assets
     await this.assets.preloadAll();
+    await fitLoad;
     // Disposed while the models were loading: bind nothing on a dead scene (`dispose` released the resize subscription).
     if (this.disposed) return;
 
@@ -1178,11 +1184,11 @@ export class GameScene {
    * Null before `init`.
    */
   getCameraFit(): CameraFit | null {
-    if (!this.surface || !this.camera) return null;
+    if (!this.surface || !this.camera || !this.fitModule) return null;
     const { width, height } = this.surface.getSize();
     const fit = this.settings.cameraFit;
     const { min, max } = cameraDistanceLimits(this.settings.camera);
-    return computeCameraFit({
+    return this.fitModule.computeCameraFit({
       cells: this.cellExtent(),
       width,
       height,
@@ -1240,12 +1246,33 @@ export class GameScene {
     this.fitEnabled = this.settings.cameraFit.enabled;
     if (!(width > 0) || !(height > 0)) return;
     if (!force && (!this.settings.cameraFit.enabled || controls.getMode() !== "play")) return;
+    if (!this.fitModule) {
+      void this.loadCameraFit(force);
+      return;
+    }
     const fit = this.getCameraFit();
     if (!fit) return;
     controls.frame(fit.target, fit.distance);
     this.framedTiles = this.latestTiles.length > 0;
     this.notifyCamera();
     this.requestRender();
+  }
+
+  /**
+   * Loads the fit's chunk once, then frames the board: at once if `force`d (the re-centre), else while the player has not
+   * moved the camera. A failed load leaves the camera at its fixed opening.
+   */
+  private loadCameraFit(force = false): Promise<void> {
+    this.fitLoad ??= import("./camera-fit").then(
+      (module) => {
+        this.fitModule = module;
+      },
+      (error: unknown) => console.warn("[renderer] the camera fit did not load, the camera opens at its fixed distance:", error),
+    );
+    return this.fitLoad.then(() => {
+      if (this.disposed || !this.fitModule) return;
+      if (force || !this.webCamera()?.userMoved) this.fitCamera(force);
+    });
   }
 
   /** The placed tiles' extent in cells, null on an empty board. */

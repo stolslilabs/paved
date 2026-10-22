@@ -54,4 +54,12 @@ describe.skipIf(!built)("the board's route chunk in the production build", () =>
       expect(chunk, moved).toBeDefined();
     }
   });
+
+  it("loads the camera fit (CAMERA-FIT, #678) with import(), as a chunk of its own", () => {
+    const fit = /\/core\/camera-fit\.(js|ts)$/;
+    const mapped = (f: string) => existsSync(join(DIST, "assets", `${f}.map`));
+    for (const chunk of firstFrame.filter(mapped)) expect(sourcesOf(chunk).filter((s) => fit.test(s)), chunk).toEqual([]);
+    const loaded = firstFrame.flatMap((chunk) => dynamicImports(readFileSync(join(DIST, "assets", chunk), "utf8")));
+    expect(loaded.find((f) => mapped(f) && sourcesOf(f).some((s) => fit.test(s)))).toBeDefined();
+  });
 });

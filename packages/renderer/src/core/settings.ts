@@ -1,5 +1,5 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
-import { DEFAULT_CAMERA_FIT_SETTINGS, type CameraFitSettings } from "./camera-fit";
+import { DEFAULT_CAMERA_FIT_SETTINGS, type CameraFitSettings } from "./camera-fit-settings";
 import { MSAA_SAMPLES } from "./Effects";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightInput, type DayNightSettings } from "./daynight-settings";
@@ -34,7 +34,7 @@ export interface RendererSettings {
    */
   camera: CameraZoomSettings;
   /**
-   * The camera's opening frame (CAMERA-FIT, #678, `camera-fit.ts`): the board and its free slots fill the screen less the
+   * The camera's opening frame (CAMERA-FIT, #678, `camera-fit-settings.ts`; the fit itself, `camera-fit.ts`, is a chunk of its own): the board and its free slots fill the screen less the
    * HUD, never farther than `OPENING_DISTANCE`. Web controller only, as `camera`.
    */
   cameraFit: CameraFitSettings;
