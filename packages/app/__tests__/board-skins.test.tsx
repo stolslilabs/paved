@@ -15,7 +15,7 @@ import { fakeSources, renderData } from "./data-fakes";
 // SKIN-RENDER: which player's skins the board draws. The renderer's own choice (the variant, the fallbacks) is
 // `packages/renderer/__tests__/skins.test.ts`'s; here, the read and the page's player.
 
-// The board's 3D canvas and the hand's tile, recorded instead of drawn (jsdom has no WebGL).
+// The board's 3D canvas and the hand's tiles (the stack's 3D view, STACK-3D), recorded instead of drawn (jsdom has no WebGL).
 const drawn = vi.hoisted(() => ({ board: [] as Array<{ skins?: unknown; gameId?: number }>, hand: [] as Array<{ skins?: unknown }> }));
 vi.mock("../src/components/containers/board-viewport", async (actual) => ({
   ...(await actual<object>()),
@@ -27,7 +27,11 @@ vi.mock("../src/components/containers/board-viewport", async (actual) => ({
 vi.mock("../src/components/containers/tile-view", async (actual) => ({
   ...(await actual<object>()),
   hasWebGL: () => true,
-  TileView: (props: { skins?: unknown }) => {
+}));
+vi.mock("../src/components/containers/stack-view", async (actual) => ({
+  ...(await actual<object>()),
+  canDrawStack: () => true,
+  StackView: (props: { skins?: unknown }) => {
     drawn.hand.push(props);
     return null;
   },
