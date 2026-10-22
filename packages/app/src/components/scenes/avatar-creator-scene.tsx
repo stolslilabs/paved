@@ -3,6 +3,7 @@ import { AVATAR_PARTS, type Avatar, type AvatarPart } from "@paved/renderer";
 import { formatDate } from "@paved/game-core";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { AvatarPreview3D } from "../elements/avatar-preview";
@@ -134,7 +135,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
   const strip = useRef<HTMLDivElement>(null);
   // The open tab in view: the list scrolls sideways on a phone, and a tab past its edge would hide which part is open.
   useLayoutEffect(() => {
-    const el = strip.current;
+    const el = strip.current?.querySelector<HTMLElement>("[data-slot=scroll-region]");
     const active = el?.querySelector<HTMLElement>(`[data-slot=tabs-trigger][data-value="${tab}"]`);
     if (!el || !active) return;
     const left = active.offsetLeft - el.clientWidth / 2 + active.offsetWidth / 2;
@@ -177,14 +178,16 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
         />
         <Tabs value={tab} onValueChange={setTab}>
           {/* Ten parts do not fit a phone's width: the list scrolls sideways, each tab as wide as its name. */}
-          <div ref={strip} className="-mx-4 overflow-x-auto px-4 desktop:mx-0 desktop:px-0">
-            <TabsList className="auto-cols-max">
-              {parts.map((p) => (
-                <TabsTrigger key={p} value={p}>
-                  {PART_TITLES[p]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          <div ref={strip} className="-mx-4 desktop:mx-0">
+            <ScrollRegion orientation="horizontal" className="px-4 desktop:px-0">
+              <TabsList className="auto-cols-max">
+                {parts.map((p) => (
+                  <TabsTrigger key={p} value={p}>
+                    {PART_TITLES[p]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </ScrollRegion>
           </div>
           {parts.map((p) => {
             const offer = offers[p]![draft[p]];

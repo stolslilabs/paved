@@ -42,7 +42,7 @@ try {
       const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
       await page.goto(`${URL_BASE}/iframe.html?id=${capture.story}&viewMode=story`, { waitUntil: "networkidle" });
       // The story mounted (the first visit waits for Storybook's compile), then its stills.
-      await page.waitForSelector("#storybook-root [data-slot=avatar-still], #storybook-root [data-slot=profile-avatar]", { timeout: 60_000 });
+      await page.waitForSelector("#storybook-root [data-slot=avatar-still], #storybook-root [data-slot=profile-avatar]", { state: "attached", timeout: 60_000 });
       // The stills render in a queue after the render chunk loads: wait until every still has its image.
       await page.waitForFunction(() => [...document.querySelectorAll("[data-slot=avatar-still]")].every((el) => el.tagName === "IMG" || el.querySelector("img")), null, { timeout: 30_000 });
       await page.waitForTimeout(800);

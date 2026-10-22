@@ -15,7 +15,7 @@ export interface AvatarPreview3DProps {
 }
 
 /**
- * The creator's live preview (#626): the page's one WebGL canvas, on the avatar's background; drag to turn it. It turns on
+ * The creator's live preview (issue 626): the page's one WebGL canvas, on the avatar's background; drag to turn it. It turns on
  * its own unless the player asks for reduced motion. Without WebGL it shows the still instead.
  */
 export function AvatarPreview3D({ avatar, style = "voxel", autoTurn = true, size, onStats, className }: AvatarPreview3DProps) {

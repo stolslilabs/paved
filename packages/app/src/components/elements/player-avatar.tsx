@@ -33,7 +33,7 @@ export interface PlayerAvatarProps extends VariantProps<typeof avatarVariants> {
   /** The wallet is still looking for an earlier session: a placeholder of the same size. */
   loading?: boolean;
   /**
-   * The avatar the player saved (#626, read from the chain): its still image fills the disc once rendered, the initial
+   * The avatar the player saved (issue 626, read from the chain): its still image fills the disc once rendered, the initial
    * shows until then. Null or omitted: the default avatar, the initial.
    */
   avatar?: Avatar | null;

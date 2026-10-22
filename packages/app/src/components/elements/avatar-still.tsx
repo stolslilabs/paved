@@ -3,7 +3,7 @@ import { avatarKey, loadAvatarRender, type Avatar, type AvatarStillOptions, type
 import { cn } from "../../lib/utils";
 
 /**
- * The avatar's still image (#626): rendered once by the page's one still renderer (`avatarStills`, one shared WebGL context
+ * The avatar's still image (issue 626): rendered once by the page's one still renderer (`avatarStills`, one shared WebGL context
  * released at rest), then from its cache. The menus never hold a live context per avatar. The rendering is a chunk of its
  * own (`loadAvatarRender`), fetched by the first still.
  */
