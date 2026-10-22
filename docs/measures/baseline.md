@@ -1758,3 +1758,22 @@ Vault, the packs, the skins, the claims and z15 do not move.
 others) is reset to the measured figure + 5 %, from a whole run of the branch with those budgets lifted (1,064 passed, 2
 failed: the d and l ceilings, reset since with the others above). Part of the rise is the tests' own: each Challenge call runs in a
 transaction of its own (`setup::next_tx`, two cheatcodes per call).
+
+## After AVATAR-CHAIN (#627)
+
+Measured in CI (the `Test game` job of PR #675, run 39655062606; the ceilings from run 39650025352, whose z29 and z30 were
+14,000 higher with the test's earlier `look_of`, computed inside the measured call's arguments; scarb 2.20.1, snforge 0.64.0, `contracts/tests/gas.cairo`,
+the test profile): the contracts' test build is above the VPS's memory scope, so no figure here was measured locally. Ten
+parts in use, items 0 to 3 of every part free and item 4 at 50 Cobbles.
+
+| Scenario | L2 gas | Ceiling (measured + 5 %) |
+|---|---:|---:|
+| z27, `set_item` of a seasonal paid item (the item's slot and the part's end read and written, one event) | 704,759 | 739,997 |
+| z28, `buy_avatar_item` (the item and the ownership read and written, the confirmed-price check, `Setup.spend_cobbles`, two events; 1,181,563 before that check, run 39655062606, measured in run 39662976974) | 1,191,653 | 1,240,642 |
+| z29, `set_avatar` with ten free parts (ten item reads, one write, one event) | 1,357,620 | 1,440,201 |
+| z30, `set_avatar` with ten owned parts (ten item and ten ownership reads) | 2,466,150 | 2,604,158 |
+| z31, the `items` view of a part of 17 items | 2,393,093 | 2,512,748 |
+
+The hand-over's single-class version measured 1,154,753 for a purchase and 2,677,046 and 3,640,176 for `set_avatar` with ten
+free and ten owned parts (VPS): reading the look as bytes of a `u128` instead of a layout of widths in a `u256` halves the
+free case.

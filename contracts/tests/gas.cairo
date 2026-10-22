@@ -30,12 +30,15 @@ use core::testing::get_available_gas;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
+use paved::avatar::look::look_of;
 use paved::constants::{self, CENTER};
 use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
+use paved::systems::avatar::{IAvatarDispatcher, IAvatarDispatcherTrait};
+use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::challenge::{
-    IChallengeDispatcherTrait as ChallengeDispatcherTrait, IChallengeDrawDispatcher,
+    Challenge, IChallengeDispatcherTrait as ChallengeDispatcherTrait, IChallengeDrawDispatcher,
     IChallengeDrawDispatcherTrait,
 };
 use paved::systems::economy::IEconomyDispatcherTrait;
@@ -59,8 +62,9 @@ use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare,
-    interact_with_state, start_cheat_block_timestamp_global, start_cheat_caller_address,
-    start_cheat_transaction_hash_global, stop_cheat_caller_address, test_address,
+    interact_with_state, map_entry_address, start_cheat_block_timestamp_global,
+    start_cheat_caller_address, start_cheat_transaction_hash_global, stop_cheat_caller_address,
+    store as store_felts, test_address,
 };
 use starknet::ContractAddress;
 use crate::setup::setup;
@@ -166,6 +170,15 @@ pub const CEILING_PLAYER_LEVEL: u128 = 286837;
 pub const CEILING_MOVE_WITHOUT_DRAW: u128 = 4928868;
 pub const CEILING_MOVE_FILLS_THE_QUEUE: u128 = 6584266;
 pub const CEILING_SET_VRF_PROVIDER: u128 = 285758;
+// z27 to z31: the avatar on chain (#627, `docs/architecture/avatar-chain.md`), ten parts in use:
+// `set_item`, `buy_avatar_item` (`Setup.spend_cobbles` included), `set_avatar` with ten free and
+// ten owned parts, and the `items` view of a part of 17 items. Measured in CI (the `Test game` job
+// of PR #675, run 39650025352, snforge 0.64.0, test profile) + 5 %, rounded up.
+pub const CEILING_AVATAR_SET_ITEM: u128 = 739997;
+pub const CEILING_AVATAR_BUY: u128 = 1240642;
+pub const CEILING_AVATAR_SET_FREE: u128 = 1440201;
+pub const CEILING_AVATAR_SET_OWNED: u128 = 2604158;
+pub const CEILING_AVATAR_ITEMS: u128 = 2512748;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -1099,4 +1112,106 @@ fn test_gas_z26_set_vrf_provider() {
     draw.set_vrf_provider('PROVIDER'.try_into().unwrap());
     let after = get_available_gas();
     report("z26_set_vrf_provider", before - after, CEILING_SET_VRF_PROVIDER);
+}
+
+/// `Setup` and `Avatar` (an allowlisted spender), ten parts in use, bounds 20 to 100, in every part
+/// items 0 to 3 free (the owner's base set) and item 4 at 50; `PLAYER` holds 500 cobbles, and owns
+/// item 4 of every part when `owned`.
+fn avatar_scenario(owned: bool) -> IAvatarDispatcher {
+    let setup_class = declare("Setup").unwrap().contract_class();
+    let (setup, _) = setup_class.deploy(@array![OWNER().into()]).unwrap();
+    let avatar_class = declare("Avatar").unwrap().contract_class();
+    let (address, _) = avatar_class.deploy(@array![OWNER().into(), setup.into()]).unwrap();
+    start_cheat_caller_address(setup, OWNER());
+    ISetupSpendDispatcher { contract_address: setup }.set_spender(address, true);
+    stop_cheat_caller_address(setup);
+    let avatar = IAvatarDispatcher { contract_address: address };
+    start_cheat_caller_address(address, OWNER());
+    avatar.set_parts(10);
+    avatar.set_price_bounds(20, 100);
+    for part in 0..10_u8 {
+        for id in 0..5_u8 {
+            avatar.set_item(part, id, if id == 4 {
+                50
+            } else {
+                0
+            }, 0, 0);
+        }
+    }
+    stop_cheat_caller_address(address);
+    // `PLAYER`'s whole account on `Setup`: 500 cobbles (its low 64 bits)
+    store_felts(
+        setup,
+        map_entry_address(selector!("accounts"), array![PLAYER().into()].span()),
+        array![500].span(),
+    );
+    start_cheat_caller_address(address, PLAYER());
+    if owned {
+        for part in 0..10_u8 {
+            avatar.buy_avatar_item(part, 4, 50);
+        }
+    }
+    avatar
+}
+
+/// The look of item `id` in each of the ten parts.
+fn ten_parts(id: u8) -> u128 {
+    look_of(array![id, id, id, id, id, id, id, id, id, id].span())
+}
+
+/// z27. `set_item` by the owner: a seasonal paid item (a supply and an end), the item's slot and
+/// the part's end read and written, one event.
+#[test]
+fn test_gas_z27_avatar_set_item() {
+    let avatar = avatar_scenario(false);
+    start_cheat_caller_address(avatar.contract_address, OWNER());
+    let before = get_available_gas();
+    avatar.set_item(9, 16, 80, 0, 5000);
+    let after = get_available_gas();
+    report("z27_avatar_set_item", before - after, CEILING_AVATAR_SET_ITEM);
+}
+
+/// z28. `buy_avatar_item`: the item and the ownership read and written, `Setup.spend_cobbles` (the
+/// account read and written, `CobblesSpent`), `AvatarItemBought`.
+#[test]
+fn test_gas_z28_avatar_buy() {
+    let avatar = avatar_scenario(false);
+    let before = get_available_gas();
+    avatar.buy_avatar_item(3, 4, 50);
+    let after = get_available_gas();
+    report("z28_avatar_buy", before - after, CEILING_AVATAR_BUY);
+}
+
+/// z29. `set_avatar` with ten free parts: the parts in use, ten item reads, one write, one event.
+#[test]
+fn test_gas_z29_avatar_set_free() {
+    let avatar = avatar_scenario(false);
+    let before = get_available_gas();
+    avatar.set_avatar(ten_parts(3));
+    let after = get_available_gas();
+    report("z29_avatar_set_free", before - after, CEILING_AVATAR_SET_FREE);
+}
+
+/// z30. `set_avatar` with ten owned parts, its worst case: ten item reads and ten ownership reads.
+#[test]
+fn test_gas_z30_avatar_set_owned() {
+    let avatar = avatar_scenario(true);
+    let before = get_available_gas();
+    avatar.set_avatar(ten_parts(4));
+    let after = get_available_gas();
+    report("z30_avatar_set_owned", before - after, CEILING_AVATAR_SET_OWNED);
+}
+
+/// z31. The `items` view of a part of 17 items (the backgrounds of AVATAR-LOOK), the creator's
+/// read.
+#[test]
+fn test_gas_z31_avatar_items() {
+    let avatar = avatar_scenario(false);
+    start_cheat_caller_address(avatar.contract_address, OWNER());
+    avatar.set_item(9, 16, 0, 0, 0);
+    let before = get_available_gas();
+    let items = avatar.items(9);
+    let after = get_available_gas();
+    assert(items.len() == 17, 'Gas: 17 items');
+    report("z31_avatar_items", before - after, CEILING_AVATAR_ITEMS);
 }
