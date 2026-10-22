@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LazyMotion, domMax } from "motion/react";
@@ -41,7 +42,7 @@ const PAGES = {
 export function preloadPages(...names: (keyof typeof PAGES)[]) {
   beforeAll(async () => {
     await Promise.all(names.map((name) => PAGES[name]()));
-  }, 60_000);
+  }, slow(60_000));
 }
 
 /**

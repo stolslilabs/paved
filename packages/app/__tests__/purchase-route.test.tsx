@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import type { ReactNode } from "react";
 import { act, cleanup, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -189,7 +190,7 @@ function open(path: string, s: ReturnType<typeof setup>, wallet = fakeWallet({ a
   return { router, wallet };
 }
 
-const pay = (name: RegExp = /Pay .* and play/) => screen.findByRole("button", { name }, { timeout: 3000 });
+const pay = (name: RegExp = /Pay .* and play/) => screen.findByRole("button", { name }, { timeout: slow(3000) });
 /** Pay, once the pool's quote has been read (the button waits for `min_out`). */
 async function enabledPay(name?: RegExp) {
   const button = await pay(name);
@@ -221,13 +222,13 @@ async function unknownGame(s: ReturnType<typeof setup>) {
   const button = await enabledPay();
   s.state.noEvents = true;
   await userEvent.click(button);
-  expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+  expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
   return opened;
 }
 
 /** The check cannot tell (its re-checks done): the player confirms that their balance and games show no purchase. */
 async function confirmNone() {
-  await userEvent.click(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 }));
+  await userEvent.click(await screen.findByRole("button", { name: "It did not land" }, { timeout: slow(3000) }));
 }
 
 /** A reload: the page and the app's cache gone, the browser's storage kept. */
@@ -295,7 +296,7 @@ describe("/play/challenge: the game's stake", () => {
   it("a guest connects first: Pay is Connect to buy", async () => {
     const s = setup({ signer: false });
     const { wallet } = open("/play/challenge", s);
-    await userEvent.click(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: slow(3000) }));
     await waitFor(() => expect(wallet.calls).toContain("connect"));
     expect(s.sent).toEqual([]);
   });
@@ -304,14 +305,14 @@ describe("/play/challenge: the game's stake", () => {
     const s = setup();
     s.views.paused = true;
     open("/play/challenge", s);
-    expect(await screen.findByText("Purchases paused", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Purchases paused", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(await pay()).toBeDisabled();
   });
 
   it("not enough USDC: Pay is disabled and says why", async () => {
     const s = setup({ usdc: 1n * USDC_UNIT });
     open("/play/challenge", s);
-    expect(await screen.findByText("Not enough USDC", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Not enough USDC", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(await pay()).toBeDisabled();
   });
 
@@ -323,7 +324,7 @@ describe("/play/challenge: the game's stake", () => {
     s.pool.rate = { paved: 78n * 10n ** 18n, usdc: USDC_UNIT };
     await userEvent.click(button);
     // The player's price did not move: the pool's quote did.
-    expect(await screen.findByText("The pool's quote moved", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("The pool's quote moved", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByText("The price moved")).toBeNull();
     expect(s.sent).toEqual([]);
     // The quote is read again: the next Pay sends at the new min_out.
@@ -347,14 +348,14 @@ describe("/play/challenge: the game's stake", () => {
     const { router } = open("/play/challenge", s);
     await userEvent.click(await enabledPay());
     // Paused is a state (a `Notice`), not an error (P-67).
-    expect((await screen.findAllByText(/paused/, undefined, { timeout: 3000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/paused/, undefined, { timeout: slow(3000) })).length).toBeGreaterThan(0);
     expect(router.state.location.pathname).toBe("/play/challenge");
   });
 
   it("a ?ref= the contracts would not pay (the Challenge) is dropped with a notice, and the purchase goes on without it", async () => {
     const s = setup();
     open(`/play/challenge?ref=${ADDR.Challenge}`, s);
-    expect(await screen.findByText(/This referral link cannot be used; buying without a referrer/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/This referral link cannot be used; buying without a referrer/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await userEvent.click(await enabledPay());
     await waitFor(() => expect(s.sent).toHaveLength(1));
     expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
@@ -369,7 +370,7 @@ describe("/play/challenge: the game's stake", () => {
     let release = () => {};
     s.state.balanceGate = new Promise<void>((r) => (release = r));
     await userEvent.click(button);
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     const held = await screen.findByRole("button", { name: "Checking your games…" });
     expect(held).toBeDisabled();
     await userEvent.click(held);
@@ -380,10 +381,10 @@ describe("/play/challenge: the game's stake", () => {
     s.state.balanceGate = null;
     release();
     // The receipt is still unknown after its re-checks: Pay stays held until the player confirms.
-    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: slow(3000) })).toBeDisabled();
     expect(screen.getByText(/Check your USDC balance and your games: confirm only if they show no purchase/)).toBeInTheDocument();
     await confirmNone();
-    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) });
     await waitFor(() => expect(again).toBeEnabled());
     await userEvent.click(again);
     await waitFor(() => expect(s.sent).toHaveLength(2));
@@ -396,7 +397,7 @@ describe("/play/challenge: the game's stake", () => {
     const button = await enabledPay();
     s.state.noEvents = true;
     await userEvent.click(button);
-    await userEvent.click(await screen.findByRole("button", { name: "Check my games" }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("button", { name: "Check my games" }, { timeout: slow(3000) }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
 
@@ -404,7 +405,7 @@ describe("/play/challenge: the game's stake", () => {
     const s = setup();
     s.state.balanceFail = "node down";
     open("/play/challenge", s);
-    expect(await screen.findByText("Your USDC balance cannot be read", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Your USDC balance cannot be read", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByText("Not enough USDC")).toBeNull();
     expect(await pay()).toBeDisabled();
     s.state.balanceFail = null;
@@ -417,7 +418,7 @@ describe("/play/challenge: the game's stake", () => {
     const s = setup();
     s.sources.economy = null;
     open("/play/challenge", s);
-    expect(await screen.findByText("The price cannot be read", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("The price cannot be read", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
@@ -427,7 +428,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("the Challenge's purchase shows the game alone: no tabs, no packs", async () => {
     const s = setup();
     open("/play/challenge", s);
-    expect(await screen.findByRole("heading", { name: "Stake" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Stake" }, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Challenge" })).toBeInTheDocument();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("radiogroup", { name: "Cobble packs" })).toBeNull();
@@ -436,7 +437,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("the old /play/challenge?tab=cobbles lands on /cobbles, its ?ref= kept", async () => {
     const s = setup();
     const { router } = open(`/play/challenge?tab=cobbles&ref=${REF}`, s);
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/cobbles");
     expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(REF);
@@ -446,7 +447,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("shows the packs on sale from Setup.pack, with the price, the reference struck through and the discount", async () => {
     const s = setup();
     open("/cobbles", s);
-    const group = await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 3000 });
+    const group = await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) });
     const packs = within(group).getAllByRole("radio");
     expect(packs.map((p) => p.getAttribute("aria-label"))).toEqual([
       "50 Cobbles for $5, 50% off",
@@ -460,9 +461,9 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("a pack bought with a referrer: approve Setup for its price, buy_pack(id, referrer, min_out), the balance from PackBought", async () => {
     const s = setup();
     open(`/cobbles?ref=${REF}`, s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$9 for/));
-    expect(await screen.findByText("Pack bought", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Pack bought", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     const [calls] = s.sent;
     expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[USDC, "approve"], [ADDR.Setup, "buy_pack"]]);
     expect(BigInt(calls[0].calldata[0])).toBe(BigInt(ADDR.Setup));
@@ -478,7 +479,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("not enough USDC disables Buy, with the reason", async () => {
     const s = setup({ usdc: 6n * USDC_UNIT });
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /1000 Cobbles/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /1000 Cobbles/ }, { timeout: slow(3000) }));
     expect(await screen.findByText("Not enough USDC")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pay \$70 for/ })).toBeDisabled();
   });
@@ -486,9 +487,9 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("refused: a pack off sale at send is shown, nothing moved", async () => {
     const s = setup({ revert: "Setup: pack not on sale" });
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$5 for/));
-    expect(await screen.findByText("Purchase refused", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Purchase refused", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByText(/not on sale any more/)).toBeInTheDocument();
     expect(screen.queryByText("Pack bought")).toBeNull();
   });
@@ -496,24 +497,24 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("a price that changed since the confirm sends nothing and says so", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
     const button = await enabledPay(/Pay \$5 for/);
     s.views.packs.set(1, { ...PACKS[0], price: 6_000_000n });
     await userEvent.click(button);
-    expect(await screen.findByText("The price moved", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("The price moved", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(s.sent).toEqual([]);
   });
 
   it("an unknown outcome holds Buy until the Cobbles and USDC are read again, then offers Buy again only once the player confirms", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     const button = await enabledPay(/Pay \$9 for/);
     s.state.noEvents = true;
     let release = () => {};
     s.state.balanceGate = new Promise<void>((r) => (release = r));
     await userEvent.click(button);
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check my Cobbles" })).toBeInTheDocument();
     const held = await screen.findByRole("button", { name: "Checking your Cobbles…" });
     expect(held).toBeDisabled();
@@ -523,11 +524,11 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
     s.state.balanceGate = null;
     release();
     await confirmNone();
-    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) });
     await waitFor(() => expect(again).toBeEnabled());
     await userEvent.click(again);
     await waitFor(() => expect(s.sent).toHaveLength(2));
-    expect(await screen.findByText("Pack bought", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Pack bought", undefined, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("the packs' read: loading, then the packs", async () => {
@@ -535,33 +536,33 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
     let release = () => {};
     s.state.packsGate = new Promise<void>((r) => (release = r));
     open("/cobbles", s);
-    expect(await screen.findByText("Reading the packs…", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Reading the packs…", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     release();
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("a failed packs' read shows why, and Retry reads them again", async () => {
     const s = setup();
     s.views.cobblesFail = new Error("node down");
     open("/cobbles", s);
-    expect(await screen.findByText("The packs cannot be read", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("The packs cannot be read", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     s.views.cobblesFail = null;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("no pack on sale: says so", async () => {
     const s = setup();
     s.views.packs.clear();
     open("/cobbles", s);
-    expect(await screen.findByText("No packs on sale", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("No packs on sale", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).toBeNull();
   });
 
   it("a ?ref= the pack's split ignores (the Vault) is shown as no referrer, and sent as 0x0 with the whole price swapped", async () => {
     const s = setup();
     open(`/cobbles?ref=${ECON.vault}`, s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
     expect(await screen.findByText(/This referral link cannot be used/)).toBeInTheDocument();
     expect(screen.queryByText(/Your referrer gets/)).toBeNull();
     await userEvent.click(await enabledPay(/Pay \$5 for/));
@@ -574,7 +575,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("a guest connects first", async () => {
     const s = setup({ signer: false });
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
     expect(screen.getByRole("button", { name: "Connect to buy" })).toBeEnabled();
   });
 });
@@ -629,13 +630,13 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toContain('"hash":"0x1"');
     let release = () => {};
     s.state.receiptGate = new Promise<void>((r) => (release = r));
-    await userEvent.click(await screen.findByRole("button", { name: "Check my games" }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("button", { name: "Check my games" }, { timeout: slow(3000) }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     // Home is shown: the purchase page has unmounted (a navigation keeps the old page until the new one has loaded).
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) })).toBeInTheDocument();
     await act(() => router.navigate(-1));
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
     const held = await screen.findByRole("button", { name: "Checking your games…" });
     expect(held).toBeDisabled();
@@ -643,7 +644,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     expect(s.sent).toHaveLength(1);
     release();
     await confirmNone();
-    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) });
     await waitFor(() => expect(again).toBeEnabled());
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
     expect(s.sent).toHaveLength(1);
@@ -653,9 +654,9 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     const s = setup();
     await unknownGame(s);
     reload(s);
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await confirmNone();
-    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) });
     await waitFor(() => expect(again).toBeEnabled());
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
     expect(s.sent).toHaveLength(1);
@@ -671,7 +672,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     await unknownGame(s);
     s.state.receipts.set("0x1", "SUCCEEDED");
     reload(s);
-    expect(await screen.findByText("Purchase went through", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Purchase went through", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
     expect(await enabledPay()).toBeInTheDocument();
     expect(screen.queryByText("Outcome unknown")).toBeNull();
@@ -682,7 +683,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     await unknownGame(s);
     s.state.receipts.set("0x1", "REVERTED");
     reload(s);
-    expect(await screen.findByText(/did not go through: your USDC was not spent/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/did not go through: your USDC was not spent/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
   });
 
@@ -694,7 +695,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     s.state.noEvents = true;
     s.state.balanceFail = "node down";
     await userEvent.click(button);
-    const held = await screen.findByRole("button", { name: "Could not check your games" }, { timeout: 5000 });
+    const held = await screen.findByRole("button", { name: "Could not check your games" }, { timeout: slow(5000) });
     expect(held).toBeDisabled();
     expect(screen.getByText(/It could not be checked: Retry/)).toBeInTheDocument();
     await userEvent.click(held);
@@ -705,7 +706,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     const outcome = screen.getByText("Outcome unknown").closest("[role=status]") as HTMLElement;
     await userEvent.click(within(outcome).getByRole("button", { name: "Retry" }));
     await confirmNone();
-    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) });
     await waitFor(() => expect(again).toBeEnabled());
   });
 
@@ -719,31 +720,31 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     // The next usdcBalance call after the send is the check's; only it waits.
     s.state.balanceGateAt = s.state.balanceCalls + 1;
     await userEvent.click(button);
-    const held = await screen.findByRole("button", { name: "Checking your games…" }, { timeout: 3000 });
+    const held = await screen.findByRole("button", { name: "Checking your games…" }, { timeout: slow(3000) });
     // Other reads come and go meanwhile; the hold stays until the gated read answers.
     await new Promise((r) => setTimeout(r, 300));
     expect(held).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Buy again" })).toBeNull();
     release();
     await confirmNone();
-    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 });
+    const again = await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) });
     await waitFor(() => expect(again).toBeEnabled());
   });
 
   it("a pack's unknown outcome survives a reload too", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
     const button = await enabledPay(/Pay \$5 for/);
     s.state.noEvents = true;
     await userEvent.click(button);
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     reload(s, "/cobbles");
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     // The packs wait while the check runs; once it cannot tell, the player confirms, then picks.
     await confirmNone();
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: 3000 }));
-    expect(await screen.findByRole("button", { name: "Buy again" }, { timeout: 3000 })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
+    expect(await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) })).toBeInTheDocument();
     expect(s.sent).toHaveLength(1);
   });
 
@@ -752,7 +753,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     const seller = "0x99";
     s.economy.seller_ = seller;
     open(`/play/challenge?ref=${seller}`, s);
-    expect(await screen.findByText(/This referral link cannot be used/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/This referral link cannot be used/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await userEvent.click(await enabledPay());
     await waitFor(() => expect(s.sent).toHaveLength(1));
     expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
@@ -761,7 +762,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
   it("a ?ref= the game's split ignores (the Vault) is dropped with a notice, and the game is bought with 0x0", async () => {
     const s = setup();
     open(`/play/challenge?ref=${ECON.vault}`, s);
-    expect(await screen.findByText(/This referral link cannot be used/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/This referral link cannot be used/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await userEvent.click(await enabledPay());
     await waitFor(() => expect(s.sent).toHaveLength(1));
     expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
@@ -797,7 +798,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     const s = setup();
     s.state.receiptFail = "this node cannot read receipts";
     await unknownGame(s);
-    expect(await screen.findByRole("button", { name: "Could not check your games" }, { timeout: 5000 })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Could not check your games" }, { timeout: slow(5000) })).toBeDisabled();
     expect(screen.getByText(/Dismiss only if you are sure it did not go through: buying again may pay twice/)).toBeInTheDocument();
     s.state.noEvents = false;
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -812,7 +813,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     s.state.receipts.set("0x1", "SUCCEEDED");
     s.state.balanceFail = "node down";
     reload(s);
-    expect(await screen.findByText("Purchase went through", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Purchase went through", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull());
   });
 
@@ -852,12 +853,12 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     const { result } = renderHook(() => usePurchase(PLAYER).hold, { wrapper });
     // The first check reads an unknown receipt and every read: an answer, not a failure.
     await waitFor(() => expect(result.current.unknown?.hash).toBe("0x1"));
-    await waitFor(() => expect(result.current.checking).toBe(false), { timeout: 3000 });
+    await waitFor(() => expect(result.current.checking).toBe(false), { timeout: slow(3000) });
     expect(result.current.failed).toBe(false);
     // A later check fails (the answer in hand is kept under the error).
     s.state.receiptFail = "this node cannot read receipts";
     act(() => result.current.retry());
-    await waitFor(() => expect(result.current.failed).toBe(true), { timeout: 3000 });
+    await waitFor(() => expect(result.current.failed).toBe(true), { timeout: slow(3000) });
     expect(result.current.retrying).toBe(false);
     // Retry: fetching, still failed until it answers.
     let release = () => {};
@@ -867,7 +868,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     await waitFor(() => expect(result.current.retrying).toBe(true));
     expect(result.current.failed).toBe(true);
     release();
-    await waitFor(() => expect(result.current.retrying).toBe(false), { timeout: 3000 });
+    await waitFor(() => expect(result.current.retrying).toBe(false), { timeout: slow(3000) });
     expect(result.current.failed).toBe(false);
   });
 
@@ -892,7 +893,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     const s = setup();
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: "0x1", at: Math.floor(Date.now() / 1000) - 300 }));
     open("/play/challenge", s);
-    expect(await screen.findByText(/Purchase sent 5 min ago/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Purchase sent 5 min ago/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("the record goes under the sender: switch the signer while pending, then back, and the hold is the sender's", async () => {
@@ -931,7 +932,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     await unknownGame(s);
     expect(localStorage.getItem(unknownPurchaseStorageKey(PLAYER, "game"))).toBeNull();
     remount(s);
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
     // Another tab cannot read the record: the notice says so, and which tab holds Pay.
     expect(screen.getByText(/could not save the record: only this tab holds Pay, so do not buy from another tab/)).toBeInTheDocument();
@@ -948,7 +949,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     refuseRecords("read-write");
     await unknownGame(s);
     remount(s);
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
   });
 
@@ -959,7 +960,7 @@ describe("an unknown outcome: the way out, the sender, the storage (review loop 
     const key = unknownPurchaseStorageKey(PLAYER, "game");
     localStorage.setItem(key, JSON.stringify({ hash: "0x7", at: Math.floor(Date.now() / 1000) }));
     act(() => void window.dispatchEvent(new StorageEvent("storage", { key })));
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByText("0x7")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
   });
@@ -985,10 +986,10 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
       await userEvent.click(await enabledPay());
       await waitFor(() => expect(s.sent).toHaveLength(1));
       as(via === "a guest" ? null : (other as unknown as GameSigner));
-      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: 3000 })).toBeInTheDocument();
+      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: slow(3000) })).toBeInTheDocument();
       as(s.writer as unknown as GameSigner);
       // Back to the sender, the send still pending: Pay is held.
-      const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: 3000 });
+      const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: slow(3000) });
       expect(held).toBeDisabled();
       expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
       await userEvent.click(held);
@@ -1012,21 +1013,21 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
       const wallet = fakeWallet({ address: PLAYER });
       const view = render(<App router={router} sources={s.sources} connector={wallet.load} />);
       const as = (signer: GameSigner | null) => view.rerender(<App router={router} sources={{ ...s.sources, signer }} connector={wallet.load} />);
-      await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+      await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
       let release = () => {};
       s.state.gate = new Promise<void>((r) => (release = r));
       await userEvent.click(await enabledPay(/Pay \$9 for/));
       await waitFor(() => expect(s.sent).toHaveLength(1));
       as(via === "a guest" ? null : (other as unknown as GameSigner));
-      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: 3000 })).toBeInTheDocument();
+      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: slow(3000) })).toBeInTheDocument();
       as(s.writer as unknown as GameSigner);
-      const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: 3000 });
+      const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: slow(3000) });
       expect(held).toBeDisabled();
       expect(screen.queryByRole("button", { name: /Pay \$9 for/ })).toBeNull();
       await userEvent.click(held);
       expect(s.sent).toHaveLength(1);
       release();
-      await waitFor(() => expect(screen.queryByRole("button", { name: /Confirm in your wallet/ })).toBeNull(), { timeout: 3000 });
+      await waitFor(() => expect(screen.queryByRole("button", { name: /Confirm in your wallet/ })).toBeNull(), { timeout: slow(3000) });
       expect(s.sent).toHaveLength(1);
       expect(router.state.location.pathname).toBe("/cobbles");
     });
@@ -1124,7 +1125,7 @@ describe("a wallet that never answers (writer timeout)", () => {
     }
     unmount();
     open("/play/challenge", s);
-    expect(await screen.findByText("Outcome unknown", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
   });
 
@@ -1337,14 +1338,14 @@ describe("a receipt that reads unknown keeps the hold: re-checks at 5 s, 10 s an
   it("the page: Outcome unknown, Pay held as Check your games first, Check again and It did not land; Buy again only after it", async () => {
     const s = setup();
     await unknownGame(s);
-    const held = await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 });
+    const held = await screen.findByRole("button", { name: "Check your games first" }, { timeout: slow(3000) });
     expect(held).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Buy again" })).toBeNull();
     expect(screen.getByText(/the network does not know it yet/)).toBeInTheDocument();
     const before = s.state.receiptCalls;
     await userEvent.click(screen.getByRole("button", { name: "Check again" }));
     await waitFor(() => expect(s.state.receiptCalls).toBe(before + 1));
-    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: slow(3000) })).toBeDisabled();
     await confirmNone();
     expect(await screen.findByText(/You confirmed that it did not land/)).toBeInTheDocument();
     expect(await enabledPay(/^Buy again$/)).toBeInTheDocument();
@@ -1451,14 +1452,14 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
     // A reload: a fresh page and cache, the storage kept.
     queryClient.clear();
     open("/play/challenge", s);
-    expect(await screen.findByText(/your wallet did not answer, so it may still go through/, undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    expect(await screen.findByText(/your wallet did not answer, so it may still go through/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: slow(3000) })).toBeDisabled();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
     expect(screen.getByText(/Check your USDC balance and your games: confirm only if they show no purchase/)).toBeInTheDocument();
     // The answer of the send (in a real reload it is the player's confirm that ends it; here the page saw it go).
     s.state.gate = null;
     release();
-    await waitFor(() => expect(stored()).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(stored()).toBeNull(), { timeout: slow(3000) });
     expect(await enabledPay()).toBeInTheDocument();
     expect(s.sent).toHaveLength(1);
   });
@@ -1468,8 +1469,8 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ hash: null, at: Math.floor(Date.now() / 1000) - 600 }));
     const before = s.state.balanceCalls;
     open("/play/challenge", s);
-    expect(await screen.findByText(/Purchase sent 10 min ago: your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: 3000 })).toBeDisabled();
+    expect(await screen.findByText(/Purchase sent 10 min ago: your wallet did not answer/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Check your games first" }, { timeout: slow(3000) })).toBeDisabled();
     // The check read the USDC balance (and the games) before offering the confirm; no receipt is asked for.
     expect(s.state.balanceCalls).toBeGreaterThan(before);
     expect(s.state.receiptCalls).toBe(0);
@@ -1506,9 +1507,9 @@ describe("a send the wallet never answered holds Pay across a reconnect and a re
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "pack"), JSON.stringify({ hash: null, at: Math.floor(Date.now() / 1000) - PURCHASE_TIMEOUT_MS / 1000 - 1 }));
     const s = setup();
     open("/cobbles", s);
-    expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByText(/Check your USDC balance and your Cobbles/, undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByText(/Check your USDC balance and your Cobbles/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: slow(3000) })).toBeInTheDocument();
   });
 });
 
@@ -1532,7 +1533,7 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
       s.state.decline = declined;
       const { router } = open("/play/challenge", s);
       await userEvent.click(await enabledPay());
-      const notice = await screen.findByRole("alert", undefined, { timeout: 3000 });
+      const notice = await screen.findByRole("alert", undefined, { timeout: slow(3000) });
       expect(notice).toHaveTextContent("You declined in your wallet: nothing was sent.");
       expect(notice).not.toHaveTextContent(/Outcome unknown/);
       expect(stored()).toBeNull();
@@ -1555,13 +1556,13 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toBeInTheDocument();
     // A reload: the page gone, the send's promise still pending; the new page holds Pay, and says the prompt may be open.
     reload(s);
-    expect(await screen.findByText(/A purchase is waiting in your wallet/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/A purchase is waiting in your wallet/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "It did not land" })).toBeNull();
     // The send's answer in time clears its own record.
     s.state.gate = null;
     release();
-    await waitFor(() => expect(stored()).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(stored()).toBeNull(), { timeout: slow(3000) });
   });
 
   it("a second tab during an open prompt: the purchase waits in the wallet, Pay held, no It did not land until the limit passes", async () => {
@@ -1570,7 +1571,7 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     const young = { hash: null, at: Math.floor(Date.now() / 1000) - 10, id: "other-tab" };
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(young));
     open("/play/challenge", s);
-    expect(await screen.findByText(/A purchase is waiting in your wallet \(sent just now\)/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/A purchase is waiting in your wallet \(sent just now\)/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByText(/your wallet did not answer/)).toBeNull();
     // The check's reads answer, and still no way to buy a second time while the prompt may be open.
     await waitFor(() => expect(s.state.balanceCalls).toBeGreaterThan(0));
@@ -1581,8 +1582,8 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     // Past the limit (the same send, read again after a reload): the usual text, and the confirm is offered.
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify({ ...young, at: young.at - PURCHASE_TIMEOUT_MS / 1000 }));
     reload(s);
-    expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/your wallet did not answer/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "It did not land" }, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("the open prompt's hold turns into the usual one when the limit passes, without a reload", async () => {
@@ -1609,9 +1610,9 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     const s = setup();
     s.state.decline = () => undefined;
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$9 for/));
-    expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(stored("pack")).toBeNull();
     expect(s.sent).toHaveLength(0);
   });
@@ -1619,9 +1620,9 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
   it("an answer in time clears the record written at send; a pack's too", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$9 for/));
-    expect(await screen.findByText("Pack bought", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Pack bought", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await waitFor(() => expect(s.sent).toHaveLength(1));
     await waitFor(() => expect(stored("pack")).toBeNull());
   });
@@ -1639,7 +1640,7 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     const hung = s.writer.surrender({ mode: "challenge", gameId: 1 }).catch(() => undefined);
     await waitFor(() => expect(s.sent).toHaveLength(1));
     await userEvent.click(again);
-    expect(await screen.findByText("Wait for your other transaction, then confirm again.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Wait for your other transaction, then confirm again.", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(JSON.parse(stored()!)).toEqual(earlier);
     expect(s.sent).toHaveLength(1);
     s.state.gate = null;
@@ -1656,7 +1657,7 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     const again = await enabledPay(/^Buy again$/);
     s.state.decline = () => new Error("User rejected the request");
     await userEvent.click(again);
-    expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(JSON.parse(stored()!)).toEqual(earlier);
   });
 });
@@ -1690,7 +1691,7 @@ describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
     s.state.balanceFail = "node down";
     open("/play/challenge", s);
     // Two Retry: the balance's own, and the check's beside the notice.
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2), { timeout: 3000 });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2), { timeout: slow(3000) });
     expect(screen.getByText(/A purchase is waiting in your wallet/)).toBeInTheDocument();
     expect(screen.getByText(/Dismiss is offered once your wallet's 5 minutes have passed/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
@@ -1730,7 +1731,7 @@ describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(old));
     s.state.balanceFail = "node down";
     open("/play/challenge", s);
-    expect(await screen.findByRole("button", { name: "Dismiss" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Dismiss" }, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByText(/Dismiss only if you are sure it did not go through/)).toBeInTheDocument();
   });
 
@@ -1743,7 +1744,7 @@ describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
       s.state.decline = lost;
       const { router } = open("/play/challenge", s);
       await userEvent.click(await enabledPay());
-      expect(await screen.findByText(/Your wallet lost track of a purchase while sending it/, undefined, { timeout: 3000 })).toBeInTheDocument();
+      expect(await screen.findByText(/Your wallet lost track of a purchase while sending it/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
       expect(JSON.parse(stored()!)).toEqual({ hash: null, at: expect.any(Number), id: expect.any(String) });
       expect(screen.queryByRole("button", { name: /Pay .* and play/ })).toBeNull();
       expect(screen.queryByRole("button", { name: "It did not land" })).toBeNull();
@@ -1758,7 +1759,7 @@ describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
       s.state.decline = refused;
       open("/play/challenge", s);
       await userEvent.click(await enabledPay());
-      expect(await screen.findByText("Purchase refused", undefined, { timeout: 3000 })).toBeInTheDocument();
+      expect(await screen.findByText("Purchase refused", undefined, { timeout: slow(3000) })).toBeInTheDocument();
       expect(stored()).toBeNull();
       expect(await enabledPay()).toBeInTheDocument();
     }
