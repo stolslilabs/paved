@@ -9,8 +9,9 @@ territory (#640, `village-territory.md`). The owner's decisions of 2026-10-20 bi
 - **Skins reserved to a tier.**
 - **No random merge.**
 
-Section 7 holds the open points for the owner. The code follows the ruling; each value is a named constant or an
-owner-set parameter. Everything else is a proposal the team may improve.
+Section 7 holds the open points for the owner. **Rules A to E wait for the owner's validation**: the code is built on the
+proposals as written, each rule a named constant of `contracts/src/systems/rewards.cairo` (section 7), so an amendment is a
+one-line change. Everything else is a proposal the team may improve. Section 8 is as built.
 
 ## 1. Summary
 
@@ -30,8 +31,8 @@ owner-set parameter. Everything else is a proposal the team may improve.
      transaction; the offer is then gone.
 - **Copies and tiers per plan, for the account** (open point C): 19 counters in `Rewards`; the tier is
   `floor(log2(copies))`, computed, never stored, so a new tier needs no migration.
-- **Tier-gated skins**: a skin's price gains a minimum tier (`set_skin_price(theme, plan, cobbles, min_tier)` in
-  `Setup`); `buy_skin` reads the player's tier of that plan from `Rewards` only when the skin has one.
+- **Tier-gated skins**: a skin gains a minimum tier (`set_skin_tier(theme, plan, min_tier)` in `Setup`, beside
+  `set_skin_price`: section 8); `buy_skin` reads the player's tier of that plan from `Rewards` only when the skin has one.
 
 ## 2. Storage (`Rewards`)
 
@@ -43,8 +44,8 @@ test reads each variable at the raw address of its name (`upgrades.md`).
 | `setup`, `village` | | the `Setup` that grants and pays, the `Village` placed into (owner) |
 | `granters` | address | allowed to grant (owner, `set_granter`): `Setup` |
 | `daily_cap` | | the rewards one account may be granted per chain day (owner, `set_daily_cap`, 1 to `MAX_DAILY_CAP`) |
-| `grants` | `player_id` | `day` [0, 64) · `today` [64, 80) (granted that day) · `pending` [80, 112) · `opened` [112, 144) (the draw index) |
-| `offers` | `player_id` | the open offer: `plan_1`, `plan_2`, `plan_3` (5 bits each, 0: no offer) · `index` (the reward's number) |
+| `grants` | `player_id` | `day` [0, 32) · `today` [32, 48) (granted that day) · `pending` [48, 80) · `opened` [80, 112) (the draw index) |
+| `offers` | `player_id` | the open offer: `plan_1` [0, 8) · `plan_2` [8, 16) · `plan_3` [16, 24) (0: no offer) · `index` [24, 56) (the reward's number) |
 | `copies` | `(player_id, plan)` | the copies of a plan (`u32`), 0 never received |
 | vrf (component) | | `vrf_provider`, `vrf_last_draw_tx` |
 
@@ -97,10 +98,10 @@ Proposed: **every game that ends with an effort the player cannot replay for fre
   (today's count, the cap, pending), `offer(player_id)`.
 - **Events**: `RewardGranted { player_id, source, day, today, pending }`, `RewardOpened { player_id, index, plans }`,
   `RewardClaimed` (section 4).
-- **`Setup`**: `skin_tiers: Map<(u8, u8), u8>` appended (P-42), written by `set_skin_price`, which gains `min_tier`;
-  `SkinPriced` gains `min_tier`; `buy_skin` refuses `'Setup: tier too low'` when `min_tier > 0` and
-  `Rewards.tier(player, plan)` is lower. A skin with no minimum tier reads nothing more. `cobbles-v1.md` part 3 is
-  updated with it.
+- **`Setup`**: `skin_tiers: Map<(u8, u8), u8>` appended (P-42), written by `set_skin_tier(theme, plan, min_tier)` (built
+  as a setter of its own, not a fourth argument of `set_skin_price`: section 8); `buy_skin` refuses `'Setup: tier too low'`
+  when `min_tier > 0` and `Rewards.tier(player, plan)` is lower. A skin with no minimum tier reads one slot more.
+  `cobbles-v1.md` part 3 is updated with it.
 
 ## 6. Size, gas, client
 
@@ -108,13 +109,14 @@ Proposed: **every game that ends with an effort the player cannot replay for fre
   tier check and `credit_reward` (estimate +1,500 from 47,384, 57.8 % today). Measured in the PR with
   `scripts/class-sizes.sh`, recorded in `class-headroom.md`.
 - **Gas**: `grant` (within a Challenge game over and alone), `open_reward`, each choice of `claim_reward`, a gated
-  `buy_skin`, in `contracts/tests/gas.cairo`.
+  `buy_skin` (in `src/tests/rewards.cairo`, and the shift of the existing calls in `contracts/tests/gas.cairo`: section 8).
 - **Client**: `@paved/chain` gains the `Rewards` reads and the writes (`openReward`, with its VRF request first, and
-  `claimReward`), and `setSkinPrice`'s new argument. The indexer decodes `CobblesClaimed` kind 6 in the Cobble ledger
-  (or `Setup`'s indexing halts, as kinds 4 and 5 would have, #644), and `SkinPriced`'s new field. The tables of
+  `claimReward`), and the skin refusal of a tier too low. The indexer decodes `CobblesClaimed` kind 6 in the Cobble ledger
+  (or `Setup`'s indexing halts, as kinds 4 and 5 would have, #644), and knows `RewardsSet` and `SkinTierSet` by name. The
+  shop's reading of `skin_tier` comes with the village screen's wiring (#646). The tables of
   `Rewards`' own events wait for its deployment, as `Village`'s do (a follow-up the PR names).
 
-## 7. Open points for the owner
+## 7. Open points for the owner (pending: built as proposed)
 
 | # | Point | Proposal | Alternatives |
 |---|---|---|---|
@@ -123,3 +125,87 @@ Proposed: **every game that ends with an effort the player cannot replay for fre
 | C | Where a tier lives (#637 point 5) | **Per plan, for the account** (19 counters): skins are owned and active per plan, and a tier shows in every mode | Per placed tile (a copy merges into one tile; demolition loses it) |
 | D | Does a placed tile count as a copy? | **Yes**: every tile taken, placed or merged, adds a copy; the first curve placed is the curve's first copy (tier 0), the second taken makes tier 1 | No: only merges count, so placing and merging are a true choice between the village and the tier |
 | E | Must a merge be dropped on a placed tile of its plan, on chain? | **No**: the account's tier does not depend on a tile, so the chain does not check it; the client's gesture drops it on a tile of its plan, or on the tier bar when none is placed | Yes: a merge needs a placed tile of that plan (one more read; a plan never placed can only be placed or sold) |
+
+Each rule is a constant of `paved::systems::rewards` (an amendment changes its line and the tests that pin its value):
+
+| Rule | Constants | Value as built |
+|---|---|---|
+| A, the modes | `GRANTS_CHALLENGE`, `GRANTS_STORY`, `GRANTS_PVP` (read by `Setup` before it grants) | `true`, `true`, `true` |
+| A, the cap | `DAILY_CAP` (the constructor's value; the owner's `set_daily_cap` changes it on chain, 1 to `MAX_DAILY_CAP` = 1,000) | 10 |
+| B | `REWARD_COBBLES` | 5 |
+| C | none: the copies are keyed by `(player_id, plan)` (`copies`); a tier per placed tile would be another storage and another design | per plan, for the account |
+| D | `PLACE_COUNTS_COPY` | `true` |
+| E | `MERGE_NEEDS_TILE` (when `true`, a merge reads `Village.tiles` and refuses `'Rewards: no tile of plan'`) | `false` |
+
+## 8. As built
+
+Code:
+
+- `contracts/src/systems/rewards.cairo`: `Rewards` (`IRewards`, `IRewardsAdmin`), `tier_of`, `offer_plans`.
+- `contracts/src/systems/setup.cairo`: `ISetupRewards` (`set_rewards`, `rewards`, `credit_reward`), `CLAIM_REWARD` (6), the
+  grant in `report`, `credit_story` and `report_pvp`, `set_skin_tier` and `skin_tier` in `ISetupSkins`, the check in
+  `buy_skin`; `rewards` and `skin_tiers` appended to the storage. Events `RewardsSet`, `SkinTierSet`.
+- Tests: `contracts/src/tests/rewards.cairo` (coverage group `tests-rewards`).
+- Client: `packages/chain/src/rewards.ts` (the views' decoders, `tierOf`, `openRewardCalls` with its VRF request,
+  `claimRewardCall`), the skin refusal `tier-too-low` in `packages/chain/src/writer.ts`; the indexer decodes `CobblesClaimed`
+  kind 6 in the Cobble ledger and knows `RewardsSet` and `SkinTierSet` by name.
+
+Departures from sections 1 to 6:
+
+- **`set_skin_tier` is a setter of its own**, not a fourth argument of `set_skin_price`. Extending `set_skin_price` and
+  `SkinPriced` would change a live entry point (the deployment script, `@paved/chain`, the app's shop) and the shape of an
+  event the indexer already holds on Sepolia; a separate setter changes neither.
+- **The `grants` word** keeps the day in 32 bits (enough for 11 million years of days), so the four fields fit one `u128`.
+- **The gas of `Rewards`' calls is measured in `src/tests/rewards.cairo`** (`test_rewards_gas_*`, as `Village`'s are in
+  `src/tests/village.cairo`): the measures use the module's world and offers. `tests/gas.cairo` holds the shift of the existing
+  calls.
+- **`grant` returns `false` at the cap**, and also when the pending count would pass `u32` (never reached). It reverts only for
+  a caller that is not a granter: `Setup` must be allowed before `set_rewards` points at `Rewards`, or a game over reverts.
+- **The deployment** waits for `Village`'s (neither is in `scripts/deploy.sh` yet). Its order: `Rewards(owner, setup, village,
+  provider, DAILY_CAP)`, `Rewards.set_granter(Setup)`, `Setup.set_reporter(Rewards)` (for `credit_reward`),
+  `Village.set_placer(Rewards)`, then `Setup.set_rewards(Rewards)` last.
+
+**Gas** (L2, test profile, snforge 0.64.0, VPS; the ceilings are these + 5 %):
+
+| Call | Scenario | L2 gas |
+|---|---|---:|
+| `grant` | by `Setup`, a second grant of the day | 464,062 |
+| `Setup.report` | a free game's game over with its grant | 830,032 |
+| `open_reward` | the second offer of a player (one VRF draw over the mock) | 1,363,613 |
+| `claim_reward` | Cobbles (`Setup.credit_reward`) | 898,620 |
+| `claim_reward` | merge | 536,852 |
+| `claim_reward` | place, a tile that closes nothing (`Village.place`) | 4,727,618 |
+| `set_skin_tier` | | 293,750 |
+| `buy_skin` | a skin reserved to tier 1, the tier read on `Rewards` | 998,114 |
+
+The existing calls, against main measured the same way: every game over reads `Setup.rewards` (+48,580 on g, i and k, +48,980
+on x, none set), and `buy_skin` reads the skin's minimum tier (z11, +66,430). Their ceilings in `tests/gas.cairo` are reset to
+measured + 5 %.
+
+**CASM** (`scripts/class-sizes.sh`, release, VPS): `Rewards` 4,357 Sierra, 10,771 CASM felts (13.1 % of the cap); `Setup`
+49,984 (61.0 %, +2,600). Every other class is unchanged (`class-headroom.md`, "After VILLAGE-REWARDS").
+
+**Tests.** `paved::tests::rewards`, 43 tests: the tier table; the offer against the base deck's 72 tiles, its three
+independent lanes, and a fuzz that every lane is a plan 1 to 19; the grant from each mode through `Setup` and its events; the
+daily cap, its reset the next day and the owner's cap; a non-granter refused; no `rewards` set grants nothing; the open (the
+VRF's value for the reward's salt, one offer at a time, one draw per transaction, a salt per offer); each claim and its
+events and refusals (no offer, claimed twice, an unknown choice, a fourth slot, the territory's rule, no village); the skins
+reserved to a tier (refused under it, sold at it, refused with no `Rewards`); access (owner-only setters, reporter-only
+`credit_reward`); the storage pins of both contracts; the gas; and a fuzz of the ledger's invariants (granted = pending +
+opened, the day's grants within the cap, every opened offer claimed at most once, copies and Cobbles equal to the claims).
+
+**The audit lens (value and access).** Cobbles move in one place: `claim_reward`'s Cobbles choice credits `REWARD_COBBLES`
+through `Setup.credit_reward`, a reporter-only call (`Rewards` the reporter), once per opened offer: the offer is cleared
+before the call, and an offer is opened only from a pending reward, which only an allowed granter (`Setup`) adds, under the
+daily cap. A reverted claim reverts the clearing with it. The tiers gate a purchase and never pay anything; copies only grow.
+The draw cannot be rerolled: its salt is the player and the reward's index, and an `open_reward` that reverts draws the same
+offer again (#638's rules: one draw per transaction, the draw the first consume).
+
+**Run on the VPS.** The whole test build of `contracts/` does not fit the machine's 8 GB scope for a Cairo run (it was killed
+by the OOM killer, as #638 and #640 found). The tests ran on scoped copies of the package that compile only the test modules
+of a run and their helpers (the branch's own sources, built outside the repository), so that every module of `src/tests` and
+`tests/gas.cairo` ran at least once, in nine runs, each under 7.5 GB peak RSS: 2,830 passed (the helpers' modules, `setup` first, in several runs), 0 failed, 9 ignored (as on main).
+Two tests needed a change for this branch: `matchmaker_system`'s second-attacker test set two villages above the pool's cap
+of 5,000 crowns, in one bucket, so its draw followed the matchmaker's address (which follows `Setup`'s class); its crowns now
+keep each village in its own bucket. `cobbles_ledger`'s report test had a gas budget for three reports, now measured + 5 %.
+The whole suite runs in CI.

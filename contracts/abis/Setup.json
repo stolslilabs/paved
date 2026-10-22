@@ -1127,6 +1127,104 @@
           }
         ],
         "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "set_skin_tier",
+        "inputs": [
+          {
+            "name": "theme",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "plan",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "min_tier",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "skin_tier",
+        "inputs": [
+          {
+            "name": "theme",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "plan",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "SetupRewardsImpl",
+    "interface_name": "paved::systems::setup::ISetupRewards"
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupRewards",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_rewards",
+        "inputs": [
+          {
+            "name": "rewards",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "rewards",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "credit_reward",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "index",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u64"
+          }
+        ],
+        "state_mutability": "external"
       }
     ]
   },
@@ -1988,6 +2086,40 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::setup::Setup::RewardsSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "rewards",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::setup::Setup::SkinTierSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "theme",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "key"
+      },
+      {
+        "name": "min_tier",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
@@ -2084,6 +2216,16 @@
       {
         "name": "CobblesSpent",
         "type": "paved::systems::setup::Setup::CobblesSpent",
+        "kind": "nested"
+      },
+      {
+        "name": "RewardsSet",
+        "type": "paved::systems::setup::Setup::RewardsSet",
+        "kind": "nested"
+      },
+      {
+        "name": "SkinTierSet",
+        "type": "paved::systems::setup::Setup::SkinTierSet",
         "kind": "nested"
       }
     ]

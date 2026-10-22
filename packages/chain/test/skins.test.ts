@@ -166,6 +166,7 @@ describe("the writes", () => {
     ["Setup: not enough cobbles", "not-enough-cobbles"],
     ["Setup: skin not owned", "not-owned"],
     ["Setup: invalid skin", "invalid-skin"],
+    ["Setup: tier too low", "tier-too-low"],
   ];
 
   test.each(REVERTS)("'%s' is a SkinRefusedError (%s), from the simulation, as text or as hex", async (reason, refusal) => {

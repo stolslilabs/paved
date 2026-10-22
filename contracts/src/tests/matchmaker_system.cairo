@@ -766,11 +766,12 @@ fn test_second_attacker_on_a_shielded_village_fails_then_searches_free() {
     join(world, CAROL());
     start_cheat_block_timestamp_global(START + 2 * INITIAL_SHIELD);
     world.matchmaker.release_shields(1);
-    // Alice (bucket 40) and Carol (bucket 60) are each alone; Bob (bucket 50) is nearest to both
+    // Alice (bucket 40) and Carol (bucket 49) are each alone; Bob (bucket 45) is nearest to both.
+    // Under the pool's cap of 5,000 (`pool_crowns`), so no two share a bucket and no draw is a tie.
     as_operator(world);
     world.matchmaker.set_crowns(ALICE(), 4_000);
-    world.matchmaker.set_crowns(BOB(), 5_000);
-    world.matchmaker.set_crowns(CAROL(), 6_000);
+    world.matchmaker.set_crowns(BOB(), 4_500);
+    world.matchmaker.set_crowns(CAROL(), 4_900);
     stop_cheat_caller_address(world.matchmaker.contract_address);
     assert(search(world, ALICE(), 'TX1') == BOB(), 'alice not on bob');
     assert(search(world, CAROL(), 'TX2') == BOB(), 'carol not on bob');

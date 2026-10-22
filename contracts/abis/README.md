@@ -14,7 +14,10 @@ ABI of the USDC that `Challenge` charges on devnet (`token` and `contracts.MockU
 `Collection.json` is the soulbound game NFT. `Matchmaker.json` is the PvP matchmaker (#639, `docs/architecture/matchmaker.md`): the pool,
 the opponent draws, the shields and the crowns, and since #644 the leagues and seasons (`docs/architecture/leagues.md`); no
 deployment and no client reads it yet. `Setup.json` gains `ISetupLeague` (#644: the league credits, the PvP missions'
-report and ledger).
+report and ledger). `Rewards.json` is the village rewards and tiers (#642, `docs/architecture/village-rewards.md`): the
+grant, the offer drawn on the VRF, the claim (place, merge or Cobbles), the copies and tiers; no deployment yet, as
+`Village`. `Setup.json` gains `ISetupRewards` (the grant's wiring, `credit_reward`) and the skins' minimum tier
+(`set_skin_tier`, `skin_tier`).
 
 Regenerate them after any change of the contract interface (functions, events, types):
 
