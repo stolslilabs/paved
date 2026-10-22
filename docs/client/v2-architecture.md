@@ -2450,7 +2450,13 @@ plate-state text above where they differ.
 - **Tile in hand** (`TileRenderer`, ghost materials; the states and their ease are `PlacementRenderer`'s, `ghostTint`): hover
   no tint at 50 % opacity; pre-validation (placed, waiting for the bubble's hold to validate) yellow at 100 % opacity
   (PLACE-POLISH, #568, the owner's decisions of 2026-10-19: blue and 90 % before; the hover's colour and strength stay as
-  knobs, its strength 0 by default); confirm a temporary green tint on the
+  knobs, its strength 0 by default). PENDING-PULSE (#681, the owner's decisions of 2026-10-21) replaced the yellow: the
+  pending tile is drawn plain (`pendingStrength` 0), its opacity pulsing from 60 to 90 % and back on a sine
+  (`tints.pendingPulseMin`, `pendingPulseMax`, one cycle every `pendingPulseMs`, 1.6 s), eased into from where the tile was
+  (a hover's 50 %), its outlines with it; a fixed 75 % under reduced motion (`pendingReducedOpacity`). It keeps pulsing
+  through the confirm's hold. While it pulses, `PlacementRenderer.update` reports `animating`, so the scene draws every frame;
+  with no pending tile, render on demand holds again. The plan view's tile runs the same range and period in CSS
+  (`pending-pulse`, `theme.css`). Confirm: a temporary green tint on the
   tile the board then draws, fading to none over `motion.confirmMs`; placed (after the fade) none. There is no red: the board offers only
   the rotations that fit (#544). Each look eases over its own time (`tints.hoverMs`, `tints.pendingMs`; the confirm over `motion.confirmMs`).
   Every colour, strength (how far the model goes to the tint) and opacity is a `placement.tints` setting and a story control.
@@ -2931,6 +2937,14 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
   voxel wordmark on the left, the items, then the balances (#538, #620: a resource bar, each currency on a plate, vPAVED when
   held) in a row at the header's end; a flow's top bar shows them on its right. No rail: every page is one column (`flex-col`) at every
   width. Dialogs instead of sheets.
+- **Header height (#676, owner decision of 2026-10-21):** one header height per breakpoint on every page outside the board,
+  the `--header-h` token of `styles/theme.css` (96 px below `desktop`: the title row, 56 px, over the balances' row; 64 px
+  from it: one row) and its `page-header` utility: a flow's top bar, a tab page's title row, Home's top row, the
+  navigation's header from `desktop` (a tab page's title row is then the first row of its content, on the same token, 16 px
+  under the header as a flow's content is), and the space above Welcome's content. Every page has one header at its top; no page sets
+  its own height; a title that does not fit is cut with an ellipsis, its whole text in `title`. `scripts/header-sweep.ts`
+  measures every page (the `Pages/Headers` stories) at 375 and 1440 px: the height of every page header (the one at the top
+  and a tab page's title row below it) and where the content starts.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
 

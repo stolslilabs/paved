@@ -91,9 +91,9 @@ export interface BoardSceneProps {
   lastScored: ScoredStructure[];
   /** The tiles' images (`useTileArt`): the hand shows the same art as the board. */
   tileArt?: TileArt;
-  /** The tiles' build-time renders (`useTileRenders`): the deck sheet's real view draws their top-down ones (#606). */
+  /** The tiles' build-time renders (`useTileRenders`): the deck sheet's real view and the coming tiles draw their top-down ones (#606, #679). */
   tileRenders?: TileRenders;
-  /** The board's skins (plan key to theme): the deck sheet shows each plan in the theme the board draws it in. */
+  /** The board's skins (plan key to theme): the deck sheet and the coming tiles show each plan in the theme the board draws it in. */
   skins?: TileSkins;
   /** The stack's top drawn by the renderer (`TileView`), given by the page like `canvas`; the art otherwise. */
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
@@ -285,6 +285,8 @@ export function BoardScene(props: BoardSceneProps) {
             error={hand.error}
             errorDetail={hand.errorDetail}
             tileArt={props.tileArt}
+            renders={props.tileRenders}
+            skins={props.skins}
             renderTile={props.renderHandTile}
             onDeck={openDeck}
             onDiscard={() => props.onDiscard?.()}

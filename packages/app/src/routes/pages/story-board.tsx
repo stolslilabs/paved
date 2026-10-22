@@ -282,6 +282,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
             confirmed={placement.confirmed}
             bubble={bubble}
             onCellClick={placement.choose}
+            onCellPress={placement.choose}
             onCellHover={placement.setHovered}
             onError={() => setView("plan")}
           />

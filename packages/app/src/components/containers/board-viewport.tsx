@@ -1,4 +1,4 @@
-import { Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
 import { boardReveal, villageReveal } from "@paved/renderer";
@@ -99,6 +99,12 @@ export interface BoardViewportProps {
   otherPlates?: boolean;
   /** A cell was clicked or tapped (the contracts' coordinates); the page decides whether it is a slot. */
   onCellClick?: (slot: { x: number; y: number }) => void;
+  /**
+   * A long press on a free legal cell (one of `slots`) shows the tile there, then holds Validate as a press on the shown tile
+   * does: one press places and confirms (PRESS-PLACE, #680). Pass what a click does (the page's `choose`). Unset: a press is
+   * a tap or a pan, as before (a village).
+   */
+  onCellPress?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
   onCellHover?: (slot: { x: number; y: number } | null) => void;
   /** The tile placed and not yet sent: the bubble (Cancel, Discard, Rotate, Validate) follows its corner. Unset: none. */
@@ -180,35 +186,118 @@ export function useDropThenConfirm(scene: GameScene | null, tiles: TileRenderDat
   return green;
 }
 
+/** How long a press on a free legal cell lasts, within the click threshold, before the tile shows there and its hold starts (#680). */
+export const PRESS_SHOW_MS = 150;
+
+/** Where a press may show the tile in hand (PRESS-PLACE, #680), in the renderer's grid. */
+export interface PressPlace {
+  /** The cell is a free legal one and nothing is on its way: a long press there shows the tile. */
+  canShow(gridX: number, gridY: number): boolean;
+  /** Shows the tile there, as a tap would (the page chooses the cell, in the rotation a tap picks). */
+  show(gridX: number, gridY: number): void;
+}
+
+export interface TileHold {
+  /** The renderer's press listener (`GameCanvas.onTilePress`). */
+  onTilePress: TilePressListener;
+  /** Validate's hold, as the bubble lends it while it is up (`TileBubble.holdRef`). */
+  holdRef: RefObject<Hold | null>;
+}
+
 /**
  * The board's presses as a hold on the placed tile (TILE-HOLD, #630): a press down on `cell` (the bubble's, in the renderer's
- * grid) starts Validate's hold (`hold()`, the bubble's), so its ring fills as if Validate were held; the let go releases it,
- * a pan, a second finger or the pointer leaving cancels it (`PointerTap`). A press elsewhere, or with Validate disabled or
- * busy, holds nothing: a tap or a pan as before. A completed hold says it acted, so its let go does not also click the cell.
+ * grid) starts Validate's hold (the one the bubble lends to `holdRef`), so its ring fills as if Validate were held; the let go
+ * releases it, a pan, a second finger or the pointer leaving cancels it (`PointerTap`). With Validate disabled or busy, it
+ * holds nothing. A completed hold says it acted, so its let go does not also click the cell.
+ *
+ * Press and place (PRESS-PLACE, #680): a press on a cell `place` can show the tile on (a free legal one, the tile in hand
+ * or shown elsewhere) shows it there once the press has lasted `showMs` without a pan, then starts the same hold as soon as
+ * the bubble is up on it: one long press places and confirms. Let go or cancelled early, the tile stays shown, as after a
+ * tap; a pan before `showMs` shows nothing; a press that showed the tile clicks nothing at its let go. Any other press is a
+ * tap or a pan as before.
  */
-export function useTileHold(cell: { x: number; y: number } | null, hold: () => Hold | null): TilePressListener {
+export function useTileHold(cell: { x: number; y: number } | null, place?: PressPlace | null, showMs = PRESS_SHOW_MS): TileHold {
   // The hold the press under way started, kept to its end even if the bubble goes (the move was sent).
   const pressed = useRef<Hold | null>(null);
+  // The press that may show the tile: its cell, its timer until the tile shows, `shown` after.
+  const showing = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> | null; shown: boolean } | null>(null);
   const cellRef = useRef(cell);
   cellRef.current = cell;
-  const holdRef = useRef(hold);
-  holdRef.current = hold;
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  // The bubble lending or taking back its hold renders the board again, so a press waiting for it (the bubble's chunk
+  // still loading) starts it once it comes.
+  const [, setLent] = useState(0);
+  const [holdRef] = useState<RefObject<Hold | null>>(() => {
+    let hold: Hold | null = null;
+    return {
+      get current() {
+        return hold;
+      },
+      set current(next: Hold | null) {
+        const changed = !hold !== !next;
+        hold = next;
+        if (changed) setLent((n) => n + 1);
+      },
+    };
+  });
   const listener = useRef<TilePressListener>((gx, gy, phase) => {
     if (phase === "down") {
+      const s = showing.current;
+      if (s?.timer) clearTimeout(s.timer);
+      showing.current = null;
       const at = cellRef.current;
-      const h = at && at.x === gx && at.y === gy ? holdRef.current() : null;
-      pressed.current = h?.start() ? h : null;
+      if (at && at.x === gx && at.y === gy) {
+        const h = holdRef.current;
+        pressed.current = h?.start() ? h : null;
+        return;
+      }
+      pressed.current = null;
+      if (!placeRef.current?.canShow(gx, gy)) return;
+      const next = {
+        x: gx,
+        y: gy,
+        shown: false,
+        timer: setTimeout(() => {
+          next.timer = null;
+          next.shown = true;
+          placeRef.current?.show(gx, gy);
+          setLent((n) => n + 1);
+        }, showMs) as ReturnType<typeof setTimeout> | null,
+      };
+      showing.current = next;
       return;
     }
+    const s = showing.current;
+    showing.current = null;
+    if (s?.timer) clearTimeout(s.timer);
     const h = pressed.current;
     pressed.current = null;
+    const acted = h?.completed() ?? false;
+    if (h && phase === "released") h.release();
+    else h?.cancel();
+    if (phase === "released" && s?.shown) return true;
     if (!h) return;
-    const acted = h.completed();
-    if (phase === "released") h.release();
-    else h.cancel();
     return phase === "released" && acted;
   });
-  return listener.current;
+  const onTilePress = listener.current;
+  // The tile shown by the press under way: once the bubble is up on its cell with Validate enabled, its hold starts. This
+  // runs after the bubble's own effects, so the hold is not dropped as the change of cell it follows.
+  useEffect(() => {
+    const s = showing.current;
+    const at = cellRef.current;
+    if (!s?.shown || pressed.current || !at || at.x !== s.x || at.y !== s.y) return;
+    const h = holdRef.current;
+    if (h?.start()) pressed.current = h;
+  });
+  useEffect(
+    () => () => {
+      const s = showing.current;
+      if (s?.timer) clearTimeout(s.timer);
+    },
+    [],
+  );
+  return { onTilePress, holdRef };
 }
 
 /** A ghost as the renderer's hover: its grid cell, its state, and the cell its skin variant is picked for. */
@@ -248,7 +337,7 @@ export function useFogReveal(tiles: TileRenderData[], owned?: ReadonlyArray<{ x:
   return reveal;
 }
 
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, otherPlates = true, onCellClick, onCellHover, onScene, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, otherPlates = true, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
   const covered = useContext(BoardCovered);
@@ -271,10 +360,13 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
   const hover = useMemo<HoverState | null>(() => (ghost && (tilePreview || ghost.placed) ? hoverOf(ghost, gameId) : null), [ghost, gameId, tilePreview]);
   const confirm = useMemo(() => (confirmed ? { ...hoverOf(confirmed, gameId), key: confirmed.key } : null), [confirmed, gameId]);
   const green = useDropThenConfirm(scene, renderTiles, confirm, settings?.placement?.motion?.confirmMs);
-  // Validate's hold, set by the bubble while it is up: holding the placed tile holds it too (#630).
-  const tileHold = useRef<Hold | null>(null);
+  // Validate's hold, lent by the bubble while it is up: holding the placed tile holds it too (#630); a long press on a free
+  // legal cell shows the tile there first (#680), unless a move is on its way.
   const holdCell = bubble?.onConfirm ? toGridSlot(bubble.cell.x, bubble.cell.y) : null;
-  const onTilePress = useTileHold(holdCell, () => tileHold.current);
+  const legal = useMemo(() => new Set((slots ?? []).map((s) => { const g = toGridSlot(s.x, s.y); return `${g.x},${g.y}`; })), [slots]);
+  const pressPlace: PressPlace | null =
+    onCellPress && !bubble?.busy ? { canShow: (gx, gy) => legal.has(`${gx},${gy}`), show: (gx, gy) => onCellPress(toChainSlot(gx, gy)) } : null;
+  const { onTilePress, holdRef: tileHold } = useTileHold(holdCell, pressPlace);
   // The tile placed and not yet validated: the drop's chunk and its model's voxels load now, so the drop at the confirm
   // begins in the call (`GameScene.prepareDropAt`).
   const prepareKey = hover?.placed ? `${hover.planIndex}:${hover.cell?.x}:${hover.cell?.y}` : null;
