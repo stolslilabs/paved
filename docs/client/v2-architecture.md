@@ -2937,6 +2937,14 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
   voxel wordmark on the left, the items, then the balances (#538, #620: a resource bar, each currency on a plate, vPAVED when
   held) in a row at the header's end; a flow's top bar shows them on its right. No rail: every page is one column (`flex-col`) at every
   width. Dialogs instead of sheets.
+- **Header height (#676, owner decision of 2026-10-21):** one header height per breakpoint on every page outside the board,
+  the `--header-h` token of `styles/theme.css` (96 px below `desktop`: the title row, 56 px, over the balances' row; 64 px
+  from it: one row) and its `page-header` utility: a flow's top bar, a tab page's title row, Home's top row, the
+  navigation's header from `desktop` (a tab page's title row is then the first row of its content, on the same token, 16 px
+  under the header as a flow's content is), and the space above Welcome's content. Every page has one header at its top; no page sets
+  its own height; a title that does not fit is cut with an ellipsis, its whole text in `title`. `scripts/header-sweep.ts`
+  measures every page (the `Pages/Headers` stories) at 375 and 1440 px: the height of every page header (the one at the top
+  and a tab page's title row below it) and where the content starts.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
 
