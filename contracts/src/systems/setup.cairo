@@ -31,6 +31,7 @@
 //! sets which owned skin is active for each of the 19 plans (`set_skins`, one write).
 
 use core::num::traits::Sqrt;
+use paved::constants;
 use quiver_achievement::types::batch::TaskProgress as AchievementProgress;
 use quiver_achievement::types::task::AchievementTask;
 use quiver_achievement::types::window::AchievementWindow;
@@ -62,6 +63,11 @@ pub const CLAIM_ACHIEVEMENT: u8 = 2;
 /// A star of a Story level (#548): `id` the level, `(campaign_id << 8) | level_id`; `period` the
 /// star, 1 to 3. Paid once per star, level and account (`ISetupStory::credit_story`).
 pub const CLAIM_STORY: u8 = 3;
+/// A league reached for the first time in a season (#644, `docs/architecture/leagues.md`): `id`
+/// the league, `period` the season. Paid by `Matchmaker`, an allowlisted reporter.
+pub const CLAIM_LEAGUE: u8 = 4;
+/// A season's reward by the league held at its end (#644): `id` the league, `period` the season.
+pub const CLAIM_SEASON: u8 = 5;
 /// The cobbles of the first, second and third star of a Story level (#548): 30 per level at most.
 pub const STAR_COBBLES: u8 = 5;
 /// The ids that can carry cobbles: 1 to 63, one bit each in the claim bitmaps (`u64`).
@@ -177,6 +183,20 @@ pub struct Progress {
     pub points: u32,
     pub claimed: u64,
     pub credit: bool,
+}
+
+/// A player's PvP day or week (#644, one slot, key `(player_id, period)`): the sums of the PvP
+/// settlements of its attacks in it (tasks 19 to 22, each saturating at `u16`) and the PvP missions
+/// claimed for it (bit `i` = quest `i`). Apart from `Progress`, so a Challenge game over writes
+/// nothing more. Layout: `attacks` [0, 16) · `stars` [16, 32) · `wins` [32, 48) · `three_stars`
+/// [48, 64) · `claimed` [128, 192).
+#[derive(Copy, Drop, Debug, PartialEq, Serde, Default)]
+pub struct PvpProgress {
+    pub attacks: u16,
+    pub stars: u16,
+    pub wins: u16,
+    pub three_stars: u16,
+    pub claimed: u64,
 }
 
 /// The cobbles of a quest (one slot, key `quest_id`), with the copy of its quiver definition's
@@ -325,6 +345,27 @@ pub impl ProgressPacking of starknet::storage_access::StorePacking<Progress, fel
             points: field(low, TWO_POW_48, MASK_32).try_into().unwrap(),
             claimed: high.try_into().unwrap(),
             credit: low / TWO_POW_80 != 0,
+        }
+    }
+}
+
+pub impl PvpProgressPacking of starknet::storage_access::StorePacking<PvpProgress, felt252> {
+    fn pack(value: PvpProgress) -> felt252 {
+        let low: u128 = value.attacks.into()
+            + value.stars.into() * TWO_POW_16
+            + value.wins.into() * TWO_POW_32
+            + value.three_stars.into() * TWO_POW_48;
+        word(low, value.claimed.into())
+    }
+
+    fn unpack(value: felt252) -> PvpProgress {
+        let (low, high) = halves(value);
+        PvpProgress {
+            attacks: (low & MASK_16).try_into().unwrap(),
+            stars: field(low, TWO_POW_16, MASK_16).try_into().unwrap(),
+            wins: field(low, TWO_POW_32, MASK_16).try_into().unwrap(),
+            three_stars: field(low, TWO_POW_48, MASK_16).try_into().unwrap(),
+            claimed: high.try_into().unwrap(),
         }
     }
 }
@@ -499,6 +540,36 @@ pub impl ProgressImpl of ProgressTrait {
             3 => *self.points,
             4 => (*self.forests).into(),
             _ => 0,
+        }
+    }
+}
+
+#[generate_trait]
+pub impl PvpProgressImpl of PvpProgressTrait {
+    /// Adds a settlement of `stars` (0 to 3): an attack, its stars, a win, three stars.
+    fn add(ref self: PvpProgress, stars: u8) {
+        self.attacks = add_u16(self.attacks, 1);
+        if stars != 0 {
+            self.stars = add_u16(self.stars, stars.into());
+            self.wins = add_u16(self.wins, 1);
+        }
+        if stars == 3 {
+            self.three_stars = add_u16(self.three_stars, 1);
+        }
+    }
+
+    /// The sum of a PvP task (19 to 22) in this period; 0 for any other.
+    fn count(self: @PvpProgress, task: u32) -> u32 {
+        if task == constants::TASK_PVP_ATTACK {
+            (*self.attacks).into()
+        } else if task == constants::TASK_PVP_STARS {
+            (*self.stars).into()
+        } else if task == constants::TASK_PVP_WIN {
+            (*self.wins).into()
+        } else if task == constants::TASK_PVP_THREE_STARS {
+            (*self.three_stars).into()
+        } else {
+            0
         }
     }
 }
@@ -725,6 +796,39 @@ pub trait ISetupStory<TContractState> {
     ) -> u32;
 }
 
+/// Leagues and seasons (#644, `docs/architecture/leagues.md`): the cobbles of a league reached for
+/// the first time in a season and of a season's end, paid from this ledger for `Matchmaker`, an
+/// allowlisted reporter.
+#[starknet::interface]
+pub trait ISetupLeague<TContractState> {
+    /// Credits `player_id` `cobbles` (not 0) for `league` in `season`: `kind` `CLAIM_LEAGUE` (a
+    /// league's bonus) or `CLAIM_SEASON` (a season's reward). An allowlisted reporter only
+    /// (`'Quest: not reporter'`); it trusts the reporter for whom, which and how much (`Matchmaker`
+    /// pays each once: its league records). Emits `CobblesClaimed` (`id` the league, `period` the
+    /// season); returns the balance after it.
+    fn credit_league(
+        ref self: TContractState,
+        player_id: felt252,
+        kind: u8,
+        league: u8,
+        season: u32,
+        cobbles: u8,
+    ) -> u64;
+    /// The PvP missions' progress of `player_id`'s attack settled with `stars` (0 to 3), from an
+    /// allowlisted reporter only (`Matchmaker`): the PvP day and week sums (`PvpProgress`), and
+    /// quiver's `QuestProgressed` for tasks 19 to 22 (the entries that count).
+    fn report_pvp(ref self: TContractState, player_id: felt252, stars: u8);
+    /// A player's PvP day (`DAILY`) or week (`WEEKLY`) `period`.
+    fn pvp_progress(
+        self: @TContractState, player_id: felt252, kind: u8, period: u64,
+    ) -> PvpProgress;
+}
+
+/// Whether `task` is one of the PvP tasks a settlement reports (19 to 22, #644).
+pub fn is_pvp_task(task: u32) -> bool {
+    task >= constants::TASK_PVP_ATTACK && task <= constants::TASK_PVP_THREE_STARS
+}
+
 /// The player's XP and level (#641, `docs/architecture/xp-level.md`): credited by the allowlisted
 /// reporters only (a Challenge game over by `report`, a Story star by `credit_story`, PvP by
 /// `credit_xp`); the level is computed from the XP (`level_of`), never stored.
@@ -801,14 +905,15 @@ pub mod Setup {
 
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
-        AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
-        CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupLevel, ISetupPacks, ISetupSkins,
-        ISetupSpend, ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID,
-        MAX_QUEST_TOTAL, PLANS, Pack, PlayerLevel, Progress, ProgressTrait, QUEST_COBBLES_MAX,
+        AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_LEAGUE,
+        CLAIM_QUEST, CLAIM_SEASON, CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupLeague,
+        ISetupLevel, ISetupPacks, ISetupSkins, ISetupSpend, ISetupStory, MAX_ACHIEVEMENT_TOTAL,
+        MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, PlayerLevel,
+        Progress, ProgressTrait, PvpProgress, PvpProgressTrait, QUEST_COBBLES_MAX,
         QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask,
         SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES, STAR_XP, WEEKLY, Wiring, XP_ATTACK,
-        XP_CHALLENGE, XP_DEFENCE, XP_STORY, active_themes, bit, level_floor, level_of, list_ids,
-        list_word, report_xp, schedule_kind, week_of,
+        XP_CHALLENGE, XP_DEFENCE, XP_STORY, active_themes, bit, is_pvp_task, level_floor, level_of,
+        list_ids, list_word, report_xp, schedule_kind, week_of,
     };
 
     // Errors
@@ -850,6 +955,7 @@ pub mod Setup {
         pub const INVALID_XP_SOURCE: felt252 = 'Setup: invalid xp source';
         pub const INVALID_XP: felt252 = 'Setup: invalid xp';
         pub const NOT_SPENDER: felt252 = 'Setup: not spender';
+        pub const INVALID_KIND: felt252 = 'Setup: invalid kind';
     }
 
     // Components
@@ -959,6 +1065,11 @@ pub mod Setup {
         /// #639 (appended, P-42). The systems allowed to spend a player's cobbles
         /// (`ISetupSpend`); written by `set_spender`.
         spenders: Map<ContractAddress, bool>,
+        /// #644 (appended, P-42). The sums of a player's PvP settlements per day number, and its
+        /// claimed PvP missions (`super::PvpProgress`); written by `report_pvp` and `claim_quest`.
+        pvp_days: Map<(felt252, u64), PvpProgress>,
+        /// The same per week number (`super::week_of`).
+        pvp_weeks: Map<(felt252, u64), PvpProgress>,
     }
 
     // Events
@@ -1024,7 +1135,8 @@ pub mod Setup {
 
     /// A player's claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an
     /// achievement (`period` 0), 3 a star of a Story level (`id` `(campaign_id << 8) | level_id`,
-    /// `period` the star, 1 to 3); `balance`, the player's cobbles after it.
+    /// `period` the star, 1 to 3), 4 a league's bonus and 5 a season's reward (#644: `id` the
+    /// league, `period` the season); `balance`, the player's cobbles after it.
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct CobblesClaimed {
         #[key]
@@ -1327,9 +1439,12 @@ pub mod Setup {
             assert(!head.retired, errors::RETIRED);
             assert(tasks.len() == 1, errors::ONE_TASK);
             let task = *tasks.at(0);
-            assert(task.task_id >= 1 && task.task_id <= 4, errors::TASK_NOT_COUNTED);
-            // [Check] Reachable by a saturated sum: the day and week sums of tasks 1, 2 and 4 are
-            // `u16`, the points' `u32`
+            assert(
+                (task.task_id >= 1 && task.task_id <= 4) || is_pvp_task(task.task_id),
+                errors::TASK_NOT_COUNTED,
+            );
+            // [Check] Reachable by a saturated sum: the day and week sums of tasks 1, 2, 4 and 19
+            // to 22 are `u16`, the points' `u32`
             assert(
                 task.task_id == constants::TASK_POINTS || task.total <= MAX_QUEST_TOTAL,
                 errors::TOTAL_TOO_HIGH,
@@ -1409,6 +1524,10 @@ pub mod Setup {
             assert(entry.is_active(entry.period_start(period)), errors::NOT_LIVE);
             // [Check] Completed in that period, and not claimed yet
             let key = (player_id, period);
+            if is_pvp_task(entry.task) {
+                self.claim_pvp_quest(player_id, quest_id, period, entry);
+                return;
+            }
             let mut progress = if entry.kind == WEEKLY {
                 self.weeks.read(key)
             } else {
@@ -1557,6 +1676,82 @@ pub mod Setup {
             self.emit_xp(player_id, XP_STORY, xp, account.xp);
             self.accounts.write(player_id, account);
             total
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupLeagueImpl of ISetupLeague<ContractState> {
+        fn credit_league(
+            ref self: ContractState,
+            player_id: felt252,
+            kind: u8,
+            league: u8,
+            season: u32,
+            cobbles: u8,
+        ) -> u64 {
+            // [Check] Caller is a reporter (`Matchmaker`), a league claim, cobbles to credit
+            self.quest.assert_reporter(get_caller_address());
+            assert(kind == CLAIM_LEAGUE || kind == CLAIM_SEASON, errors::INVALID_KIND);
+            assert(cobbles != 0, errors::INVALID_COBBLES);
+            // [Effect] The cobbles
+            let mut account = self.accounts.read(player_id);
+            account.cobbles += cobbles.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    CobblesClaimed {
+                        player_id,
+                        kind,
+                        id: league.into(),
+                        period: season.into(),
+                        cobbles,
+                        balance: account.cobbles,
+                    },
+                );
+            account.cobbles
+        }
+
+        fn report_pvp(ref self: ContractState, player_id: felt252, stars: u8) {
+            // [Check] Caller is a reporter (`Matchmaker`), at most three stars
+            self.quest.assert_reporter(get_caller_address());
+            assert(stars <= 3, errors::INVALID_STARS);
+            // [Effect] quiver's progress, for the player the reporter names
+            let mut quests: Array<QuestProgress> = array![
+                QuestProgress { task_id: constants::TASK_PVP_ATTACK, count: 1 },
+            ];
+            if stars != 0 {
+                quests
+                    .append(
+                        QuestProgress { task_id: constants::TASK_PVP_STARS, count: stars.into() },
+                    );
+                quests.append(QuestProgress { task_id: constants::TASK_PVP_WIN, count: 1 });
+            }
+            if stars == 3 {
+                quests.append(QuestProgress { task_id: constants::TASK_PVP_THREE_STARS, count: 1 });
+            }
+            self.quest.progress_many(player_id, quests.span(), QuestMode::Event);
+            // [Effect] The PvP ledger of the day and of the week (from week 0)
+            let time = get_block_timestamp();
+            let key = (player_id, time / DAY);
+            let mut day = self.pvp_days.read(key);
+            day.add(stars);
+            self.pvp_days.write(key, day);
+            if let Option::Some(week) = week_of(time) {
+                let key = (player_id, week);
+                let mut week = self.pvp_weeks.read(key);
+                week.add(stars);
+                self.pvp_weeks.write(key, week);
+            }
+        }
+
+        fn pvp_progress(
+            self: @ContractState, player_id: felt252, kind: u8, period: u64,
+        ) -> PvpProgress {
+            if kind == WEEKLY {
+                self.pvp_weeks.read((player_id, period))
+            } else {
+                self.pvp_days.read((player_id, period))
+            }
         }
     }
 
@@ -1774,6 +1969,46 @@ pub mod Setup {
 
     #[generate_trait]
     impl CobblesInternalImpl of CobblesInternalTrait {
+        /// The claim of a PvP mission (#644), from the PvP ledger: as `claim_quest`.
+        fn claim_pvp_quest(
+            ref self: ContractState,
+            player_id: felt252,
+            quest_id: u32,
+            period: u64,
+            entry: QuestCobbles,
+        ) {
+            let key = (player_id, period);
+            let mut progress = if entry.kind == WEEKLY {
+                self.pvp_weeks.read(key)
+            } else {
+                self.pvp_days.read(key)
+            };
+            assert(progress.count(entry.task) >= entry.total, errors::NOT_COMPLETED);
+            let flag = bit(quest_id);
+            assert(progress.claimed & flag == 0, errors::CLAIMED);
+            // [Effect] Claimed in the same write, then the cobbles
+            progress.claimed = progress.claimed | flag;
+            if entry.kind == WEEKLY {
+                self.pvp_weeks.write(key, progress);
+            } else {
+                self.pvp_days.write(key, progress);
+            }
+            let mut account = self.accounts.read(player_id);
+            account.cobbles += entry.cobbles.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    CobblesClaimed {
+                        player_id,
+                        kind: CLAIM_QUEST,
+                        id: quest_id,
+                        period,
+                        cobbles: entry.cobbles,
+                        balance: account.cobbles,
+                    },
+                );
+        }
+
         /// The `XpGained` of a credit: `xp` added, `total` the player's XP after it.
         fn emit_xp(ref self: ContractState, player_id: felt252, source: u8, xp: u32, total: u32) {
             self.emit(XpGained { player_id, source, xp, total, level: level_of(total) });
@@ -1812,7 +2047,8 @@ pub mod Setup {
             let mut live: u32 = 0;
             for id in list_ids(self.quest_lists.read(kind)) {
                 let entry = self.quest_cobbles.read(id);
-                if entry.is_active(entry.period_start(period)) {
+                // A PvP mission is not part of the credit: it never depends on PvP (#644)
+                if !is_pvp_task(entry.task) && entry.is_active(entry.period_start(period)) {
                     assert(progress.count(entry.task) >= entry.total, errors::NOT_COMPLETED);
                     live += 1;
                 }

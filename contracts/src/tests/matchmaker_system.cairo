@@ -15,8 +15,18 @@ use paved::components::bucketable::BucketableComponent::{
 use paved::components::bucketable::{
     IBucketableDispatcher, IBucketableDispatcherTrait, Place, TOP_BUCKET, bucket_of,
 };
-use paved::components::crownable::CrownableComponent::{CrownsSettled, Event as CrownEvent};
+use paved::components::crownable::CrownableComponent::{
+    CrownsSet, CrownsSettled, Event as CrownEvent,
+};
 use paved::components::crownable::{ICrownableDispatcher, ICrownableDispatcherTrait};
+use paved::components::leagueable::LeagueableComponent::{
+    Event as LeagueEvent, LeagueReached, SeasonClosed,
+};
+use paved::components::leagueable::{
+    ILeagueableDispatcher, ILeagueableDispatcherTrait, LeagueRecord, LeagueRecordPacking,
+};
+use paved::components::seasonable::SeasonableComponent::{Event as SeasonEvent, SeasonClockSet};
+use paved::components::seasonable::{ISeasonableDispatcher, ISeasonableDispatcherTrait, SeasonClock};
 use paved::components::shieldable::ShieldableComponent::{
     Event as ShieldEvent, ShieldDropped, ShieldRaised, ShieldReleased,
 };
@@ -24,6 +34,7 @@ use paved::components::shieldable::{
     ATTACK_SHIELD, INITIAL_SHIELD, IShieldableDispatcher, IShieldableDispatcherTrait, QUEUE_ATTACK,
     QUEUE_INITIAL,
 };
+use paved::matchmaker::leagues::{LEGEND, RESET_CROWNS, league_of};
 use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
 use paved::systems::matchmaker::Matchmaker::{
     AttackStarted, Event as MatchmakerEvent, OpponentDrawn, VillageJoined,
@@ -31,20 +42,23 @@ use paved::systems::matchmaker::Matchmaker::{
 use paved::systems::matchmaker::{
     IMatchmakerAdminDispatcher, IMatchmakerAdminDispatcherTrait, IMatchmakerAdminSafeDispatcher,
     IMatchmakerAdminSafeDispatcherTrait, IMatchmakerDispatcher, IMatchmakerDispatcherTrait,
-    IMatchmakerSafeDispatcher, IMatchmakerSafeDispatcherTrait, MATCH_KIND, Match, NEXT_PRICE,
-    NEXT_REASON, STATUS_NONE, STATUS_NPC, STATUS_PLAYER,
+    IMatchmakerSafeDispatcher, IMatchmakerSafeDispatcherTrait, LeagueStatus, MATCH_KIND, Match,
+    NEXT_PRICE, NEXT_REASON, STATUS_NONE, STATUS_NPC, STATUS_PLAYER,
 };
-use paved::systems::setup::Setup::{CobblesSpent, Event as SetupEvent};
+use paved::systems::setup::Setup::{CobblesClaimed, CobblesSpent, Event as SetupEvent};
 use paved::systems::setup::{
-    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
+    CLAIM_LEAGUE, CLAIM_SEASON, DAILY, DAY, ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait,
+    ISetupDispatcher, ISetupDispatcherTrait, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
     ISetupSpendDispatcher, ISetupSpendDispatcherTrait, ISetupSpendSafeDispatcher,
-    ISetupSpendSafeDispatcherTrait, ISetupStoryDispatcher, ISetupStoryDispatcherTrait,
+    ISetupSpendSafeDispatcherTrait, ISetupStoryDispatcher, ISetupStoryDispatcherTrait, PvpProgress,
 };
 use paved::vrf::draw_salt;
+use quiver_quest::types::schedule::QuestSchedule;
+use quiver_quest::types::task::QuestTask;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, load,
     map_entry_address, spy_events, start_cheat_block_timestamp_global, start_cheat_caller_address,
-    start_cheat_transaction_hash_global, stop_cheat_caller_address,
+    start_cheat_transaction_hash_global, stop_cheat_caller_address, store,
 };
 use starknet::ContractAddress;
 
@@ -85,6 +99,8 @@ struct World {
     crowns: ICrownableDispatcher,
     buckets: IBucketableDispatcher,
     shields: IShieldableDispatcher,
+    seasons: ISeasonableDispatcher,
+    leagues: ILeagueableDispatcher,
     setup: ISetupDispatcher,
     provider: ContractAddress,
 }
@@ -107,8 +123,9 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
     address
 }
 
-/// `Setup`, the VRF mock and `Matchmaker`; `OPERATOR` an operator, `Matchmaker` a spender of
-/// `Setup`, `REPORTER` a reporter (to credit cobbles). No village yet.
+/// `Setup`, the VRF mock and `Matchmaker`; `OPERATOR` an operator, `Matchmaker` a spender and a
+/// reporter of `Setup` (#644: league credits, PvP missions), `REPORTER` a reporter (to credit
+/// cobbles). No village yet, no season clock.
 fn world() -> World {
     start_cheat_block_timestamp_global(START);
     let setup = deploy("Setup", array![OWNER().into()]);
@@ -120,6 +137,8 @@ fn world() -> World {
         crowns: ICrownableDispatcher { contract_address: matchmaker },
         buckets: IBucketableDispatcher { contract_address: matchmaker },
         shields: IShieldableDispatcher { contract_address: matchmaker },
+        seasons: ISeasonableDispatcher { contract_address: matchmaker },
+        leagues: ILeagueableDispatcher { contract_address: matchmaker },
         setup: ISetupDispatcher { contract_address: setup },
         provider,
     };
@@ -128,6 +147,7 @@ fn world() -> World {
     stop_cheat_caller_address(matchmaker);
     start_cheat_caller_address(setup, OWNER());
     world.setup.set_reporter(REPORTER(), true);
+    world.setup.set_reporter(matchmaker, true);
     ISetupSpendDispatcher { contract_address: setup }.set_spender(matchmaker, true);
     stop_cheat_caller_address(setup);
     world
@@ -1022,6 +1042,419 @@ fn test_storage_is_pinned_by_name() {
     assert(raw_entry(setup, selector!("spenders"), array![address.into()]) == 1, 'Pin: spenders');
 }
 
+#[test]
+fn test_league_storage_is_pinned_by_name() {
+    let world = seasoned(0, 0);
+    as_operator(world);
+    world.matchmaker.set_crowns(ALICE(), 450);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    let address = world.matchmaker.contract_address;
+    // Seasonable
+    let clock: u256 = SEASON_START.into() + LENGTH.into() * 0x10000000000000000;
+    assert(raw(address, selector!("season_clock")) == clock.try_into().unwrap(), 'Pin: clock');
+    // Leagueable: season 1, peak Bronze III, no attack
+    assert(
+        raw_entry(address, selector!("league_records"), array![ALICE().into()]) == 1 + 0x100000000,
+        'Pin: league_records',
+    );
+}
+
+// Leagues and seasons (#644, `docs/architecture/leagues.md`)
+
+/// Season 1 starts a day after `START`; seasons of 28 days.
+const SEASON_START: u64 = START + DAY;
+const LENGTH: u64 = 28 * DAY;
+
+fn league_event(event: LeagueEvent) -> MatchmakerEvent {
+    MatchmakerEvent::LeagueableEvent(event)
+}
+
+fn set_clock(world: World) {
+    start_cheat_caller_address(world.matchmaker.contract_address, OWNER());
+    world.admin.set_season_clock(SEASON_START, LENGTH);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+}
+
+/// `village`'s league record written by hand (`store`), at its raw address.
+fn write_record(world: World, village: ContractAddress, record: LeagueRecord) {
+    store(
+        world.matchmaker.contract_address,
+        map_entry_address(selector!("league_records"), array![village.into()].span()),
+        array![LeagueRecordPacking::pack(record)].span(),
+    );
+}
+
+/// Alice attacks Bob (the only one listed) and wins `stars`.
+fn attack(world: World, hash: felt252, stars: u8) {
+    assert(search(world, ALICE(), hash) == BOB(), 'not bob');
+    start(world, ALICE());
+    as_operator(world);
+    world.matchmaker.settle(ALICE(), stars);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+}
+
+/// Alice and Bob in the pool at `alice` and `bob` crowns, set in season 0; the clock set, and the
+/// time in season 1 (`two_players` ends the initial shields at `START + INITIAL_SHIELD`).
+fn seasoned(alice: u32, bob: u32) -> World {
+    let world = world();
+    set_clock(world);
+    join(world, ALICE());
+    join(world, BOB());
+    as_operator(world);
+    world.matchmaker.set_crowns(ALICE(), alice);
+    world.matchmaker.set_crowns(BOB(), bob);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    start_cheat_block_timestamp_global(START + INITIAL_SHIELD);
+    assert_eq!(world.matchmaker.release_shields(2), 2);
+    assert_eq!(world.seasons.current_season(), 1);
+    world
+}
+
+#[test]
+fn test_season_clock_is_set_once_by_the_owner() {
+    let world = world();
+    let mut spy = spy_events();
+    assert_eq!(world.seasons.current_season(), 0);
+    set_clock(world);
+    assert_eq!(world.seasons.season_clock(), SeasonClock { start: SEASON_START, length: LENGTH });
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.matchmaker.contract_address,
+                    MatchmakerEvent::SeasonableEvent(
+                        SeasonEvent::SeasonClockSet(
+                            SeasonClockSet { start: SEASON_START, length: LENGTH },
+                        ),
+                    ),
+                ),
+            ],
+        );
+    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    assert_eq!(world.seasons.current_season(), 2);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_season_clock_by_a_stranger_or_once_started_fails() {
+    let world = world();
+    let admin = IMatchmakerAdminSafeDispatcher {
+        contract_address: world.matchmaker.contract_address,
+    };
+    start_cheat_caller_address(world.matchmaker.contract_address, ALICE());
+    match admin.set_season_clock(SEASON_START, LENGTH) {
+        Result::Ok(_) => panic!("a stranger set the clock"),
+        Result::Err(panic) => assert(*panic.at(0) == 'Ownable: caller is not owner', *panic.at(0)),
+    }
+    set_clock(world);
+    start_cheat_block_timestamp_global(SEASON_START);
+    start_cheat_caller_address(world.matchmaker.contract_address, OWNER());
+    match admin.set_season_clock(SEASON_START + DAY, LENGTH) {
+        Result::Ok(_) => panic!("the clock moved once started"),
+        Result::Err(panic) => assert(*panic.at(0) == 'Seasons: clock started', *panic.at(0)),
+    }
+}
+
+#[test]
+fn test_season_zero_has_no_league() {
+    // No clock: an attack settles as before, nothing reached, nothing paid
+    let world = two_players();
+    as_operator(world);
+    world.matchmaker.set_crowns(BOB(), 1_000);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    attack(world, 'TX1', 3);
+    assert_eq!(world.leagues.league_record(ALICE()), Default::default());
+    assert_eq!(cobbles(world, ALICE()), 0);
+}
+
+#[test]
+fn test_settle_reaches_a_league_and_pays_its_bonus() {
+    // Alice 390 (Unranked) wins 3 stars on Bob 420 (gap +30, offer 32): 422, Bronze III
+    let world = seasoned(390, 420);
+    let mut spy = spy_events();
+    attack(world, 'TX1', 3);
+    assert_eq!(world.crowns.crowns(ALICE()), 422);
+    assert_eq!(
+        world.leagues.league_record(ALICE()), LeagueRecord { season: 1, peak: 1, attacks: 1 },
+    );
+    // Bob dropped to 388: his peak stays the league he started the season in
+    assert_eq!(world.leagues.league_record(BOB()), LeagueRecord { season: 1, peak: 1, attacks: 0 });
+    assert_eq!(cobbles(world, ALICE()), 5);
+    assert_eq!(cobbles(world, BOB()), 0);
+    let address = world.matchmaker.contract_address;
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    address,
+                    league_event(
+                        LeagueEvent::LeagueReached(
+                            LeagueReached { village: ALICE(), season: 1, league: 1, bonus: 5 },
+                        ),
+                    ),
+                ),
+            ],
+        );
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.setup.contract_address,
+                    SetupEvent::CobblesClaimed(
+                        CobblesClaimed {
+                            player_id: ALICE().into(),
+                            kind: CLAIM_LEAGUE,
+                            id: 1,
+                            period: 1,
+                            cobbles: 5,
+                            balance: 5,
+                        },
+                    ),
+                ),
+            ],
+        );
+    // Bob wins it back, then Alice climbs again: Bronze III was reached this season, no bonus
+    start_cheat_block_timestamp_global(START + INITIAL_SHIELD + ATTACK_SHIELD);
+    world.matchmaker.release_shields(1);
+    as_operator(world);
+    world.matchmaker.set_crowns(ALICE(), 399);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    attack(world, 'TX2', 1);
+    assert(world.crowns.crowns(ALICE()) >= 400, 'alice not back in bronze');
+    assert_eq!(cobbles(world, ALICE()), 5);
+}
+
+#[test]
+fn test_defender_reaches_a_league_by_a_failed_attack() {
+    // Bob 390 defends against Alice 400: Alice's 0-star cost (20) goes to Bob: 410, Bronze III
+    let world = seasoned(400, 390);
+    attack(world, 'TX1', 0);
+    assert_eq!(world.crowns.crowns(BOB()), 410);
+    assert_eq!(world.leagues.league_record(BOB()), LeagueRecord { season: 1, peak: 1, attacks: 0 });
+    assert_eq!(cobbles(world, BOB()), 5);
+}
+
+#[test]
+fn test_set_crowns_reaches_leagues_without_a_bonus() {
+    let world = seasoned(0, 0);
+    as_operator(world);
+    world.matchmaker.set_crowns(ALICE(), 1_000);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    assert_eq!(world.leagues.league_record(ALICE()).peak, 5);
+    assert_eq!(cobbles(world, ALICE()), 0);
+}
+
+#[test]
+fn test_season_end_pays_the_league_and_resets_the_crowns() {
+    let world = seasoned(0, 0);
+    // Alice ends season 1 in Legend at 6,000 with 5 attacks settled
+    as_operator(world);
+    world.matchmaker.set_crowns(ALICE(), 6_000);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    write_record(world, ALICE(), LeagueRecord { season: 1, peak: LEGEND, attacks: 5 });
+    assert_eq!(world.buckets.place(ALICE()).bucket, 60);
+    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    // The view shows season 2 before any transaction: crowns reset, the reward pending
+    assert_eq!(
+        world.matchmaker.league(ALICE()),
+        LeagueStatus {
+            season: 2, crowns: RESET_CROWNS, league: LEGEND, peak: LEGEND, attacks: 0, pending: 250,
+        },
+    );
+    // Anyone closes it; the reward goes to Alice
+    let mut spy = spy_events();
+    as_player(world, CAROL());
+    world.matchmaker.close_season(ALICE());
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    assert_eq!(world.crowns.crowns(ALICE()), RESET_CROWNS);
+    assert_eq!(world.buckets.place(ALICE()).bucket, 50);
+    assert_eq!(cobbles(world, ALICE()), 250);
+    assert_eq!(cobbles(world, CAROL()), 0);
+    assert_eq!(
+        world.leagues.league_record(ALICE()), LeagueRecord { season: 2, peak: LEGEND, attacks: 0 },
+    );
+    let address = world.matchmaker.contract_address;
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    address,
+                    league_event(
+                        LeagueEvent::SeasonClosed(
+                            SeasonClosed {
+                                village: ALICE(),
+                                season: 1,
+                                league: LEGEND,
+                                attacks: 5,
+                                reward: 250,
+                                crowns: 6_000,
+                                reset: RESET_CROWNS,
+                            },
+                        ),
+                    ),
+                ),
+                (
+                    address,
+                    crown_event(
+                        CrownEvent::CrownsSet(CrownsSet { village: ALICE(), crowns: RESET_CROWNS }),
+                    ),
+                ),
+            ],
+        );
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.setup.contract_address,
+                    SetupEvent::CobblesClaimed(
+                        CobblesClaimed {
+                            player_id: ALICE().into(),
+                            kind: CLAIM_SEASON,
+                            id: LEGEND.into(),
+                            period: 1,
+                            cobbles: 250,
+                            balance: 250,
+                        },
+                    ),
+                ),
+            ],
+        );
+    // Once: closing again does nothing
+    world.matchmaker.close_season(ALICE());
+    assert_eq!(cobbles(world, ALICE()), 250);
+    // Several seasons later: season 2 had no attack, so no reward; the crowns stay
+    start_cheat_block_timestamp_global(SEASON_START + 5 * LENGTH);
+    world.matchmaker.close_season(ALICE());
+    assert_eq!(cobbles(world, ALICE()), 250);
+    assert_eq!(world.leagues.league_record(ALICE()).season, 6);
+}
+
+#[test]
+fn test_season_end_below_the_threshold_keeps_the_crowns() {
+    let world = seasoned(0, 0);
+    as_operator(world);
+    world.matchmaker.set_crowns(ALICE(), 1_850);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    write_record(world, ALICE(), LeagueRecord { season: 1, peak: 9, attacks: 7 });
+    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    world.matchmaker.close_season(ALICE());
+    assert_eq!(world.crowns.crowns(ALICE()), 1_850);
+    assert_eq!(cobbles(world, ALICE()), 35);
+    // Season 2 starts at Gold I: the bonus needs a league above it
+    assert_eq!(world.leagues.league_record(ALICE()).peak, league_of(1_850));
+}
+
+#[test]
+fn test_a_draw_rolls_both_villages() {
+    let world = seasoned(0, 0);
+    as_operator(world);
+    world.matchmaker.set_crowns(BOB(), 7_000);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    write_record(world, BOB(), LeagueRecord { season: 1, peak: LEGEND, attacks: 5 });
+    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    // Alice draws Bob in season 2: Bob's season 1 closed first, so the terms see 5,000
+    assert(search(world, ALICE(), 'TX1') == BOB(), 'not bob');
+    assert_eq!(world.crowns.crowns(BOB()), RESET_CROWNS);
+    assert_eq!(cobbles(world, BOB()), 250);
+    assert_eq!(world.leagues.league_record(ALICE()).season, 2);
+    let current = world.matchmaker.current_match(ALICE());
+    let (offer, cost) = world.matchmaker.terms(ALICE(), BOB());
+    assert_eq!((current.offer, current.cost), (offer, cost));
+}
+
+#[test]
+fn test_settle_after_the_season_ends_rolls_first() {
+    // The attack starts in season 1, settles in season 2: both roll before the crowns move
+    let world = seasoned(6_000, 5_900);
+    write_record(world, ALICE(), LeagueRecord { season: 1, peak: LEGEND, attacks: 5 });
+    write_record(world, BOB(), LeagueRecord { season: 1, peak: LEGEND, attacks: 0 });
+    assert(search(world, ALICE(), 'TX1') == BOB(), 'not bob');
+    start(world, ALICE());
+    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    as_operator(world);
+    let outcome = world.matchmaker.settle(ALICE(), 3);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    // From 5,000 each: the win came out of Bob's reset crowns, conserved between them
+    assert_eq!(outcome.attacker + outcome.defender, 2 * RESET_CROWNS);
+    assert_eq!(cobbles(world, ALICE()), 250);
+    assert_eq!(cobbles(world, BOB()), 0);
+    assert_eq!(
+        world.leagues.league_record(ALICE()), LeagueRecord { season: 2, peak: LEGEND, attacks: 1 },
+    );
+}
+
+#[test]
+fn test_npc_has_no_league() {
+    let world = world();
+    set_clock(world);
+    join(world, ALICE());
+    set_npc(world, 1, 450);
+    start_cheat_block_timestamp_global(START + INITIAL_SHIELD);
+    world.matchmaker.release_shields(1);
+    assert(search(world, ALICE(), 'TX1') == NPC_1(), 'not the npc');
+    start(world, ALICE());
+    as_operator(world);
+    world.matchmaker.settle(ALICE(), 3);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    assert_eq!(world.leagues.league_record(NPC_1()), Default::default());
+    assert_eq!(world.matchmaker.league(NPC_1()).league, 1);
+    // The attacker's win counts
+    assert_eq!(world.leagues.league_record(ALICE()).attacks, 1);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_close_season_of_a_stranger_or_an_npc_fails() {
+    let world = world();
+    set_npc(world, 1, 0);
+    match safe(world).close_season(ALICE()) {
+        Result::Ok(_) => panic!("a stranger's season closed"),
+        Result::Err(panic) => assert(*panic.at(0) == 'Matchmaker: not joined', *panic.at(0)),
+    }
+    match safe(world).close_season(NPC_1()) {
+        Result::Ok(_) => panic!("an npc's season closed"),
+        Result::Err(panic) => assert(*panic.at(0) == 'Matchmaker: not joined', *panic.at(0)),
+    }
+}
+
+#[test]
+fn test_settle_reports_the_pvp_missions() {
+    let world = seasoned(0, 0);
+    let setup = world.setup.contract_address;
+    // A daily "Raider" on task 19 (1 attack) for 10 cobbles
+    start_cheat_caller_address(setup, OWNER());
+    let daily = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
+    world
+        .setup
+        .define_quest(
+            50, daily, array![QuestTask { task_id: 19, total: 1 }].span(), array![].span(),
+        );
+    ISetupCobblesDispatcher { contract_address: setup }.set_quest_cobbles(50, 10);
+    stop_cheat_caller_address(setup);
+    attack(world, 'TX1', 3);
+    let day = (START + INITIAL_SHIELD) / DAY;
+    let ledger = ISetupLeagueDispatcher { contract_address: setup };
+    assert_eq!(
+        ledger.pvp_progress(ALICE().into(), DAILY, day),
+        PvpProgress { attacks: 1, stars: 3, wins: 1, three_stars: 1, claimed: 0 },
+    );
+    // The defender's missions are not the attacker's
+    assert_eq!(ledger.pvp_progress(BOB().into(), DAILY, day), Default::default());
+    start_cheat_caller_address(setup, ALICE());
+    ISetupCobblesDispatcher { contract_address: setup }.claim_quest(50, day);
+    assert_eq!(cobbles(world, ALICE()), 10);
+}
+
+#[test]
+#[should_panic(expected: 'Quest: not reporter')]
+fn test_settle_when_matchmaker_is_not_a_reporter_fails() {
+    let world = two_players();
+    start_cheat_caller_address(world.setup.contract_address, OWNER());
+    world.setup.set_reporter(world.matchmaker.contract_address, false);
+    stop_cheat_caller_address(world.setup.contract_address);
+    attack(world, 'TX1', 1);
+}
+
 // Fuzz: random sequences of calls keep the invariants of the composed pieces
 
 fn village_at(id: u32) -> ContractAddress {
@@ -1094,18 +1527,46 @@ fn assert_villages(world: World, villages: Span<ContractAddress>) {
     }
 }
 
+/// Every player's record is at or before the current season; once rolled into it, its peak is at
+/// least its crowns' league (every crown change is followed by a climb), and its crowns after a
+/// season it closed at most the reset's. An NPC has no record.
+fn assert_leagues(world: World, villages: Span<ContractAddress>) {
+    let season = world.seasons.current_season();
+    for address in villages {
+        let address = *address;
+        let record = world.leagues.league_record(address);
+        assert(record.season <= season, 'record past the season');
+        let status = world.matchmaker.village(address).status;
+        if status != STATUS_PLAYER {
+            assert(record == Default::default(), 'npc with a record');
+            continue;
+        }
+        if record.season == season && season != 0 {
+            assert(record.peak >= league_of(world.crowns.crowns(address)), 'peak under the league');
+        }
+        let status = world.matchmaker.league(address);
+        assert(status.season == season, 'view not in the season');
+        assert(status.peak >= status.league || season == 0, 'view peak under league');
+    }
+}
+
 fn next_random(ref state: felt252) -> u256 {
     state = PoseidonTrait::new().update(state).update('MATCHMAKER').finalize();
     state.into()
 }
 
 /// Runs `steps` random calls through the system; the buckets are checked whole every `every` steps
-/// and at the end, the villages after every step. Returns the attacks settled and the shields
-/// released by `release_shields`.
+/// and at the end, the villages after every step, the leagues every `every` steps. Returns the
+/// attacks settled, the shields released by `release_shields`, the season reached and the Cobbles
+/// the players hold (only the leagues pay them here: no quest has Cobbles).
 #[feature("safe_dispatcher")]
-fn run_sequence(seed: felt252, steps: u32, every: u32) -> (u32, u32) {
+fn run_sequence(seed: felt252, steps: u32, every: u32) -> (u32, u32, u32, u64) {
     let world = world();
     let address = world.matchmaker.contract_address;
+    // Seasons of a day from an hour in (#644): the time steps cross several
+    start_cheat_caller_address(address, OWNER());
+    world.admin.set_season_clock(START + 3600, DAY);
+    stop_cheat_caller_address(address);
     let mut attacks: u32 = 0;
     let mut releases: u32 = 0;
     let mut state = seed;
@@ -1184,21 +1645,31 @@ fn run_sequence(seed: felt252, steps: u32, every: u32) -> (u32, u32) {
         step += 1;
         if step % every == 0 || step == steps {
             assert_buckets(world, joined.span());
+            assert_leagues(world, joined.span());
         }
     }
-    (attacks, releases)
+    let mut paid: u64 = 0;
+    let mut id: u32 = 0;
+    while id != players {
+        paid += cobbles(world, village_at(id));
+        id += 1;
+    }
+    (attacks, releases, world.seasons.current_season(), paid)
 }
 
 #[test]
 #[fuzzer(runs: 16, seed: 639)]
 fn test_fuzz_pool_invariants(seed: felt252) {
-    let (_attacks, _releases) = run_sequence(seed, 24, 4);
+    let (_attacks, _releases, _season, _paid) = run_sequence(seed, 24, 4);
 }
 
 #[test]
 fn test_pool_invariants_long_sequence() {
     // Busy enough to mean something: attacks, and `release_shields` putting villages back (the
     // releases of attack starts are not counted here)
-    let (attacks, releases) = run_sequence('LONG', 120, 40);
+    let (attacks, releases, season, paid) = run_sequence('LONG', 120, 40);
     assert(attacks >= 20 && releases >= 1, 'sequence too quiet');
+    // Several seasons crossed, and the leagues paid (#644)
+    println!("long sequence: {} attacks, season {}, {} cobbles paid", attacks, season, paid);
+    assert(season >= 2 && paid != 0, 'no league paid');
 }

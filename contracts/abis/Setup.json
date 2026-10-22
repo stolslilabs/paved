@@ -726,6 +726,115 @@
   },
   {
     "type": "impl",
+    "name": "SetupLeagueImpl",
+    "interface_name": "paved::systems::setup::ISetupLeague"
+  },
+  {
+    "type": "struct",
+    "name": "paved::systems::setup::PvpProgress",
+    "members": [
+      {
+        "name": "attacks",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "stars",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "wins",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "three_stars",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "claimed",
+        "type": "core::integer::u64"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::setup::ISetupLeague",
+    "items": [
+      {
+        "type": "function",
+        "name": "credit_league",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "kind",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "league",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "season",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "cobbles",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u64"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "report_pvp",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "stars",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "pvp_progress",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "kind",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "period",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::systems::setup::PvpProgress"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "SetupLevelImpl",
     "interface_name": "paved::systems::setup::ISetupLevel"
   },

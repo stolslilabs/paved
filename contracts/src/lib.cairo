@@ -72,6 +72,7 @@ pub mod helpers {
 
 pub mod matchmaker {
     pub mod crowns;
+    pub mod leagues;
 }
 
 pub mod models {
@@ -86,9 +87,11 @@ pub mod components {
     pub mod crownable;
     pub mod drawable;
     pub mod hostable;
+    pub mod leagueable;
     pub mod ownable;
     pub mod payable;
     pub mod playable;
+    pub mod seasonable;
     pub mod shieldable;
 }
 
@@ -143,6 +146,7 @@ pub mod tests {
     pub mod e2e;
     pub mod economy;
     pub mod golden;
+    pub mod leagues;
     pub mod legacy;
     pub mod legacy_d18;
     pub mod legacy_g1;

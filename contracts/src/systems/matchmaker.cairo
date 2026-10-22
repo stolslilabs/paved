@@ -5,15 +5,22 @@
 //! `CrownableComponent` (the crown counts), `BucketableComponent` (the pool, ported from the
 //! owner's POC, bal7hazar/matchmaker at 8639f232) and `ShieldableComponent` (the shield queues).
 //! This system holds what joins them: who has joined, the draws, the matches, the callers' checks,
-//! the Cobbles of "Next".
+//! the Cobbles of "Next". Since #644 (`docs/architecture/leagues.md`) it also embeds the leagues'
+//! pieces: `SeasonableComponent` (the season clock) and `LeagueableComponent` (each village's
+//! league record). Every call that moves a player's crowns first rolls it into the current season
+//! (its last season closed, its crowns reset); a settlement then records the leagues reached, pays
+//! the league bonuses and season rewards in Cobbles through `Setup` (a reporter), and reports the
+//! PvP missions' tasks to `Setup`'s quests.
 //!
 //! Callers:
 //! - the player: `search` (free) and `next` (`NEXT_PRICE` Cobbles, spent in `Setup`) draw an
 //!   opponent and fix the offer and the 0-star cost;
 //! - an operator (a system the owner allows: #640 creates villages, #643 runs attacks): `join`,
 //!   `start_attack`, `settle`, and `set_crowns` (#644's season reset);
-//! - anyone: `release_shields`, which puts back expired shields (every attack start does it too);
-//! - the owner: the operators, `Setup`, the VRF provider, the NPC villages, `upgrade`.
+//! - anyone: `release_shields`, which puts back expired shields (every attack start does it too),
+//!   and `close_season`, which rolls a village into the current season and pays it what it owes;
+//! - the owner: the operators, `Setup`, the VRF provider, the NPC villages, the season clock,
+//!   `upgrade`.
 //!
 //! The client puts `request_random(Matchmaker, Salt(vrfSalt(MATCH_KIND, attacker, draws)))` first
 //! in the multicall of `search` and `next`, `draws` being the village's draw counter (`village`).
@@ -64,6 +71,19 @@ pub impl VillagePacking of starknet::storage_access::StorePacking<Village, felt2
     }
 }
 
+/// A village's league as it would be after a roll into the current season (#644): its season, its
+/// crowns (reset if its last season ended), its league, the highest league reached this season,
+/// the attacks settled in it, and `pending`, the season reward that roll would pay.
+#[derive(Copy, Drop, Serde, Debug, PartialEq)]
+pub struct LeagueStatus {
+    pub season: u32,
+    pub crowns: u32,
+    pub league: u8,
+    pub peak: u8,
+    pub attacks: u16,
+    pub pending: u8,
+}
+
 /// An attacker's drawn opponent, the offer and the 0-star cost fixed at the draw; `started` once
 /// the attack began. A zero opponent: none.
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
@@ -92,8 +112,15 @@ pub trait IMatchmaker<TContractState> {
     /// Settles the started attack of `attacker` with its stars (0 to 3): the crowns move and the
     /// match ends. An operator only. Emits `CrownsSettled`.
     fn settle(ref self: TContractState, attacker: ContractAddress, stars: u8) -> Settlement;
-    /// Sets a village's crowns (the season reset of #644). An operator only.
+    /// Sets a village's crowns, after its season roll; the leagues it reaches pay no bonus. An
+    /// operator only.
     fn set_crowns(ref self: TContractState, village: ContractAddress, crowns: u32);
+    /// Rolls a player's `village` into the current season (nothing if it is there already): its
+    /// last season closed and its reward paid to it, its crowns reset. Anyone. Emits
+    /// `SeasonClosed` when a season closes.
+    fn close_season(ref self: TContractState, village: ContractAddress);
+    /// `village`'s league as a roll into the current season would leave it (no write).
+    fn league(self: @TContractState, village: ContractAddress) -> LeagueStatus;
     /// Puts back at most `max` (at most `MAX_RELEASES`) expired shields. Anyone. Returns how many.
     fn release_shields(ref self: TContractState, max: u32) -> u32;
     fn village(self: @TContractState, village: ContractAddress) -> Village;
@@ -116,6 +143,9 @@ pub trait IMatchmakerAdmin<TContractState> {
     fn set_npc(ref self: TContractState, npc_id: u8, crowns: u32);
     /// Takes NPC village `npc_id` out of the pool. Emits `NpcRemoved`.
     fn remove_npc(ref self: TContractState, npc_id: u8);
+    /// Sets the season clock (#644): season 1 from `start` (in the future), seasons of `length`
+    /// seconds (at least a day); only while no season has started. Emits `SeasonClockSet`.
+    fn set_season_clock(ref self: TContractState, start: u64, length: u64);
 }
 
 #[starknet::contract]
@@ -126,21 +156,39 @@ pub mod Matchmaker {
     use paved::components::bucketable::BucketableComponent;
     use paved::components::crownable::CrownableComponent;
     use paved::components::drawable::DrawableComponent;
+    use paved::components::leagueable::{LeagueableComponent, roll_of};
     use paved::components::ownable::OwnableComponent;
+    use paved::components::seasonable::SeasonableComponent;
     use paved::components::shieldable::{
         ATTACK_SHIELD, INITIAL_SHIELD, QUEUE_ATTACK, QUEUE_INITIAL, ShieldableComponent,
     };
     use paved::matchmaker::crowns::{Settlement, cost_of, offer_of};
-    use paved::systems::setup::{ISetupSpendDispatcher, ISetupSpendDispatcherTrait};
+    use paved::matchmaker::leagues::league_of;
+    use paved::systems::setup::{
+        CLAIM_LEAGUE, CLAIM_SEASON, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
+        ISetupSpendDispatcher, ISetupSpendDispatcherTrait,
+    };
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
     use super::{
-        IMatchmaker, IMatchmakerAdmin, MATCH_KIND, MAX_NPC, MAX_RELEASES, Match, NEXT_PRICE,
-        NEXT_REASON, RELEASES_PER_ATTACK, STATUS_NONE, STATUS_NPC, STATUS_PLAYER, Village,
+        IMatchmaker, IMatchmakerAdmin, LeagueStatus, MATCH_KIND, MAX_NPC, MAX_RELEASES, Match,
+        NEXT_PRICE, NEXT_REASON, RELEASES_PER_ATTACK, STATUS_NONE, STATUS_NPC, STATUS_PLAYER,
+        Village,
     };
+
+    /// A credit to pay in `Setup` once a call's effects are done: `kind` `CLAIM_LEAGUE` or
+    /// `CLAIM_SEASON`, for `league` in `season`.
+    #[derive(Copy, Drop)]
+    struct Credit {
+        village: ContractAddress,
+        kind: u8,
+        league: u8,
+        season: u32,
+        cobbles: u8,
+    }
 
     pub mod errors {
         pub const ZERO_SETUP: felt252 = 'Matchmaker: setup is zero';
@@ -182,6 +230,14 @@ pub mod Matchmaker {
     #[abi(embed_v0)]
     impl ShieldableImpl = ShieldableComponent::ShieldableImpl<ContractState>;
     impl ShieldableInternalImpl = ShieldableComponent::InternalImpl<ContractState>;
+    component!(path: SeasonableComponent, storage: seasonable, event: SeasonableEvent);
+    #[abi(embed_v0)]
+    impl SeasonableImpl = SeasonableComponent::SeasonableImpl<ContractState>;
+    impl SeasonableInternalImpl = SeasonableComponent::InternalImpl<ContractState>;
+    component!(path: LeagueableComponent, storage: leagueable, event: LeagueableEvent);
+    #[abi(embed_v0)]
+    impl LeagueableImpl = LeagueableComponent::LeagueableImpl<ContractState>;
+    impl LeagueableInternalImpl = LeagueableComponent::InternalImpl<ContractState>;
 
     // Storage: new contract, flat components (`docs/architecture/upgrades.md`)
 
@@ -199,6 +255,10 @@ pub mod Matchmaker {
         bucketable: BucketableComponent::Storage,
         #[substorage(v0)]
         shieldable: ShieldableComponent::Storage,
+        #[substorage(v0)]
+        seasonable: SeasonableComponent::Storage,
+        #[substorage(v0)]
+        leagueable: LeagueableComponent::Storage,
         /// Each village's membership (`Village`).
         villages: Map<ContractAddress, Village>,
         /// An attacker's drawn opponent (zero: none).
@@ -228,6 +288,10 @@ pub mod Matchmaker {
         BucketableEvent: BucketableComponent::Event,
         #[flat]
         ShieldableEvent: ShieldableComponent::Event,
+        #[flat]
+        SeasonableEvent: SeasonableComponent::Event,
+        #[flat]
+        LeagueableEvent: LeagueableComponent::Event,
         OperatorSet: OperatorSet,
         SetupSet: SetupSet,
         VillageJoined: VillageJoined,
@@ -384,9 +448,16 @@ pub mod Matchmaker {
             // [Check] An attack started
             let current = self.match_of(attacker);
             assert(current.started, errors::NO_ATTACK);
-            // [Effect] The crowns move, each listed village's bucket with them; the match ends
+            // [Effect] Both players rolled into the current season first (#644)
             let defender = current.opponent;
             let npc = is_npc_address(defender);
+            let season = self.seasonable.season_now();
+            let mut credits: Array<Credit> = array![];
+            self.roll_village(attacker, season, ref credits);
+            if !npc {
+                self.roll_village(defender, season, ref credits);
+            }
+            // [Effect] The crowns move, each listed village's bucket with them
             let outcome = self
                 .crownable
                 .settle(attacker, defender, current.offer, current.cost, stars, npc);
@@ -394,18 +465,66 @@ pub mod Matchmaker {
             if !npc {
                 self.bucketable.follow(defender, outcome.defender);
             }
+            // [Effect] The attack counted, the leagues reached; the match ends
+            self.climb_village(attacker, outcome.attacker, true, ref credits);
+            if !npc {
+                self.climb_village(defender, outcome.defender, false, ref credits);
+            }
             self
                 .write_match(
                     attacker, Match { opponent: Zero::zero(), offer: 0, cost: 0, started: false },
                 );
+            // [Interaction] The Cobbles owed, then the PvP missions' tasks, in `Setup`
+            self.pay(credits);
+            ISetupLeagueDispatcher { contract_address: self.setup.read() }
+                .report_pvp(attacker.into(), stars);
             outcome
         }
 
         fn set_crowns(ref self: ContractState, village: ContractAddress, crowns: u32) {
             self.assert_operator();
-            assert(self.villages.read(village).status != STATUS_NONE, errors::NOT_JOINED);
+            let status = self.villages.read(village).status;
+            assert(status != STATUS_NONE, errors::NOT_JOINED);
+            // [Effect] A player rolled first; then the crowns, its bucket, its peak (no bonus)
+            let mut credits: Array<Credit> = array![];
+            if status == STATUS_PLAYER {
+                self.roll_village(village, self.seasonable.season_now(), ref credits);
+            }
             self.crownable.set(village, crowns);
             self.bucketable.follow(village, crowns);
+            if status == STATUS_PLAYER {
+                self.leagueable.climb(village, crowns, false, false);
+            }
+            // [Interaction] The reward of a season the roll closed
+            self.pay(credits);
+        }
+
+        fn close_season(ref self: ContractState, village: ContractAddress) {
+            assert(self.villages.read(village).status == STATUS_PLAYER, errors::NOT_JOINED);
+            let mut credits: Array<Credit> = array![];
+            self.roll_village(village, self.seasonable.season_now(), ref credits);
+            self.pay(credits);
+        }
+
+        fn league(self: @ContractState, village: ContractAddress) -> LeagueStatus {
+            let crowns = self.crownable.crowns_of(village);
+            let record = self.leagueable.record_of(village);
+            let season = self.seasonable.season_now();
+            if is_npc_address(village) {
+                let league = league_of(crowns);
+                return LeagueStatus {
+                    season, crowns, league, peak: league, attacks: 0, pending: 0,
+                };
+            }
+            let (next, roll) = roll_of(record, crowns, season);
+            LeagueStatus {
+                season: next.season,
+                crowns: roll.crowns,
+                league: league_of(roll.crowns),
+                peak: next.peak,
+                attacks: next.attacks,
+                pending: roll.reward,
+            }
         }
 
         fn release_shields(ref self: ContractState, max: u32) -> u32 {
@@ -485,6 +604,11 @@ pub mod Matchmaker {
             self.villages.write(address, Village { status: STATUS_NONE, draws: village.draws });
             self.emit(NpcRemoved { npc_id });
         }
+
+        fn set_season_clock(ref self: ContractState, start: u64, length: u64) {
+            self.ownable.assert_only_owner();
+            self.seasonable.set_clock(start, length);
+        }
     }
 
     #[abi(embed_v0)]
@@ -562,18 +686,103 @@ pub mod Matchmaker {
             let random = self.drawable.draw_random(MATCH_KIND, attacker.into(), draw_index);
             village.draws += 1;
             self.villages.write(attacker, village);
-            // [Effect] The opponent, its offer and its cost
+            // [Effect] The attacker rolled into the current season (#644), so the terms use its
+            // crowns after any reset
+            let season = self.seasonable.season_now();
+            let mut credits: Array<Credit> = array![];
+            self.roll_village(attacker, season, ref credits);
+            // [Effect] The opponent, rolled too (a player), its offer and its cost
             let crowns = self.crownable.crowns_of(attacker);
             let opponent = self
                 .bucketable
                 .draw(attacker, crowns, random)
                 .expect(errors::NO_OPPONENT);
+            if !is_npc_address(opponent) {
+                self.roll_village(opponent, season, ref credits);
+            }
             let defender = self.crownable.crowns_of(opponent);
             let offer = offer_of(crowns, defender);
             let cost = cost_of(crowns, defender);
             self.write_match(attacker, Match { opponent, offer, cost, started: false });
             self.emit(OpponentDrawn { attacker, opponent, offer, cost, draw_index, paid });
+            // [Interaction] The rewards of the seasons the rolls closed
+            self.pay(credits);
             opponent
+        }
+
+        /// Rolls a player's `village` into `season` (#644): its last season closed (its reward
+        /// appended to `credits`) and its crowns reset, its bucket following. A no-op if it is
+        /// there already.
+        fn roll_village(
+            ref self: ContractState,
+            village: ContractAddress,
+            season: u32,
+            ref credits: Array<Credit>,
+        ) {
+            if self.leagueable.record_of(village).season >= season {
+                return;
+            }
+            let crowns = self.crownable.crowns_of(village);
+            let roll = self.leagueable.roll(village, crowns, season);
+            if roll.crowns != crowns {
+                self.crownable.set(village, roll.crowns);
+                self.bucketable.follow(village, roll.crowns);
+            }
+            if roll.reward != 0 {
+                credits
+                    .append(
+                        Credit {
+                            village,
+                            kind: CLAIM_SEASON,
+                            league: roll.league,
+                            season: roll.closed,
+                            cobbles: roll.reward,
+                        },
+                    );
+            }
+        }
+
+        /// Records a settled `village` at `crowns` (#644): its attack counted if `attack`, the
+        /// leagues it reached, each bonus appended to `credits`.
+        fn climb_village(
+            ref self: ContractState,
+            village: ContractAddress,
+            crowns: u32,
+            attack: bool,
+            ref credits: Array<Credit>,
+        ) {
+            for reach in self.leagueable.climb(village, crowns, attack, true) {
+                if reach.bonus != 0 {
+                    credits
+                        .append(
+                            Credit {
+                                village,
+                                kind: CLAIM_LEAGUE,
+                                league: reach.league,
+                                season: reach.season,
+                                cobbles: reach.bonus,
+                            },
+                        );
+                }
+            }
+        }
+
+        /// Pays `credits` in `Setup` (`credit_league`, `Matchmaker` a reporter there).
+        fn pay(ref self: ContractState, credits: Array<Credit>) {
+            if credits.len() == 0 {
+                return;
+            }
+            let setup = ISetupLeagueDispatcher { contract_address: self.setup.read() };
+            for credit in credits {
+                setup
+                    .credit_league(
+                        credit.village.into(),
+                        credit.kind,
+                        credit.league,
+                        credit.season,
+                        credit.cobbles,
+                    );
+            }
         }
     }
 }
