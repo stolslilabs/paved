@@ -328,10 +328,10 @@ describe("the ghost while its model loads", () => {
     expect(tinted.customProgramCacheKey()).toBe("paved-quad-ghost");
     expect((s.tiles as any).ghostMaterials.hand.get(shared)).toBe(tinted);
 
-    // Placed: its tint turns pending (yellow), on the quad too.
+    // Placed: its look turns pending (the pulse, from its minimum), on the quad too.
     s.setHoveredTile(hover(5, { orientation: 4, placed: true }));
     expect((s.tiles as any).placement.getGhost()).toMatchObject({ kind: "pending" });
-    expect((s.tiles as any).placement.ghostTint(Number.NaN)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.pendingOpacity, 6);
+    expect((s.tiles as any).placement.ghostTint(Number.NaN)[4]).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.pendingPulseMin, 6);
 
     release(`${at}/models/${keyOf(5)}.glb`);
     await settle();
