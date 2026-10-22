@@ -295,7 +295,7 @@ Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, 
 ### 11.3 Gas
 
 L2 gas of the call alone (`contracts/tests/gas.cairo`, test profile, snforge 0.64.0, VPS, 2026-10-22); ceilings set at
-measured + 5 %.
+measured + 5 %. Every new call has its own measure and ceiling (z32 to z42), besides the calls #639 measured.
 
 | Test | Call | Before | Now | Change |
 |---|---|---:|---:|---:|
@@ -303,8 +303,17 @@ measured + 5 %.
 | z18 | `next` | 3,169,327 | 3,353,716 | +5.8 % |
 | z19 | `start_attack`, worst case | 4,421,401 | 4,435,441 | +0.3 % |
 | z20 | `settle`, worst case of #639 (both change bucket), in season 0 | 3,133,404 | 4,657,779 | +48.6 % |
-| z32 | `settle` across a season's end: both rolled, reset from 6,000 to 5,000 and paid | new | 5,267,041 | |
+| z32 | `settle` across a season's end: both rolled, reset from 6,000 to 5,000 and paid | new | 5,268,341 | |
 | z33 | `close_season` with a reward and a reset | new | 1,562,606 | |
+| z34 | `set_season_clock`, the owner's first set | new | 373,553 | |
+| z35 | `current_season` (view) | new | 178,853 | |
+| z36 | `season_clock` (view) | new | 142,773 | |
+| z37 | `league_record` (view) | new | 163,966 | |
+| z38 | `league` (view), a village of a past season: the roll computed, no write | new | 677,449 | |
+| z39 | `Setup.credit_league`, a season's reward | new | 520,168 | |
+| z40 | `Setup.report_pvp`, a 3-star attack: four entries, new day and week slots | new | 1,067,688 | |
+| z41 | `Setup.pvp_progress` (view) | new | 197,612 | |
+| z42 | `Setup.claim_quest` of a PvP mission (the PvP day read and written) | new | 1,579,371 | |
 
 - **Where z20's +1.52M goes**: almost all of it is `report_pvp` (a call to `Setup`, quiver's events, two PvP slots
   written); the leagues' own part in season 0 is the clock and two record reads.
