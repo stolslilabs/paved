@@ -1334,7 +1334,7 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
   # The real signer refuses a key that is not a felt: a hex marker, checked for leaks below as well.
   KEY_MARK=fedcba9876543210fedcba98
   mkdir -p "$est/bin" "$est/classes"
-  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story; do
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story Avatar; do
     cp "$here/signer/test/fixtures/tiny.contract_class.json" "$est/classes/paved_$name.contract_class.json"
     cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$est/classes/paved_$name.compiled_contract_class.json"
   done
@@ -1400,26 +1400,26 @@ SH
   else
     echo "ok: sepolia --estimate-only with no sncast prints the cause (sncast not found)"
   fi
-  if [[ "$order" != "Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story " ]]; then
+  if [[ "$order" != "Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story Avatar " ]]; then
     echo "FAIL: sepolia --estimate-only: the fresh run's classes are not Setup's list without Tutorial, Lobby and Account: $order"; fail=1
   else
-    echo "ok: a fresh run declares Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story (no Tutorial, no Lobby, no Account)"
+    echo "ok: a fresh run declares Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story Avatar (no Tutorial, no Lobby, no Account)"
   fi
-  if [[ $rc -ne 0 || "$lines" != 9 || "$out" != *"== estimate only: each of the 9 classes estimated or already declared; nothing was sent"* ||
+  if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: each of the 10 classes estimated or already declared; nothing was sent"* ||
       "$out" != *"== funding: deployer STRK balance 1000.00 STRK"* ||
-      "$out" != *"== funding: 9 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
+      "$out" != *"== funding: 10 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
       "$out" != *"   deployer STRK balance 1000.00 STRK: covers the need of 20.00 STRK"* ]] ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
-    echo "FAIL: sepolia --estimate-only: expected exit 0 and 9 estimate lines, no value, got $rc and $lines:"
+    echo "FAIL: sepolia --estimate-only: expected exit 0 and 10 estimate lines, no value, got $rc and $lines:"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
-  elif [[ "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" != 9 ]] ||
+  elif [[ "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" != 10 ]] ||
       grep -q '^fake-node: asked starknet_add' "$est/node.log" || grep -q '^fake-node: asked starknet_getBlockWith' "$est/node.log"; then
-    echo "FAIL: sepolia --estimate-only: not 9 estimates, or an add* method or a block read was asked:"
+    echo "FAIL: sepolia --estimate-only: not 10 estimates, or an add* method or a block read was asked:"
     grep '^fake-node: asked' "$est/node.log" | sort | uniq -c; fail=1
   elif leaks -q "$log" "$est/node.log" || grep -qi "$KEY_MARK" "$log" "$est/node.log"; then
     echo "FAIL: sepolia --estimate-only: a value reached a child's argv or environment"; fail=1
   else
-    echo "ok: sepolia --estimate-only estimates 9 classes (spec on each line), asks no starknet_add* method, reads no block"
+    echo "ok: sepolia --estimate-only estimates 10 classes (spec on each line), asks no starknet_add* method, reads no block"
   fi
   # Funding (S-1c, S-1d): a real sepolia run estimates the classes the node does not have and needs 1.25 x their
   # estimates + the 20 STRK margin, or the 200 STRK floor when an estimate fails. Each case gives the deployer a balance
@@ -1435,19 +1435,19 @@ SH
   }
   hexname() { printf '0x%s\n' "$(printf '%s' "$1" | od -An -tx1 | tr -d ' \n')"; }
   touch "$est/bin/hashes"
-  # 1. Five of nine classes declared, 150 STRK (below the old 200 STRK floor): four estimates, need 20.00 STRK, passes
+  # 1. Five of ten classes declared, 150 STRK (below the old 200 STRK floor): five estimates, need 20.00 STRK, passes
   #    and goes on to declare.
   for name in Challenge Setup Faucet PavedToken MockRouter; do hexname "$name"; done >"$est/bin/declared"
   out="$(real_run 150000000000000000000)"; rc=$?
-  if [[ $rc -ne 1 || "$out" != *"== funding: 4 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
+  if [[ $rc -ne 1 || "$out" != *"== funding: 5 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
       "$out" != *"   deployer STRK balance 150.00 STRK: covers the need of 20.00 STRK"* || "$out" != *"== declare"* ||
       "$(grep -c '^   estimate [A-Za-z]*: declared already, nothing to send$' <<<"$out")" != 5 ||
-      "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" -lt 4 ]] ||
+      "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" -lt 5 ]] ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
-    echo "FAIL: sepolia with 5 of 9 classes declared and 150 STRK: expected the funding check to pass and the declares to start, got $rc:"
+    echo "FAIL: sepolia with 5 of 10 classes declared and 150 STRK: expected the funding check to pass and the declares to start, got $rc:"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
   else
-    echo "ok: sepolia with 5 of 9 classes declared passes with 150 STRK (need 20.00 STRK: 4 estimates + margin)"
+    echo "ok: sepolia with 5 of 10 classes declared passes with 150 STRK (need 20.00 STRK: 5 estimates + margin)"
   fi
   # 2. Nothing declared, 10 STRK: short of the 20.00 STRK need, the run stops before its first declare; nothing sent.
   : >"$est/bin/declared"
@@ -1462,7 +1462,7 @@ SH
   fi
   # 2b. Two classes left at 30 STRK each, 110 STRK: the rule asks 1.25 x 60 + 20 = 95 STRK, but the second declare's
   #     bounds (2.3 x 30 after 1.25 x 30) + the margin ask 126.50 STRK: the run stops before sending.
-  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy; do hexname "$name"; done >"$est/bin/declared"
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection; do hexname "$name"; done >"$est/bin/declared"
   printf '%s' 30000000000000000000 >"$est/fee"
   out="$(real_run 110000000000000000000)"; rc=$?
   rm -f "$est/fee"
@@ -1512,7 +1512,7 @@ SH
   touch "$est/estimate_error"
   out="$(real_run 150000000000000000000)"; rc=$?
   rm -f "$est/estimate_error" "$est/strk" "$est/bin/hashes" "$est/bin/declared"
-  if [[ $rc -ne 1 || "$out" != *"== funding: 9 estimate(s) could not be had: the need falls back to the 200 STRK floor"* ||
+  if [[ $rc -ne 1 || "$out" != *"== funding: 10 estimate(s) could not be had: the need falls back to the 200 STRK floor"* ||
       "$out" != *"   deployer STRK balance 150.00 STRK: BELOW the need of 200.00 STRK"* || "$out" == *"== declare"* ]] ||
       grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
     echo "FAIL: sepolia with failing estimates and 150 STRK: expected the 200 STRK floor and a stop before sending, got $rc:"
@@ -1574,7 +1574,7 @@ SH
 import json, sys
 keys = ["declare_tx", "Faucet.deploy_tx", "PavedToken.deploy_tx", "MockRouter.deploy_tx", "Vault.deploy_tx", "pool_tx",
         "stake_tx", "Economy.deploy_tx", "minter_tx", "Setup.deploy_tx", "Challenge.deploy_tx", "Collection.deploy_tx",
-        "Story.deploy_tx", "wiring_tx", "guardian_tx", "vrf_tx", "definitions_tx", "story_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
+        "Story.deploy_tx", "Avatar.deploy_tx", "wiring_tx", "guardian_tx", "vrf_tx", "definitions_tx", "story_tx", "avatar_tx", "smoke.spawn_tx", "smoke.build_tx", "smoke.surrender_tx", "smoke.claim_tx",
         "smoke.pack_tx", "smoke.skin_tx", "smoke.settle_tx", "smoke.provider_tx"]
 fresh = {"salt": "0x1", "at": "unmerged-test"}
 for i, key in enumerate(keys):
@@ -1589,14 +1589,14 @@ PY2
   : >"$log"
   out="$(fresh_run 1000000000000000000000 --check-only --out "$new")"; rc=$?
   listed="$(grep -c '^   [A-Za-z.]*_tx 0xabc0[0-9a-f]*: UNKNOWN$' <<<"$out")"
-  if [[ $rc -ne 0 || "$listed" != 26 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
+  if [[ $rc -ne 0 || "$listed" != 28 || "$out" != *"every check passed; nothing was sent"* || "$out" == *"== declare"* ]] ||
       ! cmp -s "$new" "$est/record.before" || grep -q '^fake-node: asked starknet_add' "$est/node.log" ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || leaks -q "$new" || grep -qi "$KEY_MARK" "$new" ||
       grep '^[a-z]* argv' "$log" | leaks -q || grep '^[a-z]* argv' "$log" | grep -qi "$KEY_MARK"; then
-    echo "FAIL: sepolia --check-only over a record of 26 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
+    echo "FAIL: sepolia --check-only over a record of 28 transaction hashes: expected each listed, nothing sent, the file unchanged, no value, got $rc ($listed listed):"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
   else
-    echo "ok: sepolia --check-only over a record of 26 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
+    echo "ok: sepolia --check-only over a record of 28 transaction hashes lists each with its status, sends nothing, keeps the file, leaks no value"
   fi
   # guardian_tx (PM, 2026-10-14) and vrf_tx (#645) are among them: their status lines are listed, in that order, between
   # wiring_tx and definitions_tx.

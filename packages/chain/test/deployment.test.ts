@@ -42,7 +42,7 @@ describe("resolveDeployment", () => {
     });
     expect(d.rpcUrl).toBe("http://env/rpc");
     expect(d.deployedBlock).toBe(40);
-    expect(d.addresses).toEqual({ Challenge: "0x22", Setup: "0x3" });
+    expect(d.addresses).toEqual({ Challenge: "0x22", Setup: "0x3", Avatar: "" });
   });
 
   test("no file and no env: not configured, with what is missing", () => {
@@ -71,7 +71,7 @@ describe("resolveDeployment", () => {
     expect(resolveDeployment({ network: "devnet", file: { ...FILE, contracts: before }, env: { addresses: { Setup: "0x33" } } }).addresses.Setup).toBe("0x33");
     // An old file's Tutorial (D-21) and Account (D-25 (E)) keys are not read.
     const old = { ...FILE, contracts: { ...before, Tutorial: { address: "0x9" }, Account: { address: "0x1" } } } as DeploymentFile;
-    expect(Object.keys(resolveDeployment({ network: "devnet", file: old }).addresses).sort()).toEqual(["Challenge", "Setup"]);
+    expect(Object.keys(resolveDeployment({ network: "devnet", file: old }).addresses).sort()).toEqual(["Avatar", "Challenge", "Setup"]);
   });
 
   test("Account is not required since D-25 (E): a file without it is configured, one with it is read without it", () => {
@@ -143,7 +143,7 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     const d = resolveDeployment({ network: "devnet", file: withClasses });
     expect(d.configured).toBe(true);
     expect(d.tokenDecimals).toBe(real.token!.decimals);
-    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup"]);
+    expect(Object.keys(d.addresses).sort()).toEqual(["Avatar", "Challenge", "Setup"]);
   });
 
   test("the symbol is never read for display: the label is the client's USDC constant (E3)", () => {
@@ -180,7 +180,7 @@ describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16), the fresh 
     expect(d.addresses.Challenge).toBe(contracts.Challenge.address);
     expect(d.addresses.Setup).toBe(contracts.Setup.address);
     // The entry token is read from Challenge.entry_price at run time, not from the file.
-    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup"]);
+    expect(Object.keys(d.addresses).sort()).toEqual(["Avatar", "Challenge", "Setup"]);
     expect(d.collection).toBe(contracts.Collection.address);
   });
 
@@ -252,7 +252,7 @@ describe("a Sepolia file from before F (fixture): not configured, nothing guesse
     const d = resolveDeployment({ network: "sepolia", file: OLD, env: { rpcUrl: RPC } });
     expect(d.configured).toBe(false);
     expect(d.missing).toEqual(["Challenge address"]);
-    expect(d.addresses).toEqual({ Challenge: "", Setup: "" });
+    expect(d.addresses).toEqual({ Challenge: "", Setup: "", Avatar: "" });
     expect(d.faucet).toBe("");
     expect(d.collection).toBe("0x6");
   });
@@ -272,6 +272,6 @@ describe("the entry token", () => {
     const withToken = { token: { address: "0x7", decimals: 6 }, contracts: { Token: { address: "0x4" } } } as unknown as DeploymentFile;
     const d = resolveDeployment({ ...base, file: withToken });
     expect(d.configured).toBe(true);
-    expect(Object.keys(d.addresses).sort()).toEqual(["Challenge", "Setup"]);
+    expect(Object.keys(d.addresses).sort()).toEqual(["Avatar", "Challenge", "Setup"]);
   });
 });
