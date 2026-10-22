@@ -212,6 +212,27 @@ describe("the backdrop (Realms' world map fog, in Paved's colours)", () => {
     });
   });
 
+  it("computes only the noise its pattern reads, and none in low power (Realms' low tier: no mist)", () => {
+    const grid = gridOf();
+    const floor = grid.group.getObjectByName("square-grid-backdrop") as THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+    const shader = floor.material.fragmentShader;
+    // The voxels read the mist at each block's middle only, not at the pixel too.
+    const voxels = shader.slice(shader.indexOf("#elif PATTERN == 3"), shader.indexOf("#else"));
+    expect(voxels.match(/fogMist\(/g)).toHaveLength(1);
+    // With no mist, the ground alone: the branch calls no noise.
+    const none = shader.slice(shader.indexOf("#if MIST == 0"), shader.indexOf("#elif PATTERN == 3"));
+    expect(none).toContain("vec3 color = uGround;");
+    expect(none).not.toMatch(/fogMist|mxPerlin|fogFlow/);
+    expect(floor.material.defines.MIST).toBe(1);
+    const version = floor.material.version;
+    expect(grid.setLowPower(true)).toBe(true);
+    expect(floor.material.defines.MIST).toBe(0);
+    expect(floor.material.version).toBe(version + 1);
+    expect(grid.setLowPower(true)).toBe(false);
+    expect(grid.setLowPower(false)).toBe(true);
+    expect(floor.material.defines.MIST).toBe(1);
+  });
+
   it("draws its voxels eight a cell's side (five of the tiles' voxels each), with no glint, a gap between the blocks", () => {
     const grid = gridOf();
     const floor = grid.group.getObjectByName("square-grid-backdrop") as THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
@@ -695,6 +716,18 @@ describe("the square grid in the scene", () => {
     (scene as any).hemisphereLight.intensity *= 0.3;
     (scene as any).syncGridLight();
     expect(setLight.mock.lastCall![0]).toBeLessThan(0.5);
+  });
+
+  it("draws its backdrop with no mist on the Low tier and on software WebGL", () => {
+    const scene = new GameScene();
+    const mist = () => (scene.squareGrid.group.getObjectByName("square-grid-backdrop") as THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>).material.defines.MIST;
+    scene.setSettings({ quality: "high", squareGrid: { enabled: true } });
+    expect(mist()).toBe(1);
+    scene.setSettings({ quality: "low", squareGrid: { enabled: true } });
+    expect(mist()).toBe(0);
+    (scene as any).webgl = { renderer: "SwiftShader", software: true, reason: "test" };
+    scene.setSettings({ quality: "high", squareGrid: { enabled: true } });
+    expect(mist()).toBe(0);
   });
 
   it("takes the whole sun while the cycle crossfades it between the key light and its twin", () => {

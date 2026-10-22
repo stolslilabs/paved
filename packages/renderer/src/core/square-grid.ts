@@ -456,6 +456,7 @@ void main() {
  * - The mist (`fogMist`): a broad octave drifting and a finer one bent by it, their sum around 0.5; its veil the mist's thick part.
  * - The pattern drawn with it (`PATTERN`, `BackdropPattern`): Realms' veil and its energy (0), paving stones (1), contour lines (2)
  *   or voxel blocks (3); the energy in `uEnergyColor` to `uEnergyGlow`, at `uEnergy`; the veil in the season's hue (`uSeasonVeil`).
+ *   Each computes only the noise it reads; with no mist (`MIST` 0: the Low tier and software WebGL, `setLowPower`), none.
  * - Then grey away from the tiles (the distance field, `grayscaleAt`), every cell's border as Realms' fog draws a hex's, and all of
  *   it as bright as the board's tops are now against the look's own light (`uLight`: the time of day, `backdropLight`).
  * Its linear colour: the finish pass tone-maps it as Realms does.
@@ -497,11 +498,27 @@ float fogFlow(vec2 ground, float drift) { return sin(ground.x * 0.7 + ground.y *
 void main() {
   vec2 ground = vBoard / ${ETERNUM_SCALE.toFixed(6)};
   float drift = uTime * uMotion;
+  // The veil takes the season's hue (the cycle's ground colour, at the veil's own lightness).
+  vec3 veilColor = mix(uVeil, uSeasonVeil, uSeasonShare);
+#if MIST == 0
+  // No mist (the Low tier and software WebGL, as Realms' low tier draws its fog): the ground alone, no noise computed.
+  vec3 color = uGround;
+#elif PATTERN == 3
+  // Voxel blocks, \`uVoxels\` a cell's side (eight by default, five of the tiles' voxels each): the mist read at each block's
+  // middle, in four steps, a gap between the blocks.
+  vec2 bp = vBoard * (uVoxels / ${TILE_SIZE.toFixed(1)});
+  vec2 block = floor(bp);
+  float m = fogMist((block + 0.5) * (${TILE_SIZE.toFixed(1)} / uVoxels) / ${ETERNUM_SCALE.toFixed(6)}, drift);
+  float steps = floor(smoothstep(0.18, 0.86, m) * 4.0) / 4.0;
+  vec3 color = mix(uGround, veilColor, steps * uMist * uVeilStrength * 1.3);
+  vec2 inBlock = abs(fract(bp) - 0.5);
+  float gap = smoothstep(0.5 - max(fwidth(bp.x), 1e-4) * 1.5, 0.5, max(inBlock.x, inBlock.y));
+  color = mix(color, uGround, gap * 0.6);
+#else
+  // The mist at the pixel and Realms' energy flowing (the voxels read theirs at each block's middle instead).
   float mist = fogMist(ground, drift);
   float flow = fogFlow(ground, drift);
   vec3 energy = mix(uEnergyColor, uEnergyGlow, flow);
-  // The veil takes the season's hue (the cycle's ground colour, at the veil's own lightness).
-  vec3 veilColor = mix(uVeil, uSeasonVeil, uSeasonShare);
 #if PATTERN == 1
   // Paving stones, three to a cell's side (Voronoi cells), each its own shade, lit by the mist drifting over them; the mortar
   // dark, a gold light running along it.
@@ -534,17 +551,6 @@ void main() {
   vec3 color = mix(uGround, veilColor, smoothstep(0.2, 0.9, mist) * uMist * uVeilStrength * 0.8);
   color = mix(color, veilColor, line * (0.1 + 0.14 * major));
   color += energy * line * major * (0.4 + 0.6 * flow) * uEnergy * 2.0;
-#elif PATTERN == 3
-  // Voxel blocks, \`uVoxels\` a cell's side (eight by default, five of the tiles' voxels each): the mist read at each block's
-  // middle, in four steps, a gap between the blocks.
-  vec2 bp = vBoard * (uVoxels / ${TILE_SIZE.toFixed(1)});
-  vec2 block = floor(bp);
-  float m = fogMist((block + 0.5) * (${TILE_SIZE.toFixed(1)} / uVoxels) / ${ETERNUM_SCALE.toFixed(6)}, drift);
-  float steps = floor(smoothstep(0.18, 0.86, m) * 4.0) / 4.0;
-  vec3 color = mix(uGround, veilColor, steps * uMist * uVeilStrength * 1.3);
-  vec2 inBlock = abs(fract(bp) - 0.5);
-  float gap = smoothstep(0.5 - max(fwidth(bp.x), 1e-4) * 1.5, 0.5, max(inBlock.x, inBlock.y));
-  color = mix(color, uGround, gap * 0.6);
 #else
   // Realms' own: the veil over the ground, its threads along the mist's 0.51 contour.
   vec3 color = mix(uGround, veilColor, smoothstep(0.18, 0.86, mist) * uMist * uVeilStrength);
@@ -555,6 +561,7 @@ void main() {
     float flowing = smoothstep(0.35, 0.94, flow) * 0.8 + 0.2;
     color += energy * (thread + halo) * flowing * uEnergy;
   }
+#endif
 #endif
   float cells = texture2D(uDistField, (vBoard / ${TILE_SIZE.toFixed(1)} - uDistRect.xy + 0.5) * uDistRect.zw).r * uDistReach;
   float saturation = 1.0 - smoothstep(uGrayFrom, max(uGrayTo, uGrayFrom + 1e-4), cells);
@@ -619,7 +626,7 @@ function createBackdropMaterial(time: { value: number }): BackdropMaterial {
     },
     vertexShader: BACKDROP_VERTEX,
     fragmentShader: BACKDROP_FRAGMENT,
-    defines: { PATTERN: 0 },
+    defines: { PATTERN: 0, MIST: 1 },
     depthTest: false,
     depthWrite: false,
     fog: false,
@@ -975,6 +982,18 @@ export class SquareGridRenderer implements AmbientEffect {
   setSettings(settings: SquareGridSettings): boolean {
     this.settings = settings;
     this.applySettings();
+    return true;
+  }
+
+  /**
+   * Low power (the Low tier, software WebGL): the backdrop draws no mist, as Realms' low tier draws its fog (mist strength 0),
+   * its noise compiled out: the ground, its grey away from the tiles and the cells' borders. True when it changed.
+   */
+  setLowPower(low: boolean): boolean {
+    const mist = low ? 0 : 1;
+    if (this.floorMaterial.defines.MIST === mist) return false;
+    this.floorMaterial.defines.MIST = mist;
+    this.floorMaterial.needsUpdate = true;
     return true;
   }
 

@@ -469,6 +469,9 @@ export class GameScene {
    */
   private applyLook(): void {
     this.effects.setLook(this.settings.look, this.getQuality());
+    // The square grid's backdrop draws no mist on the Low tier and software WebGL, where a CPU draws every pixel of its noise
+    // (SwiftShader: the backdrop's draw 2.3 times as long with it).
+    if (this.squareGrid.setLowPower(this.getQuality() === "low" || this.webgl.software)) this.requestRender();
     const look = this.getLook();
     const profile = getLightingProfile(this.renderProfile);
     const play = getLightingProfile("play");
