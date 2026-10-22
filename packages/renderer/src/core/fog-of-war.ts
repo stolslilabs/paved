@@ -12,6 +12,7 @@ import type { AmbientEffect } from "./ambient-loop";
 import type { Season } from "./daynight-settings";
 import { sunAt } from "./daynight";
 import { TILE_SIZE } from "./types";
+import { SQUARE_GRID_GLSL, type GridLineUniforms } from "./square-grid";
 import {
   FIELD_INSIDE,
   FIELD_REACH,
@@ -212,17 +213,22 @@ const LAND_VERTEX = /* glsl */ `
 `;
 const LAND_FRAGMENT_DECLARE = /* glsl */ `
 ${FOG_GLSL}
+${SQUARE_GRID_GLSL}
 uniform vec3 uGround;
 uniform vec3 uGroundAlt;
 varying vec2 vFogBoard;
 float fogHash(vec2 v) { return fract(sin(dot(v, vec2(12.9898, 78.233))) * 43758.5453); }
 `;
-/** The ground's colour: patches between its two colours, and each voxel a little of its own, as the models are drawn. */
+/**
+ * The ground's colour: patches between its two colours, and each voxel a little of its own, as the models are drawn; then the
+ * square grid's lines over it, made of it (`SQUARE_GRID_GLSL`, none while `uGridLine` is 0).
+ */
 const GROUND_COLOR = /* glsl */ `
 #ifdef FOG_GROUND
   vec2 fogVoxel = floor(vFogBoard / ${VOXEL.toFixed(4)});
   float fogPatch = texture2D(uFogNoise, vFogBoard * uFogNoiseScale * 2.0 + 0.11).r;
   diffuseColor.rgb = mix(uGround, uGroundAlt, clamp(1.6 * (fogPatch - 0.5) + 0.5 + 0.3 * (fogHash(fogVoxel) - 0.5), 0.0, 1.0));
+  diffuseColor.rgb = squareGridShade(diffuseColor.rgb, vFogBoard);
 #endif
 `;
 const LAND_FOG = /* glsl */ `
@@ -300,8 +306,18 @@ function propGeometry(boxes: Box[]): THREE.BufferGeometry {
   return geometry;
 }
 
+/** The ground's colours and the square grid's lines on it, shared by the ground and the props. */
+interface GroundUniforms {
+  [name: string]: THREE.IUniform;
+  uGround: { value: THREE.Color };
+  uGroundAlt: { value: THREE.Color };
+  uGridLine: { value: number };
+  uGridHalfWidth: { value: number };
+  uGridGrass: { value: number };
+}
+
 /** A standard material with the fog's terms (`define`: FOG_GROUND or FOG_DECOR). */
-function landMaterial(uniforms: FogUniforms, ground: { uGround: { value: THREE.Color }; uGroundAlt: { value: THREE.Color } }, define: "FOG_GROUND" | "FOG_DECOR"): THREE.MeshStandardMaterial {
+function landMaterial(uniforms: FogUniforms, ground: GroundUniforms, define: "FOG_GROUND" | "FOG_DECOR"): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, vertexColors: define === "FOG_DECOR" });
   material.defines = { [define]: "" };
   material.onBeforeCompile = (shader) => {
@@ -352,7 +368,13 @@ export class FogOfWar implements AmbientEffect {
   private readonly transition: RevealTransition;
   private readonly builder = new RevealFieldBuilder();
   private readonly uniforms: FogUniforms;
-  private readonly ground = { uGround: { value: new THREE.Color() }, uGroundAlt: { value: new THREE.Color() } };
+  private readonly ground: GroundUniforms = {
+    uGround: { value: new THREE.Color() },
+    uGroundAlt: { value: new THREE.Color() },
+    uGridLine: { value: 0 },
+    uGridHalfWidth: { value: 0 },
+    uGridGrass: { value: 0 },
+  };
   private readonly noise: THREE.DataTexture;
   private field: THREE.DataTexture | null = null;
   private readonly floorGeometry = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE).rotateX(-Math.PI / 2);
@@ -432,6 +454,16 @@ export class FogOfWar implements AmbientEffect {
     this.apply();
     if (corners) this.rebuild();
     this.syncProps();
+    this.onChange?.();
+  }
+
+  /** The square grid's lines on the landscape's ground (`gridLineUniforms`: a strength of 0 draws none). */
+  setGrid(grid: GridLineUniforms): void {
+    const u = this.ground;
+    if (u.uGridLine.value === grid.strength && u.uGridHalfWidth.value === grid.halfWidth && u.uGridGrass.value === grid.grass) return;
+    u.uGridLine.value = grid.strength;
+    u.uGridHalfWidth.value = grid.halfWidth;
+    u.uGridGrass.value = grid.grass;
     this.onChange?.();
   }
 

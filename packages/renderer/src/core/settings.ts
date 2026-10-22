@@ -1,4 +1,5 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
+import { DEFAULT_CAMERA_FIT_SETTINGS, type CameraFitSettings } from "./camera-fit-settings";
 import { MSAA_SAMPLES } from "./Effects";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightInput, type DayNightSettings } from "./daynight-settings";
@@ -7,6 +8,7 @@ import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings, type VoxelDropSe
 import { DEFAULT_AMBIENT_SETTINGS, resolveAmbientSettings, type AmbientSettings, type AmbientSettingsInput } from "./ambient-settings";
 import { DEFAULT_FOG_SETTINGS, LANDSCAPE_FOG, resolveFogSettings, type FogSettings, type FogSettingsInput } from "./fog-of-war-settings";
 import { DEFAULT_WEATHER_SETTINGS, resolveWeatherSettings, type WeatherSettings, type WeatherSettingsInput } from "./weather-settings";
+import { DEFAULT_SQUARE_GRID_SETTINGS, resolveSquareGridSettings, type SquareGridSettings, type SquareGridSettingsInput } from "./square-grid";
 import {
   DEFAULT_LOOK_PRESET,
   LOOK_PRESETS,
@@ -32,6 +34,11 @@ export interface RendererSettings {
    * nothing.
    */
   camera: CameraZoomSettings;
+  /**
+   * The camera's opening frame (CAMERA-FIT, #678, `camera-fit-settings.ts`; the fit itself, `camera-fit.ts`, is a chunk of its own): the board and its free slots fill the screen less the
+   * HUD, never farther than `OPENING_DISTANCE`. Web controller only, as `camera`.
+   */
+  cameraFit: CameraFitSettings;
   /**
    * The tile faces' antialiasing: on, MSAA (4 samples) where WebGL 2 multisamples on a GPU, SMAA otherwise
    * (`resolveFaceAntialiasing`, `Effects.ts`). `"auto"` (the default) takes the device's (`resolveMultisampling`): on on
@@ -89,6 +96,18 @@ export interface RendererSettings {
    * tier; its season is the day and night cycle's (the wheel's), summer's day with the cycle off; under reduced motion nothing falls.
    */
   weather: WeatherSettings;
+  /**
+   * The square grid (SQUARE-GRID, `square-grid.ts`): Eternum's hex grid on square cells, the lines in the landscape's ground, a
+   * band on each playable slot (in the plates' place), the hover and the selected rings. Off by default in the renderer; the
+   * app's board turns it on.
+   */
+  squareGrid: SquareGridSettings;
+  /**
+   * The scene over the page instead of on its own background (the app's tile stack, `StackView`): the canvas keeps its
+   * alpha, and no background, fog or day and night backdrop is drawn. Read at `init`, when the canvas's context is made.
+   * Off by default (the board).
+   */
+  transparent: boolean;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -109,6 +128,7 @@ export interface CameraZoomSettings {
 export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
+  cameraFit?: Partial<CameraFitSettings>;
   multisampling?: boolean | "auto";
   msaaSamples?: number;
   maxPixelRatio?: number | "auto";
@@ -128,6 +148,10 @@ export interface RendererSettingsInput {
   fog?: FogSettingsInput;
   /** The weather: its fields over the defaults'. */
   weather?: WeatherSettingsInput;
+  /** The square grid: each group's fields over the defaults'. */
+  squareGrid?: SquareGridSettingsInput;
+  /** Over the page, no background of its own (read at `init`). */
+  transparent?: boolean;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -143,6 +167,7 @@ export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
+  cameraFit: DEFAULT_CAMERA_FIT_SETTINGS,
   multisampling: "auto",
   msaaSamples: MSAA_SAMPLES,
   maxPixelRatio: "auto",
@@ -155,6 +180,8 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   ambient: DEFAULT_AMBIENT_SETTINGS,
   fog: resolveFogSettings({ ...LANDSCAPE_FOG, enabled: false }, DEFAULT_FOG_SETTINGS),
   weather: DEFAULT_WEATHER_SETTINGS,
+  squareGrid: DEFAULT_SQUARE_GRID_SETTINGS,
+  transparent: false,
 };
 
 /**
@@ -213,6 +240,7 @@ export function resolveRendererSettings(
   return {
     outlines,
     camera: { ...base.camera, ...input.camera },
+    cameraFit: { ...base.cameraFit, ...input.cameraFit },
     multisampling: MULTISAMPLING_VALUES.includes(input.multisampling!) ? input.multisampling! : base.multisampling,
     msaaSamples: MSAA_SAMPLE_COUNTS.includes(input.msaaSamples!) ? input.msaaSamples! : base.msaaSamples,
     maxPixelRatio: maxPixelRatio === "auto" || maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
@@ -225,6 +253,8 @@ export function resolveRendererSettings(
     ambient: resolveAmbientSettings(input.ambient, base.ambient),
     fog: resolveFogSettings(input.fog, base.fog),
     weather: resolveWeatherSettings(input.weather, base.weather),
+    squareGrid: resolveSquareGridSettings(input.squareGrid, base.squareGrid),
+    transparent: input.transparent ?? base.transparent,
   };
 }
 

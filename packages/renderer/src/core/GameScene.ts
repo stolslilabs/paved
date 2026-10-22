@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
-import { CameraController, TALLEST_TILE_HEIGHT } from "./CameraController";
+import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
+import { frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
@@ -17,7 +18,9 @@ import type {
   EffectsCapabilities,
 } from "./types";
 import { TILE_SIZE } from "./types";
-import type { PlacementSlot } from "./placement";
+import type { PlacementSettings, PlacementSlot } from "./placement";
+import { SquareGridRenderer, backdropLight, backdropShown, gridLineUniforms, highlightShown, type SurfaceLight } from "./square-grid";
+import type { Overlay } from "./overlay-pass";
 import {
   getLightingProfile,
   getRenderProfileForCameraMode,
@@ -98,11 +101,12 @@ export interface FrameObserver {
 }
 
 export interface GameSceneDependencies {
-  createRenderer?: (surface: RenderSurfaceAdapter) => THREE.WebGLRenderer;
+  /** Makes the renderer; `transparent` is `RendererSettings.transparent` (a canvas with alpha). */
+  createRenderer?: (surface: RenderSurfaceAdapter, transparent?: boolean) => THREE.WebGLRenderer;
   createCameraController?: (surface: RenderSurfaceAdapter) => CameraController;
 }
 
-function createDefaultRenderer(surface: RenderSurfaceAdapter): THREE.WebGLRenderer {
+function createDefaultRenderer(surface: RenderSurfaceAdapter, transparent = false): THREE.WebGLRenderer {
   const renderTarget = surface.getRenderTarget?.();
   if (!renderTarget) {
     throw new Error("Render surface does not expose a render target");
@@ -114,7 +118,8 @@ function createDefaultRenderer(surface: RenderSurfaceAdapter): THREE.WebGLRender
     // pass: a multisampled canvas would antialias nothing and hold a 4-sample colour and depth buffer, 32 B a pixel
     // (33.8 MiB at 720 x 1480, measured in Q3-GPU). The faces' antialiasing is the composer's (`multisampling`).
     antialias: false,
-    alpha: false,
+    // Over the page (`RendererSettings.transparent`): the canvas keeps the scene's alpha, premultiplied as the finish pass writes it.
+    alpha: transparent,
   });
 }
 
@@ -148,6 +153,15 @@ export class GameScene {
   private isWebGPU = false;
   private disposed = false;
   private latestTiles: TileRenderData[] = [];
+  /** The camera was framed on placed tiles (not only the starter's floor of an empty board): later tiles refit only with `followBoard`. */
+  private framedTiles = false;
+  /** The frame settings the camera was last framed with: a change frames it again (`setSettings`). */
+  private fitSettingsKey = "";
+  /** Whether the frame was on (`cameraFit.enabled`) at the last `fitCamera`: turning it on or off moves the camera at once. */
+  private fitEnabled: boolean | null = null;
+  /** The fit's chunk (`camera-fit.ts`, a chunk of its own), once loaded; the camera opens at its fixed distance without it. */
+  private fitModule: typeof import("./camera-fit") | null = null;
+  private fitLoad: Promise<void> | null = null;
   /** The theme of each plan (`setSkins`), kept for the tile renderer `init` makes. */
   private skins: TileSkins = NO_SKINS;
   private renderProfile: RenderProfile = "play";
@@ -194,6 +208,8 @@ export class GameScene {
   private dayNightOn = false;
   /** The cycle's point last drawn (`getDayNight`). */
   private dayNightPoint: DayNight.CyclePoint | null = null;
+  /** The cycle's moment last drawn, in seasons (`applyDayNight`): the square grid's backdrop reads its sun there. */
+  private dayNightDrawnAt = 0;
   /**
    * The one ambient loop (`ambient-loop.ts`): every ambient effect moves on its time uniform, stepped from this scene's render
    * loop at its capped rate, paused while the tab is hidden or the board covered (`setCovered`), off with the effects.
@@ -212,6 +228,26 @@ export class GameScene {
   /** The weather (`weather.ts`, #607, #658), once its chunk is in; its load, started the first time it shows. */
   private weather: WeatherChunk.Weather | null = null;
   private weatherLoad: Promise<void> | null = null;
+  /**
+   * The square grid (SQUARE-GRID, `square-grid.ts`): the violet backdrop in the landscape's place and the highlight in the
+   * plates', in the board's group, moving on the ambient loop; with the backdrop off, its lines are the landscape ground's
+   * (`syncFog`).
+   */
+  readonly squareGrid = new SquareGridRenderer(this.ambient.time);
+  /** The square grid's place on the ambient loop while it is on (its backdrop, motes and pulse move there). */
+  private unregisterSquareGrid: (() => void) | null = null;
+  /**
+   * What is drawn untouched by the look's tone map and grade (`overlay-pass.ts`): the square grid's highlight over the scene and
+   * its backdrop under it, each in a group that turns with the board's (`setCompassRotation`). Given to the effects while they
+   * show (`overlayKey`: what was given).
+   */
+  private readonly overlayRoot = new THREE.Group();
+  private readonly underlayRoot = new THREE.Group();
+  private readonly overlayScene = new THREE.Scene();
+  private readonly underlayScene = new THREE.Scene();
+  private overlayKey = "off";
+  /** The look's own lights, as the square grid's backdrop measures the light of the moment against them (`syncGridLight`). */
+  private lookLights: SurfaceLight[] = [];
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -226,6 +262,12 @@ export class GameScene {
     this.effects.setOnRebuilt(() => this.requestRender());
 
     this.sceneGroup.add(this.tiles.getGroup());
+    this.overlayRoot.add(this.squareGrid.overlay);
+    this.overlayScene.add(this.overlayRoot);
+    this.underlayRoot.add(this.squareGrid.group);
+    this.underlayScene.add(this.underlayRoot);
+    // The logo's font came in: its texture is drawn again.
+    this.squareGrid.onChange = () => this.requestRender();
 
     this.dependencies = dependencies;
   }
@@ -240,6 +282,8 @@ export class GameScene {
       manifest,
     } = config;
     if (settings) this.settings = resolveRendererSettings(settings);
+    // The fit's chunk loads along the models, so the first frame is framed (no jump from the fixed opening).
+    const fitLoad = this.settings.cameraFit.enabled ? this.loadCameraFit() : null;
 
     this.disposed = false;
 
@@ -269,7 +313,9 @@ export class GameScene {
     }
 
     const rendererFactory = this.dependencies.createRenderer ?? createDefaultRenderer;
-    this.renderer = rendererFactory(surface);
+    this.renderer = rendererFactory(surface, this.settings.transparent);
+    // Over the page: cleared to transparent, every frame (the finish pass keeps the alpha when it lays no backdrop).
+    if (this.settings.transparent) this.renderer.setClearColor(0x000000, 0);
 
     const size = surface.getSize();
     this.pixelRatio = this.cappedPixelRatio();
@@ -299,6 +345,10 @@ export class GameScene {
     this.controls = cameraControllerFactory(surface);
     this.camera = this.controls.camera;
     this.applyCameraLimits();
+    // `reset()` frames the board for the size and settings of the moment, not those of the last frame.
+    this.webCamera()?.setFrameSource(() => this.openingFrame());
+    // The opening frame (CAMERA-FIT): the tiles given so far, or the starter's floor until they come.
+    this.fitCamera();
 
     // Re-render when camera moves (orbit, pan, zoom)
     this.controls.controls.addEventListener("change", () => {
@@ -316,6 +366,8 @@ export class GameScene {
     // (set before a renderer, they only resolve the look).
     this.effectsCapabilities = effectsCapabilities;
     this.effects.setCapabilities(effectsCapabilities);
+    // Over the page, the finish pass writes premultiplied colour (the board's chain is unchanged).
+    if (this.settings.transparent) this.effects.setTransparent(true);
     this.effects.setLook(this.settings.look, this.getQuality());
     this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing(), this.settings.msaaSamples);
     this.applyLook();
@@ -326,6 +378,7 @@ export class GameScene {
 
     // Preload assets
     await this.assets.preloadAll();
+    await fitLoad;
     // Disposed while the models were loading: bind nothing on a dead scene (`dispose` released the resize subscription).
     if (this.disposed) return;
 
@@ -383,6 +436,8 @@ export class GameScene {
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(width, height, false);
     this.controls?.resize(width, height);
+    // A resize or a turn of the screen frames the board again, as long as the player has not moved the camera.
+    if (!this.webCamera()?.userMoved) this.fitCamera();
     this.effects.resize(width, height, this.pixelRatio);
     this.notifyCamera();
     // `multisampling: "auto"` follows the window: one shrunk to a small screen turns the faces' antialiasing on.
@@ -441,13 +496,17 @@ export class GameScene {
    */
   private applyLook(): void {
     this.effects.setLook(this.settings.look, this.getQuality());
+    // The square grid's backdrop draws no mist on the Low tier and software WebGL, where a CPU draws every pixel of its noise
+    // (SwiftShader: the backdrop's draw 2.3 times as long with it).
+    if (this.squareGrid.setLowPower(this.getQuality() === "low" || this.webgl.software)) this.requestRender();
     const look = this.getLook();
     const profile = getLightingProfile(this.renderProfile);
     const play = getLightingProfile("play");
 
     if (this.renderer) this.renderer.toneMappingExposure = look.toneMapping.exposure;
-    this.scene.background = new THREE.Color(look.background);
-    this.scene.fog = look.fog.enabled
+    // Over the page: no background and no fog toward it (the page is the background).
+    this.scene.background = this.settings.transparent ? null : new THREE.Color(look.background);
+    this.scene.fog = look.fog.enabled && !this.settings.transparent
       ? new THREE.FogExp2(look.background, (look.fog.density * profile.fogDensity) / play.fogDensity)
       : null;
 
@@ -476,7 +535,11 @@ export class GameScene {
       key.shadow.radius = look.key.shadowSoftness;
     }
     this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
+    // The look's lights, before the cycle draws over them: the backdrop's reference.
+    this.lookLights = this.sceneLights();
     this.syncDayNight();
+    this.applyUnderlayBackground();
+    this.syncGridLight();
     this.syncAmbient();
     this.syncFog();
     this.requestRender();
@@ -521,13 +584,15 @@ export class GameScene {
   private syncFog(): void {
     const settings = this.settings.fog;
     const reveal = this.fogReveal;
-    const on = settings.enabled && !!reveal && !!this.renderer;
+    // The square grid's backdrop takes the fog's and its landscape's place.
+    const on = settings.enabled && !backdropShown(this.settings.squareGrid) && !!reveal && !!this.renderer;
     const fog = this.fog;
     if (!fog) {
       if (on) this.loadFog();
       return;
     }
     fog.setSettings(settings);
+    fog.setGrid(gridLineUniforms(this.settings.squareGrid));
     fog.setMode(on ? fogMode(settings, this.settings.ambient, this.getQuality(), prefersReducedMotion()) : "off");
     if (reveal) fog.setRevealed(reveal.cells, reveal.origin);
     fog.setCycle(this.getDayNight());
@@ -678,13 +743,15 @@ export class GameScene {
    */
   private syncDayNight(): void {
     const settings = this.settings.dayNight;
-    if (!settings.enabled || !this.renderer) {
+    // Over the page, the cycle's backdrop would cover it: the look's lights stay.
+    if (!settings.enabled || this.settings.transparent || !this.renderer) {
       if (this.dayNightOn) {
         this.dayNightOn = false;
         this.dayNightPoint = null;
         this.effects.setBackdrop(false);
         this.dayNight?.releaseDayNight(this.directionalLight);
         this.renderer?.setClearColor(0x000000, 1);
+        this.applyUnderlayBackground();
         this.tiles.setNightLights(false, settings.nightLightColor, settings.windowLight);
         this.nightLevel = 0;
         this.syncCloudLight();
@@ -704,6 +771,51 @@ export class GameScene {
     const now = performance.now();
     this.dayNightClock ??= new this.dayNight.DayNightClock(now, this.dayNight.pageCycleTime(now, settings.cycleMs));
     this.applyDayNight(this.dayNightSeasons());
+  }
+
+  /**
+   * The lights an upward surface of the board takes now (`SurfaceLight`): the ambient, the sky light (its sky colour), the key and
+   * the fill (by their direction). A light turned off gives none. With the cycle's `sun`, the key is the whole sun: while the
+   * cycle runs, the key light holds only its share of it (the rest is its twin's, `drawDayNight`'s crossfade).
+   */
+  private sceneLights(sun?: { direction: [number, number, number]; intensity: number }): SurfaceLight[] {
+    const out: SurfaceLight[] = [];
+    const target = this.directionalTargetObject?.position ?? new THREE.Vector3();
+    if (this.ambientLight?.visible) out.push({ color: this.ambientLight.color.clone(), intensity: this.ambientLight.intensity });
+    if (this.hemisphereLight?.visible) out.push({ color: this.hemisphereLight.color.clone(), intensity: this.hemisphereLight.intensity });
+    for (const light of [this.directionalLight, this.fillLight]) {
+      if (!light?.visible) continue;
+      const whole = sun && light === this.directionalLight;
+      out.push({
+        color: light.color.clone(),
+        intensity: whole ? sun.intensity : light.intensity,
+        direction: whole ? new THREE.Vector3(...sun.direction) : light.position.clone().sub(target),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * The square grid's backdrop as bright as the board is now (the time of day: `backdropLight` against the look's lights), its
+   * veil in the season's hue while the cycle draws (its day's ground colour, steady through the day and the night:
+   * `seasonGroundAt`). A frame when it changed.
+   */
+  private syncGridLight(): void {
+    if (!backdropShown(this.settings.squareGrid)) return;
+    const frame = this.dayNightOn && this.dayNight ? this.dayNight.dayNightFrame(this.dayNightDrawnAt, this.settings.dayNight.brightnessFloor) : null;
+    const ground = frame && new THREE.Color().setRGB(...this.dayNight!.seasonGroundAt(frame.point), THREE.LinearSRGBColorSpace);
+    if (this.squareGrid.setLight(backdropLight(this.sceneLights(frame?.sun), this.lookLights), ground)) this.requestRender();
+  }
+
+  /**
+   * While the square grid's backdrop shows, the scene is cleared to nothing and draws no background or distance fog: the finish
+   * pass lays the backdrop under what the scene leaves uncovered (`overlay-pass.ts`), and Realms' world map has no distance fog.
+   */
+  private applyUnderlayBackground(): void {
+    if (!backdropShown(this.settings.squareGrid)) return;
+    this.scene.background = null;
+    this.scene.fog = null;
+    this.renderer?.setClearColor(0x000000, 0);
   }
 
   /** Loads the cycle's chunk once; the look is applied again when it is in (a failed load leaves the look's lights). */
@@ -740,6 +852,7 @@ export class GameScene {
    */
   private applyDayNight(seasons: number): void {
     const look = this.getLook();
+    this.dayNightDrawnAt = seasons;
     this.dayNightPoint = this.dayNight!.drawDayNight(
       {
         key: look.key.enabled ? this.directionalLight : null,
@@ -760,6 +873,7 @@ export class GameScene {
       this.settings.dayNight.brightnessFloor,
     );
     this.syncCloudLight();
+    this.syncGridLight();
     this.syncWeatherCycle();
     this.requestRender();
   }
@@ -862,8 +976,13 @@ export class GameScene {
   updateTiles(tiles: TileRenderData[]): void {
     this.latestTiles = tiles.slice();
     this.tiles.updateTiles(tiles);
+    // The backdrop is in colour near the placed tiles.
+    this.squareGrid.setTileCells(tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
     if (this.controls) {
       this.controls.setBoardBounds(this.computeBoardBounds());
+      // The first tiles open the frame on them; later ones only with `followBoard`, while the player has not moved.
+      const follow = this.settings.cameraFit.followBoard && !this.webCamera()?.userMoved;
+      if (tiles.length > 0 && (!this.framedTiles || follow)) this.fitCamera();
     }
     this.requestShadowUpdate();
     this.requestRender();
@@ -885,6 +1004,7 @@ export class GameScene {
   /** Set hover preview at grid position */
   setHoveredTile(state: HoverState | null): void {
     this.tiles.setHover(state);
+    this.squareGrid.setGhost(state && { x: state.x, y: state.y, placed: !!state.placed });
     this.requestRender();
   }
 
@@ -894,6 +1014,7 @@ export class GameScene {
    */
   setAvailableSlots(slots: ReadonlyArray<PlacementSlot>): void {
     this.tiles.setAvailableSlots(slots);
+    this.squareGrid.setSlots(slots);
     this.requestRender();
   }
 
@@ -934,12 +1055,40 @@ export class GameScene {
     return this.tiles.prepareDropAt(state);
   }
 
-  /** The placement visuals' settings and reduced motion, from the renderer's settings. */
+  /** The placement visuals' settings and reduced motion, from the renderer's settings; the square grid's with them. */
   private applyPlacementSettings(): void {
     this.tiles.setVoxelDropSettings(this.settings.voxelDrop);
-    this.tiles.setPlacementSettings(this.settings.placement, this.settings.outlines);
+    this.tiles.setPlacementSettings(this.placementSettings(), this.settings.outlines);
     const { reducedMotion } = this.settings.placement.motion;
-    this.tiles.setReducedMotion(reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion);
+    const reduced = reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion;
+    this.tiles.setReducedMotion(reduced);
+    this.squareGrid.setSettings(this.settings.squareGrid);
+    this.squareGrid.setReducedMotion(reduced);
+    // On the ambient loop only while it is on: off, the loop has nothing of it to step.
+    this.unregisterSquareGrid?.();
+    this.unregisterSquareGrid = this.settings.squareGrid.enabled ? this.ambient.register(this.squareGrid) : null;
+    // Its highlight is drawn as given over the graded scene, its backdrop under it with Realms' tone map, while they show.
+    const grid = this.settings.squareGrid;
+    const over = highlightShown(grid);
+    const under = backdropShown(grid);
+    const key = over || under ? `${over}|${under}|${grid.backdrop.exposure}` : "off";
+    if (key !== this.overlayKey) {
+      this.overlayKey = key;
+      const overlay: Overlay = { scene: over ? this.overlayScene : null, depth: this.squareGrid.overlayDepth, underlay: under ? this.underlayScene : null, underlayExposure: grid.backdrop.exposure };
+      this.effects.setOverlay(over || under ? overlay : null);
+    }
+  }
+
+  /** The placement settings as drawn: no plate while the square grid's highlight takes their place (`SquareGridSettings.highlight`). */
+  private placementSettings(): PlacementSettings {
+    const { placement, squareGrid } = this.settings;
+    if (!highlightShown(squareGrid)) return placement;
+    return { ...placement, plates: { ...placement.plates, enabled: false } };
+  }
+
+  /** What the square grid draws now (`SquareGridRenderer.stats`): the stories' readout and the tests. */
+  getSquareGrid(): ReturnType<SquareGridRenderer["stats"]> {
+    return this.squareGrid.stats();
   }
 
   /** Follows the device's `prefers-reduced-motion` while the setting is "auto". */
@@ -1009,6 +1158,8 @@ export class GameScene {
   /** Set compass rotation for scene group */
   setCompassRotation(angle: number): void {
     this.sceneGroup.rotation.y = angle;
+    this.overlayRoot.rotation.y = angle;
+    this.underlayRoot.rotation.y = angle;
     this.notifyCamera();
     // The tile shader reads a tile's cell in the board's frame, not the world's (the lit structure).
     this.tiles.updateBoardFrame();
@@ -1041,6 +1192,12 @@ export class GameScene {
     this.outlineTilePx = Number.NaN;
     this.logOutlinePath();
     this.applyCameraLimits();
+    // New frame settings (the story's floor, insets) apply at once while the player has not moved the camera. Turning the
+    // frame on or off applies at once whatever the player did: on, the board's frame; off, today's opening.
+    if (JSON.stringify(this.settings.cameraFit) !== this.fitSettingsKey) {
+      if (this.fitEnabled !== null && this.settings.cameraFit.enabled !== this.fitEnabled) this.resetCamera();
+      else if (!this.webCamera()?.userMoved) this.fitCamera();
+    }
     this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
     this.applyLook();
@@ -1150,6 +1307,121 @@ export class GameScene {
     this.controls.controls.maxDistance = max;
   }
 
+  /**
+   * The frame of the board on this surface (CAMERA-FIT, #678, `computeCameraFit`): the tiles and their ring of free slots,
+   * at least `floorCells` square, in the screen less the HUD, never farther than `OPENING_DISTANCE` (nor the zoom limits).
+   * Null before `init`.
+   */
+  getCameraFit(): CameraFit | null {
+    if (!this.surface || !this.camera || !this.fitModule) return null;
+    const { width, height } = this.surface.getSize();
+    const fit = this.settings.cameraFit;
+    const { min, max } = cameraDistanceLimits(this.settings.camera);
+    return this.fitModule.computeCameraFit({
+      cells: this.cellExtent(),
+      width,
+      height,
+      fov: this.camera.fov,
+      zoom: this.camera.zoom,
+      insets: fit.insets === "auto" ? frameInsetsFor(width) : fit.insets,
+      floorCells: fit.floorCells,
+      ring: fit.ring,
+      minDistance: min,
+      maxDistance: Math.min(OPENING_DISTANCE, max),
+    });
+  }
+
+  /** Frames the board again (the re-centre action), whether or not the player moved the camera; resizes follow it again. */
+  recenter(): void {
+    this.fitCamera(true);
+  }
+
+  /**
+   * Where the camera opens now, in play mode: the board's frame with `cameraFit` on, else today's opening, `OPENING_DISTANCE`
+   * over the starter (within the zoom limits). Null in another mode or on a hidden surface.
+   */
+  private openingFrame(): { target: { x: number; z: number }; distance: number } | null {
+    const controls = this.webCamera();
+    if (!controls || !this.surface || controls.getMode() !== "play") return null;
+    const { width, height } = this.surface.getSize();
+    if (!(width > 0) || !(height > 0)) return null;
+    if (this.settings.cameraFit.enabled) return this.getCameraFit();
+    return { target: { x: 0, z: 0 }, distance: Math.min(OPENING_DISTANCE, cameraDistanceLimits(this.settings.camera).max) };
+  }
+
+  /** Back to where the camera opens now (`openingFrame`, through `CameraController.reset`). */
+  private resetCamera(): void {
+    const controls = this.webCamera();
+    if (!controls) return;
+    this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
+    this.fitEnabled = this.settings.cameraFit.enabled;
+    // Turned on in a scene that opened with the frame off: its chunk is not in yet; it frames once loaded.
+    if (this.settings.cameraFit.enabled && !this.fitModule) {
+      void this.loadCameraFit(true);
+      return;
+    }
+    controls.reset();
+    this.framedTiles = this.settings.cameraFit.enabled && this.latestTiles.length > 0;
+    this.notifyCamera();
+    this.requestRender();
+  }
+
+  /** The web controller (`CameraController`), the one that frames; null before `init` or for another controller. */
+  private webCamera(): CameraController | null {
+    return this.controls instanceof CameraController ? this.controls : null;
+  }
+
+  /** Puts the camera on the board's frame (`getCameraFit`), in play mode with the frame on (or `force`d by `recenter`). */
+  private fitCamera(force = false): void {
+    const controls = this.webCamera();
+    if (!controls || !this.surface) return;
+    const { width, height } = this.surface.getSize();
+    this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
+    this.fitEnabled = this.settings.cameraFit.enabled;
+    if (!(width > 0) || !(height > 0)) return;
+    if (!force && (!this.settings.cameraFit.enabled || controls.getMode() !== "play")) return;
+    if (!this.fitModule) {
+      void this.loadCameraFit(force);
+      return;
+    }
+    const fit = this.getCameraFit();
+    if (!fit) return;
+    controls.frame(fit.target, fit.distance);
+    this.framedTiles = this.latestTiles.length > 0;
+    this.notifyCamera();
+    this.requestRender();
+  }
+
+  /**
+   * Loads the fit's chunk once, then frames the board: at once if `force`d (the re-centre), else while the player has not
+   * moved the camera. A failed load leaves the camera at its fixed opening.
+   */
+  private loadCameraFit(force = false): Promise<void> {
+    this.fitLoad ??= import("./camera-fit").then(
+      (module) => {
+        this.fitModule = module;
+      },
+      (error: unknown) => console.warn("[renderer] the camera fit did not load, the camera opens at its fixed distance:", error),
+    );
+    return this.fitLoad.then(() => {
+      if (this.disposed || !this.fitModule) return;
+      if (force || !this.webCamera()?.userMoved) this.fitCamera(force);
+    });
+  }
+
+  /** The placed tiles' extent in cells, null on an empty board. */
+  private cellExtent(): CellExtent | null {
+    if (this.latestTiles.length === 0) return null;
+    const extent = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    for (const tile of this.latestTiles) {
+      extent.minX = Math.min(extent.minX, tile.worldX);
+      extent.maxX = Math.max(extent.maxX, tile.worldX);
+      extent.minZ = Math.min(extent.minZ, tile.worldZ);
+      extent.maxZ = Math.max(extent.maxZ, tile.worldZ);
+    }
+    return extent;
+  }
+
   focusBoard(): void {
     if (!this.controls) return;
     this.controls.focusBounds(this.computeBoardBounds());
@@ -1209,6 +1481,17 @@ export class GameScene {
     this.effects.render();
   }
 
+  /**
+   * The pulse's phase at `now` (0 to 1): the pending tile's while one pulses, else a clock of the same period, so the square grid's
+   * highlight breathes with the tile placed. Null with no period.
+   */
+  private pulsePhase(now: number): number | null {
+    const phase = this.tiles.pulsePhase?.(now);
+    if (phase !== undefined && phase !== null) return phase;
+    const ms = this.settings.placement.tints.pendingPulseMs;
+    return ms > 0 ? (now % ms) / ms : null;
+  }
+
   /** Start the render loop */
   start(): void {
     const animate = () => {
@@ -1226,6 +1509,8 @@ export class GameScene {
       const now = performance.now();
       const moved = this.tiles.update(now);
       if (moved.animating) this.needsRender = true;
+      // The square grid's roll-in and dim; its pulse on the pending tile's clock, so the two breathe together.
+      if (this.squareGrid.update(now, this.pulsePhase(now))) this.needsRender = true;
       // A drop ended (the model is back) or casts: the shadows and a last frame, which `animating` no longer asks for.
       if (moved.shadow) {
         this.requestShadowUpdate();
@@ -1300,6 +1585,7 @@ export class GameScene {
 
     this.stop();
     this.tiles.dispose();
+    this.squareGrid.dispose();
     this.effects.dispose();
     this.controls?.dispose();
     this.assets.dispose();

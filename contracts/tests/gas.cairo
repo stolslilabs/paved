@@ -31,6 +31,11 @@ use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
 use paved::avatar::look::look_of;
+use paved::components::bucketable::{IBucketableDispatcher, IBucketableDispatcherTrait};
+use paved::components::leagueable::{
+    ILeagueableDispatcher, ILeagueableDispatcherTrait, LeagueRecord, LeagueRecordPacking,
+};
+use paved::components::seasonable::{ISeasonableDispatcher, ISeasonableDispatcherTrait};
 use paved::constants::{self, CENTER};
 use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
@@ -47,7 +52,8 @@ use paved::systems::matchmaker::{
     IMatchmakerDispatcherTrait,
 };
 use paved::systems::setup::{
-    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
+    CLAIM_SEASON, DAY, ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupDispatcher,
+    ISetupDispatcherTrait, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
     ISetupLevelDispatcher, ISetupLevelDispatcherTrait, ISetupPacksDispatcher,
     ISetupPacksDispatcherTrait, ISetupSkinsDispatcher, ISetupSkinsDispatcherTrait,
     ISetupSpendDispatcher, ISetupSpendDispatcherTrait, ISetupStoryDispatcher,
@@ -149,13 +155,17 @@ pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
 // first-consume check and the mock's count of the transaction's consumes, two slots written).
 pub const CEILING_VRF_DRAW: u128 = 1035785;
 // z16 to z21: the matchmaker's calls (#639, `docs/architecture/matchmaker.md`): measured on the VPS
-// (snforge 0.64.0, test profile) + 5 %, rounded up.
-pub const CEILING_MM_JOIN: u128 = 905454;
-pub const CEILING_MM_SEARCH: u128 = 2511217;
-pub const CEILING_MM_NEXT: u128 = 3074204;
-pub const CEILING_MM_START: u128 = 4095643;
-pub const CEILING_MM_SETTLE: u128 = 2817341;
-pub const CEILING_MM_RELEASE: u128 = 1854105;
+// (snforge 0.64.0, test profile) + 5 %, rounded up; measured again after the split into components
+// (MATCHMAKER-CROWNS, section 11: separate slots per piece, the buckets' events). LEAGUES (#644):
+// z17, z18 and z20 measured again (+ 5 %): a draw reads the season clock and rolls both villages,
+// a settlement rolls them, records the leagues and reports the PvP missions to `Setup`
+// (`report_pvp`, +1.5M on z20).
+pub const CEILING_MM_JOIN: u128 = 908127;
+pub const CEILING_MM_SEARCH: u128 = 2922327;
+pub const CEILING_MM_NEXT: u128 = 3517780;
+pub const CEILING_MM_START: u128 = 4642472;
+pub const CEILING_MM_SETTLE: u128 = 4883423;
+pub const CEILING_MM_RELEASE: u128 = 2091957;
 // XP-LEVEL (#641): every game over credits its XP in the account write it already made, with one
 // `XpGained` (+128,110 on g, i, l, s, x and z6, +148,710 on k and y); every call that reads the
 // account unpacks the XP too (+17,660 on z1, z3, z4, z7, z8, z10, z11). The ceilings that still
@@ -179,6 +189,25 @@ pub const CEILING_AVATAR_BUY: u128 = 1240642;
 pub const CEILING_AVATAR_SET_FREE: u128 = 1440201;
 pub const CEILING_AVATAR_SET_OWNED: u128 = 2604158;
 pub const CEILING_AVATAR_ITEMS: u128 = 2512748;
+// z32 and z33: leagues and seasons (#644, `docs/architecture/leagues.md`): a settlement across a
+// season's end (both villages rolled, reset and paid, the missions reported) and `close_season`
+// with a reward and a reset. Measured on the VPS (snforge 0.64.0, test profile) + 5 %, rounded up.
+pub const CEILING_MM_SETTLE_SEASON_END: u128 = 5959147;
+// z34 to z42: every other new call of LEAGUES, measured alone (+ 5 %; z32 to z35 and z38 again
+// after the calendar seasons, whose table of 200 events a binary search reads): the season clock
+// set, the views `current_season`, `season_clock`, `league_record`, `league`, and `Setup`'s
+// `credit_league`, `report_pvp`, `pvp_progress` and `claim_quest` of a PvP mission.
+pub const CEILING_MM_SET_SEASON_CLOCK: u128 = 684327;
+pub const CEILING_MM_CURRENT_SEASON: u128 = 633875;
+pub const CEILING_MM_SEASON_CLOCK: u128 = 136574;
+pub const CEILING_MM_SEASON_START: u128 = 483021;
+pub const CEILING_MM_LEAGUE_RECORD: u128 = 172165;
+pub const CEILING_MM_LEAGUE: u128 = 1138816;
+pub const CEILING_CREDIT_LEAGUE: u128 = 546177;
+pub const CEILING_REPORT_PVP: u128 = 1121073;
+pub const CEILING_PVP_PROGRESS: u128 = 207493;
+pub const CEILING_CLAIM_PVP_QUEST: u128 = 1658340;
+pub const CEILING_MM_CLOSE_SEASON: u128 = 2068336;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -881,7 +910,7 @@ fn test_gas_z15_vrf_draw() {
 // The matchmaker (#639)
 
 /// `Setup`, the VRF mock and `Matchmaker` at `START_MM`: `OWNER` its operator, `Matchmaker` a
-/// spender of `Setup`, `PLAYER` 30 cobbles; NPC 1 at 0 crowns, NPC 2 at 150.
+/// spender and a reporter of `Setup` (#644), `PLAYER` 30 cobbles; NPC 1 at 0 crowns, NPC 2 at 150.
 fn matchmaker() -> IMatchmakerDispatcher {
     start_cheat_block_timestamp_global(START_MM);
     let (setup, _) = declare("Setup")
@@ -901,6 +930,7 @@ fn matchmaker() -> IMatchmakerDispatcher {
         .unwrap();
     start_cheat_caller_address(setup, OWNER());
     ISetupDispatcher { contract_address: setup }.set_reporter(OWNER(), true);
+    ISetupDispatcher { contract_address: setup }.set_reporter(matchmaker, true);
     ISetupSpendDispatcher { contract_address: setup }.set_spender(matchmaker, true);
     ISetupStoryDispatcher { contract_address: setup }.credit_story(PLAYER().into(), 1, 1, 0, 3);
     stop_cheat_caller_address(setup);
@@ -1000,8 +1030,8 @@ fn test_gas_z19_matchmaker_start_attack() {
 
 /// z20. A player-versus-player attack settled with 3 stars, its worst case: both villages in the
 /// pool (the defender's attack shield ended and released) and both change bucket. The attacker at
-/// 90 crowns wins 26 from the defender at 110: 116 (bucket 0 to 1) and 84 (bucket 1 to 0); the
-/// registry is written once.
+/// 90 crowns wins the offer of a +20 gap, 31, from the defender at 110: 121 (bucket 0 to 1) and 79
+/// (bucket 1 to 0).
 #[test]
 fn test_gas_z20_matchmaker_settle() {
     let matchmaker = matchmaker();
@@ -1030,9 +1060,10 @@ fn test_gas_z20_matchmaker_settle() {
     let before = get_available_gas();
     let outcome = matchmaker.settle(PLAYER(), 3);
     let after = get_available_gas();
-    assert(outcome.gained == 26, 'not 26 crowns');
-    assert(matchmaker.village(PLAYER()).bucket == 1, 'attacker not in bucket 1');
-    assert(matchmaker.village(defender).bucket == 0, 'defender not in bucket 0');
+    assert(outcome.gained == 31, 'not 31 crowns');
+    let buckets = IBucketableDispatcher { contract_address: address };
+    assert(buckets.place(PLAYER()).bucket == 1, 'attacker not in bucket 1');
+    assert(buckets.place(defender).bucket == 0, 'defender not in bucket 0');
     report("z20_matchmaker_settle", before - after, CEILING_MM_SETTLE);
 }
 
@@ -1214,4 +1245,219 @@ fn test_gas_z31_avatar_items() {
     let after = get_available_gas();
     assert(items.len() == 17, 'Gas: 17 items');
     report("z31_avatar_items", before - after, CEILING_AVATAR_ITEMS);
+}
+
+// Leagues and seasons (#644)
+
+/// Season 1 (spring) from the March equinox of 2027 and season 2 (summer) from its June solstice
+/// (`paved::matchmaker::leagues::SEASON_STARTS`).
+const SPRING_2027: u64 = 1805574281;
+const SUMMER_2027: u64 = 1813587050;
+
+/// The matchmaker with its season clock from the March equinox of 2027 (`START_MM` is 15 January),
+/// two villages
+/// (`PLAYER` and village 0) in the pool at `crowns` each in season 1 with `attacks` settled, the
+/// NPCs removed;
+/// the time is still in season 1.
+fn matchmaker_in_season(crowns: u32, attacks: u16) -> IMatchmakerDispatcher {
+    let matchmaker = matchmaker();
+    let address = matchmaker.contract_address;
+    let defender = village_at(0);
+    start_cheat_caller_address(address, OWNER());
+    let admin = IMatchmakerAdminDispatcher { contract_address: address };
+    admin.set_season_clock(SPRING_2027);
+    admin.remove_npc(1);
+    admin.remove_npc(2);
+    matchmaker.join(PLAYER());
+    matchmaker.join(defender);
+    start_cheat_block_timestamp_global(SPRING_2027);
+    assert(matchmaker.release_shields(2) == 2, 'initial shields not released');
+    matchmaker.set_crowns(PLAYER(), crowns);
+    matchmaker.set_crowns(defender, crowns);
+    for village in array![PLAYER(), defender] {
+        store_felts(
+            address,
+            map_entry_address(selector!("league_records"), array![village.into()].span()),
+            array![LeagueRecordPacking::pack(LeagueRecord { season: 1, peak: 22, attacks })].span(),
+        );
+    }
+    stop_cheat_caller_address(address);
+    matchmaker
+}
+
+/// z32. A 3-star settlement in season 2 of an attack started in season 1, its worst case: both
+/// villages roll (each season closed with its reward credited in `Setup`, both reset from 6,000 to
+/// 5,000 in Legend's bucket), then the crowns move and the PvP missions are reported.
+#[test]
+fn test_gas_z32_matchmaker_settle_season_end() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    let address = matchmaker.contract_address;
+    start_cheat_caller_address(address, PLAYER());
+    start_cheat_transaction_hash_global('TX1');
+    assert(matchmaker.search() == village_at(0), 'not the defender');
+    start_cheat_caller_address(address, OWNER());
+    matchmaker.start_attack(PLAYER());
+    start_cheat_block_timestamp_global(SUMMER_2027);
+    let before = get_available_gas();
+    let outcome = matchmaker.settle(PLAYER(), 3);
+    let after = get_available_gas();
+    assert(outcome.attacker + outcome.defender == 10000, 'not reset to 5,000 each');
+    report("z32_matchmaker_settle_season_end", before - after, CEILING_MM_SETTLE_SEASON_END);
+}
+
+/// z33. `close_season` of a village that ended its season in Legend: its reward credited in
+/// `Setup`, its crowns reset from 6,000 to 5,000 (its bucket stays Legend's).
+#[test]
+fn test_gas_z33_matchmaker_close_season() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    start_cheat_block_timestamp_global(SUMMER_2027);
+    let before = get_available_gas();
+    matchmaker.close_season(PLAYER());
+    let after = get_available_gas();
+    report("z33_matchmaker_close_season", before - after, CEILING_MM_CLOSE_SEASON);
+}
+
+/// z34. `set_season_clock` by the owner, the clock's first write and its event.
+#[test]
+fn test_gas_z34_matchmaker_set_season_clock() {
+    let matchmaker = matchmaker();
+    let address = matchmaker.contract_address;
+    start_cheat_caller_address(address, OWNER());
+    let admin = IMatchmakerAdminDispatcher { contract_address: address };
+    let before = get_available_gas();
+    admin.set_season_clock(SPRING_2027);
+    let after = get_available_gas();
+    report("z34_matchmaker_set_season_clock", before - after, CEILING_MM_SET_SEASON_CLOCK);
+}
+
+/// z35. The `current_season` view, the clock read, in season 1.
+#[test]
+fn test_gas_z35_matchmaker_current_season() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    let seasons = ISeasonableDispatcher { contract_address: matchmaker.contract_address };
+    let before = get_available_gas();
+    let season = seasons.current_season();
+    let after = get_available_gas();
+    assert(season == 1, 'not season 1');
+    report("z35_matchmaker_current_season", before - after, CEILING_MM_CURRENT_SEASON);
+}
+
+/// z36. The `season_clock` view.
+#[test]
+fn test_gas_z36_matchmaker_season_clock() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    let seasons = ISeasonableDispatcher { contract_address: matchmaker.contract_address };
+    let before = get_available_gas();
+    let clock = seasons.season_clock();
+    let after = get_available_gas();
+    assert(clock == SPRING_2027, 'not the clock');
+    report("z36_matchmaker_season_clock", before - after, CEILING_MM_SEASON_CLOCK);
+}
+
+/// z37. The `league_record` view.
+#[test]
+fn test_gas_z37_matchmaker_league_record() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    let leagues = ILeagueableDispatcher { contract_address: matchmaker.contract_address };
+    let before = get_available_gas();
+    let record = leagues.league_record(PLAYER());
+    let after = get_available_gas();
+    assert(record.attacks == 5, 'not the record');
+    report("z37_matchmaker_league_record", before - after, CEILING_MM_LEAGUE_RECORD);
+}
+
+/// z38. The `league` view, its worst case: a village of a past season, its roll computed (the
+/// reward pending, the reset) with no write.
+#[test]
+fn test_gas_z38_matchmaker_league() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    start_cheat_block_timestamp_global(SUMMER_2027);
+    let before = get_available_gas();
+    let status = matchmaker.league(PLAYER());
+    let after = get_available_gas();
+    assert(status.pending == 250 && status.crowns == 5000, 'not the lazy roll');
+    report("z38_matchmaker_league", before - after, CEILING_MM_LEAGUE);
+}
+
+/// `Setup` alone at `START_MM`, `OWNER` a reporter; `PLAYER` holds 30 cobbles.
+fn setup_for_leagues() -> ContractAddress {
+    start_cheat_block_timestamp_global(START_MM);
+    let (setup, _) = declare("Setup")
+        .unwrap()
+        .contract_class()
+        .deploy(@array![OWNER().into()])
+        .unwrap();
+    start_cheat_caller_address(setup, OWNER());
+    ISetupDispatcher { contract_address: setup }.set_reporter(OWNER(), true);
+    ISetupStoryDispatcher { contract_address: setup }.credit_story(PLAYER().into(), 1, 1, 0, 3);
+    setup
+}
+
+/// z39. `credit_league` of a season's reward, by a reporter, to an account that holds cobbles: the
+/// account read and written, one `CobblesClaimed`.
+#[test]
+fn test_gas_z39_credit_league() {
+    let setup = setup_for_leagues();
+    let league = ISetupLeagueDispatcher { contract_address: setup };
+    let before = get_available_gas();
+    league.credit_league(PLAYER().into(), CLAIM_SEASON, 22, 1, 250);
+    let after = get_available_gas();
+    report("z39_credit_league", before - after, CEILING_CREDIT_LEAGUE);
+}
+
+/// z40. `report_pvp` of a 3-star attack, its worst case: four quest entries, the day's and the
+/// week's PvP slots, both new.
+#[test]
+fn test_gas_z40_report_pvp() {
+    let setup = setup_for_leagues();
+    let league = ISetupLeagueDispatcher { contract_address: setup };
+    let before = get_available_gas();
+    league.report_pvp(PLAYER().into(), 3);
+    let after = get_available_gas();
+    report("z40_report_pvp", before - after, CEILING_REPORT_PVP);
+}
+
+/// z41. The `pvp_progress` view of a day.
+#[test]
+fn test_gas_z41_pvp_progress() {
+    let setup = setup_for_leagues();
+    let league = ISetupLeagueDispatcher { contract_address: setup };
+    league.report_pvp(PLAYER().into(), 3);
+    let before = get_available_gas();
+    let day = league.pvp_progress(PLAYER().into(), 1, START_MM / DAY);
+    let after = get_available_gas();
+    assert(day.attacks == 1, 'not the day');
+    report("z41_pvp_progress", before - after, CEILING_PVP_PROGRESS);
+}
+
+/// z42. `claim_quest` of a PvP mission (a daily quest on task 19): the quest's slot, the PvP day
+/// read and written, the account read and written, one event.
+#[test]
+fn test_gas_z42_claim_pvp_quest() {
+    let setup = setup_for_leagues();
+    let daily = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
+    ISetupDispatcher { contract_address: setup }
+        .define_quest(
+            50, daily, array![QuestTask { task_id: 19, total: 1 }].span(), array![].span(),
+        );
+    let cobbles = ISetupCobblesDispatcher { contract_address: setup };
+    cobbles.set_quest_cobbles(50, 10);
+    ISetupLeagueDispatcher { contract_address: setup }.report_pvp(PLAYER().into(), 3);
+    start_cheat_caller_address(setup, PLAYER());
+    let before = get_available_gas();
+    cobbles.claim_quest(50, START_MM / DAY);
+    let after = get_available_gas();
+    report("z42_claim_pvp_quest", before - after, CEILING_CLAIM_PVP_QUEST);
+}
+
+/// z43. The `season_start` view of season 2, a step of the table from the clock's season.
+#[test]
+fn test_gas_z43_matchmaker_season_start() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    let seasons = ISeasonableDispatcher { contract_address: matchmaker.contract_address };
+    let before = get_available_gas();
+    let start = seasons.season_start(2);
+    let after = get_available_gas();
+    assert(start == SUMMER_2027, 'not summer 2027');
+    report("z43_matchmaker_season_start", before - after, CEILING_MM_SEASON_START);
 }

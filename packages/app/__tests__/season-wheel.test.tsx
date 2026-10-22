@@ -110,7 +110,7 @@ describe("the season dial's colours and room (#607)", () => {
     expect(share("dial-mark")).toBeLessThan(80);
   });
 
-  it("keeps the icons at least 4 px apart on a phone, on a dial of 64 px or more", () => {
+  it("keeps the icons at least 4 px apart on a phone, on a dial of 96 px or more", () => {
     const px = (s: (typeof WHEEL_SEASONS)[number]) => ({ x: (ICON_AT[s].x / 100) * DIAL_PX, y: (ICON_AT[s].y / 100) * DIAL_PX });
     for (let i = 0; i < 4; i++) {
       const a = px(WHEEL_SEASONS[i]!);
@@ -118,16 +118,16 @@ describe("the season dial's colours and room (#607)", () => {
       // Two square icons, upright: apart when the larger of the two axes' distances exceeds an icon by 4 px.
       expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) - ICON_PX).toBeGreaterThanOrEqual(4);
     }
-    expect(DIAL_PX).toBeGreaterThanOrEqual(64);
+    expect(DIAL_PX).toBeGreaterThanOrEqual(96);
   });
 });
 
 describe("<SeasonWheel>", () => {
-  it("names its state and time of day, is the 64 px dial (72 px from 390 px wide), and calls onNext on a click", () => {
+  it("names its state and time of day, is the 96 px dial (108 px from 390 px wide), and calls onNext on a click", () => {
     const onNext = vi.fn();
     const { container } = render(<SeasonWheel state="winter" onNext={onNext} />);
     const button = screen.getByRole("button", { name: /winter day/ });
-    expect(container.querySelector(".size-16")).not.toBeNull();
+    expect(container.querySelector(".size-24")).not.toBeNull();
     fireEvent.click(button);
     expect(onNext).toHaveBeenCalledOnce();
   });

@@ -703,6 +703,21 @@ same way.
 draw add nothing to #643's attack system, which calls it. `Setup` grows by `ISetupSpend` (`spend_cobbles` and its
 allowlist). Every other class is unchanged to the felt (`Challenge` 64,826, `Story` 58,650).
 
+## After MATCHMAKER-CROWNS (#639, the crowns of Clash of Clans and the split into components)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, release, VPS, 2026-10-22, under
+`prlimit --as=12884901888`, peak RSS 4,671,000 kB). The base is main `ef41bbdb`'s figure above (24,473).
+
+| Class | Sierra base | CASM base | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Matchmaker` | 9,616 | 24,473 | 10,076 | 24,614 | +141 | 30.0 % |
+
+The three new components (`CrownableComponent`, `BucketableComponent`, `ShieldableComponent`) have no class of their own:
+their code is measured in the class that embeds them, `Matchmaker`, the only one so far. The offer and cost tables of the
+Clash of Clans curves (97 breakpoints, a binary search) and the components' separate entry points cost 141 felts in all.
+`Matchmaker` is 49,114 CASM felts under the P-44 cap (73,728). Measured again after the cost curve's choice B (2026-10-22, the
+same breakpoint count): CASM unchanged, Sierra 10,075 to 10,076. `Setup` (43,431) and every other class are unchanged.
+
 ## After XP-LEVEL (#641)
 
 Measured on the Mac on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 2.20.1), main `704ff688` measured the same way.
@@ -750,3 +765,24 @@ the catalogue a component it embeds. `Setup` is unchanged (43,431, 53.0 %): `Ava
 `ISetupSpend::spend_cobbles`, so no entry point is added to `Setup`. `Challenge` and `Story` are unchanged by this
 change. The hand-over's single-class version (a layout of widths, its own `spend_cobbles` on `Setup`) measured 11,318
 for `Avatar` and put `Setup` at 50.2 %.
+
+## After LEAGUES (#644, leagues and seasons)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, release, VPS, 2026-10-22, under
+`prlimit --as=12884901888`, peak RSS 4,779,016 kB). The base is an export of main at `62056003` (`git archive`),
+measured the same way.
+
+| Class | Sierra base | CASM base | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Matchmaker` | 10,076 | 24,614 | 14,084 | 33,244 | +8,630 | 40.6 % |
+| `Setup` | 19,604 | 43,431 | 21,119 | 47,384 | +3,953 | 57.8 % |
+
+- `Matchmaker` embeds the two new components (`SeasonableComponent`, `LeagueableComponent`), the league table, the
+  rolls, the credits and the views `league`, `season_clock`, `current_season`, `league_record`, and the pool capped at Legend
+  (`pool_crowns`, after review), and the calendar: the table of the 200 equinoxes and solstices of 2026 to 2075 and its
+  search (about 1,300 felts): 40,484 CASM felts under the P-44 cap (73,728).
+- `Setup` gains `ISetupLeague` (`credit_league`, `report_pvp`, `pvp_progress`) and the PvP ledger's claim: 26,344 under
+  the P-44 cap.
+- Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201):
+  the Challenge's game over writes the same `Progress` as before (`docs/architecture/leagues.md`, section 7).
+

@@ -96,6 +96,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // files belong to R-VIS, not WRAP360; R-VIS's canvas ResizeObserver should make these two entries unneeded.
   { story: /^containers-boardviewport--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
   { story: /^renderer-outlines--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
+  // Camera fit (CAMERA-FIT, #678): the board sits in a box of the screen preset's size (375 to 1920 px), so the frame is
+  // read at that size; on a narrower window the story's own box scrolls sideways, by design.
+  { story: /^renderer-camera-fit--/, kind: "scroll", element: " · N ", why: "screen-size preview scroller" },
 ];
 
 const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "split", "scroll"];

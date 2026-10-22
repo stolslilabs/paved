@@ -54,6 +54,13 @@ pub const TASK_TUTORIAL_FINISHED: u32 = 10;
 /// `STAKE_UNITS`. The v2a definitions (quests.md, "v2a") use tasks 1 to 7 only.
 pub const TASK_RESERVED_FIRST: u32 = 11;
 pub const TASK_RESERVED_LAST: u32 = 18;
+/// The PvP tasks (#644, `docs/architecture/leagues.md`, section 7), reported by `Matchmaker` at
+/// each settlement for the attacker: an attack settled, its stars, a win (at least one star), three
+/// stars. `Setup` sums them by day and week for the PvP missions.
+pub const TASK_PVP_ATTACK: u32 = 19;
+pub const TASK_PVP_STARS: u32 = 20;
+pub const TASK_PVP_WIN: u32 = 21;
+pub const TASK_PVP_THREE_STARS: u32 = 22;
 
 /// A road or a city of at least this many tiles is a big structure (to calibrate).
 pub const BIG_SIZE: u32 = 8;

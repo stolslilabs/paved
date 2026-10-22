@@ -3,7 +3,7 @@ import type { TileRenders } from "../elements/tile-render";
 import type { TileSkins } from "@paved/renderer";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import { DISCARD_POINTS, type DeckSheetOrder } from "@paved/game-core";
+import { DISCARD_POINTS, PlanType, baseDeckPlans, type DeckSheetOrder } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
@@ -21,7 +21,7 @@ import type { BoardWheel } from "../../data/board-settings";
 import type { ErrorDetail } from "../elements/inline-error";
 import { useBoardSounds } from "../containers/board-sounds";
 import { useSfx } from "../containers/audio-provider";
-import { TileStack, type HandState } from "../containers/tile-stack";
+import { TileStack, type HandState, type StackFrame } from "../containers/tile-stack";
 import type { GameAction } from "../containers/device-settings-sheet";
 import { COACH_RING, type CoachTarget } from "../containers/coach";
 export type { CoachTarget } from "../containers/coach";
@@ -40,9 +40,12 @@ const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 const loadDeckSheet = () => import("../containers/deck-sheet");
 const PREFETCH_AFTER_MS = 3000;
 // The stack beside the dial (#682): it keeps to the right of the dial and a gap, its row wrapping (Discard and queue above
-// the stack) where the two do not fit side by side, under about 370 px. 6rem is the two side insets, the 72 px dial and
-// the gap; 5.5rem the same with the 64 px dial under 390 px. From tablet up the stack's own 20rem keeps it clear.
-const STACK_BESIDE_DIAL = "max-w-[min(20rem,calc(100vw-5.5rem))] min-[24.375rem]:max-w-[min(20rem,calc(100vw-6rem))]";
+// the stack) where the two do not fit side by side. 8.25rem is the two side insets, the 108 px dial and the gap; 7.5rem
+// the same with the 96 px dial under 390 px. From tablet up the stack's own 20rem keeps it clear of the 144 px dial.
+const STACK_BESIDE_DIAL = "max-w-[min(20rem,calc(100vw-7.5rem))] min-[24.375rem]:max-w-[min(20rem,calc(100vw-8.25rem))]";
+
+/** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
+const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story" };
 
@@ -97,6 +100,8 @@ export interface BoardSceneProps {
   skins?: TileSkins;
   /** The stack's top drawn by the renderer (`TileView`), given by the page like `canvas`; the art otherwise. */
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
+  /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page like `canvas`; before `renderHandTile`. */
+  renderHandStack?: (view: StackFrame) => ReactNode;
   /** `localStorage` refused: a Training game (or Story progress) is not saved on this device. */
   storageDisabled?: boolean;
   /** Storage is there but the last move's save did not land (quota, a refusal): a reload resumes an older move. */
@@ -249,7 +254,7 @@ export function BoardScene(props: BoardSceneProps) {
           className={cn("pointer-events-auto absolute bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 tablet:bottom-4 tablet:left-4", props.coach === "wheel" && COACH_RING)}
         >
           {/* The dial's size (`DIAL_SIZE`, written out: the element is the lazy chunk's). */}
-          <Suspense fallback={<span aria-hidden className="block size-16 min-[24.375rem]:size-18 tablet:size-24" />}>
+          <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
             <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
           </Suspense>
         </div>
@@ -288,6 +293,8 @@ export function BoardScene(props: BoardSceneProps) {
             renders={props.tileRenders}
             skins={props.skins}
             renderTile={props.renderHandTile}
+            renderStack={props.renderHandStack}
+            pilePlans={BASE_DECK_PLANS}
             onDeck={openDeck}
             onDiscard={() => props.onDiscard?.()}
             discardCost={discardCost}
