@@ -5,7 +5,9 @@ import { AVATAR_PARTS, AVATAR_PART_KEYS, decodeAvatar, encodeAvatar, type Avatar
 import { errorDetail } from "../error-detail";
 import { randomUsable, sameAvatar, withPart } from "../../components/containers/avatar-types";
 import { AvatarCreatorScene, type AvatarCreator } from "../../components/scenes/avatar-creator-scene";
-import { avatarKeys, avatarOffers, useAvatarCatalogue, useAvatarWrites } from "../../data/avatar";
+import { avatarKeys } from "../../data/avatar";
+import { useAvatarCatalogue, useAvatarWrites } from "../../data/avatar-catalogue";
+import { avatarOffers } from "../../data/avatar-offers";
 import { cobbleKeys } from "../../data/cobbles";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";

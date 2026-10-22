@@ -34,7 +34,8 @@ import { mockImplementation } from "./mock-fakes";
 import { FakeSkinWriter } from "./skin-fakes";
 import { FakeAvatarWriter } from "./avatar-fakes";
 import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
-import { savedAvatar, useAvatar, useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar";
+import { savedLook, useAvatar } from "../src/data/avatar";
+import { useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogue";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../src/mocks/avatar";
 
 // The mock data layer (#549, MOCK-FIRST): the same hooks, through the same `DataSources`, on the two implementations of the
@@ -203,7 +204,7 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     const look = encodeAvatar({ ...DEFAULT_AVATAR, headwear: 4, skin: 2 });
     await act(() => result.current.writes.save(look));
     await waitFor(() => expect(result.current.avatar.data?.look).toBe(look));
-    expect(savedAvatar(result.current.avatar.data)).toEqual({ ...DEFAULT_AVATAR, headwear: 4, skin: 2 });
+    expect(savedLook(result.current.avatar.data)).toBe(look);
     // An item neither free nor owned is refused, and the look stays.
     const unowned = await result.current.writes.save(encodeAvatar({ ...DEFAULT_AVATAR, headwear: 5 })).catch((e: unknown) => e);
     expect((unowned as AvatarRefusedError).reason).toBe("not-owned");

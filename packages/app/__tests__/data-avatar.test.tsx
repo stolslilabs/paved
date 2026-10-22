@@ -18,7 +18,9 @@ import {
 import { AVATAR_PART_KEYS, DEFAULT_AVATAR, decodeAvatar, encodeAvatar, seededRandom, type Avatar } from "@paved/renderer";
 import type { GameSigner } from "../src/data";
 import { cobbleKeys } from "../src/data/cobbles";
-import { applyAvatarEvents, avatarKeys, avatarOffer, avatarOffers, idsOf, savedAvatar, useAvatar, useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar";
+import { avatarKeys, idsOf, savedLook, useAvatar } from "../src/data/avatar";
+import { applyAvatarEvents, useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogue";
+import { avatarOffer, avatarOffers } from "../src/data/avatar-offers";
 import { randomUsable, unusableParts } from "../src/components/containers/avatar-types";
 import { PLAYER_ID } from "../src/mocks/players";
 import { FakeAvatarWriter } from "./avatar-fakes";
@@ -154,7 +156,7 @@ describe("useAvatarWrites", () => {
     // Another device: a fresh cache on the same chain reads the saved look, decoded as the menus draw it.
     const other = renderData(() => useAvatar(PLAYER_ID), sources);
     const read = await dataOf(other.result);
-    expect(savedAvatar(read)).toEqual({ ...DEFAULT_AVATAR, skin: 2 });
+    expect(decodeAvatar(savedLook(read)!)).toEqual({ ...DEFAULT_AVATAR, skin: 2 });
   });
 
   it("a refusal is the writer's typed error, kept until reset", async () => {
@@ -229,13 +231,14 @@ describe("avatarOffer and avatarOffers", () => {
   });
 });
 
-describe("savedAvatar", () => {
-  it("is the decoded look; null for none saved, a look the chain would not take, or nothing read", () => {
+describe("savedLook", () => {
+  it("is the look saved; null for none saved, a look the chain would not take, or nothing read", () => {
     const look = lookOf([1, 0, 1, 1]);
-    expect(savedAvatar({ look, ids: [1, 0, 1, 1] })).toEqual({ ...DEFAULT_AVATAR, skin: 1, eyes: 1, eyebrows: 1 });
-    expect(savedAvatar({ look: 0n, ids: null })).toBeNull();
-    expect(savedAvatar({ look: 2n, ids: null })).toBeNull();
-    expect(savedAvatar(null)).toBeNull();
-    expect(savedAvatar(undefined)).toBeNull();
+    expect(savedLook({ look, ids: [1, 0, 1, 1] })).toBe(look);
+    expect(decodeAvatar(look)).toEqual({ ...DEFAULT_AVATAR, skin: 1, eyes: 1, eyebrows: 1 });
+    expect(savedLook({ look: 0n, ids: null })).toBeNull();
+    expect(savedLook({ look: 2n, ids: null })).toBeNull();
+    expect(savedLook(null)).toBeNull();
+    expect(savedLook(undefined)).toBeNull();
   });
 });

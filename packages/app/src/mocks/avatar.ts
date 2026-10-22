@@ -1,5 +1,5 @@
 import type { AvatarItem } from "@paved/chain";
-import { AVATAR_PARTS, AVATAR_PART_KEYS, DEFAULT_AVATAR, type Avatar } from "@paved/renderer";
+import { AVATAR_PARTS, AVATAR_PART_KEYS, DEFAULT_AVATAR, encodeAvatar, type Avatar } from "@paved/renderer";
 import type { AvatarOffer, AvatarOffers } from "../components/containers/avatar-types";
 import { DAY, MOCK_NOW } from "./clock";
 
@@ -48,6 +48,9 @@ export const AVATAR_OWNED: bigint[] = AVATAR_PART_KEYS.map((key) =>
 
 /** The avatar the stories' player saved: free parts, and the Crown and the City they bought. */
 export const SAVED_AVATAR: Avatar = { ...DEFAULT_AVATAR, skin: 2, hairColour: 3, eyes: 0, eyebrows: 1, mouth: 2, hair: 3, beard: 1, headwear: 6, background: 12 };
+
+/** The same as the chain stores it (`encodeAvatar`): what the menus' avatar takes. */
+export const SAVED_LOOK: bigint = encodeAvatar(SAVED_AVATAR);
 
 /** The catalogue as the creator reads it for the stories' player: owned first, then free, on sale; a part not in `parts` is left out. */
 export function offersOf(items: readonly AvatarItem[][], owned: readonly bigint[], parts: number = AVATAR_PARTS_IN_USE): AvatarOffers {

@@ -68,11 +68,8 @@ export function AvatarSwatches({ part, draft, offers, buying, onPick }: AvatarSw
             <AvatarStill avatar={withPart(draft, part, id)} size={SWATCH_PX} className={cn(offer.kind === "off" && "opacity-50")} />
             <span className="w-full truncate text-center text-xs font-medium">{name}</span>
             <OfferLine offer={offer} />
-            {buying === id && (
-              <span className="absolute inset-0 grid place-items-center rounded-xl bg-background/60" aria-hidden>
-                <Icon name="spinner" size="md" className="animate-spin motion-reduce:animate-none" />
-              </span>
-            )}
+            {/* The purchase on its way: the swatch dims and pulses (Buy shows the spinner). */}
+            {buying === id && <span className="absolute inset-0 animate-pulse rounded-xl bg-background/60 motion-reduce:animate-none" aria-hidden />}
           </button>
         );
       })}

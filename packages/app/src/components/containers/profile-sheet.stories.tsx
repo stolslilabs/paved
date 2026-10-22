@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { PROGRESS } from "../../mocks/players";
-import { SAVED_AVATAR } from "../../mocks/avatar";
+import { SAVED_LOOK } from "../../mocks/avatar";
 import { PROFILE } from "../../mocks/scenes";
 import { ProfileSheet } from "./profile-sheet";
 
@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 /** The avatar larger in its XP ring, the name, the address with Copy, the level and "0 / 100 XP" (#625), the figures, Edit avatar (#626), Disconnect. */
 export const Connected: Story = {};
 /** The avatar the player saved (#626), its still in the ring. */
-export const SavedAvatar: Story = { args: { avatar: SAVED_AVATAR } };
+export const SavedAvatar: Story = { args: { look: SAVED_LOOK } };
 /** The ring part way, as it will be once the contracts define XP. */
 export const PartWay: Story = { args: { progress: PROGRESS.partWay } };
 /** The level and XP still read: the empty track and dashes. */

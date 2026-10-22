@@ -1,8 +1,7 @@
 import { useCallback, useMemo, type ReactNode } from "react";
-import { encodeAvatar } from "@paved/renderer";
 import { ProfileProvider } from "../components/containers/profile-context";
 import type { ProfileState } from "../components/containers/profile-sheet";
-import { savedAvatar, useAvatar } from "../data/avatar";
+import { savedLook, useAvatar } from "../data/avatar";
 import { usePlayerStatus } from "../data/indexer";
 import { usePlayerProgress } from "../data/player-progress";
 import { useAccount } from "../wallet/wallet";
@@ -23,8 +22,7 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   // The level and XP of the ring (#625): `Setup.player_level` (#641).
   const progress = usePlayerProgress(address);
   // The avatar the player saved on chain (#626): the same on every device. Drawn as a cached still, never a live canvas.
-  const look = useAvatar(address);
-  const avatar = savedAvatar(look.data);
+  const look = savedLook(useAvatar(address).data);
   const go = useAppNavigate();
   const state = useMemo<ProfileState>(() => {
     if (wallet.status === "restoring") return { status: "loading" };
@@ -41,8 +39,6 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const onDisconnect = useCallback(() => wallet.disconnect(), [wallet]);
   const shown = progress.isPending ? undefined : (progress.data ?? undefined);
   const onEditAvatar = useCallback(() => go("/avatar"), [go]);
-  const key = avatar ? encodeAvatar(avatar) : 0n;
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` stands for `avatar`: a new object of the same look keeps the value
-  const value = useMemo(() => ({ state, progress: shown, avatar, onConnect, onDisconnect, onCopy: copy, onEditAvatar }), [state, shown, key, onConnect, onDisconnect, onEditAvatar]);
+  const value = useMemo(() => ({ state, progress: shown, look, onConnect, onDisconnect, onCopy: copy, onEditAvatar }), [state, shown, look, onConnect, onDisconnect, onEditAvatar]);
   return <ProfileProvider value={value}>{children}</ProfileProvider>;
 }

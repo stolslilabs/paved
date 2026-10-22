@@ -50,7 +50,7 @@ export function ProfileSlot({ className }: { className?: string }) {
     if (!next) requestAnimationFrame(() => shownAvatar(opener.current)?.focus());
   }, []);
   if (!value) return null;
-  const { state, progress, avatar } = value;
+  const { state, progress, look } = value;
   return (
     <>
       <button
@@ -67,7 +67,7 @@ export function ProfileSlot({ className }: { className?: string }) {
         }}
         className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
       >
-        <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"} avatar={avatar}>
+        <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"} look={look}>
           {state.status === "connected" && (
             <Suspense fallback={null}>
               <XpRing progress={progress} />

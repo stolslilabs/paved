@@ -111,7 +111,7 @@ export function AvatarCreatorScene({ creator, status, part, onPick, onBuy, onSav
             />
           ) : (
             creator === null && (
-              <Notice title="Avatars are coming" icon="user-pen">
+              <Notice title="Avatars are coming" icon="pen">
                 The avatar creator is not on this network yet: your avatar stays the default one for now.
               </Notice>
             )
@@ -235,7 +235,7 @@ function Actions({ canSave, changed, save, busy, onSave, onRandomise, onReset, c
           <Icon name="dice" />
         </Button>
         <Button variant="ghost" size="icon" aria-label="Back to the saved avatar" onClick={onReset} disabled={!changed || busy}>
-          <Icon name="rotate-left" />
+          <Icon name="arrows-rotate" />
         </Button>
         <Button className="flex-1" onClick={onSave} disabled={!canSave} loading={save === "saving"}>
           {save === "saved" && !changed ? (
