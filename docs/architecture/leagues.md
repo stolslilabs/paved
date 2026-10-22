@@ -11,14 +11,17 @@ And the owner's credo of 2026-10-21 (#639, point 5): **more components with smal
 small components and a pure table, embedded by `Matchmaker`, next to the crown, bucket and shield pieces of
 MATCHMAKER-CROWNS (section 11 of the matchmaker's note); they reuse those pieces and their constants and duplicate none.
 
-Section 9 is the proposal posted for the owner on #644 ("LEAGUES proposal for the owner"): a concrete default for every
-open point, with an A/B alternative where the choice is close. The code is built on the defaults, each a named constant,
-and they wait for the owner to validate or amend them on #644; an amendment is a one-line change.
+Section 9 is the proposal posted for the owner on #644 ("LEAGUES proposal for the owner"). **The owner ruled on it
+(2026-10-22, #644): A on every point but the season length.** Seasons last three months and follow the four real
+seasons, one PvP season per real season, four a year. They change at the northern hemisphere's equinoxes and
+solstices, at the UTC timestamps of the astronomical events (the ruling as corrected on #644). The code follows the
+ruling; each value is a named constant.
 
 ## 1. Summary
 
-- **A season clock** (`SeasonableComponent`): seasons of a fixed length from a start the owner sets once. Season 0 is
-  the time before the first season: no league, no reward, no reset.
+- **A season clock** (`SeasonableComponent`): the real seasons, from the equinoxes and solstices (`SEASON_STARTS`),
+  from a first season the owner sets once. Season 0 is the time before the first season: no league, no reward, no
+  reset.
 - **A league table** (`paved::matchmaker::leagues`, pure): 23 named leagues as crown ranges, Clash of Clans' own (pre-2025) at one
   crown per trophy, the scale the matchmaker's curves already use. Unranked, Bronze III to I, ..., Titan I, Legend.
 - **A league record per village** (`LeagueableComponent`), one felt: the season it was last seen in, the highest league
@@ -44,7 +47,7 @@ and they wait for the owner to validate or amend them on #644; an amendment is a
 | Piece | File | Storage (flat, its own names) | Events | What it knows |
 |---|---|---|---|---|
 | `paved::matchmaker::leagues` (pure) | `contracts/src/matchmaker/leagues.cairo` | none | none | The league table, the bonus and reward of each league, the reset, the season of a time |
-| `SeasonableComponent` | `contracts/src/components/seasonable.cairo` | `season_clock` | `SeasonClockSet` | The clock: start, length; the current season |
+| `SeasonableComponent` | `contracts/src/components/seasonable.cairo` | `season_clock` | `SeasonClockSet` | The clock: season 1's start; the current season |
 | `LeagueableComponent` | `contracts/src/components/leagueable.cairo` | `league_records` | `LeagueReached`, `SeasonClosed` | Each village's season, peak league and attack count |
 | `Matchmaker` (the system) | `contracts/src/systems/matchmaker.cairo` | unchanged | unchanged | Composes them with the crowns and the buckets; credits `Setup` |
 | `Setup` | `contracts/src/systems/setup.cairo` | `pvp_days`, `pvp_weeks` (appended) | `CobblesClaimed` (kinds 4 and 5) | The Cobble ledger, the PvP mission sums |
@@ -58,14 +61,37 @@ and they wait for the owner to validate or amend them on #644; an amendment is a
 
 ## 3. The season clock
 
-- `season_clock` packs `start` [0, 64) and `length` [64, 128), in seconds. Unset (length 0): every time is season 0.
-- `season_of(t) = 0` before `start`, else `(t - start) / length + 1`. Season `s >= 1` runs over
-  `[start + (s - 1) length, start + s length)`.
-- **The owner sets it once**, before it starts: `set_season_clock(start, length)` reverts once `now >= start` of a set
-  clock (a change after that would renumber seasons that already paid). A new length later is an upgrade with its own
-  note.
-- **Proposed length: 28 days** (four of `Setup`'s weeks), the start a Monday 00:00 UTC (`Setup.WEEK_START + k WEEK`), so a
-  season holds exactly four weekly missions. Clash of Clans' seasons are about a month, ending on the last Monday.
+**The ruling.** A PvP season is a real season of the northern hemisphere: spring from the March equinox, summer from the
+June solstice, autumn from the September equinox, winter from the December solstice, at the UTC timestamps of the
+astronomical events. Seasons last 89 to 94 days (winter is the shortest), about 13 weeks, so the weekly missions still
+fit.
+
+**The game's own seasons.** The board's season dial (`packages/app/src/data/season-wheel.ts`, the renderer's
+`daynight-settings.ts`) is a visual cycle of summer, autumn, winter and spring. It has no calendar: each of its seasons
+lasts one 2-minute day-and-night cycle (`cycleMs`), started from the player's setting or at random. The contracts had no
+calendar either. So the PvP seasons follow the sky, not the dial, and the dial is unchanged. The order is the same.
+
+**The table** (`SEASON_STARTS` in `paved::matchmaker::leagues`): the 200 events of 2026 to 2075, four a year (spring,
+summer, autumn, winter), as Unix timestamps rounded to the second.
+- **Source**: JPL's DE440s planetary ephemeris, through Skyfield 1.55's `almanac.seasons` (the instants when the Sun's
+  apparent ecliptic longitude reaches 0°, 90°, 180° and 270°), converted to UTC.
+- **Checked against the published times**: the 2026 March equinox is 20 March 14:45:57 UTC, which matches the
+  published 14:46.
+- **Pinned** by `test_season_table_is_pinned`: the first four events, the last spring and the last event, each season
+  88 to 94 days, each year within half a day of a tropical year.
+
+**Past 2075.** Each event is the same event of 2075 plus whole mean tropical years (`TROPICAL_YEAR`, 365.24219 days,
+31,556,925 s). Checked against DE440s, the error is at most 27 minutes to 2085 and 52 minutes to 2125. The test pins
+2076 within 30 minutes. A later table, from the same ephemeris, is a constant to extend.
+
+**The clock.**
+- `season_clock` holds the first second of season 1, an event of the table (0: unset, every time is season 0).
+- `season_of(t)` is 0 before it; otherwise, the number of events from season 1's start up to `t`, so 1 in the first
+  season. `season_start(s)` is the first second of season `s`.
+- **The owner sets it once**, before it starts: `set_season_clock(start)` takes an event's timestamp in the future, and
+  reverts once `now >= start` of a set clock (a change after that would renumber seasons that already paid).
+- The deployment will pass the next equinox or solstice. For example, the March equinox of 2027 is 1,805,574,281
+  (20 March 2027, 20:24:41 UTC).
 
 ## 4. The league table
 
@@ -84,7 +110,7 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
 | 19 to 21 | Titan III, II, I | 4,100, 4,400, 4,700 | 40 each | 150 |
 | 22 | Legend | 5,000 | 50 | 250 |
 
-- The amounts are the defaults of the proposal (section 9). Each is at most 255, so a credit fits `Setup`'s existing `CobblesClaimed.cobbles`
+- The amounts are the owner's ruling (section 9, A). Each is at most 255, so a credit fits `Setup`'s existing `CobblesClaimed.cobbles`
   (`u8`) and the indexer reads one more kind of an event it already knows.
 - **Scale.** A season's top reward (250) is between two and five skins (50 to 100 each); a full climb from Unranked to
   Legend in one season pays 3 x (5 + 10 + 15 + 20 + 25 + 30 + 40) + 50 = 485 in bonuses. The daily Challenge quests pay up to 60 a day.
@@ -133,9 +159,9 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
 |---|---|---|
 | `close_season(village)` | anyone | Rolls `village` into the current season (a no-op if it is already there); credits what its last season owes to that village, never to the caller |
 | `league(village) -> LeagueStatus` | view | The village as it would be after a roll: `season`, `crowns`, `league`, `peak`, `attacks`, and `pending` (the season reward a roll would credit) |
-| `season_clock() -> (start, length)`, `current_season()` | view | `SeasonableComponent`'s |
+| `season_clock() -> u64`, `current_season()`, `season_start(season)` | view | `SeasonableComponent`'s |
 | `league_record(village)` | view | `LeagueableComponent`'s raw record |
-| `set_season_clock(start, length)` | owner | Once, before the clock starts |
+| `set_season_clock(start)` | owner | Once, before the clock starts: an equinox's or solstice's timestamp of the table |
 
 - `search` and `next` roll the attacker and the drawn opponent (so the terms see crowns after any reset); `settle`
   rolls both again (an attack can start in one season and settle in the next); `set_crowns` rolls its village.
@@ -191,7 +217,10 @@ The client's ranking UI was removed by #623; the leagues come back as the league
 - **What the client reads**: the leaderboard from the indexer; its own village's `league(village)` (the lazy values, so a
   village idle since last season shows its reset crowns and its pending reward before any transaction).
 
-## 9. LEAGUES proposal for the owner (posted on #644; #637 open point 8)
+## 9. LEAGUES proposal for the owner (posted on #644; #637 open point 8), and the ruling
+
+**The owner's ruling (2026-10-22, #644): A on every point but point 2.** Point 2 became the four real seasons, from the
+equinoxes and solstices (section 3). The proposal follows as posted.
 
 The defaults below are built on PR #695, each as a named constant in `contracts/src/matchmaker/leagues.cairo`. Validate them or amend any line here: each amendment is a one-line change. The Clash of Clans (CoC) references are those #639 used for the crowns (`docs/architecture/matchmaker.md`, section 6): the wiki's pages before the 2025 update, at one crown per trophy.
 
@@ -206,7 +235,7 @@ A league runs from its floor up to the next league's floor minus one.
 - **A (default)**: CoC's floors, the same scale as the crown curves. Trade-off: crowns are conserved (no CoC inflation below 1,000), so the upper leagues stay rare at first.
 - **B**: every floor divided by 4 (Bronze from 100, Legend from 1,250). Trade-off: the leagues are reachable at once, but they no longer match the crown curves' CoC scale.
 
-**2. Season length: 28 days** (`SEASON_LENGTH`), starting Monday 00:00 UTC. Four of `Setup`'s weeks, so a season holds exactly four weekly missions. CoC's season is about a month, ending on the last Monday.
+**2. Season length: 28 days** (`SEASON_LENGTH`), starting Monday 00:00 UTC. Four of `Setup`'s weeks, so a season holds exactly four weekly missions. CoC's season is about a month, ending on the last Monday. *Ruled otherwise: the four real seasons, from the equinoxes and solstices, `SEASON_STARTS` (section 3).*
 
 - **B**: calendar months, as in CoC. Trade-off: familiar dates, but it needs a month table on chain and the weekly missions no longer fit a season.
 
@@ -256,14 +285,14 @@ They are left out of the Challenge's free-game credit.
 
 ## 11. As built (LEAGUES)
 
-The code follows the defaults of section 9; they wait for the owner to validate or amend them on #644.
+The code follows the owner's ruling on section 9 (#644).
 
 ### 11.1 What changed
 
 | File | What |
 |---|---|
 | `contracts/src/matchmaker/leagues.cairo` | The pure table: `league_of` (a binary search over 22 floors), `floor_of`, `bonus_of`, `reward_of`, `reset`, `season_of`, `season_start` |
-| `contracts/src/components/seasonable.cairo` | `SeasonableComponent`: `season_clock`, `SeasonClockSet`, `season_clock()`, `current_season()` |
+| `contracts/src/components/seasonable.cairo` | `SeasonableComponent`: `season_clock`, `SeasonClockSet`, `season_clock()`, `current_season()`, `season_start()` |
 | `contracts/src/components/leagueable.cairo` | `LeagueableComponent`: `league_records`, `LeagueReached`, `SeasonClosed`, `league_record()`; the pure `roll_of` the lazy view shares |
 | `contracts/src/systems/matchmaker.cairo` | Embeds both; rolls at the draw, the settlement and a crown set; `close_season`, `league`, `set_season_clock`; credits and `report_pvp` last |
 | `contracts/src/systems/setup.cairo` | `ISetupLeague` (`credit_league`, `report_pvp`, `pvp_progress`), `PvpProgress`, `pvp_days` and `pvp_weeks` appended, `claim_quest` on PvP tasks, the credits without PvP |
@@ -278,7 +307,7 @@ the view, `pvp_weeks` read raw).
 
 **Deployment** (with `Matchmaker`'s, the follow-up #639 named): `Setup.set_reporter(Matchmaker, true)` besides
 `set_spender`, or every settlement reverts (`test_settle_when_matchmaker_is_not_a_reporter_fails`); then
-`set_season_clock(start, length)`; then the missions' `define_quest` and `set_quest_cobbles`.
+`set_season_clock(start)` with the next equinox or solstice of `SEASON_STARTS`; then the missions' `define_quest` and `set_quest_cobbles`.
 
 ### 11.2 Size (P-44)
 
@@ -287,7 +316,7 @@ the view, `pvp_weeks` read raw).
 
 | Class | CASM main | CASM LEAGUES | Change | Share of the Starknet cap | Under the P-44 cap (73,728) |
 |---|---:|---:|---:|---:|---:|
-| `Matchmaker` | 24,614 | 31,871 | +7,257 | 38.9 % | 41,857 |
+| `Matchmaker` | 24,614 | 33,204 | +8,590 | 40.5 % | 40,524 |
 | `Setup` | 43,431 | 47,384 | +3,953 | 57.8 % | 26,344 |
 
 Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201).
@@ -299,22 +328,24 @@ measured + 5 %. Every new call has its own measure and ceiling (z32 to z42), bes
 
 | Test | Call | Before | Now | Change |
 |---|---|---:|---:|---:|
-| z17 | `search`, free (no clock: the rolls read the clock and the records only) | 2,602,829 | 2,776,558 | +6.7 % |
-| z18 | `next` | 3,169,327 | 3,353,716 | +5.8 % |
+| z17 | `search`, free (no clock: the rolls read the clock and the records only) | 2,602,829 | 2,750,425 | +5.7 % |
+| z18 | `next` | 3,169,327 | 3,317,523 | +4.7 % |
 | z19 | `start_attack`, worst case | 4,421,401 | 4,435,441 | +0.3 % |
-| z20 | `settle`, worst case of #639 (both change bucket), in season 0 | 3,133,404 | 4,657,779 | +48.6 % |
-| z32 | `settle` across a season's end: both rolled, reset from 6,000 to 5,000 and paid | new | 5,268,341 | |
-| z33 | `close_season` with a reward and a reset | new | 1,562,606 | |
-| z34 | `set_season_clock`, the owner's first set | new | 373,553 | |
-| z35 | `current_season` (view) | new | 178,853 | |
-| z36 | `season_clock` (view) | new | 142,773 | |
+| z20 | `settle`, worst case of #639 (both change bucket), in season 0 | 3,133,404 | 4,632,946 | +47.9 % |
+| z32 | `settle` across a season's end: both rolled, reset from 6,000 to 5,000 and paid | new | 5,675,378 | |
+| z33 | `close_season` with a reward and a reset | new | 1,969,843 | |
+| z34 | `set_season_clock`, the owner's first set (the event checked in the table) | new | 651,740 | |
+| z35 | `current_season` (view, a binary search of the table) | new | 603,690 | |
+| z36 | `season_clock` (view) | new | 130,070 | |
 | z37 | `league_record` (view) | new | 163,966 | |
-| z38 | `league` (view), a village of a past season: the roll computed, no write | new | 677,449 | |
+| z38 | `league` (view), a village of a past season: the roll computed, no write | new | 1,084,586 | |
 | z39 | `Setup.credit_league`, a season's reward | new | 520,168 | |
 | z40 | `Setup.report_pvp`, a 3-star attack: four entries, new day and week slots | new | 1,067,688 | |
 | z41 | `Setup.pvp_progress` (view) | new | 197,612 | |
 | z42 | `Setup.claim_quest` of a PvP mission (the PvP day read and written) | new | 1,579,371 | |
 
+- **The calendar's cost**: the season of a time is a binary search over the 200 events (about 0.4M of L2 gas in a call
+  that reads it, z35). A call in season 0, with no clock, pays none of it (z17, z18, z20).
 - **Where z20's +1.52M goes**: almost all of it is `report_pvp` (a call to `Setup`, quiver's events, two PvP slots
   written); the leagues' own part in season 0 is the clock and two record reads.
 - **Levers for #643** if its attack budget needs them: report the missions only on a win, or drop quiver's

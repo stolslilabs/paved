@@ -143,9 +143,10 @@ pub trait IMatchmakerAdmin<TContractState> {
     fn set_npc(ref self: TContractState, npc_id: u8, crowns: u32);
     /// Takes NPC village `npc_id` out of the pool. Emits `NpcRemoved`.
     fn remove_npc(ref self: TContractState, npc_id: u8);
-    /// Sets the season clock (#644): season 1 from `start` (in the future), seasons of `length`
-    /// seconds (at least a day); only while no season has started. Emits `SeasonClockSet`.
-    fn set_season_clock(ref self: TContractState, start: u64, length: u64);
+    /// Sets the season clock (#644): season 1 from `start`, in the future and the first second of a
+    /// calendar season (1 March, 1 June, 1 September or 1 December, 00:00 UTC); only while no
+    /// season has started. Emits `SeasonClockSet`.
+    fn set_season_clock(ref self: TContractState, start: u64);
 }
 
 #[starknet::contract]
@@ -608,9 +609,9 @@ pub mod Matchmaker {
             self.emit(NpcRemoved { npc_id });
         }
 
-        fn set_season_clock(ref self: ContractState, start: u64, length: u64) {
+        fn set_season_clock(ref self: ContractState, start: u64) {
             self.ownable.assert_only_owner();
-            self.seasonable.set_clock(start, length);
+            self.seasonable.set_clock(start);
         }
     }
 

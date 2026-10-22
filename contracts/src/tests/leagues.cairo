@@ -8,13 +8,12 @@ use paved::components::leagueable::{
     ILeagueable, LeagueRecord, LeagueRecordPacking, LeagueableComponent, Reach, Roll, roll_of,
 };
 use paved::components::seasonable::SeasonableComponent::InternalTrait as SeasonableInternal;
-use paved::components::seasonable::{
-    ISeasonable, SeasonClock, SeasonClockPacking, SeasonableComponent,
-};
+use paved::components::seasonable::{ISeasonable, SeasonableComponent};
 use paved::matchmaker::leagues::{
-    LEAGUE_COUNT, LEGEND, MIN_SEASON_ATTACKS, MIN_SEASON_LENGTH, MISSIONS_COUNT_NPC,
-    POOL_CROWNS_CAP, RESET_CROWNS, SEASON_LENGTH, UNRANKED, bonus_of, floor_of, league_of, reset,
-    reward_of, season_of, season_start,
+    LEAGUE_COUNT, LEGEND, MIN_SEASON_ATTACKS, MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, RESET_CROWNS,
+    SEASONS_PER_YEAR, SEASON_STARTS, SEASON_TABLE_FIRST_YEAR, SEASON_TABLE_LENGTH, TROPICAL_YEAR,
+    UNRANKED, bonus_of, calendar_season, floor_of, is_season_start, league_of, reset, reward_of,
+    season_boundary, season_of, season_start,
 };
 use paved::systems::matchmaker::Matchmaker;
 use snforge_std::start_cheat_block_timestamp_global;
@@ -23,7 +22,13 @@ use starknet::storage::StorageMapWriteAccess;
 
 const START: u64 = 1_800_000_000;
 const DAY: u64 = 86400;
-const LENGTH: u64 = 28 * 86400;
+// The equinoxes and solstices of 2027 and the March equinox of 2028, UTC (DE440s): 20 March
+// 20:24:41, 21 June 14:10:50, 23 September 06:01:43, 22 December 02:42:09, 20 March 2028 02:17:08
+const MAR_2027: u64 = 1805574281;
+const JUN_2027: u64 = 1813587050;
+const SEP_2027: u64 = 1821679303;
+const DEC_2027: u64 = 1829443330;
+const MAR_2028: u64 = 1837131428;
 
 type Seasons = SeasonableComponent::ComponentState<Matchmaker::ContractState>;
 type Leagues = LeagueableComponent::ComponentState<Matchmaker::ContractState>;
@@ -73,9 +78,12 @@ fn test_league_table_pins_floors_bonuses_and_rewards() {
 
 #[test]
 fn test_proposal_defaults_are_pinned() {
-    // The "LEAGUES proposal for the owner" (docs/architecture/leagues.md, section 9), until #644
-    // validates or amends it
-    assert_eq!(SEASON_LENGTH, 28 * DAY);
+    // The owner's ruling on the "LEAGUES proposal for the owner" (docs/architecture/leagues.md,
+    // section 9, #644): A on every point, the four real seasons from the equinoxes and solstices
+    assert_eq!(SEASONS_PER_YEAR, 4);
+    assert_eq!(SEASON_TABLE_FIRST_YEAR, 2026);
+    assert_eq!(SEASON_TABLE_LENGTH, 200);
+    assert_eq!(TROPICAL_YEAR, 31556925);
     assert_eq!(RESET_CROWNS, 5000);
     assert_eq!(MIN_SEASON_ATTACKS, 5);
     assert!(!MISSIONS_COUNT_NPC);
@@ -122,33 +130,119 @@ fn test_fuzz_reset_never_raises_and_keeps_low_counts(crowns: u32) {
 }
 
 #[test]
+fn test_season_table_is_pinned() {
+    // The table's ends and every year's spring, from DE440s: 20 March 2026 14:45:57 UTC, ...,
+    // 21 December 2075 18:28:03 UTC
+    let table = SEASON_STARTS.span();
+    assert_eq!(table.len().into(), SEASON_TABLE_LENGTH);
+    assert_eq!(*table.at(0), 1774017957);
+    assert_eq!(*table.at(1), 1782030270);
+    assert_eq!(*table.at(2), 1790121913);
+    assert_eq!(*table.at(3), 1797886214);
+    assert_eq!(*table.at(196), 3320308052);
+    assert_eq!(*table.at(199), 3344178484);
+    // In order, each season 88 to 94 days (winter is the shortest, 88.96 days at least), each year
+    // one tropical year within half a day
+    let mut i: u32 = 1;
+    while i < table.len() {
+        let length = *table.at(i) - *table.at(i - 1);
+        assert(length >= 88 * DAY && length <= 94 * DAY, 'season length');
+        if i >= 4 {
+            let year = *table.at(i) - *table.at(i - 4);
+            assert(year > TROPICAL_YEAR - DAY / 2 && year < TROPICAL_YEAR + DAY / 2, 'year length');
+        }
+        i += 1;
+    }
+}
+
+#[test]
+fn test_calendar_seasons_start_at_the_equinoxes_and_solstices() {
+    // Spring, summer, autumn, winter of 2027, then spring 2028: the seasons 4, 5, 6, 7 and 8 of
+    // the table, counted from spring 2026
+    let starts = array![MAR_2027, JUN_2027, SEP_2027, DEC_2027, MAR_2028];
+    let mut index: u64 = 4;
+    for start in starts {
+        assert_eq!(season_boundary(index), start);
+        assert_eq!(calendar_season(start), index + 1);
+        assert_eq!(calendar_season(start - 1), index);
+        assert!(is_season_start(start));
+        assert!(!is_season_start(start + 1));
+        index += 1;
+    }
+    // Before spring 2026, no calendar season
+    assert_eq!(calendar_season(START - 400 * DAY), 0);
+    assert!(!is_season_start(0));
+}
+
+#[test]
+fn test_past_the_table_seasons_step_by_tropical_years() {
+    // 2076: the 2075 events plus one tropical year, within 30 minutes of DE440s (20 March
+    // 2076 16:59:50, 20 June 10:37:47, 22 September 02:51:16, 21 December 00:14:24 UTC)
+    let ephemeris = array![3351865190, 3359875067, 3367968676, 3375735264];
+    let mut index = SEASON_TABLE_LENGTH;
+    for event in ephemeris {
+        let boundary = season_boundary(index);
+        assert_eq!(
+            boundary, *SEASON_STARTS.span().at((index - 4).try_into().unwrap()) + TROPICAL_YEAR,
+        );
+        let gap = if boundary > event {
+            boundary - event
+        } else {
+            event - boundary
+        };
+        assert(gap < 1800, 'drift over 30 minutes');
+        assert_eq!(calendar_season(boundary), index + 1);
+        assert_eq!(calendar_season(boundary - 1), index);
+        index += 1;
+    }
+    // Far past it, the count still brackets the time
+    let far = season_boundary(SEASON_TABLE_LENGTH + 4000);
+    assert_eq!(calendar_season(far), SEASON_TABLE_LENGTH + 4001);
+}
+
+#[test]
 fn test_season_of_a_time() {
     // Unset or before the start: season 0
-    assert_eq!(season_of(0, 0, START), 0);
-    assert_eq!(season_of(START, LENGTH, START - 1), 0);
-    // Season 1 from the start, 2 from one length on
-    assert_eq!(season_of(START, LENGTH, START), 1);
-    assert_eq!(season_of(START, LENGTH, START + LENGTH - 1), 1);
-    assert_eq!(season_of(START, LENGTH, START + LENGTH), 2);
-    assert_eq!(season_of(START, LENGTH, START + 10 * LENGTH + 5), 11);
-    assert_eq!(season_start(START, LENGTH, 1), START);
-    assert_eq!(season_start(START, LENGTH, 11), START + 10 * LENGTH);
-    // Saturates at `u32`'s bound
-    assert_eq!(season_of(0, 1, core::num::traits::Bounded::<u64>::MAX), 0xffffffff);
+    assert_eq!(season_of(0, START), 0);
+    assert_eq!(season_of(MAR_2027, MAR_2027 - 1), 0);
+    // Season 1 from the start, then one per calendar season: about three months each
+    assert_eq!(season_of(MAR_2027, MAR_2027), 1);
+    assert_eq!(season_of(MAR_2027, JUN_2027 - 1), 1);
+    assert_eq!(season_of(MAR_2027, JUN_2027), 2);
+    assert_eq!(season_of(MAR_2027, DEC_2027 + 5), 4);
+    assert_eq!(season_of(MAR_2027, MAR_2028), 5);
+    assert_eq!(season_start(MAR_2027, 1), MAR_2027);
+    assert_eq!(season_start(MAR_2027, 4), DEC_2027);
+    assert_eq!(season_start(MAR_2027, 5), MAR_2028);
+    // About 13 weeks a season: the weekly missions still fit
+    assert!((JUN_2027 - MAR_2027) / (7 * DAY) == 13);
+    // A clock off an event is refused (`is_season_start`): the March equinox's second only
+    assert!(!is_season_start(MAR_2027 - 1));
+}
+
+#[test]
+#[fuzzer(runs: 64, seed: 644)]
+fn test_fuzz_calendar_season_brackets_the_time(time: u64) {
+    // Any time from spring 2026 to about the year 30,000: the boundary before it and the next one
+    let time = *SEASON_STARTS.span().at(0) + time % 884541340800;
+    let count = calendar_season(time);
+    assert(count >= 1, 'no season');
+    let start = season_boundary(count - 1);
+    assert(start <= time, 'season starts after');
+    assert(season_boundary(count) > time, 'next season not after');
+    assert(is_season_start(start), 'start not a start');
+    let length = season_boundary(count) - start;
+    assert(length >= 88 * DAY && length <= 94 * DAY, 'not a season');
 }
 
 // The packings
 
 #[test]
-fn test_record_and_clock_pack_bit_for_bit() {
+fn test_record_packs_bit_for_bit() {
     let record = LeagueRecord { season: 0xfedcba98, peak: 22, attacks: 0xffff };
     let word = LeagueRecordPacking::pack(record);
     assert_eq!(word, 0xfedcba98 + 22 * 0x100000000 + 0xffff * 0x10000000000);
     assert_eq!(LeagueRecordPacking::unpack(word), record);
-    let clock = SeasonClock { start: START, length: LENGTH };
-    let word = SeasonClockPacking::pack(clock);
-    assert_eq!(word, START.into() + LENGTH.into() * 0x10000000000000000);
-    assert_eq!(SeasonClockPacking::unpack(word), clock);
     assert_eq!(LeagueRecordPacking::unpack(0), Default::default());
 }
 
@@ -159,14 +253,15 @@ fn test_clock_unset_is_season_zero_then_set_once() {
     start_cheat_block_timestamp_global(START);
     let mut state = seasons();
     assert_eq!(state.current_season(), 0);
-    state.set_clock(START + DAY, LENGTH);
-    assert_eq!(state.season_clock(), SeasonClock { start: START + DAY, length: LENGTH });
+    state.set_clock(MAR_2027);
+    assert_eq!(state.season_clock(), MAR_2027);
     assert_eq!(state.current_season(), 0);
     // Changed again before it starts
-    state.set_clock(START + 2 * DAY, LENGTH);
-    start_cheat_block_timestamp_global(START + 2 * DAY);
+    state.set_clock(JUN_2027);
+    start_cheat_block_timestamp_global(JUN_2027);
     assert_eq!(state.current_season(), 1);
-    start_cheat_block_timestamp_global(START + 2 * DAY + LENGTH);
+    assert_eq!(state.season_start(2), SEP_2027);
+    start_cheat_block_timestamp_global(SEP_2027);
     assert_eq!(state.current_season(), 2);
 }
 
@@ -175,23 +270,29 @@ fn test_clock_unset_is_season_zero_then_set_once() {
 fn test_clock_cannot_change_once_started() {
     start_cheat_block_timestamp_global(START);
     let mut state = seasons();
-    state.set_clock(START + DAY, LENGTH);
-    start_cheat_block_timestamp_global(START + DAY);
-    state.set_clock(START + 2 * DAY, LENGTH);
+    state.set_clock(MAR_2027);
+    start_cheat_block_timestamp_global(MAR_2027);
+    state.set_clock(JUN_2027);
 }
 
 #[test]
 #[should_panic(expected: 'Seasons: invalid clock')]
 fn test_clock_in_the_past_fails() {
-    start_cheat_block_timestamp_global(START);
-    seasons().set_clock(START, LENGTH);
+    start_cheat_block_timestamp_global(JUN_2027);
+    seasons().set_clock(MAR_2027);
 }
 
 #[test]
 #[should_panic(expected: 'Seasons: invalid clock')]
-fn test_clock_shorter_than_a_day_fails() {
+fn test_clock_off_a_season_start_fails() {
     start_cheat_block_timestamp_global(START);
-    seasons().set_clock(START + 1, MIN_SEASON_LENGTH - 1);
+    seasons().set_clock(MAR_2027 + DAY);
+}
+
+#[test]
+#[should_panic(expected: 'Seasons: invalid season')]
+fn test_season_start_of_an_unset_clock_fails() {
+    seasons().season_start(1);
 }
 
 // The league records (section 5)

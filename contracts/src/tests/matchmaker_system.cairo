@@ -26,7 +26,7 @@ use paved::components::leagueable::{
     ILeagueableDispatcher, ILeagueableDispatcherTrait, LeagueRecord, LeagueRecordPacking,
 };
 use paved::components::seasonable::SeasonableComponent::{Event as SeasonEvent, SeasonClockSet};
-use paved::components::seasonable::{ISeasonableDispatcher, ISeasonableDispatcherTrait, SeasonClock};
+use paved::components::seasonable::{ISeasonableDispatcher, ISeasonableDispatcherTrait};
 use paved::components::shieldable::ShieldableComponent::{
     Event as ShieldEvent, ShieldDropped, ShieldRaised, ShieldReleased,
 };
@@ -35,7 +35,7 @@ use paved::components::shieldable::{
     QUEUE_INITIAL,
 };
 use paved::matchmaker::leagues::{
-    LEGEND, MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, RESET_CROWNS, SEASON_LENGTH, league_of,
+    LEGEND, MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, RESET_CROWNS, league_of,
 };
 use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
 use paved::systems::matchmaker::Matchmaker::{
@@ -1052,8 +1052,7 @@ fn test_league_storage_is_pinned_by_name() {
     stop_cheat_caller_address(world.matchmaker.contract_address);
     let address = world.matchmaker.contract_address;
     // Seasonable
-    let clock: u256 = SEASON_START.into() + LENGTH.into() * 0x10000000000000000;
-    assert(raw(address, selector!("season_clock")) == clock.try_into().unwrap(), 'Pin: clock');
+    assert(raw(address, selector!("season_clock")) == SEASON_START.into(), 'Pin: clock');
     // Leagueable: season 1, peak Bronze III, no attack
     assert(
         raw_entry(address, selector!("league_records"), array![ALICE().into()]) == 1 + 0x100000000,
@@ -1063,9 +1062,11 @@ fn test_league_storage_is_pinned_by_name() {
 
 // Leagues and seasons (#644, `docs/architecture/leagues.md`)
 
-/// Season 1 starts a day after `START`; seasons of 28 days.
-const SEASON_START: u64 = START + DAY;
-const LENGTH: u64 = SEASON_LENGTH;
+/// Season 1, spring, starts at the March equinox of 2027, 20 March 20:24:41 UTC (`START` is 15
+/// January 2027).
+const SEASON_START: u64 = 1805574281;
+/// The June solstice of 2027, 21 June 14:10:50 UTC: season 2, summer.
+const SEASON_2: u64 = 1813587050;
 
 fn league_event(event: LeagueEvent) -> MatchmakerEvent {
     MatchmakerEvent::LeagueableEvent(event)
@@ -1073,7 +1074,7 @@ fn league_event(event: LeagueEvent) -> MatchmakerEvent {
 
 fn set_clock(world: World) {
     start_cheat_caller_address(world.matchmaker.contract_address, OWNER());
-    world.admin.set_season_clock(SEASON_START, LENGTH);
+    world.admin.set_season_clock(SEASON_START);
     stop_cheat_caller_address(world.matchmaker.contract_address);
 }
 
@@ -1096,7 +1097,7 @@ fn attack(world: World, hash: felt252, stars: u8) {
 }
 
 /// Alice and Bob in the pool at `alice` and `bob` crowns, set in season 0; the clock set, and the
-/// time in season 1 (`two_players` ends the initial shields at `START + INITIAL_SHIELD`).
+/// time at season 1's start, the initial shields over and released.
 fn seasoned(alice: u32, bob: u32) -> World {
     let world = world();
     set_clock(world);
@@ -1106,7 +1107,7 @@ fn seasoned(alice: u32, bob: u32) -> World {
     world.matchmaker.set_crowns(ALICE(), alice);
     world.matchmaker.set_crowns(BOB(), bob);
     stop_cheat_caller_address(world.matchmaker.contract_address);
-    start_cheat_block_timestamp_global(START + INITIAL_SHIELD);
+    start_cheat_block_timestamp_global(SEASON_START);
     assert_eq!(world.matchmaker.release_shields(2), 2);
     assert_eq!(world.seasons.current_season(), 1);
     world
@@ -1118,21 +1119,19 @@ fn test_season_clock_is_set_once_by_the_owner() {
     let mut spy = spy_events();
     assert_eq!(world.seasons.current_season(), 0);
     set_clock(world);
-    assert_eq!(world.seasons.season_clock(), SeasonClock { start: SEASON_START, length: LENGTH });
+    assert_eq!(world.seasons.season_clock(), SEASON_START);
     spy
         .assert_emitted(
             @array![
                 (
                     world.matchmaker.contract_address,
                     MatchmakerEvent::SeasonableEvent(
-                        SeasonEvent::SeasonClockSet(
-                            SeasonClockSet { start: SEASON_START, length: LENGTH },
-                        ),
+                        SeasonEvent::SeasonClockSet(SeasonClockSet { start: SEASON_START }),
                     ),
                 ),
             ],
         );
-    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    start_cheat_block_timestamp_global(SEASON_2);
     assert_eq!(world.seasons.current_season(), 2);
 }
 
@@ -1144,14 +1143,14 @@ fn test_season_clock_by_a_stranger_or_once_started_fails() {
         contract_address: world.matchmaker.contract_address,
     };
     start_cheat_caller_address(world.matchmaker.contract_address, ALICE());
-    match admin.set_season_clock(SEASON_START, LENGTH) {
+    match admin.set_season_clock(SEASON_START) {
         Result::Ok(_) => panic!("a stranger set the clock"),
         Result::Err(panic) => assert(*panic.at(0) == 'Ownable: caller is not owner', *panic.at(0)),
     }
     set_clock(world);
     start_cheat_block_timestamp_global(SEASON_START);
     start_cheat_caller_address(world.matchmaker.contract_address, OWNER());
-    match admin.set_season_clock(SEASON_START + DAY, LENGTH) {
+    match admin.set_season_clock(SEASON_2) {
         Result::Ok(_) => panic!("the clock moved once started"),
         Result::Err(panic) => assert(*panic.at(0) == 'Seasons: clock started', *panic.at(0)),
     }
@@ -1216,7 +1215,7 @@ fn test_settle_reaches_a_league_and_pays_its_bonus() {
             ],
         );
     // Bob wins it back, then Alice climbs again: Bronze III was reached this season, no bonus
-    start_cheat_block_timestamp_global(START + INITIAL_SHIELD + ATTACK_SHIELD);
+    start_cheat_block_timestamp_global(SEASON_START + ATTACK_SHIELD);
     world.matchmaker.release_shields(1);
     as_operator(world);
     world.matchmaker.set_crowns(ALICE(), 399);
@@ -1256,7 +1255,7 @@ fn test_season_end_pays_the_league_and_resets_the_crowns() {
     write_record(world, ALICE(), LeagueRecord { season: 1, peak: LEGEND, attacks: 5 });
     // Listed at `RESET_CROWNS` at most: Legend's bucket, before and after the reset
     assert_eq!(world.buckets.place(ALICE()).bucket, 50);
-    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    start_cheat_block_timestamp_global(SEASON_2);
     // The view shows season 2 before any transaction: crowns reset, the reward pending
     assert_eq!(
         world.matchmaker.league(ALICE()),
@@ -1326,7 +1325,7 @@ fn test_season_end_pays_the_league_and_resets_the_crowns() {
     world.matchmaker.close_season(ALICE());
     assert_eq!(cobbles(world, ALICE()), 250);
     // Several seasons later: season 2 had no attack, so no reward; the crowns stay
-    start_cheat_block_timestamp_global(SEASON_START + 5 * LENGTH);
+    start_cheat_block_timestamp_global(world.seasons.season_start(6));
     world.matchmaker.close_season(ALICE());
     assert_eq!(cobbles(world, ALICE()), 250);
     assert_eq!(world.leagues.league_record(ALICE()).season, 6);
@@ -1339,7 +1338,7 @@ fn test_season_end_below_the_threshold_keeps_the_crowns() {
     world.matchmaker.set_crowns(ALICE(), 1_850);
     stop_cheat_caller_address(world.matchmaker.contract_address);
     write_record(world, ALICE(), LeagueRecord { season: 1, peak: 9, attacks: 7 });
-    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    start_cheat_block_timestamp_global(SEASON_2);
     world.matchmaker.close_season(ALICE());
     assert_eq!(world.crowns.crowns(ALICE()), 1_850);
     assert_eq!(cobbles(world, ALICE()), 35);
@@ -1354,7 +1353,7 @@ fn test_a_draw_rolls_both_villages() {
     world.matchmaker.set_crowns(BOB(), 7_000);
     stop_cheat_caller_address(world.matchmaker.contract_address);
     write_record(world, BOB(), LeagueRecord { season: 1, peak: LEGEND, attacks: 5 });
-    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    start_cheat_block_timestamp_global(SEASON_2);
     // Alice draws Bob in season 2: Bob's season 1 closed first, so the terms see 5,000
     assert(search(world, ALICE(), 'TX1') == BOB(), 'not bob');
     assert_eq!(world.crowns.crowns(BOB()), RESET_CROWNS);
@@ -1375,13 +1374,13 @@ fn test_a_draw_after_a_season_end_reads_no_stale_bucket() {
     as_operator(world);
     world.matchmaker.set_crowns(CAROL(), 4_900);
     stop_cheat_caller_address(world.matchmaker.contract_address);
-    start_cheat_block_timestamp_global(START + 2 * INITIAL_SHIELD);
+    start_cheat_block_timestamp_global(SEASON_START + INITIAL_SHIELD);
     assert_eq!(world.matchmaker.release_shields(1), 1);
     assert_eq!(world.buckets.place(BOB()).bucket, 50);
     assert_eq!(world.buckets.place(CAROL()).bucket, 49);
     write_record(world, ALICE(), LeagueRecord { season: 1, peak: LEGEND, attacks: 0 });
     write_record(world, BOB(), LeagueRecord { season: 1, peak: LEGEND, attacks: 0 });
-    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    start_cheat_block_timestamp_global(SEASON_2);
     assert_eq!(world.leagues.league_record(BOB()).season, 1);
     assert(search(world, ALICE(), 'TX1') == BOB(), 'not bob');
     assert_eq!(world.crowns.crowns(BOB()), RESET_CROWNS);
@@ -1399,7 +1398,7 @@ fn test_settle_after_the_season_ends_rolls_first() {
     write_record(world, BOB(), LeagueRecord { season: 1, peak: LEGEND, attacks: 0 });
     assert(search(world, ALICE(), 'TX1') == BOB(), 'not bob');
     start(world, ALICE());
-    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    start_cheat_block_timestamp_global(SEASON_2);
     as_operator(world);
     let outcome = world.matchmaker.settle(ALICE(), 3);
     stop_cheat_caller_address(world.matchmaker.contract_address);
@@ -1418,7 +1417,7 @@ fn test_npc_has_no_league() {
     set_clock(world);
     join(world, ALICE());
     set_npc(world, 1, 450);
-    start_cheat_block_timestamp_global(START + INITIAL_SHIELD);
+    start_cheat_block_timestamp_global(SEASON_START);
     world.matchmaker.release_shields(1);
     assert(search(world, ALICE(), 'TX1') == NPC_1(), 'not the npc');
     start(world, ALICE());
@@ -1429,7 +1428,7 @@ fn test_npc_has_no_league() {
     assert_eq!(world.matchmaker.league(NPC_1()).league, 1);
     // The attacker's win counts for its season, not for the missions (`MISSIONS_COUNT_NPC`)
     assert_eq!(world.leagues.league_record(ALICE()).attacks, 1);
-    let day = (START + INITIAL_SHIELD) / DAY;
+    let day = SEASON_START / DAY;
     assert!(!MISSIONS_COUNT_NPC);
     assert_eq!(
         ISetupLeagueDispatcher { contract_address: world.setup.contract_address }
@@ -1468,7 +1467,7 @@ fn test_settle_reports_the_pvp_missions() {
     ISetupCobblesDispatcher { contract_address: setup }.set_quest_cobbles(50, 10);
     stop_cheat_caller_address(setup);
     attack(world, 'TX1', 3);
-    let day = (START + INITIAL_SHIELD) / DAY;
+    let day = SEASON_START / DAY;
     let ledger = ISetupLeagueDispatcher { contract_address: setup };
     assert_eq!(
         ledger.pvp_progress(ALICE().into(), DAILY, day),
@@ -1606,9 +1605,10 @@ fn next_random(ref state: felt252) -> u256 {
 fn run_sequence(seed: felt252, steps: u32, every: u32) -> (u32, u32, u32, u64) {
     let world = world();
     let address = world.matchmaker.contract_address;
-    // Seasons of a day from an hour in (#644): the time steps cross several
+    // The calendar's seasons from the March equinox of 2027 (#644): a time step of 30 days, one in
+    // two, crosses several
     start_cheat_caller_address(address, OWNER());
-    world.admin.set_season_clock(START + 3600, DAY);
+    world.admin.set_season_clock(SEASON_START);
     stop_cheat_caller_address(address);
     let mut attacks: u32 = 0;
     let mut releases: u32 = 0;
@@ -1654,7 +1654,12 @@ fn run_sequence(seed: felt252, steps: u32, every: u32) -> (u32, u32, u32, u64) {
             world.matchmaker.set_crowns(village_at(id), ((r / 1024) % 30_000).try_into().unwrap());
             stop_cheat_caller_address(address);
         } else if op == 3 {
-            now += ((r / 8) % (10 * 3600)).try_into().unwrap();
+            now +=
+                if (r / 8) % 2 == 0 {
+                    30 * DAY
+                } else {
+                    ((r / 32) % (10 * 3600)).try_into().unwrap()
+                };
             start_cheat_block_timestamp_global(now);
         } else if op == 4 {
             releases += world.matchmaker.release_shields(((r / 8) % 4).try_into().unwrap());

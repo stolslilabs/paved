@@ -405,10 +405,6 @@
           {
             "name": "start",
             "type": "core::integer::u64"
-          },
-          {
-            "name": "length",
-            "type": "core::integer::u64"
           }
         ],
         "outputs": [],
@@ -737,20 +733,6 @@
     "interface_name": "paved::components::seasonable::ISeasonable"
   },
   {
-    "type": "struct",
-    "name": "paved::components::seasonable::SeasonClock",
-    "members": [
-      {
-        "name": "start",
-        "type": "core::integer::u64"
-      },
-      {
-        "name": "length",
-        "type": "core::integer::u64"
-      }
-    ]
-  },
-  {
     "type": "interface",
     "name": "paved::components::seasonable::ISeasonable",
     "items": [
@@ -760,7 +742,7 @@
         "inputs": [],
         "outputs": [
           {
-            "type": "paved::components::seasonable::SeasonClock"
+            "type": "core::integer::u64"
           }
         ],
         "state_mutability": "view"
@@ -772,6 +754,22 @@
         "outputs": [
           {
             "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "season_start",
+        "inputs": [
+          {
+            "name": "season",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u64"
           }
         ],
         "state_mutability": "view"
@@ -1152,11 +1150,6 @@
     "members": [
       {
         "name": "start",
-        "type": "core::integer::u64",
-        "kind": "data"
-      },
-      {
-        "name": "length",
         "type": "core::integer::u64",
         "kind": "data"
       }

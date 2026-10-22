@@ -37,7 +37,6 @@ use paved::components::leagueable::{
 };
 use paved::components::seasonable::{ISeasonableDispatcher, ISeasonableDispatcherTrait};
 use paved::constants::{self, CENTER};
-use paved::matchmaker::leagues::SEASON_LENGTH;
 use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
@@ -193,20 +192,21 @@ pub const CEILING_AVATAR_ITEMS: u128 = 2512748;
 // z32 and z33: leagues and seasons (#644, `docs/architecture/leagues.md`): a settlement across a
 // season's end (both villages rolled, reset and paid, the missions reported) and `close_season`
 // with a reward and a reset. Measured on the VPS (snforge 0.64.0, test profile) + 5 %, rounded up.
-pub const CEILING_MM_SETTLE_SEASON_END: u128 = 5530394;
-// z34 to z42: every other new call of LEAGUES, measured alone (+ 5 %): the season clock set, the
-// views `current_season`, `season_clock`, `league_record`, `league`, and `Setup`'s
+pub const CEILING_MM_SETTLE_SEASON_END: u128 = 5959147;
+// z34 to z42: every other new call of LEAGUES, measured alone (+ 5 %; z32 to z35 and z38 again
+// after the calendar seasons, whose table of 200 events a binary search reads): the season clock
+// set, the views `current_season`, `season_clock`, `league_record`, `league`, and `Setup`'s
 // `credit_league`, `report_pvp`, `pvp_progress` and `claim_quest` of a PvP mission.
-pub const CEILING_MM_SET_SEASON_CLOCK: u128 = 392231;
-pub const CEILING_MM_CURRENT_SEASON: u128 = 187796;
-pub const CEILING_MM_SEASON_CLOCK: u128 = 149912;
+pub const CEILING_MM_SET_SEASON_CLOCK: u128 = 684327;
+pub const CEILING_MM_CURRENT_SEASON: u128 = 633875;
+pub const CEILING_MM_SEASON_CLOCK: u128 = 136574;
 pub const CEILING_MM_LEAGUE_RECORD: u128 = 172165;
-pub const CEILING_MM_LEAGUE: u128 = 711322;
+pub const CEILING_MM_LEAGUE: u128 = 1138816;
 pub const CEILING_CREDIT_LEAGUE: u128 = 546177;
 pub const CEILING_REPORT_PVP: u128 = 1121073;
 pub const CEILING_PVP_PROGRESS: u128 = 207493;
 pub const CEILING_CLAIM_PVP_QUEST: u128 = 1658340;
-pub const CEILING_MM_CLOSE_SEASON: u128 = 1640737;
+pub const CEILING_MM_CLOSE_SEASON: u128 = 2068336;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -1248,8 +1248,15 @@ fn test_gas_z31_avatar_items() {
 
 // Leagues and seasons (#644)
 
-/// The matchmaker with its season clock from a day after `START_MM`, two villages (`PLAYER` and
-/// village 0) in the pool at `crowns` each in season 1 with `attacks` settled, the NPCs removed;
+/// Season 1 (spring) from the March equinox of 2027 and season 2 (summer) from its June solstice
+/// (`paved::matchmaker::leagues::SEASON_STARTS`).
+const SPRING_2027: u64 = 1805574281;
+const SUMMER_2027: u64 = 1813587050;
+
+/// The matchmaker with its season clock from the March equinox of 2027 (`START_MM` is 15 January),
+/// two villages
+/// (`PLAYER` and village 0) in the pool at `crowns` each in season 1 with `attacks` settled, the
+/// NPCs removed;
 /// the time is still in season 1.
 fn matchmaker_in_season(crowns: u32, attacks: u16) -> IMatchmakerDispatcher {
     let matchmaker = matchmaker();
@@ -1257,12 +1264,12 @@ fn matchmaker_in_season(crowns: u32, attacks: u16) -> IMatchmakerDispatcher {
     let defender = village_at(0);
     start_cheat_caller_address(address, OWNER());
     let admin = IMatchmakerAdminDispatcher { contract_address: address };
-    admin.set_season_clock(START_MM + 86400, SEASON_LENGTH);
+    admin.set_season_clock(SPRING_2027);
     admin.remove_npc(1);
     admin.remove_npc(2);
     matchmaker.join(PLAYER());
     matchmaker.join(defender);
-    start_cheat_block_timestamp_global(START_MM + 3 * 86400);
+    start_cheat_block_timestamp_global(SPRING_2027);
     assert(matchmaker.release_shields(2) == 2, 'initial shields not released');
     matchmaker.set_crowns(PLAYER(), crowns);
     matchmaker.set_crowns(defender, crowns);
@@ -1289,7 +1296,7 @@ fn test_gas_z32_matchmaker_settle_season_end() {
     assert(matchmaker.search() == village_at(0), 'not the defender');
     start_cheat_caller_address(address, OWNER());
     matchmaker.start_attack(PLAYER());
-    start_cheat_block_timestamp_global(START_MM + 86400 + SEASON_LENGTH);
+    start_cheat_block_timestamp_global(SUMMER_2027);
     let before = get_available_gas();
     let outcome = matchmaker.settle(PLAYER(), 3);
     let after = get_available_gas();
@@ -1302,7 +1309,7 @@ fn test_gas_z32_matchmaker_settle_season_end() {
 #[test]
 fn test_gas_z33_matchmaker_close_season() {
     let matchmaker = matchmaker_in_season(6000, 5);
-    start_cheat_block_timestamp_global(START_MM + 86400 + SEASON_LENGTH);
+    start_cheat_block_timestamp_global(SUMMER_2027);
     let before = get_available_gas();
     matchmaker.close_season(PLAYER());
     let after = get_available_gas();
@@ -1317,7 +1324,7 @@ fn test_gas_z34_matchmaker_set_season_clock() {
     start_cheat_caller_address(address, OWNER());
     let admin = IMatchmakerAdminDispatcher { contract_address: address };
     let before = get_available_gas();
-    admin.set_season_clock(START_MM + 86400, SEASON_LENGTH);
+    admin.set_season_clock(SPRING_2027);
     let after = get_available_gas();
     report("z34_matchmaker_set_season_clock", before - after, CEILING_MM_SET_SEASON_CLOCK);
 }
@@ -1342,7 +1349,7 @@ fn test_gas_z36_matchmaker_season_clock() {
     let before = get_available_gas();
     let clock = seasons.season_clock();
     let after = get_available_gas();
-    assert(clock.length == SEASON_LENGTH, 'not the clock');
+    assert(clock == SPRING_2027, 'not the clock');
     report("z36_matchmaker_season_clock", before - after, CEILING_MM_SEASON_CLOCK);
 }
 
@@ -1363,7 +1370,7 @@ fn test_gas_z37_matchmaker_league_record() {
 #[test]
 fn test_gas_z38_matchmaker_league() {
     let matchmaker = matchmaker_in_season(6000, 5);
-    start_cheat_block_timestamp_global(START_MM + 86400 + SEASON_LENGTH);
+    start_cheat_block_timestamp_global(SUMMER_2027);
     let before = get_available_gas();
     let status = matchmaker.league(PLAYER());
     let after = get_available_gas();
