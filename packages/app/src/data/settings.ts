@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { QualityTier, RendererSettingsInput } from "@paved/renderer";
+import type { BackdropPattern, HighlightStyle, QualityTier, RendererSettingsInput } from "@paved/renderer";
 import { createDeviceStore, useDeviceStore, type DeviceStore } from "./device-store";
 
 // The device settings (P11a, section 6.4): graphics quality, the day and night cycle, the ambient effects, the music and sound effects volumes, tile preview and
@@ -47,9 +47,15 @@ export interface DeviceSettings {
   tilePreview: boolean;
   /** Outline the slots where the tile in hand fits. */
   placementHighlight: boolean;
+  /**
+   * The square grid on the board (SQUARE-GRID, the renderer's `squareGrid`): Realms' board on square cells, its fog with every
+   * cell's border in the landscape's place, and the slots lit as an army's allowed moves in the plates' place. Off: the landscape
+   * and the plates.
+   */
+  squareGrid: boolean;
 }
 
-/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), the ambient effects on (the owner's, #572), music at 0.4 (the owner's, P-81), sound effects at 0.7, preview and highlight on. */
+/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), the ambient effects on (the owner's, #572), music at 0.4 (the owner's, P-81), sound effects at 0.7, preview and highlight on, the square grid on. */
 export const DEFAULT_SETTINGS: DeviceSettings = {
   quality: "auto",
   dayNight: true,
@@ -60,6 +66,7 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
   sfxBefore: 0.7,
   tilePreview: true,
   placementHighlight: true,
+  squareGrid: true,
 };
 
 export type VolumeChannel = "music" | "sfx";
@@ -94,7 +101,7 @@ export function parseSettings(raw: string): DeviceSettings {
   }
   if (typeof json !== "object" || json === null || Array.isArray(json)) return DEFAULT_SETTINGS;
   const o = json as Record<string, unknown>;
-  const flag = (k: "dayNight" | "ambient" | "tilePreview" | "placementHighlight") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
+  const flag = (k: "dayNight" | "ambient" | "tilePreview" | "placementHighlight" | "squareGrid") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
   const num = (k: string): number | null => (typeof o[k] === "number" && Number.isFinite(o[k]) ? clamp01(o[k]) : null);
   const channel = (volumeKey: string, beforeKey: string, legacyOn: unknown, fallback: number): { volume: number; before: number } => {
     const volume = num(volumeKey);
@@ -116,6 +123,7 @@ export function parseSettings(raw: string): DeviceSettings {
     sfxBefore: sfx.before,
     tilePreview: flag("tilePreview"),
     placementHighlight: flag("placementHighlight"),
+    squareGrid: flag("squareGrid"),
   };
 }
 
@@ -144,6 +152,30 @@ export function autoQuality(): QualityTier {
 }
 
 /**
+ * The renderer's `HighlightStyle`s and `BackdropPattern`s, repeated (the renderer is a type-only import here, as for
+ * `SMALL_SCREEN_PX`): the shapes of the square grid's highlight and backdrop a page's `?filler=` and `?void=` ask for, to compare
+ * them on a board (SQUARE-GRID).
+ */
+const FILLER_STYLES: readonly HighlightStyle[] = ["plain", "twist", "diamond", "breathe", "frame"];
+const VOID_PATTERNS: readonly BackdropPattern[] = ["realms", "cobbles", "contours", "voxels"];
+
+/**
+ * The square grid as the board draws it: on or off (the device setting), its highlight in the style `?filler=` names and its
+ * backdrop in the pattern `?void=` names, if any.
+ */
+export function squareGridSettings(on: boolean, search: string = globalThis.location?.search ?? ""): NonNullable<RendererSettingsInput["squareGrid"]> {
+  if (!on) return { enabled: false };
+  const params = new URLSearchParams(search);
+  const style = params.get("filler") as HighlightStyle | null;
+  const pattern = params.get("void") as BackdropPattern | null;
+  return {
+    enabled: true,
+    ...(style && FILLER_STYLES.includes(style) ? { highlight: { style } } : {}),
+    ...(pattern && VOID_PATTERNS.includes(pattern) ? { backdrop: { pattern } } : {}),
+  };
+}
+
+/**
  * The fog of war on every board (FOG-EVERYWHERE, #648; the owner's choice of #633): the renderer's fog, the landscape beyond a
  * soft edge, every corner rounded. It stays on at every tier, still where the ambient effects cannot move it.
  */
@@ -154,7 +186,10 @@ export const BOARD_FOG = { enabled: true } as const;
  * applies and a render does not), and the two board switches.
  */
 export function useBoardSettings(): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean } {
-  const [{ quality, dayNight, ambient, tilePreview, placementHighlight }] = useDeviceSettings();
-  const renderer = useMemo<RendererSettingsInput>(() => ({ quality, dayNight: { enabled: dayNight }, ambient: { enabled: ambient }, fog: BOARD_FOG }), [quality, dayNight, ambient]);
+  const [{ quality, dayNight, ambient, tilePreview, placementHighlight, squareGrid }] = useDeviceSettings();
+  const renderer = useMemo<RendererSettingsInput>(
+    () => ({ quality, dayNight: { enabled: dayNight }, ambient: { enabled: ambient }, fog: BOARD_FOG, squareGrid: squareGridSettings(squareGrid) }),
+    [quality, dayNight, ambient, squareGrid],
+  );
   return { renderer, tilePreview, placementHighlight };
 }

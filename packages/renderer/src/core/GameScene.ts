@@ -17,7 +17,9 @@ import type {
   EffectsCapabilities,
 } from "./types";
 import { TILE_SIZE } from "./types";
-import type { PlacementSlot } from "./placement";
+import type { PlacementSettings, PlacementSlot } from "./placement";
+import { SquareGridRenderer, backdropShown, gridLineUniforms, highlightShown } from "./square-grid";
+import type { Overlay } from "./overlay-pass";
 import {
   getLightingProfile,
   getRenderProfileForCameraMode,
@@ -212,6 +214,24 @@ export class GameScene {
   /** The weather (`weather.ts`, #607, #658), once its chunk is in; its load, started the first time it shows. */
   private weather: WeatherChunk.Weather | null = null;
   private weatherLoad: Promise<void> | null = null;
+  /**
+   * The square grid (SQUARE-GRID, `square-grid.ts`): the violet backdrop in the landscape's place and the highlight in the
+   * plates', in the board's group, moving on the ambient loop; with the backdrop off, its lines are the landscape ground's
+   * (`syncFog`).
+   */
+  readonly squareGrid = new SquareGridRenderer(this.ambient.time);
+  /** The square grid's place on the ambient loop while it is on (its backdrop, motes and pulse move there). */
+  private unregisterSquareGrid: (() => void) | null = null;
+  /**
+   * What is drawn untouched by the look's tone map and grade (`overlay-pass.ts`): the square grid's highlight over the scene and
+   * its backdrop under it, each in a group that turns with the board's (`setCompassRotation`). Given to the effects while they
+   * show (`overlayKey`: what was given).
+   */
+  private readonly overlayRoot = new THREE.Group();
+  private readonly underlayRoot = new THREE.Group();
+  private readonly overlayScene = new THREE.Scene();
+  private readonly underlayScene = new THREE.Scene();
+  private overlayKey = "off";
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -226,6 +246,12 @@ export class GameScene {
     this.effects.setOnRebuilt(() => this.requestRender());
 
     this.sceneGroup.add(this.tiles.getGroup());
+    this.overlayRoot.add(this.squareGrid.overlay);
+    this.overlayScene.add(this.overlayRoot);
+    this.underlayRoot.add(this.squareGrid.group);
+    this.underlayScene.add(this.underlayRoot);
+    // The logo's font came in: its texture is drawn again.
+    this.squareGrid.onChange = () => this.requestRender();
 
     this.dependencies = dependencies;
   }
@@ -477,6 +503,7 @@ export class GameScene {
     }
     this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
     this.syncDayNight();
+    this.applyUnderlayBackground();
     this.syncAmbient();
     this.syncFog();
     this.requestRender();
@@ -521,13 +548,15 @@ export class GameScene {
   private syncFog(): void {
     const settings = this.settings.fog;
     const reveal = this.fogReveal;
-    const on = settings.enabled && !!reveal && !!this.renderer;
+    // The square grid's backdrop takes the fog's and its landscape's place.
+    const on = settings.enabled && !backdropShown(this.settings.squareGrid) && !!reveal && !!this.renderer;
     const fog = this.fog;
     if (!fog) {
       if (on) this.loadFog();
       return;
     }
     fog.setSettings(settings);
+    fog.setGrid(gridLineUniforms(this.settings.squareGrid));
     fog.setMode(on ? fogMode(settings, this.settings.ambient, this.getQuality(), prefersReducedMotion()) : "off");
     if (reveal) fog.setRevealed(reveal.cells, reveal.origin);
     fog.setCycle(this.getDayNight());
@@ -685,6 +714,7 @@ export class GameScene {
         this.effects.setBackdrop(false);
         this.dayNight?.releaseDayNight(this.directionalLight);
         this.renderer?.setClearColor(0x000000, 1);
+        this.applyUnderlayBackground();
         this.tiles.setNightLights(false, settings.nightLightColor, settings.windowLight);
         this.nightLevel = 0;
         this.syncCloudLight();
@@ -704,6 +734,17 @@ export class GameScene {
     const now = performance.now();
     this.dayNightClock ??= new this.dayNight.DayNightClock(now, this.dayNight.pageCycleTime(now, settings.cycleMs));
     this.applyDayNight(this.dayNightSeasons());
+  }
+
+  /**
+   * While the square grid's backdrop shows, the scene is cleared to nothing and draws no background or distance fog: the finish
+   * pass lays the backdrop under what the scene leaves uncovered (`overlay-pass.ts`), and Realms' world map has no distance fog.
+   */
+  private applyUnderlayBackground(): void {
+    if (!backdropShown(this.settings.squareGrid)) return;
+    this.scene.background = null;
+    this.scene.fog = null;
+    this.renderer?.setClearColor(0x000000, 0);
   }
 
   /** Loads the cycle's chunk once; the look is applied again when it is in (a failed load leaves the look's lights). */
@@ -862,6 +903,8 @@ export class GameScene {
   updateTiles(tiles: TileRenderData[]): void {
     this.latestTiles = tiles.slice();
     this.tiles.updateTiles(tiles);
+    // The backdrop is in colour near the placed tiles.
+    this.squareGrid.setTileCells(tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
     if (this.controls) {
       this.controls.setBoardBounds(this.computeBoardBounds());
     }
@@ -885,6 +928,7 @@ export class GameScene {
   /** Set hover preview at grid position */
   setHoveredTile(state: HoverState | null): void {
     this.tiles.setHover(state);
+    this.squareGrid.setGhost(state && { x: state.x, y: state.y, placed: !!state.placed });
     this.requestRender();
   }
 
@@ -894,6 +938,7 @@ export class GameScene {
    */
   setAvailableSlots(slots: ReadonlyArray<PlacementSlot>): void {
     this.tiles.setAvailableSlots(slots);
+    this.squareGrid.setSlots(slots);
     this.requestRender();
   }
 
@@ -934,12 +979,40 @@ export class GameScene {
     return this.tiles.prepareDropAt(state);
   }
 
-  /** The placement visuals' settings and reduced motion, from the renderer's settings. */
+  /** The placement visuals' settings and reduced motion, from the renderer's settings; the square grid's with them. */
   private applyPlacementSettings(): void {
     this.tiles.setVoxelDropSettings(this.settings.voxelDrop);
-    this.tiles.setPlacementSettings(this.settings.placement, this.settings.outlines);
+    this.tiles.setPlacementSettings(this.placementSettings(), this.settings.outlines);
     const { reducedMotion } = this.settings.placement.motion;
-    this.tiles.setReducedMotion(reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion);
+    const reduced = reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion;
+    this.tiles.setReducedMotion(reduced);
+    this.squareGrid.setSettings(this.settings.squareGrid);
+    this.squareGrid.setReducedMotion(reduced);
+    // On the ambient loop only while it is on: off, the loop has nothing of it to step.
+    this.unregisterSquareGrid?.();
+    this.unregisterSquareGrid = this.settings.squareGrid.enabled ? this.ambient.register(this.squareGrid) : null;
+    // Its highlight is drawn as given over the graded scene, its backdrop under it with Realms' tone map, while they show.
+    const grid = this.settings.squareGrid;
+    const over = highlightShown(grid);
+    const under = backdropShown(grid);
+    const key = over || under ? `${over}|${under}|${grid.backdrop.exposure}` : "off";
+    if (key !== this.overlayKey) {
+      this.overlayKey = key;
+      const overlay: Overlay = { scene: over ? this.overlayScene : null, depth: this.squareGrid.overlayDepth, underlay: under ? this.underlayScene : null, underlayExposure: grid.backdrop.exposure };
+      this.effects.setOverlay(over || under ? overlay : null);
+    }
+  }
+
+  /** The placement settings as drawn: no plate while the square grid's highlight takes their place (`SquareGridSettings.highlight`). */
+  private placementSettings(): PlacementSettings {
+    const { placement, squareGrid } = this.settings;
+    if (!highlightShown(squareGrid)) return placement;
+    return { ...placement, plates: { ...placement.plates, enabled: false } };
+  }
+
+  /** What the square grid draws now (`SquareGridRenderer.stats`): the stories' readout and the tests. */
+  getSquareGrid(): ReturnType<SquareGridRenderer["stats"]> {
+    return this.squareGrid.stats();
   }
 
   /** Follows the device's `prefers-reduced-motion` while the setting is "auto". */
@@ -1009,6 +1082,8 @@ export class GameScene {
   /** Set compass rotation for scene group */
   setCompassRotation(angle: number): void {
     this.sceneGroup.rotation.y = angle;
+    this.overlayRoot.rotation.y = angle;
+    this.underlayRoot.rotation.y = angle;
     this.notifyCamera();
     // The tile shader reads a tile's cell in the board's frame, not the world's (the lit structure).
     this.tiles.updateBoardFrame();
@@ -1209,6 +1284,17 @@ export class GameScene {
     this.effects.render();
   }
 
+  /**
+   * The pulse's phase at `now` (0 to 1): the pending tile's while one pulses, else a clock of the same period, so the square grid's
+   * highlight breathes with the tile placed. Null with no period.
+   */
+  private pulsePhase(now: number): number | null {
+    const phase = this.tiles.pulsePhase?.(now);
+    if (phase !== undefined && phase !== null) return phase;
+    const ms = this.settings.placement.tints.pendingPulseMs;
+    return ms > 0 ? (now % ms) / ms : null;
+  }
+
   /** Start the render loop */
   start(): void {
     const animate = () => {
@@ -1226,6 +1312,8 @@ export class GameScene {
       const now = performance.now();
       const moved = this.tiles.update(now);
       if (moved.animating) this.needsRender = true;
+      // The square grid's roll-in and dim; its pulse on the pending tile's clock, so the two breathe together.
+      if (this.squareGrid.update(now, this.pulsePhase(now))) this.needsRender = true;
       // A drop ended (the model is back) or casts: the shadows and a last frame, which `animating` no longer asks for.
       if (moved.shadow) {
         this.requestShadowUpdate();
@@ -1300,6 +1388,7 @@ export class GameScene {
 
     this.stop();
     this.tiles.dispose();
+    this.squareGrid.dispose();
     this.effects.dispose();
     this.controls?.dispose();
     this.assets.dispose();

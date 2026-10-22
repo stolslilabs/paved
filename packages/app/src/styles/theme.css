@@ -461,20 +461,20 @@
 }
 
 /*
- * The plan view's pending tile (#681): its opacity from 60 to 90 % and back on a sine (easeInOutSine), one cycle every
- * 1.6 s, the board's `tints.pendingPulseMin`, `pendingPulseMax` and `pendingPulseMs` (a test pins them); a fixed 75 % under
+ * The plan view's pending tile (#681): its opacity from 80 to 100 % and back on a sine (easeInOutSine), one cycle every
+ * 1.6 s, the board's `tints.pendingPulseMin`, `pendingPulseMax` and `pendingPulseMs` (a test pins them); a fixed 90 % under
  * reduced motion (`pendingReducedOpacity`).
  */
 @keyframes pending-pulse {
-  from { opacity: 0.6; }
-  to { opacity: 0.9; }
+  from { opacity: 0.8; }
+  to { opacity: 1; }
 }
 @utility pending-pulse {
-  opacity: 0.6;
+  opacity: 0.8;
   animation: pending-pulse 800ms cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
-    opacity: 0.75;
+    opacity: 0.9;
   }
 }
 
