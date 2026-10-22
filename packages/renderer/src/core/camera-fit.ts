@@ -30,8 +30,8 @@ function band(sizePx: number, startPx: number, endPx: number): [number, number] 
  * y = -dz cos θ / ((d - dz sin θ) t), t the tangent of half the field of view over the zoom. So the ground row shown at a
  * screen height y is dz = d k(y), k(y) = y t / (y t sin θ - cos θ): linear in d. With the area's centre put at the free
  * band's centre ym (T.z = cz - d k(ym)), its far edge stays under the band's top and its near edge over its bottom from
- * d = depth / 2 / (k(ym) - k(top)) and d = depth / 2 / (k(bottom) - k(ym)). The width binds at the near edge, the closest
- * to the camera, where the depth d - dz sin θ is the least: also linear in d. The distance is the largest of the three,
+ * d = depth / 2 / (k(ym) - k(top)) and d = depth / 2 / (k(bottom) - k(ym)). The width binds at a corner of the near or the far
+ * edge, whose depth d - dz sin θ is linear in d, so each corner gives a d too. The distance is the largest of these,
  * then kept between the closest zoom and the ceiling.
  */
 export function computeCameraFit(input: CameraFitInput): CameraFit {
@@ -82,13 +82,19 @@ export function computeCameraFit(input: CameraFitInput): CameraFit {
 
   const byHeight = Math.max(depth / 2 / (km - k(yt)), depth / 2 / (k(yb) - km));
 
-  // At the near edge (dz = depth / 2 + d km), the depth is d (1 - km sin) - depth / 2 sin; the area's centre goes at the
-  // band's x centre at the target's depth (T.x = cx - d th xm). Each side then needs a d (a d + b >= w / 2).
+  // At the area's near and far edges (dz = d km -+ depth / 2) the depth is d (1 - km sin) +- depth / 2 sin; the area's
+  // centre goes at the band's x centre at the target's depth (T.x = cx - d th xm). Each side, at each edge, then needs a
+  // d (a d + b >= w / 2). The near edge binds a centred band; a band pushed to one side can be bound by the far edge.
   const a = 1 - km * sin;
-  const nearRight = { a: th * (a * xr - xm), b: -th * (depth / 2) * sin * xr };
-  const nearLeft = { a: th * (xm - a * xl), b: th * (depth / 2) * sin * xl };
+  const sides = [-1, 1].flatMap((edge) => {
+    const e = edge * (depth / 2) * sin;
+    return [
+      { a: th * (a * xr - xm), b: th * xr * e },
+      { a: th * (xm - a * xl), b: -th * xl * e },
+    ];
+  });
   const need = (side: { a: number; b: number }) => (side.a > 0 ? (w / 2 - side.b) / side.a : Infinity);
-  const byWidth = Math.max(need(nearRight), need(nearLeft));
+  const byWidth = Math.max(...sides.map(need));
 
   const fitted = Math.max(byHeight, byWidth);
   const ceiling = Math.max(maxDistance, minDistance);

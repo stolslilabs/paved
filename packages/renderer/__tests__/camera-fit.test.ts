@@ -162,6 +162,33 @@ describe("computeCameraFit (CAMERA-FIT, #678)", () => {
     expect(Number.isFinite(crushed.distance)).toBe(true);
   });
 
+  it("keeps every corner off a lopsided HUD: the far edge can bind when the free band sits to one side", () => {
+    // The review's case: the free band is the right 340 px, and the far left corner, not the near one, binds.
+    const viewport = { width: 1440, height: 900 };
+    const cases: { cells: CellExtent | null; insets: FrameInsets }[] = [
+      { cells: null, insets: { left: 1100, right: 0, top: 0, bottom: 300 } },
+      { cells: null, insets: { left: 0, right: 1100, top: 0, bottom: 300 } },
+      { cells: BOARDS["10 tiles"], insets: { left: 900, right: 0, top: 120, bottom: 200 } },
+    ];
+    for (const { cells, insets } of cases) {
+      const fit = computeCameraFit({ cells, ...viewport, insets });
+      expect(fit.limitedBy).toBe("width");
+      const band = freeBand(viewport.width, viewport.height, insets);
+      const camera = new THREE.PerspectiveCamera(50, viewport.width / viewport.height, 5, 2000);
+      camera.zoom = 5;
+      camera.updateProjectionMatrix();
+      const target = new THREE.Vector3(fit.target.x, 0, fit.target.z);
+      camera.position.copy(target).add(tiltedOffset(fit.distance, PLAY_DEFAULT_POLAR_ANGLE));
+      camera.lookAt(target);
+      camera.updateMatrixWorld();
+      const xs = corners(fit.area).map((p) => new THREE.Vector3(p.x, 0, p.z).project(camera).x);
+      expect(Math.min(...xs)).toBeGreaterThanOrEqual(band.left - 1e-4);
+      expect(Math.max(...xs)).toBeLessThanOrEqual(band.right + 1e-4);
+      // Still the closest such frame: one corner touches the band.
+      expect(Math.min(Math.min(...xs) - band.left, band.right - Math.max(...xs))).toBeLessThan(1e-4);
+    }
+  });
+
   it("takes the phone's insets below the tablet breakpoint and the larger HUD's from it", () => {
     expect(frameInsetsFor(375)).toBe(FRAME_INSETS.phone);
     expect(frameInsetsFor(639)).toBe(FRAME_INSETS.phone);
