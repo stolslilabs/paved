@@ -7,6 +7,7 @@ import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings, type VoxelDropSe
 import { DEFAULT_AMBIENT_SETTINGS, resolveAmbientSettings, type AmbientSettings, type AmbientSettingsInput } from "./ambient-settings";
 import { DEFAULT_FOG_SETTINGS, LANDSCAPE_FOG, resolveFogSettings, type FogSettings, type FogSettingsInput } from "./fog-of-war-settings";
 import { DEFAULT_WEATHER_SETTINGS, resolveWeatherSettings, type WeatherSettings, type WeatherSettingsInput } from "./weather-settings";
+import { DEFAULT_SQUARE_GRID_SETTINGS, resolveSquareGridSettings, type SquareGridSettings, type SquareGridSettingsInput } from "./square-grid";
 import {
   DEFAULT_LOOK_PRESET,
   LOOK_PRESETS,
@@ -89,6 +90,12 @@ export interface RendererSettings {
    * tier; its season is the day and night cycle's (the wheel's), summer's day with the cycle off; under reduced motion nothing falls.
    */
   weather: WeatherSettings;
+  /**
+   * The square grid (SQUARE-GRID, `square-grid.ts`): Eternum's hex grid on square cells, the lines in the landscape's ground, a
+   * band on each playable slot (in the plates' place), the hover and the selected rings. Off by default in the renderer; the
+   * app's board turns it on.
+   */
+  squareGrid: SquareGridSettings;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -128,6 +135,8 @@ export interface RendererSettingsInput {
   fog?: FogSettingsInput;
   /** The weather: its fields over the defaults'. */
   weather?: WeatherSettingsInput;
+  /** The square grid: each group's fields over the defaults'. */
+  squareGrid?: SquareGridSettingsInput;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -155,6 +164,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   ambient: DEFAULT_AMBIENT_SETTINGS,
   fog: resolveFogSettings({ ...LANDSCAPE_FOG, enabled: false }, DEFAULT_FOG_SETTINGS),
   weather: DEFAULT_WEATHER_SETTINGS,
+  squareGrid: DEFAULT_SQUARE_GRID_SETTINGS,
 };
 
 /**
@@ -225,6 +235,7 @@ export function resolveRendererSettings(
     ambient: resolveAmbientSettings(input.ambient, base.ambient),
     fog: resolveFogSettings(input.fog, base.fog),
     weather: resolveWeatherSettings(input.weather, base.weather),
+    squareGrid: resolveSquareGridSettings(input.squareGrid, base.squareGrid),
   };
 }
 
