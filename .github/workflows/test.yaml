@@ -280,6 +280,10 @@ jobs:
         shell: bash
       - name: Wrap sweep (360 and 320 px)
         run: bun run --filter @paved/app wrap-sweep
+      # HEADER-HEIGHT (#676): every page's header as tall as `--header-h`, one height per width, at 375 and 1440 px
+      # (packages/app/scripts/header-sweep.ts, the `Pages/Headers` stories).
+      - name: Header sweep (375 and 1440 px)
+        run: bun run --filter @paved/app header-sweep
       # APP-FEEL (P-69): a mobile device context, headless: no page zoom, the board still pinch-zooms.
       - name: Mobile feel (Pixel 7 profile)
         run: bun run --filter @paved/app mobile-feel

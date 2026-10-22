@@ -62,11 +62,14 @@ export function HomeScene(props: HomeSceneProps) {
       <header className="relative h-64 w-full tablet:h-80">
         <BoardHero />
         <h1 className="sr-only">Home</h1>
-        <div className="relative mx-auto flex h-full w-full max-w-md flex-col items-center px-4 pt-4 tablet:max-w-2xl desktop:max-w-5xl desktop:items-start desktop:justify-center desktop:px-8 desktop:pt-0">
-          {/* The avatar at the top left, the balances on the right (#624); from `desktop` both are in the navigation's header. */}
-          <div className="flex w-full items-center justify-between gap-3 desktop:hidden">
-            <ProfileSlot />
-            <BalancesSlot layout="pill" className="ml-auto" />
+        <div className="relative mx-auto flex h-full w-full max-w-md flex-col items-center px-4 tablet:max-w-2xl desktop:max-w-5xl desktop:items-start desktop:justify-center desktop:px-8">
+          {/*
+            The avatar at the top left, the balances on the right below it (#624), in every page's header height and rows
+            (`page-header`, #676); from `desktop` both are in the navigation's header, which is that height.
+          */}
+          <div data-slot="page-header" className="page-header grid w-full items-center desktop:hidden">
+            <ProfileSlot className="w-max" />
+            <BalancesSlot layout="pill" className="justify-self-end" />
           </div>
           <Wordmark tagline="Build · Connect · Score" className="mt-2 desktop:mt-0 desktop:items-start [&_span]:[text-shadow:0_1px_3px_var(--color-board)]" />
         </div>
