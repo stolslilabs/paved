@@ -3,8 +3,8 @@ import * as THREE from "three";
 import { GameScene } from "../src/core/GameScene";
 import type { RenderSurfaceAdapter } from "../src/core/types";
 import type { RendererSettingsInput } from "../src/core/settings";
-import { DAY_PHASE_AT, DEFAULT_WINDOW_LIGHT } from "../src/core/daynight-settings";
-import { dayNightFrame, sunAt, DAY_SHARE } from "../src/core/daynight";
+import { DAY_PHASE_AT, DEFAULT_WINDOW_LIGHT, SEASONS } from "../src/core/daynight-settings";
+import { dayNightFrame, sunAt, DAY_SHARE, HOLDS, KEYFRAMES, hexToLinear } from "../src/core/daynight";
 import { placementStubs } from "./helpers/placement-stubs";
 
 const adapter: RenderSurfaceAdapter = {
@@ -55,6 +55,7 @@ async function createScene(settings: RendererSettingsInput) {
     setProfile: vi.fn(),
     setAntialiasing: vi.fn(),
     setBackdrop: vi.fn(),
+    setOverlay: vi.fn(),
     resize: vi.fn(),
     render: vi.fn(() => {
       renders.push(now);
@@ -260,6 +261,27 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     expect(casters()).toEqual([key()]);
     expect(disposed).toHaveBeenCalled();
     scene.dispose();
+  });
+
+  it("keeps the square grid's void in its season's hue all day and night, its brightness smooth while the sun crossfades", async () => {
+    const { scene, casters } = await createScene({ dayNight: { enabled: true, season: "spring", reducedMotion: false }, squareGrid: { enabled: true } });
+    const setLight = vi.spyOn(scene.squareGrid, "setLight");
+    const spring = SEASONS.indexOf("spring");
+    const ground = hexToLinear(KEYFRAMES.spring.day.ground);
+    const day: number[] = [];
+    // Every 0.1 % of the cycle from its dawn to the end of its night: the sun's shadows step between the key light and its twin.
+    for (let p = 0; p <= HOLDS[3]![2]; p += 0.001) {
+      (scene as any).applyDayNight(spring + p);
+      const [light, hue] = setLight.mock.lastCall!;
+      expect(hue!.toArray()).toEqual(ground.map((c) => expect.closeTo(c, 6)));
+      if (p >= HOLDS[1]![1] && p <= HOLDS[1]![2]) day.push(light);
+    }
+    expect(casters()).toHaveLength(2);
+    // Through the day's hold: up to noon, then down; never back and forth with the crossfade.
+    let turns = 0;
+    for (let i = 2; i < day.length; i++) if (Math.sign(day[i]! - day[i - 1]!) * Math.sign(day[i - 1]! - day[i - 2]!) < 0) turns++;
+    expect(turns).toBeLessThanOrEqual(1);
+    expect(Math.min(...day)).toBeGreaterThan(0.5);
   });
 
   it("disposed with its context kept, frees the twin's shadow map", async () => {

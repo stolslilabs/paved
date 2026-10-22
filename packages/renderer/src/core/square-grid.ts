@@ -76,11 +76,12 @@ export interface SquareGridSettings {
     exposure: number;
     /** The shapes the fog draws (`BackdropPattern`): Paved's voxel blocks (the owner's pick), Realms' own, or another of Paved's. */
     pattern: BackdropPattern;
-    /** The voxel blocks a cell's side ("voxels"): the tiles' own forty, as fine as the models. */
+    /** The voxel blocks a cell's side ("voxels"): eight, five of the tiles' voxels each (a tile is forty). */
     voxels: number;
     /**
-     * How far the veil takes the season's hue (the day and night cycle's ground colour of the moment, at the veil's lightness:
-     * `seasonVeil`), 0 to 1. The light of the moment reaches the whole backdrop too (`backdropLight`).
+     * How far the veil takes the season's hue (the cycle's ground colour of the season's day, at the veil's lightness:
+     * `seasonVeil`; steady through the day and the night), 0 to 1. The time of day reaches the whole backdrop as its brightness
+     * only (`backdropLight`).
      */
     seasonShare: number;
     /** The fog is in colour within `grayFrom` cells of a placed tile, grey past `grayTo` (a smoothstep between). */
@@ -99,13 +100,15 @@ export interface SquareGridSettings {
     twist: number;
     /** Paved's "P" at the middle: its text, its font (the app's display font), its size (a share of the cell) and opacity. */
     logo: { enabled: boolean; text: string; font: string; scale: number; opacity: number };
+    /** The fillers' opacity, a share of their layers' own (Realms'): the whole highlight, its logo and its flash included. */
+    opacity: number;
     /** The layers breathe (Realms' pulse). */
     pulse: boolean;
     /** A new set rolls in cell by cell, the first with a flash; never under reduced motion. */
     rollout: boolean;
     /**
      * Once a tile is placed (waiting for validation), the other cells fade: their chroma down to `saturation` of itself, their
-     * opacity times `opacity`, over `ms` (at once under reduced motion); back when the tile goes.
+     * opacity times `opacity` (on top of the fillers' own), over `ms` (at once under reduced motion); back when the tile goes.
      */
     dim: { saturation: number; opacity: number; ms: number };
   };
@@ -125,7 +128,7 @@ export type SquareGridSettingsInput = { enabled?: boolean } & { [K in Exclude<ke
  * The backdrop's shapes, each from the same drifting mist, the same colours and the same grey away from the tiles: "realms",
  * Realms' veil and its threads along the mist's contour; "cobbles", paving stones (Paved's name), three to a cell's side, a gold
  * light running along their mortar; "contours", the mist's contour lines as on a map, every fourth one gilded; "voxels", the mist
- * in blocks as fine as the tiles' voxels (`voxels` a cell's side, forty by default), in four steps.
+ * in blocks (`voxels` a cell's side, eight by default: five of the tiles' voxels each), in four steps, a gap between them.
  */
 export type BackdropPattern = "realms" | "cobbles" | "contours" | "voxels";
 
@@ -166,7 +169,7 @@ export const DEFAULT_SQUARE_GRID_SETTINGS: SquareGridSettings = {
     grayFrom: 1.5,
     grayTo: 6,
     pattern: "voxels",
-    voxels: 40,
+    voxels: 8,
     seasonShare: 0.6,
   },
   highlight: {
@@ -175,6 +178,7 @@ export const DEFAULT_SQUARE_GRID_SETTINGS: SquareGridSettings = {
     style: "twist",
     twist: 12,
     logo: { enabled: true, text: "P", font: '700 192px "Almendra", Georgia, serif', scale: 0.42, opacity: 0.5 },
+    opacity: 0.4,
     pulse: true,
     rollout: true,
     dim: { saturation: 0.15, opacity: 0.4, ms: 200 },
@@ -357,22 +361,22 @@ export function upwardIrradiance(lights: ReadonlyArray<SurfaceLight>): THREE.Col
   return out;
 }
 
+const luminance = (c: THREE.Color) => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+
 /**
- * The backdrop's light: what an upward surface takes now over what it takes under the look's own lights (the summer's day the
- * look is), channel by channel. 1 with the look's lights; darker and bluer at night, warmer at dusk, cooler in winter.
+ * The backdrop's brightness: the luminance an upward surface takes now over what it takes under the look's own lights (the
+ * summer's day the look is). 1 with the look's lights, lower at night. A brightness only: the hue stays the season's
+ * (`seasonVeil`), with no dusk or night tint.
  */
-export function backdropLight(now: ReadonlyArray<SurfaceLight>, look: ReadonlyArray<SurfaceLight>): THREE.Color {
-  const a = upwardIrradiance(now);
-  const b = upwardIrradiance(look);
-  const ratio = (x: number, y: number) => (y > 1e-4 ? x / y : 1);
-  return new THREE.Color(ratio(a.r, b.r), ratio(a.g, b.g), ratio(a.b, b.b));
+export function backdropLight(now: ReadonlyArray<SurfaceLight>, look: ReadonlyArray<SurfaceLight>): number {
+  const b = luminance(upwardIrradiance(look));
+  return b > 1e-4 ? luminance(upwardIrradiance(now)) / b : 1;
 }
 
-/** The season's veil: the cycle's ground colour of the moment (dark), brought to the lightness of `veil` with its hue kept. */
+/** The season's veil: the season's ground colour (dark), brought to the lightness of `veil` with its hue kept. */
 export function seasonVeil(ground: THREE.Color, veil: THREE.Color): THREE.Color {
-  const luma = (c: THREE.Color) => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
-  const from = luma(ground);
-  return from > 1e-5 ? ground.clone().multiplyScalar(luma(veil) / from) : veil.clone();
+  const from = luminance(ground);
+  return from > 1e-5 ? ground.clone().multiplyScalar(luminance(veil) / from) : veil.clone();
 }
 
 /** How far the fog is from colour (1) to grey (0) at `cells` from the nearest placed tile: a smoothstep from `grayFrom` to `grayTo`. */
@@ -447,7 +451,7 @@ void main() {
  * - The pattern drawn with it (`PATTERN`, `BackdropPattern`): Realms' veil and its energy (0), paving stones (1), contour lines (2)
  *   or voxel blocks (3); the energy in `uEnergyColor` to `uEnergyGlow`, at `uEnergy`; the veil in the season's hue (`uSeasonVeil`).
  * - Then grey away from the tiles (the distance field, `grayscaleAt`), every cell's border as Realms' fog draws a hex's, and all of
- *   it lit as the board's tops are now against the look's own light (`uLight`: the time of day and the season, `backdropLight`).
+ *   it as bright as the board's tops are now against the look's own light (`uLight`: the time of day, `backdropLight`).
  * Its linear colour: the finish pass tone-maps it as Realms does.
  */
 const BACKDROP_FRAGMENT = /* glsl */ `
@@ -470,7 +474,7 @@ uniform float uGrayFrom;
 uniform float uGrayTo;
 uniform vec3 uSeasonVeil;
 uniform float uSeasonShare;
-uniform vec3 uLight;
+uniform float uLight;
 uniform float uVoxels;
 varying vec2 vBoard;
 ${SQUARE_EDGE_GLSL}
@@ -525,16 +529,15 @@ void main() {
   color = mix(color, veilColor, line * (0.1 + 0.14 * major));
   color += energy * line * major * (0.4 + 0.6 * flow) * uEnergy * 2.0;
 #elif PATTERN == 3
-  // Voxel blocks, \`uVoxels\` a cell's side (the tiles' own forty by default): the mist read at each block's middle, in four
-  // steps; a gap between the blocks where they are large enough on screen to show one.
+  // Voxel blocks, \`uVoxels\` a cell's side (eight by default, five of the tiles' voxels each): the mist read at each block's
+  // middle, in four steps, a gap between the blocks.
   vec2 bp = vBoard * (uVoxels / ${TILE_SIZE.toFixed(1)});
   vec2 block = floor(bp);
   float m = fogMist((block + 0.5) * (${TILE_SIZE.toFixed(1)} / uVoxels) / ${ETERNUM_SCALE.toFixed(6)}, drift);
   float steps = floor(smoothstep(0.18, 0.86, m) * 4.0) / 4.0;
   vec3 color = mix(uGround, veilColor, steps * uMist * uVeilStrength * 1.3);
   vec2 inBlock = abs(fract(bp) - 0.5);
-  float pixel = max(max(fwidth(bp.x), fwidth(bp.y)), 1e-4);
-  float gap = smoothstep(0.5 - pixel * 1.5, 0.5, max(inBlock.x, inBlock.y)) * (1.0 - smoothstep(0.12, 0.35, pixel));
+  float gap = smoothstep(0.5 - max(fwidth(bp.x), 1e-4) * 1.5, 0.5, max(inBlock.x, inBlock.y));
   color = mix(color, uGround, gap * 0.6);
 #else
   // Realms' own: the veil over the ground, its threads along the mist's 0.51 contour.
@@ -552,7 +555,7 @@ void main() {
   color = mix(vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))), color, saturation);
   float d = squareGridEdge(vBoard);
   float border = 1.0 - smoothstep(uLineHalfWidth, max(fwidth(d), 0.001) * 1.2 + uLineHalfWidth, d);
-  // Lit as the board's tops are now (the season and the time of day), against the look's own light.
+  // As bright as the board's tops are now (the time of day), against the look's own light.
   gl_FragColor = vec4(mix(color, uLineColor, border * uLineStrength) * uLight, 1.0);
 }
 `;
@@ -578,7 +581,7 @@ type BackdropMaterial = THREE.ShaderMaterial & {
     uGrayTo: THREE.IUniform<number>;
     uSeasonVeil: THREE.IUniform<THREE.Color>;
     uSeasonShare: THREE.IUniform<number>;
-    uLight: THREE.IUniform<THREE.Color>;
+    uLight: THREE.IUniform<number>;
     uVoxels: THREE.IUniform<number>;
   };
 };
@@ -605,8 +608,8 @@ function createBackdropMaterial(time: { value: number }): BackdropMaterial {
       uGrayTo: { value: 1 },
       uSeasonVeil: { value: new THREE.Color() },
       uSeasonShare: { value: 0 },
-      uLight: { value: new THREE.Color(1, 1, 1) },
-      uVoxels: { value: 40 },
+      uLight: { value: 1 },
+      uVoxels: { value: 8 },
     },
     vertexShader: BACKDROP_VERTEX,
     fragmentShader: BACKDROP_FRAGMENT,
@@ -718,23 +721,23 @@ export function dimAt(from: number, to: number, elapsed: number, ms: number): nu
 }
 
 /**
- * A pixel of the highlight dimmed `dim` of the way (the shader's): its chroma down to `saturation` of itself, its opacity times
- * `opacity`.
+ * A pixel of the highlight at the fillers' opacity (`base`) and dimmed `dim` of the way (the shader's): its chroma down to
+ * `saturation` of itself, its opacity times `base`, then times `opacity` as it dims.
  */
-export function dimmedPixel(rgb: readonly [number, number, number], alpha: number, dim: number, look: Pick<SquareGridSettings["highlight"]["dim"], "saturation" | "opacity">): { rgb: [number, number, number]; alpha: number } {
+export function dimmedPixel(rgb: readonly [number, number, number], alpha: number, dim: number, look: Pick<SquareGridSettings["highlight"]["dim"], "saturation" | "opacity">, base = 1): { rgb: [number, number, number]; alpha: number } {
   const luma = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
   const d = clamp01(dim);
   return {
     rgb: rgb.map((c) => c + (luma + (c - luma) * look.saturation - c) * d) as [number, number, number],
-    alpha: alpha * (1 + (look.opacity - 1) * d),
+    alpha: alpha * base * (1 + (look.opacity - 1) * d),
   };
 }
 
-/** The dim in the overlay materials' shader, after their colour is written (`overlayDepthTest`'s `output`). */
+/** The fillers' opacity and the dim in the overlay materials' shader, after their colour is written (`overlayDepthTest`'s `output`). */
 const DIM_GLSL = /* glsl */ `
   float dimLuma = dot(gl_FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
   gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(vec3(dimLuma), gl_FragColor.rgb, uDimSaturation), uDim);
-  gl_FragColor.a *= mix(1.0, uDimOpacity, uDim);
+  gl_FragColor.a *= uFillerOpacity * mix(1.0, uDimOpacity, uDim);
 `;
 
 /** Realms' roll-in: each new cell grows from 1 % to its scale over 180 ms (ease out), 18 ms after the one before. */
@@ -845,9 +848,10 @@ interface Layer {
   mesh: THREE.InstancedMesh | null;
 }
 
-/** The dim's uniforms, shared by the overlay's materials. */
+/** The fillers' opacity and the dim's uniforms, shared by the overlay's materials. */
 interface DimUniforms {
   [name: string]: THREE.IUniform;
+  uFillerOpacity: { value: number };
   uDim: { value: number };
   uDimSaturation: { value: number };
   uDimOpacity: { value: number };
@@ -869,7 +873,7 @@ function overlayMaterial(depth: OverlayDepth, dim: DimUniforms, additive = false
   }
   material.onBeforeCompile = overlayDepthTest(depth, {
     uniforms: dim,
-    declarations: "uniform float uDim;\nuniform float uDimSaturation;\nuniform float uDimOpacity;",
+    declarations: "uniform float uFillerOpacity;\nuniform float uDim;\nuniform float uDimSaturation;\nuniform float uDimOpacity;",
     output: DIM_GLSL,
   });
   material.customProgramCacheKey = () => "paved-square-grid-overlay";
@@ -907,7 +911,7 @@ export class SquareGridRenderer implements AmbientEffect {
   private readonly logoQuad = new THREE.PlaneGeometry(1, 1);
   private logoTexture: THREE.CanvasTexture | null = null;
   private logoKey = "";
-  private readonly dimUniforms: DimUniforms = { uDim: { value: 0 }, uDimSaturation: { value: 1 }, uDimOpacity: { value: 1 } };
+  private readonly dimUniforms: DimUniforms = { uFillerOpacity: { value: 1 }, uDim: { value: 0 }, uDimSaturation: { value: 1 }, uDimOpacity: { value: 1 } };
   private readonly layers: Record<HighlightLayer, Layer>;
   private readonly glowMaterial: THREE.MeshBasicMaterial;
   private readonly glow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
@@ -981,15 +985,15 @@ export class SquareGridRenderer implements AmbientEffect {
   }
 
   /**
-   * The light of the moment (`backdropLight`) and the season's ground colour (the hemisphere light's, null: the veil's own): the
-   * backdrop is lit as the board, its veil in the season's hue. True when it changed.
+   * The brightness of the moment (`backdropLight`) and the season's ground colour (its day's, null: the veil's own): the backdrop
+   * as bright as the board, its veil in the season's hue. True when it changed.
    */
-  setLight(light: THREE.Color, ground: THREE.Color | null): boolean {
+  setLight(light: number, ground: THREE.Color | null): boolean {
     const u = this.floorMaterial.uniforms;
     this.season = ground && ground.clone();
     const veil = this.seasonVeilNow();
-    if (u.uLight.value.equals(light) && u.uSeasonVeil.value.equals(veil)) return false;
-    u.uLight.value.copy(light);
+    if (u.uLight.value === light && u.uSeasonVeil.value.equals(veil)) return false;
+    u.uLight.value = light;
     u.uSeasonVeil.value.copy(veil);
     return true;
   }
@@ -1156,6 +1160,7 @@ export class SquareGridRenderer implements AmbientEffect {
     this.layers.top.material.color.set(colors.top);
     this.layers.logo.material.color.set(colors.logo);
     this.glowMaterial.color.set(colors.route);
+    this.dimUniforms.uFillerOpacity.value = clamp01(s.highlight.opacity);
     this.dimUniforms.uDimSaturation.value = clamp01(s.highlight.dim.saturation);
     this.dimUniforms.uDimOpacity.value = clamp01(s.highlight.dim.opacity);
     this.syncLogo();

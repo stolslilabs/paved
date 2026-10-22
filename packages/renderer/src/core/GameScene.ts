@@ -743,27 +743,36 @@ export class GameScene {
 
   /**
    * The lights an upward surface of the board takes now (`SurfaceLight`): the ambient, the sky light (its sky colour), the key and
-   * the fill (by their direction). A light turned off gives none.
+   * the fill (by their direction). A light turned off gives none. With the cycle's `sun`, the key is the whole sun: while the
+   * cycle runs, the key light holds only its share of it (the rest is its twin's, `drawDayNight`'s crossfade).
    */
-  private sceneLights(): SurfaceLight[] {
+  private sceneLights(sun?: { direction: [number, number, number]; intensity: number }): SurfaceLight[] {
     const out: SurfaceLight[] = [];
     const target = this.directionalTargetObject?.position ?? new THREE.Vector3();
     if (this.ambientLight?.visible) out.push({ color: this.ambientLight.color.clone(), intensity: this.ambientLight.intensity });
     if (this.hemisphereLight?.visible) out.push({ color: this.hemisphereLight.color.clone(), intensity: this.hemisphereLight.intensity });
     for (const light of [this.directionalLight, this.fillLight]) {
-      if (light?.visible) out.push({ color: light.color.clone(), intensity: light.intensity, direction: light.position.clone().sub(target) });
+      if (!light?.visible) continue;
+      const whole = sun && light === this.directionalLight;
+      out.push({
+        color: light.color.clone(),
+        intensity: whole ? sun.intensity : light.intensity,
+        direction: whole ? new THREE.Vector3(...sun.direction) : light.position.clone().sub(target),
+      });
     }
     return out;
   }
 
   /**
-   * The square grid's backdrop lit as the board is now (the time of day, the season: `backdropLight` against the look's lights),
-   * its veil in the season's hue while the cycle draws (the sky light's ground colour). A frame when it changed.
+   * The square grid's backdrop as bright as the board is now (the time of day: `backdropLight` against the look's lights), its
+   * veil in the season's hue while the cycle draws (its day's ground colour, steady through the day and the night:
+   * `seasonGroundAt`). A frame when it changed.
    */
   private syncGridLight(): void {
     if (!backdropShown(this.settings.squareGrid)) return;
-    const ground = this.dayNightOn && this.hemisphereLight ? this.hemisphereLight.groundColor : null;
-    if (this.squareGrid.setLight(backdropLight(this.sceneLights(), this.lookLights), ground)) this.requestRender();
+    const frame = this.dayNightOn && this.dayNight ? this.dayNight.dayNightFrame(this.dayNightSeasons(), this.settings.dayNight.brightnessFloor) : null;
+    const ground = frame && new THREE.Color().setRGB(...this.dayNight!.seasonGroundAt(frame.point), THREE.LinearSRGBColorSpace);
+    if (this.squareGrid.setLight(backdropLight(this.sceneLights(frame?.sun), this.lookLights), ground)) this.requestRender();
   }
 
   /**
