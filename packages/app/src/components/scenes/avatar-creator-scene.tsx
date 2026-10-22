@@ -19,6 +19,11 @@ import { TopBar } from "../containers/top-bar";
 export interface AvatarCreator {
   /** The avatar saved on chain: every part at 0 when none is. */
   saved: Avatar;
+  /**
+   * No avatar is saved on chain yet (look 0): the menus show the initial, so the draft can be saved as it is, the default
+   * head included (it is a look of its own once saved).
+   */
+  unsaved?: boolean;
   /** The avatar being made: Save writes it. */
   draft: Avatar;
   /** `Setup.account(player_id).cobbles`. */
@@ -125,9 +130,11 @@ export function AvatarCreatorScene({ creator, status, part, onPick, onBuy, onSav
 type CreatorProps = Pick<AvatarCreatorSceneProps, "part" | "onPick" | "onBuy" | "onSave" | "onRandomise" | "onReset" | "onDismissRefusal" | "onBuyCobbles"> & { creator: AvatarCreator };
 
 function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, onDismissRefusal, onBuyCobbles }: CreatorProps) {
-  const { saved, draft, balance, offers, now, save = "idle", buying, refusal, refusalDetail } = creator;
+  const { saved, unsaved = false, draft, balance, offers, now, save = "idle", buying, refusal, refusalDetail } = creator;
   const parts = partsInUse(offers);
   const changed = !sameAvatar(draft, saved);
+  // What Save would write differs from the chain: a changed draft, or any draft while none is saved.
+  const savable = changed || unsaved;
   const unusable = unusableParts(draft, offers);
   const saving = save === "saving";
   const busy = saving || buying != null;
@@ -149,7 +156,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
         <p className="text-center text-xs text-muted-foreground">Drag the head to turn it.</p>
         <Actions
           className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur desktop:static desktop:w-full desktop:border-0 desktop:bg-transparent desktop:p-0 desktop:backdrop-blur-none"
-          canSave={changed && unusable.length === 0 && !busy}
+          canSave={savable && unusable.length === 0 && !busy}
           changed={changed}
           save={save}
           busy={busy}
@@ -157,7 +164,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
           onRandomise={onRandomise}
           onReset={onReset}
         />
-        {changed && unusable.length > 0 && (
+        {savable && unusable.length > 0 && (
           <p className="text-center text-xs text-muted-foreground">
             Buy the {partNames(draft, unusable)} to save this avatar, or pick a free one.
           </p>

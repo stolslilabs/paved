@@ -101,6 +101,19 @@ describe("AvatarCreatorScene", () => {
     expect(onDismissRefusal).toHaveBeenCalledOnce();
   });
 
+  it("no avatar saved yet: the default head can be saved as it is; once saved, Save waits for a change", async () => {
+    const onSave = vi.fn();
+    const { unmount } = render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.none} onSave={onSave} />));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledOnce();
+    // Nothing to go back to: the draft is the default.
+    expect(screen.getByRole("button", { name: "Back to the saved avatar" })).toBeDisabled();
+    unmount();
+    const creator = { ...AVATAR_CREATOR.none.creator, unsaved: false };
+    render(wrap(<AvatarCreatorScene creator={creator} part="skin" />));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
   it("only the parts in use are tabs", () => {
     render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.fewParts} />));
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Skin tone", "Hair colour", "Eyes", "Eyebrows"]);

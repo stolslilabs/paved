@@ -478,10 +478,10 @@ export const AVATAR_CREATOR = {
   savedNow: { creator: { ...creator, save: "saved" }, part: "skin" },
   /** A purchase refused (the price changed since the swatch was read). */
   refused: { creator: { ...tryingHelm, refusal: "This item's price changed: check the new price and buy again. Nothing was sent." }, part: "headwear" },
-  /** No avatar saved yet: the default one, every part at 0. */
-  none: { creator: { ...creator, saved: DEFAULT_AVATAR_LOOK, draft: DEFAULT_AVATAR_LOOK, balance: 0 }, part: "skin" },
+  /** No avatar saved yet: the default one, every part at 0, which Save writes as it is. */
+  none: { creator: { ...creator, saved: DEFAULT_AVATAR_LOOK, unsaved: true, draft: DEFAULT_AVATAR_LOOK, balance: 0 }, part: "skin" },
   /** Four parts in use (the owner's count): the other six tabs are not shown. */
-  fewParts: { creator: { ...creator, offers: offersOf(AVATAR_ITEMS, [], 4), saved: DEFAULT_AVATAR_LOOK, draft: DEFAULT_AVATAR_LOOK } },
+  fewParts: { creator: { ...creator, offers: offersOf(AVATAR_ITEMS, [], 4), saved: DEFAULT_AVATAR_LOOK, unsaved: true, draft: DEFAULT_AVATAR_LOOK } },
   /** A guest: Connect. */
   guest: { status: { kind: "guest" } },
   /** The reads on their way. */

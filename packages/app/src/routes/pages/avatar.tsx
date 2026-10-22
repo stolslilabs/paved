@@ -47,6 +47,8 @@ export default function Page() {
       ? {
           // Both read from the catalogue: neither is null once it is in.
           saved: saved!,
+          // Look 0: nothing saved yet, so the default head can be saved as it is.
+          unsaved: catalogue.look === 0n,
           draft: draft!,
           balance: catalogue.balance,
           offers: avatarOffers(catalogue, now),

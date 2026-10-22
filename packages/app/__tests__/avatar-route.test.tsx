@@ -109,6 +109,17 @@ describe("/avatar: the creator", () => {
     expect(screen.getByRole("radio", { name: "Long, free" })).toHaveAttribute("aria-checked", "true");
   });
 
+  it("a player with no avatar saved can save the default head as it is", async () => {
+    const c = chain();
+    open(c, "/avatar");
+    const save = await screen.findByRole("button", { name: "Save" }, { timeout: 5000 });
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+    expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
+    expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(encodeAvatar(DEFAULT_AVATAR));
+    expect(c.writer.sent).toEqual([`set ${encodeAvatar(DEFAULT_AVATAR)}`]);
+  });
+
   it("Edit avatar in the profile sheet opens the creator on the saved avatar", async () => {
     const c = chain();
     c.views.avatarPlayer(PLAYER_ID).look = encodeAvatar({ ...DEFAULT_AVATAR, hair: 2 });
