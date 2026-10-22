@@ -47,7 +47,7 @@ function OfferLine({ offer }: { offer: AvatarOffer }) {
 export function AvatarSwatches({ part, draft, offers, buying, onPick }: AvatarSwatchesProps) {
   const names = AVATAR_PARTS[part];
   return (
-    <div role="radiogroup" aria-label={PART_TITLES[part]} className="grid grid-cols-4 gap-2 tablet:grid-cols-6 desktop:grid-cols-5">
+    <div role="radiogroup" aria-label={PART_TITLES[part]} className="grid grid-cols-3 gap-2 mobile:grid-cols-4 tablet:grid-cols-6 desktop:grid-cols-5">
       {names.map((name, id) => {
         const offer = offers[id] ?? { kind: "off" };
         const selected = draft[part] === id;
@@ -66,7 +66,8 @@ export function AvatarSwatches({ part, draft, offers, buying, onPick }: AvatarSw
             )}
           >
             <AvatarStill avatar={withPart(draft, part, id)} size={SWATCH_PX} className={cn(offer.kind === "off" && "opacity-50")} />
-            <span className="w-full truncate text-center text-xs font-medium">{name}</span>
+            {/* The name wraps (WRAP360): a two-word name takes two lines on the narrowest phone rather than an ellipsis. */}
+            <span className="w-full text-center text-xs leading-tight font-medium text-balance wrap-break-word">{name}</span>
             <OfferLine offer={offer} />
             {/* The purchase on its way: the swatch dims and pulses (Buy shows the spinner). */}
             {buying === id && <span className="absolute inset-0 animate-pulse rounded-xl bg-background/60 motion-reduce:animate-none" aria-hidden />}

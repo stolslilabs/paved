@@ -66,6 +66,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^(scenes-village|containers-villageboard)--/, kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
+  // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with
+  // the edge hint, the open tab kept in view, by design.
+  { story: /^scenes-avatarcreator--/, kind: "scroll", element: 'div[scroll-region] "Skin tone', why: "part tabs scroller" },
   // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design
   // (a ScrollRegion since NO-SCROLLBARS, #609).
   { story: /^direction-[a-f]--palette$/, kind: "scroll", element: 'div[scroll-region] "Pair', why: "contrast table scroller" },
