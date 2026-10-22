@@ -8,8 +8,9 @@ The owner's decisions of 2026-10-20 bind:
 - crowns as in Clash of Clans instead of ELO: the rating is the crown count;
 - an attacked village gets an 8-hour shield, and attacking before it ends drops it.
 
-Everything else is a proposal. The open points of section 8 were posted for the owner on #639 (2026-10-20); the code
-builds on the proposals until the owner answers there, and follows the answers when they come.
+The open points of section 8 were posted for the owner on #639 (2026-10-20) and decided on 2026-10-21 (the owner's
+comment on #639): the crown constants reverse-engineered from Clash of Clans (section 6), "Next" at 1 Cobble, the
+shields and the NPC villages as proposed, and the matchmaker as composable components with small scopes (section 11).
 
 ## 1. Summary
 
@@ -134,27 +135,109 @@ through `Setup.spend_cobbles` (a new call, gated by an allowlist of spenders tha
 A drawn opponent stays in the pool until the attack starts: two attackers may draw the same village; the first to
 start shields it, and the second's start fails (`'Matchmaker: opponent shielded'`), after which its `search()` is free.
 
-## 6. Crowns
+## 6. Crowns (reverse-engineered from Clash of Clans, owner decision of 2026-10-21)
 
-| Constant | Proposed | Role |
+The owner's decision 1 on #639: the constants are not invented; they reproduce what Clash of Clans (CoC) does with
+trophies, scaled to crowns. A crown is a trophy: both start at 0, never go negative and are the only rating, so the scale
+is 1 to 1 and the curves below are CoC's own, gap for gap.
+
+### 6.1 Sources
+
+| # | Source | What it gives |
 |---|---|---|
-| `OFFER_BASE` | 25 | The offer at an even gap |
-| `OFFER_DIVISOR` | 20 | One crown of offer per 20 crowns of gap |
-| `OFFER_MIN`, `OFFER_MAX` | 10, 40 | The offer's bounds |
-| `LOSS_DIVISOR`, `LOSS_MIN`, `LOSS_MAX` | 4, 2, 10 | The 0-star cost: `offer / 4`, bounded 2 to 10 |
-| `NEXT_PRICE` | 1 Cobble | Each re-draw |
-| `ATTACK_SHIELD` | 8 hours | Owner decision |
-| `INITIAL_SHIELD` | 3 days | As in Clash of Clans |
-| `BUCKET_WIDTH`, `BUCKET_COUNT` | 100, 251 | |
-| `RELEASES_PER_ATTACK` | 2 | Expired shields put back at each attack start |
+| S1 | Clash of Clans Wiki, "Trophies", revision 607892 (2024-11-15), the last before the 2025 changes (read through the wiki's `api.php`, `action=parse&oldid=607892`) | Even trophies: 30 to win, 20 lost on a failed attack. Defender about 600 higher: 58 to win, 1 lost. At most 59 won (from a gap of about 750) and 39 lost. Minimum offer 1 at low trophies since the December 2015 update (6 in Legend League), so a 1-star on a 1-trophy offer still wins 1. Below 1,000 trophies losses are smaller than gains (trophy inflation) |
+| S2 | Clash of Clans Wiki, "Multiplayer Battles", revision 609038 (2024-12-03) | "For each star that you earn, you receive one-third of the available Trophies"; 0 stars is a loss |
+| S3 | Supercell forum, "TROPHY OFFERS: Formulas discovered!!" (thread 342724, `forum.supercell.com/showthread.php/342724`), a fit to several hundred observed offers, "never off by more than 1 trophy". The forum is offline now; the equations are quoted from a search engine's copy of the thread | Win `Y = -0.63599 + 60.07066 / (1 + 0.991798 e^(0.00576 x))`; loss `Y = 39.0907 - 39.0619 / (1 + 0.993 e^(0.0059 x))`, `x` the attacker's trophies minus the defender's; offers from 0 to 59 |
+| S4 | Supercell, "Welcome to the Clash Anytime update" release notes (2025-03-24) and the wiki's current "Trophies" page | A flatter curve from March 2025: at most 44 won; even trophies 22 to win and 7 lost; at most 14 lost on a failed attack; a 2-star worth 1/3 |
+| S5 | Supercell support, "Ranked Battles & Trophy Calculation", and the wiki's "Ranked Battles" (October 2025) | Since October 2025, no gap at all: up to 40 per attack by stars and destruction; the defender gets the rest |
 
-- **Offer** `= clamp(25 + (defender - attacker) / 20, 10, 40)`: a stronger defender is worth more.
-- **Win** (1 to 3 stars): the attacker gains `offer × stars / 3`, taken from the defender, at most the defender's
-  crowns. Crowns are conserved between players.
-- **Loss** (0 stars): the attacker loses `clamp(offer / 4, 2, 10)`, at most its crowns, given to the defender.
+**Which curve.** The owner asked for the offer and the loss by trophy gap, so S5 (no gap) is out. S1, S2 and S3 describe
+the same curve, the one CoC ran from 2013 to March 2025, and agree on every anchor (table of 6.3: 30 and 19 at an even
+gap, against S1's 30 and 20, the one-trophy rounding S3 states). S4 is the same shape with smaller constants, a 2025 change
+made because the update removed training times and attacks became more frequent. The sources do not disagree on a curve;
+they describe two eras. Paved takes the 2013 to 2025 curve, whose star split (1/3 per star, S2) is the one the matchmaker
+already used. The 2025 constants (44 and 14) are the alternative if the owner wants fewer crowns per attack.
+
+**The shape.** Both fits are Elo's logistic with Elo's 400-point scale: `0.00576` is `ln 10 / 400` (0.005756), and
+`0.0059` is within the source's truncation of it. So the offer is about `60 x (1 - E)` and the 0-star cost about
+`39 x E`, where `E = 1 / (1 + 10^((defender - attacker) / 400))` is the attacker's expected score. A stronger defender
+offers more and costs less to fail.
+
+### 6.2 The formulas
+
+With `gap = defender's crowns - attacker's crowns`, both fixed at the draw:
+
+- **Offer** (3 stars) `= clamp(round(-0.63599 + 60.07066 / (1 + 0.991798 e^(-0.00576 gap))), 1, 59)`: S3's win fit,
+  bounded by S1 (59 at most; 1 at least, the low leagues' minimum: leagues are #644's, so the floor is the lowest league's).
+- **Stars**: 1, 2 or 3 stars win `ceil(offer x stars / 3)` (S2: a third per star; rounded up, as S1's 1-star on a 1-trophy
+  offer wins 1).
+- **0-star cost** `= clamp(round(39.0907 - 39.0619 / (1 + 0.993 e^(-0.0059 gap))), 0, 39)`: S3's loss fit, the exponent as
+  the source gives it, bounded by S1 (39 at most; S3's floor 0, reached from a gap of +746).
+- **Who pays**: a win's crowns come from the defender, a 0-star cost goes to the defender (S1).
+- `round` is half up. Both curves are monotone in steps of exactly one crown, so the contract holds them as two tables of
+  breakpoints (58 for the offer, 39 for the cost), each the first gap of a new value, with no floating point: the offer is
+  1 plus the number of offer breakpoints at or below the gap, the cost 39 minus the number of cost breakpoints at or below
+  it. The tests pin every row of 6.3 and every breakpoint.
+
+**Not reproduced: CoC's inflation below 1,000 trophies** (S1: losses smaller than gains there, and a player at 0 losing
+nothing while the attacker still wins). Paved keeps crowns conserved between players: a win takes at most what the
+defender has, a cost at most what the attacker has (so a village at 0 loses nothing, as in CoC). Crowns enter only through
+the NPC villages of the cold start (section 8, point 4). This is a property of the settlement, not of the curves.
+
+Offer breakpoints (gap at which the offer becomes 2, 3, ..., 59):
+-574, -504, -453, -412, -378, -349, -323, -299, -278, -258, -239, -222, -206, -190, -175, -160, -146, -133, -120, -107,
+-94, -82, -70, -58, -46, -35, -23, -11, 0, 12, 23, 35, 47, 59, 71, 83, 95, 108, 121, 134, 147, 161, 176, 191, 207, 224,
+241, 260, 280, 302, 326, 353, 383, 418, 461, 514, 590, 719.
+
+Cost breakpoints (gap at which the cost becomes 38, 37, ..., 0):
+-709, -536, -449, -389, -342, -304, -271, -242, -215, -191, -168, -147, -127, -107, -88, -70, -52, -34, -17, 0, 18, 35,
+53, 71, 89, 108, 128, 148, 170, 192, 217, 244, 273, 307, 346, 394, 456, 549, 746.
+
+### 6.3 The table by crown gap
+
+| Gap (defender - attacker) | Offer (3 stars) | 2 stars | 1 star | 0-star cost |
+|---:|---:|---:|---:|---:|
+| -750 or less | 1 | 1 | 1 | 39 |
+| -600 | 1 | 1 | 1 | 38 |
+| -500 | 3 | 2 | 1 | 37 |
+| -400 | 5 | 4 | 2 | 36 |
+| -300 | 8 | 6 | 3 | 33 |
+| -200 | 14 | 10 | 5 | 30 |
+| -150 | 17 | 12 | 6 | 28 |
+| -100 | 21 | 14 | 7 | 25 |
+| -50 | 25 | 17 | 9 | 22 |
+| 0 | 30 | 20 | 10 | 19 |
+| +50 | 34 | 23 | 12 | 17 |
+| +100 | 38 | 26 | 13 | 14 |
+| +150 | 42 | 28 | 14 | 11 |
+| +200 | 45 | 30 | 15 | 9 |
+| +300 | 50 | 34 | 17 | 6 |
+| +400 | 54 | 36 | 18 | 3 |
+| +500 | 56 | 38 | 19 | 2 |
+| +600 | 58 | 39 | 20 | 1 |
+| +750 or more | 59 | 40 | 20 | 0 |
+
+Against S1's anchors: even gap 30 / 19 (S1: 30 / 20, S3's one-crown rounding), +600 58 / 1 (S1: 58 / 1), 59 from +719
+(S1: "750 or more", a round figure), 39 at most (S1).
+
+### 6.4 The settlement
+
+- **Win** (1 to 3 stars): the attacker gains `ceil(offer x stars / 3)`, taken from the defender, at most the defender's
+  crowns.
+- **Loss** (0 stars): the attacker loses the cost fixed at the draw, at most its crowns, given to the defender.
 - **Crowns are never negative and never overflow**: every amount is also at most what the receiver can still hold under
   `u32`'s bound. A new village starts at 0.
-- **The season reset** (crowns above a threshold brought down) is #644's: the library exposes `set_crowns` for it.
+- **The season reset** (crowns above a threshold brought down) is #644's: `set_crowns` is there for it.
+
+| Constant | Value | Role |
+|---|---|---|
+| `OFFER_MIN`, `OFFER_MAX` | 1, 59 | The offer's bounds (S1) |
+| `COST_MAX` | 39 | The 0-star cost's bound (S1); its floor is 0 (S3) |
+| `NEXT_PRICE` | 1 Cobble | Each re-draw (owner decision 2) |
+| `ATTACK_SHIELD` | 8 hours | Owner decisions of 2026-10-20 and 3 |
+| `INITIAL_SHIELD` | 3 days | Owner decision 3 (as in CoC) |
+| `BUCKET_WIDTH`, `BUCKET_COUNT` | 100, 251 | |
+| `RELEASES_PER_ATTACK` | 2 | Expired shields put back at each attack start |
 
 ## 7. Shields
 
@@ -174,19 +257,18 @@ start shields it, and the second's start fails (`'Matchmaker: opponent shielded'
 - **Settlement** (`settle(attacker, stars)`, by an operator, #643) moves the crowns. A shielded defender keeps its queue
   place; only its crowns change, and its bucket is computed when it comes back.
 
-## 8. Open points (posted on #639 for the owner)
+## 8. Open points (posted on #639 for the owner, decided on 2026-10-21)
 
-1. **Crown constants**: the offer `25 + gap / 20` bounded 10 to 40; the 0-star cost `offer / 4` bounded 2 to 10, given
-   to the defender.
-2. **"Next" price**: 1 Cobble per re-draw. It needs a new `Setup.spend_cobbles(player_id, amount)` for allowlisted
+1. **Crown constants**: decided on 2026-10-21: reverse-engineered from Clash of Clans (section 6).
+2. **"Next" price**: decided: 1 Cobble per re-draw (it caps the attacks per day unless the player pays). It needs a new `Setup.spend_cobbles(player_id, amount)` for allowlisted
    spenders: Cobbles are spent only in `Setup` today.
-3. **Shields**: 8 hours from the attack's start; a 3-day initial shield for new players, in a second queue.
-4. **NPC villages for the cold start**: the Story levels, placed by the owner at 0 to 290 crowns (buckets 0 to 2). An NPC
+3. **Shields**: decided as proposed: 8 hours from the attack's start; a 3-day initial shield for new players, in a second queue.
+4. **NPC villages for the cold start**: decided as proposed: the Story levels, placed by the owner at 0 to 290 crowns (buckets 0 to 2). An NPC
    stays in the pool, is never shielded, and its crowns never change: a win against one mints the attacker's crowns, a
    loss burns the attacker's cost. The NPC's address is its id (1, 2, …): no account can be deployed at such an address.
    The owner removes them when the pool is large enough. #643 maps an NPC id to its Story level.
-5. **Shape**: its own system (proposed), not a component of #643's attack system. The attack system (an operator) calls
-   it; the size of #643's system stays its own.
+5. **Shape**: decided otherwise: more components with smaller scopes (crowns, shields, buckets), embedded by the
+   systems that need them, rather than one large system (section 11).
 
 ## 9. Size, cost and the client
 
