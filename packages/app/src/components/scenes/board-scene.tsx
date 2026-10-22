@@ -39,6 +39,10 @@ const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 // The deck sheet (#540) too: its own chunk, loaded at the first tap on the tile stack.
 const loadDeckSheet = () => import("../containers/deck-sheet");
 const PREFETCH_AFTER_MS = 3000;
+// The stack beside the dial (#682): it keeps to the right of the dial and a gap, its row wrapping (Discard and queue above
+// the stack) where the two do not fit side by side, under about 370 px. 6rem is the two side insets, the 72 px dial and
+// the gap; 5.5rem the same with the 64 px dial under 390 px. From tablet up the stack's own 20rem keeps it clear.
+const STACK_BESIDE_DIAL = "max-w-[min(20rem,calc(100vw-5.5rem))] min-[24.375rem]:max-w-[min(20rem,calc(100vw-6rem))]";
 
 const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story" };
 
@@ -222,32 +226,34 @@ export function BoardScene(props: BoardSceneProps) {
           coach={props.coach}
           className="pointer-events-auto w-full max-w-2xl"
         />
-        {/* The season dial (#607) hangs under the HUD's right end, beside the notices; from desktop up, in the board's top
-            right corner, clear of the HUD. */}
-        <div className="flex w-full max-w-2xl items-start gap-2">
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
-            {props.storageDisabled && (
-              <Notice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
-                This browser refuses local storage: this game is not saved and ends if the page closes.
-              </Notice>
-            )}
-            {!props.storageDisabled && props.saveDropped && (
-              <Notice tone="warning" title="Last move not saved" className="pointer-events-auto w-full max-w-2xl">
-                This browser refused to save the last move: if the page closes, the game resumes before it.
-              </Notice>
-            )}
-            {props.notices}
-            <ClosingFeed closings={props.lastScored} className="mt-1" />
-          </div>
-          {props.seasonWheel && (
-            <div data-bubble-avoid data-dial-place data-coach={props.coach === "wheel" ? "wheel" : undefined} className={cn("pointer-events-auto shrink-0 desktop:absolute desktop:top-4 desktop:right-4", props.coach === "wheel" && COACH_RING)}>
-              <Suspense fallback={<span aria-hidden className="block size-18 tablet:size-24" />}>
-                <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
-              </Suspense>
-            </div>
-          )}
-        </div>
+        {props.storageDisabled && (
+          <Notice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
+            This browser refuses local storage: this game is not saved and ends if the page closes.
+          </Notice>
+        )}
+        {!props.storageDisabled && props.saveDropped && (
+          <Notice tone="warning" title="Last move not saved" className="pointer-events-auto w-full max-w-2xl">
+            This browser refused to save the last move: if the page closes, the game resumes before it.
+          </Notice>
+        )}
+        {props.notices}
+        <ClosingFeed closings={props.lastScored} className="mt-1" />
       </div>
+
+      {/* The season dial (#607) at the board's bottom left (#682), on the stack's bottom line, read-only boards too. */}
+      {props.seasonWheel && (
+        <div
+          data-bubble-avoid
+          data-dial-place
+          data-coach={props.coach === "wheel" ? "wheel" : undefined}
+          className={cn("pointer-events-auto absolute bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 tablet:bottom-4 tablet:left-4", props.coach === "wheel" && COACH_RING)}
+        >
+          {/* The dial's size (`DIAL_SIZE`, written out: the element is the lazy chunk's). */}
+          <Suspense fallback={<span aria-hidden className="block size-16 min-[24.375rem]:size-18 tablet:size-24" />}>
+            <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
+          </Suspense>
+        </div>
+      )}
 
       {!props.readOnly && (
         <div className="pointer-events-none absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col items-end gap-2 tablet:right-4 tablet:bottom-4">
@@ -286,6 +292,7 @@ export function BoardScene(props: BoardSceneProps) {
             onSurrender={mode === "challenge" ? () => setSurrendering(true) : undefined}
             surrenderPending={surrendering && !surrenderDialog}
             coach={props.coach}
+            className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
           />
         </div>
       )}

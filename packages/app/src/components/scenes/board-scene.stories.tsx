@@ -262,8 +262,7 @@ function WithDial(args: BoardSceneProps) {
 }
 
 /**
- * The season dial on the board (#607): under the HUD's right end on a phone, in the board's top right corner from desktop
- * up. Wired as the game wires it (`useBoardSettings`), the cycle ten times as fast; a tap goes auto, summer, autumn, winter,
+ * The season dial on the board (#607), at its bottom left on every screen size (#682), on the stack's bottom line. Wired as the game wires it (`useBoardSettings`), the cycle ten times as fast; a tap goes auto, summer, autumn, winter,
  * spring, auto (the Day and night setting off starts it on summer).
  */
 export const SeasonDial: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
@@ -282,6 +281,27 @@ export const StoryCoachWheel: Story = {
   },
   render: (args) => <WithDial {...args} />,
 };
+
+/** A dial that stays put, for the boards without a scene (the plan view). */
+const STILL_WHEEL: BoardSceneProps["seasonWheel"] = { state: "summer", onNext: fn(), read: null };
+
+/**
+ * #682: the dial beside the widest hand, the stack's Discard and the two coming tiles. They sit side by side from 375 px
+ * (the dial 64 px under 390 px); at 320 and 360 px the Discard and the queue go above the stack rather than overlap the dial.
+ */
+export const SeasonDialQueue: Story = {
+  args: { ...BOARD.queue, ...inHand(HAND.orientation, null), hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE } },
+  render: (args) => <WithDial {...args} />,
+};
+
+/** #682: the plan view (no WebGL), a slot chosen: the bubble centred above the stack, clear of the dial. */
+export const SeasonDialBubble: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN), hand: { ...inHand(HAND.orientation, CHOSEN).hand, coming: QUEUE }, seasonWheel: STILL_WHEEL },
+  render: (args) => <BoardScene {...args} />,
+};
+
+/** #682: a read-only board (spectating, a final board) keeps the dial at its bottom left, the stack alone at the right. */
+export const SeasonDialReadOnly: Story = { args: { ...ReadOnly.args, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
 
 /** A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces ringed. */
 export const StoryCoachDeck: Story = {

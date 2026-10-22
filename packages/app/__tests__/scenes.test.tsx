@@ -166,6 +166,24 @@ describe("Board", () => {
     expect(screen.getByText("Placing…")).toBeInTheDocument();
   });
 
+  it("the season dial (#682): at the bottom left, out of the top HUD, the stack kept clear of it; read-only boards too", async () => {
+    const wheel = { state: "summer" as const, onNext: vi.fn(), read: null };
+    const { unmount } = render(wrap(<BoardScene {...BOARD.queue} seasonWheel={wheel} coach="wheel" />));
+    const dial = await screen.findByTestId("season-wheel");
+    const place = dial.closest<HTMLElement>("[data-dial-place]")!;
+    expect(place).toHaveAttribute("data-bubble-avoid");
+    expect(place).toHaveAttribute("data-coach", "wheel");
+    expect(place.className).toMatch(/\bleft-2\b/);
+    expect(place.className).toMatch(/bottom-\[max\(0\.5rem,env\(safe-area-inset-bottom\)\)\]/);
+    // Not in the top HUD block, nor in the stack's.
+    expect(place.parentElement?.className).toMatch(/\brelative\b/);
+    expect(screen.getByRole("region", { name: "Your tile" }).className).toMatch(/calc\(100vw-6rem\)/);
+    unmount();
+    render(wrap(<BoardScene {...BOARD.placing} readOnly seasonWheel={wheel} />));
+    expect((await screen.findByTestId("season-wheel")).closest("[data-dial-place]")).not.toBeNull();
+    expect(screen.getByRole("region", { name: "Deck" })).toBeInTheDocument();
+  });
+
   it("shows the tile in hand with the board's art, turned to its orientation", () => {
     render(wrap(<BoardScene {...BOARD.placing} />));
     const chip = within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / });

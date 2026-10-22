@@ -6,7 +6,8 @@ import { Icon } from "../ui/icon";
 export const SEASON_ICON = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const;
 
 // The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`): a soft gold rim (issue 634), a band of paving stones, the disc of the four
-// seasons' skies, a hub at the centre. The dial is 72 px across on a phone and 96 px from tablet up.
+// seasons' skies, a hub at the centre. The dial is 72 px across on a phone, 64 px on the narrowest (under 390 px, so the
+// stack and its coming tiles fit beside it at the board's bottom, #682) and 96 px from tablet up.
 
 /** The disc's radius: inside the band of stones. */
 const DISC = 40;
@@ -17,8 +18,10 @@ const STONES = 24;
 const HUB = 12;
 /** Where the season icons sit, from the centre, in the middle of their season's day. */
 export const ICON_RADIUS = 26.5;
-/** The dial's width in px on a phone; the icons' size there (`Icon size="xs"`). */
-export const DIAL_PX = 72;
+/** The dial's size: 64 px under 390 px wide, 72 px on other phones, 96 px from tablet up (its placeholder's too). */
+export const DIAL_SIZE = "size-16 min-[24.375rem]:size-18 tablet:size-24";
+/** The dial's smallest width in px, on the narrowest phones; the icons' size there (`Icon size="xs"`). */
+export const DIAL_PX = 64;
 export const ICON_PX = 12;
 
 /** A point at `r` from the centre, `deg` clockwise from the top. */
@@ -113,7 +116,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
       onClick={onNext}
       className={cn("group relative flex shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
-      <span aria-hidden className="relative block size-18 rounded-full shadow-lg tablet:size-24">
+      <span aria-hidden className={cn("relative block rounded-full shadow-lg", DIAL_SIZE)}>
         {/* The disc and the stones, turning; the icons ride on it and stay upright. */}
         <span data-dial-disc className="absolute inset-0 transition-transform ease-linear motion-reduce:transition-none" style={{ transform: `rotate(${turned}deg)`, ...turn }}>
           <svg viewBox="0 0 100 100" className="size-full">
