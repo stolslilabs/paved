@@ -190,6 +190,6 @@ describe("the Training board's plan view, placing a tile", () => {
       return el!;
     });
     expect(flash.className).toMatch(/motion-reduce:duration-150/);
-    await waitFor(() => expect(document.querySelector("[data-confirm]")).toBeNull(), { timeout: confirmHoldMs() + 1000 });
+    await waitFor(() => expect(document.querySelector("[data-confirm]")).toBeNull(), { timeout: confirmHoldMs() + slow(1000) });
   }, slow(30_000));
 });

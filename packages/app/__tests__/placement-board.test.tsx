@@ -265,7 +265,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
     await waitFor(() => expect(ring()).toBe("holding"), { timeout: slow(5000) });
     expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true });
-    await waitFor(() => expect(place).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    await waitFor(() => expect(place).toHaveBeenCalledOnce(), { timeout: HOLD_MS + slow(1000) });
     expect(ring()).toBe("done");
     expect(press(slot.x, slot.y, "released")).toBe(true);
     await wait(HOLD_MS);
@@ -372,7 +372,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     await waitFor(() => expect(ring()).toBe("holding"));
     expect(onPress).toHaveBeenCalledWith({ x: CENTER - 1, y: CENTER });
     expect(canvas.props!.hover).toMatchObject({ ...WEST, placed: true });
-    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + slow(1000) });
     expect(press(WEST.x, WEST.y, "released")).toBe(true);
   }, slow(20_000));
 
@@ -386,7 +386,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     await act(async () => {});
     press(EAST.x, EAST.y, "down");
     await waitFor(() => expect(ring()).toBe("holding"), { timeout: slow(5000) });
-    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + slow(1000) });
     expect(press(EAST.x, EAST.y, "released")).toBe(true);
     expect(onConfirm).toHaveBeenCalledOnce();
   }, slow(20_000));
