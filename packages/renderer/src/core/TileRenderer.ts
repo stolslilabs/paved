@@ -42,6 +42,13 @@ const STRATEGY_THICKNESS = 0.1;
  * a model is scaled to the tile's size. The placeholder quad (`createPlaceholder`) lies there.
  */
 export const PLACEHOLDER_HEIGHT = 0.4 * (TILE_SIZE / 4);
+/** Scratch values of `place` (a tile's turn and lean), so placing a tile allocates nothing. */
+const UP = new THREE.Vector3(0, 1, 0);
+const LEAN_AXIS = new THREE.Vector3();
+const LEAN_TURN = new THREE.Quaternion();
+const LEAN_TILT = new THREE.Quaternion();
+/** A faded tile's opacity (`TileRenderData.faded`): the app's tile stack, its tile in hand on a cell of the board. */
+export const FADED_OPACITY = 0.35;
 
 /** A tile's rotation about the vertical axis, by orientation: the model's, the plan view's image, the placeholder's. */
 const ROTATION: Record<string, number> = {
@@ -187,7 +194,7 @@ export class TileRenderer {
    * Each tile drawn, with the model it was drawn from (a plan key or a variant's path; null in the plan view, and for the
    * placeholder quad drawn while its model is on its way), and the plan and orientation it was drawn in.
    */
-  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; model: string | null; plan: number; orientation: number }> = new Map();
+  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; faded: boolean; model: string | null; plan: number; orientation: number }> = new Map();
   private assets: AssetLoader;
   private strategyMode = false;
   private squareSize = TILE_SIZE;
@@ -210,6 +217,8 @@ export class TileRenderer {
   private tileTypes: Map<string, THREE.Group> = new Map();
   private pendingMaterials: Map<THREE.Material, THREE.Material> = new Map();
   private pendingFallbackMaterial: THREE.Material | null = null;
+  /** The see-through copy of each tile material (`TileRenderData.faded`), shared by the faded tiles. */
+  private fadedMaterials: Map<THREE.Material, THREE.Material> = new Map();
   /** The ghost's copy of each tile material, per role (`ghostMaterial`): the feature highlight held off, tinted. */
   private ghostMaterials: Record<GhostRole, Map<THREE.Material, THREE.MeshStandardMaterial>> = { hand: new Map(), confirm: new Map() };
   /** The tint uniforms of each role, shared by its materials; `applyLooks` writes them. */
@@ -369,7 +378,32 @@ export class TileRenderer {
     this.structureUniforms.uBoardInverse.value.copy(this.tileGroup.matrixWorld).invert();
   }
 
-  /** Draws the tiles given; true when it added or removed one (a tile whose model is not in yet is added later). */
+  /**
+   * Puts a tile's mesh on its cell, `lift` units above it at its `scale`, turned by `yaw` then leaning (`lean`), squashed to
+   * `thickness` (its model's height is `userData.height`, set by `placedModel`); true when that moved it.
+   */
+  private place(mesh: THREE.Object3D, tile: TileRenderData): boolean {
+    const x = tile.worldX * this.squareSize;
+    const y = tile.lift ?? 0;
+    const z = tile.worldZ * this.squareSize;
+    const scale = tile.scale ?? 1;
+    const height = mesh.userData.height as number | undefined;
+    const scaleY = tile.thickness !== undefined && height ? tile.thickness / height : scale;
+    const turn = LEAN_TURN.setFromAxisAngle(UP, tile.yaw ?? 0);
+    if (tile.lean) {
+      // Its up leans toward `toward` about the horizontal axis across it (up × the direction).
+      LEAN_AXIS.set(Math.cos(tile.lean.toward), 0, -Math.sin(tile.lean.toward));
+      turn.premultiply(LEAN_TILT.setFromAxisAngle(LEAN_AXIS, tile.lean.angle));
+    }
+    const { position: p, scale: s } = mesh;
+    if (p.x === x && p.y === y && p.z === z && s.x === scale && s.y === scaleY && mesh.quaternion.equals(turn)) return false;
+    p.set(x, y, z);
+    s.set(scale, scaleY, scale);
+    mesh.quaternion.copy(turn);
+    return true;
+  }
+
+  /** Draws the tiles given; true when it added, removed or moved one (a tile whose model is not in yet is added later). */
   updateTiles(tiles: TileRenderData[]): boolean {
     const currentKeys = new Set<string>();
     let changed = false;
@@ -381,14 +415,19 @@ export class TileRenderer {
 
       const existing = this.tileMeshes.get(key);
       const pending = !!tile.pending;
+      const faded = !!tile.faded;
       // A model not in yet keeps the model drawn (a variant until its base model comes, SKIN-BASE); with none drawn, the
       // placeholder quad (null) until one comes, so a tile is never empty.
       const model = this.strategyMode ? null : (this.modelOf(tile.plan, tile.x, tile.y, tile.game_id) ?? existing?.model ?? null);
 
       // Skip if already drawn as given: same pending state, model, plan and orientation (the hand's tile, `TileView`, is
       // one tile turned in place: its model stays, its orientation changes)
-      const drawn = existing && existing.pending === pending && existing.model === model;
-      if (drawn && existing.plan === tile.plan && existing.orientation === tile.orientation) continue;
+      const drawn = existing && existing.pending === pending && existing.faded === faded && existing.model === model;
+      if (drawn && existing.plan === tile.plan && existing.orientation === tile.orientation) {
+        // Only its lift or size changed (the tile stack moves its tiles): the same mesh, moved.
+        if (this.place(existing.mesh, tile)) changed = true;
+        continue;
+      }
 
       // Pending state, model, plan or orientation changed: the new mesh replaces the old one in this call, so no frame shows
       // the cell empty or both at once (a tile owns no geometry or material)
@@ -406,20 +445,35 @@ export class TileRenderer {
               child.material = this.pendingMaterial(child.material);
             }
           });
+        } else if (faded) {
+          // See-through, untinted, without its outlines (they would stand out over the faded faces).
+          const faces: THREE.Mesh[] = [];
+          mesh.traverse((child) => {
+            if (!(child instanceof THREE.Mesh)) return;
+            if (isOutline(child)) child.visible = false;
+            else faces.push(child);
+          });
+          // As the ghost's: a translucent model sorts none of its own faces, so a depth-only copy is drawn first and the
+          // colour pass keeps only the nearest face (depth LessEqual, no depth write): no inner face shows through.
+          for (const face of faces) {
+            face.material = this.fadedMaterial(face.material);
+            face.renderOrder = GHOST_ORDER;
+            const depth = new THREE.Mesh(face.geometry, (this.depthMaterial ??= createDepthMaterial()));
+            depth.renderOrder = GHOST_ORDER - 1;
+            depth.castShadow = false;
+            depth.receiveShadow = false;
+            face.add(depth);
+          }
         }
 
-        mesh.position.set(
-          tile.worldX * this.squareSize,
-          0,
-          tile.worldZ * this.squareSize
-        );
+        this.place(mesh, tile);
         // The new mesh in, then the old one out: the cell is never empty, and no frame is drawn between the two
         this.tileGroup.add(mesh);
         if (existing) {
           this.drops.end(key);
           this.tileGroup.remove(existing.mesh);
         }
-        this.tileMeshes.set(key, { mesh, pending, model, plan: tile.plan, orientation: tile.orientation });
+        this.tileMeshes.set(key, { mesh, pending, faded, model, plan: tile.plan, orientation: tile.orientation });
         changed = true;
       }
     }
@@ -514,6 +568,34 @@ export class TileRenderer {
       emissiveIntensity: 0.5,
     });
     return this.pendingFallbackMaterial;
+  }
+
+  /**
+   * The see-through copy of a tile material (`TileRenderData.faded`): its colours untinted, its alpha times `FADED_OPACITY`
+   * in the shader (the tile patch writes its own alpha, so `opacity` would not reach it, as the ghost's), made once per material.
+   * It writes no depth: the tile's depth-only copy, drawn first, keeps its nearest faces (`updateTiles`).
+   */
+  private fadedMaterial(material: THREE.Material | THREE.Material[]): THREE.Material | THREE.Material[] {
+    if (Array.isArray(material)) return material.map((m) => this.fadedMaterial(m) as THREE.Material);
+    let faded = this.fadedMaterials.get(material);
+    if (!faded) {
+      const patch = material.customProgramCacheKey() === "paved-tile" ? material.onBeforeCompile : null;
+      faded = material.clone();
+      faded.transparent = true;
+      faded.depthWrite = false;
+      // `Material.copy` leaves the shader patch out: the faded copy runs it (the water, the lights), then fades.
+      faded.onBeforeCompile = (shader, renderer) => {
+        patch?.call(material, shader, renderer);
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <tonemapping_fragment>",
+          `gl_FragColor.a *= ${FADED_OPACITY.toFixed(3)};\n  #include <tonemapping_fragment>`,
+        );
+      };
+      const programKey = patch ? "paved-tile-faded" : "paved-faded";
+      faded.customProgramCacheKey = () => programKey;
+      this.fadedMaterials.set(material, faded);
+    }
+    return faded;
   }
 
   /** The model of a plan type or a skin's variant, its materials tuned once; tiles are clones that share them. */
@@ -1038,6 +1120,8 @@ export class TileRenderer {
       // Wrap in container so grid positioning doesn't overwrite centering offset
       const container = new THREE.Group();
       container.add(model);
+      // Its height, for a tile drawn squashed to a thickness (`place`).
+      container.userData.height = scaledBox.max.y - scaledBox.min.y;
       return container;
     } catch {
       return null;
@@ -1451,6 +1535,8 @@ export class TileRenderer {
     this.pendingMaterials.clear();
     this.pendingFallbackMaterial?.dispose();
     this.pendingFallbackMaterial = null;
+    this.fadedMaterials.forEach((material) => material.dispose());
+    this.fadedMaterials.clear();
     for (const cache of Object.values(this.ghostMaterials)) {
       cache.forEach((material) => material.dispose());
       cache.clear();

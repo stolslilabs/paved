@@ -139,14 +139,16 @@ const TONE_MAPPING_DEFINES: Record<ToneMappingMode, string | null> = {
 
 /**
  * The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs), the backdrop when
- * the day and night cycle draws one (`backdrop`), and the overlay and the underlay while they are drawn (`OverlayPass`); the
- * underlay takes the backdrop's place.
+ * the day and night cycle draws one (`backdrop`), the overlay and the underlay while they are drawn (`OverlayPass`; the
+ * underlay takes the backdrop's place), and the premultiplied output of a scene over the page (`transparent`,
+ * `RendererSettings.transparent`; a backdrop or an underlay covers the page, so either wins).
  */
-export function finishDefines(look: LookSettings, ao: boolean, backdrop = false, overlay = false, underlay = false): Record<string, string> {
+export function finishDefines(look: LookSettings, ao: boolean, backdrop = false, overlay = false, underlay = false, transparent = false): Record<string, string> {
   const defines: Record<string, string> = {};
   if (backdrop && !underlay) defines.BACKDROP = "";
   if (overlay) defines.OVERLAY = "";
   if (underlay) defines.UNDERLAY = "";
+  if (transparent && !backdrop && !underlay) defines.PREMULTIPLIED = "";
   const tone = TONE_MAPPING_DEFINES[look.toneMapping.mode];
   if (tone) defines[tone] = "";
   if (ao) defines.AO = "";
@@ -197,6 +199,11 @@ const FinishShader = {
 
     void main() {
       vec4 color = texture2D(tDiffuse, vUv);
+      #ifdef PREMULTIPLIED
+        // Over the page: the scene was cleared to transparent, so its colour is premultiplied by its alpha (a see-through
+        // face, an edge). The tone map, the grade and the transfer take the colour itself; it is premultiplied again at the end.
+        color.rgb /= max(color.a, 1e-4);
+      #endif
       #ifdef UNDERLAY
         // What the scene covers: the underlay shows through the rest.
         float covered = clamp(color.a, 0.0, 1.0);
@@ -242,6 +249,9 @@ const FinishShader = {
         color.rgb = color.rgb * (1.0 - clamp(overlay.a, 0.0, 1.0)) + overlay.rgb;
       #endif
       gl_FragColor = sRGBTransferOETF(color);
+      #ifdef PREMULTIPLIED
+        gl_FragColor.rgb *= clamp(gl_FragColor.a, 0.0, 1.0);
+      #endif
       #ifdef BACKDROP
         float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
         gl_FragColor.rgb += (dither - 0.5) / 255.0 * uncovered;
@@ -264,11 +274,12 @@ export class FinishPass extends Pass {
     backdrop = false,
     overlay: THREE.Texture | null = null,
     underlay: { texture: THREE.Texture; exposure: number } | null = null,
+    transparent = false,
   ) {
     super();
     this.material = new THREE.RawShaderMaterial({
       name: "FinishShader",
-      defines: finishDefines(look, ao !== null, backdrop, overlay !== null, underlay !== null),
+      defines: finishDefines(look, ao !== null, backdrop, overlay !== null, underlay !== null, transparent),
       uniforms: {
         tDiffuse: { value: null },
         tAo: { value: ao },

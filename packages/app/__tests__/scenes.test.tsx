@@ -178,7 +178,7 @@ describe("Board", () => {
     expect(place.className).toMatch(/bottom-\[max\(0\.5rem,env\(safe-area-inset-bottom\)\)\]/);
     // Not in the top HUD block, nor in the stack's: a child of the board itself.
     expect(place.parentElement?.className).toMatch(/\bh-dvh\b/);
-    expect(screen.getByRole("region", { name: "Your tile" }).className).toMatch(/calc\(100vw-6rem\)/);
+    expect(screen.getByRole("region", { name: "Your tile" }).className).toMatch(/calc\(100vw-8\.25rem\)/);
     unmount();
     const readOnly = render(wrap(<BoardScene {...BOARD.placing} readOnly seasonWheel={wheel} />));
     expect(readOnly.container.querySelector("[data-dial-place]")).not.toBeNull();
