@@ -140,6 +140,8 @@ export class CameraController {
   private boardBounds: BoardBounds | null = null;
   /** The last frame given (`frame`): `reset()` comes back to it. */
   private framed: { target: THREE.Vector3; distance: number } | null = null;
+  /** The frame for the viewport of now (`setFrameSource`): `reset()` asks it first, so a resize since the last frame counts. */
+  private frameSource: (() => { target: { x: number; z: number }; distance: number } | null) | null = null;
   /** A drag, pinch or wheel under way (`start` to `end` of the controls). */
   private interacting = false;
   private moved = false;
@@ -212,6 +214,14 @@ export class CameraController {
     this.controls.target.copy(center);
     this.camera.position.copy(center).add(tiltedOffset(distance, PLAY_DEFAULT_POLAR_ANGLE));
     this.camera.lookAt(center);
+  }
+
+  /**
+   * Where `reset()` goes, computed when it is called (the scene's frame for its current size and settings); a null answer
+   * falls back to the last frame given.
+   */
+  setFrameSource(source: (() => { target: { x: number; z: number }; distance: number } | null) | null): void {
+    this.frameSource = source;
   }
 
   update(): boolean {
@@ -307,10 +317,11 @@ export class CameraController {
     this.camera.lookAt(this.controls.target);
   }
 
-  /** Back to the last frame (`frame`), or to the opening position when the board was never framed. */
+  /** Back to the frame of now (`setFrameSource`), else the last frame (`frame`), else the opening position. */
   reset(): void {
-    if (this.framed) {
-      this.frame(this.framed.target, this.framed.distance);
+    const frame = this.frameSource?.() ?? this.framed;
+    if (frame) {
+      this.frame(frame.target, frame.distance);
       return;
     }
     this.controls.reset();

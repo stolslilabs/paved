@@ -153,6 +153,8 @@ export class GameScene {
   private framedTiles = false;
   /** The frame settings the camera was last framed with: a change frames it again (`setSettings`). */
   private fitSettingsKey = "";
+  /** Whether the frame was on (`cameraFit.enabled`) at the last `fitCamera`: turning it on or off moves the camera at once. */
+  private fitEnabled: boolean | null = null;
   /** The theme of each plan (`setSkins`), kept for the tile renderer `init` makes. */
   private skins: TileSkins = NO_SKINS;
   private renderProfile: RenderProfile = "play";
@@ -304,6 +306,8 @@ export class GameScene {
     this.controls = cameraControllerFactory(surface);
     this.camera = this.controls.camera;
     this.applyCameraLimits();
+    // `reset()` frames the board for the size and settings of the moment, not those of the last frame.
+    this.webCamera()?.setFrameSource(() => this.openingFrame());
     // The opening frame (CAMERA-FIT): the tiles given so far, or the starter's floor until they come.
     this.fitCamera();
 
@@ -1053,8 +1057,12 @@ export class GameScene {
     this.outlineTilePx = Number.NaN;
     this.logOutlinePath();
     this.applyCameraLimits();
-    // New frame settings (the story's floor, insets) apply at once while the player has not moved the camera.
-    if (!this.webCamera()?.userMoved && JSON.stringify(this.settings.cameraFit) !== this.fitSettingsKey) this.fitCamera();
+    // New frame settings (the story's floor, insets) apply at once while the player has not moved the camera. Turning the
+    // frame on or off applies at once whatever the player did: on, the board's frame; off, today's opening.
+    if (JSON.stringify(this.settings.cameraFit) !== this.fitSettingsKey) {
+      if (this.fitEnabled !== null && this.settings.cameraFit.enabled !== this.fitEnabled) this.resetCamera();
+      else if (!this.webCamera()?.userMoved) this.fitCamera();
+    }
     this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
     this.applyLook();
@@ -1193,6 +1201,31 @@ export class GameScene {
     this.fitCamera(true);
   }
 
+  /**
+   * Where the camera opens now, in play mode: the board's frame with `cameraFit` on, else today's opening, `OPENING_DISTANCE`
+   * over the starter (within the zoom limits). Null in another mode or on a hidden surface.
+   */
+  private openingFrame(): { target: { x: number; z: number }; distance: number } | null {
+    const controls = this.webCamera();
+    if (!controls || !this.surface || controls.getMode() !== "play") return null;
+    const { width, height } = this.surface.getSize();
+    if (!(width > 0) || !(height > 0)) return null;
+    if (this.settings.cameraFit.enabled) return this.getCameraFit();
+    return { target: { x: 0, z: 0 }, distance: Math.min(OPENING_DISTANCE, cameraDistanceLimits(this.settings.camera).max) };
+  }
+
+  /** Back to where the camera opens now (`openingFrame`, through `CameraController.reset`). */
+  private resetCamera(): void {
+    const controls = this.webCamera();
+    if (!controls) return;
+    this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
+    this.fitEnabled = this.settings.cameraFit.enabled;
+    controls.reset();
+    this.framedTiles = this.settings.cameraFit.enabled && this.latestTiles.length > 0;
+    this.notifyCamera();
+    this.requestRender();
+  }
+
   /** The web controller (`CameraController`), the one that frames; null before `init` or for another controller. */
   private webCamera(): CameraController | null {
     return this.controls instanceof CameraController ? this.controls : null;
@@ -1204,6 +1237,7 @@ export class GameScene {
     if (!controls || !this.surface) return;
     const { width, height } = this.surface.getSize();
     this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
+    this.fitEnabled = this.settings.cameraFit.enabled;
     if (!(width > 0) || !(height > 0)) return;
     if (!force && (!this.settings.cameraFit.enabled || controls.getMode() !== "play")) return;
     const fit = this.getCameraFit();

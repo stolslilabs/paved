@@ -155,6 +155,41 @@ describe("GameScene camera fit (CAMERA-FIT, #678)", () => {
     expectFrame(h.view(), fit);
   });
 
+  it("`reset` frames the screen of now, after the player moved the camera and the screen changed", async () => {
+    const h = harness();
+    h.scene.updateTiles([tile(0, 0), tile(2, -1)]);
+    await h.scene.init({ surface: h.surface, shadows: false });
+    const cells = { minX: 0, maxX: 2, minZ: -1, maxZ: 0 };
+    h.drag();
+    Object.assign(h.size, { width: 1440, height: 900 });
+    h.resize();
+    // The resize keeps the player's view; the reset frames the board for 1440 x 900, not the phone's frame.
+    h.scene.controls.reset();
+    const fit = computeCameraFit({ cells, width: 1440, height: 900 });
+    expectFrame(h.view(), fit);
+    expect(h.scene.getCameraFit()!.distance).toBeCloseTo(fit.distance, 6);
+  });
+
+  it("turning the frame off goes back to today's opening over the starter, and on frames the board again", async () => {
+    const h = harness();
+    h.scene.updateTiles([tile(0, 0), tile(2, -1)]);
+    await h.scene.init({ surface: h.surface, shadows: false });
+    const fit = computeCameraFit({ cells: { minX: 0, maxX: 2, minZ: -1, maxZ: 0 }, width: 375, height: 812 });
+    expectFrame(h.view(), fit);
+    h.scene.setSettings({ cameraFit: { enabled: false } });
+    expect(h.view().distance).toBeCloseTo(OPENING_DISTANCE, 6);
+    expect(h.view().target.toArray()).toEqual([0, 0, 0]);
+    // Off, `reset` stays at today's opening.
+    h.drag();
+    h.scene.controls.reset();
+    expect(h.view().distance).toBeCloseTo(OPENING_DISTANCE, 6);
+    expect(h.view().target.toArray()).toEqual([0, 0, 0]);
+    // On again, even after a drag: the board's frame.
+    h.drag();
+    h.scene.setSettings({ cameraFit: { enabled: true } });
+    expectFrame(h.view(), fit);
+  });
+
   it("applies new frame settings at once (the story's floor), and does nothing with the frame off", async () => {
     const h = harness({ width: 1440, height: 900 });
     h.scene.updateTiles([tile(0, 0)]);
