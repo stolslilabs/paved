@@ -107,14 +107,14 @@ describe("the square grid's settings", () => {
       seasonShare: 0.6,
     });
     const { highlight } = DEFAULT_SQUARE_GRID_SETTINGS;
-    // The app's brown, then its green twice (amber-700, meadow-400 of theme.css), bottom to top; the P white.
-    expect(highlight.colors).toEqual({ route: "#914e02", middle: "#6eca6f", top: "#6eca6f", logo: "#ffffff" });
+    // The app's brown, green and white (amber-700, meadow-400 of theme.css), bottom to top; the P white, off.
+    expect(highlight.colors).toEqual({ route: "#914e02", middle: "#6eca6f", top: "#ffffff", logo: "#ffffff" });
     const theme = readFileSync(fileURLToPath(new URL("../../app/src/styles/theme.css", import.meta.url)), "utf8");
-    for (const [token, color] of [["amber-700", highlight.colors.route], ["meadow-400", highlight.colors.middle], ["meadow-400", highlight.colors.top]]) {
+    for (const [token, color] of [["amber-700", highlight.colors.route], ["meadow-400", highlight.colors.middle]]) {
       expect(theme).toContain(`--color-${token}: `);
       expect(theme.match(new RegExp(`--color-${token}: oklch\\([^)]*\\); /\\* (#[0-9A-F]{6}) \\*/`))![1]!.toLowerCase()).toBe(color);
     }
-    expect(highlight.logo).toMatchObject({ enabled: true, text: "P" });
+    expect(highlight.logo).toMatchObject({ enabled: false, text: "P" });
     expect(highlight.logo.font).toContain('"Almendra"');
     expect(highlight).toMatchObject({ style: "twist", twist: 12, opacity: 0.4, pulse: true, rollout: true, dim: { saturation: 0.15, opacity: 0.4, ms: 200 } });
   });
@@ -394,7 +394,7 @@ describe("the square grid renderer", () => {
     expect(grid.step(1)).toBe(false);
   });
 
-  it("draws three squares on each lit cell, in the grid's plane, brown, green and green, the middle and the top turned opposite ways", () => {
+  it("draws three squares on each lit cell, in the grid's plane, brown, green and white, the middle and the top turned opposite ways", () => {
     const grid = gridOf({ backdrop: { enabled: false }, highlight: { rollout: false } });
     grid.setSlots([{ x: 2, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1, legal: false }]);
     expect(grid.stats()).toMatchObject({ route: 2, middle: 2, top: 2 });
@@ -416,7 +416,7 @@ describe("the square grid renderer", () => {
     const colorOf = (mesh: THREE.InstancedMesh) => (mesh.material as THREE.MeshBasicMaterial).color;
     expect(colorOf(route!).equals(new THREE.Color("#914e02"))).toBe(true);
     expect(colorOf(middle!).equals(new THREE.Color("#6eca6f"))).toBe(true);
-    expect(colorOf(top!).equals(new THREE.Color("#6eca6f"))).toBe(true);
+    expect(colorOf(top!).equals(new THREE.Color("#ffffff"))).toBe(true);
     const o = layerOpacities(0, 0.5);
     expect([route, middle, top].map((m) => (m!.material as THREE.MeshBasicMaterial).opacity)).toEqual([o.route, o.middle, o.top]);
     // No canvas here: no logo.
@@ -424,7 +424,7 @@ describe("the square grid renderer", () => {
     expect(grid.group.getObjectsByProperty("isInstancedMesh", true)).toEqual([]);
   });
 
-  it("draws Paved's P at the middle of each lit cell, square to the board, from its font once the font is in", async () => {
+  it("draws Paved's P (off by default) at the middle of each lit cell, square to the board, from its font once the font is in", async () => {
     const drawn: Array<{ text: string; font: string }> = [];
     const ctx = {
       font: "",
@@ -438,7 +438,12 @@ describe("the square grid renderer", () => {
     let fontIn: () => void = () => {};
     const load = vi.fn(() => new Promise<void>((resolve) => (fontIn = resolve)));
     vi.stubGlobal("document", { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }), fonts: { load } });
-    const grid = gridOf({ backdrop: { enabled: false }, highlight: { rollout: false } });
+    const off = gridOf({ backdrop: { enabled: false }, highlight: { rollout: false } });
+    off.setSlots([{ x: 0, y: 1 }]);
+    expect(off.stats().logo).toBe(0);
+    expect(drawn).toHaveLength(0);
+    off.dispose();
+    const grid = gridOf({ backdrop: { enabled: false }, highlight: { rollout: false, logo: { enabled: true } } });
     const onChange = vi.fn();
     grid.onChange = onChange;
     grid.setSlots([{ x: 0, y: 1 }]);

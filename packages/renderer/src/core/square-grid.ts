@@ -23,9 +23,9 @@ import { TILE_SIZE } from "./types";
  *   ground's colour, a line `lines.halfWidth` each side of the edge, antialiased over 1.2 px, mixed in at 42 %.
  * - The highlight (its `managers/highlight-hex-manager.ts`, the overlay of an army's allowed moves), on every playable slot as
  *   Realms lights an allowed hex (each the end of its own path): rounded squares stacked in the cell, a big one (Realms' route
- *   fill), a middle one turned the other way, a small one on top (Realms' endpoint), the big one in the app's brown, the two
- *   others in its green, with Paved's white "P" in its display font at the middle. They breathe on Realms' pulse, on the pending tile's clock (`update`'s phase: the two
- *   breathe together), and the top square keeps its opacity over the others (`layerOpacities`); a new set rolls in cell by cell,
+ *   fill), a middle one turned the other way, a small one on top (Realms' endpoint), in the app's brown, green and white (Paved's
+ *   "P" in its display font at the middle, off by default). They breathe on Realms' pulse, on the pending tile's clock (`update`'s
+ *   phase: the two breathe together), and the top square keeps its opacity over the others (`layerOpacities`); a new set rolls in cell by cell,
  *   the first with a flash. Its shapes have a few styles (`HighlightStyle`). Unlike Realms', it lies in the grid's plane
  *   (`HIGHLIGHT_Y`). None on a slot no rotation fits, none under the tile in hand (its preview or the tile placed:
  *   `highlightsOf`), and once a tile is placed the others fade (`highlight.dim`). It is drawn as given, untouched by the look's
@@ -91,8 +91,8 @@ export interface SquareGridSettings {
   highlight: {
     enabled: boolean;
     /**
-     * The squares' colours, bottom to top, and the logo's, CSS hex: the app's brown (amber-700) under its green (meadow-400, its
-     * success) twice, the logo white.
+     * The squares' colours, bottom to top, and the logo's, CSS hex: the app's brown (amber-700), its green (meadow-400, its
+     * success) and white; the logo white.
      */
     colors: { route: string; middle: string; top: string; logo: string };
     /**
@@ -101,7 +101,10 @@ export interface SquareGridSettings {
      */
     style: HighlightStyle;
     twist: number;
-    /** Paved's "P" at the middle: its text, its font (the app's display font), its size (a share of the cell) and opacity. */
+    /**
+     * Paved's "P" at the middle (off by default): its text, its font (the app's display font), its size (a share of the cell)
+     * and opacity.
+     */
     logo: { enabled: boolean; text: string; font: string; scale: number; opacity: number };
     /** The fillers' opacity, a share of their layers' own (Realms'): the whole highlight, its logo and its flash included. */
     opacity: number;
@@ -177,10 +180,10 @@ export const DEFAULT_SQUARE_GRID_SETTINGS: SquareGridSettings = {
   },
   highlight: {
     enabled: true,
-    colors: { route: "#914e02", middle: "#6eca6f", top: "#6eca6f", logo: "#ffffff" },
+    colors: { route: "#914e02", middle: "#6eca6f", top: "#ffffff", logo: "#ffffff" },
     style: "twist",
     twist: 12,
-    logo: { enabled: true, text: "P", font: '700 192px "Almendra", Georgia, serif', scale: 0.42, opacity: 0.5 },
+    logo: { enabled: false, text: "P", font: '700 192px "Almendra", Georgia, serif', scale: 0.42, opacity: 0.5 },
     opacity: 0.4,
     pulse: true,
     rollout: true,
