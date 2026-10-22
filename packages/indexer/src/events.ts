@@ -142,7 +142,8 @@ export type Decoded =
       /**
        * A claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an achievement (`period` 0), 3 a star
        * of a Story level paid by `Story` (`id` `(campaign_id << 8) | level_id`, `period` the star, 1 to 3;
-       * `docs/architecture/story-mode.md`). `balance`: the player's cobbles after it.
+       * `docs/architecture/story-mode.md`), 4 a league's bonus and 5 a season's reward paid by `Matchmaker` (`id` the
+       * league, `period` the season; `docs/architecture/leagues.md`). `balance`: the player's cobbles after it.
        */
       name: "CobblesClaimed";
       playerId: bigint;
@@ -721,7 +722,7 @@ export function decode(
       // key player_id; data kind, id, period, cobbles, balance
       shape(name, keys, data, 1, 5);
       const kind = small(data[0], 8, "kind");
-      if (kind !== 1 && kind !== 2 && kind !== 3) throw new DecodeError(`${name}: kind ${kind}, expected 1, 2 or 3`);
+      if (kind < 1 || kind > 5) throw new DecodeError(`${name}: kind ${kind}, expected 1 to 5`);
       return {
         name,
         playerId: felt(keys[1]),

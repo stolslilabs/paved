@@ -187,6 +187,28 @@ describe("the stars of Story levels (kind 3, docs/architecture/story-mode.md)", 
   });
 });
 
+describe("the leagues' bonuses and season rewards (kinds 4 and 5, docs/architecture/leagues.md)", () => {
+  test("each is a claim on the same running balance, once per league and season", async () => {
+    const { queries, head, indexer } = await open((node) =>
+      node.mine(
+        [ev.cobblesClaimed(A, 4, 1, 1, 5, 5), ev.cobblesClaimed(A, 4, 2, 1, 5, 10)],
+        // season 1 closed in Bronze II, then Bronze II reached again in season 2
+        [ev.cobblesClaimed(A, 5, 2, 1, 10, 20), ev.cobblesClaimed(A, 4, 2, 2, 5, 25)],
+      ),
+    );
+    expect(indexer.status).toBe("ok");
+    expect(queries.playerCobbles(head, PA)).toMatchObject({ cobbles: 25 });
+    expect(queries.playerClaims(head, PA, DAY).claims).toEqual([]);
+  });
+
+  test("a league's bonus paid twice in a season halts", async () => {
+    await halts(
+      (node) => node.mine([ev.cobblesClaimed(A, 4, 1, 1, 5, 5)], [ev.cobblesClaimed(A, 4, 1, 1, 5, 10)]),
+      /league 1, period 1.*already claimed/,
+    );
+  });
+});
+
 describe("the ledger halts on what the chain would not do", () => {
   test("a second claim of the same quest and period, or achievement", async () => {
     await halts((node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)], [ev.cobblesClaimed(A, 1, 1, DAY, 5, 10)]), /already claimed/);

@@ -70,8 +70,17 @@ export function deploymentHash(
 }
 
 const DAY_SECONDS = 86400;
-/** What a `CobblesClaimed` of each kind pays for: 1 a quest, 2 an achievement, 3 a star of a Story level. */
-const CLAIM_SUBJECTS: Record<number, string> = { 1: "quest", 2: "achievement", 3: "story star" };
+/**
+ * What a `CobblesClaimed` of each kind pays for: 1 a quest, 2 an achievement, 3 a star of a Story level, 4 a league's
+ * bonus, 5 a season's reward (#644).
+ */
+const CLAIM_SUBJECTS: Record<number, string> = {
+  1: "quest",
+  2: "achievement",
+  3: "story star",
+  4: "league",
+  5: "season",
+};
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -173,7 +182,8 @@ const SCHEMA = `
     PRIMARY KEY (block, tx, idx)
   );
   CREATE INDEX IF NOT EXISTS cobble_amounts_id ON cobble_amounts (subject, id, block, tx, idx);
-  -- CobblesClaimed: a claim of a quest (kind 1: period is its day or week) or an achievement (kind 2, period 0), once per
+  -- CobblesClaimed: a claim of a quest (kind 1: period is its day or week) or an achievement (kind 2, period 0), a Story star
+  -- (kind 3), a league's bonus or a season's reward (kinds 4 and 5, #644: id the league, period the season), once per
   -- (player, kind, id, period); balance is the player's cobbles after it.
   CREATE TABLE IF NOT EXISTS cobble_claims (
     block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
