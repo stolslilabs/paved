@@ -12,8 +12,9 @@ use paved::components::seasonable::{
     ISeasonable, SeasonClock, SeasonClockPacking, SeasonableComponent,
 };
 use paved::matchmaker::leagues::{
-    LEAGUE_COUNT, LEGEND, MIN_SEASON_ATTACKS, MIN_SEASON_LENGTH, RESET_CROWNS, UNRANKED, bonus_of,
-    floor_of, league_of, reset, reward_of, season_of, season_start,
+    LEAGUE_COUNT, LEGEND, MIN_SEASON_ATTACKS, MIN_SEASON_LENGTH, MISSIONS_COUNT_NPC,
+    POOL_CROWNS_CAP, RESET_CROWNS, SEASON_LENGTH, UNRANKED, bonus_of, floor_of, league_of, reset,
+    reward_of, season_of, season_start,
 };
 use paved::systems::matchmaker::Matchmaker;
 use snforge_std::start_cheat_block_timestamp_global;
@@ -68,6 +69,17 @@ fn test_league_table_pins_floors_bonuses_and_rewards() {
     assert_eq!(LEGEND, LEAGUE_COUNT - 1);
     assert_eq!(floor_of(LEGEND), RESET_CROWNS);
     assert_eq!(league_of(core::num::traits::Bounded::<u32>::MAX), LEGEND);
+}
+
+#[test]
+fn test_proposal_defaults_are_pinned() {
+    // The "LEAGUES proposal for the owner" (docs/architecture/leagues.md, section 9), until #644
+    // validates or amends it
+    assert_eq!(SEASON_LENGTH, 28 * DAY);
+    assert_eq!(RESET_CROWNS, 5000);
+    assert_eq!(MIN_SEASON_ATTACKS, 5);
+    assert!(!MISSIONS_COUNT_NPC);
+    assert_eq!(POOL_CROWNS_CAP, RESET_CROWNS);
 }
 
 #[test]

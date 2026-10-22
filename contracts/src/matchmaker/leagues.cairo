@@ -5,8 +5,10 @@
 //! of a time.
 //!
 //! The table is Clash of Clans' leagues before the 2025 update, one crown per trophy, the scale of
-//! the matchmaker's crown curves (`paved::matchmaker::crowns`). The amounts are the note's
-//! proposals (section 9), each at most 255 so a credit fits `Setup`'s `CobblesClaimed`.
+//! the matchmaker's crown curves (`paved::matchmaker::crowns`). Every value below is a default of
+//! the note's "LEAGUES proposal for the owner" (section 9, posted on #644), waiting for the owner
+//! to validate or amend it: an amendment is a change of one constant. The amounts are each at most
+//! 255 so a credit fits `Setup`'s `CobblesClaimed`.
 
 /// The leagues: 0 Unranked, 1 to 21 Bronze III to Titan I (seven groups of three), 22 Legend.
 pub const LEAGUE_COUNT: u8 = 23;
@@ -18,6 +20,14 @@ pub const RESET_CROWNS: u32 = 5000;
 pub const MIN_SEASON_ATTACKS: u16 = 5;
 /// The shortest season the owner may set: one day.
 pub const MIN_SEASON_LENGTH: u64 = 86400;
+/// The season length the deployment sets (`set_season_clock`): 28 days, four of `Setup`'s weeks.
+pub const SEASON_LENGTH: u64 = 28 * 86400;
+/// Whether an attack on an NPC village counts for the PvP missions: no, so a second account cannot
+/// farm them alone against the NPCs.
+pub const MISSIONS_COUNT_NPC: bool = false;
+/// The most crowns a village is listed at in the matchmaker's pool: every Legend village shares
+/// one bucket, as Legend is one pool in Clash of Clans, and the reset never moves a bucket.
+pub const POOL_CROWNS_CAP: u32 = RESET_CROWNS;
 
 /// The floor of leagues 1 to 22, in crowns (section 4).
 const LEAGUE_FLOORS: [u32; 22] = [

@@ -163,7 +163,7 @@ pub mod Matchmaker {
         ATTACK_SHIELD, INITIAL_SHIELD, QUEUE_ATTACK, QUEUE_INITIAL, ShieldableComponent,
     };
     use paved::matchmaker::crowns::{Settlement, cost_of, offer_of};
-    use paved::matchmaker::leagues::{RESET_CROWNS, league_of};
+    use paved::matchmaker::leagues::{MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, league_of};
     use paved::systems::setup::{
         CLAIM_LEAGUE, CLAIM_SEASON, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
         ISetupSpendDispatcher, ISetupSpendDispatcherTrait,
@@ -474,10 +474,13 @@ pub mod Matchmaker {
                 .write_match(
                     attacker, Match { opponent: Zero::zero(), offer: 0, cost: 0, started: false },
                 );
-            // [Interaction] The Cobbles owed, then the PvP missions' tasks, in `Setup`
+            // [Interaction] The Cobbles owed, then the PvP missions' tasks (an attack on an NPC
+            // only if `MISSIONS_COUNT_NPC`), in `Setup`
             self.pay(credits);
-            ISetupLeagueDispatcher { contract_address: self.setup.read() }
-                .report_pvp(attacker.into(), stars);
+            if !npc || MISSIONS_COUNT_NPC {
+                ISetupLeagueDispatcher { contract_address: self.setup.read() }
+                    .report_pvp(attacker.into(), stars);
+            }
             outcome
         }
 
@@ -620,14 +623,14 @@ pub mod Matchmaker {
         }
     }
 
-    /// The crowns a village is listed at in the pool (#644): at most `RESET_CROWNS`, so every
-    /// village of Legend shares its bucket. The season reset changes only crowns above
-    /// `RESET_CROWNS`, so it never changes a bucket: a village not yet rolled into the current
-    /// season is already listed where its rolled crowns would put it, and the draw never reads a
-    /// stale bucket (`docs/architecture/leagues.md`, section 5).
+    /// The crowns a village is listed at in the pool (#644): at most `POOL_CROWNS_CAP`
+    /// (`RESET_CROWNS`), so every village of Legend shares its bucket. The season reset changes
+    /// only crowns above `RESET_CROWNS`, so it never changes a bucket: a village not yet rolled
+    /// into the current season is already listed where its rolled crowns would put it, and the draw
+    /// never reads a stale bucket (`docs/architecture/leagues.md`, section 5).
     fn pool_crowns(crowns: u32) -> u32 {
-        if crowns > RESET_CROWNS {
-            RESET_CROWNS
+        if crowns > POOL_CROWNS_CAP {
+            POOL_CROWNS_CAP
         } else {
             crowns
         }

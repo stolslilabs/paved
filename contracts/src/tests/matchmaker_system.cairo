@@ -34,7 +34,9 @@ use paved::components::shieldable::{
     ATTACK_SHIELD, INITIAL_SHIELD, IShieldableDispatcher, IShieldableDispatcherTrait, QUEUE_ATTACK,
     QUEUE_INITIAL,
 };
-use paved::matchmaker::leagues::{LEGEND, RESET_CROWNS, league_of};
+use paved::matchmaker::leagues::{
+    LEGEND, MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, RESET_CROWNS, SEASON_LENGTH, league_of,
+};
 use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
 use paved::systems::matchmaker::Matchmaker::{
     AttackStarted, Event as MatchmakerEvent, OpponentDrawn, VillageJoined,
@@ -1063,7 +1065,7 @@ fn test_league_storage_is_pinned_by_name() {
 
 /// Season 1 starts a day after `START`; seasons of 28 days.
 const SEASON_START: u64 = START + DAY;
-const LENGTH: u64 = 28 * DAY;
+const LENGTH: u64 = SEASON_LENGTH;
 
 fn league_event(event: LeagueEvent) -> MatchmakerEvent {
     MatchmakerEvent::LeagueableEvent(event)
@@ -1425,8 +1427,15 @@ fn test_npc_has_no_league() {
     stop_cheat_caller_address(world.matchmaker.contract_address);
     assert_eq!(world.leagues.league_record(NPC_1()), Default::default());
     assert_eq!(world.matchmaker.league(NPC_1()).league, 1);
-    // The attacker's win counts
+    // The attacker's win counts for its season, not for the missions (`MISSIONS_COUNT_NPC`)
     assert_eq!(world.leagues.league_record(ALICE()).attacks, 1);
+    let day = (START + INITIAL_SHIELD) / DAY;
+    assert!(!MISSIONS_COUNT_NPC);
+    assert_eq!(
+        ISetupLeagueDispatcher { contract_address: world.setup.contract_address }
+            .pvp_progress(ALICE().into(), DAILY, day),
+        Default::default(),
+    );
 }
 
 #[test]
@@ -1540,8 +1549,8 @@ fn assert_villages(world: World, villages: Span<ContractAddress>) {
             assert(!shield.up, 'listed and shielded');
             // Listed at most at `RESET_CROWNS` (#644): every Legend village shares a bucket
             let crowns = world.crowns.crowns(address);
-            let pool = if crowns > RESET_CROWNS {
-                RESET_CROWNS
+            let pool = if crowns > POOL_CROWNS_CAP {
+                POOL_CROWNS_CAP
             } else {
                 crowns
             };
