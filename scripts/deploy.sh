@@ -54,10 +54,10 @@
 # names a new output path with --out <file>; a file with a `fresh` record for this network and chain is resumed. After
 # the build: a resumed record's classes are the ones built. Then the funding check (the declares still to send, as
 # below). In order, each step skipped when what it would send has landed (read from the chain):
-#   1. declare the 9 classes; 2. deploy Faucet, PavedToken, MockRouter, Vault (vPAVED), then the pool (one multicall)
+#   1. declare the 10 classes; 2. deploy Faucet, PavedToken, MockRouter, Vault (vPAVED), then the pool (one multicall)
 #   and the Vault's dead shares with the owner's stake (one multicall), Economy (its router, pool key and the P-46 configuration in its constructor),
-#   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection, Story(owner, Setup); 3. wire, one multicall of what is
-#   missing: Setup.set_reporter(Challenge), Setup.set_reporter(Story), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
+#   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection, Story(owner, Setup), Avatar(owner, Setup); 3. wire, one multicall of what is
+#   missing: Setup.set_reporter(Challenge), Setup.set_reporter(Story), Setup.set_spender(Avatar), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
 #   quests.md v1 and v2a sets on Setup (quests 1 and 5 to 16, achievements 1 to 16), one multicall of the definitions Setup does not
 #   hold (FRESH_QUESTS, FRESH_ACHIEVEMENTS), each one read back as specified, followed in the same multicall by the shop
@@ -66,10 +66,13 @@
 #   set_achievement_cobbles x 15, FRESH_QUEST_COBBLES and FRESH_ACHIEVEMENT_COBBLES) that are not there yet, read back through
 #   the views seller, pack, skin_price, quest_cobbles and achievement_cobbles; then Story's campaigns and levels
 #   (FRESH_STORY_CAMPAIGNS, FRESH_STORY_LEVELS: set_campaign, set_level), one multicall of what Story lacks, read back
-#   through its views campaign and level (docs/architecture/story-mode.md, 8);
+#   through its views campaign and level (docs/architecture/story-mode.md, 8); then Avatar's defaults (FRESH_AVATAR_*: set_parts,
+#   set_price_bounds, set_item for the free base set), one multicall of what Avatar lacks, read back through its views
+#   parts, price_bounds and item (docs/architecture/avatar-chain.md);
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
-#   MockRouter, Story) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
-#   owner() on Economy, Challenge, Setup, Collection, Vault and Story, Story's Setup, reporter and levels, the Vault's exit fee, Setup.wiring(), every definition
+#   MockRouter, Story, Avatar) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
+#   owner() on Economy, Challenge, Setup, Collection, Vault, Story and Avatar, Story's Setup, reporter and levels, Avatar's Setup,
+#   spender and defaults, the Vault's exit fee, Setup.wiring(), every definition
 #   held, a paid spawn at stake 1 (the Vault's PAVED grows by its margin),
 #   one D-18 build next to the starter, the surrender (a game over reported to Setup: 2 events or more), the token,
 #   claim_tutorial once, pack 1 bought (buy_pack: its USDC through Economy's game split, its cobbles credited); the
@@ -2304,6 +2307,18 @@ FRESH_STORY_LEVELS=(
   "1 10 900 5,13,3 18:1:0:-1,13:2:-1:0,14:4:1:0,7:2:-1:-1,7:1:1:-1"
   "1 11 1578 7,15,6,17,6,4 -"
 )
+# The avatar on chain (#627, docs/architecture/avatar-chain.md): the defaults Avatar's owner sets after the wiring, one multicall
+# of what Avatar lacks, read back through its views parts, price_bounds and item. Every value stays the owner's to change
+# (set_price_bounds, set_item, withdraw_item; set_parts may only add parts). The owner's answers of 2026-10-20 (#627):
+# items 0 to 3 of every part are free (the base set), the rest paid at 20 to 100 Cobbles each (rebalanced later with
+# the economy), rare items seasonal (listed for their season with `until`, no quantity limit at launch). The parts are
+# AVATAR-LOOK's ten (#626 PR 1, packages/renderer/src/core/avatar/avatar-format.ts: skin, hair colour, eyes, eyebrows,
+# mouth, hair, beard, headwear, accessory, background), one byte each after the format's version. No paid item is listed
+# here: the owner lists them (set_item) with their art and seasons.
+FRESH_AVATAR_PARTS=10
+FRESH_AVATAR_PRICE_MIN=20
+FRESH_AVATAR_PRICE_MAX=100
+FRESH_AVATAR_FREE_IDS=(0 1 2 3)
 # Cobbles v1, part 3 (P-61, cobbles-v1.md 5.2 and 6.4): the themes whose 19 skins the fresh deployment prices, by the rarity
 # table. Theme 1 is Forest, the only theme with art (the PM's ruling of 2026-10-15); the other themes get no id here and
 # stay unpriced until their art ships (the owner's set_skin_price). Add a theme id to this one list to price it too.
@@ -2535,6 +2550,8 @@ fresh_wiring_calls() {
   [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $CHALLENGE 1"
   raw="$(call "$SETUP" is_reporter "$STORY")" || return 1
   [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_reporter $STORY 1"
+  raw="$(call "$SETUP" is_spender "$AVATAR")" || return 1
+  [[ "$(hex_int "$raw")" == 1 ]] || echo "$SETUP set_spender $AVATAR 1"
   raw="$(call "$ECONOMY" addresses)" || return 1
   read -r -a w <<<"$raw"
   felt_eq "${w[4]:-}" "$CHALLENGE" || echo "$ECONOMY set_game $CHALLENGE"
@@ -2612,6 +2629,55 @@ fresh_story_smoke() {
   v STORY_RAW fresh_story_calls
   [[ -z "$STORY_RAW" ]] || die "Story lacks: $(cut -d' ' -f2,3,4 <<<"$STORY_RAW" | tr '\n' ' ')"
   echo "   Story: setup() is Setup, a reporter of Setup; campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) as specified (views campaign and level)"
+}
+
+# fresh_avatar_calls: the Avatar calls still missing, one spec per line: the parts when the view is below FRESH_AVATAR_PARTS
+# (more parts set by the owner are kept: they only grow), the price bounds when no bounds are set, then each free item of every
+# part that is not listed (an item the owner changed since is kept). Fails when a read fails.
+fresh_avatar_calls() {
+  local raw part id
+  raw="$(call "$AVATAR" parts)" || return 1
+  (( $(hex_int "$raw") >= FRESH_AVATAR_PARTS )) || echo "$AVATAR set_parts $FRESH_AVATAR_PARTS"
+  raw="$(call "$AVATAR" price_bounds)" || return 1
+  # shellcheck disable=SC2086 # the view's felts, one argument each
+  [[ "$(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $raw)" != "0 0" ]] ||
+    echo "$AVATAR set_price_bounds $FRESH_AVATAR_PRICE_MIN $FRESH_AVATAR_PRICE_MAX"
+  for ((part = 0; part < FRESH_AVATAR_PARTS; part++)); do
+    for id in "${FRESH_AVATAR_FREE_IDS[@]}"; do
+      raw="$(call "$AVATAR" item "$part" "$id")" || return 1
+      read -r -a raw <<<"$raw"
+      [[ "$(hex_int "${raw[0]:-0x0}")" != 0 ]] || echo "$AVATAR set_item $part $id 0 0 0"
+    done
+  done
+}
+
+# fresh_avatar_step: Avatar's defaults, as its owner, in one multicall of what it lacks (its hash recorded as avatar_tx),
+# then read back; a rerun sends only what is missing and a complete record nothing.
+fresh_avatar_step() {
+  local spec
+  fr_settled avatar_tx || true
+  AVATAR_CALLS=()
+  v AVATAR_RAW fresh_avatar_calls
+  while IFS= read -r spec; do [[ -n "$spec" ]] && AVATAR_CALLS+=("$spec"); done <<<"$AVATAR_RAW"
+  if [[ "${#AVATAR_CALLS[@]}" == 0 ]]; then
+    echo "   set already: the parts, the price bounds and the free items$( [[ -n "$(fr_get avatar_tx)" ]] && echo ", tx $(fr_get avatar_tx)")"
+  else
+    echo "   ${#AVATAR_CALLS[@]} parts, bounds and free item call(s) to send"
+    RECORD_SENDING=avatar_tx
+    invoke_all "${AVATAR_CALLS[@]}"
+    RECORD_SENDING=""
+  fi
+  fresh_avatar_smoke
+}
+
+# fresh_avatar_smoke: Avatar's Setup is Setup, Setup allows it as a spender (it spends the Cobbles of an item), and the
+# parts, the bounds and the free items read back as set. Read on a complete record too.
+fresh_avatar_smoke() {
+  [[ "$(hex_int "$(call "$AVATAR" setup)")" == "$(hex_int "$SETUP")" ]] || die "Avatar.setup() is not Setup"
+  [[ "$(hex_int "$(call "$SETUP" is_spender "$AVATAR")")" == 1 ]] || die "Setup does not allow Avatar as a spender"
+  v AVATAR_RAW fresh_avatar_calls
+  [[ -z "$AVATAR_RAW" ]] || die "Avatar lacks: $(cut -d' ' -f2,3,4 <<<"$AVATAR_RAW" | tr '\n' ' ')"
+  echo "   Avatar: setup() is Setup, a spender of Setup; $FRESH_AVATAR_PARTS parts, bounds set, items ${FRESH_AVATAR_FREE_IDS[*]} of each listed (views parts, price_bounds and item)"
 }
 
 # fresh_guardian_step: Challenge's guardian is the deployer (PM, 2026-10-14), set in the run that deploys it, with the
@@ -2846,7 +2912,7 @@ PY
 fresh_classes_check() {
   local name recorded built
   [[ -e "$OUT" ]] || return 0
-  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story; do
+  for name in Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story Avatar; do
     recorded="$(fr_get "classes.$name")"
     [[ -n "$recorded" ]] || continue
     built="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')" || die "class-hash $name failed"
@@ -2861,16 +2927,17 @@ fresh_check_only() {
   echo "== fresh: check only (nothing is sent, the file is not written)"
   if [[ ! -e "$OUT" ]]; then
     echo "   no record: a run would declare 10 classes, deploy Faucet, PavedToken, MockRouter, Vault, Economy, Setup,"
-    echo "   Challenge, Collection, Story and the smoke's VRF mock, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with the shop"
+    echo "   Challenge, Collection, Story, Avatar and the smoke's VRF mock, seed the pool, stake, wire, define quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup (v1 and v2a) with the shop"
     echo "   (Economy.set_seller(Setup), set_pack x 4), the skin prices of theme(s) ${FRESH_SKIN_THEMES[*]} (set_skin_price x 19 each) and their cobbles, write ${OUT#"$ROOT/"}, then smoke (a paid spawn, a build, a"
     echo "   surrender reported to Setup, claim_tutorial once, pack 1 bought, a skin bought, all drawing from the mock), then set"
     echo "   Challenge's VRF provider to Cartridge's"
   else
     echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then the skin prices (set_skin_price x 19 for each of the theme(s) ${FRESH_SKIN_THEMES[*]}, the rarity table), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
     echo "   story (story_tx): campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) on Story (set_campaign, set_level); a run sends the ones Story lacks and reads each back"
+    echo "   avatar (avatar_tx): the parts ($FRESH_AVATAR_PARTS), the price bounds $FRESH_AVATAR_PRICE_MIN to $FRESH_AVATAR_PRICE_MAX and items ${FRESH_AVATAR_FREE_IDS[*]} of each part free on Avatar; a run sends what Avatar lacks and reads it back"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
-        Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx wiring_tx guardian_tx \
-        vrf_tx definitions_tx story_tx \
+        Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx Avatar.deploy_tx wiring_tx guardian_tx \
+        vrf_tx definitions_tx story_tx avatar_tx \
         smoke.spawn_tx smoke.build_tx smoke.surrender_tx smoke.claim_tx smoke.pack_tx smoke.skin_tx smoke.settle_tx smoke.provider_tx; do
       tx="$(fr_get "$key")"
       if [[ -n "$tx" ]]; then echo "   $key $tx: $(repoint_tx_status "$tx")"; else echo "   $key: not sent; a run would send it unless what it sends has landed"; fi
@@ -3006,7 +3073,7 @@ ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 # The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only, --d18 the D-18
 # Account, Daily, Tutorial and Lobby, --upgrade-challenge the new Challenge.
-FUNDING_CLASSES=(Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story)
+FUNDING_CLASSES=(Challenge Setup Faucet PavedToken MockRouter Vault Economy Collection Story Avatar)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 ((D18)) && FUNDING_CLASSES=(Account Daily Tutorial Lobby)
 ((UPGRADE_CHALLENGE)) && FUNDING_CLASSES=(Challenge)
@@ -3178,12 +3245,13 @@ STORY_CLASS="$(declare_class Story)"
 VRF_CLASS=""
 # The VRF mock: devnet's provider; on Sepolia the smoke's only, never in the deployment file (#645, fresh_vrf_step)
 if [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]]; then VRF_CLASS="$(declare_class MockVrfProvider)"; fi
+AVATAR_CLASS="$(declare_class Avatar)"
 RECORD_SENDING=""
 fr_set "classes.Challenge=$(felt64 "$CHALLENGE_CLASS")" "classes.Setup=$(felt64 "$SETUP_CLASS")" \
   "classes.Faucet=$(felt64 "$USDC_CLASS")" "classes.PavedToken=$(felt64 "$PAVED_CLASS")" \
   "classes.MockRouter=$(felt64 "$ROUTER_CLASS")" "classes.Vault=$(felt64 "$VAULT_CLASS")" \
   "classes.Economy=$(felt64 "$ECONOMY_CLASS")" "classes.Collection=$(felt64 "$COLLECTION_CLASS")" \
-  "classes.Story=$(felt64 "$STORY_CLASS")"
+  "classes.Story=$(felt64 "$STORY_CLASS")" "classes.Avatar=$(felt64 "$AVATAR_CLASS")"
 
 USDC_UNIT=1000000
 PAVED_UNIT=1000000000000000000
@@ -3334,6 +3402,9 @@ CHALLENGE="$(fresh_deploy Challenge "$CHALLENGE_CLASS" "$DEPLOYER_ARG" "$USDC" "
 COLLECTION="$(fresh_deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
 # Story mode (docs/architecture/story-mode.md): the levels and the runs; Setup pays its stars, so it is a reporter.
 STORY="$(fresh_deploy Story "$STORY_CLASS" "$DEPLOYER_ARG" "$SETUP")"
+# The avatar (docs/architecture/avatar-chain.md): the items and the avatars; Setup debits the Cobbles of an item for it,
+# so it is a spender (ISetupSpend).
+AVATAR="$(fresh_deploy Avatar "$AVATAR_CLASS" "$DEPLOYER_ARG" "$SETUP")"
 
 echo "== wire"
 # Setup's reporter (Challenge), Economy's game (after the stake), Setup's wiring (D-25 E: Economy and Collection, read by
@@ -3353,7 +3424,7 @@ fi
 v WIRING_RAW fresh_wiring_calls
 [[ -z "$WIRING_RAW" ]] || die "after the wiring, still missing: $(cut -d' ' -f2 <<<"$WIRING_RAW" | tr '\n' ' ')"
 [[ "$(hex_int "$(call "$CHALLENGE" setup)")" == "$(hex_int "$SETUP")" ]] || die "Challenge.setup() is not Setup"
-echo "   Setup: its reporters Challenge (game overs) and Story (the stars of the levels); Challenge.setup() is Setup"
+echo "   Setup: its reporters Challenge (game overs) and Story (the stars of the levels), its spender Avatar (the items' Cobbles); Challenge.setup() is Setup"
 echo "   Setup: wiring Economy and Collection; Collection: minter Challenge; Economy: game Challenge"
 # Challenge's guardian (PM, 2026-10-14): the deployer, set in this run (fresh_guardian_step).
 fresh_guardian_step
@@ -3396,6 +3467,11 @@ echo "== story"
 # the deployment file.
 fresh_story_step
 
+echo "== avatar"
+# The parts, the price bounds and the free base set on Avatar (FRESH_AVATAR_*), as its owner, before its address reaches
+# the deployment file.
+fresh_avatar_step
+
 FIRST_DEPLOY_TX="$(fr_get Faucet.deploy_tx)"
 [[ -n "$FIRST_DEPLOY_TX" ]] || FIRST_DEPLOY_TX="$(head -1 "$WORK_DIR/deploy-txs")"
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$FIRST_DEPLOY_TX\"]" | pyj 'd["result"]["block_number"]')"
@@ -3414,6 +3490,7 @@ python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_LABEL" "$DEPLOYED_AT" "$DEPLOYE
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Challenge=$CHALLENGE=$CHALLENGE_CLASS" "Setup=$SETUP=$SETUP_CLASS" \
   "Collection=$COLLECTION=$COLLECTION_CLASS" "Story=$STORY=$STORY_CLASS" "MockVrfProvider=$VRF_FILE=$VRF_CLASS" \
+  "Avatar=$AVATAR=$AVATAR_CLASS" \
   "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
 import json, os, sys, tempfile
 out, network, chain_id, rpc_url, commit, block, decimals, symbol, *rest = sys.argv[1:]
@@ -3427,7 +3504,7 @@ for item in items:
         # O-19: `0x` and 64 hex digits.
         c[name] = {"address": "0x%064x" % int(address, 16), "class_hash": "0x%064x" % int(class_hash, 16)}
 # One key per contract (F): devnet and Sepolia both run the Faucet and MockRouter (P-39); no old mock Token since F.
-names = ["Challenge", "Setup", "Collection", "Economy", "PavedToken", "Vault", "Faucet", "MockRouter", "Story"]
+names = ["Challenge", "Setup", "Collection", "Economy", "PavedToken", "Vault", "Faucet", "MockRouter", "Story", "Avatar"]
 # The VRF mock (#638): devnet only, so only when deployed.
 names += [k for k in ["MockVrfProvider"] if k in c]
 doc = {
@@ -3493,10 +3570,10 @@ echo "== smoke"
 # Each transaction of the smoke is sent once: through the signer it is recorded (`fresh.smoke`), and a rerun reads what
 # landed (the game, its tiles, Economy's terms, Setup's flag) and cites it instead of sending again.
 # P-42, P-56: the upgrade owner of every ownable contract is the deployer. PavedToken has no owner.
-for entry in "Economy=$ECONOMY" "Challenge=$CHALLENGE" "Setup=$SETUP" "Collection=$COLLECTION" "Vault=$VAULT" "Story=$STORY"; do
+for entry in "Economy=$ECONOMY" "Challenge=$CHALLENGE" "Setup=$SETUP" "Collection=$COLLECTION" "Vault=$VAULT" "Story=$STORY" "Avatar=$AVATAR"; do
   [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
-echo "   owner() of Economy, Challenge, Setup, Collection, Vault and Story: the deployer"
+echo "   owner() of Economy, Challenge, Setup, Collection, Vault, Story and Avatar: the deployer"
 # The VRF mock (#638, devnet only): no consume counted outside a transaction, and a salt's consume is not 0.
 if [[ "$NETWORK" == "devnet" ]]; then
   [[ "$(hex_int "$(call "$VRF" get_consume_count)")" == 0 ]] || die "MockVrfProvider.get_consume_count() is not 0"
@@ -3504,6 +3581,7 @@ if [[ "$NETWORK" == "devnet" ]]; then
   echo "   MockVrfProvider: consume count 0, a salt's consume not 0"
 fi
 fresh_story_smoke
+fresh_avatar_smoke
 # The guardian and the pause (PM, 2026-10-14): read by fresh_guardian_smoke.
 fresh_guardian_smoke
 # The Vault's exit fee: the default at launch; the owner may have moved it since, within its bound

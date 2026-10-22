@@ -34,6 +34,9 @@ export const CONTROLLER_ENTRY_POINTS = {
   // pack's purchase (`buy_pack`, cobbles v1, part 2) pulls USDC: not a policy (P-65), it prompts with its approve. The skins
   // (cobbles v1, part 3): `buy_skin` spends Cobbles, which no token carries, and `set_skins` spends nothing.
   Setup: ["claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_skin", "set_skins"],
+  // The avatar (#627): `buy_avatar_item` spends Cobbles, which no token carries, and `set_avatar` spends nothing. Policies only
+  // where the deployment has an Avatar.
+  Avatar: ["buy_avatar_item", "set_avatar"],
 } as const;
 
 /** The VRF provider's entry point in the session (#645): `request_random`, which does nothing on chain. */

@@ -14,9 +14,9 @@ import { TILE_SIZE } from "./types";
  *   (`plates.hideUnderTile`).
  * - The tile in hand is tinted on the model itself (`TileRenderer` draws it, this class owns the states and their ease):
  *   a hover preview has no tint at 50 % opacity (#568: the blue is gone, its colour and strength stay as knobs), a tile
- *   placed and not confirmed (pending) opaque (100 %) with a faint yellow that keeps the tile's light (#605: 0.12 of the
- *   hue, it was 0.4 of the colour and read as a yellow filter; the owner's pick, #657), a confirm a temporary green that
- *   fades to no tint on the tile the board now draws. There is no red: the board offers only the rotations that fit (#544).
+ *   placed and not confirmed (pending) drawn plain, its opacity pulsing between 60 and 90 % on a sine (#681, the owner's:
+ *   the faint yellow of #605 read as a filter; its colour stays as a knob, at strength 0), a fixed 75 % under reduced
+ *   motion, a confirm a temporary green that fades to no tint on the tile the board now draws. There is no red: the board offers only the rotations that fit (#544).
  *   The tile in hand (hover and pending) has the placed tiles' outlines, at its own opacity (#657, `TileRenderer`).
  * - Each change of state eases over `motion.colorMs` (150 ms); under reduced motion it is instant and the confirm short.
  * - The grid (SLOTS2's ring hairlines) stays as a setting, off by default (`grid.enabled`).
@@ -33,8 +33,14 @@ export interface PlacementSettings {
     hoverMs: number;
     pendingColor: string;
     pendingStrength: number;
-    pendingOpacity: number;
-    /** The ease into the pending look, ms. */
+    /** The pending tile's opacity pulse (#681): from `pendingPulseMin` to `pendingPulseMax` and back on a sine (ease in-out). */
+    pendingPulseMin: number;
+    pendingPulseMax: number;
+    /** One full cycle (min, max, min), ms; 0 holds at the minimum. */
+    pendingPulseMs: number;
+    /** The pending tile's opacity under reduced motion: no pulse. */
+    pendingReducedOpacity: number;
+    /** The ease into the pending look, ms (from where the tile was: a hover's 50 %). */
     pendingMs: number;
     /**
      * The pending tint keeps each pixel's brightness, only its hue goes to `pendingColor` (#605: a fixed gold over a tile
@@ -101,8 +107,11 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     hoverOpacity: 0.5,
     hoverMs: 150,
     pendingColor: "#f0bf5b",
-    pendingStrength: 0.12,
-    pendingOpacity: 1,
+    pendingStrength: 0,
+    pendingPulseMin: 0.6,
+    pendingPulseMax: 0.9,
+    pendingPulseMs: 1600,
+    pendingReducedOpacity: 0.75,
     pendingMs: 150,
     pendingKeepsLight: true,
     confirmColor: "#6eca6f",
@@ -263,10 +272,28 @@ export function tintEaseMs(kind: TintKind, tints: PlacementSettings["tints"]): n
   return kind === "hover" ? tints.hoverMs : tints.pendingMs;
 }
 
-/** The tint of a state, from the settings. */
+/** The tint of a state, from the settings; the pending opacity is its pulse's start (`pendingPulseOpacity`). */
 export function tintForKind(kind: TintKind, tints: PlacementSettings["tints"]): GhostTint {
   if (kind === "hover") return tintOf(tints.hoverColor, tints.hoverStrength, tints.hoverOpacity);
-  return tintOf(tints.pendingColor, tints.pendingStrength, tints.pendingOpacity);
+  return tintOf(tints.pendingColor, tints.pendingStrength, tints.pendingPulseMin);
+}
+
+/**
+ * The pending tile's opacity `elapsed` ms into its pulse (#681): `pendingPulseMin` at 0, `pendingPulseMax` half a cycle
+ * later, back at the end, on a cosine (slow at both ends, an ease in-out). Under reduced motion, `pendingReducedOpacity`.
+ */
+export function pendingPulseOpacity(elapsed: number, tints: PlacementSettings["tints"], reduced: boolean): number {
+  if (reduced) return clamp01(tints.pendingReducedOpacity);
+  const min = clamp01(tints.pendingPulseMin);
+  const max = clamp01(tints.pendingPulseMax);
+  if (!(tints.pendingPulseMs > 0) || !(elapsed > 0) || !Number.isFinite(elapsed)) return min;
+  const phase = (elapsed % tints.pendingPulseMs) / tints.pendingPulseMs;
+  return min + (max - min) * (1 - Math.cos(2 * Math.PI * phase)) / 2;
+}
+
+/** Whether the pending look moves on its own (a pulse with a range and a period, not under reduced motion). */
+export function pendingPulses(tints: PlacementSettings["tints"], reduced: boolean): boolean {
+  return !reduced && tints.pendingPulseMs > 0 && clamp01(tints.pendingPulseMax) !== clamp01(tints.pendingPulseMin);
 }
 
 /** Which look the tile in hand has: pending once placed, else hover. */
@@ -443,6 +470,8 @@ export class PlacementRenderer {
   private tintDrawn = true;
   private tint = { from: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), to: tintValues(tintForKind("hover", DEFAULT_PLACEMENT_SETTINGS.tints)), since: Number.NEGATIVE_INFINITY, ms: DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs };
   private confirm: { x: number; y: number; since: number } | null = null;
+  /** When the pending tile's pulse began (its phase): the tile placed, kept while it moves from cell to cell. */
+  private pulseSince = 0;
   /** The instances must be written again (a change not yet drawn). */
   private dirty = false;
 
@@ -484,7 +513,10 @@ export class PlacementRenderer {
 
   /** Reduced motion: instant changes, a short confirm. */
   setReducedMotion(reduced: boolean): void {
+    if (reduced === this.reduced) return;
     this.reduced = reduced;
+    // A pending tile turns to (or from) its fixed opacity: one frame draws it.
+    if (this.ghost?.kind === "pending") this.tintDrawn = false;
   }
 
   isReducedMotion(): boolean {
@@ -544,10 +576,13 @@ export class PlacementRenderer {
   setGhost(ghost: { x: number; y: number; kind: TintKind } | null, now: number = performance.now()): void {
     const before = this.ghost;
     if (before?.x === ghost?.x && before?.y === ghost?.y && before?.kind === ghost?.kind) return;
+    // Where the tile was, a pending one at its pulse: the ease starts there.
+    const from = before ? this.ghostTint(now) : null;
     this.ghost = ghost && { x: ghost.x, y: ghost.y, kind: ghost.kind };
+    if (ghost?.kind === "pending" && before?.kind !== "pending") this.pulseSince = now;
     if (ghost) {
       const to = tintValues(tintForKind(ghost.kind, this.settings.tints));
-      this.tint.from = before ? this.ghostTint(now) : to.slice();
+      this.tint.from = from ?? to.slice();
       this.tint.to = to;
       this.tint.since = now;
       // Instant under reduced motion: drawn with the change itself.
@@ -567,10 +602,20 @@ export class PlacementRenderer {
     return Number.isFinite(now) ? colorProgress(now - this.tint.since, { ...this.settings.motion, colorMs: this.tint.ms }, this.reduced) : 1;
   }
 
-  /** The tile in hand's tint at `now` (NaN: its target), eased; the last one while no tile is drawn. */
+  /**
+   * The tile in hand's tint at `now` (NaN: its target), eased; the last one while no tile is drawn. A pending tile's
+   * opacity is its pulse at `now` (the pulse's start for NaN), eased into from where the tile was (a hover's 50 %).
+   */
   ghostTint(now: number = performance.now()): number[] {
     const t = this.tintProgress(now);
-    return this.tint.from.map((v, i) => v + (this.tint.to[i]! - v) * t);
+    const to = this.tint.to.slice();
+    if (this.ghost?.kind === "pending") to[4] = pendingPulseOpacity(now - this.pulseSince, this.settings.tints, this.reduced);
+    return this.tint.from.map((v, i) => v + (to[i]! - v) * t);
+  }
+
+  /** The pending tile pulses now: the scene keeps drawing (`update`'s `animating`), and only then. */
+  isPulsing(): boolean {
+    return this.ghost?.kind === "pending" && pendingPulses(this.settings.tints, this.reduced);
   }
 
   /**
@@ -747,6 +792,8 @@ export class PlacementRenderer {
       animating = true;
       this.tintDrawn = true;
     }
+    // The pulse moves every frame while a tile is pending; with none, render on demand holds again.
+    if (this.isPulsing()) animating = true;
     if (this.confirm) {
       // One more frame after the end draws it gone.
       animating = true;

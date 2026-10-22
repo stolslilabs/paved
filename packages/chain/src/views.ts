@@ -18,6 +18,7 @@ import {
 } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { playerLevel, playerLevelOf, type LevelViews, type PlayerLevel } from "./level";
+import { avatarItem, unlistedItem, type AvatarItem, type AvatarViews, type FakeAvatarState } from "./avatar";
 import { SKIN_PLANS, type FakeSkinPlayer, type SkinViews } from "./skins";
 
 /**
@@ -235,8 +236,8 @@ export interface CallProvider {
 
 export const MAX_PAGE = 64;
 
-/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`). */
-export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews {
+/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`), and `Avatar`'s (`avatar.ts`). */
+export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -349,6 +350,32 @@ export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackView
     return themes.map(Number);
   }
 
+  async avatarParts(): Promise<number> {
+    return Number(await this.call("Avatar", "parts", []));
+  }
+
+  async avatarPriceBounds(): Promise<[number, number]> {
+    const bounds = (await this.call("Avatar", "price_bounds", [])) as Struct;
+    return [Number(bounds.min), Number(bounds.max)];
+  }
+
+  async avatarItem(part: number, id: number): Promise<AvatarItem> {
+    return avatarItem(part, id, (await this.call("Avatar", "item", [part, id])) as Struct);
+  }
+
+  async avatarItems(part: number): Promise<AvatarItem[]> {
+    const items = (await this.call("Avatar", "items", [part])) as Struct[];
+    return items.map((raw, id) => avatarItem(part, id, raw));
+  }
+
+  async ownedAvatarItems(playerId: string, part: number): Promise<bigint> {
+    return BigInt((await this.call("Avatar", "owned", [playerId, part])) as bigint | string | number);
+  }
+
+  async avatar(playerId: string): Promise<bigint> {
+    return BigInt((await this.call("Avatar", "avatar", [playerId])) as bigint | string | number);
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -395,8 +422,8 @@ function gameKeyId(key: GameKey): string {
   return `${key.mode}:${key.gameId}`;
 }
 
-/** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins too. */
-export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews {
+/** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins and the avatar too. */
+export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -421,6 +448,26 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   readonly skinPlayers = new Map<string, FakeSkinPlayer>();
   /** Set to an Error to make every skins read fail. */
   skinsFail: Error | null = null;
+  /** The avatar: the parts in use, the bounds, the catalogue (`part:id`; an item not listed reads unlisted) and the players. */
+  readonly avatars: FakeAvatarState = { parts: 0, bounds: [0, 0], items: new Map(), players: new Map() };
+  /** Set to an Error to make every avatar read fail. */
+  avatarFail: Error | null = null;
+
+  /** Lists an item of the fake catalogue (state listed unless given). */
+  listAvatarItem(item: Partial<AvatarItem> & { part: number; id: number }): void {
+    this.avatars.items.set(`${item.part}:${item.id}`, { ...unlistedItem(item.part, item.id), state: 1, ...item });
+  }
+
+  /** The player's avatar state, created empty on first use: a test edits it in place. */
+  avatarPlayer(playerId: string): { look: bigint; owned: Map<number, bigint> } {
+    const key = BigInt(playerId).toString();
+    let player = this.avatars.players.get(key);
+    if (!player) {
+      player = { look: 0n, owned: new Map() };
+      this.avatars.players.set(key, player);
+    }
+    return player;
+  }
 
   /** Prices every plan of `theme` from `prices` (plan 1 first); 0 withdraws one from sale. */
   priceSkins(theme: number, prices: readonly number[]): void {
@@ -568,6 +615,44 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   async activeSkins(playerId: string): Promise<number[]> {
     this.skinCall(`active_skins ${BigInt(playerId)}`);
     return [...(this.skinPlayers.get(BigInt(playerId).toString())?.active ?? new Array<number>(SKIN_PLANS).fill(0))];
+  }
+
+  async avatarParts(): Promise<number> {
+    this.avatarCall("parts");
+    return this.avatars.parts;
+  }
+
+  async avatarPriceBounds(): Promise<[number, number]> {
+    this.avatarCall("price_bounds");
+    return [...this.avatars.bounds];
+  }
+
+  async avatarItem(part: number, id: number): Promise<AvatarItem> {
+    this.avatarCall(`item ${part} ${id}`);
+    return { ...(this.avatars.items.get(`${part}:${id}`) ?? unlistedItem(part, id)) };
+  }
+
+  async avatarItems(part: number): Promise<AvatarItem[]> {
+    this.avatarCall(`items ${part}`);
+    // Id 0 up to the highest ever listed, as the contract's `items`
+    let end = 0;
+    for (const item of this.avatars.items.values()) if (item.part === part) end = Math.max(end, item.id + 1);
+    return Array.from({ length: end }, (_, id) => ({ ...(this.avatars.items.get(`${part}:${id}`) ?? unlistedItem(part, id)) }));
+  }
+
+  async ownedAvatarItems(playerId: string, part: number): Promise<bigint> {
+    this.avatarCall(`owned ${BigInt(playerId)} ${part}`);
+    return this.avatars.players.get(BigInt(playerId).toString())?.owned.get(part) ?? 0n;
+  }
+
+  async avatar(playerId: string): Promise<bigint> {
+    this.avatarCall(`avatar ${BigInt(playerId)}`);
+    return this.avatars.players.get(BigInt(playerId).toString())?.look ?? 0n;
+  }
+
+  private avatarCall(call: string): void {
+    this.calls.push(call);
+    if (this.avatarFail) throw this.avatarFail;
   }
 
   private skinCall(call: string): void {

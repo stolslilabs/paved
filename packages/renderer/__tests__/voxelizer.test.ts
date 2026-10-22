@@ -127,20 +127,25 @@ describe("the base models", () => {
     HEAVY_TEST_MS,
   );
 
-  it("quantized and unquantized geometry give the same grid", async () => {
-    for (const plan of ["ccccccccc", "rfrfffffr", "wfffffffr"]) {
-      const [quantized, plain] = [await loadMesh(shipped(plan)), await loadMesh(`${SOURCES}/${plan}.glb`)];
-      // The shipped copy's positions are 8-bit integers (normalized) under a node scale; the source's are floats.
-      expect(quantized.geometry.getAttribute("position").array).toBeInstanceOf(Int8Array);
-      expect(plain.geometry.getAttribute("position").array).toBeInstanceOf(Float32Array);
-      const [a, b] = [voxelize(sourceOf(quantized), { name: plan })!, voxelize(sourceOf(plain), { name: plan })!];
-      expect(a.step).toBeCloseTo(b.step, 6);
-      expect([a.sizeX, a.sizeY, a.layers, a.count, a.visibleCount, a.groundTop]).toEqual([b.sizeX, b.sizeY, b.layers, b.count, b.visibleCount, b.groundTop]);
-      expect(a.cells).toEqual(b.cells);
-      expect(a.entry).toEqual(b.entry);
-      expect(a.visible).toEqual(b.visible);
-    }
-  });
+  it(
+    "quantized and unquantized geometry give the same grid",
+    async () => {
+      for (const plan of ["ccccccccc", "rfrfffffr", "wfffffffr"]) {
+        const [quantized, plain] = [await loadMesh(shipped(plan)), await loadMesh(`${SOURCES}/${plan}.glb`)];
+        // The shipped copy's positions are 8-bit integers (normalized) under a node scale; the source's are floats.
+        expect(quantized.geometry.getAttribute("position").array).toBeInstanceOf(Int8Array);
+        expect(plain.geometry.getAttribute("position").array).toBeInstanceOf(Float32Array);
+        const [a, b] = [voxelize(sourceOf(quantized), { name: plan })!, voxelize(sourceOf(plain), { name: plan })!];
+        expect(a.step).toBeCloseTo(b.step, 6);
+        expect([a.sizeX, a.sizeY, a.layers, a.count, a.visibleCount, a.groundTop]).toEqual([b.sizeX, b.sizeY, b.layers, b.count, b.visibleCount, b.groundTop]);
+        expect(a.cells).toEqual(b.cells);
+        expect(a.entry).toEqual(b.entry);
+        expect(a.visible).toEqual(b.visible);
+      }
+    },
+    // Six models read and voxelized, as its neighbours: past the default 5 s on a loaded machine.
+    HEAVY_TEST_MS,
+  );
 });
 
 /** A voxel set as the models draw it: the faces between a solid cell and an air one, as quads of two triangles, and no other. */
