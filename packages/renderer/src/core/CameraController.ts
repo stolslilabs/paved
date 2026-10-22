@@ -208,6 +208,12 @@ export class CameraController {
    * the re-centre's. `reset()` comes back to it. It clears `userMoved`.
    */
   frame(target: { x: number; z: number }, distance: number): void {
+    // Drop what a drag left to damp (OrbitControls' pan, turn and zoom deltas): one update without damping spends and
+    // clears them, so they do not carry the view off the frame afterwards.
+    const damping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
+    this.controls.update();
+    this.controls.enableDamping = damping;
     const center = new THREE.Vector3(target.x, 0, target.z);
     this.framed = { target: center.clone(), distance };
     this.moved = false;

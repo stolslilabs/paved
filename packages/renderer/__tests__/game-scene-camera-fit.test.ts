@@ -215,4 +215,27 @@ describe("GameScene camera fit (CAMERA-FIT, #678)", () => {
     expect(zoom.openingTilePx).toBeCloseTo(tilePixels(h.scene.camera, OPENING_DISTANCE, 812), 9);
     expect(zoom.outline.opacity).toBeGreaterThan(outlineStroke(zoom.openingTilePx, undefined, 1, zoom.openingTilePx).opacity);
   });
+
+  it("a frame drops the pan a drag left to damp (real OrbitControls), so the re-centre stays on the board", () => {
+    // OrbitControls on a stand-in surface: only the listeners and sizes it reads.
+    const doc = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+    const element = {
+      ...doc, style: {}, ownerDocument: doc, getRootNode: () => doc, clientWidth: 375, clientHeight: 812,
+      setPointerCapture: vi.fn(), releasePointerCapture: vi.fn(),
+    };
+    const controller = new CameraController({ width: 375, height: 812, inputTarget: element } as never);
+    expect(controller.controls.enableDamping).toBe(true);
+    const fit = computeCameraFit({ cells: null, width: 375, height: 812 });
+    controller.frame(fit.target, fit.distance);
+    // A drag of 60 px to the right, released: the pan is still damping.
+    (controller.controls as unknown as { _pan(x: number, y: number): void })._pan(60, 0);
+    controller.update();
+    controller.frame(fit.target, fit.distance);
+    for (let i = 0; i < 300; i++) controller.update();
+    expect(controller.controls.target.x).toBeCloseTo(fit.target.x, 6);
+    expect(controller.controls.target.z).toBeCloseTo(fit.target.z, 6);
+    expect(controller.camera.position.distanceTo(controller.controls.target)).toBeCloseTo(fit.distance, 6);
+    expect(controller.controls.enableDamping).toBe(true);
+    expect(controller.userMoved).toBe(false);
+  });
 });
