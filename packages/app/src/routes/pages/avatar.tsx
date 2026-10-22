@@ -58,7 +58,12 @@ export default function Page() {
         }
       : catalogue;
 
+  // A write on its way (a purchase or a save): the draft stays as it is until its receipt. `reset` would only detach the page
+  // from the write (TanStack's `mutation.reset` cancels nothing), and the save's completion would then clear a newer draft.
+  const busy = writes.saving || writes.buying !== null;
+
   const edit = (next: Avatar) => {
+    if (busy) return;
     writes.reset();
     setChanges(next);
   };
@@ -66,7 +71,7 @@ export default function Page() {
   const buy = (part: AvatarPart, id: number) => {
     const offer = creator?.offers[part]?.[id];
     // The price the swatch shows: the writer reads the item again at send and refuses another.
-    if (!offer || offer.kind !== "sale") return;
+    if (!offer || offer.kind !== "sale" || busy) return;
     writes.reset();
     writes.buy(partIndex(part), id, offer.cobbles).then(
       () => toast.success(`${AVATAR_PARTS[part][id]} bought`, { description: "It is yours: save your avatar to wear it." }),
@@ -75,11 +80,13 @@ export default function Page() {
   };
 
   const save = () => {
-    if (!draft) return;
+    if (!draft || busy) return;
+    const sent = draft;
     writes.reset();
-    writes.save(encodeAvatar(draft)).then(
+    writes.save(encodeAvatar(sent)).then(
       () => {
-        setChanges(null);
+        // The draft saved is the chain's now; a draft that differs from it (none while the save is on its way) stays.
+        setChanges((current) => (current === null || sameAvatar(current, sent) ? null : current));
         toast.success("Avatar saved", { description: "It shows at the top left of your menus, on every device." });
       },
       () => undefined,
@@ -95,6 +102,7 @@ export default function Page() {
       onSave={save}
       onRandomise={() => creator && edit(randomUsable(creator.offers))}
       onReset={() => {
+        if (busy) return;
         writes.reset();
         setChanges(null);
       }}

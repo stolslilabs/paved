@@ -78,6 +78,18 @@ describe("AvatarCreatorScene", () => {
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-busy", "true");
   });
 
+  it("no part can be picked while a write is on its way (the save's receipt must not meet a newer draft)", async () => {
+    for (const state of [AVATAR_CREATOR.saving, AVATAR_CREATOR.buying]) {
+      const onPick = vi.fn();
+      const { unmount } = render(wrap(<AvatarCreatorScene {...state} onPick={onPick} />));
+      const radios = screen.getAllByRole("radio");
+      expect(radios.every((r) => (r as HTMLButtonElement).disabled)).toBe(true);
+      await userEvent.click(radios[0]!);
+      expect(onPick).not.toHaveBeenCalled();
+      unmount();
+    }
+  });
+
   it("just saved: Saved; a refusal: the error, with Dismiss", async () => {
     const { unmount } = render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.savedNow} />));
     expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();

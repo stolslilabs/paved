@@ -205,7 +205,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
                     onBuyCobbles={onBuyCobbles}
                   />
                 )}
-                <AvatarSwatches part={p} draft={draft} offers={offers[p]!} buying={buying?.part === p ? buying.id : null} onPick={(id) => onPick?.(p, id)} />
+                <AvatarSwatches part={p} draft={draft} offers={offers[p]!} buying={buying?.part === p ? buying.id : null} disabled={busy} onPick={(id) => onPick?.(p, id)} />
               </TabsContent>
             );
           })}

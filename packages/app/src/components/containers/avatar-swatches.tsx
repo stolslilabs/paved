@@ -16,6 +16,8 @@ export interface AvatarSwatchesProps {
   offers: readonly AvatarOffer[];
   /** The variant whose purchase is on its way. */
   buying?: number | null;
+  /** A write on its way (a purchase or a save): no variant can be picked until its receipt. */
+  disabled?: boolean;
   onPick?: (id: number) => void;
 }
 
@@ -44,7 +46,7 @@ function OfferLine({ offer }: { offer: AvatarOffer }) {
  * its name, and its price, Owned, Free or Not for sale. A tap tries it on, whatever it costs: Buy and Save are the page's.
  * One choice of the group (radio semantics), the draft's variant checked.
  */
-export function AvatarSwatches({ part, draft, offers, buying, onPick }: AvatarSwatchesProps) {
+export function AvatarSwatches({ part, draft, offers, buying, disabled, onPick }: AvatarSwatchesProps) {
   const names = AVATAR_PARTS[part];
   return (
     <div role="radiogroup" aria-label={PART_TITLES[part]} className="grid grid-cols-3 gap-2 mobile:grid-cols-4 tablet:grid-cols-6 desktop:grid-cols-5">
@@ -59,9 +61,10 @@ export function AvatarSwatches({ part, draft, offers, buying, onPick }: AvatarSw
             aria-checked={selected}
             aria-label={`${name}${offer.kind === "sale" ? `, ${offer.cobbles} Cobbles` : offer.kind === "owned" ? ", owned" : offer.kind === "off" ? ", not for sale" : ", free"}`}
             data-offer={offer.kind}
+            disabled={disabled}
             onClick={() => onPick?.(id)}
             className={cn(
-              "state-layer relative flex min-w-0 flex-col items-center gap-1 rounded-xl border bg-card px-1 pt-2 pb-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "state-layer relative flex min-w-0 flex-col items-center gap-1 rounded-xl border bg-card px-1 pt-2 pb-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
               selected ? "border-primary ring-1 ring-primary" : "border-border",
             )}
           >

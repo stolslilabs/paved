@@ -5,12 +5,15 @@ const event = (name: string, fields: Record<string, unknown>): DecodedEvent => (
 /** `Avatar`'s writes in memory, on the fake views: `buy_avatar_item` and `set_avatar` with the contract's checks. */
 export class FakeAvatarWriter {
   readonly sent: string[] = [];
+  /** While set, a write waits for it before answering: the page's pending state. */
+  gate: Promise<void> | null = null;
   constructor(
     readonly views: FakeGameViews,
     readonly address: string,
   ) {}
 
   async buyAvatarItem({ part, id, confirmedPrice }: BuyAvatarItemRequest, views: Pick<AvatarViews, "avatarItem">): Promise<WriteResult> {
+    if (this.gate) await this.gate;
     const item = await views.avatarItem(part, id);
     const current = item.state === 1 ? item.cobbles : 0;
     if (current !== confirmedPrice) throw new AvatarPriceChangedError(confirmedPrice, current);
@@ -26,6 +29,7 @@ export class FakeAvatarWriter {
   }
 
   async setAvatar(look: bigint): Promise<WriteResult> {
+    if (this.gate) await this.gate;
     this.sent.push(`set ${look}`);
     const player = this.views.avatarPlayer(this.address);
     const ids = lookIds(look, this.views.avatars.parts);

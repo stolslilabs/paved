@@ -84,6 +84,31 @@ describe("/avatar: the creator", () => {
     await waitFor(() => expect(queryClient.getQueryData(avatarKeys.look(PLAYER_ID))).toBe(String(look)));
   });
 
+  it("a save on its way keeps the draft: no part can be picked, and its receipt leaves the page on the saved look", async () => {
+    const c = chain();
+    let release!: () => void;
+    c.writer.gate = new Promise<void>((resolve) => (release = resolve));
+    open(c, "/avatar");
+    await userEvent.click(await screen.findByRole("tab", { name: "Hair" }, { timeout: 5000 }));
+    await userEvent.click(screen.getByRole("radio", { name: "Fringe, free" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-busy", "true"));
+    // A tap on another part while the save is on its way changes nothing, and the save stays pending.
+    const other = screen.getByRole("radio", { name: "Long, free" });
+    expect(other).toBeDisabled();
+    await userEvent.click(other);
+    expect(screen.getByRole("radio", { name: "Fringe, free" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-busy", "true");
+    release();
+    const look = encodeAvatar({ ...DEFAULT_AVATAR, hair: 2 });
+    expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
+    expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(look);
+    expect(c.writer.sent).toEqual([`set ${look}`]);
+    // Once saved, the parts can be picked again.
+    await userEvent.click(screen.getByRole("radio", { name: "Long, free" }));
+    expect(screen.getByRole("radio", { name: "Long, free" })).toHaveAttribute("aria-checked", "true");
+  });
+
   it("Edit avatar in the profile sheet opens the creator on the saved avatar", async () => {
     const c = chain();
     c.views.avatarPlayer(PLAYER_ID).look = encodeAvatar({ ...DEFAULT_AVATAR, hair: 2 });
