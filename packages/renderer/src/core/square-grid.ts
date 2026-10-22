@@ -933,7 +933,8 @@ export class SquareGridRenderer implements AmbientEffect {
   private ghost: GhostCell | null = null;
   /** The cells lit, each with its order among the cells rolling in (null: at its scale). */
   private cells: Array<GridCell & { order: number | null }> = [];
-  private drawnKey = "";
+  /** The key of the cells drawn; null draws the next set whatever it is, an empty one included. */
+  private drawnKey: string | null = "";
   /** The roll-in under way: when the set was drawn, the new cells' count, and whether the flash plays. */
   private rollout: { since: number; entering: number; glow: boolean } | null = null;
   /** The dim's ease: from, to (1 once a tile is placed), since when (ms); `dimDrawn` once its end is on screen. */
@@ -1190,7 +1191,7 @@ export class SquareGridRenderer implements AmbientEffect {
     this.dimUniforms.uDimOpacity.value = clamp01(s.highlight.dim.opacity);
     this.syncLogo();
     this.applyPulse(0);
-    this.drawnKey = "";
+    this.drawnKey = null;
     this.syncHighlight(Number.NaN, this.ghost);
   }
 

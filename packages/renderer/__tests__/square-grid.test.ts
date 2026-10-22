@@ -415,6 +415,17 @@ describe("the square grid renderer", () => {
     expect(grid.step(1)).toBe(false);
   });
 
+  it("clears the cells it drew before it was turned off when it is on again with no slot", () => {
+    const settings = { backdrop: { enabled: false }, highlight: { rollout: false } };
+    const grid = gridOf(settings);
+    grid.setSlots([{ x: 2, y: 0 }, { x: 0, y: 1 }]);
+    expect(grid.stats()).toMatchObject({ route: 2, middle: 2, top: 2 });
+    grid.setSettings(resolveSquareGridSettings({ enabled: false }));
+    grid.setSlots([]);
+    grid.setSettings(on(settings));
+    expect(grid.stats()).toMatchObject({ route: 0, middle: 0, top: 0, logo: 0 });
+  });
+
   it("draws three squares on each lit cell, in the grid's plane, brown, green and white, the middle and the top turned opposite ways", () => {
     const grid = gridOf({ backdrop: { enabled: false }, highlight: { rollout: false } });
     grid.setSlots([{ x: 2, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1, legal: false }]);
