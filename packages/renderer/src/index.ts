@@ -96,6 +96,46 @@ export {
   ringField,
 } from "./core/placement";
 export type { PlacementSettings, PlacementSettingsInput, GhostTint, PlacementSlot, PlateShape, PlateState, RingField, TintKind } from "./core/placement";
+// The square grid (SQUARE-GRID): Realms' hex board on square cells, its fog in Paved's colours and its allowed-moves highlight.
+export {
+  BACKDROP_PATTERNS,
+  DEFAULT_SQUARE_GRID_SETTINGS,
+  ETERNUM_SCALE,
+  HIGHLIGHT_LAYERS,
+  HIGHLIGHT_STYLES,
+  HIGHLIGHT_Y,
+  LAUNCH_GLOW,
+  MX_NOISE_GLSL,
+  ROLLOUT,
+  SQUARE_GRID_GLSL,
+  SquareGridRenderer,
+  backdropLight,
+  backdropShown,
+  createHighlightGeometry,
+  dimAt,
+  dimmedPixel,
+  distanceField,
+  grayscaleAt,
+  gridLineAt,
+  gridLineColor,
+  gridLineUniforms,
+  highlightPulse,
+  highlightShown,
+  highlightTurns,
+  highlightsOf,
+  launchGlowAt,
+  layerOpacities,
+  resolveSquareGridSettings,
+  rolloutScale,
+  seasonVeil,
+  squareEdgeDistance,
+  stackedOpacity,
+  upwardIrradiance,
+} from "./core/square-grid";
+export type { BackdropPattern, DistanceField, GhostCell, SurfaceLight, GridCell, GridLineUniforms, HighlightLayer, HighlightStyle, SquareGridSettings, SquareGridSettingsInput } from "./core/square-grid";
+// What is drawn untouched by the look's tone map and grade (the square grid's highlight).
+export { OverlayPass, createOverlayDepth, overlayDepthTest } from "./core/overlay-pass";
+export type { Overlay, OverlayDepth } from "./core/overlay-pass";
 // The day and night cycle's settings; the cycle itself (`core/daynight.ts`) is a chunk of its own, loaded by the scene.
 export { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, WINDOW_DETECTIONS, resolveDayNightSettings, resolveWindowLight } from "./core/daynight-settings";
 export type { DayNightInput, DayNightSettings, DayPhase, Season, WindowDetection, WindowLightSettings } from "./core/daynight-settings";

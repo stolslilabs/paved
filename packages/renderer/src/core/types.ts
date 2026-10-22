@@ -83,6 +83,21 @@ export interface TileRenderData extends TileData {
   worldZ: number;
   // True for optimistic tiles awaiting tx confirmation
   pending?: boolean;
+  /** How high the tile hovers above its cell, in world units (a tile is `TILE_SIZE`): the app's tile stack lifts its tiles. Unset: 0. */
+  lift?: number;
+  /** The tile's size, 1 its cell's (the tile stack draws the tile in hand larger). Unset: 1. */
+  scale?: number;
+  /** See-through, untinted (`FADED_OPACITY`): the tile stack's tile in hand while the board draws it on a cell. */
+  faded?: boolean;
+  /** A turn around its vertical on top of its orientation, radians (the tile stack's pile, a little askew). Unset: 0. */
+  yaw?: number;
+  /**
+   * After its `yaw`, the tile leans `angle` radians toward the azimuth `toward` (radians around the vertical, 0 south, as
+   * the camera's): the tile stack turns its tile in hand to face its view. Unset: flat.
+   */
+  lean?: { angle: number; toward: number };
+  /** Drawn this thick, its model squashed to it, world units (the tile stack's pile, a slab per tile). Unset: its own height. */
+  thickness?: number;
 }
 
 export interface HoverState {

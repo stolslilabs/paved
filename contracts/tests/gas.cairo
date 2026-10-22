@@ -31,6 +31,7 @@ use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin_interfaces::erc4626::{ERC4626ABIDispatcher, ERC4626ABIDispatcherTrait};
 use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
 use paved::avatar::look::look_of;
+use paved::components::bucketable::{IBucketableDispatcher, IBucketableDispatcherTrait};
 use paved::constants::{self, CENTER};
 use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
@@ -149,13 +150,14 @@ pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
 // first-consume check and the mock's count of the transaction's consumes, two slots written).
 pub const CEILING_VRF_DRAW: u128 = 1035785;
 // z16 to z21: the matchmaker's calls (#639, `docs/architecture/matchmaker.md`): measured on the VPS
-// (snforge 0.64.0, test profile) + 5 %, rounded up.
-pub const CEILING_MM_JOIN: u128 = 905454;
-pub const CEILING_MM_SEARCH: u128 = 2511217;
-pub const CEILING_MM_NEXT: u128 = 3074204;
-pub const CEILING_MM_START: u128 = 4095643;
-pub const CEILING_MM_SETTLE: u128 = 2817341;
-pub const CEILING_MM_RELEASE: u128 = 1854105;
+// (snforge 0.64.0, test profile) + 5 %, rounded up; measured again after the split into components
+// (MATCHMAKER-CROWNS, section 11: separate slots per piece, the buckets' events).
+pub const CEILING_MM_JOIN: u128 = 908127;
+pub const CEILING_MM_SEARCH: u128 = 2728172;
+pub const CEILING_MM_NEXT: u128 = 3333558;
+pub const CEILING_MM_START: u128 = 4642472;
+pub const CEILING_MM_SETTLE: u128 = 3290075;
+pub const CEILING_MM_RELEASE: u128 = 2091957;
 // XP-LEVEL (#641): every game over credits its XP in the account write it already made, with one
 // `XpGained` (+128,110 on g, i, l, s, x and z6, +148,710 on k and y); every call that reads the
 // account unpacks the XP too (+17,660 on z1, z3, z4, z7, z8, z10, z11). The ceilings that still
@@ -1000,8 +1002,8 @@ fn test_gas_z19_matchmaker_start_attack() {
 
 /// z20. A player-versus-player attack settled with 3 stars, its worst case: both villages in the
 /// pool (the defender's attack shield ended and released) and both change bucket. The attacker at
-/// 90 crowns wins 26 from the defender at 110: 116 (bucket 0 to 1) and 84 (bucket 1 to 0); the
-/// registry is written once.
+/// 90 crowns wins the offer of a +20 gap, 31, from the defender at 110: 121 (bucket 0 to 1) and 79
+/// (bucket 1 to 0).
 #[test]
 fn test_gas_z20_matchmaker_settle() {
     let matchmaker = matchmaker();
@@ -1030,9 +1032,10 @@ fn test_gas_z20_matchmaker_settle() {
     let before = get_available_gas();
     let outcome = matchmaker.settle(PLAYER(), 3);
     let after = get_available_gas();
-    assert(outcome.gained == 26, 'not 26 crowns');
-    assert(matchmaker.village(PLAYER()).bucket == 1, 'attacker not in bucket 1');
-    assert(matchmaker.village(defender).bucket == 0, 'defender not in bucket 0');
+    assert(outcome.gained == 31, 'not 31 crowns');
+    let buckets = IBucketableDispatcher { contract_address: address };
+    assert(buckets.place(PLAYER()).bucket == 1, 'attacker not in bucket 1');
+    assert(buckets.place(defender).bucket == 0, 'defender not in bucket 0');
     report("z20_matchmaker_settle", before - after, CEILING_MM_SETTLE);
 }
 

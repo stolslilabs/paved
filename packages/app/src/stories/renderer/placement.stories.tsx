@@ -8,8 +8,8 @@ import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
  * cell next to a tile, a rounded rectangle inset in its cell (a gap between neighbours), lying at the tiles' bottom
  * (#588). One grey with no hue for both states, told apart by opacity alone: playable (some rotation fits) 0.55,
  * invalid (none fits) 0.2. The tile in hand is tinted on the model
- * itself: no tint at 50 % opacity on a hover; once placed, drawn plain, its opacity pulsing from 60 to 90 % and back
- * on a sine every 1.6 s (#681, the owner's; the faint yellow of #605 and #657 read as a filter), a fixed 75 % under reduced
+ * itself: no tint at 50 % opacity on a hover; once placed, drawn plain, its opacity pulsing from 80 to 100 % and back
+ * on a sine every 1.6 s (#681, the owner's; the faint yellow of #605 and #657 read as a filter), a fixed 90 % under reduced
  * motion; a temporary green on confirm fading to none. The tile in hand has the placed tiles' outlines at its own opacity
  * (#657): half on a hover, pulsing with the tile once placed. No rim, no aura. `Sequence` plays the game's placement: hover, placed with its bubble,
  * the hold on Validate, the voxel drop, then the green. Each change eases over 150 ms (at once under reduced

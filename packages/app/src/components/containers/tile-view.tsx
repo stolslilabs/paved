@@ -3,6 +3,7 @@ import { GameCanvas } from "@paved/renderer/react";
 import type { GameScene, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 import { TileChip, planCode, type TileArt } from "../elements/tile-chip";
+import { hasWebGL } from "../../lib/webgl";
 import { toRenderTiles } from "./board-viewport";
 
 /** Board centre of the contracts: the one tile sits where the starter would. */
@@ -17,26 +18,7 @@ const ONE_TILE_ZOOM = 64;
 /** The hand frames its one tile itself at 240 (`ONE_TILE_ZOOM`): the board's opening frame (CAMERA-FIT, #678) stays off. */
 const TILE_VIEW_SETTINGS: RendererSettingsInput = { cameraFit: { enabled: false } };
 
-let webgl: boolean | undefined;
-
-/**
- * Whether this browser gives a WebGL context, probed once on a throwaway canvas. Without one, three's renderer throws in
- * `GameCanvas`'s init, an unhandled rejection that leaves an empty box: `TileView` shows the tile art instead.
- */
-export function hasWebGL(): boolean {
-  if (webgl === undefined) {
-    try {
-      const canvas = document.createElement("canvas");
-      const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
-      webgl = !!gl;
-      // Release the probe's context at once: browsers cap the live WebGL contexts.
-      gl?.getExtension("WEBGL_lose_context")?.loseContext();
-    } catch {
-      webgl = false;
-    }
-  }
-  return webgl;
-}
+export { hasWebGL } from "../../lib/webgl";
 
 export interface TileViewProps {
   plan: number;
