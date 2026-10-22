@@ -90,8 +90,17 @@ export class Effects {
   private backdrop = false;
   private backdropTop: readonly number[] = [0, 0, 0];
   private backdropBottom: readonly number[] = [0, 0, 0];
+  /** The scene over the page (`RendererSettings.transparent`): the finish pass writes premultiplied colour, as the canvas composites. */
+  private transparent = false;
 
   constructor(_config: EffectsConfig = {}) {}
+
+  /** Over the page or not (set before `init`, as `RendererSettings.transparent` is read at the scene's). */
+  setTransparent(on: boolean): void {
+    if (on === this.transparent) return;
+    this.transparent = on;
+    this.update();
+  }
 
   init(
     renderer: THREE.WebGLRenderer,
@@ -197,7 +206,7 @@ export class Effects {
       this.antialiasing === "msaa" && this.samples,
       look.ao.enabled && look.ao.resolution,
       look.bloom.enabled,
-      finishDefines(look, look.ao.enabled, this.backdrop),
+      finishDefines(look, look.ao.enabled, this.backdrop, this.transparent),
     ]);
   }
 
@@ -312,7 +321,7 @@ export class Effects {
       this.smaaPending = pending;
     }
 
-    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null, this.backdrop);
+    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null, this.backdrop, this.transparent);
     this.finishPass.needsSwap = smaa;
     this.composer.addPass(this.finishPass);
     names.push("finish");

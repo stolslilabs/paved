@@ -89,6 +89,12 @@ export interface RendererSettings {
    * tier; its season is the day and night cycle's (the wheel's), summer's day with the cycle off; under reduced motion nothing falls.
    */
   weather: WeatherSettings;
+  /**
+   * The scene over the page instead of on its own background (the app's tile stack, `StackView`): the canvas keeps its
+   * alpha, and no background, fog or day and night backdrop is drawn. Read at `init`, when the canvas's context is made.
+   * Off by default (the board).
+   */
+  transparent: boolean;
 }
 
 /** The camera's zoom limits, as distances from its target in world units (a tile is 3). */
@@ -128,6 +134,8 @@ export interface RendererSettingsInput {
   fog?: FogSettingsInput;
   /** The weather: its fields over the defaults'. */
   weather?: WeatherSettingsInput;
+  /** Over the page, no background of its own (read at `init`). */
+  transparent?: boolean;
 }
 
 export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
@@ -155,6 +163,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   ambient: DEFAULT_AMBIENT_SETTINGS,
   fog: resolveFogSettings({ ...LANDSCAPE_FOG, enabled: false }, DEFAULT_FOG_SETTINGS),
   weather: DEFAULT_WEATHER_SETTINGS,
+  transparent: false,
 };
 
 /**
@@ -225,6 +234,7 @@ export function resolveRendererSettings(
     ambient: resolveAmbientSettings(input.ambient, base.ambient),
     fog: resolveFogSettings(input.fog, base.fog),
     weather: resolveWeatherSettings(input.weather, base.weather),
+    transparent: input.transparent ?? base.transparent,
   };
 }
 

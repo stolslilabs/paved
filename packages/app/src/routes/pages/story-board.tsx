@@ -16,7 +16,8 @@ import { provideManifest } from "@paved/renderer";
 import { BoardViewport } from "../../components/containers/board-viewport";
 import type { CoachTarget } from "../../components/containers/coach";
 import { DeckPresentation, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
-import { TileView, hasWebGL } from "../../components/containers/tile-view";
+import { hasWebGL } from "../../components/containers/tile-view";
+import { StackView } from "../../components/containers/stack-view";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
@@ -256,7 +257,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       tileArt={tileArt}
       tileRenders={renders}
       skins={skins}
-      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
+      renderHandStack={view === "3d" ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
       storageDisabled={!saved}
       slots={phase === "play" ? slots : undefined}
       ghost={ghost}

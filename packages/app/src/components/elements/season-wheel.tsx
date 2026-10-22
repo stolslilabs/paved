@@ -6,8 +6,9 @@ import { Icon } from "../ui/icon";
 export const SEASON_ICON = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const;
 
 // The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`): a soft gold rim (issue 634), a band of paving stones, the disc of the four
-// seasons' skies, a hub at the centre. The dial is 72 px across on a phone, 64 px on the narrowest (under 390 px, so the
-// stack and its coming tiles fit beside it at the board's bottom, issue 682) and 96 px from tablet up.
+// seasons' skies, a hub at the centre. The dial is 108 px across on a phone, 96 px on the narrowest (under 390 px, so the
+// stack and its coming tiles fit beside it at the board's bottom, issue 682) and 144 px from tablet up (half again the
+// first sizes, the owner's ask).
 
 /** The disc's radius: inside the band of stones. */
 const DISC = 40;
@@ -18,11 +19,13 @@ const STONES = 24;
 const HUB = 12;
 /** Where the season icons sit, from the centre, in the middle of their season's day. */
 export const ICON_RADIUS = 26.5;
-/** The dial's size: 64 px under 390 px wide, 72 px on other phones, 96 px from tablet up (its placeholder's too). */
-export const DIAL_SIZE = "size-16 min-[24.375rem]:size-18 tablet:size-24";
-/** The dial's smallest width in px, on the narrowest phones; the icons' size there (`Icon size="xs"`). */
-export const DIAL_PX = 64;
-export const ICON_PX = 12;
+/** The dial's size: 96 px under 390 px wide, 108 px on other phones, 144 px from tablet up (its placeholder's too). */
+export const DIAL_SIZE = "size-24 min-[24.375rem]:size-27 tablet:size-36";
+/** The dial's smallest width in px, on the narrowest phones; the icons' size there (`ICON_SIZE`). */
+export const DIAL_PX = 96;
+export const ICON_PX = 18;
+/** The season icons: 18 px on a phone, 24 px from tablet up; the centre's mark 18 px. */
+const ICON_SIZE = "text-[1.125rem] tablet:text-[1.5rem]";
 
 /** A point at `r` from the centre, `deg` clockwise from the top. */
 function at(r: number, deg: number): [number, number] {
@@ -156,30 +159,30 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
               style={{ left: `${ICON_AT[s].x}%`, top: `${ICON_AT[s].y}%`, transform: `rotate(${-turned}deg)`, color: `var(--season-${s}-tint)`, ...turn }}
             >
               <span className={cn("flex", s !== current && "opacity-80")} style={{ filter: "drop-shadow(0 1px 1px var(--dial-shade))" }}>
-                <Icon name={SEASON_ICON[s]} size="xs" className="tablet:text-[1rem]" />
+                <Icon name={SEASON_ICON[s]} size="xs" className={ICON_SIZE} />
               </span>
             </span>
           ))}
         </span>
-        {/* Fixed: the rim, the pointer at the top, the hub. */}
+        {/* Fixed: the rim, the pointer at the top, the hub; the three rings black, the pointer gold. */}
         <svg viewBox="0 0 100 100" className="absolute inset-0 size-full">
-          <circle cx={50} cy={50} r={49.25} fill="none" stroke="var(--dial-rim)" strokeWidth={1.5} />
-          <circle cx={50} cy={50} r={DISC + 0.5} fill="none" stroke="var(--dial-rim)" strokeWidth={1} />
+          <circle cx={50} cy={50} r={49.25} fill="none" stroke="var(--dial-ring)" strokeWidth={1.5} />
+          <circle cx={50} cy={50} r={DISC + 0.5} fill="none" stroke="var(--dial-ring)" strokeWidth={1} />
           <path d={`M46 ${50 - DISC - 1}L54 ${50 - DISC - 1}L50 ${50 - DISC + 7}Z`} fill="var(--dial-rim)" stroke="var(--dial-band)" strokeWidth={0.8} />
-          <circle cx={50} cy={50} r={HUB} fill="var(--dial-band)" stroke="var(--dial-rim)" strokeWidth={1.5} />
+          <circle cx={50} cy={50} r={HUB} fill="var(--dial-band)" stroke="var(--dial-ring)" strokeWidth={1.5} />
           <circle cx={50} cy={50} r={HUB - 3} fill="none" stroke="var(--dial-stone)" strokeWidth={0.8} />
         </svg>
         <span className="absolute inset-0 rounded-full transition-colors group-hover:bg-state-hover group-active:bg-state-pressed" />
         <span className="absolute inset-0 flex items-center justify-center" style={{ color: "var(--dial-mark)" }} data-centre={state === "auto" ? "auto" : "fixed"}>
-          {state === "auto" ? <Icon name="arrows-rotate" size="xs" /> : <span className="size-1.5 rounded-full bg-current tablet:size-2" />}
+          {state === "auto" ? <Icon name="arrows-rotate" size="xs" className="text-[1.125rem]" /> : <span className="size-2.5 rounded-full bg-current tablet:size-3" />}
         </span>
         {/* "Now": a badge on the rim, over the pointer: the sun by day, the moon by night. */}
         <span
           data-now={time}
-          className="absolute top-0 left-1/2 flex size-5 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full border border-card tablet:size-6"
+          className="absolute top-0 left-1/2 flex size-7.5 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full border border-card tablet:size-9"
           style={{ background: night ? "var(--dial-night)" : "var(--primary)", color: night ? "var(--dial-night-foreground)" : "var(--primary-foreground)" }}
         >
-          <Icon name={night ? "moon" : "sun"} size="xs" />
+          <Icon name={night ? "moon" : "sun"} size="xs" className="text-[1.125rem]" />
         </span>
       </span>
     </button>

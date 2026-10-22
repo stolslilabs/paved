@@ -242,6 +242,8 @@
   --dial-rim: color-mix(in oklab, var(--primary) 45%, var(--color-charcoal-600));
   --dial-mark: color-mix(in oklab, var(--primary) 65%, var(--color-charcoal-600));
   --dial-band: var(--color-charcoal-900);
+  /* The face's three rings (the rim, the disc's edge, the hub's): black, the owner's pick over the gold. */
+  --dial-ring: var(--color-charcoal-950);
   --dial-stone: var(--color-charcoal-600);
   --dial-stone-alt: var(--color-charcoal-700);
   --dial-stone-edge: var(--color-charcoal-500);
@@ -274,6 +276,34 @@
   --league-master: var(--color-ember-400);
   --league-champion: var(--color-meadow-400);
   --league-legend: var(--color-gold-100);
+}
+
+/* 3e. The tile stack (after Dorfromantik's): a tile's base as the renders draw it, a stone rim over earth; the pile, one
+   layer per tile left, a row of grass over a row of earth (a look, not the tiles' own), its east sides in shade. The edge
+   is the board's outline colour (`core/outlines.ts`). */
+:root {
+  --slab-rim: var(--color-charcoal-200);
+  --slab-earth: var(--color-amber-800);
+  --slab-edge: #1f1f1f;
+  --slab-shade: rgb(0 0 0 / 0.32);
+  --slab-shadow: rgb(0 0 0 / 0.45);
+  --pile-grass-top: color-mix(in oklab, var(--color-meadow-700) 60%, var(--color-amber-800));
+  --pile-grass: color-mix(in oklab, var(--color-meadow-800) 60%, var(--color-amber-800));
+  --pile-grass-shade: color-mix(in oklab, var(--color-meadow-900) 60%, var(--color-amber-950));
+  --pile-earth: var(--color-amber-800);
+  --pile-earth-shade: var(--color-amber-900);
+  --pile-gap: var(--color-amber-950);
+}
+
+@theme inline {
+  --color-slab-edge: var(--slab-edge);
+  --color-slab-shadow: var(--slab-shadow);
+  --color-pile-grass-top: var(--pile-grass-top);
+  --color-pile-grass: var(--pile-grass);
+  --color-pile-grass-shade: var(--pile-grass-shade);
+  --color-pile-earth: var(--pile-earth);
+  --color-pile-earth-shade: var(--pile-earth-shade);
+  --color-pile-gap: var(--pile-gap);
 }
 
 @theme inline {
@@ -476,6 +506,15 @@
     animation: none;
     opacity: 0.75;
   }
+}
+
+/* The tile stack's slabs (`elements/tile-slab.tsx`): a tile's side, a stone rim over earth; the east sides darker.
+   `--side-dir` is the way down the side, set by each side. */
+@utility slab-side {
+  background: linear-gradient(var(--side-dir, to bottom), var(--slab-rim) 0 35%, var(--slab-earth) 35% 100%);
+}
+@utility slab-side-shade {
+  box-shadow: inset 0 0 0 100vmax var(--slab-shade);
 }
 
 /* Numbers (section 2.3): scores, counters and prices use Space Mono with tabular figures, so digits keep one width. */

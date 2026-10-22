@@ -138,12 +138,14 @@ const TONE_MAPPING_DEFINES: Record<ToneMappingMode, string | null> = {
 };
 
 /**
- * The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs), and the
- * backdrop when the day and night cycle draws one (`backdrop`).
+ * The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs), the backdrop
+ * when the day and night cycle draws one (`backdrop`), and the premultiplied output of a scene over the page
+ * (`transparent`, `RendererSettings.transparent`; the backdrop covers the page, so it wins).
  */
-export function finishDefines(look: LookSettings, ao: boolean, backdrop = false): Record<string, string> {
+export function finishDefines(look: LookSettings, ao: boolean, backdrop = false, transparent = false): Record<string, string> {
   const defines: Record<string, string> = {};
   if (backdrop) defines.BACKDROP = "";
+  else if (transparent) defines.PREMULTIPLIED = "";
   const tone = TONE_MAPPING_DEFINES[look.toneMapping.mode];
   if (tone) defines[tone] = "";
   if (ao) defines.AO = "";
@@ -191,6 +193,11 @@ const FinishShader = {
 
     void main() {
       vec4 color = texture2D(tDiffuse, vUv);
+      #ifdef PREMULTIPLIED
+        // Over the page: the scene was cleared to transparent, so its colour is premultiplied by its alpha (a see-through
+        // face, an edge). The tone map, the grade and the transfer take the colour itself; it is premultiplied again at the end.
+        color.rgb /= max(color.a, 1e-4);
+      #endif
       #ifdef AO
         color.rgb *= mix(1.0, texture2D(tAo, vUv).r, aoIntensity);
       #endif
@@ -221,6 +228,9 @@ const FinishShader = {
         color.rgb *= mix(1.0 - vignetteDarkness, 1.0, clamp(1.0 - dot(centred, centred) * 2.0, 0.0, 1.0));
       #endif
       gl_FragColor = sRGBTransferOETF(color);
+      #ifdef PREMULTIPLIED
+        gl_FragColor.rgb *= clamp(gl_FragColor.a, 0.0, 1.0);
+      #endif
       #ifdef BACKDROP
         float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
         gl_FragColor.rgb += (dither - 0.5) / 255.0 * uncovered;
@@ -236,11 +246,11 @@ export class FinishPass extends Pass {
   readonly material: THREE.RawShaderMaterial;
   private readonly quad: FullScreenQuad;
 
-  constructor(look: LookSettings, ao: THREE.Texture | null, backdrop = false) {
+  constructor(look: LookSettings, ao: THREE.Texture | null, backdrop = false, transparent = false) {
     super();
     this.material = new THREE.RawShaderMaterial({
       name: "FinishShader",
-      defines: finishDefines(look, ao !== null, backdrop),
+      defines: finishDefines(look, ao !== null, backdrop, transparent),
       uniforms: {
         tDiffuse: { value: null },
         tAo: { value: ao },

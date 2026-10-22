@@ -3,7 +3,8 @@ import { useParams } from "react-router";
 import { toast } from "sonner";
 import { DISCARD_POINTS, MAX_UNCONFIRMED, type PredictedState } from "@paved/game-core";
 import { BoardViewport } from "../../components/containers/board-viewport";
-import { TileView, hasWebGL } from "../../components/containers/tile-view";
+import { hasWebGL } from "../../components/containers/tile-view";
+import { StackView } from "../../components/containers/stack-view";
 import { useTileArt } from "../../data/tile-art";
 import { useTileRenders } from "../../data/tile-renders";
 import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
@@ -136,7 +137,7 @@ function TrainingBoard() {
       tileArt={tileArt}
       tileRenders={renders}
       skins={skins}
-      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
+      renderHandStack={view === "3d" ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
       storageDisabled={snapshot.storage === "off"}
       saveDropped={snapshot.storage === "dropped"}
       slots={slots}
@@ -372,7 +373,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       tileArt={tileArt}
       tileRenders={renders}
       skins={skins}
-      renderHandTile={view === "3d" ? (t) => <TileView {...t} basePath={RENDERER_ASSETS} skins={skins} tileArt={tileArt} /> : undefined}
+      renderHandStack={view === "3d" ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
       slots={slots}
       ghost={ghost}
       confirmed={placement.confirmed}

@@ -98,11 +98,12 @@ export interface FrameObserver {
 }
 
 export interface GameSceneDependencies {
-  createRenderer?: (surface: RenderSurfaceAdapter) => THREE.WebGLRenderer;
+  /** Makes the renderer; `transparent` is `RendererSettings.transparent` (a canvas with alpha). */
+  createRenderer?: (surface: RenderSurfaceAdapter, transparent?: boolean) => THREE.WebGLRenderer;
   createCameraController?: (surface: RenderSurfaceAdapter) => CameraController;
 }
 
-function createDefaultRenderer(surface: RenderSurfaceAdapter): THREE.WebGLRenderer {
+function createDefaultRenderer(surface: RenderSurfaceAdapter, transparent = false): THREE.WebGLRenderer {
   const renderTarget = surface.getRenderTarget?.();
   if (!renderTarget) {
     throw new Error("Render surface does not expose a render target");
@@ -114,7 +115,8 @@ function createDefaultRenderer(surface: RenderSurfaceAdapter): THREE.WebGLRender
     // pass: a multisampled canvas would antialias nothing and hold a 4-sample colour and depth buffer, 32 B a pixel
     // (33.8 MiB at 720 x 1480, measured in Q3-GPU). The faces' antialiasing is the composer's (`multisampling`).
     antialias: false,
-    alpha: false,
+    // Over the page (`RendererSettings.transparent`): the canvas keeps the scene's alpha, premultiplied as the finish pass writes it.
+    alpha: transparent,
   });
 }
 
@@ -269,7 +271,9 @@ export class GameScene {
     }
 
     const rendererFactory = this.dependencies.createRenderer ?? createDefaultRenderer;
-    this.renderer = rendererFactory(surface);
+    this.renderer = rendererFactory(surface, this.settings.transparent);
+    // Over the page: cleared to transparent, every frame (the finish pass keeps the alpha when it lays no backdrop).
+    if (this.settings.transparent) this.renderer.setClearColor(0x000000, 0);
 
     const size = surface.getSize();
     this.pixelRatio = this.cappedPixelRatio();
@@ -316,6 +320,8 @@ export class GameScene {
     // (set before a renderer, they only resolve the look).
     this.effectsCapabilities = effectsCapabilities;
     this.effects.setCapabilities(effectsCapabilities);
+    // Over the page, the finish pass writes premultiplied colour (the board's chain is unchanged).
+    if (this.settings.transparent) this.effects.setTransparent(true);
     this.effects.setLook(this.settings.look, this.getQuality());
     this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile, this.faceAntialiasing(), this.settings.msaaSamples);
     this.applyLook();
@@ -446,8 +452,9 @@ export class GameScene {
     const play = getLightingProfile("play");
 
     if (this.renderer) this.renderer.toneMappingExposure = look.toneMapping.exposure;
-    this.scene.background = new THREE.Color(look.background);
-    this.scene.fog = look.fog.enabled
+    // Over the page: no background and no fog toward it (the page is the background).
+    this.scene.background = this.settings.transparent ? null : new THREE.Color(look.background);
+    this.scene.fog = look.fog.enabled && !this.settings.transparent
       ? new THREE.FogExp2(look.background, (look.fog.density * profile.fogDensity) / play.fogDensity)
       : null;
 
@@ -678,7 +685,8 @@ export class GameScene {
    */
   private syncDayNight(): void {
     const settings = this.settings.dayNight;
-    if (!settings.enabled || !this.renderer) {
+    // Over the page, the cycle's backdrop would cover it: the look's lights stay.
+    if (!settings.enabled || this.settings.transparent || !this.renderer) {
       if (this.dayNightOn) {
         this.dayNightOn = false;
         this.dayNightPoint = null;
