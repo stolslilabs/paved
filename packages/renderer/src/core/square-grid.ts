@@ -23,8 +23,8 @@ import { TILE_SIZE } from "./types";
  *   ground's colour, a line `lines.halfWidth` each side of the edge, antialiased over 1.2 px, mixed in at 42 %.
  * - The highlight (its `managers/highlight-hex-manager.ts`, the overlay of an army's allowed moves), on every playable slot as
  *   Realms lights an allowed hex (each the end of its own path): rounded squares stacked in the cell, a big one (Realms' route
- *   fill), a middle one turned the other way, a small one on top (Realms' endpoint), in neutral greys and white, with Paved's "P"
- *   in its display font at the middle. They breathe on Realms' pulse, on the pending tile's clock (`update`'s phase: the two
+ *   fill), a middle one turned the other way, a small one on top (Realms' endpoint), the big one in the app's brown, the two
+ *   others in its green, with Paved's white "P" in its display font at the middle. They breathe on Realms' pulse, on the pending tile's clock (`update`'s phase: the two
  *   breathe together), and the top square keeps its opacity over the others (`layerOpacities`); a new set rolls in cell by cell,
  *   the first with a flash. Its shapes have a few styles (`HighlightStyle`). Unlike Realms', it lies in the grid's plane
  *   (`HIGHLIGHT_Y`). None on a slot no rotation fits, none under the tile in hand (its preview or the tile placed:
@@ -90,7 +90,10 @@ export interface SquareGridSettings {
   };
   highlight: {
     enabled: boolean;
-    /** The squares' colours, bottom to top, and the logo's: neutral greys and white, CSS hex. */
+    /**
+     * The squares' colours, bottom to top, and the logo's, CSS hex: the app's brown (amber-700) under its green (meadow-400, its
+     * success) twice, the logo white.
+     */
     colors: { route: string; middle: string; top: string; logo: string };
     /**
      * The shapes (`HighlightStyle`); `twist`, the top square's turn in degrees (the middle one turns the other way) for "twist"
@@ -174,7 +177,7 @@ export const DEFAULT_SQUARE_GRID_SETTINGS: SquareGridSettings = {
   },
   highlight: {
     enabled: true,
-    colors: { route: "#c8c8c8", middle: "#e2e2e2", top: "#ffffff", logo: "#ffffff" },
+    colors: { route: "#914e02", middle: "#6eca6f", top: "#6eca6f", logo: "#ffffff" },
     style: "twist",
     twist: 12,
     logo: { enabled: true, text: "P", font: '700 192px "Almendra", Georgia, serif', scale: 0.42, opacity: 0.5 },

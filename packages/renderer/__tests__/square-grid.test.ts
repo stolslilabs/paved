@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   BACKDROP_PATTERNS,
   DEFAULT_SQUARE_GRID_SETTINGS,
@@ -105,11 +107,12 @@ describe("the square grid's settings", () => {
       seasonShare: 0.6,
     });
     const { highlight } = DEFAULT_SQUARE_GRID_SETTINGS;
-    expect(highlight.colors).toEqual({ route: "#c8c8c8", middle: "#e2e2e2", top: "#ffffff", logo: "#ffffff" });
-    for (const color of Object.values(highlight.colors)) {
-      const c = new THREE.Color(color);
-      expect(c.r).toBe(c.g);
-      expect(c.g).toBe(c.b);
+    // The app's brown, then its green twice (amber-700, meadow-400 of theme.css), bottom to top; the P white.
+    expect(highlight.colors).toEqual({ route: "#914e02", middle: "#6eca6f", top: "#6eca6f", logo: "#ffffff" });
+    const theme = readFileSync(fileURLToPath(new URL("../../app/src/styles/theme.css", import.meta.url)), "utf8");
+    for (const [token, color] of [["amber-700", highlight.colors.route], ["meadow-400", highlight.colors.middle], ["meadow-400", highlight.colors.top]]) {
+      expect(theme).toContain(`--color-${token}: `);
+      expect(theme.match(new RegExp(`--color-${token}: oklch\\([^)]*\\); /\\* (#[0-9A-F]{6}) \\*/`))![1]!.toLowerCase()).toBe(color);
     }
     expect(highlight.logo).toMatchObject({ enabled: true, text: "P" });
     expect(highlight.logo.font).toContain('"Almendra"');
@@ -391,7 +394,7 @@ describe("the square grid renderer", () => {
     expect(grid.step(1)).toBe(false);
   });
 
-  it("draws three squares on each lit cell, in the grid's plane, in neutral colours, the middle and the top turned opposite ways", () => {
+  it("draws three squares on each lit cell, in the grid's plane, brown, green and green, the middle and the top turned opposite ways", () => {
     const grid = gridOf({ backdrop: { enabled: false }, highlight: { rollout: false } });
     grid.setSlots([{ x: 2, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1, legal: false }]);
     expect(grid.stats()).toMatchObject({ route: 2, middle: 2, top: 2 });
@@ -411,9 +414,9 @@ describe("the square grid renderer", () => {
     expect(turnOf(middle!, 1)).toBeCloseTo(-12 * deg, 5);
     expect(turnOf(top!, 1)).toBeCloseTo(12 * deg, 5);
     const colorOf = (mesh: THREE.InstancedMesh) => (mesh.material as THREE.MeshBasicMaterial).color;
-    expect(colorOf(route!).equals(new THREE.Color("#c8c8c8"))).toBe(true);
-    expect(colorOf(middle!).equals(new THREE.Color("#e2e2e2"))).toBe(true);
-    expect(colorOf(top!).equals(new THREE.Color("#ffffff"))).toBe(true);
+    expect(colorOf(route!).equals(new THREE.Color("#914e02"))).toBe(true);
+    expect(colorOf(middle!).equals(new THREE.Color("#6eca6f"))).toBe(true);
+    expect(colorOf(top!).equals(new THREE.Color("#6eca6f"))).toBe(true);
     const o = layerOpacities(0, 0.5);
     expect([route, middle, top].map((m) => (m!.material as THREE.MeshBasicMaterial).opacity)).toEqual([o.route, o.middle, o.top]);
     // No canvas here: no logo.
