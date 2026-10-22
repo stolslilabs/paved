@@ -710,12 +710,13 @@ Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim,
 
 | Class | Sierra base | CASM base | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
 |---|---:|---:|---:|---:|---:|---:|
-| `Matchmaker` | 9,616 | 24,473 | 10,075 | 24,614 | +141 | 30.0 % |
+| `Matchmaker` | 9,616 | 24,473 | 10,076 | 24,614 | +141 | 30.0 % |
 
 The three new components (`CrownableComponent`, `BucketableComponent`, `ShieldableComponent`) have no class of their own:
 their code is measured in the class that embeds them, `Matchmaker`, the only one so far. The offer and cost tables of the
 Clash of Clans curves (97 breakpoints, a binary search) and the components' separate entry points cost 141 felts in all.
-`Matchmaker` is 49,114 CASM felts under the P-44 cap (73,728). `Setup` (43,431) and every other class are unchanged.
+`Matchmaker` is 49,114 CASM felts under the P-44 cap (73,728). Measured again after the cost curve's choice B (2026-10-22, the
+same breakpoint count): CASM unchanged, Sierra 10,075 to 10,076. `Setup` (43,431) and every other class are unchanged.
 
 ## After XP-LEVEL (#641)
 

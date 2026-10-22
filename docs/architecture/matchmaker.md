@@ -162,17 +162,26 @@ update removed training times and attacks became more frequent; it is another er
 2013 to 2025 curve, whose star split (1/3 per star, S2) is the one the matchmaker
 already used. The 2025 constants (44 and 14) are the alternative if the owner wants fewer crowns per attack.
 
-**Where the sources disagree: the 0-star cost at an even gap** (open, asked of the owner on #639). S1 states 20; S3's
-loss fit gives 19 (19.49, rounded). The offer agrees at every anchor of S1 (30 even, 58 at +600, 59 from about +750), and
-so does the cost elsewhere (1 at +600, 39 at most). Two integer curves fit the sources, and they differ by one crown on 264
-of the 2,001 gaps from -1,000 to +1,000:
+**Where the sources disagree: the 0-star cost at an even gap.** The sources do not agree on this number, and the curve
+here follows a choice between two readings:
 
-- **A, S3's fit as written** (built, sections 6.2 and 6.3): 19 at an even gap, against S1's 20.
-- **B, the Elo form both fits approximate**, `round(39 x E)`: every S1 anchor exact (20 even, 1 at +600, 39 at most), one
-  crown off S3's fit on those 264 gaps (for example 35 instead of 36 at -400, 12 instead of 11 at +150, 1 instead of 0
-  at +750).
+- **S3's loss fit gives 19** at an even gap (19.49, rounded), and S3 itself admits an error of one trophy.
+- **S1 (wiki revision 607892) states 20**: equal trophies, a failed attack loses 20.
 
-The code holds A until the owner chooses; B changes only the cost's breakpoints and the pinned rows.
+The offer agrees with S1 at every anchor (30 even, 58 at +600, 59 from about +750), and the cost agrees elsewhere (1 at
++600, 39 at most). Two integer curves fit the sources, and they differ by one crown on 264 of the 2,001 gaps from -1,000
+to +1,000:
+
+- **A, S3's fit as written**: 19 at an even gap, one crown off S1 there.
+- **B, the Elo form both fits approximate**, `round(39 x E)`: every number S1 states is exact (20 even, 1 at +600, 39 at
+  most); one crown off S3's fit on those 264 gaps (for example 35 instead of 36 at -400, 12 instead of 11 at +150, 1
+  instead of 0 at +750).
+
+**The choice is B** (the Overseer's provisional ruling of 2026-10-22, on the owner's question; the owner rules on the PR).
+Why: S1 states its numbers outright, while S3 is a model of observations that admits a one-trophy error, so where the two
+disagree the stated number wins; and B is the Elo shape both fits approximate (below), so it departs from S3 only by
+rounding. A is one constant away: the cost's breakpoints in `contracts/src/matchmaker/crowns.cairo` (`COST_STEPS`, A's
+list kept below), the pinned rows of `paved::tests::matchmaker`, and this note's table.
 
 **The shape.** Both fits are Elo's logistic with Elo's 400-point scale: `0.00576` is `ln 10 / 400` (0.005756), and
 `0.0059` is within the source's truncation of it. So the offer is about `60 x (1 - E)` and the 0-star cost about
@@ -187,8 +196,8 @@ With `gap = defender's crowns - attacker's crowns`, both fixed at the draw:
   bounded by S1 (59 at most; 1 at least, the low leagues' minimum: leagues are #644's, so the floor is the lowest league's).
 - **Stars**: 1, 2 or 3 stars win `ceil(offer x stars / 3)` (S2: a third per star; rounded up, as S1's 1-star on a 1-trophy
   offer wins 1).
-- **0-star cost** `= clamp(round(39.0907 - 39.0619 / (1 + 0.993 e^(-0.0059 gap))), 0, 39)`: S3's loss fit, the exponent as
-  the source gives it, bounded by S1 (39 at most; S3's floor 0, reached from a gap of +746).
+- **0-star cost** `= clamp(round(39 x E), 0, 39)`, `E = 1 / (1 + 10^(gap / 400))`: choice B of 6.1, Elo's form of S3's loss
+  fit, exact on S1's anchors (20 at an even gap; 39 at most; 0 from a gap of +755).
 - **Who pays**: a win's crowns come from the defender, a 0-star cost goes to the defender (S1).
 - `round` is half up. Both curves are monotone in steps of exactly one crown, so the contract holds them as two tables of
   breakpoints (58 for the offer, 39 for the cost), each the first gap of a new value, with no floating point: the offer is
@@ -205,7 +214,11 @@ Offer breakpoints (gap at which the offer becomes 2, 3, ..., 59):
 -94, -82, -70, -58, -46, -35, -23, -11, 0, 12, 23, 35, 47, 59, 71, 83, 95, 108, 121, 134, 147, 161, 176, 191, 207, 224,
 241, 260, 280, 302, 326, 353, 383, 418, 461, 514, 590, 719.
 
-Cost breakpoints (gap at which the cost becomes 38, 37, ..., 0):
+Cost breakpoints, choice B (gap at which the cost becomes 38, 37, ..., 0):
+-754, -559, -465, -402, -353, -313, -279, -249, -221, -196, -173, -151, -130, -110, -91, -72, -53, -35, -17, 1, 18, 36,
+54, 73, 92, 111, 131, 152, 174, 197, 222, 250, 280, 314, 354, 403, 466, 560, 755.
+
+Cost breakpoints of A, S3's fit (kept for the owner's ruling):
 -709, -536, -449, -389, -342, -304, -271, -242, -215, -191, -168, -147, -127, -107, -88, -70, -52, -34, -17, 0, 18, 35,
 53, 71, 89, 108, 128, 148, 170, 192, 217, 244, 273, 307, 346, 394, 456, 549, 746.
 
@@ -213,28 +226,31 @@ Cost breakpoints (gap at which the cost becomes 38, 37, ..., 0):
 
 | Gap (defender - attacker) | Offer (3 stars) | 2 stars | 1 star | 0-star cost |
 |---:|---:|---:|---:|---:|
-| -750 or less | 1 | 1 | 1 | 39 |
+| -1,000 or less | 1 | 1 | 1 | 39 |
+| -750 | 1 | 1 | 1 | 38 |
 | -600 | 1 | 1 | 1 | 38 |
 | -500 | 3 | 2 | 1 | 37 |
-| -400 | 5 | 4 | 2 | 36 |
+| -400 | 5 | 4 | 2 | 35 |
 | -300 | 8 | 6 | 3 | 33 |
 | -200 | 14 | 10 | 5 | 30 |
-| -150 | 17 | 12 | 6 | 28 |
+| -150 | 17 | 12 | 6 | 27 |
 | -100 | 21 | 14 | 7 | 25 |
 | -50 | 25 | 17 | 9 | 22 |
-| 0 | 30 | 20 | 10 | 19 |
+| 0 | 30 | 20 | 10 | 20 |
 | +50 | 34 | 23 | 12 | 17 |
 | +100 | 38 | 26 | 13 | 14 |
-| +150 | 42 | 28 | 14 | 11 |
+| +150 | 42 | 28 | 14 | 12 |
 | +200 | 45 | 30 | 15 | 9 |
 | +300 | 50 | 34 | 17 | 6 |
-| +400 | 54 | 36 | 18 | 3 |
+| +400 | 54 | 36 | 18 | 4 |
 | +500 | 56 | 38 | 19 | 2 |
 | +600 | 58 | 39 | 20 | 1 |
-| +750 or more | 59 | 40 | 20 | 0 |
+| +750 | 59 | 40 | 20 | 1 |
+| +1,000 or more | 59 | 40 | 20 | 0 |
 
-Against S1's anchors: even gap 30 / 19 (S1: 30 / 20: the open point above), +600 58 / 1 (S1: 58 / 1), 59 from +719
-(S1: "750 or more", a round figure), 39 at most (S1).
+Against S1's anchors: even gap 30 / 20 (S1: 30 / 20), +600 58 / 1 (S1: 58 / 1), 59 from +719 (S1: "750 or more", a round
+figure), 39 at most (S1). The cost column is choice B (6.1); A, S3's fit, differs by one crown at -750 (39), -400 (36),
+-150 (28), 0 (19), +150 (11), +400 (3) and +750 (0).
 
 ### 6.4 The settlement
 
@@ -458,13 +474,14 @@ does not declare it (its deployment is #663's named follow-up). No client or ind
 `Matchmaker` 24,473 to 24,614 felts (+141), 30.0 % of the Starknet cap, 49,114 under P-44's. No other class changes.
 
 **Gas** (L2 gas of the call alone, test profile, snforge 0.64.0, VPS, 2026-10-22; z15, the VRF draw alone, equal to its
-committed 986,461; ceilings reset at measured + 5 %):
+committed 986,461; ceilings reset at measured + 5 %; z17 and z18 measured again after choice B of 6.1, under their
+ceilings: the cost's binary search takes another path):
 
 | Test | Call | #663 | Now | Change |
 |---|---|---:|---:|---:|
 | z16 | `join` | 862,337 | 864,882 | +0.3 % |
-| z17 | `search`, free | 2,391,635 | 2,598,259 | +8.6 % |
-| z18 | `next` | 2,927,813 | 3,174,817 | +8.4 % |
+| z17 | `search`, free | 2,391,635 | 2,602,829 | +8.8 % |
+| z18 | `next` | 2,927,813 | 3,169,327 | +8.2 % |
 | z19 | `start_attack`, worst case | 3,900,612 | 4,421,401 | +13.4 % |
 | z20 | `settle`, worst case (both change bucket) | 2,683,181 | 3,133,404 | +16.8 % |
 | z21 | `release_shields(2)` | 1,765,814 | 1,992,340 | +12.8 % |

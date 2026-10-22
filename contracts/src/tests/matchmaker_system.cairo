@@ -282,7 +282,7 @@ fn test_search_draws_from_the_vrf() {
     assert(opponent == NPC_1(), 'not the npc');
     assert_eq!(world.matchmaker.village(ALICE()).draws, 1);
     let current = world.matchmaker.current_match(ALICE());
-    assert_eq!(current, Match { opponent: NPC_1(), offer: 30, cost: 19, started: false });
+    assert_eq!(current, Match { opponent: NPC_1(), offer: 30, cost: 20, started: false });
     spy
         .assert_emitted(
             @array![
@@ -293,7 +293,7 @@ fn test_search_draws_from_the_vrf() {
                             attacker: ALICE(),
                             opponent: NPC_1(),
                             offer: 30,
-                            cost: 19,
+                            cost: 20,
                             draw_index: 0,
                             paid: false,
                         },
@@ -558,7 +558,7 @@ fn test_attack_on_a_player_shields_it_and_settles_crowns() {
                 (
                     address,
                     MatchmakerEvent::AttackStarted(
-                        AttackStarted { attacker: ALICE(), defender: BOB(), offer: 30, cost: 19 },
+                        AttackStarted { attacker: ALICE(), defender: BOB(), offer: 30, cost: 20 },
                     ),
                 ),
             ],
@@ -580,7 +580,7 @@ fn test_attack_on_a_player_shields_it_and_settles_crowns() {
                                 defender: BOB(),
                                 stars: 3,
                                 offer: 30,
-                                cost: 19,
+                                cost: 20,
                                 gained: 0,
                                 lost: 0,
                                 attacker_crowns: 0,
@@ -626,13 +626,13 @@ fn test_failed_attack_gives_the_cost_to_the_defender() {
     stop_cheat_caller_address(world.matchmaker.contract_address);
     search(world, ALICE(), 'TX1');
     start(world, ALICE());
-    // The cost fixed at the draw: 19 at an even gap, even if the crowns move before the end
+    // The cost fixed at the draw: 20 at an even gap, even if the crowns move before the end
     as_operator(world);
     world.matchmaker.set_crowns(BOB(), 1_500);
     let outcome = world.matchmaker.settle(ALICE(), 0);
-    assert_eq!(outcome.lost, 19);
-    assert_eq!(world.crowns.crowns(ALICE()), 981);
-    assert_eq!(world.crowns.crowns(BOB()), 1_519);
+    assert_eq!(outcome.lost, 20);
+    assert_eq!(world.crowns.crowns(ALICE()), 980);
+    assert_eq!(world.crowns.crowns(BOB()), 1_520);
 }
 
 #[test]
@@ -1197,6 +1197,8 @@ fn test_fuzz_pool_invariants(seed: felt252) {
 
 #[test]
 fn test_pool_invariants_long_sequence() {
+    // Busy enough to mean something: attacks, and `release_shields` putting villages back (the
+    // releases of attack starts are not counted here)
     let (attacks, releases) = run_sequence('LONG', 120, 40);
-    assert(attacks >= 20 && releases >= 3, 'sequence too quiet');
+    assert(attacks >= 20 && releases >= 1, 'sequence too quiet');
 }

@@ -52,11 +52,11 @@ fn terms_at(gap: i32) -> (u8, u8) {
 fn test_terms_pin_the_table_by_crown_gap() {
     // Section 6.3: (gap, offer, 2 stars, 1 star, 0-star cost)
     let rows: Array<(i32, u8, u32, u32, u8)> = array![
-        (-1000, 1, 1, 1, 39), (-750, 1, 1, 1, 39), (-600, 1, 1, 1, 38), (-500, 3, 2, 1, 37),
-        (-400, 5, 4, 2, 36), (-300, 8, 6, 3, 33), (-200, 14, 10, 5, 30), (-150, 17, 12, 6, 28),
-        (-100, 21, 14, 7, 25), (-50, 25, 17, 9, 22), (0, 30, 20, 10, 19), (50, 34, 23, 12, 17),
-        (100, 38, 26, 13, 14), (150, 42, 28, 14, 11), (200, 45, 30, 15, 9), (300, 50, 34, 17, 6),
-        (400, 54, 36, 18, 3), (500, 56, 38, 19, 2), (600, 58, 39, 20, 1), (750, 59, 40, 20, 0),
+        (-1000, 1, 1, 1, 39), (-750, 1, 1, 1, 38), (-600, 1, 1, 1, 38), (-500, 3, 2, 1, 37),
+        (-400, 5, 4, 2, 35), (-300, 8, 6, 3, 33), (-200, 14, 10, 5, 30), (-150, 17, 12, 6, 27),
+        (-100, 21, 14, 7, 25), (-50, 25, 17, 9, 22), (0, 30, 20, 10, 20), (50, 34, 23, 12, 17),
+        (100, 38, 26, 13, 14), (150, 42, 28, 14, 12), (200, 45, 30, 15, 9), (300, 50, 34, 17, 6),
+        (400, 54, 36, 18, 4), (500, 56, 38, 19, 2), (600, 58, 39, 20, 1), (750, 59, 40, 20, 1),
         (1000, 59, 40, 20, 0),
     ];
     for (gap, offer, two, one, cost) in rows {
@@ -91,11 +91,11 @@ fn test_offer_breakpoints_are_pinned() {
 
 #[test]
 fn test_cost_breakpoints_are_pinned() {
-    // Section 6.2: the gap at which the cost becomes 38, 37, ..., 0
+    // Section 6.2: the gap at which the cost becomes 38, 37, ..., 0 (choice B: 20 at an even gap)
     let steps: Array<i32> = array![
-        -709, -536, -449, -389, -342, -304, -271, -242, -215, -191, -168, -147, -127, -107, -88,
-        -70, -52, -34, -17, 0, 18, 35, 53, 71, 89, 108, 128, 148, 170, 192, 217, 244, 273, 307, 346,
-        394, 456, 549, 746,
+        -754, -559, -465, -402, -353, -313, -279, -249, -221, -196, -173, -151, -130, -110, -91,
+        -72, -53, -35, -17, 1, 18, 36, 54, 73, 92, 111, 131, 152, 174, 197, 222, 250, 280, 314, 354,
+        403, 466, 560, 755,
     ];
     let mut value: u8 = COST_MAX;
     for gap in steps {
@@ -111,7 +111,7 @@ fn test_cost_breakpoints_are_pinned() {
 #[test]
 fn test_terms_at_the_ends_of_the_crown_range() {
     assert_eq!(offer_of(0, 0), 30);
-    assert_eq!(cost_of(0, 0), 19);
+    assert_eq!(cost_of(0, 0), 20);
     assert_eq!(offer_of(0, core::num::traits::Bounded::<u32>::MAX), OFFER_MAX);
     assert_eq!(cost_of(0, core::num::traits::Bounded::<u32>::MAX), 0);
     assert_eq!(offer_of(core::num::traits::Bounded::<u32>::MAX, 0), OFFER_MIN);
@@ -146,24 +146,24 @@ fn test_prize_is_a_third_per_star_rounded_up() {
 
 #[test]
 fn test_settle_win() {
-    let outcome = settle(1_000, 1_000, 30, 19, 2, false);
+    let outcome = settle(1_000, 1_000, 30, 20, 2, false);
     assert_eq!(outcome, Settlement { attacker: 1_020, defender: 980, gained: 20, lost: 0 });
-    let outcome = settle(1_000, 1_000, 30, 19, 3, false);
+    let outcome = settle(1_000, 1_000, 30, 20, 3, false);
     assert_eq!(outcome, Settlement { attacker: 1_030, defender: 970, gained: 30, lost: 0 });
 }
 
 #[test]
 fn test_settle_win_capped_by_defender() {
-    let outcome = settle(0, 12, 30, 19, 3, false);
+    let outcome = settle(0, 12, 30, 20, 3, false);
     assert_eq!(outcome, Settlement { attacker: 12, defender: 0, gained: 12, lost: 0 });
 }
 
 #[test]
 fn test_settle_loss() {
-    let outcome = settle(1_000, 1_000, 30, 19, 0, false);
-    assert_eq!(outcome, Settlement { attacker: 981, defender: 1_019, gained: 0, lost: 19 });
+    let outcome = settle(1_000, 1_000, 30, 20, 0, false);
+    assert_eq!(outcome, Settlement { attacker: 980, defender: 1_020, gained: 0, lost: 20 });
     // A village at 0 loses nothing (as in Clash of Clans)
-    let outcome = settle(0, 1_000, 30, 19, 0, false);
+    let outcome = settle(0, 1_000, 30, 20, 0, false);
     assert_eq!(outcome, Settlement { attacker: 0, defender: 1_000, gained: 0, lost: 0 });
 }
 
@@ -178,7 +178,7 @@ fn test_settle_against_npc() {
 #[test]
 #[should_panic(expected: ('Matchmaker: invalid stars',))]
 fn test_settle_refuses_four_stars() {
-    settle(0, 0, 30, 19, 4, false);
+    settle(0, 0, 30, 20, 4, false);
 }
 
 #[test]
@@ -223,21 +223,21 @@ fn assert_settle_conserves(attacker: u32, defender: u32, offer: u8, cost: u8, st
 #[test]
 fn test_settle_win_capped_by_the_attackers_room() {
     let max = core::num::traits::Bounded::<u32>::MAX;
-    let outcome = settle(max - 5, 1_000, 30, 19, 3, false);
+    let outcome = settle(max - 5, 1_000, 30, 20, 3, false);
     assert_eq!(outcome, Settlement { attacker: max, defender: 995, gained: 5, lost: 0 });
 }
 
 #[test]
 fn test_settle_loss_capped_by_the_defenders_room() {
     let max = core::num::traits::Bounded::<u32>::MAX;
-    let outcome = settle(1_000, max - 3, 30, 19, 0, false);
+    let outcome = settle(1_000, max - 3, 30, 20, 0, false);
     assert_eq!(outcome, Settlement { attacker: 997, defender: max, gained: 0, lost: 3 });
 }
 
 #[test]
 fn test_settle_npc_win_capped_by_the_attackers_room() {
     let max = core::num::traits::Bounded::<u32>::MAX;
-    let outcome = settle(max - 2, 150, 30, 19, 3, true);
+    let outcome = settle(max - 2, 150, 30, 20, 3, true);
     assert_eq!(outcome, Settlement { attacker: max, defender: 150, gained: 2, lost: 0 });
 }
 

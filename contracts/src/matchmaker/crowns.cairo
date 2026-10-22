@@ -12,7 +12,7 @@
 /// The offer's bounds (the note's S1: 59 at most, 1 at least).
 pub const OFFER_MIN: u8 = 1;
 pub const OFFER_MAX: u8 = 59;
-/// The 0-star cost's bound (S1); its floor is 0 (S3).
+/// The 0-star cost's bound (S1); its floor is 0.
 pub const COST_MAX: u8 = 39;
 /// The most stars of an attack.
 pub const MAX_STARS: u8 = 3;
@@ -27,11 +27,12 @@ const OFFER_STEPS: [i16; 58] = [
     514, 590, 719,
 ];
 
-/// The gaps at which the 0-star cost becomes 38, 37, ..., 0 (section 6.2).
+/// The gaps at which the 0-star cost becomes 38, 37, ..., 0 (section 6.2): Elo's `round(39 x E)`,
+/// 20 at an even gap as the note's S1 states (the owner's choice B, 2026-10-22).
 const COST_STEPS: [i16; 39] = [
-    -709, -536, -449, -389, -342, -304, -271, -242, -215, -191, -168, -147, -127, -107, -88, -70,
-    -52, -34, -17, 0, 18, 35, 53, 71, 89, 108, 128, 148, 170, 192, 217, 244, 273, 307, 346, 394,
-    456, 549, 746,
+    -754, -559, -465, -402, -353, -313, -279, -249, -221, -196, -173, -151, -130, -110, -91, -72,
+    -53, -35, -17, 1, 18, 36, 54, 73, 92, 111, 131, 152, 174, 197, 222, 250, 280, 314, 354, 403,
+    466, 560, 755,
 ];
 
 pub mod errors {
@@ -55,8 +56,8 @@ pub fn offer_of(attacker: u32, defender: u32) -> u8 {
     OFFER_MIN + count_at_or_below(OFFER_STEPS.span(), gap_of(attacker, defender))
 }
 
-/// The 0-star cost of an attack: Clash of Clans' loss at the crown gap, 39 to 0. Failing against a
-/// stronger defender costs less.
+/// The 0-star cost of an attack: Clash of Clans' loss at the crown gap, 39 to 0 (20 at an even
+/// gap). Failing against a stronger defender costs less.
 pub fn cost_of(attacker: u32, defender: u32) -> u8 {
     COST_MAX - count_at_or_below(COST_STEPS.span(), gap_of(attacker, defender))
 }
