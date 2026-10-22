@@ -123,11 +123,11 @@ describe("the season dial's colours and room (#607)", () => {
 });
 
 describe("<SeasonWheel>", () => {
-  it("names its state and time of day, is the 72 px dial, and calls onNext on a click", () => {
+  it("names its state and time of day, is the 64 px dial (72 px from 390 px wide), and calls onNext on a click", () => {
     const onNext = vi.fn();
     const { container } = render(<SeasonWheel state="winter" onNext={onNext} />);
     const button = screen.getByRole("button", { name: /winter day/ });
-    expect(container.querySelector(".size-18")).not.toBeNull();
+    expect(container.querySelector(".size-16")).not.toBeNull();
     fireEvent.click(button);
     expect(onNext).toHaveBeenCalledOnce();
   });
