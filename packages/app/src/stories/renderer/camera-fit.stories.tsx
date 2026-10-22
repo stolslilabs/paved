@@ -58,17 +58,9 @@ export const PhoneToday: Story = { args: { enabled: false } };
 /** A large phone (390 x 844). */
 export const LargePhone: Story = { args: { viewport: "390x844" } };
 
-/** A tablet held upright (768 x 1024). */
-export const Tablet: Story = { args: { viewport: "768x1024", board: "38 tiles" } };
-
-/** A laptop (1440 x 900), 10 tiles: bound by the screen's height. */
+/**
+ * A laptop (1440 x 900), 10 tiles: bound by the screen's height. The other large screens (768 x 1024, 1920 x 1080) and
+ * boards are the controls' (viewport, board): each large box takes seconds to draw in software WebGL, so the stories keep
+ * one, and the wrap sweep that opens every story stays within its time.
+ */
 export const Desktop: Story = { args: { viewport: "1440x900" } };
-
-/** A laptop at a game's start. */
-export const DesktopStart: Story = { args: { viewport: "1440x900", board: "1 tile" } };
-
-/** A laptop, the bench's 38 tiles. */
-export const Desktop38: Story = { args: { viewport: "1440x900", board: "38 tiles" } };
-
-/** Full HD (1920 x 1080), the long board: wider than the screen at 240. */
-export const FullHdLong: Story = { args: { viewport: "1920x1080", board: "long board" } };
