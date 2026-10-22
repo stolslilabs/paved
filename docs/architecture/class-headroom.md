@@ -703,6 +703,20 @@ same way.
 draw add nothing to #643's attack system, which calls it. `Setup` grows by `ISetupSpend` (`spend_cobbles` and its
 allowlist). Every other class is unchanged to the felt (`Challenge` 64,826, `Story` 58,650).
 
+## After MATCHMAKER-CROWNS (#639, the crowns of Clash of Clans and the split into components)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, release, VPS, 2026-10-22, under
+`prlimit --as=12884901888`, peak RSS 4,671,000 kB). The base is main `ef41bbdb`'s figure above (24,473).
+
+| Class | Sierra base | CASM base | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Matchmaker` | 9,616 | 24,473 | 10,075 | 24,614 | +141 | 30.0 % |
+
+The three new components (`CrownableComponent`, `BucketableComponent`, `ShieldableComponent`) have no class of their own:
+their code is measured in the class that embeds them, `Matchmaker`, the only one so far. The offer and cost tables of the
+Clash of Clans curves (97 breakpoints, a binary search) and the components' separate entry points cost 141 felts in all.
+`Matchmaker` is 49,114 CASM felts under the P-44 cap (73,728). `Setup` (43,431) and every other class are unchanged.
+
 ## After XP-LEVEL (#641)
 
 Measured on the Mac on 2026-10-21 with `scripts/class-sizes.sh` (release, scarb 2.20.1), main `704ff688` measured the same way.

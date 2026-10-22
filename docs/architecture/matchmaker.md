@@ -14,6 +14,8 @@ shields and the NPC villages as proposed, and the matchmaker as composable compo
 
 ## 1. Summary
 
+- **Composable pieces** (since MATCHMAKER-CROWNS, section 11): three components with their own storage and events,
+  crowns, buckets and shields, embedded by `Matchmaker`; the paragraph below is the first shape (#663).
 - **A pure library and its own system.** `paved::matchmaker` holds the rules (crowns, buckets, the pool, the shield
   queues) over a small storage trait, so the rules are unit- and fuzz-tested without a contract. A new upgradable
   system, `Matchmaker`, implements that trait on its storage, draws opponents from Cartridge's VRF (#638's
@@ -52,6 +54,9 @@ shields and the NPC villages as proposed, and the matchmaker as composable compo
 | `create`, `subscribe`, `unsubscribe` | `join` only (no leaving) | A village always exists |
 
 ## 3. Storage
+
+As built in #663. Since MATCHMAKER-CROWNS the storage is split by component (section 11.2); the rules below hold for the
+pieces.
 
 New contract, new names only (`docs/architecture/upgrades.md`, "Storage layout discipline"). Components flat:
 `ownable`, `upgradeable`, `drawable`.
@@ -280,7 +285,10 @@ Against S1's anchors: even gap 30 / 19 (S1: 30 / 20, S3's one-crown rounding), +
 - **Client**: the `@paved/chain` views and writes and the indexer's tables (`pvp_villages`, `pvp_matches`,
   `pvp_shields`) go in this PR when they fit, or in the follow-up that the PR names.
 
-## 10. As built
+## 10. As built in #663
+
+The first shape, a library over one storage trait. Section 11 replaces its code; its measures are kept as the base of
+section 11's.
 
 Code:
 
@@ -371,3 +379,124 @@ test modules named: 77 tests of `paved::tests::matchmaker*` pass (peak RSS 4.5 G
   behind `withVrfRequest` with `vrfSalt('MATCH', attacker, draws)`.
 - `@paved/indexer`: the matchmaker's events and their tables (`pvp_villages`, `pvp_matches`, `pvp_shields`), once
   `Matchmaker` is in a deployment file.
+
+## 11. Composable pieces (MATCHMAKER-CROWNS, owner decisions of 2026-10-21)
+
+Owner decision 5: more components with smaller scopes, each easier to maintain, embedded by the systems that need them,
+rather than one large system. Owner decision 1: the crown curves of section 6.
+
+### 11.1 The pieces
+
+| Piece | File | Storage (flat, its own names) | Events | What it knows |
+|---|---|---|---|---|
+| `CrownableComponent` | `contracts/src/components/crownable.cairo` | `crown_counts` | `CrownsSettled`, `CrownsSet` | Crown counts; settles an attack through the pure `paved::matchmaker::crowns` |
+| `BucketableComponent` | `contracts/src/components/bucketable.cairo` | `bucket_registry`, `bucket_sizes`, `bucket_slots`, `bucket_places` | `BucketEntered`, `BucketLeft` | Who is listed in which bucket; the draw of the nearest bucket |
+| `ShieldableComponent` | `contracts/src/components/shieldable.cairo` | `shield_queues`, `shield_entries`, `shields` | `ShieldRaised`, `ShieldDropped`, `ShieldReleased` | Shields and their two queues; which expired |
+| `Matchmaker` (the system) | `contracts/src/systems/matchmaker.cairo` | `villages`, `match_opponents`, `match_states`, `operators`, `setup` | `VillageJoined`, `NpcSet`, `NpcRemoved`, `OpponentDrawn`, `AttackStarted`, `OperatorSet`, `SetupSet` | Who joined (player or NPC) and its draws, the matches, the callers, "Next" |
+
+- **No piece calls another.** The system composes them: a released shield is put back by `bucketable.insert` at
+  `crownable.crowns_of`; a settlement's new counts are followed by `bucketable.follow`. So each piece is tested alone
+  (`component_state_for_testing`, `paved::tests::matchmaker`) and the composition through the system
+  (`paved::tests::matchmaker_system`, with the pool's invariants fuzzed over random sequences of calls).
+- **Each piece exposes its own views**, embedded in `Matchmaker`'s ABI: `crowns(village)`; `registry()`,
+  `bucket_size(bucket)`, `slot(bucket, index)`, `place(village)`; `shield(village)`, `queue(queue)`,
+  `queue_entry(queue, seq)`.
+- **`Setup.spend_cobbles` and its allowlist are unchanged.** "Next" still spends `NEXT_PRICE` (1 Cobble) there.
+- **The shields and the NPC villages are unchanged** (owner decisions 3 and 4): 8 hours from the attack's start, 3 days
+  for a new village, Story levels at 0 to 290 crowns. An NPC's address is 1 to 255; `join` refuses those addresses, so a
+  removed NPC's address can never become a player's.
+
+### 11.2 The records
+
+| Record | Slot | Layout |
+|---|---|---|
+| `Village` (system) | `villages` | `status` [0, 8) (0 none, 1 player, 2 NPC) · `draws` [8, 40) |
+| `Place` (buckets) | `bucket_places` | `bucket` [0, 8) · `index` [8, 40) · `listed` [40] |
+| `Shield` (shields) | `shields` | `queue` [0, 8) · `up` [8] · `seq` [64, 128) · `until` [128, 192) |
+| `Queue` (shields) | `shield_queues` | `head` [0, 64) · `tail` [64, 128) |
+| match (system) | `match_states` | `offer` [0, 8) · `cost` [8, 16) · `started` [16] |
+
+A player is listed or shielded, exactly one of the two (fuzzed). The 0-star cost is fixed at the draw with the offer,
+as Clash of Clans shows both before the attack.
+
+### 11.3 What moved, and why it is safe
+
+The one packed `villages` slot of #663 (crowns, bucket, index, status, queue, draws, npc, seq, shield end) is split into
+the four records above, and `registry`, `bucket_sizes`, `slots`, `queues` and `queue_entries` take the names of their
+component. `villages` keeps its name with a new type, and `match_states` gains the cost.
+
+This breaks no deployed layout: `Matchmaker` is in no deployment file (`contracts/deployments/`), and `scripts/deploy.sh`
+does not declare it (its deployment is #663's named follow-up). No client or indexer reads its storage or its events yet.
+`docs/architecture/upgrades.md`'s discipline applies from its first deployment on; the pins of
+`test_storage_is_pinned_by_name` read every variable of every piece at the raw address of its name.
+
+### 11.4 The interface (ABI)
+
+`contracts/abis/Matchmaker.json` changes; no client imports it yet (`contracts/abis/README.md`):
+
+- `village` returns the system's `Village { status, draws }`; a village's crowns, place and shield are the pieces'
+  views (11.1).
+- `offer(attacker, defender) -> u8` became `terms(attacker, defender) -> (offer, cost)`.
+- `Match` gains `cost`; `OpponentDrawn` and `AttackStarted` gain `cost`; `CrownsSettled` gains `cost` and moves to
+  `CrownableComponent` (same name, flat, so the same selector). The shield events move to `ShieldableComponent` (flat,
+  same names); `BucketEntered` and `BucketLeft` are new.
+
+### 11.5 Size and cost
+
+**CASM** (`scripts/class-sizes.sh`, release, VPS, 2026-10-22, `class-headroom.md`, "After MATCHMAKER-CROWNS"):
+`Matchmaker` 24,473 to 24,614 felts (+141), 30.0 % of the Starknet cap, 49,114 under P-44's. No other class changes.
+
+**Gas** (L2 gas of the call alone, test profile, snforge 0.64.0, VPS, 2026-10-22; z15, the VRF draw alone, equal to its
+committed 986,461; ceilings reset at measured + 5 %):
+
+| Test | Call | #663 | Now | Change |
+|---|---|---:|---:|---:|
+| z16 | `join` | 862,337 | 864,882 | +0.3 % |
+| z17 | `search`, free | 2,391,635 | 2,598,259 | +8.6 % |
+| z18 | `next` | 2,927,813 | 3,174,817 | +8.4 % |
+| z19 | `start_attack`, worst case | 3,900,612 | 4,421,401 | +13.4 % |
+| z20 | `settle`, worst case (both change bucket) | 2,683,181 | 3,133,404 | +16.8 % |
+| z21 | `release_shields(2)` | 1,765,814 | 1,992,340 | +12.8 % |
+
+The price of the smaller scopes: a village's fields are in three slots instead of one, so a call that touches crowns,
+place and shield reads and writes each, and every bucket move emits `BucketEntered` or `BucketLeft`. The curves' binary
+searches cost little beside them. If #643's attack budget needs it back, dropping the two bucket events is the first
+lever (the shield events already tell an indexer when a village leaves or returns to the pool).
+
+**Local runs.** As in #663, the whole `contracts/` test build passes the VPS's 8 GB Cairo scope (a run of the full crate
+was stopped by it). The modules ran in a scratch copy of the crate that keeps every source and only the test modules
+named (`matchmaker`, `matchmaker_system`, `setup`): 84 tests of `paved::tests::matchmaker*` pass (peak RSS 6.0 GB under
+`prlimit --as=16106127360`), and the gas tests `test_gas_z*` pass (31, peak RSS 4.1 GB). CI runs the whole suite.
+
+### 11.6 Audit, correctness and security (crowns and Cobbles move)
+
+- **Crowns.**
+  - They move only in `CrownableComponent`'s `settle` (by an operator, an attack started, 0 to 3 stars, at the offer and
+    cost fixed at the draw) and `set` (`set_crowns` by an operator, `set_npc` by the owner). Between players they are
+    conserved, never negative and never overflow (fuzzed at every `u32` count and near the bound, and over random
+    sequences through the system).
+  - The terms are fixed at the draw: a player cannot raise its offer, or cut its cost, by moving crowns between the draw
+    and the settlement (`test_failed_attack_gives_the_cost_to_the_defender`).
+  - The offer is at least 1 and at most 59, the cost at most 39 (fuzzed). A 1-star on a 1-crown offer wins 1.
+  - Against an NPC a win mints the attacker's gain (at most 59 per attack, the offer at a gap of +719 or more) and a loss
+    burns its cost, as before: the cold-start trade-off of section 8, point 4, bounded by the owner removing the NPCs.
+    Whether a defender is an NPC is read from its address (1 to 255), so an NPC removed mid-attack is still settled as
+    one, never as a player.
+- **The composition.** Each piece guards its own state (`Buckets: already listed`, `Buckets: not listed`,
+  `Shields: already up`, `Shields: not up`), so a wrong composition reverts instead of corrupting the pool; the
+  invariants (a player listed or shielded, exactly once; slots, places and the registry agreeing) are checked after every
+  call of the fuzzed sequences.
+- **Cobbles.** Unchanged: `next` spends `NEXT_PRICE` through `Setup.spend_cobbles` before its draw, in the same
+  transaction; a draw that fails reverts the spend. The allowlist is the owner's.
+- **The draw.** Unchanged: the VRF salt is the attacker's draw counter (the system's `Village.draws`), the attacker never
+  draws itself (fuzzed in the buckets alone and in the system), and a drawn opponent shielded meanwhile fails the start.
+- **Owner.** Sets the operators, `Setup`, the VRF provider and the NPCs, and upgrades; no owner call moves a player's
+  crowns or Cobbles.
+
+### 11.7 Follow-ups this PR names
+
+As in #663 (allowed by #637's constraints), the client side follows `Matchmaker`'s deployment in one follow-up:
+`scripts/deploy.sh` and the deployment files (operators, `Setup.set_spender`, the NPC villages); the `@paved/chain`
+views (`village`, `crowns`, `place`, `shield`, `current_match`, `terms`) and the writes `search` and `next`, each behind
+`withVrfRequest` with `vrfSalt('MATCH', attacker, draws)`; the indexer's tables (`pvp_villages`, `pvp_matches`,
+`pvp_shields`) from the events of the three pieces and the system.
