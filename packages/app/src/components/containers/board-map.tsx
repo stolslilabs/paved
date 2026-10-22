@@ -17,7 +17,7 @@ export interface BoardMapProps {
    * that fits nowhere, invalid plates all around.
    */
   slots?: { x: number; y: number; fits?: boolean }[];
-  /** The tile in hand where it would go: placed (tinted yellow) or a preview. */
+  /** The tile in hand where it would go: placed (plain, its opacity pulsing, #681) or a preview. */
   ghost?: BoardGhost | null;
   /** A move just sent: a green tint fades (`useConfirmFlash`). */
   confirmed?: (BoardGhost & { key: number }) | null;
@@ -62,9 +62,6 @@ const PLATE_STATE: Record<PlateState, string> = {
   playable: "bg-plate/55",
   invalid: "bg-plate/20",
 };
-/** The placed tile's tint, over the tile: yellow (gold-300, the renderer's). */
-const TINT = "pointer-events-none absolute inset-0 block rounded-[2px] transition duration-150 ease-out motion-reduce:transition-none";
-const TINT_TONE = "bg-gold-300/40";
 
 /** The cell's green tint on confirm, fading to nothing over 700 ms (150 ms under reduced motion). */
 function ConfirmFlash({ style }: { style: CSSProperties }) {
@@ -179,8 +176,8 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
               className="state-layer relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state])} />}
-              {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className="relative size-full rounded-[2px] border opacity-90" />}
-              {placed && highlight && <span aria-hidden data-tint="pending" className={cn(TINT, TINT_TONE)} />}
+              {/* Placed and not confirmed: plain, its opacity pulsing as the board's (`pending-pulse`, #681). */}
+              {chosen && ghost && <TileChip plan={ghost.plan} orientation={ghost.orientation} state="default" className={cn("relative size-full rounded-[2px] border", placed ? "pending-pulse" : "opacity-90")} />}
             </button>
           );
         })}
