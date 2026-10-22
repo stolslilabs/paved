@@ -312,6 +312,37 @@ fn test_roll_from_season_zero_closes_nothing_and_resets_nothing() {
 }
 
 #[test]
+fn test_roll_from_season_zero_past_a_season_end_resets_without_paying() {
+    // A village untouched since before the clock, first touched in season 2: season 1 ended while
+    // it held 7,000, so it is reset to 5,000; it settled no attack in a real season, so no reward
+    let mut state = leagues();
+    let roll = state.roll(village(1), 7000, 2);
+    assert_eq!(roll, Roll { closed: 0, league: 0, reward: 0, crowns: RESET_CROWNS });
+    assert_eq!(
+        state.league_record(village(1)), LeagueRecord { season: 2, peak: LEGEND, attacks: 0 },
+    );
+    // Under the threshold the crowns stay
+    assert_eq!(state.roll(village(2), 4200, 9).crowns, 4200);
+}
+
+#[test]
+#[fuzzer(runs: 64, seed: 644)]
+fn test_fuzz_roll_from_season_zero(crowns: u32, target: u32) {
+    // Season 0 into season 1 keeps the crowns; into any later season resets them; never pays
+    let target = 1 + target % 1000;
+    let (next, roll) = roll_of(Default::default(), crowns, target);
+    assert_eq!(roll.closed, 0);
+    assert_eq!(roll.reward, 0);
+    let expected = if target > 1 {
+        reset(crowns)
+    } else {
+        crowns
+    };
+    assert_eq!(roll.crowns, expected);
+    assert_eq!(next, LeagueRecord { season: target, peak: league_of(expected), attacks: 0 });
+}
+
+#[test]
 fn test_roll_closes_the_season_pays_its_league_and_resets() {
     let mut state = leagues();
     state.league_records.write(village(1), LeagueRecord { season: 3, peak: LEGEND, attacks: 5 });

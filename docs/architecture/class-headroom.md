@@ -774,13 +774,13 @@ measured the same way.
 
 | Class | Sierra base | CASM base | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
 |---|---:|---:|---:|---:|---:|---:|
-| `Matchmaker` | 10,076 | 24,614 | 14,066 | 33,204 | +8,590 | 40.5 % |
+| `Matchmaker` | 10,076 | 24,614 | 14,084 | 33,244 | +8,630 | 40.6 % |
 | `Setup` | 19,604 | 43,431 | 21,119 | 47,384 | +3,953 | 57.8 % |
 
 - `Matchmaker` embeds the two new components (`SeasonableComponent`, `LeagueableComponent`), the league table, the
   rolls, the credits and the views `league`, `season_clock`, `current_season`, `league_record`, and the pool capped at Legend
   (`pool_crowns`, after review), and the calendar: the table of the 200 equinoxes and solstices of 2026 to 2075 and its
-  search (about 1,300 felts): 40,524 CASM felts under the P-44 cap (73,728).
+  search (about 1,300 felts): 40,484 CASM felts under the P-44 cap (73,728).
 - `Setup` gains `ISetupLeague` (`credit_league`, `report_pvp`, `pvp_progress`) and the PvP ledger's claim: 26,344 under
   the P-44 cap.
 - Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201):

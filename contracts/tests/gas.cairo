@@ -200,6 +200,7 @@ pub const CEILING_MM_SETTLE_SEASON_END: u128 = 5959147;
 pub const CEILING_MM_SET_SEASON_CLOCK: u128 = 684327;
 pub const CEILING_MM_CURRENT_SEASON: u128 = 633875;
 pub const CEILING_MM_SEASON_CLOCK: u128 = 136574;
+pub const CEILING_MM_SEASON_START: u128 = 483021;
 pub const CEILING_MM_LEAGUE_RECORD: u128 = 172165;
 pub const CEILING_MM_LEAGUE: u128 = 1138816;
 pub const CEILING_CREDIT_LEAGUE: u128 = 546177;
@@ -1447,4 +1448,16 @@ fn test_gas_z42_claim_pvp_quest() {
     cobbles.claim_quest(50, START_MM / DAY);
     let after = get_available_gas();
     report("z42_claim_pvp_quest", before - after, CEILING_CLAIM_PVP_QUEST);
+}
+
+/// z43. The `season_start` view of season 2, a step of the table from the clock's season.
+#[test]
+fn test_gas_z43_matchmaker_season_start() {
+    let matchmaker = matchmaker_in_season(6000, 5);
+    let seasons = ISeasonableDispatcher { contract_address: matchmaker.contract_address };
+    let before = get_available_gas();
+    let start = seasons.season_start(2);
+    let after = get_available_gas();
+    assert(start == SUMMER_2027, 'not summer 2027');
+    report("z43_matchmaker_season_start", before - after, CEILING_MM_SEASON_START);
 }

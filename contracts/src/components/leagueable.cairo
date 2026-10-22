@@ -6,7 +6,8 @@
 //!
 //! - **The roll** closes the village's last season (its league at the season's end, its reward if
 //!   it settled `MIN_SEASON_ATTACKS` attacks) and resets its crowns to at most `RESET_CROWNS`.
-//!   Season 0 (before the clock) closes nothing and resets nothing.
+//!   Season 0 (before the clock) closes nothing; its crowns are reset once a real season has
+//!   ended (a roll from season 0 into season 2 or later).
 //! - **The climb**: a league above the record's peak, reached in a season, is reached for the
 //!   first time in it; the peak starts each season at the league the village starts it in.
 //!
@@ -67,7 +68,10 @@ pub impl LeagueRecordPacking of starknet::storage_access::StorePacking<LeagueRec
     }
 }
 
-/// The roll of `record` into `season` at `crowns`, with no write: what `roll` would do.
+/// The roll of `record` into `season` at `crowns`, with no write: what `roll` would do. A record of
+/// a real season closes it (its league, its reward) and resets the crowns. A record of season 0 (a
+/// village not yet touched in a real season) closes nothing and pays nothing, but if it rolls
+/// past season 1, at least one season ended while it held these crowns, so they are reset too.
 pub fn roll_of(record: LeagueRecord, crowns: u32, season: u32) -> (LeagueRecord, Roll) {
     let none = Roll { closed: 0, league: 0, reward: 0, crowns };
     if record.season >= season {
@@ -88,6 +92,8 @@ pub fn roll_of(record: LeagueRecord, crowns: u32, season: u32) -> (LeagueRecord,
                 reward,
                 crowns: paved::matchmaker::leagues::reset(crowns),
             };
+    } else if season > 1 {
+        outcome.crowns = paved::matchmaker::leagues::reset(crowns);
     }
     let peak = paved::matchmaker::leagues::league_of(outcome.crowns);
     (LeagueRecord { season, peak, attacks: 0 }, outcome)

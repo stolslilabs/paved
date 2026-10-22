@@ -132,6 +132,12 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
 
   A village idle for several seasons closes only the last one it played in: the seasons in between had no attack, so no
   reward, and the reset is idempotent.
+
+  A village whose record is still season 0 (not touched since before the clock) closes nothing and earns nothing, since
+  it settled no attack in a real season. But if it rolls into season 2 or later, season 1 ended while it held these
+  crowns, so they are reset too. Its crowns and the `league` view then never keep more than `RESET_CROWNS` past a
+  season's end (a fix found in review: `test_a_village_idle_since_before_the_clock_is_reset_after_season_one`, and
+  `roll_of` fuzzed from season 0).
 - **The reach** (`reach`): after a settlement (both villages) and after a crown set, if `league_of(crowns) > peak`, every
   league from `peak + 1` to it is reached: one `LeagueReached` each, with its bonus, and `peak` rises. A settlement in
   season 0 reaches nothing. A crown set (`set_crowns`, an operator) raises the peak without a bonus.
@@ -316,7 +322,7 @@ the view, `pvp_weeks` read raw).
 
 | Class | CASM main | CASM LEAGUES | Change | Share of the Starknet cap | Under the P-44 cap (73,728) |
 |---|---:|---:|---:|---:|---:|
-| `Matchmaker` | 24,614 | 33,204 | +8,590 | 40.5 % | 40,524 |
+| `Matchmaker` | 24,614 | 33,244 | +8,630 | 40.6 % | 40,484 |
 | `Setup` | 43,431 | 47,384 | +3,953 | 57.8 % | 26,344 |
 
 Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201).
@@ -324,7 +330,7 @@ Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, 
 ### 11.3 Gas
 
 L2 gas of the call alone (`contracts/tests/gas.cairo`, test profile, snforge 0.64.0, VPS, 2026-10-22); ceilings set at
-measured + 5 %. Every new call has its own measure and ceiling (z32 to z42), besides the calls #639 measured.
+measured + 5 %. Every new call has its own measure and ceiling (z32 to z43), besides the calls #639 measured.
 
 | Test | Call | Before | Now | Change |
 |---|---|---:|---:|---:|
@@ -343,6 +349,7 @@ measured + 5 %. Every new call has its own measure and ceiling (z32 to z42), bes
 | z40 | `Setup.report_pvp`, a 3-star attack: four entries, new day and week slots | new | 1,067,688 | |
 | z41 | `Setup.pvp_progress` (view) | new | 197,612 | |
 | z42 | `Setup.claim_quest` of a PvP mission (the PvP day read and written) | new | 1,579,371 | |
+| z43 | `season_start` (view), season 2 of the clock | new | 460,020 | |
 
 - **The calendar's cost**: the season of a time is a binary search over the 200 events (about 0.4M of L2 gas in a call
   that reads it, z35). A call in season 0, with no clock, pays none of it (z17, z18, z20).

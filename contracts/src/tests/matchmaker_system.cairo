@@ -1332,6 +1332,24 @@ fn test_season_end_pays_the_league_and_resets_the_crowns() {
 }
 
 #[test]
+fn test_a_village_idle_since_before_the_clock_is_reset_after_season_one() {
+    // Bob wins 7,000 crowns before season 1 and is touched again only in season 2: season 1 ended
+    // while he held them, so the view and the roll both give 5,000, with no reward
+    let world = seasoned(0, 7_000);
+    assert_eq!(world.leagues.league_record(BOB()).season, 0);
+    start_cheat_block_timestamp_global(SEASON_2);
+    let status = world.matchmaker.league(BOB());
+    assert_eq!((status.season, status.crowns, status.pending), (2, RESET_CROWNS, 0));
+    world.matchmaker.close_season(BOB());
+    assert_eq!(world.crowns.crowns(BOB()), RESET_CROWNS);
+    assert_eq!(
+        world.leagues.league_record(BOB()), LeagueRecord { season: 2, peak: LEGEND, attacks: 0 },
+    );
+    assert_eq!(cobbles(world, BOB()), 0);
+    assert_eq!(world.buckets.place(BOB()).bucket, 50);
+}
+
+#[test]
 fn test_season_end_below_the_threshold_keeps_the_crowns() {
     let world = seasoned(0, 0);
     as_operator(world);
