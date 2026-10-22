@@ -277,10 +277,15 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
       if (p >= HOLDS[1]![1] && p <= HOLDS[1]![2]) day.push(light);
     }
     expect(casters()).toHaveLength(2);
-    // Through the day's hold: up to noon, then down; never back and forth with the crossfade.
+    // Through the day's hold: up to noon, then down (the moment drawn, whatever the page's clock says); never back and forth
+    // with the crossfade.
+    const steps = day.slice(1).map((v, i) => v - day[i]!).filter((d) => Math.abs(d) > 1e-9);
     let turns = 0;
-    for (let i = 2; i < day.length; i++) if (Math.sign(day[i]! - day[i - 1]!) * Math.sign(day[i - 1]! - day[i - 2]!) < 0) turns++;
-    expect(turns).toBeLessThanOrEqual(1);
+    for (let i = 1; i < steps.length; i++) if (Math.sign(steps[i]!) !== Math.sign(steps[i - 1]!)) turns++;
+    expect(turns).toBe(1);
+    const noon = day[Math.round(((DAY_SHARE / 2 - HOLDS[1]![1]) / (HOLDS[1]![2] - HOLDS[1]![1])) * (day.length - 1))]!;
+    expect(noon).toBeGreaterThan(day[0]! + 0.01);
+    expect(noon).toBeGreaterThan(day.at(-1)! + 0.01);
     expect(Math.min(...day)).toBeGreaterThan(0.5);
   });
 

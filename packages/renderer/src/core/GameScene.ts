@@ -196,6 +196,8 @@ export class GameScene {
   private dayNightOn = false;
   /** The cycle's point last drawn (`getDayNight`). */
   private dayNightPoint: DayNight.CyclePoint | null = null;
+  /** The cycle's moment last drawn, in seasons (`applyDayNight`): the square grid's backdrop reads its sun there. */
+  private dayNightDrawnAt = 0;
   /**
    * The one ambient loop (`ambient-loop.ts`): every ambient effect moves on its time uniform, stepped from this scene's render
    * loop at its capped rate, paused while the tab is hidden or the board covered (`setCovered`), off with the effects.
@@ -773,7 +775,7 @@ export class GameScene {
    */
   private syncGridLight(): void {
     if (!backdropShown(this.settings.squareGrid)) return;
-    const frame = this.dayNightOn && this.dayNight ? this.dayNight.dayNightFrame(this.dayNightSeasons(), this.settings.dayNight.brightnessFloor) : null;
+    const frame = this.dayNightOn && this.dayNight ? this.dayNight.dayNightFrame(this.dayNightDrawnAt, this.settings.dayNight.brightnessFloor) : null;
     const ground = frame && new THREE.Color().setRGB(...this.dayNight!.seasonGroundAt(frame.point), THREE.LinearSRGBColorSpace);
     if (this.squareGrid.setLight(backdropLight(this.sceneLights(frame?.sun), this.lookLights), ground)) this.requestRender();
   }
@@ -823,6 +825,7 @@ export class GameScene {
    */
   private applyDayNight(seasons: number): void {
     const look = this.getLook();
+    this.dayNightDrawnAt = seasons;
     this.dayNightPoint = this.dayNight!.drawDayNight(
       {
         key: look.key.enabled ? this.directionalLight : null,
