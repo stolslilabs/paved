@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer, type LitTile } from "./TileRenderer";
 import { NO_SKINS, type TileSkins } from "./skins";
-import { CameraController, TALLEST_TILE_HEIGHT } from "./CameraController";
+import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
+import { frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
@@ -152,6 +153,15 @@ export class GameScene {
   private isWebGPU = false;
   private disposed = false;
   private latestTiles: TileRenderData[] = [];
+  /** The camera was framed on placed tiles (not only the starter's floor of an empty board): later tiles refit only with `followBoard`. */
+  private framedTiles = false;
+  /** The frame settings the camera was last framed with: a change frames it again (`setSettings`). */
+  private fitSettingsKey = "";
+  /** Whether the frame was on (`cameraFit.enabled`) at the last `fitCamera`: turning it on or off moves the camera at once. */
+  private fitEnabled: boolean | null = null;
+  /** The fit's chunk (`camera-fit.ts`, a chunk of its own), once loaded; the camera opens at its fixed distance without it. */
+  private fitModule: typeof import("./camera-fit") | null = null;
+  private fitLoad: Promise<void> | null = null;
   /** The theme of each plan (`setSkins`), kept for the tile renderer `init` makes. */
   private skins: TileSkins = NO_SKINS;
   private renderProfile: RenderProfile = "play";
@@ -272,6 +282,8 @@ export class GameScene {
       manifest,
     } = config;
     if (settings) this.settings = resolveRendererSettings(settings);
+    // The fit's chunk loads along the models, so the first frame is framed (no jump from the fixed opening).
+    const fitLoad = this.settings.cameraFit.enabled ? this.loadCameraFit() : null;
 
     this.disposed = false;
 
@@ -333,6 +345,10 @@ export class GameScene {
     this.controls = cameraControllerFactory(surface);
     this.camera = this.controls.camera;
     this.applyCameraLimits();
+    // `reset()` frames the board for the size and settings of the moment, not those of the last frame.
+    this.webCamera()?.setFrameSource(() => this.openingFrame());
+    // The opening frame (CAMERA-FIT): the tiles given so far, or the starter's floor until they come.
+    this.fitCamera();
 
     // Re-render when camera moves (orbit, pan, zoom)
     this.controls.controls.addEventListener("change", () => {
@@ -362,6 +378,7 @@ export class GameScene {
 
     // Preload assets
     await this.assets.preloadAll();
+    await fitLoad;
     // Disposed while the models were loading: bind nothing on a dead scene (`dispose` released the resize subscription).
     if (this.disposed) return;
 
@@ -419,6 +436,8 @@ export class GameScene {
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(width, height, false);
     this.controls?.resize(width, height);
+    // A resize or a turn of the screen frames the board again, as long as the player has not moved the camera.
+    if (!this.webCamera()?.userMoved) this.fitCamera();
     this.effects.resize(width, height, this.pixelRatio);
     this.notifyCamera();
     // `multisampling: "auto"` follows the window: one shrunk to a small screen turns the faces' antialiasing on.
@@ -961,6 +980,9 @@ export class GameScene {
     this.squareGrid.setTileCells(tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
     if (this.controls) {
       this.controls.setBoardBounds(this.computeBoardBounds());
+      // The first tiles open the frame on them; later ones only with `followBoard`, while the player has not moved.
+      const follow = this.settings.cameraFit.followBoard && !this.webCamera()?.userMoved;
+      if (tiles.length > 0 && (!this.framedTiles || follow)) this.fitCamera();
     }
     this.requestShadowUpdate();
     this.requestRender();
@@ -1170,6 +1192,12 @@ export class GameScene {
     this.outlineTilePx = Number.NaN;
     this.logOutlinePath();
     this.applyCameraLimits();
+    // New frame settings (the story's floor, insets) apply at once while the player has not moved the camera. Turning the
+    // frame on or off applies at once whatever the player did: on, the board's frame; off, today's opening.
+    if (JSON.stringify(this.settings.cameraFit) !== this.fitSettingsKey) {
+      if (this.fitEnabled !== null && this.settings.cameraFit.enabled !== this.fitEnabled) this.resetCamera();
+      else if (!this.webCamera()?.userMoved) this.fitCamera();
+    }
     this.effects.setAntialiasing(this.faceAntialiasing(), this.settings.msaaSamples);
     this.logAntialiasingPath();
     this.applyLook();
@@ -1277,6 +1305,121 @@ export class GameScene {
     const { min, max } = cameraDistanceLimits(this.settings.camera);
     this.controls.controls.minDistance = min;
     this.controls.controls.maxDistance = max;
+  }
+
+  /**
+   * The frame of the board on this surface (CAMERA-FIT, #678, `computeCameraFit`): the tiles and their ring of free slots,
+   * at least `floorCells` square, in the screen less the HUD, never farther than `OPENING_DISTANCE` (nor the zoom limits).
+   * Null before `init`.
+   */
+  getCameraFit(): CameraFit | null {
+    if (!this.surface || !this.camera || !this.fitModule) return null;
+    const { width, height } = this.surface.getSize();
+    const fit = this.settings.cameraFit;
+    const { min, max } = cameraDistanceLimits(this.settings.camera);
+    return this.fitModule.computeCameraFit({
+      cells: this.cellExtent(),
+      width,
+      height,
+      fov: this.camera.fov,
+      zoom: this.camera.zoom,
+      insets: fit.insets === "auto" ? frameInsetsFor(width) : fit.insets,
+      floorCells: fit.floorCells,
+      ring: fit.ring,
+      minDistance: min,
+      maxDistance: Math.min(OPENING_DISTANCE, max),
+    });
+  }
+
+  /** Frames the board again (the re-centre action), whether or not the player moved the camera; resizes follow it again. */
+  recenter(): void {
+    this.fitCamera(true);
+  }
+
+  /**
+   * Where the camera opens now, in play mode: the board's frame with `cameraFit` on, else today's opening, `OPENING_DISTANCE`
+   * over the starter (within the zoom limits). Null in another mode or on a hidden surface.
+   */
+  private openingFrame(): { target: { x: number; z: number }; distance: number } | null {
+    const controls = this.webCamera();
+    if (!controls || !this.surface || controls.getMode() !== "play") return null;
+    const { width, height } = this.surface.getSize();
+    if (!(width > 0) || !(height > 0)) return null;
+    if (this.settings.cameraFit.enabled) return this.getCameraFit();
+    return { target: { x: 0, z: 0 }, distance: Math.min(OPENING_DISTANCE, cameraDistanceLimits(this.settings.camera).max) };
+  }
+
+  /** Back to where the camera opens now (`openingFrame`, through `CameraController.reset`). */
+  private resetCamera(): void {
+    const controls = this.webCamera();
+    if (!controls) return;
+    this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
+    this.fitEnabled = this.settings.cameraFit.enabled;
+    // Turned on in a scene that opened with the frame off: its chunk is not in yet; it frames once loaded.
+    if (this.settings.cameraFit.enabled && !this.fitModule) {
+      void this.loadCameraFit(true);
+      return;
+    }
+    controls.reset();
+    this.framedTiles = this.settings.cameraFit.enabled && this.latestTiles.length > 0;
+    this.notifyCamera();
+    this.requestRender();
+  }
+
+  /** The web controller (`CameraController`), the one that frames; null before `init` or for another controller. */
+  private webCamera(): CameraController | null {
+    return this.controls instanceof CameraController ? this.controls : null;
+  }
+
+  /** Puts the camera on the board's frame (`getCameraFit`), in play mode with the frame on (or `force`d by `recenter`). */
+  private fitCamera(force = false): void {
+    const controls = this.webCamera();
+    if (!controls || !this.surface) return;
+    const { width, height } = this.surface.getSize();
+    this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
+    this.fitEnabled = this.settings.cameraFit.enabled;
+    if (!(width > 0) || !(height > 0)) return;
+    if (!force && (!this.settings.cameraFit.enabled || controls.getMode() !== "play")) return;
+    if (!this.fitModule) {
+      void this.loadCameraFit(force);
+      return;
+    }
+    const fit = this.getCameraFit();
+    if (!fit) return;
+    controls.frame(fit.target, fit.distance);
+    this.framedTiles = this.latestTiles.length > 0;
+    this.notifyCamera();
+    this.requestRender();
+  }
+
+  /**
+   * Loads the fit's chunk once, then frames the board: at once if `force`d (the re-centre), else while the player has not
+   * moved the camera. A failed load leaves the camera at its fixed opening.
+   */
+  private loadCameraFit(force = false): Promise<void> {
+    this.fitLoad ??= import("./camera-fit").then(
+      (module) => {
+        this.fitModule = module;
+      },
+      (error: unknown) => console.warn("[renderer] the camera fit did not load, the camera opens at its fixed distance:", error),
+    );
+    return this.fitLoad.then(() => {
+      if (this.disposed || !this.fitModule) return;
+      if (force || !this.webCamera()?.userMoved) this.fitCamera(force);
+    });
+  }
+
+  /** The placed tiles' extent in cells, null on an empty board. */
+  private cellExtent(): CellExtent | null {
+    if (this.latestTiles.length === 0) return null;
+    const extent = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    for (const tile of this.latestTiles) {
+      extent.minX = Math.min(extent.minX, tile.worldX);
+      extent.maxX = Math.max(extent.maxX, tile.worldX);
+      extent.minZ = Math.min(extent.minZ, tile.worldZ);
+      extent.maxZ = Math.max(extent.maxZ, tile.worldZ);
+    }
+    return extent;
   }
 
   focusBoard(): void {

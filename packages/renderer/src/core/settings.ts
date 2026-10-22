@@ -1,4 +1,5 @@
 import { CLOSEST_DISTANCE } from "./CameraController";
+import { DEFAULT_CAMERA_FIT_SETTINGS, type CameraFitSettings } from "./camera-fit-settings";
 import { MSAA_SAMPLES } from "./Effects";
 import { DEFAULT_OUTLINE_SETTINGS, type OutlineSettings } from "./outlines";
 import { DEFAULT_DAYNIGHT_SETTINGS, resolveDayNightSettings, type DayNightInput, type DayNightSettings } from "./daynight-settings";
@@ -33,6 +34,11 @@ export interface RendererSettings {
    * nothing.
    */
   camera: CameraZoomSettings;
+  /**
+   * The camera's opening frame (CAMERA-FIT, #678, `camera-fit-settings.ts`; the fit itself, `camera-fit.ts`, is a chunk of its own): the board and its free slots fill the screen less the
+   * HUD, never farther than `OPENING_DISTANCE`. Web controller only, as `camera`.
+   */
+  cameraFit: CameraFitSettings;
   /**
    * The tile faces' antialiasing: on, MSAA (4 samples) where WebGL 2 multisamples on a GPU, SMAA otherwise
    * (`resolveFaceAntialiasing`, `Effects.ts`). `"auto"` (the default) takes the device's (`resolveMultisampling`): on on
@@ -122,6 +128,7 @@ export interface CameraZoomSettings {
 export interface RendererSettingsInput {
   outlines?: Partial<OutlineSettings>;
   camera?: Partial<CameraZoomSettings>;
+  cameraFit?: Partial<CameraFitSettings>;
   multisampling?: boolean | "auto";
   msaaSamples?: number;
   maxPixelRatio?: number | "auto";
@@ -160,6 +167,7 @@ export const DEFAULT_CAMERA_ZOOM_SETTINGS: CameraZoomSettings = {
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   outlines: DEFAULT_OUTLINE_SETTINGS,
   camera: DEFAULT_CAMERA_ZOOM_SETTINGS,
+  cameraFit: DEFAULT_CAMERA_FIT_SETTINGS,
   multisampling: "auto",
   msaaSamples: MSAA_SAMPLES,
   maxPixelRatio: "auto",
@@ -232,6 +240,7 @@ export function resolveRendererSettings(
   return {
     outlines,
     camera: { ...base.camera, ...input.camera },
+    cameraFit: { ...base.cameraFit, ...input.cameraFit },
     multisampling: MULTISAMPLING_VALUES.includes(input.multisampling!) ? input.multisampling! : base.multisampling,
     msaaSamples: MSAA_SAMPLE_COUNTS.includes(input.msaaSamples!) ? input.msaaSamples! : base.msaaSamples,
     maxPixelRatio: maxPixelRatio === "auto" || maxPixelRatio > 0 ? maxPixelRatio : base.maxPixelRatio,
