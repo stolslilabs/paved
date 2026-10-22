@@ -23,7 +23,7 @@ export const Default: Story = {};
 export const WithBack: Story = { args: { title: "Theme", onBack: fn(), subtitle: "How the board looks" } };
 /** An action on the header's right. */
 export const WithEnd: Story = { args: { tab: "vault", title: "Vault", end: <span className="text-xs text-muted-foreground">Wallet</span> } };
-/** WRAP360: a long title and subtitle wrap; the header's end goes under them when the line is full. */
+/** WRAP360: a long title and subtitle keep one line each, cut with an ellipsis (the whole text in `title`): the header keeps its height (HEADER-HEIGHT). */
 export const Stress: Story = {
   args: {
     tab: "vault",
