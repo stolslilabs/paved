@@ -57,6 +57,12 @@ pub mod economy {
     pub mod mean;
 }
 
+pub mod avatar {
+    pub mod catalogue;
+    pub mod item;
+    pub mod look;
+}
+
 pub mod helpers {
     pub mod bitmap;
     pub mod math;
@@ -86,6 +92,7 @@ pub mod components {
 }
 
 pub mod systems {
+    pub mod avatar;
     pub mod challenge;
     pub mod collection;
     pub mod economy;
@@ -125,6 +132,7 @@ pub mod mocks {
 
 #[cfg(test)]
 pub mod tests {
+    pub mod avatar;
     pub mod challenge_vrf;
     pub mod collection;
     pub mod deck_walk;

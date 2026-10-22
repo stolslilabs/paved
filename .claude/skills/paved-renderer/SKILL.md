@@ -50,6 +50,9 @@ with `docs/`, `scripts/` or `packages/`.
   One field texture (the signed distance to the clear cells, blurred so every corner is round: `cornerRadius`) drives the floor,
   the mist, the landscape's ground and its instanced props: one draw each, no per-cell draw. A lift rebuilds only the part of the
   field its cells reach.
+- The placement effects draw through the same tick: `TileRenderer.update` reports `animating` while a plate eases, the
+  confirm fades, or a tile is pending (its opacity pulse, #681: every frame while it pulses, none under reduced motion);
+  with none of these the board is back to render on demand.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel

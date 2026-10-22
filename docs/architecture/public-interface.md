@@ -459,6 +459,14 @@ working.
   - `Setup` is unchanged: `Village` reads the level with `ISetupLevel::player_level` (#641) and pays with
     `ISetupSpend::spend_cobbles` (#639), as an allowlisted spender, with the reasons `'VILLAGE_PARCEL'` and
     `'VILLAGE_DEMOLISH'` (`CobblesSpent`, which the indexer already applies).
+- **The avatar on chain** (#627, `docs/architecture/avatar-chain.md`; not deployed yet).
+  - A new contract, `Avatar` (`contracts/abis/Avatar.json`): `set_parts`, `set_price_bounds`, `set_item`, `withdraw_item`
+    and `set_setup` (owner), `buy_avatar_item` and `set_avatar` (any account, for itself), the views `avatar`, `owned`,
+    `item`, `items`, `parts`, `price_bounds` and `setup`, and the events `PartsSet`, `PriceBoundsSet`, `AvatarItemListed`,
+    `AvatarItemBought`, `AvatarSet` and `SetupSet`, beside `Ownable`'s and `Upgraded`. Its constructor takes `(owner, setup)`.
+    A look is a `u128` in AVATAR-LOOK's format (#626 PR 1): the version in byte 0, one item id per part after it.
+  - `Setup` is unchanged: `Avatar` pays with `ISetupSpend::spend_cobbles` (#639) as an allowlisted spender, with the reason
+    `'AVATAR_ITEM'` (`CobblesSpent`, which the indexer already applies).
 
 ## Breaking change D-18
 
