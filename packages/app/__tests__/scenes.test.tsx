@@ -166,6 +166,24 @@ describe("Board", () => {
     expect(screen.getByText("Placing…")).toBeInTheDocument();
   });
 
+  it("the season dial (#682): at the bottom left, out of the top HUD, the stack kept clear of it; read-only boards too", () => {
+    // The wrapper and its placeholder render at once; the dial itself is a lazy chunk, not awaited here.
+    const wheel = { state: "summer" as const, onNext: vi.fn(), read: null };
+    const { container, unmount } = render(wrap(<BoardScene {...BOARD.queue} seasonWheel={wheel} coach="wheel" />));
+    const place = container.querySelector<HTMLElement>("[data-dial-place]")!;
+    expect(place).toHaveAttribute("data-bubble-avoid");
+    expect(place).toHaveAttribute("data-coach", "wheel");
+    expect(place.className).toMatch(/\bleft-2\b/);
+    expect(place.className).toMatch(/bottom-\[max\(0\.5rem,env\(safe-area-inset-bottom\)\)\]/);
+    // Not in the top HUD block, nor in the stack's: a child of the board itself.
+    expect(place.parentElement?.className).toMatch(/\bh-dvh\b/);
+    expect(screen.getByRole("region", { name: "Your tile" }).className).toMatch(/calc\(100vw-6rem\)/);
+    unmount();
+    const readOnly = render(wrap(<BoardScene {...BOARD.placing} readOnly seasonWheel={wheel} />));
+    expect(readOnly.container.querySelector("[data-dial-place]")).not.toBeNull();
+    expect(screen.getByRole("region", { name: "Deck" })).toBeInTheDocument();
+  });
+
   it("shows the tile in hand with the board's art, turned to its orientation", () => {
     render(wrap(<BoardScene {...BOARD.placing} />));
     const chip = within(screen.getByRole("region", { name: "Your tile" })).getByRole("img", { name: /^Tile / });
