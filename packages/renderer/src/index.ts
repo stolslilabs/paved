@@ -104,6 +104,7 @@ export {
   ROLLOUT,
   SQUARE_GRID_GLSL,
   SquareGridRenderer,
+  backdropLight,
   backdropShown,
   createHighlightGeometry,
   dimAt,
@@ -121,10 +122,12 @@ export {
   layerOpacities,
   resolveSquareGridSettings,
   rolloutScale,
+  seasonVeil,
   squareEdgeDistance,
   stackedOpacity,
+  upwardIrradiance,
 } from "./core/square-grid";
-export type { BackdropPattern, DistanceField, GhostCell, GridCell, GridLineUniforms, HighlightLayer, HighlightStyle, SquareGridSettings, SquareGridSettingsInput } from "./core/square-grid";
+export type { BackdropPattern, DistanceField, GhostCell, SurfaceLight, GridCell, GridLineUniforms, HighlightLayer, HighlightStyle, SquareGridSettings, SquareGridSettingsInput } from "./core/square-grid";
 // What is drawn untouched by the look's tone map and grade (the square grid's highlight).
 export { OverlayPass, createOverlayDepth, overlayDepthTest } from "./core/overlay-pass";
 export type { Overlay, OverlayDepth } from "./core/overlay-pass";

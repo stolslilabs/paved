@@ -160,18 +160,23 @@ const FILLER_STYLES: readonly HighlightStyle[] = ["plain", "twist", "diamond", "
 const VOID_PATTERNS: readonly BackdropPattern[] = ["realms", "cobbles", "contours", "voxels"];
 
 /**
- * The square grid as the board draws it: on or off (the device setting), its highlight in the style `?filler=` names and its
- * backdrop in the pattern `?void=` names, if any.
+ * The square grid as the board draws it: on or off (the device setting), its highlight in the style `?filler=` names, its backdrop
+ * in the pattern `?void=` names and its voxel blocks as fine as `?voxels=` (a cell's side, 1 to 80), if any.
  */
 export function squareGridSettings(on: boolean, search: string = globalThis.location?.search ?? ""): NonNullable<RendererSettingsInput["squareGrid"]> {
   if (!on) return { enabled: false };
   const params = new URLSearchParams(search);
   const style = params.get("filler") as HighlightStyle | null;
   const pattern = params.get("void") as BackdropPattern | null;
+  const voxels = Number(params.get("voxels"));
+  const backdrop = {
+    ...(pattern && VOID_PATTERNS.includes(pattern) ? { pattern } : {}),
+    ...(Number.isInteger(voxels) && voxels >= 1 && voxels <= 80 ? { voxels } : {}),
+  };
   return {
     enabled: true,
     ...(style && FILLER_STYLES.includes(style) ? { highlight: { style } } : {}),
-    ...(pattern && VOID_PATTERNS.includes(pattern) ? { backdrop: { pattern } } : {}),
+    ...(Object.keys(backdrop).length > 0 ? { backdrop } : {}),
   };
 }
 

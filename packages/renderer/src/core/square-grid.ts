@@ -76,6 +76,13 @@ export interface SquareGridSettings {
     exposure: number;
     /** The shapes the fog draws (`BackdropPattern`): Paved's voxel blocks (the owner's pick), Realms' own, or another of Paved's. */
     pattern: BackdropPattern;
+    /** The voxel blocks a cell's side ("voxels"): the tiles' own forty, as fine as the models. */
+    voxels: number;
+    /**
+     * How far the veil takes the season's hue (the day and night cycle's ground colour of the moment, at the veil's lightness:
+     * `seasonVeil`), 0 to 1. The light of the moment reaches the whole backdrop too (`backdropLight`).
+     */
+    seasonShare: number;
     /** The fog is in colour within `grayFrom` cells of a placed tile, grey past `grayTo` (a smoothstep between). */
     grayFrom: number;
     grayTo: number;
@@ -118,7 +125,7 @@ export type SquareGridSettingsInput = { enabled?: boolean } & { [K in Exclude<ke
  * The backdrop's shapes, each from the same drifting mist, the same colours and the same grey away from the tiles: "realms",
  * Realms' veil and its threads along the mist's contour; "cobbles", paving stones (Paved's name), three to a cell's side, a gold
  * light running along their mortar; "contours", the mist's contour lines as on a map, every fourth one gilded; "voxels", the mist
- * in blocks of five voxels (a tile is forty), in four steps, a block glinting gold now and then.
+ * in blocks as fine as the tiles' voxels (`voxels` a cell's side, forty by default), in four steps.
  */
 export type BackdropPattern = "realms" | "cobbles" | "contours" | "voxels";
 
@@ -159,6 +166,8 @@ export const DEFAULT_SQUARE_GRID_SETTINGS: SquareGridSettings = {
     grayFrom: 1.5,
     grayTo: 6,
     pattern: "voxels",
+    voxels: 40,
+    seasonShare: 0.6,
   },
   highlight: {
     enabled: true,
@@ -329,6 +338,43 @@ float mxPerlin(vec3 p) {
 }
 `;
 
+/** A light as `backdropLight` reads it: its colour (linear) times its intensity, and its direction towards it (none: all around). */
+export interface SurfaceLight {
+  color: THREE.Color;
+  intensity: number;
+  direction?: THREE.Vector3;
+}
+
+/** The light an upward surface takes from `lights` (an ambient or a sky light all of its colour, a directional one its cosine). */
+export function upwardIrradiance(lights: ReadonlyArray<SurfaceLight>): THREE.Color {
+  const out = new THREE.Color(0, 0, 0);
+  for (const light of lights) {
+    const facing = light.direction ? Math.max(0, light.direction.clone().normalize().y) : 1;
+    out.r += light.color.r * light.intensity * facing;
+    out.g += light.color.g * light.intensity * facing;
+    out.b += light.color.b * light.intensity * facing;
+  }
+  return out;
+}
+
+/**
+ * The backdrop's light: what an upward surface takes now over what it takes under the look's own lights (the summer's day the
+ * look is), channel by channel. 1 with the look's lights; darker and bluer at night, warmer at dusk, cooler in winter.
+ */
+export function backdropLight(now: ReadonlyArray<SurfaceLight>, look: ReadonlyArray<SurfaceLight>): THREE.Color {
+  const a = upwardIrradiance(now);
+  const b = upwardIrradiance(look);
+  const ratio = (x: number, y: number) => (y > 1e-4 ? x / y : 1);
+  return new THREE.Color(ratio(a.r, b.r), ratio(a.g, b.g), ratio(a.b, b.b));
+}
+
+/** The season's veil: the cycle's ground colour of the moment (dark), brought to the lightness of `veil` with its hue kept. */
+export function seasonVeil(ground: THREE.Color, veil: THREE.Color): THREE.Color {
+  const luma = (c: THREE.Color) => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+  const from = luma(ground);
+  return from > 1e-5 ? ground.clone().multiplyScalar(luma(veil) / from) : veil.clone();
+}
+
 /** How far the fog is from colour (1) to grey (0) at `cells` from the nearest placed tile: a smoothstep from `grayFrom` to `grayTo`. */
 export function grayscaleAt(cells: number, grayFrom: number, grayTo: number): number {
   if (!(grayTo > grayFrom)) return cells <= grayFrom ? 1 : 0;
@@ -399,8 +445,9 @@ void main() {
  * (world over `ETERNUM_SCALE`):
  * - The mist (`fogMist`): a broad octave drifting and a finer one bent by it, their sum around 0.5; its veil the mist's thick part.
  * - The pattern drawn with it (`PATTERN`, `BackdropPattern`): Realms' veil and its energy (0), paving stones (1), contour lines (2)
- *   or voxel blocks (3); the energy in `uEnergyColor` to `uEnergyGlow`, at `uEnergy`.
- * - Then grey away from the tiles (the distance field, `grayscaleAt`), and every cell's border as Realms' fog draws a hex's.
+ *   or voxel blocks (3); the energy in `uEnergyColor` to `uEnergyGlow`, at `uEnergy`; the veil in the season's hue (`uSeasonVeil`).
+ * - Then grey away from the tiles (the distance field, `grayscaleAt`), every cell's border as Realms' fog draws a hex's, and all of
+ *   it lit as the board's tops are now against the look's own light (`uLight`: the time of day and the season, `backdropLight`).
  * Its linear colour: the finish pass tone-maps it as Realms does.
  */
 const BACKDROP_FRAGMENT = /* glsl */ `
@@ -421,6 +468,10 @@ uniform vec4 uDistRect;
 uniform float uDistReach;
 uniform float uGrayFrom;
 uniform float uGrayTo;
+uniform vec3 uSeasonVeil;
+uniform float uSeasonShare;
+uniform vec3 uLight;
+uniform float uVoxels;
 varying vec2 vBoard;
 ${SQUARE_EDGE_GLSL}
 ${MX_NOISE_GLSL}
@@ -439,6 +490,8 @@ void main() {
   float mist = fogMist(ground, drift);
   float flow = fogFlow(ground, drift);
   vec3 energy = mix(uEnergyColor, uEnergyGlow, flow);
+  // The veil takes the season's hue (the cycle's ground colour, at the veil's own lightness).
+  vec3 veilColor = mix(uVeil, uSeasonVeil, uSeasonShare);
 #if PATTERN == 1
   // Paving stones, three to a cell's side (Voronoi cells), each its own shade, lit by the mist drifting over them; the mortar
   // dark, a gold light running along it.
@@ -459,7 +512,7 @@ void main() {
   float edge = sqrt(f2) - sqrt(f1);
   float mortar = 1.0 - smoothstep(0.05, 0.05 + max(fwidth(edge), 1e-4) * 1.5, edge);
   float light = (0.35 + 0.65 * smoothstep(0.2, 0.8, mist)) * (0.45 + 0.55 * fogHash(id));
-  vec3 color = mix(uGround, uVeil, light * uMist * uVeilStrength * 1.6);
+  vec3 color = mix(uGround, veilColor, light * uMist * uVeilStrength * 1.6);
   color = mix(color, uGround * 0.55, mortar);
   color += energy * mortar * smoothstep(0.55, 0.95, flow) * uEnergy * 2.5;
 #elif PATTERN == 2
@@ -468,25 +521,24 @@ void main() {
   float level = mist * 12.0;
   float line = 1.0 - smoothstep(0.0, max(fwidth(level), 1e-4) * 1.2, abs(fract(level - 0.5) - 0.5));
   float major = 1.0 - step(0.5, mod(floor(level + 0.5), 4.0));
-  vec3 color = mix(uGround, uVeil, smoothstep(0.2, 0.9, mist) * uMist * uVeilStrength * 0.8);
-  color = mix(color, uVeil, line * (0.1 + 0.14 * major));
+  vec3 color = mix(uGround, veilColor, smoothstep(0.2, 0.9, mist) * uMist * uVeilStrength * 0.8);
+  color = mix(color, veilColor, line * (0.1 + 0.14 * major));
   color += energy * line * major * (0.4 + 0.6 * flow) * uEnergy * 2.0;
 #elif PATTERN == 3
-  // Voxel blocks, five voxels a side (a tile is forty): the mist read at each block's middle, in four steps, a gap between the
-  // blocks; now and then a block glints gold and fades.
-  vec2 bp = vBoard / ${(TILE_SIZE / 8).toFixed(6)};
+  // Voxel blocks, \`uVoxels\` a cell's side (the tiles' own forty by default): the mist read at each block's middle, in four
+  // steps; a gap between the blocks where they are large enough on screen to show one.
+  vec2 bp = vBoard * (uVoxels / ${TILE_SIZE.toFixed(1)});
   vec2 block = floor(bp);
-  float m = fogMist((block + 0.5) * ${(TILE_SIZE / 8 / ETERNUM_SCALE).toFixed(6)}, drift);
+  float m = fogMist((block + 0.5) * (${TILE_SIZE.toFixed(1)} / uVoxels) / ${ETERNUM_SCALE.toFixed(6)}, drift);
   float steps = floor(smoothstep(0.18, 0.86, m) * 4.0) / 4.0;
-  vec3 color = mix(uGround, uVeil, steps * uMist * uVeilStrength * 1.3);
+  vec3 color = mix(uGround, veilColor, steps * uMist * uVeilStrength * 1.3);
   vec2 inBlock = abs(fract(bp) - 0.5);
-  float gap = smoothstep(0.5 - max(fwidth(bp.x), 1e-4) * 1.5, 0.5, max(inBlock.x, inBlock.y));
+  float pixel = max(max(fwidth(bp.x), fwidth(bp.y)), 1e-4);
+  float gap = smoothstep(0.5 - pixel * 1.5, 0.5, max(inBlock.x, inBlock.y)) * (1.0 - smoothstep(0.12, 0.35, pixel));
   color = mix(color, uGround, gap * 0.6);
-  float glint = step(0.985, fogHash(block + 17.0)) * pow(max(sin(drift * 0.35 + fogHash(block) * 6.2832), 0.0), 8.0);
-  color += uEnergyGlow * glint * uEnergy * 6.0;
 #else
   // Realms' own: the veil over the ground, its threads along the mist's 0.51 contour.
-  vec3 color = mix(uGround, uVeil, smoothstep(0.18, 0.86, mist) * uMist * uVeilStrength);
+  vec3 color = mix(uGround, veilColor, smoothstep(0.18, 0.86, mist) * uMist * uVeilStrength);
   if (uEnergy > 0.0) {
     float contour = abs(mist - 0.51);
     float thread = 1.0 - smoothstep(0.003, max(fwidth(mist), 0.001) + 0.009, contour);
@@ -500,7 +552,8 @@ void main() {
   color = mix(vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))), color, saturation);
   float d = squareGridEdge(vBoard);
   float border = 1.0 - smoothstep(uLineHalfWidth, max(fwidth(d), 0.001) * 1.2 + uLineHalfWidth, d);
-  gl_FragColor = vec4(mix(color, uLineColor, border * uLineStrength), 1.0);
+  // Lit as the board's tops are now (the season and the time of day), against the look's own light.
+  gl_FragColor = vec4(mix(color, uLineColor, border * uLineStrength) * uLight, 1.0);
 }
 `;
 
@@ -523,6 +576,10 @@ type BackdropMaterial = THREE.ShaderMaterial & {
     uDistReach: THREE.IUniform<number>;
     uGrayFrom: THREE.IUniform<number>;
     uGrayTo: THREE.IUniform<number>;
+    uSeasonVeil: THREE.IUniform<THREE.Color>;
+    uSeasonShare: THREE.IUniform<number>;
+    uLight: THREE.IUniform<THREE.Color>;
+    uVoxels: THREE.IUniform<number>;
   };
 };
 
@@ -546,6 +603,10 @@ function createBackdropMaterial(time: { value: number }): BackdropMaterial {
       uDistReach: { value: 1 },
       uGrayFrom: { value: 0 },
       uGrayTo: { value: 1 },
+      uSeasonVeil: { value: new THREE.Color() },
+      uSeasonShare: { value: 0 },
+      uLight: { value: new THREE.Color(1, 1, 1) },
+      uVoxels: { value: 40 },
     },
     vertexShader: BACKDROP_VERTEX,
     fragmentShader: BACKDROP_FRAGMENT,
@@ -836,6 +897,8 @@ export class SquareGridRenderer implements AmbientEffect {
   private readonly floorMaterial: BackdropMaterial;
   private readonly floor: THREE.Mesh<THREE.PlaneGeometry, BackdropMaterial>;
   private field: THREE.DataTexture | null = null;
+  /** The season's ground colour last given (`setLight`), null: the veil's own hue. */
+  private season: THREE.Color | null = null;
   private fieldKey = "";
   private tileCells: GridCell[] = [];
 
@@ -915,6 +978,26 @@ export class SquareGridRenderer implements AmbientEffect {
       this.applyDim(this.dim.to);
     }
     return true;
+  }
+
+  /**
+   * The light of the moment (`backdropLight`) and the season's ground colour (the hemisphere light's, null: the veil's own): the
+   * backdrop is lit as the board, its veil in the season's hue. True when it changed.
+   */
+  setLight(light: THREE.Color, ground: THREE.Color | null): boolean {
+    const u = this.floorMaterial.uniforms;
+    this.season = ground && ground.clone();
+    const veil = this.seasonVeilNow();
+    if (u.uLight.value.equals(light) && u.uSeasonVeil.value.equals(veil)) return false;
+    u.uLight.value.copy(light);
+    u.uSeasonVeil.value.copy(veil);
+    return true;
+  }
+
+  /** The veil in the season's hue, or its own with no season given. */
+  private seasonVeilNow(): THREE.Color {
+    const veil = new THREE.Color(this.settings.backdrop.veil);
+    return this.season ? seasonVeil(this.season, veil) : veil;
   }
 
   /** The cells the placed tiles stand on: the backdrop is in colour near them, grey away from them (its distance field). */
@@ -1056,6 +1139,9 @@ export class SquareGridRenderer implements AmbientEffect {
     u.uLineHalfWidth.value = Math.max(0, s.lines.halfWidth);
     u.uGrayFrom.value = b.grayFrom;
     u.uGrayTo.value = b.grayTo;
+    u.uVoxels.value = Math.max(1, b.voxels);
+    u.uSeasonShare.value = clamp01(b.seasonShare);
+    u.uSeasonVeil.value.copy(this.seasonVeilNow());
     // A pattern is its own program: a new one compiles once.
     const pattern = BACKDROP_PATTERNS.indexOf(b.pattern);
     if (this.floorMaterial.defines.PATTERN !== pattern) {

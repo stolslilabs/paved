@@ -174,7 +174,9 @@ describe("the square grid's highlight style and backdrop pattern a page asks for
     expect(squareGridSettings(true, "")).toEqual({ enabled: true });
     expect(squareGridSettings(true, "?filler=frame")).toEqual({ enabled: true, highlight: { style: "frame" } });
     expect(squareGridSettings(true, "?void=cobbles&filler=diamond")).toEqual({ enabled: true, highlight: { style: "diamond" }, backdrop: { pattern: "cobbles" } });
-    expect(squareGridSettings(true, "?filler=nope&void=nope")).toEqual({ enabled: true });
+    expect(squareGridSettings(true, "?filler=nope&void=nope&voxels=0")).toEqual({ enabled: true });
+    expect(squareGridSettings(true, "?void=voxels&voxels=20")).toEqual({ enabled: true, backdrop: { pattern: "voxels", voxels: 20 } });
+    expect(squareGridSettings(true, "?voxels=81")).toEqual({ enabled: true });
     expect(squareGridSettings(false, "?filler=frame&void=voxels")).toEqual({ enabled: false });
     // The lists repeated here are the renderer's.
     for (const style of HIGHLIGHT_STYLES) expect(squareGridSettings(true, `?filler=${style}`)).toEqual({ enabled: true, highlight: { style } });

@@ -11,6 +11,7 @@ import {
   MX_NOISE_GLSL,
   ROLLOUT,
   SquareGridRenderer,
+  backdropLight,
   backdropShown,
   createHighlightGeometry,
   dimAt,
@@ -28,8 +29,10 @@ import {
   layerOpacities,
   resolveSquareGridSettings,
   rolloutScale,
+  seasonVeil,
   squareEdgeDistance,
   stackedOpacity,
+  upwardIrradiance,
   type SquareGridSettingsInput,
 } from "../src/core/square-grid";
 import { OverlayPass, createOverlayDepth, overlayDepthTest, type Overlay } from "../src/core/overlay-pass";
@@ -98,6 +101,8 @@ describe("the square grid's settings", () => {
       grayFrom: 1.5,
       grayTo: 6,
       pattern: "voxels",
+      voxels: 40,
+      seasonShare: 0.6,
     });
     const { highlight } = DEFAULT_SQUARE_GRID_SETTINGS;
     expect(highlight.colors).toEqual({ route: "#c8c8c8", middle: "#e2e2e2", top: "#ffffff", logo: "#ffffff" });
@@ -170,7 +175,7 @@ describe("the backdrop (Realms' world map fog, in Paved's colours)", () => {
     expect(MX_NOISE_GLSL).toContain("0xdeadbeefu + (3u << 2u) + 13u");
     expect(MX_NOISE_GLSL).toContain("return 0.982 * result;");
     expect(fragmentShader).toContain("float broad = mxPerlin(vec3(ground.x * 0.16 + drift * 0.06, ground.y * 0.16 - drift * 0.04, drift * 0.025));");
-    expect(fragmentShader).toContain("vec3 color = mix(uGround, uVeil, smoothstep(0.18, 0.86, mist) * uMist * uVeilStrength);");
+    expect(fragmentShader).toContain("vec3 color = mix(uGround, veilColor, smoothstep(0.18, 0.86, mist) * uMist * uVeilStrength);");
     expect(uniforms.uGround!.value.equals(new THREE.Color("#0e100d"))).toBe(true);
     expect(uniforms.uVeil!.value.equals(new THREE.Color("#a4ab80"))).toBe(true);
     expect(uniforms.uEnergyColor!.value.equals(new THREE.Color("#f0bf5b"))).toBe(true);
@@ -202,6 +207,56 @@ describe("the backdrop (Realms' world map fog, in Paved's colours)", () => {
       grid.setSettings(on({ backdrop: { pattern } }));
       expect(floor.material.version).toBe(changed ? version + 1 : version);
     });
+  });
+
+  it("draws its voxels as fine as the tiles' (forty a cell's side), with no glint, and their gaps only where they show", () => {
+    const grid = gridOf();
+    const floor = grid.group.getObjectByName("square-grid-backdrop") as THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+    expect(floor.material.uniforms.uVoxels!.value).toBe(40);
+    const voxels = floor.material.fragmentShader.slice(floor.material.fragmentShader.indexOf("#elif PATTERN == 3"), floor.material.fragmentShader.indexOf("#else"));
+    expect(voxels).toContain("vec2 bp = vBoard * (uVoxels / 3.0);");
+    expect(voxels).not.toMatch(/glint|uEnergy/);
+    // The gap fades out where a block is under a few pixels.
+    expect(voxels).toContain("(1.0 - smoothstep(0.12, 0.35, pixel))");
+    grid.setSettings(on({ backdrop: { voxels: 8 } }));
+    expect(floor.material.uniforms.uVoxels!.value).toBe(8);
+  });
+
+  it("is lit as the board's tops are now against the look's own light, its veil in the season's hue", () => {
+    const sun = (y: number) => new THREE.Vector3(0, y, 1);
+    const look = [
+      { color: new THREE.Color(1, 1, 1), intensity: 0.25 },
+      { color: new THREE.Color(0.5, 0.6, 1), intensity: 1 },
+      { color: new THREE.Color(1, 0.9, 0.7), intensity: 3, direction: sun(1) },
+    ];
+    // An upward surface takes an ambient or a sky light whole, a directional one by its cosine; none from below.
+    const e = upwardIrradiance(look);
+    expect(e.r).toBeCloseTo(0.25 + 0.5 + 3 * Math.SQRT1_2, 9);
+    expect(upwardIrradiance([{ color: new THREE.Color(1, 1, 1), intensity: 2, direction: sun(-1) }]).r).toBe(0);
+    // The look's own lights: lit as is.
+    expect(backdropLight(look, look).toArray()).toEqual([1, 1, 1]);
+    // A moonlit night: darker, bluer.
+    const night = backdropLight([{ color: new THREE.Color(0.3, 0.4, 0.8), intensity: 0.5 }], look);
+    expect(night.r).toBeLessThan(0.2);
+    expect(night.b).toBeGreaterThan(night.r);
+    // The season's ground colour at the veil's lightness, its hue kept.
+    const veil = new THREE.Color("#a4ab80");
+    const autumn = seasonVeil(new THREE.Color("#3a2c1c"), veil);
+    const luma = (c: THREE.Color) => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+    expect(luma(autumn)).toBeCloseTo(luma(veil), 9);
+    expect(autumn.r / autumn.b).toBeCloseTo(new THREE.Color("#3a2c1c").r / new THREE.Color("#3a2c1c").b, 9);
+    const grid = gridOf();
+    const u = (grid.group.getObjectByName("square-grid-backdrop") as THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>).material.uniforms;
+    expect(u.uSeasonVeil!.value.equals(veil)).toBe(true);
+    expect(u.uSeasonShare!.value).toBe(0.6);
+    expect(grid.setLight(night, new THREE.Color("#3a2c1c"))).toBe(true);
+    expect(u.uLight!.value.equals(night)).toBe(true);
+    expect(u.uSeasonVeil!.value.equals(autumn)).toBe(true);
+    expect(grid.setLight(night, new THREE.Color("#3a2c1c"))).toBe(false);
+    // With no season (the cycle off), the veil's own hue.
+    grid.setLight(new THREE.Color(1, 1, 1), null);
+    expect(u.uSeasonVeil!.value.equals(veil)).toBe(true);
+    expect((grid.group.getObjectByName("square-grid-backdrop") as THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>).material.fragmentShader).toContain("* uLight, 1.0);");
   });
 
   it("turns grey away from the placed tiles: in colour within grayFrom cells, grey past grayTo", () => {
@@ -614,6 +669,20 @@ describe("the square grid in the scene", () => {
     expect(setOverlay.mock.lastCall![0]).toMatchObject({ scene: null });
     scene.setSettings({});
     expect(setOverlay).toHaveBeenLastCalledWith(null);
+  });
+
+  it("lights its backdrop as the board: the look's lights give it its own colour, dimmer lights darken it", () => {
+    const scene = new GameScene();
+    (scene as any).setupLighting();
+    const setLight = vi.spyOn(scene.squareGrid, "setLight");
+    scene.setSettings({ squareGrid: { enabled: true } });
+    expect(setLight.mock.lastCall![0].toArray().map((v: number) => Number(v.toFixed(6)))).toEqual([1, 1, 1]);
+    expect(setLight.mock.lastCall![1]).toBeNull();
+    // The cycle's night (here by hand): the lights drop, the backdrop with them.
+    (scene as any).directionalLight.intensity = 0;
+    (scene as any).hemisphereLight.intensity *= 0.3;
+    (scene as any).syncGridLight();
+    expect(setLight.mock.lastCall![0].r).toBeLessThan(0.5);
   });
 
   it("keeps the fog of war, the background and the distance fog off while its backdrop shows", () => {

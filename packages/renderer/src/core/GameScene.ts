@@ -18,7 +18,7 @@ import type {
 } from "./types";
 import { TILE_SIZE } from "./types";
 import type { PlacementSettings, PlacementSlot } from "./placement";
-import { SquareGridRenderer, backdropShown, gridLineUniforms, highlightShown } from "./square-grid";
+import { SquareGridRenderer, backdropLight, backdropShown, gridLineUniforms, highlightShown, type SurfaceLight } from "./square-grid";
 import type { Overlay } from "./overlay-pass";
 import {
   getLightingProfile,
@@ -232,6 +232,8 @@ export class GameScene {
   private readonly overlayScene = new THREE.Scene();
   private readonly underlayScene = new THREE.Scene();
   private overlayKey = "off";
+  /** The look's own lights, as the square grid's backdrop measures the light of the moment against them (`syncGridLight`). */
+  private lookLights: SurfaceLight[] = [];
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -502,8 +504,11 @@ export class GameScene {
       key.shadow.radius = look.key.shadowSoftness;
     }
     this.tiles.setLook(look.highlights, look.water, look.featureHighlight);
+    // The look's lights, before the cycle draws over them: the backdrop's reference.
+    this.lookLights = this.sceneLights();
     this.syncDayNight();
     this.applyUnderlayBackground();
+    this.syncGridLight();
     this.syncAmbient();
     this.syncFog();
     this.requestRender();
@@ -737,6 +742,31 @@ export class GameScene {
   }
 
   /**
+   * The lights an upward surface of the board takes now (`SurfaceLight`): the ambient, the sky light (its sky colour), the key and
+   * the fill (by their direction). A light turned off gives none.
+   */
+  private sceneLights(): SurfaceLight[] {
+    const out: SurfaceLight[] = [];
+    const target = this.directionalTargetObject?.position ?? new THREE.Vector3();
+    if (this.ambientLight?.visible) out.push({ color: this.ambientLight.color.clone(), intensity: this.ambientLight.intensity });
+    if (this.hemisphereLight?.visible) out.push({ color: this.hemisphereLight.color.clone(), intensity: this.hemisphereLight.intensity });
+    for (const light of [this.directionalLight, this.fillLight]) {
+      if (light?.visible) out.push({ color: light.color.clone(), intensity: light.intensity, direction: light.position.clone().sub(target) });
+    }
+    return out;
+  }
+
+  /**
+   * The square grid's backdrop lit as the board is now (the time of day, the season: `backdropLight` against the look's lights),
+   * its veil in the season's hue while the cycle draws (the sky light's ground colour). A frame when it changed.
+   */
+  private syncGridLight(): void {
+    if (!backdropShown(this.settings.squareGrid)) return;
+    const ground = this.dayNightOn && this.hemisphereLight ? this.hemisphereLight.groundColor : null;
+    if (this.squareGrid.setLight(backdropLight(this.sceneLights(), this.lookLights), ground)) this.requestRender();
+  }
+
+  /**
    * While the square grid's backdrop shows, the scene is cleared to nothing and draws no background or distance fog: the finish
    * pass lays the backdrop under what the scene leaves uncovered (`overlay-pass.ts`), and Realms' world map has no distance fog.
    */
@@ -801,6 +831,7 @@ export class GameScene {
       this.settings.dayNight.brightnessFloor,
     );
     this.syncCloudLight();
+    this.syncGridLight();
     this.syncWeatherCycle();
     this.requestRender();
   }
