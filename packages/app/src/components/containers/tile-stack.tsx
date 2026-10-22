@@ -401,8 +401,8 @@ export function TileStack({
     : null;
 
   const chipState = busy ? "pending" : state === "refused" ? "refused" : "default";
-  // The slab's face, the chip's state on its edge (pending pulses, refused is red), the board's outline otherwise.
-  const handFace = cn(FACE, chipState === "pending" && "border-2 border-info", chipState === "refused" && "border-2 border-destructive-text");
+  // The slab's face: the chip's state on its edge (`chipVariants`: pending pulses, refused), the board's outline otherwise.
+  const handFace = chipState === "default" ? FACE : "rounded-[3px]";
   const handLabel = tile ? `Tile ${planCode(tile.plan).toLowerCase()}, ${["north", "east", "south", "west"][(tile.orientation - 1 + 4) % 4]}` : "";
   return (
     <section

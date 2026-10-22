@@ -3,6 +3,7 @@ import { useReducedMotionConfig } from "motion/react";
 import { GameCanvas } from "@paved/renderer/react";
 import type { GameScene, RendererSettingsInput, TileRenderData, TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
+import { hasWebGL } from "../../lib/webgl";
 import { TILT, TURN } from "../elements/tile-slab";
 import { toRenderTiles } from "./board-viewport";
 
@@ -67,6 +68,14 @@ export interface StackViewProps {
   /** As `TileView`'s: the tiles in their player's skin, the variant of the board's centre. */
   skins?: TileSkins;
   className?: string;
+}
+
+/**
+ * Whether the stack can be drawn in 3D here: a WebGL context (`lib/webgl.ts`). Without one the page gives the tile stack no
+ * `renderStack` and it draws its CSS slabs, as `TileView` draws the tile art.
+ */
+export function canDrawStack(): boolean {
+  return hasWebGL();
 }
 
 /** The camera's zoom that draws `unitPx` CSS px per world unit in a view `heightPx` CSS px high, at `STACK_DISTANCE`. */

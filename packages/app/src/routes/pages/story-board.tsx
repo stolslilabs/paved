@@ -17,7 +17,7 @@ import { BoardViewport } from "../../components/containers/board-viewport";
 import type { CoachTarget } from "../../components/containers/coach";
 import { DeckPresentation, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
 import { hasWebGL } from "../../components/containers/tile-view";
-import { StackView } from "../../components/containers/stack-view";
+import { StackView, canDrawStack } from "../../components/containers/stack-view";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
@@ -257,7 +257,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       tileArt={tileArt}
       tileRenders={renders}
       skins={skins}
-      renderHandStack={view === "3d" ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
+      renderHandStack={view === "3d" && canDrawStack() ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
       storageDisabled={!saved}
       slots={phase === "play" ? slots : undefined}
       ghost={ghost}
