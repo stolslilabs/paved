@@ -188,8 +188,8 @@ pub const CEILING_AVATAR_ITEMS: u128 = 2512748;
 // z32 and z33: leagues and seasons (#644, `docs/architecture/leagues.md`): a settlement across a
 // season's end (both villages rolled, reset and paid, the missions reported) and `close_season`
 // with a reward and a reset. Measured on the VPS (snforge 0.64.0, test profile) + 5 %, rounded up.
-pub const CEILING_MM_SETTLE_SEASON_END: u128 = 7743621;
-pub const CEILING_MM_CLOSE_SEASON: u128 = 3404835;
+pub const CEILING_MM_SETTLE_SEASON_END: u128 = 5530394;
+pub const CEILING_MM_CLOSE_SEASON: u128 = 1640737;
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
@@ -1264,7 +1264,7 @@ fn matchmaker_in_season(crowns: u32, attacks: u16) -> IMatchmakerDispatcher {
 
 /// z32. A 3-star settlement in season 2 of an attack started in season 1, its worst case: both
 /// villages roll (each season closed with its reward credited in `Setup`, both reset from 6,000 to
-/// 5,000, both buckets move), then the crowns move and the PvP missions are reported.
+/// 5,000 in Legend's bucket), then the crowns move and the PvP missions are reported.
 #[test]
 fn test_gas_z32_matchmaker_settle_season_end() {
     let matchmaker = matchmaker_in_season(6000, 5);
@@ -1283,7 +1283,7 @@ fn test_gas_z32_matchmaker_settle_season_end() {
 }
 
 /// z33. `close_season` of a village that ended its season in Legend: its reward credited in
-/// `Setup`, its crowns reset from 6,000 to 5,000 and its bucket moved.
+/// `Setup`, its crowns reset from 6,000 to 5,000 (its bucket stays Legend's).
 #[test]
 fn test_gas_z33_matchmaker_close_season() {
     let matchmaker = matchmaker_in_season(6000, 5);

@@ -49,7 +49,7 @@ answers there; each answer is one constant away (section 9 names it).
 | `Setup` | `contracts/src/systems/setup.cairo` | `pvp_days`, `pvp_weeks` (appended) | `CobblesClaimed` (kinds 4 and 5) | The Cobble ledger, the PvP mission sums |
 
 - **No piece calls another** (as in section 11 of the matchmaker's note). The leagues component returns what a roll or a
-  reach owes; the system sets the crowns (`crownable.set`), moves the bucket (`bucketable.follow`) and credits `Setup`.
+  reach owes; the system sets the crowns (`crownable.set`) and credits `Setup`.
 - **Why in `Matchmaker`.** The crowns live there and every crown change goes through it. A separate system would need a
   call per settlement and a second copy of who joined. The pieces stay components, so a later system can embed them.
 - **NPC villages** (addresses 1 to 255) have no league: they never roll, never reset, never earn. Their crowns are the
@@ -99,7 +99,8 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
   1. if `record.season >= 1`, the season `record.season` is closed: its league is `league_of(crowns)` (the crowns now,
      unchanged since its end), its reward `reward_of(league)` if `record.attacks >= MIN_SEASON_ATTACKS`, else 0; one
      `SeasonClosed` event;
-  2. the crowns are reset: `min(crowns, RESET_CROWNS)` (`CrownsSet` and the bucket follow only if they change);
+  2. the crowns are reset: `min(crowns, RESET_CROWNS)` (`CrownsSet` only if they change; the bucket never moves, see
+     "The pool at Legend" below);
   3. the record becomes `{ season: current, peak: league_of(reset crowns), attacks: 0 }`.
 
   A village idle for several seasons closes only the last one it played in: the seasons in between had no attack, so no
@@ -108,6 +109,17 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
   league from `peak + 1` to it is reached: one `LeagueReached` each, with its bonus, and `peak` rises. A settlement in
   season 0 reaches nothing. A crown set (`set_crowns`, an operator) raises the peak without a bonus.
 - **The count**: a settlement adds one to the attacker's `attacks` (saturating at `u16`).
+- **The pool at Legend** (a fix found in review). A village is listed in the pool at `min(crowns, RESET_CROWNS)`
+  (`pool_crowns` in `Matchmaker`), so every village of 5,000 crowns or more shares Legend's bucket (50). Without it, a
+  village not yet rolled into the new season stayed in the bucket of its old crowns: with Alice at 5,000, Bob at 7,000
+  and Carol at 4,900 when season 1 ends, Alice's first search of season 2 took Carol (bucket 49) and not Bob (bucket
+  70), though Bob's crowns are 5,000 once rolled. The reset changes only crowns above `RESET_CROWNS`, and they all
+  list in that one bucket, so a roll never changes a bucket and a draw never reads a stale one, whatever villages are
+  not rolled yet (`test_a_draw_after_a_season_end_reads_no_stale_bucket`; the pool's fuzzed invariants check the capped
+  bucket). The opponent drawn is rolled before its terms are fixed, so the offer and the cost use its reset crowns.
+  The cost: above 5,000 the draw no longer prefers the nearest hundred crowns, as Legend in Clash of Clans is one pool.
+  Buckets 51 to 250 stay empty. This changes #639's buckets above 5,000 only; `Matchmaker` is in no deployment file,
+  so no listed village moves.
 - **Why the peak starts at the season's starting league**: a village that keeps its crowns across seasons (under the
   reset) must climb above where it started to earn a bonus again. So an idle account earns nothing, and a second account
   parked in a league earns at most one season reward per season it attacks `MIN_SEASON_ATTACKS` times.
@@ -195,7 +207,8 @@ The client's ranking UI was removed by #623; the leagues come back as the league
 ## 10. Audit lenses (Cobbles and crowns move)
 
 - **Crowns** move by the reset only downwards, to `RESET_CROWNS`, and only once per village and season (the record's
-  season moves first). The reset keeps the bucket in step (`bucketable.follow`), so the pool's invariants hold (fuzzed).
+  season moves first). The reset never moves a bucket (the pool at Legend, section 5), so the pool's invariants hold
+  (fuzzed).
 - **Cobbles** are credited only by `Matchmaker` (a reporter) for the village whose record moved, never for a caller;
   `close_season` is permissionless and pays the village itself. The sums are bounded: at most 485 in bonuses and 250 in a
   reward per village and season; the missions are bounded by `Setup`'s quests (5 to 15 per quest and period).
@@ -238,7 +251,7 @@ the view, `pvp_weeks` read raw).
 
 | Class | CASM main | CASM LEAGUES | Change | Share of the Starknet cap | Under the P-44 cap (73,728) |
 |---|---:|---:|---:|---:|---:|
-| `Matchmaker` | 24,614 | 31,663 | +7,049 | 38.7 % | 42,065 |
+| `Matchmaker` | 24,614 | 31,849 | +7,235 | 38.9 % | 41,879 |
 | `Setup` | 43,431 | 47,384 | +3,953 | 57.8 % | 26,344 |
 
 Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201).
@@ -250,12 +263,12 @@ measured + 5 %.
 
 | Test | Call | Before | Now | Change |
 |---|---|---:|---:|---:|
-| z17 | `search`, free (no clock: the rolls read the clock and the records only) | 2,602,829 | 2,783,168 | +6.9 % |
-| z18 | `next` | 3,169,327 | 3,350,266 | +5.7 % |
-| z19 | `start_attack`, worst case | 4,421,401 | 4,425,001 | +0.1 % |
-| z20 | `settle`, worst case of #639 (both change bucket), in season 0 | 3,133,404 | 4,650,879 | +48.4 % |
-| z32 | `settle` across a season's end: both rolled, reset from 6,000 to 5,000 and paid, buckets moved | new | 7,374,877 | |
-| z33 | `close_season` with a reward and a reset | new | 3,242,700 | |
+| z17 | `search`, free (no clock: the rolls read the clock and the records only) | 2,602,829 | 2,776,558 | +6.7 % |
+| z18 | `next` | 3,169,327 | 3,353,716 | +5.8 % |
+| z19 | `start_attack`, worst case | 4,421,401 | 4,435,441 | +0.3 % |
+| z20 | `settle`, worst case of #639 (both change bucket), in season 0 | 3,133,404 | 4,657,779 | +48.6 % |
+| z32 | `settle` across a season's end: both rolled, reset from 6,000 to 5,000 and paid | new | 5,267,041 | |
+| z33 | `close_season` with a reward and a reset | new | 1,562,606 | |
 
 - **Where z20's +1.52M goes**: almost all of it is `report_pvp` (a call to `Setup`, quiver's events, two PvP slots
   written); the leagues' own part in season 0 is the clock and two record reads.
@@ -278,7 +291,7 @@ test. 433 pass (peak RSS 5,677,996 kB under `prlimit --as=16106127360`). CI runs
   again, unpaid, in season 0, the attacks saturating; fuzzed: a roll pays at most once per season, its reward never
   above its league's.
 - **The system**: a settlement reaching Bronze III pays 5 and not twice; the defender climbing by a failed attack; a crown
-  set reaching leagues unpaid; a season's end paying 250 and resetting 6,000 to 5,000 (bucket 60 to 50) by anyone's
+  set reaching leagues unpaid; a season's end paying 250 and resetting 6,000 to 5,000 (staying in Legend's bucket, 50) by anyone's
   `close_season`, once, and nothing for idle seasons after; below the threshold the crowns stay; a draw rolling both;
   an attack started in one season and settled in the next; an NPC with no league; the missions reported and claimed;
   the reporter missing reverting the settlement.
@@ -291,7 +304,7 @@ test. 433 pass (peak RSS 5,677,996 kB under `prlimit --as=16106127360`). CI runs
 ### 11.5 Audit, correctness and security (Cobbles and crowns move)
 
 - **Crowns.** The reset is the only new move: downwards, to `RESET_CROWNS`, once per village and season, before any
-  crowns move in that season, with the bucket following (fuzzed with the pool's invariants). Between players crowns stay
+  crowns move in that season; it never moves a bucket (fuzzed with the pool's invariants). Between players crowns stay
   conserved: an attack across a season's end settles from both reset counts (`test_settle_after_the_season_ends_rolls_first`).
 - **Cobbles.**
   - `Setup` credits league Cobbles only from a reporter, 1 to 255 a call, kind 4 or 5. `Matchmaker` calls it for the

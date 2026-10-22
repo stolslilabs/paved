@@ -163,7 +163,7 @@ pub mod Matchmaker {
         ATTACK_SHIELD, INITIAL_SHIELD, QUEUE_ATTACK, QUEUE_INITIAL, ShieldableComponent,
     };
     use paved::matchmaker::crowns::{Settlement, cost_of, offer_of};
-    use paved::matchmaker::leagues::league_of;
+    use paved::matchmaker::leagues::{RESET_CROWNS, league_of};
     use paved::systems::setup::{
         CLAIM_LEAGUE, CLAIM_SEASON, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
         ISetupSpendDispatcher, ISetupSpendDispatcherTrait,
@@ -425,7 +425,7 @@ pub mod Matchmaker {
             // [Effect] The attacker's shield, if any, is dropped: back in the pool at once
             if self.shieldable.is_up(attacker) {
                 self.shieldable.lower(attacker);
-                self.bucketable.insert(attacker, self.crownable.crowns_of(attacker));
+                self.bucketable.insert(attacker, pool_crowns(self.crownable.crowns_of(attacker)));
             }
             // [Effect] The defender leaves the pool behind an attack shield (an NPC stays)
             assert(self.bucketable.is_listed(defender), errors::OPPONENT_SHIELDED);
@@ -461,9 +461,9 @@ pub mod Matchmaker {
             let outcome = self
                 .crownable
                 .settle(attacker, defender, current.offer, current.cost, stars, npc);
-            self.bucketable.follow(attacker, outcome.attacker);
+            self.bucketable.follow(attacker, pool_crowns(outcome.attacker));
             if !npc {
-                self.bucketable.follow(defender, outcome.defender);
+                self.bucketable.follow(defender, pool_crowns(outcome.defender));
             }
             // [Effect] The attack counted, the leagues reached; the match ends
             self.climb_village(attacker, outcome.attacker, true, ref credits);
@@ -491,7 +491,7 @@ pub mod Matchmaker {
                 self.roll_village(village, self.seasonable.season_now(), ref credits);
             }
             self.crownable.set(village, crowns);
-            self.bucketable.follow(village, crowns);
+            self.bucketable.follow(village, pool_crowns(crowns));
             if status == STATUS_PLAYER {
                 self.leagueable.climb(village, crowns, false, false);
             }
@@ -586,10 +586,10 @@ pub mod Matchmaker {
             if village.status == STATUS_NONE {
                 // [Effect] A new (or removed) NPC enters the pool
                 self.villages.write(address, Village { status: STATUS_NPC, draws: village.draws });
-                self.bucketable.insert(address, crowns);
+                self.bucketable.insert(address, pool_crowns(crowns));
             } else {
                 // [Effect] A listed NPC moves with its crowns
-                self.bucketable.follow(address, crowns);
+                self.bucketable.follow(address, pool_crowns(crowns));
             }
             self.emit(NpcSet { npc_id, crowns });
         }
@@ -617,6 +617,19 @@ pub mod Matchmaker {
         fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
             self.ownable.assert_only_owner();
             self.upgradeable.upgrade(new_class_hash);
+        }
+    }
+
+    /// The crowns a village is listed at in the pool (#644): at most `RESET_CROWNS`, so every
+    /// village of Legend shares its bucket. The season reset changes only crowns above
+    /// `RESET_CROWNS`, so it never changes a bucket: a village not yet rolled into the current
+    /// season is already listed where its rolled crowns would put it, and the draw never reads a
+    /// stale bucket (`docs/architecture/leagues.md`, section 5).
+    fn pool_crowns(crowns: u32) -> u32 {
+        if crowns > RESET_CROWNS {
+            RESET_CROWNS
+        } else {
+            crowns
         }
     }
 
@@ -667,7 +680,7 @@ pub mod Matchmaker {
             let released = self.shieldable.release(now, max);
             let count = released.len();
             for village in released {
-                self.bucketable.insert(village, self.crownable.crowns_of(village));
+                self.bucketable.insert(village, pool_crowns(self.crownable.crowns_of(village)));
             }
             count
         }
@@ -695,7 +708,7 @@ pub mod Matchmaker {
             let crowns = self.crownable.crowns_of(attacker);
             let opponent = self
                 .bucketable
-                .draw(attacker, crowns, random)
+                .draw(attacker, pool_crowns(crowns), random)
                 .expect(errors::NO_OPPONENT);
             if !is_npc_address(opponent) {
                 self.roll_village(opponent, season, ref credits);
@@ -711,8 +724,8 @@ pub mod Matchmaker {
         }
 
         /// Rolls a player's `village` into `season` (#644): its last season closed (its reward
-        /// appended to `credits`) and its crowns reset, its bucket following. A no-op if it is
-        /// there already.
+        /// appended to `credits`) and its crowns reset; its bucket is already that of the reset
+        /// crowns (`pool_crowns`). A no-op if it is there already.
         fn roll_village(
             ref self: ContractState,
             village: ContractAddress,
@@ -724,9 +737,9 @@ pub mod Matchmaker {
             }
             let crowns = self.crownable.crowns_of(village);
             let roll = self.leagueable.roll(village, crowns, season);
+            // The bucket stays: a reset changes only crowns above `RESET_CROWNS` (`pool_crowns`)
             if roll.crowns != crowns {
                 self.crownable.set(village, roll.crowns);
-                self.bucketable.follow(village, roll.crowns);
             }
             if roll.reward != 0 {
                 credits

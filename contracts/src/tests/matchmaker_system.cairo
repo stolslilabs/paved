@@ -1252,7 +1252,8 @@ fn test_season_end_pays_the_league_and_resets_the_crowns() {
     world.matchmaker.set_crowns(ALICE(), 6_000);
     stop_cheat_caller_address(world.matchmaker.contract_address);
     write_record(world, ALICE(), LeagueRecord { season: 1, peak: LEGEND, attacks: 5 });
-    assert_eq!(world.buckets.place(ALICE()).bucket, 60);
+    // Listed at `RESET_CROWNS` at most: Legend's bucket, before and after the reset
+    assert_eq!(world.buckets.place(ALICE()).bucket, 50);
     start_cheat_block_timestamp_global(SEASON_START + LENGTH);
     // The view shows season 2 before any transaction: crowns reset, the reward pending
     assert_eq!(
@@ -1360,6 +1361,32 @@ fn test_a_draw_rolls_both_villages() {
     let current = world.matchmaker.current_match(ALICE());
     let (offer, cost) = world.matchmaker.terms(ALICE(), BOB());
     assert_eq!((current.offer, current.cost), (offer, cost));
+}
+
+#[test]
+fn test_a_draw_after_a_season_end_reads_no_stale_bucket() {
+    // Season 1 ends with Alice at 5,000, Bob at 7,000 and Carol at 4,900, all listed. In season 2
+    // Bob's crowns are 5,000 once rolled; not rolled yet, he is already listed in Legend's bucket
+    // (50) with Alice, so Alice's search draws him, not Carol (bucket 49)
+    let world = seasoned(5_000, 7_000);
+    join(world, CAROL());
+    as_operator(world);
+    world.matchmaker.set_crowns(CAROL(), 4_900);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    start_cheat_block_timestamp_global(START + 2 * INITIAL_SHIELD);
+    assert_eq!(world.matchmaker.release_shields(1), 1);
+    assert_eq!(world.buckets.place(BOB()).bucket, 50);
+    assert_eq!(world.buckets.place(CAROL()).bucket, 49);
+    write_record(world, ALICE(), LeagueRecord { season: 1, peak: LEGEND, attacks: 0 });
+    write_record(world, BOB(), LeagueRecord { season: 1, peak: LEGEND, attacks: 0 });
+    start_cheat_block_timestamp_global(SEASON_START + LENGTH);
+    assert_eq!(world.leagues.league_record(BOB()).season, 1);
+    assert(search(world, ALICE(), 'TX1') == BOB(), 'not bob');
+    assert_eq!(world.crowns.crowns(BOB()), RESET_CROWNS);
+    assert_eq!(world.buckets.place(BOB()).bucket, 50);
+    // The terms fixed at the draw are those of Bob's rolled crowns: an even gap
+    let current = world.matchmaker.current_match(ALICE());
+    assert_eq!((current.offer, current.cost), (30, 20));
 }
 
 #[test]
@@ -1511,7 +1538,14 @@ fn assert_villages(world: World, villages: Span<ContractAddress>) {
         if place.listed {
             assert(status != STATUS_NONE, 'listed stranger');
             assert(!shield.up, 'listed and shielded');
-            assert(place.bucket == bucket_of(world.crowns.crowns(address)), 'wrong bucket');
+            // Listed at most at `RESET_CROWNS` (#644): every Legend village shares a bucket
+            let crowns = world.crowns.crowns(address);
+            let pool = if crowns > RESET_CROWNS {
+                RESET_CROWNS
+            } else {
+                crowns
+            };
+            assert(place.bucket == bucket_of(pool), 'wrong bucket');
             assert(place.index < world.buckets.bucket_size(place.bucket), 'index past size');
             assert(world.buckets.slot(place.bucket, place.index) == address, 'slot not village');
         } else if shield.up {
