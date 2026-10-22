@@ -41,8 +41,7 @@ describe("the page headers", () => {
     const { container } = render(page());
     const el = header(container);
     expect(el).toHaveClass("page-header");
-    // A tab page's title row is the content's first row from `desktop` (the navigation is the header): 56 px there.
-    expect(el.className.replace(el.closest("main") ? "desktop:h-14" : "", "")).not.toMatch(OWN_HEIGHT);
+    expect(el.className).not.toMatch(OWN_HEIGHT);
   });
 
   it("the page shells of Pages/Headers cover every route but the board's", () => {

@@ -4,6 +4,7 @@
  * them with the routes they cover) at 375 px and at 1440 px:
  * - one header at the top of the page (a `data-slot="page-header"` element, or the navigation's header from `desktop`, not
  *   the fixed bottom bar), as tall as the `--header-h` token (theme.css) at that width;
+ * - every other page header shown (a tab page's title row from `desktop`, below the navigation) as tall as the token too;
  * - the content's first box (painted, text, a picture, a control, a tab page's title row from `desktop`) starts at the same
  *   height in the layout on every page but the heroes (Home, Welcome);
  * - every page listed has its story, and every story is listed.
@@ -102,6 +103,8 @@ interface Measure {
   token: number;
   /** The headers at the top of the page: their height. */
   headers: { name: string; height: number }[];
+  /** Every other page header shown (not at the top): its height. */
+  others: { name: string; height: number }[];
   /** Where the content starts: the top of its first element below the header, in px. */
   content: number | null;
 }
@@ -144,14 +147,12 @@ function measure(): Measure {
     const t = Math.round(layoutTop(el) * 100) / 100;
     if (t >= bottom - 0.5 && (content === null || t < content)) content = t;
   }
-  return {
-    token,
-    content,
-    headers: top.map((el) => {
-      const label = el.getAttribute("aria-label");
-      return { name: `${el.tagName.toLowerCase()}${label ? `[${label}]` : ""}`, height: Math.round(el.getBoundingClientRect().height * 100) / 100 };
-    }),
+  const sized = (el: Element) => {
+    const label = el.getAttribute("aria-label");
+    return { name: `${el.tagName.toLowerCase()}${label ? `[${label}]` : ""}`, height: Math.round(el.getBoundingClientRect().height * 100) / 100 };
   };
+  const others = [...document.querySelectorAll('[data-slot="page-header"]')].filter((el) => shown(el) && !top.includes(el));
+  return { token, content, headers: top.map(sized), others: others.map(sized) };
 }
 
 async function main() {
@@ -176,11 +177,15 @@ async function main() {
         const name = id.slice(PREFIX.length);
         await page.setViewportSize({ width, height: 800 });
         await render(page, origin, id);
-        const { token, headers, content } = await page.evaluate(measure);
+        const { token, headers, others, content } = await page.evaluate(measure);
         if (!(token > 0)) failures.push(`${name} at ${width} px: no --header-h`);
         if (headers.length !== 1) failures.push(`${name} at ${width} px: ${headers.length} headers at the top (${headers.map((h) => h.name).join(", ")}), not one`);
         for (const h of headers) {
           if (Math.abs(h.height - token) > 0.5) failures.push(`${name} at ${width} px: ${h.name} is ${h.height} px, --header-h is ${token} px`);
+          heights.set(h.height, [...(heights.get(h.height) ?? []), name]);
+        }
+        for (const h of others) {
+          if (Math.abs(h.height - token) > 0.5) failures.push(`${name} at ${width} px: ${h.name} below the top is ${h.height} px, --header-h is ${token} px`);
           heights.set(h.height, [...(heights.get(h.height) ?? []), name]);
         }
         const hero = HERO_PAGES.includes(name);
@@ -188,7 +193,7 @@ async function main() {
           if (content === null) failures.push(`${name} at ${width} px: no content below the header`);
           else starts.set(content, [...(starts.get(content) ?? []), name]);
         }
-        console.log(`${width} px  ${name.padEnd(18)}  ${headers.map((h) => `${h.name} ${h.height}`).join(", ")}  content at ${content}${hero ? " (hero)" : ""}  (--header-h ${token})`);
+        console.log(`${width} px  ${name.padEnd(18)}  ${headers.map((h) => `${h.name} ${h.height}`).join(", ")}${others.map((h) => ` + ${h.name} ${h.height}`).join("")}  content at ${content}${hero ? " (hero)" : ""}  (--header-h ${token})`);
       }
       const list = (m: Map<number, string[]>) => [...m].map(([v, pages]) => `${v} px (${[...new Set(pages)].join(", ")})`).join("; ");
       if (heights.size > 1) failures.push(`at ${width} px the headers differ: ${list(heights)}`);

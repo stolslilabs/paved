@@ -36,9 +36,9 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
       <main className={cn("mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-6 tablet:max-w-2xl desktop:max-w-4xl desktop:px-8 desktop:pt-4 desktop:pb-10", className)}>
         {/*
           Below `desktop` the page's header (`page-header`, #676): the title row over the balances' row. From it the navigation is
-          the header, and this row is the content's first, 56 px, as far below it as a flow's content is below its top bar.
+          the header, and this row, on the same token, is the content's first, as far below it as a flow's content is below its top bar.
         */}
-        <header data-slot="page-header" className="page-header grid grid-cols-[1fr_auto] items-center gap-x-3 desktop:h-14">
+        <header data-slot="page-header" className="page-header grid grid-cols-[1fr_auto] items-center gap-x-3">
           <div className="flex min-w-0 items-center gap-1">
             {/* The top left is Back on a page reached from another, the player's avatar on a tab's own page (#624; from `desktop` it is in the navigation). */}
             {onBack ? (
