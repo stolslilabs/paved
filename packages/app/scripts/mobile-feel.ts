@@ -177,10 +177,20 @@ async function main(): Promise<void> {
     const bx = cb.x + cb.width / 2;
     const by = cb.y + cb.height / 2;
     const clip = { x: cb.x, y: cb.y, width: cb.width, height: cb.height };
-    const before = await page.screenshot({ clip, animations: "allow" });
-    await page.waitForTimeout(1500);
-    // The control: the board is still when nobody touches it, so a change after the pinch is the pinch's.
-    check("control: the board is still without a gesture", before.equals(await page.screenshot({ clip, animations: "allow" })));
+    // The control: the board is still when nobody touches it, so a change after the pinch is the pinch's. It settles first: its
+    // last frames come as its models and its passes are ready, seconds later on a slow machine (CI's software WebGL), so it is
+    // looked at every 1.5 s until two looks match, ten at most; a board that keeps moving never matches.
+    let before = await page.screenshot({ clip, animations: "allow" });
+    let looks = 1;
+    let still = false;
+    while (!still && looks < 10) {
+      await page.waitForTimeout(1500);
+      const again = await page.screenshot({ clip, animations: "allow" });
+      looks++;
+      still = before.equals(again);
+      before = again;
+    }
+    check("control: the board is still without a gesture", still, `${looks} looks 1.5 s apart`);
     await pinch(cdp, bx, by, 2);
     await page.waitForTimeout(1500);
     const after = await page.screenshot({ clip, animations: "allow" });

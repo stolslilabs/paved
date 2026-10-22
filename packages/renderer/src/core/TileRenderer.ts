@@ -1342,6 +1342,11 @@ export class TileRenderer {
     this.applyLook("confirm", confirm.tint);
   }
 
+  /** Where the pending tile's pulse is at `time` (`PlacementRenderer.pulsePhase`), or null while none pulses. */
+  pulsePhase(time: number = now()): number | null {
+    return this.placement.pulsePhase(time);
+  }
+
   /** The slots of the tile in hand, each with its plate's state (`plateStateOf`: playable or invalid). */
   setAvailableSlots(slots: ReadonlyArray<PlacementSlot>): void {
     this.placement.setSlots(slots, now());

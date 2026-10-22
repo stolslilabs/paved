@@ -14,8 +14,9 @@ import { TILE_SIZE } from "./types";
  *   (`plates.hideUnderTile`).
  * - The tile in hand is tinted on the model itself (`TileRenderer` draws it, this class owns the states and their ease):
  *   a hover preview has no tint at 50 % opacity (#568: the blue is gone, its colour and strength stay as knobs), a tile
- *   placed and not confirmed (pending) drawn plain, its opacity pulsing between 60 and 90 % on a sine (#681, the owner's:
- *   the faint yellow of #605 read as a filter; its colour stays as a knob, at strength 0), a fixed 75 % under reduced
+ *   placed and not confirmed (pending) drawn plain, its opacity pulsing between 80 and 100 % on a sine (#681, the owner's:
+ *   the faint yellow of #605 read as a filter; its colour stays as a knob, at strength 0; raised from 60 to 90 %, too faint at
+ *   night, SQUARE-GRID), a fixed 90 % under reduced
  *   motion, a confirm a temporary green that fades to no tint on the tile the board now draws. There is no red: the board offers only the rotations that fit (#544).
  *   The tile in hand (hover and pending) has the placed tiles' outlines, at its own opacity (#657, `TileRenderer`).
  * - Each change of state eases over `motion.colorMs` (150 ms); under reduced motion it is instant and the confirm short.
@@ -108,10 +109,10 @@ export const DEFAULT_PLACEMENT_SETTINGS: PlacementSettings = {
     hoverMs: 150,
     pendingColor: "#f0bf5b",
     pendingStrength: 0,
-    pendingPulseMin: 0.6,
-    pendingPulseMax: 0.9,
+    pendingPulseMin: 0.8,
+    pendingPulseMax: 1,
     pendingPulseMs: 1600,
-    pendingReducedOpacity: 0.75,
+    pendingReducedOpacity: 0.9,
     pendingMs: 150,
     pendingKeepsLight: true,
     confirmColor: "#6eca6f",
@@ -611,6 +612,16 @@ export class PlacementRenderer {
     const to = this.tint.to.slice();
     if (this.ghost?.kind === "pending") to[4] = pendingPulseOpacity(now - this.pulseSince, this.settings.tints, this.reduced);
     return this.tint.from.map((v, i) => v + (to[i]! - v) * t);
+  }
+
+  /**
+   * Where the pending tile's pulse is at `now` (0 to 1: 0 at its least opaque, 0.5 at its most), or null while no tile pulses: the
+   * square grid's highlight breathes on it (`GameScene`).
+   */
+  pulsePhase(now: number = performance.now()): number | null {
+    if (!this.isPulsing()) return null;
+    const ms = this.settings.tints.pendingPulseMs;
+    return ((((now - this.pulseSince) % ms) + ms) % ms) / ms;
   }
 
   /** The pending tile pulses now: the scene keeps drawing (`update`'s `animating`), and only then. */
