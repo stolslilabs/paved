@@ -76,8 +76,11 @@ function layerHash(i: number): number {
 const GAP_PILE = 2;
 const STEP_NEXT = 108;
 const STEP_HAND = 150;
-/** The tiles-left badge's half width and a little more, px: the stack's outline takes it in. */
-const BADGE = 18;
+/**
+ * How far around the tiles-left badge's centre the stack's outline reaches, px of the scene: the badge is 32 px (and its
+ * shadow) whatever `--stack-s`, so at the phone's 0.8 the outline must reach (16 + 3) / 0.8, or it cuts the badge.
+ */
+const BADGE = 24;
 /** The draw order the stack's tiles are known by in the 3D view: the next keeps its id as it becomes the tile in hand. */
 const DRAW_IDS = 10_000;
 /** The hint comes back after this long without a move or a cell chosen, ms. */
