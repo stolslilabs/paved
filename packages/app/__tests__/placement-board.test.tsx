@@ -271,6 +271,34 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     expect(place).toHaveBeenCalledOnce();
   }, 20_000);
 
+  it("one gesture, PRESS-PLACE-FIX (#692): pressed on a free cell and held through the placing, the move is sent when the ring completes, no second hold", async () => {
+    const slot = await empty();
+    const place = vi.spyOn(TrainingGame.prototype, "place");
+    press(slot.x, slot.y, "down");
+    // The pointer stays over the cell, as a mouse does.
+    act(() => canvas.props!.onTileHover?.(slot.x, slot.y));
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    await waitFor(() => expect(place).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    expect(await place.mock.results[0]!.value).toBe(true);
+    await waitFor(() => expect(canvas.props!.hover ?? null).toBeNull());
+    expect(press(slot.x, slot.y, "released")).toBe(true);
+    expect(place).toHaveBeenCalledOnce();
+  }, 20_000);
+
+  it("the hold the bubble drops while the finger is down (Validate disabled for a moment) starts again and still places once", async () => {
+    const onConfirm = vi.fn();
+    const view = render(<Board onPress={vi.fn()} onConfirm={onConfirm} />);
+    press(EAST.x, EAST.y, "down");
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    view.rerender(<Board onPress={vi.fn()} onConfirm={onConfirm} canConfirm={false} />);
+    await waitFor(() => expect(ring()).toBe("idle"));
+    view.rerender(<Board onPress={vi.fn()} onConfirm={onConfirm} />);
+    await waitFor(() => expect(ring()).toBe("holding"));
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    expect(press(EAST.x, EAST.y, "released")).toBe(true);
+    expect(onConfirm).toHaveBeenCalledOnce();
+  }, 20_000);
+
   it("let go early, the tile stays shown on that cell as after a tap, and a second press on it holds again", async () => {
     const slot = await empty();
     const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
@@ -437,6 +465,21 @@ describe("the Challenge board's confirm", () => {
     await holdToPlace();
     await waitFor(() => expect(canvas.props!.confirmed).toMatchObject({ x: slot.x, y: slot.y }));
     expect(canvas.drops).toEqual([{ worldX: slot.x, worldZ: slot.y }]);
+  }, 20_000);
+});
+
+describe("press and place on the Challenge board (#692)", () => {
+  it("one gesture: held on a free cell, the engine's prediction takes the move when the ring completes", async () => {
+    await import("../src/components/containers/tile-bubble");
+    render(<App router={createTestRouter(`/game/${GAME_ID}`)} sources={challengeSources()} />);
+    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await waitFor(() => expect(canvas.props!.availableSlots!.length).toBeGreaterThan(0));
+    const slot = legalSlots()[0]!;
+    const place = vi.spyOn(PredictedSession.prototype, "place");
+    act(() => void canvas.props!.onTilePress!(slot.x, slot.y, "down"));
+    await waitFor(() => expect(validateButton()?.getAttribute("data-state")).toBe("holding"), { timeout: 5000 });
+    await waitFor(() => expect(place).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    await waitFor(() => expect(canvas.props!.confirmed).toMatchObject({ x: slot.x, y: slot.y }));
   }, 20_000);
 });
 

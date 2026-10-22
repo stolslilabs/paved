@@ -235,7 +235,8 @@ export function useTileHold(cell: { x: number; y: number } | null, place?: Press
         return hold;
       },
       set current(next: Hold | null) {
-        const changed = !hold !== !next;
+        // A new hold object is a new state of the ring (dropped, filling, done): the press waiting on it looks again.
+        const changed = hold !== next;
         hold = next;
         if (changed) setLent((n) => n + 1);
       },
@@ -282,13 +283,16 @@ export function useTileHold(cell: { x: number; y: number } | null, place?: Press
   });
   const onTilePress = listener.current;
   // The tile shown by the press under way: once the bubble is up on its cell with Validate enabled, its hold starts. This
-  // runs after the bubble's own effects, so the hold is not dropped as the change of cell it follows.
+  // runs after the bubble's own effects, so the hold is not dropped as the change of cell it follows. A hold the bubble dropped
+  // while the finger is still down (Validate disabled for a moment, its rotation or cell changed) starts again: the press is
+  // one gesture to the end, never left on a ring that was rewound.
   useEffect(() => {
     const s = showing.current;
     const at = cellRef.current;
-    if (!s?.shown || pressed.current || !at || at.x !== s.x || at.y !== s.y) return;
+    if (!s?.shown || !at || at.x !== s.x || at.y !== s.y) return;
     const h = holdRef.current;
-    if (h?.start()) pressed.current = h;
+    if (!h || (pressed.current && (h.state !== "idle" || h.completed()))) return;
+    if (h.start()) pressed.current = h;
   });
   useEffect(
     () => () => {
