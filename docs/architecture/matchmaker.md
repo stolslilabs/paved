@@ -157,11 +157,22 @@ is 1 to 1 and the curves below are CoC's own, gap for gap.
 | S5 | Supercell support, "Ranked Battles & Trophy Calculation", and the wiki's "Ranked Battles" (October 2025) | Since October 2025, no gap at all: up to 40 per attack by stars and destruction; the defender gets the rest |
 
 **Which curve.** The owner asked for the offer and the loss by trophy gap, so S5 (no gap) is out. S1, S2 and S3 describe
-the same curve, the one CoC ran from 2013 to March 2025, and agree on every anchor (table of 6.3: 30 and 19 at an even
-gap, against S1's 30 and 20, the one-trophy rounding S3 states). S4 is the same shape with smaller constants, a 2025 change
-made because the update removed training times and attacks became more frequent. The sources do not disagree on a curve;
-they describe two eras. Paved takes the 2013 to 2025 curve, whose star split (1/3 per star, S2) is the one the matchmaker
+the curve CoC ran from 2013 to March 2025. S4 is the same shape with smaller constants, a 2025 change made because the
+update removed training times and attacks became more frequent; it is another era, not a disagreement. Paved takes the
+2013 to 2025 curve, whose star split (1/3 per star, S2) is the one the matchmaker
 already used. The 2025 constants (44 and 14) are the alternative if the owner wants fewer crowns per attack.
+
+**Where the sources disagree: the 0-star cost at an even gap** (open, asked of the owner on #639). S1 states 20; S3's
+loss fit gives 19 (19.49, rounded). The offer agrees at every anchor of S1 (30 even, 58 at +600, 59 from about +750), and
+so does the cost elsewhere (1 at +600, 39 at most). Two integer curves fit the sources, and they differ by one crown on 264
+of the 2,001 gaps from -1,000 to +1,000:
+
+- **A, S3's fit as written** (built, sections 6.2 and 6.3): 19 at an even gap, against S1's 20.
+- **B, the Elo form both fits approximate**, `round(39 x E)`: every S1 anchor exact (20 even, 1 at +600, 39 at most), one
+  crown off S3's fit on those 264 gaps (for example 35 instead of 36 at -400, 12 instead of 11 at +150, 1 instead of 0
+  at +750).
+
+The code holds A until the owner chooses; B changes only the cost's breakpoints and the pinned rows.
 
 **The shape.** Both fits are Elo's logistic with Elo's 400-point scale: `0.00576` is `ln 10 / 400` (0.005756), and
 `0.0059` is within the source's truncation of it. So the offer is about `60 x (1 - E)` and the 0-star cost about
@@ -222,7 +233,7 @@ Cost breakpoints (gap at which the cost becomes 38, 37, ..., 0):
 | +600 | 58 | 39 | 20 | 1 |
 | +750 or more | 59 | 40 | 20 | 0 |
 
-Against S1's anchors: even gap 30 / 19 (S1: 30 / 20, S3's one-crown rounding), +600 58 / 1 (S1: 58 / 1), 59 from +719
+Against S1's anchors: even gap 30 / 19 (S1: 30 / 20: the open point above), +600 58 / 1 (S1: 58 / 1), 59 from +719
 (S1: "750 or more", a round figure), 39 at most (S1).
 
 ### 6.4 The settlement
