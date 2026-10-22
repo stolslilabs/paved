@@ -18,6 +18,7 @@ import {
   linearToOklab,
   oklabToLinear,
   pageCycleTime,
+  seasonGroundAt,
   seasonsAt,
   seededSeason,
   startSeason,
@@ -158,6 +159,22 @@ describe("the cycle's frames", () => {
       expect(night.sun.intensity).toBe(0);
       expect(night.sky.intensity).toBeGreaterThanOrEqual(0.5 * KEYFRAMES[season].day.skyIntensity);
       expect(night.sky.ambient).toBeGreaterThanOrEqual(0.5 * KEYFRAMES[season].day.ambient);
+    }
+  });
+
+  it("gives the square grid's backdrop its season's ground, steady through the day and the night, blended into the next season", () => {
+    for (const season of SEASONS) {
+      const s = SEASONS.indexOf(season);
+      const day = hexToLinear(KEYFRAMES[season].day.ground);
+      // Every moment of the season's day and night, its holds and the blends between them: the day's ground.
+      for (let p = 0; p < HOLDS[3][2]; p += 0.01) {
+        expect(seasonGroundAt(cycleAt(s + p)), `${season} ${p.toFixed(2)}`).toEqual(day.map((c) => expect.closeTo(c, 6)));
+      }
+      // The night into the next season's dawn: from this season's to the next one's.
+      const next = hexToLinear(KEYFRAMES[SEASONS[(s + 1) % 4]].day.ground);
+      expect(seasonGroundAt(cycleAt(s + 1 + DAY_PHASE_AT.dawn))).toEqual(next.map((c) => expect.closeTo(c, 6)));
+      const mid = seasonGroundAt(cycleAt(s + (HOLDS[3][2] + 1) / 2));
+      for (let i = 0; i < 3; i++) expect(mid[i]).toBeCloseTo(oklabToLinear(linearToOklab(day).map((v, j) => (v + linearToOklab(next)[j]) / 2) as [number, number, number])[i], 2);
     }
   });
 

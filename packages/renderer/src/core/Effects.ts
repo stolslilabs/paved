@@ -7,6 +7,7 @@ import type { RenderProfile, EffectsCapabilities } from "./types";
 import { getLightingProfile } from "./render-profiles";
 import { LOOK_PRESETS, resolveLook, type LookSettings, type QualityTier } from "./look";
 import { AoPass, FinishPass, finishDefines } from "./post-shaders";
+import { OverlayPass, type Overlay } from "./overlay-pass";
 
 type SMAAPassClass = typeof SMAAPass;
 
@@ -55,12 +56,13 @@ export interface EffectsConfig {
 }
 
 /** The passes a look runs, in order: what decides whether the chain must be rebuilt. */
-export type EffectsPassName = "render" | "ao" | "bloom" | "finish" | "smaa";
+export type EffectsPassName = "render" | "ao" | "bloom" | "overlay" | "finish" | "smaa";
 
 /**
  * The post-processing chain of a look: `RenderPass` (into a half-float target, multisampled for MSAA, with a depth
- * texture when the AO reads it), `AoPass` (when on), `UnrealBloomPass` (when on), `FinishPass` (always: AO applied, tone
- * map, grade, vignette, sRGB), then `SMAAPass` where it antialiases the faces. An effect that is off adds no pass.
+ * texture when the AO or the overlay reads it), `AoPass` (when on), `UnrealBloomPass` (when on), `OverlayPass` (while an
+ * overlay is given, `setOverlay`), `FinishPass` (always: AO applied, tone map, grade, the overlay, vignette, sRGB), then
+ * `SMAAPass` where it antialiases the faces. An effect that is off adds no pass.
  */
 export class Effects {
   private composer: EffectComposer | null = null;
@@ -82,6 +84,9 @@ export class Effects {
   private aoPass: AoPass | null = null;
   private finishPass: FinishPass | null = null;
   private smaaPass: SMAAPass | null = null;
+  private overlayPass: OverlayPass | null = null;
+  /** What is drawn untouched by the tone map and the grade (`setOverlay`), or null. */
+  private overlay: Overlay | null = null;
   private passNames: EffectsPassName[] = [];
   /** The pending load of SMAAPass, if the chain waits for it (`ready`). */
   private smaaPending: Promise<void> | null = null;
@@ -178,6 +183,18 @@ export class Effects {
     } else this.finishPass?.setBackdrop(top, bottom);
   }
 
+  /**
+   * An overlay drawn as given, untouched by the tone map and the grade (`overlay-pass.ts`: the square grid's highlight), or
+   * null. Giving one or taking it away rebuilds the chain (its pass, and the scene's depth as a texture for its depth test).
+   */
+  setOverlay(overlay: Overlay | null): void {
+    if (overlay === this.overlay) return;
+    this.overlay = overlay;
+    // Another overlay is another pass, whatever the chain's key says.
+    this.builtKey = "";
+    this.update();
+  }
+
   setCapabilities(capabilities: EffectsCapabilities): void {
     this.capabilities = capabilities;
     this.update();
@@ -197,7 +214,7 @@ export class Effects {
       this.antialiasing === "msaa" && this.samples,
       look.ao.enabled && look.ao.resolution,
       look.bloom.enabled,
-      finishDefines(look, look.ao.enabled, this.backdrop),
+      finishDefines(look, look.ao.enabled, this.backdrop, !!this.overlay?.scene, !!this.overlay?.underlay),
     ]);
   }
 
@@ -243,8 +260,9 @@ export class Effects {
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
       samples: multisample ? this.samples : 0,
-      // The AO reads the scene's depth: a texture instead of a renderbuffer, only then (the composer's clone gets its own).
-      ...(look.ao.enabled ? { depthTexture: new THREE.DepthTexture(size.x, size.y) } : {}),
+      // The AO and the overlay read the scene's depth: a texture instead of a renderbuffer, only then (the composer's clone
+      // gets its own).
+      ...(look.ao.enabled || this.overlay?.scene ? { depthTexture: new THREE.DepthTexture(size.x, size.y) } : {}),
     });
     target.texture.name = "EffectComposer.rt1";
     // The composer clones the first target into its second and swaps the two after every pass that `needsSwap`. Only
@@ -276,7 +294,7 @@ export class Effects {
       // Under the backdrop the bloom adds its light to the scene's colour as three's additive blend does (its colour times
       // its alpha), never to the alpha: the backdrop is laid under what the alpha leaves uncovered, and an added alpha
       // would cover it. Without the backdrop the stock blend stays (the chain is rebuilt when the backdrop toggles).
-      if (this.backdrop) {
+      if (this.backdrop || this.overlay?.underlay) {
         const blend = this.bloomPass.blendMaterial;
         blend.blending = THREE.CustomBlending;
         blend.blendSrc = THREE.SrcAlphaFactor;
@@ -312,7 +330,20 @@ export class Effects {
       this.smaaPending = pending;
     }
 
-    this.finishPass = new FinishPass(look, this.aoPass?.target.texture ?? null, this.backdrop);
+    if (this.overlay) {
+      this.overlayPass = new OverlayPass(this.overlay, camera, multisample ? this.samples : 0);
+      this.composer.addPass(this.overlayPass);
+      names.push("overlay");
+    }
+
+    const under = this.overlayPass?.underTarget;
+    this.finishPass = new FinishPass(
+      look,
+      this.aoPass?.target.texture ?? null,
+      this.backdrop,
+      this.overlayPass?.target?.texture ?? null,
+      under ? { texture: under.texture, exposure: this.overlay!.underlayExposure } : null,
+    );
     this.finishPass.needsSwap = smaa;
     this.composer.addPass(this.finishPass);
     names.push("finish");
@@ -358,6 +389,8 @@ export class Effects {
     this.bloomPass?.dispose();
     this.finishPass?.dispose();
     this.smaaPass?.dispose();
+    this.overlayPass?.dispose();
+    this.overlayPass = null;
     this.composer = null;
     this.aoPass = null;
     this.bloomPass = null;

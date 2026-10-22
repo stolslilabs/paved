@@ -138,12 +138,15 @@ const TONE_MAPPING_DEFINES: Record<ToneMappingMode, string | null> = {
 };
 
 /**
- * The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs), and the
- * backdrop when the day and night cycle draws one (`backdrop`).
+ * The `#define`s of the final pass for a look: one per effect that is on (and AO only when `AoPass` runs), the backdrop when
+ * the day and night cycle draws one (`backdrop`), and the overlay and the underlay while they are drawn (`OverlayPass`); the
+ * underlay takes the backdrop's place.
  */
-export function finishDefines(look: LookSettings, ao: boolean, backdrop = false): Record<string, string> {
+export function finishDefines(look: LookSettings, ao: boolean, backdrop = false, overlay = false, underlay = false): Record<string, string> {
   const defines: Record<string, string> = {};
-  if (backdrop) defines.BACKDROP = "";
+  if (backdrop && !underlay) defines.BACKDROP = "";
+  if (overlay) defines.OVERLAY = "";
+  if (underlay) defines.UNDERLAY = "";
   const tone = TONE_MAPPING_DEFINES[look.toneMapping.mode];
   if (tone) defines[tone] = "";
   if (ao) defines.AO = "";
@@ -177,6 +180,9 @@ const FinishShader = {
     uniform float vignetteDarkness;
     uniform vec3 backdropTop;
     uniform vec3 backdropBottom;
+    uniform sampler2D tOverlay;
+    uniform sampler2D tUnderlay;
+    uniform float underlayExposure;
     varying vec2 vUv;
 
     #include <tonemapping_pars_fragment>
@@ -191,6 +197,10 @@ const FinishShader = {
 
     void main() {
       vec4 color = texture2D(tDiffuse, vUv);
+      #ifdef UNDERLAY
+        // What the scene covers: the underlay shows through the rest.
+        float covered = clamp(color.a, 0.0, 1.0);
+      #endif
       #ifdef AO
         color.rgb *= mix(1.0, texture2D(tAo, vUv).r, aoIntensity);
       #endif
@@ -220,6 +230,17 @@ const FinishShader = {
         vec2 centred = (vUv - 0.5) * vignetteOffset;
         color.rgb *= mix(1.0 - vignetteDarkness, 1.0, clamp(1.0 - dot(centred, centred) * 2.0, 0.0, 1.0));
       #endif
+      #ifdef UNDERLAY
+        // Under the scene, tone-mapped as Realms does (ACES at its own exposure: the curve applies three's exposure itself).
+        vec3 underlay = ACESFilmicToneMapping(texture2D(tUnderlay, vUv).rgb * (underlayExposure / max(toneMappingExposure, 1e-6)));
+        color.rgb += underlay * (1.0 - covered);
+        color.a = 1.0;
+      #endif
+      #ifdef OVERLAY
+        // Its colour is premultiplied by its coverage (the overlay pass): laid over everything as given.
+        vec4 overlay = texture2D(tOverlay, vUv);
+        color.rgb = color.rgb * (1.0 - clamp(overlay.a, 0.0, 1.0)) + overlay.rgb;
+      #endif
       gl_FragColor = sRGBTransferOETF(color);
       #ifdef BACKDROP
         float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
@@ -229,18 +250,25 @@ const FinishShader = {
 };
 
 /**
- * The last pass of the look (or the one before SMAA): the AO applied, the exposure and the tone map, the grade, the
- * vignette, then the sRGB transfer. The tone-mapping functions read three's `toneMappingExposure` uniform.
+ * The last pass of the look (or the one before SMAA): the AO applied, the exposure and the tone map, the grade, the vignette,
+ * the underlay under and the overlay over them (`OverlayPass`), then the sRGB transfer. The tone-mapping functions read three's
+ * `toneMappingExposure` uniform.
  */
 export class FinishPass extends Pass {
   readonly material: THREE.RawShaderMaterial;
   private readonly quad: FullScreenQuad;
 
-  constructor(look: LookSettings, ao: THREE.Texture | null, backdrop = false) {
+  constructor(
+    look: LookSettings,
+    ao: THREE.Texture | null,
+    backdrop = false,
+    overlay: THREE.Texture | null = null,
+    underlay: { texture: THREE.Texture; exposure: number } | null = null,
+  ) {
     super();
     this.material = new THREE.RawShaderMaterial({
       name: "FinishShader",
-      defines: finishDefines(look, ao !== null, backdrop),
+      defines: finishDefines(look, ao !== null, backdrop, overlay !== null, underlay !== null),
       uniforms: {
         tDiffuse: { value: null },
         tAo: { value: ao },
@@ -253,6 +281,9 @@ export class FinishPass extends Pass {
         vignetteDarkness: { value: look.vignette.darkness },
         backdropTop: { value: new THREE.Vector3() },
         backdropBottom: { value: new THREE.Vector3() },
+        tOverlay: { value: overlay },
+        tUnderlay: { value: underlay?.texture ?? null },
+        underlayExposure: { value: underlay?.exposure ?? 1 },
       },
       vertexShader: FinishShader.vertexShader,
       fragmentShader: FinishShader.fragmentShader,
