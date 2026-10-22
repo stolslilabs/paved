@@ -76,11 +76,13 @@ describe("GameScene over the page (transparent)", () => {
 describe("the finish pass over the page", () => {
   const look = resolveRendererSettings().look;
 
-  it("un-premultiplies the scene's colour before the tone map and premultiplies the result; the backdrop wins over it", () => {
-    expect(finishDefines(look, false, false, true)).toHaveProperty("PREMULTIPLIED");
-    expect(finishDefines(look, false, false, false)).not.toHaveProperty("PREMULTIPLIED");
-    expect(finishDefines(look, false, true, true)).not.toHaveProperty("PREMULTIPLIED");
-    const pass = new FinishPass(look, null, false, true);
+  it("un-premultiplies the scene's colour before the tone map and premultiplies the result; a backdrop or an underlay wins over it", () => {
+    // finishDefines(look, ao, backdrop, overlay, underlay, transparent)
+    expect(finishDefines(look, false, false, false, false, true)).toHaveProperty("PREMULTIPLIED");
+    expect(finishDefines(look, false, false, false, false, false)).not.toHaveProperty("PREMULTIPLIED");
+    expect(finishDefines(look, false, true, false, false, true)).not.toHaveProperty("PREMULTIPLIED");
+    expect(finishDefines(look, false, false, false, true, true)).not.toHaveProperty("PREMULTIPLIED");
+    const pass = new FinishPass(look, null, false, null, null, true);
     expect(pass.material.defines).toHaveProperty("PREMULTIPLIED");
     const shader = pass.material.fragmentShader;
     expect(shader.indexOf("color.rgb /= max(color.a, 1e-4);")).toBeGreaterThan(-1);

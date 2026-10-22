@@ -267,7 +267,7 @@ export const VAULT = {
 
 // Settings and theme
 
-export const PREFERENCES: Preferences = { quality: "high", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, showSkins: true };
+export const PREFERENCES: Preferences = { quality: "high", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true, showSkins: true };
 
 export const SETTINGS = {
   connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, autoQuality: "medium", version: "0.1.0" },

@@ -26,6 +26,8 @@ export interface DevicePreferences {
   tilePreview: boolean;
   /** Outline the slots where the tile in hand fits. */
   placementHighlight: boolean;
+  /** The square grid on the board: a voxel void in the season's colours in the landscape's place, the slots lit as allowed moves. */
+  squareGrid: boolean;
 }
 
 export type VolumeChannel = "music" | "sfx";
@@ -107,6 +109,7 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
       <SettingsGroup title="Gameplay">
         <SettingSwitch label="Tile preview" hint="Show the tile on a slot before you place it" icon="eye" checked={p.tilePreview} onCheckedChange={(v) => onChange?.("tilePreview", v)} />
         <SettingSwitch label="Placement highlight" hint="Outline the slots where your tile fits" icon="highlighter" checked={p.placementHighlight} onCheckedChange={(v) => onChange?.("placementHighlight", v)} />
+        <SettingSwitch label="Square grid" hint="A voxel void around the board, and the cells your tile can take lit up" icon="table-cells-large" checked={p.squareGrid} onCheckedChange={(v) => onChange?.("squareGrid", v)} />
       </SettingsGroup>
     </div>
   );

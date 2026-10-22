@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { SMALL_SCREEN_PX as RENDERER_SMALL_SCREEN_PX, resolveQuality } from "@paved/renderer";
-import { DEFAULT_SETTINGS, SETTINGS_KEY, SMALL_SCREEN_PX, autoTier, createSettingsStore, parseSettings, withMuteToggled, withVolume } from "../src/data/settings";
+import { BACKDROP_PATTERNS, HIGHLIGHT_STYLES, SMALL_SCREEN_PX as RENDERER_SMALL_SCREEN_PX, resolveQuality } from "@paved/renderer";
+import { DEFAULT_SETTINGS, SETTINGS_KEY, SMALL_SCREEN_PX, autoTier, createSettingsStore, parseSettings, squareGridSettings, withMuteToggled, withVolume } from "../src/data/settings";
 import { THEME_KEY, deviceTheme } from "../src/data/skins";
 
 // The device stores (P11a): the settings under one versioned key and the theme's, each with an in-memory twin.
@@ -19,7 +19,7 @@ describe("the device settings store", () => {
   beforeEach(() => localStorage.clear());
 
   it("starts from the defaults: quality auto, music at 0.4, sound effects at 0.7, preview and highlight on", () => {
-    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true });
+    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true });
     expect(DEFAULT_SETTINGS.quality).toBe("auto");
   });
 
@@ -32,9 +32,9 @@ describe("the device settings store", () => {
 
   it("round-trips under the one versioned key, and a second store reads what the first wrote", () => {
     const a = createSettingsStore();
-    a.set({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
+    a.set({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false, squareGrid: false });
     expect(SETTINGS_KEY).toBe("paved.settings.v1");
-    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false, squareGrid: false });
     expect(createSettingsStore().get()).toEqual(a.get());
   });
 
@@ -166,5 +166,20 @@ describe("the renderer's constants repeated here (the settings chunk keeps three
   it("agree with the renderer's: the small screen and what auto resolves to", () => {
     expect(SMALL_SCREEN_PX).toBe(RENDERER_SMALL_SCREEN_PX);
     for (const coarseOrSmall of [false, true]) expect(autoTier(coarseOrSmall)).toBe(resolveQuality("auto", coarseOrSmall));
+  });
+});
+
+describe("the square grid's highlight style and backdrop pattern a page asks for (?filler=, ?void=)", () => {
+  it("takes a style or a pattern the renderer knows, only while the grid is on; any other page draws the defaults", () => {
+    expect(squareGridSettings(true, "")).toEqual({ enabled: true });
+    expect(squareGridSettings(true, "?filler=frame")).toEqual({ enabled: true, highlight: { style: "frame" } });
+    expect(squareGridSettings(true, "?void=cobbles&filler=diamond")).toEqual({ enabled: true, highlight: { style: "diamond" }, backdrop: { pattern: "cobbles" } });
+    expect(squareGridSettings(true, "?filler=nope&void=nope&voxels=0")).toEqual({ enabled: true });
+    expect(squareGridSettings(true, "?void=voxels&voxels=20")).toEqual({ enabled: true, backdrop: { pattern: "voxels", voxels: 20 } });
+    expect(squareGridSettings(true, "?voxels=81")).toEqual({ enabled: true });
+    expect(squareGridSettings(false, "?filler=frame&void=voxels")).toEqual({ enabled: false });
+    // The lists repeated here are the renderer's.
+    for (const style of HIGHLIGHT_STYLES) expect(squareGridSettings(true, `?filler=${style}`)).toEqual({ enabled: true, highlight: { style } });
+    for (const pattern of BACKDROP_PATTERNS) expect(squareGridSettings(true, `?void=${pattern}`)).toEqual({ enabled: true, backdrop: { pattern } });
   });
 });

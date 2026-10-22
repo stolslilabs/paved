@@ -245,6 +245,14 @@ export function dayNightFrame(seasons: number, floor = 0): DayNightFrame {
   };
 }
 
+/**
+ * The season's ground colour at `point` (linear): its day's, steady through the day and the night, blended only across a change
+ * of season (the night into the next season's dawn). The square grid's backdrop takes its hue from it.
+ */
+export function seasonGroundAt(point: CyclePoint): Vec3 {
+  return oklabToLinear(mix3(lab(KEYFRAMES[point.from.season].day.ground), lab(KEYFRAMES[point.to.season].day.ground), point.blend));
+}
+
 /** A season from a seed (mulberry32's first draw): the same seed gives the same season everywhere. */
 export function seededSeason(seed: number): Season {
   let t = (seed + 0x6d2b79f5) | 0;

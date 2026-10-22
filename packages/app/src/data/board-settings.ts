@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { GameScene, RendererSettingsInput } from "@paved/renderer";
 import { useSeasonWheel, wheelDayNight, type WheelPoint, type WheelState } from "./season-wheel";
-import { BOARD_FOG, useDeviceSettings } from "./settings";
+import { BOARD_FOG, squareGridSettings, useDeviceSettings } from "./settings";
 
 // What the board takes of the settings. Its own module, not `settings.ts`, which the shell imports: the wheel's code is the board's.
 
@@ -19,13 +19,13 @@ export interface BoardWheel {
  * game, starts it again). The cycle's settings follow the wheel; `onScene` is the canvas's.
  */
 export function useBoardSettings(resetKey?: unknown): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean; wheel: BoardWheel; onScene: (scene: GameScene | null) => void } {
-  const [{ quality, dayNight, ambient, tilePreview, placementHighlight }] = useDeviceSettings();
+  const [{ quality, dayNight, ambient, tilePreview, placementHighlight, squareGrid }] = useDeviceSettings();
   const { state, next } = useSeasonWheel(dayNight, resetKey);
   const [scene, setScene] = useState<GameScene | null>(null);
   const read = useCallback(() => scene?.getDayNight?.() ?? null, [scene]);
   const renderer = useMemo<RendererSettingsInput>(
-    () => ({ quality, dayNight: wheelDayNight(state, dayNight), ambient: { enabled: ambient }, fog: BOARD_FOG }),
-    [quality, dayNight, ambient, state],
+    () => ({ quality, dayNight: wheelDayNight(state, dayNight), ambient: { enabled: ambient }, fog: BOARD_FOG, squareGrid: squareGridSettings(squareGrid) }),
+    [quality, dayNight, ambient, state, squareGrid],
   );
   // A tap goes to the season after the cycle's (#634), read as the tap lands.
   const onNext = useCallback(() => next(read()?.season), [next, read]);
