@@ -199,6 +199,16 @@ describe("the 3D view", () => {
     expect([hand.yaw, next.yaw, then.yaw]).toEqual([undefined, undefined, undefined]);
   });
 
+  it("falls back to the CSS slabs when the 3D view cannot start, and stays there", () => {
+    const { rerender } = queue();
+    expect(screen.getByTestId("stack-3d")).toBeTruthy();
+    act(() => frames.at(-1)!.onError());
+    expect(screen.queryByTestId("stack-3d")).toBeNull();
+    expect(screen.getByTestId("coming-tiles").querySelectorAll('[data-coming="1"] [role="img"]')).toHaveLength(1);
+    rerender(wrap(<TileStack tile={{ plan: 1, orientation: 2 }} state="placing" remaining={19} coming={[{ plan: 7 }]} renderStack={renderStack} />));
+    expect(screen.queryByTestId("stack-3d")).toBeNull();
+  });
+
   it("the next keeps its id as it becomes the tile in hand, so it glides up", () => {
     const { rerender } = queue();
     const next = frames.at(-1)!.tiles.find((t) => t.plan === 3)!;

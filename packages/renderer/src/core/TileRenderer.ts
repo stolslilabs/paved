@@ -447,11 +447,23 @@ export class TileRenderer {
           });
         } else if (faded) {
           // See-through, untinted, without its outlines (they would stand out over the faded faces).
+          const faces: THREE.Mesh[] = [];
           mesh.traverse((child) => {
             if (!(child instanceof THREE.Mesh)) return;
             if (isOutline(child)) child.visible = false;
-            else child.material = this.fadedMaterial(child.material);
+            else faces.push(child);
           });
+          // As the ghost's: a translucent model sorts none of its own faces, so a depth-only copy is drawn first and the
+          // colour pass keeps only the nearest face (depth LessEqual, no depth write): no inner face shows through.
+          for (const face of faces) {
+            face.material = this.fadedMaterial(face.material);
+            face.renderOrder = GHOST_ORDER;
+            const depth = new THREE.Mesh(face.geometry, (this.depthMaterial ??= createDepthMaterial()));
+            depth.renderOrder = GHOST_ORDER - 1;
+            depth.castShadow = false;
+            depth.receiveShadow = false;
+            face.add(depth);
+          }
         }
 
         this.place(mesh, tile);
@@ -561,7 +573,7 @@ export class TileRenderer {
   /**
    * The see-through copy of a tile material (`TileRenderData.faded`): its colours untinted, its alpha times `FADED_OPACITY`
    * in the shader (the tile patch writes its own alpha, so `opacity` would not reach it, as the ghost's), made once per material.
-   * It keeps writing depth: the nearest faces show, not the model's inside.
+   * It writes no depth: the tile's depth-only copy, drawn first, keeps its nearest faces (`updateTiles`).
    */
   private fadedMaterial(material: THREE.Material | THREE.Material[]): THREE.Material | THREE.Material[] {
     if (Array.isArray(material)) return material.map((m) => this.fadedMaterial(m) as THREE.Material);
@@ -570,6 +582,7 @@ export class TileRenderer {
       const patch = material.customProgramCacheKey() === "paved-tile" ? material.onBeforeCompile : null;
       faded = material.clone();
       faded.transparent = true;
+      faded.depthWrite = false;
       // `Material.copy` leaves the shader patch out: the faded copy runs it (the water, the lights), then fades.
       faded.onBeforeCompile = (shader, renderer) => {
         patch?.call(material, shader, renderer);

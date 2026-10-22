@@ -63,6 +63,8 @@ export interface StackViewProps {
   /** The view's height and the px per world unit, at the same scale: the camera's zoom (`stackZoom`). */
   heightPx: number;
   unitPx: number;
+  /** The scene could not start (no context, a model that did not load): the stack draws its CSS slabs instead. */
+  onError?: () => void;
   /** As `BoardViewport`'s: where the renderer finds the models. */
   basePath?: string;
   /** As `TileView`'s: the tiles in their player's skin, the variant of the board's centre. */
@@ -92,11 +94,11 @@ const ease = (k: number) => 1 - (1 - k) ** 3;
  * moves up (the next becomes the tile in hand, leaning further toward the view) glides there; none under reduced motion. It takes
  * no input: the stack's deck button lies over it.
  */
-export function StackView({ tiles, enterLift, target, heightPx, unitPx, basePath, skins, className }: StackViewProps) {
+export function StackView({ tiles, enterLift, target, heightPx, unitPx, onError, basePath, skins, className }: StackViewProps) {
   const zoom = stackZoom(unitPx, heightPx);
   const reduced = useReducedMotionConfig() ?? false;
   const sceneRef = useRef<GameScene | null>(null);
-  // Where each tile was last drawn, by id: a glide starts from there (mid-glide too).
+  // Where each tile was last drawn, by id: the next glide starts from there.
   const shown = useRef(new Map<number, Pose>());
   const [drawn, setDrawn] = useState<TileRenderData[]>([]);
   // The page gives a new list each render: the glide starts only when a tile changed.
@@ -105,13 +107,16 @@ export function StackView({ tiles, enterLift, target, heightPx, unitPx, basePath
     .join("|");
 
   useEffect(() => {
+    // Each tile glides from where it was when the glide began (a glide cut short starts again from there): taken once, as
+    // the easing reads the time since the start.
+    const from = new Map(tiles.map((t) => [t.id, shown.current.get(t.id) ?? { ...poseOf(t), lift: enterLift }]));
     const at = (k: number) =>
       tiles.map((t) => {
         const to = poseOf(t);
-        const from = shown.current.get(t.id) ?? { ...to, lift: enterLift };
+        const was = from.get(t.id)!;
         const mix = (a: number, b: number) => a + (b - a) * k;
-        const lean = mix(from.lean, to.lean);
-        return { ...t, lift: mix(from.lift, to.lift), scale: mix(from.scale, to.scale), yaw: mix(from.yaw, to.yaw), lean: lean ? { angle: lean, toward: t.lean?.toward ?? 0 } : undefined };
+        const lean = mix(was.lean, to.lean);
+        return { ...t, lift: mix(was.lift, to.lift), scale: mix(was.scale, to.scale), yaw: mix(was.yaw, to.yaw), lean: lean ? { angle: lean, toward: t.lean?.toward ?? 0 } : undefined };
       });
     const draw = (list: StackTile[]) => {
       setDrawn(
@@ -183,6 +188,7 @@ export function StackView({ tiles, enterLift, target, heightPx, unitPx, basePath
         skins={skins}
         settings={SETTINGS}
         cameraMode="showcase"
+        onError={onError}
         onReady={(scene) => {
           sceneRef.current = scene;
           // Set before `init` it was dropped (no controls yet): the showcase's free azimuth, no board bounds.

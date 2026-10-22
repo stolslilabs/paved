@@ -157,7 +157,8 @@ describe("TileRenderer faded tiles", () => {
     const renderer = new TileRenderer(assets as any);
     const meshes = () => {
       const found: THREE.Mesh[] = [];
-      renderer.getGroup().children[0]!.traverse((c) => c instanceof THREE.Mesh && !isOutline(c) && found.push(c));
+      // The faces only: not the outlines, nor a faded face's depth-only copy.
+      renderer.getGroup().children[0]!.traverse((c) => c instanceof THREE.Mesh && !isOutline(c) && (c.material as THREE.Material).colorWrite !== false && found.push(c));
       return found;
     };
     renderer.updateTiles([makeTile({ id: 1, faded: true }), makeTile({ id: 2, worldX: 1, faded: true })]);
@@ -171,6 +172,12 @@ describe("TileRenderer faded tiles", () => {
     material.onBeforeCompile(shader as any, {} as any);
     expect(shader.fragmentShader).toContain(`gl_FragColor.a *= ${FADED_OPACITY.toFixed(3)};`);
     expect(material.customProgramCacheKey()).not.toBe(assets.material.customProgramCacheKey());
+    // A depth-only copy drawn first (as the ghost's), so the colour pass keeps only the nearest face.
+    expect(material.depthWrite).toBe(false);
+    const depth = (a.children as THREE.Mesh[]).find((c) => !isOutline(c));
+    expect((depth!.material as THREE.MeshBasicMaterial).colorWrite).toBe(false);
+    expect(depth!.geometry).toBe(a.geometry);
+    expect(depth!.renderOrder).toBeLessThan(a.renderOrder);
     expect(b.material).toBe(material);
 
     renderer.updateTiles([makeTile({ id: 1 }), makeTile({ id: 2, worldX: 1 })]);

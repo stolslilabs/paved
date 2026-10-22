@@ -157,6 +157,8 @@ export interface StackFrame {
   /** The box's height, px at `--stack-s` 1, and the px per world unit: the camera's zoom. */
   heightPx: number;
   unitPx: number;
+  /** The 3D view could not start: the stack draws its CSS slabs from then on. */
+  onError: () => void;
 }
 
 /** Whether the hint shows: at the start, then again after `HINT_IDLE_MS` without a move or a cell chosen. */
@@ -326,7 +328,9 @@ export function TileStack({
   const known = coming.slice(0, QUEUE_SLOTS);
   const waiting = drawing && known.length < QUEUE_SLOTS;
   const queued = known.length + (waiting ? 1 : 0);
-  const solid = renderStack != null;
+  // The 3D view, unless it failed to start (a context lost to the cap, a model that did not load): then the CSS slabs.
+  const [stackFailed, setStackFailed] = useState(false);
+  const solid = renderStack != null && !stackFailed;
 
   // Bottom up: the pile, then each slot hovering above the one before (the queue's last first), then the tile in hand.
   const layers = Math.max(1, Math.min(PILE_CAP, remaining));
@@ -397,6 +401,7 @@ export function TileStack({
         target: unproject(frame.width / 2 - frame.left, frame.bottom - frame.height / 2),
         heightPx: frame.height,
         unitPx: UNIT_PX,
+        onError: () => setStackFailed(true),
       }
     : null;
 
