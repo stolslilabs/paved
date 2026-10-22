@@ -189,6 +189,8 @@ The client's ranking UI was removed by #623; the leagues come back as the league
 4. **The amounts**: the bonus and the season reward of section 4, and `MIN_SEASON_ATTACKS` = 5 attacks settled in the
    season to earn its reward. `LEAGUE_BONUSES`, `SEASON_REWARDS`, `MIN_SEASON_ATTACKS`.
 5. **The missions**: the four PvP tasks and the three proposed quests (section 7); NPC attacks count for them (proposed).
+   Attacks cost no Cobble, so a free second account can complete them every day (section 11.5, "Farming the missions"):
+   whether to count only attacks on players, gate the missions by level, or keep them weekly.
 
 ## 10. Audit lenses (Cobbles and crowns move)
 
@@ -301,6 +303,11 @@ test. 433 pass (peak RSS 5,677,996 kB under `prlimit --as=16106127360`). CI runs
 - **Farming.** No Cobble for being idle: a reward needs `MIN_SEASON_ATTACKS` attacks settled in the season, and a bonus a
   league above the one the season started in. Crowns between players are conserved, so a second account feeding a main
   one loses what the main gains; the NPCs' minted crowns are the cold start's, bounded by the owner removing them.
+- **Farming the missions (for the owner, open point 5).** An attack costs no Cobble, and against an NPC it needs no other
+  player, so a free second account can complete the PvP missions every day: at most the sum of the missions' Cobbles a
+  day (35 a day and 15 a week with the three proposed). The Challenge's dailies need a paid game; these do not. The
+  levers, each a small change: count only attacks on players (not NPCs), gate the missions by the player's level
+  (#641), or keep them weekly only.
 - **Trust.** `Matchmaker` becomes a `Setup` reporter, the same allowlist as `Challenge` and `Story`, which can also call
   `credit_story` and `credit_xp`: a compromised `Matchmaker` could mint Cobbles, as a compromised `Story` could. It is the
   owner's upgradable class, like them.
