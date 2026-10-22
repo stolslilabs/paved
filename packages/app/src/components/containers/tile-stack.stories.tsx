@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fireEvent, fn, within } from "storybook/test";
-import { APP_ASSETS, SOURCE_ASSETS, originalTileArt } from "../../mocks/assets";
+import { APP_ASSETS, SOURCE_ASSETS, appRenders, originalTileArt } from "../../mocks/assets";
+import { planCode } from "../elements/tile-chip";
 import { BOARD_38 } from "../../mocks/board";
 import { LONG_ADDRESS, LONG_SENTENCE } from "../../mocks/stress";
 import { TileView } from "./tile-view";
@@ -12,13 +13,14 @@ const tile = { plan: BOARD_38.next.plan, orientation: BOARD_38.next.orientation 
 /**
  * The hand as a tile stack (#606), bottom right of the board: the tile in hand on top (only that one), the bodies of the
  * tiles left under it (up to five), the round tiles-left badge; a tap opens the deck sheet. While no cell is chosen, the
- * small bubble on its left holds Discard. Framed here at the bottom right of a phone's board.
+ * small bubble on its left holds Discard. The coming tiles (#645) are their top-down voxel renders (#679), as the board and
+ * the deck sheet draw them. Framed here at the bottom right of a phone's board.
  */
 const meta = {
   title: "Containers/TileStack",
   component: TileStack,
   parameters: { layout: "fullscreen" },
-  args: { tile, state: "placing", remaining: 38, discardCost: 50, tileArt: originalTileArt(SOURCE_ASSETS), onDeck: fn(), onDiscard: fn(), onSurrender: fn() },
+  args: { tile, state: "placing", remaining: 38, discardCost: 50, tileArt: originalTileArt(SOURCE_ASSETS), renders: appRenders, onDeck: fn(), onDiscard: fn(), onSurrender: fn() },
   decorators: [
     (Story) => (
       <div className="relative h-[420px] w-full max-w-[375px] bg-board">
@@ -110,3 +112,7 @@ export const QueueTraining: Story = { args: { remaining: 30, coming: [{ plan: 4 
 export const QueueOnACell: Story = { args: { remaining: 20, coming: COMING, cellChosen: true } };
 /** #645, the tile fits nowhere: the stack's Discard says so beside the coming tiles (the widest hand, 360 px). */
 export const QueueFitsNowhere: Story = { args: { remaining: 20, coming: COMING, fitsNowhere: true } };
+/** #679, the player's skins: each coming tile in the theme the board draws it in (Forest here), the base models elsewhere. */
+export const QueueSkinned: Story = { args: { remaining: 20, coming: COMING, skins: Object.fromEntries(COMING.map((t) => [planCode(t.plan).toLowerCase(), 1])) } };
+/** #679, no renders served (a build without them): the coming tiles fall back to the board's tile art, as before. */
+export const QueueNoRenders: Story = { args: { remaining: 20, coming: COMING, renders: undefined } };

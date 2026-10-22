@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
+import type { TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { SpinnerIcon } from "../ui/icons";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
-import { TileChip, chipVariants, type TileArt } from "../elements/tile-chip";
+import { TileChip, chipVariants, planCode, type TileArt } from "../elements/tile-chip";
+import { TileRender, type TileRenders } from "../elements/tile-render";
 import { COACH_RING, type CoachTarget } from "./coach";
 import { DiscardHold } from "./discard-hold";
 
@@ -49,6 +51,10 @@ export interface TileStackProps {
   errorDetail?: ErrorDetail;
   /** Where the board's tile art is served (`TileChip`'s `art`, from `useTileArt`). */
   tileArt?: TileArt;
+  /** The tiles' build-time renders (`useTileRenders`): the coming tiles draw their top-down ones (#679); the chip without one. */
+  renders?: TileRenders;
+  /** The board's skins (plan key to theme): each coming tile in the theme the board draws it in, the base models without one. */
+  skins?: TileSkins;
   /** Draws the tile with the renderer (`TileView`), as the board does; the page gives it, tests leave it out (no WebGL). */
   renderTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   /** A tap on the stack: the deck sheet (#540). */
@@ -86,6 +92,18 @@ function useHint(active: boolean, moveKey: number, cellChosen: boolean): boolean
 }
 
 /**
+ * The theme whose top-down render of `plan` the manifest lists: the board's skin for it, else the base models; null for
+ * none (the slot draws the chip). As the deck sheet's real view (`deckArt`, #606).
+ */
+function topTheme(plan: number, renders: TileRenders | undefined, skins: TileSkins | undefined): number | null {
+  const key = planCode(plan).toLowerCase();
+  if (!renders || !key) return null;
+  const skin = skins?.[key] ?? 0;
+  if (renders(skin, `${key}-top`) != null) return skin;
+  return renders(0, `${key}-top`) != null ? 0 : null;
+}
+
+/**
  * The hand as a tile stack (#606, after Dorfromantik's): bottom right, in the thumb's reach. Its top is the tile in hand,
  * as the board draws it and in its rotation; beside it, smaller, the tiles known to come (#645: the next two, read only,
  * the next nearest; a slot waits while the chain draws one); under it a few tile
@@ -107,6 +125,8 @@ export function TileStack({
   error,
   errorDetail,
   tileArt,
+  renders,
+  skins,
   renderTile,
   onDeck,
   onDiscard,
@@ -185,12 +205,23 @@ export function TileStack({
             (an inline style: the class would be the bundle's only one). */}
         {(known.length > 0 || waiting) && (
           <ol aria-label="Coming tiles" data-testid="coming-tiles" className="mb-3 flex items-end gap-1.5" style={{ flexDirection: "row-reverse" }}>
-            {known.map((t, i) => (
-              <li key={i} data-coming={i + 1} className={cn("flex flex-col items-center", i > 0 && "opacity-80")}>
-                <span className="sr-only">{i === 0 ? "Next: " : "Then: "}</span>
-                <TileChip plan={t.plan} art={tileArt} size="md" className="shadow-md" />
-              </li>
-            ))}
+            {known.map((t, i) => {
+              // The voxel look of the board and the hand (#679): the plan's top-down render, unturned (no orientation yet).
+              const theme = topTheme(t.plan, renders, skins);
+              return (
+                <li key={i} data-coming={i + 1} className={cn("flex flex-col items-center", i > 0 && "opacity-80")}>
+                  <span className="sr-only">{i === 0 ? "Next: " : "Then: "}</span>
+                  {theme != null ? (
+                    // The chip's name and role, so the slot reads the same to a screen reader (and to the Training e2e).
+                    <span role="img" aria-label={`Tile ${planCode(t.plan).toLowerCase()}, north`} data-view="render" data-theme={theme} className={cn(chipVariants({ size: "md" }), "shadow-md")}>
+                      <TileRender plan={t.plan} theme={theme} renders={renders} alt="" top />
+                    </span>
+                  ) : (
+                    <TileChip plan={t.plan} art={tileArt} size="md" className="shadow-md" />
+                  )}
+                </li>
+              );
+            })}
             {waiting && (
               <li data-coming="drawing" className="flex flex-col items-center">
                 <span
