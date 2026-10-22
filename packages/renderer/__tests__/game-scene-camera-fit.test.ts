@@ -190,6 +190,18 @@ describe("GameScene camera fit (CAMERA-FIT, #678)", () => {
     expectFrame(h.view(), fit);
   });
 
+  it("turning the frame on in a scene that opened with it off loads the fit and frames the board", async () => {
+    const h = harness();
+    h.scene.updateTiles([tile(0, 0), tile(2, -1)]);
+    await h.scene.init({ surface: h.surface, shadows: false, settings: { cameraFit: { enabled: false } } });
+    expect(h.view().distance).toBeCloseTo(OPENING_DISTANCE, 6);
+    expect(h.scene.getCameraFit()).toBeNull();
+    h.scene.setSettings({ cameraFit: { enabled: true } });
+    const fit = computeCameraFit({ cells: { minX: 0, maxX: 2, minZ: -1, maxZ: 0 }, width: 375, height: 812 });
+    await vi.waitFor(() => expectFrame(h.view(), fit));
+    expect(h.scene.getCameraFit()!.distance).toBeCloseTo(fit.distance, 6);
+  });
+
   it("applies new frame settings at once (the story's floor), and does nothing with the frame off", async () => {
     const h = harness({ width: 1440, height: 900 });
     h.scene.updateTiles([tile(0, 0)]);

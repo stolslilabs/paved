@@ -1226,6 +1226,11 @@ export class GameScene {
     if (!controls) return;
     this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
     this.fitEnabled = this.settings.cameraFit.enabled;
+    // Turned on in a scene that opened with the frame off: its chunk is not in yet; it frames once loaded.
+    if (this.settings.cameraFit.enabled && !this.fitModule) {
+      void this.loadCameraFit(true);
+      return;
+    }
     controls.reset();
     this.framedTiles = this.settings.cameraFit.enabled && this.latestTiles.length > 0;
     this.notifyCamera();
