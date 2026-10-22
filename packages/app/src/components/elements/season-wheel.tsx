@@ -7,7 +7,7 @@ export const SEASON_ICON = { summer: "sun", autumn: "leaf", winter: "snowflake",
 
 // The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`): a soft gold rim (issue 634), a band of paving stones, the disc of the four
 // seasons' skies, a hub at the centre. The dial is 72 px across on a phone, 64 px on the narrowest (under 390 px, so the
-// stack and its coming tiles fit beside it at the board's bottom, #682) and 96 px from tablet up.
+// stack and its coming tiles fit beside it at the board's bottom, issue 682) and 96 px from tablet up.
 
 /** The disc's radius: inside the band of stones. */
 const DISC = 40;
