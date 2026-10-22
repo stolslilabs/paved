@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -60,7 +61,7 @@ function open(s: ReturnType<typeof setup>, wallet = fakeWallet({ address: PLAYER
   return wallet;
 }
 
-const position = () => screen.findByRole("region", { name: "Your position" }, { timeout: 5000 });
+const position = () => screen.findByRole("region", { name: "Your position" }, { timeout: slow(5000) });
 const field = (name: RegExp) => screen.getByRole("textbox", { name });
 
 beforeEach(() => {
@@ -75,14 +76,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("/vault (P10)", { timeout: 20_000 }, () => {
+describe("/vault (P10)", { timeout: slow(20_000) }, () => {
   it("a guest is asked to connect, and Connect opens the wallet", async () => {
     const s = setup({ viewer: "guest" });
     const wallet = open(s);
     // The page waits for the wallet's look for an earlier session (its probe) before it asks.
     await waitFor(() => expect(wallet.calls).toContain("probe"));
     await waitFor(() => expect(screen.queryByRole("status", { name: "Reading the Vault" })).toBeNull());
-    const notice = (await screen.findByText("Connect to use the Vault", {}, { timeout: 5000 })).closest("[role=status]") as HTMLElement;
+    const notice = (await screen.findByText("Connect to use the Vault", {}, { timeout: slow(5000) })).closest("[role=status]") as HTMLElement;
     // Nothing of the Vault is read for a guest.
     expect(s.economy.calls.filter((c) => c.startsWith("vault"))).toEqual([]);
     await userEvent.click(within(notice).getByRole("button", { name: "Connect" }));
@@ -120,7 +121,7 @@ describe("/vault (P10)", { timeout: 20_000 }, () => {
     s.economy.fail = "node down";
     open(s);
     // The balances' own inline error (the rail's) comes with the page's.
-    const alerts = await screen.findAllByRole("alert", {}, { timeout: 8000 });
+    const alerts = await screen.findAllByRole("alert", {}, { timeout: slow(8000) });
     expect(alerts.some((a) => /The Vault cannot be read/.test(a.textContent ?? ""))).toBe(true);
     s.economy.fail = null;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));

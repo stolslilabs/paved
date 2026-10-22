@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NO_SKINS, type TileSkins } from "@paved/renderer";
@@ -114,7 +115,7 @@ describe("the board page's player", () => {
     fakes.views.skinPlayer(GAME_PLAYING.playerId).active = active({ 7: 1 });
     fakes.views.skinPlayer(VIEWER).active = active({ 9: 1 });
     render(<App router={createTestRouter(`/game/${GAME_PLAYING.id}`)} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(7)]: 1 }), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(7)]: 1 }), { timeout: slow(5000) });
     expect(lastBoard()?.gameId).toBe(GAME_PLAYING.id);
     expect(fakes.views.calls).not.toContain(`active_skins ${BigInt(VIEWER)}`);
   });
@@ -124,14 +125,14 @@ describe("the board page's player", () => {
     fakes.views.skinPlayer(VIEWER).active = active({ 9: 1 });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
     const skins: TileSkins = { [key(9)]: 1 };
-    await waitFor(() => expect(lastBoard()?.skins).toEqual(skins), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()?.skins).toEqual(skins), { timeout: slow(5000) });
     await waitFor(() => expect(lastHand()?.skins).toEqual(skins));
   });
 
   it("a guest's Training board draws the base models", async () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
     expect(lastBoard()?.skins).toBe(NO_SKINS);
     expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
   });
@@ -140,6 +141,6 @@ describe("the board page's player", () => {
     const fakes = fakeSources({ signer: signer(VIEWER) });
     fakes.views.skinPlayer(VIEWER).active = active({ 4: 1 });
     render(<App router={createTestRouter("/story/1/1")} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(4)]: 1 }), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(4)]: 1 }), { timeout: slow(5000) });
   });
 });

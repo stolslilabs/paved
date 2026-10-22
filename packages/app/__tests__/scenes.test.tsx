@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
@@ -266,7 +267,7 @@ describe("Board", () => {
   it("the stack: the tiles left on its badge, a tap opens the deck sheet; a read-only board keeps it", async () => {
     const { unmount } = render(wrap(<BoardScene {...BOARD.placing} />));
     await userEvent.click(screen.getByRole("button", { name: "Tiles left: 12. Show the deck" }));
-    expect(await screen.findByRole("dialog", { name: "Deck" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Deck" }, { timeout: slow(5000) })).toBeInTheDocument();
     unmount();
     render(wrap(<BoardScene {...BOARD.placing} readOnly />));
     expect(screen.queryByRole("region", { name: "Your tile" })).not.toBeInTheDocument();
@@ -313,7 +314,7 @@ describe("Board", () => {
     render(wrap(<BoardScene {...BOARD.placing} onSurrender={onSurrender} />));
     const surrender = async () => {
       await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-      await userEvent.click(within(await screen.findByRole("dialog", { name: "Settings" }, { timeout: 5000 })).getByRole("button", { name: /^Surrender/ }));
+      await userEvent.click(within(await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) })).getByRole("button", { name: /^Surrender/ }));
     };
     await surrender();
     expect(await screen.findByRole("dialog", { name: "Surrender this game?" })).toHaveTextContent(pts(BOARD.placing.score));
@@ -335,7 +336,7 @@ describe("Board", () => {
     const onRestart = vi.fn();
     render(wrap(<BoardScene {...BOARD.storageDisabled} mode={mode} onRestart={onRestart} />));
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: 5000 });
+    const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
     expect(within(sheet).queryByRole("button", { name: /Surrender/ })).not.toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: new RegExp(`^${row}`) }));
     const dialog = await screen.findByRole("dialog", { name: title });

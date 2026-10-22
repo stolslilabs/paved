@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,11 +53,11 @@ async function playLine(level: StoryLevel) {
   }
 }
 
-describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 }, () => {
+describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30_000) }, () => {
   it("/tutorial leads to Story mode, where only the first level is open", async () => {
     const router = createTestRouter("/tutorial");
     render(<App router={router} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
-    expect(await screen.findByRole("heading", { level: 2, name: "Tutorial" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Tutorial" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/story");
     const tutorial = screen.getByRole("region", { name: "Tutorial" });
     expect(within(tutorial).getByRole("button", { name: /^Level 1, First stone$/ })).toBeEnabled();
@@ -82,7 +83,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     const first = render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
     expect(within(cards).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "unlocking");
     expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("data-status", "complete");
     await waitFor(() => expect(JSON.parse(store.getItem(UNLOCKS_KEY) ?? "[]")).toEqual([2]));
@@ -90,7 +91,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     queryClient.clear();
 
     render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    const again = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    const again = await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
     expect(within(again).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "open");
   });
 
@@ -100,7 +101,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     const router = createTestRouter("/story?campaign=1");
     render(<App router={router} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
     const opened = within(cards).getByRole("button", { name: /^Open Country/ });
     expect(opened).toHaveAttribute("data-status", "unlocking");
     expect(opened).toHaveAttribute("aria-pressed", "true");
@@ -117,9 +118,9 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const wallet = fakeWallet({ address: PLAYER, claimEvents: CREDITED });
     const router = createTestRouter("/story");
     render(<App router={router} sources={fakeSources({ store: () => store }).sources} connector={wallet.load} />);
-    await userEvent.click(await screen.findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: slow(5000) }));
     // The deck's presentation first (#593): the title, the intro and the tiles it deals, never a star threshold; then Start.
-    const intro = await screen.findByTestId("deck-presentation", {}, { timeout: 5000 });
+    const intro = await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });
     const level = TUTORIAL.levels[0]!;
     expect(intro).toHaveTextContent(level.intro);
     expect(intro).toHaveTextContent(`This level deals ${level.deck.length} tiles`);
@@ -136,7 +137,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     expect(screen.queryByRole("button", { name: /Surrender/ })).toBeNull();
 
     await playLine(level);
-    const end = await screen.findByTestId("story-end", {}, { timeout: 5000 });
+    const end = await screen.findByTestId("story-end", {}, { timeout: slow(5000) });
     expect(end).toHaveAttribute("data-stars", "3");
     expect(within(end).getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
     // 3 stars: no next star to miss.
@@ -161,7 +162,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     const level = TUTORIAL.levels[0]!;
     const first = render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
     // A tap anywhere on the presentation starts the level.
-    await userEvent.click(within(await screen.findByTestId("deck-presentation", {}, { timeout: 5000 })).getByText(level.intro));
+    await userEvent.click(within(await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) })).getByText(level.intro));
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
     for (let i = 0; i < level.deck.length; i++) await discardTile();
     const end = await screen.findByTestId("story-end");
@@ -182,10 +183,10 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
 
     // Presented once on this device: the next visit opens on the board, and the deck sheet shows the presentation again.
     render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    expect(await within(await screen.findByRole("region", { name: "Your tile" }, { timeout: 5000 })).findByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
+    expect(await within(await screen.findByRole("region", { name: "Your tile" }, { timeout: slow(5000) })).findByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Present the level again" }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole("button", { name: "Present the level again" }, { timeout: slow(5000) }));
     const again = await screen.findByTestId("deck-presentation");
     await userEvent.click(within(again).getByRole("button", { name: /Start/ }));
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
@@ -194,13 +195,13 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
 
   it("a locked level's address says so; the second campaign opens at 2 stars per Tutorial level", async () => {
     render(<App router={createTestRouter("/story/2/1")} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
-    expect(await screen.findByText("This level is locked", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("This level is locked", {}, { timeout: slow(5000) })).toBeInTheDocument();
 
     let progress = EMPTY_PROGRESS;
     for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, Math.ceil(level.target * 0.7));
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    const second = await screen.findByRole("region", { name: CAMPAIGNS[1]!.name }, { timeout: 5000 });
+    const second = await screen.findByRole("region", { name: CAMPAIGNS[1]!.name }, { timeout: slow(5000) });
     expect(within(second).queryByText("Locked")).toBeNull();
     expect(within(second).getByRole("button", { name: /^Level 1, / })).toBeEnabled();
     expect(within(second).getByRole("button", { name: /^Level 2, .*, locked$/ })).toBeDisabled();
@@ -211,7 +212,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     for (const level of TUTORIAL.levels.slice(0, 9)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, 0);
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     render(<App router={createTestRouter("/story/1/10")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
-    const intro = await screen.findByTestId("deck-presentation", {}, { timeout: 5000 });
+    const intro = await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });
     const level = TUTORIAL.levels[9]!;
     const ids = level.deck.map((plan) => String(Object.values(PlanType).indexOf(plan)));
     const presented = [...within(intro).getByTestId("presented-tiles").querySelectorAll("li")].map((li) => li.getAttribute("data-plan"));
@@ -219,7 +220,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: 30_000 
     await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
     expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(level.deck.length));
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
-    expect(await screen.findByText(`This level deals these ${level.deck.length} tiles in this order, the next one first.`, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(`This level deals these ${level.deck.length} tiles in this order, the next one first.`, {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByText(/some never come/)).toBeNull();
     expect(screen.queryByTestId("deck-plans")).toBeNull();
     const order = screen.getByTestId("deck-order");

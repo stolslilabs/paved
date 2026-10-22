@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
@@ -52,7 +53,7 @@ describe("app", () => {
     async (_path, page) => {
       render(<App router={createTestRouter(concrete(page.path))} />);
       // The board's page module brings the renderer (three.js): its first import takes longer than findBy's 1 s in jsdom.
-      expect(await screen.findByRole("heading", { level: 1, name: page.title }, { timeout: 5000 })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 1, name: page.title }, { timeout: slow(5000) })).toBeInTheDocument();
       expect(screen.getByTestId("page")).toHaveAttribute("data-path", page.path || "/");
       // Tab pages carry the navigation, full-screen flows the top bar's Back: never both, never neither.
       expect(screen.queryByRole("navigation", { name: "Main" }) !== null).toBe(page.nav !== null);

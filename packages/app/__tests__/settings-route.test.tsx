@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,7 +69,7 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
 describe("/settings", () => {
   it("shows the defaults: Auto with what it resolves to, the day and night cycle on, music at 40 %, sound effects at 70 %, preview and highlight on, skins shown", async () => {
     open();
-    expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: 5000 })).toHaveAttribute("data-state", "on");
+    expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: slow(5000) })).toHaveAttribute("data-state", "on");
     expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
     expect(screen.getByRole("slider", { name: "Music volume" })).toHaveAttribute("aria-valuenow", "40");
     expect(screen.getByRole("slider", { name: "Sound effects volume" })).toHaveAttribute("aria-valuenow", "70");
@@ -122,10 +123,10 @@ describe("/settings", () => {
     await userEvent.click(await screen.findByRole("switch", { name: /Show other players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("default");
     await act(() => router.navigate("/settings/theme"));
-    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: /skins/ })).not.toBeInTheDocument();
     await act(() => router.navigate("/settings"));
-    expect(await screen.findByRole("region", { name: "Account" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Account" }, { timeout: slow(5000) })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("switch", { name: /Show other players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("forest");
   });
@@ -179,7 +180,7 @@ describe("the board reads the settings", () => {
   it("passes the quality, the day and night cycle and the ambient effects to the renderer's settings, and a change applies to the open board without a reload", async () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
     expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true } });
     act(() => deviceSettings.set({ ...deviceSettings.get(), quality: "high" }));
     await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true } }));
@@ -198,7 +199,7 @@ describe("the board reads the settings", () => {
   it("gives the tile preview and the placement highlight to the board", async () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
     expect(lastBoard()).toMatchObject({ tilePreview: true, placementHighlight: true });
     act(() => deviceSettings.set({ ...deviceSettings.get(), tilePreview: false, placementHighlight: false }));
     await waitFor(() => expect(lastBoard()).toMatchObject({ tilePreview: false, placementHighlight: false }));
@@ -234,14 +235,14 @@ describe("the viewer's skins opt-out", () => {
   it("draws the players' skins until the viewer opts out", async () => {
     const fakes = skinned();
     render(<App router={createTestRouter(`/game/${GAME_PLAYING.id}`)} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(7)]: 1 } satisfies TileSkins), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(7)]: 1 } satisfies TileSkins), { timeout: slow(5000) });
   });
 
   it("opted out, a Challenge board of a skinned player asks for no variant: no skin is read, the renderer gets no skins", async () => {
     localStorage.setItem(THEME_KEY, "default");
     const fakes = skinned();
     render(<App router={createTestRouter(`/game/${GAME_PLAYING.id}`)} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
     // Let any read settle: there is none.
     await new Promise((r) => setTimeout(r, 100));
     expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
@@ -255,7 +256,7 @@ describe("the viewer's skins opt-out", () => {
       queryClient.clear();
       const fakes = skinned();
       const { unmount } = render(<App router={createTestRouter(path)} sources={fakes.sources} />);
-      await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(9)]: 1 } satisfies TileSkins), { timeout: 5000 });
+      await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(9)]: 1 } satisfies TileSkins), { timeout: slow(5000) });
       expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([`active_skins ${BigInt(VIEWER)}`]);
       unmount();
     }

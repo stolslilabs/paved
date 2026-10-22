@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -44,15 +45,15 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("the mocked pages (Sepolia's default)", { timeout: 20_000 }, () => {
+describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () => {
   it("/missions: the quests carry the mock's Cobbles; a claim moves the balance; no notice, no RPC text", async () => {
     const s = open("/missions");
-    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: 5000 })).toBeInTheDocument();
-    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: 5000 });
+    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
+    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) });
     expect(screen.queryByText("Rewards unavailable")).not.toBeInTheDocument();
     noRawErrors();
     await userEvent.click(claim);
-    expect((await screen.findAllByRole("button", { name: "5 Cobbles: Buy packs" }, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "5 Cobbles: Buy packs" }, { timeout: slow(5000) })).length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).not.toBeInTheDocument());
     expect((await s.ledger.dayProgress(FIXTURE_ADA, TODAY)).claimed).toBe(1n << 1n);
     noRawErrors();
@@ -60,12 +61,12 @@ describe("the mocked pages (Sepolia's default)", { timeout: 20_000 }, () => {
 
   it("/vault: the mock's position and wallet; a deposit goes through and moves both", async () => {
     const s = open("/vault");
-    expect(await screen.findByRole("region", { name: "Your position" }, { timeout: 5000 })).toHaveTextContent("No vPAVED yet");
+    expect(await screen.findByRole("region", { name: "Your position" }, { timeout: slow(5000) })).toHaveTextContent("No vPAVED yet");
     noRawErrors();
     await userEvent.type(screen.getByRole("textbox", { name: /Amount to deposit/ }), "100");
     expect(await screen.findByText(/You get about/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
-    expect(await screen.findByText("Deposited", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Deposited", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect((await s.ledger.vault(FIXTURE_ADA)).shares).toBeGreaterThan(0n);
     expect(await s.ledger.pavedBalance(FIXTURE_ADA)).toBe(MOCK_STARTING_PAVED - 100n * 10n ** 18n);
     await waitFor(() => expect(screen.getByRole("region", { name: "Your position" })).not.toHaveTextContent("No vPAVED yet"));
@@ -74,10 +75,10 @@ describe("the mocked pages (Sepolia's default)", { timeout: 20_000 }, () => {
 
   it("the balances' Cobbles lead to the packs' own page (#621), its packs from the mock", async () => {
     open("/vault");
-    const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: 5000 });
+    const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: slow(5000) });
     await userEvent.click(cobbles!);
-    expect(await screen.findByRole("heading", { level: 1, name: "Cobbles" }, { timeout: 5000 })).toBeInTheDocument();
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Cobbles" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
     noRawErrors();
   });

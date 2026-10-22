@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -154,7 +155,7 @@ describe("the Training board's plan view, placing a tile", () => {
   it("never goes red: Rotate stays on valid rotations, Close puts the tile back; Place flashes the cell green", async () => {
     const store = memoryStore();
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
-    await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 });
+    await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: slow(5000) });
     const slots = () => screen.getAllByRole("button", { name: /^Slot / });
     // Every slot of every rotation is a button, dashed or solid.
     expect(slots().length).toBeGreaterThan(0);
@@ -190,5 +191,5 @@ describe("the Training board's plan view, placing a tile", () => {
     });
     expect(flash.className).toMatch(/motion-reduce:duration-150/);
     await waitFor(() => expect(document.querySelector("[data-confirm]")).toBeNull(), { timeout: confirmHoldMs() + 1000 });
-  }, 30_000);
+  }, slow(30_000));
 });

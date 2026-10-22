@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { columnParity, modelFiles, modelParity, reader } from "../scripts/voxel-parity";
@@ -35,5 +36,5 @@ describe("the column parity of a tile model (scripts/voxel-parity.ts)", () => {
       if (odd.length > 0) bad.push(`${label}: ${odd.length}`);
     }
     expect(bad).toEqual([]);
-  }, 120_000);
+  }, slow(120_000));
 });
