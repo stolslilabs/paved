@@ -55,8 +55,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^ui-carousel--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   { story: /^ui-carousel--/, kind: "overflow", element: 'div "DailyOne deck', why: "carousel track" },
   // Story's campaign cards (#592): the same carousel on a phone, its next card peeking past the window, by design.
-  { story: /^scenes-story--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^scenes-story--/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
+  // The same page among the page shells of HEADER-HEIGHT (#676).
+  { story: /^(scenes-story--|pages-headers--story-campaigns$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^(scenes-story--|pages-headers--story-campaigns$)/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
   // A horizontal scroller, by design: the story shows ScrollArea's horizontal mode.
   { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
   // The same for ScrollRegion (NO-SCROLLBARS, #609): its horizontal story is a sideways scroller with the edge hint.
@@ -68,7 +69,7 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with
   // the edge hint, the open tab kept in view, by design.
-  { story: /^scenes-avatarcreator--/, kind: "scroll", element: 'div[scroll-region] "Skin tone', why: "part tabs scroller" },
+  { story: /^(scenes-avatarcreator--|pages-headers--avatar$)/, kind: "scroll", element: 'div[scroll-region] "Skin tone', why: "part tabs scroller" },
   // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design
   // (a ScrollRegion since NO-SCROLLBARS, #609).
   { story: /^direction-[a-f]--palette$/, kind: "scroll", element: 'div[scroll-region] "Pair', why: "contrast table scroller" },

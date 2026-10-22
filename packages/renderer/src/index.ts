@@ -78,6 +78,8 @@ export {
   gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
+  pendingPulseOpacity,
+  pendingPulses,
   placementFade,
   tintEaseMs,
   tintForKind,

@@ -17,6 +17,8 @@ export interface TileRenderProps {
   renders?: TileRenders;
   /** The image's name; unset: the tile's name. */
   alt?: string;
+  /** The top-down render (`<plan>-top`, the deck sheet's and the coming tiles'), in its default orientation; unset: the angled one. */
+  top?: boolean;
   className?: string;
 }
 
@@ -24,8 +26,8 @@ export interface TileRenderProps {
  * One tile as the board draws it, from its build-time render: one image, no WebGL context (THEMES-RENDERS). Without a
  * render (no manifest, a plan it does not list) it is the plan's chip, so the cell is never blank.
  */
-export function TileRender({ plan, theme, renders, alt, className }: TileRenderProps) {
-  const src = renders?.(theme, planCode(plan).toLowerCase()) ?? null;
+export function TileRender({ plan, theme, renders, alt, top, className }: TileRenderProps) {
+  const src = renders?.(theme, `${planCode(plan).toLowerCase()}${top ? "-top" : ""}`) ?? null;
   if (!src) return <TileChip plan={plan} className={cn("size-full rounded-none border-0", className)} />;
   return <img src={src} alt={alt ?? tileName(plan)} loading="lazy" decoding="async" draggable={false} className={cn("block size-full object-cover", className)} />;
 }

@@ -1,8 +1,7 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import { DAY_PHASE_AT, DEFAULT_PLACEMENT_SETTINGS, PLATE_GAP_VOXELS, type DayPhase, TILE_SIZE, type GameScene, type HoverState, type LookPreset, type PlacementSettingsInput, type QualityTier, type PlacementSlot, type RendererSettingsInput } from "@paved/renderer";
 import { toRenderTiles, useDropThenConfirm, useTileHold } from "../../components/containers/board-viewport";
-import type { Hold } from "../../lib/use-hold";
 import { LazyTileBubble } from "../../components/containers/lazy-tile-bubble";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
@@ -18,7 +17,7 @@ export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
 
 export interface PlacementBoardProps {
   /**
-   * idle: no plate; in-hand: the plates; hover: the tile untinted at half opacity; placed: yellow, opaque; confirm: green,
+   * idle: no plate; in-hand: the plates; hover: the tile untinted at half opacity; placed: plain, pulsing 60 to 90 %; confirm: green,
    * fading; tour: all three in turn; sequence: the game's, with the bubble's hold, the drop and the green.
    */
   state: PlacementStoryState;
@@ -139,6 +138,7 @@ export function placementArgTypes(): Record<string, object> {
     colorMs: range(0, 1000, 10),
     hoverMs: range(0, 1000, 10),
     pendingMs: range(0, 1000, 10),
+    pendingPulseMs: range(0, 4000, 50),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };
@@ -157,7 +157,7 @@ export function placementArgTypes(): Record<string, object> {
 
 /**
  * The recorded 72-tile board with the placement visuals in one state (PLACEMENT-TINTS): the plates of a tile in hand
- * (playable, invalid), the tile hovering (untinted, half opacity), placed (yellow, opaque), and the confirm (green, fading
+ * (playable, invalid), the tile hovering (untinted, half opacity), placed (plain, its opacity pulsing 60 to 90 %, #681), and the confirm (green, fading
  * out); `board` off shows the plates alone. `sequence` plays the game's placement (#568). `data-ready` is set once the board
  * is drawn at the held view; `data-step` names the sequence's step.
  */
@@ -252,8 +252,7 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
     setAccepted((a) => ({ ...PLACED, placed: false, key: (a?.key ?? 0) + 1 }));
   }, []);
   // As on the board (TILE-HOLD, #630): a press on the placed tile itself holds Validate, its ring filling the same.
-  const tileHold = useRef<Hold | null>(null);
-  const onTilePress = useTileHold(state === "sequence" && step === "placed" ? PLACED : null, () => tileHold.current);
+  const { onTilePress, holdRef: tileHold } = useTileHold(state === "sequence" && step === "placed" ? PLACED : null);
 
   const confirming = state === "confirm" || (state === "tour" && phase === 2);
   const slots = state === "idle" || confirming || (state === "sequence" && step === "landed") ? NO_SLOTS : SLOTS;
@@ -298,10 +297,10 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
 const NO_SLOTS: PlacementSlot[] = [];
 const NO_TILES: typeof tiles = [];
 
-/** The two looks of the tile in hand (#657): `hover`, the preview at half opacity, and `placed`, the pending tile with Faint. */
+/** The two looks of the tile in hand (#657): `hover`, the preview at half opacity, and `placed`, the pending tile's pulse (#681). */
 export const TILE_LOOKS = {
   hover: { label: "Hover · 50 %, its outlines", state: "hover" },
-  placed: { label: "Pending · Faint, its outlines", state: "placed" },
+  placed: { label: "Pending · pulse 60–90 %, its outlines", state: "placed" },
 } as const satisfies Record<string, { label: string; state: PlacementStoryState }>;
 export type TileLook = keyof typeof TILE_LOOKS;
 
