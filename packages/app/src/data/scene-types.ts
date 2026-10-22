@@ -9,6 +9,8 @@ import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
+import type { AvatarCreator } from "../components/scenes/avatar-creator-scene";
+import type * as avatar from "./avatar";
 import type * as chain from "./chain";
 import type * as indexer from "./indexer";
 import type * as playerProgress from "./player-progress";
@@ -46,6 +48,10 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof indexer.usePlayerQuests>, NonNullable<QuestsSceneProps["quests"]>>>,
   Expect<Equal<Data<typeof indexer.usePlayerAchievements>, NonNullable<AchievementsSceneProps["achievements"]>>>,
   ...import("./rewards").RewardSceneTypes,
+  // the avatar (#626 PR 2): the creator's offers, and the menus' saved avatar (null: the default one)
+  Expect<Equal<ReturnType<typeof avatar.avatarOffers>, AvatarCreator["offers"]>>,
+  Expect<Equal<ReturnType<typeof avatar.savedAvatar>, OrNull<NonNullable<ProfileSheetProps["avatar"]>>>>,
+  Expect<Equal<NonNullable<Data<typeof avatar.useAvatarCatalogue>>["balance"], AvatarCreator["balance"]>>,
   // vault
   Expect<Equal<Data<typeof chain.useVaultPosition>, VaultSceneProps["position"]>>,
   Expect<Equal<Data<typeof chain.usePavedBalance>, OrNull<VaultSceneProps["balance"]>>>,

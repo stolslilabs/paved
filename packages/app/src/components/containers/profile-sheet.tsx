@@ -1,7 +1,7 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
+import type { Avatar } from "@paved/renderer";
 import { useState } from "react";
 import { useSidePanel } from "../../lib/side-panel";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
@@ -30,6 +30,10 @@ export interface ProfileSheetProps {
   onCopy?: (address: string) => Promise<void>;
   /** The connected player's level and XP (#625, `usePlayerProgress`); undefined while it is read. */
   progress?: PlayerProgress;
+  /** The avatar the connected player saved (#626, read from the chain); null or omitted: the default one (the initial). */
+  avatar?: Avatar | null;
+  /** Opens the avatar creator (#626); omitted, Edit avatar is not offered. */
+  onEditAvatar?: () => void;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
   returnFocus?: () => HTMLElement | null;
 }
@@ -39,10 +43,10 @@ const DESKTOP_QUERY = "(min-width: 64rem)";
 
 /**
  * What a tap on the avatar opens (#624): a bottom sheet on a phone, a panel from the left from `desktop`. The avatar larger,
- * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (disabled until the creator,
- * #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625).
+ * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (the creator, #626) and
+ * Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625).
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, returnFocus }: ProfileSheetProps) {
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, avatar, onEditAvatar, returnFocus }: ProfileSheetProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
   const connected = state.status === "connected" ? state.data : null;
@@ -64,7 +68,7 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
         }}
       >
         <SheetHeader className="items-center text-center">
-          <PlayerAvatar size="lg" player={connected ? { name: connected.player.name, address: connected.player.playerId } : null} loading={state.status === "loading"}>
+          <PlayerAvatar size="lg" player={connected ? { name: connected.player.name, address: connected.player.playerId } : null} loading={state.status === "loading"} avatar={avatar}>
             {connected && <XpRing size="lg" progress={progress} />}
           </PlayerAvatar>
           <SheetTitle className="flex w-full min-w-0 justify-center">
@@ -103,11 +107,12 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
                 <dd className="numeric text-lg font-semibold wrap-anywhere">{formatPoints(connected.stats.bestScore)}</dd>
               </div>
             </dl>
-            <Button variant="outline" disabled>
-              <Icon name="pen" size="xs" />
-              Edit avatar
-              <Badge variant="outline" className="ml-1">Soon</Badge>
-            </Button>
+            {onEditAvatar && (
+              <Button variant="outline" onClick={onEditAvatar}>
+                <Icon name="pen" size="xs" />
+                Edit avatar
+              </Button>
+            )}
             <Button variant="ghost" onClick={onDisconnect}>
               <Icon name="right-from-bracket" size="xs" />
               Disconnect

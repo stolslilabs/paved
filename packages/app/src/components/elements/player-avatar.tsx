@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import type { Avatar } from "@paved/renderer";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
+import { useAvatarStill } from "./avatar-still";
 
 const avatarVariants = cva("relative grid shrink-0 place-items-center rounded-full", {
   variants: {
@@ -16,6 +18,9 @@ const avatarVariants = cva("relative grid shrink-0 place-items-center rounded-fu
 
 const DISC = "grid size-full place-items-center rounded-full";
 
+/** The disc's side in CSS px at each size (the box less its band): the still's size. */
+const DISC_PX = { md: 40, lg: 88 } as const;
+
 /** Who the avatar shows: the name the screens give the player (`PlayerName`) and the address their initial falls back to. */
 export interface AvatarPlayer {
   name: string | null;
@@ -27,6 +32,11 @@ export interface PlayerAvatarProps extends VariantProps<typeof avatarVariants> {
   player: AvatarPlayer | null;
   /** The wallet is still looking for an earlier session: a placeholder of the same size. */
   loading?: boolean;
+  /**
+   * The avatar the player saved (#626, read from the chain): its still image fills the disc once rendered, the initial
+   * shows until then. Null or omitted: the default avatar, the initial.
+   */
+  avatar?: Avatar | null;
   /** Drawn over the disc, in the box's band: issue 625's ring and level badge. */
   children?: ReactNode;
   className?: string;
@@ -38,17 +48,20 @@ export function avatarInitial(player: AvatarPlayer): string {
 }
 
 /**
- * The player's avatar (issue 624): a round disc, 40 px inside a 44 px box on a phone. Connected, a default one until the avatar
- * creator (issue 626): the initial in gold on the secondary disc. A guest: a silhouette on a dashed outline. Decorative: the
- * control that holds it carries the name.
+ * The player's avatar (issue 624): a round disc, 40 px inside a 44 px box on a phone. Connected, the avatar they saved (issue
+ * 626) as a still image (rendered once, cached: never a live WebGL context per avatar), else the default one: the initial in
+ * gold on the secondary disc. A guest: a silhouette on a dashed outline. Decorative: the control that holds it carries the name.
  */
-export function PlayerAvatar({ player, loading, size, children, className }: PlayerAvatarProps) {
+export function PlayerAvatar({ player, loading, avatar, size, children, className }: PlayerAvatarProps) {
   return (
     <span data-slot="player-avatar" aria-hidden className={cn(avatarVariants({ size }), className)}>
       {loading ? (
         <span data-slot="skeleton" className={cn(DISC, "animate-pulse bg-muted motion-reduce:animate-none")} />
       ) : player ? (
-        <span className={cn(DISC, "border border-primary/40 bg-secondary font-display text-primary", size === "lg" ? "text-4xl" : "text-lg")}>{avatarInitial(player)}</span>
+        <span className={cn(DISC, "relative overflow-hidden border border-primary/40 bg-secondary font-display text-primary", size === "lg" ? "text-4xl" : "text-lg")}>
+          {avatarInitial(player)}
+          {avatar && <SavedAvatar avatar={avatar} px={DISC_PX[size ?? "md"]} />}
+        </span>
       ) : (
         <span className={cn(DISC, "border border-dashed border-muted-foreground/60 bg-muted text-muted-foreground")}>
           <Icon name="user" size={size === "lg" ? "xl" : "md"} />
@@ -57,4 +70,10 @@ export function PlayerAvatar({ player, loading, size, children, className }: Pla
       {children}
     </span>
   );
+}
+
+/** The saved avatar's still over the initial, once rendered (the initial shows while the rendering chunk loads). */
+function SavedAvatar({ avatar, px }: { avatar: Avatar; px: number }) {
+  const src = useAvatarStill(avatar, { size: px });
+  return src ? <img data-slot="avatar-still" src={src} alt="" width={px} height={px} className="absolute inset-0 block size-full" draggable={false} /> : null;
 }

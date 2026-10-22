@@ -6,6 +6,7 @@ import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
+import type { AvatarCreator, AvatarCreatorSceneProps } from "../components/scenes/avatar-creator-scene";
 import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
 import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
@@ -23,6 +24,8 @@ import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBp
 import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, GAME_MISSIONS } from "./quests";
+import { DEFAULT_AVATAR as DEFAULT_AVATAR_LOOK } from "@paved/renderer";
+import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_VAULT } from "./stress";
@@ -438,3 +441,55 @@ export const REFERRAL = {
     earnings: { total: BIG_AMOUNT_6 * 2n, games: { count: BIG_NUMBER, total: BIG_AMOUNT_6 }, packs: { count: BIG_NUMBER, total: BIG_AMOUNT_6 } },
   },
 } satisfies Record<string, Data<ReferralSceneProps>>;
+
+// The avatar creator (#626 PR 2)
+
+const creator: AvatarCreator = { saved: SAVED_AVATAR, draft: SAVED_AVATAR, balance: 120, offers: AVATAR_OFFERS, now: MOCK_NOW };
+/** The draft wearing the Horned helm (headwear 5, 40 Cobbles): on sale, Save waits for it. */
+const tryingHelm: AvatarCreator = { ...creator, draft: { ...SAVED_AVATAR, headwear: 5 } };
+
+export const AVATAR_CREATOR = {
+  /** The saved avatar, Skin tone open: four free tones, the others priced 20 to 100 Cobbles. */
+  saved: { creator, part: "skin" },
+  /** Headwear: the Crown and the Wizard hat owned (bought), four free, the Horned helm on sale. */
+  headwear: { creator, part: "headwear" },
+  /** The Horned helm tried on: its price and Buy above the grid, Save waits for it. */
+  priced: { creator: tryingHelm, part: "headwear" },
+  /** Background: City owned, Night and Wonder seasonal (on sale until the winter's end). */
+  background: { creator: { ...creator, draft: { ...SAVED_AVATAR, background: 15 } }, part: "background" },
+  /** Beard: the Long beard withdrawn from sale (not for sale), the others free or priced. */
+  beard: { creator, part: "beard" },
+  /** Eyes, eyebrows, mouth, hair colour, hair and accessory: the other tabs. */
+  eyes: { creator, part: "eyes" },
+  eyebrows: { creator, part: "eyebrows" },
+  mouth: { creator, part: "mouth" },
+  hairColour: { creator, part: "hairColour" },
+  hair: { creator, part: "hair" },
+  accessory: { creator, part: "accessory" },
+  /** A free change not saved yet: Save. */
+  changed: { creator: { ...creator, draft: { ...SAVED_AVATAR, hair: 2, mouth: 3 } }, part: "hair" },
+  /** The Horned helm's `buy_avatar_item` on its way. */
+  buying: { creator: { ...tryingHelm, buying: { part: "headwear", id: 5 } }, part: "headwear" },
+  /** Too few Cobbles for the item tried on: Get Cobbles. */
+  short: { creator: { ...tryingHelm, balance: 15 }, part: "headwear" },
+  /** The `set_avatar` on its way. */
+  saving: { creator: { ...creator, draft: { ...SAVED_AVATAR, hair: 2 }, save: "saving" }, part: "hair" },
+  /** Saved: the draft is the chain's again. */
+  savedNow: { creator: { ...creator, save: "saved" }, part: "skin" },
+  /** A purchase refused (the price changed since the swatch was read). */
+  refused: { creator: { ...tryingHelm, refusal: "This item's price changed: check the new price and buy again. Nothing was sent." }, part: "headwear" },
+  /** No avatar saved yet: the default one, every part at 0. */
+  none: { creator: { ...creator, saved: DEFAULT_AVATAR_LOOK, draft: DEFAULT_AVATAR_LOOK, balance: 0 }, part: "skin" },
+  /** Four parts in use (the owner's count): the other six tabs are not shown. */
+  fewParts: { creator: { ...creator, offers: offersOf(AVATAR_ITEMS, [], 4), saved: DEFAULT_AVATAR_LOOK, draft: DEFAULT_AVATAR_LOOK } },
+  /** A guest: Connect. */
+  guest: { status: { kind: "guest" } },
+  /** The reads on their way. */
+  loading: { status: { kind: "loading" } },
+  /** A failed read, with Retry. */
+  error: { status: { kind: "error", message: "The node did not answer: Failed to fetch", detail: READ_ERROR_DETAIL } },
+  /** A network without the avatar contract. */
+  unavailable: { creator: null },
+  /** WRAP360: the largest Cobble balance. */
+  stress: { creator: { ...tryingHelm, balance: BIG_NUMBER }, part: "headwear" },
+} satisfies Record<string, Data<AvatarCreatorSceneProps>>;

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_AVATAR } from "@paved/renderer";
 import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-avatar";
 import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
@@ -22,6 +23,11 @@ describe("PlayerAvatar (#624)", () => {
     expect(container).toHaveTextContent("A");
   });
 
+  it("a saved avatar keeps the initial until its still is rendered (no WebGL in the test's DOM: the initial stays)", () => {
+    const { container } = render(<PlayerAvatar player={{ name: "ada", address: PLAYER_ID }} avatar={{ ...DEFAULT_AVATAR, hair: 3 }} />);
+    expect(container).toHaveTextContent("A");
+  });
+
   it("a guest is a silhouette, a pending wallet a placeholder", () => {
     const { container, rerender } = render(<PlayerAvatar player={null} />);
     expect(container.querySelector("[data-slot=player-avatar]")).toHaveTextContent("");
@@ -31,16 +37,18 @@ describe("PlayerAvatar (#624)", () => {
 });
 
 describe("ProfileSheet (#624)", () => {
-  it("connected: the name, the address to copy, the figures, Edit avatar not yet, Disconnect", async () => {
+  it("connected: the name, the address to copy, the figures, Edit avatar, Disconnect", async () => {
     const onCopy = vi.fn(async () => {});
     const onDisconnect = vi.fn();
-    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} onCopy={onCopy} onDisconnect={onDisconnect} />));
+    const onEditAvatar = vi.fn();
+    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} onCopy={onCopy} onDisconnect={onDisconnect} onEditAvatar={onEditAvatar} />));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByRole("heading", { name: "bal7hazar" })).toBeInTheDocument();
     expect(within(sheet).getByText("0x05f1…6e7f")).toBeInTheDocument();
     expect(within(sheet).getByText("21")).toBeInTheDocument();
     expect(within(sheet).getByText("1,840")).toBeInTheDocument();
-    expect(within(sheet).getByRole("button", { name: /Edit avatar/ })).toBeDisabled();
+    await userEvent.click(within(sheet).getByRole("button", { name: /Edit avatar/ }));
+    expect(onEditAvatar).toHaveBeenCalledOnce();
     await userEvent.click(within(sheet).getByRole("button", { name: /Copy/ }));
     expect(onCopy).toHaveBeenCalledWith(PLAYER_ID);
     expect(await within(sheet).findByRole("button", { name: /Copied/ })).toBeInTheDocument();

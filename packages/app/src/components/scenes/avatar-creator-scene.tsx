@@ -1,0 +1,292 @@
+import { useLayoutEffect, useRef, useState } from "react";
+import { AVATAR_PARTS, type Avatar, type AvatarPart } from "@paved/renderer";
+import { formatDate } from "@paved/game-core";
+import { Button } from "../ui/button";
+import { Icon } from "../ui/icon";
+import { Skeleton } from "../ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { AvatarPreview3D } from "../elements/avatar-preview";
+import { Cobbles } from "../elements/cobbles";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
+import { Notice } from "../elements/notice";
+import { AvatarSwatches } from "../containers/avatar-swatches";
+import { PART_TITLES, partsInUse, sameAvatar, unusableParts, type AvatarOffers } from "../containers/avatar-types";
+import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
+import { TopBar } from "../containers/top-bar";
+
+/** The creator's state: the saved avatar (the chain's), the draft, the balance and the offers, and the writes on their way. */
+export interface AvatarCreator {
+  /** The avatar saved on chain: every part at 0 when none is. */
+  saved: Avatar;
+  /** The avatar being made: Save writes it. */
+  draft: Avatar;
+  /** `Setup.account(player_id).cobbles`. */
+  balance: number;
+  offers: AvatarOffers;
+  /** The block time now, in seconds: a seasonal item's end is read against it. */
+  now: number;
+  /** `set_avatar`: on its way, or just done (the draft is the saved one). */
+  save?: "idle" | "saving" | "saved";
+  /** The item whose `buy_avatar_item` is on its way. */
+  buying?: { part: AvatarPart; id: number } | null;
+  /** The last write refused or failed: shown until dismissed or the next write. */
+  refusal?: string | null;
+  refusalDetail?: ErrorDetail;
+}
+
+export interface AvatarCreatorSceneProps {
+  /** The creator's data; omitted, `status` says why; null: the network has no avatar contract yet. */
+  creator?: AvatarCreator | null;
+  status?: SkinsStatus | null;
+  /** The tab open first (the first part in use by default). */
+  part?: AvatarPart;
+  onPick?: (part: AvatarPart, id: number) => void;
+  onBuy?: (part: AvatarPart, id: number) => void;
+  onSave?: () => void;
+  onRandomise?: () => void;
+  /** Back to the saved avatar. */
+  onReset?: () => void;
+  onDismissRefusal?: () => void;
+  onBuyCobbles?: () => void;
+  onConnect?: () => void;
+  onRetry?: () => void;
+  onBack?: () => void;
+}
+
+/** A seasonal end, as "Ends 23 Nov". */
+const endsOn = (until: number) => `Ends ${formatDate(until * 1000, { day: "numeric", month: "short", timeZone: "UTC" })}`;
+
+/** The names of a list of parts' variants, for a sentence: "Crown and City". */
+function partNames(draft: Avatar, parts: readonly AvatarPart[]): string {
+  const names = parts.map((part) => AVATAR_PARTS[part][draft[part]] ?? PART_TITLES[part]);
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
+/**
+ * The avatar creator (`/avatar`, #626 PR 2), from Edit avatar in the profile sheet. Mobile first: the head on top, the page's
+ * one live 3D preview (drag to turn it); the parts in use as tabs; each part's variants as a grid of swatches, the draft
+ * wearing each. A tap tries any variant on; a free or owned one can be saved, one on sale shows its Cobble price with Buy
+ * (one `buy_avatar_item`, at the price shown), one off sale cannot be had. Save writes the draft on chain (one `set_avatar`)
+ * once every part is free or owned; Randomise draws among those. From `desktop` the head stays on the left, the parts on the
+ * right.
+ */
+export function AvatarCreatorScene({ creator, status, part, onPick, onBuy, onSave, onRandomise, onReset, onDismissRefusal, onBuyCobbles, onConnect, onRetry, onBack }: AvatarCreatorSceneProps) {
+  return (
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <TopBar title="Avatar" onBack={onBack} />
+      {creator ? (
+        <Creator
+          creator={creator}
+          part={part}
+          onPick={onPick}
+          onBuy={onBuy}
+          onSave={onSave}
+          onRandomise={onRandomise}
+          onReset={onReset}
+          onDismissRefusal={onDismissRefusal}
+          onBuyCobbles={onBuyCobbles}
+        />
+      ) : (
+        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-8 tablet:max-w-2xl">
+          {status ? (
+            <SkinsStatusView
+              status={status}
+              guestTitle="Connect to make your avatar"
+              guestText="Your avatar is kept on your account: the same on every device, and others see it."
+              errorTitle="Your avatar could not be read"
+              skeleton={
+                <div className="flex flex-col items-center gap-4">
+                  <Skeleton className="size-48 rounded-full" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                  <div className="grid w-full grid-cols-4 gap-2">
+                    {Array.from({ length: 8 }, (_, i) => (
+                      <Skeleton key={i} className="h-28 rounded-xl" />
+                    ))}
+                  </div>
+                </div>
+              }
+              onConnect={onConnect}
+              onRetry={onRetry}
+            />
+          ) : (
+            creator === null && (
+              <Notice title="Avatars are coming" icon="user-pen">
+                The avatar creator is not on this network yet: your avatar stays the default one for now.
+              </Notice>
+            )
+          )}
+        </main>
+      )}
+    </div>
+  );
+}
+
+type CreatorProps = Pick<AvatarCreatorSceneProps, "part" | "onPick" | "onBuy" | "onSave" | "onRandomise" | "onReset" | "onDismissRefusal" | "onBuyCobbles"> & { creator: AvatarCreator };
+
+function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, onDismissRefusal, onBuyCobbles }: CreatorProps) {
+  const { saved, draft, balance, offers, now, save = "idle", buying, refusal, refusalDetail } = creator;
+  const parts = partsInUse(offers);
+  const changed = !sameAvatar(draft, saved);
+  const unusable = unusableParts(draft, offers);
+  const saving = save === "saving";
+  const busy = saving || buying != null;
+  const [tab, setTab] = useState<string | undefined>(part && parts.includes(part) ? part : parts[0]);
+  const strip = useRef<HTMLDivElement>(null);
+  // The open tab in view: the list scrolls sideways on a phone, and a tab past its edge would hide which part is open.
+  useLayoutEffect(() => {
+    const el = strip.current;
+    const active = el?.querySelector<HTMLElement>(`[data-slot=tabs-trigger][data-value="${tab}"]`);
+    if (!el || !active) return;
+    const left = active.offsetLeft - el.clientWidth / 2 + active.offsetWidth / 2;
+    el.scrollLeft = Math.max(0, left);
+  }, [tab]);
+  return (
+    <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-28 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-[20rem_minmax(0,1fr)] desktop:items-start desktop:gap-8 desktop:pb-10">
+      <section aria-label="Your avatar" className="flex flex-col items-center gap-3 desktop:sticky desktop:top-4">
+        {/* One canvas at every width: it follows its box, 208 px, 288 px from `desktop`. */}
+        <AvatarPreview3D avatar={draft} className="size-52 desktop:size-72" />
+        <p className="text-center text-xs text-muted-foreground">Drag the head to turn it.</p>
+        <Actions
+          className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur desktop:static desktop:w-full desktop:border-0 desktop:bg-transparent desktop:p-0 desktop:backdrop-blur-none"
+          canSave={changed && unusable.length === 0 && !busy}
+          changed={changed}
+          save={save}
+          busy={busy}
+          onSave={onSave}
+          onRandomise={onRandomise}
+          onReset={onReset}
+        />
+        {changed && unusable.length > 0 && (
+          <p className="text-center text-xs text-muted-foreground">
+            Buy the {partNames(draft, unusable)} to save this avatar, or pick a free one.
+          </p>
+        )}
+      </section>
+      <section aria-label="Parts" className="flex min-w-0 flex-col gap-3">
+        <InlineError
+          title="Not done"
+          message={refusal}
+          detail={refusalDetail}
+          action={
+            onDismissRefusal && (
+              <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                Dismiss
+              </Button>
+            )
+          }
+        />
+        <Tabs value={tab} onValueChange={setTab}>
+          {/* Ten parts do not fit a phone's width: the list scrolls sideways, each tab as wide as its name. */}
+          <div ref={strip} className="-mx-4 overflow-x-auto px-4 desktop:mx-0 desktop:px-0">
+            <TabsList className="auto-cols-max">
+              {parts.map((p) => (
+                <TabsTrigger key={p} value={p}>
+                  {PART_TITLES[p]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          {parts.map((p) => {
+            const offer = offers[p]![draft[p]];
+            return (
+              <TabsContent key={p} value={p} className="flex flex-col gap-3">
+                {offer?.kind === "sale" && (
+                  <BuyCard
+                    name={AVATAR_PARTS[p][draft[p]]!}
+                    cobbles={offer.cobbles}
+                    until={offer.until > now ? offer.until : 0}
+                    balance={balance}
+                    buying={buying?.part === p && buying.id === draft[p]}
+                    disabled={busy}
+                    onBuy={() => onBuy?.(p, draft[p])}
+                    onBuyCobbles={onBuyCobbles}
+                  />
+                )}
+                <AvatarSwatches part={p} draft={draft} offers={offers[p]!} buying={buying?.part === p ? buying.id : null} onPick={(id) => onPick?.(p, id)} />
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      </section>
+    </main>
+  );
+}
+
+interface ActionsProps {
+  canSave: boolean;
+  changed: boolean;
+  save: "idle" | "saving" | "saved";
+  busy: boolean;
+  onSave?: () => void;
+  onRandomise?: () => void;
+  onReset?: () => void;
+  className?: string;
+}
+
+/** Randomise, back to the saved one, and Save: a bar fixed to the bottom on a phone, under the head from `desktop`. */
+function Actions({ canSave, changed, save, busy, onSave, onRandomise, onReset, className }: ActionsProps) {
+  return (
+    <div data-slot="avatar-actions" className={className}>
+      <div className="mx-auto flex w-full max-w-md items-center gap-2 tablet:max-w-2xl desktop:max-w-none">
+        <Button variant="outline" size="icon" aria-label="Randomise" onClick={onRandomise} disabled={busy}>
+          <Icon name="dice" />
+        </Button>
+        <Button variant="ghost" size="icon" aria-label="Back to the saved avatar" onClick={onReset} disabled={!changed || busy}>
+          <Icon name="rotate-left" />
+        </Button>
+        <Button className="flex-1" onClick={onSave} disabled={!canSave} loading={save === "saving"}>
+          {save === "saved" && !changed ? (
+            <>
+              <Icon name="check" size="sm" />
+              Saved
+            </>
+          ) : (
+            "Save"
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface BuyCardProps {
+  name: string;
+  cobbles: number;
+  /** A seasonal item's end, 0 for none. */
+  until: number;
+  balance: number;
+  buying: boolean;
+  disabled: boolean;
+  onBuy: () => void;
+  onBuyCobbles?: () => void;
+}
+
+/** The variant tried on is on sale: its price, its season's end, and Buy; Get Cobbles when the balance is short. */
+function BuyCard({ name, cobbles, until, balance, buying, disabled, onBuy, onBuyCobbles }: BuyCardProps) {
+  const short = balance < cobbles;
+  return (
+    <div data-slot="card" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-primary/40 bg-card p-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-sm font-semibold wrap-anywhere">{name}</span>
+        <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+          <Cobbles value={cobbles} size="sm" />
+          {until > 0 && <span>{endsOn(until)}</span>}
+          {short && (
+            <span className="inline-flex items-center gap-1">
+              You have <Cobbles value={balance} size="sm" tone="muted" />
+            </span>
+          )}
+        </span>
+      </div>
+      {short ? (
+        <Button size="sm" variant="outline" onClick={onBuyCobbles}>
+          Get Cobbles
+        </Button>
+      ) : (
+        <Button size="sm" onClick={onBuy} loading={buying} disabled={disabled && !buying}>
+          Buy
+        </Button>
+      )}
+    </div>
+  );
+}

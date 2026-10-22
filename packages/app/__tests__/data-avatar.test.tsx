@@ -7,6 +7,7 @@ import {
   ViewError,
   lookIds,
   lookOf,
+  type AvatarItem,
   type AvatarViews,
   type BuyAvatarItemRequest,
   type CobbleAccount,
@@ -14,11 +15,13 @@ import {
   type FakeGameViews,
   type WriteResult,
 } from "@paved/chain";
-import { AVATAR_PART_KEYS, DEFAULT_AVATAR, decodeAvatar, encodeAvatar, type Avatar } from "@paved/renderer";
+import { AVATAR_PART_KEYS, DEFAULT_AVATAR, decodeAvatar, encodeAvatar, seededRandom, type Avatar } from "@paved/renderer";
 import type { GameSigner } from "../src/data";
 import { cobbleKeys } from "../src/data/cobbles";
-import { applyAvatarEvents, avatarKeys, idsOf, useAvatar, useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar";
+import { applyAvatarEvents, avatarKeys, avatarOffer, avatarOffers, idsOf, savedAvatar, useAvatar, useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar";
+import { randomUsable, unusableParts } from "../src/components/containers/avatar-types";
 import { PLAYER_ID } from "../src/mocks/players";
+import { FakeAvatarWriter } from "./avatar-fakes";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
 
 // The avatar's hooks (#627) on `FakeGameViews` and an in-memory writer with `Avatar`'s checks: the reads, the receipts into the cache.
@@ -28,46 +31,6 @@ const PARTS = 4;
 const OTHER = "0x99";
 
 const event = (name: string, fields: Record<string, unknown>): DecodedEvent => ({ name, fields }) as unknown as DecodedEvent;
-
-/** `Avatar`'s writes in memory, on the fake views: `buy_avatar_item` and `set_avatar` with the contract's checks. */
-class FakeAvatarWriter {
-  readonly sent: string[] = [];
-  constructor(
-    readonly views: FakeGameViews,
-    readonly address: string,
-  ) {}
-
-  async buyAvatarItem({ part, id, confirmedPrice }: BuyAvatarItemRequest, views: Pick<AvatarViews, "avatarItem">): Promise<WriteResult> {
-    const item = await views.avatarItem(part, id);
-    const current = item.state === 1 ? item.cobbles : 0;
-    if (current !== confirmedPrice) throw new AvatarPriceChangedError(confirmedPrice, current);
-    this.sent.push(`buy ${part} ${id}`);
-    const player = this.views.avatarPlayer(this.address);
-    const ledger = this.views.cobblePlayer(this.address);
-    const owned = player.owned.get(part) ?? 0n;
-    if (owned & (1n << BigInt(id))) throw new AvatarRefusedError("owned", "0x1");
-    if (ledger.account.cobbles < current) throw new AvatarRefusedError("not-enough-cobbles", "0x1");
-    ledger.account = { ...ledger.account, cobbles: ledger.account.cobbles - current };
-    player.owned.set(part, owned | (1n << BigInt(id)));
-    return { transactionHash: "0x1", events: [event("AvatarItemBought", { playerId: this.address, part, id, cobbles: current, sold: 1, balance: ledger.account.cobbles })] };
-  }
-
-  async setAvatar(look: bigint): Promise<WriteResult> {
-    this.sent.push(`set ${look}`);
-    const player = this.views.avatarPlayer(this.address);
-    const ids = lookIds(look, this.views.avatars.parts);
-    if (look !== 0n) {
-      if (!ids) throw new AvatarRefusedError("invalid-look", "0x2");
-      ids.forEach((id, part) => {
-        const item = this.views.avatars.items.get(`${part}:${id}`);
-        const free = item?.state === 1 && item.cobbles === 0;
-        if (!free && !((player.owned.get(part) ?? 0n) & (1n << BigInt(id)))) throw new AvatarRefusedError("not-owned", "0x2");
-      });
-    }
-    player.look = look;
-    return { transactionHash: "0x2", events: [event("AvatarSet", { playerId: this.address, look })] };
-  }
-}
 
 function avatarSetup() {
   const fakes = fakeSources();
@@ -167,6 +130,33 @@ describe("useAvatarWrites", () => {
     expect(writer.sent).toEqual(["buy 0 2", `set ${look}`]);
   });
 
+  it("saved is the last write a save that went through; a purchase after it is not", async () => {
+    const { sources } = avatarSetup();
+    const { result } = renderData(() => useAvatarWrites(PLAYER_ID), sources);
+    expect(result.current.saved).toBe(false);
+    await act(() => result.current.save(lookOf([1, 1, 0, 1])));
+    await waitFor(() => expect(result.current.saved).toBe(true));
+    await act(() => result.current.buy(0, 2, 30));
+    await waitFor(() => expect(result.current.saved).toBe(false));
+  });
+
+  it("the creator's flow on the fakes: try a priced item on, buy it, save the look, and any device reads it", async () => {
+    const { sources } = avatarSetup();
+    const page = renderData(() => ({ catalogue: useAvatarCatalogue(PLAYER_ID), writes: useAvatarWrites(PLAYER_ID) }), sources);
+    await waitFor(() => expect(page.result.current.catalogue.data).toBeTruthy());
+    const draft = { ...DEFAULT_AVATAR, skin: 2 };
+    // Skin 2 is on sale (30 Cobbles): Save waits for it.
+    expect(unusableParts(draft, avatarOffers(page.result.current.catalogue.data!, 0))).toEqual(["skin"]);
+    await act(() => page.result.current.writes.buy(0, 2, 30));
+    await waitFor(() => expect(unusableParts(draft, avatarOffers(page.result.current.catalogue.data!, 0))).toEqual([]));
+    const look = lookOf([2, 0, 0, 0]);
+    await act(() => page.result.current.writes.save(look));
+    // Another device: a fresh cache on the same chain reads the saved look, decoded as the menus draw it.
+    const other = renderData(() => useAvatar(PLAYER_ID), sources);
+    const read = await dataOf(other.result);
+    expect(savedAvatar(read)).toEqual({ ...DEFAULT_AVATAR, skin: 2 });
+  });
+
   it("a refusal is the writer's typed error, kept until reset", async () => {
     const { sources } = avatarSetup();
     const { result } = renderData(() => useAvatarWrites(PLAYER_ID), sources);
@@ -199,5 +189,53 @@ describe("applyAvatarEvents", () => {
     expect(client.getQueryData<CobbleAccount>(cobbleKeys.account(PLAYER_ID))?.cobbles).toBe(0);
     expect(client.getQueryData(avatarKeys.owned(PLAYER_ID, 2))).toBe(String(1n | (1n << 255n)));
     expect(client.getQueryData(avatarKeys.look(PLAYER_ID))).toBe("16385");
+  });
+});
+
+describe("avatarOffer and avatarOffers", () => {
+  const item = (over: Partial<AvatarItem> = {}): AvatarItem => ({ part: 0, id: 4, state: 1, cobbles: 40, sold: 0, supply: 0, until: 0, ...over });
+
+  it("owned first, then free, on sale, or off (never listed, withdrawn, sold out, past its season)", () => {
+    expect(avatarOffer(item(), 1n << 4n, 4, 0)).toEqual({ kind: "owned" });
+    expect(avatarOffer(item({ state: 2 }), 1n << 4n, 4, 0)).toEqual({ kind: "owned" });
+    expect(avatarOffer(item({ cobbles: 0 }), 0n, 4, 0)).toEqual({ kind: "free" });
+    expect(avatarOffer(item({ until: 100 }), 0n, 4, 99)).toEqual({ kind: "sale", cobbles: 40, until: 100 });
+    expect(avatarOffer(item({ until: 100 }), 0n, 4, 100)).toEqual({ kind: "off" });
+    expect(avatarOffer(item({ supply: 3, sold: 3 }), 0n, 4, 0)).toEqual({ kind: "off" });
+    expect(avatarOffer(item({ state: 2 }), 0n, 4, 0)).toEqual({ kind: "off" });
+    expect(avatarOffer(undefined, 0n, 4, 0)).toEqual({ kind: "off" });
+  });
+
+  it("covers the parts in use and the variants the client draws, on the hook's catalogue", async () => {
+    const { sources } = avatarSetup();
+    const { result } = renderData(() => useAvatarCatalogue(PLAYER_ID), sources);
+    const offers = avatarOffers((await dataOf(result))!, 0);
+    expect(Object.keys(offers)).toEqual(AVATAR_PART_KEYS.slice(0, PARTS));
+    // Skin has nine variants: 0 and 1 free, 2 on sale, the rest never listed.
+    expect(offers.skin?.map((o) => o.kind)).toEqual(["free", "free", "sale", "off", "off", "off", "off", "off", "off"]);
+    // Eyes' item 255 is listed, but the client draws six variants: it is left out.
+    expect(offers.eyes).toHaveLength(6);
+  });
+
+  it("Randomise draws only what can be saved, and leaves the parts not in use at 0", async () => {
+    const { sources } = avatarSetup();
+    const { result } = renderData(() => useAvatarCatalogue(PLAYER_ID), sources);
+    const offers = avatarOffers((await dataOf(result))!, 0);
+    for (let seed = 1; seed < 40; seed++) {
+      const avatar = randomUsable(offers, seededRandom(seed));
+      expect(unusableParts(avatar, offers)).toEqual([]);
+      expect(AVATAR_PART_KEYS.slice(PARTS).every((part) => avatar[part] === 0)).toBe(true);
+    }
+  });
+});
+
+describe("savedAvatar", () => {
+  it("is the decoded look; null for none saved, a look the chain would not take, or nothing read", () => {
+    const look = lookOf([1, 0, 1, 1]);
+    expect(savedAvatar({ look, ids: [1, 0, 1, 1] })).toEqual({ ...DEFAULT_AVATAR, skin: 1, eyes: 1, eyebrows: 1 });
+    expect(savedAvatar({ look: 0n, ids: null })).toBeNull();
+    expect(savedAvatar({ look: 2n, ids: null })).toBeNull();
+    expect(savedAvatar(null)).toBeNull();
+    expect(savedAvatar(undefined)).toBeNull();
   });
 });

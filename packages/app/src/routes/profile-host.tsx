@@ -1,9 +1,12 @@
 import { useCallback, useMemo, type ReactNode } from "react";
+import { encodeAvatar } from "@paved/renderer";
 import { ProfileProvider } from "../components/containers/profile-context";
 import type { ProfileState } from "../components/containers/profile-sheet";
+import { savedAvatar, useAvatar } from "../data/avatar";
 import { usePlayerStatus } from "../data/indexer";
 import { usePlayerProgress } from "../data/player-progress";
 import { useAccount } from "../wallet/wallet";
+import { useAppNavigate } from "./ref";
 
 /** The clipboard, or a failed copy without it (an insecure origin, an old browser). */
 const copy = (text: string) => (navigator.clipboard?.writeText ? navigator.clipboard.writeText(text) : Promise.reject(new Error("No Clipboard API")));
@@ -11,7 +14,7 @@ const copy = (text: string) => (navigator.clipboard?.writeText ? navigator.clipb
 /**
  * Reads who is connected once for the whole shell and hands it to the menu screens' avatar (`ProfileSlot`, #624). The profile
  * is Home's read (`usePlayerStatus`, one cache entry): before the indexer answers, the player is shown by the wallet's name or
- * address, with zero figures.
+ * address, with zero figures. The avatar is the one saved on chain (`useAvatar`, #626); Edit avatar opens the creator.
  */
 export function ProfileHost({ children }: { children: ReactNode }) {
   const wallet = useAccount();
@@ -19,6 +22,10 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const status = usePlayerStatus(address);
   // The level and XP of the ring (#625): `Setup.player_level` (#641).
   const progress = usePlayerProgress(address);
+  // The avatar the player saved on chain (#626): the same on every device. Drawn as a cached still, never a live canvas.
+  const look = useAvatar(address);
+  const avatar = savedAvatar(look.data);
+  const go = useAppNavigate();
   const state = useMemo<ProfileState>(() => {
     if (wallet.status === "restoring") return { status: "loading" };
     if (!address) return { status: "guest", connecting: wallet.status === "connecting" };
@@ -33,6 +40,9 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);
   const onDisconnect = useCallback(() => wallet.disconnect(), [wallet]);
   const shown = progress.isPending ? undefined : (progress.data ?? undefined);
-  const value = useMemo(() => ({ state, progress: shown, onConnect, onDisconnect, onCopy: copy }), [state, shown, onConnect, onDisconnect]);
+  const onEditAvatar = useCallback(() => go("/avatar"), [go]);
+  const key = avatar ? encodeAvatar(avatar) : 0n;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` stands for `avatar`: a new object of the same look keeps the value
+  const value = useMemo(() => ({ state, progress: shown, avatar, onConnect, onDisconnect, onCopy: copy, onEditAvatar }), [state, shown, key, onConnect, onDisconnect, onEditAvatar]);
   return <ProfileProvider value={value}>{children}</ProfileProvider>;
 }

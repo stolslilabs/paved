@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import type { Avatar } from "@paved/renderer";
+import { SAVED_AVATAR } from "../../mocks/avatar";
 import { PROGRESS } from "../../mocks/players";
 import { PROFILE } from "../../mocks/scenes";
 import type { ProfileState } from "./profile-sheet";
@@ -19,10 +21,14 @@ const meta = { title: "Containers/ProfileSlot", component: ProfileSlot, render: 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const profile = (state: ProfileState, progress = PROGRESS.start) => ({ profile: { state, progress, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) } });
+const profile = (state: ProfileState, progress = PROGRESS.start, avatar: Avatar | null = null) => ({
+  profile: { state, progress, avatar, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}), onEditAvatar: fn() },
+});
 
 export const Connected: Story = { parameters: profile(PROFILE.connected) };
 /** The ring part way (#625), as it will be once the contracts define XP. */
 export const PartWay: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay) };
+/** The avatar the player saved (#626): its still at the top left, in the ring. */
+export const SavedAvatar: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay, SAVED_AVATAR) };
 export const Guest: Story = { parameters: profile(PROFILE.guest) };
 export const Loading: Story = { parameters: profile(PROFILE.loading) };

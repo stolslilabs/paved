@@ -1,5 +1,7 @@
 import { useMutation, useQueries, useQueryClient, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { AvatarItem, AvatarViews, CobbleAccount, DecodedEvent, GameViews, PavedWriter, WriteResult } from "@paved/chain";
+import { AVATAR_PARTS, AVATAR_PART_KEYS, decodeAvatar, type Avatar } from "@paved/renderer";
+import type { AvatarOffer, AvatarOffers } from "../components/containers/avatar-types";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { addressKey } from "./keys";
 import { useDataSources, type DataSources } from "./sources";
@@ -105,6 +107,40 @@ export function useAvatar(playerId: string | null): { data: AvatarData | null | 
 }
 
 const avatarData = (look: bigint, parts: number): AvatarData => ({ look, ids: look === 0n ? null : idsOf(look, parts) });
+
+/**
+ * The avatar a player saved, as the menus draw it (#626): the look decoded (`decodeAvatar`: an id this client does not draw
+ * is that part's default), or null for none saved, a look the chain would not take, or nothing read yet: the default avatar.
+ */
+export function savedAvatar(data: AvatarData | null | undefined): Avatar | null {
+  return data && data.ids !== null ? decodeAvatar(data.look) : null;
+}
+
+// `AVATAR_LISTED` of `@paved/chain`: a literal, as `idsOf`, so the menus' chunk takes no value from the chain.
+const LISTED = 1;
+
+/** What one item is to the player at `now` (seconds): owned first (it stays theirs off sale), then free, on sale, or off. */
+export function avatarOffer(item: AvatarItem | undefined, owned: bigint, id: number, now: number): AvatarOffer {
+  if (((owned >> BigInt(id)) & 1n) === 1n) return { kind: "owned" };
+  if (!item || item.state !== LISTED) return { kind: "off" };
+  if (item.cobbles === 0) return { kind: "free" };
+  const left = item.supply === 0 || item.sold < item.supply;
+  const open = item.until === 0 || now < item.until;
+  return left && open ? { kind: "sale", cobbles: item.cobbles, until: item.until } : { kind: "off" };
+}
+
+/**
+ * The creator's offers (#626 PR 2): each part in use (the chain's count, at most the format's ten) and, for each variant
+ * this client draws, what it is to the player at `now`; an item the chain lists past the drawn variants is left out.
+ */
+export function avatarOffers(catalogue: Pick<AvatarCatalogue, "parts" | "items" | "owned">, now: number): AvatarOffers {
+  return Object.fromEntries(
+    AVATAR_PART_KEYS.slice(0, catalogue.parts).map((part, p) => [
+      part,
+      AVATAR_PARTS[part].map((_, id) => avatarOffer(catalogue.items[p]?.[id], catalogue.owned[p] ?? 0n, id, now)),
+    ]),
+  );
+}
 
 /** The creator's data: the parts in use, the price bounds, every part's items and the player's owned bitmap of each, the look and the balance. */
 export interface AvatarCatalogue {
@@ -237,6 +273,7 @@ export function useAvatarWrites(playerId: string | null) {
     signer,
     buying: pending?.kind === "buy" ? { part: pending.part, id: pending.id } : null,
     saving: pending?.kind === "save",
+    saved: mutation.isSuccess && mutation.variables?.kind === "save",
     error: mutation.error,
     reset: () => mutation.reset(),
     buy: (part: number, id: number, price: number) => mutation.mutateAsync({ kind: "buy", part, id, price }),
