@@ -24,6 +24,23 @@ describe("the plates' colours (PLATES)", () => {
   });
 });
 
+describe("the plan view's pending pulse (#681)", () => {
+  /** The `pending-pulse` utility's block of the theme. */
+  const block = (name: string) => new RegExp(`${name} \\{([\\s\\S]*?)\n\\}`).exec(theme)?.[1] ?? "";
+
+  it("runs the board's range and period on a sine, and holds the board's fixed opacity under reduced motion", () => {
+    const { tints } = DEFAULT_PLACEMENT_SETTINGS;
+    const keyframes = block("@keyframes pending-pulse");
+    expect(keyframes).toContain(`from { opacity: ${tints.pendingPulseMin}; }`);
+    expect(keyframes).toContain(`to { opacity: ${tints.pendingPulseMax}; }`);
+    const utility = block("@utility pending-pulse");
+    // Half a cycle each way, alternating: one full cycle every `pendingPulseMs`, on easeInOutSine.
+    expect(utility).toContain(`animation: pending-pulse ${tints.pendingPulseMs / 2}ms cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;`);
+    expect(utility).toMatch(/prefers-reduced-motion: reduce\) \{\s*animation: none;\s*opacity: ([\d.]+);/);
+    expect(Number(/prefers-reduced-motion: reduce\) \{\s*animation: none;\s*opacity: ([\d.]+);/.exec(utility)![1])).toBe(tints.pendingReducedOpacity);
+  });
+});
+
 describe("the plan view's plates", () => {
   const plates = (container: HTMLElement) => Object.fromEntries([...container.querySelectorAll("[data-plate]")].map((p) => [p.closest("[style]")!.getAttribute("style")!, p.getAttribute("data-plate")]));
 
@@ -56,20 +73,23 @@ describe("the plan view's plates", () => {
     expect(Object.keys(plates(container))).toHaveLength(4);
   });
 
-  it("tints the placed tile yellow and flashes a green tint on confirm: no rim", () => {
+  it("draws the placed tile plain with the board's opacity pulse (#681) and flashes a green tint on confirm: no rim", () => {
     const slot = { x: 1, y: 0 };
     const ghost = { ...slot, plan: 1, orientation: 1, placed: true };
-    const tint = () => {
-      const { container, unmount } = render(<BoardMap tiles={tiles} slots={[slot]} ghost={ghost} />);
-      const span = container.querySelector("[data-tint]")!;
-      const out = { tone: span.getAttribute("data-tint"), className: span.className, rim: container.querySelectorAll("[data-rim]").length };
-      unmount();
-      return out;
-    };
-    const out = tint();
-    expect(out.tone).toBe("pending");
-    expect(out.className).toContain("bg-gold-300");
-    expect(out.rim).toBe(0);
+    const placed = render(<BoardMap tiles={tiles} slots={[slot]} ghost={ghost} />);
+    const chip = placed.container.querySelector("button[aria-pressed='true']")!;
+    const tile = chip.querySelector("[role=img]")!;
+    expect(tile.getAttribute("class")).toContain("pending-pulse");
+    expect(tile.getAttribute("class")).not.toContain("opacity-90");
+    // No tint over it any more, no rim.
+    expect(placed.container.querySelectorAll("[data-tint]")).toHaveLength(0);
+    expect(placed.container.querySelectorAll("[data-rim]")).toHaveLength(0);
+    placed.unmount();
+    // A preview (not placed) keeps its fixed opacity, no pulse.
+    const preview = render(<BoardMap tiles={tiles} slots={[slot]} ghost={{ ...ghost, placed: false }} />);
+    expect(preview.container.querySelector("[role=img][class*='opacity-90']")).not.toBeNull();
+    expect(preview.container.querySelector(".pending-pulse")).toBeNull();
+    preview.unmount();
     const { container } = render(<BoardMap tiles={tiles} confirmed={{ ...ghost, key: 1 }} />);
     expect(container.querySelector("[data-confirm]")!.className).toContain("bg-meadow-400");
     expect(container.querySelector("[data-confirm]")!.className).not.toContain("ring");

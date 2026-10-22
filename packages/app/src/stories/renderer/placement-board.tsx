@@ -18,7 +18,7 @@ export type PlacementStoryState = (typeof PLACEMENT_STATES)[number];
 
 export interface PlacementBoardProps {
   /**
-   * idle: no plate; in-hand: the plates; hover: the tile untinted at half opacity; placed: yellow, opaque; confirm: green,
+   * idle: no plate; in-hand: the plates; hover: the tile untinted at half opacity; placed: plain, pulsing 60 to 90 %; confirm: green,
    * fading; tour: all three in turn; sequence: the game's, with the bubble's hold, the drop and the green.
    */
   state: PlacementStoryState;
@@ -139,6 +139,7 @@ export function placementArgTypes(): Record<string, object> {
     colorMs: range(0, 1000, 10),
     hoverMs: range(0, 1000, 10),
     pendingMs: range(0, 1000, 10),
+    pendingPulseMs: range(0, 4000, 50),
     confirmMs: range(100, 2000, 10),
     reducedConfirmMs: range(0, 600, 10),
   };
@@ -157,7 +158,7 @@ export function placementArgTypes(): Record<string, object> {
 
 /**
  * The recorded 72-tile board with the placement visuals in one state (PLACEMENT-TINTS): the plates of a tile in hand
- * (playable, invalid), the tile hovering (untinted, half opacity), placed (yellow, opaque), and the confirm (green, fading
+ * (playable, invalid), the tile hovering (untinted, half opacity), placed (plain, its opacity pulsing 60 to 90 %, #681), and the confirm (green, fading
  * out); `board` off shows the plates alone. `sequence` plays the game's placement (#568). `data-ready` is set once the board
  * is drawn at the held view; `data-step` names the sequence's step.
  */
@@ -298,10 +299,10 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
 const NO_SLOTS: PlacementSlot[] = [];
 const NO_TILES: typeof tiles = [];
 
-/** The two looks of the tile in hand (#657): `hover`, the preview at half opacity, and `placed`, the pending tile with Faint. */
+/** The two looks of the tile in hand (#657): `hover`, the preview at half opacity, and `placed`, the pending tile's pulse (#681). */
 export const TILE_LOOKS = {
   hover: { label: "Hover · 50 %, its outlines", state: "hover" },
-  placed: { label: "Pending · Faint, its outlines", state: "placed" },
+  placed: { label: "Pending · pulse 60–90 %, its outlines", state: "placed" },
 } as const satisfies Record<string, { label: string; state: PlacementStoryState }>;
 export type TileLook = keyof typeof TILE_LOOKS;
 

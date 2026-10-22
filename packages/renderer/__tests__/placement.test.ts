@@ -13,6 +13,8 @@ import {
   gridLineCoverage,
   gridLineOpacityAt,
   gridRingOpacity,
+  pendingPulseOpacity,
+  pendingPulses,
   tintEaseMs,
   tintForKind,
   tintKindOf,
@@ -361,17 +363,21 @@ describe("the plates' changes", () => {
 describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
   const { tints } = DEFAULT_PLACEMENT_SETTINGS;
 
-  it("defaults to the owner's: no tint at 50 % on a hover, opaque and a faint yellow pending, a green confirm, no rim or aura setting left", () => {
+  it("defaults to the owner's: no tint at 50 % on a hover, plain and pulsing 60 to 90 % pending, a green confirm, no rim or aura setting left", () => {
     expect(tints.hoverOpacity).toBe(0.5);
     expect(tints.hoverStrength).toBe(0);
     expect(tintForKind("hover", tints).strength).toBe(0);
-    expect(tints.pendingOpacity).toBe(1);
-    expect(tintForKind("pending", tints).opacity).toBe(1);
-    // #605, the owner's pick (#657): Faint, a faint yellow (0.4 before read as a yellow filter) keeping the tile's light,
-    // held. The other proposals are gone: no breathing, no gold frame, no gold plate.
-    expect(tints.pendingStrength).toBe(0.12);
-    expect(tints.pendingKeepsLight).toBe(true);
-    expect(Object.keys(tints).filter((k) => /Pulse|Edge/.test(k))).toEqual([]);
+    // #681, the owner's: the pending tile drawn plain (the faint yellow of #605 read as a filter), its opacity pulsing from
+    // 60 to 90 % over 1.6 s, a fixed 75 % under reduced motion. No gold frame, no gold plate.
+    expect(tints.pendingStrength).toBe(0);
+    expect(tintForKind("pending", tints).strength).toBe(0);
+    expect(tints.pendingPulseMin).toBe(0.6);
+    expect(tints.pendingPulseMax).toBe(0.9);
+    expect(tints.pendingPulseMs).toBe(1600);
+    expect(tints.pendingReducedOpacity).toBe(0.75);
+    expect(tintForKind("pending", tints).opacity).toBe(0.6);
+    expect(Object.keys(tints)).not.toContain("pendingOpacity");
+    expect(Object.keys(tints).filter((k) => /Edge/.test(k))).toEqual([]);
     expect(Object.keys(DEFAULT_PLACEMENT_SETTINGS.plates).filter((k) => k.startsWith("pending"))).toEqual([]);
     const hue = (hex: string) => new THREE.Color(hex).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace).h * 360;
     expect(hue(tints.hoverColor)).toBeGreaterThan(200);
@@ -387,18 +393,19 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     expect(tintKindOf({ placed: false })).toBe("hover");
     expect(tintKindOf({ placed: true })).toBe("pending");
     expect(tintForKind("hover", tints)).toMatchObject({ opacity: 0.5 });
-    expect(tintForKind("pending", tints)).toMatchObject({ opacity: 1 });
+    expect(tintForKind("pending", tints)).toMatchObject({ opacity: 0.6 });
   });
 
   it("eases between looks over 150 ms from where it was, and a newly drawn tile starts at its look", () => {
     const placement = new PlacementRenderer();
-    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
-    expect(placement.ghostTint(0)[4]).toBeCloseTo(0.5, 9);
-    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
-    expect(placement.ghostTint(1000)[4]).toBeCloseTo(0.5, 9);
-    expect(placement.ghostTint(1000 + motion.colorMs / 2)[4]).toBeCloseTo(0.75, 6);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 0);
+    expect(placement.ghostTint(0)[4]).toBeCloseTo(0.6, 9);
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 1000);
+    const from = pendingPulseOpacity(1000, tints, false);
+    expect(placement.ghostTint(1000)[4]).toBeCloseTo(from, 9);
+    expect(placement.ghostTint(1000 + motion.colorMs / 2)[4]).toBeCloseTo((from + 0.5) / 2, 6);
     expect(placement.update(1000 + motion.colorMs / 2).animating).toBe(true);
-    expect(placement.ghostTint(1000 + motion.colorMs)[4]).toBeCloseTo(1, 9);
+    expect(placement.ghostTint(1000 + motion.colorMs)[4]).toBeCloseTo(0.5, 9);
     placement.update(1000 + motion.colorMs);
     expect(placement.update(1000 + motion.colorMs + 16).animating).toBe(false);
     // Gone, then drawn again elsewhere: no ease from the old look.
@@ -408,15 +415,17 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     placement.dispose();
   });
 
-  it("eases into each look over its own time: hoverMs, pendingMs", () => {
+  it("eases into each look over its own time: hoverMs, pendingMs; into the pulse from the hover's 50 %", () => {
     const placement = new PlacementRenderer();
     placement.setSettings(resolvePlacementSettings({ tints: { pendingMs: 400 } }));
     placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
     placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
-    // 200 ms of a 400 ms ease: halfway.
-    expect(placement.ghostTint(1200)[4]).toBeCloseTo(0.75, 6);
+    // From the hover's 50 %, not from the pulse's 60 %: no jump.
+    expect(placement.ghostTint(1000)[4]).toBeCloseTo(0.5, 9);
+    // 200 ms of a 400 ms ease: halfway to the pulse's value at that moment.
+    expect(placement.ghostTint(1200)[4]).toBeCloseTo((0.5 + pendingPulseOpacity(200, tints, false)) / 2, 6);
     expect(placement.update(1399).animating).toBe(true);
-    expect(placement.ghostTint(1400)[4]).toBeCloseTo(1, 9);
+    expect(placement.ghostTint(1400)[4]).toBeCloseTo(pendingPulseOpacity(400, tints, false), 9);
     // The default eases are the 150 ms of before.
     expect(DEFAULT_PLACEMENT_SETTINGS.tints.hoverMs).toBe(150);
     expect(tintEaseMs("hover", DEFAULT_PLACEMENT_SETTINGS.tints)).toBe(150);
@@ -425,9 +434,9 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
 
   it("a tick past the end of an ease still asks for the frame that draws the final tint", () => {
     const placement = new PlacementRenderer();
-    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 0);
     placement.update(0);
-    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 1000);
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 1000);
     // The next tick comes late, after the 150 ms ease: one frame follows, then none.
     expect(placement.update(1000 + motion.colorMs * 10).animating).toBe(true);
     expect(placement.update(1000 + motion.colorMs * 10 + 16).animating).toBe(false);
@@ -439,7 +448,7 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
     placement.setReducedMotion(true);
     placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
     placement.setGhost({ x: 1, y: 0, kind: "pending" }, 10);
-    expect(placement.ghostTint(10)[4]).toBeCloseTo(1, 9);
+    expect(placement.ghostTint(10)[4]).toBeCloseTo(0.75, 9);
     expect(placement.update(10).animating).toBe(false);
     placement.dispose();
   });
@@ -491,6 +500,84 @@ describe("the tile in hand's tints (PLACEMENT-TINTS)", () => {
   });
 });
 
+describe("the pending tile's pulse (#681)", () => {
+  const { tints } = DEFAULT_PLACEMENT_SETTINGS;
+  const period = tints.pendingPulseMs;
+
+  it("goes from the minimum to the maximum and back each period, eased in and out (a sine)", () => {
+    expect(pendingPulseOpacity(0, tints, false)).toBeCloseTo(0.6, 9);
+    expect(pendingPulseOpacity(period / 4, tints, false)).toBeCloseTo(0.75, 9);
+    expect(pendingPulseOpacity(period / 2, tints, false)).toBeCloseTo(0.9, 9);
+    expect(pendingPulseOpacity((3 * period) / 4, tints, false)).toBeCloseTo(0.75, 9);
+    expect(pendingPulseOpacity(period, tints, false)).toBeCloseTo(0.6, 9);
+    expect(pendingPulseOpacity(5 * period + period / 2, tints, false)).toBeCloseTo(0.9, 9);
+    // Never out of its range, symmetric about the peak.
+    for (let t = 0; t <= period; t += 25) {
+      const v = pendingPulseOpacity(t, tints, false);
+      expect(v).toBeGreaterThanOrEqual(0.6 - 1e-9);
+      expect(v).toBeLessThanOrEqual(0.9 + 1e-9);
+      expect(v).toBeCloseTo(pendingPulseOpacity(period - t, tints, false), 9);
+    }
+    // Eased: slow at both ends, fastest midway (a linear ramp would move 0.3 / 8 every 1 / 16 of a period).
+    const step = period / 16;
+    const atStart = pendingPulseOpacity(step, tints, false) - pendingPulseOpacity(0, tints, false);
+    const atPeak = pendingPulseOpacity(period / 2, tints, false) - pendingPulseOpacity(period / 2 - step, tints, false);
+    const midway = pendingPulseOpacity(period / 4 + step / 2, tints, false) - pendingPulseOpacity(period / 4 - step / 2, tints, false);
+    expect(atStart).toBeLessThan(0.3 / 8 / 3);
+    expect(atPeak).toBeLessThan(0.3 / 8 / 3);
+    expect(midway).toBeGreaterThan(0.3 / 8);
+  });
+
+  it("holds a fixed opacity under reduced motion, and the minimum with no period", () => {
+    for (const t of [0, period / 4, period / 2]) expect(pendingPulseOpacity(t, tints, true)).toBe(0.75);
+    expect(pendingPulseOpacity(period / 2, { ...tints, pendingPulseMs: 0 }, false)).toBe(0.6);
+    expect(pendingPulses(tints, false)).toBe(true);
+    expect(pendingPulses(tints, true)).toBe(false);
+    expect(pendingPulses({ ...tints, pendingPulseMs: 0 }, false)).toBe(false);
+    expect(pendingPulses({ ...tints, pendingPulseMax: 0.6 }, false)).toBe(false);
+  });
+
+  it("draws every frame while a tile is pending, and stops when it goes (render on demand)", () => {
+    const placement = new PlacementRenderer();
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 0);
+    for (let t = 0; t <= 3 * period; t += 100) expect(placement.update(t).animating).toBe(true);
+    expect(placement.ghostTint(period / 2)[4]).toBeCloseTo(0.9, 9);
+    // Moved to another cell: the phase goes on, no restart.
+    placement.setGhost({ x: 2, y: 0, kind: "pending" }, 10 * period);
+    expect(placement.ghostTint(10 * period + period / 2)[4]).toBeCloseTo(0.9, 6);
+    // Gone: its plate fades out, then nothing moves.
+    placement.setGhost(null, 20 * period);
+    placement.update(20 * period + 1000);
+    expect(placement.update(20 * period + 1016).animating).toBe(false);
+    placement.dispose();
+  });
+
+  it("stops under reduced motion with one frame at the fixed opacity, and pulses again when it lifts", () => {
+    const placement = new PlacementRenderer();
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 0);
+    placement.update(1000);
+    placement.setReducedMotion(true);
+    expect(placement.isPulsing()).toBe(false);
+    expect(placement.update(1016).animating).toBe(true);
+    expect(placement.ghostTint(1016)[4]).toBeCloseTo(0.75, 9);
+    expect(placement.update(1032).animating).toBe(false);
+    placement.setReducedMotion(false);
+    expect(placement.update(1048).animating).toBe(true);
+    expect(placement.isPulsing()).toBe(true);
+    placement.dispose();
+  });
+
+  it("keeps pulsing while the confirm's overlay fades elsewhere, and a hover never pulses", () => {
+    const placement = new PlacementRenderer();
+    placement.setGhost({ x: 1, y: 0, kind: "hover" }, 0);
+    expect(placement.isPulsing()).toBe(false);
+    placement.setGhost({ x: 1, y: 0, kind: "pending" }, 0);
+    placement.startConfirm({ x: 3, y: 0 }, 0);
+    expect(placement.isPulsing()).toBe(true);
+    placement.dispose();
+  });
+});
+
 describe("the settings", () => {
   it("take each group's fields over the defaults, and ride in the renderer's settings", () => {
     const s = resolvePlacementSettings({ grid: { opacity: 0.5 }, plates: { gap: 6 }, tints: { hoverOpacity: 0.3 }, motion: { reducedMotion: true } });
@@ -499,9 +586,9 @@ describe("the settings", () => {
     expect(s.plates.gap).toBe(6);
     expect(s.plates.radius).toBe(DEFAULT_PLACEMENT_SETTINGS.plates.radius);
     expect(s.tints.hoverOpacity).toBe(0.3);
-    expect(s.tints.pendingOpacity).toBe(1);
+    expect(s.tints.pendingPulseMax).toBe(0.9);
     expect(s.motion.reducedMotion).toBe(true);
-    expect(resolveRendererSettings({ placement: { tints: { pendingOpacity: 0.7 } } }).placement.tints.pendingOpacity).toBe(0.7);
+    expect(resolveRendererSettings({ placement: { tints: { pendingPulseMs: 2000 } } }).placement.tints.pendingPulseMs).toBe(2000);
     expect(resolveRendererSettings().placement).toEqual(DEFAULT_PLACEMENT_SETTINGS);
   });
 
@@ -601,7 +688,10 @@ describe("the tile renderer's ghost", () => {
     expect(look.mix.value).toBeCloseTo(DEFAULT_PLACEMENT_SETTINGS.tints.hoverStrength, 6);
     tiles.setHover(ghostAt(1, 0, { placed: true }));
     tiles.update(performance.now() + 10_000);
-    expect(look.alpha.value).toBeCloseTo(1, 6);
+    // Pending: on its pulse, 60 to 90 %.
+    expect(look.alpha.value).toBeGreaterThanOrEqual(0.6 - 1e-6);
+    expect(look.alpha.value).toBeLessThanOrEqual(0.9 + 1e-6);
+    expect(look.mix.value).toBe(0);
     // #605: the pending tint keeps the tile's light; the confirm's goes to its colour.
     expect(look.keepsLight.value).toBe(1);
     expect((tiles as any).ghostLooks.confirm.keepsLight.value).toBe(0);
@@ -683,7 +773,7 @@ describe("the tile in hand's outlines (#657)", () => {
     return found;
   };
 
-  it("draws the placed tiles' outline pass on the hover preview at its 50 %, opaque once pending; the placed tiles' unchanged", () => {
+  it("draws the placed tiles' outline pass on the hover preview at its 50 %, at the pulse's opacity once pending; the placed tiles' unchanged", () => {
     const tiles = new TileRenderer(fakeAssets() as any);
     tiles.updateTiles([{ game_id: 1, id: 1, player_id: "0x1", plan: 9, orientation: 1, x: 0, y: 0, worldX: 0, worldZ: 0 }] as never);
     tiles.setOutlineStroke({ width: 1.5, opacity: 0.8 }, "#1f1f1f");
@@ -700,12 +790,20 @@ describe("the tile in hand's outlines (#657)", () => {
     expect(material.uniforms.opacity.value).toBeCloseTo(0.8 * 0.5, 6);
     expect(material.uniforms.diffuse.value.equals(placed.uniforms.diffuse.value)).toBe(true);
     expect(placed.uniforms.opacity.value).toBeCloseTo(0.8, 6);
-    // Placed (pending): opaque, its outlines as the placed tiles'.
+    // Placed (pending): its outlines at the pulse's opacity, frame by frame (#681).
     tiles.setHover(ghostAt(1, 0, { placed: true }));
-    tiles.update(performance.now() + 10_000);
     const pending = outlinesOf((tiles as any).previewContainer);
     expect(pending.length).toBeGreaterThan(0);
-    expect((pending[0]!.material as THREE.ShaderMaterial).uniforms.opacity.value).toBeCloseTo(0.8, 6);
+    const alpha = (tiles as any).ghostLooks.hand.alpha;
+    const seen = new Set<number>();
+    for (const dt of [10_000, 10_400, 10_800]) {
+      tiles.update(performance.now() + dt);
+      const opacity = (pending[0]!.material as THREE.ShaderMaterial).uniforms.opacity.value;
+      expect(opacity).toBeCloseTo(0.8 * alpha.value, 6);
+      seen.add(Math.round(opacity * 1000));
+    }
+    // It moves with the tile.
+    expect(seen.size).toBeGreaterThan(1);
     // A new zoom reaches both, the ghost's still at its opacity.
     tiles.setHover(ghostAt(1, 0));
     tiles.update(performance.now() + 20_000);
