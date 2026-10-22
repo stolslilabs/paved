@@ -18,7 +18,7 @@ answers there; each answer is one constant away (section 9 names it).
 
 - **A season clock** (`SeasonableComponent`): seasons of a fixed length from a start the owner sets once. Season 0 is
   the time before the first season: no league, no reward, no reset.
-- **A league table** (`paved::leagues`, pure): 23 named leagues as crown ranges, Clash of Clans' own (pre-2025) at one
+- **A league table** (`paved::matchmaker::leagues`, pure): 23 named leagues as crown ranges, Clash of Clans' own (pre-2025) at one
   crown per trophy, the scale the matchmaker's curves already use. Unranked, Bronze III to I, ..., Titan I, Legend.
 - **A league record per village** (`LeagueableComponent`), one felt: the season it was last seen in, the highest league
   reached in that season, and the attacks it settled in that season.
@@ -42,11 +42,11 @@ answers there; each answer is one constant away (section 9 names it).
 
 | Piece | File | Storage (flat, its own names) | Events | What it knows |
 |---|---|---|---|---|
-| `paved::leagues` (pure) | `contracts/src/leagues.cairo` | none | none | The league table, the bonus and reward of each league, the reset, the season of a time |
+| `paved::matchmaker::leagues` (pure) | `contracts/src/matchmaker/leagues.cairo` | none | none | The league table, the bonus and reward of each league, the reset, the season of a time |
 | `SeasonableComponent` | `contracts/src/components/seasonable.cairo` | `season_clock` | `SeasonClockSet` | The clock: start, length; the current season |
 | `LeagueableComponent` | `contracts/src/components/leagueable.cairo` | `league_records` | `LeagueReached`, `SeasonClosed` | Each village's season, peak league and attack count |
 | `Matchmaker` (the system) | `contracts/src/systems/matchmaker.cairo` | unchanged | unchanged | Composes them with the crowns and the buckets; credits `Setup` |
-| `Setup` | `contracts/src/systems/setup.cairo` | no new variable (free bits of `Progress`) | `CobblesClaimed` (kinds 4 and 5) | The Cobble ledger, the PvP mission sums |
+| `Setup` | `contracts/src/systems/setup.cairo` | `pvp_days`, `pvp_weeks` (appended) | `CobblesClaimed` (kinds 4 and 5) | The Cobble ledger, the PvP mission sums |
 
 - **No piece calls another** (as in section 11 of the matchmaker's note). The leagues component returns what a roll or a
   reach owes; the system sets the crowns (`crownable.set`), moves the bucket (`bucketable.follow`) and credits `Setup`.
@@ -86,7 +86,7 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
 - The amounts are proposals (section 9). Each is at most 255, so a credit fits `Setup`'s existing `CobblesClaimed.cobbles`
   (`u8`) and the indexer reads one more kind of an event it already knows.
 - **Scale.** A season's top reward (250) is between two and five skins (50 to 100 each); a full climb from Unranked to
-  Legend in one season pays 5 x 3 + 10 x 3 + ... + 50 = 605 in bonuses. The daily Challenge quests pay up to 60 a day.
+  Legend in one season pays 3 x (5 + 10 + 15 + 20 + 25 + 30 + 40) + 50 = 485 in bonuses. The daily Challenge quests pay up to 60 a day.
 - **Crowns are conserved** between players (matchmaker's note, 6.2): they enter only through the NPC villages of the cold
   start (0 to 290 crowns). Clash of Clans' ladder is held up by its trophy inflation below 1,000, which Paved does not
   copy. So the upper leagues will be rare at first; that is open point 1.
@@ -124,14 +124,16 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
 | `league_record(village)` | view | `LeagueableComponent`'s raw record |
 | `set_season_clock(start, length)` | owner | Once, before the clock starts |
 
-- `search`, `next`, `start_attack`, `settle` and `set_crowns` roll the villages they touch first. Their signatures are
+- `search` and `next` roll the attacker and the drawn opponent (so the terms see crowns after any reset); `settle`
+  rolls both again (an attack can start in one season and settle in the next); `set_crowns` rolls its village.
+  `start_attack` moves no crowns and rolls nothing. Their signatures are
   unchanged, so **PVP-ATTACKS (#643) calls the same interface**: `start_attack(attacker)` and `settle(attacker, stars)`.
   The leagues, the reset and the missions happen inside `settle`; #643 adds nothing for them.
 - `set_crowns` stays for the operator (it was the reset's planned path; the reset is now internal).
 
 ## 7. Cobbles through `Setup` (its model)
 
-- **One new entry point**, `ISetupLeague::credit_league(player_id, kind, league, season, cobbles)`, for an allowlisted
+- **A new interface, `ISetupLeague`.** `credit_league(player_id, kind, league, season, cobbles)`, for an allowlisted
   reporter only (`'Quest: not reporter'`), as `credit_story`: kind 4 `CLAIM_LEAGUE` (a bonus) or 5 `CLAIM_SEASON` (a
   season reward), `cobbles` 1 to 255. It adds to `Account.cobbles` and emits `CobblesClaimed { kind, id: league,
   period: season }`. It trusts the reporter for whom and how much, as `credit_story` does; `Matchmaker` becomes a
@@ -147,10 +149,16 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
   | `TASK_PVP_WIN` | 21 | 1 if at least one star |
   | `TASK_PVP_THREE_STARS` | 22 | 1 if three stars |
 
-  `settle` reports them through `Setup.report(attacker, quests, [])` (no achievement, so no XP: the XP of an attack is
-  #643's `credit_xp`). `Setup`'s day and week `Progress` keeps their sums in free bits of its slot (four `u16`: the
-  three-star count at [96, 112), the attacks, stars and wins at [192, 240)), so an old slot reads them as 0 (`upgrades.md`, "Packed slots keep their bits"). `set_quest_cobbles` accepts
-  quests on tasks 19 to 22, and `claim_quest` pays them as any other.
+  `settle` reports them through `ISetupLeague::report_pvp(attacker, stars)` (a reporter only): quiver's
+  `QuestProgressed` for the entries that count, and the sums in a PvP day and a PvP week of their own, `PvpProgress`
+  (`pvp_days`, `pvp_weeks`, appended to `Setup`'s storage: `attacks`, `stars`, `wins`, `three_stars`, four `u16`, and
+  the PvP missions claimed). No achievement, so no XP: the XP of an attack is #643's `credit_xp`. `set_quest_cobbles`
+  accepts quests on tasks 19 to 22, and `claim_quest` pays them from the PvP ledger; `pvp_progress(player_id, kind,
+  period)` is the view.
+- **Why a ledger apart.** The first build put the four sums in free bits of `Progress`, the Challenge's day and week
+  slot. Every Challenge game over then paid for the wider slot: the closing moves g, i, k, x and y went over their
+  ceilings (g 4,073,448 against 4,011,404). Apart, a game over writes exactly what it wrote before, and only a PvP
+  settlement pays for the PvP sums.
 - **The free-game credit** (`claim_daily_credit`, `claim_weekly_credit`) needs every live quest of its list: PvP missions
   are left out of that rule, so a Challenge player's credit never depends on PvP.
 - **Proposed missions** (owner calls, no code: `define_quest`, then `set_quest_cobbles`): daily "Raider" (3 attacks, 10),
@@ -187,10 +195,125 @@ The client's ranking UI was removed by #623; the leagues come back as the league
 - **Crowns** move by the reset only downwards, to `RESET_CROWNS`, and only once per village and season (the record's
   season moves first). The reset keeps the bucket in step (`bucketable.follow`), so the pool's invariants hold (fuzzed).
 - **Cobbles** are credited only by `Matchmaker` (a reporter) for the village whose record moved, never for a caller;
-  `close_season` is permissionless and pays the village itself. The sums are bounded: at most 605 in bonuses and 250 in a
+  `close_season` is permissionless and pays the village itself. The sums are bounded: at most 485 in bonuses and 250 in a
   reward per village and season; the missions are bounded by `Setup`'s quests (5 to 15 per quest and period).
 - **Farming by second accounts**: an account earns only by climbing (bonuses) or by attacking (reward, missions), and
   crowns are conserved between players, so feeding crowns to a main account costs the feeder as much as the main gains.
   The NPC cold start mints crowns (matchmaker's note, 8.4) and is bounded by the owner removing the NPCs.
 - **Order**: every roll happens before the crowns move; the credits to `Setup` come last (checks, effects, then the
   interactions), and `Setup` holds no callback into `Matchmaker`.
+
+## 11. As built (LEAGUES)
+
+The code follows the proposals of section 9 until the owner answers on #644.
+
+### 11.1 What changed
+
+| File | What |
+|---|---|
+| `contracts/src/matchmaker/leagues.cairo` | The pure table: `league_of` (a binary search over 22 floors), `floor_of`, `bonus_of`, `reward_of`, `reset`, `season_of`, `season_start` |
+| `contracts/src/components/seasonable.cairo` | `SeasonableComponent`: `season_clock`, `SeasonClockSet`, `season_clock()`, `current_season()` |
+| `contracts/src/components/leagueable.cairo` | `LeagueableComponent`: `league_records`, `LeagueReached`, `SeasonClosed`, `league_record()`; the pure `roll_of` the lazy view shares |
+| `contracts/src/systems/matchmaker.cairo` | Embeds both; rolls at the draw, the settlement and a crown set; `close_season`, `league`, `set_season_clock`; credits and `report_pvp` last |
+| `contracts/src/systems/setup.cairo` | `ISetupLeague` (`credit_league`, `report_pvp`, `pvp_progress`), `PvpProgress`, `pvp_days` and `pvp_weeks` appended, `claim_quest` on PvP tasks, the credits without PvP |
+| `contracts/src/constants.cairo` | `TASK_PVP_ATTACK` to `TASK_PVP_THREE_STARS` (19 to 22) |
+| `packages/indexer` | `CobblesClaimed` kinds 4 and 5 decoded and kept in the running ledger, once per (player, kind, league, season) |
+
+**Storage and upgrades.** `Matchmaker` is still in no deployment file (matchmaker's note, 11.3), so its two new
+components only add names. `Setup` is deployed: `pvp_days` and `pvp_weeks` are appended (P-42) and no slot of it changes
+meaning; `Progress` is unchanged to the bit. The pins: `test_league_storage_is_pinned_by_name` (`season_clock`,
+`league_records`), and `test_cobbles_report_pvp_by_a_reporter_only_and_saturates` (`pvp_days` written raw and read by
+the view, `pvp_weeks` read raw).
+
+**Deployment** (with `Matchmaker`'s, the follow-up #639 named): `Setup.set_reporter(Matchmaker, true)` besides
+`set_spender`, or every settlement reverts (`test_settle_when_matchmaker_is_not_a_reporter_fails`); then
+`set_season_clock(start, length)`; then the missions' `define_quest` and `set_quest_cobbles`.
+
+### 11.2 Size (P-44)
+
+`scripts/class-sizes.sh` (release, scarb 2.20.1 through the machine's shim, VPS, 2026-10-22, under
+`prlimit --as=12884901888`, peak RSS 4,779,016 kB). The base is an export of main at `62056003`, measured the same way.
+
+| Class | CASM main | CASM LEAGUES | Change | Share of the Starknet cap | Under the P-44 cap (73,728) |
+|---|---:|---:|---:|---:|---:|
+| `Matchmaker` | 24,614 | 31,663 | +7,049 | 38.7 % | 42,065 |
+| `Setup` | 43,431 | 47,384 | +3,953 | 57.8 % | 26,344 |
+
+Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201).
+
+### 11.3 Gas
+
+L2 gas of the call alone (`contracts/tests/gas.cairo`, test profile, snforge 0.64.0, VPS, 2026-10-22); ceilings set at
+measured + 5 %.
+
+| Test | Call | Before | Now | Change |
+|---|---|---:|---:|---:|
+| z17 | `search`, free (no clock: the rolls read the clock and the records only) | 2,602,829 | 2,783,168 | +6.9 % |
+| z18 | `next` | 3,169,327 | 3,350,266 | +5.7 % |
+| z19 | `start_attack`, worst case | 4,421,401 | 4,425,001 | +0.1 % |
+| z20 | `settle`, worst case of #639 (both change bucket), in season 0 | 3,133,404 | 4,650,879 | +48.4 % |
+| z32 | `settle` across a season's end: both rolled, reset from 6,000 to 5,000 and paid, buckets moved | new | 7,374,877 | |
+| z33 | `close_season` with a reward and a reset | new | 3,242,700 | |
+
+- **Where z20's +1.52M goes**: almost all of it is `report_pvp` (a call to `Setup`, quiver's events, two PvP slots
+  written); the leagues' own part in season 0 is the clock and two record reads.
+- **Levers for #643** if its attack budget needs them: report the missions only on a win, or drop quiver's
+  `QuestProgressed` for the PvP tasks (the ledger alone pays the missions). Not taken: the indexer's quest progress
+  reads those events.
+- The Challenge paths and `Setup`'s claims are unchanged (g 3,977,820, k 4,509,430, z1 931,431, under their ceilings).
+
+### 11.4 Tests
+
+Run in a scratch copy of the crate that keeps every source and only the test modules named (the full test build passes
+the machine's 8 GB Cairo scope, as for #639): `paved::tests::leagues`, `paved::tests::matchmaker`,
+`paved::tests::matchmaker_system`, `paved::tests::setup`, `paved::tests::e2e::cobbles_ledger`, and every `test_gas_`
+test. 433 pass (peak RSS 5,677,996 kB under `prlimit --as=16106127360`). CI runs the whole suite.
+
+- **The table** pinned row by row (floors, bonuses, rewards), the floor and the crown below it of every league;
+  fuzzed: `league_of` is the highest floor at or below, `reset` never raises and is idempotent.
+- **The components alone**: the clock set once before its start and refused after, in the past or under a day; the
+  roll from season 0 (nothing closed), with and without `MIN_SEASON_ATTACKS`, the climb league by league, down and up
+  again, unpaid, in season 0, the attacks saturating; fuzzed: a roll pays at most once per season, its reward never
+  above its league's.
+- **The system**: a settlement reaching Bronze III pays 5 and not twice; the defender climbing by a failed attack; a crown
+  set reaching leagues unpaid; a season's end paying 250 and resetting 6,000 to 5,000 (bucket 60 to 50) by anyone's
+  `close_season`, once, and nothing for idle seasons after; below the threshold the crowns stay; a draw rolling both;
+  an attack started in one season and settled in the next; an NPC with no league; the missions reported and claimed;
+  the reporter missing reverting the settlement.
+- **The pool's fuzzed sequences** now run on a clock of one-day seasons: the leagues' invariants (a record never past the
+  season; once rolled, its peak at least its crowns' league; the lazy view in the current season) are checked with the
+  buckets, and the long sequence must cross two seasons and pay Cobbles (it reached season 3 and paid 40).
+- **`Setup`**: the PvP packing bit for bit, the sums and their claims once, a `u16` total refused above 65,535, the
+  free-game credit not needing PvP, `report_pvp` and `credit_league` by a reporter only.
+
+### 11.5 Audit, correctness and security (Cobbles and crowns move)
+
+- **Crowns.** The reset is the only new move: downwards, to `RESET_CROWNS`, once per village and season, before any
+  crowns move in that season, with the bucket following (fuzzed with the pool's invariants). Between players crowns stay
+  conserved: an attack across a season's end settles from both reset counts (`test_settle_after_the_season_ends_rolls_first`).
+- **Cobbles.**
+  - `Setup` credits league Cobbles only from a reporter, 1 to 255 a call, kind 4 or 5. `Matchmaker` calls it for the
+    village whose record moved, never for the caller of `close_season`.
+  - Each credit is tied to a record write in the same transaction: a bonus to `peak` rising past its league, a reward
+    to `season` moving past the closed season. So a replay of `close_season`, or a settlement in the same season, finds
+    nothing more to pay (tested, and fuzzed in `roll_of`).
+  - The sums are bounded per village and season: 485 in bonuses (the full climb), 250 in a reward.
+- **Farming.** No Cobble for being idle: a reward needs `MIN_SEASON_ATTACKS` attacks settled in the season, and a bonus a
+  league above the one the season started in. Crowns between players are conserved, so a second account feeding a main
+  one loses what the main gains; the NPCs' minted crowns are the cold start's, bounded by the owner removing them.
+- **Trust.** `Matchmaker` becomes a `Setup` reporter, the same allowlist as `Challenge` and `Story`, which can also call
+  `credit_story` and `credit_xp`: a compromised `Matchmaker` could mint Cobbles, as a compromised `Story` could. It is the
+  owner's upgradable class, like them.
+- **Order.** Rolls and record writes come before the calls to `Setup` (credits, then `report_pvp`); `Setup` calls nothing
+  back.
+- **Season 0.** With no clock, nothing changes from #639 but the missions' report.
+
+### 11.6 Follow-ups this PR names
+
+- **The client side**, with `Matchmaker`'s deployment (#639's follow-up, its note 11.7): `scripts/deploy.sh` (the
+  reporter, the clock, the missions), the `@paved/chain` views `league`, `season_clock`, `current_season`,
+  `pvp_progress` and the write `close_season`, and the indexer's `pvp_leagues` table from the leagues' events, which
+  serves the leagues' leaderboard (section 8).
+- **#643** calls `start_attack` and `settle(attacker, stars)` as before; the leagues and the missions are inside
+  `settle`.
+

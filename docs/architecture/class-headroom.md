@@ -765,3 +765,23 @@ the catalogue a component it embeds. `Setup` is unchanged (43,431, 53.0 %): `Ava
 `ISetupSpend::spend_cobbles`, so no entry point is added to `Setup`. `Challenge` and `Story` are unchanged by this
 change. The hand-over's single-class version (a layout of widths, its own `spend_cobbles` on `Setup`) measured 11,318
 for `Avatar` and put `Setup` at 50.2 %.
+
+## After LEAGUES (#644, leagues and seasons)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, release, VPS, 2026-10-22, under
+`prlimit --as=12884901888`, peak RSS 4,779,016 kB). The base is an export of main at `62056003` (`git archive`),
+measured the same way.
+
+| Class | Sierra base | CASM base | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Matchmaker` | 10,076 | 24,614 | 13,117 | 31,663 | +7,049 | 38.7 % |
+| `Setup` | 19,604 | 43,431 | 21,119 | 47,384 | +3,953 | 57.8 % |
+
+- `Matchmaker` embeds the two new components (`SeasonableComponent`, `LeagueableComponent`), the league table, the
+  rolls, the credits and the views `league`, `season_clock`, `current_season`, `league_record`: 42,065 CASM felts under
+  the P-44 cap (73,728).
+- `Setup` gains `ISetupLeague` (`credit_league`, `report_pvp`, `pvp_progress`) and the PvP ledger's claim: 26,344 under
+  the P-44 cap.
+- Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201):
+  the Challenge's game over writes the same `Progress` as before (`docs/architecture/leagues.md`, section 7).
+

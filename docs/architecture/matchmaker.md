@@ -259,7 +259,8 @@ figure), 39 at most (S1). The cost column is choice B (6.1); A, S3's fit, differ
 - **Loss** (0 stars): the attacker loses the cost fixed at the draw, at most its crowns, given to the defender.
 - **Crowns are never negative and never overflow**: every amount is also at most what the receiver can still hold under
   `u32`'s bound. A new village starts at 0.
-- **The season reset** (crowns above a threshold brought down) is #644's: `set_crowns` is there for it.
+- **The season reset** (crowns above a threshold brought down) is #644's: built inside `Matchmaker` by the leagues'
+  components, the village rolled into the new season before its crowns move (`docs/architecture/leagues.md`).
 
 | Constant | Value | Role |
 |---|---|---|
