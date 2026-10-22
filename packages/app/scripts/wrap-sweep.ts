@@ -178,7 +178,8 @@ function inspect(): { kind: string; element: string }[] {
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       if (!n.textContent?.trim()) continue;
       const parent = n.parentElement;
-      if (!parent || parent.closest("svg")) continue;
+      // Screen-reader text (`sr-only`) is never drawn: its run may pass its 1 px box, and the board's edge, unseen.
+      if (!parent || parent.closest("svg") || parent.closest(".sr-only")) continue;
       const pcs = getComputedStyle(parent);
       if (pcs.visibility === "hidden" || pcs.display === "none") continue;
       let scrolled = false;
