@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CENTER } from "@paved/game-core";
 import { LEAGUES, STAR_MARKS, STAR_PERCENTS, crownsFor, leagueOf, nextLeague, starPoints, starsFor } from "../src/lib/pvp-rules";
 import { StarMeter } from "../src/components/elements/star-meter";
+import type { StackFrame } from "../src/components/containers/tile-stack";
 import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
 import { PvpDefenceScene } from "../src/components/scenes/pvp-defence-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
@@ -158,6 +159,29 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByRole("meter", { name: /of the target/ })).toHaveAttribute("aria-valuenow", String(Math.round((PVP_ATTACK.midway.score / RIVAL_VILLAGE.score) * 100)));
     expect(screen.getByRole("heading", { name: "Attack: Rook of Ashford" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Tiles left/ })).toHaveTextContent(String(PVP_ATTACK.midway.remaining));
+  });
+
+  it("attack: the stack as the game's board draws it (#701): the next two tiles of the draw, the 3D view, the pile from the defender's tiles", () => {
+    const frames: StackFrame[] = [];
+    const renderHandStack = (v: StackFrame) => {
+      frames.push(v);
+      return <span data-testid="stack-3d" />;
+    };
+    const { rerender } = render(wrap(<PvpAttackScene {...PVP_ATTACK.midway} />));
+    // The fakes' draw: the hands of the next two steps.
+    const next = ATTACK_STEPS.slice(19, 21).map((s) => s.hand!.plan);
+    expect(PVP_ATTACK.midway.hand.coming?.map((t) => t.plan)).toEqual(next);
+    expect(screen.getByTestId("coming-tiles").querySelectorAll("li")).toHaveLength(2);
+    rerender(wrap(<PvpAttackScene {...PVP_ATTACK.midway} renderHandStack={renderHandStack} />));
+    expect(screen.getByTestId("stack-3d")).toBeInTheDocument();
+    const tiles = frames.at(-1)!.tiles;
+    expect(tiles.filter((t) => t.thickness === undefined).map((t) => t.plan)).toEqual([...next, PVP_ATTACK.midway.hand.tile!.plan]);
+    const deck = new Set(RIVAL_VILLAGE.tiles.map((t) => t.plan));
+    expect(tiles.filter((t) => t.thickness !== undefined).every((t) => deck.has(t.plan))).toBe(true);
+    // The last tile: nothing after it.
+    cleanup();
+    render(wrap(<PvpAttackScene {...PVP_ATTACK.lastTile} />));
+    expect(screen.queryByTestId("coming-tiles")).toBeNull();
   });
 
   it("attack: the meter lights a star past 70 %", () => {

@@ -68,6 +68,9 @@ pub const CLAIM_STORY: u8 = 3;
 pub const CLAIM_LEAGUE: u8 = 4;
 /// A season's reward by the league held at its end (#644): `id` the league, `period` the season.
 pub const CLAIM_SEASON: u8 = 5;
+/// A village reward taken as Cobbles (#642, `docs/architecture/village-rewards.md`): `id` 0,
+/// `period` the reward's index. Paid by `Rewards`, an allowlisted reporter.
+pub const CLAIM_REWARD: u8 = 6;
 /// The cobbles of the first, second and third star of a Story level (#548): 30 per level at most.
 pub const STAR_COBBLES: u8 = 5;
 /// The ids that can carry cobbles: 1 to 63, one bit each in the claim bitmaps (`u64`).
@@ -862,6 +865,27 @@ pub trait ISetupSkins<TContractState> {
     fn skins(self: @TContractState, player_id: felt252, theme: u8) -> u32;
     /// The theme active for each plan of a player: 19 ids, plan 1 first; 0 the default theme.
     fn active_skins(self: @TContractState, player_id: felt252) -> Array<u8>;
+    /// Reserves the skin of `plan` in `theme` to the players whose tier of that plan
+    /// (`Rewards.tier`, #642) is at least `min_tier`, owner only; 0 reserves nothing. Emits
+    /// `SkinTierSet`.
+    fn set_skin_tier(ref self: TContractState, theme: u8, plan: u8, min_tier: u8);
+    /// The tier a skin needs; 0: none.
+    fn skin_tier(self: @TContractState, theme: u8, plan: u8) -> u8;
+}
+
+/// The village rewards (#642, `docs/architecture/village-rewards.md`): the `Rewards` a game's end
+/// grants a reward on (`report`, `credit_story` and `report_pvp`, by the rule A constants of
+/// `paved::systems::rewards`), and the Cobbles a reward taken as Cobbles credits.
+#[starknet::interface]
+pub trait ISetupRewards<TContractState> {
+    /// Sets the `Rewards` granted on, owner only; zero grants nothing. `Rewards` must allow `Setup`
+    /// as a granter first, or a game's end reverts. Emits `RewardsSet`.
+    fn set_rewards(ref self: TContractState, rewards: ContractAddress);
+    fn rewards(self: @TContractState) -> ContractAddress;
+    /// Credits `player_id` `cobbles` (not 0) for its reward `index` taken as Cobbles: an
+    /// allowlisted reporter only (`Rewards`), which it trusts for whom, which and how much. Emits
+    /// `CobblesClaimed` (kind `CLAIM_REWARD`); returns the balance after it.
+    fn credit_reward(ref self: TContractState, player_id: felt252, index: u32, cobbles: u8) -> u64;
 }
 
 /// The Cobbles another system spends for a player (#639: the matchmaker's "Next"): an allowlist of
@@ -890,6 +914,10 @@ pub mod Setup {
     use paved::components::payable::{IERC20Dispatcher, IERC20DispatcherTrait};
     use paved::constants;
     use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait};
+    use paved::systems::rewards::{
+        GRANTS_CHALLENGE, GRANTS_PVP, GRANTS_STORY, IRewardsDispatcher, IRewardsDispatcherTrait,
+        SOURCE_CHALLENGE, SOURCE_PVP, SOURCE_STORY,
+    };
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
     use quiver_quest::types::mode::Mode as QuestMode;
@@ -906,14 +934,14 @@ pub mod Setup {
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
         AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_LEAGUE,
-        CLAIM_QUEST, CLAIM_SEASON, CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupLeague,
-        ISetupLevel, ISetupPacks, ISetupSkins, ISetupSpend, ISetupStory, MAX_ACHIEVEMENT_TOTAL,
-        MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS, Pack, PlayerLevel,
-        Progress, ProgressTrait, PvpProgress, PvpProgressTrait, QUEST_COBBLES_MAX,
-        QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress, QuestSchedule, QuestTask,
-        SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES, STAR_XP, WEEKLY, Wiring, XP_ATTACK,
-        XP_CHALLENGE, XP_DEFENCE, XP_STORY, active_themes, bit, is_pvp_task, level_floor, level_of,
-        list_ids, list_word, report_xp, schedule_kind, week_of,
+        CLAIM_QUEST, CLAIM_REWARD, CLAIM_SEASON, CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles,
+        ISetupLeague, ISetupLevel, ISetupPacks, ISetupRewards, ISetupSkins, ISetupSpend,
+        ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID,
+        MAX_QUEST_TOTAL, PLANS, Pack, PlayerLevel, Progress, ProgressTrait, PvpProgress,
+        PvpProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait,
+        QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES,
+        STAR_XP, WEEKLY, Wiring, XP_ATTACK, XP_CHALLENGE, XP_DEFENCE, XP_STORY, active_themes, bit,
+        is_pvp_task, level_floor, level_of, list_ids, list_word, report_xp, schedule_kind, week_of,
     };
 
     // Errors
@@ -956,6 +984,7 @@ pub mod Setup {
         pub const INVALID_XP: felt252 = 'Setup: invalid xp';
         pub const NOT_SPENDER: felt252 = 'Setup: not spender';
         pub const INVALID_KIND: felt252 = 'Setup: invalid kind';
+        pub const TIER_TOO_LOW: felt252 = 'Setup: tier too low';
     }
 
     // Components
@@ -1070,6 +1099,10 @@ pub mod Setup {
         pvp_days: Map<(felt252, u64), PvpProgress>,
         /// The same per week number (`super::week_of`).
         pvp_weeks: Map<(felt252, u64), PvpProgress>,
+        /// #642 (appended, P-42). The `Rewards` a game's end grants on; zero: none (`set_rewards`).
+        rewards: ContractAddress,
+        /// The tier a skin needs, key `(theme, plan)`; 0: none; written by `set_skin_tier`.
+        skin_tiers: Map<(u8, u8), u8>,
     }
 
     // Events
@@ -1100,6 +1133,24 @@ pub mod Setup {
         XpGained: XpGained,
         SpenderSet: SpenderSet,
         CobblesSpent: CobblesSpent,
+        RewardsSet: RewardsSet,
+        SkinTierSet: SkinTierSet,
+    }
+
+    /// The `Rewards` a game's end grants on (#642); zero: none.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct RewardsSet {
+        pub rewards: ContractAddress,
+    }
+
+    /// The tier a skin needs, set by the owner (#642; 0: none).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SkinTierSet {
+        #[key]
+        pub theme: u8,
+        #[key]
+        pub plan: u8,
+        pub min_tier: u8,
     }
 
     /// The names and fields `Account` emitted before step E.
@@ -1136,7 +1187,8 @@ pub mod Setup {
     /// A player's claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an
     /// achievement (`period` 0), 3 a star of a Story level (`id` `(campaign_id << 8) | level_id`,
     /// `period` the star, 1 to 3), 4 a league's bonus and 5 a season's reward (#644: `id` the
-    /// league, `period` the season); `balance`, the player's cobbles after it.
+    /// league, `period` the season), 6 a village reward taken as Cobbles (#642: `id` 0, `period`
+    /// the reward's index); `balance`, the player's cobbles after it.
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct CobblesClaimed {
         #[key]
@@ -1372,6 +1424,10 @@ pub mod Setup {
                     self.emit_xp(player_id, XP_CHALLENGE, xp, account.xp);
                 }
                 self.accounts.write(player_id, account);
+            }
+            // [Interaction] The village reward of the game over (#642)
+            if GRANTS_CHALLENGE {
+                self.grant_reward(player_id, SOURCE_CHALLENGE);
             }
         }
 
@@ -1675,6 +1731,10 @@ pub mod Setup {
             let xp = account.add_xp((stars - paid).into() * STAR_XP);
             self.emit_xp(player_id, XP_STORY, xp, account.xp);
             self.accounts.write(player_id, account);
+            // [Interaction] The village reward of a run that gained a star (#642)
+            if GRANTS_STORY {
+                self.grant_reward(player_id, SOURCE_STORY);
+            }
             total
         }
     }
@@ -1741,6 +1801,10 @@ pub mod Setup {
                 let mut week = self.pvp_weeks.read(key);
                 week.add(stars);
                 self.pvp_weeks.write(key, week);
+            }
+            // [Interaction] The village reward of the attack (#642)
+            if GRANTS_PVP {
+                self.grant_reward(player_id, SOURCE_PVP);
             }
         }
 
@@ -1864,6 +1928,17 @@ pub mod Setup {
             let owned = self.skins.read((player_id, theme));
             let flag = skin_bit(plan);
             assert(owned & flag == 0, errors::SKIN_OWNED);
+            // [Check] The tier of the plan, for a skin reserved to one (#642)
+            let min_tier = self.skin_tiers.read((theme, plan));
+            if min_tier != 0 {
+                let rewards = self.rewards.read();
+                let tier = if rewards.is_zero() {
+                    0
+                } else {
+                    IRewardsDispatcher { contract_address: rewards }.tier(player_id, plan)
+                };
+                assert(tier >= min_tier, errors::TIER_TOO_LOW);
+            }
             let mut account = self.accounts.read(player_id);
             assert(account.cobbles >= price.into(), errors::NOT_ENOUGH_COBBLES);
 
@@ -1932,6 +2007,56 @@ pub mod Setup {
 
         fn active_skins(self: @ContractState, player_id: felt252) -> Array<u8> {
             active_themes(self.active_skins.read(player_id))
+        }
+
+        fn set_skin_tier(ref self: ContractState, theme: u8, plan: u8, min_tier: u8) {
+            // [Check] The owner, a theme, a plan
+            self.ownable.assert_only_owner();
+            assert(theme != 0 && plan != 0 && plan <= PLANS, errors::INVALID_SKIN);
+            // [Effect] The tier
+            self.skin_tiers.write((theme, plan), min_tier);
+            self.emit(SkinTierSet { theme, plan, min_tier });
+        }
+
+        fn skin_tier(self: @ContractState, theme: u8, plan: u8) -> u8 {
+            self.skin_tiers.read((theme, plan))
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SetupRewardsImpl of ISetupRewards<ContractState> {
+        fn set_rewards(ref self: ContractState, rewards: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.rewards.write(rewards);
+            self.emit(RewardsSet { rewards });
+        }
+
+        fn rewards(self: @ContractState) -> ContractAddress {
+            self.rewards.read()
+        }
+
+        fn credit_reward(
+            ref self: ContractState, player_id: felt252, index: u32, cobbles: u8,
+        ) -> u64 {
+            // [Check] Caller is a reporter (`Rewards`), cobbles to credit
+            self.quest.assert_reporter(get_caller_address());
+            assert(cobbles != 0, errors::INVALID_COBBLES);
+            // [Effect] The cobbles
+            let mut account = self.accounts.read(player_id);
+            account.cobbles += cobbles.into();
+            self.accounts.write(player_id, account);
+            self
+                .emit(
+                    CobblesClaimed {
+                        player_id,
+                        kind: CLAIM_REWARD,
+                        id: 0,
+                        period: index.into(),
+                        cobbles,
+                        balance: account.cobbles,
+                    },
+                );
+            account.cobbles
         }
     }
 
@@ -2010,6 +2135,15 @@ pub mod Setup {
         }
 
         /// The `XpGained` of a credit: `xp` added, `total` the player's XP after it.
+        /// Grants `player_id` a village reward on the `Rewards` set, if one is (#642); at its daily
+        /// cap `Rewards` does nothing.
+        fn grant_reward(ref self: ContractState, player_id: felt252, source: u8) {
+            let rewards = self.rewards.read();
+            if rewards.is_non_zero() {
+                IRewardsDispatcher { contract_address: rewards }.grant(player_id, source);
+            }
+        }
+
         fn emit_xp(ref self: ContractState, player_id: felt252, source: u8, xp: u32, total: u32) {
             self.emit(XpGained { player_id, source, xp, total, level: level_of(total) });
         }

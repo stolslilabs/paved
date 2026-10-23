@@ -203,10 +203,13 @@ export const Expired: Story = { args: BOARD.expired };
 /** 24 h passed, as the Challenge board opens it (P5): the Surrender dialog opens by itself. */
 export const ExpiredPrompt: Story = { args: { ...BOARD.expired, promptSurrender: true } };
 
-/** A Challenge game with no account connected (P5): no hand, the board read only; the stack keeps the tiles left and the deck. */
+/**
+ * A Challenge game with no account connected (P5): the board read only. The stack is the same as the player's (#701): the game's
+ * tile in hand and the next two over the pile, nothing to play (no hint, no Discard); a tap opens the deck.
+ */
 export const ReadOnly: Story = {
   args: {
-    ...BOARD.placing,
+    ...BOARD.queue,
     readOnly: true,
     notices: (
       <Notice title="Connect to play" className="pointer-events-auto w-full max-w-2xl">
@@ -306,11 +309,15 @@ export const SeasonDialBubble: Story = {
 /** #682: a read-only board (spectating, a final board) keeps the dial at its bottom left, the stack alone at the right. */
 export const SeasonDialReadOnly: Story = { args: { ...ReadOnly.args, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
 
-/** A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces ringed. */
+/**
+ * A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces
+ * ringed; the stack shows the next two tiles of the level's order (#701).
+ */
 export const StoryCoachDeck: Story = {
   args: {
     ...BOARD.placing,
     ...inHand(HAND.orientation, null),
+    hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE },
     mode: "story",
     gameId: undefined,
     expiresAt: null,
@@ -345,6 +352,8 @@ export const StoryEndOnBoard: Story = {
     title: "Open Country 11: A full road",
     score: 9120,
     remaining: 0,
+    // Over: no tile left in hand, as the page gives it.
+    hand: { tile: null, state: "empty" },
     readOnly: true,
     // The campaign's last level: no Next.
     notices: <StoryEnd title="A full road" score={9120} stars={1} toNextStar={942} bestKnown previousBest={8400} onReplay={fn()} onLevels={fn()} />,

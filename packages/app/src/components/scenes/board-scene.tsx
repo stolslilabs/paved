@@ -139,7 +139,7 @@ export interface BoardSceneProps {
   onSurrender?: () => void;
   /** Called once the player confirms Restart in the settings: Story mode restarts the level, Training the game. */
   onRestart?: () => void;
-  /** No hand: the board of a game the viewer cannot play (no account, another player's game). */
+  /** The board of a game the viewer cannot play (no account, another player's game): the stack shows its tiles, nothing to play (#701). */
   readOnly?: boolean;
   /** Lines under the header: "Connect to play", the dev-only prediction notice, a Story level's intro, tip and end. */
   notices?: ReactNode;
@@ -194,6 +194,8 @@ export function BoardScene(props: BoardSceneProps) {
     toastError({ title: "Deck", message: "The deck could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
   const discardCost = Math.min(props.score, DISCARD_POINTS);
+  // The pile's tiles come from the deck the game deals: a Story level's own (#701), the base deck otherwise.
+  const pilePlans = props.deckOrder?.slots.length ? props.deckOrder.slots.map((s) => s.plan) : BASE_DECK_PLANS;
   const openDeck = () => {
     play("tap");
     setDeckOpen(true);
@@ -264,56 +266,51 @@ export function BoardScene(props: BoardSceneProps) {
         </div>
       )}
 
-      {!props.readOnly && (
-        <div className="pointer-events-none absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col items-end gap-2 tablet:right-4 tablet:bottom-4">
-          {!props.canvas && props.bubble && (
-            <Suspense fallback={null}>
-              <LazyTileBubble
-                rotations={props.bubble.rotations}
-                onRotate={props.bubble.onRotate}
-                onClose={props.bubble.onClose}
-                onDiscard={props.bubble.onDiscard}
-                discardCost={discardCost}
-                onConfirm={props.bubble.onConfirm}
-                canConfirm={props.bubble.canConfirm}
-                busy={props.bubble.busy}
-                coach={props.bubble.coach}
-                orientation={props.bubble.orientation}
-                className="self-center"
-              />
-            </Suspense>
-          )}
-          <TileStack
-            tile={hand.tile}
-            state={hand.state}
-            remaining={props.remaining}
-            coming={hand.coming}
-            drawing={hand.drawing}
-            cellChosen={hand.cellChosen ?? hand.slotChosen}
-            fitsNowhere={hand.fitsNowhere}
-            error={hand.error}
-            errorDetail={hand.errorDetail}
-            tileArt={props.tileArt}
-            renders={props.tileRenders}
-            skins={props.skins}
-            renderTile={props.renderHandTile}
-            renderStack={props.renderHandStack}
-            pilePlans={BASE_DECK_PLANS}
-            onDeck={openDeck}
-            onDiscard={() => props.onDiscard?.()}
-            discardCost={discardCost}
-            onSurrender={mode === "challenge" ? () => setSurrendering(true) : undefined}
-            surrenderPending={surrendering && !surrenderDialog}
-            coach={props.coach}
-            className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
-          />
-        </div>
-      )}
-      {props.readOnly && (
-        <div className="absolute right-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] tablet:right-4 tablet:bottom-4">
-          <TileStack readOnly tile={null} state="empty" remaining={props.remaining} tileArt={props.tileArt} onDeck={openDeck} coach={props.coach} />
-        </div>
-      )}
+      {/* One stack, read-only boards too (#701): the same tiles and deck, nothing to play there. */}
+      <div className="pointer-events-none absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col items-end gap-2 tablet:right-4 tablet:bottom-4">
+        {!props.readOnly && !props.canvas && props.bubble && (
+          <Suspense fallback={null}>
+            <LazyTileBubble
+              rotations={props.bubble.rotations}
+              onRotate={props.bubble.onRotate}
+              onClose={props.bubble.onClose}
+              onDiscard={props.bubble.onDiscard}
+              discardCost={discardCost}
+              onConfirm={props.bubble.onConfirm}
+              canConfirm={props.bubble.canConfirm}
+              busy={props.bubble.busy}
+              coach={props.bubble.coach}
+              orientation={props.bubble.orientation}
+              className="self-center"
+            />
+          </Suspense>
+        )}
+        <TileStack
+          tile={hand.tile}
+          state={hand.state}
+          remaining={props.remaining}
+          coming={hand.coming}
+          drawing={hand.drawing}
+          cellChosen={hand.cellChosen ?? hand.slotChosen}
+          fitsNowhere={hand.fitsNowhere}
+          error={hand.error}
+          errorDetail={hand.errorDetail}
+          tileArt={props.tileArt}
+          renders={props.tileRenders}
+          skins={props.skins}
+          renderTile={props.renderHandTile}
+          renderStack={props.renderHandStack}
+          pilePlans={pilePlans}
+          onDeck={openDeck}
+          onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
+          discardCost={discardCost}
+          onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
+          surrenderPending={surrendering && !surrenderDialog}
+          coach={props.coach}
+          readOnly={props.readOnly}
+          className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
+        />
+      </div>
 
       {deckSheet && (
         <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} order={props.deckOrder}
