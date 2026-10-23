@@ -36,8 +36,8 @@ describe("app", () => {
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });
 
-  it("keeps the section 6.1 route map: 19 pages, each path once", () => {
-    expect(PAGES).toHaveLength(20);
+  it("keeps the section 6.1 route map: 21 pages, each path once", () => {
+    expect(PAGES).toHaveLength(21);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
@@ -45,8 +45,9 @@ describe("app", () => {
   // Challenge board: P5, `challenge-route.test.tsx`; home and play: P6, `home-play.test.tsx`; Story mode: #546,
   // `story-route.test.tsx`; quests and achievements: P9, `quests-route.test.tsx`; the leaderboard and the player: P8,
   // `leaderboard-route.test.tsx`; the purchase and the Cobble packs: P7b and #621, `purchase-route.test.tsx`; the theme: P11b, `theme-route.test.tsx`; the Challenge's end: P7a, `over-route.test.tsx`; the vault and the referral: P10,
-  // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`).
-  const WIRED = ["welcome", "", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral"];
+  // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`; the avatar creator: #626,
+  // `avatar-route.test.tsx`).
+  const WIRED = ["welcome", "", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral", "avatar"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

@@ -1,4 +1,4 @@
-import { ViewError, WriteError, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
+import { ViewError, WriteError, type BuyAvatarItemRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -8,7 +8,7 @@ import type { MockLedger, MockedReads } from "./ledger";
 // mock ledger, every other one from the chain, unchanged. The app applies them when the data source is `mock`
 // (`data-source.ts`): `chain-client.ts`, `economy-client.ts`, `wallet/connector.ts`, `routes/sources.ts`.
 
-/** `GameViews`' reads (and the Cobbles', packs' and skins' views beside them on `RpcGameViews`) the mock answers. */
+/** `GameViews`' reads (and the Cobbles', packs', skins' and avatar's views beside them on `RpcGameViews`) the mock answers. */
 export const MOCKED_GAME_READS = [
   "spawnPaused",
   "guardian",
@@ -23,13 +23,19 @@ export const MOCKED_GAME_READS = [
   "ownedSkins",
   "activeSkins",
   "playerLevel",
+  "avatarParts",
+  "avatarPriceBounds",
+  "avatarItem",
+  "avatarItems",
+  "ownedAvatarItems",
+  "avatar",
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers; `pavedBalance` and `usdcBalance` are the chain's, adjusted by the mock's moves. */
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers. */
-export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "spawnFree"] as const;
+export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "spawnFree"] as const;
 
 /**
  * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
@@ -159,7 +165,7 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
 }
 
 /**
- * The account's writer with the ledger's claims and skin writes, and the free spawn refused (`FREE_SPAWN_MOCKED`). The board's
+ * The account's writer with the ledger's claims, skin and avatar writes, and the free spawn refused (`FREE_SPAWN_MOCKED`). The board's
  * moves, the faucet and every other write are the writer's: it stays the `PavedWriter` the purchases and the Vault check for.
  */
 export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger): T {
@@ -173,6 +179,9 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     // The writer's signature (`buySkin(request, views)`): the price is the ledger's, read inside its own send.
     buySkin: (request: Parameters<GameSigner["buySkin"]>[0]) => writes.buySkin(request),
     setSkins: writes.setSkins,
+    // The writer's signature (`buyAvatarItem(request, views)`): the item is the ledger's, read inside its own send.
+    buyAvatarItem: (request: BuyAvatarItemRequest) => writes.buyAvatarItem(request),
+    setAvatar: writes.setAvatar,
     spawnFree: () => Promise.reject(new WriteError(FREE_SPAWN_MOCKED)),
   });
 }

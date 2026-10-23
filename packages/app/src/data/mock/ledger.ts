@@ -1,4 +1,6 @@
 import {
+  AvatarPriceChangedError,
+  AvatarRefusedError,
   ClaimRefusedError,
   PackNotOnSaleError,
   PackPriceChangedError,
@@ -15,6 +17,9 @@ import {
   redeemFee,
   withdrawFee,
   type AchievementCobbles,
+  type AvatarItem,
+  type AvatarViews,
+  type BuyAvatarItemRequest,
   type BuySkinRequest,
   type CobbleAccount,
   type CobbleClaim,
@@ -40,6 +45,7 @@ import {
   type WriteResult,
 } from "@paved/chain";
 import type { KeyValueStore } from "@paved/game-core";
+import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
@@ -82,6 +88,7 @@ export interface MockedReads
     PackViews,
     SkinViews,
     LevelViews,
+    AvatarViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
     VaultViews,
     Pick<EconomyViews, "split" | "seller" | "usdcBalance"> {}
@@ -95,6 +102,8 @@ export type PackReceipt = WriteResult & { bought: PackBought };
  */
 export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "setSkins"> {
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
+  buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
+  setAvatar(look: bigint): Promise<WriteResult>;
   buyPack(request: PackPurchaseRequest): Promise<PackReceipt>;
   deposit(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult>;
   withdraw(amount: bigint, options: { confirmedAmount: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
@@ -115,6 +124,10 @@ interface StoredPlayer {
   /** What the mock moved of the player's PAVED and USDC, added to the chain's balance. */
   paved: string;
   usdc: string;
+  /** `avatar(player_id)`, a decimal string; absent: none set (a state stored before the avatar reads it so). */
+  avatar?: string;
+  /** `owned(player_id, part)` by part, decimal strings; absent: nothing bought. */
+  avatarOwned?: Record<string, string>;
 }
 
 interface StoredState {
@@ -300,6 +313,33 @@ export class MockLedger {
     return [...this.peek(playerId).active];
   }
 
+  /** `Avatar.parts()`: the fresh deployment's ten (`mocks/avatar.ts`). */
+  async avatarParts(): Promise<number> {
+    return AVATAR_PARTS_IN_USE;
+  }
+
+  async avatarPriceBounds(): Promise<[number, number]> {
+    return [...AVATAR_PRICE_BOUNDS];
+  }
+
+  async avatarItem(part: number, id: number): Promise<AvatarItem> {
+    return { ...(AVATAR_ITEMS[part]?.[id] ?? { part, id, state: 0, cobbles: 0, sold: 0, supply: 0, until: 0 }) };
+  }
+
+  async avatarItems(part: number): Promise<AvatarItem[]> {
+    return (AVATAR_ITEMS[part] ?? []).map((item) => ({ ...item }));
+  }
+
+  async ownedAvatarItems(playerId: string, part: number): Promise<bigint> {
+    this.sync();
+    return BigInt(this.peek(playerId).avatarOwned?.[part] ?? "0");
+  }
+
+  async avatar(playerId: string): Promise<bigint> {
+    this.sync();
+    return BigInt(this.peek(playerId).avatar ?? "0");
+  }
+
   async spawnPaused(): Promise<boolean> {
     return false;
   }
@@ -374,6 +414,8 @@ export class MockLedger {
       claim: (claims) => this.claim(account, claims),
       buySkin: (request) => this.buySkin(account, request),
       setSkins: (changes) => this.setSkins(account, changes),
+      buyAvatarItem: (request) => this.buyAvatarItem(account, request),
+      setAvatar: (look) => this.setAvatar(account, look),
       buyPack: async (request) => this.buyPack(account, request, await balances.usdc()),
       deposit: async (amount, options) => this.deposit(account, amount, options, await balances.paved()),
       withdraw: (amount, options) => this.withdraw(account, amount, options),
@@ -444,6 +486,46 @@ export class MockLedger {
       for (const c of changes) if (c.theme !== 0 && !(((p.owned[c.theme] ?? 0) >>> c.plan) & 1)) throw new SkinRefusedError("not-owned", hash);
       for (const c of changes) p.active[c.plan - 1] = c.theme;
       return [this.event("SkinsActivated", { playerId: account, active: activeWord(p.active) })];
+    });
+  }
+
+  /**
+   * `Avatar.buy_avatar_item(part, id, max_cobbles)`, after the writer's checks: the item on sale at the confirmed price (the
+   * block time is the device's), then owned, then the balance. Its Cobbles leave the balance as `Setup.spend_cobbles` takes them.
+   */
+  async buyAvatarItem(account: string, { part, id, confirmedPrice }: BuyAvatarItemRequest): Promise<WriteResult> {
+    const item = await this.avatarItem(part, id);
+    const listed = item.state === 1;
+    if (!listed || item.cobbles === 0) throw new AvatarRefusedError("not-for-sale");
+    if (item.cobbles !== confirmedPrice) throw new AvatarPriceChangedError(confirmedPrice, item.cobbles);
+    if (item.until !== 0 && Date.now() / 1000 >= item.until) throw new AvatarRefusedError("sale-ended");
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const owned = BigInt(p.avatarOwned?.[part] ?? "0");
+      if (owned & bit(id)) throw new AvatarRefusedError("owned", hash);
+      if (p.cobbles < item.cobbles) throw new AvatarRefusedError("not-enough-cobbles", hash);
+      p.cobbles -= item.cobbles;
+      p.avatarOwned = { ...p.avatarOwned, [part]: (owned | bit(id)).toString() };
+      return [this.event("AvatarItemBought", { playerId: account, part, id, cobbles: item.cobbles, sold: item.sold + 1, balance: p.cobbles })];
+    });
+  }
+
+  /** `Avatar.set_avatar(look)`: 0 clears it; any other must be of the format with every part listed and free, or owned. */
+  async setAvatar(account: string, look: bigint): Promise<WriteResult> {
+    if (look < 0n || look >= 2n ** 128n) throw new AvatarRefusedError("invalid-look");
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      if (look !== 0n) {
+        if ((look & 0xffn) !== 1n || look >> BigInt(8 * (AVATAR_PARTS_IN_USE + 1)) !== 0n) throw new AvatarRefusedError("invalid-look", hash);
+        for (let part = 0; part < AVATAR_PARTS_IN_USE; part++) {
+          const id = Number((look >> BigInt(8 * (part + 1))) & 0xffn);
+          const item = AVATAR_ITEMS[part]?.[id];
+          const free = item !== undefined && item.state === 1 && item.cobbles === 0;
+          if (!free && !(BigInt(p.avatarOwned?.[part] ?? "0") & bit(id))) throw new AvatarRefusedError("not-owned", hash);
+        }
+      }
+      p.avatar = look.toString();
+      return [this.event("AvatarSet", { playerId: account, look })];
     });
   }
 

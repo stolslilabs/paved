@@ -42,19 +42,19 @@ export function ProfileSlot({ className }: { className?: string }) {
   const value = useContext(ProfileContext);
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
-  const avatar = useRef<HTMLButtonElement>(null);
-  const returnFocus = useCallback(() => shownAvatar(avatar.current), []);
+  const opener = useRef<HTMLButtonElement>(null);
+  const returnFocus = useCallback(() => shownAvatar(opener.current), []);
   // The focus back on the avatar as the sheet closes (the trap lets go at once; the panel leaves after its slide).
   const change = useCallback((next: boolean) => {
     setOpen(next);
-    if (!next) requestAnimationFrame(() => shownAvatar(avatar.current)?.focus());
+    if (!next) requestAnimationFrame(() => shownAvatar(opener.current)?.focus());
   }, []);
   if (!value) return null;
-  const { state, progress } = value;
+  const { state, progress, look } = value;
   return (
     <>
       <button
-        ref={avatar}
+        ref={opener}
         type="button"
         data-slot="profile-avatar"
         aria-label={label(state, progress)}
@@ -67,7 +67,7 @@ export function ProfileSlot({ className }: { className?: string }) {
         }}
         className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
       >
-        <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"}>
+        <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"} look={look}>
           {state.status === "connected" && (
             <Suspense fallback={null}>
               <XpRing progress={progress} />
@@ -86,6 +86,13 @@ export function ProfileSlot({ className }: { className?: string }) {
               change(false);
               value.onDisconnect?.();
             }}
+            onEditAvatar={
+              value.onEditAvatar &&
+              (() => {
+                setOpen(false);
+                value.onEditAvatar?.();
+              })
+            }
           />
         </Suspense>
       )}
