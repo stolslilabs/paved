@@ -36,57 +36,53 @@ export function rewardMarks(threshold: number, slopeBps: number, cap: number): {
  * it, growing with the score, capped at `R x H`. Estimates: the swap at purchase fixes `R`, and the day's mean fixes the
  * threshold when the day closes. Each bar is the row's share of the cap, which does not depend on `R`: the bars stand while
  * the figures wait.
+ *
+ * A table by its roles on `StatRow`'s grid: the score and reward columns take their content's width while it fits, the bar
+ * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure (WRAP360). The
+ * bars are decorative: the table reads as score and reward.
  */
 export function RewardEstimate({ reference, threshold, slopeBps, cap, className }: RewardEstimateProps) {
   const marks = rewardMarks(threshold, slopeBps, cap);
   const ceiling = UNIT * BigInt(cap);
   return (
-    <table aria-label="Estimated reward by score" aria-busy={reference === null} className={cn("w-full table-fixed border-collapse text-sm", className)}>
-      <thead>
-        <tr className="text-xs text-muted-foreground">
-          <th scope="col" className="w-[38%] pb-1 text-left font-normal">
-            Score
-          </th>
-          <th scope="col" className="pb-1 font-normal">
-            <span className="sr-only">Share of the cap</span>
-          </th>
-          <th scope="col" className="w-[42%] pb-1 text-right font-normal">
-            Reward ≈
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {marks.map(({ score, capped }) => {
-          const share = rewardOf(UNIT, score, threshold, slopeBps, cap);
-          const width = ceiling === 0n ? 0 : Number((share * 1_000n) / ceiling) / 10;
-          return (
-            <tr key={score} data-capped={capped || undefined}>
-              <td className="py-1">
-                {/* "max" goes under a score too wide for both (WRAP360). */}
-                <span className="flex flex-wrap items-baseline gap-x-1.5">
-                  <span className="numeric">
-                    {formatPoints(score)}
-                    {capped && "+"}
-                  </span>
-                  {capped && <span className="text-xs text-primary">max</span>}
-                </span>
-              </td>
-              <td className="px-2 py-1" aria-hidden>
-                <span className="block h-1.5 overflow-hidden rounded-full bg-secondary">
-                  <span className="block h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
-                </span>
-              </td>
-              <td className="py-1 text-right">
-                {reference === null ? (
-                  <span className="numeric text-muted-foreground">…</span>
-                ) : (
-                  <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} className="justify-end" />
-                )}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div
+      role="table"
+      aria-label="Estimated reward by score"
+      aria-busy={reference === null}
+      className={cn("grid grid-cols-[auto_minmax(2.5rem,1fr)_auto] items-center gap-x-3 gap-y-2 text-sm", className)}
+    >
+      <div role="row" className="contents text-xs text-muted-foreground">
+        <span role="columnheader">Score</span>
+        <span aria-hidden />
+        <span role="columnheader" className="text-right">
+          Reward ≈
+        </span>
+      </div>
+      {marks.map(({ score, capped }) => {
+        const share = rewardOf(UNIT, score, threshold, slopeBps, cap);
+        const width = ceiling === 0n ? 0 : Number((share * 1_000n) / ceiling) / 10;
+        return (
+          <div key={score} role="row" data-capped={capped || undefined} className="contents">
+            <span role="cell" className="flex flex-wrap items-baseline gap-x-1.5">
+              <span className="numeric">
+                {formatPoints(score)}
+                {capped && "+"}
+              </span>
+              {capped && <span className="text-xs text-primary">max</span>}
+            </span>
+            <span aria-hidden className="block h-1.5 overflow-hidden rounded-full bg-secondary">
+              <span className="block h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
+            </span>
+            <span role="cell" className="text-right">
+              {reference === null ? (
+                <span className="numeric text-muted-foreground">…</span>
+              ) : (
+                <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} className="justify-end" />
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
