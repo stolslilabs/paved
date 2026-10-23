@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { SAVED_LOOK } from "../../mocks/avatar";
 import { PLAYER_ID } from "../../mocks/players";
 import { LONG_NAME } from "../../mocks/stress";
 import { PlayerAvatar } from "./player-avatar";
@@ -15,6 +16,9 @@ type Story = StoryObj<typeof meta>;
 
 /** A default avatar until the creator (#626): the initial on the secondary disc. */
 export const Connected: Story = {};
+/** The avatar the player saved (#626): its still image, rendered once and cached. */
+export const SavedAvatar: Story = { args: { look: SAVED_LOOK } };
+export const SavedAvatarLarge: Story = { args: { look: SAVED_LOOK, size: "lg" } };
 /** No username: the address's first digit. */
 export const NoUsername: Story = { args: { player: { name: null, address: PLAYER_ID } } };
 /** A guest: the silhouette that invites to connect. */

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import type { GameScene, TileSkins } from "@paved/renderer";
+import type { GameScene, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 import { TileChip, planCode, type TileArt } from "../elements/tile-chip";
 import { hasWebGL } from "../../lib/webgl";
@@ -14,6 +14,9 @@ const CENTER = 2_147_483_647;
  * view and zoom 5, which shows about 45 units, so one tile (3 units) fills the view near zoom 70.
  */
 const ONE_TILE_ZOOM = 64;
+
+/** The hand frames its one tile itself at 240 (`ONE_TILE_ZOOM`): the board's opening frame (CAMERA-FIT, #678) stays off. */
+const TILE_VIEW_SETTINGS: RendererSettingsInput = { cameraFit: { enabled: false } };
 
 export { hasWebGL } from "../../lib/webgl";
 
@@ -47,7 +50,7 @@ export function TileView({ plan, orientation, basePath, skins, tileArt, classNam
   if (!hasWebGL()) return <TileChip plan={plan} orientation={orientation} art={tileArt} size="lg" className={cn("size-full border-0", className)} />;
   return (
     <span role="img" aria-label={`Tile ${planCode(plan).toLowerCase()}, ${["north", "east", "south", "west"][(orientation - 1 + 4) % 4]}`} className={cn("pointer-events-none block size-full bg-board", className)}>
-      <GameCanvas tiles={tiles} basePath={basePath} skins={skins} onReady={frame} />
+      <GameCanvas tiles={tiles} basePath={basePath} skins={skins} settings={TILE_VIEW_SETTINGS} onReady={frame} />
     </span>
   );
 }

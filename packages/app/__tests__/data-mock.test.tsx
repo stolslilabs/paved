@@ -1,6 +1,7 @@
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  AvatarRefusedError,
   ClaimRefusedError,
   ViewError,
   PavedWriter,
@@ -31,6 +32,11 @@ import { PAGES } from "../src/routes/pages";
 import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
 import { mockImplementation } from "./mock-fakes";
 import { FakeSkinWriter } from "./skin-fakes";
+import { FakeAvatarWriter } from "./avatar-fakes";
+import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
+import { savedLook, useAvatar } from "../src/data/avatar";
+import { useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogue";
+import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../src/mocks/avatar";
 
 // The mock data layer (#549, MOCK-FIRST): the same hooks, through the same `DataSources`, on the two implementations of the
 // reads and writes the Sepolia classes lack. `chain`: `@paved/chain`'s fakes of the chain path (`FakeGameViews`,
@@ -95,6 +101,9 @@ function chainImplementation() {
   ada.days.set(TODAY, { games: 1, structures: 0, forests: 0, points: 0, claimed: 0n, credit: false });
   for (const p of PACKS) views.packs.set(p.packId, { ...p });
   views.priceSkins(1, SKIN_PRICES);
+  views.avatars.parts = AVATAR_PARTS_IN_USE;
+  views.avatars.bounds = [...AVATAR_PRICE_BOUNDS];
+  for (const item of AVATAR_ITEMS.flat()) views.listAvatarItem(item);
   economy.split_ = { ...MOCK_SPLIT };
   economy.vaultAssets = MOCK_VAULT.assets;
   economy.vaultSupply = MOCK_VAULT.supply;
@@ -102,6 +111,7 @@ function chainImplementation() {
   economy.setBalance("usdc", PLAYER, 100n * USDC);
   const claimer = new FakeClaimer(views, PLAYER);
   const skins = new FakeSkinWriter(views, PLAYER);
+  const avatar = new FakeAvatarWriter(views, PLAYER);
   const signer = {
     address: PLAYER,
     claim: claimer.claim.bind(claimer),
@@ -111,6 +121,8 @@ function chainImplementation() {
     claimWeeklyCredit: claimer.claimWeeklyCredit.bind(claimer),
     buySkin: skins.buySkin.bind(skins),
     setSkins: skins.setSkins.bind(skins),
+    buyAvatarItem: avatar.buyAvatarItem.bind(avatar),
+    setAvatar: avatar.setAvatar.bind(avatar),
   } as unknown as GameSigner;
   const writes = chainWrites(views, economy);
   const sources: DataSources = { ...f.sources, signer, purchases: () => writes.purchases, vault: () => writes.vault };
@@ -172,6 +184,30 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     await act(() => result.current.writes.save([{ plan: 13, theme: 1 }]));
     await waitFor(() => expect(result.current.skins.data?.active[12]).toBe(1));
     expect(result.current.writes.saved).toBe(true);
+  });
+
+  it("an avatar item bought with Cobbles is owned; the avatar saved with it is the menus' (#626)", async () => {
+    const sources = make();
+    const { result } = renderData(() => ({ catalogue: useAvatarCatalogue(PLAYER), writes: useAvatarWrites(PLAYER), avatar: useAvatar(PLAYER), buy: useBuyPack(PLAYER) }), sources);
+    await waitFor(() => expect(result.current.catalogue.data?.parts).toBe(AVATAR_PARTS_IN_USE));
+    expect(result.current.catalogue.data!.items[7]![6]).toMatchObject({ state: 1, cobbles: 60 });
+    expect(result.current.avatar.data).toEqual({ look: 0n, ids: null });
+    await act(() => result.current.buy.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
+    await waitFor(() => expect(result.current.catalogue.data?.balance).toBe(50));
+    // The Crown (headwear 6) costs 60: refused, nothing spent; the Helmet (headwear 4) costs 20.
+    const short = await result.current.writes.buy(7, 6, 60).catch((e: unknown) => e);
+    expect(short).toBeInstanceOf(AvatarRefusedError);
+    expect((short as AvatarRefusedError).reason).toBe("not-enough-cobbles");
+    await act(() => result.current.writes.buy(7, 4, 20));
+    await waitFor(() => expect(result.current.catalogue.data?.balance).toBe(30));
+    expect(result.current.catalogue.data!.owned[7]).toBe(1n << 4n);
+    const look = encodeAvatar({ ...DEFAULT_AVATAR, headwear: 4, skin: 2 });
+    await act(() => result.current.writes.save(look));
+    await waitFor(() => expect(result.current.avatar.data?.look).toBe(look));
+    expect(savedLook(result.current.avatar.data)).toBe(look);
+    // An item neither free nor owned is refused, and the look stays.
+    const unowned = await result.current.writes.save(encodeAvatar({ ...DEFAULT_AVATAR, headwear: 5 })).catch((e: unknown) => e);
+    expect((unowned as AvatarRefusedError).reason).toBe("not-owned");
   });
 
   it("a new player's ring is level 1 with 0 XP (Setup.player_level, #641)", async () => {

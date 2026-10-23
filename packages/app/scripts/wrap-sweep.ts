@@ -67,6 +67,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^(scenes-village|containers-villageboard)--/, kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
+  // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with
+  // the edge hint, the open tab kept in view, by design.
+  { story: /^(scenes-avatarcreator--|pages-headers--avatar$)/, kind: "scroll", element: 'div[scroll-region] "Skin tone', why: "part tabs scroller" },
   // Direction/A to F (#537): the contrast table and the state grid are wide tables inside their own horizontal scroller, by design
   // (a ScrollRegion since NO-SCROLLBARS, #609).
   { story: /^direction-[a-f]--palette$/, kind: "scroll", element: 'div[scroll-region] "Pair', why: "contrast table scroller" },
@@ -93,6 +96,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // files belong to R-VIS, not WRAP360; R-VIS's canvas ResizeObserver should make these two entries unneeded.
   { story: /^containers-boardviewport--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
   { story: /^renderer-outlines--/, kind: "page", element: "html scrollWidth 360 > 320", why: "canvas resize, R-VIS" },
+  // Camera fit (CAMERA-FIT, #678): the board sits in a box of the screen preset's size (375 to 1920 px), so the frame is
+  // read at that size; on a narrower window the story's own box scrolls sideways, by design.
+  { story: /^renderer-camera-fit--/, kind: "scroll", element: " · N ", why: "screen-size preview scroller" },
 ];
 
 const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "split", "scroll"];

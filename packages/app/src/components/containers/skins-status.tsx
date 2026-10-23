@@ -12,6 +12,8 @@ export interface SkinsStatusViewProps {
   /** What a guest is asked to connect for. */
   guestTitle: string;
   guestText: ReactNode;
+  /** The heading of a failed read. */
+  errorTitle?: string;
   /** The placeholder while loading; a row of tiles by default. */
   skeleton?: ReactNode;
   onConnect?: () => void;
@@ -19,7 +21,7 @@ export interface SkinsStatusViewProps {
 }
 
 /** The skins' place for a guest (Connect), while they load, or after a failed read (Retry): shared by the three skin pages. */
-export function SkinsStatusView({ status, guestTitle, guestText, skeleton, onConnect, onRetry }: SkinsStatusViewProps) {
+export function SkinsStatusView({ status, guestTitle, guestText, errorTitle = "The skins could not be read", skeleton, onConnect, onRetry }: SkinsStatusViewProps) {
   if (status.kind === "guest") {
     return (
       <Notice
@@ -37,7 +39,7 @@ export function SkinsStatusView({ status, guestTitle, guestText, skeleton, onCon
   if (status.kind === "error") {
     return (
       <InlineError
-        title="The skins could not be read"
+        title={errorTitle}
         message={status.message}
         detail={status.detail}
         action={
@@ -49,7 +51,7 @@ export function SkinsStatusView({ status, guestTitle, guestText, skeleton, onCon
     );
   }
   return (
-    <div role="status" aria-label="Loading the skins">
+    <div role="status" aria-label="Loading">
       {skeleton ?? (
         <div className="grid grid-cols-3 gap-2 tablet:grid-cols-4 desktop:grid-cols-6">
           {Array.from({ length: 6 }, (_, i) => (

@@ -22,6 +22,8 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   play: () => import("./pages/play"),
   "play/challenge": () => import("./pages/purchase"),
   cobbles: () => import("./pages/cobbles"),
+  // The avatar creator (#626 PR 2), its own chunk; its 3D preview and stills are the renderer's avatar chunk, loaded by the page.
+  avatar: () => import("./pages/avatar"),
   "game/:gameId": board,
   training: board,
   story: () => import("./pages/story"),
