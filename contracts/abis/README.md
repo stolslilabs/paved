@@ -17,7 +17,9 @@ deployment and no client reads it yet. `Setup.json` gains `ISetupLeague` (#644: 
 report and ledger). `Rewards.json` is the village rewards and tiers (#642, `docs/architecture/village-rewards.md`): the
 grant, the offer drawn on the VRF, the claim (place, merge or Cobbles), the copies and tiers; no deployment yet, as
 `Village`. `Setup.json` gains `ISetupRewards` (the grant's wiring, `credit_reward`) and the skins' minimum tier
-(`set_skin_tier`, `skin_tier`).
+(`set_skin_tier`, `skin_tier`). `Arena.json` is the PvP attacks (#643, `docs/architecture/pvp-attacks.md`): the start, each move
+drawn on the VRF, the surrender, the attacks, decks and moves; no deployment yet, as `Matchmaker`. `Matchmaker.json` gains
+the hold of an attack's 0-star cost (`held`, `CrownsHeld`, `CrownsReleased`), `Village.json` the snapshot's `parcel_of`.
 
 Regenerate them after any change of the contract interface (functions, events, types):
 

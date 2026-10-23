@@ -182,6 +182,18 @@
       },
       {
         "type": "function",
+        "name": "cancel_match",
+        "inputs": [
+          {
+            "name": "attacker",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
         "name": "set_crowns",
         "inputs": [
           {
@@ -521,6 +533,22 @@
       {
         "type": "function",
         "name": "crowns",
+        "inputs": [
+          {
+            "name": "village",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "held",
         "inputs": [
           {
             "name": "village",
@@ -1009,6 +1037,50 @@
   },
   {
     "type": "event",
+    "name": "paved::components::crownable::CrownableComponent::CrownsHeld",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "village",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "held",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "crowns",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::crownable::CrownableComponent::CrownsReleased",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "village",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "released",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "crowns",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::components::crownable::CrownableComponent::Event",
     "kind": "enum",
     "variants": [
@@ -1020,6 +1092,16 @@
       {
         "name": "CrownsSet",
         "type": "paved::components::crownable::CrownableComponent::CrownsSet",
+        "kind": "nested"
+      },
+      {
+        "name": "CrownsHeld",
+        "type": "paved::components::crownable::CrownableComponent::CrownsHeld",
+        "kind": "nested"
+      },
+      {
+        "name": "CrownsReleased",
+        "type": "paved::components::crownable::CrownableComponent::CrownsReleased",
         "kind": "nested"
       }
     ]
@@ -1389,6 +1471,23 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::matchmaker::Matchmaker::MatchCancelled",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "attacker",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "opponent",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::matchmaker::Matchmaker::Event",
     "kind": "enum",
     "variants": [
@@ -1465,6 +1564,11 @@
       {
         "name": "AttackStarted",
         "type": "paved::systems::matchmaker::Matchmaker::AttackStarted",
+        "kind": "nested"
+      },
+      {
+        "name": "MatchCancelled",
+        "type": "paved::systems::matchmaker::Matchmaker::MatchCancelled",
         "kind": "nested"
       }
     ]

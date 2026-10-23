@@ -106,12 +106,18 @@ pub trait IMatchmaker<TContractState> {
     /// only.
     fn join(ref self: TContractState, player: ContractAddress);
     /// Starts the attack of `attacker` on its drawn opponent: puts back expired shields, drops the
-    /// attacker's shield, shields the opponent (not an NPC), and fixes the match. Returns the
-    /// opponent and the offer. An operator only.
+    /// attacker's shield, shields the opponent (not an NPC), holds the 0-star cost from the
+    /// attacker's crowns (#643: `CrownsHeld`), and fixes the match. Returns the opponent and the
+    /// offer. An operator only.
     fn start_attack(ref self: TContractState, attacker: ContractAddress) -> (ContractAddress, u8);
-    /// Settles the started attack of `attacker` with its stars (0 to 3): the crowns move and the
-    /// match ends. An operator only. Emits `CrownsSettled`.
+    /// Settles the started attack of `attacker` with its stars (0 to 3): the hold given back
+    /// (`CrownsReleased`), the crowns move and the match ends. An operator only. Emits
+    /// `CrownsSettled`.
     fn settle(ref self: TContractState, attacker: ContractAddress, stars: u8) -> Settlement;
+    /// Cancels `attacker`'s drawn match, not started: the opponent is dropped, so the next
+    /// `search` is free (#643: a drawn village that cannot be attacked). An operator only. Emits
+    /// `MatchCancelled`.
+    fn cancel_match(ref self: TContractState, attacker: ContractAddress);
     /// Sets a village's crowns, after its season roll; the leagues it reaches pay no bonus. An
     /// operator only.
     fn set_crowns(ref self: TContractState, village: ContractAddress, crowns: u32);
@@ -300,6 +306,7 @@ pub mod Matchmaker {
         NpcRemoved: NpcRemoved,
         OpponentDrawn: OpponentDrawn,
         AttackStarted: AttackStarted,
+        MatchCancelled: MatchCancelled,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -356,6 +363,14 @@ pub mod Matchmaker {
         pub defender: ContractAddress,
         pub offer: u8,
         pub cost: u8,
+    }
+
+    /// A drawn match dropped before its start (#643: the opponent cannot be attacked).
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct MatchCancelled {
+        #[key]
+        pub attacker: ContractAddress,
+        pub opponent: ContractAddress,
     }
 
     #[constructor]
@@ -434,6 +449,10 @@ pub mod Matchmaker {
                 self.bucketable.remove(defender);
                 self.shieldable.raise(defender, QUEUE_ATTACK, now + ATTACK_SHIELD);
             }
+            // [Effect] The 0-star cost held from the attacker's crowns at once (#643): walking away
+            // from the attack loses it; its bucket follows
+            let crowns = self.crownable.hold(attacker, current.cost);
+            self.bucketable.follow(attacker, pool_crowns(crowns));
             // [Effect] The match is fixed
             current.started = true;
             self.write_match(attacker, current);
@@ -449,7 +468,9 @@ pub mod Matchmaker {
             // [Check] An attack started
             let current = self.match_of(attacker);
             assert(current.started, errors::NO_ATTACK);
-            // [Effect] Both players rolled into the current season first (#644)
+            // [Effect] The hold given back first (#643), so the settlement below is the one of an
+            // attack with no hold; then both players rolled into the current season (#644)
+            self.crownable.release(attacker);
             let defender = current.opponent;
             let npc = is_npc_address(defender);
             let season = self.seasonable.season_now();
@@ -485,6 +506,20 @@ pub mod Matchmaker {
             outcome
         }
 
+        fn cancel_match(ref self: ContractState, attacker: ContractAddress) {
+            self.assert_operator();
+            // [Check] An opponent drawn, no attack started
+            let current = self.match_of(attacker);
+            assert(current.opponent.is_non_zero(), errors::NOTHING_DRAWN);
+            assert(!current.started, errors::ATTACK_STARTED);
+            // [Effect] The match dropped
+            self
+                .write_match(
+                    attacker, Match { opponent: Zero::zero(), offer: 0, cost: 0, started: false },
+                );
+            self.emit(MatchCancelled { attacker, opponent: current.opponent });
+        }
+
         fn set_crowns(ref self: ContractState, village: ContractAddress, crowns: u32) {
             self.assert_operator();
             let status = self.villages.read(village).status;
@@ -511,7 +546,9 @@ pub mod Matchmaker {
         }
 
         fn league(self: @ContractState, village: ContractAddress) -> LeagueStatus {
-            let crowns = self.crownable.crowns_of(village);
+            // A hold (#643) counts in the roll, as `roll_village` rolls the whole count
+            let held = self.crownable.held_of(village);
+            let crowns = self.crownable.crowns_of(village) + held;
             let record = self.leagueable.record_of(village);
             let season = self.seasonable.season_now();
             if is_npc_address(village) {
@@ -521,9 +558,14 @@ pub mod Matchmaker {
                 };
             }
             let (next, roll) = roll_of(record, crowns, season);
+            let held = if held < roll.crowns {
+                held
+            } else {
+                roll.crowns
+            };
             LeagueStatus {
                 season: next.season,
-                crowns: roll.crowns,
+                crowns: roll.crowns - held,
                 league: league_of(roll.crowns),
                 peak: next.peak,
                 attacks: next.attacks,
@@ -739,11 +781,22 @@ pub mod Matchmaker {
             if self.leagueable.record_of(village).season >= season {
                 return;
             }
+            // A village whose crowns are held (its attack open, #643) rolls on its whole count:
+            // the hold given back, the roll, then the hold taken again from the rolled count
+            let held = self.crownable.held_of(village);
+            if held != 0 {
+                self.crownable.release(village);
+            }
             let crowns = self.crownable.crowns_of(village);
             let roll = self.leagueable.roll(village, crowns, season);
             // The bucket stays: a reset changes only crowns above `RESET_CROWNS` (`pool_crowns`)
             if roll.crowns != crowns {
                 self.crownable.set(village, roll.crowns);
+            }
+            // Held again: its listed count is the rolled one less the hold, so the bucket follows
+            if held != 0 {
+                let after = self.crownable.hold(village, held.try_into().unwrap());
+                self.bucketable.follow(village, pool_crowns(after));
             }
             if roll.reward != 0 {
                 credits

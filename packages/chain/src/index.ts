@@ -90,6 +90,25 @@ export {
 } from "./village";
 export type { DemolitionOffer, FakeVillagePlayer, VillageCell, VillageInfo, VillageTile, VillageViews } from "./village";
 export {
+  ATTACK_DECK_FIELDS,
+  ATTACK_DRAW_KIND,
+  ATTACK_FIELDS,
+  ATTACK_MOVE_FIELDS,
+  ATTACK_STATUS,
+  DRAWS_PER_ATTACK,
+  STAR_PERCENTS,
+  attack,
+  attackDeck,
+  attackMove,
+  drawIndex,
+  playCall,
+  playCalls,
+  startAttackCalls,
+  starsOf,
+  surrenderCall,
+} from "./arena";
+export type { Attack, AttackDeck, AttackMove, AttackPlay } from "./arena";
+export {
   REWARD_CHOICE,
   REWARD_COBBLES,
   REWARD_DRAW_KIND,
