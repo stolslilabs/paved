@@ -4,7 +4,7 @@ import type { GameScene, RendererSettingsInput, TileSkins } from "@paved/rendere
 import { BoardViewport, toChainSlot, type BoardGhost } from "./board-viewport";
 import { registerCellPicker } from "./cell-picker";
 import type { VillageBoardProps } from "./village-board";
-import { buyableCells, cellKey, type Cell } from "./village-rules";
+import { buyableCells, cellCap, cellKey, type Cell } from "./village-rules";
 
 /** The village's first cell on the contracts' board: a village's cells are counted from it (x east, y north). */
 const ORIGIN = 2_147_483_647;
@@ -31,7 +31,7 @@ export interface VillageViewportProps extends Pick<VillageBoardProps, "village" 
 export function VillageViewport({ village, parcels = false, placing, over, settings, basePath, skins, onParcel, onPlace, onCopy, onError, className }: VillageViewportProps) {
   const tiles = useMemo<BoardTile[]>(() => village.tiles.map((t) => ({ ...t, ...toChain(t) })), [village.tiles]);
   const owned = useMemo(() => village.cells.map(toChain), [village.cells]);
-  const buyable = useMemo(() => (parcels && !placing ? buyableCells(village.cells) : []), [parcels, placing, village.cells]);
+  const buyable = useMemo(() => (parcels && !placing ? buyableCells(village.cells, cellCap(village)) : []), [parcels, placing, village]);
   const slots = useMemo(() => {
     if (placing) return placing.legal.map((c) => ({ ...toChain(c), fits: c.orientations.includes(placing.orientation) }));
     return buyable.length ? buyable.map(toChain) : undefined;

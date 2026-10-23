@@ -214,7 +214,7 @@ describe("PvP scenes (#647)", () => {
     expect(tiles).toHaveLength(3);
     await userEvent.click(tiles[0]!);
     expect(within(dialog).getAllByRole("button", { name: /^Place it at/ }).length).toBeGreaterThan(0);
-    await userEvent.click(within(dialog).getByRole("button", { name: "Take 15 Cobbles instead" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Take 5 Cobbles instead" }));
     expect(onTakeCobbles).toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Village reward" })).toBeNull());
   });
@@ -225,7 +225,7 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("button", { name: /Choose/ })).toBeNull();
     cleanup();
     render(wrap(<PvpResultScene {...PVP_RESULT.rewardCobbles} />));
-    expect(screen.getByRole("img", { name: "+15 Cobbles" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "+5 Cobbles" })).toBeInTheDocument();
   });
 
   it("result: a promotion, the daily cap, a defeat with no reward", () => {

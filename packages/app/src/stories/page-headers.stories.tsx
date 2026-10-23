@@ -11,6 +11,8 @@ import { AchievementsScene } from "../components/scenes/achievements-scene";
 import { BalancesProvider } from "../components/containers/balances-context";
 import { ProfileProvider } from "../components/containers/profile-context";
 import { AvatarCreatorScene } from "../components/scenes/avatar-creator-scene";
+import { VillageScene } from "../components/scenes/village-scene";
+import { VILLAGE } from "../mocks/village";
 import { CobblesScene } from "../components/scenes/cobbles-scene";
 import { CreditsScene } from "../components/scenes/credits-scene";
 import { HomeScene } from "../components/scenes/home-scene";
@@ -65,6 +67,7 @@ export const Referral: Story = { render: () => <ReferralScene {...REFERRAL.earne
 export const Credits: Story = { render: () => <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} /> };
 export const Cobbles: Story = { render: () => <CobblesScene {...COBBLES.packs} onBack={fn()} /> };
 export const Avatar: Story = { render: () => <AvatarCreatorScene {...AVATAR_CREATOR.saved} onBack={fn()} /> };
+export const Village: Story = { render: () => <VillageScene {...VILLAGE.growing} onBack={fn()} /> };
 export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
 export const GameOver: Story = { render: () => <OverScene {...OVER.rewarded} /> };
 export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} /> };

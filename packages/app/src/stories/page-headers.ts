@@ -10,6 +10,7 @@ export const PAGE_HEADER_STORIES = {
   purchase: ["play/challenge"],
   cobbles: ["cobbles"],
   avatar: ["avatar"],
+  village: ["village", "village/:player"],
   "story-campaigns": ["story"],
   "game-over": ["game/:gameId/over", "training/over"],
   "missions-lifetime": ["missions/lifetime"],

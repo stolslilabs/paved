@@ -39,7 +39,8 @@ describe("the village in 3D (#648)", () => {
     const parcel = buyableCells(village.cells)[0]!;
     canvas.props?.onTileClick?.(parcel.x, -parcel.y);
     expect(onParcel).toHaveBeenCalledWith(parcel);
-    const plan = 1;
+    // A road: it fits next to the start's road (a tile goes next to a placed one, as `Village.place` rules).
+    const plan = 10;
     const legal = legalCells(village, plan);
     rerender(<VillageViewport village={village} parcels placing={{ plan, orientation: 1, legal, copies: [] }} onParcel={onParcel} onPlace={onPlace} />);
     expect(keys(canvas.props?.availableSlots)).toEqual(keys(legal.map(grid)));
@@ -78,7 +79,7 @@ describe("a reward's tile dragged onto the 3D village (#648)", () => {
       // The first move starts the drag (the cells light up), the next one is over a lit cell.
       fireEvent.pointerMove(window, { clientX: 90, clientY: 90 });
       fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
-      expect(canvas.props?.hover).toMatchObject({ x: legal.x, y: -legal.y, planIndex: REWARD.plans[0] });
+      expect(canvas.props?.hover).toMatchObject({ x: legal.x, y: 0 - legal.y, planIndex: REWARD.plans[0] });
       fireEvent.pointerUp(window, { clientX: 100, clientY: 100 });
     } finally {
       document.elementFromPoint = original;

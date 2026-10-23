@@ -20,6 +20,8 @@ import type { Deployment } from "./deployment";
 import { playerLevel, playerLevelOf, type LevelViews, type PlayerLevel } from "./level";
 import { avatarItem, unlistedItem, type AvatarItem, type AvatarViews, type FakeAvatarState } from "./avatar";
 import { SKIN_PLANS, type FakeSkinPlayer, type SkinViews } from "./skins";
+import { rewardGrants, rewardOffer, type RewardGrants, type RewardOffer } from "./rewards";
+import { NO_VILLAGE, villageCell, villageInfo, villageTile, type FakeVillagePlayer, type VillageCell, type VillageInfo, type VillageTile, type VillageViews } from "./village";
 
 /**
  * The game contract the client plays: Challenge (D-23, Daily before). The on-chain Tutorial left the contracts (D-21): the
@@ -236,8 +238,8 @@ export interface CallProvider {
 
 export const MAX_PAGE = 64;
 
-/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`), and `Avatar`'s (`avatar.ts`). */
-export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
+/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`), `Avatar`'s (`avatar.ts`), and the village's (`village.ts`). */
+export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -376,6 +378,40 @@ export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackView
     return BigInt((await this.call("Avatar", "avatar", [playerId])) as bigint | string | number);
   }
 
+  async village(playerId: string): Promise<VillageInfo> {
+    return villageInfo((await this.call("Village", "village", [playerId])) as Struct);
+  }
+
+  async villageCells(playerId: string): Promise<VillageCell[]> {
+    return ((await this.call("Village", "cells", [playerId])) as Struct[]).map(villageCell);
+  }
+
+  async villageTiles(playerId: string): Promise<VillageTile[]> {
+    return ((await this.call("Village", "tiles", [playerId])) as Struct[]).map(villageTile);
+  }
+
+  async villageMaxCells(): Promise<number> {
+    return Number(await this.call("Village", "max_cells", []));
+  }
+
+  async rewardGrants(playerId: string): Promise<RewardGrants> {
+    return rewardGrants((await this.call("Rewards", "grants", [playerId])) as Struct);
+  }
+
+  async rewardOffer(playerId: string): Promise<RewardOffer> {
+    return rewardOffer((await this.call("Rewards", "offer", [playerId])) as Struct);
+  }
+
+  async planCopies(playerId: string): Promise<number[]> {
+    const copies = (await this.call("Rewards", "copies", [playerId])) as Array<number | bigint>;
+    if (copies.length !== SKIN_PLANS) throw new ViewError("abi-mismatch", `copies: ${copies.length} plans, not ${SKIN_PLANS}`);
+    return copies.map(Number);
+  }
+
+  async skinTiers(theme: number): Promise<number[]> {
+    return Promise.all(Array.from({ length: SKIN_PLANS }, async (_, i) => Number(await this.call("Setup", "skin_tier", [theme, i + 1]))));
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -423,7 +459,7 @@ function gameKeyId(key: GameKey): string {
 }
 
 /** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins and the avatar too. */
-export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews {
+export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -452,6 +488,32 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   readonly avatars: FakeAvatarState = { parts: 0, bounds: [0, 0], items: new Map(), players: new Map() };
   /** Set to an Error to make every avatar read fail. */
   avatarFail: Error | null = null;
+  /** The villages by player (`BigInt` of the id as a string); a player not listed has founded none and has no reward. */
+  readonly villages = new Map<string, FakeVillagePlayer>();
+  /** `max_cells()`: the owner's cap (38, the value proposed for the deployment). */
+  villageCap = 38;
+  /** `skin_tier` by `theme:plan`; a skin not listed needs no tier. */
+  readonly skinTierTable = new Map<string, number>();
+  /** Set to an Error to make every village read fail (the rewards' and the tiers' too). */
+  villageFail: Error | null = null;
+
+  /** The player's village, created unfounded on first use: a test edits it in place. */
+  villagePlayer(playerId: string): FakeVillagePlayer {
+    const key = BigInt(playerId).toString();
+    let player = this.villages.get(key);
+    if (!player) {
+      player = {
+        info: { ...NO_VILLAGE },
+        cells: [],
+        tiles: [],
+        grants: { day: 0, today: 0, pending: 0, opened: 0 },
+        offer: { index: 0, plans: [0, 0, 0] },
+        copies: new Array<number>(SKIN_PLANS).fill(0),
+      };
+      this.villages.set(key, player);
+    }
+    return player;
+  }
 
   /** Lists an item of the fake catalogue (state listed unless given). */
   listAvatarItem(item: Partial<AvatarItem> & { part: number; id: number }): void {
@@ -648,6 +710,52 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   async avatar(playerId: string): Promise<bigint> {
     this.avatarCall(`avatar ${BigInt(playerId)}`);
     return this.avatars.players.get(BigInt(playerId).toString())?.look ?? 0n;
+  }
+
+  async village(playerId: string): Promise<VillageInfo> {
+    this.villageCall(`village ${BigInt(playerId)}`);
+    return { ...(this.villages.get(BigInt(playerId).toString())?.info ?? NO_VILLAGE) };
+  }
+
+  async villageCells(playerId: string): Promise<VillageCell[]> {
+    this.villageCall(`cells ${BigInt(playerId)}`);
+    return (this.villages.get(BigInt(playerId).toString())?.cells ?? []).map((c) => ({ ...c }));
+  }
+
+  async villageTiles(playerId: string): Promise<VillageTile[]> {
+    this.villageCall(`tiles ${BigInt(playerId)}`);
+    return (this.villages.get(BigInt(playerId).toString())?.tiles ?? []).map((t) => ({ ...t }));
+  }
+
+  async villageMaxCells(): Promise<number> {
+    this.villageCall("max_cells");
+    return this.villageCap;
+  }
+
+  async rewardGrants(playerId: string): Promise<RewardGrants> {
+    this.villageCall(`grants ${BigInt(playerId)}`);
+    return { ...(this.villages.get(BigInt(playerId).toString())?.grants ?? { day: 0, today: 0, pending: 0, opened: 0 }) };
+  }
+
+  async rewardOffer(playerId: string): Promise<RewardOffer> {
+    this.villageCall(`offer ${BigInt(playerId)}`);
+    const offer = this.villages.get(BigInt(playerId).toString())?.offer;
+    return offer ? { index: offer.index, plans: [...offer.plans] } : { index: 0, plans: [0, 0, 0] };
+  }
+
+  async planCopies(playerId: string): Promise<number[]> {
+    this.villageCall(`copies ${BigInt(playerId)}`);
+    return [...(this.villages.get(BigInt(playerId).toString())?.copies ?? new Array<number>(SKIN_PLANS).fill(0))];
+  }
+
+  async skinTiers(theme: number): Promise<number[]> {
+    this.villageCall(`skin_tiers ${theme}`);
+    return Array.from({ length: SKIN_PLANS }, (_, i) => this.skinTierTable.get(`${theme}:${i + 1}`) ?? 0);
+  }
+
+  private villageCall(call: string): void {
+    this.calls.push(call);
+    if (this.villageFail) throw this.villageFail;
   }
 
   private avatarCall(call: string): void {

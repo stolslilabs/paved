@@ -3,7 +3,7 @@
 
 /**
  * `chain`: every read and write goes to the chain and the indexer (`@paved/chain`'s views and writers). `mock`: the reads
- * and writes the network's classes do not have yet (the Vault, the Cobbles ledger and its claims, the packs, the skins, the avatar,
+ * and writes the network's classes do not have yet (the Vault, the Cobbles ledger and its claims, the packs, the skins, the avatar, the village,
  * Challenge's pause views, Economy's split and seller, the indexer's Cobbles and referrals) come from the device's mock
  * ledger (`data/mock/ledger.ts`); everything else (the games, their moves, the purchase of a game, the settlement, the
  * tokens' balances) stays on the chain.
@@ -38,9 +38,9 @@ export const MOCKED = DATA_SOURCE === "mock";
 /**
  * The pages that read mocked data when the source is `mock` (their header shows the mark): Home and Play (the free games'
  * credits and the pause), the Challenge's purchase (the split, the pause), the Cobble packs (the packs, the Cobbles), the
- * missions (their Cobbles and claims), the Vault, the referral (its earnings and split), the theme (the skins) and the avatar
- * creator (its catalogue, items and look, #626). The
+ * missions (their Cobbles and claims), the Vault, the referral (its earnings and split), the theme (the skins), the avatar
+ * creator (its catalogue, items and look, #626) and the village (its territory, rewards and tiers, #646). The
  * boards, the game-over pages, the leaderboard, the player pages, Training, the tutorial and Settings read only the chain and
  * the indexer.
  */
-export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "cobbles", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "avatar"]);
+export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "cobbles", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "avatar", "village", "village/:player"]);
