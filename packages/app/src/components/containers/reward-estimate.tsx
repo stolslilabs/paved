@@ -42,8 +42,8 @@ export function rewardMarks(threshold: number, slopeBps: number, cap: number): {
  * the figures wait.
  *
  * A table by its roles on `StatRow`'s grid: the score and reward columns take their content's width while it fits, the bar
- * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure (WRAP360). The
- * bars are decorative: the table reads as score and reward.
+ * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure, and a reward
+ * from 10,000 PAVED is compact (WRAP360). The bars are decorative: the table reads as score and reward.
  */
 export function RewardEstimate({ reference, threshold, slopeBps, cap, className }: RewardEstimateProps) {
   const marks = rewardMarks(threshold, slopeBps, cap);
@@ -81,7 +81,7 @@ export function RewardEstimate({ reference, threshold, slopeBps, cap, className 
               {reference === null ? (
                 <span className="numeric text-muted-foreground">…</span>
               ) : (
-                <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} className="justify-end" />
+                <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} compact className="justify-end" />
               )}
             </span>
           </div>

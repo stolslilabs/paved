@@ -1,9 +1,9 @@
-import { capScore, formatCompact, formatUnits, rewardOf, winningScore } from "@paved/game-core";
+import { capScore, rewardOf, winningScore } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
 import { Icon } from "../ui/icon";
-import { TOKENS } from "../elements/amount";
+import { TOKENS, amountFigure } from "../elements/amount";
 import { Score, formatPoints } from "../elements/score";
 import { TokenIcon } from "../elements/token-icon";
 import { COACH_RING, type CoachTarget } from "./coach";
@@ -87,7 +87,8 @@ function HudReward({ curve, score }: { curve: RewardCurve; score: number }) {
       </span>
     );
   }
-  const amount = hudAmount(rewardOf(curve.reference, score, curve.threshold, curve.slopeBps, curve.cap));
+  // Compact from 10,000 PAVED, so the header keeps its width (WRAP360).
+  const amount = amountFigure(rewardOf(curve.reference, score, curve.threshold, curve.slopeBps, curve.cap), "paved", true);
   const capped = score >= capScore(curve.threshold, curve.slopeBps, curve.cap);
   return (
     // "max" goes under the figure where the column is too narrow for both (WRAP360).
@@ -106,9 +107,3 @@ function HudReward({ curve, score }: { curve: RewardCurve; score: number }) {
   );
 }
 
-/** The HUD's figure: cut to cents up to 9,999.99 PAVED, compact from 10,000 ("12.3K", "617.3M"), so the header keeps its width (WRAP360). */
-function hudAmount(amount: bigint): string {
-  const { decimals, fraction } = TOKENS.paved;
-  if (amount < 10_000n * 10n ** BigInt(decimals)) return formatUnits(amount, decimals, fraction);
-  return formatCompact(Number(amount / 10n ** BigInt(decimals - fraction)) / 10 ** fraction);
-}
