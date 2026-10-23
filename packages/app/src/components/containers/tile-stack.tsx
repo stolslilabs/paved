@@ -36,7 +36,7 @@ const SLAB_T = 6;
  * `PILE_GAP` px apart. With the 3D view a slab is a real tile of the deck, squashed, turned a quarter at random and a
  * little askew (up to `PILE_YAW` degrees); without it, a row of grass over a row of earth (`PILE_GRASS`).
  */
-export const PILE_CAP = 10;
+export const PILE_CAP = 12;
 const PILE_SLAB = 6;
 const PILE_GRASS = 2.5;
 const PILE_GAP = 3;

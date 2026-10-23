@@ -242,7 +242,8 @@ describe("the stack at the last tiles", () => {
   const px = (calc: string) => parseFloat(calc.match(/calc\(([\d.-]+)px/)![1]!);
 
   it.each([
-    [12, PILE_CAP],
+    [12, 12],
+    [13, PILE_CAP],
     [1, 1],
     [0, 0],
   ])("draws the right number of tiles for %i left", (remaining, layers) => {
