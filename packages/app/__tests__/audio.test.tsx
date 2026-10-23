@@ -113,6 +113,7 @@ describe("GameHud gear", () => {
 function fakeContext() {
   const gains: { gain: { value: number; setTargetAtTime: ReturnType<typeof vi.fn> }; connect: ReturnType<typeof vi.fn> }[] = [];
   const starts: number[] = [];
+  const stops: number[] = [];
   const ctx = {
     state: "suspended" as string,
     currentTime: 0,
@@ -123,13 +124,13 @@ function fakeContext() {
       return g;
     },
     createMediaElementSource: () => ({ connect: vi.fn() }),
-    createBufferSource: () => ({ buffer: null, connect: vi.fn(), start: () => void starts.push(1) }),
+    createBufferSource: () => ({ buffer: null, connect: vi.fn(), start: () => void starts.push(1), stop: () => void stops.push(1), onended: null as (() => void) | null }),
     decodeAudioData: vi.fn(async () => ({ duration: 0.1 }) as unknown as AudioBuffer),
     resume: vi.fn(async () => void (ctx.state = "running")),
     suspend: vi.fn(async () => void (ctx.state = "suspended")),
     close: vi.fn(async () => {}),
   };
-  return { ctx, gains, starts };
+  return { ctx, gains, starts, stops };
 }
 
 class FakeAudio extends EventTarget {
@@ -248,6 +249,18 @@ describe("the audio engine", () => {
     setVisibility("visible");
     engine.play("tap");
     expect(starts).toHaveLength(1);
+    engine.destroy();
+  });
+
+  it("cuts an effect that is sounding when the tab is hidden, while the music plays on", async () => {
+    const { ctx, engine, starts, stops } = make();
+    act(() => void document.dispatchEvent(new Event("pointerdown")));
+    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length));
+    engine.play("tap");
+    expect(starts).toHaveLength(1);
+    setVisibility("hidden");
+    expect(stops).toHaveLength(1);
+    expect(ctx.state).toBe("running");
     engine.destroy();
   });
 

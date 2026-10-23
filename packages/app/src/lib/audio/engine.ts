@@ -121,6 +121,7 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
 
   const buffers = new Map<SfxName, AudioBuffer>();
   const lastStart = new Map<SfxName, number>();
+  const live = new Set<AudioBufferSourceNode>(); // the effects sounding now
   let unlocked = false;
   let loading = false;
   let dead = false;
@@ -151,6 +152,17 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
   };
   // Hidden and silent, the context is suspended; the music playing (a play from the lock screen too) or the tab shown wakes it.
   const fit = () => {
+    // An effect already sounding when the tab hides is cut: the effects stay silent there, whatever runs the context.
+    if (doc.visibilityState === "hidden") {
+      for (const s of live) {
+        try {
+          s.stop();
+        } catch {
+          // already ended
+        }
+      }
+      live.clear();
+    }
     const playing = music.getState().playing;
     if (doc.visibilityState === "hidden" && !playing) void Promise.resolve(ctx.suspend()).catch(() => {});
     else if (unlocked || playing) wake();
@@ -179,6 +191,8 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(sfxGain);
+      live.add(source);
+      source.onended = () => live.delete(source);
       source.start();
     },
     loaded: () => [...buffers.keys()],
