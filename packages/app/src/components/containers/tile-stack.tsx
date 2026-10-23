@@ -32,15 +32,18 @@ const TILE_TOP = 2.625 * UNIT_PX;
 /** A tile's thickness as a CSS slab (without the 3D view), px. */
 const SLAB_T = 6;
 /**
- * The pile: a layer per tile left, up to `PILE_CAP` (taller would crowd a phone's board), each a slab `PILE_SLAB` px thick,
- * `PILE_GAP` px apart. With the 3D view a slab is a real tile of the deck, squashed, turned a quarter at random and a
+ * The pile: a layer per tile left (N tiles show N), each a slab `PILE_SLAB` px thick, `PILE_GAP` px apart, up to `PILE_CAP` layers; past
+ * that the layers thin so the pile stays as tall as `PILE_CAP` of them (a taller one would crowd a phone's board). With the 3D view a slab is a real tile of the deck, squashed, turned a quarter at random and a
  * little askew (up to `PILE_YAW` degrees); without it, a row of grass over a row of earth (`PILE_GRASS`).
  */
-export const PILE_CAP = 10;
+export const PILE_CAP = 12;
 const PILE_SLAB = 6;
 const PILE_GRASS = 2.5;
 const PILE_GAP = 3;
 const PILE_STEP = PILE_SLAB + PILE_GAP;
+const PILE_GAP_SHARE = PILE_GAP / PILE_STEP;
+/** One layer's height at `n` layers: `PILE_STEP`, thinner past `PILE_CAP` layers so the pile never grows taller than that. */
+const pileStep = (n: number) => Math.min(PILE_STEP, (PILE_CAP * PILE_STEP) / Math.max(1, n));
 const PILE_YAW = 7;
 /**
  * How far the top tiles lean toward the view (after Dorfromantik's), each keeping the stack's angle in the plane: the tile
@@ -81,6 +84,8 @@ const STEP_HAND = 150;
  * shadow) whatever `--stack-s`, so at the phone's 0.8 the outline must reach (16 + 3) / 0.8, or it cuts the badge.
  */
 const BADGE = 24;
+/** The badge's height on the pile's edge, px: the same at every count. */
+const BADGE_Z = 6;
 /** The draw order the stack's tiles are known by in the 3D view: the next keeps its id as it becomes the tile in hand. */
 const DRAW_IDS = 10_000;
 /** The hint comes back after this long without a move or a cell chosen, ms. */
@@ -256,7 +261,7 @@ function hullOf(points: readonly Point[]): Point[] {
  * layout size, its foot's place from the box's left and bottom, and its outline from the box's top left (with the `extra`
  * points, the badge's), what a tap on it takes.
  */
-function frameOf(levels: readonly Level[], faces: readonly Point[], extra: readonly Point[]) {
+function frameOf(levels: readonly Level[], faces: readonly Point[], reach: readonly Point[], extra: readonly Point[]) {
   // The slabs' corners, and the corners of the leaning tiles, already on screen.
   const corners: Point[] = [...faces];
   for (const { size, z, height } of levels) {
@@ -265,12 +270,19 @@ function frameOf(levels: readonly Level[], faces: readonly Point[], extra: reado
       for (const at of [z, z + height]) corners.push(project(x, y, at));
     }
   }
-  const xs = corners.map((c) => c[0]);
-  const ys = corners.map((c) => c[1]);
+  // `reach`: the widest the stack gets (the tile in hand), counted for the sides always, so the box does not shift with the tiles.
+  const xs = [...corners, ...reach].map((c) => c[0]);
+  const ys = [...corners, ...reach].map((c) => c[1]);
   const [left, top] = [-Math.min(...xs), -Math.min(...ys)];
   const outline = hullOf([...corners, ...extra]).map(([x, y]): Point => [x + left, y + top]);
   return { width: Math.max(...xs) + left, height: Math.max(...ys) + top, left, bottom: Math.max(...ys), outline };
 }
+
+/**
+ * The tiles' lowest reach, at the pile's foot (a tile in hand, a leaning one, the next): the box's sides and foot always keep
+ * it, so they do not move as the pile sinks, a slot waits or the last tile leaves (the badge and the foot stay put).
+ */
+const HAND_REACH: Point[] = tileCorners(0, TILE * HAND_SCALE, SLAB_T, 1);
 
 /** A length of the stack's scene on screen: px at `--stack-s`, the stack's scale (smaller on phones). */
 const scaled = (px: number) => `calc(${px.toFixed(2)}px * var(--stack-s))`;
@@ -333,8 +345,9 @@ export function TileStack({
   const solid = renderStack != null && !stackFailed;
 
   // Bottom up: the pile, then each slot hovering above the one before (the queue's last first), then the tile in hand.
-  const layers = Math.max(1, Math.min(PILE_CAP, remaining));
-  const pileHeight = layers * PILE_STEP - PILE_GAP;
+  const layers = Math.max(0, remaining);
+  const step = pileStep(layers);
+  const pileHeight = layers > 0 ? layers * step - step * PILE_GAP_SHARE : 0;
   const queueZ: number[] = [];
   let z = pileHeight + GAP_PILE;
   for (let i = queued - 1; i >= 0; i--) {
@@ -348,9 +361,10 @@ export function TileStack({
     ...queueZ.flatMap((at, i) => tileCorners(at, TILE, solid ? TILE_TOP : SLAB_T, i === 0 ? NEXT_LEAN : 0)),
     ...(tile ? tileCorners(handZ, TILE * HAND_SCALE, solid ? TILE_TOP * HAND_SCALE : SLAB_T, 1) : []),
   ];
-  // The badge on the pile's south-west edge, low: the pile's left side on screen.
-  const [badgeX, badgeY] = project(-TILE / 2, TILE / 2, Math.min(pileHeight, 10));
-  const frame = frameOf(levels, tops, [-BADGE, BADGE].flatMap((dx) => [-BADGE, BADGE].map((dy): Point => [badgeX + dx, badgeY + dy])));
+  // The badge on the pile's south-west edge, low: the pile's left side on screen. Its height is fixed, so it keeps its place
+  // as the pile sinks and the last tile leaves (the frame's sides too: `frameOf`'s `reach`).
+  const [badgeX, badgeY] = project(-TILE / 2, TILE / 2, BADGE_Z);
+  const frame = frameOf(levels, tops, HAND_REACH, [-BADGE, BADGE].flatMap((dx) => [-BADGE, BADGE].map((dy): Point => [badgeX + dx, badgeY + dy])));
   const outline = frame.outline.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
 
   // The next tile comes up (the Web Animations API, no frame of React's): the tile in hand from the next's place, each coming
@@ -387,9 +401,9 @@ export function TileStack({
               id: PILE_IDS + i,
               plan: pilePlans[draw % pilePlans.length] ?? 1,
               orientation: 1 + ((draw >>> 8) % 4),
-              lift: (i * PILE_STEP) / UNIT_PX,
+              lift: (i * step) / UNIT_PX,
               scale: 1,
-              thickness: PILE_SLAB / UNIT_PX,
+              thickness: (step * (1 - PILE_GAP_SHARE)) / UNIT_PX,
               yaw: rad(((((draw >>> 16) % 1001) / 1000) * 2 - 1) * PILE_YAW),
             };
           }),
@@ -446,7 +460,7 @@ export function TileStack({
           </div>
         )}
         <div data-testid="tile-stack" className="relative shrink-0 [--stack-s:0.8] tablet:[--stack-s:1]" style={{ width: scaled(frame.width), height: scaled(frame.height) }}>
-          <Pile layers={layers} remaining={Math.min(PILE_CAP, remaining)} frame={frame} shadowOnly={solid} />
+          <Pile layers={layers} step={step} frame={frame} shadowOnly={solid} />
           {/* The scene: its origin the pile's foot, its plane turned and tilted as the renders' view; every level keeps the 3D. */}
           <div aria-hidden={readOnly || undefined} className="absolute size-0" style={{ left: scaled(frame.left), bottom: scaled(frame.bottom), transform: "scale(var(--stack-s))", transformOrigin: "0 0" }}>
             <div className="absolute size-0 transform-3d" style={{ transform: `rotateX(${TILT}deg) rotateZ(${TURN}deg)` }}>
@@ -552,7 +566,7 @@ export function TileStack({
  * phone's too): its shadow, then each layer bottom up, its top, then its south and east sides, a row of grass over a row of
  * earth. The gap between two layers shows the top of the one under it, in shade. With the 3D view, its shadow only.
  */
-function Pile({ layers, remaining, frame, shadowOnly }: { layers: number; remaining: number; frame: ReturnType<typeof frameOf>; shadowOnly: boolean }) {
+function Pile({ layers, step, frame, shadowOnly }: { layers: number; step: number; frame: ReturnType<typeof frameOf>; shadowOnly: boolean }) {
   const shadow = useId();
   const h = TILE / 2;
   const top = frame.height - frame.bottom;
@@ -568,7 +582,7 @@ function Pile({ layers, remaining, frame, shadowOnly }: { layers: number; remain
   return (
     <svg
       aria-hidden
-      data-stack-pile={remaining}
+      data-stack-pile={layers}
       viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`}
       preserveAspectRatio="none"
       className="pointer-events-none absolute inset-0 size-full overflow-visible"
@@ -582,9 +596,9 @@ function Pile({ layers, remaining, frame, shadowOnly }: { layers: number; remain
       <polygon points={points([[-h + 4, -h + 4, 0], [h + 4, -h + 4, 0], [h + 4, h + 4, 0], [-h + 4, h + 4, 0]])} className="fill-slab-shadow" filter={`url(#${shadow})`} />
       {/* With the 3D view, its tiles are the renderer's: only the shadow here. */}
       {Array.from({ length: shadowOnly ? 0 : layers }, (_, i) => {
-        const z0 = i * PILE_STEP;
-        const z1 = z0 + PILE_SLAB;
-        const grass = z1 - PILE_GRASS;
+        const z0 = i * step;
+        const z1 = z0 + step * (1 - PILE_GAP_SHARE);
+        const grass = z1 - (PILE_GRASS * step) / PILE_STEP;
         return (
           <g key={i}>
             {/* Under another layer, its top is in that layer's shadow: the gap reads as space. */}

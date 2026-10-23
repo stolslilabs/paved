@@ -42,9 +42,11 @@ type Story = StoryObj<typeof meta>;
 export const Left38: Story = {};
 /** Five tiles left: a low pile. */
 export const Left5: Story = { args: { remaining: 5 } };
+/** Twelve tiles left, a two-digit badge: the badge keeps its place at 12, 1 and 0 (STACK-ZERO, #699). */
+export const Left12: Story = { args: { remaining: 12 } };
 /** One tile left after this one: one layer. */
 export const Left1: Story = { args: { remaining: 1 } };
-/** The last tile: the pile's base only, the badge at 0. */
+/** Nothing left to draw: no tile in the pile (its shadow only), the badge at 0 where it was at 1 (#699). */
 export const Left0: Story = { args: { remaining: 0 } };
 /** The tile on a cell (the bubble's): the tile in hand dimmed, the stack's Discard gone (the bubble has it). */
 export const OnACell: Story = { args: { cellChosen: true } };
