@@ -13,3 +13,5 @@ export { MAX_UNCONFIRMED, PredictedSession, replayChallenge, replayVrfChallenge,
 export type { ChainDraw, ChainGame, ChainTile, Mismatch, MoveReceipt, PredictedOptions, PredictedState, PredictedViews } from "./predicted-session";
 export { offerPlans, placeInVillage, villageGame, villageRefusal } from "./village";
 export type { VillageTileCodes } from "./village";
+export { AttackRun } from "./attack";
+export type { AttackMoveCodes, AttackStepResult, PlacedCodes } from "./attack";

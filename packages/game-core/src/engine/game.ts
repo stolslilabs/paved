@@ -675,6 +675,22 @@ export class EngineGame {
     };
   }
 
+  /**
+   * Discards a given tile, as an attack's replay does (#643, `Arena`'s finish): `DISCARD_POINTS` taken (at most the score),
+   * nothing placed. Village games only (an attack plays on one); nothing is drawn.
+   */
+  discardPlan(plan: PlanType): MoveResult {
+    if (this.deck !== "village") throw new EngineError("Engine: not a village");
+    const code = planCode(plan);
+    const taken = Math.min(this._score, DISCARD_POINTS);
+    this._score -= taken;
+    this._discardPenalty += taken;
+    this._tileCount += 1;
+    this._discarded += 1;
+    this._discardedPlans.push(code);
+    return { action: "discard", tileId: this._tileCount, plan, scored: [], points: taken, score: this._score, over: false };
+  }
+
   /** Why `Village.demolish` refuses the tile at `cell`, or `null`: a village, a placed tile there, never the starter. */
   demolitionRefusal(cell: Cell): string | null {
     if (this.deck !== "village") return "Engine: not a village";
