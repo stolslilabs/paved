@@ -701,6 +701,28 @@ export class EngineGame {
     return this._score;
   }
 
+  /**
+   * A village as the chain holds it (`Village.cells` and `Village.tiles`, #646): the territory, then every tile placed after
+   * the starter, by id, rebuilt as a demolition's replay does (no neighbour check: each matched when it was placed, and one
+   * may have lost its only neighbour to a demolition). Plan and orientation are the contracts' codes; the starter (id 1, at
+   * (0, 0)) is the village's own and is skipped. The score is then `Village.village`'s.
+   */
+  static villageOf(config: {
+    readonly territory: readonly Cell[];
+    readonly tiles: readonly { readonly id: number; readonly plan: number; readonly orientation: number; readonly x: number; readonly y: number }[];
+    readonly player?: bigint;
+    readonly maxCells?: number;
+  }): EngineGame {
+    const game = EngineGame.village({ player: config.player, territory: config.territory, maxCells: config.maxCells });
+    for (const tile of [...config.tiles].sort((a, b) => a.id - b.id)) {
+      if (tile.id === 1) continue;
+      planCode(PLANS[tile.plan] as PlanType);
+      orientationCode(ORIENTATIONS[tile.orientation] as OrientationType);
+      game.rebuild({ id: 0, plan: tile.plan, orientation: tile.orientation, x: tile.x, y: tile.y, owner: game.player } as BoardTile);
+    }
+    return game;
+  }
+
   /** Builds a tile of a demolition's rebuild: the next id, no neighbour check, assessed as a move. */
   private rebuild(tile: BoardTile): void {
     const { plan, orientation, x, y, owner } = tile;
