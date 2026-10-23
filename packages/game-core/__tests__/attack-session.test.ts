@@ -33,6 +33,16 @@ describe("an attack on the engine", () => {
     expect(run.game.placed()).toEqual(village.placed());
   });
 
+  it("previews a build's points on a copy, the engine unchanged", () => {
+    const run = new AttackRun({ territory });
+    const cell = run.slots(10)[0]!;
+    const orientation = run.orientations(10, cell)[0]!;
+    const points = run.preview(10, orientation, cell);
+    expect(run.game.placed()).toHaveLength(1);
+    expect(run.apply({ plan: 10, discard: false, orientation, cell }).delta).toBe(points);
+    expect(run.preview(10, 1, { x: 0, y: 0 })).toBeNull();
+  });
+
   it("keeps a move inside the snapshot's territory", () => {
     const run = new AttackRun({ territory });
     for (const cell of run.slots(10)) expect(territory).toContainEqual(cell);

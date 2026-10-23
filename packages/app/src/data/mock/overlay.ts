@@ -1,4 +1,4 @@
-import { ViewError, WriteError, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
+import { ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -8,7 +8,7 @@ import type { MockLedger, MockedReads } from "./ledger";
 // mock ledger, every other one from the chain, unchanged. The app applies them when the data source is `mock`
 // (`data-source.ts`): `chain-client.ts`, `economy-client.ts`, `wallet/connector.ts`, `routes/sources.ts`.
 
-/** `GameViews`' reads (and the Cobbles', packs', skins', avatar's and village's views beside them on `RpcGameViews`) the mock answers. */
+/** `GameViews`' reads (and the Cobbles', packs', skins', avatar's, village's and PvP's views beside them on `RpcGameViews`) the mock answers. */
 export const MOCKED_GAME_READS = [
   "spawnPaused",
   "guardian",
@@ -37,13 +37,22 @@ export const MOCKED_GAME_READS = [
   "rewardOffer",
   "planCopies",
   "skinTiers",
+  "pvpVillage",
+  "pvpMatch",
+  "pvpLeague",
+  "pvpShield",
+  "pvpSeasonStart",
+  "pvpAttack",
+  "pvpDeck",
+  "pvpMoves",
+  "pvpNpcLevel",
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers; `pavedBalance` and `usdcBalance` are the chain's, adjusted by the mock's moves. */
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers. */
-export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "spawnFree"] as const;
+export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "spawnFree"] as const;
 
 /**
  * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
@@ -158,9 +167,20 @@ export function mockEconomyViews(chain: EconomyViews, ledger: MockLedger): Econo
   });
 }
 
-/** The indexer with the ledger's Cobbles in the definitions, and its referrals (an indexer that predates them has no route). */
+/** The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no route). */
 export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerClient {
-  return overlay(chain, ["definitions", "playerReferrals"], {
+  return overlay(chain, ["definitions", "playerReferrals", "playerAttacks", "player"], {
+    // A rival village of the mock (`mock/pvp.ts`) is on no indexer: its name is the mock's.
+    player: async (playerId: string | bigint) => {
+      const rival = ledger.rivalName(String(playerId));
+      if (rival === null) return chain.player(playerId);
+      const head = await chain.head();
+      return { ...head, data: { player: { playerId: `0x${BigInt(playerId).toString(16).padStart(64, "0")}`, name: rival, created: null }, stats: null } };
+    },
+    playerAttacks: async (playerId: string | bigint, side: "attacker" | "defender", params: { limit?: number } = {}) => {
+      const head = await chain.head();
+      return { ...head, data: ledger.attacksOf(String(playerId), side).slice(0, params.limit ?? 50) };
+    },
     definitions: async () => {
       const answer = await chain.definitions();
       return { ...answer, data: ledger.definitions(answer.data) };
@@ -195,6 +215,11 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     buyParcel: (request: BuyParcelRequest) => writes.buyParcel(request),
     openReward: () => writes.openReward(),
     claimReward: writes.claimReward,
+    // The writer's signatures (`drawOpponent(kind, views)`, `startAttack(views)`, `playAttack(play, views)`): the ledger reads its own attack.
+    drawOpponent: (kind: "search" | "next") => writes.drawOpponent(kind),
+    startAttack: () => writes.startAttack(),
+    playAttack: (play: AttackPlay) => writes.playAttack(play),
+    surrenderAttack: writes.surrenderAttack,
     spawnFree: () => Promise.reject(new WriteError(FREE_SPAWN_MOCKED)),
   });
 }

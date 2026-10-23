@@ -100,6 +100,12 @@ export class AttackRun {
     return ORIENTATION_CODES.filter((o) => this.refusal(plan, o, cell) === null);
   }
 
+  /** The points the plan would score built at `cell` turned to `orientation`, on a copy of the engine; null where it is refused. */
+  preview(plan: number, orientation: number, cell: TerritoryCell): number | null {
+    if (this.refusal(plan, orientation, cell) !== null) return null;
+    return this.game.clone().place(planOf(plan), this.placement(orientation, cell)).points;
+  }
+
   /** Applies one move as the finish does: built (refused as `refusal` says) or discarded. */
   apply(move: AttackMoveCodes): AttackStepResult {
     const plan = planOf(move.plan);

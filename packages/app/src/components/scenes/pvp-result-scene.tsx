@@ -30,6 +30,8 @@ const loadVillage = () => import("./village-scene");
  */
 export type PvpReward =
   | { state: "offer"; offer: RewardOffer }
+  /** Granted, its three tiles not drawn yet (#642's `open_reward`, a VRF draw): Open draws them. */
+  | { state: "sealed"; pending: number }
   | { state: "taken"; plan: number | null; cobbles: number | null }
   | { state: "capped"; resetsAt: number }
   | { state: "none" };
@@ -61,6 +63,10 @@ export interface PvpResultSceneProps {
   onAddCopy?: (copy: VillageCopy) => void;
   /** The Cobbles taken instead of a tile. */
   onTakeCobbles?: () => void;
+  /** `sealed`: the reward's three tiles drawn. */
+  onOpenReward?: () => void;
+  /** `sealed`: the draw is on its way. */
+  opening?: boolean;
   onReplay?: () => void;
   /** Another attack: back to the search. */
   onAgain?: () => void;
@@ -160,6 +166,15 @@ export function PvpResultScene(props: PvpResultSceneProps) {
                 Choose
               </Button>
             </>
+          )}
+          {reward.state === "sealed" && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">Your reward is waiting: open it to draw its three tiles.</p>
+              <Button size="lg" onClick={props.onOpenReward} disabled={props.pending} loading={props.opening}>
+                <Icon name="gift" size="sm" />
+                Open the reward
+              </Button>
+            </div>
           )}
           {reward.state === "taken" && (
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
