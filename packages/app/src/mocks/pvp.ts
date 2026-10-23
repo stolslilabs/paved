@@ -1,3 +1,4 @@
+import { CENTER } from "@paved/game-core";
 import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
 import { crownsFor, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
@@ -84,9 +85,17 @@ export const PVP_SCOUT = {
 
 // Attack
 
-/** An attack scene at step `i` of `steps`: the board, the score, the hand and its legal cells in the territory. */
+/** The deck an attack on the rival draws from: the village's tiles but the starter (`playAttack`), as chain plan ids. */
+const RIVAL_DECK = RIVAL_VILLAGE.tiles.filter((t) => t.x !== CENTER || t.y !== CENTER).map((t) => t.plan);
+
+/**
+ * An attack scene at step `i` of `steps`: the board, the score, the hand and its legal cells in the territory, and the stack's
+ * next two tiles. The fakes know their shuffle; how far a real attack knows ahead is the contracts' (#643).
+ */
 export function attackAt(steps: readonly AttackStep[], i: number): Data<PvpAttackSceneProps> {
-  const step = steps[Math.min(i, steps.length - 1)]!;
+  const at = Math.min(i, steps.length - 1);
+  const step = steps[at]!;
+  const coming = steps.slice(at + 1, at + 3).flatMap((s) => (s.hand ? [{ plan: s.hand.plan }] : []));
   return {
     defender: RIVAL,
     target: RIVAL_VILLAGE.score,
@@ -96,8 +105,9 @@ export function attackAt(steps: readonly AttackStep[], i: number): Data<PvpAttac
     delta: step.delta,
     lastScored: step.lastScored,
     remaining: step.remaining,
-    hand: { tile: step.hand, state: step.hand ? "placing" : "empty", fitsNowhere: step.hand !== null && step.slots.length === 0 },
+    hand: { tile: step.hand, state: step.hand ? "placing" : "empty", coming, fitsNowhere: step.hand !== null && step.slots.length === 0 },
     slots: step.slots,
+    pilePlans: RIVAL_DECK,
   };
 }
 
