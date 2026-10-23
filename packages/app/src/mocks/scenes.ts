@@ -20,7 +20,7 @@ import { CategoryType } from "@paved/game-core";
 import { APP_ASSETS, FOREST_VARIANTS, SOURCE_ASSETS, appRenders, originalTileArt } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
-import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
+import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
 import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, GAME_MISSIONS } from "./quests";
@@ -215,8 +215,8 @@ export const OVER = {
 // Purchase
 
 const purchaseBase = { maxStake: MAX_STAKE, split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH, spawnPaused: false, now: MOCK_NOW, timeZone: MOCK_TIME_ZONE };
-/** The stake, its quote and its boost: a story that moves the slider calls it again. */
-export const purchaseAt = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake) });
+/** The stake, its quote, its boost and its estimated `R`: a story that moves the slider calls it again. */
+export const purchaseAt = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake), reference: referenceAt(stake) });
 const at = purchaseAt;
 const cobbleShop = { balance: ACCOUNT.gems, packs: PACKS, selected: null };
 
@@ -227,8 +227,10 @@ export const PURCHASE = {
   short: { ...purchaseBase, ...at(5), balance: BALANCE_LOW },
   paused: { ...purchaseBase, ...at(1), spawnPaused: true },
   buying: { ...purchaseBase, ...at(3), buying: true },
-  /** WRAP360: a full referrer address (cut in the middle) and the largest balance. */
-  stress: { ...purchaseBase, ...at(10), referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
+  /** The pool's quote and the guard's rate on their way: the reward by score waits (#705). */
+  estimating: { ...purchaseBase, ...at(3), reference: null },
+  /** WRAP360: a full referrer address (cut in the middle), the largest balance, and the widest scores and rewards by score. */
+  stress: { ...purchaseBase, ...at(10), quote: { ...quote(10), threshold: (BIG_SCORE - 1) * 1000 }, reference: BIG_AMOUNT_18, referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
 
 // Cobble packs (#621: their own page)

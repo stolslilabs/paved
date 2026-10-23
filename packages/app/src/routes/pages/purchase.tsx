@@ -101,6 +101,7 @@ export default function Page() {
       stake={stake}
       maxStake={MAX_STAKE}
       quote={quote.data}
+      reference={stakeQuote.reference}
       boostBps={Number(boostBps(stake))}
       split={split.data}
       referrer={gameReferrer.referrer}
