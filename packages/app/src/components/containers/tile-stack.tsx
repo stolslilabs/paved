@@ -300,7 +300,7 @@ const FACE = "rounded-[3px] border border-slab-edge";
  * while the chain draws one) and, larger, the tile in hand in its rotation, each well apart and leaning more toward the view
  * than the one under it, the tile in hand nearly seen from above. With `renderStack` the tiles
  * are the board's own 3D models; without, CSS slabs with their top-down renders. A round badge at the pile's foot carries
- * the tiles left. A tap on the stack opens the deck.
+ * the tiles left; at 0 it goes too. A tap on the stack opens the deck.
  * While no cell is chosen, a small bubble on the stack offers Discard, held as the bubble's (the player can always
  * discard, also when the tile fits nowhere); while the tile is on a cell the tile in hand is see-through: it is on the
  * board.
@@ -368,8 +368,10 @@ export function TileStack({
   ];
   // The badge on the pile's south-west edge, low: the pile's left side on screen. Its height is fixed, so it keeps its place
   // as the pile sinks and the last tile leaves (the frame's sides too: `frameOf`'s `reach`).
+  // At 0 the badge goes with the last tile (#701): the outline no longer takes it in, the box keeps its size.
   const [badgeX, badgeY] = project(-TILE / 2, TILE / 2, BADGE_Z);
-  const frame = frameOf(levels, tops, HAND_REACH, [-BADGE, BADGE].flatMap((dx) => [-BADGE, BADGE].map((dy): Point => [badgeX + dx, badgeY + dy])));
+  const badgeCorners = remaining > 0 ? [-BADGE, BADGE].flatMap((dx) => [-BADGE, BADGE].map((dy): Point => [badgeX + dx, badgeY + dy])) : [];
+  const frame = frameOf(levels, tops, HAND_REACH, badgeCorners);
   const outline = frame.outline.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
 
   // The next tile comes up (the Web Animations API, no frame of React's): the tile in hand from the next's place, each coming
@@ -543,13 +545,15 @@ export function TileStack({
             className="peer pointer-events-auto absolute inset-0 cursor-pointer outline-none"
             style={{ clipPath: `polygon(${frame.outline.map(([x, y]) => `${scaled(x)} ${scaled(y)}`).join(", ")})` }}
           >
-            <span
-              data-testid="tiles-left"
-              className="numeric absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-card bg-foreground text-sm font-bold text-background shadow-md"
-              style={{ left: scaled(frame.left + badgeX), top: scaled(frame.height - frame.bottom + badgeY) }}
-            >
-              {remaining}
-            </span>
+            {remaining > 0 && (
+              <span
+                data-testid="tiles-left"
+                className="numeric absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-card bg-foreground text-sm font-bold text-background shadow-md"
+                style={{ left: scaled(frame.left + badgeX), top: scaled(frame.height - frame.bottom + badgeY) }}
+              >
+                {remaining}
+              </span>
+            )}
           </button>
           {/* The focus ring and the coach mark follow the stack's outline. */}
           <svg
