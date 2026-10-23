@@ -17,7 +17,7 @@ export { formatUnits };
 
 /**
  * An amount's figure: cut to the token's fraction, or with `compact` from 10,000 tokens compact ("12.3K", "617.3M"), for a
- * narrow column of estimates (#705: the reward by score, the HUD).
+ * narrow column of estimates (issue 705: the reward by score, the HUD).
  */
 export function amountFigure(value: bigint, token: Token, compact = false): string {
   const t = TOKENS[token];
