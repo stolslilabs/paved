@@ -7,6 +7,8 @@ import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { queryClient } from "../src/lib/query-client";
 import { mockRival } from "../src/data/mock/pvp";
+import { MOCK_KEY } from "../src/data/mock/ledger";
+import { addressKey } from "../src/data/keys";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
@@ -20,14 +22,26 @@ import { fakeWallet } from "./wallet-fakes";
 
 const WAIT = { timeout: slow(8000) };
 
+/** The mock's stored state, edited in place (a test's stand-in for what the chain does elsewhere). */
+function editState(store: ReturnType<typeof mockImplementation>["store"], change: (state: { players: Record<string, { pvp?: { match: unknown } }>; rivalShields?: Record<string, number> }) => void) {
+  const state = JSON.parse(store.getItem(MOCK_KEY)!);
+  change(state);
+  store.setItem(MOCK_KEY, JSON.stringify(state));
+}
+
 /** The mock's sources with the player's village founded (a founded village is in the matchmaker), the wallet restored. */
-async function open(path: string, prepare?: (s: ReturnType<typeof mockImplementation>, me: string) => Promise<void>) {
+async function open(
+  path: string,
+  prepare?: (s: ReturnType<typeof mockImplementation>, me: string) => Promise<void>,
+  signer: (s: ReturnType<typeof mockImplementation>, mine: GameSigner) => GameSigner = (_, mine) => mine,
+) {
   const s = mockImplementation();
   const me = s.sources.signer!.address;
   await s.ledger.writesFor(me).foundVillage();
   await prepare?.(s, me);
   const wallet = fakeWallet({ address: me, restored: true });
-  wallet.connector.signer = () => s.sources.signer as GameSigner;
+  const writes = signer(s, s.sources.signer as GameSigner);
+  wallet.connector.signer = () => writes;
   const router = createTestRouter(path);
   render(<App router={router} sources={s.sources} connector={wallet.load} />);
   return { ...s, me, router };
@@ -104,6 +118,42 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     const stack = await screen.findByRole("region", { name: "Your tile" }, WAIT);
     fireEvent.click(stack.querySelector<HTMLButtonElement>('button[aria-label^="Hold to discard the tile"]')!);
     await waitFor(async () => expect(await s.ledger.pvpMoves(s.me, attack.id)).toHaveLength(1), WAIT);
+  });
+});
+
+describe("/pvp: an opponent that cannot be attacked", { timeout: slow(30_000) }, () => {
+  it("a skipped opponent (AttackSkipped, the match cancelled) starts another free search", async () => {
+    const s = await open("/pvp", undefined, (s, mine) =>
+      new Proxy(mine, {
+        get: (target, key) =>
+          key === "startAttack"
+            ? async () => {
+                // `Arena.start` on an opponent it cannot attack: the match cancelled, nothing else moved.
+                editState(s.store, (state) => void (state.players[addressKey(target.address)]!.pvp!.match = null));
+                return { transactionHash: "0x6d6f636b00000099", events: [{ name: "AttackSkipped", fields: { attacker: target.address, defender: "0x1", id: 1 }, fromAddress: "0x9" }] };
+              }
+            : Reflect.get(target, key),
+      }),
+    );
+    expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Attack$/ }));
+    // The page searches again, free: a second draw, then the scout of the village drawn.
+    await waitFor(async () => expect((await s.ledger.pvpVillage(s.me)).draws).toBe(2), WAIT);
+    expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
+    expect(await s.ledger.account(s.me)).toMatchObject({ cobbles: 0 });
+  });
+
+  it("a village shielded since the draw is replaced by a free search, not only the paid Next", async () => {
+    const s = await open("/pvp", async (s, me) => {
+      await s.ledger.writesFor(me).drawOpponent("search");
+      const drawn = (await s.ledger.pvpMatch(me)).opponent;
+      editState(s.store, (state) => void (state.rivalShields = { [addressKey(drawn)]: Math.floor(Date.now() / 1000) + 3_600 }));
+    });
+    const first = (await s.ledger.pvpMatch(s.me)).opponent;
+    await userEvent.click(await screen.findByRole("button", { name: /Search again, free/ }, WAIT));
+    await waitFor(async () => expect((await s.ledger.pvpMatch(s.me)).opponent).not.toBe(first), WAIT);
+    expect((await s.ledger.pvpVillage(s.me)).draws).toBe(2);
+    expect(await screen.findByRole("button", { name: /^Attack$/ }, WAIT)).toBeInTheDocument();
   });
 });
 

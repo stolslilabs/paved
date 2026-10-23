@@ -481,6 +481,12 @@ export class Queries {
     ).map((row) => ({ theme: Number(row.theme), plan: Number(row.plan), cobbles: Number(row.cobbles) }));
   }
 
+  /** Attack `id` of `attacker` once ended at `head` (any age: a replay's metadata), or null. */
+  playerAttack(head: number, attacker: string, id: number): PvpAttack | null {
+    const row = this.store.statement("SELECT * FROM pvp_attacks WHERE attacker = ? AND id = ? AND status IN (2, 3) AND finished_block <= ?").get(attacker, id, head) as Row | undefined;
+    return row ? attackOf(row) : null;
+  }
+
   /** A player's attacks that ended at `head`, made (`attacker`) or suffered (`defender`), newest first, at most `limit`. */
   playerAttacks(head: number, playerId: string, side: "attacker" | "defender", limit: number): Omit<PlayerAttacksAnswer, keyof Envelope> {
     const rows = this.store
@@ -489,21 +495,7 @@ export class Queries {
          ORDER BY finished_block DESC, opened_block DESC, attacker DESC, id DESC LIMIT ?`,
       )
       .all(playerId, head, limit) as Row[];
-    const attacks: PvpAttack[] = rows.map((row) => ({
-      attacker: String(row.attacker),
-      id: Number(row.id),
-      defender: String(row.defender),
-      npc: Number(row.npc) === 1,
-      target: Number(row.target),
-      tiles: Number(row.tiles),
-      score: Number(row.score),
-      stars: Number(row.stars),
-      surrendered: Number(row.status) === 3,
-      gained: Number(row.gained),
-      lost: Number(row.lost),
-      opened_at: Number(row.opened_time),
-      finished_at: Number(row.finished_time),
-    }));
+    const attacks: PvpAttack[] = rows.map(attackOf);
     return { player_id: playerId, side, attacks };
   }
 
@@ -773,6 +765,23 @@ export class Queries {
 }
 
 const hasConsistentTasks = (row: Row): boolean => consistent(JSON.parse(String(row.tasks)) as TaskTarget[]);
+
+/** A `pvp_attacks` row that ended, as the API writes it. */
+const attackOf = (row: Row): PvpAttack => ({
+  attacker: String(row.attacker),
+  id: Number(row.id),
+  defender: String(row.defender),
+  npc: Number(row.npc) === 1,
+  target: Number(row.target),
+  tiles: Number(row.tiles),
+  score: Number(row.score),
+  stars: Number(row.stars),
+  surrendered: Number(row.status) === 3,
+  gained: Number(row.gained),
+  lost: Number(row.lost),
+  opened_at: Number(row.opened_time),
+  finished_at: Number(row.finished_time),
+});
 
 const progressRow = (row: Row): ProgressRow => ({
   taskId: Number(row.task_id),

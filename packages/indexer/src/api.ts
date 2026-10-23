@@ -508,6 +508,11 @@ export interface PlayerAttacksAnswer extends Envelope {
   attacks: PvpAttack[];
 }
 
+/** One attack that ended (`/players/:attacker/attacks/:id`): a replay's metadata, however old. Not found while open or unknown. */
+export interface PlayerAttackAnswer extends Envelope {
+  attack: PvpAttack;
+}
+
 /** A claim of cobbles (`CobblesClaimed`). */
 export interface CobbleClaim {
   kind: "quest" | "achievement";

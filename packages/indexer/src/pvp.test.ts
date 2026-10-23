@@ -53,6 +53,9 @@ describe("the PvP attacks", () => {
     expect(log.body).toMatchObject({ player_id: PB, side: "defender", attacks: [{ attacker: PA, id: 1, stars: 1, gained: 10 }] });
     expect(respond(indexer, "GET", `/v1/players/${PA}/attacks`).body).toMatchObject({ side: "attacker", attacks: [{ defender: PB }] });
     expect(respond(indexer, "GET", `/v1/players/${PB}/defences?limit=0`).code).toBe(400);
+    // One attack by its id, however old: a replay's metadata.
+    expect(respond(indexer, "GET", `/v1/players/${PA}/attacks/1`).body).toMatchObject({ attack: { attacker: PA, id: 1, defender: PB, stars: 1 } });
+    expect(respond(indexer, "GET", `/v1/players/${PA}/attacks/2`).code).toBe(404);
   });
 
   test("a skipped opponent writes an attack in no list", async () => {

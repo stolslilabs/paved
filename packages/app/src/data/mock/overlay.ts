@@ -1,4 +1,4 @@
-import { ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
+import { IndexerError, ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -169,7 +169,12 @@ export function mockEconomyViews(chain: EconomyViews, ledger: MockLedger): Econo
 
 /** The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no route). */
 export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerClient {
-  return overlay(chain, ["definitions", "playerReferrals", "playerAttacks", "player"], {
+  return overlay(chain, ["definitions", "playerReferrals", "playerAttacks", "playerAttack", "player"], {
+    playerAttack: async (attacker: string | bigint, id: number) => {
+      const row = ledger.attacksOf(String(attacker), "attacker").find((a) => a.id === id);
+      if (!row) throw new IndexerError("not-found", "attack not found", { httpStatus: 404 });
+      return { ...(await chain.head()), data: row };
+    },
     // A rival village of the mock (`mock/pvp.ts`) is on no indexer: its name is the mock's.
     player: async (playerId: string | bigint) => {
       const rival = ledger.rivalName(String(playerId));

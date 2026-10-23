@@ -311,6 +311,16 @@ function route(url: URL): Read | null {
         return (queries, served) =>
           queries.games(served.number, player, contract, limit, before);
       }
+      if (b === "attacks" && c !== undefined && parts.length === 6 && d === undefined) {
+        const player = playerId(a);
+        const id = integer(c, "id", 0, U32_MAX);
+        parameters(url, []);
+        return (queries, served) => {
+          const attack = queries.playerAttack(served.number, player, id);
+          if (!attack) throw new NotFound("attack not found");
+          return { attack };
+        };
+      }
       if (b === "tournaments" && c !== undefined && parts.length === 6 && d === undefined) {
         const player = playerId(a);
         const id = tournamentId(c);

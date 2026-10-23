@@ -257,6 +257,13 @@ export class FixtureIndexer {
         const rows = this.achievements.map((a) => progressRow(a, "achievement_id", mine?.get(a.achievement_id as number), { points: a.points }));
         return ok({ player_id: b, points: rows.filter((r) => r.completed).reduce((sum, r) => sum + (r.points as number), 0), achievements: rows });
       }
+      if (c === "attacks" && d) {
+        const e = allowed();
+        const id = decimalId(d);
+        if (e || id === null) return fail(400, e ?? "malformed attack id");
+        const row = this.attacks.find((r) => r.attacker === b && r.id === id);
+        return row ? ok({ attack: row }) : fail(404, "attack not found");
+      }
       if ((c === "defences" || c === "attacks") && !d) {
         const e = allowed("limit");
         if (e) return fail(400, e);

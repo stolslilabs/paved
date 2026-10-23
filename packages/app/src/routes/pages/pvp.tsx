@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Attack, AttackDeck, PvpMatch } from "@paved/chain";
+import { toast } from "sonner";
+import type { Attack, AttackDeck, PvpMatch, WriteResult } from "@paved/chain";
 import { CENTER } from "@paved/game-core";
 import { deckArt } from "../../components/containers/deck-sheet";
 import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
@@ -40,8 +41,15 @@ export default function Page() {
   const player = usePvpPlayer(me, wallet.username ?? null);
   const [found, setFound] = useState<string | null>(null);
   const searched = useRef(false);
+  const before = useRef<string | null>(null);
   const s = status.data;
   const phase = !s ? null : s.attack.status === ATTACK_OPEN ? "attack" : !noOpponent(s.match) && !s.match.started ? "scout" : "search";
+
+  // Back to the search from a match or an attack (an opponent skipped by `start`, the match cancelled): a new free search.
+  useEffect(() => {
+    if (phase === "search" && before.current !== null && before.current !== "search") searched.current = false;
+    if (phase !== null) before.current = phase;
+  }, [phase]);
 
   // The search starts as the page opens on no match: the player came here to attack. Once per visit; Search again after a refusal.
   useEffect(() => {
@@ -102,16 +110,25 @@ function Search({ me, joined, found, writes, onRetry, onBack }: { me: PvpPlayer;
 /** The scout of the drawn opponent: its village, the crowns at stake, Next for a Cobble, Attack. */
 function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match: PvpMatch; shieldEndsAt: number | null; writes: Writes; onBack: () => void }) {
   const now = useNow();
-  const name = usePlayerStatus(match.opponent).data?.player.name ?? null;
-  const defender = usePvpPlayer(match.opponent, name);
   const scout = usePvpScout(match);
+  // An NPC village is no player of the indexer: its name is its Story level's.
+  const name = usePlayerStatus(match.opponent).data?.player.name ?? scout.data?.npc?.title ?? null;
+  const defender = usePvpPlayer(match.opponent, scout.data?.npc?.title ?? name);
   const account = useCobbleAccount(me);
   const pending = writes.pending?.kind === "next" ? "next" : writes.pending?.kind === "start" ? "attacking" : null;
-  const send = (write: () => Promise<unknown>) => {
+  const send = (write: () => Promise<WriteResult>) => {
     if (writes.pending) return;
     writes.reset();
-    write().catch(() => undefined);
+    write().then(
+      (receipt) => {
+        // `Arena.start` skipped an opponent it cannot attack (#643): the match is cancelled, the next search is free.
+        if (receipt.events.some((e) => e.name === "AttackSkipped")) toast("This village cannot be attacked", { description: "Its match was cancelled: searching another, free." });
+      },
+      () => undefined,
+    );
   };
+  // Shielded since the draw (the defender's shield, or `start`'s refusal): `search` replaces it for free.
+  const shielded = scout.data?.shielded === true || (writes.error as { reason?: string } | null)?.reason === "opponent-shielded";
   if (!scout.data || !defender.data) {
     const error = scout.error ?? defender.error;
     const message = scout.data === null || defender.data === null ? "This village cannot be read on this network." : error?.message;
@@ -122,6 +139,8 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
       defender={defender.data}
       village={scout.data.village}
       stakes={scout.data.stakes}
+      tilesToPlay={scout.data.tilesToPlay}
+      openBoard={scout.data.npc !== null}
       next={{ price: NEXT_PRICE, balance: account.data?.cobbles ?? 0 }}
       shieldEndsAt={shieldEndsAt}
       now={now}
@@ -131,6 +150,8 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
       onBack={onBack}
       onNext={() => send(writes.next)}
       onAttack={() => send(writes.start)}
+      onSearchAgain={shielded ? () => send(writes.search) : undefined}
+      searching={writes.pending?.kind === "search"}
     />
   );
 }
@@ -145,9 +166,10 @@ interface Chosen {
 /** The open attack: the board, the tile in hand, a cell chosen and turned, each move a write; the last one ends it. */
 function AttackView({ me, attack, deck, writes, onBack }: { me: string; attack: Attack; deck: AttackDeck | null; writes: Writes; onBack: () => void }) {
   const go = useAppNavigate();
-  const name = usePlayerStatus(attack.defender).data?.player.name ?? null;
-  const defender = usePvpPlayer(attack.defender, name).data ?? { name, address: attack.defender, level: 0, crowns: 0 };
   const read = usePvpAttack(me, attack, deck);
+  const indexed = usePlayerStatus(attack.defender).data?.player.name ?? null;
+  const name = read.data?.npcTitle ?? indexed;
+  const defender = usePvpPlayer(attack.defender, name).data ?? { name, address: attack.defender, level: 0, crowns: 0 };
   const [chosen, setChosen] = useState<Chosen | null>(null);
   const skins = useBoardSkins(attack.defender);
   const tileArt = deckArt(useTileRenders(RENDERER_ASSETS), skins, useTileArt(RENDERER_ASSETS));

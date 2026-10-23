@@ -62,6 +62,8 @@ export const pvpKeys = {
   npcLevel: (npcId: number) => ["chain", "pvp", "npcLevel", npcId] as const,
   /** The crowns an attack moved, from its last move's receipt (`AttackFinished`): the result's before the indexer has it. */
   settled: (playerId: string, id: number) => ["chain", "pvp", "settled", addressKey(playerId), id] as const,
+  /** The indexer's row of attack `id` of `attacker` once it ended, however old. */
+  attackRow: (playerId: string, id: number) => ["indexer", "pvpAttack", addressKey(playerId), id] as const,
   /** The indexer's attacks of a player that ended: those on its village (`defender`) or those it made (`attacker`). */
   attacks: (playerId: string, side: "attacker" | "defender") => ["indexer", "pvpAttacks", addressKey(playerId), side] as const,
   /** Every chain read of the PvP. */
@@ -189,18 +191,48 @@ export function usePvpPlayer(playerId: string | null, name: string | null): Resu
 export interface PvpScoutData {
   village: PvpVillage;
   stakes: CrownStakes;
+  /** The defender's tiles the attack draws: its placed tiles but the starter, or an NPC's Story deck. */
+  tilesToPlay: number;
+  /** An NPC village (#643): its Story level (its title the name shown), an open board; null for a player's. */
+  npc: { title: string } | null;
+  /**
+   * The defender is behind a shield now (`Matchmaker.shield`: attacked since the draw): `start` refuses it, and `search` draws
+   * another for free (the match's opponent has left the pool). An NPC village is never shielded.
+   */
+  shielded: boolean;
 }
+
+/** An NPC village's address is its id, 1 to 255 (`is_npc_address`; `@paved/chain`'s `isNpcAddress`). */
+export const isNpc = (address: string): boolean => {
+  const id = BigInt(address);
+  return id >= 1n && id <= 255n;
+};
+
+/** The Story level an NPC village plays (`Arena.npc_level`), or null for a level the client does not know (none set). */
+export const npcStory = (level: NpcLevel) => CAMPAIGNS.find((c) => c.id === level.campaign)?.levels.find((l) => l.id === level.level) ?? null;
+
+/** The cells of an open board as the plan draws them: under its tiles and beside them. */
+const openCells = (tiles: readonly BoardTile[]): PvpCell[] => [
+  ...new Map(tiles.flatMap((t) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: t.x + dx!, y: t.y + dy! }))).map((c) => [`${c.x},${c.y}`, c])).values(),
+];
 
 /**
  * The scout's data (#647): the drawn defender's village (`Village.village`, `cells`, `tiles`) and the stakes of the match's
- * offer and cost (fixed at the draw, #639). Null on a network without `Village`; disabled without a match.
+ * offer and cost (fixed at the draw, #639). An NPC village (an address 1 to 255) has no village: its board, deck and target
+ * are its Story level's (`Arena.npc_level`), as `Arena.start` snapshots them. Null on a network without `Village` (or
+ * `Arena` for an NPC); disabled without a match.
  */
 export function usePvpScout(match: PvpMatch | null): Result<PvpScoutData> {
   const { views } = useDataSources();
   const village = villageViews(views);
+  const pvp = pvpViews(views);
   const defender = match && !noOpponent(match) ? match.opponent : null;
+  const npc = defender !== null && isNpc(defender);
+  const npcId = npc ? Number(BigInt(defender!)) : 0;
   const id = defender ?? "0x0";
-  const enabled = defender !== null && village !== null;
+  const enabled = defender !== null && !npc && village !== null;
+  const level = useQuery({ queryKey: pvpKeys.npcLevel(npcId), queryFn: () => orNone(() => pvp!.pvpNpcLevel(npcId)), enabled: npc && pvp !== null });
+  const shield = useQuery({ queryKey: pvpKeys.shield(id), queryFn: () => orNone(() => pvp!.pvpShield(id)), enabled: defender !== null && !npc && pvp !== null });
   const read = useQueries({
     queries: [
       { queryKey: villageKeys.info(id), queryFn: () => orNone(() => village!.village(id)), enabled },
@@ -210,6 +242,23 @@ export function usePvpScout(match: PvpMatch | null): Result<PvpScoutData> {
     combine: (results) => results as unknown as [UseQueryResult<VillageInfo | null>, UseQueryResult<VillageCell[] | null>, UseQueryResult<VillageTile[] | null>],
   });
   if (defender === null) return { data: undefined, isPending: false, error: null };
+  if (npc) {
+    if (pvp === null || level.data === null) return { data: null, isPending: false, error: level.error };
+    if (level.data === undefined) return { data: undefined, isPending: !level.error, error: level.error };
+    const story = npcStory(level.data);
+    const tiles = tilesOf(new AttackRun({ territory: null, placed: npcPlaced(level.data) }));
+    return {
+      data: {
+        village: { cells: openCells(tiles), tiles, score: story?.target ?? 0 },
+        stakes: stakesOf(match!.offer, match!.cost),
+        tilesToPlay: story?.deck.length ?? 0,
+        npc: { title: story?.title ?? `Village ${npcId}` },
+        shielded: false,
+      },
+      isPending: false,
+      error: null,
+    };
+  }
   if (village === null) return { data: null, isPending: false, error: null };
   const [info, cells, tiles] = read;
   const error = info.error ?? cells.error ?? tiles.error ?? null;
@@ -217,7 +266,11 @@ export function usePvpScout(match: PvpMatch | null): Result<PvpScoutData> {
   const ready = read.every((r) => r.data !== undefined);
   if (!ready) return { data: undefined, isPending: !error, error };
   const board = boardOf(cells.data!, tiles.data!);
-  return { data: { village: { ...board, score: info.data!.score }, stakes: stakesOf(match!.offer, match!.cost) }, isPending: false, error };
+  return {
+    data: { village: { ...board, score: info.data!.score }, stakes: stakesOf(match!.offer, match!.cost), tilesToPlay: Math.max(0, tiles.data!.length - 1), npc: null, shielded: shield.data?.up ?? false },
+    isPending: false,
+    error,
+  };
 }
 
 const PLANS = Object.values(PlanType);
@@ -236,7 +289,7 @@ export interface AttackBoard {
 
 /** The tiles a Story level places before its first draw (an NPC village, #643), in codes; none for a level not found. */
 export function npcPlaced(level: NpcLevel): PlacedCodes[] {
-  const story = CAMPAIGNS.find((c) => c.id === level.campaign)?.levels.find((l) => l.id === level.level);
+  const story = npcStory(level);
   return (story?.placed ?? []).map((t) => ({ plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: t.x, y: t.y }));
 }
 
@@ -277,6 +330,8 @@ export interface PvpAttackData {
   pilePlans: number[];
   /** The engine, for the hand's legal cells and orientations. */
   run: AttackRun;
+  /** An NPC village's Story level title (the name shown); null for a player's village. */
+  npcTitle: string | null;
   /** The board the moves are played on, and the moves: a replay steps through them. */
   board: AttackBoard;
   moves: AttackMove[];
@@ -328,9 +383,8 @@ export function usePvpAttack(attacker: string | null, attack: Attack | null, dec
   if (!played || used.some((r) => r.data === undefined)) return { data: undefined, isPending: !error, error };
   const { run, last } = played;
   const boardTiles = tilesOf(run);
-  const territory = board!.territory
-    ? board!.territory.map((c) => ({ x: CENTER + c.x, y: CENTER + c.y }))
-    : [...new Map(boardTiles.flatMap((t) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: t.x + dx!, y: t.y + dy! }))).map((c) => [`${c.x},${c.y}`, c])).values()];
+  const territory = board!.territory ? board!.territory.map((c) => ({ x: CENTER + c.x, y: CENTER + c.y })) : openCells(boardTiles);
+  const story = npc ? npcStory(level.data!) : null;
   const hand = attack!.status === ATTACK_OPEN ? (deck?.hand ?? 0) : 0;
   return {
     data: {
@@ -343,7 +397,8 @@ export function usePvpAttack(attacker: string | null, attack: Attack | null, dec
       lastScored: (last?.result.scored ?? []).map((s) => ({ category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points })),
       remaining: deck && attack!.status === ATTACK_OPEN ? deck.size - deck.drawn + (deck.hand ? 1 : 0) : 0,
       hand,
-      pilePlans: npc ? [] : tiles.data!.filter((t) => t.id !== 1).map((t) => t.plan),
+      pilePlans: npc ? (story?.deck ?? []).map((p) => PLANS.indexOf(p)) : tiles.data!.filter((t) => t.id !== 1).map((t) => t.plan),
+      npcTitle: npc ? (story?.title ?? `Village ${npcId}`) : null,
       run,
       board: board!,
       moves: moves.data!,
@@ -367,24 +422,31 @@ export interface PvpSettled {
 }
 
 /**
- * The crowns attack `id` of `attacker` moved (#647's result): its last receipt's `AttackFinished` if this visit sent it, else
- * the indexer's row (`/players/:id/attacks`). Null while the indexer has not seen it end.
+ * The crowns attack `id` of `attacker` moved (#647's result, a replay's metadata): its last receipt's `AttackFinished` if this
+ * visit sent it, else the indexer's row of that attack (`/players/:attacker/attacks/:id`, however old). Null while the indexer
+ * has not seen it end (its not-found).
  */
 export function usePvpSettled(attacker: string | null, id: number | null): Result<PvpSettled> {
   const { indexer } = useDataSources();
   const client = useQueryClient();
   const who = attacker ?? "0x0";
   const fromReceipt = id === null ? undefined : client.getQueryData<PvpSettled>(pvpKeys.settled(who, id));
-  const list = useQuery({
-    queryKey: pvpKeys.attacks(who, "attacker"),
-    queryFn: async () => (await indexer.playerAttacks(who, "attacker", { limit: 20 })).data,
+  const row = useQuery({
+    queryKey: pvpKeys.attackRow(who, id ?? 0),
+    queryFn: async () => {
+      try {
+        return settledOf((await indexer.playerAttack(who, id!)).data);
+      } catch (error) {
+        if ((error as { kind?: unknown } | null)?.kind === "not-found") return null;
+        throw error;
+      }
+    },
     enabled: attacker !== null && id !== null && fromReceipt === undefined,
   });
   if (attacker === null || id === null) return { data: undefined, isPending: false, error: null };
   if (fromReceipt) return { data: fromReceipt, isPending: false, error: null };
-  if (list.data === undefined) return { data: undefined, isPending: !list.error, error: list.error };
-  const row = list.data.find((a) => a.id === id);
-  return { data: row ? settledOf(row) : null, isPending: false, error: null };
+  if (row.data === undefined) return { data: undefined, isPending: !row.error, error: row.error };
+  return { data: row.data, isPending: false, error: null };
 }
 
 const settledOf = (a: IndexedAttack): PvpSettled => ({ target: a.target, defender: a.defender, npc: a.npc, score: a.score, stars: a.stars, surrendered: a.surrendered, gained: a.gained, lost: a.lost });
@@ -507,6 +569,7 @@ export function usePvpWrites(playerId: string | null) {
         void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) });
         void client.invalidateQueries({ queryKey: queryKeys.chain.playerLevel(playerId) });
         void client.invalidateQueries({ queryKey: pvpKeys.attacks(playerId, "attacker") });
+        void client.invalidateQueries({ queryKey: ["indexer", "pvpAttack", addressKey(playerId)] });
       }
     },
   });

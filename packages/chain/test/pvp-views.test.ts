@@ -264,6 +264,8 @@ describe("the indexer's attacks", () => {
       [1, 1, 10, 0, 1000],
     ]);
     expect((await client.playerAttacks(FIXTURE_BO, "attacker")).data).toHaveLength(2);
-    expect(fixture.requests).toEqual([`/v1/players/${FIXTURE_ADA}/defences?limit=5`, `/v1/players/${FIXTURE_BO}/attacks`]);
+    expect((await client.playerAttack(FIXTURE_BO, 1)).data).toMatchObject({ id: 1, stars: 1, defender: FIXTURE_ADA });
+    await expect(client.playerAttack(FIXTURE_BO, 9)).rejects.toMatchObject({ kind: "not-found" });
+    expect(fixture.requests.slice(0, 2)).toEqual([`/v1/players/${FIXTURE_ADA}/defences?limit=5`, `/v1/players/${FIXTURE_BO}/attacks`]);
   });
 });

@@ -14,7 +14,7 @@ import {
   type Attack,
   type DecodedEvent,
 } from "@paved/chain";
-import { AttackRun, CENTER } from "@paved/game-core";
+import { AttackRun, CAMPAIGNS, CENTER } from "@paved/game-core";
 import { LEAGUES, LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, STAR_PERCENTS, stakesOf, starsFor } from "../src/lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRivals } from "../src/data/mock/pvp";
 import {
@@ -106,6 +106,32 @@ describe("usePvpScout", () => {
   });
 });
 
+describe("usePvpScout of an NPC village", () => {
+  it("reads its Story level from Arena.npc_level, never Village: its board, deck and target", async () => {
+    const fakes = fakeSources();
+    fakes.views.pvp.npcLevels.set(3, { campaign: 1, level: 2 });
+    const story = CAMPAIGNS.find((c) => c.id === 1)!.levels.find((l) => l.id === 2)!;
+    const { result } = renderData(() => usePvpScout({ opponent: "0x3", offer: 25, cost: 15, started: false }), fakes.sources);
+    const data = await dataOf(result);
+    expect(data.village.score).toBe(story.target);
+    expect(data.tilesToPlay).toBe(story.deck.length);
+    expect(data.village.tiles).toHaveLength(1 + (story.placed?.length ?? 0));
+    expect(data.village.cells.length).toBeGreaterThan(0);
+    expect(data.npc).toEqual({ title: story.title });
+    expect(data.shielded).toBe(false);
+    expect(fakes.views.calls).toContain("npc_level 3");
+    expect(fakes.views.calls.some((c) => c.startsWith("village ") || c.startsWith("tiles ") || c.startsWith("cells "))).toBe(false);
+  });
+
+  it("says when a player's village drawn is shielded since: a free search replaces it", async () => {
+    const fakes = rivalChain();
+    fakes.views.pvp.shields.set(key(RIVAL.address), { queue: 2, up: true, seq: 1, until: 9_999_999_999 });
+    const { result } = renderData(() => usePvpScout({ opponent: RIVAL.address, offer: 30, cost: 20, started: false }), fakes.sources);
+    await waitFor(() => expect(result.current.data?.shielded).toBe(true));
+    expect(result.current.data!.tilesToPlay).toBe(RIVAL.tiles.length - 1);
+  });
+});
+
 describe("usePvpAttack", () => {
   it("plays the moves on the snapshot's territory, the hand from the deck, and keeps its engine for the next move", async () => {
     const fakes = rivalChain();
@@ -159,6 +185,14 @@ describe("the indexer's lists and the season", () => {
     await waitFor(() => expect(result.current.log.data).toHaveLength(2));
     expect(result.current.log.data!.map((a) => a.id)).toEqual([2, 1]);
     await waitFor(() => expect(result.current.settled.data).toMatchObject({ stars: 3, gained: 30, target: 1000, defender: RIVAL.address }));
+  });
+
+  it("usePvpSettled finds an attack however old: by its id, not in the latest page", async () => {
+    const fakes = fakeSources();
+    fakes.fixture.attacks = Array.from({ length: 30 }, (_, i) => ({ attacker: PLAYER_ID, id: i + 1, defender: RIVAL.address, npc: false, target: 900, tiles: 20, score: 100 * i, stars: i % 4, surrendered: false, gained: 0, lost: 0, opened_at: i, finished_at: 1_000 + i }));
+    const { result } = renderData(() => ({ old: usePvpSettled(PLAYER_ID, 1), none: usePvpSettled(PLAYER_ID, 99) }), fakes.sources);
+    await waitFor(() => expect(result.current.old.data).toMatchObject({ score: 0, target: 900 }));
+    await waitFor(() => expect(result.current.none.data).toBeNull());
   });
 
   it("useSeasonSpan: a season's start and end, none before the clock", async () => {

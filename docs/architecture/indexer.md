@@ -924,7 +924,8 @@ and the hand from `Arena.deck`. `Arena` embeds the engine for an attack's finish
 
 **API.** `GET /v1/players/{player_id}/defences?limit=` (the attacks on the player's village) and `.../attacks?limit=` (those
 it made): `side` and `attacks`, the ended ones only, newest first by their end: `{ attacker, id, defender, npc, target, tiles,
-score, stars, surrendered, gained, lost, opened_at, finished_at }`.
+score, stars, surrendered, gained, lost, opened_at, finished_at }`. `GET /v1/players/{player_id}/attacks/{id}`: one ended attack
+by its id, however old (a replay's metadata), `{ attack }`; 404 while it is open or unknown.
 
 **Tests.** `pvp.test.ts` (both lists, a skipped opponent, the finish's game events skipped, the halt, a reorg, the routes, a
 deployment without `Arena`), `indexer.test.ts` (schema 19).

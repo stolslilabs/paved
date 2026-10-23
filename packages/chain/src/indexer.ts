@@ -611,6 +611,25 @@ function parsePlayerAchievement(v: unknown, what: string): PlayerAchievement {
 }
 
 /** The player an answer is about must be the one asked, so a mixed-up answer is never shown as theirs. */
+function parseAttack(v: unknown, what: string): IndexedAttack {
+  const o = obj(v, what);
+  return {
+    attacker: str(o, "attacker", what),
+    id: num(o, "id", what),
+    defender: str(o, "defender", what),
+    npc: bool(o, "npc", what),
+    target: num(o, "target", what),
+    tiles: num(o, "tiles", what),
+    score: num(o, "score", what),
+    stars: num(o, "stars", what),
+    surrendered: bool(o, "surrendered", what),
+    gained: num(o, "gained", what),
+    lost: num(o, "lost", what),
+    openedAt: num(o, "opened_at", what),
+    finishedAt: num(o, "finished_at", what),
+  };
+}
+
 function answerPlayer(b: Obj, asked: string, what: string): string {
   const id = str(b, "player_id", what);
   if (id !== asked) bad(`${what}.player_id is not the player asked`);
@@ -797,26 +816,14 @@ export class IndexerClient {
     const id = indexerPlayerId(playerId);
     return this.get(`/v1/players/${id}/${side === "defender" ? "defences" : "attacks"}`, params, (b) => {
       answerPlayer(b, id, "attacks");
-      return list(b, "attacks", "attacks").map((v, i) => {
-        const what = `attacks[${i}]`;
-        const o = obj(v, what);
-        return {
-          attacker: str(o, "attacker", what),
-          id: num(o, "id", what),
-          defender: str(o, "defender", what),
-          npc: bool(o, "npc", what),
-          target: num(o, "target", what),
-          tiles: num(o, "tiles", what),
-          score: num(o, "score", what),
-          stars: num(o, "stars", what),
-          surrendered: bool(o, "surrendered", what),
-          gained: num(o, "gained", what),
-          lost: num(o, "lost", what),
-          openedAt: num(o, "opened_at", what),
-          finishedAt: num(o, "finished_at", what),
-        };
-      });
+      return list(b, "attacks", "attacks").map((v, i) => parseAttack(v, `attacks[${i}]`));
     });
+  }
+
+  /** Attack `id` of `attacker` once it ended, however old (a replay's metadata); not-found while it is open or unknown. */
+  async playerAttack(attacker: string | bigint, id: number): Promise<IndexerAnswer<IndexedAttack>> {
+    if (!Number.isSafeInteger(id) || id < 0) throw new IndexerError("rejected", `Not an attack id: ${id}`);
+    return this.get(`/v1/players/${indexerPlayerId(attacker)}/attacks/${id}`, {}, (b) => parseAttack(b.attack, "attack"));
   }
 
   private async fetchText(url: string): Promise<{ response: Response; text: string }> {
