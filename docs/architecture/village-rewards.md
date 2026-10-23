@@ -9,9 +9,8 @@ territory (#640, `village-territory.md`). The owner's decisions of 2026-10-20 bi
 - **Skins reserved to a tier.**
 - **No random merge.**
 
-Section 7 holds the open points for the owner. **Rules A to E wait for the owner's validation**: the code is built on the
-proposals as written, each rule a named constant of `contracts/src/systems/rewards.cairo` (section 7), so an amendment is a
-one-line change. Everything else is a proposal the team may improve. Section 8 is as built.
+Section 7 holds the points put to the owner. **The owner validated rules A to E as proposed on 2026-10-23**. Each rule is a
+named constant of `contracts/src/systems/rewards.cairo` (section 7), so a later change is a one-line change. Everything else is a proposal the team may improve. Section 8 is as built.
 
 ## 1. Summary
 
@@ -116,7 +115,7 @@ Proposed: **every game that ends with an effort the player cannot replay for fre
   shop's reading of `skin_tier` comes with the village screen's wiring (#646). The tables of
   `Rewards`' own events wait for its deployment, as `Village`'s do (a follow-up the PR names).
 
-## 7. Open points for the owner (pending: built as proposed)
+## 7. Points for the owner (validated as proposed, 2026-10-23)
 
 | # | Point | Proposal | Alternatives |
 |---|---|---|---|
