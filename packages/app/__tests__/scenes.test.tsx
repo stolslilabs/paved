@@ -22,6 +22,7 @@ import { LoadingScene } from "../src/components/scenes/loading-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
+import { rewardMarks } from "../src/components/containers/reward-estimate";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
@@ -495,37 +496,63 @@ describe("Purchase", () => {
     expect(screen.getByRole("button", { name: /Pay/ })).toBeDisabled();
   });
 
-  it("shows the estimated reward by score under the score to beat (#705)", () => {
-    const { unmount } = render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
-    const table = screen.getByRole("table", { name: "Estimated reward by score" });
-    // Threshold 1,150, c = 1.222, H = 5: the winning score, 1.25x, 1.5x, 2x, then the cap from 4,706 points.
-    const heads = within(table).getAllByRole("rowheader").map((h) => h.textContent);
-    expect(heads).toEqual(["1,150 to win", "1,438", "1,725", "2,300", "4,706+ cap"]);
-    expect(within(table).getAllByText("≈", { exact: false })).toHaveLength(5);
-    expect(screen.getByText(/settled against its day's mean, not\s+today's threshold/)).toBeInTheDocument();
-    unmount();
-    // A cap of 2 is paid from 1,883 points: the 2x row gives way to it.
-    render(wrap(<PurchaseScene {...PURCHASE.capReached} />));
-    expect(within(screen.getByRole("table", { name: "Estimated reward by score" })).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["1,150 to win", "1,438", "1,725", "1,883+ cap"]);
-  });
-
-  it("keeps the estimate's place while its quotes are read, and says why one failed", () => {
-    const { unmount } = render(wrap(<PurchaseScene {...PURCHASE.rewardLoading} />));
-    expect(screen.getByRole("table", { name: "Estimated reward by score" }).parentElement).toHaveAttribute("aria-busy", "true");
-    unmount();
-    render(wrap(<PurchaseScene {...PURCHASE.rewardError} />));
-    expect(screen.getByText("The reward cannot be estimated")).toBeInTheDocument();
-    expect(screen.queryByRole("table", { name: "Estimated reward by score" })).not.toBeInTheDocument();
-  });
-
-  it("says when the price guard bounds the reward", () => {
-    render(wrap(<PurchaseScene {...PURCHASE.guarded} />));
-    expect(screen.getByText(/counts at most 110 % of it/)).toBeInTheDocument();
-  });
-
   it("is busy while the purchase is on its way", () => {
     render(wrap(<PurchaseScene {...PURCHASE.buying} />));
     expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toHaveAttribute("aria-busy", "true");
+  });
+
+  // #705: what a score earns, not only the score to beat. Stake 1 at the mocks' pool: R = 113.11 PAVED, c 1.222, H 5.
+  it("shows the estimated reward by score, from the threshold to the cap", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(table).toHaveAttribute("aria-busy", "false");
+    const rows = within(table).getAllByRole("row").slice(1).map((row) => row.textContent);
+    expect(rows).toEqual([
+      `${pts(1150)}138.22PAVED`,
+      `${pts(1438)}172.84PAVED`,
+      `${pts(1725)}207.33PAVED`,
+      `${pts(2300)}276.44PAVED`,
+      `${pts(4706)}+max565.56PAVED`,
+    ]);
+    expect(screen.getByText(/Estimates at today's threshold/)).toBeInTheDocument();
+  });
+
+  it("scales the reward by score with the stake", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.stake10} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(within(table).getAllByRole("row")[1]).toHaveTextContent("1,505.41");
+    expect(within(table).getAllByRole("row").at(-1)).toHaveTextContent("6,159.64");
+  });
+
+  it("keeps the rows of the reward by score while its figures wait", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.estimating} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(table).toHaveAttribute("aria-busy", "true");
+    expect(within(table).getAllByRole("row")).toHaveLength(6);
+    expect(within(table).queryByText("PAVED")).not.toBeInTheDocument();
+    // Pay never waits for the estimate.
+    expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
+  });
+});
+
+describe("RewardEstimate rows (#705)", () => {
+  it("leaves out the steps at or past the cap's score", () => {
+    expect(rewardMarks(1_150_000, 12_220, 5)).toEqual([
+      { score: 1150, capped: false },
+      { score: 1438, capped: false },
+      { score: 1725, capped: false },
+      { score: 2300, capped: false },
+      { score: 4706, capped: true },
+    ]);
+    // c 3: the cap from 1,917, before 2x the threshold.
+    expect(rewardMarks(1_150_000, 30_000, 5)).toEqual([
+      { score: 1150, capped: false },
+      { score: 1438, capped: false },
+      { score: 1725, capped: false },
+      { score: 1917, capped: true },
+    ]);
+    // c of H or more: the cap from the threshold, one row.
+    expect(rewardMarks(1_150_000, 50_000, 5)).toEqual([{ score: 1150, capped: true }]);
   });
 });
 

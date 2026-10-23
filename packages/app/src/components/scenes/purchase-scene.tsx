@@ -9,7 +9,7 @@ import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { BalanceNotice, ConnectButton, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "../containers/purchase-notices";
 import { PriceBreakdown } from "../containers/price-breakdown";
-import { RewardEstimateTable, type RewardEstimateProps } from "../containers/reward-estimate";
+import { RewardEstimate } from "../containers/reward-estimate";
 import { StakePicker } from "../containers/stake-picker";
 import { TopBar } from "../containers/top-bar";
 
@@ -19,10 +19,10 @@ export interface PurchaseSceneProps {
   /** `Economy.quote(stake)`: the price, and the threshold the game must beat (points x 1,000). */
   quote: QuoteView;
   /**
-   * The estimated reward by score at this stake (#705): built on the quote, the pool's quote of the swap and the guard's rate.
-   * Omitted: the Terms card shows the threshold alone.
+   * `R`, PAVED base units: the reference reward a purchase of this stake would store now, estimated from the pool's quote and
+   * the guard's rate (#705); null while they are read. The reward by score is `R` on the quote's curve.
    */
-  reward?: RewardEstimateProps;
+  reference: bigint | null;
   /** The burn's boost at this stake, bps. */
   boostBps: number;
   /** `Economy.split_bps()` (V1b). */
@@ -81,8 +81,8 @@ export interface PurchaseSceneProps {
 
 
 /**
- * The Challenge purchase (`/play/challenge`): stake, price and boost, split, the 24 h validity, the threshold, confirm. The
- * Cobble packs have a page of their own (`/cobbles`, #621).
+ * The Challenge purchase (`/play/challenge`): stake, price and boost, split, the 24 h validity, the threshold and the
+ * estimated reward by score (#705), confirm. The Cobble packs have a page of their own (`/cobbles`, #621).
  */
 export function PurchaseScene(props: PurchaseSceneProps) {
   return (
@@ -132,7 +132,13 @@ function GameForm(props: PurchaseSceneProps) {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Below the threshold the stake is lost; above it, PAVED is minted when the day closes.</p>
-          {props.reward && <RewardEstimateTable {...props.reward} />}
+          <div className="flex flex-col gap-2 border-t border-border pt-3">
+            <span className="text-xs text-muted-foreground">Reward by score</span>
+            <RewardEstimate reference={props.reference} threshold={quote.threshold} slopeBps={quote.slope} cap={quote.cap} />
+            <p className="text-xs text-muted-foreground">
+              Estimates at today's threshold. Your purchase's swap fixes the reward per point, and the day's mean fixes the threshold when the day closes.
+            </p>
+          </div>
           <div className="flex items-center gap-3 border-t border-border pt-3">
             <Icon name="clock" className="text-muted-foreground" size="md" />
             <div className="flex flex-col">

@@ -38,7 +38,6 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof chain.useQuote>, OrNull<PurchaseSceneProps["quote"]>>>,
   Expect<Equal<Data<typeof chain.useSplit>, OrNull<PurchaseSceneProps["split"]>>>,
   Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<PurchaseSceneProps["balance"]>>>,
-  Expect<Equal<ReturnType<typeof purchase.useStakeQuote>["reward"]["estimate"], NonNullable<PurchaseSceneProps["reward"]>["estimate"]>>,
   // the Cobble packs
   Expect<Equal<Data<typeof chain.useSplit>, OrNull<CobblesSceneProps["split"]>>>,
   Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<CobblesSceneProps["balance"]>>>,

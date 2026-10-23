@@ -1,90 +1,88 @@
-import type { RewardEstimate } from "@paved/game-core";
+import { capScore, rewardOf, winningScore } from "@paved/game-core";
+import { cn } from "../../lib/utils";
 import { Amount } from "../elements/amount";
-import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { formatPoints } from "../elements/score";
-import { Button } from "../ui/button";
-import { Skeleton } from "../ui/skeleton";
 
 export interface RewardEstimateProps {
-  /** The reward by score of a purchase now (`estimateReward`, #705); null while its quotes are read. */
-  estimate: RewardEstimate | null;
-  /** A quote it is built on could not be read (the pool's, the guard's rate): why. Retry reads them again. */
-  error?: string | null;
-  errorDetail?: ErrorDetail;
-  onRetry?: () => void;
+  /** `R`, PAVED base units, as a purchase of this stake would store it now; null while it is read (the figures wait). */
+  reference: bigint | null;
+  /** Points x 1,000 (`QuoteView.threshold`). */
+  threshold: number;
+  /** `c`, bps (`QuoteView.slope`). */
+  slopeBps: number;
+  /** `H` (`QuoteView.cap`). */
+  cap: number;
+  className?: string;
 }
 
-/** The rows a loading estimate keeps the place of: the winning score, three multiples, the cap. */
-const PLACEHOLDER_ROWS = 5;
+/** The scores shown between the threshold and the cap, as multiples of the threshold. */
+const STEPS = [1, 1.25, 1.5, 2] as const;
+/** A unit `R` for the bars: each row's reward over the cap's, whatever the real `R`. */
+const UNIT = 10n ** 18n;
 
 /**
- * The Terms card's estimate of what a score earns at the stake picked (#705): the winning score's reward (the least a winning
- * game earns), a few scores above it, and the score from which the cap is paid. Every figure is an estimate (`≈`): `R` is
- * fixed by the swap at purchase, and the game is settled against its day's mean, not today's threshold.
+ * The rows of the table: the winning score, a few scores above it, then the score from which the cap is paid. A step at or
+ * past the cap's score is left out, so the cap is the last row whatever `c` and `H`.
  */
-export function RewardEstimateTable({ estimate, error, errorDetail, onRetry }: RewardEstimateProps) {
-  if (error) {
-    return (
-      <InlineError
-        title="The reward cannot be estimated"
-        message={error}
-        detail={errorDetail}
-        action={onRetry && <Button variant="outline" onClick={onRetry}>Retry</Button>}
-      />
-    );
-  }
+export function rewardMarks(threshold: number, slopeBps: number, cap: number): { score: number; capped: boolean }[] {
+  const least = winningScore(threshold);
+  const top = capScore(threshold, slopeBps, cap);
+  const steps = [...new Set(STEPS.map((step) => Math.ceil(least * step)))].filter((score) => score < top);
+  return [...steps.map((score) => ({ score, capped: false })), { score: top, capped: true }];
+}
+
+/**
+ * The reward a game of this stake would earn by score (#705), from `curve::payout`: nothing under the threshold, `R x c` at
+ * it, growing with the score, capped at `R x H`. Estimates: the swap at purchase fixes `R`, and the day's mean fixes the
+ * threshold when the day closes. Each bar is the row's share of the cap, which does not depend on `R`: the bars stand while
+ * the figures wait.
+ *
+ * A table by its roles on `StatRow`'s grid: the score and reward columns take their content's width while it fits, the bar
+ * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure (WRAP360). The
+ * bars are decorative: the table reads as score and reward.
+ */
+export function RewardEstimate({ reference, threshold, slopeBps, cap, className }: RewardEstimateProps) {
+  const marks = rewardMarks(threshold, slopeBps, cap);
+  const ceiling = UNIT * BigInt(cap);
   return (
-    <div className="flex flex-col gap-2" aria-busy={estimate === null}>
-      <table className="w-full text-sm">
-        <caption className="pb-1 text-left text-xs text-muted-foreground">Estimated reward by score</caption>
-        <thead className="sr-only">
-          <tr>
-            <th scope="col">Score</th>
-            <th scope="col">Reward</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {estimate === null
-            ? Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
-                <tr key={i}>
-                  <td className="py-1"><Skeleton className="h-4 w-16" /></td>
-                  <td className="py-1"><Skeleton className="ml-auto h-4 w-24" /></td>
-                </tr>
-              ))
-            : (
-              <>
-                {estimate.rows.map((row, i) => (
-                  <tr key={row.score}>
-                    <th scope="row" className="py-1 text-left font-normal">
-                      <span className="numeric">{formatPoints(row.score)}</span>
-                      {i === 0 && <span className="text-xs text-muted-foreground"> to win</span>}
-                    </th>
-                    <td className="py-1 text-right">
-                      <span className="text-muted-foreground">≈ </span>
-                      <Amount value={row.reward} token="paved" icon={false} />
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <th scope="row" className="py-1 text-left font-normal">
-                    <span className="numeric">{formatPoints(estimate.capScore)}</span>
-                    <span className="numeric">+</span>
-                    <span className="text-xs text-muted-foreground"> cap</span>
-                  </th>
-                  <td className="py-1 text-right text-primary">
-                    <span className="text-muted-foreground">≈ </span>
-                    <Amount value={estimate.capReward} token="paved" icon={false} />
-                  </td>
-                </tr>
-              </>
-            )}
-        </tbody>
-      </table>
-      <p className="text-xs text-muted-foreground">
-        Estimates: the reward is fixed by the swap when you buy, and your game is settled against its day's mean, not
-        today's threshold. No more than the cap, whatever the score.
-        {estimate?.guardBinds && " The pool pays more than the price guard's rate now: the reward counts at most 110 % of it."}
-      </p>
+    <div
+      role="table"
+      aria-label="Estimated reward by score"
+      aria-busy={reference === null}
+      className={cn("grid grid-cols-[auto_minmax(2.5rem,1fr)_auto] items-center gap-x-3 gap-y-2 text-sm", className)}
+    >
+      <div role="row" className="contents text-xs text-muted-foreground">
+        <span role="columnheader">Score</span>
+        <span aria-hidden />
+        <span role="columnheader" className="text-right">
+          Reward ≈
+        </span>
+      </div>
+      {marks.map(({ score, capped }) => {
+        const share = rewardOf(UNIT, score, threshold, slopeBps, cap);
+        const width = ceiling === 0n ? 0 : Number((share * 1_000n) / ceiling) / 10;
+        return (
+          <div key={score} role="row" data-capped={capped || undefined} className="contents">
+            <span role="cell" className="flex flex-wrap items-baseline gap-x-1.5">
+              <span className="numeric">
+                {formatPoints(score)}
+                {capped && "+"}
+              </span>
+              {capped && <span className="text-xs text-primary">max</span>}
+            </span>
+            <span aria-hidden className="block h-1.5 overflow-hidden rounded-full bg-secondary">
+              <span className="block h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
+            </span>
+            <span role="cell" className="text-right">
+              {reference === null ? (
+                <span className="numeric text-muted-foreground">…</span>
+              ) : (
+                <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} className="justify-end" />
+              )}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

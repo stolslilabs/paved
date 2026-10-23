@@ -75,7 +75,10 @@ export function useSplit(): UseQueryResult<SplitView | null> {
   return useQuery({ queryKey: queryKeys.chain.split(), queryFn: () => (economy ? economy.split() : null) });
 }
 
-/** `Economy.rate()`: the guard's swap rate, x `RATE_SCALE` (purchase: the reward estimate, #705). */
+/**
+ * `Economy.rate()`: the guard's swap rate, PAVED base units per USDC base unit x 1e18 (purchase: the reward estimate, #705).
+ * A bigint, so it stays out of the key.
+ */
 export function useGuardRate(): UseQueryResult<bigint | null> {
   const { economy } = useDataSources();
   return useQuery({ queryKey: queryKeys.chain.guardRate(), queryFn: () => (economy ? economy.guardRate() : null) });

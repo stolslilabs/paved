@@ -1,27 +1,31 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
-import { rewardAt } from "../../mocks/economy";
-import { RewardEstimateTable } from "./reward-estimate";
+import { RewardEstimate } from "./reward-estimate";
+import { referenceAt, quote } from "../../mocks/economy";
+import { BIG_AMOUNT_18, BIG_SCORE } from "../../mocks/stress";
+
+const terms = quote(3);
 
 const meta = {
   title: "Containers/RewardEstimate",
-  component: RewardEstimateTable,
+  component: RewardEstimate,
   parameters: { layout: "padded" },
-  args: { estimate: rewardAt(1) },
-  decorators: [(Story) => <div className="max-w-sm rounded-xl bg-card p-4"><Story /></div>],
-} satisfies Meta<typeof RewardEstimateTable>;
+  args: { reference: referenceAt(3), threshold: terms.threshold, slopeBps: terms.slope, cap: terms.cap },
+  decorators: [(Story) => <div className="max-w-sm"><Story /></div>],
+} satisfies Meta<typeof RewardEstimate>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The smallest stake: 1 x 2 USDC. */
-export const SmallStake: Story = {};
-/** The largest stake: 10 x 2 USDC, boosted by 10 %. */
-export const LargeStake: Story = { args: { estimate: rewardAt(10) } };
-/** A cap of 2: the cap is paid from 1.64x the threshold, so the 2x row gives way to it. */
-export const CapReached: Story = { args: { estimate: rewardAt(1, { terms: { cap: 2 } }) } };
-/** The pool pays more than 110 % of the guard's rate: the guard's figure counts. */
-export const Guarded: Story = { args: { estimate: rewardAt(3, { paved: 100n }) } };
-/** The quotes are being read: the rows keep their place. */
-export const Loading: Story = { args: { estimate: null } };
-/** A quote could not be read: why, and Retry. */
-export const ReadFailed: Story = { args: { estimate: null, error: "Economy.rate: the node did not answer.", onRetry: fn() } };
+/** Stake 3 at the chain's defaults (`c` 1.222, `H` 5): the threshold, 1.25x, 1.5x, 2x, then the cap from 4,706. */
+export const Stake3: Story = {};
+
+/** The pool's quote or the guard's rate unread: the rows and bars stand, the figures wait. */
+export const Waiting: Story = { args: { reference: null } };
+
+/** A steep slope (`c` 3, `H` 5): the cap comes before 2x the threshold, so the steps past it are left out. */
+export const SteepSlope: Story = { args: { slopeBps: 30_000 } };
+
+/** A slope of `H` or more: the cap from the threshold, one row. */
+export const CapAtThreshold: Story = { args: { slopeBps: 50_000, cap: 5 } };
+
+/** WRAP360: the widest scores and rewards. */
+export const Stress: Story = { args: { reference: BIG_AMOUNT_18, threshold: (BIG_SCORE - 1) * 1000 } };
