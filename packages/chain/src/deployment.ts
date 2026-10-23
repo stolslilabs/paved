@@ -29,7 +29,7 @@ export interface Deployment {
   deployedBlock: number;
   /** From the deployment file only; null when it is missing or not an integer 0..77: amounts are then not shown. */
   tokenDecimals: number | null;
-  /** Addresses of the contracts; an empty string when unknown. `Setup` and `Avatar` are optional: not part of `configured`. */
+  /** Addresses of the contracts; an empty string when unknown. `Setup`, `Avatar`, `Village` and `Rewards` are optional: not part of `configured`. */
   addresses: Record<ContractName, string>;
   /** The `Faucet`, the faucet's token, on devnet and Sepolia; an empty string where there is none (mainnet, any other network). Not part of `configured`. */
   faucet: string;
@@ -119,6 +119,12 @@ export function resolveDeployment(input: {
   // reads are `not-configured` and its writes refused.
   const avatar = env.addresses?.Avatar || file.contracts?.Avatar?.address;
   addresses.Avatar = isAddress(avatar) ? avatar : "";
+  // `Village` (#640) and `Rewards` (#642): the player's village, its rewards and the tiers. Optional as `Avatar`: without them
+  // the village's reads are `not-configured` and its writes refused.
+  for (const name of ["Village", "Rewards"] as const) {
+    const value = env.addresses?.[name] || file.contracts?.[name]?.address;
+    addresses[name] = isAddress(value) ? value : "";
+  }
 
   // The file's `rpc_url` is used only when it is a URL: the Sepolia file holds the placeholder `$STARKNET_RPC_URL`, never
   // called. Without `VITE_RPC_URL` the deployment is then not connected, and says so.

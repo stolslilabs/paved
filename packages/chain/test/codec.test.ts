@@ -28,7 +28,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
   });
 
   test("the on-chain Tutorial left (D-21): no Tutorial or Lobby ABI, Setup holds the claim", () => {
-    expect(Object.keys(ABIS).sort()).toEqual(["Avatar", "Challenge", "Setup"]);
+    expect(Object.keys(ABIS).sort()).toEqual(["Avatar", "Challenge", "Rewards", "Setup", "Village"]);
     expect(codecs.Setup.hasFunction("claim_tutorial")).toBe(true);
     expect(codecs.Setup.encodeCall("claim_tutorial", [])).toEqual([]);
     // The claim's state is a view of Setup (step D): read before any write.

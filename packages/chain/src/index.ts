@@ -82,13 +82,16 @@ export {
   foundVillageCall,
   fromCell,
   toCell,
+  NO_VILLAGE,
+  hasVillageViews,
   villageCell,
   villageInfo,
   villageTile,
 } from "./village";
-export type { DemolitionOffer, VillageCell, VillageInfo, VillageTile } from "./village";
+export type { DemolitionOffer, FakeVillagePlayer, VillageCell, VillageInfo, VillageTile, VillageViews } from "./village";
 export {
   REWARD_CHOICE,
+  REWARD_COBBLES,
   REWARD_DRAW_KIND,
   REWARD_GRANTS_FIELDS,
   REWARD_OFFER_FIELDS,
@@ -119,6 +122,8 @@ export type { AvatarItem, AvatarViews } from "./avatar";
 export {
   RECEIPT_POLL_MS,
   PavedWriter,
+  VILLAGE_REFUSAL_TEXT,
+  VillageRefusedError,
   AVATAR_REFUSAL_TEXT,
   AvatarPriceChangedError,
   AvatarRefusedError,
@@ -148,7 +153,7 @@ export {
   packBoughtOf,
   refusedBeforeSending,
 } from "./writer";
-export type { AvatarRefusal, BuildMove, BuyAvatarItemRequest, BuyPackRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, WriteAccount, WriteResult } from "./writer";
+export type { AvatarRefusal, BuildMove, BuyAvatarItemRequest, BuyPackRequest, BuyParcelRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, VillageRefusal, WriteAccount, WriteResult } from "./writer";
 export { PACK_IDS, PackBuyer, PackNotOnSaleError, PackPriceChangedError, onSale, packBuyerOf, packReferrer, packSwapInput, readPacks } from "./packs";
 export type { PackBuyerOptions, PackPlan, PackPurchaseRequest } from "./packs";
 export { PavedClient, createPavedClient } from "./paved-client";
