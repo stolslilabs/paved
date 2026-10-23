@@ -127,16 +127,21 @@ describe("the coming tiles' renders", () => {
   });
 });
 
-// After Dorfromantik's: the pile is a layer per tile left, up to PILE_CAP, so it sinks as the game goes.
+// After Dorfromantik's: the pile is a layer per tile left, thinner past PILE_CAP, so it sinks as the game goes.
 describe("the pile", () => {
   const pile = () => Number(document.querySelector("[data-stack-pile]")!.getAttribute("data-stack-pile"));
 
-  it("is as high as the tiles left, up to PILE_CAP; the badge says the true count", () => {
+  it("has a layer per tile left, however many; the badge says the count, and the pile stops growing taller at PILE_CAP layers", () => {
     const { rerender } = render(stack(PILE_CAP - 2));
     expect(pile()).toBe(PILE_CAP - 2);
-    rerender(stack(PILE_CAP + 30));
-    expect(pile()).toBe(PILE_CAP);
-    expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(PILE_CAP + 30));
+    rerender(stack(PILE_CAP));
+    const px = () => parseFloat(screen.getByTestId("tile-stack").style.height.match(/calc\(([\d.]+)px/)![1]!);
+    const height = px();
+    rerender(stack(PILE_CAP + 26));
+    expect(pile()).toBe(PILE_CAP + 26);
+    expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(PILE_CAP + 26));
+    // The layers thin to the same height, a gap's thinning apart.
+    expect(Math.abs(px() - height)).toBeLessThan(3);
   });
 
   it("a tap on the stack takes its outline, not its box: the deck button is clipped to it", () => {
@@ -185,7 +190,7 @@ describe("the 3D view", () => {
     expect(pile()).toEqual(first.slice(0, 3));
     cleanup();
     queue({ remaining: PILE_CAP + 30 });
-    expect(pile()).toHaveLength(PILE_CAP);
+    expect(pile()).toHaveLength(PILE_CAP + 30);
   });
 
   it("leans toward the view by steps (after Dorfromantik's), each in the stack's angle: the tile in hand to within 10 degrees of straight above, the next halfway, the one after it as the pile", () => {
@@ -228,5 +233,53 @@ describe("the 3D view", () => {
     cleanup();
     queue({ state: "pending" });
     expect(faded()).toEqual([false, false, true]);
+  });
+});
+
+// STACK-ZERO (#699): a stack of N tiles shows N tiles, none at 0; the badge keeps its place at 12, 1 and 0.
+describe("the stack at the last tiles", () => {
+  const drawn = () => document.querySelectorAll("[data-stack-pile] g").length;
+  const badge = () => {
+    const { left, top } = screen.getByTestId("tiles-left").style;
+    return { left, top };
+  };
+  const box = () => screen.getByTestId("tile-stack").style.width;
+  const px = (calc: string) => parseFloat(calc.match(/calc\(([\d.-]+)px/)![1]!);
+
+  it.each([
+    [38, 38],
+    [12, 12],
+    [1, 1],
+    [0, 0],
+  ])("draws the right number of tiles for %i left", (remaining, layers) => {
+    render(stack(remaining));
+    expect(drawn()).toBe(layers);
+  });
+
+  it("draws no tile at 0 without the tile in hand either, only the pile's shadow", () => {
+    render(wrap(<TileStack tile={null} state="empty" remaining={0} />));
+    expect(drawn()).toBe(0);
+    expect(document.querySelector("[data-stack-pile]")).not.toBeNull();
+  });
+
+  it("anchors the badge to the stack's frame: the same place at 12, 1 and 0, in one or two digits", () => {
+    const places = [12, 1, 0, 9].map((n) => {
+      cleanup();
+      render(stack(n));
+      const height = px(screen.getByTestId("tile-stack").style.height);
+      // The box is bottom-anchored: the badge's place is its distance from the box's foot.
+      return { left: badge().left, box: box(), fromFoot: +(height - px(badge().top)).toFixed(2) };
+    });
+    for (const key of ["left", "box", "fromFoot"] as const) expect(new Set(places.map((p) => p[key])).size).toBe(1);
+  });
+
+  it("keeps the badge when the last tile leaves the hand", () => {
+    render(stack(0));
+    const before = badge();
+    const width = box();
+    cleanup();
+    render(wrap(<TileStack tile={null} state="empty" remaining={0} />));
+    expect(badge().left).toBe(before.left);
+    expect(box()).toBe(width);
   });
 });
