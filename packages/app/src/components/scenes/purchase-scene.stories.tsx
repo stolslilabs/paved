@@ -4,15 +4,18 @@ import { fn } from "storybook/test";
 import { PURCHASE, purchaseAt } from "../../mocks/scenes";
 import { PurchaseScene } from "./purchase-scene";
 
-/** The Challenge purchase (`/play/challenge`): stake 1 to 10, price and boost, split, 24 h validity, threshold, confirm. One story per state; the Viewport control reframes it. */
-/** The slider moves the stake in every story: the price, boost and split follow it (the state's own stake is where it starts). */
+/** The Challenge purchase (`/play/challenge`): stake 1 to 10, price and boost, split, 24 h validity, threshold and reward by score, confirm. One story per state; the Viewport control reframes it. */
+/**
+ * The slider moves the stake in every story: the price, boost, split and reward by score follow it. The state's own stake is
+ * where it starts, with the state's own quote and `R` (a stress or a wait keeps them until the slider moves).
+ */
 function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof PurchaseScene>) {
   const [current, setCurrent] = useState(stake);
   useEffect(() => setCurrent(stake), [stake]);
   return (
     <PurchaseScene
       {...args}
-      {...purchaseAt(current)}
+      {...(current === stake ? { stake } : purchaseAt(current))}
       onStakeChange={(s) => {
         setCurrent(s);
         onStakeChange?.(s);
@@ -39,6 +42,10 @@ export const PurchasesPaused: Story = { args: PURCHASE.paused };
 
 /** The approve and spawn on their way. */
 export const Buying: Story = { args: PURCHASE.buying };
+/** The pool's quote and the guard's rate on their way: the reward by score shows its rows and bars, its figures wait (#705). */
+export const Estimating: Story = { args: PURCHASE.estimating };
+/** The guard's rate could not be read: the figures show "—", why, and Retry (on the route). */
+export const EstimateFailed: Story = { args: PURCHASE.estimateFailed };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: PURCHASE.stress };
 

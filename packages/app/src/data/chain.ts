@@ -75,6 +75,15 @@ export function useSplit(): UseQueryResult<SplitView | null> {
   return useQuery({ queryKey: queryKeys.chain.split(), queryFn: () => (economy ? economy.split() : null) });
 }
 
+/**
+ * `Economy.rate()`: the guard's swap rate, PAVED base units per USDC base unit x 1e18 (purchase: the reward estimate, #705).
+ * A bigint, so it stays out of the key.
+ */
+export function useGuardRate(): UseQueryResult<bigint | null> {
+  const { economy } = useDataSources();
+  return useQuery({ queryKey: queryKeys.chain.guardRate(), queryFn: () => (economy ? economy.guardRate() : null) });
+}
+
 /** The pool's `quote_swap(usdcIn)`: the PAVED the purchase's swap returns now (its `min_out` is derived from it). */
 export function usePoolQuote(usdcIn: bigint | null): UseQueryResult<bigint | null> {
   const { pool } = useDataSources();

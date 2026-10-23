@@ -20,7 +20,7 @@ import { formatPoints } from "../src/components/elements/score";
 import { App } from "../src/App";
 import type { DataSources, GameSigner, Settlements } from "../src/data";
 import { settlementsFor } from "../src/data/settle-client";
-import { DAY_SECONDS, previousBestOf, replayClosings, replayGame, rewardOf, settlesAfter, thresholdOf } from "../src/data/over";
+import { DAY_SECONDS, curveOf, previousBestOf, replayClosings, replayGame, rewardOf, settlesAfter, thresholdOf } from "../src/data/over";
 import { queryKeys } from "../src/data/keys";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
@@ -53,7 +53,7 @@ interface Options {
   indexed?: Record<string, unknown> | null;
   viewer?: string | "guest";
   settle?: Settlements["settle"];
-  day?: { closed: boolean; mean?: number };
+  day?: { closed: boolean; mean?: number; prior?: number };
   game?: Partial<typeof played.game>;
   noGame?: boolean;
 }
@@ -70,7 +70,7 @@ function setup(options: Options = {}) {
   if (!options.noGame) holdGame(f.views, { ...played, game: { ...played.game, ...options.game } });
   if (options.terms !== null) f.economy.terms_.set(GAME_ID, fakeTerms({ stake: 3, day: READY_DAY, player: PLAYER, score: played.game.score, ...options.terms }));
   const terms = f.economy.terms_.get(GAME_ID);
-  if (terms && options.day) f.economy.days.set(terms.day, { prior: 0, sum: 0n, weight: 0, mean: options.day.mean ?? 0, closed: options.day.closed });
+  if (terms && options.day) f.economy.days.set(terms.day, { prior: options.day.prior ?? 0, sum: 0n, weight: 0, mean: options.day.mean ?? 0, closed: options.day.closed });
   f.fixture.games = options.indexed === null ? [] : [row(options.indexed ?? {}) as never];
   const settle = vi.fn(options.settle ?? (async (): Promise<WriteResult & { noReward: number[] }> => ({ transactionHash: "0x1", events: [], noReward: [] })));
   const settlements = vi.fn((): Settlements => ({ settle }));
@@ -267,6 +267,26 @@ describe("/game/:gameId/over (P7a)", () => {
       expect(panel).toHaveAttribute("data-state", "awaiting");
       // 1,000,000 x (10,000 + 500) / 10,000 = 1,050,000 milli-points: 1,050 points.
       expect(panel).toHaveTextContent(/Threshold\s*1,050/);
+    });
+
+    it("recorded, its day open: what the score earns at the day's prior mean, an estimate, with that threshold (#705)", async () => {
+      // R = 1 PAVED (`fakeTerms`), c 1.222; a prior at half the game's score: the score earns R x 1.222 x 2 = 2.444 PAVED.
+      const score = played.game.score;
+      const s = setup({ terms: { day: OPEN_DAY }, day: { closed: false, prior: score * 500 }, indexed: null });
+      over(s);
+      const panel = await reward();
+      expect(panel).toHaveAttribute("data-state", "awaiting");
+      expect(within(panel).getByTestId("reward-coming")).toHaveTextContent(/^≈About2\.44PAVED$/);
+      const least = Math.ceil(score / 2);
+      expect(panel).toHaveTextContent(`At today's threshold ${formatPoints(least)} · beaten by ${formatPoints(score - least)}`);
+    });
+
+    it("settled: no estimate, the PAVED minted", async () => {
+      const s = setup({ terms: { settled: true, reward: 3n * PAVED }, day: { closed: true, mean: 1_000_000, prior: 1_000_000 } });
+      over(s);
+      const panel = await reward();
+      expect(panel).toHaveAttribute("data-state", "rewarded");
+      expect(within(panel).queryByTestId("reward-coming")).toBeNull();
     });
   });
 
@@ -591,6 +611,19 @@ describe("the over page's helpers", () => {
     expect(rewardOf(fakeTerms({ stake: 1, settled: true, reward: 1n }), null, { economy: { threshold: 77_000 } } as never)).toEqual({ kind: "rewarded", amount: 1n, threshold: 77 });
     expect(rewardOf(null, null, undefined)).toEqual({ kind: "none" });
     expect(rewardOf(null, null, { free: true } as never)).toEqual({ kind: "free" });
+  });
+
+  it("curveOf: the game's terms against its day's mean once fixed, its prior before; none without a reward to come (#705)", () => {
+    const terms = fakeTerms({ stake: 1, sigmaBps: 500 });
+    const open = { prior: 1_000_000, sum: 0n, weight: 0, mean: 0, closed: false };
+    expect(curveOf(terms, open)).toEqual({ reference: PAVED, threshold: 1_050_000, slopeBps: 12_220, cap: 5 });
+    expect(curveOf(terms, { ...open, mean: 2_000_000, closed: true })).toEqual({ reference: PAVED, threshold: 2_100_000, slopeBps: 12_220, cap: 5 });
+    expect(curveOf(fakeTerms({ stake: 1, settled: true }), open)).toBeNull();
+    expect(curveOf(fakeTerms({ stake: 1, expired: true }), open)).toBeNull();
+    expect(curveOf(fakeTerms({ stake: 0 }), open)).toBeNull();
+    expect(curveOf(terms, { ...open, prior: 0 })).toBeNull();
+    expect(curveOf(terms, null)).toBeNull();
+    expect(curveOf(null, open)).toBeNull();
   });
 
   it("replayGame: the closings, the figures that agree with them, and the final board's placed tiles", () => {

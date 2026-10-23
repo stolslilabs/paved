@@ -1,4 +1,5 @@
 import type { GameView, GameViews, TermsView } from "@paved/chain";
+import type { RewardCurve } from "../components/containers/reward-estimate";
 import { BOARD_38, CLOSINGS_38 } from "./board";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER_ID, TODAY } from "./players";
@@ -47,7 +48,8 @@ export const TERMS_PLAYING: TermsView = {
   stake: 3,
   reference: 4_200_000_000_000_000_000n,
   sigmaBps: 0,
-  slopeBps: 4_000,
+  // The chain's defaults (`economy.cairo`, `DEFAULT_CONFIG`): `c` 1.222, `H` 5.
+  slopeBps: 12_220,
   cap: 5,
   score: 0,
   recorded: false,
@@ -55,6 +57,9 @@ export const TERMS_PLAYING: TermsView = {
   settled: false,
   reward: 0n,
 };
+
+/** Its reward curve (#705): its terms against the day's threshold, as the HUD and the over page read them (`curveOf`). */
+export const CURVE_PLAYING: RewardCurve = { reference: TERMS_PLAYING.reference, threshold: THRESHOLD_MILLI, slopeBps: TERMS_PLAYING.slopeBps, cap: TERMS_PLAYING.cap };
 
 /** Bought more than 24 h ago and never finished: no reward any more (P-34). */
 export const TERMS_EXPIRED: TermsView = { ...TERMS_PLAYING, time: MOCK_NOW - DAY - 20 * 60, day: TODAY - 1, expired: true };
