@@ -102,6 +102,7 @@ pub mod systems {
     pub mod economy;
     pub mod faucet;
     pub mod matchmaker;
+    pub mod rewards;
     pub mod setup;
     pub mod story;
     pub mod token;
@@ -156,6 +157,7 @@ pub mod tests {
     pub mod matchmaker_system;
     pub mod oracle;
     pub mod owners;
+    pub mod rewards;
     pub mod seed;
     pub mod setup;
     pub mod story;

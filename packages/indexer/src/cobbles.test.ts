@@ -209,6 +209,23 @@ describe("the leagues' bonuses and season rewards (kinds 4 and 5, docs/architect
   });
 });
 
+describe("the village rewards taken as Cobbles (kind 6, docs/architecture/village-rewards.md)", () => {
+  test("each is a claim on the same running balance, once per reward index", async () => {
+    const { queries, head, indexer } = await open((node) =>
+      node.mine([ev.cobblesClaimed(A, 6, 0, 0, 5, 5)], [ev.cobblesClaimed(A, 6, 0, 1, 5, 10)]),
+    );
+    expect(indexer.status).toBe("ok");
+    expect(queries.playerCobbles(head, PA)).toMatchObject({ cobbles: 10 });
+  });
+
+  test("a reward paid twice halts", async () => {
+    await halts(
+      (node) => node.mine([ev.cobblesClaimed(A, 6, 0, 3, 5, 5)], [ev.cobblesClaimed(A, 6, 0, 3, 5, 10)]),
+      /village reward 0, period 3.*already claimed/,
+    );
+  });
+});
+
 describe("the ledger halts on what the chain would not do", () => {
   test("a second claim of the same quest and period, or achievement", async () => {
     await halts((node) => node.mine([ev.cobblesClaimed(A, 1, 1, DAY, 5, 5)], [ev.cobblesClaimed(A, 1, 1, DAY, 5, 10)]), /already claimed/);

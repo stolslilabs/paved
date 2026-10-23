@@ -219,6 +219,17 @@ cannot be bought, theme 0 always allowed, A3 and A4, and a fuzz of random buys a
 `contracts/src/tests/economy/sell.cairo` (p1), `scripts/test-deploy-url.sh` (the skin prices, p3). The whole `snforge test`:
 892 passed, 0 failed, 38 ignored.
 
+**Skins reserved to a tier (#642, `docs/architecture/village-rewards.md`, section 8).** A skin may need a minimum tier of its
+plan, the tier `Rewards` computes from the player's copies of that plan (two of a tier make one of the next). The owner sets
+it with `set_skin_tier(theme, plan, min_tier)` (owner only, `'Setup: invalid skin'` as `set_skin_price`; 0 reserves nothing;
+event `SkinTierSet { #[key] theme, #[key] plan, min_tier }`), read with `skin_tier(theme, plan) -> u8`; it is stored in
+`skin_tiers: Map<(u8, u8), u8>`, appended after the PvP ledgers (P-42). `buy_skin` checks it after the price and the
+ownership: a skin with a minimum tier reads `Rewards.tier(player_id, plan)` (the `rewards` that `set_rewards` sets; none set
+reads tier 0) and refuses `'Setup: tier too low'` under it. A skin with no minimum tier reads one more slot and nothing else
+(z11 +66,430 L2 gas). `set_skin_price`, `SkinPriced` and their indexer decoding are unchanged: the tier is a setter of its own
+rather than a fourth argument of `set_skin_price`, so the shop's live entry point and the events the indexer already holds keep
+their shape. A skin bought stays owned and active if its tier is raised later.
+
 ## Sources
 
 - **Paved** at this branch's base (main `ca034af2`), cited by path from the repository root.

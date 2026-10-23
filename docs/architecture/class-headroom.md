@@ -786,3 +786,22 @@ measured the same way.
 - Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Avatar` 10,201):
   the Challenge's game over writes the same `Progress` as before (`docs/architecture/leagues.md`, section 7).
 
+
+## After VILLAGE-REWARDS (#642, village rewards and tiers)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, release, VPS, 2026-10-22, under
+`prlimit --as=12884901888`, peak RSS 4,912,308 kB), main `0a39016f` and this branch.
+
+| Class | Sierra main | CASM main | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|---:|---:|
+| `Rewards` | | | 4,357 | 10,771 | new | 13.1 % |
+| `Setup` | 21,119 | 47,384 | 22,079 | 49,984 | +2,600 | 61.0 % |
+
+- `Rewards` is a class of its own (`docs/architecture/village-rewards.md`): it embeds `DrawableComponent` (#638) for the offers'
+  draws and places through `Village.place`, so `Village` (57,691) is unchanged; 62,957 CASM felts under the P-44 cap (73,728).
+- `Setup` gains `ISetupRewards` (`set_rewards`, `rewards`, `credit_reward`), the grant called from `report`, `credit_story` and
+  `report_pvp`, and the skins' minimum tier (`set_skin_tier`, `skin_tier`, the check in `buy_skin`): 23,744 under the P-44 cap.
+  It was past P-64's 50 % review point already (57.8 % after #644); the grant had to be in `Setup` or in each mode system, and
+  `Challenge` has 3,453 felts left.
+- Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Village` 57,691, `Matchmaker` 33,244,
+  `Avatar` 10,201): the mode systems call `Setup` as before.
