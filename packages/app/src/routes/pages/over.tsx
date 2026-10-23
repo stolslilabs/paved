@@ -10,7 +10,7 @@ import { TopBar } from "../../components/containers/top-bar";
 import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
-import { rewardOf, settleProps, useOverRead, useOverStanding, useSettle, type OverReward } from "../../data/over";
+import { curveOf, rewardOf, settleProps, useOverRead, useOverStanding, useSettle, type OverReward } from "../../data/over";
 import { trainingStore, useDataSources } from "../../data/sources";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { useAccount } from "../../wallet/wallet";
@@ -84,7 +84,8 @@ function rewardProps(reward: OverReward): Pick<OverSceneProps["reward"], "state"
  * The end of a Challenge game, on its data (section 6.4): the final score and counters from `Challenge.game(id)`, every
  * closing from the game's tiles replayed on the engine, the reward from `Economy.terms(id)` (the amount once settled, the
  * deadline of an expired game), `Economy.day(day)` (the threshold once the day is closed) and the indexer's record (a free
- * game, the threshold the contract used), and the missions it completed (`useGameCompletions`, #595). Settle is `Economy.settle`: "Settles after <date>" until the end of the day after
+ * game, the threshold the contract used), the reward its score earns before the settle (`curveOf`, #705: an estimate at its
+ * day's prior while the day is open), and the missions it completed (`useGameCompletions`, #595). Settle is `Economy.settle`: "Settles after <date>" until the end of the day after
  * the game's, then the player's button; a guest connects. A game still in play goes back to its board, an unknown one is
  * "Game not found", a failed read has Retry. Play again opens the purchase, keeping the link's `?ref=`.
  */
@@ -153,7 +154,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
       onViewChange={setView}
       previousBest={standing.previousBest}
       closingsNote={closings.isPending ? "Reading the game's closings…" : closings.error ? "The closings of this game could not be read." : undefined}
-      reward={{ ...rewardProps(reward), stake: terms && terms.stake > 0 ? terms.stake : undefined }}
+      reward={{ ...rewardProps(reward), stake: terms && terms.stake > 0 ? terms.stake : undefined, curve: reward.kind === "pending" ? curveOf(terms, day) : null }}
       freeGame={free}
       rewardUnavailable={reward.kind === "none"}
       deadline={reward.kind === "expired" ? reward.deadline : undefined}

@@ -23,6 +23,8 @@ import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { rewardMarks } from "../src/components/containers/reward-estimate";
+import { GameHud } from "../src/components/containers/game-hud";
+import { CURVE_PLAYING } from "../src/mocks/games";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
@@ -545,6 +547,54 @@ describe("Purchase", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetryReference).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
+  });
+});
+
+// #705 during and after the game: the curve of the mocks' game (R = 4.2 PAVED, c 1.222, H 5, threshold 1,150), its score 1,270.
+describe("Challenge reward on the HUD and the over page (#705)", () => {
+  const hud = (props: Partial<React.ComponentProps<typeof GameHud>>) => render(wrap(<GameHud title="Challenge #1042" score={1270} now={0} reward={CURVE_PLAYING} {...props} />));
+
+  it("shows on the HUD what the score earns past the threshold, the score to beat under it, and max from the cap", () => {
+    const { unmount } = hud({});
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(/^Estimated reward ≈ 5\.66 PAVED$/);
+    unmount();
+    const below = hud({ score: 640 });
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(`Beat ${pts(1150)}`);
+    below.unmount();
+    const cap = hud({ score: 5_000 });
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(/≈ 21\.00 PAVED\s*max$/);
+    cap.unmount();
+    // From 10,000 PAVED the figure is compact, so the header keeps its width (WRAP360).
+    hud({ score: 999_999, reward: { ...CURVE_PLAYING, reference: 123_456_789n * 10n ** 18n } });
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(/≈ 617\.3M PAVED\s*max$/);
+  });
+
+  it("shows no reward on the HUD without a curve, nor on a Training board", () => {
+    const { unmount } = hud({ reward: null });
+    expect(screen.queryByTestId("hud-reward")).toBeNull();
+    unmount();
+    render(wrap(<BoardScene {...BOARD.queueTraining} />));
+    expect(screen.queryByTestId("hud-reward")).toBeNull();
+  });
+
+  it("shows it on the Challenge board's HUD", () => {
+    render(wrap(<BoardScene {...BOARD.belowThreshold} />));
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(`Beat ${pts(1150)}`);
+  });
+
+  it("estimates the reward of a game whose day is open, with the threshold it is measured against", () => {
+    render(wrap(<OverScene {...OVER.awaitingEstimate} />));
+    const panel = screen.getByRole("region", { name: "Reward" });
+    expect(within(panel).getByTestId("reward-coming")).toHaveTextContent(/^≈About5\.66PAVED$/);
+    expect(panel).toHaveTextContent(`At today's threshold ${pts(1150)} · beaten by ${pts(120)}`);
+  });
+
+  it("gives the exact reward once the day's mean is fixed, before the settle", () => {
+    render(wrap(<OverScene {...OVER.settle} />));
+    const panel = screen.getByRole("region", { name: "Reward" });
+    expect(within(panel).getByTestId("reward-coming")).toHaveTextContent(/^5\.66PAVED$/);
+    expect(panel).not.toHaveTextContent("At today's threshold");
+    expect(panel).toHaveTextContent(`Threshold ${pts(1150)}`);
   });
 });
 

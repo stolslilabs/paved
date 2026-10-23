@@ -26,6 +26,7 @@ import { Boundary, useClock } from "../elements/deadline";
 import { ClosingLine } from "../containers/closing-feed";
 import { GameMissions, type GameMission } from "../containers/game-missions";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
+import type { RewardCurve } from "../containers/reward-estimate";
 import scoreWide from "../../assets/renders/score-wide.webp";
 import { TopBar } from "../containers/top-bar";
 
@@ -82,6 +83,8 @@ export interface OverSceneProps {
     stake?: number;
     /** Points (`threshold / 1000`). */
     threshold?: number;
+    /** `awaiting` and `settle`: the game's curve, for the reward its score earns (#705, `RewardPanel`). */
+    curve?: RewardCurve | null;
   };
   settling?: boolean;
   onSettle?: () => void;
@@ -320,6 +323,7 @@ function Scores({ mode, game, closings, previousBest, reward, settling, onSettle
                 stake={reward.stake}
                 score={game.score}
                 threshold={reward.threshold}
+                curve={reward.curve}
                 settling={settling}
                 onSettle={onSettle}
               />

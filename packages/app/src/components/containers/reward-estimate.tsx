@@ -3,17 +3,19 @@ import { cn } from "../../lib/utils";
 import { Amount } from "../elements/amount";
 import { formatPoints } from "../elements/score";
 
-export interface RewardEstimateProps {
-  /** `R`, PAVED base units, as a purchase of this stake would store it now; null while it is read (the figures wait). */
+/** What `curve::payout` pays a score against (#705): a purchase's quote, or a bought game's terms and its day's threshold. */
+export interface RewardCurve {
+  /** `R`, PAVED base units: a purchase's estimate (null while it is read: the figures wait), or a bought game's `TermsView.reference`. */
   reference: bigint | null;
-  /** `R` cannot be read (a failed quote, `PurchaseScene` says why): the figures show "—", not busy. */
-  unavailable?: boolean;
-  /** Points x 1,000 (`QuoteView.threshold`). */
+  /** Points x 1,000 (`QuoteView.threshold`, or the game's day's mean shifted by its sigma). */
   threshold: number;
-  /** `c`, bps (`QuoteView.slope`). */
+  /** `c`, bps (`QuoteView.slope`, `TermsView.slopeBps`). */
   slopeBps: number;
-  /** `H` (`QuoteView.cap`). */
+  /** `H` (`QuoteView.cap`, `TermsView.cap`). */
   cap: number;
+}
+
+export interface RewardEstimateProps extends RewardCurve {
   className?: string;
 }
 
@@ -40,17 +42,17 @@ export function rewardMarks(threshold: number, slopeBps: number, cap: number): {
  * the figures wait.
  *
  * A table by its roles on `StatRow`'s grid: the score and reward columns take their content's width while it fits, the bar
- * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure (WRAP360). The
- * bars are decorative: the table reads as score and reward.
+ * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure, and a reward
+ * from 10,000 PAVED is compact (WRAP360). The bars are decorative: the table reads as score and reward.
  */
-export function RewardEstimate({ reference, unavailable = false, threshold, slopeBps, cap, className }: RewardEstimateProps) {
+export function RewardEstimate({ reference, threshold, slopeBps, cap, className }: RewardEstimateProps) {
   const marks = rewardMarks(threshold, slopeBps, cap);
   const ceiling = UNIT * BigInt(cap);
   return (
     <div
       role="table"
       aria-label="Estimated reward by score"
-      aria-busy={reference === null && !unavailable}
+      aria-busy={reference === null}
       className={cn("grid grid-cols-[auto_minmax(2.5rem,1fr)_auto] items-center gap-x-3 gap-y-2 text-sm", className)}
     >
       <div role="row" className="contents text-xs text-muted-foreground">
@@ -77,9 +79,9 @@ export function RewardEstimate({ reference, unavailable = false, threshold, slop
             </span>
             <span role="cell" className="text-right">
               {reference === null ? (
-                <span className="numeric text-muted-foreground">{unavailable ? "—" : "…"}</span>
+                <span className="numeric text-muted-foreground">…</span>
               ) : (
-                <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} className="justify-end" />
+                <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} compact className="justify-end" />
               )}
             </span>
           </div>

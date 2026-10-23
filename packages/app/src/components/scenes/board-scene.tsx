@@ -17,6 +17,7 @@ import type { BoardBubble, BoardGhost } from "../containers/board-viewport";
 import { LazyTileBubble } from "../containers/lazy-tile-bubble";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
+import type { RewardCurve } from "../containers/reward-estimate";
 import type { BoardWheel } from "../../data/board-settings";
 import type { ErrorDetail } from "../elements/inline-error";
 import { useBoardSounds } from "../containers/board-sounds";
@@ -71,6 +72,8 @@ export interface BoardSceneProps {
   discardedPlans?: number[];
   /** `GameView.expiresAt` (S1): a Challenge game's start + 24 h; past it only a surrender is accepted. */
   expiresAt?: number | null;
+  /** A Challenge game's reward curve (#705): the HUD shows the score to beat, then what the score earns. */
+  reward?: RewardCurve | null;
   now: number;
   hand: {
     tile: { plan: number; orientation: number } | null;
@@ -224,6 +227,7 @@ export function BoardScene(props: BoardSceneProps) {
           delta={props.delta}
           preview={hand.slotChosen ? hand.preview : null}
           expiresAt={mode === "challenge" ? props.expiresAt : null}
+          reward={mode === "challenge" ? props.reward : null}
           now={now}
           onBack={props.onBack}
           onSettings={() => {

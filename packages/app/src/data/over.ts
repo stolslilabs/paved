@@ -4,6 +4,7 @@ import type { BoardTile, DayView, GameKey, GameView, IndexedGame, TermsView, Til
 import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, gameStats, supplyKnown, type GameStats } from "@paved/game-core";
 import type { SettleProps } from "../components/scenes/over-scene";
 import { useCurrentDay, useGame, useEconomyDay, useTerms } from "./chain";
+import { curveOf, thresholdOf } from "./reward-curve";
 import { addressKey, queryKeys } from "./keys";
 import { useIndexedGame, useIndexedPlayerGames, usePlayerProfile } from "./indexer";
 import { useDataSources } from "./sources";
@@ -22,8 +23,8 @@ export const expiryOf = (purchasedAt: number): number => purchasedAt + DAY_SECON
 /** Day `day` (a chain day id) settles only after the next day ends, `(day + 2) x 86400` (P-34): `settlesAfter` of `@paved/chain`. */
 export const settlesAfter = (day: number): number => (day + 2) * DAY_SECONDS;
 
-/** The cliff in points x 1,000, `mean x (10,000 + sigma) / 10,000` (`curve::threshold`); the mean is the closed day's. */
-export const thresholdOf = (mean: number, sigmaBps: number): number => Math.floor((mean * (10_000 + sigmaBps)) / 10_000);
+// The cliff (`curve::threshold`), here of the closed day's mean; its module is shared with the board's HUD (#705).
+export { curveOf, thresholdOf };
 
 /**
  * What the page says of a finished game's reward. `threshold` is in points (the chain's points x 1,000, over 1,000); null

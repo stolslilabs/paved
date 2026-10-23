@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeGameViews, type GameKey, type GameView, type TileView, type WriteResult } from "@paved/chain";
+import { fakeTerms } from "@paved/chain/testing";
 import { CENTER, EngineGame, PlanType } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
@@ -93,6 +94,15 @@ describe("/game/:gameId (P5)", () => {
     expect(screen.queryByRole("contentinfo")).toBeNull();
     expect(screen.queryByRole("link", { name: "Third-party notices" })).toBeNull();
     expect(screen.getByLabelText(/^Board of 1 tiles$/).closest(".h-dvh")).toHaveClass("overflow-hidden");
+  });
+
+  it("the HUD shows the score to beat from the game's terms and its day's prior (#705)", async () => {
+    const s = sources({ signer: true });
+    s.economy.terms_.set(GAME_ID, fakeTerms({ stake: 1, day: 0, player: PLAYER, recorded: false }));
+    s.economy.days.set(0, { prior: 1_234_500, sum: 0n, weight: 0, mean: 0, closed: false });
+    open(`/game/${GAME_ID}`, s);
+    // A score of 0 under a threshold of 1,234.5 points: 1,235 to beat.
+    expect(await screen.findByTestId("hud-reward", {}, { timeout: slow(5000) })).toHaveTextContent("Beat 1,235");
   });
 
   it("with a signer: playable; a discard shows the next tile from the engine and is sent through the signer", async () => {
