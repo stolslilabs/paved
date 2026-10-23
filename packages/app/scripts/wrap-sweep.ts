@@ -149,7 +149,10 @@ async function serve(dir: string): Promise<{ server: Server; origin: string }> {
     try {
       if ((await stat(file)).isDirectory()) file = join(file, "index.html");
       const body = await readFile(file);
-      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" }).end(body);
+      // The build's hashed files never change: cached, a story does not fetch the preview's ~115 files again (a sweep
+      // served 113,000 requests and 5.3 GB without, 16,000 and 0.9 GB with).
+      const cache = path.startsWith("/assets/") ? { "cache-control": "public, max-age=31536000, immutable" } : {};
+      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", ...cache }).end(body);
     } catch {
       res.writeHead(404).end();
     }
@@ -350,6 +353,8 @@ async function main() {
   const { server, origin } = await serve(opts.dir);
   const started = performance.now();
   const findings: Finding[] = [];
+  /** How long each story took to open (navigation and render), ms: the summary names the slowest. */
+  const opened: { story: string; ms: number }[] = [];
   // The 3D stories (board, tiles, outlines) take seconds each in software WebGL; spread them over the workers
   // rather than let four of them start together: a fixed shuffle, so two runs take the same order.
   let seed = 360;
@@ -362,10 +367,12 @@ async function main() {
     // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
-    const page = await context.newPage();
+    let page = await context.newPage();
     for (let id = queue.shift(); id; id = queue.shift()) {
       await page.setViewportSize({ width: opts.widths[0], height: 740 });
+      const at = performance.now();
       const error = await render(page, origin, id);
+      opened.push({ story: id, ms: performance.now() - at });
       for (const width of opts.widths) {
         await page.setViewportSize({ width, height: 740 });
         if (error) {
@@ -381,6 +388,16 @@ async function main() {
           found = await page.evaluate(inspect);
         }
         for (const f of found) findings.push({ story: id, width, kind: f.kind as Kind, element: f.element });
+      }
+      // A story that draws on a canvas (the 3D board, tiles, outlines, in software WebGL) keeps its renderer busy with its
+      // frames: navigated in place, the next story commits only once that renderer is free, which took up to 14 s on a 12-core
+      // Mac with 4 workers and passed `goto`'s 30 s on slow CI runners. Its page is closed instead (its frames stop) and
+      // the next story gets a new one; the others keep the page, whose warm scripts a new page would compile again (about
+      // 0.1 s a story). The same after a story that did not render.
+      if (error || (await page.evaluate(() => document.querySelector("canvas") !== null).catch(() => true))) {
+        const last = page;
+        page = await context.newPage();
+        await last.close();
       }
     }
     await browser.close();
@@ -400,8 +417,14 @@ async function main() {
   const line = (r: string[]) => r.map((c, i) => c.padEnd(widths[i])).join("  ");
   if (rows.length) console.log([line(head), line(widths.map((w) => "-".repeat(w))), ...rows.map(line)].join("\n"));
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
+  opened.sort((a, b) => b.ms - a.ms);
+  const slowest = opened.slice(0, 3).map((o) => `${o.story} ${(o.ms / 1000).toFixed(1)} s`);
   console.log(`\n${stories.length} stories x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
-  if (opts.json) await writeFile(opts.json, JSON.stringify({ stories: stories.length, widths: opts.widths, seconds: Number(seconds), findings }, null, 2));
+  console.log(`Slowest to open: ${slowest.join(", ")}.`);
+  if (opts.json) {
+    const timings = opened.map((o) => ({ story: o.story, ms: Math.round(o.ms) }));
+    await writeFile(opts.json, JSON.stringify({ stories: stories.length, widths: opts.widths, seconds: Number(seconds), findings, opened: timings }, null, 2));
+  }
   process.exitCode = open.length ? 1 : 0;
 }
 
