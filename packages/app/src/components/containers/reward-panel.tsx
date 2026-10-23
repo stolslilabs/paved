@@ -43,7 +43,6 @@ const COPY: Record<RewardState, { title: string; tone: string; icon: string }> =
 /** The reward or its absence, with the threshold the score was measured against. */
 export function RewardPanel({ state, reward = 0n, stake, score, threshold, curve, settling, onSettle, className }: RewardPanelProps) {
   const copy = COPY[state];
-  const above = threshold != null && score >= threshold;
   // What the score earns before the settle: exact once the day's mean is fixed (`threshold`), else an estimate at its prior.
   const coming = (state === "awaiting" || state === "settle") && curve?.reference != null ? rewardOf(curve.reference, score, curve.threshold, curve.slopeBps, curve.cap) : null;
   const estimated = coming !== null && threshold == null;
@@ -69,28 +68,8 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, curve
           <Amount value={coming} token="paved" />
         </span>
       )}
-      {estimated && (
-        <p className="text-sm text-muted-foreground">
-          At today's threshold <span className="numeric text-foreground">{formatPoints(least)}</span>
-          {" · "}
-          {score >= least ? (
-            <span className="text-success">beaten by {formatPoints(score - least)}</span>
-          ) : (
-            <span className="text-destructive-text">missed by {formatPoints(least - score)}</span>
-          )}
-        </p>
-      )}
-      {threshold != null && state !== "free" && (
-        <p className="text-sm text-muted-foreground">
-          Threshold <span className="numeric text-foreground">{formatPoints(threshold)}</span>
-          {" · "}
-          {above ? (
-            <span className="text-success">beaten by {formatPoints(score - threshold)}</span>
-          ) : (
-            <span className="text-destructive-text">missed by {formatPoints(threshold - score)}</span>
-          )}
-        </p>
-      )}
+      {estimated && <ThresholdLine label="At today's threshold" threshold={least} score={score} />}
+      {threshold != null && state !== "free" && <ThresholdLine label="Threshold" threshold={threshold} score={score} />}
       {state === "awaiting" && <p className="text-sm text-muted-foreground">The day's mean fixes the reward. Settle when it closes.</p>}
       {state === "settle" && estimated && <p className="text-sm text-muted-foreground">The first settle fixes the day's mean, and the reward with it.</p>}
       {state === "below" && <p className="text-sm text-muted-foreground">Below the threshold the stake is lost.</p>}
@@ -102,5 +81,20 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, curve
         </Button>
       )}
     </section>
+  );
+}
+
+/** A threshold and the score's margin to it: the day's fixed one ("Threshold"), or the one an estimate is measured against (#705). */
+function ThresholdLine({ label, threshold, score }: { label: string; threshold: number; score: number }) {
+  return (
+    <p className="text-sm text-muted-foreground">
+      {label} <span className="numeric text-foreground">{formatPoints(threshold)}</span>
+      {" · "}
+      {score >= threshold ? (
+        <span className="text-success">beaten by {formatPoints(score - threshold)}</span>
+      ) : (
+        <span className="text-destructive-text">missed by {formatPoints(threshold - score)}</span>
+      )}
+    </p>
   );
 }
