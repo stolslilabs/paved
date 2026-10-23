@@ -532,6 +532,19 @@ describe("Purchase", () => {
     expect(within(table).queryByText("PAVED")).not.toBeInTheDocument();
     // Pay never waits for the estimate.
     expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
+    expect(screen.queryByText("The reward cannot be estimated")).toBeNull();
+  });
+
+  it("says why the reward cannot be estimated instead of waiting for ever, with Retry", async () => {
+    const onRetryReference = vi.fn();
+    render(wrap(<PurchaseScene {...PURCHASE.estimateFailed} onRetryReference={onRetryReference} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(table).toHaveAttribute("aria-busy", "false");
+    expect(within(table).getAllByRole("row")[1]).toHaveTextContent("—");
+    expect(screen.getByText("The reward cannot be estimated")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetryReference).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
   });
 });
 

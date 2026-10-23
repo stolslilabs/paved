@@ -229,6 +229,8 @@ export const PURCHASE = {
   buying: { ...purchaseBase, ...at(3), buying: true },
   /** The pool's quote and the guard's rate on their way: the reward by score waits (#705). */
   estimating: { ...purchaseBase, ...at(3), reference: null },
+  /** The guard's rate (or the pool's quote) could not be read: no busy figures, why, and Retry. */
+  estimateFailed: { ...purchaseBase, ...at(3), reference: null, referenceError: "Economy.rate: the node did not answer." },
   /** WRAP360: a full referrer address (cut in the middle), the largest balance, and the widest scores and rewards by score. */
   stress: { ...purchaseBase, ...at(10), quote: { ...quote(10), threshold: (BIG_SCORE - 1) * 1000 }, reference: BIG_AMOUNT_18, referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
 } satisfies Record<string, Data<PurchaseSceneProps>>;

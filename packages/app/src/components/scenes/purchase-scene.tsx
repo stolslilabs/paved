@@ -23,6 +23,10 @@ export interface PurchaseSceneProps {
    * the guard's rate (#705); null while they are read. The reward by score is `R` on the quote's curve.
    */
   reference: bigint | null;
+  /** Why `reference` cannot be estimated (the guard's rate or the pool's quote failed); Retry reads them again. */
+  referenceError?: string | null;
+  referenceErrorDetail?: ErrorDetail;
+  onRetryReference?: () => void;
   /** The burn's boost at this stake, bps. */
   boostBps: number;
   /** `Economy.split_bps()` (V1b). */
@@ -134,7 +138,13 @@ function GameForm(props: PurchaseSceneProps) {
           <p className="text-xs text-muted-foreground">Below the threshold the stake is lost; above it, PAVED is minted when the day closes.</p>
           <div className="flex flex-col gap-2 border-t border-border pt-3">
             <span className="text-xs text-muted-foreground">Reward by score</span>
-            <RewardEstimate reference={props.reference} threshold={quote.threshold} slopeBps={quote.slope} cap={quote.cap} />
+            <RewardEstimate reference={props.reference} unavailable={!!props.referenceError} threshold={quote.threshold} slopeBps={quote.slope} cap={quote.cap} />
+            <InlineError
+              title="The reward cannot be estimated"
+              message={props.reference === null ? props.referenceError : null}
+              detail={props.referenceErrorDetail}
+              action={props.onRetryReference && <Button variant="outline" onClick={props.onRetryReference}>Retry</Button>}
+            />
             <p className="text-xs text-muted-foreground">
               Estimates at today's threshold. Your purchase's swap fixes the reward per point, and the day's mean fixes the threshold when the day closes.
             </p>

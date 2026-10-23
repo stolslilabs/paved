@@ -317,6 +317,28 @@ describe("/play/challenge: the game's stake", () => {
     expect(within(table).getAllByRole("row").at(-1)).toHaveTextContent("622.16");
   });
 
+  it("a guard's rate that cannot be read is said, not left busy, and Retry reads it again (#705)", async () => {
+    const s = setup();
+    const guardRate = s.economy.guardRate.bind(s.economy);
+    let fail = true;
+    s.economy.guardRate = async () => {
+      if (fail) throw new Error("Economy.rate: the node did not answer.");
+      return guardRate();
+    };
+    open("/play/challenge", s);
+    await enabledPay();
+    // The read and its one retry fail: why, the figures "—" and not busy, and Pay is still offered.
+    expect(await screen.findByText("The reward cannot be estimated", undefined, { timeout: slow(5000) })).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(table).toHaveAttribute("aria-busy", "false");
+    expect(within(table).getAllByRole("row")[1]).toHaveTextContent("—");
+    expect(screen.getByRole("button", { name: /Pay .* and play/ })).toBeEnabled();
+    fail = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(within(screen.getByRole("table", { name: "Estimated reward by score" })).getAllByRole("row")[1]).toHaveTextContent("131.32"), { timeout: slow(3000) });
+    expect(screen.queryByText("The reward cannot be estimated")).toBeNull();
+  });
+
   it("a guest connects first: Pay is Connect to buy", async () => {
     const s = setup({ signer: false });
     const { wallet } = open("/play/challenge", s);

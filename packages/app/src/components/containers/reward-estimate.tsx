@@ -6,6 +6,8 @@ import { formatPoints } from "../elements/score";
 export interface RewardEstimateProps {
   /** `R`, PAVED base units, as a purchase of this stake would store it now; null while it is read (the figures wait). */
   reference: bigint | null;
+  /** `R` cannot be read (a failed quote, `PurchaseScene` says why): the figures show "—", not busy. */
+  unavailable?: boolean;
   /** Points x 1,000 (`QuoteView.threshold`). */
   threshold: number;
   /** `c`, bps (`QuoteView.slope`). */
@@ -41,14 +43,14 @@ export function rewardMarks(threshold: number, slopeBps: number, cap: number): {
  * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure (WRAP360). The
  * bars are decorative: the table reads as score and reward.
  */
-export function RewardEstimate({ reference, threshold, slopeBps, cap, className }: RewardEstimateProps) {
+export function RewardEstimate({ reference, unavailable = false, threshold, slopeBps, cap, className }: RewardEstimateProps) {
   const marks = rewardMarks(threshold, slopeBps, cap);
   const ceiling = UNIT * BigInt(cap);
   return (
     <div
       role="table"
       aria-label="Estimated reward by score"
-      aria-busy={reference === null}
+      aria-busy={reference === null && !unavailable}
       className={cn("grid grid-cols-[auto_minmax(2.5rem,1fr)_auto] items-center gap-x-3 gap-y-2 text-sm", className)}
     >
       <div role="row" className="contents text-xs text-muted-foreground">
@@ -75,7 +77,7 @@ export function RewardEstimate({ reference, threshold, slopeBps, cap, className 
             </span>
             <span role="cell" className="text-right">
               {reference === null ? (
-                <span className="numeric text-muted-foreground">…</span>
+                <span className="numeric text-muted-foreground">{unavailable ? "—" : "…"}</span>
               ) : (
                 <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} className="justify-end" />
               )}
