@@ -9,7 +9,7 @@ import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { skinKeys, useSkinWrites, useThemeSkins } from "../../data/skins";
 import { useDataSources } from "../../data/sources";
 import { useThemeVariants, useTileRenders } from "../../data/tile-renders";
-import { useSkinTierGates } from "../../data/village";
+import { useSkinTierGates, villageKeys } from "../../data/village";
 import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 import NotFound from "./not-found";
@@ -40,6 +40,9 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
   const read = useThemeSkins(playerId, available ? code : null);
   // The skins reserved to a tier of their plan (#642): Buy waits for the tier. None on a network without Rewards.
   const gates = useSkinTierGates(playerId, available ? code : null);
+  // The skins shown once their tiers are read too: no Buy before the tiers say which skins wait for one, nor after their read failed.
+  const tiersIn = gates.data !== undefined && !gates.error;
+  const status = skinsStatus(playerId, { data: tiersIn ? read.data : undefined, error: read.error ?? gates.error });
   const writes = useSkinWrites(playerId);
   const client = useQueryClient();
   const renders = useTileRenders(RENDERER_ASSETS);
@@ -66,8 +69,8 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       renders={renders}
       variants={variants}
       tierGates={gates.data ?? undefined}
-      skins={read.data}
-      skinsStatus={available ? skinsStatus(playerId, read) : null}
+      skins={tiersIn ? read.data : undefined}
+      skinsStatus={available ? status : null}
       buying={writes.buying}
       refusal={writes.error?.message ?? null}
       refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
@@ -78,6 +81,7 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });
+        void client.invalidateQueries({ queryKey: villageKeys.all });
         void client.invalidateQueries({ queryKey: cobbleKeys.all });
       }}
       onBack={onBack}

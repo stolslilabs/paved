@@ -4,9 +4,9 @@
  * request.
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up)
- *   node scripts/village-captures.ts --out <folder> [--url http://localhost:6006] [--gpu]
+ *   node scripts/village-captures.ts --out <folder> [--url http://localhost:6006]
  *
- * Without `--gpu` it runs headless on SwiftShader (software WebGL). Each capture is written as WebP (the browser encodes it, at
+ * The page draws the plan (each tile on its tier's base), so no WebGL is needed. Each capture is written as WebP (the browser encodes it, at
  * 0.85), as `src/stories/captures/village/`'s are. Node 24 runs it as is (type stripping).
  */
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -19,7 +19,6 @@ const arg = (name: string, fallback: string): string => {
 };
 const URL_BASE = arg("url", "http://localhost:6006");
 const OUT = arg("out", "");
-const GPU = process.argv.includes("--gpu");
 const ONLY = arg("only", "");
 if (!OUT) throw new Error("--out <folder> is required");
 
@@ -27,11 +26,10 @@ const SIZES = [
   { width: 375, height: 812 },
   { width: 1440, height: 900 },
 ];
-const CAPTURES: { name: string; story: string; webgl?: boolean }[] = [
+const CAPTURES = [
   { name: "page-board", story: "pages-village--board" },
   { name: "page-reward", story: "pages-village--reward" },
-  // The visit in the plan, the page's board without WebGL: the 3D one of 29 cells does not settle on SwiftShader under load.
-  { name: "page-visit", story: "pages-village--visit", webgl: false },
+  { name: "page-visit", story: "pages-village--visit" },
 ];
 
 /** A PNG encoded as WebP by the browser (a blank page's canvas). */
@@ -52,18 +50,16 @@ async function toWebp(png: Buffer): Promise<Buffer> {
 }
 
 mkdirSync(OUT, { recursive: true });
-const browser = await chromium.launch({ args: GPU ? ["--enable-gpu", "--use-angle=default", "--ignore-gpu-blocklist"] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-/** A browser without WebGL, for the captures of the plan view. */
-const plain = await chromium.launch({ args: ["--disable-webgl", "--disable-3d-apis"] });
+const browser = await chromium.launch();
 try {
   for (const capture of CAPTURES.filter((c) => !ONLY || c.name.includes(ONLY))) {
     for (const size of SIZES) {
-      const page = await (capture.webgl === false ? plain : browser).newPage({ viewport: size, deviceScaleFactor: 2 });
+      const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
       await page.goto(`${URL_BASE}/iframe.html?id=${capture.story}&viewMode=story`, { waitUntil: "load" });
       // The page read the ledger (the first visit waits for Storybook's compile): its score is shown.
       await page.waitForSelector("#storybook-root :text('Village score')", { timeout: 90_000 });
-      // The 3D board loads its models and settles (its ambient effects keep the network busy: no idle to wait for).
-      await page.waitForTimeout(10_000);
+      // The tiles' art loads (Storybook's own socket keeps the network busy: no idle to wait for).
+      await page.waitForTimeout(4_000);
       const png = await page.screenshot({ fullPage: false, timeout: 180_000 });
       await page.close();
       const file = join(OUT, `${capture.name}-${size.width}.webp`);
@@ -73,5 +69,4 @@ try {
   }
 } finally {
   await browser.close();
-  await plain.close();
 }

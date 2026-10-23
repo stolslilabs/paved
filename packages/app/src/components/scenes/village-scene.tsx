@@ -48,6 +48,8 @@ export interface VillageSceneProps {
   founded?: boolean;
   /** Rewards waiting to be opened (own village, no offer open): Open draws the next one's tiles. */
   pending?: number;
+  /** The reward's read failed (own village): what happened, and Retry, in place of the reward. */
+  rewardError?: { message: string; detail?: ErrorDetail } | null;
   /** The last write's refusal, until dismissed. */
   refusal?: string | null;
   refusalDetail?: ErrorDetail;
@@ -114,7 +116,7 @@ const DRAG_SLOP = 6;
  * `Village` and `Rewards`, #646 PR 2): a village not founded shows its start and Found; rewards waiting show Open.
  */
 export function VillageScene({ village, status, mode = "own", onBack, onConnect, onRetry, ...props }: VillageSceneProps) {
-  if (village) return <VillageView village={village} mode={mode} onBack={onBack} {...props} />;
+  if (village) return <VillageView village={village} mode={mode} onBack={onBack} onRetry={onRetry} {...props} />;
   const own = mode === "own";
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
@@ -155,6 +157,7 @@ function VillageView({
   pending = 0,
   refusal = null,
   refusalDetail,
+  rewardError = null,
   cobbles = 0,
   reward = null,
   parcel = null,
@@ -169,13 +172,14 @@ function VillageView({
   onFound,
   onOpenReward,
   onDismissRefusal,
+  onRetry,
   onPlace,
   onAddCopy,
   onTakeCobbles,
   onBuyParcel,
   onGetCobbles,
   onOpenSkins,
-}: Omit<VillageSceneProps, "village" | "status" | "onConnect" | "onRetry"> & { village: Village }) {
+}: Omit<VillageSceneProps, "village" | "status" | "onConnect"> & { village: Village }) {
   const own = mode === "own";
   const [selected, setSelected] = useState<number | null>(initialSelected);
   const [orientation, setOrientation] = useState(1);
@@ -193,7 +197,8 @@ function VillageView({
     setOrientation(1);
   }, [reward, initialSelected]);
 
-  const offer = own && founded ? reward : null;
+  // A reward that could not be read is not offered: its error shows instead, with Retry.
+  const offer = own && founded && !rewardError ? reward : null;
   const cap = cellCap(village);
   // A parcel bought joins the village: its sheet closes.
   const openParcel = chosenParcel && !village.cells.some((c) => c.x === chosenParcel.x && c.y === chosenParcel.y) ? chosenParcel : null;
@@ -351,7 +356,23 @@ function VillageView({
               </Button>
             </div>
           )}
-          {own && founded && !offer && pending > 0 && (
+          {own && founded && rewardError && (
+            <div className="border-t border-border px-4 py-2">
+              <InlineError
+                title="Your rewards could not be read"
+                message={rewardError.message}
+                detail={rewardError.detail}
+                action={
+                  onRetry && (
+                    <Button size="sm" variant="outline" onClick={onRetry}>
+                      Retry
+                    </Button>
+                  )
+                }
+              />
+            </div>
+          )}
+          {own && founded && !rewardError && !offer && pending > 0 && (
             <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
               <p className="text-sm">
                 <span className="numeric font-semibold">{pending}</span> {pending === 1 ? "reward waits" : "rewards wait"}: open one to draw its three tiles.
@@ -361,7 +382,7 @@ function VillageView({
               </Button>
             </div>
           )}
-          {own && founded && !offer && pending === 0 && (
+          {own && founded && !rewardError && !offer && pending === 0 && (
             <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">
               {parcel ? "Tap a plus to buy the parcel next to your village." : "Your village is full."}
             </p>

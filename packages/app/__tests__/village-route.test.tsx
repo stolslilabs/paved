@@ -133,6 +133,32 @@ describe("/village: the own village", () => {
     await waitFor(() => expect(screen.queryByText(/Your level is too low/)).toBeNull());
   });
 
+  it("a failed read of the reward says so with Retry, never as no reward; Retry shows the rewards waiting", async () => {
+    const c = chain(50, 2);
+    await c.writer.foundVillage();
+    const grants = c.views.rewardGrants.bind(c.views);
+    let fail = true;
+    c.views.rewardGrants = (player: string) => (fail ? Promise.reject(new Error("rewards down")) : grants(player));
+    open(c, "/village");
+    expect(await screen.findByText("Your rewards could not be read", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByText("rewards down")).toBeInTheDocument();
+    expect(screen.queryByText(/Tap a plus/)).toBeNull();
+    fail = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText(waiting(2), {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText("Your rewards could not be read")).toBeNull();
+  });
+
+  it("draws each placed tile on its tier's base", async () => {
+    const c = chain(50, 0);
+    await c.writer.foundVillage();
+    c.views.villagePlayer(PLAYER_ID).copies[8] = 4;
+    open(c, "/village");
+    // The starter is plan 9: 4 copies of it, Gold (tier 2), its base drawn under it on the board.
+    const board = await screen.findByLabelText(/^Village of 9 cells and 1 tiles$/, {}, { timeout: 5000 });
+    await waitFor(() => expect(board.querySelector('[data-tier="2"]')).not.toBeNull());
+  });
+
   it("a guest is asked to connect", async () => {
     const c = chain();
     open(c, "/village", { guest: true });

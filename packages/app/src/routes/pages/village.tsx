@@ -1,19 +1,12 @@
-import { useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { provideManifest } from "@paved/renderer";
-import { hasWebGL } from "../../components/containers/tile-view";
-import { VillageViewport } from "../../components/containers/village-viewport";
-import type { VillageBoardProps } from "../../components/containers/village-board";
 import { shortAddress } from "../../components/elements/short-address";
 import { VillageScene, type VillageStatus } from "../../components/scenes/village-scene";
-import { useBoardSkins } from "../../data/board-skins";
 import { cobbleKeys, useCobbleAccount } from "../../data/cobbles";
 import { usePlayerStatus } from "../../data/indexer";
 import { addressKey } from "../../data/keys";
-import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
-import { useBoardSettings } from "../../data/settings";
+import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
 import { useTileArt } from "../../data/tile-art";
 import { useVillage, useVillageReward, useVillageWrites, villageKeys } from "../../data/village";
@@ -21,9 +14,6 @@ import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useAppNavigate, useBack } from "../ref";
 import NotFound from "./not-found";
-
-/** The renderer reads the manifest the route asked for with this code (`data/renderer-manifest.ts`), as the board does. */
-provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
 /** An address in a path: `0x` and 1 to 64 hex digits. */
 const ADDRESS = /^0x[0-9a-f]{1,64}$/i;
@@ -34,7 +24,8 @@ const ADDRESS = /^0x[0-9a-f]{1,64}$/i;
  * (`useVillage`), the reward from `Rewards` (`useVillageReward`), the Cobbles from the ledger. The own village writes through
  * the signer (`useVillageWrites`): Found, Buy a parcel at the price the sheet showed, Open a reward, then place one of its
  * tiles, add it as a copy, or take the Cobbles; each write shows its wait, its refusal and a toast on its receipt. The board is
- * the 3D village with the fog of war (`VillageViewport`), or the plan without WebGL.
+ * the plan (`VillageBoard`): each placed tile on its tier's base, the fog over the cells beyond the parcels. The 3D village
+ * (`VillageViewport`, #648) waits for the renderer to draw a tier's base under a tile.
  */
 export default function Page() {
   const { player } = useParams();
@@ -59,21 +50,18 @@ function Village({ player }: { player: string | null }) {
   const reward = useVillageReward(own ? playerId : null);
   const account = useCobbleAccount(own ? playerId : null);
   const writes = useVillageWrites(own ? playerId : null);
-  const skins = useBoardSkins(playerId);
-  const settings = useBoardSettings();
-  // The 3D village, unless this browser has no WebGL or the renderer cannot start: the plan, which does the same.
-  const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   const tileArt = useTileArt(RENDERER_ASSETS);
 
-  const error = read.error ?? reward.error ?? null;
   const status: VillageStatus | null =
     own && me === null
       ? { kind: "guest" }
       : read.data === undefined
-        ? error
-          ? { kind: "error", message: error.message, detail: errorDetail(error) }
+        ? read.error
+          ? { kind: "error", message: read.error.message, detail: errorDetail(read.error) }
           : { kind: "loading" }
         : null;
+  // The reward's own failed read: the village shows, the reward's place says what happened (Retry reads both again).
+  const rewardError = reward.error ? { message: reward.error.message, detail: errorDetail(reward.error) } : null;
   const data = read.data;
   const busy = writes.pending !== undefined;
 
@@ -87,9 +75,6 @@ function Village({ player }: { player: string | null }) {
     );
   };
 
-  const renderBoard =
-    view === "3d" ? (board: VillageBoardProps) => <VillageViewport {...board} settings={settings.renderer} basePath={RENDERER_ASSETS} skins={skins} onError={() => setView("plan")} /> : undefined;
-
   return (
     <VillageScene
       village={status ? undefined : (data?.village ?? null)}
@@ -102,10 +87,10 @@ function Village({ player }: { player: string | null }) {
       parcel={data?.parcel ?? null}
       cobbles={account.data?.cobbles ?? 0}
       busy={busy}
+      rewardError={rewardError}
       refusal={writes.error?.message ?? null}
       refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
       tileArt={tileArt}
-      renderBoard={renderBoard}
       onBack={onBack}
       onConnect={() => void wallet.connect()}
       onRetry={() => {

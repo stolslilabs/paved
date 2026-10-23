@@ -28,7 +28,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   cobbles: () => import("./pages/cobbles"),
   // The avatar creator (#626 PR 2), its own chunk; its 3D preview and stills are the renderer's avatar chunk, loaded by the page.
   avatar: () => import("./pages/avatar"),
-  // The village (#646 PR 2), its own chunk, the own and a visit; its 3D board asks for the renderer's manifest as the board does.
+  // The village (#646 PR 2), its own chunk, the own and a visit; its tile art reads the renderer's manifest, asked for with the code.
   village: village,
   "village/:player": village,
   "game/:gameId": board,

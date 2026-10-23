@@ -67,6 +67,8 @@ export const Unfounded: Story = { args: VILLAGE.unfounded };
 export const Waiting: Story = { args: VILLAGE.waiting };
 /** The chain refused a write: what happened, until dismissed. */
 export const Refused: Story = { args: VILLAGE.refused };
+/** The reward's read failed: what happened and Retry, never "no reward". */
+export const RewardFailed: Story = { args: VILLAGE.rewardFailed };
 /** The village on its way from the chain. */
 export const Loading: Story = { args: VILLAGE.loading };
 /** A guest: Connect to build a village. */

@@ -161,6 +161,7 @@ export const VILLAGE = {
   unfounded: { village: VILLAGE_UNFOUNDED, founded: false },
   waiting: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9), pending: 3 },
   refused: { village: VILLAGE_START, cobbles: 5, parcel: parcelFor(9), refusal: "Your level is too low for this parcel: play games to level up. No Cobbles were spent." },
+  rewardFailed: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9), pending: 2, rewardError: { message: "Rewards: the node did not answer" } },
   loading: { status: { kind: "loading" } },
   guest: { status: { kind: "guest" } },
   unavailable: { village: null },

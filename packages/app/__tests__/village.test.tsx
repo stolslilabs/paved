@@ -206,6 +206,13 @@ describe("Scenes/Village", () => {
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(onDismissRefusal).toHaveBeenCalledTimes(1);
     unmount();
+    const onRetry = vi.fn();
+    const { unmount: failed } = render(wrap(<VillageScene {...VILLAGE.rewardFailed} onRetry={onRetry} />));
+    expect(screen.getByText("Your rewards could not be read")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    failed();
     const { unmount: guest } = render(wrap(<VillageScene {...VILLAGE.guest} />));
     expect(screen.getByText("Connect to build your village")).toBeInTheDocument();
     guest();
