@@ -362,18 +362,10 @@ async function main() {
     // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
-    let page = await context.newPage();
+    const page = await context.newPage();
     for (let id = queue.shift(); id; id = queue.shift()) {
       await page.setViewportSize({ width: opts.widths[0], height: 740 });
-      let error = await render(page, origin, id);
-      if (error?.startsWith("page.goto: Timeout")) {
-        // On a loaded CI runner a navigation can stall behind the previous story's software WebGL (two random
-        // stories of 1154 a run): retry once, on a fresh page, before reporting.
-        await page.close();
-        page = await context.newPage();
-        await page.setViewportSize({ width: opts.widths[0], height: 740 });
-        error = await render(page, origin, id);
-      }
+      const error = await render(page, origin, id);
       for (const width of opts.widths) {
         await page.setViewportSize({ width, height: 740 });
         if (error) {
