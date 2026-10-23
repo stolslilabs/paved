@@ -16,6 +16,8 @@ export interface RewardCurve {
 }
 
 export interface RewardEstimateProps extends RewardCurve {
+  /** `R` cannot be read (a failed quote, `PurchaseScene` says why): the figures show "—", not busy. */
+  unavailable?: boolean;
   className?: string;
 }
 
@@ -45,14 +47,14 @@ export function rewardMarks(threshold: number, slopeBps: number, cap: number): {
  * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure, and a reward
  * from 10,000 PAVED is compact (WRAP360). The bars are decorative: the table reads as score and reward.
  */
-export function RewardEstimate({ reference, threshold, slopeBps, cap, className }: RewardEstimateProps) {
+export function RewardEstimate({ reference, unavailable = false, threshold, slopeBps, cap, className }: RewardEstimateProps) {
   const marks = rewardMarks(threshold, slopeBps, cap);
   const ceiling = UNIT * BigInt(cap);
   return (
     <div
       role="table"
       aria-label="Estimated reward by score"
-      aria-busy={reference === null}
+      aria-busy={reference === null && !unavailable}
       className={cn("grid grid-cols-[auto_minmax(2.5rem,1fr)_auto] items-center gap-x-3 gap-y-2 text-sm", className)}
     >
       <div role="row" className="contents text-xs text-muted-foreground">
@@ -79,7 +81,7 @@ export function RewardEstimate({ reference, threshold, slopeBps, cap, className 
             </span>
             <span role="cell" className="text-right">
               {reference === null ? (
-                <span className="numeric text-muted-foreground">…</span>
+                <span className="numeric text-muted-foreground">{unavailable ? "—" : "…"}</span>
               ) : (
                 <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} compact className="justify-end" />
               )}

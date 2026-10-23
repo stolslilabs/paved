@@ -102,9 +102,13 @@ function useMinOut(swapIn: bigint | null): Confirmable & { poolOut: bigint | nul
  *
  * `reference` is the `R` this purchase would store now (#705): the burn's share of the pool's quote, guarded at the guard's
  * rate, boosted by the stake, times `F` (`estimatedReference`). Null until the stake's own quote, its pool quote and the rate
- * are read; the confirm never waits for it.
+ * are read; the confirm never waits for it. `referenceError` is why it cannot be estimated: the guard's rate or the pool's
+ * quote failed (after its retry), or the pool cannot fill the swap. `R` then stays null without being pending.
  */
-export function useStakeQuote(stake: number, referred: boolean): { quote: UseQueryResult<QuoteView | null>; reference: bigint | null } & Confirmable {
+export function useStakeQuote(
+  stake: number,
+  referred: boolean,
+): { quote: UseQueryResult<QuoteView | null>; reference: bigint | null; referenceError: Error | null } & Confirmable {
   const { economy } = useDataSources();
   const quote = useQuery({
     queryKey: queryKeys.chain.quote(stake),
@@ -119,8 +123,16 @@ export function useStakeQuote(stake: number, referred: boolean): { quote: UseQue
     current && swapIn !== null && poolOut !== null && rate.data != null
       ? estimatedReference({ poolOut, swapIn, burnQuote: current.burnQuote, rate: rate.data, stake, factorBps: current.factor })
       : null;
-  return { quote, ...confirmable, reference, minOut: current ? confirmable.minOut : null, isPending: quote.isPlaceholderData || confirmable.isPending };
+  const referenceError =
+    reference !== null
+      ? null
+      : (rate.error ??
+        (swapIn === null ? null : (confirmable.error ?? (!confirmable.isPending && poolOut === null ? new Error(REFERENCE_POOL_EMPTY) : null))));
+  return { quote, ...confirmable, reference, referenceError, minOut: current ? confirmable.minOut : null, isPending: quote.isPlaceholderData || confirmable.isPending };
 }
+
+/** The pool's `quote_swap` answered 0: the swap cannot fill now, so no `R` can be estimated from it. */
+export const REFERENCE_POOL_EMPTY = "The pool cannot fill this stake's swap now.";
 
 /** A pack's `min_out`: the swap of its price, less the referral (`split.referral`) when `referred`. */
 export function usePackQuote(pack: PackView | null, split: SplitView | null, referred: boolean): Confirmable {

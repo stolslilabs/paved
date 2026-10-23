@@ -44,6 +44,8 @@ export const PurchasesPaused: Story = { args: PURCHASE.paused };
 export const Buying: Story = { args: PURCHASE.buying };
 /** The pool's quote and the guard's rate on their way: the reward by score shows its rows and bars, its figures wait (#705). */
 export const Estimating: Story = { args: PURCHASE.estimating };
+/** The guard's rate could not be read: the figures show "—", why, and Retry (on the route). */
+export const EstimateFailed: Story = { args: PURCHASE.estimateFailed };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: PURCHASE.stress };
 
