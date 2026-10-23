@@ -62,7 +62,7 @@ export const AllKinds: Story = {
   ),
 };
 
-/** PAVED (gold P on an ink coin) and vPAVED (its grayscale, a disabled token), side by side at 16, 24, 32 and 64 px, on dark and on light. */
+/** The owner's pick (#668): PAVED the negative of vPAVED, side by side at 16, 24, 32 and 64 px, on dark and on light. */
 export const PavedAndVpaved: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
