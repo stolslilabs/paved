@@ -4,7 +4,9 @@
  * served on the loopback by this script.
  *
  *   bun run --filter @paved/app build-storybook
- *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--workers 4] [--json <file>]
+ *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--workers 4] [--shard 2/4] [--json <file>]
+ *
+ * `--shard <index>/<count>` sweeps one share of the stories (every story is in one shard): the CI runs four at once.
  *
  * Node 24 runs it as is (type stripping): the syntax stays erasable. The browser is the one `playwright-core`
  * names: `bunx playwright-core install chromium-headless-shell` once.
@@ -28,6 +30,7 @@ import { createServer, type Server } from "node:http";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseShard, shardOf } from "./wrap-sweep-shard.ts";
 import { chromium, type Page } from "playwright-core";
 
 type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
@@ -115,6 +118,7 @@ function args() {
     widths: (get("widths") ?? "360,320").split(",").map(Number),
     filter: get("filter"),
     workers: Number(get("workers") ?? 4),
+    shard: parseShard(get("shard")),
     json: get("json"),
   };
 }
@@ -346,17 +350,24 @@ async function main() {
   const index = JSON.parse(await readFile(join(opts.dir, "index.json"), "utf8")) as { entries: Record<string, { id: string; type: string }> };
   const stories = Object.values(index.entries)
     .filter((e) => e.type === "story" && (!opts.filter || e.id.includes(opts.filter)))
-    .map((e) => e.id);
+    .map((e) => e.id)
+    // In id order: each shard's job builds its own Storybook, and every one must shuffle the same list.
+    .sort();
   const { server, origin } = await serve(opts.dir);
   const started = performance.now();
   const findings: Finding[] = [];
   // The 3D stories (board, tiles, outlines) take seconds each in software WebGL; spread them over the workers
-  // rather than let four of them start together: a fixed shuffle, so two runs take the same order.
+  // rather than let four of them start together: a fixed shuffle, so two runs take the same order. A shard takes
+  // its share of that order, which spreads them over the shards too.
   let seed = 360;
-  const queue = stories
-    .map((id) => ({ id, key: (seed = (seed * 1103515245 + 12345) % 2147483648) }))
-    .sort((a, b) => a.key - b.key)
-    .map((s) => s.id);
+  const queue = shardOf(
+    stories
+      .map((id) => ({ id, key: (seed = (seed * 1103515245 + 12345) % 2147483648) }))
+      .sort((a, b) => a.key - b.key)
+      .map((s) => s.id),
+    opts.shard,
+  );
+  const swept = opts.shard.count > 1 ? `${queue.length} of ${stories.length} stories (shard ${opts.shard.index}/${opts.shard.count})` : `${stories.length} stories`;
 
   async function worker() {
     // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.
@@ -387,7 +398,7 @@ async function main() {
   }
 
   try {
-    await Promise.all(Array.from({ length: Math.min(opts.workers, stories.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(opts.workers, queue.length) }, worker));
   } finally {
     server.close();
   }
@@ -400,8 +411,8 @@ async function main() {
   const line = (r: string[]) => r.map((c, i) => c.padEnd(widths[i])).join("  ");
   if (rows.length) console.log([line(head), line(widths.map((w) => "-".repeat(w))), ...rows.map(line)].join("\n"));
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
-  console.log(`\n${stories.length} stories x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
-  if (opts.json) await writeFile(opts.json, JSON.stringify({ stories: stories.length, widths: opts.widths, seconds: Number(seconds), findings }, null, 2));
+  console.log(`\n${swept} x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
+  if (opts.json) await writeFile(opts.json, JSON.stringify({ stories: stories.length, shard: opts.shard, widths: opts.widths, seconds: Number(seconds), findings }, null, 2));
   process.exitCode = open.length ? 1 : 0;
 }
 

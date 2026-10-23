@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
 
+# A newer push to a pull request cancels the run of its older head, whose result no longer gates anything. A push to
+# main has a group of its own (its commit), so every commit of main runs to its end.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   WORKING_DIRECTORY: ./contracts
 
@@ -261,9 +267,8 @@ jobs:
       # A broken story fails the pull request (docs/client/v2-architecture.md, section 4.4).
       - name: Build Storybook
         run: bun run --filter @paved/app build-storybook
-      # WRAP360: every story at 360 and 320 px, headless; fails on text that overflows, is cut without its full value, or
-      # scrolls the page (packages/app/scripts/wrap-sweep.ts). The browser is the one the app's playwright-core 1.63.0
-      # names (chromium-headless-shell revision 1243), cached under that version.
+      # The browser of the headless checks below: the one the app's playwright-core 1.63.0 names (chromium-headless-shell
+      # revision 1243), cached under that version. The wrap sweep has its own job (`wrap-sweep`, below).
       - name: Playwright version
         id: playwright
         working-directory: packages/app
@@ -278,8 +283,11 @@ jobs:
         working-directory: packages/app
         run: bunx playwright-core install --with-deps chromium-headless-shell
         shell: bash
-      - name: Wrap sweep (360 and 320 px)
-        run: bun run --filter @paved/app wrap-sweep
+      # NUM-LOCALE (P-66): six stories in a de-DE browser read en-US (packages/app/scripts/locale-check.ts). Locally the
+      # `wrap-sweep` script runs it after the sweep; here the sweep is sharded, so it runs once, on its own.
+      - name: Locale check (de-DE)
+        working-directory: packages/app
+        run: node scripts/locale-check.ts
       # HEADER-HEIGHT (#676): every page's header as tall as `--header-h`, one height per width, at 375 and 1440 px
       # (packages/app/scripts/header-sweep.ts, the `Pages/Headers` stories).
       - name: Header sweep (375 and 1440 px)
@@ -303,10 +311,79 @@ jobs:
           if grep -rlF "$VITE_PLAYER_PRIVATE_KEY" packages/app/dist; then echo "The burner key is in the Sepolia build"; exit 1; fi
         shell: bash
 
+  # WRAP360: every story at 360 and 320 px, headless; fails on text that overflows, is cut without its full value, or
+  # scrolls the page (packages/app/scripts/wrap-sweep.ts). The longest check of the client (1155 stories took 12 to 20 min
+  # in the client job on 2026-10-23), so it runs beside that job, in four shards: each builds its own Storybook and sweeps
+  # its share of the stories (`--shard`, every story in one shard). Nothing waits for it but `ci`.
+  wrap-sweep:
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    name: Wrap sweep ${{ matrix.shard }}/4 (360 and 320 px)
+    permissions:
+      contents: read
+    strategy:
+      # Every shard runs to its end, so one run lists every finding.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # The same setup and modules cache as the client job.
+      # actions/setup-node v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      # oven-sh/setup-bun v2.2.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.2
+      - name: Runner image
+        id: image
+        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+      # actions/cache v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        id: modules
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            !node_modules/.cache
+            !packages/*/node_modules/.cache
+            !packages/*/node_modules/.vite
+          key: node-modules-${{ runner.os }}-${{ steps.image.outputs.os }}-${{ runner.arch }}-node-24-bun-1.4.2-${{ hashFiles('bun.lock', 'package.json', 'packages/*/package.json') }}
+      - name: Install
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: bun install --frozen-lockfile
+      # The Storybook imports the workspace packages from their dist/, as the e2e job builds them.
+      - name: Build the app's workspace packages
+        run: bun run build --filter='@paved/app^...'
+      - name: Build Storybook
+        run: bun run --filter @paved/app build-storybook
+      # The browser of the client job, under the same cache key.
+      - name: Playwright version
+        id: playwright
+        working-directory: packages/app
+        run: echo "version=$(bun -e 'console.log(require("playwright-core/package.json").version)')" >> "$GITHUB_OUTPUT"
+        shell: bash
+      # actions/cache v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+      - name: Install the browser
+        working-directory: packages/app
+        run: bunx playwright-core install --with-deps chromium-headless-shell
+        shell: bash
+      - name: Wrap sweep, shard ${{ matrix.shard }}/4
+        working-directory: packages/app
+        run: node scripts/wrap-sweep.ts --shard ${{ matrix.shard }}/4
+
   # The Training battle test (P-79, packages/app/e2e): complete games played by a bot in headless Chromium on the plan
   # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. It needs
   # the client job: it plays a client that built and passed its tests, and a client that does not fails there first.
-  # Every path of the e2e filter is in the client filter, so the client job runs whenever this one would.
+  # Every path of the e2e filter is in the client filter, so the client job runs whenever this one would. It does not
+  # wait for the wrap sweep, which has its own job.
   e2e:
     needs: [changes, client]
     if: needs.changes.outputs.e2e == 'true'
@@ -458,7 +535,7 @@ jobs:
     runs-on: ubuntu-latest
     name: ci
     if: always()
-    needs: [changes, check, build, abis, test, indexer, client, e2e, signer, vercel]
+    needs: [changes, check, build, abis, test, indexer, client, wrap-sweep, e2e, signer, vercel]
     steps:
       - name: Require every job to have succeeded or been skipped
         run: |
