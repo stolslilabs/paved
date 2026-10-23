@@ -75,6 +75,7 @@ COVERAGE_GROUPS=(
   "tests-leagues|paved::tests::leagues|"
   "tests-matchmaker|paved::tests::matchmaker|"
   "tests-owners|paved::tests::owners|"
+  "tests-rewards|paved::tests::rewards|"
   "tests-seed|paved::tests::seed|"
   "tests-avatar|paved::tests::avatar|"
   "tests-story|paved::tests::story|"
