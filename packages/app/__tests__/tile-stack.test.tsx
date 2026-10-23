@@ -283,3 +283,57 @@ describe("the stack at the last tiles", () => {
     expect(box()).toBe(width);
   });
 });
+
+// #701: a board the viewer does not play draws the same stack, its tiles and the deck, with nothing to play.
+describe("read only", () => {
+  const frames: StackFrame[] = [];
+  const renderStack = (v: StackFrame) => {
+    frames.push(v);
+    return <span data-testid="stack-3d" />;
+  };
+  const watch = (props: Partial<Parameters<typeof TileStack>[0]> = {}) =>
+    render(wrap(<TileStack readOnly tile={{ plan: 1, orientation: 2 }} state="placing" remaining={20} coming={[{ plan: 3 }, { plan: 7 }]} onDiscard={vi.fn()} {...props} />));
+  beforeEach(() => {
+    frames.length = 0;
+  });
+
+  it("shows the game's tile in hand and the next two, named for screen readers, under the Deck's name", () => {
+    watch();
+    const deck = screen.getByRole("region", { name: "Deck" });
+    expect(deck.querySelector("[data-stack-top] [role='img']")!.getAttribute("aria-label")).toMatch(/, east$/);
+    expect(screen.getByTestId("coming-tiles").querySelectorAll("li")).toHaveLength(2);
+    expect(screen.queryByRole("region", { name: "Your tile" })).toBeNull();
+  });
+
+  it("nothing to play: no hint, no Discard, no banner, the tile in hand never pending", () => {
+    watch({ fitsNowhere: true });
+    expect(hint()).toBeNull();
+    expect(screen.queryByTestId("stack-discard")).toBeNull();
+    cleanup();
+    for (const state of ["expired", "refused", "pending"] as const) {
+      watch({ state, error: "Move refused by the contract." });
+      expect(screen.queryByText(/Game expired|Move refused|Placing/)).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("a tap still opens the deck", () => {
+    const onDeck = vi.fn();
+    watch({ onDeck });
+    act(() => screen.getByRole("button", { name: "Tiles left: 20. Show the deck" }).click());
+    expect(onDeck).toHaveBeenCalledOnce();
+  });
+
+  it("hands the 3D view the same tiles, the tile in hand not faded", () => {
+    watch({ renderStack, state: "pending", pilePlans: [5] });
+    expect(screen.getByTestId("stack-3d")).toBeTruthy();
+    const tiles = frames.at(-1)!.tiles;
+    expect(tiles.filter((t) => t.thickness !== undefined).every((t) => t.plan === 5)).toBe(true);
+    const top = tiles.filter((t) => t.thickness === undefined);
+    expect(top.map((t) => [t.plan, t.orientation, !!t.faded])).toEqual([
+      [3, 1, false],
+      [7, 1, false],
+      [1, 2, false],
+    ]);
+  });
+});

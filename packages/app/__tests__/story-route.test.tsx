@@ -31,6 +31,10 @@ afterEach(() => {
 });
 
 const hand = () => screen.getByRole("region", { name: "Your tile" });
+/** The tile to place, on top of the stack (the coming tiles beside it are tiles too, #701). */
+const handTop = () => hand().querySelector<HTMLElement>("[data-stack-top]")!;
+/** The names of the coming tiles on a stack, the next first. */
+const comingNames = (stack: HTMLElement) => [...within(stack).getByTestId("coming-tiles").querySelectorAll('[role="img"]')].map((i) => i.getAttribute("aria-label"));
 const slotName = (x: number, y: number) => {
   const part = (n: number, plus: string, minus: string) => (n === 0 ? null : `${Math.abs(n)} ${n > 0 ? plus : minus}`);
   return [part(x, "east", "west"), part(y, "north", "south")].filter(Boolean).join(", ") || "centre";
@@ -46,7 +50,7 @@ async function playLine(level: StoryLevel) {
     const { x, y, orientation } = move.placement;
     await userEvent.click(screen.getByRole("button", { name: `Slot ${slotName(x, y)}` }));
     const wanted = new RegExp(`, ${orientation.toLowerCase()}$`);
-    for (let turn = 0; turn < 4 && !within(hand()).queryByRole("img", { name: wanted }); turn++) {
+    for (let turn = 0; turn < 4 && !within(handTop()).queryByRole("img", { name: wanted }); turn++) {
       await userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
     }
     await placeTile();
@@ -190,7 +194,28 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const again = await screen.findByTestId("deck-presentation");
     await userEvent.click(within(again).getByRole("button", { name: /Start/ }));
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
-    expect(within(hand()).getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
+    // The stack stays mounted from the intro to play (#701): the sheet's exit ends first, the board behind it hidden until then.
+    const stack = await screen.findByRole("region", { name: "Your tile" }, { timeout: slow(5000) });
+    expect(within(stack).getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
+  });
+
+  it("the stack shows the next two tiles of the level's order, on the intro's read-only board too, and they move up as the level goes (#701)", async () => {
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(recordRun(EMPTY_PROGRESS, TUTORIAL.levels[0]!, { campaignId: 1, levelIndex: 1, moves: [] }, 0)) });
+    render(<App router={createTestRouter("/story/1/2")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const level = TUTORIAL.levels[1]!;
+    expect(level.deck.length).toBeGreaterThanOrEqual(3);
+    const name = (plan: PlanType) => `Tile ${plan.toLowerCase()}, north`;
+    const intro = await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });
+    // The intro's board is read only: the same stack and its first tiles, nothing to play.
+    const deck = screen.getByRole("region", { name: "Deck" });
+    expect(comingNames(deck)).toEqual(level.deck.slice(1, 3).map(name));
+    expect(within(deck).queryByRole("button", { name: /^Hold to discard/ })).toBeNull();
+    expect(within(deck).queryByTestId("hand-hint")).toBeNull();
+    await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
+    expect(within(handTop()).getByRole("img").getAttribute("aria-label")).toMatch(new RegExp(`^Tile ${level.deck[0]!.toLowerCase()}, `));
+    expect(comingNames(hand())).toEqual(level.deck.slice(1, 3).map(name));
+    await discardTile();
+    await waitFor(() => expect(comingNames(hand())).toEqual(level.deck.slice(2, 4).map(name)));
   });
 
   it("a locked level's address says so; the second campaign opens at 2 stars per Tutorial level", async () => {

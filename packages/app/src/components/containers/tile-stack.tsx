@@ -147,7 +147,10 @@ export interface TileStackProps {
   surrenderPending?: boolean;
   /** A Story coach mark points at the deck (the stack is ringed) or at Discard (the stack's Discard is). */
   coach?: CoachTarget | null;
-  /** A board the viewer does not play (another player's game, a Story level's intro or end): the tiles left and the deck only. */
+  /**
+   * A board the viewer does not play (another player's game, a Story level's intro or end): the same stack, its tiles and the
+   * deck (#701), with nothing to play: no hint, no banner, no Discard.
+   */
   readOnly?: boolean;
   className?: string;
 }
@@ -332,10 +335,12 @@ export function TileStack({
   className,
 }: TileStackProps) {
   const reduced = useReducedMotionConfig() ?? false;
-  const busy = state === "pending";
-  const canDiscard = tile !== null && (state === "placing" || state === "refused");
+  // Read only, the hand's state shows nowhere: the stack is the game's tiles and its deck.
+  const live = readOnly ? null : state;
+  const busy = live === "pending";
+  const canDiscard = tile !== null && (live === "placing" || live === "refused");
   // No lit slot to tap when the tile fits nowhere: the stack's Discard says so instead.
-  const hint = useHint(state === "placing" && tile !== null && !fitsNowhere, remaining, cellChosen);
+  const hint = useHint(live === "placing" && tile !== null && !fitsNowhere, remaining, cellChosen);
   // The queue after the tile to place: at most two slots, the known tiles first, then the one the chain is drawing.
   const known = coming.slice(0, QUEUE_SLOTS);
   const waiting = drawing && known.length < QUEUE_SLOTS;
@@ -419,7 +424,7 @@ export function TileStack({
       }
     : null;
 
-  const chipState = busy ? "pending" : state === "refused" ? "refused" : "default";
+  const chipState = busy ? "pending" : live === "refused" ? "refused" : "default";
   // The slab's face: the chip's state on its edge (`chipVariants`: pending pulses, refused), the board's outline otherwise.
   const handFace = chipState === "default" ? FACE : "rounded-[3px]";
   const handLabel = tile ? `Tile ${planCode(tile.plan).toLowerCase()}, ${["north", "east", "south", "west"][(tile.orientation - 1 + 4) % 4]}` : "";
@@ -433,11 +438,11 @@ export function TileStack({
     >
       {/* Refused and expired say why in the one error component (P-67); always rendered, so its height animates. */}
       <InlineError
-        title={state === "expired" ? "Game expired" : state === "refused" ? "Move refused" : undefined}
-        message={state === "refused" ? (error ?? "Choose another slot.") : state === "expired" ? "24 h passed since its purchase. Surrender to close it." : null}
+        title={live === "expired" ? "Game expired" : live === "refused" ? "Move refused" : undefined}
+        message={live === "refused" ? (error ?? "Choose another slot.") : live === "expired" ? "24 h passed since its purchase. Surrender to close it." : null}
         detail={errorDetail}
         action={
-          state === "expired" && onSurrender ? (
+          live === "expired" && onSurrender ? (
             <Button size="sm" variant="destructive" onClick={onSurrender} loading={surrenderPending}>
               <Icon name="flag" size="sm" /> Surrender
             </Button>
@@ -462,7 +467,7 @@ export function TileStack({
         <div data-testid="tile-stack" className="relative shrink-0 [--stack-s:0.8] tablet:[--stack-s:1]" style={{ width: scaled(frame.width), height: scaled(frame.height) }}>
           <Pile layers={layers} step={step} frame={frame} shadowOnly={solid} />
           {/* The scene: its origin the pile's foot, its plane turned and tilted as the renders' view; every level keeps the 3D. */}
-          <div aria-hidden={readOnly || undefined} className="absolute size-0" style={{ left: scaled(frame.left), bottom: scaled(frame.bottom), transform: "scale(var(--stack-s))", transformOrigin: "0 0" }}>
+          <div className="absolute size-0" style={{ left: scaled(frame.left), bottom: scaled(frame.bottom), transform: "scale(var(--stack-s))", transformOrigin: "0 0" }}>
             <div className="absolute size-0 transform-3d" style={{ transform: `rotateX(${TILT}deg) rotateZ(${TURN}deg)` }}>
               {/* The coming tiles (#645), in draw order: the next nearest the tile in hand. With the 3D view, their names only. */}
               {queued > 0 && (

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CENTER } from "../src/engine";
+import { PlanType } from "../src/types/plan";
 import { decodeLine } from "../src/story/line";
 import { CAMPAIGNS, OPEN_COUNTRY, TUTORIAL } from "../src/story/plan";
 import {
@@ -123,6 +124,28 @@ describe("a story run", () => {
       expect(replaySubmission(level, submission).score).toBe(level.target);
     });
   }
+
+  it("shows the next two tiles of the level's order after the one in hand, fewer at its end, none once over (#701)", () => {
+    const level = CAMPAIGNS.flatMap((c) => c.levels).find((l) => l.deck.length >= 5)!;
+    const played = new StoryRun({ id: 1 }, level);
+    const plans = level.deck.map((p) => Object.values(PlanType).indexOf(p));
+    expect(played.snapshot.state.hand).toEqual({ tileId: 2, plan: plans[0] });
+    expect(played.snapshot.state.coming).toEqual([
+      { tileId: 3, plan: plans[1] },
+      { tileId: 4, plan: plans[2] },
+    ]);
+    while (!played.over) {
+      const n = played.snapshot.moves.length;
+      expect(played.snapshot.state.hand?.plan).toBe(plans[n]);
+      expect(played.snapshot.state.coming?.map((t) => t.plan)).toEqual(plans.slice(n + 1, n + 3));
+      expect(played.discard()).toBe(true);
+    }
+    expect(played.snapshot.state.coming).toEqual([]);
+    // A refused move keeps them; a restart starts them again.
+    played.restart();
+    expect(played.place({ orientation: 1, x: CENTER + 5, y: CENTER + 5 })).toBe(false);
+    expect(played.snapshot.state.coming?.map((t) => t.plan)).toEqual(plans.slice(1, 3));
+  });
 
   it("refuses a move that does not fit, says why, and restarts", () => {
     const level = TUTORIAL.levels[0]!;

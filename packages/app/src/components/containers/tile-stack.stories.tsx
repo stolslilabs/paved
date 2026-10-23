@@ -75,8 +75,10 @@ export const Refused: Story = {
 export const Expired: Story = { args: { state: "expired", remaining: 12 } };
 /** No tile: the game is over. */
 export const Empty: Story = { args: { tile: null, state: "empty", remaining: 0 } };
-/** A board the viewer does not play: the tiles left and the deck only. */
-export const ReadOnly: Story = { args: { tile: null, state: "empty", readOnly: true, remaining: 12 } };
+/** A board the viewer does not play (#701): the game's tiles, the same stack, nothing to play (no hint, no Discard). */
+export const ReadOnly: Story = { args: { readOnly: true, remaining: 12, coming: [{ plan: 7 }, { plan: 12 }] } };
+/** Read only once the game is over: the tiles left and the deck. */
+export const ReadOnlyOver: Story = { args: { tile: null, state: "empty", readOnly: true, remaining: 0 } };
 /** A Story coach mark on the deck: the stack's outline is ringed. */
 export const CoachDeck: Story = { args: { coach: "deck" } };
 /** A Story coach mark on the discard: the stack's trash is ringed. */
