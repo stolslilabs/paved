@@ -73,6 +73,7 @@ pub mod helpers {
 pub mod matchmaker {
     pub mod crowns;
     pub mod leagues;
+    pub mod stars;
 }
 
 pub mod models {
@@ -85,17 +86,20 @@ pub mod models {
 pub mod components {
     pub mod bucketable;
     pub mod crownable;
+    pub mod deckable;
     pub mod drawable;
     pub mod hostable;
     pub mod leagueable;
     pub mod ownable;
     pub mod payable;
     pub mod playable;
+    pub mod recordable;
     pub mod seasonable;
     pub mod shieldable;
 }
 
 pub mod systems {
+    pub mod arena;
     pub mod avatar;
     pub mod challenge;
     pub mod collection;
@@ -137,6 +141,7 @@ pub mod mocks {
 
 #[cfg(test)]
 pub mod tests {
+    pub mod arena;
     pub mod avatar;
     pub mod challenge_vrf;
     pub mod collection;

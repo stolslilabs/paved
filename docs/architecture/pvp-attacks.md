@@ -13,7 +13,9 @@ The owner's decisions bind:
 - **More components with smaller scopes** (#639, point 5, 2026-10-21): composable pieces, each with its own storage and
   events, embedded by the systems that need them.
 
-Everything else is a proposal. Section 9 lists the points the owner rules on; the code follows the ruling.
+Everything else is a proposal. Section 9 lists the points the owner rules on. **Built on section 9's proposals while the
+owner rules** (the PM's instruction of 2026-10-23); each is one switch point (section 10.1), and the ruling is applied
+before the PR leaves draft.
 
 ## 1. Summary
 
@@ -137,10 +139,10 @@ the piece that owns the counts:
 
 ## 7. Stars
 
-`stars(score, target)` in `paved::matchmaker::stars`: 3 at `score * 100 >= target * 110`, 2 at 85, 1 at 70, else 0.
-A target of 0 cannot happen for a player (a village with a tile is required, and the starter alone scores nothing, so
-the target is the village's score): proposed, a target of 0 gives 3 stars for any score above 0, 1 star at 0. Fuzzed:
-monotone in the score, bounded by 3, no overflow at `u32` counts (the product is computed in `u64`).
+`stars_of(score, target)` in `paved::matchmaker::stars`: 3 at `score * 100 >= target * 110`, 2 at 85, 1 at 70, else 0.
+A score of 0 earns no star, whatever the target (an attack that only discards wins nothing); a village whose tiles close
+nothing has a target of 0, so any score above 0 takes 3 stars against it. Fuzzed: monotone in the score, bounded by 3,
+no overflow at `u32` counts (the products are computed in `u64`).
 
 ## 8. Events, client, measures
 
@@ -172,3 +174,124 @@ monotone in the score, bounded by 3, no overflow at `u32` counts (the product is
 4. **No timeout** (the issue's proposal): an attack left open keeps its hold and blocks its attacker until `surrender`.
    Proposed as is; the alternative is a `surrender` anyone may call once the defender's shield has expired (8 hours).
 5. **NPC villages**: their deck and target are their Story level's (section 6). Proposed as is.
+
+## 10. As built
+
+### 10.1 The switch points of section 9
+
+| Point | Built as proposed | Where an amendment goes |
+|---|---|---|
+| 1. Stars | 70 / 85 / 110 % | `ONE_STAR_PERCENT`, `TWO_STARS_PERCENT`, `THREE_STARS_PERCENT` in `contracts/src/matchmaker/stars.cairo` (and `STAR_PERCENTS` in `@paved/chain`'s `arena.ts`) |
+| 2. The village during an attack | The snapshot | `Arena`'s `snapshot_village` (a lock would add a check to `Village.place`, `demolish` and `buy_parcel`) |
+| 3. The offer's bounds | #639's (1 to 59, cost 0 to 39) | `paved::matchmaker::crowns` (unchanged here) |
+| 4. No timeout | `ATTACK_TIMEOUT = 0` | `ATTACK_TIMEOUT` in `contracts/src/systems/arena.cairo`: a non-zero value opens `expire(attacker)` to anyone that many seconds after the start (built and tested at 0: it refuses) |
+| 5. NPC villages | From their Story level | `NPC_ATTACKS` and `snapshot_npc` in `arena.cairo` |
+
+### 10.2 Departures from sections 2 to 8
+
+- **The fit check reads a board, not `record_cells`.** Each attack gets a board, a game id of `Arena`'s `PavedStorage`
+  holding only the tiles' words and positions (no structure state): the starter (and a Story level's placed tiles) at
+  the start, each built tile at its move. A move reads its 8 neighbours there and runs the engine's own
+  `placement::assert_fits`, so the check is exactly the engine's and the replay cannot fail on a fit. The record piece
+  keeps only the moves (`record_moves`, `record_sizes`).
+- **The finish's replay** reads the starter and the placed tiles from the board, so an NPC's level corrected by the owner
+  during an attack does not change it.
+- **Storage** (`Arena`): `attacks` packs `id` [0, 32) · `status` [32, 40) · `npc` [40, 48) · `parcels` [48, 56) · `target`
+  [56, 88) · `board` [88, 120) · `placed` [120, 128) in the low half and `started_at` [0, 64) · `score` [64, 96) · `stars`
+  [96, 104) in the high half; `attack_defenders`; `npc_levels` (`campaign` [0, 8) · `level` [8, 16)); `matchmaker`,
+  `village`, `story`. The deck: `deck_plans` (31 plans a page, a byte each), `deck_states` (`size`, `drawn`, `hand` in
+  the low half, the bitmap in the high half). `Matchmaker`: `crown_holds`. Every name is pinned
+  (`test_arena_storage_is_pinned_by_name`).
+- **Events**: `AttackOpened` carries no cost (`Matchmaker`'s `AttackStarted` and `CrownsHeld` have it); `TileDrawn`
+  (`DeckableComponent`) says which plan is in hand after each draw; `CrownsReleased` (the hold given back) beside
+  `CrownsHeld`; `WiringSet` for the owner's wiring.
+- **The views** are the pieces': `deck(attacker, id)` (the hand is `deck.hand`), `moves(attacker, id)`, and `Arena`'s
+  `attack(attacker)` and `npc_level(npc_id)`; `Matchmaker`'s `held(village)`; `Village`'s `parcel_of(player_id, x, y)`.
+- **The season roll waits while a hold is up**: `Matchmaker.roll_village` skips a village whose crowns are held, so a
+  `close_season` or a draw against it during its attack does not roll it on a count short of its hold; `settle` gives
+  the hold back first and then rolls it on its whole count.
+- **`start_attack` and `settle` keep their signatures**: `Arena` reads the defender and the offer from `start_attack`.
+
+### 10.3 Gas (L2 gas of the call alone, test profile, snforge 0.64.0, VPS, 2026-10-23; ceilings at measured + 5 %)
+
+| Test | Call | L2 gas |
+|---|---|---:|
+| `test_arena_gas_start_and_play` | `start` on a village of 38 stops: `start_attack`, the snapshot (38 tiles read, 2 deck pages written), the first draw | 17,915,251 |
+| `test_arena_gas_start_and_play` | a middle `play`: the territory's read, the fit on the board, the move recorded, the next draw | 3,994,902 |
+| `test_arena_gas_finish_38` | the last `play` of 38: its check, the replay of 38 moves, the stars, `settle` (the crowns, `report_pvp`, the reward's grant) | 330,527,982 |
+| `test_arena_gas_surrender` | `surrender`: `settle` at 0 stars | 3,821,791 |
+| z19 (`contracts/tests/gas.cairo`) | `Matchmaker.start_attack`, worst case, now with the hold | 4,628,847 (was 4,421,401 in #639, +4.7 %) |
+| z20 | `Matchmaker.settle`, worst case, the hold given back first | 4,996,496 (ceiling 4,883,423 before, reset) |
+| z32 | `Matchmaker.settle` across a season's end | 6,140,608 (ceiling 5,959,147 before, reset) |
+
+The finish of 38 tiles is 29.8 % of the 1.11 x 10^9 a transaction may use, about twice `Story.submit_run`'s 160.6 M: its
+village of crossroads closes a road at almost every move (every closed structure is assessed), where Story's measured
+line closed few. It is the worst shape the territory allows, not a typical one; a village of 99 tiles (the
+`MAX_CELLS_LIMIT` of 100 cells) would cost about 2.6 times that by its tile count (an estimate, not measured), under
+the transaction's limit; the owner's cap is 38 cells today.
+
+### 10.4 Size
+
+`scripts/class-sizes.sh` (`class-headroom.md`, "After PVP-ATTACKS"): `Arena` 64,173 CASM felts, 78.3 % of the Starknet cap
+and 9,555 under P-44's; `Matchmaker` 33,244 to 34,714 (+1,470); `Village` 57,691 to 58,019 (+328, `parcel_of`). Every
+other class is unchanged.
+
+### 10.5 Tests
+
+`contracts/src/tests/arena.cairo` (coverage group `tests-arena`): the start (the snapshot, the shield, the hold, the first
+draw equal to the VRF mock's random of the attack's salt, no draw, an empty village); the moves (a full attack settled
+and its reward granted, discards, outside the territory, a misfit, a parcel bought before and after the start); quitting
+(a surrender is a defeat; an attack left open keeps its hold and blocks a second start and any draw); a move after the
+end and after a surrender; no timeout; the attacks' numbers; the NPC villages on their Story level; the owner's calls;
+the storage pinned by name; the stars at their thresholds and fuzzed; the pieces alone: the hold (at most the count,
+not twice, and fuzzed: holding then giving back changes no settlement and conserves the crowns), the deck (every tile
+drawn once, fuzzed on a full deck of 99), the record's round trip; the gas. Ran in a scratch copy of the crate that keeps
+every source but only the touched test modules (`arena`, `leagues`, `matchmaker`, `matchmaker_system`, `rewards`,
+`setup`, `story`, `village`): 309 tests pass, peak RSS 5.97 GB under `prlimit --as=16106127360`; the 43 `test_gas_z*` of
+`contracts/tests/gas.cairo` pass with z20 and z32 reset (peak RSS 4.16 GB). CI runs the whole suite.
+
+### 10.6 Audit, correctness and security (crowns move, Cobbles through the reward)
+
+- **Access.**
+  - `start`, `play` and `surrender` act on the caller's own attack only (`get_caller_address`); `expire` is closed
+    while `ATTACK_TIMEOUT` is 0.
+  - `Arena` is an operator of `Matchmaker`; it starts only the caller's match, and settles only an attack it opened, at
+    the stars of its own replay or 0. No caller chooses the stars, the score or the defender.
+  - The owner sets the wiring, the VRF provider and the NPCs' levels, and upgrades; no owner call moves crowns or Cobbles.
+- **Crowns.**
+  - They move only in `Matchmaker`, as in #639: the hold takes at most the attacker's count at the start; `settle`
+    gives it back first, then settles exactly as without a hold (fuzzed at every count, stars and terms), so crowns stay
+    conserved between players and never negative; the hold's return is capped by what the count can still hold.
+  - A hold cannot be taken twice (`Crowns: already held`), and an attacker cannot open a second attack, so one hold
+    per village at most.
+  - Walking away keeps the hold: the attacker loses the cost's crowns until it surrenders, and it cannot draw or start
+    again, so quitting gains nothing over a defeat. The defender receives the cost when the attacker surrenders.
+- **The draw.** Every tile is a VRF draw of the salt `(ATTACK, attacker, id * 128 + n)`: fixed by the attack and the draw,
+  so a reverted and resent move draws the same tile, and no player choice enters it. The deck draws among the tiles not
+  yet drawn (`draw_from_bitmap`), each once (fuzzed on a full deck). One draw per transaction (the component's rule).
+- **The move.** Every build is checked before it is recorded: the orientation, the position's bounds, the snapshot's
+  territory (the 9 cells of the start or a parcel numbered at most the snapshot's count), a free cell, a side neighbour
+  and every facing edge (the engine's `assert_fits`). So the finish's replay builds only legal moves, and its score is
+  the engine's.
+- **The snapshot.** The deck, the target and the parcel count are copied at the start; the defender's placements,
+  demolitions and purchases during the attack change none of them (`test_arena_snapshot_holds_when_the_village_grows`).
+- **The reward.** `settle` reports the attack to `Setup.report_pvp`, which grants the village reward under the daily cap
+  (#642): one per attack settled, a surrender included, as #642 counts every attack. **A point for the review**: a
+  surrender comes right after the start, so an attacker can trade the 0-star cost for a reward in two transactions, up
+  to the daily cap (10). It is #642's rule (every PvP attack grants, `GRANTS_PVP`), unchanged here; requiring at least
+  one move, or one star, before `report_pvp` grants would be a change of #642's grant or of `Matchmaker.settle`.
+- **Liveness.** No call of an attack loops over anything but its own deck (at most 99) and moves (at most 99); the
+  finish of the largest territory fits a transaction (10.3).
+
+### 10.7 Follow-ups this PR names
+
+As #639 and #642 did (allowed by #637's constraints), the deployment and the indexer follow `Matchmaker`'s deployment:
+
+- `scripts/deploy.sh` and the deployment files: `Arena` declared and wired (`Matchmaker.set_operator(Arena)`, the VRF
+  provider, the NPC levels), after `Matchmaker`, `Village` and `Rewards`.
+- `@paved/indexer`: the tables `pvp_attacks` (one row per attack, keyed `(attacker, id)`, the defender indexed: the
+  defence log) and `pvp_attack_moves` (the replays), from `AttackOpened`, `AttackPlayed`, `TileDrawn` and
+  `AttackFinished`, beside #639's `pvp_villages`, `pvp_matches`, `pvp_shields`. The indexer reads only the contracts of a
+  deployment file, and neither `Matchmaker` nor `Arena` is in one yet.
+- `@paved/chain` is in this PR: `packages/chain/src/arena.ts` (the writes `start`, `play` and `surrender`, each draw
+  behind `withVrfRequest`; the views' decoders; `starsOf`).

@@ -106,11 +106,13 @@ pub trait IMatchmaker<TContractState> {
     /// only.
     fn join(ref self: TContractState, player: ContractAddress);
     /// Starts the attack of `attacker` on its drawn opponent: puts back expired shields, drops the
-    /// attacker's shield, shields the opponent (not an NPC), and fixes the match. Returns the
-    /// opponent and the offer. An operator only.
+    /// attacker's shield, shields the opponent (not an NPC), holds the 0-star cost from the
+    /// attacker's crowns (#643: `CrownsHeld`), and fixes the match. Returns the opponent and the
+    /// offer. An operator only.
     fn start_attack(ref self: TContractState, attacker: ContractAddress) -> (ContractAddress, u8);
-    /// Settles the started attack of `attacker` with its stars (0 to 3): the crowns move and the
-    /// match ends. An operator only. Emits `CrownsSettled`.
+    /// Settles the started attack of `attacker` with its stars (0 to 3): the hold given back
+    /// (`CrownsReleased`), the crowns move and the match ends. An operator only. Emits
+    /// `CrownsSettled`.
     fn settle(ref self: TContractState, attacker: ContractAddress, stars: u8) -> Settlement;
     /// Sets a village's crowns, after its season roll; the leagues it reaches pay no bonus. An
     /// operator only.
@@ -434,6 +436,10 @@ pub mod Matchmaker {
                 self.bucketable.remove(defender);
                 self.shieldable.raise(defender, QUEUE_ATTACK, now + ATTACK_SHIELD);
             }
+            // [Effect] The 0-star cost held from the attacker's crowns at once (#643): walking away
+            // from the attack loses it; its bucket follows
+            let crowns = self.crownable.hold(attacker, current.cost);
+            self.bucketable.follow(attacker, pool_crowns(crowns));
             // [Effect] The match is fixed
             current.started = true;
             self.write_match(attacker, current);
@@ -449,7 +455,9 @@ pub mod Matchmaker {
             // [Check] An attack started
             let current = self.match_of(attacker);
             assert(current.started, errors::NO_ATTACK);
-            // [Effect] Both players rolled into the current season first (#644)
+            // [Effect] The hold given back first (#643), so the settlement below is the one of an
+            // attack with no hold; then both players rolled into the current season (#644)
+            self.crownable.release(attacker);
             let defender = current.opponent;
             let npc = is_npc_address(defender);
             let season = self.seasonable.season_now();
@@ -736,7 +744,10 @@ pub mod Matchmaker {
             season: u32,
             ref credits: Array<Credit>,
         ) {
-            if self.leagueable.record_of(village).season >= season {
+            // A village whose crowns are held (its attack open, #643) rolls at its settlement, on
+            // its whole count, once the hold is back
+            if self.leagueable.record_of(village).season >= season
+                || self.crownable.held_of(village) != 0 {
                 return;
             }
             let crowns = self.crownable.crowns_of(village);
