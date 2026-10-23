@@ -120,8 +120,8 @@ export function VillageScene({ village, status, mode = "own", onBack, onConnect,
   const own = mode === "own";
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
-      <TopBar title={own ? "My village" : "Village"} onBack={onBack} className="mb-0" />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-4">
+      <TopBar title={own ? "My village" : "Village"} onBack={onBack} />
+      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-4">
         {status ? (
           <SkinsStatusView
             status={status}
@@ -286,7 +286,6 @@ function VillageView({
       <TopBar
         title={title}
         onBack={onBack}
-        className="mb-0"
         end={
           own ? (
             <span className="pr-2">
@@ -295,9 +294,11 @@ function VillageView({
           ) : undefined
         }
       />
-      <div className="flex min-h-0 flex-1 flex-col desktop:flex-row desktop:gap-4 desktop:p-4">
+      {/* The shared header's own margin sets where the content starts, as on every page (HEADER-HEIGHT, #676). */}
+      <div className="flex min-h-0 flex-1 flex-col desktop:flex-row desktop:gap-4 desktop:px-4 desktop:pb-4">
         <div className="flex min-h-0 flex-1 flex-col desktop:overflow-hidden desktop:rounded-2xl desktop:border desktop:border-border">
-          <div className="flex items-end justify-between gap-3 border-b border-border px-4 py-2">
+          {/* On a phone the header's margin is the gap above the score; inside the desktop card, the row's own padding. */}
+          <div className="flex items-end justify-between gap-3 border-b border-border px-4 pb-2 desktop:pt-2">
             <Score value={village.score} label="Village score" size="sm" className="shrink-0" />
             <div className="flex flex-wrap items-center justify-end gap-2">
               {!own && (
