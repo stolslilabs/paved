@@ -236,7 +236,7 @@ describe("the 3D view", () => {
   });
 });
 
-// STACK-ZERO (#699): a stack of N tiles shows N tiles, none at 0; the badge keeps its place at 12, 1 and 0.
+// STACK-ZERO (#699): a stack of N tiles shows N tiles, none at 0; the badge keeps its place at 12 and 1, and goes at 0 (#701).
 describe("the stack at the last tiles", () => {
   const drawn = () => document.querySelectorAll("[data-stack-pile] g").length;
   const badge = () => {
@@ -262,8 +262,8 @@ describe("the stack at the last tiles", () => {
     expect(document.querySelector("[data-stack-pile]")).not.toBeNull();
   });
 
-  it("anchors the badge to the stack's frame: the same place at 12, 1 and 0, in one or two digits", () => {
-    const places = [12, 1, 0, 9].map((n) => {
+  it("anchors the badge to the stack's frame: the same place at 12 and 1, in one or two digits", () => {
+    const places = [12, 1, 9].map((n) => {
       cleanup();
       render(stack(n));
       const height = px(screen.getByTestId("tile-stack").style.height);
@@ -273,14 +273,20 @@ describe("the stack at the last tiles", () => {
     for (const key of ["left", "box", "fromFoot"] as const) expect(new Set(places.map((p) => p[key])).size).toBe(1);
   });
 
-  it("keeps the badge when the last tile leaves the hand", () => {
-    render(stack(0));
-    const before = badge();
+  it("drops the badge at 0, with or without a tile in hand; the box keeps its size and the deck its name and its tap", () => {
+    render(stack(1));
     const width = box();
     cleanup();
-    render(wrap(<TileStack tile={null} state="empty" remaining={0} />));
-    expect(badge().left).toBe(before.left);
-    expect(box()).toBe(width);
+    for (const tile of [{ plan: 1, orientation: 1 }, null]) {
+      const onDeck = vi.fn();
+      render(wrap(<TileStack tile={tile} state={tile ? "placing" : "empty"} remaining={0} onDeck={onDeck} />));
+      expect(screen.queryByTestId("tiles-left")).toBeNull();
+      expect(box()).toBe(width);
+      const deck = screen.getByRole("button", { name: "Tiles left: 0. Show the deck" });
+      act(() => deck.click());
+      expect(onDeck).toHaveBeenCalledOnce();
+      cleanup();
+    }
   });
 });
 

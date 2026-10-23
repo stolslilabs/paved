@@ -42,11 +42,11 @@ type Story = StoryObj<typeof meta>;
 export const Left38: Story = {};
 /** Five tiles left: a low pile. */
 export const Left5: Story = { args: { remaining: 5 } };
-/** Twelve tiles left, a two-digit badge: the badge keeps its place at 12, 1 and 0 (STACK-ZERO, #699). */
+/** Twelve tiles left, a two-digit badge: the badge keeps its place at 12 and 1 (STACK-ZERO, #699). */
 export const Left12: Story = { args: { remaining: 12 } };
 /** One tile left after this one: one layer. */
 export const Left1: Story = { args: { remaining: 1 } };
-/** Nothing left to draw: no tile in the pile (its shadow only), the badge at 0 where it was at 1 (#699). */
+/** Nothing left to draw: no tile in the pile (its shadow only, #699), and no badge (#701). */
 export const Left0: Story = { args: { remaining: 0 } };
 /** The tile on a cell (the bubble's): the tile in hand dimmed, the stack's Discard gone (the bubble has it). */
 export const OnACell: Story = { args: { cellChosen: true } };
@@ -77,7 +77,7 @@ export const Expired: Story = { args: { state: "expired", remaining: 12 } };
 export const Empty: Story = { args: { tile: null, state: "empty", remaining: 0 } };
 /** A board the viewer does not play (#701): the game's tiles, the same stack, nothing to play (no hint, no Discard). */
 export const ReadOnly: Story = { args: { readOnly: true, remaining: 12, coming: [{ plan: 7 }, { plan: 12 }] } };
-/** Read only once the game is over: the tiles left and the deck. */
+/** Read only once the game is over: the pile's shadow and the deck, no badge. */
 export const ReadOnlyOver: Story = { args: { tile: null, state: "empty", readOnly: true, remaining: 0 } };
 /** A Story coach mark on the deck: the stack's outline is ringed. */
 export const CoachDeck: Story = { args: { coach: "deck" } };
