@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CENTER } from "../src/engine";
+import { PlanType } from "../src/types/plan";
 import { decodeLine } from "../src/story/line";
 import { CAMPAIGNS, OPEN_COUNTRY, TUTORIAL } from "../src/story/plan";
 import {
@@ -135,5 +136,23 @@ describe("a story run", () => {
     played.restart();
     expect(played.snapshot.moves).toHaveLength(0);
     expect(played.snapshot.state.hand?.plan).toBeDefined();
+  });
+
+  it("gives the next two tiles of the level's order as coming, fewer at its end, none once over (#701)", () => {
+    const campaign = CAMPAIGNS[1]!;
+    const level = campaign.levels[0]!;
+    const plans = level.deck.map((plan) => Object.values(PlanType).indexOf(plan));
+    const played = new StoryRun(campaign, level);
+    for (let i = 0; i < level.deck.length; i++) {
+      const { hand, coming } = played.snapshot.state;
+      // The tile in hand is the order's i-th; coming are the two after it (tile ids follow the starter's 1).
+      expect(hand).toEqual({ tileId: i + 2, plan: plans[i] });
+      expect(coming).toEqual(plans.slice(i + 1, i + 3).map((plan, k) => ({ tileId: i + 3 + k, plan })));
+      expect(played.discard()).toBe(true);
+    }
+    expect(played.over).toBe(true);
+    expect(played.snapshot.state.coming).toEqual([]);
+    played.restart();
+    expect(played.snapshot.state.coming).toEqual(plans.slice(1, 3).map((plan, k) => ({ tileId: 3 + k, plan })));
   });
 });

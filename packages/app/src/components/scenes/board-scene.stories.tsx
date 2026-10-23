@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
-import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
+import { CAMPAIGNS, Direction, DirectionType, Layout, Orientation, Plan, PlanType, StoryRun, deckSheetOrder } from "@paved/game-core";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
 import { useBoardSettings } from "../../data/board-settings";
@@ -14,9 +14,11 @@ import { Notice } from "../elements/notice";
 import { toastCompletion } from "../containers/completion-toasts";
 import { Toaster } from "../ui/sonner";
 import { BoardViewport } from "../containers/board-viewport";
-import { StoryCoach, StoryEnd } from "../containers/story-panels";
+import { DeckPresentation, StoryCoach, StoryEnd } from "../containers/story-panels";
+import { StackView } from "../containers/stack-view";
 import { TileView } from "../containers/tile-view";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
+import type { StackFrame } from "../containers/tile-stack";
 
 /** The cells next to a cell (the contracts' coordinates, y north) and the side of the new tile that faces each. */
 const NEIGHBORS: ReadonlyArray<readonly [number, number, DirectionType]> = [
@@ -200,10 +202,14 @@ export const Expired: Story = { args: BOARD.expired };
 /** 24 h passed, as the Challenge board opens it (P5): the Surrender dialog opens by itself. */
 export const ExpiredPrompt: Story = { args: { ...BOARD.expired, promptSurrender: true } };
 
-/** A Challenge game with no account connected (P5): no hand, the board read only; the stack keeps the tiles left and the deck. */
+/**
+ * A Challenge game with no account connected (P5), the board read only: the stack shows the player's tile in hand and the
+ * two coming tiles over the pile (#701), with no hint, banner or Discard; a tap still opens the deck.
+ */
 export const ReadOnly: Story = {
   args: {
     ...BOARD.placing,
+    hand: { ...BOARD.placing.hand, coming: QUEUE },
     readOnly: true,
     notices: (
       <Notice title="Connect to play" className="pointer-events-auto w-full max-w-2xl">
@@ -342,6 +348,7 @@ export const StoryEndOnBoard: Story = {
     title: "Open Country 11: A full road",
     score: 9120,
     remaining: 0,
+    hand: { tile: null, state: "empty" },
     readOnly: true,
     // The campaign's last level: no Next.
     notices: <StoryEnd title="A full road" score={9120} stars={1} toNextStar={942} bestKnown previousBest={8400} onReplay={fn()} onLevels={fn()} />,
@@ -375,3 +382,42 @@ export const QueueTraining: Story = {
 };
 /** #645: the deck's last two tiles: one coming. */
 export const QueueLast: Story = { args: BOARD.queueLast };
+
+/** The stack's tiles in 3D (`StackView`), as the pages give it where WebGL is (#697). */
+const stack3D = (v: StackFrame) => <StackView {...v} basePath={APP_ASSETS} />;
+
+/** #701: the read-only Challenge with the 3D stack: the player's tile in hand and the coming tiles over the pile of the base deck. */
+export const ReadOnlyStack3D: Story = { args: { ...ReadOnly.args, renderHandStack: stack3D } };
+
+const PLAN_IDS = Object.values(PlanType);
+/** Open Country 1, as `StoryRun` plays it: the level's own order, its next two tiles coming (#701). */
+const LEVEL = CAMPAIGNS[1]!.levels[0]!;
+const RUN = new StoryRun(CAMPAIGNS[1]!, LEVEL).snapshot.state;
+const LEVEL_DECK = LEVEL.deck.map((plan) => PLAN_IDS.indexOf(plan));
+const storyBase = {
+  mode: "story" as const,
+  gameId: undefined,
+  expiresAt: null,
+  title: `${CAMPAIGNS[1]!.name} 1: ${LEVEL.title}`,
+  tiles: RUN.tiles,
+  slots: undefined,
+  ghost: null,
+  bubble: null,
+  score: 0,
+  remaining: LEVEL.deck.length,
+  deckOrder: deckSheetOrder(LEVEL.deck, []),
+  hand: { tile: RUN.hand && { plan: RUN.hand.plan, orientation: 1 }, state: "placing" as const, coming: RUN.coming },
+  renderHandStack: stack3D,
+} satisfies Partial<BoardSceneProps>;
+
+/** #701: a Story level in play: the tile in hand, the next two of the level's order, the pile drawn from the level's deck. */
+export const StoryStack: Story = { args: { ...BOARD.placing, ...storyBase } };
+/** #701: a Story level's intro over its board, read only: the stack already shows the level's first tiles. */
+export const StoryIntroStack: Story = {
+  args: {
+    ...BOARD.placing,
+    ...storyBase,
+    readOnly: true,
+    notices: <DeckPresentation campaign={CAMPAIGNS[1]!.name} levelIndex={LEVEL.id} title={LEVEL.title} intro={LEVEL.intro} deck={LEVEL_DECK} renders={appRenders} onStart={fn()} />,
+  },
+};

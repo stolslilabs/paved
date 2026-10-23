@@ -4,7 +4,8 @@ import { fn } from "storybook/test";
 import { ATTACK_STEPS, PVP_ATTACK, PVP_REPLAY, REPLAY_STEPS, attackAt, replayAt } from "../../mocks/pvp";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { BOARD_FOG } from "../../data/settings";
-import { APP_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, appRenders } from "../../mocks/assets";
+import { StackView } from "../containers/stack-view";
 import { PvpAttackBoard } from "../containers/pvp-attack-board";
 import { PvpAttackScene, type PvpAttackSceneProps } from "./pvp-attack-scene";
 
@@ -17,7 +18,7 @@ const meta = {
   title: "Scenes/PvP/Attack",
   component: PvpAttackScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_ATTACK.start, onBack: fn(), onSlotClick: fn(), onDiscard: fn() },
+  args: { ...PVP_ATTACK.start, tileRenders: appRenders, onBack: fn(), onSlotClick: fn(), onDiscard: fn() },
 } satisfies Meta<typeof PvpAttackScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -34,6 +35,8 @@ export const Closing: Story = { args: PVP_ATTACK.closing };
 export const OneStar: Story = { args: PVP_ATTACK.oneStar };
 /** No cell of the territory takes the tile in any rotation: the stack's Discard says so. */
 export const FitsNowhere: Story = { args: PVP_ATTACK.fitsNowhere };
+/** #701: the stack in 3D (`StackView`) without the 3D board: the next two of the shuffle over a pile of the defender's tiles. */
+export const Stack3D: Story = { args: { ...PVP_ATTACK.midway, renderHandStack: (v) => <StackView {...v} basePath={APP_ASSETS} /> } };
 /** The last tile in hand. */
 export const LastTile: Story = { args: PVP_ATTACK.lastTile };
 export const PendingMove: Story = { args: PVP_ATTACK.pending };
@@ -85,11 +88,15 @@ export const Replay: Story = { render: () => <ReplayPlayer /> };
 const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
 const NIGHT_3D: RendererSettingsInput = { ...DAY_3D, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
 
-/** The attack on the 3D board as the page gives it (`PvpAttackBoard`): the fog of war clear over the territory and its neighbours. */
+/**
+ * The attack on the 3D board as the page gives it (`PvpAttackBoard`): the fog of war clear over the territory and its neighbours;
+ * the stack in 3D too (#701), the tile in hand and the next two of the shuffle over a pile of the defender's tiles.
+ */
 function Attack3D({ settings, ...args }: PvpAttackSceneProps & { settings: RendererSettingsInput }) {
   return (
     <PvpAttackScene
       {...args}
+      renderHandStack={(v) => <StackView {...v} basePath={APP_ASSETS} />}
       canvas={<PvpAttackBoard territory={args.territory} tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
     />
   );

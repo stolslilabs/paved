@@ -283,3 +283,58 @@ describe("the stack at the last tiles", () => {
     expect(box()).toBe(width);
   });
 });
+
+// STACK-EVERYWHERE (#701): a read-only board shows the same stack, and nothing on it plays.
+describe("the read-only stack", () => {
+  const frames: StackFrame[] = [];
+  const renderStack = (v: StackFrame) => {
+    frames.push(v);
+    return <span data-testid="stack-3d" />;
+  };
+  const watch = (props: Partial<Parameters<typeof TileStack>[0]> = {}) =>
+    render(wrap(<TileStack readOnly tile={{ plan: 1, orientation: 2 }} state="placing" remaining={20} coming={[{ plan: 3 }, { plan: 7 }]} onDiscard={() => {}} onDeck={() => {}} {...props} />));
+  beforeEach(() => {
+    frames.length = 0;
+  });
+
+  it("shows the tile in hand and the two coming tiles, to a screen reader too", () => {
+    watch();
+    const region = screen.getByRole("region", { name: "Deck" });
+    expect(region.querySelectorAll("[data-coming]")).toHaveLength(2);
+    const plans = screen.getAllByRole("img").map((i) => i.getAttribute("aria-label")!.toLowerCase());
+    expect(plans).toEqual([3, 7, 1].map((plan, i) => expect.stringContaining(`tile ${planCode(plan).toLowerCase()}, ${i < 2 ? "north" : "east"}`)));
+    expect(screen.getByRole("img", { name: /, east$/ }).closest("[data-stack-top]")).toBeTruthy();
+  });
+
+  it("offers no hint, no Discard, no banner and no pending pulse, whatever the hand's state", () => {
+    for (const state of ["placing", "refused", "expired", "pending"] as const) {
+      cleanup();
+      watch({ state, error: "Refused.", onSurrender: () => {} });
+      expect(hint()).toBeNull();
+      expect(screen.queryByTestId("stack-discard")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.queryByRole("button", { name: /surrender/i })).toBeNull();
+      expect(screen.getByRole("region", { name: "Deck" })).toHaveAttribute("data-state", "placing");
+    }
+  });
+
+  it("a tap still opens the deck", () => {
+    const onDeck = vi.fn();
+    watch({ onDeck });
+    screen.getByRole("button", { name: "Tiles left: 20. Show the deck" }).click();
+    expect(onDeck).toHaveBeenCalledOnce();
+  });
+
+  it("draws the 3D view: the pile from the given plans, the coming tiles, the tile in hand never faded", () => {
+    watch({ renderStack, pilePlans: [5], state: "pending", cellChosen: false });
+    const tiles = frames.at(-1)!.tiles;
+    expect(new Set(tiles.filter((t) => t.thickness !== undefined).map((t) => t.plan))).toEqual(new Set([5]));
+    expect(tiles.filter((t) => t.thickness === undefined).map((t) => [t.plan, t.faded ?? false])).toEqual([[3, false], [7, false], [1, false]]);
+  });
+
+  it("with no tile (a game over): the pile and the deck only", () => {
+    watch({ tile: null, coming: [], state: "empty" });
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByTestId("tiles-left")).toHaveTextContent("20");
+  });
+});

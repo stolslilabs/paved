@@ -168,6 +168,7 @@ export class StoryRun {
       tiles,
       discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
+      coming: hand ? this.coming(hand.id) : [],
       lastScored,
       readonly: false,
       pending: false,
@@ -175,6 +176,16 @@ export class StoryRun {
       readError: null,
     };
     return { state, delta, closings: [...g.closings()], moves: [...this.moves] };
+  }
+
+  /**
+   * The tiles of the level's order after the one in hand (`hand`, its id): the next two, fewer at the deck's end, the window
+   * of Training and the VRF Challenge (#645). The order is public (the presentation and the deck sheet show it in full).
+   * Tile `id` is the order's `id - 2` (the starter is tile 1).
+   */
+  private coming(hand: number): { tileId: number; plan: number }[] {
+    const ids = [hand + 1, hand + 2].filter((id) => id <= this.game.tileLimit);
+    return ids.map((id) => ({ tileId: id, plan: PLANS.indexOf(this.level.deck[id - 2]!) }));
   }
 
   private set(snapshot: StorySnapshot): void {

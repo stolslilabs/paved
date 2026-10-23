@@ -40,6 +40,9 @@ export const RIVAL_VILLAGE = buildVillage(23);
 /** The player's own village, the defence log's: 6,124 points. */
 export const MY_VILLAGE = buildVillage(42);
 
+/** The rival's tiles (chain plan ids): the attack's stack draws its pile from them (#701). */
+const RIVAL_PILE = RIVAL_VILLAGE.tiles.map((t) => t.plan);
+
 /** The attack played in the stories: 90 % of the village, two stars. */
 export const ATTACK_STEPS = playAttack(RIVAL_VILLAGE, 3);
 
@@ -96,8 +99,9 @@ export function attackAt(steps: readonly AttackStep[], i: number): Data<PvpAttac
     delta: step.delta,
     lastScored: step.lastScored,
     remaining: step.remaining,
-    hand: { tile: step.hand, state: step.hand ? "placing" : "empty", fitsNowhere: step.hand !== null && step.slots.length === 0 },
+    hand: { tile: step.hand, state: step.hand ? "placing" : "empty", coming: step.coming, fitsNowhere: step.hand !== null && step.slots.length === 0 },
     slots: step.slots,
+    pilePlans: RIVAL_PILE,
   };
 }
 

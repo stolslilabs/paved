@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAMPAIGNS, STORY_KEY, TUTORIAL, decodeLine, recordRun, EMPTY_PROGRESS, PlanType, type StoryLevel } from "@paved/game-core";
 import { App } from "../src/App";
+import { planCode } from "../src/components/elements/tile-chip";
 import { PRESENTED_KEY, UNLOCKS_KEY } from "../src/data/story";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
@@ -31,6 +32,7 @@ afterEach(() => {
 });
 
 const hand = () => screen.getByRole("region", { name: "Your tile" });
+const PLAN_IDS = Object.values(PlanType);
 const slotName = (x: number, y: number) => {
   const part = (n: number, plus: string, minus: string) => (n === 0 ? null : `${Math.abs(n)} ${n > 0 ? plus : minus}`);
   return [part(x, "east", "west"), part(y, "north", "south")].filter(Boolean).join(", ") || "centre";
@@ -46,7 +48,9 @@ async function playLine(level: StoryLevel) {
     const { x, y, orientation } = move.placement;
     await userEvent.click(screen.getByRole("button", { name: `Slot ${slotName(x, y)}` }));
     const wanted = new RegExp(`, ${orientation.toLowerCase()}$`);
-    for (let turn = 0; turn < 4 && !within(hand()).queryByRole("img", { name: wanted }); turn++) {
+    // The tile in hand's own name (the coming tiles beside it are named too, always north, #701).
+    const top = () => hand().querySelector<HTMLElement>("[data-stack-top]")!;
+    for (let turn = 0; turn < 4 && !within(top()).queryByRole("img", { name: wanted }); turn++) {
       await userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
     }
     await placeTile();
@@ -130,7 +134,15 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(intro).not.toHaveTextContent(String(level.target));
     expect(intro).not.toHaveTextContent(String(Math.ceil(level.target * 0.7)));
     expect(screen.queryByRole("region", { name: "Your tile" })).toBeNull();
+    // Under the intro, the read-only stack already shows the level's first tile and the next of its order (#701).
+    const code = (i: number) => planCode(PLAN_IDS.indexOf(level.deck[i]!)).toLowerCase();
+    const deck = screen.getByRole("region", { name: "Deck" });
+    expect(within(deck).getByRole("list", { name: "Coming tiles" })).toHaveTextContent("Next");
+    expect(within(within(deck).getByRole("list", { name: "Coming tiles" })).getByRole("img")).toHaveAccessibleName(`Tile ${code(1)}, north`);
+    expect(within(deck).queryByRole("button", { name: /discard/i })).toBeNull();
     await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
+    // In play, the same tiles on the player's stack.
+    expect(within(within(hand()).getByRole("list", { name: "Coming tiles" })).getByRole("img")).toHaveAccessibleName(`Tile ${code(1)}, north`);
     expect(JSON.parse(store.getItem(PRESENTED_KEY)!)).toEqual(["1-1"]);
     // The tip of level 1 names the hold on the check, which the bubble rings; Story has no Surrender.
     expect(screen.getByTestId("story-coach")).toHaveTextContent("hold the check");
@@ -190,7 +202,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const again = await screen.findByTestId("deck-presentation");
     await userEvent.click(within(again).getByRole("button", { name: /Start/ }));
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
-    expect(within(hand()).getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
+    // The same stack as under the presentation (#701): named the player's once the deck sheet's dialog has let the page go.
+    expect(await within(await screen.findByRole("region", { name: "Your tile" }, { timeout: slow(5000) })).findByRole("button", { name: /^Hold to discard/ })).toBeEnabled();
   });
 
   it("a locked level's address says so; the second campaign opens at 2 stars per Tutorial level", async () => {
