@@ -235,7 +235,7 @@ function claimRevert(error: unknown): never {
 }
 
 /** Why `Setup` refused a skin's purchase or a `set_skins` batch, by its revert (`setup.cairo`, `errors`). */
-export type SkinRefusal = "owned" | "not-for-sale" | "not-enough-cobbles" | "not-owned" | "invalid-skin";
+export type SkinRefusal = "owned" | "not-for-sale" | "not-enough-cobbles" | "not-owned" | "invalid-skin" | "tier-too-low";
 
 /** Each refusal's revert reason; `skin not owned` before `skin owned`, so the one is never read as the other. */
 const SKIN_REVERTS: Array<[string, SkinRefusal]> = [
@@ -244,6 +244,7 @@ const SKIN_REVERTS: Array<[string, SkinRefusal]> = [
   ["Setup: skin not for sale", "not-for-sale"],
   ["Setup: not enough cobbles", "not-enough-cobbles"],
   ["Setup: invalid skin", "invalid-skin"],
+  ["Setup: tier too low", "tier-too-low"],
 ];
 
 /** What the player reads for each refusal. */
@@ -253,6 +254,7 @@ export const SKIN_REFUSAL_TEXT: Record<SkinRefusal, string> = {
   "not-enough-cobbles": "Not enough Cobbles for this skin: earn them from quests and achievements, or buy a pack.",
   "not-owned": "A skin in this change is not yours: buy it before switching it on. Nothing was saved.",
   "invalid-skin": "This tile has no skin.",
+  "tier-too-low": "This skin is reserved to a higher tier of its tile: take more copies of it from village rewards.",
 };
 
 /**

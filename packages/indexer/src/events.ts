@@ -143,7 +143,8 @@ export type Decoded =
        * A claim of cobbles: `kind` 1 a quest (`period`: its day or week number), 2 an achievement (`period` 0), 3 a star
        * of a Story level paid by `Story` (`id` `(campaign_id << 8) | level_id`, `period` the star, 1 to 3;
        * `docs/architecture/story-mode.md`), 4 a league's bonus and 5 a season's reward paid by `Matchmaker` (`id` the
-       * league, `period` the season; `docs/architecture/leagues.md`). `balance`: the player's cobbles after it.
+       * league, `period` the season; `docs/architecture/leagues.md`), 6 a village reward taken as Cobbles paid by `Rewards`
+       * (`id` 0, `period` the reward's index; `docs/architecture/village-rewards.md`). `balance`: the player's cobbles after it.
        */
       name: "CobblesClaimed";
       playerId: bigint;
@@ -420,6 +421,11 @@ export const IGNORED = [
   // receipt. Known by name so that the strict decoder never halts on a Challenge that emits them.
   "Queued",
   "VrfProviderSet",
+  // The village rewards (#642, docs/architecture/village-rewards.md): the owner's wiring of Setup to `Rewards` (`set_rewards`),
+  // and the minimum tier of a skin (`set_skin_tier`). No table reads them yet: the shop reads `skin_tier` with the village
+  // screen's wiring (#646). Known by name so that the strict decoder never halts on a Setup that emits them.
+  "RewardsSet",
+  "SkinTierSet",
 ] as const;
 
 /**
@@ -722,7 +728,7 @@ export function decode(
       // key player_id; data kind, id, period, cobbles, balance
       shape(name, keys, data, 1, 5);
       const kind = small(data[0], 8, "kind");
-      if (kind < 1 || kind > 5) throw new DecodeError(`${name}: kind ${kind}, expected 1 to 5`);
+      if (kind < 1 || kind > 6) throw new DecodeError(`${name}: kind ${kind}, expected 1 to 6`);
       return {
         name,
         playerId: felt(keys[1]),

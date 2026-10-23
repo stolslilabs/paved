@@ -626,10 +626,13 @@ describe("Cobbles v1 events (Setup, cobbles-v1.md 6.2)", () => {
     expect(decode("setup", league.keys, league.data)).toMatchObject({ kind: 4, id: 4, period: 2n, cobbles: 10 });
     const season = ev.cobblesClaimed(0x1234, 5, 22, 2, 250, 325);
     expect(decode("setup", season.keys, season.data)).toMatchObject({ kind: 5, id: 22, period: 2n, cobbles: 250 });
+    // a village reward taken as Cobbles (#642): id 0, period the reward's index
+    const reward = ev.cobblesClaimed(0x1234, 6, 0, 7, 5, 330);
+    expect(decode("setup", reward.keys, reward.data)).toMatchObject({ kind: 6, id: 0, period: 7n, cobbles: 5 });
     // a kind of none of them, a cobbles value wider than u8, a balance above 2^53, a missing member
     for (const [kind, cobbles, balance] of [
       [0, 5, 5],
-      [6, 5, 5],
+      [7, 5, 5],
       [1, 256, 256],
       [1, 5, 2 ** 60],
     ] as const) {

@@ -87,6 +87,19 @@ export {
   villageTile,
 } from "./village";
 export type { DemolitionOffer, VillageCell, VillageInfo, VillageTile } from "./village";
+export {
+  REWARD_CHOICE,
+  REWARD_DRAW_KIND,
+  REWARD_GRANTS_FIELDS,
+  REWARD_OFFER_FIELDS,
+  claimRewardCall,
+  isOfferOpen,
+  openRewardCalls,
+  rewardGrants,
+  rewardOffer,
+  tierOf,
+} from "./rewards";
+export type { RewardClaim, RewardGrants, RewardOffer } from "./rewards";
 export type { SkinChange, SkinViews } from "./skins";
 export {
   AVATAR_FORMAT_VERSION,
