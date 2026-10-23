@@ -158,7 +158,8 @@ describe("/village: the own village", () => {
     let fail = true;
     c.views.account = (player: string) => (fail ? Promise.reject(new Error("account RPC unavailable")) : account(player));
     open(c, "/village");
-    expect(await screen.findByText("account RPC unavailable", {}, { timeout: 5000 })).toBeInTheDocument();
+    // The error can show twice (the page and its retry state) while the read settles: at least one is the assertion.
+    expect((await screen.findAllByText("account RPC unavailable", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
     expect(screen.queryByRole("img", { name: "0 Cobbles" })).toBeNull();
     fail = false;
