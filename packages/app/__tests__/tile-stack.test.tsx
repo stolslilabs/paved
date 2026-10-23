@@ -127,16 +127,21 @@ describe("the coming tiles' renders", () => {
   });
 });
 
-// After Dorfromantik's: the pile is a layer per tile left, up to PILE_CAP, so it sinks as the game goes.
+// After Dorfromantik's: the pile is a layer per tile left, thinner past PILE_CAP, so it sinks as the game goes.
 describe("the pile", () => {
   const pile = () => Number(document.querySelector("[data-stack-pile]")!.getAttribute("data-stack-pile"));
 
-  it("is as high as the tiles left, up to PILE_CAP; the badge says the true count", () => {
+  it("has a layer per tile left, however many; the badge says the count, and the pile stops growing taller at PILE_CAP layers", () => {
     const { rerender } = render(stack(PILE_CAP - 2));
     expect(pile()).toBe(PILE_CAP - 2);
-    rerender(stack(PILE_CAP + 30));
-    expect(pile()).toBe(PILE_CAP);
-    expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(PILE_CAP + 30));
+    rerender(stack(PILE_CAP));
+    const px = () => parseFloat(screen.getByTestId("tile-stack").style.height.match(/calc\(([\d.]+)px/)![1]!);
+    const height = px();
+    rerender(stack(PILE_CAP + 26));
+    expect(pile()).toBe(PILE_CAP + 26);
+    expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(PILE_CAP + 26));
+    // The layers thin to the same height, a gap's thinning apart.
+    expect(Math.abs(px() - height)).toBeLessThan(3);
   });
 
   it("a tap on the stack takes its outline, not its box: the deck button is clipped to it", () => {
@@ -185,7 +190,7 @@ describe("the 3D view", () => {
     expect(pile()).toEqual(first.slice(0, 3));
     cleanup();
     queue({ remaining: PILE_CAP + 30 });
-    expect(pile()).toHaveLength(PILE_CAP);
+    expect(pile()).toHaveLength(PILE_CAP + 30);
   });
 
   it("leans toward the view by steps (after Dorfromantik's), each in the stack's angle: the tile in hand to within 10 degrees of straight above, the next halfway, the one after it as the pile", () => {
@@ -242,8 +247,8 @@ describe("the stack at the last tiles", () => {
   const px = (calc: string) => parseFloat(calc.match(/calc\(([\d.-]+)px/)![1]!);
 
   it.each([
+    [38, 38],
     [12, 12],
-    [13, PILE_CAP],
     [1, 1],
     [0, 0],
   ])("draws the right number of tiles for %i left", (remaining, layers) => {

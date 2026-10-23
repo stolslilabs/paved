@@ -32,8 +32,8 @@ const TILE_TOP = 2.625 * UNIT_PX;
 /** A tile's thickness as a CSS slab (without the 3D view), px. */
 const SLAB_T = 6;
 /**
- * The pile: a layer per tile left, up to `PILE_CAP` (taller would crowd a phone's board), each a slab `PILE_SLAB` px thick,
- * `PILE_GAP` px apart. With the 3D view a slab is a real tile of the deck, squashed, turned a quarter at random and a
+ * The pile: a layer per tile left (N tiles show N), each a slab `PILE_SLAB` px thick, `PILE_GAP` px apart, up to `PILE_CAP` layers; past
+ * that the layers thin so the pile stays as tall as `PILE_CAP` of them (a taller one would crowd a phone's board). With the 3D view a slab is a real tile of the deck, squashed, turned a quarter at random and a
  * little askew (up to `PILE_YAW` degrees); without it, a row of grass over a row of earth (`PILE_GRASS`).
  */
 export const PILE_CAP = 12;
@@ -41,6 +41,9 @@ const PILE_SLAB = 6;
 const PILE_GRASS = 2.5;
 const PILE_GAP = 3;
 const PILE_STEP = PILE_SLAB + PILE_GAP;
+const PILE_GAP_SHARE = PILE_GAP / PILE_STEP;
+/** One layer's height at `n` layers: `PILE_STEP`, thinner past `PILE_CAP` layers so the pile never grows taller than that. */
+const pileStep = (n: number) => Math.min(PILE_STEP, (PILE_CAP * PILE_STEP) / Math.max(1, n));
 const PILE_YAW = 7;
 /**
  * How far the top tiles lean toward the view (after Dorfromantik's), each keeping the stack's angle in the plane: the tile
@@ -342,8 +345,9 @@ export function TileStack({
   const solid = renderStack != null && !stackFailed;
 
   // Bottom up: the pile, then each slot hovering above the one before (the queue's last first), then the tile in hand.
-  const layers = Math.max(0, Math.min(PILE_CAP, remaining));
-  const pileHeight = layers > 0 ? layers * PILE_STEP - PILE_GAP : 0;
+  const layers = Math.max(0, remaining);
+  const step = pileStep(layers);
+  const pileHeight = layers > 0 ? layers * step - step * PILE_GAP_SHARE : 0;
   const queueZ: number[] = [];
   let z = pileHeight + GAP_PILE;
   for (let i = queued - 1; i >= 0; i--) {
@@ -397,9 +401,9 @@ export function TileStack({
               id: PILE_IDS + i,
               plan: pilePlans[draw % pilePlans.length] ?? 1,
               orientation: 1 + ((draw >>> 8) % 4),
-              lift: (i * PILE_STEP) / UNIT_PX,
+              lift: (i * step) / UNIT_PX,
               scale: 1,
-              thickness: PILE_SLAB / UNIT_PX,
+              thickness: (step * (1 - PILE_GAP_SHARE)) / UNIT_PX,
               yaw: rad(((((draw >>> 16) % 1001) / 1000) * 2 - 1) * PILE_YAW),
             };
           }),
@@ -456,7 +460,7 @@ export function TileStack({
           </div>
         )}
         <div data-testid="tile-stack" className="relative shrink-0 [--stack-s:0.8] tablet:[--stack-s:1]" style={{ width: scaled(frame.width), height: scaled(frame.height) }}>
-          <Pile layers={layers} remaining={Math.min(PILE_CAP, remaining)} frame={frame} shadowOnly={solid} />
+          <Pile layers={layers} step={step} frame={frame} shadowOnly={solid} />
           {/* The scene: its origin the pile's foot, its plane turned and tilted as the renders' view; every level keeps the 3D. */}
           <div aria-hidden={readOnly || undefined} className="absolute size-0" style={{ left: scaled(frame.left), bottom: scaled(frame.bottom), transform: "scale(var(--stack-s))", transformOrigin: "0 0" }}>
             <div className="absolute size-0 transform-3d" style={{ transform: `rotateX(${TILT}deg) rotateZ(${TURN}deg)` }}>
@@ -562,7 +566,7 @@ export function TileStack({
  * phone's too): its shadow, then each layer bottom up, its top, then its south and east sides, a row of grass over a row of
  * earth. The gap between two layers shows the top of the one under it, in shade. With the 3D view, its shadow only.
  */
-function Pile({ layers, remaining, frame, shadowOnly }: { layers: number; remaining: number; frame: ReturnType<typeof frameOf>; shadowOnly: boolean }) {
+function Pile({ layers, step, frame, shadowOnly }: { layers: number; step: number; frame: ReturnType<typeof frameOf>; shadowOnly: boolean }) {
   const shadow = useId();
   const h = TILE / 2;
   const top = frame.height - frame.bottom;
@@ -578,7 +582,7 @@ function Pile({ layers, remaining, frame, shadowOnly }: { layers: number; remain
   return (
     <svg
       aria-hidden
-      data-stack-pile={remaining}
+      data-stack-pile={layers}
       viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`}
       preserveAspectRatio="none"
       className="pointer-events-none absolute inset-0 size-full overflow-visible"
@@ -592,9 +596,9 @@ function Pile({ layers, remaining, frame, shadowOnly }: { layers: number; remain
       <polygon points={points([[-h + 4, -h + 4, 0], [h + 4, -h + 4, 0], [h + 4, h + 4, 0], [-h + 4, h + 4, 0]])} className="fill-slab-shadow" filter={`url(#${shadow})`} />
       {/* With the 3D view, its tiles are the renderer's: only the shadow here. */}
       {Array.from({ length: shadowOnly ? 0 : layers }, (_, i) => {
-        const z0 = i * PILE_STEP;
-        const z1 = z0 + PILE_SLAB;
-        const grass = z1 - PILE_GRASS;
+        const z0 = i * step;
+        const z1 = z0 + step * (1 - PILE_GAP_SHARE);
+        const grass = z1 - (PILE_GRASS * step) / PILE_STEP;
         return (
           <g key={i}>
             {/* Under another layer, its top is in that layer's shadow: the gap reads as space. */}
