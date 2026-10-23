@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -86,7 +87,7 @@ function open(path: string, s: ReturnType<typeof setup>, wallet = fakeWallet({ a
 }
 
 const over = (s: ReturnType<typeof setup>, ref = "") => open(`/game/${GAME_ID}/over${ref}`, s);
-const reward = () => screen.findByRole("region", { name: "Reward" }, { timeout: 5000 });
+const reward = () => screen.findByRole("region", { name: "Reward" }, { timeout: slow(5000) });
 const settleButton = () => screen.queryByRole("button", { name: /Settle and claim/ });
 
 // The board a route opens is not under test here (this file asserts the route it opens; `challenge-route.test.tsx` runs the board):
@@ -114,7 +115,7 @@ describe("/game/:gameId/over (P7a)", () => {
   it("shows the final score and the counters from game(id) and every closing of the game from its tiles", async () => {
     const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
     over(s);
-    expect(await screen.findByTestId("score-value", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByTestId("score-value", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
     expect(screen.getByText(`Challenge #${GAME_ID}`)).toBeInTheDocument();
     expect(screen.getByTestId("score-value")).toHaveTextContent(formatPoints(played.game.score));
@@ -137,7 +138,7 @@ describe("/game/:gameId/over (P7a)", () => {
     it("switches to the final board and back in one tap each, the scores kept; the board's Back and the system Back return to the scores", async () => {
       const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
       const { router } = over(s);
-      await screen.findByRole("region", { name: "Highlights" }, { timeout: 5000 });
+      await screen.findByRole("region", { name: "Highlights" }, { timeout: slow(5000) });
       const toggle = screen.getByRole("radiogroup", { name: "Show" });
       // The figures of the replay: the largest of each category in tiles, and the most valuable closing.
       const highlights = await screen.findByRole("region", { name: "Highlights" });
@@ -175,7 +176,7 @@ describe("/game/:gameId/over (P7a)", () => {
     it("opens on the board from a link with ?view=board, and its Back then shows the scores in place", async () => {
       const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
       const { router } = open(`/game/${GAME_ID}/over?view=board`, s);
-      expect(await screen.findByRole("heading", { level: 1, name: "Final board" }, { timeout: 5000 })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 1, name: "Final board" }, { timeout: slow(5000) })).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Back" }));
       expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
@@ -187,7 +188,7 @@ describe("/game/:gameId/over (P7a)", () => {
       const entry = { rank: 3, player_id: `0x${PLAYER.slice(2).padStart(64, "0")}`, best_score: played.game.score, best_game_id: GAME_ID, games_played: 1, games_finished: 1, finished_at: 1600, free: false, name: null };
       s.fixture.entries.set(TODAY, [entry, { ...entry, player_id: PLAYER }] as never);
       over(s);
-      await screen.findByTestId("final-score", {}, { timeout: 5000 });
+      await screen.findByTestId("final-score", {}, { timeout: slow(5000) });
       await waitFor(() => expect(s.fixture.requests.some((r) => r.startsWith("/v1/players/"))).toBe(true));
       expect(screen.queryByText(/#\d+ today/)).toBeNull();
       expect(s.fixture.requests.some((r) => r.includes("/entry/") || r.includes("/leaderboard"))).toBe(false);
@@ -253,7 +254,7 @@ describe("/game/:gameId/over (P7a)", () => {
       // A build with no economy deployment: the economy's reads answer null.
       s.sources.economy = null;
       over(s);
-      expect(await screen.findByText("Reward unavailable", {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(await screen.findByText("Reward unavailable", {}, { timeout: slow(5000) })).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Reward" })).toBeNull();
       expect(screen.queryByText(/Training plays for practice/)).toBeNull();
       expect(screen.queryByRole("region", { name: "Settle" })).toBeNull();
@@ -275,7 +276,7 @@ describe("/game/:gameId/over (P7a)", () => {
       vi.useFakeTimers({ toFake: ["Date"], now: (settlesAfter(OPEN_DAY) - 14 * 3600 - 5 * 60) * 1000 });
       const s = setup({ terms: { day: OPEN_DAY } });
       over(s);
-      const area = await screen.findByRole("region", { name: "Settle" }, { timeout: 5000 });
+      const area = await screen.findByRole("region", { name: "Settle" }, { timeout: slow(5000) });
       expect(area).toHaveTextContent(/Settles in 14 h 05 min \(\w{3}, \w{3} \d+, 00:00 UTC\)\./);
       expect(area.querySelector("time")!.getAttribute("dateTime")).toBe(new Date(settlesAfter(OPEN_DAY) * 1000).toISOString());
       expect(settleButton()).toBeNull();
@@ -285,7 +286,7 @@ describe("/game/:gameId/over (P7a)", () => {
     it("a guest: Connect to settle opens the wallet", async () => {
       const s = setup({ viewer: "guest" });
       const { wallet } = over(s);
-      await userEvent.click(await screen.findByRole("button", { name: "Connect to settle" }, { timeout: 5000 }));
+      await userEvent.click(await screen.findByRole("button", { name: "Connect to settle" }, { timeout: slow(5000) }));
       await waitFor(() => expect(wallet.calls).toContain("connect"));
       expect(s.settle).not.toHaveBeenCalled();
     });
@@ -293,7 +294,7 @@ describe("/game/:gameId/over (P7a)", () => {
     it("someone who is not the player sees that it can be settled, and no button", async () => {
       const s = setup({ viewer: OTHER });
       over(s, "");
-      const area = await screen.findByRole("region", { name: "Settle" }, { timeout: 5000 });
+      const area = await screen.findByRole("region", { name: "Settle" }, { timeout: slow(5000) });
       expect(area).toHaveTextContent("can be settled now");
       expect(settleButton()).toBeNull();
     });
@@ -309,7 +310,7 @@ describe("/game/:gameId/over (P7a)", () => {
       });
       const s = setup({ settle, indexed: null });
       over(s);
-      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: slow(5000) }));
       const pending = await screen.findByRole("button", { name: "Settling…" });
       expect(pending).toHaveAttribute("aria-busy", "true");
       // A second tap while it is on its way reaches nothing.
@@ -336,7 +337,7 @@ describe("/game/:gameId/over (P7a)", () => {
       });
       const s = setup({ settle });
       over(s);
-      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: slow(5000) }));
       const alert = await screen.findByRole("alert");
       expect(alert).toHaveTextContent("Settle refused");
       expect(alert).toHaveTextContent("This day cannot be settled yet");
@@ -358,7 +359,7 @@ describe("/game/:gameId/over (P7a)", () => {
       });
       const s = setup({ settle });
       over(s);
-      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: slow(5000) }));
       expect(await screen.findByText("Already settled.")).toBeInTheDocument();
       expect(settleButton()).toBeNull();
     });
@@ -370,7 +371,7 @@ describe("/game/:gameId/over (P7a)", () => {
       });
       const s = setup({ settle, indexed: null });
       over(s);
-      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: slow(5000) }));
       expect(await screen.findByText("Already settled.")).toBeInTheDocument();
       expect(screen.queryByText("Settled")).toBeNull();
     });
@@ -391,13 +392,13 @@ describe("/game/:gameId/over (P7a)", () => {
         return terms(id);
       };
       over(s);
-      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+      await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: slow(5000) }));
       await waitFor(() => expect(settle).toHaveBeenCalledTimes(1));
       // The receipt is in; the terms still read unsettled: no button to press again.
       await new Promise((r) => setTimeout(r, 200));
       expect(settleButton()).toBeNull();
       release();
-      expect(await screen.findByText("Already settled.", undefined, { timeout: 3000 })).toBeInTheDocument();
+      expect(await screen.findByText("Already settled.", undefined, { timeout: slow(3000) })).toBeInTheDocument();
       expect(settle).toHaveBeenCalledTimes(1);
     });
 
@@ -415,7 +416,7 @@ describe("/game/:gameId/over (P7a)", () => {
     it("a game still in play goes back to its board, replacing the entry", async () => {
       const s = setup({ game: { over: false } });
       const { router } = over(s);
-      await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_ID}`), { timeout: 5000 });
+      await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_ID}`), { timeout: slow(5000) });
       expect(router.state.historyAction).toBe("REPLACE");
     });
 
@@ -431,7 +432,7 @@ describe("/game/:gameId/over (P7a)", () => {
     it("an unknown game is Game not found, with Back home", async () => {
       const s = setup({ noGame: true });
       const { router } = over(s);
-      expect(await screen.findByText("Game not found", {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(await screen.findByText("Game not found", {}, { timeout: slow(5000) })).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Back home" }));
       await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     });
@@ -439,14 +440,14 @@ describe("/game/:gameId/over (P7a)", () => {
     it.each(["abc", "1.5", "-3"])("a wrong id (%s) is Game not found without reading the chain", async (id) => {
       const s = setup();
       open(`/game/${id}/over`, s);
-      expect(await screen.findByText("Game not found", {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(await screen.findByText("Game not found", {}, { timeout: slow(5000) })).toBeInTheDocument();
       expect(s.views.calls.filter((c) => c.startsWith("game "))).toEqual([]);
     });
 
     it("Play again opens the purchase and keeps the link's ?ref=", async () => {
       const s = setup({ terms: { settled: true } });
       const { router } = over(s, "?ref=0x77");
-      await userEvent.click(await screen.findByRole("button", { name: "Play again" }, { timeout: 5000 }));
+      await userEvent.click(await screen.findByRole("button", { name: "Play again" }, { timeout: slow(5000) }));
       await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
       expect(router.state.location.search).toBe("?ref=0x77");
     });
@@ -457,7 +458,7 @@ describe("/game/:gameId/over (P7a)", () => {
       const s = setup();
       s.economy.fail = "economy node down";
       over(s);
-      const alert = await screen.findByRole("alert", {}, { timeout: 8000 });
+      const alert = await screen.findByRole("alert", {}, { timeout: slow(8000) });
       expect(alert).toHaveTextContent("The game cannot be read");
       expect(alert).toHaveTextContent("economy node down");
       s.economy.fail = null;
@@ -478,7 +479,7 @@ describe("/game/:gameId/over (P7a)", () => {
     it("a replay that does not match the chain shows no closings and says so, the rest of the page stays", async () => {
       const s = setup({ game: { score: played.game.score + 1 } });
       over(s);
-      expect(await screen.findByText("The closings of this game could not be read.", {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(await screen.findByText("The closings of this game could not be read.", {}, { timeout: slow(5000) })).toBeInTheDocument();
       expect(screen.getByTestId("score-value")).toBeInTheDocument();
     });
   });
@@ -524,7 +525,7 @@ describe("/game/:gameId/over (P7a)", () => {
     const writer = client.writer(account);
     const sources: DataSources = { ...f.sources, signer: writer as unknown as GameSigner, settlements: (signer) => settlementsFor(econ, signer) };
     render(<App router={createTestRouter(`/game/${GAME_ID}/over`)} sources={sources} connector={fakeWallet({ address: PLAYER }).load} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole("button", { name: "Settle and claim" }, { timeout: slow(5000) }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect([BigInt(sent[0]!.contractAddress), sent[0]!.entrypoint, sent[0]!.calldata.map(Number)]).toEqual([BigInt(ECON.economy), "settle", [1, GAME_ID]]);
     // The decoded event set the reward in the cache.
@@ -554,7 +555,7 @@ describe("/game/:gameId/over: the missions the game completed (#595)", () => {
       achievements: new Map([[2, { count: 1, completed_at: end }]]),
     });
     const { router } = over(s);
-    const list = within(await screen.findByRole("region", { name: "Missions completed" }, { timeout: 5000 }));
+    const list = within(await screen.findByRole("region", { name: "Missions completed" }, { timeout: slow(5000) }));
     await waitFor(() => expect(list.getAllByRole("listitem").map((li) => li.textContent)).toEqual([expect.stringContaining("Daily Run"), expect.stringContaining("Settler I")]));
     // Daily Run's 5 Cobbles and Settler I's 10 points, from the definitions.
     expect(list.getByRole("img", { name: "+5 Cobbles" })).toBeInTheDocument();

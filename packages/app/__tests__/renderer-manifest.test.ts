@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -60,7 +61,7 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
     const out = execFileSync(process.execPath, [join(APP, "scripts/compress-models.ts"), "--check"], { encoding: "utf8" });
     expect(out).toContain("base: 19 models");
     expect(out).toContain("forest: 72 models");
-  }, 120_000);
+  }, slow(120_000));
 });
 
 describe("the app's resized, content-hashed tile images (scripts/compress-tiles.ts)", () => {
@@ -86,7 +87,7 @@ describe("the app's resized, content-hashed tile images (scripts/compress-tiles.
   it("are exactly what the script writes from the originals in asset-sources/", () => {
     const out = execFileSync(process.execPath, [join(APP, "scripts/compress-tiles.ts"), "--check"], { encoding: "utf8" });
     expect(out).toContain("19 plans:");
-  }, 120_000);
+  }, slow(120_000));
 
   it("fail the check when a copy is stale", () => {
     const [name] = readdirSync(TILES);
@@ -153,7 +154,7 @@ describe("the app's resized, content-hashed tile images (scripts/compress-tiles.
     const [current] = readdirSync(folder);
     writeFileSync(join(folder, current!), "edited");
     expect(() => run()).toThrow();
-  }, 120_000);
+  }, slow(120_000));
 
   it("fails the manifest when a name's hash is not its file's, or a plan has two images of a size", () => {
     const dir = mkdtempSync(join(tmpdir(), "renderer-tiles-"));
@@ -237,7 +238,7 @@ describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
 
   it("are current: every render there, named by its hash, drawn from the manifest's models", () => {
     expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("78 renders: current");
-  }, 60_000);
+  }, slow(60_000));
 
   it("fail the check on a missing render, a wrong hash, a model that changed or another version", () => {
     const copy = () => {
@@ -262,5 +263,5 @@ describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
     };
     expect(check(sources(copy(), (s) => (s.files[Object.keys(s.files)[0]!] = ["models/ccccccccc.0000000000.glb"])))).toThrow();
     expect(check(sources(copy(), (s) => (s.version += 1)))).toThrow();
-  }, 60_000);
+  }, slow(60_000));
 });

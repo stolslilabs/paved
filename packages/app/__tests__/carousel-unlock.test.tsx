@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { useState, type ReactNode } from "react";
@@ -60,7 +61,7 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
   it("reads startIndex once: a later choice never re-inits Embla (a jump that cuts the scroll under way)", async () => {
     let api: CarouselApi;
     const { rerender } = render(wrap(<Demo start={1} onApi={(a) => (api = a)} />));
-    await waitFor(() => expect(api).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(api).toBeDefined(), { timeout: slow(5000) });
     const reInit = vi.spyOn(api!, "reInit");
     rerender(wrap(<Demo start={0} onApi={(a) => (api = a)} />));
     rerender(wrap(<Demo start={2} onApi={(a) => (api = a)} />));
@@ -80,7 +81,7 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
         />,
       ),
     );
-    await waitFor(() => expect(api).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(api).toBeDefined(), { timeout: slow(5000) });
     const track = () => document.querySelector("[data-slot='carousel-content'] > div");
     await frames();
     expect(track()).toHaveAttribute("data-settled", "false");
@@ -93,7 +94,7 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
     const card = () => document.querySelector("[data-campaign='2']");
     // The first render: no carousel API yet, so the track is not known to be at rest.
     expect(card()).toHaveAttribute("data-unlock", "paused");
-    await waitFor(() => expect(card()).toHaveAttribute("data-unlock", "playing"), { timeout: 5000 });
+    await waitFor(() => expect(card()).toHaveAttribute("data-unlock", "playing"), { timeout: slow(5000) });
     expect(card()).toHaveAttribute("data-status", "unlocking");
   });
 
@@ -108,7 +109,7 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
     it(`a press on a card brings it in view, a jump under reduced motion (${reduced})`, async () => {
       embla.api = undefined;
       render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progressOpeningTheSecond()} campaignId={2} />, reduced));
-      await waitFor(() => expect(embla.api).toBeDefined(), { timeout: 5000 });
+      await waitFor(() => expect(embla.api).toBeDefined(), { timeout: slow(5000) });
       const scrollTo = vi.spyOn(embla.api!, "scrollTo");
       fireEvent.click(screen.getByRole("button", { name: /Tutorial/ }));
       expect(scrollTo).toHaveBeenCalledWith(0, reduced === "always");
@@ -117,7 +118,7 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
     it(`a swipe's release glides to its snap, and lands there at once under reduced motion (${reduced})`, async () => {
       let api: CarouselApi;
       render(wrap(<Demo start={1} onApi={(a) => (api = a)} />, reduced));
-      await waitFor(() => expect(api).toBeDefined(), { timeout: 5000 });
+      await waitFor(() => expect(api).toBeDefined(), { timeout: slow(5000) });
       const scrollTo = vi.spyOn(api!, "scrollTo");
       act(() => api!.emit("pointerUp"));
       if (reduced === "always") expect(scrollTo).toHaveBeenCalledWith(api!.selectedScrollSnap(), true);

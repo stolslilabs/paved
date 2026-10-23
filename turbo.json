@@ -7,7 +7,8 @@
       "outputs": ["dist/**"]
     },
     "test": {
-      "dependsOn": ["build"]
+      "dependsOn": ["build"],
+      "env": ["PAVED_TEST_SLOW"]
     },
     "lint": {},
     "clean": {

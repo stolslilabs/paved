@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -28,7 +29,7 @@ function open(path: string, store: KeyValueStore | null) {
 }
 
 // A group when slots are lit, an image when none is (the hand fits nowhere at this orientation): found by its label.
-const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).getAttribute("aria-label")!.match(/\d+/)![0]);
+const tilesOnBoard = async () => Number((await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: slow(5000) })).getAttribute("aria-label")!.match(/\d+/)![0]);
 const tilesLeft = () => Number(screen.getByTestId("tiles-left").textContent);
 const hand = () => screen.getByRole("region", { name: "Your tile" });
 /** The game is over on the board: no tile in hand (the scores open after `GAME_OVER_HOLD_MS`). */
@@ -58,7 +59,7 @@ describe("/training (P3)", () => {
   it("renders the board scene on the saved game, and resumes it after a reload", async () => {
     const store = memoryStore({ [TRAINING_KEY]: save([firstMove([])]) });
     const first = open("/training", store);
-    expect(await screen.findByRole("heading", { level: 1, name: "Training" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Training" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(await tilesOnBoard()).toBe(2);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
@@ -137,15 +138,15 @@ describe("/training (P3)", () => {
     // The finished game stays on its board for the hold, its last points on the score, then the scores open.
     expect(router.state.location.pathname).toBe("/training");
     expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + 5000 });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
     expect(Date.now() - lastMoveAt).toBeGreaterThanOrEqual(GAME_OVER_HOLD_MS);
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
     const saved = loadGame(() => store)!;
     expect(replayTraining(BigInt(saved.seed), saved.moves).over).toBe(true);
     expect(saved.moves.some((m) => m.k === "b")).toBe(true);
   // The whole game is real work (one click and a re-render of the board per tile): 10.7 to 18.1 s over 5 runs, 11.2 to 23.2 s over 10 more, 28.5 s once under
   // heavy load.
-  }, 60_000);
+  }, slow(60_000));
 
   it("counts a discard as spent in the tiles left", async () => {
     open("/training", memoryStore());
@@ -201,8 +202,8 @@ describe("/training (P3)", () => {
     // Every save from here on is refused: the save stays one move in, behind the game.
     full = true;
     while (!handEmpty()) await discardTile();
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + 5000 });
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Tiles placed0");
     expect(router.state.location.pathname).toBe("/training/over");
     expect(loadGame(() => store)!.moves).toEqual([{ k: "d" }]);
@@ -258,7 +259,7 @@ describe("/training (P3)", () => {
     expect(await tilesOnBoard()).toBe(2);
     const restart = async () => {
       await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-      const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: 5000 });
+      const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
       expect(within(sheet).queryByRole("button", { name: /Surrender/ })).toBeNull();
       await userEvent.click(within(sheet).getByRole("button", { name: /^Restart/ }));
       return screen.findByRole("dialog", { name: "Restart this game?" });
@@ -289,7 +290,7 @@ describe("/training/over (P3)", () => {
     }
     const store = memoryStore({ [TRAINING_KEY]: save(moves) });
     const { router } = open("/training/over", store);
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
     const metrics = screen.getByRole("region", { name: "Game metrics" });
     expect(metrics).toHaveTextContent(`Tiles placed${game.built}`);
 
@@ -311,7 +312,7 @@ describe("/training/over (P3)", () => {
     expect(game.score).toBeGreaterThan(1);
     const store = memoryStore({ [TRAINING_KEY]: save(moves), [TRAINING_BEST_KEY]: JSON.stringify({ score: 1, seed: "0x1", previous: null }) });
     const { router, unmount } = open("/training/over", store);
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByText("New best")).toBeInTheDocument();
     expect(JSON.parse(store.getItem(TRAINING_BEST_KEY)!)).toEqual({ score: game.score, seed: `0x${SEED.toString(16)}`, previous: 1 });
 
@@ -327,7 +328,7 @@ describe("/training/over (P3)", () => {
 
     // A reload of the same game's end still reads New best: the record keeps the best before it.
     open("/training/over", store);
-    expect(await screen.findByText("New best", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("New best", {}, { timeout: slow(5000) })).toBeInTheDocument();
   });
 
   it("sends a game still in play back to its board, and a finished game's board to its end", async () => {
