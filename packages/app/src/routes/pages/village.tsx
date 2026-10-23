@@ -7,7 +7,7 @@ import { VillageScene, type VillageStatus } from "../../components/scenes/villag
 import { useBoardSkins } from "../../data/board-skins";
 import { cobbleKeys, useCobbleAccount } from "../../data/cobbles";
 import { usePlayerStatus } from "../../data/indexer";
-import { addressKey } from "../../data/keys";
+import { addressKey, queryKeys } from "../../data/keys";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
 import { useTileArt } from "../../data/tile-art";
@@ -102,8 +102,10 @@ function Village({ player }: { player: string | null }) {
       onBack={onBack}
       onConnect={() => void wallet.connect()}
       onRetry={() => {
+        // Every read the screen joins: the village's, the Cobbles', and the owner's level (the parcels' gate, `useVillage`).
         void client.invalidateQueries({ queryKey: villageKeys.all });
         void client.invalidateQueries({ queryKey: cobbleKeys.all });
+        if (playerId) void client.invalidateQueries({ queryKey: queryKeys.chain.playerLevel(playerId) });
       }}
       onDismissRefusal={writes.reset}
       onFound={() => send(writes.found, "Village founded", "Its 9 cells and the starter are yours. Open a reward to place your first tile.")}

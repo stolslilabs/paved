@@ -1,6 +1,7 @@
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { Cobbles } from "../elements/cobbles";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { TokenIcon } from "../elements/token-icon";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -34,6 +35,10 @@ export interface ParcelSheetProps {
   cells: number;
   /** The territory's cap (`Village.max_cells`); `MAX_CELLS` by default. */
   maxCells?: number;
+  /** The purchase's refusal, shown in the sheet (a modal: the page behind it is hidden), until dismissed. */
+  refusal?: string | null;
+  refusalDetail?: ErrorDetail;
+  onDismissRefusal?: () => void;
   /** The purchase on its way. */
   buying?: boolean;
   onBuy?: (cell: Cell) => void;
@@ -47,7 +52,7 @@ export interface ParcelSheetProps {
  * "Level 5 needed"; short of Cobbles, the shortfall and a way to the packs; at its cap of cells, the village is full. A bottom
  * sheet on a phone, a side panel from `tablet` up.
  */
-export function ParcelSheet({ cell, offer, level, cobbles, cells, maxCells = MAX_CELLS, buying, onBuy, onClose, onGetCobbles }: ParcelSheetProps) {
+export function ParcelSheet({ cell, offer, level, cobbles, cells, maxCells = MAX_CELLS, refusal = null, refusalDetail, onDismissRefusal, buying, onBuy, onClose, onGetCobbles }: ParcelSheetProps) {
   const wide = useSidePanel();
   const state = parcelState(offer, level, cobbles, cells, maxCells);
   return (
@@ -98,6 +103,18 @@ export function ParcelSheet({ cell, offer, level, cobbles, cells, maxCells = MAX
             Your village holds <span className="numeric">{maxCells}</span> cells, the most it can.
           </p>
         )}
+        <InlineError
+          title="Not bought"
+          message={refusal}
+          detail={refusalDetail}
+          action={
+            onDismissRefusal && (
+              <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                Dismiss
+              </Button>
+            )
+          }
+        />
         <SheetFooter>
           {state === "level" && offer ? (
             <Button disabled className="w-full">

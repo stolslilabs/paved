@@ -120,19 +120,48 @@ describe("/village: the own village", () => {
     expect(await screen.findByRole("button", { name: "Get Cobbles" })).toBeInTheDocument();
   });
 
-  it("a refusal of the chain shows until dismissed, and nothing changed", async () => {
+  it("a refusal of the chain shows in the open parcel sheet, until dismissed, and nothing changed", async () => {
     const c = chain(50, 0);
     await c.writer.foundVillage();
     // The chain reads a lower level than the page (another device's XP not counted yet): the purchase is refused.
     c.writer.level = 0;
     open(c, "/village");
     await userEvent.click(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 }));
-    await userEvent.click(await screen.findByRole("button", { name: "Buy this parcel for 10 Cobbles" }));
-    expect(await screen.findByText(/Your level is too low for this parcel/, {}, { timeout: 5000 })).toBeInTheDocument();
+    const sheet = await screen.findByRole("dialog");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Buy this parcel for 10 Cobbles" }));
+    // In the sheet, which hides the page behind it: the player reads it where they bought.
+    expect(await within(sheet).findByText(/Your level is too low for this parcel/, {}, { timeout: 5000 })).toBeVisible();
     expect(c.views.villagePlayer(PLAYER_ID).cells).toHaveLength(9);
-    await userEvent.keyboard("{Escape}");
-    await userEvent.click(await screen.findByRole("button", { name: "Dismiss" }, { timeout: 5000 }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Dismiss" }));
     await waitFor(() => expect(screen.queryByText(/Your level is too low/)).toBeNull());
+  });
+
+  it("a refusal left when the sheet closes shows on the page, until dismissed", async () => {
+    const c = chain(50, 0);
+    await c.writer.foundVillage();
+    c.writer.level = 0;
+    open(c, "/village");
+    await userEvent.click(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole("button", { name: "Buy this parcel for 10 Cobbles" }));
+    await screen.findByText(/Your level is too low for this parcel/, {}, { timeout: 5000 });
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByText(/Your level is too low for this parcel/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => expect(screen.queryByText(/Your level is too low/)).toBeNull());
+  });
+
+  it("Retry reads the owner's level again after it failed, and the village shows", async () => {
+    const c = chain(50, 0);
+    await c.writer.foundVillage();
+    const level = c.views.playerLevel.bind(c.views);
+    let fail = true;
+    c.views.playerLevel = (player: string) => (fail ? Promise.reject(new Error("level down")) : level(player));
+    open(c, "/village");
+    expect(await screen.findByText("level down", {}, { timeout: 5000 })).toBeInTheDocument();
+    fail = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it("a failed read of the reward says so with Retry, never as no reward; Retry shows the rewards waiting", async () => {

@@ -332,7 +332,7 @@ function VillageView({
             onCopy: (tile) => activePlan != null && activeIndex != null && copy(activeIndex, activePlan, tile.id),
             className: "min-h-0 flex-1",
           })}
-          {own && refusal && (
+          {own && refusal && !openParcel && (
             <div className="border-t border-border px-4 py-2">
               <InlineError
                 title="Not done"
@@ -427,6 +427,9 @@ function VillageView({
           cobbles={cobbles}
           cells={village.cells.length}
           maxCells={cap}
+          refusal={refusal}
+          refusalDetail={refusalDetail}
+          onDismissRefusal={onDismissRefusal}
           buying={busy}
           onBuy={onBuyParcel}
           onClose={() => setChosenParcel(null)}
