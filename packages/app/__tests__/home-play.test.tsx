@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +46,7 @@ afterEach(() => {
 describe("/ (P6): home on its data", () => {
   it("a connected player: their open game to resume, no podium (#623)", async () => {
     const { router, fixture } = open("/");
-    await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 });
+    await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
     // The newest open game of the player's `GameSpawned` events, read with `game(id)`.
     expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
     expect(screen.queryByText("Playing as a guest")).toBeNull();
@@ -61,7 +62,7 @@ describe("/ (P6): home on its data", () => {
 
   it("the player is the avatar at the top left (#624): its sheet names them and disconnects; no player card", async () => {
     const { wallet } = open("/");
-    await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`, {}, { timeout: 5000 });
+    await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`, {}, { timeout: slow(5000) });
     expect(screen.queryByText(/games · best/)).toBeNull();
     // The page header's avatar and the navigation's (one shown at each width).
     const avatars = screen.getAllByRole("button", { name: /^Profile: / });
@@ -78,7 +79,7 @@ describe("/ (P6): home on its data", () => {
 
   it("no wallet: the guest's connect call, no game to resume; Connect connects", async () => {
     const { wallet } = open("/", { guest: true });
-    expect(await screen.findByText("Playing as a guest", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Playing as a guest", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByText(/in progress/)).toBeNull();
     await userEvent.click(within(screen.getByText("Playing as a guest").closest("[role=status]") as HTMLElement).getByRole("button", { name: "Connect" }));
     expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
@@ -87,7 +88,7 @@ describe("/ (P6): home on its data", () => {
 
   it("spawn_paused: the purchases-paused notice; the running game still resumes", async () => {
     open("/", { paused: true });
-    expect(await screen.findByText("New Challenge games are paused for now. A game already started still plays.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("New Challenge games are paused for now. A game already started still plays.", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Resume" })).toBeEnabled();
   });
 
@@ -96,14 +97,14 @@ describe("/ (P6): home on its data", () => {
     const session = LocalSession.start(0x5eedn, () => store);
     const remaining = session.state.game!.deckSize - session.state.game!.placedCount;
     const { router } = open("/", { guest: true, overrides: { store: () => store } });
-    const card = await screen.findByText(`Resume: 0 pts, ${remaining} tiles left`, {}, { timeout: 5000 });
+    const card = await screen.findByText(`Resume: 0 pts, ${remaining} tiles left`, {}, { timeout: slow(5000) });
     await userEvent.click(card);
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
   });
 
   it("without a save, Training is a new game; the Story card opens /story", async () => {
     const { router } = open("/", { guest: true });
-    expect(await screen.findByText("A free game, saved on this device.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("A free game, saved on this device.", {}, { timeout: slow(5000) })).toBeInTheDocument();
     await userEvent.click(screen.getByText("Learn the rules level by level, then go for three stars."));
     await waitFor(() => expect(router.state.location.pathname).toBe("/story"));
   });
@@ -114,7 +115,7 @@ describe("/play (P6): the mode choice", () => {
 
   it("a guest: the Challenge connects first; Multiplayer is coming soon", async () => {
     const { router, wallet } = open("/play", { guest: true });
-    expect(await screen.findByText("Connect a wallet to enter: tap to connect.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Connect a wallet to enter: tap to connect.", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByText("Coming soon")).toBeInTheDocument();
     await userEvent.click(challenge());
     await waitFor(() => expect(wallet.calls).toContain("connect"));
@@ -124,7 +125,7 @@ describe("/play (P6): the mode choice", () => {
 
   it("connected: the Challenge opens the purchase", async () => {
     const { router } = open("/play");
-    await waitFor(() => expect(screen.queryByText("Connect a wallet to enter: tap to connect.")).toBeNull(), { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByText("Connect a wallet to enter: tap to connect.")).toBeNull(), { timeout: slow(5000) });
     await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
     await userEvent.click(challenge());
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
@@ -132,7 +133,7 @@ describe("/play (P6): the mode choice", () => {
 
   it("spawn_paused: the Challenge is disabled with its notice; Training and Story mode stay open", async () => {
     const { router } = open("/play", { paused: true });
-    expect(await screen.findByText("New Challenge games are paused. Training and Story mode stay open.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("New Challenge games are paused. Training and Story mode stay open.", {}, { timeout: slow(5000) })).toBeInTheDocument();
     await userEvent.click(screen.getByText("A full game for free, saved on this device."));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
   });

@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
@@ -41,7 +42,7 @@ describe("the board covered (#572)", () => {
     expect(screen.getByTestId("covered")).toHaveTextContent("false");
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByTestId("covered")).toHaveTextContent("true");
-    await screen.findByRole("dialog", { name: "Settings" }, { timeout: 5000 });
+    await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.getByTestId("covered")).toHaveTextContent("false"));
   });

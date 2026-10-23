@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LazyMotion, domMax } from "motion/react";
@@ -41,7 +42,7 @@ const PAGES = {
 export function preloadPages(...names: (keyof typeof PAGES)[]) {
   beforeAll(async () => {
     await Promise.all(names.map((name) => PAGES[name]()));
-  }, 60_000);
+  }, slow(60_000));
 }
 
 /**
@@ -60,7 +61,7 @@ export function errorToastTexts(custom: { mock: { calls: unknown[][] } }): strin
 }
 
 /** How long a test waits for the bubble after a slot is chosen: under load its render takes more than the default second. */
-const BUBBLE_WAIT_MS = 5000;
+const BUBBLE_WAIT_MS = slow(5000);
 
 /** The bubble's Validate (#568): held to place the tile. Null while no slot is chosen (no bubble). */
 export const validateButton = () => screen.queryByRole("button", { name: "Hold to place the tile" });

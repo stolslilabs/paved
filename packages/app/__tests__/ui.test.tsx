@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
@@ -197,7 +198,7 @@ describe("Sheet", () => {
     }
     await user.keyboard("{Escape}");
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: slow(3000) });
     expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
   });
 
@@ -206,7 +207,7 @@ describe("Sheet", () => {
     render(wrap(<Demo />));
     await user.click(screen.getByRole("button", { name: "Open" }));
     await user.click(await screen.findByRole("button", { name: "Done" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: slow(3000) });
   });
 });
 

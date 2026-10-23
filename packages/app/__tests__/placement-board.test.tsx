@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { useEffect, useState } from "react";
 import { MotionConfig } from "motion/react";
 import { act, cleanup as cleanupRender, render, screen, waitFor } from "@testing-library/react";
@@ -81,7 +82,7 @@ const legalSlots = () => canvas.props!.availableSlots!.filter((s) => s.legal !==
 describe("the 3D board's placement (SLOTS, P-68)", () => {
   it("never hands the canvas a red placement: a chosen slot gets a rotation that fits, Rotate keeps to them, Close puts the tile back", async () => {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     await act(async () => {});
     let rotated = 0;
     for (const slot of legalSlots()) {
@@ -105,11 +106,11 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
     }
     // This seed deals a tile that fits two rotations at some slots: Rotate was offered.
     expect(rotated).toBeGreaterThan(0);
-  }, 30_000);
+  }, slow(30_000));
 
   it("Escape cancels and R rotates, from the keyboard", async () => {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     await act(async () => {});
     const slot = legalSlots()[0]!;
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
@@ -121,7 +122,7 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
 
   it("Training: prepares the drop once placed, drops the tile once the session took it, then flashes green; refused, nothing plays", async () => {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     await act(async () => {});
     const slot = legalSlots()[0]!;
 
@@ -146,14 +147,14 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
     await waitFor(() => expect(canvas.props!.confirmed).toMatchObject({ x: slot.x, y: slot.y }));
     expect(canvas.drops).toEqual([{ worldX: slot.x, worldZ: slot.y }]);
     expect(canvas.props!.hover?.placed ?? false).toBe(false);
-  }, 20_000);
+  }, slow(20_000));
 });
 
 describe("holding the placed tile (TILE-HOLD, #630)", () => {
   /** The Training board with its first legal slot chosen: the tile placed there, the bubble up, Validate enabled. */
   async function placed() {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     await act(async () => {});
     const slot = legalSlots()[0]!;
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
@@ -181,7 +182,7 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
     expect(press(slot.x, slot.y, "released")).toBe(true);
     expect(ring()).toBe("idle");
     expect(place).toHaveBeenCalledOnce();
-  }, 20_000);
+  }, slow(20_000));
 
   it("let go early, or cancelled by a pan or a second finger, it places nothing and the ring rewinds; a short tap clicks as before", async () => {
     const slot = await placed();
@@ -197,14 +198,14 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
       await new Promise((resolve) => setTimeout(resolve, HOLD_MS + 50));
     });
     expect(place).not.toHaveBeenCalled();
-  }, 20_000);
+  }, slow(20_000));
 
   it("a press on another cell holds nothing: no hold to let go, the tap is the click it was", async () => {
     const slot = await placed();
     press(slot.x + 5, slot.y + 5, "down");
     expect(ring()).toBe("idle");
     expect(press(slot.x + 5, slot.y + 5, "released")).toBeUndefined();
-  }, 20_000);
+  }, slow(20_000));
 
   it("Validate disabled (a rotation that does not fit) or busy (the move on its way): a press on the tile holds nothing", async () => {
     const cell = { x: CENTER + 1, y: CENTER };
@@ -212,7 +213,7 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
     const bubbleOf = (b: { canConfirm?: boolean; busy?: boolean }) => ({ cell, rotations: 1, onRotate: () => {}, onClose: () => {}, onConfirm: vi.fn(), ...b });
     const view = render(<BoardViewport tiles={[]} ghost={{ ...cell, plan: 3, orientation: 1, placed: true, fits: false }} bubble={bubbleOf({ canConfirm: false })} />);
     // The bubble is its own chunk: under load it takes more than the default second to come.
-    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: slow(5000) });
     press(grid.x, grid.y, "down");
     expect(ring()).toBe("idle");
     expect(press(grid.x, grid.y, "released")).toBeUndefined();
@@ -224,7 +225,7 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
     expect(ring()).toBe("holding");
     press(grid.x, grid.y, "cancelled");
     expect(ring()).toBe("idle");
-  }, 20_000);
+  }, slow(20_000));
 });
 
 describe("press and place (PRESS-PLACE, #680)", () => {
@@ -235,7 +236,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
   /** The Training board with the tile in hand and nothing shown yet. */
   async function empty() {
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     await act(async () => {});
     return legalSlots()[0]!;
   }
@@ -262,14 +263,14 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     press(slot.x, slot.y, "down");
     // Not yet: a pan may still start.
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
-    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: slow(5000) });
     expect(canvas.props!.hover).toMatchObject({ x: slot.x, y: slot.y, placed: true });
-    await waitFor(() => expect(place).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    await waitFor(() => expect(place).toHaveBeenCalledOnce(), { timeout: HOLD_MS + slow(1000) });
     expect(ring()).toBe("done");
     expect(press(slot.x, slot.y, "released")).toBe(true);
     await wait(HOLD_MS);
     expect(place).toHaveBeenCalledOnce();
-  }, 20_000);
+  }, slow(20_000));
 
   it("let go early, the tile stays shown on that cell as after a tap, and a second press on it holds again", async () => {
     const slot = await empty();
@@ -284,7 +285,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     press(slot.x, slot.y, "down");
     expect(ring()).toBe("holding");
     press(slot.x, slot.y, "released");
-  }, 20_000);
+  }, slow(20_000));
 
   it("a pan or a short tap before the delay shows nothing from the press; a second finger after it cancels the hold, the tile stays", async () => {
     const slot = await empty();
@@ -307,7 +308,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     await wait(HOLD_MS);
     expect(place).not.toHaveBeenCalled();
     expect(await bubble()).toBeTruthy();
-  }, 20_000);
+  }, slow(20_000));
 
   /** BoardViewport with a page's choose: a cell chosen shows the tile and its bubble. */
   function Board({ busy, canConfirm = true, onConfirm, onPress, first = null }: { busy?: boolean; canConfirm?: boolean; onConfirm: () => void; onPress: (cell: { x: number; y: number }) => void; first?: { x: number; y: number } | null }) {
@@ -343,7 +344,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     // The move on its way: a long press elsewhere shows nothing.
     cleanupRender();
     render(<Board onPress={onPress} onConfirm={onConfirm} busy first={{ x: CENTER + 1, y: CENTER }} />);
-    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: slow(5000) });
     press(WEST.x, WEST.y, "down");
     await wait(PRESS_SHOW_MS + 50);
     press(WEST.x, WEST.y, "released");
@@ -353,27 +354,27 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     render(<Board onPress={onPress} onConfirm={onConfirm} canConfirm={false} />);
     await act(async () => {});
     press(EAST.x, EAST.y, "down");
-    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: slow(5000) });
     await wait(50);
     expect(onPress).toHaveBeenCalledWith({ x: CENTER + 1, y: CENTER });
     expect(ring()).toBe("idle");
     await wait(HOLD_MS);
     expect(press(EAST.x, EAST.y, "released")).toBe(true);
     expect(onConfirm).not.toHaveBeenCalled();
-  }, 20_000);
+  }, slow(20_000));
 
   it("the tile shown on one cell, a long press on another legal cell moves it there and holds it", async () => {
     const onPress = vi.fn();
     const onConfirm = vi.fn();
     render(<Board onPress={onPress} onConfirm={onConfirm} first={{ x: CENTER + 1, y: CENTER }} />);
-    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: 5000 });
+    await screen.findByRole("toolbar", { name: "Tile" }, { timeout: slow(5000) });
     press(WEST.x, WEST.y, "down");
     await waitFor(() => expect(ring()).toBe("holding"));
     expect(onPress).toHaveBeenCalledWith({ x: CENTER - 1, y: CENTER });
     expect(canvas.props!.hover).toMatchObject({ ...WEST, placed: true });
-    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + slow(1000) });
     expect(press(WEST.x, WEST.y, "released")).toBe(true);
-  }, 20_000);
+  }, slow(20_000));
 
   it("under reduced motion, the same press places once", async () => {
     const onConfirm = vi.fn();
@@ -384,11 +385,11 @@ describe("press and place (PRESS-PLACE, #680)", () => {
     );
     await act(async () => {});
     press(EAST.x, EAST.y, "down");
-    await waitFor(() => expect(ring()).toBe("holding"), { timeout: 5000 });
-    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + 1000 });
+    await waitFor(() => expect(ring()).toBe("holding"), { timeout: slow(5000) });
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce(), { timeout: HOLD_MS + slow(1000) });
     expect(press(EAST.x, EAST.y, "released")).toBe(true);
     expect(onConfirm).toHaveBeenCalledOnce();
-  }, 20_000);
+  }, slow(20_000));
 });
 
 const PLANS = Object.values(PlanType);
@@ -419,7 +420,7 @@ function challengeSources() {
 describe("the Challenge board's confirm", () => {
   it("flashes green when the engine's prediction takes the move, before the receipt; refused, the tile stays placed", async () => {
     render(<App router={createTestRouter(`/game/${GAME_ID}`)} sources={challengeSources()} />);
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     await waitFor(() => expect(canvas.props!.availableSlots!.length).toBeGreaterThan(0));
     const slot = legalSlots()[0]!;
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
@@ -437,7 +438,7 @@ describe("the Challenge board's confirm", () => {
     await holdToPlace();
     await waitFor(() => expect(canvas.props!.confirmed).toMatchObject({ x: slot.x, y: slot.y }));
     expect(canvas.drops).toEqual([{ worldX: slot.x, worldZ: slot.y }]);
-  }, 20_000);
+  }, slow(20_000));
 });
 
 describe("BoardViewport and the tile preview setting", () => {

@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
@@ -83,7 +84,7 @@ describe("Dialog enter and exit (motion-primitives Dialog)", () => {
       await user.click(screen.getByRole("button", { name: "Open" }));
       expect(await screen.findByRole("dialog", { name: "Give up?" })).toBeInTheDocument();
       await user.keyboard("{Escape}");
-      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: 3000 });
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(), { timeout: slow(3000) });
       expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
     });
   }
@@ -94,7 +95,7 @@ describe("NumberTicker (Magic UI)", () => {
     render(wrap(<NumberTicker value={1240} />));
     const ticker = document.querySelector('[data-slot="number-ticker"]') as HTMLElement;
     expect(ticker).toHaveTextContent("0");
-    await waitFor(() => expect(ticker).toHaveTextContent("1,240"), { timeout: 5000 });
+    await waitFor(() => expect(ticker).toHaveTextContent("1,240"), { timeout: slow(5000) });
     // The ticker animates in real time (4.6 s in 5 runs, always): it needs the suite's 15 s timeout, not the 5 s default.
   });
 
@@ -143,7 +144,7 @@ describe("AnimatedList (Magic UI)", () => {
       await user.click(screen.getByRole("button", { name: "Add" }));
       expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["new", "alice", "bob"]);
       await user.click(screen.getByRole("button", { name: "Remove" }));
-      await waitFor(() => expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["alice", "bob"]), { timeout: 3000 });
+      await waitFor(() => expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["alice", "bob"]), { timeout: slow(3000) });
     });
   }
 });

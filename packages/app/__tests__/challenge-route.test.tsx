@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -84,7 +85,7 @@ afterEach(() => resetWelcomedForTests());
 describe("/game/:gameId (P5)", () => {
   it("with no signer: the game read only, with a Connect to play notice and no hand", async () => {
     open(`/game/${GAME_ID}`, sources({ signer: false }));
-    expect(await screen.findByText("Connect to play", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Connect to play", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` })).toBeInTheDocument();
     expect(hand()).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^Board of 1 tiles$/)).toBeInTheDocument();
@@ -97,7 +98,7 @@ describe("/game/:gameId (P5)", () => {
   it("with a signer: playable; a discard shows the next tile from the engine and is sent through the signer", async () => {
     const s = sources({ signer: true });
     open(`/game/${GAME_ID}`, s);
-    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByText("Connect to play")).not.toBeInTheDocument();
     const before = within(hand()!).getByRole("img", { name: /^Tile / }).getAttribute("aria-label");
 
@@ -110,19 +111,19 @@ describe("/game/:gameId (P5)", () => {
   it("an expired game: the stack's banner offers only a surrender, and the Surrender dialog opens by itself; once confirmed, the scores", async () => {
     const s = sources({ signer: true, expiresAt: 100 });
     const router = open(`/game/${GAME_ID}`, s);
-    const dialog = await screen.findByRole("dialog", {}, { timeout: 5000 });
+    const dialog = await screen.findByRole("dialog", {}, { timeout: slow(5000) });
     expect(within(dialog).getByText(/24 hours are over/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Surrender" }));
     await waitFor(() => expect(s.signer.surrender).toHaveBeenCalledWith(key));
     expect(s.signer.discard).not.toHaveBeenCalled();
     // A surrender has no last move to watch: no hold (`useAfterGameOver`'s `hold`, its own test), the scores once confirmed.
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`), { timeout: 5000 });
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`), { timeout: slow(5000) });
   });
 
   it("with a signer of another address: read only, with the Another player's game notice", async () => {
     const s = sources({ signer: true, address: "0xdef" });
     open(`/game/${GAME_ID}`, s);
-    expect(await screen.findByText("Another player's game", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Another player's game", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(hand()).not.toBeInTheDocument();
     expect(screen.queryByText("Connect to play")).not.toBeInTheDocument();
   });
@@ -131,7 +132,7 @@ describe("/game/:gameId (P5)", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const s = sources({ signer: true });
     open(`/game/${GAME_ID}`, s);
-    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: slow(5000) })).toBeInTheDocument();
     // Another tab discards: the board's next discard is predicted from a stale hand, and the chain's result differs.
     await s.signer.discard(key);
     const tiles = s.views.tiles.bind(s.views);
@@ -149,7 +150,7 @@ describe("/game/:gameId (P5)", () => {
 
   it("a game id that is not digits is not a game", async () => {
     open("/game/abc", sources({ signer: false }));
-    expect(await screen.findByTestId("page", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByTestId("page", {}, { timeout: slow(5000) })).toBeInTheDocument();
   });
 });
 
@@ -194,7 +195,7 @@ describe("/game/:gameId on the VRF (#645)", () => {
   it("shows the tile to place and the two coming tiles; a move keeps the known tiles shown while the chain draws the last", async () => {
     const s = vrfSources();
     open(`/game/${GAME_ID}`, s);
-    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Your tile" }, {}, { timeout: slow(5000) })).toBeInTheDocument();
     await waitFor(() => expect(coming()).toEqual(["1", "2"]));
     expect(s.views.calls).toContain(`draw challenge:${GAME_ID}`);
     // No replay of the draw: the initial seed is never read.

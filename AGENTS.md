@@ -13,6 +13,13 @@ whole suite is the CI's job on the pull request, gated by paths. Pre-push hooks 
 | Contracts (`contracts/`, package `paved`, toolchain pinned by `.tool-versions`) | `snforge test <filter>` with the module path of what changed, e.g. `snforge test paved::types::` | Measure first. Linux: `prlimit --as=16106127360 -- /usr/bin/time -v snforge test <filter>` (15 GiB cap, from VmPeak). macOS: `/usr/bin/time -l snforge test <filter>`, no cap (see "On the Mac (P-33)") |
 | Client package `@paved/game-core`, `@paved/chain`, `@paved/renderer`, `@paved/ui`, `@paved/app`, `@paved/indexer` | `bun run test --filter <package>` | Node: see "Node test peaks" below. Cap: `NODE_OPTIONS=--max-old-space-size=<MB>`, never `prlimit --as` |
 
+**Slow profile for a loaded machine.** `PAVED_TEST_SLOW` multiplies every wait ceiling of `@paved/app`'s tests (the vitest
+`testTimeout`, Testing Library's `asyncUtilTimeout`, each explicit `{ timeout }` and per-test timeout of the load-bound route
+files, through `slow()` of `packages/app/test-slow.ts`): unset is 1 (CI, a quiet machine), `1` is 3, any other number is the factor.
+`bun run check` sets it to `1` by itself when the 1-minute load average passes the core count (never in CI), keeps a value you
+set (`PAVED_TEST_SLOW=0` forces it off), and prints which. By hand: `PAVED_TEST_SLOW=1 NODE_OPTIONS=--max-old-space-size=1536 bun run test --filter @paved/app`.
+A ceiling costs a passing test nothing (it returns as soon as its state is there), so a test given one states a measure, not a guess.
+
 The Training Playwright e2e and its CI job `e2e` left with app-web (removed in P-70; see git history).
 
 Exceptions, all in the contracts:
