@@ -222,7 +222,8 @@ const server = serve(indexer, {
       setup: config.setup,
       economy: config.economy,
       collection: config.collection ?? null,
-      arena: config.arena ?? null,
+      // Appended only with an Arena: a client from before #647 reads no null it does not know.
+      ...(config.arena === undefined ? {} : { arena: config.arena }),
     },
   },
 });

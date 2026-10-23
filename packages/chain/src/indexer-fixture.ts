@@ -126,6 +126,12 @@ export class FixtureIndexer {
     [FIXTURE_ADA, { games: { count: 3, total: "1200000" }, packs: { count: 1, total: "450000" } }],
   ]);
 
+  /**
+   * The attacks that ended (`/v1/players/:id/defences` and `/attacks`, #643), as the indexer's rows (snake case, padded
+   * addresses), in any order: the routes serve each side's newest first by `finished_at`. None by default.
+   */
+  attacks: Row[] = [];
+
   /** A `fetch` for `new IndexerClient({ url, fetch })`. */
   readonly fetch = async (input: RequestInfo | URL): Promise<Response> => {
     const url = new URL(String(input));
@@ -250,6 +256,14 @@ export class FixtureIndexer {
         const mine = this.progress.get(b)?.achievements;
         const rows = this.achievements.map((a) => progressRow(a, "achievement_id", mine?.get(a.achievement_id as number), { points: a.points }));
         return ok({ player_id: b, points: rows.filter((r) => r.completed).reduce((sum, r) => sum + (r.points as number), 0), achievements: rows });
+      }
+      if ((c === "defences" || c === "attacks") && !d) {
+        const e = allowed("limit");
+        if (e) return fail(400, e);
+        const side = c === "defences" ? "defender" : "attacker";
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        const mine = this.attacks.filter((r) => r[side] === b).sort((x, y) => (y.finished_at as number) - (x.finished_at as number));
+        return ok({ player_id: b, side, attacks: mine.slice(0, limit) });
       }
       if (c === "referrals" && !d) {
         const e = allowed();

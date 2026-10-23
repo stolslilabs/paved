@@ -339,7 +339,7 @@ function metaOf(config: Config): Record<string, string> {
       setup: config.setup,
       economy: config.economy,
       collection: config.collection ?? null,
-      arena: config.arena ?? null,
+      ...(config.arena === undefined ? {} : { arena: config.arena }),
     }),
   };
 }
@@ -516,7 +516,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { challenge: string; setup: string; economy: string; collection: string | null; arena?: string | null }
+    | { challenge: string; setup: string; economy: string; collection: string | null; arena?: string }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);

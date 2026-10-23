@@ -910,7 +910,7 @@ ceiling, the halt, the decoder's refusals, a reorg), `indexer.test.ts` (schema 1
 ## As built (PVP-FLOW-2, #647 PR 2: the PvP attacks of #643)
 
 **Source.** `arena`, optional as `collection`: the deployment file's `Arena` (none yet). Without it no attack is read and the
-deployment hash is unchanged; with it the address is appended to the hash, then to `meta.addresses` and the head's `contracts`.
+deployment hash is unchanged; with it the address is appended to the hash, to `meta.addresses` and to the head's `contracts` (absent without one, so a client from before it reads no new null).
 
 **Schema 19.** `pvp_attacks`: one row per attack, keyed `(attacker, id)`, the defender indexed (the defence log). `AttackOpened`
 writes it open (status 1: the defender, `npc`, the offer, the target, the tiles); `AttackFinished` ends it (2 finished, 3

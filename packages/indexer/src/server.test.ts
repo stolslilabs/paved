@@ -47,11 +47,11 @@ describe("routes", () => {
       state: "ok",
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
-      contracts: { challenge: "0x1111", setup: "0x2222", economy: "0x4444", collection: "0x5555", arena: null },
+      contracts: { challenge: "0x1111", setup: "0x2222", economy: "0x4444", collection: "0x5555" },
       checks: { definitions_excluded: 0 },
     });
     // Account left with D-25 (E).
-    expect(Object.keys(answer.body.contracts as object).sort()).toEqual(["arena", "challenge", "collection", "economy", "setup"]);
+    expect(Object.keys(answer.body.contracts as object).sort()).toEqual(["challenge", "collection", "economy", "setup"]);
   });
 
   test("GET /v1/head: without a Collection (before E5b) contracts.collection is null and a game has no token_id", async () => {

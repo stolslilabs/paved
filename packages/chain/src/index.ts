@@ -109,6 +109,43 @@ export {
 } from "./arena";
 export type { Attack, AttackDeck, AttackMove, AttackPlay } from "./arena";
 export {
+  ATTACK_SHIELD_S,
+  LEAGUE_BONUSES,
+  LEAGUE_COUNT,
+  LEAGUE_FLOORS,
+  LEAGUE_GROUPS,
+  LEAGUE_STATUS_FIELDS,
+  MATCHMAKER_STATUS,
+  MATCHMAKER_VILLAGE_FIELDS,
+  MATCH_DRAW_KIND,
+  MATCH_FIELDS,
+  MIN_SEASON_ATTACKS,
+  NEXT_PRICE,
+  NO_MATCH,
+  NPC_LEVEL_FIELDS,
+  SEASON_REWARDS,
+  SHIELD_FIELDS,
+  costOf,
+  floorOf,
+  groupOf,
+  hasPvpViews,
+  isNpcAddress,
+  leagueBonusOf,
+  leagueName,
+  leagueOfCrowns,
+  leagueStatus,
+  matchmakerVillage,
+  nextCalls,
+  npcLevel,
+  offerOf,
+  prizeOf,
+  pvpMatch,
+  pvpShield,
+  searchCalls,
+  seasonRewardOf,
+} from "./matchmaker";
+export type { FakePvpState, LeagueStatus, MatchmakerVillage, NpcLevel, PvpMatch, PvpShield, PvpViews } from "./matchmaker";
+export {
   REWARD_CHOICE,
   REWARD_COBBLES,
   REWARD_DRAW_KIND,
@@ -143,6 +180,8 @@ export {
   PavedWriter,
   VILLAGE_REFUSAL_TEXT,
   VillageRefusedError,
+  PVP_REFUSAL_TEXT,
+  PvpRefusedError,
   AVATAR_REFUSAL_TEXT,
   AvatarPriceChangedError,
   AvatarRefusedError,
@@ -172,7 +211,7 @@ export {
   packBoughtOf,
   refusedBeforeSending,
 } from "./writer";
-export type { AvatarRefusal, BuildMove, BuyAvatarItemRequest, BuyPackRequest, BuyParcelRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, VillageRefusal, WriteAccount, WriteResult } from "./writer";
+export type { AvatarRefusal, BuildMove, BuyAvatarItemRequest, BuyPackRequest, BuyParcelRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, VillageRefusal, PvpRefusal, WriteAccount, WriteResult } from "./writer";
 export { PACK_IDS, PackBuyer, PackNotOnSaleError, PackPriceChangedError, onSale, packBuyerOf, packReferrer, packSwapInput, readPacks } from "./packs";
 export type { PackBuyerOptions, PackPlan, PackPurchaseRequest } from "./packs";
 export { PavedClient, createPavedClient } from "./paved-client";
@@ -209,6 +248,7 @@ export type {
   PlayerQuest,
   PlayerQuests,
   PlayerReferrals,
+  IndexedAttack,
   PlayerStats,
   QuestDefinition,
   ReferralTotal,

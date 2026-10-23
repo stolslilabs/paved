@@ -425,7 +425,7 @@ export type HeadInfo = {
     setup: string;
     economy: string;
     collection: string | null;
-    arena: string | null;
+    arena?: string;
   };
 };
 

@@ -3,6 +3,8 @@ import setupAbi from "../../../contracts/abis/Setup.json";
 import avatarAbi from "../../../contracts/abis/Avatar.json";
 import villageAbi from "../../../contracts/abis/Village.json";
 import rewardsAbi from "../../../contracts/abis/Rewards.json";
+import matchmakerAbi from "../../../contracts/abis/Matchmaker.json";
+import arenaAbi from "../../../contracts/abis/Arena.json";
 import faucetAbi from "../../../contracts/abis/Faucet.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
@@ -14,9 +16,10 @@ import { AbiCodec, type Abi } from "./codec";
  * (D-24, D-25) holds the quests, the achievements, the tutorial claim and the wiring; it is optional in a deployment
  * (`deployment.ts`). `Account` left with D-25 (E): a player is the wallet address, with no registration. `Avatar` (#627) holds
  * the avatar items and each player's avatar; it is optional too. `Village` (#640) and `Rewards` (#642) hold the player's village,
- * its rewards and the tiers; both are optional.
+ * its rewards and the tiers; both are optional. `Matchmaker` (#639, #644) and `Arena` (#643) hold the PvP: the opponents drawn, the
+ * crowns, the leagues, the attacks; both are optional.
  */
-export type ContractName = "Challenge" | "Setup" | "Avatar" | "Village" | "Rewards";
+export type ContractName = "Challenge" | "Setup" | "Avatar" | "Village" | "Rewards" | "Matchmaker" | "Arena";
 
 export const ABIS: Record<ContractName, Abi> = {
   Challenge: challengeAbi as Abi,
@@ -24,6 +27,8 @@ export const ABIS: Record<ContractName, Abi> = {
   Avatar: avatarAbi as Abi,
   Village: villageAbi as Abi,
   Rewards: rewardsAbi as Abi,
+  Matchmaker: matchmakerAbi as Abi,
+  Arena: arenaAbi as Abi,
 };
 
 export type Codecs = Record<ContractName, AbiCodec>;
@@ -35,6 +40,8 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
     Avatar: new AbiCodec(abis.Avatar),
     Village: new AbiCodec(abis.Village),
     Rewards: new AbiCodec(abis.Rewards),
+    Matchmaker: new AbiCodec(abis.Matchmaker),
+    Arena: new AbiCodec(abis.Arena),
   };
 }
 

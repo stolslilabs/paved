@@ -73,8 +73,8 @@ export interface HeadAnswer extends Envelope {
     economy: string;
     /** null for a deployment without a Collection (before E5b). Appended in E5b. */
     collection: string | null;
-    /** null for a deployment without an Arena (#643): no attack is read. Appended in schema 19. */
-    arena: string | null;
+    /** Absent for a deployment without an Arena (#643): no attack is read. Appended in schema 19, only with one. */
+    arena?: string;
   };
   checks: {
     /** Quest and achievement definitions left out of every answer: a task total of 0 or a task id repeated (P-30). */
