@@ -36,7 +36,9 @@ function open(s: ReturnType<typeof setup>, path = "/referral", wallet = fakeWall
 
 const earned = () => screen.findByRole("region", { name: "Earned" }, { timeout: slow(5000) });
 
-beforeEach(() => {
+beforeEach(async () => {
+  // The page's module loaded before the route asks for it: on a loaded machine its first transform outlasted the wait.
+  await import("../src/routes/pages/referral");
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();
