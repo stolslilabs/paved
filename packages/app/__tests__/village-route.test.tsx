@@ -158,7 +158,7 @@ describe("/village: the own village", () => {
     let fail = true;
     c.views.account = (player: string) => (fail ? Promise.reject(new Error("account RPC unavailable")) : account(player));
     open(c, "/village");
-    // The error shows inline and, once the balances query fails too, in its toast: either is the error shown, so not a single match.
+    // The error can show twice (the page and its retry state) while the read settles: at least one is the assertion.
     expect((await screen.findAllByText("account RPC unavailable", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
     expect(screen.queryByRole("img", { name: "0 Cobbles" })).toBeNull();
