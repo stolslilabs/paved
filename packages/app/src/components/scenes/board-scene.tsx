@@ -1,7 +1,7 @@
 import type { TileArt } from "../elements/tile-chip";
 import type { TileRenders } from "../elements/tile-render";
 import type { TileSkins } from "@paved/renderer";
-import { Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
 import { DISCARD_POINTS, PlanType, baseDeckPlans, type DeckSheetOrder } from "@paved/game-core";
 import { cn } from "../../lib/utils";
@@ -136,10 +136,7 @@ export interface BoardSceneProps {
   onSurrender?: () => void;
   /** Called once the player confirms Restart in the settings: Story mode restarts the level, Training the game. */
   onRestart?: () => void;
-  /**
-   * A board the viewer cannot play (no account, another player's game, a Story level's intro and end): the stack shows the
-   * game's tile in hand and coming tiles, read only (no hint, banner or Discard), and no bubble.
-   */
+  /** The board of a game the viewer cannot play (no account, another player's game): the stack shows its tiles, nothing to play (#701). */
   readOnly?: boolean;
   /** Lines under the header: "Connect to play", the dev-only prediction notice, a Story level's intro, tip and end. */
   notices?: ReactNode;
@@ -194,8 +191,8 @@ export function BoardScene(props: BoardSceneProps) {
     toastError({ title: "Deck", message: "The deck could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
   const discardCost = Math.min(props.score, DISCARD_POINTS);
-  // The pile's tiles: a Story level's own deck, in its order (#701); the base deck otherwise.
-  const pilePlans = useMemo(() => props.deckOrder?.slots.map((s) => s.plan) ?? BASE_DECK_PLANS, [props.deckOrder]);
+  // The pile's tiles come from the deck the game deals: a Story level's own (#701), the base deck otherwise.
+  const pilePlans = props.deckOrder?.slots.length ? props.deckOrder.slots.map((s) => s.plan) : BASE_DECK_PLANS;
   const openDeck = () => {
     play("tap");
     setDeckOpen(true);
@@ -265,7 +262,7 @@ export function BoardScene(props: BoardSceneProps) {
         </div>
       )}
 
-      {/* One stack on every board (#701): read only, the same tiles over the same pile, nothing on it plays. */}
+      {/* One stack, read-only boards too (#701): the same tiles and deck, nothing to play there. */}
       <div className="pointer-events-none absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col items-end gap-2 tablet:right-4 tablet:bottom-4">
         {!props.readOnly && !props.canvas && props.bubble && (
           <Suspense fallback={null}>
@@ -303,7 +300,7 @@ export function BoardScene(props: BoardSceneProps) {
           onDeck={openDeck}
           onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
           discardCost={discardCost}
-          onSurrender={mode === "challenge" && !props.readOnly ? () => setSurrendering(true) : undefined}
+          onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
           surrenderPending={surrendering && !surrenderDialog}
           coach={props.coach}
           readOnly={props.readOnly}

@@ -5,8 +5,8 @@ import { ATTACK_STEPS, PVP_ATTACK, PVP_REPLAY, REPLAY_STEPS, attackAt, replayAt 
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { BOARD_FOG } from "../../data/settings";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
-import { StackView } from "../containers/stack-view";
 import { PvpAttackBoard } from "../containers/pvp-attack-board";
+import { StackView } from "../containers/stack-view";
 import { PvpAttackScene, type PvpAttackSceneProps } from "./pvp-attack-scene";
 
 /**
@@ -35,8 +35,6 @@ export const Closing: Story = { args: PVP_ATTACK.closing };
 export const OneStar: Story = { args: PVP_ATTACK.oneStar };
 /** No cell of the territory takes the tile in any rotation: the stack's Discard says so. */
 export const FitsNowhere: Story = { args: PVP_ATTACK.fitsNowhere };
-/** #701: the stack in 3D (`StackView`) without the 3D board: the next two of the shuffle over a pile of the defender's tiles. */
-export const Stack3D: Story = { args: { ...PVP_ATTACK.midway, renderHandStack: (v) => <StackView {...v} basePath={APP_ASSETS} /> } };
 /** The last tile in hand. */
 export const LastTile: Story = { args: PVP_ATTACK.lastTile };
 export const PendingMove: Story = { args: PVP_ATTACK.pending };
@@ -90,14 +88,14 @@ const NIGHT_3D: RendererSettingsInput = { ...DAY_3D, dayNight: { enabled: true, 
 
 /**
  * The attack on the 3D board as the page gives it (`PvpAttackBoard`): the fog of war clear over the territory and its neighbours;
- * the stack in 3D too (#701), the tile in hand and the next two of the shuffle over a pile of the defender's tiles.
+ * the stack's tiles in 3D, as on the game's board (#701).
  */
 function Attack3D({ settings, ...args }: PvpAttackSceneProps & { settings: RendererSettingsInput }) {
   return (
     <PvpAttackScene
       {...args}
-      renderHandStack={(v) => <StackView {...v} basePath={APP_ASSETS} />}
       canvas={<PvpAttackBoard territory={args.territory} tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
+      renderHandStack={(v) => <StackView {...v} basePath={APP_ASSETS} skins={args.skins} />}
     />
   );
 }

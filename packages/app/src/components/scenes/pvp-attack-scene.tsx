@@ -48,16 +48,11 @@ export interface PvpAttackSceneProps {
   hand: {
     tile: { plan: number; orientation: number } | null;
     state: HandState;
-    /**
-     * The defender's tiles known after the one in hand, in draw order (`BoardSceneProps.hand.coming`). How many an attack
-     * knows ahead is the contracts' to decide (#643); the fakes give the next two of their shuffle.
-     */
+    /** The tiles the attack knows after the one in hand, in draw order (#701): as the board scene's, read only. */
     coming?: readonly { plan: number }[];
     /** The chain draws the queue's last tile: its slot waits. */
     drawing?: boolean;
     slotChosen?: boolean;
-    /** A cell is chosen (the tile is on it): the stack dims its top and leaves Discard to the bubble; `slotChosen` without it. */
-    cellChosen?: boolean;
     fitsNowhere?: boolean;
     /** The points the placed tile would score, over the HUD's score. */
     preview?: number | null;
@@ -71,13 +66,13 @@ export interface PvpAttackSceneProps {
   tileArt?: TileArt;
   /** The tiles' build-time renders (`useTileRenders`): the coming tiles draw their top-down ones without the 3D view. */
   tileRenders?: TileRenders;
-  /** The board's skins (plan key to theme): the stack's tiles in the theme the board draws them in. */
+  /** The defender's skins (plan key to theme): the stack's tiles in the theme the board draws them in. */
   skins?: TileSkins;
-  renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
-  /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page like `canvas`; before `renderHandTile`. */
-  renderHandStack?: (view: StackFrame) => ReactNode;
-  /** The defender's tiles (chain plan ids): the stack's pile in the 3D view draws its tiles from them. */
+  /** The defender's tiles, the deck the attack draws from (chain plan ids): the stack's pile draws its tiles from them. */
   pilePlans?: readonly number[];
+  renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
+  /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page as the board scene's. */
+  renderHandStack?: (view: StackFrame) => ReactNode;
   /** The 3D board, given by the page; the plan view without it. */
   canvas?: ReactNode;
   /** A replay: no hand, the replay's controls instead. */
@@ -118,8 +113,7 @@ function ReplayBar({ replay }: { replay: PvpReplay }) {
 
 /**
  * A PvP attack (#647): the defender's territory and the tiles placed on it, the tile in hand (one of the defender's, drawn at
- * random), the live score as a share of the village's with its three star marks, the tiles left on the stack. The stack is
- * the board scene's (#701): the tile in hand and the coming tiles over a 3D pile of the defender's tiles. The board is
+ * random), the live score as a share of the village's with its three star marks, the tiles left on the stack. The board is
  * the game's (`BoardMap`, or the page's 3D canvas), the hand and its bubble too; no character, no ability (owner decision).
  * With `replay` the same board steps through a finished attack, the defence log's replay.
  */
@@ -187,7 +181,7 @@ export function PvpAttackScene(props: PvpAttackSceneProps) {
               remaining={props.remaining}
               coming={hand.coming}
               drawing={hand.drawing}
-              cellChosen={hand.cellChosen ?? hand.slotChosen}
+              cellChosen={hand.slotChosen}
               fitsNowhere={hand.fitsNowhere}
               error={hand.error}
               errorDetail={hand.errorDetail}

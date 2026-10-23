@@ -78,11 +78,6 @@ export interface AttackStep {
   lastScored: ScoredStructure[];
   /** The tile drawn next, null once the attack is over. */
   hand: { plan: number; orientation: number } | null;
-  /**
-   * The next two tiles of the shuffle after the one in hand, fewer at its end. How many an attack knows ahead is the
-   * contracts' to decide (#643); the fakes show the window of the other modes (#701).
-   */
-  coming: { plan: number }[];
   /** The legal cells of the tile in hand in the territory, in any rotation. */
   slots: { x: number; y: number }[];
   /** Where this step's tile went (the replay's last move): null for a discard or the start. */
@@ -117,8 +112,6 @@ export function playAttack(village: PvpVillage, seed: number): AttackStep[] {
       delta,
       lastScored: scored,
       hand: hand ? { plan: PLANS.indexOf(hand.plan), orientation: 1 } : null,
-      // Tile `id` is the shuffle's `id - 2` (the starter is tile 1).
-      coming: hand ? plans.slice(hand.id - 1, hand.id + 1).map((plan) => ({ plan: PLANS.indexOf(plan) })) : [],
       slots,
       placed,
       remaining: game.over ? 0 : game.tileLimit - game.tileCount + 1,

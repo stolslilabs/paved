@@ -18,6 +18,9 @@ const CATEGORIES = Object.values(CategoryType);
 /** The player of a Story run: the engine's default, no account behind it. */
 const PLAYER = "0x1";
 
+/** The tiles a run shows after the one in hand (#701): the next two of the level's order, as Training and the VRF Challenge (#645). */
+const COMING = 2;
+
 function scoredOf(scored: readonly Scored[]): ScoredStructure[] {
   return scored.map((s) => ({ category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points }));
 }
@@ -152,6 +155,10 @@ export class StoryRun {
       x: CENTER + t.x,
       y: CENTER + t.y,
     }));
+    // The level's order is fixed, so the tiles after the hand are known (the deck sheet shows them all, #613): the hand is the
+    // order's tile at the count of moves played, as `deckSheetOrder` counts it.
+    const after = this.moves.length + 1;
+    const coming = hand ? this.level.deck.slice(after, after + COMING).map((plan, i) => ({ tileId: hand.id + 1 + i, plan: PLANS.indexOf(plan) })) : [];
     const state: PageState = {
       key: { gameId: 0 },
       status: "ready",
@@ -168,7 +175,7 @@ export class StoryRun {
       tiles,
       discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
-      coming: hand ? this.coming(hand.id) : [],
+      coming,
       lastScored,
       readonly: false,
       pending: false,
@@ -176,16 +183,6 @@ export class StoryRun {
       readError: null,
     };
     return { state, delta, closings: [...g.closings()], moves: [...this.moves] };
-  }
-
-  /**
-   * The tiles of the level's order after the one in hand (`hand`, its id): the next two, fewer at the deck's end, the window
-   * of Training and the VRF Challenge (#645). The order is public (the presentation and the deck sheet show it in full).
-   * Tile `id` is the order's `id - 2` (the starter is tile 1).
-   */
-  private coming(hand: number): { tileId: number; plan: number }[] {
-    const ids = [hand + 1, hand + 2].filter((id) => id <= this.game.tileLimit);
-    return ids.map((id) => ({ tileId: id, plan: PLANS.indexOf(this.level.deck[id - 2]!) }));
   }
 
   private set(snapshot: StorySnapshot): void {

@@ -125,6 +125,28 @@ describe("a story run", () => {
     });
   }
 
+  it("shows the next two tiles of the level's order after the one in hand, fewer at its end, none once over (#701)", () => {
+    const level = CAMPAIGNS.flatMap((c) => c.levels).find((l) => l.deck.length >= 5)!;
+    const played = new StoryRun({ id: 1 }, level);
+    const plans = level.deck.map((p) => Object.values(PlanType).indexOf(p));
+    expect(played.snapshot.state.hand).toEqual({ tileId: 2, plan: plans[0] });
+    expect(played.snapshot.state.coming).toEqual([
+      { tileId: 3, plan: plans[1] },
+      { tileId: 4, plan: plans[2] },
+    ]);
+    while (!played.over) {
+      const n = played.snapshot.moves.length;
+      expect(played.snapshot.state.hand?.plan).toBe(plans[n]);
+      expect(played.snapshot.state.coming?.map((t) => t.plan)).toEqual(plans.slice(n + 1, n + 3));
+      expect(played.discard()).toBe(true);
+    }
+    expect(played.snapshot.state.coming).toEqual([]);
+    // A refused move keeps them; a restart starts them again.
+    played.restart();
+    expect(played.place({ orientation: 1, x: CENTER + 5, y: CENTER + 5 })).toBe(false);
+    expect(played.snapshot.state.coming?.map((t) => t.plan)).toEqual(plans.slice(1, 3));
+  });
+
   it("refuses a move that does not fit, says why, and restarts", () => {
     const level = TUTORIAL.levels[0]!;
     const played = new StoryRun(TUTORIAL, level);
@@ -136,23 +158,5 @@ describe("a story run", () => {
     played.restart();
     expect(played.snapshot.moves).toHaveLength(0);
     expect(played.snapshot.state.hand?.plan).toBeDefined();
-  });
-
-  it("gives the next two tiles of the level's order as coming, fewer at its end, none once over (#701)", () => {
-    const campaign = CAMPAIGNS[1]!;
-    const level = campaign.levels[0]!;
-    const plans = level.deck.map((plan) => Object.values(PlanType).indexOf(plan));
-    const played = new StoryRun(campaign, level);
-    for (let i = 0; i < level.deck.length; i++) {
-      const { hand, coming } = played.snapshot.state;
-      // The tile in hand is the order's i-th; coming are the two after it (tile ids follow the starter's 1).
-      expect(hand).toEqual({ tileId: i + 2, plan: plans[i] });
-      expect(coming).toEqual(plans.slice(i + 1, i + 3).map((plan, k) => ({ tileId: i + 3 + k, plan })));
-      expect(played.discard()).toBe(true);
-    }
-    expect(played.over).toBe(true);
-    expect(played.snapshot.state.coming).toEqual([]);
-    played.restart();
-    expect(played.snapshot.state.coming).toEqual(plans.slice(1, 3).map((plan, k) => ({ tileId: 3 + k, plan })));
   });
 });

@@ -246,8 +246,8 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       hand={{
         tile: hand && { plan: hand.plan, orientation },
         state: handState,
-        // The next two of the level's order (#701): public, the presentation and the deck sheet show it in full.
-        coming: state.coming,
+        // The next two of the level's order (#701).
+        coming: hand ? state.coming : [],
         slotChosen: placement.canConfirm && preview !== null,
         cellChosen: placement.chosen !== null,
         fitsNowhere: hand !== null && phase === "play" && slots?.length === 0,

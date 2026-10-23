@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CENTER } from "@paved/game-core";
 import { LEAGUES, STAR_MARKS, STAR_PERCENTS, crownsFor, leagueOf, nextLeague, starPoints, starsFor } from "../src/lib/pvp-rules";
 import { StarMeter } from "../src/components/elements/star-meter";
-import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
 import type { StackFrame } from "../src/components/containers/tile-stack";
+import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
 import { PvpDefenceScene } from "../src/components/scenes/pvp-defence-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { PvpResultScene } from "../src/components/scenes/pvp-result-scene";
@@ -94,14 +94,6 @@ describe("PvP fakes, played on the engine", () => {
     expect(last.tiles[0]).toMatchObject({ x: CENTER, y: CENTER });
   });
 
-  it("knows the next two tiles of the shuffle after the one in hand, fewer at its end (#701)", () => {
-    for (let i = 0; i < ATTACK_STEPS.length - 1; i++) {
-      const later = ATTACK_STEPS.slice(i + 1, i + 3).map((s) => s.hand).filter((h) => h !== null).map((h) => ({ plan: h.plan }));
-      expect(ATTACK_STEPS[i]!.coming).toEqual(later);
-    }
-    expect(ATTACK_STEPS.at(-1)!.coming).toEqual([]);
-  });
-
   it("keeps the final scores the result and the log quote", () => {
     for (const [seed, score] of Object.entries(ATTACK_SCORES.rival)) expect(playAttack(RIVAL_VILLAGE, Number(seed)).at(-1)!.score).toBe(score);
     for (const [seed, score] of Object.entries(ATTACK_SCORES.mine)) expect(playAttack(MY_VILLAGE, Number(seed)).at(-1)!.score).toBe(score);
@@ -169,20 +161,27 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByRole("button", { name: /^Tiles left/ })).toHaveTextContent(String(PVP_ATTACK.midway.remaining));
   });
 
-  it("attack: the board scene's stack, the tile in hand, the next two and a 3D pile of the defender's tiles (#701)", () => {
+  it("attack: the stack as the game's board draws it (#701): the next two tiles of the draw, the 3D view, the pile from the defender's tiles", () => {
     const frames: StackFrame[] = [];
     const renderHandStack = (v: StackFrame) => {
       frames.push(v);
       return <span data-testid="stack-3d" />;
     };
-    render(wrap(<PvpAttackScene {...PVP_ATTACK.midway} renderHandStack={renderHandStack} />));
+    const { rerender } = render(wrap(<PvpAttackScene {...PVP_ATTACK.midway} />));
+    // The fakes' draw: the hands of the next two steps.
+    const next = ATTACK_STEPS.slice(19, 21).map((s) => s.hand!.plan);
+    expect(PVP_ATTACK.midway.hand.coming?.map((t) => t.plan)).toEqual(next);
+    expect(screen.getByTestId("coming-tiles").querySelectorAll("li")).toHaveLength(2);
+    rerender(wrap(<PvpAttackScene {...PVP_ATTACK.midway} renderHandStack={renderHandStack} />));
     expect(screen.getByTestId("stack-3d")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Your tile" })).getByRole("list", { name: "Coming tiles" }).querySelectorAll("li")).toHaveLength(2);
     const tiles = frames.at(-1)!.tiles;
-    const coming = tiles.filter((t) => t.thickness === undefined).map((t) => t.plan);
-    expect(coming).toEqual([...PVP_ATTACK.midway.hand.coming!.map((t) => t.plan), PVP_ATTACK.midway.hand.tile!.plan]);
-    const defender = new Set(RIVAL_VILLAGE.tiles.map((t) => t.plan));
-    for (const t of tiles.filter((t) => t.thickness !== undefined)) expect(defender.has(t.plan)).toBe(true);
+    expect(tiles.filter((t) => t.thickness === undefined).map((t) => t.plan)).toEqual([...next, PVP_ATTACK.midway.hand.tile!.plan]);
+    const deck = new Set(RIVAL_VILLAGE.tiles.map((t) => t.plan));
+    expect(tiles.filter((t) => t.thickness !== undefined).every((t) => deck.has(t.plan))).toBe(true);
+    // The last tile: nothing after it.
+    cleanup();
+    render(wrap(<PvpAttackScene {...PVP_ATTACK.lastTile} />));
+    expect(screen.queryByTestId("coming-tiles")).toBeNull();
   });
 
   it("attack: the meter lights a star past 70 %", () => {

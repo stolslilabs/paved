@@ -51,7 +51,7 @@ export interface PageState {
   hand: { tileId: number; plan: number } | null;
   /**
    * The tiles known after the one in hand, in draw order (#645): the next and the one after it, fewer at the deck's end.
-   * Read only: only the tile in hand is placed. A Story level gives the next two of its fixed order (`StoryRun`). Absent or
+   * Read only: only the tile in hand is placed. A Story level gives the next two of its fixed order (#701). Absent or
    * empty when the session knows none (a game drawn one tile at a time).
    */
   coming?: { tileId: number; plan: number }[];
