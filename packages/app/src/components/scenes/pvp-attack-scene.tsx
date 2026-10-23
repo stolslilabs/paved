@@ -7,12 +7,14 @@ import { Icon } from "../ui/icon";
 import type { ErrorDetail } from "../elements/inline-error";
 import { StarMeter } from "../elements/star-meter";
 import type { TileArt } from "../elements/tile-chip";
+import type { TileRenders } from "../elements/tile-render";
+import type { TileSkins } from "@paved/renderer";
 import { BoardMap } from "../containers/board-map";
 import type { BoardBubble, BoardGhost } from "../containers/board-viewport";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
 import { LazyTileBubble } from "../containers/lazy-tile-bubble";
-import { TileStack, type HandState } from "../containers/tile-stack";
+import { TileStack, type HandState, type StackFrame } from "../containers/tile-stack";
 
 /** A replay of an attack (the defence log's): the moves stepped through instead of a hand. */
 export interface PvpReplay {
@@ -46,6 +48,10 @@ export interface PvpAttackSceneProps {
   hand: {
     tile: { plan: number; orientation: number } | null;
     state: HandState;
+    /** The tiles the attack knows after the one in hand, in draw order (#701): as the board scene's, read only. */
+    coming?: readonly { plan: number }[];
+    /** The chain draws the queue's last tile: its slot waits. */
+    drawing?: boolean;
     slotChosen?: boolean;
     fitsNowhere?: boolean;
     /** The points the placed tile would score, over the HUD's score. */
@@ -58,7 +64,15 @@ export interface PvpAttackSceneProps {
   ghost?: BoardGhost | null;
   bubble?: BoardBubble | null;
   tileArt?: TileArt;
+  /** The tiles' build-time renders (`useTileRenders`): the coming tiles draw their top-down ones without the 3D view. */
+  tileRenders?: TileRenders;
+  /** The defender's skins (plan key to theme): the stack's tiles in the theme the board draws them in. */
+  skins?: TileSkins;
+  /** The defender's tiles, the deck the attack draws from (chain plan ids): the stack's pile draws its tiles from them. */
+  pilePlans?: readonly number[];
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
+  /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page as the board scene's. */
+  renderHandStack?: (view: StackFrame) => ReactNode;
   /** The 3D board, given by the page; the plan view without it. */
   canvas?: ReactNode;
   /** A replay: no hand, the replay's controls instead. */
@@ -165,12 +179,18 @@ export function PvpAttackScene(props: PvpAttackSceneProps) {
               tile={hand.tile}
               state={hand.state}
               remaining={props.remaining}
+              coming={hand.coming}
+              drawing={hand.drawing}
               cellChosen={hand.slotChosen}
               fitsNowhere={hand.fitsNowhere}
               error={hand.error}
               errorDetail={hand.errorDetail}
               tileArt={props.tileArt}
+              renders={props.tileRenders}
+              skins={props.skins}
               renderTile={props.renderHandTile}
+              renderStack={props.renderHandStack}
+              pilePlans={props.pilePlans}
               onDiscard={() => props.onDiscard?.()}
               discardCost={discardCost}
             />
