@@ -118,12 +118,26 @@ describe("PredictedSession: open", () => {
     expect(session.state).toMatchObject({ status: "error", error: "game-not-found" });
   });
 
-  test("without an account the game is read only: no hand, no move", async () => {
+  test("without an account the game is read only: the player's hand shown (#701), no slot, no preview, no move", async () => {
     const { chain, session, send } = setup({ player: null });
+    await playOnChain(chain, 4);
     await session.open();
-    expect(session.state).toMatchObject({ readonly: true, hand: null });
+    const writes = chain.calls.length;
+    expect(session.state).toMatchObject({ readonly: true, hand: chainHand(chain) });
+    expect([1, 2, 3, 4].flatMap((o) => session.slots(o))).toEqual([]);
+    const move = legalMove(chain.game)!;
+    expect(session.orientationsAt(move)).toEqual([]);
+    expect(session.preview(move)).toBeNull();
+    expect(await session.place(move, send.build(move))).toBe(false);
     expect(await session.discard(send.discard())).toBe(false);
-    expect(chain.calls).not.toContain("write");
+    expect(await session.surrender(send.surrender())).toBe(false);
+    expect(chain.calls.slice(writes)).not.toContain("write");
+  });
+
+  test("another player's game: read only, its hand shown (#701)", async () => {
+    const { chain, session } = setup({ player: "0x999" });
+    await session.open();
+    expect(session.state).toMatchObject({ readonly: true, hand: chainHand(chain) });
   });
 });
 
@@ -401,6 +415,18 @@ describe("PredictedSession: a game on the VRF (#645)", () => {
     expect(session.state.coming).toEqual(chainComing(chain));
     expect(session.state.coming).toHaveLength(2);
     expect(mismatches).toEqual([]);
+  });
+
+  test("read only: the chain's hand and its queue, shown to a viewer who cannot play (#701)", async () => {
+    const { chain, session, send } = setup({ vrf: true, player: null });
+    await playOnChain(chain, 3);
+    await session.open();
+    const writes = chain.calls.length;
+    expect(session.state).toMatchObject({ readonly: true, hand: chainHand(chain) });
+    expect(session.state.coming).toEqual(chainComing(chain));
+    expect(session.state.coming).toHaveLength(2);
+    expect(await session.discard(send.discard())).toBe(false);
+    expect(chain.calls.slice(writes)).not.toContain("write");
   });
 
   test("a move: the known tiles stay shown while the chain draws the last one; then the queue moves up", async () => {

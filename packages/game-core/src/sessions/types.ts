@@ -61,6 +61,7 @@ export interface PageState {
    */
   drawing?: boolean;
   lastScored: ScoredStructure[];
+  /** The viewer cannot play (no account, another player's game): `hand` and `coming` are still the game's, shown read only (#701). */
   readonly: boolean;
   pending: boolean;
   writeError: string | null;
