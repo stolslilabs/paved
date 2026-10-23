@@ -295,7 +295,7 @@ function VillageView({
         }
       />
       {/* The shared header's own margin sets where the content starts, as on every page (HEADER-HEIGHT, #676). */}
-      <div className="flex min-h-0 flex-1 flex-col desktop:flex-row desktop:gap-4 desktop:px-4 desktop:pb-4">
+      <div className="flex min-h-0 flex-1 flex-col desktop:flex-row desktop:gap-4 desktop:p-4 desktop:pt-0">
         <div className="flex min-h-0 flex-1 flex-col desktop:overflow-hidden desktop:rounded-2xl desktop:border desktop:border-border">
           {/* On a phone the header's margin is the gap above the score; inside the desktop card, the row's own padding. */}
           <div className="flex items-end justify-between gap-3 border-b border-border px-4 pb-2 desktop:pt-2">
