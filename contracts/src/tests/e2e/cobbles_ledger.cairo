@@ -8,10 +8,12 @@
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::num::traits::Bounded;
 use paved::systems::setup::{
-    Account, AccountPacking, AchievementCobbles, AchievementCobblesPacking, DAILY, DAY, GAME_XP,
-    ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait, ISetupCobblesSafeDispatcher,
-    ISetupCobblesSafeDispatcherTrait, ISetupDispatcher, ISetupDispatcherTrait,
-    ISetupSafeDispatcherTrait, MAX_XP, Progress, ProgressPacking, QuestCobbles, QuestCobblesPacking,
+    Account, AccountPacking, AchievementCobbles, AchievementCobblesPacking, CLAIM_LEAGUE,
+    CLAIM_SEASON, DAILY, DAY, GAME_XP, ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait,
+    ISetupCobblesSafeDispatcher, ISetupCobblesSafeDispatcherTrait, ISetupDispatcher,
+    ISetupDispatcherTrait, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
+    ISetupLeagueSafeDispatcher, ISetupLeagueSafeDispatcherTrait, ISetupSafeDispatcherTrait, MAX_XP,
+    Progress, ProgressPacking, PvpProgress, PvpProgressPacking, QuestCobbles, QuestCobblesPacking,
     QuestCobblesTrait, Setup, WEEK, WEEKLY, WEEK_START, list_ids, list_word, schedule_kind, week_of,
 };
 use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER};
@@ -1321,4 +1323,236 @@ fn test_cobbles_fuzz_ledger(seed: u64) {
     assert_eq!(account.cobbles, expected_cobbles);
     assert_eq!(account.credits, expected_credits);
     assert_eq!(account.games.into(), games);
+}
+
+// PvP (#644, `docs/architecture/leagues.md`, section 7): the missions' sums, their claims, the
+// credit that never depends on them, and the league credits
+
+/// A PvP settlement's report at `time`, as `Matchmaker` makes it (`REPORTER` here).
+fn pvp_report(setup: ContractAddress, player: ContractAddress, time: u64, stars: u8) {
+    start_cheat_block_timestamp_global(time);
+    start_cheat_caller_address(setup, REPORTER());
+    ISetupLeagueDispatcher { contract_address: setup }.report_pvp(player.into(), stars);
+    stop_cheat_caller_address(setup);
+}
+
+fn pvp_of(setup: ContractAddress, player: ContractAddress, kind: u8, period: u64) -> PvpProgress {
+    ISetupLeagueDispatcher { contract_address: setup }.pvp_progress(player.into(), kind, period)
+}
+
+#[test]
+#[available_gas(l2_gas: 200000000)]
+#[feature("safe_dispatcher")]
+fn test_cobbles_pvp_missions_sum_and_pay_once() {
+    let setup = fresh_setup();
+    let admin = ISetupDispatcher { contract_address: setup };
+    let daily = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
+    let weekly = QuestSchedule { start: WEEK_START, end: 0, duration: 604800, interval: 604800 };
+    // Raider (3 attacks), Star Hunter (5 stars), Conqueror (5 three-star attacks, weekly)
+    as_caller(setup, OWNER());
+    admin
+        .define_quest(
+            50, daily, array![QuestTask { task_id: 19, total: 3 }].span(), array![].span(),
+        );
+    admin
+        .define_quest(
+            51, daily, array![QuestTask { task_id: 20, total: 5 }].span(), array![].span(),
+        );
+    admin
+        .define_quest(
+            52, weekly, array![QuestTask { task_id: 22, total: 2 }].span(), array![].span(),
+        );
+    admin
+        .define_quest(
+            53, daily, array![QuestTask { task_id: 21, total: 65536 }].span(), array![].span(),
+        );
+    safe(setup).set_quest_cobbles(50, 10).unwrap();
+    safe(setup).set_quest_cobbles(51, 10).unwrap();
+    safe(setup).set_quest_cobbles(52, 15).unwrap();
+    // A `u16` sum: 65,536 can never be reached
+    assert_eq!(error_of(safe(setup).set_quest_cobbles(53, 5)), 'Setup: total too high');
+    stop_cheat_caller_address(setup);
+    // Day 12, week 1: a 3-star, a 0-star, a 2-star
+    let time = 12 * DAY + 100;
+    pvp_report(setup, PLAYER(), time, 3);
+    pvp_report(setup, PLAYER(), time, 0);
+    pvp_report(setup, PLAYER(), time, 2);
+    assert_eq!(
+        pvp_of(setup, PLAYER(), DAILY, 12),
+        PvpProgress { attacks: 3, stars: 5, wins: 2, three_stars: 1, claimed: 0 },
+    );
+    assert_eq!(pvp_of(setup, PLAYER(), WEEKLY, 1).three_stars, 1);
+    // The Challenge ledger is untouched
+    assert_eq!(cobbles_of(setup).day_progress(PLAYER().into(), 12), Default::default());
+    as_caller(setup, PLAYER());
+    safe(setup).claim_quest(50, 12).unwrap();
+    safe(setup).claim_quest(51, 12).unwrap();
+    assert_eq!(error_of(safe(setup).claim_quest(50, 12)), 'Setup: claimed');
+    assert_eq!(error_of(safe(setup).claim_quest(52, 1)), 'Setup: not completed');
+    stop_cheat_caller_address(setup);
+    pvp_report(setup, PLAYER(), 13 * DAY, 3);
+    as_caller(setup, PLAYER());
+    safe(setup).claim_quest(52, 1).unwrap();
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 35);
+    // A PvP report is no Challenge game: no lifetime count, no XP
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).games, 0);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).xp, 0);
+}
+
+#[test]
+#[available_gas(l2_gas: 200000000)]
+#[feature("safe_dispatcher")]
+fn test_cobbles_pvp_missions_stay_out_of_the_free_game_credit() {
+    let setup = fresh_setup();
+    let daily = QuestSchedule { start: 0, end: 0, duration: 86400, interval: 86400 };
+    as_caller(setup, OWNER());
+    ISetupDispatcher { contract_address: setup }
+        .define_quest(
+            50, daily, array![QuestTask { task_id: 19, total: 3 }].span(), array![].span(),
+        );
+    safe(setup).set_quest_cobbles(50, 10).unwrap();
+    stop_cheat_caller_address(setup);
+    // The four Challenge dailies met, no PvP at all: the credit is claimed
+    complete_day(setup, PLAYER(), 12);
+    as_caller(setup, PLAYER());
+    safe(setup).claim_daily_credit(12).unwrap();
+    assert_eq!(error_of(safe(setup).claim_quest(50, 12)), 'Setup: not completed');
+    stop_cheat_caller_address(setup);
+    // And PvP alone does not earn it: the PvP mission is met, the Challenge dailies are not
+    pvp_report(setup, ANYONE(), 12 * DAY, 0);
+    pvp_report(setup, ANYONE(), 12 * DAY, 0);
+    pvp_report(setup, ANYONE(), 12 * DAY, 0);
+    as_caller(setup, ANYONE());
+    assert_eq!(error_of(safe(setup).claim_daily_credit(12)), 'Setup: not completed');
+    safe(setup).claim_quest(50, 12).unwrap();
+}
+
+#[test]
+#[available_gas(l2_gas: 5000000)]
+fn test_cobbles_pvp_progress_packs_bit_for_bit() {
+    let m16 = Bounded::<u16>::MAX;
+    let value = PvpProgress {
+        attacks: m16, stars: m16, wins: m16, three_stars: m16, claimed: Bounded::<u64>::MAX,
+    };
+    let word = PvpProgressPacking::pack(value);
+    let expected: u256 = 0xffffffffffffffff
+        + 0xffffffffffffffff * 0x100000000000000000000000000000000;
+    assert_eq!(word, expected.try_into().unwrap());
+    assert_eq!(PvpProgressPacking::unpack(word), value);
+    // Each field alone: none spills into a neighbour
+    for value in array![
+        PvpProgress { attacks: m16, ..Default::default() },
+        PvpProgress { stars: m16, ..Default::default() },
+        PvpProgress { wins: m16, ..Default::default() },
+        PvpProgress { three_stars: m16, ..Default::default() },
+        PvpProgress { claimed: 1, ..Default::default() },
+    ] {
+        assert_eq!(PvpProgressPacking::unpack(PvpProgressPacking::pack(value)), value);
+    }
+}
+
+#[test]
+#[available_gas(l2_gas: 50000000)]
+#[feature("safe_dispatcher")]
+fn test_cobbles_report_pvp_by_a_reporter_only_and_saturates() {
+    let setup = setup_alone();
+    let league = ISetupLeagueSafeDispatcher { contract_address: setup };
+    as_caller(setup, ANYONE());
+    assert_eq!(error_of(league.report_pvp(PLAYER().into(), 3)), 'Quest: not reporter');
+    stop_cheat_caller_address(setup);
+    as_caller(setup, REPORTER());
+    assert_eq!(error_of(league.report_pvp(PLAYER().into(), 4)), 'Setup: invalid stars');
+    stop_cheat_caller_address(setup);
+    // Before week 0 there is no week: the day only
+    pvp_report(setup, PLAYER(), DAY, 1);
+    assert_eq!(pvp_of(setup, PLAYER(), DAILY, 1).attacks, 1);
+    assert_eq!(pvp_of(setup, PLAYER(), WEEKLY, 0), Default::default());
+    // The sums saturate at `u16`
+    let m16 = Bounded::<u16>::MAX;
+    let key = array![PLAYER().into(), 12];
+    snforge_std::store(
+        setup,
+        snforge_std::map_entry_address(selector!("pvp_days"), key.span()),
+        array![
+            PvpProgressPacking::pack(
+                PvpProgress { attacks: m16, stars: m16, wins: m16, three_stars: m16, claimed: 0 },
+            ),
+        ]
+            .span(),
+    );
+    pvp_report(setup, PLAYER(), 12 * DAY, 3);
+    assert_eq!(
+        pvp_of(setup, PLAYER(), DAILY, 12),
+        PvpProgress { attacks: m16, stars: m16, wins: m16, three_stars: m16, claimed: 0 },
+    ); // The storage is pinned by name: `pvp_days` above (written raw, read by the view), and
+    // `pvp_weeks`, week 1's slot at its raw address
+    let week = snforge_std::load(
+        setup,
+        snforge_std::map_entry_address(selector!("pvp_weeks"), array![PLAYER().into(), 1].span()),
+        1,
+    );
+    assert_eq!(
+        *week.at(0),
+        PvpProgressPacking::pack(
+            PvpProgress { attacks: 1, stars: 3, wins: 1, three_stars: 1, claimed: 0 },
+        ),
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 50000000)]
+#[feature("safe_dispatcher")]
+fn test_cobbles_credit_league_by_a_reporter_only() {
+    let setup = setup_alone();
+    let league = ISetupLeagueSafeDispatcher { contract_address: setup };
+    // A stranger, a wrong kind, no cobbles
+    as_caller(setup, ANYONE());
+    assert_eq!(
+        error_of(league.credit_league(PLAYER().into(), CLAIM_LEAGUE, 4, 1, 10)),
+        'Quest: not reporter',
+    );
+    stop_cheat_caller_address(setup);
+    as_caller(setup, REPORTER());
+    assert_eq!(error_of(league.credit_league(PLAYER().into(), 3, 4, 1, 10)), 'Setup: invalid kind');
+    assert_eq!(
+        error_of(league.credit_league(PLAYER().into(), CLAIM_SEASON, 4, 1, 0)),
+        'Setup: invalid cobbles',
+    );
+    // A bonus and a reward
+    let mut spy = spy_events();
+    let credit = ISetupLeagueDispatcher { contract_address: setup };
+    assert_eq!(credit.credit_league(PLAYER().into(), CLAIM_LEAGUE, 4, 1, 10), 10);
+    assert_eq!(credit.credit_league(PLAYER().into(), CLAIM_SEASON, 22, 3, 250), 260);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup,
+                    Setup::Event::CobblesClaimed(
+                        Setup::CobblesClaimed {
+                            player_id: PLAYER().into(),
+                            kind: CLAIM_LEAGUE,
+                            id: 4,
+                            period: 1,
+                            cobbles: 10,
+                            balance: 10,
+                        },
+                    ),
+                ),
+                (
+                    setup,
+                    Setup::Event::CobblesClaimed(
+                        Setup::CobblesClaimed {
+                            player_id: PLAYER().into(),
+                            kind: CLAIM_SEASON,
+                            id: 22,
+                            period: 3,
+                            cobbles: 250,
+                            balance: 260,
+                        },
+                    ),
+                ),
+            ],
+        );
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 260);
 }

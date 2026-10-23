@@ -138,6 +138,13 @@ export class CameraController {
   private compassRotation = 0;
   private mode: CameraMode = "play";
   private boardBounds: BoardBounds | null = null;
+  /** The last frame given (`frame`): `reset()` comes back to it. */
+  private framed: { target: THREE.Vector3; distance: number } | null = null;
+  /** The frame for the viewport of now (`setFrameSource`): `reset()` asks it first, so a resize since the last frame counts. */
+  private frameSource: (() => { target: { x: number; z: number }; distance: number } | null) | null = null;
+  /** A drag, pinch or wheel under way (`start` to `end` of the controls). */
+  private interacting = false;
+  private moved = false;
 
   constructor(
     viewportOrCanvas: CameraViewport | HTMLCanvasElement,
@@ -177,6 +184,50 @@ export class CameraController {
     };
 
     this.setMode("play");
+
+    // The player moved the camera: a change of the view between a press (or wheel) and its end. A tap that moves nothing
+    // does not count, nor does a frame set by code (`frame`), so a resize can frame the board again until the player moves.
+    this.controls.addEventListener("start", () => {
+      this.interacting = true;
+    });
+    this.controls.addEventListener("change", () => {
+      if (this.interacting) this.moved = true;
+    });
+    this.controls.addEventListener("end", () => {
+      this.interacting = false;
+    });
+  }
+
+  /** Whether the player moved the camera since it was last framed (`frame` with `byPlayer` unset clears it). */
+  get userMoved(): boolean {
+    return this.moved;
+  }
+
+  /**
+   * Look at `target` (on the ground) from `distance`, at the play tilt (CAMERA-FIT, #678): the opening frame, a resize's or
+   * the re-centre's. `reset()` comes back to it. It clears `userMoved`.
+   */
+  frame(target: { x: number; z: number }, distance: number): void {
+    // Drop what a drag left to damp (OrbitControls' pan, turn and zoom deltas): one update without damping spends and
+    // clears them, so they do not carry the view off the frame afterwards.
+    const damping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
+    this.controls.update();
+    this.controls.enableDamping = damping;
+    const center = new THREE.Vector3(target.x, 0, target.z);
+    this.framed = { target: center.clone(), distance };
+    this.moved = false;
+    this.controls.target.copy(center);
+    this.camera.position.copy(center).add(tiltedOffset(distance, PLAY_DEFAULT_POLAR_ANGLE));
+    this.camera.lookAt(center);
+  }
+
+  /**
+   * Where `reset()` goes, computed when it is called (the scene's frame for its current size and settings); a null answer
+   * falls back to the last frame given.
+   */
+  setFrameSource(source: (() => { target: { x: number; z: number }; distance: number } | null) | null): void {
+    this.frameSource = source;
   }
 
   update(): boolean {
@@ -272,7 +323,13 @@ export class CameraController {
     this.camera.lookAt(this.controls.target);
   }
 
+  /** Back to the frame of now (`setFrameSource`), else the last frame (`frame`), else the opening position. */
   reset(): void {
+    const frame = this.frameSource?.() ?? this.framed;
+    if (frame) {
+      this.frame(frame.target, frame.distance);
+      return;
+    }
     this.controls.reset();
   }
 
