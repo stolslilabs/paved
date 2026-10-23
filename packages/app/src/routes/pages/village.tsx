@@ -1,14 +1,17 @@
 import { useParams, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { deckArt } from "../../components/containers/deck-sheet";
 import { shortAddress } from "../../components/elements/short-address";
 import { VillageScene, type VillageStatus } from "../../components/scenes/village-scene";
+import { useBoardSkins } from "../../data/board-skins";
 import { cobbleKeys, useCobbleAccount } from "../../data/cobbles";
 import { usePlayerStatus } from "../../data/indexer";
 import { addressKey } from "../../data/keys";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
 import { useTileArt } from "../../data/tile-art";
+import { useTileRenders } from "../../data/tile-renders";
 import { useVillage, useVillageReward, useVillageWrites, villageKeys } from "../../data/village";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
@@ -24,7 +27,8 @@ const ADDRESS = /^0x[0-9a-f]{1,64}$/i;
  * (`useVillage`), the reward from `Rewards` (`useVillageReward`), the Cobbles from the ledger. The own village writes through
  * the signer (`useVillageWrites`): Found, Buy a parcel at the price the sheet showed, Open a reward, then place one of its
  * tiles, add it as a copy, or take the Cobbles; each write shows its wait, its refusal and a toast on its receipt. The board is
- * the plan (`VillageBoard`): each placed tile on its tier's base, the fog over the cells beyond the parcels. The 3D village
+ * the plan (`VillageBoard`): each placed tile on its tier's base, in its owner's active skin, the fog over the cells beyond the
+ * parcels. The 3D village
  * (`VillageViewport`, #648) waits for the renderer to draw a tier's base under a tile.
  */
 export default function Page() {
@@ -50,7 +54,11 @@ function Village({ player }: { player: string | null }) {
   const reward = useVillageReward(own ? playerId : null);
   const account = useCobbleAccount(own ? playerId : null);
   const writes = useVillageWrites(own ? playerId : null);
-  const tileArt = useTileArt(RENDERER_ASSETS);
+  // Each tile in the theme its owner made active (`active_skins`, as the boards draw them; another's only when this device
+  // shows other players' skins): its top-down render, else the base art.
+  const skins = useBoardSkins(playerId);
+  const renders = useTileRenders(RENDERER_ASSETS);
+  const tileArt = deckArt(renders, skins, useTileArt(RENDERER_ASSETS));
 
   const status: VillageStatus | null =
     own && me === null

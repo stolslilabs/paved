@@ -12,6 +12,7 @@ import type { DataSources, GameSigner } from "../../data/sources";
 import { MOCK_KEY, MOCK_STARTING_PAVED, MockLedger } from "../../data/mock/ledger";
 import { mockGameViews, mockSigner } from "../../data/mock/overlay";
 import { STARTER } from "../../data/village";
+import { APP_MANIFEST } from "../../mocks/assets";
 import { PLAYER_ID } from "../../mocks/players";
 import { PLAN, grow, square } from "../../mocks/village";
 import Page from "../../routes/pages/village";
@@ -29,6 +30,17 @@ type Story = StoryObj<typeof meta>;
 
 const RIVAL = "0x7a11ce";
 
+/**
+ * The page's tile art reads `renderer-assets/manifest.json` (`manifestBody`), which Storybook does not serve (the preview hands
+ * the renderer `APP_MANIFEST` in memory): this page's read gets the same manifest, so its tiles show their renders in the
+ * owner's skins. Every other request goes through as it was.
+ */
+const served = globalThis.fetch.bind(globalThis);
+globalThis.fetch = (input, init) =>
+  String(input instanceof Request ? input.url : input).endsWith("renderer-assets/manifest.json")
+    ? Promise.resolve(new Response(JSON.stringify(APP_MANIFEST), { headers: { "content-type": "application/json" } }))
+    : served(input, init);
+
 /** A village grown by the rules from the starter: each plan on its first legal cell, nearest the centre. */
 function grown(cells: readonly Cell[], plans: readonly number[]) {
   const tiles: { id: number; plan: number; orientation: number; x: number; y: number }[] = [{ ...STARTER }];
@@ -43,7 +55,7 @@ const P = PLAN;
 const MIXED = [P.road, P.roadCross, P.roadBend, P.cityEdge, P.wonder, P.forestCity, P.road, P.stopRoads, P.roadCity, P.cityForest, P.city, P.road, P.wonder, P.roadBend, P.cityEdge, P.road, P.roadBend, P.road];
 
 /** A player's stored state in the ledger's format: a village of `extra` parcels and `plans` placed, the rewards given. */
-function player(extra: number, plans: readonly number[], rewards: { pending: number; offer: [number, number, number] | null }, cobbles: number) {
+function player(extra: number, plans: readonly number[], rewards: { pending: number; offer: [number, number, number] | null }, cobbles: number, theme = 0) {
   const cells = grow(square(1), extra);
   const tiles = grown(cells, plans);
   const copies = new Array<number>(SKIN_PLANS).fill(0);
@@ -55,8 +67,9 @@ function player(extra: number, plans: readonly number[], rewards: { pending: num
     achievementsClaimed: "0",
     days: {},
     weeks: {},
-    owned: {},
-    active: new Array<number>(SKIN_PLANS).fill(0),
+    // Every Forest skin owned and active when `theme` is 1: the board draws the tiles in it.
+    owned: theme ? { [theme]: 0xffffe } : {},
+    active: new Array<number>(SKIN_PLANS).fill(theme),
     shares: "0",
     paved: MOCK_STARTING_PAVED.toString(),
     usdc: "0",
@@ -67,7 +80,7 @@ function player(extra: number, plans: readonly number[], rewards: { pending: num
 
 function seeded(offer: [number, number, number] | null) {
   const players = {
-    [`0x${BigInt(PLAYER_ID).toString(16)}`]: player(4, MIXED.slice(0, 9), { pending: offer ? 1 : 2, offer }, 85),
+    [`0x${BigInt(PLAYER_ID).toString(16)}`]: player(4, MIXED.slice(0, 9), { pending: offer ? 1 : 2, offer }, 85, 1),
     [RIVAL]: player(20, [...MIXED, ...MIXED].slice(0, 26), { pending: 0, offer: null }, 0),
   };
   const data = new Map([[MOCK_KEY, JSON.stringify({ version: 1, players, vault: { assets: "0", supply: "0" }, transactions: 0 })]]);
@@ -111,7 +124,7 @@ function VillagePage({ offer = null }: { offer?: [number, number, number] | null
   );
 }
 
-/** The player's village: 13 cells, 9 tiles on their tier's base, the score from the engine, 85 Cobbles; two rewards wait (Open). */
+/** The player's village: 13 cells, 9 tiles in their Forest skins on their tier's base, the score from the engine, 85 Cobbles; two rewards wait (Open). */
 export const Board: Story = { parameters: { route: "/village" }, render: () => <VillagePage /> };
 /** A reward opened: its three tiles under the board; drag or tap one onto a lit cell, onto a ringed tile, or take 5 Cobbles. */
 export const Reward: Story = { parameters: { route: "/village" }, render: () => <VillagePage offer={[P.road, P.wonder, P.roadCross]} /> };

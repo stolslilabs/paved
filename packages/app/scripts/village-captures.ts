@@ -59,6 +59,7 @@ try {
       // The page read the ledger (the first visit waits for Storybook's compile): its score is shown.
       await page.waitForSelector("#storybook-root :text('Village score')", { timeout: 90_000 });
       // The tiles' art loads (Storybook's own socket keeps the network busy: no idle to wait for).
+      await page.waitForFunction(() => [...document.querySelectorAll("#storybook-root img")].every((img) => (img as HTMLImageElement).complete), null, { timeout: 60_000 });
       await page.waitForTimeout(4_000);
       const png = await page.screenshot({ fullPage: false, timeout: 180_000 });
       await page.close();

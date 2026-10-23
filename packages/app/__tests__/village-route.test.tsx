@@ -1,12 +1,14 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewError } from "@paved/chain";
 import { startTerritory } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { STARTER } from "../src/data/village";
 import { queryClient } from "../src/lib/query-client";
+import { resetManifestBodies } from "../src/data/renderer-manifest";
+import { resetTileRenders } from "../src/data/tile-renders";
 import { PLAYER_ID } from "../src/mocks/players";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -147,6 +149,37 @@ describe("/village: the own village", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText(waiting(2), {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText("Your rewards could not be read")).toBeNull();
+  });
+
+  it("draws each tile in its owner's active skin, on its tier's base; a visit too", async () => {
+    // The manifest: the starter's (RFFFRFCFR) top-down render in the base models (0) and in Forest (1).
+    resetTileRenders();
+    resetManifestBodies();
+    const manifest = { models: {}, renders: { "0": { "rfffrfcfr-top": "renders/rfffrfcfr-top.0.base.webp" }, "1": { "rfffrfcfr-top": "renders/rfffrfcfr-top.1.forest.webp" } }, themes: {} };
+    vi.stubGlobal("fetch", (url: string) => Promise.resolve(String(url).endsWith("manifest.json") ? new Response(JSON.stringify(manifest)) : new Response("", { status: 404 })));
+    try {
+      const c = chain(50, 0);
+      await c.writer.foundVillage();
+      c.views.skinPlayer(PLAYER_ID).active.fill(1);
+      const v = c.views.villagePlayer(RIVAL);
+      v.cells = startTerritory();
+      v.tiles = [{ ...STARTER }];
+      v.info = { gameId: 7, cells: 9, tiles: 0, score: 0, nextParcel: 1, nextPrice: 10, nextLevel: 1 };
+      const first = open(c, "/village");
+      const board = await screen.findByLabelText(/^Village of 9 cells/, {}, { timeout: 5000 });
+      await waitFor(() => expect(board.querySelector('img[src$="rfffrfcfr-top.1.forest.webp"]')).not.toBeNull());
+      first.unmount();
+      // Another player's village, in their skins: the rival has none active, so the base models.
+      queryClient.clear();
+      open(c, `/village/${RIVAL}`);
+      const visited = await screen.findByLabelText(/^Village of 9 cells/, {}, { timeout: 5000 });
+      await waitFor(() => expect(visited.querySelector('img[src$="rfffrfcfr-top.0.base.webp"]')).not.toBeNull());
+      expect(visited.querySelector('img[src$="forest.webp"]')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      resetTileRenders();
+      resetManifestBodies();
+    }
   });
 
   it("draws each placed tile on its tier's base", async () => {
