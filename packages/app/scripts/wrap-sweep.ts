@@ -367,7 +367,7 @@ async function main() {
       .map((s) => s.id),
     opts.shard,
   );
-  const swept = opts.shard.count > 1 ? `${queue.length} of ${stories.length} stories (shard ${opts.shard.index}/${opts.shard.count})` : `${stories.length} stories`;
+  const share = opts.shard.count > 1 ? `${queue.length} of ${stories.length} stories (shard ${opts.shard.index}/${opts.shard.count})` : `${stories.length} stories`;
 
   async function worker() {
     // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.
@@ -411,7 +411,7 @@ async function main() {
   const line = (r: string[]) => r.map((c, i) => c.padEnd(widths[i])).join("  ");
   if (rows.length) console.log([line(head), line(widths.map((w) => "-".repeat(w))), ...rows.map(line)].join("\n"));
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
-  console.log(`\n${swept} x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
+  console.log(`\n${share} x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
   if (opts.json) await writeFile(opts.json, JSON.stringify({ stories: stories.length, shard: opts.shard, widths: opts.widths, seconds: Number(seconds), findings }, null, 2));
   process.exitCode = open.length ? 1 : 0;
 }
