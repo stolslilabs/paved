@@ -29,7 +29,7 @@ export interface LeagueCrestProps extends VariantProps<typeof crestVariants> {
   className?: string;
 }
 
-/** A league (#644's, `pvp-rules.ts`): its crest, a shield in its group's colour, and its name beside it ("Gold II"). */
+/** A league (issue 644's, `pvp-rules.ts`): its crest, a shield in its group's colour, and its name beside it ("Gold II"). */
 export function LeagueCrest({ league, size, iconOnly, className }: LeagueCrestProps) {
   return (
     <span data-league={league.id} className={cn(crestVariants({ size }), className)}>

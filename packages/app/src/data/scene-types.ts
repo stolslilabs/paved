@@ -10,6 +10,9 @@ import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { QuestsSceneProps } from "../components/scenes/quests-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import type { AvatarCreator } from "../components/scenes/avatar-creator-scene";
+import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
+import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
+import type { PvpSearchSceneProps } from "../components/scenes/pvp-search-scene";
 import type * as avatar from "./avatar";
 import type * as avatarCatalogue from "./avatar-catalogue";
 import type * as avatarOffers from "./avatar-offers";
@@ -17,6 +20,7 @@ import type * as chain from "./chain";
 import type * as indexer from "./indexer";
 import type * as playerProgress from "./player-progress";
 import type * as purchase from "./purchase";
+import type * as pvp from "./pvp";
 import type * as training from "./training";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
@@ -54,6 +58,12 @@ export type SceneTypes = [
   Expect<Equal<ReturnType<typeof avatarOffers.avatarOffers>, AvatarCreator["offers"]>>,
   Expect<Equal<ReturnType<typeof avatar.savedLook>, OrNull<NonNullable<ProfileSheetProps["look"]>>>>,
   Expect<Equal<NonNullable<Data<typeof avatarCatalogue.useAvatarCatalogue>>["balance"], AvatarCreator["balance"]>>,
+  // the PvP flow (#647 PR 2): a player, the scout's village and stakes, the attack's board (null: no PvP on the network)
+  Expect<Equal<Data<typeof pvp.usePvpPlayer>, OrNull<PvpSearchSceneProps["player"]>>>,
+  Expect<Equal<NonNullable<Data<typeof pvp.usePvpScout>>["village"], PvpScoutSceneProps["village"]>>,
+  Expect<Equal<NonNullable<Data<typeof pvp.usePvpScout>>["stakes"], PvpScoutSceneProps["stakes"]>>,
+  Expect<Equal<NonNullable<Data<typeof pvp.usePvpAttack>>["tiles"], PvpAttackSceneProps["tiles"]>>,
+  Expect<Equal<NonNullable<Data<typeof pvp.usePvpAttack>>["lastScored"], PvpAttackSceneProps["lastScored"]>>,
   // vault
   Expect<Equal<Data<typeof chain.useVaultPosition>, VaultSceneProps["position"]>>,
   Expect<Equal<Data<typeof chain.usePavedBalance>, OrNull<VaultSceneProps["balance"]>>>,

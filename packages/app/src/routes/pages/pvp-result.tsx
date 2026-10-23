@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 import { deckArt } from "../../components/containers/deck-sheet";
+import { toastError } from "../../components/containers/error-toast";
 import { shortAddress } from "../../components/elements/short-address";
 import { PvpResultScene, type PvpReward } from "../../components/scenes/pvp-result-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
@@ -85,7 +86,7 @@ function Result({ id }: { id: number }) {
         if (done) setTaken(done);
         toast.success(title);
       },
-      (e: unknown) => toast.error("Village reward", { description: e instanceof Error ? e.message : String(e) }),
+      (e: unknown) => toastError({ title: "Village reward", message: e instanceof Error ? e.message : String(e), detail: errorDetail(e) }),
     );
   };
   return (

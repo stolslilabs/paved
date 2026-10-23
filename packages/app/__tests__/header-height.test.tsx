@@ -14,8 +14,11 @@ import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 // HEADER-HEIGHT (#676): every page's header takes its height from the token, never its own. The heights themselves are
 // measured in a browser at 375 and 1440 px by `scripts/header-sweep.ts` (jsdom lays nothing out).
 const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-/;
-/** The board's routes (`Shell.tsx`): the scene fills the viewport, no header. */
-const BOARD = ["game/:gameId", "training", "story/:campaign/:level"];
+/**
+ * The board's routes (`Shell.tsx`): the scene fills the viewport, no header. So do the PvP attack's (#647: the search's sky,
+ * the scout's and the attack's board) and its replay's.
+ */
+const BOARD = ["game/:gameId", "training", "story/:campaign/:level", "pvp", "pvp/replay/:attacker/:id"];
 
 function header(container: HTMLElement): HTMLElement {
   const found = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');
