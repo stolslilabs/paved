@@ -29,6 +29,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
+import { sweepStory } from "./wrap-sweep-retry.ts";
 
 type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
 
@@ -305,7 +306,9 @@ function inspect(): { kind: string; element: string }[] {
 /** Opens a story's preview and waits for its render (play function included) to end; resolves to an error message or null. */
 async function render(page: Page, origin: string, id: string): Promise<string | null> {
   try {
-    await page.goto(`${origin}/iframe.html?viewMode=story&id=${encodeURIComponent(id)}`);
+    // `domcontentloaded`, not `load`: the wait below is for the story's own render phase, and an always-redrawing story
+    // (render loop, animation) or a slow runner can hold the `load` event of the preview past the 30 s of `goto`.
+    await page.goto(`${origin}/iframe.html?viewMode=story&id=${encodeURIComponent(id)}`, { waitUntil: "domcontentloaded" });
     const phase = await page.waitForFunction(
       () => {
         const render = (window as unknown as { __STORYBOOK_PREVIEW__?: { currentRender?: { phase?: string } } }).__STORYBOOK_PREVIEW__?.currentRender;
@@ -362,26 +365,23 @@ async function main() {
     // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
-    const page = await context.newPage();
+    let page = await context.newPage();
     for (let id = queue.shift(); id; id = queue.shift()) {
-      await page.setViewportSize({ width: opts.widths[0], height: 740 });
-      const error = await render(page, origin, id);
-      for (const width of opts.widths) {
-        await page.setViewportSize({ width, height: 740 });
-        if (error) {
-          findings.push({ story: id, width, kind: "error", element: error });
-          continue;
-        }
-        await settle(page);
-        let found = await page.evaluate(inspect);
-        if (found.length) {
-          // Something late (a font swap, a layout animation) can settle after the first look: look again once, after a
-          // second, before reporting.
-          await page.waitForTimeout(1000);
-          found = await page.evaluate(inspect);
-        }
-        for (const f of found) findings.push({ story: id, width, kind: f.kind as Kind, element: f.element });
-      }
+      // A navigation timeout is retried once on a fresh page (a slow runner, not a wrap defect), and logged.
+      const swept = await sweepStory(page, id, opts.widths, {
+        render: (p, story) => render(p, origin, story),
+        fresh: async (old) => {
+          await old.close().catch(() => {});
+          return context.newPage();
+        },
+        setWidth: (p, width) => p.setViewportSize({ width, height: 740 }),
+        settle,
+        inspect: (p) => p.evaluate(inspect),
+        wait: (p, ms) => p.waitForTimeout(ms),
+        log: (message) => console.log(message),
+      });
+      page = swept.page;
+      for (const f of swept.findings) findings.push({ ...f, kind: f.kind as Kind });
     }
     await browser.close();
   }
