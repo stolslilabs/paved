@@ -43,10 +43,11 @@ export interface TokenIconProps extends VariantProps<typeof tokenIconVariants> {
 }
 
 /**
- * A token's icon (issue 620), one file per kind: USDC's mark (Circle's, from Nums), vPAVED's Almendra "P" in gold on a dark ink
- * coin with a gold rim, PAVED its negative (issue 668: a gold field, the P and the rim dark grey), and the Cobbles' stones (Font
- * Awesome's `cubes-stacked`). The P and the stones keep an even margin to the edge of the coin's box (issue 668). Drawn as an image:
- * the colours are the file's own, the same on every background.
+ * A token's icon (issue 620), one file per kind: USDC's mark (Circle's, from Nums), PAVED's Almendra "P" in gold on a dark ink
+ * coin with a gold rim (issue 711, vPAVED's coin of issue 668 with a smaller P), vPAVED the same coin in grayscale (issue 711: a
+ * disabled token, the Vault's share is not transferable), and the Cobbles' stones (Font Awesome's `cubes-stacked`). The P and the
+ * stones keep an even margin to the edge of the coin's box (issue 668). Drawn as an image: the colours are the file's own, the same
+ * on every background.
  */
 export function TokenIcon({ kind, size, label, className }: TokenIconProps) {
   return (
