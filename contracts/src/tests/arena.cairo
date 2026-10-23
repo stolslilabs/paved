@@ -10,6 +10,7 @@
 //! The VRF component refuses a second draw in one transaction by its hash, so each call that draws
 //! runs under its own cheated hash (`tx`).
 
+use core::num::traits::Zero;
 use core::poseidon::poseidon_hash_span;
 use core::testing::get_available_gas;
 use paved::components::crownable::CrownableComponent::InternalTrait as CrownableInternal;
@@ -34,12 +35,14 @@ use paved::helpers::random_deck::draw_from_bitmap;
 use paved::matchmaker::crowns::{cost_of, offer_of, prize_of, settle};
 use paved::matchmaker::stars::stars_of;
 use paved::mocks::vrf::MockVrfProvider::MOCK_TAG;
-use paved::systems::arena::Arena::{AttackFinished, AttackOpened, Event as ArenaEvent};
+use paved::systems::arena::Arena::{
+    AttackFinished, AttackOpened, AttackSkipped, Event as ArenaEvent,
+};
 use paved::systems::arena::{
     ATTACK_KIND, Arena, Attack, IArenaAdminDispatcher, IArenaAdminDispatcherTrait,
     IArenaAdminSafeDispatcher, IArenaAdminSafeDispatcherTrait, IArenaDispatcher,
     IArenaDispatcherTrait, IArenaSafeDispatcher, IArenaSafeDispatcherTrait, NpcLevel,
-    STATUS_FINISHED, STATUS_OPEN, STATUS_SURRENDERED, draw_index,
+    STATUS_FINISHED, STATUS_OPEN, STATUS_SKIPPED, STATUS_SURRENDERED, draw_index,
 };
 use paved::systems::matchmaker::{
     IMatchmakerAdminDispatcher, IMatchmakerAdminDispatcherTrait, IMatchmakerDispatcher,
@@ -69,8 +72,8 @@ use starknet::ContractAddress;
 
 // Ceilings of the L2 gas of each new call (the test profile, `test_arena_gas_*`): the figure
 // measured on the VPS (snforge 0.64.0) + 5 %, rounded up.
-pub const CEILING_START: u128 = 18811014;
-pub const CEILING_PLAY: u128 = 4194648;
+pub const CEILING_START: u128 = 19632710;
+pub const CEILING_PLAY: u128 = 4677543;
 pub const CEILING_FINISH_38: u128 = 347054382;
 pub const CEILING_SURRENDER: u128 = 4012881;
 
@@ -447,22 +450,56 @@ fn test_arena_start_without_a_draw_fails() {
     }
 }
 
+/// An opponent that cannot be attacked is skipped, not a trap: the start does not revert, the
+/// match is cancelled (the next `search` is free, no "Next" to pay), nothing moves, no shield.
+fn assert_skipped(world: World, defender: ContractAddress, crowns: u32) {
+    let mut spy = spy_events();
+    assert_eq!(start(world, 'A0'), 1);
+    let attack = world.arena.attack(ALICE());
+    assert_eq!((attack.id, attack.status, attack.defender), (1, STATUS_SKIPPED, defender));
+    assert(world.matchmaker.current_match(ALICE()).opponent.is_zero(), 'match not cancelled');
+    assert_eq!(world.crowns.crowns(ALICE()), crowns);
+    assert_eq!(world.crowns.held(ALICE()), 0);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.arena.contract_address,
+                    ArenaEvent::AttackSkipped(AttackSkipped { attacker: ALICE(), defender, id: 1 }),
+                ),
+            ],
+        );
+    // The next search is free, and the next start has the next number
+    assert(search(world, ALICE(), 'S2') == defender, 'not drawn again');
+    assert_eq!(start(world, 'A1'), 2);
+    assert_eq!(world.arena.attack(ALICE()).status, STATUS_SKIPPED);
+}
+
 #[test]
-#[feature("safe_dispatcher")]
-fn test_arena_start_on_an_empty_village_fails() {
+fn test_arena_start_on_an_empty_village_skips_it() {
     let world = world();
     join(world, ALICE(), 0);
     join(world, BOB(), 0);
     start_cheat_block_timestamp_global(START + INITIAL_SHIELD);
     world.matchmaker.release_shields(2);
+    set_crowns(world, ALICE(), 1000);
+    set_crowns(world, BOB(), 1000);
     found(world, BOB());
     search(world, ALICE(), 'S1');
-    tx('A0');
-    start_cheat_caller_address(world.arena.contract_address, ALICE());
-    match safe(world).start() {
-        Result::Ok(_) => panic!("started on an empty village"),
-        Result::Err(data) => assert_eq!(*data.at(0), 'Arena: empty village'),
-    }
+    assert_skipped(world, BOB(), 1000);
+    let shields = IShieldableDispatcher { contract_address: world.matchmaker.contract_address };
+    assert!(!shields.shield(BOB()).up);
+}
+
+#[test]
+fn test_arena_start_on_a_village_never_founded_skips_it() {
+    let world = world();
+    join(world, ALICE(), 0);
+    join(world, BOB(), 0);
+    start_cheat_block_timestamp_global(START + INITIAL_SHIELD);
+    world.matchmaker.release_shields(2);
+    search(world, ALICE(), 'S1');
+    assert_skipped(world, BOB(), 0);
 }
 
 // The moves
@@ -817,16 +854,10 @@ fn test_arena_npc_attack_on_its_story_level() {
 }
 
 #[test]
-#[feature("safe_dispatcher")]
-fn test_arena_npc_without_a_level_fails() {
+fn test_arena_npc_without_a_level_is_skipped() {
     let world = npc_duel(1);
     search(world, ALICE(), 'S1');
-    tx('A0');
-    start_cheat_caller_address(world.arena.contract_address, ALICE());
-    match safe(world).start() {
-        Result::Ok(_) => panic!("started on an unmapped NPC"),
-        Result::Err(data) => assert_eq!(*data.at(0), 'Arena: no npc level'),
-    }
+    assert_skipped(world, NPC_1(), 0);
 }
 
 #[test]

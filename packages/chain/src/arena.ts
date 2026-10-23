@@ -15,8 +15,11 @@ export const ATTACK_DRAW_KIND = "ATTACK";
 /** The draws of one attack in a salt's index (`DRAWS_PER_ATTACK`): draw `n` of attack `id` is `id * 128 + n`. */
 export const DRAWS_PER_ATTACK = 128;
 
-/** `Arena.attack(attacker).status`: none, open (a tile in hand), finished by its last move, surrendered. */
-export const ATTACK_STATUS = { none: 0, open: 1, finished: 2, surrendered: 3 } as const;
+/**
+ * `Arena.attack(attacker).status`: none, open (a tile in hand), finished by its last move, surrendered, or skipped (the
+ * drawn opponent could not be attacked: its match was cancelled, the next `search` is free).
+ */
+export const ATTACK_STATUS = { none: 0, open: 1, finished: 2, surrendered: 3, skipped: 4 } as const;
 
 /** `Arena.attack(attacker)`: the attacker's last attack (id 0: none). */
 export interface Attack {

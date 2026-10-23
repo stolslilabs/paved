@@ -207,19 +207,18 @@ no overflow at `u32` counts (the products are computed in `u64`).
   `CrownsHeld`; `WiringSet` for the owner's wiring.
 - **The views** are the pieces': `deck(attacker, id)` (the hand is `deck.hand`), `moves(attacker, id)`, and `Arena`'s
   `attack(attacker)` and `npc_level(npc_id)`; `Matchmaker`'s `held(village)`; `Village`'s `parcel_of(player_id, x, y)`.
-- **The season roll waits while a hold is up**: `Matchmaker.roll_village` skips a village whose crowns are held, so a
-  `close_season` or a draw against it during its attack does not roll it on a count short of its hold; `settle` gives
-  the hold back first and then rolls it on its whole count.
+- **The season roll counts the hold** (since review 1, 10.8): `Matchmaker.roll_village` gives a held village's hold back,
+  rolls its whole count, then holds again; `settle` gives the hold back first and then rolls.
 - **`start_attack` and `settle` keep their signatures**: `Arena` reads the defender and the offer from `start_attack`.
 
 ### 10.3 Gas (L2 gas of the call alone, test profile, snforge 0.64.0, VPS, 2026-10-23; ceilings at measured + 5 %)
 
 | Test | Call | L2 gas |
 |---|---|---:|
-| `test_arena_gas_start_and_play` | `start` on a village of 38 stops: `start_attack`, the snapshot (38 tiles read, 2 deck pages written), the first draw | 17,915,251 |
-| `test_arena_gas_start_and_play` | a middle `play`: the territory's read, the fit on the board, the move recorded, the next draw | 3,994,902 |
+| `test_arena_gas_start_and_play` | `start` on a village of 38 stops: `start_attack`, the snapshot (38 tiles read, 2 deck pages written), the first draw; since review 1 the opponent's check first (`current_match`, the village's tiles) | 18,697,819 |
+| `test_arena_gas_start_and_play` | a middle `play`: the territory's read, the fit on the board, the move recorded, the next draw | 4,454,802 (3,994,902 before review 1, the same code in a recompiled class) |
 | `test_arena_gas_finish_38` | the last `play` of 38: its check, the replay of 38 moves, the stars, `settle` (the crowns, `report_pvp`, the reward's grant) | 330,527,982 |
-| `test_arena_gas_surrender` | `surrender`: `settle` at 0 stars | 3,821,791 |
+| `test_arena_gas_surrender` | `surrender`: `settle` at 0 stars | 3,821,891 |
 | z19 (`contracts/tests/gas.cairo`) | `Matchmaker.start_attack`, worst case, now with the hold | 4,628,847 (was 4,421,401 in #639, +4.7 %) |
 | z20 | `Matchmaker.settle`, worst case, the hold given back first | 4,996,496 (ceiling 4,883,423 before, reset) |
 | z32 | `Matchmaker.settle` across a season's end | 6,140,608 (ceiling 5,959,147 before, reset) |
@@ -232,9 +231,9 @@ the transaction's limit; the owner's cap is 38 cells today.
 
 ### 10.4 Size
 
-`scripts/class-sizes.sh` (`class-headroom.md`, "After PVP-ATTACKS"): `Arena` 64,173 CASM felts, 78.3 % of the Starknet cap
-and 9,555 under P-44's; `Matchmaker` 33,244 to 34,714 (+1,470); `Village` 57,691 to 58,019 (+328, `parcel_of`). Every
-other class is unchanged.
+`scripts/class-sizes.sh` (`class-headroom.md`, "After PVP-ATTACKS", after review 1): `Arena` 65,383 CASM felts, 79.8 % of
+the Starknet cap and 8,345 under P-44's; `Matchmaker` 33,244 to 35,392 (+2,148); `Village` 57,691 to 58,019 (+328,
+`parcel_of`). Every other class is unchanged.
 
 ### 10.5 Tests
 
@@ -295,3 +294,19 @@ As #639 and #642 did (allowed by #637's constraints), the deployment and the ind
   deployment file, and neither `Matchmaker` nor `Arena` is in one yet.
 - `@paved/chain` is in this PR: `packages/chain/src/arena.ts` (the writes `start`, `play` and `surrender`, each draw
   behind `withVrfRequest`; the views' decoders; `starsOf`).
+
+### 10.8 Review 1
+
+- **An opponent that cannot be attacked is skipped, not a trap** (critical). `start` reverted on an empty village (or a
+  village never founded, or an NPC with no level), which left the match drawn: `search` refused it and only "Next"
+  (1 Cobble) could draw again. Now `start` first checks the drawn opponent (`is_playable`); if it cannot be attacked,
+  `Arena` calls the new operator call `Matchmaker.cancel_match(attacker)` (the match dropped, `MatchCancelled`), records
+  the attack as `STATUS_SKIPPED` (`AttackSkipped`), consumes the VRF draw the client requested (Cartridge's appended
+  `assert_consumed` needs it), and returns without a shield or a hold. The next `search` is free.
+- **The season roll counts the hold** (major). The roll used to be skipped while a hold was up, so a held village
+  kept its pre-reset count for the draws, the terms and incoming settlements. Now `roll_village` gives the hold back,
+  rolls the whole count, takes the hold again from the rolled count and moves the bucket to the count less the hold;
+  the `league` view computes the same. `settle` still gives the hold back before its rolls.
+- Tests: `test_arena_start_on_an_empty_village_skips_it`, `test_arena_start_on_a_village_never_founded_skips_it`,
+  `test_arena_npc_without_a_level_is_skipped`, `test_season_roll_counts_the_hold`, `test_cancel_match_frees_the_search`,
+  `test_cancel_match_by_a_stranger_or_once_started_fails`: 313 tests of the touched modules pass (peak RSS 5.99 GB).

@@ -1066,6 +1066,28 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::arena::Arena::AttackSkipped",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "attacker",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "defender",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::arena::Arena::Event",
     "kind": "enum",
     "variants": [
@@ -1117,6 +1139,11 @@
       {
         "name": "AttackFinished",
         "type": "paved::systems::arena::Arena::AttackFinished",
+        "kind": "nested"
+      },
+      {
+        "name": "AttackSkipped",
+        "type": "paved::systems::arena::Arena::AttackSkipped",
         "kind": "nested"
       }
     ]

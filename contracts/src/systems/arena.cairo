@@ -53,6 +53,9 @@ pub const STATUS_OPEN: u8 = 1;
 pub const STATUS_FINISHED: u8 = 2;
 /// Ended at 0 stars by the attacker (`surrender`) or, past `ATTACK_TIMEOUT`, by anyone (`expire`).
 pub const STATUS_SURRENDERED: u8 = 3;
+/// Not played: the drawn opponent could not be attacked (an empty village, an NPC with no level);
+/// its match was cancelled, nothing moved.
+pub const STATUS_SKIPPED: u8 = 4;
 
 /// The draw index of draw `n` of attack `id` in its VRF salt.
 pub fn draw_index(id: u32, n: u8) -> u32 {
@@ -89,9 +92,11 @@ pub struct NpcLevel {
 pub trait IArena<TContractState> {
     /// Starts the caller's attack on the opponent it drew in `Matchmaker` (`search`, `next`): no
     /// attack open (`'Arena: attack open'`); `Matchmaker.start_attack` shields the defender and
-    /// holds the 0-star cost. A player's village with a placed tile (`'Arena: empty village'`), or
-    /// an NPC with a Story level (`'Arena: no npc level'`), is snapshotted; the first tile is
-    /// drawn. Emits `AttackOpened`; returns the attack's number.
+    /// holds the 0-star cost. A player's village with a placed tile, or an NPC with a Story level,
+    /// is snapshotted; the first tile is drawn. Emits `AttackOpened`. An opponent that cannot be
+    /// attacked is skipped instead: its match cancelled (the next `search` is free), nothing
+    /// moved, the VRF draw consumed, `AttackSkipped` (status `STATUS_SKIPPED`). Returns the
+    /// attack's number.
     fn start(ref self: TContractState) -> u32;
     /// Plays the tile in hand of the caller's open attack (`'Arena: no attack'`): discarded, or
     /// built turned to `orientation` (1 to 4) at `(x, y)`: in the snapshot's territory
@@ -157,7 +162,7 @@ pub mod Arena {
     use starknet::{ClassHash, ContractAddress, get_block_timestamp, get_caller_address};
     use super::{
         ATTACK_KIND, ATTACK_TIMEOUT, Attack, IArena, IArenaAdmin, NPC_ATTACKS, NpcLevel, PLACED_ID,
-        START_CELLS, STATUS_FINISHED, STATUS_OPEN, STATUS_SURRENDERED, draw_index,
+        START_CELLS, STATUS_FINISHED, STATUS_OPEN, STATUS_SKIPPED, STATUS_SURRENDERED, draw_index,
     };
 
     pub mod errors {
@@ -260,6 +265,7 @@ pub mod Arena {
         NpcLevelSet: NpcLevelSet,
         AttackOpened: AttackOpened,
         AttackFinished: AttackFinished,
+        AttackSkipped: AttackSkipped,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -310,6 +316,17 @@ pub mod Arena {
         pub lost: u32,
     }
 
+    /// A start on a drawn opponent that cannot be attacked (an empty village, an NPC with no
+    /// level): its match cancelled in `Matchmaker`, so the next `search` is free.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct AttackSkipped {
+        #[key]
+        pub attacker: ContractAddress,
+        #[key]
+        pub defender: ContractAddress,
+        pub id: u32,
+    }
+
     #[constructor]
     fn constructor(
         ref self: ContractState,
@@ -331,12 +348,37 @@ pub mod Arena {
             // [Check] One attack at a time
             let last = self.attack_of(attacker);
             assert(last.status != STATUS_OPEN, errors::ATTACK_OPEN);
+            let matchmaker = IMatchmakerDispatcher { contract_address: self.matchmaker.read() };
+            let id = last.id + 1;
+            // [Check] The drawn opponent can be attacked: a village with a placed tile, or an NPC
+            // with a Story level. Otherwise the match is cancelled (the next `search` is free), the
+            // attack is recorded as skipped, and the VRF draw the client requested is consumed (its
+            // transaction must consume it); no shield, no hold
+            let drawn = matchmaker.current_match(attacker).opponent;
+            if drawn.is_non_zero() && !self.is_playable(drawn) {
+                matchmaker.cancel_match(attacker);
+                let skipped = Attack {
+                    id,
+                    status: STATUS_SKIPPED,
+                    defender: drawn,
+                    npc: is_npc_address(drawn),
+                    parcels: 0,
+                    target: 0,
+                    board: 0,
+                    placed: 0,
+                    started_at: get_block_timestamp(),
+                    score: 0,
+                    stars: 0,
+                };
+                self.write_attack(attacker, skipped);
+                self.emit(AttackSkipped { attacker, defender: drawn, id });
+                self.drawable.draw_random(ATTACK_KIND, attacker.into(), draw_index(id, 0));
+                return id;
+            }
             // [Interaction] The match started in `Matchmaker`: its checks, the defender's shield,
             // the attacker's hold
-            let matchmaker = IMatchmakerDispatcher { contract_address: self.matchmaker.read() };
             let (defender, offer) = matchmaker.start_attack(attacker);
             // [Effect] The snapshot of the defender, on a new board
-            let id = last.id + 1;
             let mut store: Store = StoreImpl::new();
             let board = store.uuid();
             let npc = is_npc_address(defender);
@@ -600,6 +642,25 @@ pub mod Arena {
                 index += 1;
             }
             (level.plans, 0, level.target, index.try_into().unwrap())
+        }
+
+        /// Whether `defender` can be attacked: a player's village with a placed tile, or an NPC
+        /// with a Story level that exists (open point 5).
+        fn is_playable(self: @ContractState, defender: ContractAddress) -> bool {
+            if is_npc_address(defender) {
+                if !NPC_ATTACKS {
+                    return false;
+                }
+                let npc_id: felt252 = defender.into();
+                let npc = self.npc_level(npc_id.try_into().unwrap());
+                if npc.campaign == 0 {
+                    return false;
+                }
+                let story = IStoryDispatcher { contract_address: self.story.read() };
+                return story.level(npc.campaign, npc.level).target != 0;
+            }
+            let village = IVillageDispatcher { contract_address: self.village.read() };
+            village.village(defender.into()).tiles != 0
         }
 
         /// A cell of the snapshot's territory: one of the 9 of the start, or a parcel bought before

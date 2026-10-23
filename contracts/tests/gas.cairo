@@ -206,7 +206,9 @@ pub const CEILING_MM_CURRENT_SEASON: u128 = 633875;
 pub const CEILING_MM_SEASON_CLOCK: u128 = 136574;
 pub const CEILING_MM_SEASON_START: u128 = 483021;
 pub const CEILING_MM_LEAGUE_RECORD: u128 = 172165;
-pub const CEILING_MM_LEAGUE: u128 = 1138816;
+// PVP-ATTACKS (#643, review 1): z38 measured again (1,145,056): the view reads the attacker's hold,
+// which the roll counts.
+pub const CEILING_MM_LEAGUE: u128 = 1202309;
 pub const CEILING_CREDIT_LEAGUE: u128 = 546177;
 pub const CEILING_REPORT_PVP: u128 = 1121073;
 pub const CEILING_PVP_PROGRESS: u128 = 207493;

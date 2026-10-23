@@ -182,6 +182,18 @@
       },
       {
         "type": "function",
+        "name": "cancel_match",
+        "inputs": [
+          {
+            "name": "attacker",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
         "name": "set_crowns",
         "inputs": [
           {
@@ -1459,6 +1471,23 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::matchmaker::Matchmaker::MatchCancelled",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "attacker",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "opponent",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::matchmaker::Matchmaker::Event",
     "kind": "enum",
     "variants": [
@@ -1535,6 +1564,11 @@
       {
         "name": "AttackStarted",
         "type": "paved::systems::matchmaker::Matchmaker::AttackStarted",
+        "kind": "nested"
+      },
+      {
+        "name": "MatchCancelled",
+        "type": "paved::systems::matchmaker::Matchmaker::MatchCancelled",
         "kind": "nested"
       }
     ]

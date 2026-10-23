@@ -810,20 +810,20 @@ Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim,
 ## After PVP-ATTACKS (#643, the PvP attacks)
 
 Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim, release, VPS, 2026-10-23, under
-`prlimit --as=12884901888`, peak RSS 5,078,480 kB), main `ef5ed286` and this branch.
+`prlimit --as=12884901888`, peak RSS 5,078,480 kB), main `ef5ed286` and this branch (measured again after review 1).
 
 | Class | Sierra main | CASM main | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
 |---|---:|---:|---:|---:|---:|---:|
-| `Arena` | | | 27,837 | 64,173 | new | 78.3 % |
-| `Matchmaker` | 14,084 | 33,244 | 14,570 | 34,714 | +1,470 | 42.4 % |
+| `Arena` | | | 28,368 | 65,383 | new | 79.8 % |
+| `Matchmaker` | 14,084 | 33,244 | 14,847 | 35,392 | +2,148 | 43.2 % |
 | `Village` | | 57,691 | 25,160 | 58,019 | +328 | 70.8 % |
 
 - `Arena` is a class of its own (`docs/architecture/pvp-attacks.md`): it embeds the engine for the move's fit check and the
   finish's replay, as `Story` does (58,837, unchanged), and the pieces `DrawableComponent`, `DeckableComponent` and
-  `RecordableComponent`: 9,555 CASM felts under the P-44 cap (73,728). The engine is most of it; the next feature of the
+  `RecordableComponent`: 8,345 CASM felts under the P-44 cap (73,728). The engine is most of it; the next feature of the
   attacks that needs room takes it from a piece moved out (the NPC levels' read of `Story`, the views) before the engine.
 - `Matchmaker` gains the hold of an attack's 0-star cost in `CrownableComponent` (`hold`, `release`, `held`, two events)
-  and its two calls in `start_attack` and `settle`: 39,014 under the P-44 cap.
+  its calls in `start_attack`, `settle` and the season roll, and `cancel_match` (review 1): 38,336 under the P-44 cap.
 - `Village` gains the view `parcel_of`, the attack's snapshot of a territory: 15,709 under the P-44 cap.
 - Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Setup` 49,984, `Rewards` 10,771,
   `Avatar` 10,201).

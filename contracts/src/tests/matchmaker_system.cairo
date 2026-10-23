@@ -8,6 +8,7 @@
 //! under its own cheated hash (`tx`).
 
 use core::hash::HashStateTrait;
+use core::num::traits::Zero;
 use core::poseidon::{PoseidonTrait, poseidon_hash_span};
 use paved::components::bucketable::BucketableComponent::{
     BucketEntered, BucketLeft, Event as BucketEvent,
@@ -1112,6 +1113,68 @@ fn seasoned(alice: u32, bob: u32) -> World {
     assert_eq!(world.matchmaker.release_shields(2), 2);
     assert_eq!(world.seasons.current_season(), 1);
     world
+}
+
+/// An open attack's hold (#643) does not skip the season roll: the village rolls on its whole
+/// count (the hold given back, the reset, the hold taken again), so its crowns, its terms and its
+/// league follow the reset like any village's, and the settlement gives the hold back after it.
+#[test]
+fn test_season_roll_counts_the_hold() {
+    let world = seasoned(6020, 6000);
+    search(world, ALICE(), 'TX1');
+    start(world, ALICE());
+    let held = world.crowns.held(ALICE());
+    assert(held != 0, 'nothing held');
+    assert_eq!(world.crowns.crowns(ALICE()), 6020 - held);
+    // Season 2: the view and the roll both count the hold
+    start_cheat_block_timestamp_global(SEASON_2);
+    assert_eq!(world.matchmaker.league(ALICE()).crowns, RESET_CROWNS - held);
+    world.matchmaker.close_season(ALICE());
+    assert_eq!(world.crowns.crowns(ALICE()), RESET_CROWNS - held);
+    assert_eq!(world.crowns.held(ALICE()), held);
+    assert_eq!(world.leagues.league_record(ALICE()).season, 2);
+    // Its bucket follows the rolled count less the hold
+    assert_eq!(world.buckets.place(ALICE()).bucket, bucket_of(RESET_CROWNS - held));
+    // The settlement at 0 stars: the hold back, then the cost to Bob (rolled to 5,000 too)
+    as_operator(world);
+    let outcome = world.matchmaker.settle(ALICE(), 0);
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    assert_eq!(world.crowns.held(ALICE()), 0);
+    assert_eq!(outcome.attacker, RESET_CROWNS - outcome.lost);
+    assert_eq!(outcome.defender, RESET_CROWNS + outcome.lost);
+}
+
+#[test]
+fn test_cancel_match_frees_the_search() {
+    let world = two_players();
+    search(world, ALICE(), 'TX1');
+    as_operator(world);
+    world.matchmaker.cancel_match(ALICE());
+    stop_cheat_caller_address(world.matchmaker.contract_address);
+    assert(world.matchmaker.current_match(ALICE()).opponent.is_zero(), 'not cancelled');
+    assert(search(world, ALICE(), 'TX2') == BOB(), 'search not free');
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_cancel_match_by_a_stranger_or_once_started_fails() {
+    let world = two_players();
+    search(world, ALICE(), 'TX1');
+    as_player(world, ALICE());
+    match safe(world).cancel_match(ALICE()) {
+        Result::Ok(_) => panic!("a stranger cancelled"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Matchmaker: not operator'),
+    }
+    start(world, ALICE());
+    as_operator(world);
+    match safe(world).cancel_match(ALICE()) {
+        Result::Ok(_) => panic!("cancelled a started attack"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Matchmaker: attack started'),
+    }
+    match safe(world).cancel_match(BOB()) {
+        Result::Ok(_) => panic!("cancelled nothing"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Matchmaker: nothing drawn'),
+    }
 }
 
 #[test]
