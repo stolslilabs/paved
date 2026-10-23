@@ -12,7 +12,7 @@ function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof
   return (
     <PurchaseScene
       {...args}
-      {...purchaseAt(current)}
+      {...purchaseAt(current, args.referrer !== null)}
       onStakeChange={(s) => {
         setCurrent(s);
         onStakeChange?.(s);
@@ -41,6 +41,17 @@ export const PurchasesPaused: Story = { args: PURCHASE.paused };
 export const Buying: Story = { args: PURCHASE.buying };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: PURCHASE.stress };
+
+// #705: the reward by score in the Terms card. These states keep their own terms: the slider does not recompute them.
+const still = (args: React.ComponentProps<typeof PurchaseScene>) => <PurchaseScene {...args} />;
+/** A cap of 2: the cap is paid from 1,883 points, inside the multiples shown. */
+export const RewardCapReached: Story = { args: PURCHASE.capReached, render: still };
+/** The pool pays more than the guard allows: the reward counts 110 % of the guard's rate. */
+export const RewardGuarded: Story = { args: PURCHASE.guarded, render: still };
+/** The pool's quote or the guard's rate is being read. */
+export const RewardLoading: Story = { args: PURCHASE.rewardLoading, render: still };
+/** A read the estimate needs failed: why, and Retry. */
+export const RewardError: Story = { args: { ...PURCHASE.rewardError, reward: { ...PURCHASE.rewardError.reward, onRetry: fn() } }, render: still };
 
 // P7b: the states of the purchase on the chain's data.
 /** A guest: Pay is "Connect to buy", whatever the balance. */

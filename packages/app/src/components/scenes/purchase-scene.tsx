@@ -9,6 +9,7 @@ import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { BalanceNotice, ConnectButton, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "../containers/purchase-notices";
 import { PriceBreakdown } from "../containers/price-breakdown";
+import { RewardEstimateTable, type RewardEstimateProps } from "../containers/reward-estimate";
 import { StakePicker } from "../containers/stake-picker";
 import { TopBar } from "../containers/top-bar";
 
@@ -17,6 +18,11 @@ export interface PurchaseSceneProps {
   maxStake: number;
   /** `Economy.quote(stake)`: the price, and the threshold the game must beat (points x 1,000). */
   quote: QuoteView;
+  /**
+   * The estimated reward by score at this stake (#705): built on the quote, the pool's quote of the swap and the guard's rate.
+   * Omitted: the Terms card shows the threshold alone.
+   */
+  reward?: RewardEstimateProps;
   /** The burn's boost at this stake, bps. */
   boostBps: number;
   /** `Economy.split_bps()` (V1b). */
@@ -126,6 +132,7 @@ function GameForm(props: PurchaseSceneProps) {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Below the threshold the stake is lost; above it, PAVED is minted when the day closes.</p>
+          {props.reward && <RewardEstimateTable {...props.reward} />}
           <div className="flex items-center gap-3 border-t border-border pt-3">
             <Icon name="clock" className="text-muted-foreground" size="md" />
             <div className="flex flex-col">

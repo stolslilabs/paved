@@ -21,7 +21,7 @@ import { useAppNavigate, useBack } from "../ref";
 
 /**
  * `/play/challenge` (P7b): the Challenge purchase, on the chain's data (section 6.4). It reads `entry_price` through
- * `Economy.quote(stake)`, the split, the pool's `quote_swap` for `min_out`, the USDC balance and `spawn_paused`; Pay sends the
+ * `Economy.quote(stake)`, the split, the pool's `quote_swap` for `min_out` (and, with `Economy.rate()`, the reward by score, #705), the USDC balance and `spawn_paused`; Pay sends the
  * approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall (`EconomyWriter.purchase`, which reads them all
  * again, with the router, the seller and the rate), which the wallet prompts for once (no approve is a session policy, P-65),
  * and opens the new game on its board. A declined prompt is a refusal: nothing was sent, no hold. The Cobble packs are on
@@ -101,6 +101,12 @@ export default function Page() {
       stake={stake}
       maxStake={MAX_STAKE}
       quote={quote.data}
+      reward={{
+        estimate: stakeQuote.reward.estimate,
+        error: stakeQuote.reward.error?.message ?? null,
+        errorDetail: stakeQuote.reward.error ? errorDetail(stakeQuote.reward.error) : undefined,
+        onRetry: () => void client.invalidateQueries({ queryKey: ["chain", "economy"] }),
+      }}
       boostBps={Number(boostBps(stake))}
       split={split.data}
       referrer={gameReferrer.referrer}

@@ -20,7 +20,7 @@ import { CategoryType } from "@paved/game-core";
 import { APP_ASSETS, FOREST_VARIANTS, SOURCE_ASSETS, appRenders, originalTileArt } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
-import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote } from "./economy";
+import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, rewardAt } from "./economy";
 import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, GAME_MISSIONS } from "./quests";
@@ -216,19 +216,30 @@ export const OVER = {
 
 const purchaseBase = { maxStake: MAX_STAKE, split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH, spawnPaused: false, now: MOCK_NOW, timeZone: MOCK_TIME_ZONE };
 /** The stake, its quote and its boost: a story that moves the slider calls it again. */
-export const purchaseAt = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake) });
+export const purchaseAt = (stake: number, referred = false) => ({ stake, quote: quote(stake), boostBps: boostBps(stake), reward: { estimate: rewardAt(stake, { referred }) } });
+/** A cap of 2 (`Quote.cap`): the cap is paid from 1.64x the threshold, inside the multiples the card shows. */
+const CAP_TWO = { cap: 2 };
 const at = purchaseAt;
 const cobbleShop = { balance: ACCOUNT.gems, packs: PACKS, selected: null };
 
 export const PURCHASE = {
   stake1: { ...purchaseBase, ...at(1) },
-  stake3Referred: { ...purchaseBase, ...at(3), referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef" },
+  stake3Referred: { ...purchaseBase, ...at(3, true), referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef" },
   stake10: { ...purchaseBase, ...at(10) },
   short: { ...purchaseBase, ...at(5), balance: BALANCE_LOW },
   paused: { ...purchaseBase, ...at(1), spawnPaused: true },
   buying: { ...purchaseBase, ...at(3), buying: true },
   /** WRAP360: a full referrer address (cut in the middle) and the largest balance. */
   stress: { ...purchaseBase, ...at(10), referrer: LONG_ADDRESS, balance: BIG_AMOUNT_6 },
+  // The reward by score (#705)
+  /** A cap of 2: the cap is reached within the multiples shown, so the 2x row gives way to it. */
+  capReached: { ...purchaseBase, ...at(1), quote: { ...quote(1), ...CAP_TWO }, reward: { estimate: rewardAt(1, { terms: CAP_TWO }) } },
+  /** The pool pays more than 110 % of the guard's rate: the reward counts the guard's figure, and the card says so. */
+  guarded: { ...purchaseBase, ...at(3), reward: { estimate: rewardAt(3, { paved: 100n }) } },
+  /** The pool's quote or the guard's rate is being read: the rows keep their place. */
+  rewardLoading: { ...purchaseBase, ...at(1), reward: { estimate: null } },
+  /** The pool's quote or the guard's rate could not be read: why, with Retry. */
+  rewardError: { ...purchaseBase, ...at(1), reward: { estimate: null, error: "Economy.rate: the node did not answer." } },
 } satisfies Record<string, Data<PurchaseSceneProps>>;
 
 // Cobble packs (#621: their own page)

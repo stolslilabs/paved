@@ -266,6 +266,40 @@ describe("/play/challenge: the game's stake", () => {
     expect(s.pool.calls).toContain(6n * USDC_UNIT);
   });
 
+  it("estimates the reward by score of the stake picked from the pool's quote and the guard's rate (#705)", async () => {
+    const s = setup();
+    open("/play/challenge", s);
+    await enabledPay();
+    // Stake 1, 2 USDC swapped whole: the pool quotes 152 PAVED, the burn's 70 % of it 106.4 (under its guard, 123.2);
+    // R = 106.4 x 1.01 = 107.464; at the threshold (3,980) c x R = 131.32, the cap 5 x R = 537.32 from 16,285 points.
+    const table = await screen.findByRole("table", { name: "Estimated reward by score" }, { timeout: slow(3000) });
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent(/^3,980 to win≈\s*131\.32\s*PAVED$/);
+    expect(rows.map((r) => within(r).getByRole("rowheader").textContent)).toEqual(["3,980 to win", "4,975", "5,970", "7,960", "16,285+ cap"]);
+    expect(rows.at(-1)).toHaveTextContent(/537\.32\s*PAVED/);
+    expect(s.economy.calls).toContain("rate");
+    // A higher stake moves the figures: stake 2, R = 212.8 x 1.02 = 217.056, c x R = 265.24
+    screen.getByRole("slider", { name: "Stake" }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await waitFor(() => expect(within(screen.getByRole("table", { name: "Estimated reward by score" })).getAllByRole("row")[1]).toHaveTextContent(/265\.24/), { timeout: slow(3000) });
+  });
+
+  it("a guard's rate that cannot be read says why, with Retry, and Pay stays offered", async () => {
+    const s = setup();
+    const guardRate = s.economy.guardRate.bind(s.economy);
+    let fail = true;
+    s.economy.guardRate = async () => {
+      if (fail) throw new Error("Economy.rate: the node did not answer.");
+      return guardRate();
+    };
+    open("/play/challenge", s);
+    await enabledPay();
+    expect(await screen.findByText("The reward cannot be estimated", undefined, { timeout: slow(3000) })).toBeInTheDocument();
+    fail = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("table", { name: "Estimated reward by score" }, { timeout: slow(3000) })).toBeInTheDocument();
+  });
+
   it("the 24 h expiry is read against the chain's time, not the browser's (UTC-BOUND)", async () => {
     const s = setup();
     // The browser's clock is days away from the indexer's head, and stands still: the chain's time is the head plus the

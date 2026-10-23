@@ -13,6 +13,7 @@ export {
   useGame,
   usePavedBalance,
   usePlayerGames,
+  useGuardRate,
   usePoolQuote,
   useQuote,
   useSpawnPaused,

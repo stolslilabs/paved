@@ -463,7 +463,7 @@ describe("Purchase", () => {
     const expiry = document.querySelector("time")!;
     expect(expiry).toHaveTextContent("in 24 h · Thu, Oct 15, 15:00 UTC");
     expect(expiry).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
-    expect(screen.getByText(pts(1150))).toBeInTheDocument();
+    expect(screen.getByText("Score to beat").nextElementSibling).toHaveTextContent(pts(1150));
     expect(screen.getByRole("button", { name: /Pay.*6\.00.*USDC.*and play/ })).toBeEnabled();
     // Keyboard: the value is the scene's (a prop), so each key moves one step from 3.
     slider.focus();
@@ -493,6 +493,34 @@ describe("Purchase", () => {
     render(wrap(<PurchaseScene {...PURCHASE.paused} />));
     expect(screen.getByText("Purchases paused")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pay/ })).toBeDisabled();
+  });
+
+  it("shows the estimated reward by score under the score to beat (#705)", () => {
+    const { unmount } = render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    // Threshold 1,150, c = 1.222, H = 5: the winning score, 1.25x, 1.5x, 2x, then the cap from 4,706 points.
+    const heads = within(table).getAllByRole("rowheader").map((h) => h.textContent);
+    expect(heads).toEqual(["1,150 to win", "1,438", "1,725", "2,300", "4,706+ cap"]);
+    expect(within(table).getAllByText("≈", { exact: false })).toHaveLength(5);
+    expect(screen.getByText(/settled against its day's mean, not\s+today's threshold/)).toBeInTheDocument();
+    unmount();
+    // A cap of 2 is paid from 1,883 points: the 2x row gives way to it.
+    render(wrap(<PurchaseScene {...PURCHASE.capReached} />));
+    expect(within(screen.getByRole("table", { name: "Estimated reward by score" })).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["1,150 to win", "1,438", "1,725", "1,883+ cap"]);
+  });
+
+  it("keeps the estimate's place while its quotes are read, and says why one failed", () => {
+    const { unmount } = render(wrap(<PurchaseScene {...PURCHASE.rewardLoading} />));
+    expect(screen.getByRole("table", { name: "Estimated reward by score" }).parentElement).toHaveAttribute("aria-busy", "true");
+    unmount();
+    render(wrap(<PurchaseScene {...PURCHASE.rewardError} />));
+    expect(screen.getByText("The reward cannot be estimated")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Estimated reward by score" })).not.toBeInTheDocument();
+  });
+
+  it("says when the price guard bounds the reward", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.guarded} />));
+    expect(screen.getByText(/counts at most 110 % of it/)).toBeInTheDocument();
   });
 
   it("is busy while the purchase is on its way", () => {

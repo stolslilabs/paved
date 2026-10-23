@@ -75,6 +75,22 @@ export {
   computeAdjustedReward,
 } from "./economy";
 
+// The reward of a Challenge game (#705): a mirror of the contracts' `curve`
+export {
+  GUARD_BPS,
+  REWARD_BPS,
+  REWARD_MULTIPLES,
+  REWARD_RATE_SCALE,
+  capScore,
+  estimateReward,
+  guarded,
+  payout,
+  referenceReward,
+  vaultSplit,
+  winningScore,
+} from "./reward";
+export type { RewardEstimate, RewardInputs, RewardRow } from "./reward";
+
 // Off-chain game engine (E1)
 export {
   EngineGame,
