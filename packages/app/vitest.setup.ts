@@ -3,6 +3,7 @@ import { cleanup, configure } from "@testing-library/react";
 import { afterAll, afterEach } from "vitest";
 import { toast } from "sonner";
 import { queryClient } from "./src/lib/query-client";
+import { slow } from "./test-slow";
 
 // Sonner keeps its toasts in a module store and replays the active ones to each `Toaster` that mounts: an error toast (no
 // timeout) left on screen by one test showed again in every later test of the file, its buttons slowing each `findByRole`
@@ -65,4 +66,5 @@ queryClient.setDefaultOptions({ ...queryClient.getDefaultOptions(), queries: { .
 
 // `findBy` and `waitFor` wait 1 s by default: under heavy load a render that takes 0.1 s took more than that, and the
 // lookup failed with the element absent (purchase-route and wallet-claims). They return as soon as the element is there, so a longer ceiling costs a passing test nothing.
-configure({ asyncUtilTimeout: 5000 });
+// `PAVED_TEST_SLOW` scales it (test-slow.ts).
+configure({ asyncUtilTimeout: slow(5000) });

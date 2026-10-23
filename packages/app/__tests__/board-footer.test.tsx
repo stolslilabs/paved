@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
@@ -33,7 +34,7 @@ describe("no footer, no Cartridge notice outside the Credits page (#536)", () =>
   // The Challenge board's own case is in `challenge-route.test.tsx`, on a game the fakes can replay.
   it.each(["/training", "/story/1/1"])("%s: nothing after the board, no notice", async (path) => {
     open(path);
-    const board = (await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: 5000 })).closest(".h-dvh");
+    const board = (await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: slow(5000) })).closest(".h-dvh");
     expect(screen.queryByRole("contentinfo")).toBeNull();
     expect(screen.queryByText(/Cartridge/)).toBeNull();
     expect(screen.queryByRole("link", { name: "Third-party notices" })).toBeNull();
@@ -47,21 +48,21 @@ describe("no footer, no Cartridge notice outside the Credits page (#536)", () =>
 
   it("/game/:id: no footer, no notice", async () => {
     open(`/game/${GAME_PLAYING.id}`);
-    await waitFor(() => expect(screen.queryByText("Reading the game…")).toBeNull(), { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByText("Reading the game…")).toBeNull(), { timeout: slow(5000) });
     expect(screen.queryByRole("link", { name: "Third-party notices" })).toBeNull();
     expect(screen.queryByRole("contentinfo")).toBeNull();
   });
 
   it("/play: no footer after the page", async () => {
     open("/play");
-    await screen.findByRole("heading", { level: 1 }, { timeout: 5000 });
+    await screen.findByRole("heading", { level: 1 }, { timeout: slow(5000) });
     expect(screen.queryByRole("contentinfo")).toBeNull();
     expect(screen.queryByText(/Cartridge/)).toBeNull();
   });
 
   it("/settings/credits: the Cartridge notice and the notices link", async () => {
     open("/settings/credits");
-    expect(await screen.findByRole("heading", { level: 1, name: "Credits" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Credits" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByText(/Uses Cartridge Controller, © Cartridge Gaming Company/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Third-party notices" })).toHaveAttribute("href", "/THIRD_PARTY_NOTICES.txt");
   });

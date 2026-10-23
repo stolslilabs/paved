@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -41,14 +42,14 @@ beforeEach(() => {
 describe("/training: the plan view is the fallback of the 3D board (ASSETS)", () => {
   it("shows the 3D board when WebGL is there, and loads its assets from the app's own origin", async () => {
     open();
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     expect(planView()).toHaveLength(0);
     expect(canvas.props!.basePath).toBe("/renderer-assets");
   });
 
   it("falls back to the plan view when an asset does not load, and the game still plays", async () => {
     open();
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     act(() => canvas.props!.onError!(new Error("GLTFLoader: Couldn't load /renderer-assets/models/ccccccccc.glb (404)")));
     expect(screen.queryByTestId("renderer")).not.toBeInTheDocument();
     expect(planView().length).toBeGreaterThan(0);
@@ -59,7 +60,7 @@ describe("/training: the plan view is the fallback of the 3D board (ASSETS)", ()
   it("shows the plan view at once, and starts no renderer, when the browser has no WebGL", async () => {
     canvas.webgl = false;
     open();
-    expect(await screen.findByRole("heading", { level: 1, name: "Training" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Training" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByTestId("renderer")).not.toBeInTheDocument();
     expect(canvas.props).toBeNull();
     expect(planView().length).toBeGreaterThan(0);

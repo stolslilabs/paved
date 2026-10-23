@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
@@ -88,7 +89,7 @@ describe("Balances (#538), the resource bar (#620)", () => {
     rerender(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 0n }} />));
     expect(screen.getByRole("button", { name: "0.00 vPAVED: Vault" })).toBeInTheDocument();
     expect(container.querySelector("[data-token=vpaved] [data-slot=resource-change]")).toHaveTextContent("−0.50");
-    await waitFor(() => expect(screen.queryByRole("button", { name: /vPAVED/ })).toBeNull(), { timeout: 4000 });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /vPAVED/ })).toBeNull(), { timeout: slow(4000) });
   });
 
   it("vPAVED: from a missing value it is a first load, no animation", () => {

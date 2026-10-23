@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,18 +37,18 @@ const back = () => userEvent.click(screen.getByRole("button", { name: "Back" }))
 
 /** Discards every tile of Tutorial level 1 (its deck presented already): the level's end. */
 async function finishLevelOne() {
-  await screen.findByRole("region", { name: "Your tile" }, { timeout: 5000 });
+  await screen.findByRole("region", { name: "Your tile" }, { timeout: slow(5000) });
   // The stack's Discard is held since #606: `discardTile` activates it as a screen reader does.
   for (let i = 0; i < TUTORIAL.levels[0]!.deck.length; i++) await discardTile();
   return screen.findByTestId("story-end");
 }
 
-describe("back targets (#614): a back button never lands in a game", { timeout: 30_000 }, () => {
+describe("back targets (#614): a back button never lands in a game", { timeout: slow(30_000) }, () => {
   it("Levels after a level, then Back: the Play page, never a new game; Play's Back is Home", async () => {
     const router = open("/play", memoryStore({ [PRESENTED_KEY]: JSON.stringify(["1-1"]) }));
-    await userEvent.click(await screen.findByText("Learn the rules level by level, then earn three stars on fixed decks.", {}, { timeout: 5000 }));
+    await userEvent.click(await screen.findByText("Learn the rules level by level, then earn three stars on fixed decks.", {}, { timeout: slow(5000) }));
     await waitFor(() => expect(at(router)).toBe("/story"));
-    await userEvent.click(await screen.findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: slow(5000) }));
     await waitFor(() => expect(at(router)).toBe("/story/1/1"));
 
     const end = await finishLevelOne();
@@ -65,7 +66,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await waitFor(() => expect(at(router)).toBe("/story"));
     // The screen follows the location later (the router's updates are transitions): wait for each page to be drawn, or the
     // Play page seen below could be the one from before these steps, and the click hit the list's Back, which opens Play.
-    await screen.findByRole("heading", { level: 1, name: "Story" }, { timeout: 5000 });
+    await screen.findByRole("heading", { level: 1, name: "Story" }, { timeout: slow(5000) });
     await router.navigate(-1);
     await waitFor(() => expect(at(router)).toBe("/play"));
     await waitFor(
@@ -73,7 +74,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
         expect(screen.queryByRole("heading", { level: 1, name: "Story" })).toBeNull();
         expect(screen.getByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
       },
-      { timeout: 5000 },
+      { timeout: slow(5000) },
     );
 
     // The page may still swap its Back for a new node right after the pop: a click on the old one reaches no handler (seen
@@ -86,7 +87,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
 
   it("the level list's Back is the Play page whatever route opened it", async () => {
     const router = open("/story?campaign=1");
-    await screen.findByRole("region", { name: "Campaigns" }, { timeout: 5000 });
+    await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
     await back();
     await waitFor(() => expect(at(router)).toBe("/play"));
   });
@@ -98,14 +99,14 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await userEvent.click(within(end).getByRole("button", { name: "Next level" }));
     await waitFor(() => expect(at(router)).toBe("/story/1/2"));
     // Level 2's deck presentation (the Story intro): its Back goes up.
-    await screen.findByTestId("deck-presentation", {}, { timeout: 5000 });
+    await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });
     await back();
     await waitFor(() => expect(at(router)).toBe("/story?campaign=1"));
   });
 
   it("a locked level's Back is the level list", async () => {
     const router = open("/story/2/1");
-    await screen.findByText("This level is locked", {}, { timeout: 5000 });
+    await screen.findByText("This level is locked", {}, { timeout: slow(5000) });
     await back();
     await waitFor(() => expect(at(router)).toBe("/story"));
   });

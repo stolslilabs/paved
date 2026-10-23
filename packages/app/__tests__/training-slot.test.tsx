@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { useEffect } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -63,7 +64,7 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
   it("round trip: the slot the renderer lights and the player clicks is the move saved, and the tile is drawn there", async () => {
     const store = memoryStore({ [TRAINING_KEY]: JSON.stringify({ v: 1, seed: `0x${SEED.toString(16)}`, moves: [] }) });
     render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: 5000 });
+    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     // The canvas is found on the commit, before the page's mount effect (it resets the chosen slot and the orientation for a
     // new game) has run; a click made in that gap, as this test can with no rotation to await, is wiped by the effect.
     await act(async () => {});

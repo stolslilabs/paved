@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,7 +50,7 @@ describe("the active tab comes from the route's own entry", () => {
   it.each(PAGES.filter((p) => p.nav).map((p) => [p.path || "/", p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
     // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
-    await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: 5000 });
+    await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
     const active = screen.getAllByRole("button", { current: "page" });
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
   });

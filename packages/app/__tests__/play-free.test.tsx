@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,13 +60,13 @@ afterEach(() => {
 describe("Play free on /", () => {
   it("no credit: the Cobbles balance shows, no Play free entry", async () => {
     open("/", { credits: 0 });
-    expect((await screen.findAllByRole("button", { name: "120 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "120 Cobbles: Buy packs" }, { timeout: slow(10000) })).length).toBeGreaterThan(0);
     expect(freeCard("Free game")).toBeNull();
   });
 
   it("a credit: the entry says how many; a tap spends it and opens the new game's board", async () => {
     const { router, spawner } = open("/", { credits: 2 });
-    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
+    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: slow(5000) });
     expect(card).toHaveTextContent("2 free Challenge games from your missions.");
     await userEvent.click(card);
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
@@ -74,16 +75,16 @@ describe("Play free on /", () => {
 
   it("after the spend, the credits are one less (the cache follows the receipt)", async () => {
     const { router } = open("/", { credits: 1 });
-    await userEvent.click(await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole("button", { name: /Free game/ }, { timeout: slow(5000) }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
     router.navigate("/");
-    expect((await screen.findAllByRole("button", { name: "120 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "120 Cobbles: Buy packs" }, { timeout: slow(10000) })).length).toBeGreaterThan(0);
     expect(freeCard("Free game")).toBeNull();
   });
 
   it("spawn paused: the entry is there and disabled; nothing is sent", async () => {
     const { spawner } = open("/", { credits: 1, paused: true });
-    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
+    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: slow(5000) });
     expect(card).toBeDisabled();
     await userEvent.click(card);
     expect(spawner.sent).toBe(0);
@@ -91,7 +92,7 @@ describe("Play free on /", () => {
 
   it("a guest: no Play free, no balance", async () => {
     open("/", { credits: 3, guest: true });
-    expect(await screen.findByText("Playing as a guest", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Playing as a guest", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(freeCard("Free game")).toBeNull();
     expect(screen.queryByRole("img", { name: /Cobbles$/ })).toBeNull();
   });
@@ -99,7 +100,7 @@ describe("Play free on /", () => {
   it("a refusal (the chain says no credit) is told, the player stays on home and the credits are read again", async () => {
     const error = vi.spyOn(toast, "custom");
     const { router, spawner, views } = open("/", { credits: 1 });
-    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
+    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: slow(5000) });
     // The page read one credit; by the time of the tap another tab has spent it.
     views.cobblePlayer(PLAYER_ID).account.credits = 0;
     await userEvent.click(card);
@@ -113,7 +114,7 @@ describe("Play free on /", () => {
     const error = vi.spyOn(toast, "custom");
     const { router, spawner } = open("/", { credits: 1 });
     spawner.failNext = new Error("User rejected the request");
-    await userEvent.click(await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole("button", { name: /Free game/ }, { timeout: slow(5000) }));
     await waitFor(() => expect(errorToastTexts(error)).toEqual([expect.stringContaining("The free game did not start: User rejected the request")]));
     expect(router.state.location.pathname).toBe("/");
   });
@@ -122,7 +123,7 @@ describe("Play free on /", () => {
     const { spawner, router } = open("/", { credits: 2 });
     let release!: () => void;
     spawner.gate = new Promise((resolve) => (release = resolve));
-    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
+    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: slow(5000) });
     await userEvent.click(card);
     await userEvent.click(card);
     expect(spawner.sent).toBe(1);
@@ -135,7 +136,7 @@ describe("two quick taps", () => {
   it("send one transaction and show no error, though the writer would refuse the second", async () => {
     const error = vi.spyOn(toast, "custom");
     const { router, spawner } = open("/", { credits: 2 });
-    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: 5000 });
+    const card = await screen.findByRole("button", { name: /Free game/ }, { timeout: slow(5000) });
     // Both taps in one tick: no render lands between them.
     fireEvent.click(card);
     fireEvent.click(card);
@@ -148,14 +149,14 @@ describe("two quick taps", () => {
 describe("Play free on /play", () => {
   it("no credit: no entry", async () => {
     open("/play", { credits: 0 });
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: 5000 });
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) });
     await waitFor(() => expect(screen.queryByText("Connect a wallet to enter: tap to connect.")).toBeNull());
     expect(freeCard("Free Challenge")).toBeNull();
   });
 
   it("a credit: the entry spends it and opens the board", async () => {
     const { router, spawner } = open("/play", { credits: 1 });
-    const card = await screen.findByRole("button", { name: /Free Challenge/ }, { timeout: 5000 });
+    const card = await screen.findByRole("button", { name: /Free Challenge/ }, { timeout: slow(5000) });
     expect(card).toHaveTextContent("1 free game from your missions");
     await userEvent.click(card);
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${NEW_GAME}`));
@@ -164,7 +165,7 @@ describe("Play free on /play", () => {
 
   it("spawn paused: disabled", async () => {
     const { spawner } = open("/play", { credits: 1, paused: true });
-    const card = await screen.findByRole("button", { name: /Free Challenge/ }, { timeout: 5000 });
+    const card = await screen.findByRole("button", { name: /Free Challenge/ }, { timeout: slow(5000) });
     expect(card).toBeDisabled();
     await userEvent.click(card);
     expect(spawner.sent).toBe(0);
@@ -172,7 +173,7 @@ describe("Play free on /play", () => {
 
   it("a guest: no entry", async () => {
     open("/play", { credits: 1, guest: true });
-    expect(await screen.findByText("Connect a wallet to enter: tap to connect.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Connect a wallet to enter: tap to connect.", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(freeCard("Free Challenge")).toBeNull();
   });
 });
@@ -196,23 +197,23 @@ describe("the earlier wallet session on /missions and /missions/lifetime", () =>
 
   it("/missions: a session approved earlier comes back with no visit to Home, and the claim goes through", async () => {
     const { wallet, claimer } = openClaims("/missions");
-    expect(await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: 5000 })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) })).toBeEnabled();
     expect(wallet.calls).toContain("probe");
     expect(screen.queryByText("Connect to see your missions")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
     await waitFor(() => expect(claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: TODAY }]]));
-    expect((await screen.findAllByRole("button", { name: "245 Cobbles: Buy packs" }, { timeout: 3000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "245 Cobbles: Buy packs" }, { timeout: slow(3000) })).length).toBeGreaterThan(0);
   });
 
   it("/missions: with no earlier session the page is a guest's, and the probe ran once", async () => {
     const { wallet } = openClaims("/missions", { guest: true });
-    expect(await screen.findByText("Connect to see your missions", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Connect to see your missions", {}, { timeout: slow(5000) })).toBeInTheDocument();
     await waitFor(() => expect(wallet.calls.filter((c) => c === "probe")).toHaveLength(1));
   });
 
   it("/missions/lifetime: the same session is found there", async () => {
     const { wallet } = openClaims("/missions/lifetime");
-    expect((await screen.findAllByRole("button", { name: "240 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "240 Cobbles: Buy packs" }, { timeout: slow(10000) })).length).toBeGreaterThan(0);
     expect(wallet.calls).toContain("probe");
     expect(screen.queryByText(/^Connect to see/)).toBeNull();
   });

@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -70,8 +71,8 @@ function open(path: string, s: ReturnType<typeof setup>) {
 
 // The pill and the rail both hold the balance in the DOM (the breakpoint shows one).
 // The balance is the Cobbles' plate of the balances (#620).
-const balance = async (value: number) => (await screen.findAllByRole("button", { name: `${value} Cobbles: Buy packs` }, { timeout: 10000 }))[0];
-const claimButton = (cobbles: number, title: string | RegExp) => screen.findByRole("button", { name: typeof title === "string" ? `Claim ${cobbles} Cobbles: ${title}` : title }, { timeout: 3000 });
+const balance = async (value: number) => (await screen.findAllByRole("button", { name: `${value} Cobbles: Buy packs` }, { timeout: slow(10000) }))[0];
+const claimButton = (cobbles: number, title: string | RegExp) => screen.findByRole("button", { name: typeof title === "string" ? `Claim ${cobbles} Cobbles: ${title}` : title }, { timeout: slow(3000) });
 
 preloadPages("quests", "achievements");
 
@@ -90,7 +91,7 @@ describe("/missions/:day? (P9)", () => {
   it("shows the day's quests on the indexer's clock, each reward in Cobbles, and the balance", async () => {
     open("/missions", setup());
     // The page's module is loaded with the first visit: in jsdom it can take longer than findBy's 1 s.
-    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(await balance(240)).toBeInTheDocument();
     // Quest 1 done today, its 5 Cobbles to claim; quest 4 not done, its 15 shown.
     expect(await claimButton(5, "Daily Run")).toBeEnabled();
@@ -110,7 +111,7 @@ describe("/missions/:day? (P9)", () => {
   it("Claim all is one multicall of every completed, unclaimed quest of the page", async () => {
     const s = setup({ counts: { 1: 1, 3: 1, 4: 2_700 } });
     open("/missions", s);
-    await userEvent.click(await screen.findByRole("button", { name: /^Claim all/ }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Claim all/ }, { timeout: slow(3000) }));
     await waitFor(() => expect(s.claimer.sent).toHaveLength(1));
     expect(s.claimer.sent[0]).toEqual([
       { kind: "quest", questId: 1, period: TODAY },
@@ -122,7 +123,7 @@ describe("/missions/:day? (P9)", () => {
   it("the daily and the weekly free games: claimed once every quest of the kind is done, then counted", async () => {
     const s = setup({ counts: { 1: 1, 2: 6, 3: 1, 4: 3_000, 14: 3 }, weekly: true });
     open("/missions", s);
-    await userEvent.click(await screen.findByRole("button", { name: "Claim the daily free game" }, { timeout: 3000 }));
+    await userEvent.click(await screen.findByRole("button", { name: "Claim the daily free game" }, { timeout: slow(3000) }));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "credit", credit: "daily", period: TODAY }]]));
     expect(await screen.findByLabelText("1 free game left")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Claim the weekly free game" }));
@@ -136,7 +137,7 @@ describe("/missions/:day? (P9)", () => {
   it("a past day stays claimable: its claim names that day", async () => {
     const s = setup();
     open(`/missions/${PAST}`, s);
-    expect(await screen.findByText("Closed day", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Closed day", {}, { timeout: slow(3000) })).toBeInTheDocument();
     await userEvent.click(await claimButton(5, "Daily Run"));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: PAST }]]));
     expect(await balance(245)).toBeInTheDocument();
@@ -156,7 +157,7 @@ describe("/missions/:day? (P9)", () => {
     const s = setup();
     s.views.cobblesFail = new Error("Setup address is not configured");
     open("/missions", s);
-    expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Daily Run", {}, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByText("Could not load the missions")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
   });
@@ -165,7 +166,7 @@ describe("/missions/:day? (P9)", () => {
     const s = setup();
     s.views.cobblesFail = new ViewError("not-available", NOT_AVAILABLE_MESSAGE);
     open("/missions", s);
-    expect(await screen.findByText("Daily Run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Daily Run", {}, { timeout: slow(3000) })).toBeInTheDocument();
     expect(await screen.findByText("Rewards unavailable")).toBeInTheDocument();
     expect((await screen.findAllByText(NOT_AVAILABLE_MESSAGE)).length).toBeGreaterThan(0);
     expect(screen.queryByText("Could not load the quests")).not.toBeInTheDocument();
@@ -173,13 +174,13 @@ describe("/missions/:day? (P9)", () => {
 
   it("with no signer: a guest, asked to connect, nothing to claim", async () => {
     open("/missions", setup({ signer: "none" }));
-    expect(await screen.findByText("Connect to see your missions", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Connect to see your missions", {}, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
   });
 
   it("with a signer that cannot claim: read only, Connect to claim", async () => {
     open("/missions", setup({ signer: "board" }));
-    expect(await screen.findByText("Connect to claim", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Connect to claim", {}, { timeout: slow(3000) })).toBeInTheDocument();
     expect(await claimButton(5, "Daily Run")).toBeDisabled();
     expect(screen.queryByRole("button", { name: /^Claim all/ })).not.toBeInTheDocument();
   });
@@ -222,7 +223,7 @@ describe("the completion toasts, app-wide (#595)", () => {
     await waitFor(() => {
       expect(queryClient.getQueryData(queryKeys.indexer.achievements(FIXTURE_ADA))).toBeDefined();
       expect(queryClient.getQueryData(queryKeys.indexer.quests(FIXTURE_ADA, TODAY))).toBeDefined();
-    }, { timeout: 5000 });
+    }, { timeout: slow(5000) });
     expect(success).not.toHaveBeenCalled();
 
     // A game over completes quest 4 and Settler II: the refresh after it toasts both, away from the Missions pages.
@@ -240,13 +241,13 @@ describe("the completion toasts, app-wide (#595)", () => {
     await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
     await new Promise((r) => setTimeout(r, 100));
     expect(success).toHaveBeenCalledTimes(2);
-  }, 20_000);
+  }, slow(20_000));
 
   it("tracks nothing for a guest", async () => {
     const s = setup({ signer: "none" });
     const playerQuests = vi.spyOn(s.sources.indexer, "playerQuests");
     open("/vault", s);
-    await screen.findByRole("heading", { level: 1 }, { timeout: 5000 });
+    await screen.findByRole("heading", { level: 1 }, { timeout: slow(5000) });
     expect(playerQuests).not.toHaveBeenCalled();
   });
 });
@@ -269,7 +270,7 @@ describe("/achievements (P9)", () => {
 
   it("with a signer that cannot claim: read only", async () => {
     open("/missions/lifetime", setup({ signer: "board" }));
-    expect(await screen.findByText("Connect to claim", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("Connect to claim", {}, { timeout: slow(3000) })).toBeInTheDocument();
     expect(await claimButton(10, "Settler I")).toBeDisabled();
   });
 });

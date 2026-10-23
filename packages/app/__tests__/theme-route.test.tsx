@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,11 +55,11 @@ afterEach(() => {
 });
 
 describe("/settings/theme: the themes", () => {
-  const card = (name: string) => screen.findByRole("article", { name }, { timeout: 5000 });
+  const card = (name: string) => screen.findByRole("article", { name }, { timeout: slow(5000) });
 
   it("counts the tiles owned per theme, and none is in use over a mix", async () => {
     open(setup(), "/settings/theme");
-    expect(await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(5000) })).toBeInTheDocument();
     await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
     expect(within(await card("Forest")).getByRole("button", { name: "Use Forest" })).toBeEnabled();
     expect(within(await card("Default")).getByRole("button", { name: "Use Default" })).toBeEnabled();
@@ -93,7 +94,7 @@ describe("/settings/theme: the themes", () => {
     open(s, "/settings/theme");
     await waitFor(async () => expect(within(await card("Forest")).getByRole("button", { name: "Use Forest" })).toBeEnabled());
     await userEvent.click(within(await card("Forest")).getByRole("button", { name: "Use Forest" }));
-    expect(await screen.findByText(SKIN_REFUSAL_TEXT["not-owned"], undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(SKIN_REFUSAL_TEXT["not-owned"], undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText(SKIN_REFUSAL_TEXT["not-owned"])).not.toBeInTheDocument();
   });
@@ -101,7 +102,7 @@ describe("/settings/theme: the themes", () => {
   it("asks a guest to connect, and Connect goes to the welcome", async () => {
     const router = open(setup({ signer: false }), "/settings/theme");
     // Beside the page's own call: the rail's and the pill's Connect come first in the DOM.
-    const connect = (await screen.findAllByRole("button", { name: "Connect" }, { timeout: 5000 })).at(-1)!;
+    const connect = (await screen.findAllByRole("button", { name: "Connect" }, { timeout: slow(5000) })).at(-1)!;
     resetWelcomedForTests();
     localStorage.clear();
     await userEvent.click(connect);
@@ -112,7 +113,7 @@ describe("/settings/theme: the themes", () => {
     const s = setup();
     s.views.skinsFail = new Error("rpc down");
     open(s, "/settings/theme");
-    expect(await screen.findByText("The skins could not be read", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("The skins could not be read", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     s.views.skinsFail = null;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
@@ -133,12 +134,12 @@ describe("/settings/theme: the themes", () => {
 });
 
 describe("/settings/theme/forest: the shop", () => {
-  const cell = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: 5000 });
+  const cell = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: slow(5000) });
   const buyButton = async (plan: number) => within(await cell(plan)).getByRole("button", { name: `Buy Tile ${plan} for ${FOREST_PRICES[plan - 1]} Cobbles` });
 
   it("shows each tile's price, owned and active state", async () => {
     open(setup(), "/settings/theme/forest");
-    expect(await screen.findByRole("heading", { level: 1, name: "Forest" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Forest" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect((await cell(13)).dataset.state).toBe("active");
     expect((await cell(7)).dataset.state).toBe("owned");
     expect((await cell(10)).dataset.state).toBe("none");
@@ -157,7 +158,7 @@ describe("/settings/theme/forest: the shop", () => {
     const s = setup();
     open(s, "/settings/theme/forest");
     await userEvent.click(await buyButton(10));
-    expect((await screen.findAllByRole("button", { name: "185 Cobbles: Buy packs" }, { timeout: 10000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "185 Cobbles: Buy packs" }, { timeout: slow(10000) })).length).toBeGreaterThan(0);
     await waitFor(async () => expect((await cell(10)).dataset.state).toBe("owned"));
     expect(s.writer.sent).toEqual([{ buy: { theme: FOREST, plan: 10 } }]);
   });
@@ -168,7 +169,7 @@ describe("/settings/theme/forest: the shop", () => {
     const buy = await buyButton(10);
     s.views.skinPriceTable.set(`${FOREST}:10`, 70);
     await userEvent.click(buy);
-    expect(await screen.findByText("This skin's price changed: check the new price and buy again. Nothing was sent.", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("This skin's price changed: check the new price and buy again. Nothing was sent.", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(s.writer.sent).toEqual([]);
     await waitFor(async () => expect(await cell(10)).toHaveTextContent("70"));
   });
@@ -183,15 +184,15 @@ describe("/settings/theme/forest: the shop", () => {
   it("shows Snow as coming soon, without reading it; a path that names no theme is not found", async () => {
     const s = setup();
     const router = open(s, "/settings/theme/snow");
-    expect(await screen.findByText("Snow tiles: coming soon", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText("Snow tiles: coming soon", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect(s.views.calls.filter((c) => c.startsWith("skin_price 2 ") || (c.startsWith("skins ") && c.endsWith(" 2")))).toEqual([]);
     await router.navigate("/settings/theme/default");
-    expect(await screen.findByTestId("not-found", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByTestId("not-found", undefined, { timeout: slow(5000) })).toBeInTheDocument();
   });
 });
 
 describe("/settings/tiles: My tiles", () => {
-  const row = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: 5000 });
+  const row = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: slow(5000) });
   const pick = async (plan: number, name: string) => userEvent.click(within(await row(plan)).getByRole("radio", { name: `Tile ${plan}: ${name}` }));
 
   it("changes one tile only: Save sends the plans that changed, in one set_skins", async () => {
@@ -203,7 +204,7 @@ describe("/settings/tiles: My tiles", () => {
     await pick(8, "Default");
     expect(await screen.findByRole("region", { name: "Unsaved changes" })).toHaveTextContent("1 change to save");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText(/Tiles saved/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Tiles saved/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(s.writer.sent).toEqual([{ save: [{ plan: 7, theme: FOREST }] }]);
     expect(forestActive(s)).toEqual([7, 13]);
   });
@@ -218,11 +219,11 @@ describe("/settings/tiles: My tiles", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("button", { name: "Saving…" })).toBeDisabled();
     release();
-    expect(await screen.findByText(SKIN_REFUSAL_TEXT["not-owned"], undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(SKIN_REFUSAL_TEXT["not-owned"], undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Unsaved changes" })).toHaveTextContent("1 change to save");
     s.writer.gate = null;
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText(/Tiles saved/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Tiles saved/, undefined, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("a save whose receipt cannot be read: once the active set is read again, the changes it already holds are dropped", async () => {
@@ -237,7 +238,7 @@ describe("/settings/tiles: My tiles", () => {
       throw new WriteError("Transaction sent (0xfd1), receipt unreadable");
     };
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Unsaved changes" })).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Unsaved changes" })).toBeNull(), { timeout: slow(3000) });
     expect(within(await row(7)).getByRole("radio", { name: "Tile 7: Forest" })).toHaveAttribute("aria-checked", "true");
   });
 

@@ -31,6 +31,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { readdirSync, rmSync, writeFileSync } from "node:fs";
+import { availableParallelism, loadavg } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { GUARD_TESTS, TEST_HEAP_MB, changedFiles, plan, topological, workspace, type Plan } from "./touched.mts";
 import { PROJECTS, ROOT, vercelBuild } from "./vercel-build.mts";
@@ -146,6 +147,14 @@ function sh(cmd: string, argv: string[], opts: { cwd?: string; env?: Record<stri
 const all = (outcomes: Outcome[]): Outcome => (outcomes.includes("FAIL") ? "FAIL" : "ok");
 const onPath = (bin: string) => spawnSync("sh", ["-c", `command -v ${bin}`], { stdio: "ignore" }).status === 0;
 const heap = (pkg: string) => ({ NODE_OPTIONS: `--max-old-space-size=${TEST_HEAP_MB[pkg] ?? 1536}` });
+/**
+ * The slow profile of the tests (`PAVED_TEST_SLOW`, packages/app/test-slow.ts): set by the caller it is kept as given; else on when
+ * the 1-minute load average passes the core count (a loaded machine), off in CI. Read once, when the run starts.
+ */
+const loaded = !process.env.CI && loadavg()[0] > availableParallelism();
+const slowProfile = process.env.PAVED_TEST_SLOW ?? (loaded ? "1" : "");
+if (slowProfile) console.log(`PAVED_TEST_SLOW=${slowProfile}: the tests' wait ceilings are scaled${process.env.PAVED_TEST_SLOW ? "" : " (load average above the core count)"}`);
+const testEnv = (pkg: string) => ({ ...heap(pkg), ...(slowProfile ? { PAVED_TEST_SLOW: slowProfile } : {}) });
 const secs = (ms: number) => (ms < 60_000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.floor(ms / 60_000)}m${String(Math.round((ms % 60_000) / 1000)).padStart(2, "0")}s`);
 
 // 0. What changed.
@@ -205,7 +214,7 @@ step("guard tests", () => {
     const files = GUARD_TESTS[name];
     if (!files) continue;
     n++;
-    outcomes.push(sh("bun", ["run", "test", ...files], { cwd: pkgs.find((x) => x.name === name)!.dir, env: heap(name) }));
+    outcomes.push(sh("bun", ["run", "test", ...files], { cwd: pkgs.find((x) => x.name === name)!.dir, env: testEnv(name) }));
   }
   if (p.guards || !prePush) {
     n++;
@@ -219,7 +228,7 @@ if (!prePush) {
   // 5. Unit tests.
   step("unit tests", () => {
     if (p.reach.length === 0) return skip("no package");
-    const outcomes = p.reach.map((name) => sh("bun", ["run", "test"], { cwd: pkgs.find((x) => x.name === name)!.dir, env: heap(name) }));
+    const outcomes = p.reach.map((name) => sh("bun", ["run", "test"], { cwd: pkgs.find((x) => x.name === name)!.dir, env: testEnv(name) }));
     return { outcome: all(outcomes), note: `${p.reach.length} pkg` };
   });
 

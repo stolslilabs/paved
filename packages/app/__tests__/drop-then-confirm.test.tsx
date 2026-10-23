@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { GameScene, HoverState, TileRenderData } from "@paved/renderer";
 import { describe, expect, it, vi } from "vitest";
@@ -27,7 +28,7 @@ describe("useDropThenConfirm", () => {
     expect(result.current).toBeNull();
     await finish();
     await waitFor(() => expect(result.current).toMatchObject({ x: 1, y: 0, key: 1 }));
-    await waitFor(() => expect(result.current).toBeNull(), { timeout: 1000 });
+    await waitFor(() => expect(result.current).toBeNull(), { timeout: slow(1000) });
   });
 
   it("a skipped drop (reduced motion, no model) goes straight to the green", async () => {

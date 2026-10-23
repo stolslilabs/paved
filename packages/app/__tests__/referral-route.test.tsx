@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,7 +34,7 @@ function open(s: ReturnType<typeof setup>, path = "/referral", wallet = fakeWall
   return { router, wallet };
 }
 
-const earned = () => screen.findByRole("region", { name: "Earned" }, { timeout: 5000 });
+const earned = () => screen.findByRole("region", { name: "Earned" }, { timeout: slow(5000) });
 
 beforeEach(() => {
   queryClient.clear();
@@ -47,7 +48,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("/referral (P10)", { timeout: 20_000 }, () => {
+describe("/referral (P10)", { timeout: slow(20_000) }, () => {
   it("shows the player's link with ?ref= and their address, and what it earned: games and packs", async () => {
     const s = setup();
     open(s);
@@ -101,7 +102,7 @@ describe("/referral (P10)", { timeout: 20_000 }, () => {
     const s = setup();
     s.fixture.referrals.clear();
     open(s);
-    expect(await screen.findByText(/No purchase through your link yet/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/No purchase through your link yet/, {}, { timeout: slow(5000) })).toBeInTheDocument();
   });
 
   it("loading: the earnings' shape while the indexer answers, the link already there", async () => {
@@ -111,7 +112,7 @@ describe("/referral (P10)", { timeout: 20_000 }, () => {
     const gated = (async (input: RequestInfo | URL) => (await gate, s.fixture.fetch(input))) as typeof fetch;
     s.sources.indexer = new IndexerClient({ url: "http://indexer.test/", fetch: gated });
     open(s);
-    expect(await screen.findByRole("status", { name: "Loading the earnings" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("status", { name: "Loading the earnings" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByLabelText("Your referral link")).toBeInTheDocument();
     release();
     await waitFor(() => expect(screen.queryByRole("status", { name: "Loading the earnings" })).toBeNull());
@@ -122,7 +123,7 @@ describe("/referral (P10)", { timeout: 20_000 }, () => {
     s.fixture.state.down = true;
     open(s);
     const region = await earned();
-    const alert = await within(region).findByRole("alert", {}, { timeout: 8000 });
+    const alert = await within(region).findByRole("alert", {}, { timeout: slow(8000) });
     expect(alert).toHaveTextContent("The earnings cannot be read");
     expect(screen.getByLabelText("Your referral link")).toHaveTextContent(`/?ref=${SHORT}`);
     s.fixture.state.down = false;
@@ -134,7 +135,7 @@ describe("/referral (P10)", { timeout: 20_000 }, () => {
     const s = setup({ viewer: "guest" });
     const { wallet } = open(s);
     await waitFor(() => expect(wallet.calls).toContain("probe"));
-    const notice = (await screen.findByText("Connect to get your link", {}, { timeout: 5000 })).closest("[role=status]") as HTMLElement;
+    const notice = (await screen.findByText("Connect to get your link", {}, { timeout: slow(5000) })).closest("[role=status]") as HTMLElement;
     expect(screen.queryByLabelText("Your referral link")).toBeNull();
     expect(s.fixture.requests.filter((r) => r.endsWith("/referrals"))).toEqual([]);
     await userEvent.click(within(notice).getByRole("button", { name: "Connect" }));

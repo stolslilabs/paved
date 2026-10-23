@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -57,8 +58,8 @@ describe("the Cobbles' claims through the wallet", () => {
     const s = setup();
     render(<App router={createTestRouter("/")} sources={s.sources} connector={s.load} />);
     // Home restores the session; the Quests tab then reads the connected player.
-    await userEvent.click(await screen.findByRole("button", { name: "Missions" }, { timeout: 5000 }));
-    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: 5000 });
+    await userEvent.click(await screen.findByRole("button", { name: "Missions" }, { timeout: slow(5000) }));
+    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) });
     expect(claim).toBeEnabled();
     expect(screen.queryByText(/Connect to claim/)).toBeNull();
     await userEvent.click(claim);
