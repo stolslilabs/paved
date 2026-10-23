@@ -230,3 +230,50 @@ describe("the 3D view", () => {
     expect(faded()).toEqual([false, false, true]);
   });
 });
+
+// STACK-ZERO (#699): a stack of N tiles shows N tiles, none at 0; the badge keeps its place at 12, 1 and 0.
+describe("the stack at the last tiles", () => {
+  const drawn = () => document.querySelectorAll("[data-stack-pile] g").length;
+  const badge = () => {
+    const { left, top } = screen.getByTestId("tiles-left").style;
+    return { left, top };
+  };
+  const box = () => screen.getByTestId("tile-stack").style.width;
+  const px = (calc: string) => parseFloat(calc.match(/calc\(([\d.-]+)px/)![1]!);
+
+  it.each([
+    [12, PILE_CAP],
+    [1, 1],
+    [0, 0],
+  ])("draws the right number of tiles for %i left", (remaining, layers) => {
+    render(stack(remaining));
+    expect(drawn()).toBe(layers);
+  });
+
+  it("draws no tile at 0 without the tile in hand either, only the pile's shadow", () => {
+    render(wrap(<TileStack tile={null} state="empty" remaining={0} />));
+    expect(drawn()).toBe(0);
+    expect(document.querySelector("[data-stack-pile]")).not.toBeNull();
+  });
+
+  it("anchors the badge to the stack's frame: the same place at 12, 1 and 0, in one or two digits", () => {
+    const places = [12, 1, 0, 9].map((n) => {
+      cleanup();
+      render(stack(n));
+      const height = px(screen.getByTestId("tile-stack").style.height);
+      // The box is bottom-anchored: the badge's place is its distance from the box's foot.
+      return { left: badge().left, box: box(), fromFoot: +(height - px(badge().top)).toFixed(2) };
+    });
+    for (const key of ["left", "box", "fromFoot"] as const) expect(new Set(places.map((p) => p[key])).size).toBe(1);
+  });
+
+  it("keeps the badge when the last tile leaves the hand", () => {
+    render(stack(0));
+    const before = badge();
+    const width = box();
+    cleanup();
+    render(wrap(<TileStack tile={null} state="empty" remaining={0} />));
+    expect(badge().left).toBe(before.left);
+    expect(box()).toBe(width);
+  });
+});

@@ -81,6 +81,8 @@ const STEP_HAND = 150;
  * shadow) whatever `--stack-s`, so at the phone's 0.8 the outline must reach (16 + 3) / 0.8, or it cuts the badge.
  */
 const BADGE = 24;
+/** The badge's height on the pile's edge, px: the same at every count. */
+const BADGE_Z = 6;
 /** The draw order the stack's tiles are known by in the 3D view: the next keeps its id as it becomes the tile in hand. */
 const DRAW_IDS = 10_000;
 /** The hint comes back after this long without a move or a cell chosen, ms. */
@@ -256,7 +258,7 @@ function hullOf(points: readonly Point[]): Point[] {
  * layout size, its foot's place from the box's left and bottom, and its outline from the box's top left (with the `extra`
  * points, the badge's), what a tap on it takes.
  */
-function frameOf(levels: readonly Level[], faces: readonly Point[], extra: readonly Point[]) {
+function frameOf(levels: readonly Level[], faces: readonly Point[], reach: readonly Point[], extra: readonly Point[]) {
   // The slabs' corners, and the corners of the leaning tiles, already on screen.
   const corners: Point[] = [...faces];
   for (const { size, z, height } of levels) {
@@ -265,12 +267,19 @@ function frameOf(levels: readonly Level[], faces: readonly Point[], extra: reado
       for (const at of [z, z + height]) corners.push(project(x, y, at));
     }
   }
-  const xs = corners.map((c) => c[0]);
-  const ys = corners.map((c) => c[1]);
+  // `reach`: the widest the stack gets (the tile in hand), counted for the sides always, so the box does not shift with the tiles.
+  const xs = [...corners, ...reach].map((c) => c[0]);
+  const ys = [...corners, ...reach].map((c) => c[1]);
   const [left, top] = [-Math.min(...xs), -Math.min(...ys)];
   const outline = hullOf([...corners, ...extra]).map(([x, y]): Point => [x + left, y + top]);
   return { width: Math.max(...xs) + left, height: Math.max(...ys) + top, left, bottom: Math.max(...ys), outline };
 }
+
+/**
+ * The tiles' lowest reach, at the pile's foot (a tile in hand, a leaning one, the next): the box's sides and foot always keep
+ * it, so they do not move as the pile sinks, a slot waits or the last tile leaves (the badge and the foot stay put).
+ */
+const HAND_REACH: Point[] = [tileCorners(0, TILE * HAND_SCALE, SLAB_T, 1), tileCorners(0, TILE * HAND_SCALE, SLAB_T, 0), tileCorners(0, TILE, SLAB_T, NEXT_LEAN)].flat();
 
 /** A length of the stack's scene on screen: px at `--stack-s`, the stack's scale (smaller on phones). */
 const scaled = (px: number) => `calc(${px.toFixed(2)}px * var(--stack-s))`;
@@ -333,8 +342,8 @@ export function TileStack({
   const solid = renderStack != null && !stackFailed;
 
   // Bottom up: the pile, then each slot hovering above the one before (the queue's last first), then the tile in hand.
-  const layers = Math.max(1, Math.min(PILE_CAP, remaining));
-  const pileHeight = layers * PILE_STEP - PILE_GAP;
+  const layers = Math.max(0, Math.min(PILE_CAP, remaining));
+  const pileHeight = layers > 0 ? layers * PILE_STEP - PILE_GAP : 0;
   const queueZ: number[] = [];
   let z = pileHeight + GAP_PILE;
   for (let i = queued - 1; i >= 0; i--) {
@@ -348,9 +357,10 @@ export function TileStack({
     ...queueZ.flatMap((at, i) => tileCorners(at, TILE, solid ? TILE_TOP : SLAB_T, i === 0 ? NEXT_LEAN : 0)),
     ...(tile ? tileCorners(handZ, TILE * HAND_SCALE, solid ? TILE_TOP * HAND_SCALE : SLAB_T, 1) : []),
   ];
-  // The badge on the pile's south-west edge, low: the pile's left side on screen.
-  const [badgeX, badgeY] = project(-TILE / 2, TILE / 2, Math.min(pileHeight, 10));
-  const frame = frameOf(levels, tops, [-BADGE, BADGE].flatMap((dx) => [-BADGE, BADGE].map((dy): Point => [badgeX + dx, badgeY + dy])));
+  // The badge on the pile's south-west edge, low: the pile's left side on screen. Its height is fixed, so it keeps its place
+  // as the pile sinks and the last tile leaves (the frame's sides too: `frameOf`'s `reach`).
+  const [badgeX, badgeY] = project(-TILE / 2, TILE / 2, BADGE_Z);
+  const frame = frameOf(levels, tops, HAND_REACH, [-BADGE, BADGE].flatMap((dx) => [-BADGE, BADGE].map((dy): Point => [badgeX + dx, badgeY + dy])));
   const outline = frame.outline.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
 
   // The next tile comes up (the Web Animations API, no frame of React's): the tile in hand from the next's place, each coming
