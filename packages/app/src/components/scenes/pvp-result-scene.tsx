@@ -89,7 +89,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
   };
   const before = leagueOf(crownsAfter - crowns);
   const after = leagueOf(crownsAfter);
-  const moved = after.id !== before.id ? (after.from > before.from ? "up" : "down") : null;
+  const moved = after.index !== before.index ? (after.from > before.from ? "up" : "down") : null;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Attack over" onBack={props.onHome} />

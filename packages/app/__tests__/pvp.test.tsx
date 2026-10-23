@@ -62,13 +62,14 @@ describe("PvP rules (#647)", () => {
   });
 
   it("wins crowns by stars and loses them with none", () => {
-    expect([0, 1, 2, 3].map((s) => crownsFor(STAKES, s))).toEqual([-18, 10, 20, 30]);
+    expect([0, 1, 2, 3].map((s) => crownsFor(STAKES, s))).toEqual([-20, 10, 20, 30]);
   });
 
   it("puts every crown count in one league, the last open-ended", () => {
-    expect(leagueOf(0).id).toBe("bronze");
-    expect(leagueOf(1_199).id).toBe("gold");
-    expect(leagueOf(1_200).id).toBe("crystal");
+    expect(leagueOf(0).id).toBe("unranked");
+    expect(leagueOf(400).name).toBe("Bronze III");
+    expect(leagueOf(1_199).name).toBe("Silver II");
+    expect(leagueOf(1_200).name).toBe("Silver I");
     expect(leagueOf(99_999).id).toBe("legend");
     expect(nextLeague(LEAGUES.at(-1)!)).toBeNull();
   });
@@ -130,9 +131,9 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByText("5,831")).toBeInTheDocument();
     const stars = within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem");
     expect(stars.map((s) => s.textContent)).toEqual(["4,082+10", "4,957+20", "6,415+30"]);
-    expect(screen.getByRole("img", { name: "-18 crowns" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "-20 crowns" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Board of 38 tiles in a territory of 38 cells/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Next village for 10 Cobbles" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next village for 1 Cobbles" }));
     await userEvent.click(screen.getByRole("button", { name: /Attack/ }));
     expect(onNext).toHaveBeenCalled();
     expect(onAttack).toHaveBeenCalled();
@@ -257,9 +258,9 @@ describe("PvP scenes (#647)", () => {
 
   it("league: crowns, the way to the next league, the season's end", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} />));
-    expect(screen.getByRole("progressbar", { name: "28 crowns to Crystal" })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "28 crowns to Silver I" })).toBeInTheDocument();
     expect(screen.getByText(/Ends in 4 d 3 h/)).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { current: true })).toHaveTextContent("Gold");
+    expect(screen.getByRole("listitem", { current: true })).toHaveTextContent("Silver");
     cleanup();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.unranked} />));
     expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
