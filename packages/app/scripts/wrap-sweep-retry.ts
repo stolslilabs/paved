@@ -27,3 +27,53 @@ export async function renderWithRetry<P>(
   const next = await fresh(page);
   return { error: await attempt(next), page: next };
 }
+
+export interface StoryFinding {
+  kind: string;
+  element: string;
+}
+
+/** What `sweepStory` needs of the browser, so a test can stand in for it. */
+export interface StoryDeps<P> {
+  render: (page: P, id: string) => Promise<string | null>;
+  fresh: (old: P) => Promise<P>;
+  setWidth: (page: P, width: number) => Promise<void>;
+  settle: (page: P) => Promise<void>;
+  inspect: (page: P) => Promise<StoryFinding[]>;
+  wait: (page: P, ms: number) => Promise<void>;
+  log: (message: string) => void;
+}
+
+/**
+ * One story at every width: render it (a navigation timeout retried once, see `renderWithRetry`), then inspect it.
+ * A render error is a finding at each width; wrap findings come from `inspect` and are reported as they are, with no
+ * retry of the navigation.
+ */
+export async function sweepStory<P>(
+  page: P,
+  id: string,
+  widths: number[],
+  deps: StoryDeps<P>,
+): Promise<{ page: P; findings: (StoryFinding & { story: string; width: number })[] }> {
+  await deps.setWidth(page, widths[0]);
+  const rendered = await renderWithRetry(page, (p) => deps.render(p, id), deps.fresh, deps.log, `${id} ${widths[0]}`);
+  page = rendered.page;
+  const findings: (StoryFinding & { story: string; width: number })[] = [];
+  for (const width of widths) {
+    await deps.setWidth(page, width);
+    if (rendered.error) {
+      findings.push({ story: id, width, kind: "error", element: rendered.error });
+      continue;
+    }
+    await deps.settle(page);
+    let found = await deps.inspect(page);
+    if (found.length) {
+      // Something late (a font swap, a layout animation) can settle after the first look: look again once, after a
+      // second, before reporting.
+      await deps.wait(page, 1000);
+      found = await deps.inspect(page);
+    }
+    for (const f of found) findings.push({ story: id, width, ...f });
+  }
+  return { page, findings };
+}

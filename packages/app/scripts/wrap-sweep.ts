@@ -29,7 +29,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
-import { renderWithRetry } from "./wrap-sweep-retry.ts";
+import { sweepStory } from "./wrap-sweep-retry.ts";
 
 type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
 
@@ -367,38 +367,21 @@ async function main() {
     const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
     let page = await context.newPage();
     for (let id = queue.shift(); id; id = queue.shift()) {
-      await page.setViewportSize({ width: opts.widths[0], height: 740 });
       // A navigation timeout is retried once on a fresh page (a slow runner, not a wrap defect), and logged.
-      const rendered = await renderWithRetry(
-        page,
-        (p) => render(p, origin, id),
-        async (old) => {
+      const swept = await sweepStory(page, id, opts.widths, {
+        render: (p, story) => render(p, origin, story),
+        fresh: async (old) => {
           await old.close().catch(() => {});
-          const next = await context.newPage();
-          await next.setViewportSize({ width: opts.widths[0], height: 740 });
-          return next;
+          return context.newPage();
         },
-        (message) => console.log(message),
-        `${id} ${opts.widths[0]}`,
-      );
-      page = rendered.page;
-      const error = rendered.error;
-      for (const width of opts.widths) {
-        await page.setViewportSize({ width, height: 740 });
-        if (error) {
-          findings.push({ story: id, width, kind: "error", element: error });
-          continue;
-        }
-        await settle(page);
-        let found = await page.evaluate(inspect);
-        if (found.length) {
-          // Something late (a font swap, a layout animation) can settle after the first look: look again once, after a
-          // second, before reporting.
-          await page.waitForTimeout(1000);
-          found = await page.evaluate(inspect);
-        }
-        for (const f of found) findings.push({ story: id, width, kind: f.kind as Kind, element: f.element });
-      }
+        setWidth: (p, width) => p.setViewportSize({ width, height: 740 }),
+        settle,
+        inspect: (p) => p.evaluate(inspect),
+        wait: (p, ms) => p.waitForTimeout(ms),
+        log: (message) => console.log(message),
+      });
+      page = swept.page;
+      for (const f of swept.findings) findings.push({ ...f, kind: f.kind as Kind });
     }
     await browser.close();
   }
