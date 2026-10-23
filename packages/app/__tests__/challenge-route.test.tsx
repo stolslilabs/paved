@@ -3,8 +3,10 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeGameViews, type GameKey, type GameView, type TileView, type WriteResult } from "@paved/chain";
+import { fakeTerms } from "@paved/chain/testing";
 import { CENTER, EngineGame, PlanType } from "@paved/game-core";
 import { App } from "../src/App";
+import { planCode } from "../src/components/elements/tile-chip";
 import type { GameSigner } from "../src/data";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -72,6 +74,11 @@ function open(path: string, s: ReturnType<typeof sources>) {
 }
 
 const hand = () => screen.queryByRole("region", { name: "Your tile" });
+/** The tile in hand on a read-only board's stack ("Deck"), its plan's code: the watcher sees what the player holds (#701). */
+const watched = () => {
+  const top = screen.getByRole("region", { name: "Deck" }).querySelector<HTMLElement>("[data-stack-top]");
+  return top ? within(top).getByRole("img").getAttribute("aria-label")!.toLowerCase().split(",")[0] : null;
+};
 
 preloadPages("board", "over");
 
@@ -83,16 +90,40 @@ afterEach(() => resetWelcomedForTests());
 
 // The board's page module brings the renderer (three.js): its first import can take longer than findBy's 1 s in jsdom.
 describe("/game/:gameId (P5)", () => {
-  it("with no signer: the game read only, with a Connect to play notice and no hand", async () => {
-    open(`/game/${GAME_ID}`, sources({ signer: false }));
+  it("with no signer: the game read only, with a Connect to play notice; the player's tile shown, nothing to play (#701)", async () => {
+    const s = sources({ signer: false });
+    open(`/game/${GAME_ID}`, s);
     expect(await screen.findByText("Connect to play", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` })).toBeInTheDocument();
     expect(hand()).not.toBeInTheDocument();
+    expect(watched()).toEqual(`tile ${planCode(s.views.games.get(`challenge:${GAME_ID}`)!.game.plan).toLowerCase()}`);
+    const deck = screen.getByRole("region", { name: "Deck" });
+    expect(within(deck).queryByRole("button", { name: /discard/i })).toBeNull();
+    expect(within(deck).queryByTestId("hand-hint")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Slot / })).toBeNull();
     expect(screen.getByLabelText(/^Board of 1 tiles$/)).toBeInTheDocument();
     // The board fills the viewport with nothing after it: no footer, and no Cartridge notice (#536).
     expect(screen.queryByRole("contentinfo")).toBeNull();
     expect(screen.queryByRole("link", { name: "Third-party notices" })).toBeNull();
     expect(screen.getByLabelText(/^Board of 1 tiles$/).closest(".h-dvh")).toHaveClass("overflow-hidden");
+  });
+
+  it("the HUD shows the score to beat from the game's terms and its day's prior (#705)", async () => {
+    const s = sources({ signer: true });
+    s.economy.terms_.set(GAME_ID, fakeTerms({ stake: 1, day: 0, player: PLAYER, recorded: false }));
+    s.economy.days.set(0, { prior: 1_234_500, sum: 0n, weight: 0, mean: 0, closed: false });
+    open(`/game/${GAME_ID}`, s);
+    // A score of 0 under a threshold of 1,234.5 points: 1,235 to beat.
+    expect(await screen.findByTestId("hud-reward", {}, { timeout: slow(5000) })).toHaveTextContent("Beat 1,235");
+  });
+
+  it("another player's game: read only, the player's tile shown (#701)", async () => {
+    const s = sources({ signer: true, address: "0x999" });
+    open(`/game/${GAME_ID}`, s);
+    expect(await screen.findByText("Another player's game", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(hand()).not.toBeInTheDocument();
+    expect(watched()).toEqual(`tile ${planCode(s.views.games.get(`challenge:${GAME_ID}`)!.game.plan).toLowerCase()}`);
+    expect(screen.queryByRole("button", { name: /^Slot / })).toBeNull();
   });
 
   it("with a signer: playable; a discard shows the next tile from the engine and is sent through the signer", async () => {
@@ -157,7 +188,7 @@ describe("/game/:gameId (P5)", () => {
 // #645: a game on the VRF. `draw(id)` (the fake of the chain view) gives the queue; the client predicts no draw.
 describe("/game/:gameId on the VRF (#645)", () => {
   /** A VRF game held by the fake: the engine's three-tile queue stands in for the chain's; a discard waits for `release`. */
-  function vrfSources() {
+  function vrfSources(options: { signer: boolean } = { signer: true }) {
     const engine = EngineGame.start({ deck: "simple", seed: SEED, player: BigInt(PLAYER), lookahead: 3 });
     const views = new FakeGameViews();
     const tiles: TileView[] = [{ id: 1, status: 1, plan: PLANS.indexOf(PlanType.RFFFRFCFR), orientation: 3, x: CENTER, y: CENTER }];
@@ -187,10 +218,23 @@ describe("/game/:gameId on the VRF (#645)", () => {
       return { transactionHash: "0x1", events: [{ name: "Discarded", fields: { gameId: GAME_ID, tileId: hand.id, plan: PLANS.indexOf(hand.plan), points: result.points }, fromAddress: "0x2" }] };
     });
     const signer = { address: PLAYER, build: vi.fn(), discard, surrender: vi.fn() } as unknown as GameSigner;
-    return { ...fakeSources({ views, signer }), engine, views, release: () => release() };
+    return { ...fakeSources({ views, signer: options.signer ? signer : null }), engine, views, release: () => release() };
   }
 
   const coming = () => [...(within(hand()!).queryByTestId("coming-tiles")?.querySelectorAll("li") ?? [])].map((li) => li.getAttribute("data-coming"));
+
+  it("read only (no wallet): the player's tile and the two coming tiles on the Deck stack, nothing to play (#701)", async () => {
+    const s = vrfSources({ signer: false });
+    open(`/game/${GAME_ID}`, s);
+    expect(await screen.findByText("Connect to play", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(hand()).not.toBeInTheDocument();
+    const deck = screen.getByRole("region", { name: "Deck" });
+    await waitFor(() => expect([...(within(deck).queryByTestId("coming-tiles")?.querySelectorAll("li") ?? [])].map((li) => li.getAttribute("data-coming"))).toEqual(["1", "2"]));
+    expect(watched()).toEqual(`tile ${planCode(PLANS.indexOf(s.engine.hand!.plan)).toLowerCase()}`);
+    const names = [...within(deck).getByTestId("coming-tiles").querySelectorAll('[role="img"]')].map((i) => i.getAttribute("aria-label")!.toLowerCase().split(",")[0]);
+    expect(names).toEqual(s.engine.coming.map((t) => `tile ${planCode(PLANS.indexOf(t.plan)).toLowerCase()}`));
+    expect(within(deck).queryByRole("button", { name: /discard/i })).toBeNull();
+  });
 
   it("shows the tile to place and the two coming tiles; a move keeps the known tiles shown while the chain draws the last", async () => {
     const s = vrfSources();

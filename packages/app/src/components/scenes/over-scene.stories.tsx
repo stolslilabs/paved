@@ -40,6 +40,9 @@ export const MissionsCompleted: Story = { args: { ...OVER.missions, onMissions: 
 /** Recorded, its day still open. */
 export const AwaitingTheDay: Story = { args: OVER.awaiting };
 
+/** #705: its day still open, the reward its score earns at the day's prior mean, "≈", with that threshold. */
+export const AwaitingEstimate: Story = { args: OVER.awaitingEstimate };
+
 export const ReadyToSettle: Story = { args: OVER.settle };
 
 /** Under the threshold: the stake lost. */

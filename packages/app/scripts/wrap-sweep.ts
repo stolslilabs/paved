@@ -150,7 +150,10 @@ async function serve(dir: string): Promise<{ server: Server; origin: string }> {
     try {
       if ((await stat(file)).isDirectory()) file = join(file, "index.html");
       const body = await readFile(file);
-      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" }).end(body);
+      // The build's hashed files never change: cached, a story does not fetch the preview's ~115 files again (a sweep
+      // served 113,000 requests and 5.3 GB without, 16,000 and 0.9 GB with).
+      const cache = path.startsWith("/assets/") ? { "cache-control": "public, max-age=31536000, immutable" } : {};
+      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", ...cache }).end(body);
     } catch {
       res.writeHead(404).end();
     }
@@ -306,8 +309,8 @@ function inspect(): { kind: string; element: string }[] {
 /** Opens a story's preview and waits for its render (play function included) to end; resolves to an error message or null. */
 async function render(page: Page, origin: string, id: string): Promise<string | null> {
   try {
-    // `domcontentloaded`, not `load`: the wait below is for the story's own render phase, and an always-redrawing story
-    // (render loop, animation) or a slow runner can hold the `load` event of the preview past the 30 s of `goto`.
+    // `domcontentloaded`, not `load`: the wait below is for the story's own render phase. (The 30 s of `goto` that slow runners
+    // passed went before either event, to the commit after a canvas story: see `worker`.)
     await page.goto(`${origin}/iframe.html?viewMode=story&id=${encodeURIComponent(id)}`, { waitUntil: "domcontentloaded" });
     const phase = await page.waitForFunction(
       () => {
@@ -353,6 +356,8 @@ async function main() {
   const { server, origin } = await serve(opts.dir);
   const started = performance.now();
   const findings: Finding[] = [];
+  /** How long each story took to open (navigation and render), ms: the summary names the slowest. */
+  const opened: { story: string; ms: number }[] = [];
   // The 3D stories (board, tiles, outlines) take seconds each in software WebGL; spread them over the workers
   // rather than let four of them start together: a fixed shuffle, so two runs take the same order.
   let seed = 360;
@@ -366,14 +371,21 @@ async function main() {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
     let page = await context.newPage();
+    // The next page, the last one closed (its frames stop).
+    const fresh = async (old: Page) => {
+      await old.close().catch(() => {});
+      return context.newPage();
+    };
     for (let id = queue.shift(); id; id = queue.shift()) {
       // A navigation timeout is retried once on a fresh page (a slow runner, not a wrap defect), and logged.
       const swept = await sweepStory(page, id, opts.widths, {
-        render: (p, story) => render(p, origin, story),
-        fresh: async (old) => {
-          await old.close().catch(() => {});
-          return context.newPage();
+        render: async (p, story) => {
+          const at = performance.now();
+          const error = await render(p, origin, story);
+          opened.push({ story, ms: performance.now() - at });
+          return error;
         },
+        fresh,
         setWidth: (p, width) => p.setViewportSize({ width, height: 740 }),
         settle,
         inspect: (p) => p.evaluate(inspect),
@@ -382,6 +394,13 @@ async function main() {
       });
       page = swept.page;
       for (const f of swept.findings) findings.push({ ...f, kind: f.kind as Kind });
+      // A story that draws on a canvas (the 3D board, tiles, outlines, in software WebGL) keeps its renderer busy with its
+      // frames: navigated in place, the next story commits only once that renderer is free, which took up to 14 s on a 12-core
+      // Mac with 4 workers and passed `goto`'s 30 s on slow CI runners. Its page is closed instead (its frames stop) and
+      // the next story gets a new one; the others keep the page, whose warm scripts a new page would compile again (about
+      // 0.1 s a story). The same after a story that did not render.
+      const failed = swept.findings.some((f) => f.kind === "error");
+      if (failed || (await page.evaluate(() => document.querySelector("canvas") !== null).catch(() => true))) page = await fresh(page);
     }
     await browser.close();
   }
@@ -400,8 +419,14 @@ async function main() {
   const line = (r: string[]) => r.map((c, i) => c.padEnd(widths[i])).join("  ");
   if (rows.length) console.log([line(head), line(widths.map((w) => "-".repeat(w))), ...rows.map(line)].join("\n"));
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
+  opened.sort((a, b) => b.ms - a.ms);
+  const slowest = opened.slice(0, 3).map((o) => `${o.story} ${(o.ms / 1000).toFixed(1)} s`);
   console.log(`\n${stories.length} stories x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
-  if (opts.json) await writeFile(opts.json, JSON.stringify({ stories: stories.length, widths: opts.widths, seconds: Number(seconds), findings }, null, 2));
+  console.log(`Slowest to open: ${slowest.join(", ")}.`);
+  if (opts.json) {
+    const timings = opened.map((o) => ({ story: o.story, ms: Math.round(o.ms) }));
+    await writeFile(opts.json, JSON.stringify({ stories: stories.length, widths: opts.widths, seconds: Number(seconds), findings, opened: timings }, null, 2));
+  }
   process.exitCode = open.length ? 1 : 0;
 }
 

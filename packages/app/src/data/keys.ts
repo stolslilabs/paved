@@ -29,6 +29,8 @@ export const queryKeys = {
     activeGame: (playerId: string) => ["chain", "activeGame", addressKey(playerId)] as const,
     quote: (stake: number) => ["chain", "economy", "quote", stake] as const,
     split: () => ["chain", "economy", "split"] as const,
+    /** `Economy.rate()`, the guard's swap rate (the purchase's reward estimate, #705). */
+    guardRate: () => ["chain", "economy", "guardRate"] as const,
     /** The pool's `quote_swap` of `usdcIn` base units (a decimal string: see above). */
     poolQuote: (usdcIn: string) => ["chain", "economy", "poolQuote", usdcIn] as const,
     terms: (gameId: number) => ["chain", "economy", "terms", gameId] as const,

@@ -11,6 +11,7 @@ export {
   useEconomyDay,
   useEntryPrice,
   useGame,
+  useGuardRate,
   usePavedBalance,
   usePlayerGames,
   usePoolQuote,

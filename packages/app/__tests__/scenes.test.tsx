@@ -22,6 +22,9 @@ import { LoadingScene } from "../src/components/scenes/loading-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
+import { rewardMarks } from "../src/components/containers/reward-estimate";
+import { GameHud } from "../src/components/containers/game-hud";
+import { CURVE_PLAYING } from "../src/mocks/games";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
@@ -463,7 +466,7 @@ describe("Purchase", () => {
     const expiry = document.querySelector("time")!;
     expect(expiry).toHaveTextContent("in 24 h · Thu, Oct 15, 15:00 UTC");
     expect(expiry).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
-    expect(screen.getByText(pts(1150))).toBeInTheDocument();
+    expect(screen.getByText("Score to beat").nextElementSibling).toHaveTextContent(pts(1150));
     expect(screen.getByRole("button", { name: /Pay.*6\.00.*USDC.*and play/ })).toBeEnabled();
     // Keyboard: the value is the scene's (a prop), so each key moves one step from 3.
     slider.focus();
@@ -498,6 +501,121 @@ describe("Purchase", () => {
   it("is busy while the purchase is on its way", () => {
     render(wrap(<PurchaseScene {...PURCHASE.buying} />));
     expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toHaveAttribute("aria-busy", "true");
+  });
+
+  // #705: what a score earns, not only the score to beat. Stake 1 at the mocks' pool: R = 113.11 PAVED, c 1.222, H 5.
+  it("shows the estimated reward by score, from the threshold to the cap", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(table).toHaveAttribute("aria-busy", "false");
+    const rows = within(table).getAllByRole("row").slice(1).map((row) => row.textContent);
+    expect(rows).toEqual([
+      `${pts(1150)}138.22PAVED`,
+      `${pts(1438)}172.84PAVED`,
+      `${pts(1725)}207.33PAVED`,
+      `${pts(2300)}276.44PAVED`,
+      `${pts(4706)}+max565.56PAVED`,
+    ]);
+    expect(screen.getByText(/Estimates at today's threshold/)).toBeInTheDocument();
+  });
+
+  it("scales the reward by score with the stake", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.stake10} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(within(table).getAllByRole("row")[1]).toHaveTextContent("1,505.41");
+    expect(within(table).getAllByRole("row").at(-1)).toHaveTextContent("6,159.64");
+  });
+
+  it("keeps the rows of the reward by score while its figures wait", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.estimating} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(table).toHaveAttribute("aria-busy", "true");
+    expect(within(table).getAllByRole("row")).toHaveLength(6);
+    expect(within(table).queryByText("PAVED")).not.toBeInTheDocument();
+    // Pay never waits for the estimate.
+    expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
+    expect(screen.queryByText("The reward cannot be estimated")).toBeNull();
+  });
+
+  it("says why the reward cannot be estimated instead of waiting for ever, with Retry", async () => {
+    const onRetryReference = vi.fn();
+    render(wrap(<PurchaseScene {...PURCHASE.estimateFailed} onRetryReference={onRetryReference} />));
+    const table = screen.getByRole("table", { name: "Estimated reward by score" });
+    expect(table).toHaveAttribute("aria-busy", "false");
+    expect(within(table).getAllByRole("row")[1]).toHaveTextContent("—");
+    expect(screen.getByText("The reward cannot be estimated")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetryReference).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
+  });
+});
+
+// #705 during and after the game: the curve of the mocks' game (R = 4.2 PAVED, c 1.222, H 5, threshold 1,150), its score 1,270.
+describe("Challenge reward on the HUD and the over page (#705)", () => {
+  const hud = (props: Partial<React.ComponentProps<typeof GameHud>>) => render(wrap(<GameHud title="Challenge #1042" score={1270} now={0} reward={CURVE_PLAYING} {...props} />));
+
+  it("shows on the HUD what the score earns past the threshold, the score to beat under it, and max from the cap", () => {
+    const { unmount } = hud({});
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(/^Estimated reward ≈ 5\.66 PAVED$/);
+    unmount();
+    const below = hud({ score: 640 });
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(`Beat ${pts(1150)}`);
+    below.unmount();
+    const cap = hud({ score: 5_000 });
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(/≈ 21\.00 PAVED\s*max$/);
+    cap.unmount();
+    // From 10,000 PAVED the figure is compact, so the header keeps its width (WRAP360).
+    hud({ score: 999_999, reward: { ...CURVE_PLAYING, reference: 123_456_789n * 10n ** 18n } });
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(/≈ 617\.3M PAVED\s*max$/);
+  });
+
+  it("shows no reward on the HUD without a curve, nor on a Training board", () => {
+    const { unmount } = hud({ reward: null });
+    expect(screen.queryByTestId("hud-reward")).toBeNull();
+    unmount();
+    render(wrap(<BoardScene {...BOARD.queueTraining} />));
+    expect(screen.queryByTestId("hud-reward")).toBeNull();
+  });
+
+  it("shows it on the Challenge board's HUD", () => {
+    render(wrap(<BoardScene {...BOARD.belowThreshold} />));
+    expect(screen.getByTestId("hud-reward")).toHaveTextContent(`Beat ${pts(1150)}`);
+  });
+
+  it("estimates the reward of a game whose day is open, with the threshold it is measured against", () => {
+    render(wrap(<OverScene {...OVER.awaitingEstimate} />));
+    const panel = screen.getByRole("region", { name: "Reward" });
+    expect(within(panel).getByTestId("reward-coming")).toHaveTextContent(/^≈About5\.66PAVED$/);
+    expect(panel).toHaveTextContent(`At today's threshold ${pts(1150)} · beaten by ${pts(120)}`);
+  });
+
+  it("gives the exact reward once the day's mean is fixed, before the settle", () => {
+    render(wrap(<OverScene {...OVER.settle} />));
+    const panel = screen.getByRole("region", { name: "Reward" });
+    expect(within(panel).getByTestId("reward-coming")).toHaveTextContent(/^5\.66PAVED$/);
+    expect(panel).not.toHaveTextContent("At today's threshold");
+    expect(panel).toHaveTextContent(`Threshold ${pts(1150)}`);
+  });
+});
+
+describe("RewardEstimate rows (#705)", () => {
+  it("leaves out the steps at or past the cap's score", () => {
+    expect(rewardMarks(1_150_000, 12_220, 5)).toEqual([
+      { score: 1150, capped: false },
+      { score: 1438, capped: false },
+      { score: 1725, capped: false },
+      { score: 2300, capped: false },
+      { score: 4706, capped: true },
+    ]);
+    // c 3: the cap from 1,917, before 2x the threshold.
+    expect(rewardMarks(1_150_000, 30_000, 5)).toEqual([
+      { score: 1150, capped: false },
+      { score: 1438, capped: false },
+      { score: 1725, capped: false },
+      { score: 1917, capped: true },
+    ]);
+    // c of H or more: the cap from the threshold, one row.
+    expect(rewardMarks(1_150_000, 50_000, 5)).toEqual([{ score: 1150, capped: true }]);
   });
 });
 
