@@ -14,12 +14,14 @@ export const CHALLENGE = "0x1111";
 export const SETUP = "0x2222";
 export const ECONOMY = "0x4444";
 export const COLLECTION = "0x5555";
+export const ARENA = "0x6666";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
   challenge: CHALLENGE,
   setup: SETUP,
   economy: ECONOMY,
   collection: COLLECTION,
+  arena: ARENA,
 };
 
 export type FakeEvent = { source: Source; keys: string[]; data: string[] };
@@ -148,6 +150,18 @@ export const ev = {
   /** #639. `CobblesSpent { player_id; spender, reason, cobbles, balance }`. */
   cobblesSpent: (player: bigint | number, spender: bigint | number, reason: bigint | number, cobbles: number, balance: number) =>
     raw("setup", "CobblesSpent", [player], [spender, reason, cobbles, balance]),
+  /** `Arena`'s `AttackOpened { attacker, defender; id, npc, offer, target, tiles }` (#643). */
+  attackOpened: (attacker: bigint | number, defender: bigint | number, id: number, options: { npc?: boolean; offer?: number; target?: number; tiles?: number } = {}) =>
+    raw("arena", "AttackOpened", [attacker, defender], [id, options.npc ? 1 : 0, options.offer ?? 30, options.target ?? 1000, options.tiles ?? 20]),
+  /** `AttackFinished { attacker, defender; id, game_id, score, stars, surrendered, gained, lost }` (#643). */
+  attackFinished: (
+    attacker: bigint | number,
+    defender: bigint | number,
+    id: number,
+    options: { score?: number; stars?: number; surrendered?: boolean; gained?: number; lost?: number } = {},
+  ) =>
+    raw("arena", "AttackFinished", [attacker, defender], [id, 7, options.score ?? 0, options.stars ?? 0, options.surrendered ? 1 : 0, options.gained ?? 0, options.lost ?? 0]),
+  attackSkipped: (attacker: bigint | number, defender: bigint | number, id: number) => raw("arena", "AttackSkipped", [attacker, defender], [id]),
   skinsActivated: (player: bigint | number, active: bigint | number) => raw("setup", "SkinsActivated", [player], [active]),
   /** `XpGained { player_id; source, xp, total, level }` (#641). */
   xpGained: (player: bigint | number, source: number, xp: number, total: number, level: number) =>

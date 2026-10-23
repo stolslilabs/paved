@@ -274,6 +274,12 @@ function route(url: URL): Read | null {
           ...queries.playerPacks(served.number, player, limit, before),
         });
       }
+      if ((b === "attacks" || b === "defences") && parts.length === 5) {
+        const player = playerId(a);
+        const p = parameters(url, [], ["limit"]);
+        const limit = limitOf(p.limit);
+        return (queries, served) => queries.playerAttacks(served.number, player, b === "attacks" ? "attacker" : "defender", limit);
+      }
       if (b === "referrals" && parts.length === 5) {
         const player = playerId(a);
         parameters(url, []);
@@ -419,6 +425,7 @@ export type HeadInfo = {
     setup: string;
     economy: string;
     collection: string | null;
+    arena: string | null;
   };
 };
 

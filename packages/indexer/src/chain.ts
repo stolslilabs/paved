@@ -157,10 +157,13 @@ type EventsPage = {
   continuation_token?: string;
 };
 
-/** `collection` is optional: without it its mints are not read (a deployment before E5b). */
-export type Addresses = Record<Exclude<Source, "collection">, string> & { collection?: string | undefined };
+/**
+ * `collection` is optional: without it its mints are not read (a deployment before E5b). So is `arena` (#643): without it no
+ * attack is read.
+ */
+export type Addresses = Record<Exclude<Source, "collection" | "arena">, string> & { collection?: string | undefined; arena?: string | undefined };
 
-type Resolved = Record<Exclude<Source, "collection">, string> & { collection: string | undefined };
+type Resolved = Record<Exclude<Source, "collection" | "arena">, string> & { collection: string | undefined; arena: string | undefined };
 
 /** Events asked per page of `starknet_getEvents`. */
 export const CHUNK_SIZE = 100;
@@ -199,6 +202,7 @@ export class Chain {
       setup: canonical(addresses.setup),
       economy: canonical(addresses.economy),
       collection: addresses.collection === undefined ? undefined : canonical(addresses.collection),
+      arena: addresses.arena === undefined ? undefined : canonical(addresses.arena),
     };
   }
 
