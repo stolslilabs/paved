@@ -8,6 +8,8 @@ import { SKIN_PLANS, isSkinPlan, type SkinChange, type SkinViews } from "./skins
 import { AVATAR_LISTED, AVATAR_MAX_ID, AVATAR_MAX_PARTS, type AvatarViews } from "./avatar";
 import { gameContract, type DrawView, type DrawViews, type GameKey } from "./views";
 import { withVrfRequest } from "./vrf";
+import { buyParcelCall, foundVillageCall, type VillageCell, type VillageViews } from "./village";
+import { claimRewardCall, openRewardCalls, type RewardClaim } from "./rewards";
 
 export interface Call {
   contractAddress: string;
@@ -349,6 +351,87 @@ function avatarRevert(error: unknown): never {
 export interface BuyAvatarItemRequest {
   part: number;
   id: number;
+  confirmedPrice: number;
+}
+
+/** Why `Village` or `Rewards` refused a village write, by its revert (`village.cairo`, `rewards.cairo`, `errors`; `setup.cairo` for the Cobbles). */
+export type VillageRefusal =
+  | "founded"
+  | "no-village"
+  | "cell-owned"
+  | "not-adjacent"
+  | "territory-full"
+  | "level-too-low"
+  | "not-enough-cobbles"
+  | "cell-not-owned"
+  | "tile-exists"
+  | "no-neighbors"
+  | "cannot-place"
+  | "no-reward"
+  | "offer-open"
+  | "no-offer"
+  | "price-changed";
+
+/** Each refusal's revert reason; `cell not owned` before `cell owned`, so the one is never read as the other. */
+const VILLAGE_REVERTS: Array<[string, VillageRefusal]> = [
+  ["Village: already founded", "founded"],
+  ["Village: no village", "no-village"],
+  ["Village: cell not owned", "cell-not-owned"],
+  ["Village: cell owned", "cell-owned"],
+  ["Village: not adjacent", "not-adjacent"],
+  ["Village: territory full", "territory-full"],
+  ["Village: level too low", "level-too-low"],
+  ["Setup: not enough cobbles", "not-enough-cobbles"],
+  ["Tile: already exists", "tile-exists"],
+  ["Tile: no neighbors", "no-neighbors"],
+  ["Tile: cannot place", "cannot-place"],
+  ["Rewards: no reward", "no-reward"],
+  ["Rewards: offer open", "offer-open"],
+  ["Rewards: no offer", "no-offer"],
+];
+
+/** What the player reads for each refusal. */
+export const VILLAGE_REFUSAL_TEXT: Record<VillageRefusal, string> = {
+  founded: "Your village is already founded.",
+  "no-village": "Found your village first.",
+  "cell-owned": "This parcel is already yours.",
+  "not-adjacent": "A parcel must touch your village.",
+  "territory-full": "Your village holds the most cells it can.",
+  "level-too-low": "Your level is too low for this parcel: play games to level up. No Cobbles were spent.",
+  "not-enough-cobbles": "Not enough Cobbles for this parcel: earn them from quests and achievements, or buy a pack.",
+  "cell-not-owned": "This cell is not in your village: buy its parcel first.",
+  "tile-exists": "A tile is already on this cell.",
+  "no-neighbors": "A tile must touch another tile of your village.",
+  "cannot-place": "This tile does not fit there: its sides must match the tiles around it.",
+  "no-reward": "No reward is waiting: play a game to earn one.",
+  "offer-open": "A reward is already open: choose from its tiles first.",
+  "no-offer": "This reward was already taken.",
+  "price-changed": "This parcel's price changed: check the new price and buy again. Nothing was sent.",
+};
+
+/**
+ * `Village` or `Rewards` refused a write (`found`, `buy_parcel`, `open_reward`, `claim_reward`): nothing changed and no
+ * Cobbles moved. `no-offer` and `founded` mean an earlier write landed: the page reads the village again.
+ */
+export class VillageRefusedError extends WriteError {
+  constructor(readonly reason: VillageRefusal, transactionHash?: string) {
+    super(VILLAGE_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
+    this.name = "VillageRefusedError";
+  }
+}
+
+/** A known revert of a village write as its `VillageRefusedError`; any other error unchanged. */
+function villageRevert(error: unknown): never {
+  if (error instanceof WriteError && !(error instanceof VillageRefusedError)) {
+    const known = VILLAGE_REVERTS.find(([reason]) => revertNames(error.message, reason));
+    if (known) throw new VillageRefusedError(known[1], error.transactionHash);
+  }
+  throw error;
+}
+
+/** A parcel's purchase as the player confirmed it: the cell next to the village and the price in Cobbles the sheet showed. */
+export interface BuyParcelRequest {
+  cell: VillageCell;
   confirmedPrice: number;
 }
 
@@ -700,6 +783,80 @@ export class PavedWriter {
     if (!this.options.deployment.addresses.Avatar) return Promise.reject(new WriteError("No Avatar contract in this deployment: no avatar can be saved"));
     if (look < 0n || look >= 2n ** 128n) return Promise.reject(new AvatarRefusedError("invalid-look"));
     return this.send("Avatar", [this.call("Avatar", "set_avatar", [look])]).catch(avatarRevert);
+  }
+
+  /** `Village.found()`: the caller's village, once (the 3 x 3 of the start and the starter). */
+  foundVillage(): Promise<WriteResult> {
+    const village = this.options.deployment.addresses.Village;
+    if (!village) return Promise.reject(new WriteError("No Village contract in this deployment: no village can be founded"));
+    return this.send("Village", [foundVillageCall(village)]).catch(villageRevert);
+  }
+
+  /**
+   * `Village.buy_parcel(x, y)`: the parcel at `cell`, paid in Cobbles on `Setup`'s ledger, gated by the caller's level. The
+   * village's next price is read again inside the serialised send (`views.village`): another price than `confirmedPrice`, the
+   * one the sheet showed, is a `VillageRefusedError` (`price-changed`) and nothing is sent; a failed read sends nothing. A
+   * refusal on chain (level, Cobbles, a cell not next to the village) is a `VillageRefusedError`: nothing moved.
+   */
+  buyParcel(request: BuyParcelRequest, views: Pick<VillageViews, "village">): Promise<WriteResult> {
+    const village = this.options.deployment.addresses.Village;
+    if (!village) return Promise.reject(new WriteError("No Village contract in this deployment: no parcel is for sale"));
+    if (!Number.isInteger(request.confirmedPrice) || request.confirmedPrice <= 0) return Promise.reject(new WriteError("No confirmed price for this parcel: nothing was sent"));
+    let call: Call;
+    try {
+      call = buyParcelCall(village, request.cell);
+    } catch (error) {
+      return Promise.reject(new WriteError(error instanceof Error ? error.message : String(error)));
+    }
+    return this.serialised(async () => {
+      let current: number;
+      try {
+        current = (await views.village(this.address)).nextPrice;
+      } catch (error) {
+        throw new WriteError(`Cannot read the parcel's price: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      if (current !== request.confirmedPrice) throw new VillageRefusedError("price-changed");
+      return this.sendNow("Village", [call]);
+    }).catch(villageRevert);
+  }
+
+  /**
+   * `Rewards.open_reward()`: draws the 3 tiles of the caller's next pending reward on the VRF (#642). The reward's index
+   * (`grants(player).opened`, its salt) is read inside the serialised send, after any earlier write has landed; with the
+   * deployment's provider the request goes first (`openRewardCalls`), without one (the devnet's mock) the call goes alone.
+   * The receipt's `RewardOpened` carries the plans.
+   */
+  openReward(views: Pick<VillageViews, "rewardGrants">): Promise<WriteResult> {
+    const rewards = this.options.deployment.addresses.Rewards;
+    if (!rewards) return Promise.reject(new WriteError("No Rewards contract in this deployment: no reward can be opened"));
+    return this.serialised(async () => {
+      const provider = this.options.deployment.vrfProvider;
+      if (!provider) return this.sendNow("Rewards", [{ contractAddress: rewards, entrypoint: "open_reward", calldata: [] }]);
+      let opened: number;
+      try {
+        opened = (await views.rewardGrants(this.address)).opened;
+      } catch (error) {
+        throw new WriteError(`Cannot read the reward's draw: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      return this.sendNow("Rewards", openRewardCalls(rewards, provider, this.address, opened));
+    }).catch(villageRevert);
+  }
+
+  /**
+   * `Rewards.claim_reward(...)`: the open offer claimed in one gesture (#642): a tile placed on a cell of the village (every
+   * rule of `Village.place`), added as a copy of its plan, or the Cobbles. The receipt's `RewardClaimed` carries the plan's
+   * copies and tier after it. A refusal (the cell, the fit, no offer) is a `VillageRefusedError`: the offer stays open.
+   */
+  claimReward(claim: RewardClaim): Promise<WriteResult> {
+    const rewards = this.options.deployment.addresses.Rewards;
+    if (!rewards) return Promise.reject(new WriteError("No Rewards contract in this deployment: no reward can be claimed"));
+    let call: Call;
+    try {
+      call = claimRewardCall(rewards, claim);
+    } catch (error) {
+      return Promise.reject(new WriteError(error instanceof Error ? error.message : String(error)));
+    }
+    return this.send("Rewards", [call]).catch(villageRevert);
   }
 
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */

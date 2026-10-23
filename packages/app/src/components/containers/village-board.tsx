@@ -5,7 +5,7 @@ import { TierBase } from "../elements/tier-base";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
-import { TIERS, buyableCells, cellKey, clearCells, tierOf, tierProgress, type Cell, type LegalCell, type Village } from "./village-rules";
+import { TIERS, buyableCells, cellCap, cellKey, clearCells, tierOf, tierProgress, type Cell, type LegalCell, type Village } from "./village-rules";
 
 /**
  * The plan's fog (#633's village variant): `village` clears the owned cells and the cells next to them, the rest of the ground
@@ -23,7 +23,7 @@ export interface VillagePlacing {
 }
 
 export interface VillageBoardProps {
-  village: Pick<Village, "cells" | "tiles" | "copies">;
+  village: Pick<Village, "cells" | "tiles" | "copies" | "maxCells">;
   fog?: VillageFog;
   /** The cells that can be bought are buttons (the player's own village). Off (a visit, an attack): drawn clear, inert. */
   parcels?: boolean;
@@ -96,7 +96,7 @@ export function VillageBoard({ village, fog = "village", parcels = false, parcel
     el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
   }, [extent]);
   const owned = new Set(village.cells.map(cellKey));
-  const buyable = parcels ? buyableCells(village.cells) : [];
+  const buyable = parcels ? buyableCells(village.cells, cellCap(village)) : [];
   const buyableKeys = new Set(buyable.map(cellKey));
   const clear = clearCells(village.cells);
   const legal = new Map((placing?.legal ?? []).map((c) => [cellKey(c), c]));

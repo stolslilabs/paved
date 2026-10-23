@@ -31,6 +31,9 @@ export const REWARD_OFFER_FIELDS = ["index", "plan1", "plan2", "plan3"];
 /** The kind of an offer's VRF draw (`REWARD_KIND`): its salt is `vrfSalt(REWARD_DRAW_KIND, player, opened)`. */
 export const REWARD_DRAW_KIND = "REWARD";
 
+/** The Cobbles of the "take Cobbles" choice (`REWARD_COBBLES`, rule B, validated by the owner on 2026-10-23). */
+export const REWARD_COBBLES = 5;
+
 /** The choices of `claim_reward` (`CHOICE_PLACE`, `CHOICE_MERGE`, `CHOICE_COBBLES`). */
 export const REWARD_CHOICE = { place: 1, merge: 2, cobbles: 3 } as const;
 

@@ -65,7 +65,8 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: "ui-scroll-region--horizontal", kind: "scroll", element: "div[scroll-region]", why: "horizontal scroller" },
   // The village board (#646): its cells keep the 44 px touch floor, so a village wider than a phone scrolls both ways in a
   // ScrollRegion with the edge hint, by design.
-  { story: /^(scenes-village|containers-villageboard)--/, kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
+  // The wired village page (#646 PR 2) and its header story draw the same plan in the same scroller.
+  { story: /^(scenes-village|containers-villageboard|pages-village)--|^pages-headers--village$/, kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with

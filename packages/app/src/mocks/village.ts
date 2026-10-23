@@ -10,9 +10,8 @@ const ME = PLAYER.name ?? "bal7hazar";
 
 /**
  * The village's fakes (#646), shared with the PvP flow (#647): villages of every size built by the rules of
- * `village-rules.ts`, the reward offers and the parcel prices. Until #640 and #642 say otherwise, the prices and levels are
- * proposals: a parcel costs 20 Cobbles per cell owned past the 9 of the start, and every 4 cells past the start need one
- * more level (the 13th cell level 2, ... the 38th level 8).
+ * `village-rules.ts`, the reward offers and the parcel prices. The prices and levels are the chain's (#640, the owner's table
+ * (a)): parcel `k`, the `9 + k`th cell, costs `10 x k` Cobbles and needs level `k`; "take Cobbles" is 5 (#642, rule B).
  */
 
 /** Chain plan ids by their nine letters (`PlanType`'s index): the plans the fakes use. */
@@ -105,13 +104,16 @@ export const VILLAGE_CRAMPED: Village = (() => {
   return { owner: ME, level: 2, cells, tiles, copies: copiesOf(tiles), score: 2_400 };
 })();
 
+/** A village not founded yet: the 3 x 3 of the start and the starter (`RFFFRFCFR` facing South), what `found` gives. */
+export const VILLAGE_UNFOUNDED: Village = { owner: ME, level: 1, cells: square(1), tiles: [{ id: 1, plan: P.roadBend, orientation: 3, x: 0, y: 0 }], copies: {}, score: 0 };
+
 /** Another player's village, for a visit: from a profile, or the defender of the PvP scout (#647). */
 export const VILLAGE_RIVAL = village("Rook of Ashford", 7, grow(square(1), 20), [...MIXED, ...MIXED].slice(0, 26), { [P.roadCross]: 3, [P.wonder]: 6, [P.stopRoads]: 1 }, 11_250);
 
-/** The reward offers: three distinct plans (the sims' model, 3 of 72 cards) and the Cobbles instead. */
-export const REWARD: RewardOffer = { plans: [P.road, P.wonder, P.roadCross], cobbles: 15 };
+/** The reward offers: three plans (3 cards of the base deck's 72) and the Cobbles instead. */
+export const REWARD: RewardOffer = { plans: [P.road, P.wonder, P.roadCross], cobbles: 5 };
 /** In the cramped village: one tile fits, two are greyed out. */
-export const REWARD_CRAMPED: RewardOffer = { plans: [P.city, P.road, P.wonder], cobbles: 15 };
+export const REWARD_CRAMPED: RewardOffer = { plans: [P.city, P.road, P.wonder], cobbles: 5 };
 
 /**
  * The skins reserved to a tier (#642 decides which), for a theme's shop: the plan's tier from `VILLAGE_FULL`'s copies. The first
@@ -128,10 +130,11 @@ export const SKIN_TIER_GATES: Readonly<Record<number, SkinTierGate>> = Object.fr
   ] as const).map(([plan, tier]) => [plan, { tier, name: TIERS[tier].name, reached: tierOf(VILLAGE_FULL.copies[plan] ?? 0) >= tier }]),
 );
 
-/** The parcel price and level gate for a village of `cells` cells (the proposal above); null once full. */
+/** The parcel price and level gate for a village of `cells` cells (the chain's table, above); null once full. */
 export function parcelFor(cells: number): ParcelOffer | null {
   if (cells >= 38) return null;
-  return { price: 20 * Math.max(1, cells - 8), level: 1 + Math.floor((cells + 1 - 9) / 4) };
+  const parcel = Math.max(1, cells - 8);
+  return { price: 10 * parcel, level: parcel };
 }
 
 /** A parcel next to the growing village. */
@@ -155,6 +158,13 @@ export const VILLAGE = {
   parcelLevel: { village: VILLAGE_GROWING, cobbles: 640, parcel: { price: 260, level: 5 }, initialParcel: GROWING_PARCEL },
   parcelCobbles: { village: VILLAGE_GROWING, cobbles: 90, parcel: parcelFor(21), initialParcel: GROWING_PARCEL },
   tiers: { village: VILLAGE_FULL, cobbles: 2_310, parcel: parcelFor(38), initialTiers: true },
+  unfounded: { village: VILLAGE_UNFOUNDED, founded: false },
+  waiting: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9), pending: 3 },
+  refused: { village: VILLAGE_START, cobbles: 5, parcel: parcelFor(9), refusal: "Your level is too low for this parcel: play games to level up. No Cobbles were spent." },
+  rewardFailed: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9), pending: 2, rewardError: { message: "Rewards: the node did not answer" } },
+  loading: { status: { kind: "loading" } },
+  guest: { status: { kind: "guest" } },
+  unavailable: { village: null },
   visitProfile: { village: VILLAGE_RIVAL, mode: "visit", from: "profile" },
   visitScout: { village: VILLAGE_RIVAL, mode: "visit", from: "scout" },
 } satisfies Record<string, Data<VillageSceneProps>>;
