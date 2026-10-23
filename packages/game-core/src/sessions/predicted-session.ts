@@ -416,7 +416,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     if (chain) this.engine = this.boardOf(game, tiles);
     for (const e of this.queue) e.dropped = true;
     this.queue = [];
-    // `project` reads `readonly` for the hand.
+    // `slots`, `orientationsAt` and `preview` read `readonly`: a viewer who cannot play gets none.
     this.current = { ...this.current, readonly };
     this.set({
       ...this.project(),
@@ -429,7 +429,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       readError: null,
       expiresAt: game.expiresAt,
       // Without prediction the board and the hand are the chain's.
-      ...(chain ? this.chainProjection(game, tiles, readonly) : {}),
+      ...(chain ? this.chainProjection(game, tiles) : {}),
     });
     if (fallback) this.onMismatch({ gameId: this.key.gameId, move: null, reason: `open: ${fallback}` });
     return true;
@@ -445,7 +445,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   slots(orientation: number): { x: number; y: number }[] {
     const hand = this.current.hand;
     const wanted = ORIENTATIONS[orientation];
-    if (!this.engine || !hand || !wanted) return [];
+    if (!this.engine || !hand || !wanted || this.current.readonly) return [];
     return this.engine
       .legalPlacements(PLANS[hand.plan] as PlanType)
       .filter((p) => p.orientation === wanted)
@@ -455,7 +455,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   /** The orientations (1 to 4) the tile in hand may take at `slot`; none when it cannot go there. */
   orientationsAt(slot: { x: number; y: number }): number[] {
     const hand = this.current.hand;
-    if (!this.engine || !hand) return [];
+    if (!this.engine || !hand || this.current.readonly) return [];
     const plan = PLANS[hand.plan] as PlanType;
     return [1, 2, 3, 4].filter((o) => this.engine!.canPlace(toPlacement({ orientation: o, ...slot })!, plan));
   }
@@ -464,7 +464,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   preview(move: PlaceMove): number | null {
     const placement = toPlacement(move);
     const hand = this.current.hand;
-    if (!placement || !this.engine || !hand || !this.engine.canPlace(placement, PLANS[hand.plan] as PlanType)) return null;
+    if (!placement || !this.engine || !hand || this.current.readonly || !this.engine.canPlace(placement, PLANS[hand.plan] as PlanType)) return null;
     const game = this.engine.clone();
     if (!this.current.predicting) game.force(PLANS[hand.plan] as PlanType);
     return game.build(placement).points;
@@ -652,7 +652,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       const [game, chainTiles, draw] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key), this.readDraw()]);
       this.chainQueue = draw;
       this.engine = this.boardOf(game, chainTiles);
-      this.set({ ...this.chainProjection(game, chainTiles, s.readonly), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
+      this.set({ ...this.chainProjection(game, chainTiles), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
     } catch (error) {
       // The move landed but the next tile is unknown: the next action re-reads the game (`stale`).
       this.set({ pending: false, unconfirmed: 0, drawing: false, readError: message(error), stale: true });
@@ -679,9 +679,10 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
   }
 
   /** The board and the hand as the chain gives them (no prediction), with the queue of a game on the VRF. */
-  private chainProjection(game: ChainGame, tiles: readonly ChainTile[], readonly: boolean): Partial<PredictedState> {
+  private chainProjection(game: ChainGame, tiles: readonly ChainTile[]): Partial<PredictedState> {
     const placed = tiles.filter((t) => t.status === PLACED);
-    const hand = !readonly && !game.over && game.tileId ? { tileId: game.tileId, plan: game.plan } : null;
+    // A viewer who cannot play still sees the game's hand and its queue (#701); every move of theirs is refused.
+    const hand = !game.over && game.tileId ? { tileId: game.tileId, plan: game.plan } : null;
     return {
       game: {
         playerId: game.playerId,
@@ -714,7 +715,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       y: CENTER + t.y,
       ...(pending.has(t.id) ? { pending: true } : {}),
     }));
-    const hand = g.over || this.current.readonly ? null : g.hand;
+    // Read only too: the watcher sees what the player holds (#701).
+    const hand = g.over ? null : g.hand;
     return {
       game: {
         playerId: this.current.game?.playerId ?? `0x${g.player.toString(16)}`,
