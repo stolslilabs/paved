@@ -60,14 +60,19 @@ function Village({ player }: { player: string | null }) {
   const renders = useTileRenders(RENDERER_ASSETS);
   const tileArt = deckArt(renders, skins, useTileArt(RENDERER_ASSETS));
 
+  // The own village's Cobbles are part of its read: the balance and the parcels' affordability come from them, so a balance
+  // not read yet, or whose read failed, is never shown as 0 (Retry reads them again with the rest).
+  const balanceError = own ? account.error : null;
+  const failed = read.error ?? balanceError ?? null;
+  const waiting = read.data === undefined || (own && account.data === undefined);
   const status: VillageStatus | null =
     own && me === null
       ? { kind: "guest" }
-      : read.data === undefined
-        ? read.error
-          ? { kind: "error", message: read.error.message, detail: errorDetail(read.error) }
-          : { kind: "loading" }
-        : null;
+      : failed && (waiting || balanceError)
+        ? { kind: "error", message: failed.message, detail: errorDetail(failed) }
+        : waiting
+          ? { kind: "loading" }
+          : null;
   // The reward's own failed read: the village shows, the reward's place says what happened (Retry reads both again).
   const rewardError = reward.error ? { message: reward.error.message, detail: errorDetail(reward.error) } : null;
   const data = read.data;
