@@ -4,8 +4,9 @@ import { fn } from "storybook/test";
 import { ATTACK_STEPS, PVP_ATTACK, PVP_REPLAY, REPLAY_STEPS, attackAt, replayAt } from "../../mocks/pvp";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { BOARD_FOG } from "../../data/settings";
-import { APP_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { PvpAttackBoard } from "../containers/pvp-attack-board";
+import { StackView } from "../containers/stack-view";
 import { PvpAttackScene, type PvpAttackSceneProps } from "./pvp-attack-scene";
 
 /**
@@ -17,7 +18,7 @@ const meta = {
   title: "Scenes/PvP/Attack",
   component: PvpAttackScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_ATTACK.start, onBack: fn(), onSlotClick: fn(), onDiscard: fn() },
+  args: { ...PVP_ATTACK.start, tileRenders: appRenders, onBack: fn(), onSlotClick: fn(), onDiscard: fn() },
 } satisfies Meta<typeof PvpAttackScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -85,12 +86,16 @@ export const Replay: Story = { render: () => <ReplayPlayer /> };
 const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
 const NIGHT_3D: RendererSettingsInput = { ...DAY_3D, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
 
-/** The attack on the 3D board as the page gives it (`PvpAttackBoard`): the fog of war clear over the territory and its neighbours. */
+/**
+ * The attack on the 3D board as the page gives it (`PvpAttackBoard`): the fog of war clear over the territory and its neighbours;
+ * the stack's tiles in 3D, as on the game's board (#701).
+ */
 function Attack3D({ settings, ...args }: PvpAttackSceneProps & { settings: RendererSettingsInput }) {
   return (
     <PvpAttackScene
       {...args}
       canvas={<PvpAttackBoard territory={args.territory} tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
+      renderHandStack={(v) => <StackView {...v} basePath={APP_ASSETS} skins={args.skins} />}
     />
   );
 }
