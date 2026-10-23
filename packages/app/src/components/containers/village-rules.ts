@@ -14,7 +14,7 @@ import { planCode } from "../elements/tile-chip";
  * - A plan's tier counts its copies for the account (open point 5 of #637, proposed): 1, 2, 4, 8, 16 copies.
  */
 
-/** The most cells a village owns: the length of a game (#637). */
+/** The most cells a village owns before the chain's cap is read: the value proposed for the deployment (#640, decision 1). */
 export const MAX_CELLS = 38;
 
 export interface Cell {
@@ -34,7 +34,12 @@ export interface Village {
   copies: Readonly<Record<number, number>>;
   /** The village's score (#640): what an attacker plays against. */
   score: number;
+  /** The owner's cap of a territory, the 9 of the start included (`Village.max_cells`); `MAX_CELLS` when not given. */
+  maxCells?: number;
 }
+
+/** The cap of a village's territory: its `maxCells`, else `MAX_CELLS`. */
+export const cellCap = (village: Pick<Village, "maxCells">): number => village.maxCells ?? MAX_CELLS;
 
 /** The tiers, a base under the tile whatever its skin (#637): two of a tier make one of the next. More may come. */
 export const TIERS = [
@@ -89,9 +94,9 @@ export function edgeOf(plan: number, orientation: number, side: number): string 
   return planCode(plan)[EDGE_LETTERS[turned]!] ?? "";
 }
 
-/** The cells next to the village not owned yet: the parcels that can be bought (none once it holds `MAX_CELLS`). */
-export function buyableCells(cells: readonly Cell[]): Cell[] {
-  if (cells.length >= MAX_CELLS) return [];
+/** The cells next to the village not owned yet: the parcels that can be bought (none once it holds `max` cells). */
+export function buyableCells(cells: readonly Cell[], max = MAX_CELLS): Cell[] {
+  if (cells.length >= max) return [];
   const owned = new Set(cells.map(cellKey));
   const out = new Map<string, Cell>();
   for (const c of cells) {
@@ -116,15 +121,22 @@ export function freeCells(village: Pick<Village, "cells" | "tiles">): Cell[] {
   return village.cells.filter((c) => !taken.has(cellKey(c)));
 }
 
-/** Whether `plan` turned to `orientation` may go on `cell`: an owned free cell whose placed neighbours share each facing edge. */
+/**
+ * Whether `plan` turned to `orientation` may go on `cell`, as `Village.place` rules it: an owned free cell next to a placed
+ * tile (a chain village always holds its starter; an empty one, the stories' fakes, takes a first tile anywhere), whose placed
+ * neighbours share each facing edge. A test checks it against game-core's engine.
+ */
 export function fits(village: Pick<Village, "cells" | "tiles">, plan: number, orientation: number, cell: Cell): boolean {
   if (!village.cells.some((c) => c.x === cell.x && c.y === cell.y)) return false;
   const byCell = new Map(village.tiles.map((t) => [cellKey(t), t]));
   if (byCell.has(cellKey(cell))) return false;
-  return SIDES.every(([dx, dy], side) => {
+  let neighbours = 0;
+  const matches = SIDES.every(([dx, dy], side) => {
     const n = byCell.get(cellKey({ x: cell.x + dx, y: cell.y + dy }));
+    if (n) neighbours += 1;
     return !n || edgeOf(plan, orientation, side) === edgeOf(n.plan, n.orientation, (side + 2) % 4);
   });
+  return matches && (neighbours > 0 || village.tiles.length === 0);
 }
 
 /** The orientations of `plan` that fit `cell`, in order (1 north to 4 west). */

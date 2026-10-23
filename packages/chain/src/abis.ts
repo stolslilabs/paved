@@ -1,6 +1,8 @@
 import challengeAbi from "../../../contracts/abis/Challenge.json";
 import setupAbi from "../../../contracts/abis/Setup.json";
 import avatarAbi from "../../../contracts/abis/Avatar.json";
+import villageAbi from "../../../contracts/abis/Village.json";
+import rewardsAbi from "../../../contracts/abis/Rewards.json";
 import faucetAbi from "../../../contracts/abis/Faucet.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
@@ -11,14 +13,17 @@ import { AbiCodec, type Abi } from "./codec";
  * The native contracts the writer and the views call, as named in `contracts/abis/` and in the deployments file. `Setup`
  * (D-24, D-25) holds the quests, the achievements, the tutorial claim and the wiring; it is optional in a deployment
  * (`deployment.ts`). `Account` left with D-25 (E): a player is the wallet address, with no registration. `Avatar` (#627) holds
- * the avatar items and each player's avatar; it is optional too.
+ * the avatar items and each player's avatar; it is optional too. `Village` (#640) and `Rewards` (#642) hold the player's village,
+ * its rewards and the tiers; both are optional.
  */
-export type ContractName = "Challenge" | "Setup" | "Avatar";
+export type ContractName = "Challenge" | "Setup" | "Avatar" | "Village" | "Rewards";
 
 export const ABIS: Record<ContractName, Abi> = {
   Challenge: challengeAbi as Abi,
   Setup: setupAbi as Abi,
   Avatar: avatarAbi as Abi,
+  Village: villageAbi as Abi,
+  Rewards: rewardsAbi as Abi,
 };
 
 export type Codecs = Record<ContractName, AbiCodec>;
@@ -28,6 +33,8 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
     Challenge: new AbiCodec(abis.Challenge),
     Setup: new AbiCodec(abis.Setup),
     Avatar: new AbiCodec(abis.Avatar),
+    Village: new AbiCodec(abis.Village),
+    Rewards: new AbiCodec(abis.Rewards),
   };
 }
 

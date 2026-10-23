@@ -37,6 +37,12 @@ export const CONTROLLER_ENTRY_POINTS = {
   // The avatar (#627): `buy_avatar_item` spends Cobbles, which no token carries, and `set_avatar` spends nothing. Policies only
   // where the deployment has an Avatar.
   Avatar: ["buy_avatar_item", "set_avatar"],
+  // The village (#640): `found` spends nothing, `buy_parcel` spends Cobbles, which no token carries. Policies only where the
+  // deployment has a Village. `demolish` is not offered by the client yet.
+  Village: ["found", "buy_parcel"],
+  // The village's rewards (#642): `open_reward` follows its VRF request (a policy too), `claim_reward` places a tile, adds a
+  // copy or credits Cobbles. No token moves. Policies only where the deployment has Rewards.
+  Rewards: ["open_reward", "claim_reward"],
 } as const;
 
 /** The VRF provider's entry point in the session (#645): `request_random`, which does nothing on chain. */

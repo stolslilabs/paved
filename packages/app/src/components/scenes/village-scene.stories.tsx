@@ -12,7 +12,7 @@ import type { RewardOffer } from "../containers/reward-sheet";
 import { VillageScene, type VillageSceneProps } from "./village-scene";
 
 /**
- * The village (#646, part of #637), on fakes: nothing is wired (#640, #642). One story per state of `VILLAGE`
+ * The village (#646, part of #637), on fakes (the page wires it to the chain, `routes/pages/village.tsx`). One story per state of `VILLAGE`
  * (`mocks/village.ts`); the Viewport control reframes it (designed at 375 first; a side panel for the reward from `desktop`).
  * `Interactive` keeps its own state: drag a reward's tile, buy parcels, take Cobbles.
  */
@@ -43,7 +43,7 @@ export const Growing: Story = { args: VILLAGE.growing };
 export const Full: Story = { args: VILLAGE.full };
 /** The fog off (#633's other side), to compare. */
 export const FogOff: Story = { args: VILLAGE.fogOff };
-/** After a game: the reward's three tiles under the board, "take 15 Cobbles" always there. */
+/** After a game: the reward's three tiles under the board, "take 5 Cobbles" always there. */
 export const Reward: Story = { args: VILLAGE.reward };
 /** A reward's tile chosen (a tap, or held in a drag): its legal cells lit, the tiles of its plan ringed for a copy. */
 export const RewardChosen: Story = { args: VILLAGE.rewardChosen };
@@ -61,6 +61,20 @@ export const ParcelLevel: Story = { args: VILLAGE.parcelLevel };
 export const ParcelCobbles: Story = { args: VILLAGE.parcelCobbles };
 /** The tiers: the ladder of bases, each plan's progress to its next tier. */
 export const Tiers: Story = { args: VILLAGE.tiers };
+/** Not founded yet: the start it gets, and Found. */
+export const Unfounded: Story = { args: VILLAGE.unfounded };
+/** Rewards waiting after games: Open draws the next one's three tiles. */
+export const Waiting: Story = { args: VILLAGE.waiting };
+/** The chain refused a write: what happened, until dismissed. */
+export const Refused: Story = { args: VILLAGE.refused };
+/** The reward's read failed: what happened and Retry, never "no reward". */
+export const RewardFailed: Story = { args: VILLAGE.rewardFailed };
+/** The village on its way from the chain. */
+export const Loading: Story = { args: VILLAGE.loading };
+/** A guest: Connect to build a village. */
+export const Guest: Story = { args: VILLAGE.guest };
+/** A network without the village's contracts yet. */
+export const Unavailable: Story = { args: VILLAGE.unavailable };
 /** Someone else's village from their profile: read-only, their score, level and tiers. */
 export const VisitProfile: Story = { args: VILLAGE.visitProfile };
 /** The defender's village from the PvP scout (#647): the same, read-only. */
@@ -71,7 +85,7 @@ function Playground(props: VillageSceneProps) {
   const [village, setVillage] = useState<Village>(VILLAGE_START);
   const [cobbles, setCobbles] = useState(400);
   const [round, setRound] = useState(0);
-  const offers: RewardOffer[] = [REWARD, { plans: [18, 9, 8], cobbles: 15 }, { plans: [13, 10, 17], cobbles: 15 }, { plans: [7, 12, 2], cobbles: 15 }];
+  const offers: RewardOffer[] = [REWARD, { plans: [18, 9, 8], cobbles: 5 }, { plans: [13, 10, 17], cobbles: 5 }, { plans: [7, 12, 2], cobbles: 5 }];
   const [reward, setReward] = useState<RewardOffer | null>(REWARD);
   const next = () => {
     setRound((r) => r + 1);
