@@ -12,7 +12,7 @@ import { FILES, TRACKS, createShuffle } from "../src/lib/music/tracks";
 import { expected, imageSize, sources, webpSize } from "../scripts/compress-music-art.ts";
 
 // The music player (P-81): nothing loads before a gesture, `preload` is "none", no immediate repeat, a crossfade on the
-// elements' volumes, a hidden tab pauses; previous, pause and resume, the Media Session (#569); and no track or image is ever
+// elements' volumes, a hidden tab plays on (#712); previous, pause and resume, the Media Session (#569); and no track or image is ever
 // imported into the bundle, and no original image ships.
 
 /** A media element as far as the player uses one: no network, a clock the test moves. */
@@ -292,8 +292,8 @@ describe("the crossfade", () => {
   });
 });
 
-describe("a hidden tab", () => {
-  it("pauses both elements and resumes them when the tab is visible again", () => {
+describe("a hidden tab (#712)", () => {
+  it("plays on while the tab is hidden, through the crossfade to the next track, and nothing restarts when it shows", () => {
     const { player, a, b } = make();
     document.dispatchEvent(new Event("click"));
     a.duration = 100;
@@ -302,14 +302,17 @@ describe("a hidden tab", () => {
     expect([a.paused, b.paused]).toEqual([false, false]);
 
     setHidden(true);
-    expect([a.paused, b.paused]).toEqual([true, true]);
-    expect(player.getState().playing).toBe(false);
-    const plays = a.plays;
-    vi.advanceTimersByTime(5000);
-    expect(a.plays).toBe(plays);
-
-    setHidden(false);
     expect([a.paused, b.paused]).toEqual([false, false]);
+    expect(player.getState().playing).toBe(true);
+    const incoming = b.src;
+    a.currentTime = 100; // the outgoing track runs out, hidden: the fade ends on its clock
+    vi.advanceTimersByTime(100);
+    expect([a.paused, b.paused]).toEqual([true, false]);
+    expect(player.getState()).toMatchObject({ track: incoming, playing: true });
+
+    const plays = b.plays;
+    setHidden(false);
+    expect(b.plays).toBe(plays);
     expect(player.getState().playing).toBe(true);
     player.destroy();
   });
@@ -323,12 +326,12 @@ describe("a hidden tab", () => {
     player.destroy();
   });
 
-  it("starts paused when the page opens in a hidden tab, and plays when it shows", () => {
+  it("waits for the gesture when the page opens in a hidden tab: being shown is not one", () => {
     setHidden(true);
     const { player, a } = make();
-    document.dispatchEvent(new Event("click"));
-    expect(a.plays).toBe(0);
     setHidden(false);
+    expect(a.plays).toBe(0);
+    document.dispatchEvent(new Event("click"));
     expect(a.plays).toBe(1);
     player.destroy();
   });
@@ -477,19 +480,21 @@ describe("previous, pause and resume", () => {
     player.destroy();
   });
 
-  it("a resume asked for while the tab is hidden (the lock screen) plays until the tab changes again", () => {
+  it("a pause and a resume while the tab is hidden (the lock screen) hold whatever the tab does next", () => {
     const { player, a } = make();
     document.dispatchEvent(new Event("click"));
     setHidden(true);
+    player.pause();
     expect(a.paused).toBe(true);
+    setHidden(false);
+    expect(a.paused).toBe(true);
+    setHidden(true);
     player.resume();
-    expect(a.paused).toBe(true);
-    player.resume({ hidden: true });
     expect(a.paused).toBe(false);
     expect(player.getState().playing).toBe(true);
     setHidden(false);
     setHidden(true);
-    expect(a.paused).toBe(true);
+    expect(a.paused).toBe(false);
     player.destroy();
   });
 

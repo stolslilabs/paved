@@ -63,8 +63,8 @@ export function AudioProvider({ musicVolume, musicBefore = RESUME_VOLUME, onMusi
         if (dead) return;
         const e = createAudioEngine({ tracks, musicVolume, sfxVolume });
         made = e;
-        // The lock screen and the headphones: a play there comes while the page is hidden, so it plays through that.
-        unbind = bindMediaSession(e.music, { onPlay: () => setMusicOn(e, true, true), onPause: () => setMusicOn(e, false) });
+        // The lock screen and the headphones.
+        unbind = bindMediaSession(e.music, { onPlay: () => setMusicOn(e, true), onPause: () => setMusicOn(e, false) });
         setEngine(e);
       })
       // A chunk that does not load is a silent app, not a broken one.
@@ -83,10 +83,10 @@ export function AudioProvider({ musicVolume, musicBefore = RESUME_VOLUME, onMusi
   useEffect(() => engine?.setSfxVolume(sfxVolume), [engine, sfxVolume]);
 
   // Music on or off, at once on the engine (a lock screen's play must not wait for a render) and in the settings.
-  function setMusicOn(e: AudioEngine, on: boolean, hidden = false) {
+  function setMusicOn(e: AudioEngine, on: boolean) {
     const { musicBefore: before, onMusicVolumeChange: report } = latest.current;
     const volume = on ? (before > 0 ? before : RESUME_VOLUME) : 0;
-    if (on) e.music.resume({ hidden });
+    if (on) e.music.resume();
     e.setMusicVolume(volume);
     report?.(volume);
   }
