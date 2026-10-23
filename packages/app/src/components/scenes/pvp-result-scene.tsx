@@ -100,7 +100,8 @@ export function PvpResultScene(props: PvpResultSceneProps) {
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Attack over" onBack={props.onHome} />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <section aria-label="Result" className="flex flex-col items-center gap-2 text-center">
+        {/* The verdict on a card, as every page's content starts (HEADER-HEIGHT, #676): at the one line under the header. */}
+        <section aria-label="Result" className="flex w-full flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 pt-6 pb-4 text-center">
           <div role="img" aria-label={`${stars} of 3 stars`} data-stars={stars} className="flex items-end gap-2">
             {[1, 2, 3].map((n) => (
               <m.span
