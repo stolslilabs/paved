@@ -8,7 +8,8 @@ import { SFX_NAMES, sfxUrl, type SfxName } from "./sfx";
 //   sound effect buffers -> sfx gain -------------------------------+-> master -> destination
 //
 // A Web Audio gain is what makes a volume slider work on an iPhone, where `HTMLMediaElement.volume` is ignored. The context
-// starts on the first user gesture (autoplay rules) and again after an interruption; it is suspended while the tab is hidden.
+// starts on the first user gesture (autoplay rules) and again after an interruption. In a hidden tab it runs only while the
+// music plays (#712): the music plays on there, the sound effects do not, and a silent hidden tab holds no audio device.
 // The sound effects are fetched and decoded after that first gesture, not before.
 //
 // The iPhone's silent switch: Safari treats Web Audio like a ringtone, so with the switch on, the page is mute. Where
@@ -120,6 +121,7 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
 
   const buffers = new Map<SfxName, AudioBuffer>();
   const lastStart = new Map<SfxName, number>();
+  const live = new Set<AudioBufferSourceNode>(); // the effects sounding now
   let unlocked = false;
   let loading = false;
   let dead = false;
@@ -148,16 +150,26 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
       loadSounds();
     }
   };
-  const onVisibility = () => {
-    if (doc.visibilityState === "hidden") void Promise.resolve(ctx.suspend()).catch(() => {});
-    else if (unlocked) wake();
+  // Hidden and silent, the context is suspended; the music playing (a play from the lock screen too) or the tab shown wakes it.
+  const fit = () => {
+    // An effect already sounding when the tab hides is cut: the effects stay silent there, whatever runs the context.
+    if (doc.visibilityState === "hidden") {
+      for (const s of live) {
+        try {
+          s.stop();
+        } catch {
+          // already ended
+        }
+      }
+      live.clear();
+    }
+    const playing = music.getState().playing;
+    if (doc.visibilityState === "hidden" && !playing) void Promise.resolve(ctx.suspend()).catch(() => {});
+    else if (unlocked || playing) wake();
   };
   for (const g of GESTURES) doc.addEventListener(g, onGesture, true);
-  doc.addEventListener("visibilitychange", onVisibility);
-  // A play from the lock screen, while the tab is hidden and the context suspended: the music plays, so the context runs.
-  const unsubscribe = music.subscribe(() => {
-    if (music.getState().playing) wake();
-  });
+  doc.addEventListener("visibilitychange", fit);
+  const unsubscribe = music.subscribe(fit);
 
   return {
     music,
@@ -172,20 +184,22 @@ export function createAudioEngine(options: AudioEngineOptions): AudioEngine {
     },
     play(name) {
       const buffer = buffers.get(name);
-      if (!buffer || sfxVolume === 0 || ctx.state !== "running") return;
+      if (!buffer || sfxVolume === 0 || ctx.state !== "running" || doc.visibilityState === "hidden") return;
       const now = Date.now();
       if (now - (lastStart.get(name) ?? 0) < MIN_GAP_MS) return;
       lastStart.set(name, now);
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(sfxGain);
+      live.add(source);
+      source.onended = () => live.delete(source);
       source.start();
     },
     loaded: () => [...buffers.keys()],
     destroy() {
       dead = true;
       for (const g of GESTURES) doc.removeEventListener(g, onGesture, true);
-      doc.removeEventListener("visibilitychange", onVisibility);
+      doc.removeEventListener("visibilitychange", fit);
       unsubscribe();
       music.destroy();
       void Promise.resolve(ctx.close()).catch(() => {});
