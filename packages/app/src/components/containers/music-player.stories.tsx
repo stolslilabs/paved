@@ -72,7 +72,7 @@ function Live_() {
 
 /**
  * The real player (two tracks of `public/music/`, streamed: the Storybook carries only these; the shuffle, the 2 s crossfade,
- * paused while the tab is hidden). Nothing loads until you click or press a key; Next and Previous crossfade, Pause mutes.
+ * playing on while the tab is hidden). Nothing loads until you click or press a key; Next and Previous crossfade, Pause mutes.
  */
 export const Live: Story = { render: () => <Live_ /> };
 

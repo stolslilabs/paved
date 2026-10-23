@@ -1,10 +1,10 @@
 import { titleOf } from "./track-info";
 import { createShuffle } from "./tracks";
 
-// The music player (P-81), without React: a playlist streamed by two `<audio>` elements that crossfade, paused while the tab
-// is hidden, and silent until the first user gesture. The levels (the fade, the volume) are written through `route`: by default
-// the element's own `volume`; the audio engine (`lib/audio/engine.ts`) routes each element into a Web Audio `GainNode`, because
-// iOS Safari keeps `volume` at 1 on a media element and a slider would do nothing there.
+// The music player (P-81), without React: a playlist streamed by two `<audio>` elements that crossfade, playing on while the
+// tab is hidden (#712), and silent until the first user gesture. The levels (the fade, the volume) are written through
+// `route`: by default the element's own `volume`; the audio engine (`lib/audio/engine.ts`) routes each element into a Web
+// Audio `GainNode`, because iOS Safari keeps `volume` at 1 on a media element and a slider would do nothing there.
 //
 // The tracks played make a history (#569): `previous()` goes back through it and `skip()` forward again before it draws a new
 // track from the shuffle, both with the crossfade. `pause()` and `resume()` are the setting (music off or on); the app keeps it
@@ -16,7 +16,10 @@ import { createShuffle } from "./tracks";
 
 /** The crossfade between two tracks, in seconds: the next one starts this long before the current one ends. */
 export const CROSSFADE_S = 2;
-/** How often the fade and the readout are updated, in ms, while playing. */
+/**
+ * How often the fade and the readout are updated, in ms, while playing. A hidden tab may run it less often (a browser that
+ * throttles the timers of a tab it does not hear): the fade then moves in coarser steps, and `ended` still starts the next track.
+ */
 const TICK_MS = 50;
 /** The events that count as the first gesture: autoplay rules accept these (not `pointermove`, not `scroll`). */
 const GESTURES = ["pointerdown", "keydown", "touchend", "click"] as const;
@@ -32,7 +35,7 @@ export interface MusicState {
   volume: number;
   /** A gesture has happened: the player may load and play. */
   unlocked: boolean;
-  /** A track is playing (not paused by the tab being hidden, not off, not waiting for the gesture). */
+  /** A track is playing (not off, not waiting for the gesture), whether the tab is shown or hidden. */
   playing: boolean;
   /** The playlist's index of the track playing, null before the first. */
   index: number | null;
@@ -75,11 +78,8 @@ export interface MusicPlayer {
   previous(): void;
   /** The setting off: both elements pause where they are. */
   pause(): void;
-  /**
-   * The setting on: the track plays on from where it paused. `hidden`: it plays even while the tab is hidden, until the tab is
-   * shown or hidden again (a play from the lock screen, where the page is hidden).
-   */
-  resume(options?: { hidden?: boolean }): void;
+  /** The setting on: the track plays on from where it paused (or from where the OS paused it: a call, the headphones). */
+  resume(): void;
   /** The two elements, for the tests. */
   elements: readonly [HTMLAudioElement, HTMLAudioElement];
   /** Stop listening and release both elements. */
@@ -133,8 +133,6 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
   let enabled = options.enabled;
   let volume = clamp01(options.volume);
   let unlocked = false;
-  let hidden = doc.visibilityState === "hidden";
-  let held = false; // a play asked for while the tab is hidden (the lock screen): it holds until the tab changes again
   let current = 0; // the element that carries the track being heard
   let fading = false; // the other element is in, `current` is going out
   let pendingIndex: number | null = null; // the track coming in
@@ -145,7 +143,7 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
 
   const cur = () => elements[current]!;
   const other = () => elements[1 - current]!;
-  const wants = () => enabled && unlocked && (!hidden || held) && tracks.length > 0;
+  const wants = () => enabled && unlocked && tracks.length > 0;
   // Whether the element can jump to `t`; one with no `seekable` (a test's) can.
   const seekable = (a: HTMLAudioElement, t: number) => {
     const r = a.seekable as TimeRanges | undefined;
@@ -265,7 +263,7 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
     const left = (Number.isFinite(a.duration) && a.duration > 0 ? a.duration : Infinity) - a.currentTime;
     if (!fading && left <= CROSSFADE_S) crossfade(forward());
     if (fading) {
-      // The fade follows the outgoing track's own clock, so a pause (a hidden tab) cannot desynchronise it.
+      // The fade follows the outgoing track's own clock, so a pause or a late tick (a hidden tab) cannot desynchronise it.
       const t = clamp01(1 - left / CROSSFADE_S);
       if (a.ended || left <= 0) finishFade();
       else {
@@ -292,11 +290,6 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
     for (const g of GESTURES) doc.removeEventListener(g, onGesture, true);
     apply();
   };
-  const onVisibility = () => {
-    hidden = doc.visibilityState === "hidden";
-    held = false;
-    apply();
-  };
   const onEnded = () => {
     // A track that ended with no fade (the length was unknown): the next one starts at once.
     if (!fading && wants()) {
@@ -309,7 +302,6 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
   const READY = ["waiting", "canplay", "playing", "loadedmetadata", "durationchange"] as const;
 
   for (const g of GESTURES) doc.addEventListener(g, onGesture, true);
-  doc.addEventListener("visibilitychange", onVisibility);
   for (const a of elements) {
     a.addEventListener("ended", onEnded);
     for (const e of READY) a.addEventListener(e, onReady);
@@ -318,7 +310,6 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
   const setEnabled = (v: boolean) => {
     if (enabled === v) return;
     enabled = v;
-    if (!v) held = false;
     apply();
   };
 
@@ -351,8 +342,7 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
       emit();
     },
     pause: () => setEnabled(false),
-    resume(options) {
-      if (options?.hidden && hidden) held = true;
+    resume() {
       if (enabled) apply();
       else setEnabled(true);
     },
@@ -360,7 +350,6 @@ export function createMusicPlayer(options: MusicOptions): MusicPlayer {
     destroy() {
       halt();
       for (const g of GESTURES) doc.removeEventListener(g, onGesture, true);
-      doc.removeEventListener("visibilitychange", onVisibility);
       for (const a of elements) {
         a.removeEventListener("ended", onEnded);
         for (const e of READY) a.removeEventListener(e, onReady);

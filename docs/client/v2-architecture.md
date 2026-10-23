@@ -3683,11 +3683,11 @@ by `MusicProvider` when it mounts) makes two `<audio>` elements with `preload="n
 requested only after the first user gesture (`pointerdown`, `keydown`, `touchend` or `click`, the autoplay rule). The playlist
 is a shuffled pass over all tracks, then another whose first track is never the one just played (`createShuffle`). The next
 track starts 2 s before the end on the idle element and the two `volume`s cross, driven by the outgoing track's own clock
-(no Web Audio graph; iOS Safari keeps `volume` at 1, so there the fade is a cut and the slider has no effect). A hidden tab pauses
-both elements and a visible one resumes them. Reduced motion has no effect on music. `music` (on) and `musicVolume` (0.4)
-sit in `paved.settings.v1`; the Settings "Music" row is a switch with a volume slider (`elements/music-setting.tsx`), and
-`containers/music-player.tsx` is the player (play or pause, next, volume, the title from the file name, the time). No route or
-shell mounts the provider yet: only the stories do.
+(no Web Audio graph; iOS Safari keeps `volume` at 1, so there the fade is a cut and the slider has no effect). A hidden tab paused
+both elements until #712: the music now plays on whatever tab is shown (below). Reduced motion has no effect on music.
+`music` (on) and `musicVolume` (0.4) sit in `paved.settings.v1`; the Settings "Music" row is a switch with a volume slider
+(`elements/music-setting.tsx`), and `containers/music-player.tsx` is the player (play or pause, next, volume, the title from
+the file name, the time). No route or shell mounts the provider yet: only the stories do.
 
 *The settings player (#569).* `containers/music-player.tsx` is now a card in the Sound group of the shared settings panel (the
 Settings page and the board's sheet): the track's thumbnail, its title, a thin progress line with the time, and Previous,
@@ -3699,8 +3699,13 @@ player keeps a history: `previous()` goes back through it with the crossfade (at
 `skip()` forward again before drawing a new track. Pause is the setting, as before: it sets the music volume to 0 (remembered
 after a reload) and resume brings back the level before; while it is off, Previous and Next still change the track. The Media
 Session (`lib/music/media-session.ts`, in the audio engine's chunk) shows the title, the album "Paved" and the artwork, and
-takes play, pause, previous and next from the lock screen and the headphones; a play from the lock screen plays while the
-page is hidden, until the tab is shown or hidden again.
+takes play, pause, previous and next from the lock screen and the headphones; a play from the lock screen is a plain resume.
+
+*The music in a hidden tab (#712).* The music plays on while the tab is hidden: another tab shown, or on a phone another app
+or the lock screen. The player no longer listens to `visibilitychange`. The audio engine keeps its `AudioContext` running in a
+hidden tab while the music plays, and suspends it there when nothing plays (the music off, or not started); the sound effects
+stay silent in a hidden tab. A browser may tick the fade less often in a hidden tab; the fade follows the outgoing track's
+clock, and `ended` still starts the next track.
 
 *The viewer's opt-out (PM, 2026-10-16).* `paved.theme.v1` is the switch of the players' skins: `"default"` shows every board
 (Challenge, Training, the tutorial, the hand) on the base models, whoever's game it is, and `useBoardSkins` then returns
