@@ -77,7 +77,7 @@ describe("Scenes/Village", () => {
     render(wrap(<VillageScene {...VILLAGE.reward} onPlace={onPlace} />));
     const tiles = within(screen.getByRole("list", { name: "Reward tiles" })).getAllByRole("button");
     expect(tiles).toHaveLength(3);
-    expect(screen.getByRole("button", { name: "Take 15 Cobbles instead" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Take 5 Cobbles instead" })).toBeInTheDocument();
     // No parcel while a reward waits.
     expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
     await userEvent.click(tiles[0]!);
@@ -171,6 +171,52 @@ describe("Scenes/Village", () => {
     expect(screen.getByText("Scouting")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
     expect(screen.queryByRole("list", { name: "Reward tiles" })).toBeNull();
+  });
+
+  it("a village not founded shows its start and Found; rewards waiting show Open", async () => {
+    const onFound = vi.fn();
+    const { unmount } = render(wrap(<VillageScene {...VILLAGE.unfounded} onFound={onFound} />));
+    await userEvent.click(screen.getByRole("button", { name: "Found" }));
+    expect(onFound).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
+    unmount();
+    const onOpenReward = vi.fn();
+    render(wrap(<VillageScene {...VILLAGE.waiting} onOpenReward={onOpenReward} />));
+    await userEvent.click(screen.getByRole("button", { name: /Open/ }));
+    expect(onOpenReward).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the slot of a tile placed or added as a copy, from a lit cell or the sheet", async () => {
+    const onPlace = vi.fn();
+    const onAddCopy = vi.fn();
+    render(wrap(<VillageScene {...VILLAGE.reward} onPlace={onPlace} onAddCopy={onAddCopy} />));
+    const tiles = within(screen.getByRole("list", { name: "Reward tiles" })).getAllByRole("button");
+    await userEvent.click(tiles[2]!);
+    await userEvent.click(screen.getByRole("button", { name: /as a copy instead$/ }));
+    expect(onAddCopy).toHaveBeenCalledWith({ slot: 2, plan: REWARD.plans[2], tileId: null });
+    await userEvent.click(tiles[0]!);
+    await userEvent.click(screen.getAllByRole("button", { name: /^Place it at/ })[0]!);
+    expect(onPlace).toHaveBeenCalledWith(expect.objectContaining({ slot: 0, plan: REWARD.plans[0] }));
+  });
+
+  it("shows a refusal until dismissed, and why the village is not shown", async () => {
+    const onDismissRefusal = vi.fn();
+    const { unmount } = render(wrap(<VillageScene {...VILLAGE.refused} onDismissRefusal={onDismissRefusal} />));
+    expect(screen.getByText(/Your level is too low/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(onDismissRefusal).toHaveBeenCalledTimes(1);
+    unmount();
+    const { unmount: guest } = render(wrap(<VillageScene {...VILLAGE.guest} />));
+    expect(screen.getByText("Connect to build your village")).toBeInTheDocument();
+    guest();
+    render(wrap(<VillageScene {...VILLAGE.unavailable} />));
+    expect(screen.getByText("Villages are coming")).toBeInTheDocument();
+  });
+
+  it("takes the territory's cap from the chain", () => {
+    render(wrap(<VillageScene {...VILLAGE.start} village={{ ...VILLAGE_START, maxCells: 9 }} />));
+    expect(screen.getByLabelText("9 of 9 cells")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
   });
 
   it("has one story per state of its fixtures", () => {

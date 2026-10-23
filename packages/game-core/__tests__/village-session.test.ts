@@ -1,6 +1,6 @@
 /** A village read from the chain on the engine (#646 PR 2): `EngineGame.villageOf` and the code-level helpers of `sessions/village.ts`. */
 import { describe, expect, it } from "vitest";
-import { EngineGame, placeInVillage, startTerritory, villageGame, villageRefusal } from "../src";
+import { EngineGame, baseDeckPlans, offerPlans, placeInVillage, startTerritory, villageGame, villageRefusal } from "../src";
 import { OrientationType } from "../src/types/orientation";
 import { PlanType } from "../src/types/plan";
 
@@ -48,5 +48,18 @@ describe("a village read from the chain", () => {
 
   it("refuses a code out of range in the chain's tiles", () => {
     expect(() => villageGame(startTerritory(), [{ id: 2, plan: 20, orientation: 1, x: 1, y: 0 }])).toThrow();
+  });
+});
+
+describe("a reward's offer", () => {
+  it("draws three cards of the base deck from three 64-bit lanes, as offer_plans", () => {
+    const deck = baseDeckPlans().map((p) => PLANS.indexOf(p));
+    const random = (5n << 128n) | (71n << 64n) | 0n;
+    expect(offerPlans(random)).toEqual([deck[0], deck[71], deck[5]]);
+    // A lane past 72 wraps: 72 is card 0, and bits above the lane do not reach it.
+    expect(offerPlans(72n | (1n << 200n))[0]).toBe(deck[0]);
+    for (let i = 0n; i < 50n; i++) {
+      for (const plan of offerPlans(i * 0x9e3779b97f4a7c15n * (1n << 61n) + i)) expect(plan).toBeGreaterThanOrEqual(1);
+    }
   });
 });

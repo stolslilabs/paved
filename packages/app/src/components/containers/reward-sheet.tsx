@@ -47,6 +47,8 @@ export interface RewardSheetProps {
   onSelect?: (index: number | null) => void;
   onRotate?: () => void;
   onTakeCobbles?: () => void;
+  /** The chosen tile added as a copy of its plan, without a placed tile of it (#642, rule E: the tier counts per plan). */
+  onAddCopy?: (index: number) => void;
   /** A press on a tile's card: the scene starts a drag from it once the pointer moves. */
   onDragStart?: (index: number, event: ReactPointerEvent<HTMLButtonElement>) => void;
   className?: string;
@@ -62,10 +64,11 @@ function choiceNote(choice: RewardChoice): string {
 /**
  * The reward's sheet (#646): three tiles, each with its plan's tier and its progress after one more copy. Drag a tile to a
  * lit cell to place it, or onto a ringed tile of its plan to add a copy; a tap chooses it and the board's buttons do the
- * same. A tile that fits no free cell and has no tile to copy onto is greyed out. "Take N Cobbles" is always there. Docked
+ * same; "Add a copy" adds the chosen tile to its plan's tier without placing it. A tile that fits no free cell and has no tile
+ * to copy onto is greyed out. "Take N Cobbles" is always there. Docked
  * under the board on a phone, beside it from `desktop` up; not a modal, so the board stays a drop target.
  */
-export function RewardSheet({ offer, village, selected = null, orientation = 1, dragging = null, busy, tileArt, onSelect, onRotate, onTakeCobbles, onDragStart, className }: RewardSheetProps) {
+export function RewardSheet({ offer, village, selected = null, orientation = 1, dragging = null, busy, tileArt, onSelect, onRotate, onTakeCobbles, onAddCopy, onDragStart, className }: RewardSheetProps) {
   const choices = rewardChoices(offer, village);
   return (
     <section aria-labelledby="reward-title" className={cn("flex flex-col gap-3 rounded-t-2xl border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] desktop:rounded-2xl desktop:border", className)}>
@@ -130,7 +133,12 @@ export function RewardSheet({ offer, village, selected = null, orientation = 1, 
           );
         })}
       </ul>
-      <Button variant="outline" className="w-full" onClick={onTakeCobbles} disabled={busy} aria-label={`Take ${offer.cobbles} Cobbles instead`}>
+      {selected != null && onAddCopy && offer.plans[selected] != null && (
+        <Button variant="secondary" className="w-full" onClick={() => onAddCopy(selected)} disabled={busy} aria-label={`Add ${tileName(offer.plans[selected]!)} as a copy instead`}>
+          <Icon name="layer-group" size="sm" /> Add a copy instead
+        </Button>
+      )}
+      <Button variant="outline" className="w-full" onClick={onTakeCobbles} disabled={busy} loading={busy} aria-label={`Take ${offer.cobbles} Cobbles instead`}>
         Take <Cobbles value={offer.cobbles} size="sm" /> instead
       </Button>
     </section>

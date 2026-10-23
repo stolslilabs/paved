@@ -93,6 +93,13 @@ export function ProfileSlot({ className }: { className?: string }) {
                 value.onEditAvatar?.();
               })
             }
+            onOpenVillage={
+              value.onOpenVillage &&
+              (() => {
+                setOpen(false);
+                value.onOpenVillage?.();
+              })
+            }
           />
         </Suspense>
       )}

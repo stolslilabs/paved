@@ -1,35 +1,56 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Cobbles } from "../elements/cobbles";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
+import { Notice } from "../elements/notice";
 import { Score } from "../elements/score";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { Skeleton } from "../ui/skeleton";
 import { pickCellAt } from "../containers/cell-picker";
 import { ParcelSheet, type ParcelOffer } from "../containers/parcel-sheet";
 import { RewardSheet, type RewardOffer } from "../containers/reward-sheet";
 import { TiersSheet } from "../containers/tiers-sheet";
+import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
 import { VillageBoard, type VillageBoardProps, type VillageFog, type VillagePlacing } from "../containers/village-board";
-import { MAX_CELLS, copyTargets, dropOrientation, legalCells, type Cell, type Village } from "../containers/village-rules";
+import { cellCap, copyTargets, dropOrientation, legalCells, type Cell, type Village } from "../containers/village-rules";
 
-/** A reward's tile placed on a free cell: the chain's write once wired (#642). */
+/** A reward's tile placed on a free cell (`Rewards.claim_reward`'s place, #642). */
 export interface VillagePlace {
+  /** The tile's slot in the offer (0 to 2). */
+  slot: number;
   plan: number;
   x: number;
   y: number;
   orientation: number;
 }
 
-/** A reward's tile added as a copy to a placed tile of its plan. */
+/** A reward's tile added as a copy of its plan (`claim_reward`'s merge): dropped on a placed tile of the plan, or from the sheet. */
 export interface VillageCopy {
+  /** The tile's slot in the offer (0 to 2). */
+  slot: number;
   plan: number;
-  tileId: number;
+  /** The placed tile it was dropped on; null: from the sheet's button. */
+  tileId: number | null;
 }
 
+/** Why the village is not shown: a guest (Connect), the reads on their way, a failed read (Retry). */
+export type VillageStatus = SkinsStatus;
+
 export interface VillageSceneProps {
-  village: Village;
+  /** The village; omitted, `status` says why; null: the network has no village yet. */
+  village?: Village | null;
+  status?: VillageStatus | null;
+  /** The own village is founded; false: the start it would get, and Found. */
+  founded?: boolean;
+  /** Rewards waiting to be opened (own village, no offer open): Open draws the next one's tiles. */
+  pending?: number;
+  /** The last write's refusal, until dismissed. */
+  refusal?: string | null;
+  refusalDetail?: ErrorDetail;
   /** The player's own village (rewards, parcels), or someone else's, read-only. */
   mode?: "own" | "visit";
   /** A visit: from the PvP scout (#647) or from a player's profile. */
@@ -49,13 +70,18 @@ export interface VillageSceneProps {
   renderBoard?: (board: VillageBoardProps) => ReactNode;
   /** The board's tile art (`useTileArt`); the plans' areas without it. */
   tileArt?: TileArt;
-  /** A write on its way: the reward's and the parcel's controls wait. */
+  /** A write on its way: every control waits. */
   busy?: boolean;
   /** Where the stories start: a reward's tile chosen, a parcel's sheet open, the tiers open. */
   initialSelected?: number | null;
   initialParcel?: Cell | null;
   initialTiers?: boolean;
   onBack?: () => void;
+  onFound?: () => void;
+  onOpenReward?: () => void;
+  onDismissRefusal?: () => void;
+  onConnect?: () => void;
+  onRetry?: () => void;
   onPlace?: (place: VillagePlace) => void;
   onAddCopy?: (copy: VillageCopy) => void;
   onTakeCobbles?: () => void;
@@ -84,13 +110,51 @@ const DRAG_SLOP = 6;
  * the fog beyond), the village's score, the player's level and Cobbles. After a game a reward waits under the board: drag one of
  * its three tiles to a lit cell, or onto a ringed tile of its plan to add a copy, or take Cobbles. A tap on a plus opens the
  * parcel's sheet (price, level gate); Tiers opens the ladder and each plan's progress. A visit (from the PvP scout or a
- * profile) shows someone else's village read-only. Data and writes come as props and callbacks: nothing is wired yet
- * (#640, #642).
+ * profile) shows someone else's village read-only. Data and writes come as props and callbacks (the page wires them to
+ * `Village` and `Rewards`, #646 PR 2): a village not founded shows its start and Found; rewards waiting show Open.
  */
-export function VillageScene({
+export function VillageScene({ village, status, mode = "own", onBack, onConnect, onRetry, ...props }: VillageSceneProps) {
+  if (village) return <VillageView village={village} mode={mode} onBack={onBack} {...props} />;
+  const own = mode === "own";
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <TopBar title={own ? "My village" : "Village"} onBack={onBack} className="mb-0" />
+      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-4">
+        {status ? (
+          <SkinsStatusView
+            status={status}
+            guestTitle="Connect to build your village"
+            guestText="Your village is kept on your account: rewards after your games grow it, and others visit it."
+            errorTitle="The village could not be read"
+            skeleton={
+              <div className="flex flex-col gap-3">
+                <Skeleton className="h-10 w-full rounded-lg" />
+                <Skeleton className="aspect-square w-full rounded-2xl" />
+              </div>
+            }
+            onConnect={onConnect}
+            onRetry={onRetry}
+          />
+        ) : (
+          village === null && (
+            <Notice title="Villages are coming" icon="house">
+              Villages are not on this network yet: your rewards wait for them.
+            </Notice>
+          )
+        )}
+      </main>
+    </div>
+  );
+}
+
+function VillageView({
   village,
   mode = "own",
   from = "profile",
+  founded = true,
+  pending = 0,
+  refusal = null,
+  refusalDetail,
   cobbles = 0,
   reward = null,
   parcel = null,
@@ -102,13 +166,16 @@ export function VillageScene({
   initialParcel = null,
   initialTiers = false,
   onBack,
+  onFound,
+  onOpenReward,
+  onDismissRefusal,
   onPlace,
   onAddCopy,
   onTakeCobbles,
   onBuyParcel,
   onGetCobbles,
   onOpenSkins,
-}: VillageSceneProps) {
+}: Omit<VillageSceneProps, "village" | "status" | "onConnect" | "onRetry"> & { village: Village }) {
   const own = mode === "own";
   const [selected, setSelected] = useState<number | null>(initialSelected);
   const [orientation, setOrientation] = useState(1);
@@ -126,7 +193,8 @@ export function VillageScene({
     setOrientation(1);
   }, [reward, initialSelected]);
 
-  const offer = own ? reward : null;
+  const offer = own && founded ? reward : null;
+  const cap = cellCap(village);
   // A parcel bought joins the village: its sheet closes.
   const openParcel = chosenParcel && !village.cells.some((c) => c.x === chosenParcel.x && c.y === chosenParcel.y) ? chosenParcel : null;
   const activeIndex = drag?.index ?? selected;
@@ -136,24 +204,24 @@ export function VillageScene({
       ? { plan: activePlan, orientation, legal: legalCells(village, activePlan), copies: copyTargets(village, activePlan).map((t) => t.id) }
       : null;
 
-  const place = (plan: number, cell: Cell) => {
+  const place = (slot: number, plan: number, cell: Cell) => {
     const o = dropOrientation(village, plan, orientation, cell);
     if (o == null || busy) return;
-    onPlace?.({ plan, x: cell.x, y: cell.y, orientation: o });
+    onPlace?.({ slot, plan, x: cell.x, y: cell.y, orientation: o });
     setSelected(null);
   };
-  const copy = (plan: number, tileId: number) => {
+  const copy = (slot: number, plan: number, tileId: number | null) => {
     if (busy) return;
-    onAddCopy?.({ plan, tileId });
+    onAddCopy?.({ slot, plan, tileId });
     setSelected(null);
   };
   const drop = (index: number, target: (Cell & { kind: string }) | null) => {
     const plan = offer?.plans[index];
     if (plan == null || !target) return;
-    if (target.kind === "legal") place(plan, target);
+    if (target.kind === "legal") place(index, plan, target);
     else if (target.kind === "copy") {
       const tile = village.tiles.find((t) => t.x === target.x && t.y === target.y && t.plan === plan);
-      if (tile) copy(plan, tile.id);
+      if (tile) copy(index, plan, tile.id);
     }
   };
 
@@ -236,9 +304,9 @@ export function VillageScene({
               <Badge variant="secondary" aria-label={`Level ${village.level}`}>
                 Lv <span className="numeric">{village.level}</span>
               </Badge>
-              <Badge variant="secondary" aria-label={`${village.cells.length} of ${MAX_CELLS} cells`}>
+              <Badge variant="secondary" aria-label={`${village.cells.length} of ${cap} cells`}>
                 <span className="numeric">
-                  {village.cells.length}/{MAX_CELLS}
+                  {village.cells.length}/{cap}
                 </span>
               </Badge>
               <Button variant="outline" size="sm" onClick={() => setTiers(true)}>
@@ -249,22 +317,60 @@ export function VillageScene({
           {(renderBoard ?? ((props: VillageBoardProps) => <VillageBoard {...props} />))({
             village,
             fog,
-            parcels: own && !offer,
+            parcels: own && founded && !offer,
             parcel: openParcel,
             placing,
             over: drag?.over ?? null,
             tileArt,
             onParcel: setChosenParcel,
-            onPlace: (cell) => activePlan != null && place(activePlan, cell),
-            onCopy: (tile) => activePlan != null && copy(activePlan, tile.id),
+            onPlace: (cell) => activePlan != null && activeIndex != null && place(activeIndex, activePlan, cell),
+            onCopy: (tile) => activePlan != null && activeIndex != null && copy(activeIndex, activePlan, tile.id),
             className: "min-h-0 flex-1",
           })}
-          {own && !offer && (
+          {own && refusal && (
+            <div className="border-t border-border px-4 py-2">
+              <InlineError
+                title="Not done"
+                message={refusal}
+                detail={refusalDetail}
+                action={
+                  onDismissRefusal && (
+                    <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                      Dismiss
+                    </Button>
+                  )
+                }
+              />
+            </div>
+          )}
+          {own && !founded && (
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+              <p className="text-sm text-muted-foreground">Found your village: these 9 cells and the starter tile are yours, free.</p>
+              <Button className="shrink-0" loading={busy} onClick={onFound}>
+                Found
+              </Button>
+            </div>
+          )}
+          {own && founded && !offer && pending > 0 && (
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+              <p className="text-sm">
+                <span className="numeric font-semibold">{pending}</span> {pending === 1 ? "reward waits" : "rewards wait"}: open one to draw its three tiles.
+              </p>
+              <Button className="shrink-0" loading={busy} onClick={onOpenReward}>
+                <Icon name="gift" size="sm" /> Open
+              </Button>
+            </div>
+          )}
+          {own && founded && !offer && pending === 0 && (
             <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">
               {parcel ? "Tap a plus to buy the parcel next to your village." : "Your village is full."}
             </p>
           )}
-          {!own && <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">Read-only: the tiles stay as their owner placed them.</p>}
+          {!own && (
+            <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">
+              {founded ? "Read-only: the tiles stay as their owner placed them." : "Not founded yet: the start every village gets."}
+            </p>
+          )}
         </div>
         {offer && (
           <RewardSheet
@@ -278,6 +384,10 @@ export function VillageScene({
             onSelect={select}
             onRotate={() => setOrientation((o) => (o % 4) + 1)}
             onTakeCobbles={onTakeCobbles}
+            onAddCopy={(index) => {
+              const plan = offer.plans[index];
+              if (plan != null) copy(index, plan, null);
+            }}
             onDragStart={startDrag}
             className="shrink-0 desktop:w-96 desktop:self-start"
           />
@@ -288,13 +398,14 @@ export function VillageScene({
           <TileChip plan={offer.plans[drag.index] ?? 0} orientation={orientation} art={tileArt} className={cn("size-full border-primary", drag.over && "opacity-60")} />
         </span>
       )}
-      {own && (
+      {own && founded && (
         <ParcelSheet
           cell={openParcel}
           offer={parcel}
           level={village.level}
           cobbles={cobbles}
           cells={village.cells.length}
+          maxCells={cap}
           buying={busy}
           onBuy={onBuyParcel}
           onClose={() => setChosenParcel(null)}

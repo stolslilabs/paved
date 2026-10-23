@@ -1,4 +1,4 @@
-import { EngineGame } from "../engine";
+import { DECKS, EngineGame } from "../engine";
 import type { TerritoryCell } from "../engine";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
@@ -41,4 +41,17 @@ export function placeInVillage(game: EngineGame, plan: number, orientation: numb
   const refused = villageRefusal(game, plan, orientation, cell);
   if (refused) throw new Error(refused);
   return game.place(PLANS[plan] as PlanType, placement(orientation, cell)).points;
+}
+
+const LANE = 1n << 64n;
+const LOW = (1n << 128n) - 1n;
+
+/**
+ * `offer_plans` of `rewards.cairo` (#642): a reward's 3 plan codes from its random, three 64-bit lanes (the low word's two
+ * halves, then the high word's low half), each a card of the base deck's 72 (`BaseDeck::plan(lane % 72)`).
+ */
+export function offerPlans(random: bigint): [number, number, number] {
+  const plan = (lane: bigint) => PLANS.indexOf(DECKS.simple.plan(Number(lane % 72n)));
+  const low = random & LOW;
+  return [plan(low % LANE), plan(low / LANE), plan((random >> 128n) % LANE)];
 }

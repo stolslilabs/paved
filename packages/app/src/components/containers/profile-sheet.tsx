@@ -33,6 +33,8 @@ export interface ProfileSheetProps {
   look?: bigint | null;
   /** Opens the avatar creator (#626); omitted, Edit avatar is not offered. */
   onEditAvatar?: () => void;
+  /** Opens the player's village (#646); omitted, My village is not offered. */
+  onOpenVillage?: () => void;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
   returnFocus?: () => HTMLElement | null;
 }
@@ -42,10 +44,10 @@ const DESKTOP_QUERY = "(min-width: 64rem)";
 
 /**
  * What a tap on the avatar opens (#624): a bottom sheet on a phone, a panel from the left from `desktop`. The avatar larger,
- * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (the creator, #626) and
- * Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625).
+ * the name, the short address with Copy, the Challenge figures the home card showed, My village (#646), Edit avatar (the
+ * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625).
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, returnFocus }: ProfileSheetProps) {
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, onOpenVillage, returnFocus }: ProfileSheetProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
   const connected = state.status === "connected" ? state.data : null;
@@ -106,6 +108,12 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
                 <dd className="numeric text-lg font-semibold wrap-anywhere">{formatPoints(connected.stats.bestScore)}</dd>
               </div>
             </dl>
+            {onOpenVillage && (
+              <Button variant="outline" onClick={onOpenVillage}>
+                <Icon name="house" size="xs" />
+                My village
+              </Button>
+            )}
             {onEditAvatar && (
               <Button variant="outline" onClick={onEditAvatar}>
                 <Icon name="pen" size="xs" />

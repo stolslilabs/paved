@@ -12,14 +12,18 @@ import {
   VaultExitFeeChangedError,
   VaultOverMaxWithdrawError,
   VaultZeroSharesError,
+  REWARD_COBBLES,
+  VillageRefusedError,
   WriteError,
   playerLevelOf,
   redeemFee,
+  tierOf,
   withdrawFee,
   type AchievementCobbles,
   type AvatarItem,
   type AvatarViews,
   type BuyAvatarItemRequest,
+  type BuyParcelRequest,
   type BuySkinRequest,
   type CobbleAccount,
   type CobbleClaim,
@@ -38,13 +42,21 @@ import {
   type PlayerLevel,
   type PlayerReferrals,
   type QuestCobbles,
+  type RewardClaim,
+  type RewardGrants,
+  type RewardOffer,
   type SkinChange,
   type SkinViews,
   type VaultPosition,
   type VaultViews,
+  type VillageCell,
+  type VillageInfo,
+  type VillageRefusal,
+  type VillageTile,
+  type VillageViews,
   type WriteResult,
 } from "@paved/chain";
-import type { KeyValueStore } from "@paved/game-core";
+import { offerPlans, parcelLevel, parcelPrice, placeInVillage, poseidon, startTerritory, villageGame, villageRefusal, type KeyValueStore } from "@paved/game-core";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
@@ -79,6 +91,27 @@ export const MOCK_SPLIT = { burn: 7_368, vault: 2_632, referral: 500 };
 /** The skins priced in the mock: theme 1 (Forest), the rarity table of the fresh deployment (cobbles-v1.md 5.2). */
 export const MOCK_SKIN_THEMES: ReadonlyMap<number, readonly number[]> = new Map([[1, SKIN_PRICES]]);
 
+/** The territory's cap in the mock: the value proposed for the deployment (#640, decision 1). */
+export const MOCK_MAX_CELLS = 38;
+
+/**
+ * The village rewards a player finds waiting in the mock (#646): the mock hears no game over (its games are the chain's), so a
+ * new player starts with these to open. Like the starting PAVED, they never reach the chain.
+ */
+export const MOCK_STARTING_REWARDS = 3;
+
+/**
+ * The skins reserved to a tier in the mock (#642, `Setup.skin_tier`): theme 1 (Forest), by plan. No deployment sets any yet;
+ * these show the gate: the full city's skin needs Silver (2 copies), the wonder's Gold (4).
+ */
+export const MOCK_SKIN_TIERS: ReadonlyMap<number, Readonly<Record<number, number>>> = new Map([[1, { 1: 1, 18: 2 }]]);
+
+/** The starter `Village.found` writes at (0, 0): `RFFFRFCFR` (plan 9) facing South (orientation 3). */
+const STARTER = { id: 1, plan: 9, orientation: 3, x: 0, y: 0 } as const;
+
+/** The kind of the mock's reward draw: its random is `poseidon(REWARD, player, index)`, a stand-in for the VRF's. */
+const REWARD_DRAW = 0x524557415244n;
+
 /** The Cobbles of a quest the fresh table does not name (an id of an older deployment): a daily's middle target, a weekly's. */
 const DEFAULT_QUEST_COBBLES = { daily: 10, weekly: 15 } as const;
 
@@ -89,6 +122,7 @@ export interface MockedReads
     SkinViews,
     LevelViews,
     AvatarViews,
+    VillageViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
     VaultViews,
     Pick<EconomyViews, "split" | "seller" | "usdcBalance"> {}
@@ -104,11 +138,23 @@ export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" |
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
+  foundVillage(): Promise<WriteResult>;
+  buyParcel(request: BuyParcelRequest): Promise<WriteResult>;
+  openReward(): Promise<WriteResult>;
+  claimReward(claim: RewardClaim): Promise<WriteResult>;
   buyPack(request: PackPurchaseRequest): Promise<PackReceipt>;
   deposit(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult>;
   withdraw(amount: bigint, options: { confirmedAmount: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
   withdrawAll(options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
 }
+
+/** `Village.place`'s reverts, as the engine names them, to the writer's refusals. */
+const PLACE_REFUSALS: Record<string, VillageRefusal> = {
+  "Village: cell not owned": "cell-not-owned",
+  "Tile: already exists": "tile-exists",
+  "Tile: no neighbors": "no-neighbors",
+  "Tile: cannot place": "cannot-place",
+};
 
 /** One player's state, as stored: words and amounts as strings (JSON has no bigint). */
 interface StoredPlayer {
@@ -128,7 +174,21 @@ interface StoredPlayer {
   avatar?: string;
   /** `owned(player_id, part)` by part, decimal strings; absent: nothing bought. */
   avatarOwned?: Record<string, string>;
+  /** The village (#640): the parcels in purchase order, the tiles placed after the starter in order; absent: not founded. */
+  village?: { parcels: VillageCell[]; tiles: Array<{ plan: number; orientation: number; x: number; y: number }> };
+  /** The rewards (#642): pending, opened, the open offer (null: none) and its index, the copies of each plan (plan 1 first); absent: a new player's. */
+  rewards?: StoredRewards;
 }
+
+interface StoredRewards {
+  pending: number;
+  opened: number;
+  offer: [number, number, number] | null;
+  index: number;
+  copies: number[];
+}
+
+const freshRewards = (): StoredRewards => ({ pending: MOCK_STARTING_REWARDS, opened: 0, offer: null, index: 0, copies: new Array<number>(SKIN_PLANS).fill(0) });
 
 interface StoredState {
   version: 1;
@@ -340,6 +400,62 @@ export class MockLedger {
     return BigInt(this.peek(playerId).avatar ?? "0");
   }
 
+  /** `Village.village(player_id)`, as the contract computes it: the score is the engine's replay of the tiles (game-core). */
+  async village(playerId: string): Promise<VillageInfo> {
+    this.sync();
+    const v = this.peek(playerId).village;
+    if (!v) return { gameId: 0, cells: 0, tiles: 0, score: 0, nextParcel: 1, nextPrice: parcelPrice(1), nextLevel: parcelLevel(1) };
+    const cells = startTerritory().length + v.parcels.length;
+    const parcel = cells >= MOCK_MAX_CELLS ? 0 : v.parcels.length + 1;
+    return {
+      gameId: 1,
+      cells,
+      tiles: v.tiles.length,
+      score: this.engine(v).score,
+      nextParcel: parcel,
+      nextPrice: parcelPrice(parcel),
+      nextLevel: parcelLevel(parcel),
+    };
+  }
+
+  async villageCells(playerId: string): Promise<VillageCell[]> {
+    this.sync();
+    const v = this.peek(playerId).village;
+    return v ? [...startTerritory(), ...v.parcels].map((c) => ({ x: c.x, y: c.y })) : [];
+  }
+
+  async villageTiles(playerId: string): Promise<VillageTile[]> {
+    this.sync();
+    const v = this.peek(playerId).village;
+    return v ? this.tilesOf(v) : [];
+  }
+
+  async villageMaxCells(): Promise<number> {
+    return MOCK_MAX_CELLS;
+  }
+
+  async rewardGrants(playerId: string): Promise<RewardGrants> {
+    this.sync();
+    const r = this.peek(playerId).rewards ?? freshRewards();
+    return { day: Math.floor(Date.now() / 86_400_000), today: 0, pending: r.pending, opened: r.opened };
+  }
+
+  async rewardOffer(playerId: string): Promise<RewardOffer> {
+    this.sync();
+    const r = this.peek(playerId).rewards ?? freshRewards();
+    return r.offer ? { index: r.index, plans: [...r.offer] } : { index: 0, plans: [0, 0, 0] };
+  }
+
+  async planCopies(playerId: string): Promise<number[]> {
+    this.sync();
+    return [...(this.peek(playerId).rewards ?? freshRewards()).copies];
+  }
+
+  async skinTiers(theme: number): Promise<number[]> {
+    const tiers = MOCK_SKIN_TIERS.get(theme) ?? {};
+    return Array.from({ length: SKIN_PLANS }, (_, i) => tiers[i + 1] ?? 0);
+  }
+
   async spawnPaused(): Promise<boolean> {
     return false;
   }
@@ -416,6 +532,10 @@ export class MockLedger {
       setSkins: (changes) => this.setSkins(account, changes),
       buyAvatarItem: (request) => this.buyAvatarItem(account, request),
       setAvatar: (look) => this.setAvatar(account, look),
+      foundVillage: () => this.foundVillage(account),
+      buyParcel: (request) => this.buyParcel(account, request),
+      openReward: () => this.openReward(account),
+      claimReward: (claim) => this.claimReward(account, claim),
       buyPack: async (request) => this.buyPack(account, request, await balances.usdc()),
       deposit: async (amount, options) => this.deposit(account, amount, options, await balances.paved()),
       withdraw: (amount, options) => this.withdraw(account, amount, options),
@@ -470,6 +590,8 @@ export class MockLedger {
       const owned = p.owned[theme] ?? 0;
       if ((owned >>> plan) & 1) throw new SkinRefusedError("owned", hash);
       if (p.cobbles < price) throw new SkinRefusedError("not-enough-cobbles", hash);
+      const tier = MOCK_SKIN_TIERS.get(theme)?.[plan] ?? 0;
+      if (tier > 0 && tierOf((p.rewards ?? freshRewards()).copies[plan - 1] ?? 0) < tier) throw new SkinRefusedError("tier-too-low", hash);
       p.owned[theme] = owned | (1 << plan);
       p.cobbles -= price;
       return [this.event("SkinBought", { playerId: account, theme, plan, price, balance: p.cobbles })];
@@ -526,6 +648,90 @@ export class MockLedger {
       }
       p.avatar = look.toString();
       return [this.event("AvatarSet", { playerId: account, look })];
+    });
+  }
+
+  /** `Village.found()`: the 3 x 3 of the start and the starter, once. */
+  async foundVillage(account: string): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      if (p.village) throw new VillageRefusedError("founded", hash);
+      p.village = { parcels: [], tiles: [] };
+      return [this.event("VillageFounded", { playerId: account, gameId: 1 })];
+    });
+  }
+
+  /**
+   * `Village.buy_parcel(x, y)`, after the writer's check of the confirmed price: a village, the cell not owned, next to an owned
+   * one, under the cap, the level (the mock's, `playerLevel`: no XP, level 1) at least the parcel's, then the Cobbles.
+   */
+  async buyParcel(account: string, { cell, confirmedPrice }: BuyParcelRequest): Promise<WriteResult> {
+    if (!Number.isInteger(confirmedPrice) || confirmedPrice <= 0) throw new WriteError("No confirmed price for this parcel: nothing was sent");
+    const price = (await this.village(account)).nextPrice;
+    if (price !== confirmedPrice) throw new VillageRefusedError("price-changed");
+    const level = (await this.playerLevel(account)).level;
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const v = p.village;
+      if (!v) throw new VillageRefusedError("no-village", hash);
+      const owned = [...startTerritory(), ...v.parcels];
+      const has = (x: number, y: number) => owned.some((c) => c.x === x && c.y === y);
+      if (has(cell.x, cell.y)) throw new VillageRefusedError("cell-owned", hash);
+      if (![[0, 1], [1, 0], [0, -1], [-1, 0]].some(([dx, dy]) => has(cell.x + dx!, cell.y + dy!))) throw new VillageRefusedError("not-adjacent", hash);
+      if (owned.length >= MOCK_MAX_CELLS) throw new VillageRefusedError("territory-full", hash);
+      const parcel = v.parcels.length + 1;
+      if (level < parcelLevel(parcel)) throw new VillageRefusedError("level-too-low", hash);
+      const cost = parcelPrice(parcel);
+      if (p.cobbles < cost) throw new VillageRefusedError("not-enough-cobbles", hash);
+      p.cobbles -= cost;
+      v.parcels.push({ x: cell.x, y: cell.y });
+      return [this.event("ParcelBought", { playerId: account, parcel, x: cell.x, y: cell.y, cells: owned.length + 1, cobbles: cost, level })];
+    });
+  }
+
+  /** `Rewards.open_reward()`: the next pending reward's 3 tiles, drawn from the base deck as `offer_plans` (a Poseidon stands in for the VRF). */
+  async openReward(account: string): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const r = (p.rewards ??= freshRewards());
+      if (r.offer) throw new VillageRefusedError("offer-open", hash);
+      if (r.pending === 0) throw new VillageRefusedError("no-reward", hash);
+      const plans = offerPlans(poseidon(REWARD_DRAW, BigInt(account), BigInt(r.opened)));
+      r.pending -= 1;
+      r.opened += 1;
+      r.index = r.opened;
+      r.offer = plans;
+      return [this.event("RewardOpened", { playerId: account, index: r.index, plan1: plans[0], plan2: plans[1], plan3: plans[2] })];
+    });
+  }
+
+  /** `Rewards.claim_reward(...)`: the open offer placed (every rule of `Village.place`, on game-core's engine), merged, or the Cobbles. */
+  async claimReward(account: string, claim: RewardClaim): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const r = (p.rewards ??= freshRewards());
+      if (!r.offer) throw new VillageRefusedError("no-offer", hash);
+      const index = r.index;
+      if (claim.choice === "cobbles") {
+        r.offer = null;
+        p.cobbles += REWARD_COBBLES;
+        return [this.event("RewardClaimed", { playerId: account, index, choice: 3, plan: 0, copies: 0, tier: 0, cobbles: REWARD_COBBLES })];
+      }
+      const plan = r.offer[claim.slot];
+      if (plan === undefined) throw new WriteError(`Not an offer slot: ${claim.slot}`);
+      if (claim.choice === "place") {
+        const v = p.village;
+        if (!v) throw new VillageRefusedError("no-village", hash);
+        const game = this.engine(v);
+        const refused = villageRefusal(game, plan, claim.orientation, claim.cell);
+        if (refused) throw new VillageRefusedError(PLACE_REFUSALS[refused] ?? "cannot-place", hash);
+        placeInVillage(game, plan, claim.orientation, claim.cell);
+        v.tiles.push({ plan, orientation: claim.orientation, x: claim.cell.x, y: claim.cell.y });
+      }
+      r.offer = null;
+      r.copies[plan - 1] = (r.copies[plan - 1] ?? 0) + 1;
+      const copies = r.copies[plan - 1]!;
+      return [this.event("RewardClaimed", { playerId: account, index, choice: claim.choice === "place" ? 1 : 2, plan, copies, tier: tierOf(copies), cobbles: 0 })];
     });
   }
 
@@ -676,6 +882,16 @@ export class MockLedger {
     this.state = { ...this.state, players: { ...this.state.players, [key]: player }, transactions: this.state.transactions + 1 };
     this.save();
     return { transactionHash: hash, events };
+  }
+
+  /** A stored village's tiles as `Village.tiles` lists them: the starter first, then the tiles placed, ids 2 on. */
+  private tilesOf(v: NonNullable<StoredPlayer["village"]>): VillageTile[] {
+    return [{ ...STARTER }, ...v.tiles.map((t, i) => ({ id: i + 2, ...t }))];
+  }
+
+  /** A stored village on game-core's engine. */
+  private engine(v: NonNullable<StoredPlayer["village"]>) {
+    return villageGame([...startTerritory(), ...v.parcels], this.tilesOf(v), MOCK_MAX_CELLS);
   }
 
   private progress(stored: { claimed: string; credit: boolean } | undefined): PeriodProgress {

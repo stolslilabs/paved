@@ -17,8 +17,8 @@ export interface ParcelOffer {
 /** Why a parcel can or cannot be bought now. */
 export type ParcelState = "ready" | "level" | "cobbles" | "full";
 
-export function parcelState(offer: ParcelOffer | null, level: number, cobbles: number, cells: number): ParcelState {
-  if (!offer || cells >= MAX_CELLS) return "full";
+export function parcelState(offer: ParcelOffer | null, level: number, cobbles: number, cells: number, maxCells = MAX_CELLS): ParcelState {
+  if (!offer || cells >= maxCells) return "full";
   if (level < offer.level) return "level";
   if (cobbles < offer.price) return "cobbles";
   return "ready";
@@ -32,6 +32,8 @@ export interface ParcelSheetProps {
   level: number;
   cobbles: number;
   cells: number;
+  /** The territory's cap (`Village.max_cells`); `MAX_CELLS` by default. */
+  maxCells?: number;
   /** The purchase on its way. */
   buying?: boolean;
   onBuy?: (cell: Cell) => void;
@@ -42,12 +44,12 @@ export interface ParcelSheetProps {
 
 /**
  * Buying a parcel (#646): the cell, its price, and the level gate. Under the level the price is shown but Buy is off with
- * "Level 5 needed"; short of Cobbles, the shortfall and a way to the packs; at 38 cells, the village is full. A bottom
+ * "Level 5 needed"; short of Cobbles, the shortfall and a way to the packs; at its cap of cells, the village is full. A bottom
  * sheet on a phone, a side panel from `tablet` up.
  */
-export function ParcelSheet({ cell, offer, level, cobbles, cells, buying, onBuy, onClose, onGetCobbles }: ParcelSheetProps) {
+export function ParcelSheet({ cell, offer, level, cobbles, cells, maxCells = MAX_CELLS, buying, onBuy, onClose, onGetCobbles }: ParcelSheetProps) {
   const wide = useSidePanel();
-  const state = parcelState(offer, level, cobbles, cells);
+  const state = parcelState(offer, level, cobbles, cells, maxCells);
   return (
     <Sheet open={cell != null} onOpenChange={(open) => !open && onClose?.()}>
       <SheetContent side={wide ? "right" : "bottom"} className={wide ? "w-full max-w-sm" : "pb-[max(1.5rem,env(safe-area-inset-bottom))]"}>
@@ -71,7 +73,7 @@ export function ParcelSheet({ cell, offer, level, cobbles, cells, buying, onBuy,
           <dt className="text-muted-foreground">Cells</dt>
           <dd className="justify-self-end">
             <span className="numeric">
-              {cells}/{MAX_CELLS}
+              {cells}/{maxCells}
             </span>
           </dd>
         </dl>
@@ -93,7 +95,7 @@ export function ParcelSheet({ cell, offer, level, cobbles, cells, buying, onBuy,
         )}
         {state === "full" && (
           <p role="status" className="rounded-lg bg-secondary p-3 text-sm">
-            Your village holds <span className="numeric">{MAX_CELLS}</span> cells, the most it can.
+            Your village holds <span className="numeric">{maxCells}</span> cells, the most it can.
           </p>
         )}
         <SheetFooter>
