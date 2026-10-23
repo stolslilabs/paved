@@ -103,12 +103,12 @@ pub const CEILING_FOREST_WORST: u128 = 20549788;
 // i). D-20 took the ranking out of g, k and l, and h (the closing move that did not rank) and j
 // (the `tournament` view) out with it; the ceilings are those set when the ranking was there
 // (`docs/measures/baseline.md`, "After D-20").
-pub const CEILING_CLOSING_IN_DAY: u128 = 4011404;
+pub const CEILING_CLOSING_IN_DAY: u128 = 4227720;
 // i: raised at D-24 to measured + 5 % (2,712,368; CORE's decision, reversed if the PM asks for
 // savings): the external `Setup.report` call at game over that D-24 chose costs +181,280 over D-20
 // (2,531,088).
-pub const CEILING_CLOSING_AFTER: u128 = 3530987;
-pub const CEILING_CLOSING_FULL_REPORT: u128 = 4547964;
+pub const CEILING_CLOSING_AFTER: u128 = 3746925;
+pub const CEILING_CLOSING_FULL_REPORT: u128 = 4785911;
 pub const CEILING_GAME_OVER_ON_BUILD: u128 = 8089321;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
 pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 4744364;
@@ -126,7 +126,7 @@ pub const CEILING_VAULT_TRANSFER: u128 = 1583287;
 // account's slots, and the week's from week 0 on), so g, i, k, l and s are reset to measured + 5 %
 // (`docs/measures/baseline.md`, "After cobbles v1, part 1"): +645,916 each, +722,746 on k. x and y
 // are g and k in a week (+940,298 on x); z1 to z6, the claims, the free spawn and a free game over.
-pub const CEILING_CLOSING_IN_A_WEEK: u128 = 4320505;
+pub const CEILING_CLOSING_IN_A_WEEK: u128 = 4538712;
 pub const CEILING_FULL_REPORT_IN_A_WEEK: u128 = 4874485;
 pub const CEILING_CLAIM_QUEST: u128 = 949842;
 pub const CEILING_CLAIM_ACHIEVEMENT: u128 = 578407;
@@ -143,7 +143,7 @@ pub const CEILING_SET_PACK: u128 = 327873;
 // z13 `set_skins` (1 and 19 changes), z14 `set_skin_price` (measured + 5 %,
 // `docs/measures/baseline.md`, "After cobbles v1, part 3").
 pub const CEILING_BUY_PACK_FIRST_OF_BLOCK: u128 = 10264035;
-pub const CEILING_BUY_SKIN: u128 = 697961;
+pub const CEILING_BUY_SKIN: u128 = 787830;
 pub const CEILING_SET_SKINS_1: u128 = 479549;
 pub const CEILING_SET_SKINS_19: u128 = 2789690;
 pub const CEILING_SET_SKIN_PRICE: u128 = 317636;
@@ -208,6 +208,11 @@ pub const CEILING_REPORT_PVP: u128 = 1121073;
 pub const CEILING_PVP_PROGRESS: u128 = 207493;
 pub const CEILING_CLAIM_PVP_QUEST: u128 = 1658340;
 pub const CEILING_MM_CLOSE_SEASON: u128 = 2068336;
+// VILLAGE-REWARDS (#642, `docs/architecture/village-rewards.md`): every game over reads `Setup`'s
+// `rewards` to grant a village reward (none is set here: +48,580 on g, i and k, +48,980 on x), and
+// `buy_skin` reads the skin's minimum tier (+66,430 on z11). Measured on the VPS against main the
+// same way (snforge 0.64.0, test profile); those five ceilings are reset to measured + 5 %. The
+// calls of `Rewards` are measured in `src/tests/rewards.cairo` (`test_rewards_gas_*`).
 /// Monday 1970-01-12 00:00 UTC: the start of week 1 of the cobbles' calendar.
 pub const WEEK_1: u64 = 950400;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).

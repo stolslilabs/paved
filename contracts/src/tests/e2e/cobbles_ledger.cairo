@@ -1137,7 +1137,7 @@ fn test_cobbles_A6_access() {
 /// A paid report writes the day, the week and the account; a report with no quest entries (a free
 /// game's) writes the account only; before week 0 there is no week.
 #[test]
-#[available_gas(l2_gas: 14711156)]
+#[available_gas(l2_gas: 15467985)]
 fn test_cobbles_report_writes_the_ledger() {
     let setup = setup_alone();
     let p: felt252 = PLAYER().into();
