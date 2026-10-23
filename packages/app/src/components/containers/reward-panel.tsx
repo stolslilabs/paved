@@ -1,8 +1,10 @@
+import { rewardOf, winningScore } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Amount } from "../elements/amount";
 import { Icon } from "../ui/icon";
 import { formatPoints } from "../elements/score";
+import type { RewardCurve } from "./reward-estimate";
 
 /**
  * A finished game's reward, from `Economy.terms(id)`: `rewarded` (settled, minted), `awaiting` (recorded, its day not
@@ -19,6 +21,11 @@ export interface RewardPanelProps {
   score: number;
   /** Points to beat (`threshold / 1000`). */
   threshold?: number;
+  /**
+   * `awaiting` and `settle`: the game's curve (#705), its terms against its day's threshold. The reward its score earns is
+   * shown: exact once the day's mean is fixed (`threshold` given), else "≈" at the day's prior mean, with that threshold.
+   */
+  curve?: RewardCurve | null;
   settling?: boolean;
   onSettle?: () => void;
   className?: string;
@@ -34,9 +41,13 @@ const COPY: Record<RewardState, { title: string; tone: string; icon: string }> =
 };
 
 /** The reward or its absence, with the threshold the score was measured against. */
-export function RewardPanel({ state, reward = 0n, stake, score, threshold, settling, onSettle, className }: RewardPanelProps) {
+export function RewardPanel({ state, reward = 0n, stake, score, threshold, curve, settling, onSettle, className }: RewardPanelProps) {
   const copy = COPY[state];
   const above = threshold != null && score >= threshold;
+  // What the score earns before the settle: exact once the day's mean is fixed (`threshold`), else an estimate at its prior.
+  const coming = (state === "awaiting" || state === "settle") && curve?.reference != null ? rewardOf(curve.reference, score, curve.threshold, curve.slopeBps, curve.cap) : null;
+  const estimated = coming !== null && threshold == null;
+  const least = curve ? winningScore(curve.threshold) : 0;
   return (
     <section aria-label="Reward" data-state={state} className={cn("flex flex-col gap-3 rounded-xl border p-4", copy.tone, className)}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -45,6 +56,30 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, settl
         {stake ? <span className="ml-auto text-xs whitespace-nowrap text-muted-foreground">Stake {stake}</span> : null}
       </div>
       {state === "rewarded" && <Amount value={reward} token="paved" className="text-2xl text-primary mobile:text-3xl" />}
+      {coming !== null && (
+        <span data-testid="reward-coming" className="flex items-baseline gap-2 text-2xl text-primary mobile:text-3xl">
+          {estimated && (
+            <>
+              <span aria-hidden title="An estimate" className="numeric font-semibold">
+                ≈
+              </span>
+              <span className="sr-only">About</span>
+            </>
+          )}
+          <Amount value={coming} token="paved" />
+        </span>
+      )}
+      {estimated && (
+        <p className="text-sm text-muted-foreground">
+          At today's threshold <span className="numeric text-foreground">{formatPoints(least)}</span>
+          {" · "}
+          {score >= least ? (
+            <span className="text-success">beaten by {formatPoints(score - least)}</span>
+          ) : (
+            <span className="text-destructive-text">missed by {formatPoints(least - score)}</span>
+          )}
+        </p>
+      )}
       {threshold != null && state !== "free" && (
         <p className="text-sm text-muted-foreground">
           Threshold <span className="numeric text-foreground">{formatPoints(threshold)}</span>
@@ -57,6 +92,7 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, settl
         </p>
       )}
       {state === "awaiting" && <p className="text-sm text-muted-foreground">The day's mean fixes the reward. Settle when it closes.</p>}
+      {state === "settle" && estimated && <p className="text-sm text-muted-foreground">The first settle fixes the day's mean, and the reward with it.</p>}
       {state === "below" && <p className="text-sm text-muted-foreground">Below the threshold the stake is lost.</p>}
       {state === "expired" && <p className="text-sm text-muted-foreground">The game was not finished within 24 h of its purchase: no reward.</p>}
       {state === "free" && <p className="text-sm text-muted-foreground">Training plays for practice: no stake, no reward.</p>}

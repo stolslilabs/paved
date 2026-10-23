@@ -21,7 +21,7 @@ import { APP_ASSETS, FOREST_VARIANTS, SOURCE_ASSETS, appRenders, originalTileArt
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
-import { GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
+import { CURVE_PLAYING, GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, GAME_MISSIONS } from "./quests";
 import { DEFAULT_AVATAR as DEFAULT_AVATAR_LOOK } from "@paved/renderer";
@@ -115,6 +115,7 @@ const boardBase = {
   score: GAME_PLAYING.score,
   remaining: GAME_PLAYING.remainingCount,
   expiresAt: GAME_PLAYING.expiresAt,
+  reward: CURVE_PLAYING,
   now: MOCK_NOW,
   lastScored: [],
   tileArt: originalTileArt(SOURCE_ASSETS),
@@ -125,6 +126,8 @@ const coming = [{ plan: BOARD_38.tiles[3]!.plan }, { plan: BOARD_38.tiles[8]!.pl
 
 export const BOARD = {
   placing: { ...boardBase, hand: { tile: hand, state: "placing" } },
+  /** #705: under the threshold, the HUD shows the score to beat; past it, what the score earns (every Challenge state). */
+  belowThreshold: { ...boardBase, score: 640, hand: { tile: hand, state: "placing" } },
   /** #645: the tile to place and the two coming tiles (a Challenge on the VRF). */
   queue: { ...boardBase, hand: { tile: hand, state: "placing", coming } },
   /** #645: a Challenge move on its way: the next tile waits with it, the one after it is shown, the chain draws the last. */
@@ -176,7 +179,10 @@ export const OVER = {
   awaiting: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "awaiting", stake: 3, threshold } },
   /** #595: the missions the game completed, listed under the reward with their Cobbles. */
   missions: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "awaiting", stake: 3, threshold }, missions: GAME_MISSIONS },
-  settle: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "settle", stake: 3, threshold } },
+  /** #705: its day still open, the reward its score earns at the day's prior mean, an estimate ("≈"), with that threshold. */
+  awaitingEstimate: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "awaiting", stake: 3, curve: CURVE_PLAYING } },
+  /** Its day's mean fixed, not settled: the reward a settle mints (#705), exact. */
+  settle: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "settle", stake: 3, threshold, curve: CURVE_PLAYING } },
   below: {
     mode: "challenge",
     game: { ...GAME_OVER, score: 940 },

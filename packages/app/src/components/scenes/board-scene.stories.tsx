@@ -126,6 +126,9 @@ type Story = StoryObj<typeof meta>;
 /** A tile in hand, no slot chosen: its plates on the board, playable and invalid. */
 export const Placing: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) } };
 
+/** #705: a Challenge under its threshold: the HUD shows the score to beat beside the time left (past it, the reward, as in Placing). */
+export const BelowThreshold: Story = { args: { ...BOARD.belowThreshold, ...inHand(HAND.orientation, null) } };
+
 /** No tile to place (a move on its way): no plate. */
 export const Idle: Story = { args: { ...BOARD.pending, slots: [], ghost: null } };
 

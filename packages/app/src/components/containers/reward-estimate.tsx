@@ -3,15 +3,19 @@ import { cn } from "../../lib/utils";
 import { Amount } from "../elements/amount";
 import { formatPoints } from "../elements/score";
 
-export interface RewardEstimateProps {
-  /** `R`, PAVED base units, as a purchase of this stake would store it now; null while it is read (the figures wait). */
+/** What `curve::payout` pays a score against (#705): a purchase's quote, or a bought game's terms and its day's threshold. */
+export interface RewardCurve {
+  /** `R`, PAVED base units: a purchase's estimate (null while it is read: the figures wait), or a bought game's `TermsView.reference`. */
   reference: bigint | null;
-  /** Points x 1,000 (`QuoteView.threshold`). */
+  /** Points x 1,000 (`QuoteView.threshold`, or the game's day's mean shifted by its sigma). */
   threshold: number;
-  /** `c`, bps (`QuoteView.slope`). */
+  /** `c`, bps (`QuoteView.slope`, `TermsView.slopeBps`). */
   slopeBps: number;
-  /** `H` (`QuoteView.cap`). */
+  /** `H` (`QuoteView.cap`, `TermsView.cap`). */
   cap: number;
+}
+
+export interface RewardEstimateProps extends RewardCurve {
   className?: string;
 }
 

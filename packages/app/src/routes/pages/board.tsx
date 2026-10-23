@@ -17,7 +17,7 @@ import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
 import { useBoardSettings } from "../../data/board-settings";
-import { challengeQueue, useChallengeSession } from "../../data/challenge";
+import { challengeQueue, useChallengeCurve, useChallengeSession } from "../../data/challenge";
 import { remainingOf, useTrainingSession } from "../../data/training";
 import { useDataSources } from "../../data/sources";
 import { useErrorDetail } from "../error-detail";
@@ -200,10 +200,12 @@ function challengeHand(state: PredictedState, expired: boolean): HandState {
  * chain confirms it. Without a signer the board is read only ("Connect to play"); a refused move rolls back and shows
  * its error; a result the chain does not share resyncs the board ("Board resynced"); past `expiresAt` the hand only
  * offers a surrender, and the Surrender dialog opens by itself. A finished game goes to `/game/:gameId/over`, once its last
- * move has played out on the board and the chain has confirmed it.
+ * move has played out on the board and the chain has confirmed it. The HUD shows the score to beat, then what the score earns
+ * at the game's day's threshold (`useChallengeCurve`, #705).
  */
 function ChallengeBoard({ gameId }: { gameId: number }) {
   const { session, state, senders } = useChallengeSession(gameId);
+  const curve = useChallengeCurve(gameId);
   // The game's player's skins, for whoever views the game; the base models until the game and the read answer.
   const skins = useBoardSkins(state?.game?.playerId ?? null);
   const boardSettings = useBoardSettings();
@@ -355,6 +357,8 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       remaining={game ? remainingOf(game) : 0}
       discardedPlans={state.discardedPlans}
       expiresAt={state.expiresAt || null}
+      // Past its 24 h a game earns nothing: the HUD shows no reward then.
+      reward={expired ? null : curve}
       now={now}
       hand={{
         // The tile to place in its rotation; one waiting with the move is shown as drawn (#645).

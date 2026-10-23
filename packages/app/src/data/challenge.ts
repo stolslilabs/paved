@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { useQueryClient } from "@tanstack/react-query";
 import type { GameKey, WriteResult } from "@paved/chain";
 import { PredictedSession, type MoveSenders, type PredictedState } from "@paved/game-core";
+import type { RewardCurve } from "../components/containers/reward-estimate";
+import { useEconomyDay, useTerms } from "./chain";
 import { queryKeys } from "./keys";
+import { curveOf } from "./reward-curve";
 import { useDataSources } from "./sources";
 
 export type ChallengeSession = PredictedSession<GameKey, WriteResult>;
@@ -75,4 +78,15 @@ export function challengeQueue(state: Pick<PredictedState, "hand" | "coming" | "
   if (state.hand) return { tile: state.hand, coming, drawing: false };
   if (state.pending && coming.length > 0) return { tile: coming[0]!, coming: coming.slice(1), drawing: state.drawing ?? false };
   return { tile: null, coming: [], drawing: false };
+}
+
+/**
+ * The reward curve of a Challenge game for its HUD (#705): its terms (`Economy.terms`) against its day's threshold
+ * (`Economy.day`), as `curveOf` reads them. Null while they are read, without an economy, or for a game with no reward to
+ * come (free, expired, settled).
+ */
+export function useChallengeCurve(gameId: number): RewardCurve | null {
+  const terms = useTerms(gameId);
+  const day = useEconomyDay(terms.data && terms.data.stake > 0 ? terms.data.day : null);
+  return curveOf(terms.data, day.data);
 }

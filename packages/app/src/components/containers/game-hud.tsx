@@ -1,9 +1,13 @@
+import { capScore, formatCompact, formatUnits, rewardOf, winningScore } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Countdown } from "../elements/countdown";
 import { Icon } from "../ui/icon";
-import { Score } from "../elements/score";
+import { TOKENS } from "../elements/amount";
+import { Score, formatPoints } from "../elements/score";
+import { TokenIcon } from "../elements/token-icon";
 import { COACH_RING, type CoachTarget } from "./coach";
+import type { RewardCurve } from "./reward-estimate";
 
 export interface GameHudProps {
   title: string;
@@ -14,6 +18,11 @@ export interface GameHudProps {
   preview?: number | null;
   /** `GameView.expiresAt` of a Challenge game (start + 24 h); none for Training and Story. */
   expiresAt?: number | null;
+  /**
+   * A Challenge game's curve (#705): its terms' `R`, `c` and `H`, and its day's threshold. Beside the countdown, the score to
+   * beat until the score reaches it, then what the score earns now; none for Training and Story, or while it is read.
+   */
+  reward?: RewardCurve | null;
   now: number;
   onBack?: () => void;
   /** The gear: opens the device settings over the board (#541). */
@@ -24,7 +33,7 @@ export interface GameHudProps {
 }
 
 /** The board's header over the scene: Back and the mode, the time left, the score, the settings gear. The tiles left are on the tile stack (#606). */
-export function GameHud({ title, score, delta, preview, expiresAt, now, onBack, onSettings, coach, className }: GameHudProps) {
+export function GameHud({ title, score, delta, preview, expiresAt, reward, now, onBack, onSettings, coach, className }: GameHudProps) {
   return (
     <header
       className={cn(
@@ -41,7 +50,13 @@ export function GameHud({ title, score, delta, preview, expiresAt, now, onBack, 
           `w-0 min-w-full` keeps its length out of the column's width. */}
       <div className="flex flex-1 flex-col gap-1">
         <h1 title={title} className="w-0 min-w-full truncate font-display text-sm font-semibold">{title}</h1>
-        {expiresAt != null && <Countdown expiresAt={expiresAt} now={now} />}
+        {/* The time left and the reward share a line where they fit; on a phone the reward goes under the time. */}
+        {(expiresAt != null || reward) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {expiresAt != null && <Countdown expiresAt={expiresAt} now={now} />}
+            {reward && <HudReward curve={reward} score={score} />}
+          </div>
+        )}
       </div>
       <div className="mobile:border-l mobile:border-border mobile:pl-3">
         <Score value={score} delta={delta} preview={preview} size="hud" tone="default" label="Score" icon="star" iconClassName="hidden tablet:inline-flex" />
@@ -53,4 +68,47 @@ export function GameHud({ title, score, delta, preview, expiresAt, now, onBack, 
       )}
     </header>
   );
+}
+
+/**
+ * The HUD's reward (#705): "Beat 1,150" under the threshold, then "≈ 172.84" beside the PAVED coin, what the score earns at
+ * the day's threshold (`curve::payout`), and "max" from the cap's score. An estimate while the day is open: its mean fixes the
+ * threshold when it closes.
+ */
+function HudReward({ curve, score }: { curve: RewardCurve; score: number }) {
+  const least = winningScore(curve.threshold);
+  if (curve.reference === null || score < least) {
+    return (
+      <span data-testid="hud-reward" title="The score to beat at today's threshold" className="inline-flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
+        <Icon name="trophy" size="sm" />
+        <span>
+          Beat <span className="numeric font-semibold">{formatPoints(least)}</span>
+        </span>
+      </span>
+    );
+  }
+  const amount = hudAmount(rewardOf(curve.reference, score, curve.threshold, curve.slopeBps, curve.cap));
+  const capped = score >= capScore(curve.threshold, curve.slopeBps, curve.cap);
+  return (
+    // "max" goes under the figure where the column is too narrow for both (WRAP360).
+    <span
+      data-testid="hud-reward"
+      title="What this score earns at today's threshold, an estimate until the day closes"
+      className="inline-flex flex-wrap items-center gap-x-1.5 text-xs text-primary"
+    >
+      <TokenIcon kind="paved" size="em" />
+      <span className="numeric font-semibold whitespace-nowrap">
+        <span className="sr-only">Estimated reward </span>≈ {amount}
+        <span className="sr-only"> {TOKENS.paved.symbol}</span>
+      </span>
+      {capped && <span>max</span>}
+    </span>
+  );
+}
+
+/** The HUD's figure: cut to cents up to 9,999.99 PAVED, compact from 10,000 ("12.3K", "617.3M"), so the header keeps its width (WRAP360). */
+function hudAmount(amount: bigint): string {
+  const { decimals, fraction } = TOKENS.paved;
+  if (amount < 10_000n * 10n ** BigInt(decimals)) return formatUnits(amount, decimals, fraction);
+  return formatCompact(Number(amount / 10n ** BigInt(decimals - fraction)) / 10 ** fraction);
 }
