@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Attack } from "@paved/chain";
 import { AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
 import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { usePlayerStatus } from "../../data/indexer";
-import { ATTACK_FINISHED, moveCodes, usePvpAttack, usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
+import { ATTACK_FINISHED, moveCodes, pvpKeys, usePvpAttack, usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
 import { errorDetail } from "../error-detail";
 import { useUpTo } from "../ref";
 import NotFound from "./not-found";
@@ -68,10 +69,19 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
     return { run, last };
   }, [read.data, move]);
 
+  const client = useQueryClient();
+  /** Reads the attack's metadata, its moves and the attacker's state again. */
+  const retry = () => {
+    void client.invalidateQueries({ queryKey: pvpKeys.attackRow(attacker, id) });
+    void client.invalidateQueries({ queryKey: pvpKeys.all });
+  };
   const self = { name, address: attacker, level: 0, crowns: 0 };
   if (!read.data || !step || !attack) {
-    const missing = read.data === null || (settled.data === null && !last) ? "This attack cannot be replayed: it is not recorded on this network." : (read.error?.message ?? null);
-    return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={read.error ? errorDetail(read.error) : undefined} onCancel={onBack} />;
+    // Every read the replay waits on: the attack's moves and board, its metadata (the indexer's row) and the attacker's last
+    // attack. A failed one ends the wait with its error: the moves' read waits on the metadata, so it never fails alone.
+    const error = read.error ?? (last ? null : settled.error) ?? status.error ?? null;
+    const missing = read.data === null || (settled.data === null && !last) ? "This attack cannot be replayed: it is not recorded on this network." : (error?.message ?? null);
+    return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} onRetry={error ? retry : undefined} />;
   }
   const tiles = step.run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y }));
   return (

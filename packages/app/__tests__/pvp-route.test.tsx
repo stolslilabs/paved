@@ -189,6 +189,25 @@ describe("/pvp/result/:id", { timeout: slow(30_000) }, () => {
   });
 });
 
+describe("/pvp/replay/:attacker/:id: a failed read", { timeout: slow(30_000) }, () => {
+  it("an older attack whose indexer row fails to read shows the error and Retry, not the search's wait", async () => {
+    const me = mockImplementation().sources.signer!.address;
+    await open(`/pvp/replay/${me}/1`, async (s, me) => {
+      // Two attacks: the replayed one is not the last, so its metadata is the indexer's row, whose read fails.
+      await attacked(s, me);
+      await attacked(s, me);
+      const indexer = s.sources.indexer;
+      s.sources.indexer = new Proxy(indexer, {
+        get: (target, key) => (key === "playerAttack" ? () => Promise.reject(new Error("The indexer did not answer")) : Reflect.get(target, key, target)),
+      });
+    });
+    expect(await screen.findByText(/The indexer did not answer/, {}, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Search again/ })).toBeInTheDocument();
+    // The waiting screen's heading leaves (its exit animation), never to come back.
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Searching for a village" })).toBeNull(), WAIT);
+  });
+});
+
 describe("the other answers", { timeout: slow(30_000) }, () => {
   it("/pvp/defence: no attack on the village yet, no shield", async () => {
     await open("/pvp/defence");
