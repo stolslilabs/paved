@@ -279,7 +279,7 @@ function frameOf(levels: readonly Level[], faces: readonly Point[], reach: reado
  * The tiles' lowest reach, at the pile's foot (a tile in hand, a leaning one, the next): the box's sides and foot always keep
  * it, so they do not move as the pile sinks, a slot waits or the last tile leaves (the badge and the foot stay put).
  */
-const HAND_REACH: Point[] = [tileCorners(0, TILE * HAND_SCALE, SLAB_T, 1), tileCorners(0, TILE * HAND_SCALE, SLAB_T, 0), tileCorners(0, TILE, SLAB_T, NEXT_LEAN)].flat();
+const HAND_REACH: Point[] = [tileCorners(0, TILE * HAND_SCALE, SLAB_T, 1), tileCorners(0, TILE * HAND_SCALE, SLAB_T, 0)].flat();
 
 /** A length of the stack's scene on screen: px at `--stack-s`, the stack's scale (smaller on phones). */
 const scaled = (px: number) => `calc(${px.toFixed(2)}px * var(--stack-s))`;
