@@ -23,7 +23,7 @@ import { skinsStatus } from "../skins-status";
 export default function Page() {
   const go = useAppNavigate();
   const onBack = useBack();
-  useAccount();
+  const wallet = useAccount();
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
   const read = useAvatarCatalogue(playerId);
@@ -110,7 +110,8 @@ export default function Page() {
       }}
       onDismissRefusal={writes.reset}
       onBuyCobbles={() => go("/cobbles")}
-      onConnect={() => go("/welcome")}
+      // Connect here, as the profile sheet does: `/welcome` sends a returning visitor Home, without the wallet.
+      onConnect={() => void wallet.connect()}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: avatarKeys.all });
         void client.invalidateQueries({ queryKey: cobbleKeys.all });

@@ -32,12 +32,12 @@ function chain(cobbles = 50) {
 }
 
 /** A device: the app at `path` on that chain, the player restored by its wallet, whose signer writes the avatar. */
-function open(c: ReturnType<typeof chain>, path: string) {
-  const wallet = fakeWallet({ address: PLAYER_ID, restored: true });
+function open(c: ReturnType<typeof chain>, path: string, options: { guest?: boolean } = {}) {
+  const wallet = fakeWallet({ address: PLAYER_ID, restored: !options.guest });
   wallet.connector.signer = () => c.writer as unknown as GameSigner;
   const router = createTestRouter(path);
   const view = render(<App router={router} sources={c.sources} connector={wallet.load} />);
-  return { router, ...view };
+  return { router, wallet, ...view };
 }
 
 preloadPages("home", "welcome");
@@ -131,6 +131,18 @@ describe("/avatar: the creator", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/avatar"));
     await userEvent.click(await screen.findByRole("tab", { name: "Hair" }, { timeout: 5000 }));
     expect(screen.getByRole("radio", { name: "Fringe, free" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("a returning guest connects from the creator, and stays on it", async () => {
+    const c = chain();
+    const { router, wallet } = open(c, "/avatar", { guest: true });
+    // The creator's own Connect (the balances' strip has one too).
+    const notice = (await screen.findByText("Connect to make your avatar", {}, { timeout: 5000 })).closest<HTMLElement>("[role=status]")!;
+    await userEvent.click(within(notice).getByRole("button", { name: "Connect" }));
+    expect(wallet.calls).toContain("connect");
+    // Connected: the creator opens on the chain's catalogue, on the same page.
+    expect(await screen.findByRole("tab", { name: "Skin tone" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/avatar");
   });
 
   it("a network without Avatar says so", async () => {
