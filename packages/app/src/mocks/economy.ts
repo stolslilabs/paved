@@ -1,4 +1,5 @@
 import type { QuoteView, SplitView } from "@paved/chain";
+import { estimatedReference } from "@paved/game-core";
 import { THRESHOLD_MILLI } from "./games";
 
 /** `Challenge.entry_price().amount`: 2 USDC per stake (`BASE_PRICE 2_000_000`, `economy.cairo:36`). */
@@ -27,9 +28,22 @@ export function quote(stake: number): QuoteView {
     factor: 10_000,
     mean: 1_020_000,
     threshold: THRESHOLD_MILLI,
-    slope: 4_000,
+    // The chain's defaults (`economy.cairo`, `DEFAULT_CONFIG`): `c` 1.222, `H` 5.
+    slope: 12_220,
     cap: 5,
   };
+}
+
+/** `Economy.rate()` as the mocks answer it: 80 PAVED per USDC, as `@paved/chain`'s fake economy. */
+export const GUARD_RATE = (80n * 10n ** 18n * 10n ** 18n) / 1_000_000n;
+
+/** The pool's `quote_swap(usdcIn)` in the mocks: 76 PAVED per USDC, the guard's rate less the pool's 5 % fee. */
+export const poolQuote = (usdcIn: bigint): bigint => (usdcIn * 76n * 10n ** 18n) / 1_000_000n;
+
+/** `R` at stake `k` as the purchase page estimates it (#705): the burn's share of the pool's quote, boosted, times `F`. */
+export function referenceAt(stake: number): bigint {
+  const q = quote(stake);
+  return estimatedReference({ poolOut: poolQuote(q.price), swapIn: q.price, burnQuote: q.burnQuote, rate: GUARD_RATE, stake, factorBps: q.factor });
 }
 
 /** USDC balances, base units. */

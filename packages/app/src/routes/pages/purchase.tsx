@@ -101,6 +101,10 @@ export default function Page() {
       stake={stake}
       maxStake={MAX_STAKE}
       quote={quote.data}
+      reference={stakeQuote.reference}
+      referenceError={stakeQuote.referenceError?.message ?? null}
+      referenceErrorDetail={stakeQuote.referenceError ? errorDetail(stakeQuote.referenceError) : undefined}
+      onRetryReference={() => void client.invalidateQueries({ queryKey: ["chain", "economy"] })}
       boostBps={Number(boostBps(stake))}
       split={split.data}
       referrer={gameReferrer.referrer}

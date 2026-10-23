@@ -73,6 +73,13 @@ export {
   FP_SCALE_DEFAULT,
   fpToMultiplier,
   computeAdjustedReward,
+  burnShare,
+  guardedPaved,
+  referenceReward,
+  estimatedReference,
+  rewardOf,
+  winningScore,
+  capScore,
 } from "./economy";
 
 // Off-chain game engine (E1)

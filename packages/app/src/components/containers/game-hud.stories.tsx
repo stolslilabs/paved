@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MOCK_NOW } from "../../mocks/clock";
 import { GameHud } from "./game-hud";
-import { BIG_SCORE, LONG_LABEL } from "../../mocks/stress";
+import { BIG_AMOUNT_18, BIG_SCORE, LONG_LABEL } from "../../mocks/stress";
+import { CURVE_PLAYING } from "../../mocks/games";
 
 const meta = {
   title: "Containers/GameHud",
@@ -36,3 +37,17 @@ export const WithPreview: Story = {
 export const PreviewAfterAClosing: Story = { args: { score: 1640, delta: 370, preview: 154 } };
 /** WRAP360: `Stress` with the widest preview in place of the gain (the preview takes the gain's place on the label's line). */
 export const PreviewStress: Story = { args: { ...Stress.args, delta: undefined, preview: 9_999 } };
+
+/** #705: past the threshold (1,150), what the score earns now beside the PAVED coin, an estimate at the day's threshold. */
+export const WithReward: Story = { args: { reward: CURVE_PLAYING } };
+/** #705: under the threshold, the score to beat. */
+export const RewardBelowThreshold: Story = { args: { score: 640, reward: CURVE_PLAYING } };
+/** #705: from the cap's score (4,706 at `c` 1.222 and `H` 5), the most a game pays, marked "max". */
+export const RewardAtCap: Story = { args: { score: 5_000, reward: CURVE_PLAYING } };
+/** #705 at 375 px with a preview: the reward goes under the time left, the title keeps its room. */
+export const RewardPhone: Story = {
+  args: { reward: CURVE_PLAYING, preview: 154 },
+  decorators: [(Story) => <div className="w-full max-w-[375px]"><Story /></div>],
+};
+/** WRAP360: `Stress` with the widest reward, compact from 10,000 PAVED ("617.3M"). */
+export const RewardStress: Story = { args: { ...Stress.args, reward: { ...CURVE_PLAYING, reference: BIG_AMOUNT_18 } } };
