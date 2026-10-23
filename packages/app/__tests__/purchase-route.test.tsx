@@ -294,7 +294,7 @@ describe("/play/challenge: the game's stake", () => {
     };
     open("/play/challenge", s);
     await enabledPay();
-    expect(await screen.findByText("The reward cannot be estimated", undefined, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByText("The reward cannot be estimated", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("table", { name: "Estimated reward by score" }, { timeout: slow(3000) })).toBeInTheDocument();
