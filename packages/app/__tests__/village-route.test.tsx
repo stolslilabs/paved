@@ -151,6 +151,22 @@ describe("/village: the own village", () => {
     await waitFor(() => expect(screen.queryByText(/Your level is too low/)).toBeNull());
   });
 
+  it("a failed read of the Cobbles is never shown as 0: the error and Retry, then the village with its balance", async () => {
+    const c = chain(85, 0);
+    await c.writer.foundVillage();
+    const account = c.views.account.bind(c.views);
+    let fail = true;
+    c.views.account = (player: string) => (fail ? Promise.reject(new Error("account RPC unavailable")) : account(player));
+    open(c, "/village");
+    expect(await screen.findByText("account RPC unavailable", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
+    expect(screen.queryByRole("img", { name: "0 Cobbles" })).toBeNull();
+    fail = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "85 Cobbles" })).toBeInTheDocument();
+  });
+
   it("Retry reads the owner's level again after it failed, and the village shows", async () => {
     const c = chain(50, 0);
     await c.writer.foundVillage();
