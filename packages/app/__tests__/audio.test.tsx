@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DeviceSettingsPanel, type DevicePreferences } from "../src/components/containers/device-settings-panel";
 import { DeviceSettingsSheet } from "../src/components/containers/device-settings-sheet";
 import { GameHud } from "../src/components/containers/game-hud";
@@ -161,6 +161,11 @@ describe("the audio engine", () => {
     const engine = createAudioEngine({ tracks: TRACKS, musicVolume, sfxVolume, createContext: () => f.ctx as unknown as AudioContext, createAudio: () => new FakeAudio() as unknown as HTMLAudioElement, fetchSound });
     return { ...f, engine, fetchSound };
   };
+  const setVisibility = (state: "hidden" | "visible") => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+  afterEach(() => setVisibility("visible"));
 
   it("sets the two gains from the volumes, and moves them without a click", () => {
     const { gains, engine } = make(0.4, 0.7);
@@ -199,15 +204,50 @@ describe("the audio engine", () => {
     engine.destroy();
   });
 
-  it("suspends the context while the tab is hidden and wakes it when it is shown", async () => {
+  it("keeps the context running in a hidden tab while the music plays (#712), and suspends it there when nothing plays", async () => {
     const { ctx, engine } = make();
     act(() => void document.dispatchEvent(new Event("pointerdown")));
-    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
-    document.dispatchEvent(new Event("visibilitychange"));
-    expect(ctx.suspend).toHaveBeenCalled();
-    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
-    document.dispatchEvent(new Event("visibilitychange"));
+    expect(engine.music.getState().playing).toBe(true);
+    setVisibility("hidden");
+    expect(ctx.suspend).not.toHaveBeenCalled();
+    expect(ctx.state).toBe("running");
+    expect(engine.music.getState().playing).toBe(true);
+    // The music off in the hidden tab: nothing sounds there, the context is suspended.
+    engine.setMusicVolume(0);
+    expect(ctx.suspend).toHaveBeenCalledOnce();
+    // On again (the lock screen's play): the context wakes, still hidden.
+    engine.music.resume();
+    engine.setMusicVolume(0.4);
     await vi.waitFor(() => expect(ctx.state).toBe("running"));
+    expect(engine.music.getState().playing).toBe(true);
+    engine.setMusicVolume(0);
+    setVisibility("visible");
+    await vi.waitFor(() => expect(ctx.state).toBe("running"));
+    engine.destroy();
+  });
+
+  it("suspends the context of a hidden tab whose music is off, and wakes it when the tab shows", async () => {
+    const { ctx, engine } = make(0);
+    act(() => void document.dispatchEvent(new Event("pointerdown")));
+    setVisibility("hidden");
+    expect(ctx.suspend).toHaveBeenCalled();
+    expect(ctx.state).toBe("suspended");
+    setVisibility("visible");
+    await vi.waitFor(() => expect(ctx.state).toBe("running"));
+    engine.destroy();
+  });
+
+  it("plays no sound effect in a hidden tab, even with the context running for the music", async () => {
+    const { ctx, engine, starts } = make();
+    act(() => void document.dispatchEvent(new Event("pointerdown")));
+    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length));
+    setVisibility("hidden");
+    expect(ctx.state).toBe("running");
+    engine.play("tap");
+    expect(starts).toHaveLength(0);
+    setVisibility("visible");
+    engine.play("tap");
+    expect(starts).toHaveLength(1);
     engine.destroy();
   });
 
