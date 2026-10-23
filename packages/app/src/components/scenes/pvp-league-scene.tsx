@@ -1,6 +1,6 @@
 import { formatInteger, formatRelative } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import { LEAGUE_LADDER, leagueOf, nextLeague } from "../../lib/pvp-rules";
+import { LEAGUES, LEAGUE_LADDER, leagueOf, nextLeague } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Progress } from "../ui/progress";
@@ -26,6 +26,12 @@ export interface PvpLeagueSceneProps {
   now: number;
   /** The player has never attacked: no league until the first attack. */
   unranked?: boolean;
+  /**
+   * The league on chain (`Matchmaker.league(v).league`, 0 Unranked to 22 Legend), when known. It is the league of the whole
+   * count, an open attack's hold included, while `crowns` is shown less the hold: so it is not recomputed from `crowns`.
+   * Left out, the league of `crowns`.
+   */
+  league?: number;
   /** The attacks settled this season: its reward needs `MIN_SEASON_ATTACKS` (#644). */
   attacks?: number;
   onBack?: () => void;
@@ -46,12 +52,13 @@ const LAST_DAY_S = 86_400;
  * league (#644's rewards), the league groups in a ladder with the player's marked (each group's three divisions under its
  * first floor).
  */
-export function PvpLeagueScene({ crowns, best, season, now, unranked, attacks, onBack, onAttack, onDefence }: PvpLeagueSceneProps) {
-  const league = leagueOf(crowns);
+export function PvpLeagueScene({ crowns, best, season, now, unranked, attacks, league: index, onBack, onAttack, onDefence }: PvpLeagueSceneProps) {
+  const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
   // Below Bronze III (400 crowns) a village is Unranked on chain, as one that never attacked.
   const outside = unranked || league.id === "unranked";
   const next = nextLeague(league);
-  const progress = next ? ((crowns - league.from) / (next.from - league.from)) * 100 : 100;
+  // Held crowns can show the count under the league's floor (its league is the whole count's): the bar starts empty then.
+  const progress = next ? Math.max(0, Math.min(100, ((crowns - league.from) / (next.from - league.from)) * 100)) : 100;
   const left = season ? season.endsAt - now : 0;
   const ended = season !== null && left <= 0;
   return (

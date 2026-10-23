@@ -264,6 +264,14 @@ describe("PvP scenes (#647)", () => {
     cleanup();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.unranked} />));
     expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
+    cleanup();
+    // An open attack holds 20 crowns: the chain says Bronze III (the whole count, 400) while showing 380.
+    render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.gold.season} now={PVP_LEAGUE.gold.now} />));
+    expect(screen.queryByRole("heading", { name: "Unranked" })).toBeNull();
+    expect(screen.getAllByText("Bronze III").length).toBeGreaterThan(0);
+    expect(screen.getByRole("listitem", { current: true })).toHaveTextContent("Bronze");
+    // Held crowns under the floor start the bar empty, never below it.
+    expect((screen.getByRole("progressbar").firstElementChild as HTMLElement).style.transform).toBe("translateX(-100%)");
   });
 });
 

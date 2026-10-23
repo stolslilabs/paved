@@ -32,6 +32,7 @@ export default function Page() {
   return (
     <PvpLeagueScene
       crowns={league.crowns}
+      league={league.league}
       season={season}
       now={now}
       unranked={league.crowns === 0 && league.attacks === 0 && status.data?.attack.id === 0}
