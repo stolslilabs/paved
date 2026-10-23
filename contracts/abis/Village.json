@@ -271,6 +271,30 @@
       },
       {
         "type": "function",
+        "name": "parcel_of",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "x",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "y",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
         "name": "parcel_price",
         "inputs": [
           {

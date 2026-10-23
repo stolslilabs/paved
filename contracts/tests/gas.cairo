@@ -159,12 +159,14 @@ pub const CEILING_VRF_DRAW: u128 = 1035785;
 // (MATCHMAKER-CROWNS, section 11: separate slots per piece, the buckets' events). LEAGUES (#644):
 // z17, z18 and z20 measured again (+ 5 %): a draw reads the season clock and rolls both villages,
 // a settlement rolls them, records the leagues and reports the PvP missions to `Setup`
-// (`report_pvp`, +1.5M on z20).
+// (`report_pvp`, +1.5M on z20). PVP-ATTACKS (#643): z19 and z20 measured again (+ 5 %): the start
+// holds the attacker's 0-star cost (`CrownsHeld`, its bucket followed), the settlement gives it
+// back first (`CrownsReleased`) and each season roll reads the hold (z19 4,628,847, z20 4,996,496).
 pub const CEILING_MM_JOIN: u128 = 908127;
 pub const CEILING_MM_SEARCH: u128 = 2922327;
 pub const CEILING_MM_NEXT: u128 = 3517780;
-pub const CEILING_MM_START: u128 = 4642472;
-pub const CEILING_MM_SETTLE: u128 = 4883423;
+pub const CEILING_MM_START: u128 = 4860290;
+pub const CEILING_MM_SETTLE: u128 = 5246321;
 pub const CEILING_MM_RELEASE: u128 = 2091957;
 // XP-LEVEL (#641): every game over credits its XP in the account write it already made, with one
 // `XpGained` (+128,110 on g, i, l, s, x and z6, +148,710 on k and y); every call that reads the
@@ -192,7 +194,9 @@ pub const CEILING_AVATAR_ITEMS: u128 = 2512748;
 // z32 and z33: leagues and seasons (#644, `docs/architecture/leagues.md`): a settlement across a
 // season's end (both villages rolled, reset and paid, the missions reported) and `close_season`
 // with a reward and a reset. Measured on the VPS (snforge 0.64.0, test profile) + 5 %, rounded up.
-pub const CEILING_MM_SETTLE_SEASON_END: u128 = 5959147;
+// PVP-ATTACKS (#643): z32 measured again (6,140,608): the hold given back first, read by both
+// rolls.
+pub const CEILING_MM_SETTLE_SEASON_END: u128 = 6447639;
 // z34 to z42: every other new call of LEAGUES, measured alone (+ 5 %; z32 to z35 and z38 again
 // after the calendar seasons, whose table of 200 events a binary search reads): the season clock
 // set, the views `current_season`, `season_clock`, `league_record`, `league`, and `Setup`'s
@@ -202,7 +206,9 @@ pub const CEILING_MM_CURRENT_SEASON: u128 = 633875;
 pub const CEILING_MM_SEASON_CLOCK: u128 = 136574;
 pub const CEILING_MM_SEASON_START: u128 = 483021;
 pub const CEILING_MM_LEAGUE_RECORD: u128 = 172165;
-pub const CEILING_MM_LEAGUE: u128 = 1138816;
+// PVP-ATTACKS (#643, review 1): z38 measured again (1,145,056): the view reads the attacker's hold,
+// which the roll counts.
+pub const CEILING_MM_LEAGUE: u128 = 1202309;
 pub const CEILING_CREDIT_LEAGUE: u128 = 546177;
 pub const CEILING_REPORT_PVP: u128 = 1121073;
 pub const CEILING_PVP_PROGRESS: u128 = 207493;

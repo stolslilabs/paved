@@ -116,6 +116,10 @@ pub trait IVillage<TContractState> {
     /// The tiles, by id: the starter, then the placed ones. Empty with no village.
     fn tiles(self: @TContractState, player_id: felt252) -> Array<VillageTile>;
     fn is_owned(self: @TContractState, player_id: felt252, x: u32, y: u32) -> bool;
+    /// The number of the parcel bought at `(x, y)` (1 on, in purchase order); 0 for a cell of the
+    /// start or a cell not owned. A territory only grows, so the cells of a village at the time it
+    /// held `n` parcels are the 9 of the start and the parcels 1 to `n` (#643's snapshot).
+    fn parcel_of(self: @TContractState, player_id: felt252, x: u32, y: u32) -> u8;
     /// The price in cobbles of parcel `parcel` (1 to `MAX_PARCELS`; 0 otherwise).
     fn parcel_price(self: @TContractState, parcel: u8) -> u32;
     /// The level parcel `parcel` needs (1 to `MAX_PARCELS`; 0 otherwise).
@@ -638,6 +642,10 @@ pub mod Village {
 
         fn is_owned(self: @ContractState, player_id: felt252, x: u32, y: u32) -> bool {
             self.header_of(player_id).game_id != 0 && self.owns(player_id, x, y)
+        }
+
+        fn parcel_of(self: @ContractState, player_id: felt252, x: u32, y: u32) -> u8 {
+            self.owned.read((player_id, x, y))
         }
 
         fn parcel_price(self: @ContractState, parcel: u8) -> u32 {
