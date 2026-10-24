@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { REWARD_COBBLES as CHAIN_REWARD_COBBLES, ViewError, VillageRefusedError, tierOf, type DecodedEvent, type RewardOffer } from "@paved/chain";
+import { REWARD_COBBLES as CHAIN_REWARD_COBBLES, ViewError, VillageRefusedError, type DecodedEvent, type RewardOffer } from "@paved/chain";
 import { EngineGame, startTerritory, villageGame, villageRefusal } from "@paved/game-core";
 import type { GameSigner } from "../src/data";
 import { cobbleKeys } from "../src/data/cobbles";
@@ -10,10 +10,6 @@ import {
   START_CELLS,
   STARTER,
   applyVillageEvents,
-  chainTier,
-  copiesByPlan,
-  tierGates,
-  useSkinTierGates,
   useVillage,
   useVillageReward,
   useVillageWrites,
@@ -37,7 +33,7 @@ function villageSetup() {
   return { ...fakes, writer };
 }
 
-/** A founded village of `OTHER`: the start, one parcel, a road east of the starter, 3 copies of the road. */
+/** A founded village of `OTHER`: the start and one parcel the chain still holds (#739: the client reads no parcel), the starter. */
 function founded(views: ReturnType<typeof villageSetup>["views"], player = OTHER) {
   const v = views.villagePlayer(player);
   v.cells = [...startTerritory(), { x: 2, y: 0 }];
@@ -50,7 +46,6 @@ function founded(views: ReturnType<typeof villageSetup>["views"], player = OTHER
 describe("the chain's values", () => {
   it("agree with @paved/chain and game-core", () => {
     expect(REWARD_COBBLES).toBe(CHAIN_REWARD_COBBLES);
-    for (let n = 0; n < 70; n++) expect(chainTier(n), String(n)).toBe(tierOf(n));
     expect(START_CELLS).toEqual(startTerritory());
     const game = EngineGame.village();
     expect(game.placed()).toHaveLength(1);
@@ -78,7 +73,7 @@ describe("the chain's values", () => {
 });
 
 describe("useVillage", () => {
-  it("reads a founded village: its cells, tiles, score, cap, copies, next parcel and its owner's level", async () => {
+  it("reads a founded village: its cells, tiles, score and its owner's level; no parcel, cap or copies (#739)", async () => {
     const { sources, views } = villageSetup();
     const v = founded(views);
     v.info.score = 120;
@@ -86,20 +81,22 @@ describe("useVillage", () => {
     const { result } = renderData(() => useVillage(OTHER, "Rook"), sources);
     const data = await dataOf(result);
     expect(data?.founded).toBe(true);
-    expect(data?.parcel).toEqual({ price: 20, level: 2 });
-    expect(data?.village).toMatchObject({ owner: "Rook", level: 2, score: 120, maxCells: 38, copies: { 10: 3 } });
+    expect(data).not.toHaveProperty("parcel");
+    expect(data?.village).toEqual(expect.objectContaining({ owner: "Rook", level: 2, score: 120 }));
+    expect(data?.village).not.toHaveProperty("copies");
+    expect(data?.village).not.toHaveProperty("maxCells");
+    expect(views.calls.filter((c) => /^(copies|max_cells)/.test(c))).toEqual([]);
     expect(data?.village.cells).toHaveLength(10);
     expect(data?.village.tiles).toEqual([STARTER]);
   });
 
-  it("not founded: the start it would get, no parcel", async () => {
+  it("not founded: the start it would get", async () => {
     const { sources } = villageSetup();
     const { result } = renderData(() => useVillage(PLAYER_ID, "Me"), sources);
     const data = await dataOf(result);
-    expect(data).toMatchObject({ founded: false, parcel: null });
+    expect(data).toMatchObject({ founded: false });
     expect(data?.village.cells).toEqual(START_CELLS);
     expect(data?.village.tiles).toEqual([STARTER]);
-    expect(data?.village.copies).toEqual({});
   });
 
   it("is null on a network without Village, and stops pending on a failed read", async () => {
@@ -141,40 +138,13 @@ describe("useVillageReward", () => {
   });
 });
 
-describe("useSkinTierGates", () => {
-  it("names the skins reserved to a tier and whether the player's plan reached it", async () => {
-    const { sources, views } = villageSetup();
-    views.skinTierTable.set("1:1", 1);
-    views.skinTierTable.set("1:18", 3);
-    views.villagePlayer(PLAYER_ID).copies[0] = 2;
-    views.villagePlayer(PLAYER_ID).copies[17] = 7;
-    const { result } = renderData(() => useSkinTierGates(PLAYER_ID, 1), sources);
-    expect(await dataOf(result)).toEqual({ 1: { tier: 1, name: "Silver", reached: true }, 18: { tier: 3, name: "Diamond", reached: false } });
-  });
-
-  it("a guest reached none; a tier past the client's names shows as the last", () => {
-    expect(tierGates([2, 0, 6], [])).toEqual({ 1: { tier: 2, name: "Gold", reached: false }, 3: { tier: 4, name: "Ruby", reached: false } });
-    expect(tierGates([0, 0, 6], [0, 0, 64])[3]?.reached).toBe(true);
-  });
-
-  it("reads nothing for a theme not out", () => {
-    const { sources, views } = villageSetup();
-    const { result } = renderData(() => useSkinTierGates(PLAYER_ID, null), sources);
-    expect(result.current.data).toBeNull();
-    expect(views.calls.filter((c) => c.startsWith("skin_tiers"))).toEqual([]);
-  });
-});
-
 describe("applyVillageEvents", () => {
-  it("RewardOpened sets the offer; RewardClaimed clears it and sets the plan's copies", () => {
+  it("RewardOpened sets the offer; RewardClaimed clears it", () => {
     const client = new QueryClient();
-    client.setQueryData(villageKeys.copies(PLAYER_ID), new Array(19).fill(0));
     applyVillageEvents(client, PLAYER_ID, [event("RewardOpened", { index: 2n, plan1: 10n, plan2: 9n, plan3: 18n })]);
     expect(client.getQueryData<RewardOffer>(villageKeys.offer(PLAYER_ID))).toEqual({ index: 2, plans: [10, 9, 18] });
     applyVillageEvents(client, PLAYER_ID, [event("RewardClaimed", { index: 2n, choice: 2n, plan: 18n, copies: 3n })]);
     expect(client.getQueryData<RewardOffer>(villageKeys.offer(PLAYER_ID))?.plans).toEqual([0, 0, 0]);
-    expect(client.getQueryData<number[]>(villageKeys.copies(PLAYER_ID))?.[17]).toBe(3);
-    expect(copiesByPlan(client.getQueryData<number[]>(villageKeys.copies(PLAYER_ID))!)).toEqual({ 18: 3 });
   });
 });
 
@@ -201,45 +171,33 @@ describe("useVillageWrites", () => {
     await act(() => result.current.writes.place(slot, spot.orientations[0]!, spot));
     await waitFor(() => expect(result.current.village.data?.village.tiles).toHaveLength(2));
     expect(result.current.reward.data?.offer).toBeNull();
-    expect(result.current.village.data?.village.copies[plans[slot]!]).toBe(1);
     expect(writer.sent).toEqual(["found", "open 0", "claim place"]);
   });
 
-  it("the Cobbles, a copy and a parcel: the balance and the copies follow", async () => {
+  it("the Cobbles: the balance follows; no parcel or copy write is left (#739)", async () => {
     const { sources, views, writer } = villageSetup();
     await writer.foundVillage();
     const v = views.villagePlayer(PLAYER_ID);
     v.grants = { day: 1, today: 1, pending: 0, opened: 1 };
-    v.offer = { index: 1, plans: [18, 18, 18] };
+    v.offer = { index: 2, plans: [1, 1, 1] };
     const { result, client } = renderData(() => ({ village: useVillage(PLAYER_ID, "Me"), writes: useVillageWrites(PLAYER_ID) }), sources);
     await waitFor(() => expect(result.current.village.data?.founded).toBe(true));
-    await act(() => result.current.writes.merge(1));
-    await waitFor(() => expect(result.current.village.data?.village.copies).toEqual({ 18: 1 }));
-
-    v.offer = { index: 2, plans: [1, 1, 1] };
     await act(() => result.current.writes.cobbles());
     expect(views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(55);
     expect(client.getQueryState(cobbleKeys.account(PLAYER_ID))?.isInvalidated ?? true).toBe(true);
-
-    const parcel = result.current.village.data!.parcel!;
-    expect(parcel).toEqual({ price: 10, level: 1 });
-    await act(() => result.current.writes.buyParcel({ x: 2, y: 0 }, parcel.price));
-    await waitFor(() => expect(result.current.village.data?.village.cells).toHaveLength(10));
-    expect(result.current.village.data?.parcel).toEqual({ price: 20, level: 2 });
-    expect(views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(45);
+    expect(result.current.writes).not.toHaveProperty("buyParcel");
+    expect(result.current.writes).not.toHaveProperty("merge");
   });
 
   it("a refusal is the page's error until reset, and the reads are reconciled", async () => {
-    const { sources, views, writer } = villageSetup();
+    const { sources, writer } = villageSetup();
     await writer.foundVillage();
-    const v = views.villagePlayer(PLAYER_ID);
-    writer.level = 1;
-    v.info = { ...v.info, nextParcel: 2, nextPrice: 20, nextLevel: 2 };
     const { result } = renderData(() => ({ village: useVillage(PLAYER_ID, "Me"), writes: useVillageWrites(PLAYER_ID) }), sources);
-    await waitFor(() => expect(result.current.village.data?.parcel?.level).toBe(2));
-    await act(() => result.current.writes.buyParcel({ x: 2, y: 0 }, 20).catch(() => undefined));
+    await waitFor(() => expect(result.current.village.data?.founded).toBe(true));
+    // No reward waits: `open_reward` refuses.
+    await act(() => result.current.writes.open().catch(() => undefined));
     await waitFor(() => expect(result.current.writes.error).toBeInstanceOf(VillageRefusedError));
-    expect((result.current.writes.error as VillageRefusedError).reason).toBe("level-too-low");
+    expect((result.current.writes.error as VillageRefusedError).reason).toBe("no-reward");
     act(() => result.current.writes.reset());
     await waitFor(() => expect(result.current.writes.error).toBeNull());
   });

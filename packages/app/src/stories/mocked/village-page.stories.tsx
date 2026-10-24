@@ -21,7 +21,7 @@ import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
 /**
  * The village page (#646 PR 2) as the app wires it, on the mock data source (Sepolia's, until `Village` and `Rewards` are
  * deployed): the page's own hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and its writes go to the
- * ledger, so Found, Open, a placement, a copy, the Cobbles and a parcel all complete here. Each story seeds the ledger's
+ * ledger, so Found, Open, a placement and the Cobbles all complete here. Each story seeds the ledger's
  * state, then mounts the route. The player is connected (a stand-in for the controller); the visit reads another address.
  */
 const meta = { title: "Pages/Village", parameters: { layout: "fullscreen" } } satisfies Meta;
@@ -124,9 +124,9 @@ function VillagePage({ offer = null }: { offer?: [number, number, number] | null
   );
 }
 
-/** The player's village: 13 cells, 9 tiles in their Forest skins on their tier's base, the score from the engine, 85 Cobbles; two rewards wait (Open). */
+/** The player's village: 13 cells, 9 tiles in their Forest skins, the score from the engine, 85 Cobbles; two rewards wait (Open). */
 export const Board: Story = { parameters: { route: "/village" }, render: () => <VillagePage /> };
-/** A reward opened: its three tiles under the board; drag or tap one onto a lit cell, onto a ringed tile, or take 5 Cobbles. */
+/** A reward opened: its three tiles under the board; drag or tap one onto a lit cell, or take 5 Cobbles. */
 export const Reward: Story = { parameters: { route: "/village" }, render: () => <VillagePage offer={[P.road, P.wonder, P.roadCross]} /> };
-/** Another player's village from the PvP scout: read-only, their score, level and tiers. */
+/** Another player's village from the PvP scout: read-only, their score and level. */
 export const Visit: Story = { parameters: { route: `/village/${RIVAL}?from=scout` }, render: () => <VillagePage /> };

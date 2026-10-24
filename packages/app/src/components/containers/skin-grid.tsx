@@ -4,18 +4,10 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Cobbles } from "../elements/cobbles";
-import { TierSwatch } from "../elements/tier-base";
 import { planCode } from "../elements/tile-chip";
 import { TileRender, tileName, type TileRenders } from "../elements/tile-render";
 import { PLANS, ownsSkin, type SkinState } from "./cobble-types";
 import { THEME_CODES, type SkinThemeId } from "./theme-card";
-
-/** A skin reserved to a tier of its plan (#646): its tier (0 to 4), the tier's name, and whether the player's plan reached it. */
-export interface SkinTierGate {
-  tier: 0 | 1 | 2 | 3 | 4;
-  name: string;
-  reached: boolean;
-}
 
 export interface SkinCellProps {
   plan: number;
@@ -32,19 +24,16 @@ export interface SkinCellProps {
   /** Another purchase is on its way: this one waits. */
   busy?: boolean;
   renders?: TileRenders;
-  /** Reserved to a tier of the plan (#646): Buy waits until the plan reaches it. */
-  gate?: SkinTierGate;
   onBuy?: (plan: number) => void;
 }
 
 /** One plan of a theme's shop: its real render, its variants, its price and Buy, or Owned / Active. */
-export function SkinCell({ plan, theme, price, state, variants = 1, balance, buying, busy, renders, gate, onBuy }: SkinCellProps) {
+export function SkinCell({ plan, theme, price, state, variants = 1, balance, buying, busy, renders, onBuy }: SkinCellProps) {
   const name = tileName(plan);
   const short = price - balance;
   const forSale = price > 0;
   const reasonId = useId();
-  const locked = gate != null && !gate.reached;
-  const reason = forSale && !buying && (locked || short > 0);
+  const reason = forSale && !buying && short > 0;
   return (
     <li
       data-state={state}
@@ -54,12 +43,6 @@ export function SkinCell({ plan, theme, price, state, variants = 1, balance, buy
     >
       <span className="relative block aspect-square overflow-hidden rounded-lg bg-board">
         <TileRender plan={plan} theme={THEME_CODES[theme]} renders={renders} />
-        {gate && (
-          <Badge variant="outline" className="absolute top-1 right-1 border-border bg-background/80 backdrop-blur-sm" aria-label={`Reserved to ${gate.name} tier`}>
-            <TierSwatch tier={gate.tier} />
-            {gate.name}
-          </Badge>
-        )}
         {state !== "none" && <Badge className="absolute top-1 left-1" variant={state === "active" ? "default" : "secondary"}>{state === "active" ? "Active" : "Owned"}</Badge>}
         {variants > 1 && (
           <Badge variant="outline" className="absolute right-1 bottom-1 border-border bg-background/80 backdrop-blur-sm" aria-label={`${variants} variants: the board picks one per tile`}>
@@ -72,20 +55,14 @@ export function SkinCell({ plan, theme, price, state, variants = 1, balance, buy
         <div className="flex flex-col gap-1.5">
           {forSale ? <Cobbles value={price} size="sm" /> : <span className="text-xs text-muted-foreground">Not for sale</span>}
           {forSale && (
-            <Button size="sm" variant="outline" className="w-full" disabled={busy || locked || short > 0} loading={buying} onClick={() => onBuy?.(plan)} aria-label={`Buy ${name} for ${price} Cobbles`} aria-describedby={reason ? reasonId : undefined}>
+            <Button size="sm" variant="outline" className="w-full" disabled={busy || short > 0} loading={buying} onClick={() => onBuy?.(plan)} aria-label={`Buy ${name} for ${price} Cobbles`} aria-describedby={reason ? reasonId : undefined}>
               {/* The spinner says it is on its way; a longer label would not fit a 320 px row of three (WRAP360). */}
               Buy
             </Button>
           )}
           {reason && (
             <span id={reasonId} className="text-xs text-warning">
-              {locked ? (
-                <>Reach {gate.name} on this plan</>
-              ) : (
-                <>
-                  Need <span className="numeric">{short}</span> more
-                </>
-              )}
+              Need <span className="numeric">{short}</span> more
             </span>
           )}
         </div>
@@ -113,14 +90,12 @@ export interface SkinGridProps {
   /** The plan whose purchase is on its way. */
   buying?: number | null;
   renders?: TileRenders;
-  /** The skins reserved to a tier (#646), by plan. */
-  gates?: Readonly<Record<number, SkinTierGate>>;
   onBuy?: (plan: number) => void;
   className?: string;
 }
 
 /** The 19 plans of a theme (X = 19, gems-v1.md 5.1), in plan order: three columns on a phone, up to six. */
-export function SkinGrid({ theme, prices, owned, active, variants, balance, buying, renders, gates, onBuy, className }: SkinGridProps) {
+export function SkinGrid({ theme, prices, owned, active, variants, balance, buying, renders, onBuy, className }: SkinGridProps) {
   const code = THEME_CODES[theme];
   return (
     <ul aria-label="Tiles" className={cn("grid grid-cols-3 gap-2 tablet:grid-cols-4 desktop:grid-cols-6", className)}>
@@ -138,7 +113,6 @@ export function SkinGrid({ theme, prices, owned, active, variants, balance, buyi
             buying={buying === plan}
             busy={buying != null && buying !== plan}
             renders={renders}
-            gate={gates?.[plan]}
             onBuy={onBuy}
           />
         );

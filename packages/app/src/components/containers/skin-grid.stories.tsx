@@ -21,10 +21,3 @@ export const CantAfford: Story = { args: { owned: 0, active: activeOn(1), balanc
 export const Buying: Story = { args: { buying: 1 } };
 /** No render served: the plans' chips. */
 export const NoRenders: Story = { args: { renders: undefined } };
-/** Skins reserved to a tier of their plan (#646): reached, Buy as usual; not reached, Buy waits with the tier named. */
-export const TierGated: Story = {
-  args: {
-    balance: 600,
-    gates: { 10: { tier: 3, name: "Diamond", reached: true }, 18: { tier: 2, name: "Gold", reached: true }, 19: { tier: 3, name: "Diamond", reached: false }, 17: { tier: 4, name: "Ruby", reached: false } },
-  },
-};

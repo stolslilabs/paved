@@ -137,24 +137,13 @@ describe("/settings/theme/forest: the shop", () => {
   const cell = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: slow(5000) });
   const buyButton = async (plan: number) => within(await cell(plan)).getByRole("button", { name: `Buy Tile ${plan} for ${FOREST_PRICES[plan - 1]} Cobbles` });
 
-  it("a skin reserved to a tier waits for it; a failed read of the tiers shows no Buy until Retry reads them (#646)", async () => {
+  it("reserves no skin to a tier any more: Buy reads no tier (#739)", async () => {
     const s = setup();
     s.views.skinTierTable.set(`${FOREST}:10`, 1);
-    s.views.skinTierTable.set(`${FOREST}:11`, 1);
-    s.views.villagePlayer(PLAYER_ID).copies[10] = 2;
-    const tiers = s.views.skinTiers.bind(s.views);
-    let fail = true;
-    s.views.skinTiers = (theme: number) => (fail ? Promise.reject(new Error("tiers down")) : tiers(theme));
     open(s, "/settings/theme/forest");
-    expect(await screen.findByText("tiers down", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Buy Tile/ })).toBeNull();
-    fail = false;
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    // Plan 10 waits for Silver (no copy yet); plan 11 reached it (2 copies); plan 12 has no tier.
-    expect(await buyButton(10)).toBeDisabled();
-    expect(within(await cell(10)).getByLabelText("Reserved to Silver tier")).toBeInTheDocument();
-    expect(await buyButton(11)).toBeEnabled();
-    expect(await buyButton(12)).toBeEnabled();
+    expect(await buyButton(10)).toBeEnabled();
+    expect(within(await cell(10)).queryByLabelText(/Reserved to/)).toBeNull();
+    expect(s.views.calls.filter((c) => c.startsWith("skin_tiers") || c.startsWith("copies"))).toEqual([]);
   });
 
   it("shows each tile's price, owned and active state", async () => {

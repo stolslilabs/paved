@@ -1,111 +1,29 @@
 import type { BoardTile } from "@paved/chain";
-import { planCode } from "../elements/tile-chip";
+import { SIDES, cellKey, edgeOf, type Cell } from "./layout-rules";
 
 /**
- * The village's rules on the client's side (#646, part of #637), for the stories' fakes until the contracts give them
- * (#640: the territory, placement and score; #642: the rewards and the tiers). The wiring reads the contracts' answers and
- * keeps these shapes; nothing here is the source of truth.
+ * The v1 village's rules on the client's side (#646, part of #637), for the stories' fakes and the reward's placement until
+ * the v2 contracts replace them (#733): the v2 village's own rules are `layout-rules.ts` (#739). The parcels, the copies and
+ * the tiers left the client with v2; the territory stays until the wiring, as the reward's tile still goes on an owned cell.
  *
- * - A village is a set of owned cells (connected, at most 38, the length of a game) and the tiles placed on them.
+ * - A village is a set of owned cells (connected, the 9 of the start on a fresh one) and the tiles placed on them.
  * - No border rule: a side that faces a cell not owned, or a free one, stays open. Two placed tiles side by side share the
  *   category of their facing edges, as on the board.
- * - A parcel is a cell next to the village, bought one at a time.
- * - The fog (#633's village variant): clear over the owned cells and their neighbours, the cells that can be bought.
- * - A plan's tier counts its copies for the account (open point 5 of #637, proposed): 1, 2, 4, 8, 16 copies.
+ * - The fog in the plan view: clear over the owned cells and their neighbours.
  */
 
-/** The most cells a village owns before the chain's cap is read: the value proposed for the deployment (#640, decision 1). */
-export const MAX_CELLS = 38;
+export { cellKey, edgeOf, type Cell };
 
-export interface Cell {
-  x: number;
-  y: number;
-}
-
-/** A player's village: the owned cells and the tiles placed on them (the board's own tile type), the copies per plan, the score. */
+/** A player's village: the owned cells and the tiles placed on them (the board's own tile type), the score. */
 export interface Village {
   /** Its owner's name, as the profile shows it. */
   owner: string;
-  /** The owner's level (#641): it gates the parcels. */
+  /** The owner's level (#641). */
   level: number;
   cells: readonly Cell[];
   tiles: readonly BoardTile[];
-  /** The copies of each plan the account holds, by chain plan id (placed tiles and copies added): its tier. */
-  copies: Readonly<Record<number, number>>;
   /** The village's score (#640): what an attacker plays against. */
   score: number;
-  /** The owner's cap of a territory, the 9 of the start included (`Village.max_cells`); `MAX_CELLS` when not given. */
-  maxCells?: number;
-}
-
-/** The cap of a village's territory: its `maxCells`, else `MAX_CELLS`. */
-export const cellCap = (village: Pick<Village, "maxCells">): number => village.maxCells ?? MAX_CELLS;
-
-/** The tiers, a base under the tile whatever its skin (#637): two of a tier make one of the next. More may come. */
-export const TIERS = [
-  { name: "Dirt", copies: 1 },
-  { name: "Silver", copies: 2 },
-  { name: "Gold", copies: 4 },
-  { name: "Diamond", copies: 8 },
-  { name: "Ruby", copies: 16 },
-] as const;
-
-export type Tier = 0 | 1 | 2 | 3 | 4;
-
-/** The tier of a plan held in `copies` copies: the highest whose count it reaches (Dirt for one or none). */
-export function tierOf(copies: number): Tier {
-  let tier = 0;
-  for (let i = 0; i < TIERS.length; i++) if (copies >= TIERS[i]!.copies) tier = i;
-  return tier as Tier;
-}
-
-export interface TierProgress {
-  tier: Tier;
-  /** The next tier, or null at the last. */
-  next: Tier | null;
-  copies: number;
-  /** The copies the next tier needs (its count), or null at the last. */
-  need: number | null;
-}
-
-/** A plan's way to its next tier: "3 of 4 copies to Gold". */
-export function tierProgress(copies: number): TierProgress {
-  const tier = tierOf(copies);
-  const next = tier + 1 < TIERS.length ? ((tier + 1) as Tier) : null;
-  return { tier, next, copies, need: next === null ? null : TIERS[next].copies };
-}
-
-export const cellKey = (c: Cell) => `${c.x},${c.y}`;
-
-/** North, east, south, west: the order of `SIDES` matches a tile's edges after its orientation's quarter turns. */
-const SIDES = [
-  [0, 1],
-  [1, 0],
-  [0, -1],
-  [-1, 0],
-] as const;
-
-/** The letters of a plan's edges in its nine (Center, NW, N, NE, E, SE, S, SW, W): N, E, S, W. */
-const EDGE_LETTERS = [2, 4, 6, 8] as const;
-
-/** The category letter of the edge of `plan` turned to `orientation` (1 north to 4 west, a quarter turn clockwise each) facing side `side` (0 north to 3 west). */
-export function edgeOf(plan: number, orientation: number, side: number): string {
-  const turned = (side - (orientation - 1) + 8) % 4;
-  return planCode(plan)[EDGE_LETTERS[turned]!] ?? "";
-}
-
-/** The cells next to the village not owned yet: the parcels that can be bought (none once it holds `max` cells). */
-export function buyableCells(cells: readonly Cell[], max = MAX_CELLS): Cell[] {
-  if (cells.length >= max) return [];
-  const owned = new Set(cells.map(cellKey));
-  const out = new Map<string, Cell>();
-  for (const c of cells) {
-    for (const [dx, dy] of SIDES) {
-      const n = { x: c.x + dx, y: c.y + dy };
-      if (!owned.has(cellKey(n))) out.set(cellKey(n), n);
-    }
-  }
-  return [...out.values()].sort((a, b) => b.y - a.y || a.x - b.x);
 }
 
 /** The cells the fog leaves clear: the owned ones and their neighbours (#633's village variant), as keys. */
@@ -151,11 +69,6 @@ export function legalCells(village: Pick<Village, "cells" | "tiles">, plan: numb
   return freeCells(village)
     .map((c) => ({ ...c, orientations: orientationsAt(village, plan, c) }))
     .filter((c) => c.orientations.length > 0);
-}
-
-/** The placed tiles of `plan`: dropping the reward's tile on one adds a copy to the plan instead of placing it. */
-export function copyTargets(village: Pick<Village, "tiles">, plan: number): BoardTile[] {
-  return village.tiles.filter((t) => t.plan === plan);
 }
 
 /** The orientation a tile dropped on `cell` takes: the one shown if it fits there, else the first that does; null when none. */

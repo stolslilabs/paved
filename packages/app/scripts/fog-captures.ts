@@ -3,12 +3,12 @@
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up)
  *   node scripts/fog-captures.ts --out <folder> [--url http://localhost:6006] [--frames 24] [--move-frames 36] [--fps 12] [--gpu]
- *     [--only village]
+ *     [--only landscape]
  *     [--args falloff:0 --suffix -hard] [--stills]
  *
  * Each capture opens a fresh page, waits for the board and the fog, stops the render loop and draws its frames one by one: the
  * ambient time moved 1 / fps, every effect on the loop stepped (the fog's drift and its lifts), `scene.render()`, and a screenshot
- * of the page. A capture with moves places a tile (or buys a cell) at the frames it names (`window.__fogPlace()`), so the fog
+ * of the page. A capture with moves places a tile at the frames it names (`window.__fogPlace()`), so the fog
  * lifts in the GIF at the board's own pace. ffmpeg (on the PATH) makes the GIF from the frames, with one palette for the clip, and
   * a JPEG of a still. `--stills` takes one frame of each (to judge a look quickly).
  *
@@ -53,11 +53,9 @@ const CAPTURES: Capture[] = [
   { name: "fog-voxel-edge", story: "voxel-edge", frames: 1 },
   { name: "fog-soft-falloff", story: "soft-falloff", frames: FRAMES },
   { name: "fog-landscape", story: "landscape", frames: FRAMES },
-  { name: "fog-village", story: "village", frames: 1 },
   // The moves' clips hold the drift (the lift is their point, and a still fog keeps the GIF small).
   { name: "fog-interactive", story: "interactive", args: "interactive:!false;drift:0", frames: MOVE_FRAMES, moves: MOVES },
   { name: "fog-interactive-hard-edge", story: "interactive", args: "interactive:!false;falloff:0;mist:0;drift:0", frames: MOVE_FRAMES, moves: MOVES },
-  { name: "fog-village-growing", story: "village-growing", args: "autoplay:0;interactive:!false;drift:0", frames: MOVE_FRAMES, moves: MOVES },
   { name: "fog-landscape-hard-edge", story: "landscape-hard-edge", frames: 1 },
   { name: "fog-close-voxel-edge", story: "voxel-edge", args: "view:close", frames: 1 },
   { name: "fog-close-soft-edge", story: "voxel-edge", args: "view:close;voxelEdge:!false", frames: 1 },

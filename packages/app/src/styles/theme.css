@@ -199,18 +199,11 @@
   --input: var(--color-charcoal-600); /* 3.17:1 on --background (WCAG 1.4.11) */
   --input-surface: var(--color-charcoal-500); /* --input on --card / --popover: 4.27:1 */
   --ring: var(--accent-scale-400);
-  /* The podium's medals: gold, silver, bronze. */
+  /* The podium's medals: gold, silver, bronze. The v2 village's chests take them by rank (#739). */
   --medal-1: var(--color-gold-300);
   --medal-2: var(--color-charcoal-200);
   --medal-3: var(--color-amber-400);
   --board: var(--color-board);
-  /* The village's tiers (#646): the base under a tile, whatever its skin. Dirt, silver, gold, diamond, ruby (a proposal for
-     the fifth). */
-  --tier-0: var(--color-amber-800);
-  --tier-1: var(--color-charcoal-300);
-  --tier-2: var(--color-gold-400);
-  --tier-3: var(--color-river-300);
-  --tier-4: var(--color-ember-500);
   /* The village's fog in the plan view (#633's rule, until #648 draws the chosen one): a grey veil over the board. */
   --fog: var(--color-charcoal-400);
 }
@@ -363,11 +356,6 @@
   --color-medal-3: var(--medal-3);
   --color-resource-plate: var(--resource-plate);
   --color-resource-edge: var(--resource-edge);
-  --color-tier-0: var(--tier-0);
-  --color-tier-1: var(--tier-1);
-  --color-tier-2: var(--tier-2);
-  --color-tier-3: var(--tier-3);
-  --color-tier-4: var(--tier-4);
   --color-fog: var(--fog);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

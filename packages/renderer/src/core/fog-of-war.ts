@@ -1,6 +1,5 @@
 // The fog of war (FOG-STUDY): its own chunk, an ambient effect on the one ambient loop (`ambient-loop.ts`). A fog over the whole
-// scene but the clear cells (the placed tiles and the free slots around them, or a village's owned cells and the cells next to
-// them); a cell revealed lifts over a short transition. The board does not call it: the stories (`Renderer/Fog of war`) do
+// scene but the clear cells (the placed tiles and the free slots around them); a cell revealed lifts over a short transition. The board does not call it: the stories (`Renderer/Fog of war`) do
 // (`loadFogOfWar`), for the owner to judge it first.
 //
 // One field drives it all: a small texture (`buildRevealField`, one byte a texel, four texels a cell) of the distance to the nearest
@@ -353,8 +352,8 @@ export interface FogStats {
 
 /**
  * The fog of war. `object` goes in the board's group (`TileRenderer.getGroup()`), so it turns with the compass: its meshes sit at
- * the group's origin, their own positions are the board's. `setRevealed` gives the clear cells (`boardReveal` or
- * `villageReveal`); a cell added lifts over `liftSeconds` on the ambient loop's time, from the side of `origin` (the tile just
+ * the group's origin, their own positions are the board's. `setRevealed` gives the clear cells (`boardReveal`); a cell
+ * added lifts over `liftSeconds` on the ambient loop's time, from the side of `origin` (the tile just
  * placed). The mode (`setMode`, `fogMode`) stops the drift and makes a lift instant. The daylight comes from the cycle
  * (`setCycle`). Each change calls `onChange` (a frame). `dispose` frees what it made.
  */
