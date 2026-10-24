@@ -2,8 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import { CAMPAIGNS, EMPTY_PROGRESS, recordRun } from "@paved/game-core";
-import { CampaignCard } from "../src/components/containers/story-panels";
+import { CAMPAIGNS, EMPTY_PROGRESS, PlanType, recordRun } from "@paved/game-core";
+import { CampaignCard, DeckPresentation } from "../src/components/containers/story-panels";
 import { StoryScene } from "../src/components/scenes/story-scene";
 
 const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
@@ -58,5 +58,47 @@ describe("Story campaign cards (#592)", () => {
     rerender(wrap(<CampaignCard {...CARD} status="open" theme={1} renders={renders} />));
     expect(background(container)).toBeNull();
     expect(container.querySelector(".grid-cols-4")).not.toBeNull();
+  });
+
+  it("three campaign cards and nothing else: no card announces a campaign to come (#721)", () => {
+    render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} />));
+    const cards = screen.getByRole("region", { name: "Campaigns" });
+    expect(within(cards).getAllByRole("button").map((b) => b.getAttribute("data-campaign"))).toEqual(["1", "2", "3"]);
+    expect(cards).not.toHaveTextContent(/on the way|coming soon/i);
+    expect(cards.querySelectorAll("[data-slot='carousel-item']")).toHaveLength(3);
+  });
+});
+
+describe("a level's intro (#593, #721)", () => {
+  const ids = (deck: readonly PlanType[]) => deck.map((plan) => Object.values(PlanType).indexOf(plan));
+
+  for (const campaign of CAMPAIGNS) {
+    it(`every level of ${campaign.name} opens on its title, intro, tiles in draw order and its tip, set apart with a bulb and a label`, () => {
+      for (const level of campaign.levels) {
+        const { unmount } = render(
+          wrap(<DeckPresentation campaign={campaign.name} levelIndex={level.id} title={level.title} intro={level.intro} tip={level.tip} deck={ids(level.deck)} theme={campaign.theme} />),
+        );
+        const intro = screen.getByTestId("deck-presentation");
+        expect(within(intro).getByRole("heading", { name: level.title })).toBeInTheDocument();
+        expect(intro).toHaveTextContent(level.intro);
+        expect([...within(intro).getByTestId("presented-tiles").querySelectorAll("li")].map((li) => Number(li.getAttribute("data-plan")))).toEqual(ids(level.deck));
+        const tip = within(intro).getByRole("complementary", { name: "Tip" });
+        expect(tip).toHaveTextContent(`Tip${level.tip}`);
+        expect(tip.querySelector("[data-icon='lightbulb']")).not.toBeNull();
+        // Never a star threshold, in the tip or anywhere on the intro.
+        expect(intro).not.toHaveTextContent(String(level.target));
+        unmount();
+      }
+    });
+  }
+
+  it("draws its tiles in the campaign's theme, the base render for a plan the theme has none of; no tip, no block", () => {
+    const renders = (theme: number, key: string) => (theme === 1 && key === "ccccccccc" ? null : `/r/${key}.${theme}.webp`);
+    const deck = ids([PlanType.RFRFFFFFR, PlanType.CCCCCCCCC]);
+    render(wrap(<DeckPresentation campaign="Dark Forest" levelIndex={1} title="Pines" intro="Into the woods." deck={deck} theme={1} renders={renders} />));
+    const tiles = [...screen.getByTestId("presented-tiles").querySelectorAll("li")];
+    expect(tiles.map((li) => li.getAttribute("data-theme"))).toEqual(["1", "0"]);
+    expect(tiles.map((li) => li.querySelector("img")?.getAttribute("src"))).toEqual(["/r/rfrfffffr.1.webp", "/r/ccccccccc.0.webp"]);
+    expect(screen.queryByTestId("level-tip")).toBeNull();
   });
 });

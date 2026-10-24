@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CENTER } from "../src/engine";
+import { OrientationType } from "../src/types/orientation";
 import { PlanType } from "../src/types/plan";
 import { decodeLine } from "../src/story/line";
 import { CAMPAIGNS, DARK_FOREST, OPEN_COUNTRY, TUTORIAL } from "../src/story/plan";
@@ -8,6 +9,8 @@ import {
   STORY_KEY,
   campaignRequirement,
   campaignUnlocked,
+  currentProgress,
+  deckFingerprint,
   levelResult,
   levelUnlocked,
   loadProgress,
@@ -104,12 +107,63 @@ describe("progress", () => {
     const progress = recordRun(EMPTY_PROGRESS, level, run(1, 1), 225);
     expect(saveProgress(progress, () => store)).toBe(true);
     expect(loadProgress(() => store)).toEqual(progress);
-    store.setItem(STORY_KEY, JSON.stringify({ v: 1, levels: { "1-1": { best: "x" }, "1-2": progress.levels["1-1"] } }));
+    const second = recordRun(EMPTY_PROGRESS, TUTORIAL.levels[1]!, run(1, 2), 0);
+    store.setItem(STORY_KEY, JSON.stringify({ v: 1, levels: { "1-1": { best: "x" }, "1-2": second.levels["1-2"] } }));
     expect(Object.keys(loadProgress(() => store).levels)).toEqual(["1-2"]);
     store.setItem(STORY_KEY, "not json");
     expect(loadProgress(() => store)).toEqual(EMPTY_PROGRESS);
     expect(loadProgress(() => null)).toEqual(EMPTY_PROGRESS);
     expect(saveProgress(progress, () => null)).toBe(false);
+  });
+});
+
+describe("deck fingerprints (#721)", () => {
+  /** Progress as the device saved it before #721: no fingerprint. */
+  const unmarked = (progress: StoryProgress): StoryProgress => ({
+    v: 1,
+    levels: Object.fromEntries(Object.entries(progress.levels).map(([key, { deck: _deck, ...held }]) => [key, held])),
+  });
+
+  it("tells decks apart: every level of the plan has its own fingerprint, and a changed deck changes it", () => {
+    const prints = CAMPAIGNS.flatMap((c) => c.levels.map(deckFingerprint));
+    expect(new Set(prints).size).toBe(prints.length);
+    for (const print of prints) expect(print).toMatch(/^[0-9a-f]{8}$/);
+    const level = TUTORIAL.levels[1]!;
+    expect(deckFingerprint({ deck: [...level.deck].reverse() })).not.toBe(deckFingerprint(level));
+    expect(deckFingerprint({ deck: level.deck.slice(1) })).not.toBe(deckFingerprint(level));
+    expect(deckFingerprint({ deck: level.deck, placed: [{ plan: PlanType.WFFFFFFFF, orientation: OrientationType.North, x: 0, y: -1 }] })).not.toBe(deckFingerprint(level));
+  });
+
+  it("records the fingerprint with each level, and keeps what was played on today's decks", () => {
+    const progress = finished(3);
+    for (const campaign of CAMPAIGNS) for (const level of campaign.levels) expect(progress.levels[`${campaign.id}-${level.id}`]?.deck).toBe(deckFingerprint(level));
+    expect(currentProgress(progress)).toEqual(progress);
+  });
+
+  it("drops a level whose deck changed since it was played, and one the plan no longer has", () => {
+    const progress = finished(3, [TUTORIAL]);
+    const changed = { ...progress, levels: { ...progress.levels, "1-3": { ...progress.levels["1-3"]!, deck: "00000000" }, "1-13": progress.levels["1-1"]! } };
+    const kept = currentProgress(changed);
+    expect(kept.levels["1-3"]).toBeUndefined();
+    expect(kept.levels["1-13"]).toBeUndefined();
+    expect(Object.keys(kept.levels)).toHaveLength(TUTORIAL.levels.length - 1);
+  });
+
+  it("keeps progress saved before #721 on the levels whose deck did not change: Tutorial 1-1 to 1-9 only", () => {
+    const kept = currentProgress(unmarked(finished(3)));
+    expect(Object.keys(kept.levels)).toEqual(["1-1", "1-2", "1-3", "1-4", "1-5", "1-6", "1-7", "1-8", "1-9"]);
+    // Kept with its fingerprint, so the next save carries it.
+    expect(kept.levels["1-1"]?.deck).toBe(deckFingerprint(TUTORIAL.levels[0]!));
+  });
+
+  it("loads only the current decks, and a best on another deck is replaced by the next run, its stars included", () => {
+    const store = memoryStore();
+    const level = TUTORIAL.levels[0]!;
+    const stale = { best: 9999, stars: 3 as const, run: run(1, 1), deck: "00000000" };
+    store.setItem(STORY_KEY, JSON.stringify({ v: 1, levels: { "1-1": stale } }));
+    expect(loadProgress(() => store)).toEqual(EMPTY_PROGRESS);
+    const replaced = recordRun({ v: 1, levels: { "1-1": stale } }, level, run(1, 1), 0);
+    expect(replaced.levels["1-1"]).toMatchObject({ best: 0, stars: 1, deck: deckFingerprint(level) });
   });
 });
 
