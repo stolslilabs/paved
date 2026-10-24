@@ -1,17 +1,14 @@
 import type { BoardTile } from "@paved/chain";
-import type { ParcelOffer } from "../components/containers/parcel-sheet";
-import type { SkinTierGate } from "../components/containers/skin-grid";
 import type { RewardOffer } from "../components/containers/reward-sheet";
-import { TIERS, buyableCells, cellKey, legalCells, tierOf, type Cell, type Village } from "../components/containers/village-rules";
+import { cellKey, legalCells, type Cell, type Village } from "../components/containers/village-rules";
 import type { VillageSceneProps } from "../components/scenes/village-scene";
 import { PLAYER } from "./players";
 
 const ME = PLAYER.name ?? "bal7hazar";
 
 /**
- * The village's fakes (#646), shared with the PvP flow (#647): villages of every size built by the rules of
- * `village-rules.ts`, the reward offers and the parcel prices. The prices and levels are the chain's (#640, the owner's table
- * (a)): parcel `k`, the `9 + k`th cell, costs `10 x k` Cobbles and needs level `k`; "take Cobbles" is 5 (#642, rule B).
+ * The v1 village's fakes (#646), shared with the PvP flow (#647): villages of every size built by the rules of
+ * `village-rules.ts`, and the reward offers; "take Cobbles" is 5 (#642, rule B). The v2 village's are `village-v2.ts` (#739).
  */
 
 /** Chain plan ids by their nine letters (`PlanType`'s index): the plans the fakes use. */
@@ -67,101 +64,62 @@ export function build(cells: readonly Cell[], plans: readonly number[]): BoardTi
   return tiles;
 }
 
-/** Each plan placed counts one copy; `extra` adds the copies merged on top. */
-export function copiesOf(tiles: readonly BoardTile[], extra: Readonly<Record<number, number>> = {}): Record<number, number> {
-  const copies: Record<number, number> = {};
-  for (const t of tiles) copies[t.plan] = (copies[t.plan] ?? 0) + 1;
-  for (const [plan, n] of Object.entries(extra)) copies[Number(plan)] = (copies[Number(plan)] ?? 0) + n;
-  return copies;
-}
-
 const P = PLAN;
 const MIXED = [P.road, P.roadCross, P.roadBend, P.cityEdge, P.wonder, P.forestCity, P.road, P.stopRoads, P.roadCity, P.cityForest, P.city, P.road, P.wonder, P.roadBend, P.cityEdge, P.road];
 
-function village(owner: string, level: number, cells: Cell[], plans: readonly number[], extra: Record<number, number>, score: number): Village {
-  const tiles = build(cells, plans);
-  return { owner, level, cells, tiles, copies: copiesOf(tiles, extra), score };
+function village(owner: string, level: number, cells: Cell[], plans: readonly number[], score: number): Village {
+  return { owner, level, cells, tiles: build(cells, plans), score };
 }
 
 /** A new village: the 9 cells of the start, a road and a wonder on them. */
-export const VILLAGE_START = village(ME, 1, square(1), [P.road, P.wonder], {}, 900);
+export const VILLAGE_START = village(ME, 1, square(1), [P.road, P.wonder], 900);
 
-/** Halfway: 21 cells, 14 tiles, a few plans in silver and gold. */
-export const VILLAGE_GROWING = village(ME, 4, grow(square(1), 12), MIXED.slice(0, 14), { [P.road]: 1, [P.wonder]: 2 }, 6_420);
+/** Halfway: 21 cells, 14 tiles. */
+export const VILLAGE_GROWING = village(ME, 4, grow(square(1), 12), MIXED.slice(0, 14), 6_420);
 
-/** The most a village holds: 38 cells, 32 tiles, every tier on some plan. */
-export const VILLAGE_FULL = village(ME, 9, grow(square(1), 29), [...MIXED, ...MIXED].slice(0, 32), { [P.road]: 10, [P.wonder]: 4, [P.cityEdge]: 2 }, 14_880);
+/** A large village: 38 cells, 32 tiles. */
+export const VILLAGE_FULL = village(ME, 9, grow(square(1), 29), [...MIXED, ...MIXED].slice(0, 32), 14_880);
 
 /**
  * A cramped village: the centre the only free cell, walled by city on every side. A city tile fits it; a road or a wonder fits
- * nowhere and has no tile of its plan to copy onto (greyed out).
+ * nowhere (greyed out).
  */
 export const VILLAGE_CRAMPED: Village = (() => {
   const cells = square(1);
   const tiles: BoardTile[] = cells
     .filter((c) => c.x !== 0 || c.y !== 0)
     .map((c, i) => ({ id: i + 1, plan: P.city, orientation: 1, x: c.x, y: c.y }));
-  return { owner: ME, level: 2, cells, tiles, copies: copiesOf(tiles), score: 2_400 };
+  return { owner: ME, level: 2, cells, tiles, score: 2_400 };
 })();
 
 /** A village not founded yet: the 3 x 3 of the start and the starter (`RFFFRFCFR` facing South), what `found` gives. */
-export const VILLAGE_UNFOUNDED: Village = { owner: ME, level: 1, cells: square(1), tiles: [{ id: 1, plan: P.roadBend, orientation: 3, x: 0, y: 0 }], copies: {}, score: 0 };
+export const VILLAGE_UNFOUNDED: Village = { owner: ME, level: 1, cells: square(1), tiles: [{ id: 1, plan: P.roadBend, orientation: 3, x: 0, y: 0 }], score: 0 };
 
 /** Another player's village, for a visit: from a profile, or the defender of the PvP scout (#647). */
-export const VILLAGE_RIVAL = village("Rook of Ashford", 7, grow(square(1), 20), [...MIXED, ...MIXED].slice(0, 26), { [P.roadCross]: 3, [P.wonder]: 6, [P.stopRoads]: 1 }, 11_250);
+export const VILLAGE_RIVAL = village("Rook of Ashford", 7, grow(square(1), 20), [...MIXED, ...MIXED].slice(0, 26), 11_250);
 
 /** The reward offers: three plans (3 cards of the base deck's 72) and the Cobbles instead. */
 export const REWARD: RewardOffer = { plans: [P.road, P.wonder, P.roadCross], cobbles: 5 };
 /** In the cramped village: one tile fits, two are greyed out. */
 export const REWARD_CRAMPED: RewardOffer = { plans: [P.city, P.road, P.wonder], cobbles: 5 };
 
-/**
- * The skins reserved to a tier (#642 decides which), for a theme's shop: the plan's tier from `VILLAGE_FULL`'s copies. The first
- * row of the shop shows both: the city's Silver reached, the other two not.
- */
-export const SKIN_TIER_GATES: Readonly<Record<number, SkinTierGate>> = Object.fromEntries(
-  ([
-    [P.city, 1],
-    [P.cityForest, 3],
-    [3, 2],
-    [P.road, 3],
-    [P.stopRoads, 4],
-    [P.wonder, 2],
-  ] as const).map(([plan, tier]) => [plan, { tier, name: TIERS[tier].name, reached: tierOf(VILLAGE_FULL.copies[plan] ?? 0) >= tier }]),
-);
-
-/** The parcel price and level gate for a village of `cells` cells (the chain's table, above); null once full. */
-export function parcelFor(cells: number): ParcelOffer | null {
-  if (cells >= 38) return null;
-  const parcel = Math.max(1, cells - 8);
-  return { price: 10 * parcel, level: parcel };
-}
-
-/** A parcel next to the growing village. */
-const GROWING_PARCEL = buyableCells(VILLAGE_GROWING.cells)[0]!;
-
 /** A scene's data without its callbacks. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
 
 /** One fixture per state of the village scene (`Scenes/Village`). */
 export const VILLAGE = {
-  start: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9) },
-  growing: { village: VILLAGE_GROWING, cobbles: 640, parcel: parcelFor(21) },
-  full: { village: VILLAGE_FULL, cobbles: 2_310, parcel: parcelFor(38) },
-  fogOff: { village: VILLAGE_GROWING, cobbles: 640, parcel: parcelFor(21), fog: "off" },
-  reward: { village: VILLAGE_GROWING, cobbles: 640, parcel: parcelFor(21), reward: REWARD },
-  rewardChosen: { village: VILLAGE_GROWING, cobbles: 640, parcel: parcelFor(21), reward: REWARD, initialSelected: 0 },
-  rewardCopy: { village: VILLAGE_GROWING, cobbles: 640, parcel: parcelFor(21), reward: REWARD, initialSelected: 1 },
-  rewardCramped: { village: VILLAGE_CRAMPED, cobbles: 80, parcel: parcelFor(9), reward: REWARD_CRAMPED },
-  rewardBusy: { village: VILLAGE_GROWING, cobbles: 640, parcel: parcelFor(21), reward: REWARD, busy: true },
-  parcelReady: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9), initialParcel: { x: 2, y: 0 } },
-  parcelLevel: { village: VILLAGE_GROWING, cobbles: 640, parcel: { price: 260, level: 5 }, initialParcel: GROWING_PARCEL },
-  parcelCobbles: { village: VILLAGE_GROWING, cobbles: 90, parcel: parcelFor(21), initialParcel: GROWING_PARCEL },
-  tiers: { village: VILLAGE_FULL, cobbles: 2_310, parcel: parcelFor(38), initialTiers: true },
+  start: { village: VILLAGE_START, cobbles: 120 },
+  growing: { village: VILLAGE_GROWING, cobbles: 640 },
+  full: { village: VILLAGE_FULL, cobbles: 2_310 },
+  fogOff: { village: VILLAGE_GROWING, cobbles: 640, fog: "off" },
+  reward: { village: VILLAGE_GROWING, cobbles: 640, reward: REWARD },
+  rewardChosen: { village: VILLAGE_GROWING, cobbles: 640, reward: REWARD, initialSelected: 0 },
+  rewardCramped: { village: VILLAGE_CRAMPED, cobbles: 80, reward: REWARD_CRAMPED },
+  rewardBusy: { village: VILLAGE_GROWING, cobbles: 640, reward: REWARD, busy: true },
   unfounded: { village: VILLAGE_UNFOUNDED, founded: false },
-  waiting: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9), pending: 3 },
-  refused: { village: VILLAGE_START, cobbles: 5, parcel: parcelFor(9), refusal: "Your level is too low for this parcel: play games to level up. No Cobbles were spent." },
-  rewardFailed: { village: VILLAGE_START, cobbles: 120, parcel: parcelFor(9), pending: 2, rewardError: { message: "Rewards: the node did not answer" } },
+  waiting: { village: VILLAGE_START, cobbles: 120, pending: 3 },
+  refused: { village: VILLAGE_START, cobbles: 5, reward: REWARD, refusal: "Your reward was claimed already. No Cobbles were spent." },
+  rewardFailed: { village: VILLAGE_START, cobbles: 120, pending: 2, rewardError: { message: "Rewards: the node did not answer" } },
   loading: { status: { kind: "loading" } },
   guest: { status: { kind: "guest" } },
   unavailable: { village: null },

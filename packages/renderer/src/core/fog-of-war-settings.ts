@@ -1,6 +1,6 @@
 /**
  * The fog of war's settings and its reveal logic (FOG-STUDY): a fog over the whole scene but the placed tiles and the free slots
- * around them, or, in a PvP village, the owned cells and the cells next to them. No three here: the cells, the lift of a cell
+ * around them, in every mode (#739: the village's owned-cells variant left with the parcels). No three here: the cells, the lift of a cell
  * (`RevealTransition`) and the field the fog's shader reads (`buildRevealField`) are plain numbers, tested as they are. The board
  * does not call the fog: the stories (`Renderer/Fog of war`) hand these to `FogOfWar` (`fog-of-war.ts`, a chunk of its own,
  * `loadFogOfWar`) so the owner can judge it first.
@@ -16,16 +16,13 @@ export interface FogCell {
   y: number;
 }
 
-/** The four cells next to a cell, the board's neighbours (a tile goes next to a tile, a village cell next to an owned one). */
+/** The four cells next to a cell, the board's neighbours (a tile goes next to a tile). */
 export const FOG_NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
   [-1, 0],
   [0, 1],
   [0, -1],
 ];
-
-/** The most cells a PvP village owns, bought one by one. */
-export const VILLAGE_MAX_CELLS = 38;
 
 export const cellKey = (x: number, y: number): string => `${x},${y}`;
 
@@ -46,16 +43,6 @@ export function freeSlots(tiles: Iterable<FogCell>): FogCell[] {
 /** The board's revealed cells: the placed tiles and the free slots next to them. */
 export function boardReveal(tiles: Iterable<FogCell>): FogCell[] {
   const list = uniqueCells(tiles);
-  return [...list, ...freeSlots(list)];
-}
-
-/**
- * A PvP village's revealed cells: the owned cells and the cells next to them (the ones that can be bought). Throws past
- * `VILLAGE_MAX_CELLS` owned cells.
- */
-export function villageReveal(owned: Iterable<FogCell>): FogCell[] {
-  const list = uniqueCells(owned);
-  if (list.length > VILLAGE_MAX_CELLS) throw new Error(`[renderer] a village owns at most ${VILLAGE_MAX_CELLS} cells, not ${list.length}`);
   return [...list, ...freeSlots(list)];
 }
 

@@ -88,67 +88,20 @@ describe("/village: the own village", () => {
     await waitFor(() => expect(screen.queryByRole("list", { name: "Reward tiles" })).toBeNull());
   });
 
-  it("adds a chosen tile as a copy of its plan", async () => {
+  it("a refusal of the chain shows on the page, until dismissed, and nothing changed", async () => {
     const c = chain(50, 0);
     await c.writer.foundVillage();
-    c.views.villagePlayer(PLAYER_ID).offer = { index: 1, plans: [18, 10, 13] };
+    const v = c.views.villagePlayer(PLAYER_ID);
+    v.offer = { index: 1, plans: [18, 18, 13] };
     open(c, "/village");
-    const tiles = within(await screen.findByRole("list", { name: "Reward tiles" }, { timeout: 5000 })).getAllByRole("button");
-    await userEvent.click(tiles.find((t) => !t.hasAttribute("disabled"))!);
-    await userEvent.click(screen.getByRole("button", { name: /as a copy instead$/ }));
-    await waitFor(() => expect(c.views.villagePlayer(PLAYER_ID).copies.some((n) => n === 1)).toBe(true));
-    expect(c.writer.sent).toEqual(["found", "claim merge"]);
-  });
-
-  it("buys a parcel at the sheet's price; the next one waits for a level", async () => {
-    const c = chain(50, 0);
-    await c.writer.foundVillage();
-    open(c, "/village");
-    await userEvent.click(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 }));
-    await userEvent.click(await screen.findByRole("button", { name: "Buy this parcel for 10 Cobbles" }));
-    await waitFor(() => expect(c.views.villagePlayer(PLAYER_ID).cells).toHaveLength(10));
-    expect(c.views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(40);
-    await userEvent.click(await screen.findByRole("button", { name: "Parcel at 3 east" }, { timeout: 5000 }));
-    expect(await screen.findByRole("button", { name: /Level 2 needed/ })).toBeDisabled();
-  });
-
-  it("short of Cobbles, the sheet offers the packs", async () => {
-    const c = chain(5, 0);
-    await c.writer.foundVillage();
-    open(c, "/village");
-    await userEvent.click(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 }));
-    expect(await screen.findByRole("button", { name: "Get Cobbles" })).toBeInTheDocument();
-  });
-
-  it("a refusal of the chain shows in the open parcel sheet, until dismissed, and nothing changed", async () => {
-    const c = chain(50, 0);
-    await c.writer.foundVillage();
-    // The chain reads a lower level than the page (another device's XP not counted yet): the purchase is refused.
-    c.writer.level = 0;
-    open(c, "/village");
-    await userEvent.click(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 }));
-    const sheet = await screen.findByRole("dialog");
-    await userEvent.click(within(sheet).getByRole("button", { name: "Buy this parcel for 10 Cobbles" }));
-    // In the sheet, which hides the page behind it: the player reads it where they bought.
-    expect(await within(sheet).findByText(/Your level is too low for this parcel/, {}, { timeout: 5000 })).toBeVisible();
-    expect(c.views.villagePlayer(PLAYER_ID).cells).toHaveLength(9);
-    await userEvent.click(within(sheet).getByRole("button", { name: "Dismiss" }));
-    await waitFor(() => expect(screen.queryByText(/Your level is too low/)).toBeNull());
-  });
-
-  it("a refusal left when the sheet closes shows on the page, until dismissed", async () => {
-    const c = chain(50, 0);
-    await c.writer.foundVillage();
-    c.writer.level = 0;
-    open(c, "/village");
-    await userEvent.click(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 }));
-    await userEvent.click(await screen.findByRole("button", { name: "Buy this parcel for 10 Cobbles" }));
-    await screen.findByText(/Your level is too low for this parcel/, {}, { timeout: 5000 });
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByText(/Your level is too low for this parcel/)).toBeInTheDocument();
+    const take = await screen.findByRole("button", { name: "Take 5 Cobbles instead" }, { timeout: 5000 });
+    // Claimed on another device meanwhile: the chain has no offer open any more.
+    v.offer = { index: 0, plans: [0, 0, 0] };
+    await userEvent.click(take);
+    expect(await screen.findByText("Not done", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(c.views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(50);
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    await waitFor(() => expect(screen.queryByText(/Your level is too low/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Not done")).toBeNull());
   });
 
   it("a failed read of the Cobbles is never shown as 0: the error and Retry, then the village with its balance", async () => {
@@ -160,11 +113,11 @@ describe("/village: the own village", () => {
     open(c, "/village");
     // The error can show twice (the page and its retry state) while the read settles: at least one is the assertion.
     expect((await screen.findAllByText("account RPC unavailable", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
+    expect(screen.queryByLabelText(/^Village of 9 cells/)).toBeNull();
     expect(screen.queryByRole("img", { name: "0 Cobbles" })).toBeNull();
     fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^Village of 9 cells/, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "85 Cobbles" })).toBeInTheDocument();
   });
 
@@ -178,7 +131,7 @@ describe("/village: the own village", () => {
     expect(await screen.findByText("level down", {}, { timeout: 5000 })).toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("button", { name: "Parcel at 2 east" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^Village of 9 cells/, {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it("a failed read of the reward says so with Retry, never as no reward; Retry shows the rewards waiting", async () => {
@@ -190,14 +143,14 @@ describe("/village: the own village", () => {
     open(c, "/village");
     expect(await screen.findByText("Your rewards could not be read", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText("rewards down")).toBeInTheDocument();
-    expect(screen.queryByText(/Tap a plus/)).toBeNull();
+    expect(screen.queryByText(/No reward waits/)).toBeNull();
     fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText(waiting(2), {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText("Your rewards could not be read")).toBeNull();
   });
 
-  it("draws each tile in its owner's active skin, on its tier's base; a visit too", async () => {
+  it("draws each tile in its owner's active skin; a visit too", async () => {
     // The manifest: the starter's (RFFFRFCFR) top-down render in the base models (0) and in Forest (1).
     resetTileRenders();
     resetManifestBodies();
@@ -228,14 +181,15 @@ describe("/village: the own village", () => {
     }
   });
 
-  it("draws each placed tile on its tier's base", async () => {
+  it("draws no tier's base and no parcel any more (#739)", async () => {
     const c = chain(50, 0);
     await c.writer.foundVillage();
     c.views.villagePlayer(PLAYER_ID).copies[8] = 4;
     open(c, "/village");
-    // The starter is plan 9: 4 copies of it, Gold (tier 2), its base drawn under it on the board.
     const board = await screen.findByLabelText(/^Village of 9 cells and 1 tiles$/, {}, { timeout: 5000 });
-    await waitFor(() => expect(board.querySelector('[data-tier="2"]')).not.toBeNull());
+    expect(board.querySelector("[data-tier]")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
+    expect(screen.getByText(/No reward waits/)).toBeInTheDocument();
   });
 
   it("a guest is asked to connect", async () => {

@@ -1,12 +1,11 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "../../lib/utils";
 import { Cobbles } from "../elements/cobbles";
-import { TierBase, TierSwatch } from "../elements/tier-base";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { TIERS, copyTargets, legalCells, tierOf, tierProgress, type Village } from "./village-rules";
+import { legalCells, type Village } from "./village-rules";
 
 /** A village reward (#642): three tiles to choose from (choosing one is placing it, no tile is held), or Cobbles instead. */
 export interface RewardOffer {
@@ -15,26 +14,24 @@ export interface RewardOffer {
   cobbles: number;
 }
 
-/** What a reward's tile can do in this village: go on some free cells, add a copy to a placed tile of its plan, both, or neither. */
+/** What a reward's tile can do in this village: go on some free cells, or none. */
 export interface RewardChoice {
   plan: number;
   cells: number;
-  copies: number;
-  /** Neither: greyed out. */
+  /** No free cell fits it: greyed out. */
   stuck: boolean;
 }
 
 export function rewardChoices(offer: RewardOffer, village: Pick<Village, "cells" | "tiles">): RewardChoice[] {
   return offer.plans.map((plan) => {
     const cells = legalCells(village, plan).length;
-    const copies = copyTargets(village, plan).length;
-    return { plan, cells, copies, stuck: cells === 0 && copies === 0 };
+    return { plan, cells, stuck: cells === 0 };
   });
 }
 
 export interface RewardSheetProps {
   offer: RewardOffer;
-  village: Pick<Village, "cells" | "tiles" | "copies">;
+  village: Pick<Village, "cells" | "tiles">;
   /** The tile chosen (its index in the offer): the board lights its cells. */
   selected?: number | null;
   /** The chosen tile's orientation, 1 north to 4 west. */
@@ -47,8 +44,6 @@ export interface RewardSheetProps {
   onSelect?: (index: number | null) => void;
   onRotate?: () => void;
   onTakeCobbles?: () => void;
-  /** The chosen tile added as a copy of its plan, without a placed tile of it (#642, rule E: the tier counts per plan). */
-  onAddCopy?: (index: number) => void;
   /** A press on a tile's card: the scene starts a drag from it once the pointer moves. */
   onDragStart?: (index: number, event: ReactPointerEvent<HTMLButtonElement>) => void;
   className?: string;
@@ -57,18 +52,16 @@ export interface RewardSheetProps {
 /** The line under a reward's tile: where it can go, or why it cannot. */
 function choiceNote(choice: RewardChoice): string {
   if (choice.stuck) return "No free cell fits";
-  if (choice.cells === 0) return "Copy only";
   return `Fits ${choice.cells} ${choice.cells === 1 ? "cell" : "cells"}`;
 }
 
 /**
- * The reward's sheet (#646): three tiles, each with its plan's tier and its progress after one more copy. Drag a tile to a
- * lit cell to place it, or onto a ringed tile of its plan to add a copy; a tap chooses it and the board's buttons do the
- * same; "Add a copy" adds the chosen tile to its plan's tier without placing it. A tile that fits no free cell and has no tile
- * to copy onto is greyed out. "Take N Cobbles" is always there. Docked
+ * The reward's sheet (#646): three tiles. Drag a tile to a lit cell to place it; a tap chooses it and the board's buttons do the
+ * same. A tile that fits no free cell is greyed out. "Take N Cobbles" is always there (the copies and the tiers left with v2,
+ * #739). Docked
  * under the board on a phone, beside it from `desktop` up; not a modal, so the board stays a drop target.
  */
-export function RewardSheet({ offer, village, selected = null, orientation = 1, dragging = null, busy, tileArt, onSelect, onRotate, onTakeCobbles, onAddCopy, onDragStart, className }: RewardSheetProps) {
+export function RewardSheet({ offer, village, selected = null, orientation = 1, dragging = null, busy, tileArt, onSelect, onRotate, onTakeCobbles, onDragStart, className }: RewardSheetProps) {
   const choices = rewardChoices(offer, village);
   return (
     <section aria-labelledby="reward-title" className={cn("flex flex-col gap-3 rounded-t-2xl border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] desktop:rounded-2xl desktop:border", className)}>
@@ -77,7 +70,7 @@ export function RewardSheet({ offer, village, selected = null, orientation = 1, 
           <h2 id="reward-title" className="font-display text-lg">
             Reward
           </h2>
-          <p className="text-xs text-muted-foreground">Drag a tile onto your village, or onto a tile of its plan to add a copy.</p>
+          <p className="text-xs text-muted-foreground">Drag a tile onto a lit cell of your village.</p>
         </div>
         {selected != null && (
           <Button size="icon" variant="outline" aria-label="Rotate the tile" onClick={onRotate} disabled={busy}>
@@ -87,9 +80,6 @@ export function RewardSheet({ offer, village, selected = null, orientation = 1, 
       </header>
       <ul aria-label="Reward tiles" className="grid grid-cols-3 gap-2">
         {choices.map((choice, i) => {
-          const copies = village.copies[choice.plan] ?? 0;
-          const tier = tierOf(copies);
-          const next = tierProgress(copies + 1);
           const chosen = selected === i;
           return (
             <li key={`${choice.plan}-${i}`} className="min-w-0">
@@ -109,35 +99,15 @@ export function RewardSheet({ offer, village, selected = null, orientation = 1, 
                 )}
               >
                 <span className="block aspect-square w-full max-w-24">
-                  <TierBase tier={copies > 0 ? tier : 0} rim="wide" className="size-full">
-                    <TileChip plan={choice.plan} orientation={chosen ? orientation : 1} art={tileArt} className="size-full rounded-[2px] border-0" />
-                  </TierBase>
+                  <TileChip plan={choice.plan} orientation={chosen ? orientation : 1} art={tileArt} className="size-full rounded-[3px] border-0" />
                 </span>
                 <span className="text-xs font-semibold">{tileName(choice.plan)}</span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <TierSwatch tier={next.tier} />
-                  {next.need === null ? (
-                    TIERS[next.tier].name
-                  ) : (
-                    <span>
-                      <span className="numeric">
-                        {next.copies}/{next.need}
-                      </span>{" "}
-                      {TIERS[next.next!].name}
-                    </span>
-                  )}
-                </span>
                 <span className={cn("text-xs", choice.stuck ? "text-muted-foreground" : "text-foreground")}>{choiceNote(choice)}</span>
               </button>
             </li>
           );
         })}
       </ul>
-      {selected != null && onAddCopy && offer.plans[selected] != null && (
-        <Button variant="secondary" className="w-full" onClick={() => onAddCopy(selected)} disabled={busy} aria-label={`Add ${tileName(offer.plans[selected]!)} as a copy instead`}>
-          <Icon name="layer-group" size="sm" /> Add a copy instead
-        </Button>
-      )}
       <Button variant="outline" className="w-full" onClick={onTakeCobbles} disabled={busy} loading={busy} aria-label={`Take ${offer.cobbles} Cobbles instead`}>
         Take <Cobbles value={offer.cobbles} size="sm" /> instead
       </Button>

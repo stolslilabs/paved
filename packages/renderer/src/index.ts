@@ -225,7 +225,6 @@ export {
   FIELD_TEXELS,
   FOG_NEIGHBOURS,
   RevealTransition,
-  VILLAGE_MAX_CELLS,
   boardReveal,
   buildRevealField,
   cellKey,
@@ -236,7 +235,6 @@ export {
   freeSlots,
   liftedCells,
   resolveFogSettings,
-  villageReveal,
 } from "./core/fog-of-war-settings";
 export type { FogCell, FogMode, FogSettings, FogSettingsInput, LandscapeSettings, RevealField, RevealedCell } from "./core/fog-of-war-settings";
 export type { FogOfWar, FogStats } from "./core/fog-of-war";

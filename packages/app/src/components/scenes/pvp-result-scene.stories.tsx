@@ -13,7 +13,7 @@ const meta = {
   title: "Scenes/PvP/Result",
   component: PvpResultScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_RESULT.twoStars, tileArt, onPlace: fn(), onAddCopy: fn(), onTakeCobbles: fn(), onReplay: fn(), onAgain: fn(), onHome: fn() },
+  args: { ...PVP_RESULT.twoStars, tileArt, onPlace: fn(), onTakeCobbles: fn(), onReplay: fn(), onAgain: fn(), onHome: fn() },
 } satisfies Meta<typeof PvpResultScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -24,8 +24,8 @@ export const ThreeStarsPromoted: Story = { args: PVP_RESULT.threeStarsPromoted }
 /** One star; the day's rewards already taken (the daily cap). */
 export const OneStarCapped: Story = { args: PVP_RESULT.oneStarCapped };
 /**
- * Choose: the player's village opens full screen with #646's reward sheet (its own chunk). Drag a tile to a lit cell, onto a
- * ringed tile of its plan for a copy, or take the Cobbles; Back returns to the result.
+ * Choose: the player's village opens full screen with #646's reward sheet (its own chunk). Drag a tile to a lit cell, or take
+ * the Cobbles; Back returns to the result.
  */
 export const RewardSheetOpen: Story = {
   args: PVP_RESULT.twoStars,
@@ -43,7 +43,6 @@ function RewardFlow(args: PvpResultSceneProps) {
       {...args}
       reward={reward}
       onPlace={(p) => setReward({ state: "taken", plan: p.plan, cobbles: null })}
-      onAddCopy={(c) => setReward({ state: "taken", plan: c.plan, cobbles: null })}
       onTakeCobbles={() => setReward({ state: "taken", plan: null, cobbles: args.reward.state === "offer" ? args.reward.offer.cobbles : 0 })}
     />
   );
