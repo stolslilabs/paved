@@ -624,10 +624,11 @@ export class MockLedger {
     return { season, crowns, league: leagueIndex(crowns), peak: current ? Math.max(pvp!.peak, leagueIndex(crowns)) : leagueIndex(crowns), attacks: current ? pvp!.seasonAttacks : 0, pending: 0 };
   }
 
-  /** `Matchmaker.shield(v)`: an attacked village's 8 hours (queue 2), dropped when its owner attacks. */
+  /** `Matchmaker.shield(v)`: an attacked village's 8 hours (queue 2), dropped when its owner attacks; a rival's (v1 or v2) is the ledger's. */
   async pvpShield(village: string): Promise<PvpShield> {
     this.sync();
-    const until = mockRival(village) ? (this.state.rivalShields?.[addressKey(village)] ?? 0) : (this.peek(village).pvp?.shieldUntil ?? 0);
+    const rival = mockRival(village) ?? mockRivalV2(village);
+    const until = rival ? (this.state.rivalShields?.[addressKey(village)] ?? 0) : (this.peek(village).pvp?.shieldUntil ?? 0);
     const up = until > Math.floor(Date.now() / 1000);
     return { queue: up ? 2 : 0, up, seq: 0, until: up ? until : 0 };
   }

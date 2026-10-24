@@ -101,7 +101,7 @@ describe("PvP v2 on the mock", () => {
   });
 
   it("attacks a rival with the deck of ceil(1.15 x S), seeing the tile in hand and the next two; XP and crowns follow the stars", async () => {
-    const { sources } = mockImplementation();
+    const { sources, ledger } = mockImplementation();
     const { result } = renderData(useLoop, sources);
     await waitFor(() => expect(result.current.attack.data).toEqual({ match: null, attack: null }));
     expect(refusal(await result.current.fight.search().catch((e: unknown) => e))).toBe("not-joined");
@@ -115,6 +115,10 @@ describe("PvP v2 on the mock", () => {
 
     await act(() => result.current.fight.start());
     await waitFor(() => expect(result.current.attack.data?.attack?.status).toBe("open"));
+    // The rival attacked is shielded for 8 hours, and the shield's read says so
+    const shield = await ledger.pvpShield(match.opponent);
+    expect(shield.up).toBe(true);
+    expect(shield.until).toBeGreaterThan(Date.now() / 1000 + 8 * 3_600 - 60);
     expect(result.current.attack.data!.attack).toMatchObject({ defender: match.opponent, deck: match.deck, target: match.target, moves: [] });
     expect(result.current.attack.data!.attack!.view).toHaveLength(3);
 
@@ -209,7 +213,7 @@ describe("PvP v2 on the mock", () => {
     expect((await again.freeVillage(PLAYER)).tiles).toEqual(starterLayout(BigInt(PLAYER)));
   });
 
-  it("is not served by the chain before step 3: the hooks answer null, and write nothing", async () => {
+  it("is not served by a views double without the v2 reads: the hooks answer null, and write nothing", async () => {
     const { sources } = fakeSources();
     const { result } = renderData(() => ({ village: useFreeVillage(PLAYER), chests: useChests(PLAYER), attack: useAttackV2(PLAYER), writes: useFreeVillageWrites(PLAYER) }), sources);
     expect(result.current.village).toEqual({ data: null, isPending: false, error: null });
