@@ -1,7 +1,9 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate, type NavigateOptions } from "react-router";
+import { useActiveTab } from "./handle";
 import { useCanGoBack } from "./history";
 import { TABS, type Tab } from "./pages";
+import { tabSwipe } from "./tab-swipe";
 
 /** The query key of the referral link (section 6.2): kept across every link and redirect of the app. */
 const REF = "ref";
@@ -25,10 +27,11 @@ export function useAppNavigate() {
   return useCallback((to: string, options?: NavigateOptions) => navigate(withRef(to, search), options), [navigate, search]);
 }
 
-/** A tab was picked in the navigation (a scene's `onNavigate`). */
+/** A tab was picked in the navigation (a scene's `onNavigate`); below `desktop` the page swipes to another tab's (TAB-SWIPE, `tab-swipe.ts`). */
 export function useTabNavigate() {
   const go = useAppNavigate();
-  return useCallback((tab: Tab) => go(TABS.find((t) => t.id === tab)?.to ?? "/"), [go]);
+  const from = useActiveTab();
+  return useCallback((tab: Tab) => go(TABS.find((t) => t.id === tab)?.to ?? "/", tabSwipe(from, tab)), [go, from]);
 }
 
 /**
