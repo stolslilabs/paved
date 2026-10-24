@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { CENTER } from "../src/engine";
 import { PlanType } from "../src/types/plan";
 import { decodeLine } from "../src/story/line";
-import { CAMPAIGNS, OPEN_COUNTRY, TUTORIAL } from "../src/story/plan";
+import { CAMPAIGNS, DARK_FOREST, OPEN_COUNTRY, TUTORIAL } from "../src/story/plan";
 import {
   EMPTY_PROGRESS,
   STORY_KEY,
+  campaignRequirement,
   campaignUnlocked,
   levelResult,
   levelUnlocked,
@@ -68,15 +69,23 @@ describe("unlocks", () => {
     expect(campaignUnlocked(EMPTY_PROGRESS, CAMPAIGNS, TUTORIAL)).toBe(true);
     expect(campaignUnlocked(finished(1, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY)).toBe(false);
     expect(campaignUnlocked(finished(2, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY)).toBe(true);
-    // 3 stars on some levels make up for 1 on others: 22 stars in all
+    // 3 stars on some levels make up for 1 on others: 24 stars in all (6 x 3, 6 x 1)
     let mixed = EMPTY_PROGRESS;
     TUTORIAL.levels.forEach((level, index) => {
-      const score = index < 6 ? level.target : index < 10 ? 0 : Math.ceil(level.target * 0.7);
-      mixed = recordRun(mixed, level, run(1, level.id), score);
+      mixed = recordRun(mixed, level, run(1, level.id), index < 6 ? level.target : 0);
     });
-    expect(campaignUnlocked(mixed, CAMPAIGNS, OPEN_COUNTRY)).toBe(6 * 3 + 4 + 2 >= 22);
+    expect(campaignUnlocked(mixed, CAMPAIGNS, OPEN_COUNTRY)).toBe(true);
+    const short = recordRun(EMPTY_PROGRESS, TUTORIAL.levels[0]!, run(1, 1), 0);
+    expect(campaignUnlocked({ v: 1, levels: { ...mixed.levels, "1-1": short.levels["1-1"]! } }, CAMPAIGNS, OPEN_COUNTRY)).toBe(false);
     expect(levelUnlocked(finished(1, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY, 1)).toBe(false);
     expect(levelUnlocked(finished(2, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY, 1)).toBe(true);
+  });
+
+  it("opens Open Country at 24 stars and Dark Forest at 48: 2 per level of the 12-level campaigns before (#721)", () => {
+    expect(campaignRequirement(CAMPAIGNS, OPEN_COUNTRY).needed).toBe(24);
+    expect(campaignRequirement(CAMPAIGNS, DARK_FOREST).needed).toBe(48);
+    expect(campaignUnlocked(finished(2, [TUTORIAL]), CAMPAIGNS, DARK_FOREST)).toBe(false);
+    expect(campaignUnlocked(finished(2, [TUTORIAL, OPEN_COUNTRY]), CAMPAIGNS, DARK_FOREST)).toBe(true);
   });
 });
 
