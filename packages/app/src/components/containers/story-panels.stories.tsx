@@ -110,7 +110,7 @@ const CARD: CampaignCardProps = {
   id: 2,
   name: "Open Country",
   summary: CAMPAIGNS[1]!.summary,
-  levels: 11,
+  levels: 12,
   stars: 0,
   status: "open",
   plans: plansOf(1),

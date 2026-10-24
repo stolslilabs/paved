@@ -71,7 +71,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const cards = screen.getByRole("region", { name: "Campaigns" });
     const locked = within(cards).getByRole("button", { name: /^Open Country/ });
     expect(locked).toHaveAttribute("data-status", "locked");
-    expect(locked).toHaveTextContent("22 more stars to open");
+    expect(locked).toHaveTextContent("24 more stars to open");
     expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(locked);
     expect(locked).toHaveAttribute("aria-pressed", "true");
@@ -232,7 +232,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(within(second).getByRole("button", { name: /^Level 2, .*, locked$/ })).toBeDisabled();
   });
 
-  it("the deck sheet of a level shows its draw in order, the presentation's order; the tiles placed at the start are not in it (Tutorial 10, #613)", async () => {
+  it("the deck sheet of a level shows its draw in order, the presentation's order; from the starter alone (Tutorial 10, #613, #721)", async () => {
     let progress = EMPTY_PROGRESS;
     for (const level of TUTORIAL.levels.slice(0, 9)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, 0);
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
