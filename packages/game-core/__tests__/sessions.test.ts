@@ -6,17 +6,10 @@ import {
   OrientationType,
   PlanType,
   TRAINING_KEY,
-  loadGame,
-  openTraining,
-  replayTraining,
+  clearGame,
   startTraining,
   type KeyValueStore,
 } from "../src";
-
-// Written by the legacy client (app-web, removed in P-70; see git history) before the move (P2), byte for byte: a Training game of 9 builds. A game saved by today's app must resume on the moved sessions.
-const OLD_TRAINING_SAVE =
-  '{"v":1,"seed":"0x5eed1234abcd","moves":[{"k":"b","o":1,"x":0,"y":1},{"k":"b","o":3,"x":0,"y":-1},{"k":"b","o":2,"x":1,"y":0},{"k":"b","o":1,"x":-1,"y":0},{"k":"b","o":1,"x":0,"y":2},{"k":"b","o":3,"x":-1,"y":1},{"k":"b","o":1,"x":-2,"y":0},{"k":"b","o":1,"x":0,"y":3},{"k":"b","o":1,"x":1,"y":-1}]}';
-const OLD_TRAINING_SCORE = 740;
 
 const ORIENTATIONS = Object.values(OrientationType);
 
@@ -32,27 +25,22 @@ function memoryStore(initial: Record<string, string> = {}): KeyValueStore & { da
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("saves written before the move", () => {
-  it("resume a Training game, and the next save keeps the format byte for byte", async () => {
-    const store = memoryStore({ [TRAINING_KEY]: OLD_TRAINING_SAVE });
-    const session = openTraining(() => store);
-    expect(session.score).toBe(OLD_TRAINING_SCORE);
-    expect(session.state.tiles).toHaveLength(10);
-    expect(session.state.game?.placedCount).toBe(10);
-    expect(loadGame(() => store)).toEqual(JSON.parse(OLD_TRAINING_SAVE));
-
-    // One more move appends to the same JSON: the saved prefix is unchanged.
-    const mirror = replayTraining(0x5eed1234abcdn, JSON.parse(OLD_TRAINING_SAVE).moves, 1);
-    const legal = mirror.legalPlacements();
-    if (legal.length === 0) await session.discard();
-    else {
-      const p = legal[0]!;
-      await session.place({ orientation: ORIENTATIONS.indexOf(p.orientation), x: CENTER + p.x, y: CENTER + p.y });
-    }
-    const next = store.data.get(TRAINING_KEY)!;
-    expect(next.startsWith(OLD_TRAINING_SAVE.slice(0, -2))).toBe(true);
+describe("the old Training save (#718)", () => {
+  it("is cleared by clearGame, and the device's other keys stay", () => {
+    const store = memoryStore({ [TRAINING_KEY]: '{"v":2,"seed":"0x5eed","moves":[]}', "paved.training-best.v1": "{}" });
+    clearGame(() => store);
+    expect(store.data.has(TRAINING_KEY)).toBe(false);
+    expect(store.data.get("paved.training-best.v1")).toBe("{}");
   });
 
+  it("clearGame passes when storage is off or throws", () => {
+    expect(() => clearGame(() => null)).not.toThrow();
+    expect(() =>
+      clearGame(() => {
+        throw new DOMException("denied", "SecurityError");
+      }),
+    ).not.toThrow();
+  });
 });
 
 describe("sessions keep their engine between moves", () => {
@@ -60,7 +48,7 @@ describe("sessions keep their engine between moves", () => {
     const start = vi.spyOn(EngineGame, "start");
     const build = vi.spyOn(EngineGame.prototype, "build");
     const discard = vi.spyOn(EngineGame.prototype, "discard");
-    const session = LocalSession.start(0x1234abcdn, () => memoryStore());
+    const session = LocalSession.start(0x1234abcdn);
     const mirror = startTraining(0x1234abcdn);
     start.mockClear();
     build.mockClear();
@@ -86,16 +74,16 @@ describe("sessions keep their engine between moves", () => {
 });
 
 describe("the closed structures a session gives (#722)", () => {
-  it("resumes a Training game with its closed structures, and adds a move's at the end, in closing order", async () => {
-    const store = memoryStore({ [TRAINING_KEY]: OLD_TRAINING_SAVE });
-    const session = openTraining(() => store);
-    const engine = replayTraining(BigInt("0x5eed1234abcd"), JSON.parse(OLD_TRAINING_SAVE).moves, 1);
-    // One entry per closing, each its areas on its tiles, as the engine's closings carry them.
-    expect(session.state.closed).toEqual(engine.closings().map((c) => c.areas));
-    const before = session.state.closed!.length;
-    for (let tries = 0; tries < 20 && session.state.closed!.length === before && !session.state.game?.over; tries++) {
+  it("gives every structure closed so far, as its areas, and adds a move's at the end, in closing order", async () => {
+    const seed = 0x5eed1234abcdn;
+    const session = LocalSession.start(seed);
+    // The same game on an engine of its own, move for move: the reference.
+    const engine = startTraining(seed);
+    expect(session.state.closed).toEqual([]);
+    for (let moves = 0; moves < 40 && engine.closings().length < 3 && !session.state.game?.over; moves++) {
       const hand = session.state.hand!;
       const [placement] = engine.legalPlacements(Object.values(PlanType)[hand.plan] as PlanType);
+      const before = session.state.closed!;
       if (placement) {
         await session.place({ orientation: ORIENTATIONS.indexOf(placement.orientation), x: CENTER + placement.x, y: CENTER + placement.y });
         engine.build(placement);
@@ -104,8 +92,9 @@ describe("the closed structures a session gives (#722)", () => {
         engine.discard();
       }
       expect(session.state.closed).toEqual(engine.closings().map((c) => c.areas));
+      // Appended only: what was closed stays, in its place.
+      expect(session.state.closed!.slice(0, before.length)).toEqual(before);
     }
-    expect(session.state.closed!.length).toBeGreaterThan(before);
-    expect(session.state.closed!.slice(0, before)).toEqual(engine.closings().slice(0, before).map((c) => c.areas));
+    expect(session.state.closed!.length).toBeGreaterThanOrEqual(3);
   });
 });

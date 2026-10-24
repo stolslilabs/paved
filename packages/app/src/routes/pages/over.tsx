@@ -12,7 +12,7 @@ import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { curveOf, rewardOf, settleProps, useOverRead, useOverStanding, useSettle, type OverReward } from "../../data/over";
 import { trainingStore, useDataSources } from "../../data/sources";
-import { remainingOf, useTrainingSession } from "../../data/training";
+import { remainingOf, useFinishedTraining } from "../../data/training";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
@@ -205,11 +205,11 @@ function NotFound() {
 
 /**
  * The end of a Training game: its final counters and every closing, from the game the board played (the same
- * `TrainingGame`, or the save replayed after a reload). A game still in play goes back to its board. "Play again" starts
- * a new seed.
+ * `TrainingGame`, held in memory for the tab). A game still in play, or none (a reload: nothing is saved, #718), goes to
+ * the board, which starts a new game. "Play again" goes there too: a new seed.
  */
 function TrainingOver() {
-  const { game: training, snapshot, newGame } = useTrainingSession();
+  const { game: training, snapshot } = useFinishedTraining();
   const sources = useDataSources();
   const go = useAppNavigate();
   const game = snapshot.state.game;
@@ -258,10 +258,7 @@ function TrainingOver() {
       onViewChange={setView}
       previousBest={previousBest}
       reward={{ state: "free" }}
-      onPlayAgain={() => {
-        newGame();
-        go("/training", { replace: true });
-      }}
+      onPlayAgain={() => go("/training", { replace: true })}
       onHome={() => go("/")}
     />
   );

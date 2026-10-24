@@ -59,7 +59,7 @@ export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTrai
           <Button size="lg" variant="outline" onClick={onTraining} disabled={connecting}>
             <Icon name="play" size="sm" /> Play Training
           </Button>
-          <p className="text-center text-xs text-muted-foreground">Training is free and saved on this device.</p>
+          <p className="text-center text-xs text-muted-foreground">Training is free.</p>
         </div>
       </div>
     </main>

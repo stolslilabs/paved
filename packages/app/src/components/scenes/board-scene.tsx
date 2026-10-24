@@ -105,10 +105,8 @@ export interface BoardSceneProps {
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page like `canvas`; before `renderHandTile`. */
   renderHandStack?: (view: StackFrame) => ReactNode;
-  /** `localStorage` refused: a Training game (or Story progress) is not saved on this device. */
+  /** `localStorage` refused: Story progress is not saved on this device (Training saves nothing: #718). */
   storageDisabled?: boolean;
-  /** Storage is there but the last move's save did not land (quota, a refusal): a reload resumes an older move. */
-  saveDropped?: boolean;
   /** The legal slots of the tile in hand in any rotation (the contracts' coordinates), `fits` at the current one: the plan view draws them as buttons. */
   slots?: { x: number; y: number; fits?: boolean }[];
   /** The tile in hand on its chosen slot, as the plan view draws it (the page gives the canvas its own). */
@@ -240,11 +238,6 @@ export function BoardScene(props: BoardSceneProps) {
         {props.storageDisabled && (
           <Notice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
             This browser refuses local storage: this game is not saved and ends if the page closes.
-          </Notice>
-        )}
-        {!props.storageDisabled && props.saveDropped && (
-          <Notice tone="warning" title="Last move not saved" className="pointer-events-auto w-full max-w-2xl">
-            This browser refused to save the last move: if the page closes, the game resumes before it.
           </Notice>
         )}
         {props.notices}

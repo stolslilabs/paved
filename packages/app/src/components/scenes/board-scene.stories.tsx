@@ -150,7 +150,7 @@ const openSettings: Story["play"] = async ({ canvasElement }) => {
  */
 export const SettingsOpen: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, play: openSettings };
 /** The settings in Training: Restart (the same game from its first tile, same deck), confirmed by a dialog. No Surrender. */
-export const SettingsTraining: Story = { args: { ...BOARD.storageDisabled, storageDisabled: false, ...inHand(HAND.orientation, null) }, play: openSettings };
+export const SettingsTraining: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null) }, play: openSettings };
 /** The settings in Story mode: Restart level, confirmed by a dialog. */
 export const SettingsStory: Story = {
   args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees" },
@@ -219,11 +219,8 @@ export const ReadOnly: Story = {
   },
 };
 
-/** Training with `localStorage` refused: the notice. */
+/** A Story level with `localStorage` refused: the notice (Training saves nothing, so shows none: #718). */
 export const StorageDisabled: Story = { args: BOARD.storageDisabled };
-
-/** Training with storage on, but the last move's save refused (P3): the notice. */
-export const SaveDropped: Story = { args: { ...BOARD.storageDisabled, storageDisabled: false, saveDropped: true } };
 
 /** The 72-tile recorded board. */
 export const Board72: Story = { args: BOARD.large };

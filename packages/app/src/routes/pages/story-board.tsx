@@ -31,7 +31,7 @@ import { useDataSources } from "../../data/sources";
 import { findLevel, levelPath, nextLevel, useDeckPresented, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
 import { useTileArt } from "../../data/tile-art";
 import { useTileRenders } from "../../data/tile-renders";
-import { remainingOf } from "../../data/training-save";
+import { remainingOf } from "../../data/training";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
 import { useAppNavigate, useUpTo } from "../ref";

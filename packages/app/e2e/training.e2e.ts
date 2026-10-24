@@ -4,14 +4,16 @@ import { createServer, type ViteDevServer } from "vite";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { TRAINING_KEY, type EngineGame, type SavedMove } from "@paved/game-core";
+import { startTraining, type EngineGame } from "@paved/game-core";
 import {
   CENTER,
   ORIENTATIONS,
   VIEWPORT,
   bubble,
+  SEED_KEY,
   holdToDiscard,
   holdToPlace,
+  newSeed,
   nextValid,
   noWebGL,
   openTraining,
@@ -19,11 +21,11 @@ import {
   readComing,
   readHand,
   readPreview,
-  readSave,
   readUi,
   ready,
-  replaySave,
   rngOf,
+  seedFromTest,
+  setSeed,
   shownSlots,
   slotName,
   tapValidate,
@@ -34,8 +36,9 @@ import {
 /**
  * The battle test of Training (P-79), on the app: complete games played in a real (headless) browser by a bot, against
  * the Vite dev server with no chain configured (or `PAVED_E2E_URL`, a server already up). The board is the plan view (no
- * WebGL), whose legal slots are buttons. Every move is checked against the engine's replay of what the browser saved, and
- * the slots, the rotations and the tile the page offers against the engine's.
+ * WebGL), whose legal slots are buttons. Training saves nothing (#718): the test gives each game its seed (`seedFromTest`)
+ * and plays an engine of that seed in lockstep, and every move is checked against it: the score, the tiles left, the
+ * slots, the rotations and the tiles the page offers.
  *
  * - `PAVED_E2E_GAMES`: the full games of the first test (default 2).
  * - `PAVED_E2E_SEED` (a hex felt, `0x…`): the first game's seed, to replay a failing game; the log prints every seed. The
@@ -91,10 +94,14 @@ afterAll(async () => {
   }
 });
 
-/** A new browser profile on the plan view; on a failure of `body`, the page's last screenshot goes to the artifacts. */
+/**
+ * A new browser profile on the plan view, its Training seeds given by the test (`seedFromTest`; `setSeed` for the next
+ * game); on a failure of `body`, the page's last screenshot goes to the artifacts.
+ */
 async function withPage(name: string, body: (page: Page, context: BrowserContext) => Promise<void>): Promise<void> {
   const context = await browser.newContext({ viewport: VIEWPORT, reducedMotion: "reduce" });
   await context.addInitScript(noWebGL);
+  await context.addInitScript(seedFromTest, SEED_KEY);
   context.setDefaultNavigationTimeout(120_000);
   const page = await context.newPage();
   const errors: string[] = [];
@@ -119,21 +126,38 @@ const chainOf = (p: { x: number; y: number }) => ({ x: CENTER + p.x, y: CENTER +
 /** The tiles left as the header counts them: the deck less the tiles placed (the starter too) and discarded. */
 const remainingOf = (model: EngineGame) => Math.max(0, model.tileLimit - model.built - 1 - model.discarded);
 
-/** The page shows what the engine says (score, tiles left), and the save is the move made and replays to the same state. */
-async function expectMirror(page: Page, model: EngineGame, where: string, move?: SavedMove): Promise<void> {
-  if (!model.over) {
-    await page.waitForFunction((n) => document.querySelector('[data-testid="tiles-left"]')?.textContent?.trim() === String(n), remainingOf(model), { timeout: 60_000 });
-    expect((await readUi(page)).score, `${where}: score`).toBe(model.score);
-  }
-  const save = await readSave(page);
-  expect(save, `${where}: saved`).not.toBeNull();
-  // What the page saved is the move the bot made: a click on another slot or rotation cannot pass silently.
-  if (move) expect(save!.moves.at(-1), `${where}: the saved move`).toEqual(move);
-  const replayed = replaySave(save!);
-  expect(replayed.score, `${where}: engine replay of the save`).toBe(model.score);
-  expect(replayed.built).toBe(model.built);
-  expect(replayed.discarded).toBe(model.discarded);
-  expect(replayed.over).toBe(model.over);
+/**
+ * The page shows what the engine says: the score and the tiles left, and the tile in hand and the coming ones. A click on
+ * another slot or rotation than the bot's cannot pass silently: the score, or the next tiles, part from the engine's.
+ */
+async function expectMirror(page: Page, model: EngineGame, where: string): Promise<void> {
+  if (model.over) return;
+  await page.waitForFunction((n) => document.querySelector('[data-testid="tiles-left"]')?.textContent?.trim() === String(n), remainingOf(model), { timeout: 60_000 });
+  expect((await readUi(page)).score, `${where}: score`).toBe(model.score);
+  await expect.poll(async () => (await readHand(page)).plan, { message: `${where}: the tile in hand`, timeout: 10_000 }).toBe(model.hand!.plan.toLowerCase());
+  expect(await readComing(page), `${where}: the coming tiles`).toEqual(model.coming.map((t) => t.plan.toLowerCase()));
+}
+
+/** The seed of the tab's first game: set once, before the page's scripts; `setSeed` gives the next ones. */
+async function firstSeed(page: Page, seed: string): Promise<void> {
+  await page.addInitScript(
+    ([k, s]) => {
+      try {
+        if (sessionStorage.getItem(k) === null) sessionStorage.setItem(k, s);
+      } catch {
+        // A frame with no storage (about:blank) plays no game.
+      }
+    },
+    [SEED_KEY, seed] as [string, string],
+  );
+}
+
+/** A new game of `seed` on the page: the engine's start, nothing played. */
+async function expectNewGame(page: Page, seed: string, where: string): Promise<EngineGame> {
+  const model = startTraining(BigInt(seed));
+  await expectMirror(page, model, where);
+  expect(await readUi(page), `${where}: nothing played`).toEqual({ score: 0, remaining: remainingOf(model) });
+  return model;
 }
 
 /** The over page shows the engine's final score. */
@@ -162,11 +186,8 @@ interface PlayResult {
   closable: number;
 }
 
-/** Plays from the saved state of the page, in lockstep with an engine model, until the game is over or `stopAfter` moves. */
-async function play(page: Page, random: () => number, options: PlayOptions = {}): Promise<PlayResult> {
-  const save = await readSave(page);
-  if (!save) throw new Error("no saved game to play");
-  const model = replaySave(save);
+/** Plays the game of `seed` on the page in lockstep with `model`, its engine, until the game is over or `stopAfter` moves. */
+async function play(page: Page, seed: string, model: EngineGame, random: () => number, options: PlayOptions = {}): Promise<PlayResult> {
   const out: PlayResult = { model, moves: 0, closed: 0, closable: 0 };
   const { discardRate = 0, stopAfter = Infinity, checkSlots = true, seekClosure = false } = options;
   const rotate = bubble(page).getByRole("button", { name: "Rotate tile" });
@@ -176,7 +197,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
   let tapped = false;
   while (!model.over && out.moves < stopAfter) {
     const legal = model.legalPlacements();
-    const at = `seed ${save.seed}, move ${model.built + model.discarded + 1}`;
+    const at = `seed ${seed}, move ${model.built + model.discarded + 1}`;
     const legalAt = (o: number) => sorted(legal.filter((p) => ORIENTATIONS.indexOf(p.orientation) === o).map(chainOf));
     const fitting = async () => sorted((await shownSlots(page)).filter((s) => s.fits));
 
@@ -199,7 +220,7 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
       await holdToDiscard(page);
       model.discard();
       out.moves += 1;
-      await expectMirror(page, model, `${at} after discard`, { k: "d" });
+      await expectMirror(page, model, `${at} after discard`);
       moveTimes.push({ kind: "discard", ms: performance.now() - t0 });
       continue;
     }
@@ -253,13 +274,12 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
     orientation = 1;
     out.moves += 1;
     out.closed += result.scored.length;
-    // `|| 0`: the save is JSON, where -0 is 0.
-    await expectMirror(page, model, `${at} after build`, { k: "b", o: want, x: placement.x || 0, y: placement.y || 0 });
+    await expectMirror(page, model, `${at} after build`);
     moveTimes.push({ kind: "place", ms: performance.now() - t0 });
   }
   if (model.over) {
     await expectOver(page, model);
-    console.log(`[e2e] game over: seed ${save.seed}, ${model.built} built + ${model.discarded} discarded, score ${model.score}`);
+    console.log(`[e2e] game over: seed ${seed}, ${model.built} built + ${model.discarded} discarded, score ${model.score}`);
   }
   return out;
 }
@@ -267,89 +287,90 @@ async function play(page: Page, random: () => number, options: PlayOptions = {})
 describe("Training, played by a bot in a headless browser", () => {
   it(`plays ${GAMES} complete games, with Play again between them`, async () => {
     await withPage("games", async (page) => {
-      if (FIRST_SEED) await page.addInitScript(([k, seed]) => localStorage.setItem(k, JSON.stringify({ v: 2, seed, moves: [] })), [TRAINING_KEY, FIRST_SEED] as [string, string]);
+      let seed = FIRST_SEED ?? newSeed();
+      await firstSeed(page, seed);
       await openTraining(page, base);
-      const seeds = new Set<string>();
       let closed = 0;
       let closable = 0;
       for (let g = FROM; g < FROM + GAMES; g++) {
-        const first = await readSave(page);
-        expect(first?.moves, "a new game starts empty").toEqual([]);
-        if (g === FROM && FIRST_SEED) expect(first!.seed, "PAVED_E2E_SEED is the first game's seed").toBe(FIRST_SEED);
-        expect(seeds.has(first!.seed), "a new game has a new seed").toBe(false);
-        seeds.add(first!.seed);
+        const model = await expectNewGame(page, seed, `game ${g}: a new game`);
         // Even games place, discard only when stuck, and go for a closing slot when there is one; odd ones also discard at will.
         const strategy = g % 2 ? { discardRate: 0.25 } : { seekClosure: true };
-        logSeed("games", first!.seed, `game ${g} (PAVED_E2E_SEED=${first!.seed} PAVED_E2E_FROM=${g} PAVED_E2E_GAMES=1 replays it)`);
-        const result = await play(page, rngOf(first!.seed), strategy);
+        logSeed("games", seed, `game ${g} (PAVED_E2E_SEED=${seed} PAVED_E2E_FROM=${g} PAVED_E2E_GAMES=1 replays it)`);
+        const result = await play(page, seed, model, rngOf(seed), strategy);
         closed += result.closed;
         closable += result.closable;
         expect(result.model.over).toBe(true);
         expect(remainingOf(result.model), "the game ends once the deck is spent").toBe(0);
+        // Play again: a new game, of the next seed the test gives.
+        seed = newSeed();
+        await setSeed(page, seed);
         await page.getByRole("button", { name: "Play again" }).click();
         await page.waitForURL(/\/training$/);
-        await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k) ?? "{}").moves?.length === 0, TRAINING_KEY);
         await ready(page);
-        await expectMirror(page, replaySave((await readSave(page))!), "new game");
       }
       console.log(`[e2e] ${GAMES} complete games: ${closed} closures, ${closable} moves with a closing slot`);
       if (closable > 0) expect(closed, "the bot closed a structure it was offered").toBeGreaterThan(0);
     });
   }, 900_000);
 
-  it("resumes the same state after a reload, mid-game and after the end", async () => {
-    await withPage("resume", async (page, context) => {
+  it("starts a new game on every entry (#718): a reload mid-game, a reload of the end, a new tab", async () => {
+    await withPage("new-game", async (page, context) => {
+      let seed = newSeed();
+      await firstSeed(page, seed);
       await openTraining(page, base);
-      const seed = (await readSave(page))!.seed;
-      logSeed("resume", seed);
-      const random = rngOf(seed);
-      for (const stop of [6, 11, 9]) {
-        await play(page, random, { stopAfter: stop, checkSlots: false });
-        const save = await readSave(page);
-        const before = await readUi(page);
-        const hand = await readHand(page);
+      for (const stop of [6, 11]) {
+        logSeed("new-game", seed, `reloaded after ${stop} moves`);
+        const model = await expectNewGame(page, seed, `seed ${seed}: a new game`);
+        await play(page, seed, model, rngOf(seed), { stopAfter: stop, checkSlots: false });
+        // The reload loses the game: the next one is a new game, of the next seed.
+        seed = newSeed();
+        await setSeed(page, seed);
         await page.reload({ waitUntil: "domcontentloaded" });
+        await page.waitForURL(/\/training$/);
         await ready(page);
-        expect(await readSave(page), "the save survives the reload").toEqual(save);
-        expect(await readUi(page), "the page shows the same state").toEqual(before);
-        expect((await readHand(page)).plan, "the same tile in hand").toBe(hand.plan);
       }
-      // The game goes on from the resumed state to its end; a reload of a finished game stays on its result.
-      const end = await play(page, random, { checkSlots: false });
+      // A game played to its end; a reload of its end has no game to show, so Training starts a new one.
+      logSeed("new-game", seed, "played to its end");
+      const model = await expectNewGame(page, seed, `seed ${seed}: a new game`);
+      const end = await play(page, seed, model, rngOf(seed), { checkSlots: false });
       expect(end.model.over).toBe(true);
+      seed = newSeed();
+      await setSeed(page, seed);
       await page.reload({ waitUntil: "domcontentloaded" });
-      await expectOver(page, end.model);
-      // Opening Training again in the same browser profile resumes the result too.
+      await page.waitForURL(/\/training$/, { timeout: 60_000 });
+      await ready(page);
+      await expectNewGame(page, seed, "after the reload of the end");
+      // Opening Training in another tab of the same profile: a new game too, of a seed of its own (none given there).
       await page.close();
-      const reopened = await context.newPage();
-      await reopened.goto(`${base}/training`, { waitUntil: "domcontentloaded" });
-      await expectOver(reopened, end.model);
+      const other = await context.newPage();
+      await openTraining(other, base);
+      const fresh = startTraining(1n);
+      expect(await readUi(other), "another tab: nothing played").toEqual({ score: 0, remaining: remainingOf(fresh) });
     });
   }, 600_000);
 
   it("restarts from the settings (#606): the same game from its first tile, same seed, nothing played", async () => {
     await withPage("restart", async (page) => {
+      const seed = newSeed();
+      await firstSeed(page, seed);
       await openTraining(page, base);
-      const seed = (await readSave(page))!.seed;
       logSeed("restart", seed);
       const first = await readHand(page);
-      const { model } = await play(page, rngOf(seed), { stopAfter: 8, checkSlots: false });
+      const { model } = await play(page, seed, await expectNewGame(page, seed, "a new game"), rngOf(seed), { stopAfter: 8, checkSlots: false });
       expect(model.built + model.discarded, "moves were played").toBe(8);
+      // A seed for a new game: the restart must not take it, it plays the same seed again.
+      await setSeed(page, newSeed());
       // Training has no Surrender (a Challenge's): its settings offer Restart, confirmed by a dialog.
       await page.getByRole("button", { name: "Settings" }).click();
       const sheet = page.getByRole("dialog", { name: "Settings" });
       expect(await sheet.getByRole("button", { name: /Surrender/ }).count(), "no Surrender in Training").toBe(0);
       await sheet.getByRole("button", { name: /^Restart/ }).click();
       await page.getByRole("dialog", { name: "Restart this game?" }).getByRole("button", { name: "Restart", exact: true }).click();
-      await page.waitForFunction(([k, s]) => {
-        const save = JSON.parse(localStorage.getItem(k) ?? "{}");
-        return save.seed === s && save.moves?.length === 0;
-      }, [TRAINING_KEY, seed] as [string, string], { timeout: 30_000 });
-      const fresh = replaySave((await readSave(page))!);
-      await expectMirror(page, fresh, "after the restart");
+      const fresh = await expectNewGame(page, seed, "after the restart");
       expect(await readHand(page), "the game's first tile again").toEqual(first);
       // The restarted game plays on.
-      await play(page, rngOf(seed), { stopAfter: 2, checkSlots: false });
+      await play(page, seed, fresh, rngOf(seed), { stopAfter: 2, checkSlots: false });
     });
   }, 300_000);
 });
