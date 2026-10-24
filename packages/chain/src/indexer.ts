@@ -334,6 +334,26 @@ export interface PlayerReferrals {
   packs: ReferralTotal;
 }
 
+/** An attack that ended (#643, `/v1/players/:id/defences` and `/attacks`): its sides, the stars and the crowns that moved. */
+export interface IndexedAttack {
+  attacker: string;
+  /** The attack's id among its attacker's: `(attacker, id)` names it and its replay (`Arena.moves`). */
+  id: number;
+  defender: string;
+  npc: boolean;
+  /** The defender's score at the start: the stars' target. */
+  target: number;
+  tiles: number;
+  score: number;
+  stars: number;
+  surrendered: boolean;
+  /** The crowns the attacker won (1 to 3 stars) and lost (0 stars); the defender moved the other way. */
+  gained: number;
+  lost: number;
+  openedAt: number;
+  finishedAt: number;
+}
+
 export interface IndexerOptions {
   /** Base URL of the API, without the `/v1`. */
   url: string;
@@ -591,6 +611,25 @@ function parsePlayerAchievement(v: unknown, what: string): PlayerAchievement {
 }
 
 /** The player an answer is about must be the one asked, so a mixed-up answer is never shown as theirs. */
+function parseAttack(v: unknown, what: string): IndexedAttack {
+  const o = obj(v, what);
+  return {
+    attacker: str(o, "attacker", what),
+    id: num(o, "id", what),
+    defender: str(o, "defender", what),
+    npc: bool(o, "npc", what),
+    target: num(o, "target", what),
+    tiles: num(o, "tiles", what),
+    score: num(o, "score", what),
+    stars: num(o, "stars", what),
+    surrendered: bool(o, "surrendered", what),
+    gained: num(o, "gained", what),
+    lost: num(o, "lost", what),
+    openedAt: num(o, "opened_at", what),
+    finishedAt: num(o, "finished_at", what),
+  };
+}
+
 function answerPlayer(b: Obj, asked: string, what: string): string {
   const id = str(b, "player_id", what);
   if (id !== asked) bad(`${what}.player_id is not the player asked`);
@@ -636,10 +675,11 @@ export class IndexerClient {
         state: str(b, "state", "head"),
         chainId: str(b, "chain_id", "head"),
         fromBlock: num(b, "from_block", "head"),
-        // `contracts.collection` is null without a Collection (E5b): that one null is left out, so it is undefined then. A null elsewhere is a bad answer.
+        // `contracts.collection` is null without a Collection (E5b), as `contracts.arena` without an Arena (#643): those nulls are
+        // left out, so they are undefined then. A null elsewhere is a bad answer.
         contracts: Object.fromEntries(
           Object.entries(obj(b.contracts, "contracts"))
-            .filter(([k, v]) => !(k === "collection" && v === null))
+            .filter(([k, v]) => !((k === "collection" || k === "arena") && v === null))
             .map(([k, v]) => [k, typeof v === "string" ? v : bad(`contracts.${k}`)]),
         ),
       };
@@ -766,6 +806,24 @@ export class IndexerClient {
       if (BigInt(total) !== BigInt(games.total) + BigInt(packs.total)) bad("referrals.total is not its games' and packs' sum");
       return { playerId: answerPlayer(b, id, "referrals"), total, games, packs };
     });
+  }
+
+  /**
+   * A player's attacks that ended, newest first: those on its village (`defender`, the defence log, #647) or those it made
+   * (`attacker`). An indexer of a deployment without `Arena` answers none.
+   */
+  async playerAttacks(playerId: string | bigint, side: "attacker" | "defender", params: { limit?: number } = {}): Promise<IndexerAnswer<IndexedAttack[]>> {
+    const id = indexerPlayerId(playerId);
+    return this.get(`/v1/players/${id}/${side === "defender" ? "defences" : "attacks"}`, params, (b) => {
+      answerPlayer(b, id, "attacks");
+      return list(b, "attacks", "attacks").map((v, i) => parseAttack(v, `attacks[${i}]`));
+    });
+  }
+
+  /** Attack `id` of `attacker` once it ended, however old (a replay's metadata); not-found while it is open or unknown. */
+  async playerAttack(attacker: string | bigint, id: number): Promise<IndexerAnswer<IndexedAttack>> {
+    if (!Number.isSafeInteger(id) || id < 0) throw new IndexerError("rejected", `Not an attack id: ${id}`);
+    return this.get(`/v1/players/${indexerPlayerId(attacker)}/attacks/${id}`, {}, (b) => parseAttack(b.attack, "attack"));
   }
 
   private async fetchText(url: string): Promise<{ response: Response; text: string }> {

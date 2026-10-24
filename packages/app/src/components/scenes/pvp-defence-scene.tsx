@@ -38,11 +38,24 @@ export interface PvpDefenceSceneProps {
   onBack?: () => void;
   onReplay?: (id: number) => void;
   onRetry?: () => void;
+  /** The shield is not known: its read is on its way or failed (`error` says why). Never shown as "No shield". */
+  shieldUnknown?: boolean;
 }
 
 /** The shield's card: its timer while it lasts, else the village is open to attacks. */
-function ShieldCard({ endsAt, now }: { endsAt: number | null | undefined; now: number }) {
-  const on = endsAt != null && endsAt > now;
+function ShieldCard({ endsAt, now, unknown }: { endsAt: number | null | undefined; now: number; unknown?: boolean }) {
+  const on = !unknown && endsAt != null && endsAt > now;
+  if (unknown) {
+    return (
+      <section aria-label="Shield" data-shield="unknown" className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        <Icon name="shield-halved" size="xl" className="text-muted-foreground" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-semibold">Shield not known</span>
+          <span className="text-xs text-muted-foreground">Your shield could not be read yet.</span>
+        </div>
+      </section>
+    );
+  }
   return (
     <section aria-label="Shield" data-shield={on ? "on" : "off"} className={cn("flex items-center gap-3 rounded-xl border px-4 py-3", on ? "border-info/40 bg-info/10" : "border-border bg-card")}>
       <Icon name="shield-halved" size="xl" className={on ? "text-info" : "text-muted-foreground"} />
@@ -59,12 +72,12 @@ function ShieldCard({ endsAt, now }: { endsAt: number | null | undefined; now: n
  * The defence log (#647): the attacks on the player's village, newest first, each with its stars, its score against the
  * village's, the crowns it cost, and its replay; the shield's timer on top.
  */
-export function PvpDefenceScene({ attacks, shieldEndsAt, now, error, errorDetail, onBack, onReplay, onRetry }: PvpDefenceSceneProps) {
+export function PvpDefenceScene({ attacks, shieldEndsAt, now, error, errorDetail, onBack, onReplay, onRetry, shieldUnknown }: PvpDefenceSceneProps) {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Defence log" onBack={onBack} />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <ShieldCard endsAt={shieldEndsAt} now={now} />
+        <ShieldCard endsAt={shieldEndsAt} now={now} unknown={shieldUnknown} />
         <InlineError
           title="Defence log"
           message={error}

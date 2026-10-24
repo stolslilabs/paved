@@ -112,6 +112,7 @@ const config = {
   setup: deployment.setup,
   economy: deployment.economy,
   collection: deployment.collection,
+  arena: deployment.arena,
   from: deployment.deployedBlock,
   chainId: deployment.chainId,
 };
@@ -221,6 +222,8 @@ const server = serve(indexer, {
       setup: config.setup,
       economy: config.economy,
       collection: config.collection ?? null,
+      // Appended only with an Arena: a client from before #647 reads no null it does not know.
+      ...(config.arena === undefined ? {} : { arena: config.arena }),
     },
   },
 });

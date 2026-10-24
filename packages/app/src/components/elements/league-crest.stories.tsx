@@ -2,19 +2,19 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { LEAGUES } from "../../lib/pvp-rules";
 import { LeagueCrest } from "./league-crest";
 
-const meta = { title: "Elements/League crest", component: LeagueCrest, parameters: { layout: "padded" }, args: { league: LEAGUES[2]! } } satisfies Meta<typeof LeagueCrest>;
+const meta = { title: "Elements/League crest", component: LeagueCrest, parameters: { layout: "padded" }, args: { league: LEAGUES[8]! } } satisfies Meta<typeof LeagueCrest>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
-/** The seven leagues proposed (until #644), at each size. */
+/** The 23 leagues of #644 (Unranked, Bronze III to Titan I, Legend), at each size. */
 export const All: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
       {(["sm", "md", "lg"] as const).map((size) => (
         <div key={size} className="flex flex-wrap gap-4">
           {LEAGUES.map((league) => (
-            <LeagueCrest key={league.id} league={league} size={size} />
+            <LeagueCrest key={league.index} league={league} size={size} />
           ))}
         </div>
       ))}

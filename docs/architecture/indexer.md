@@ -906,3 +906,26 @@ The last row of a player is its XP and level.
 
 **Tests.** `xp.test.ts` (the curve against `Setup`'s table and every floor to the ceiling, the running total, the route, the
 ceiling, the halt, the decoder's refusals, a reorg), `indexer.test.ts` (schema 18).
+
+## As built (PVP-FLOW-2, #647 PR 2: the PvP attacks of #643)
+
+**Source.** `arena`, optional as `collection`: the deployment file's `Arena` (none yet). Without it no attack is read and the
+deployment hash is unchanged; with it the address is appended to the hash, to `meta.addresses` and to the head's `contracts` (absent without one, so a client from before it reads no new null).
+
+**Schema 19.** `pvp_attacks`: one row per attack, keyed `(attacker, id)`, the defender indexed (the defence log). `AttackOpened`
+writes it open (status 1: the defender, `npc`, the offer, the target, the tiles); `AttackFinished` ends it (2 finished, 3
+surrendered: the score, the stars, `gained` and `lost`); `AttackSkipped` writes it skipped (4: a drawn opponent that could not
+be attacked, #643 review 1). An end without its opening, a second opening or an end of an attack not open halts. A rewind
+deletes the rows opened after the block and reopens those ended after it.
+
+**Not indexed.** `TileDrawn`, `AttackPlayed`, `WiringSet`, `NpcLevelSet`: the client reads a replay's moves from `Arena.moves`
+and the hand from `Arena.deck`. `Arena` embeds the engine for an attack's finish: its `GameSpawned` and `GameOver` are skipped
+(they are no game of the leaderboard), its board events are skipped as everywhere.
+
+**API.** `GET /v1/players/{player_id}/defences?limit=` (the attacks on the player's village) and `.../attacks?limit=` (those
+it made): `side` and `attacks`, the ended ones only, newest first by their end: `{ attacker, id, defender, npc, target, tiles,
+score, stars, surrendered, gained, lost, opened_at, finished_at }`. `GET /v1/players/{player_id}/attacks/{id}`: one ended attack
+by its id, however old (a replay's metadata), `{ attack }`; 404 while it is open or unknown.
+
+**Tests.** `pvp.test.ts` (both lists, a skipped opponent, the finish's game events skipped, the halt, a reorg, the routes, a
+deployment without `Arena`), `indexer.test.ts` (schema 19).

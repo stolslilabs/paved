@@ -100,6 +100,13 @@ export function ProfileSlot({ className }: { className?: string }) {
                 value.onOpenVillage?.();
               })
             }
+            onOpenLeague={
+              value.onOpenLeague &&
+              (() => {
+                setOpen(false);
+                value.onOpenLeague?.();
+              })
+            }
           />
         </Suspense>
       )}

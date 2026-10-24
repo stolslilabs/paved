@@ -14,9 +14,9 @@ const NONE: HeaderBalances = { phone: false, desktop: "none" };
  * earned or spent. From `desktop` every balance outside the game scenes. The game scenes (the boards, the ends of a game) show
  * none. The Cobbles never show twice: a scene that draws its own Cobbles plate (the player's own village) tells its bar
  * (`TopBar` `ownCobbles`), which then leaves them out at every width; a visit to another's village keeps the header's.
- * Not routed yet, so absent here, the PvP scenes take the same rule in their own bars: the attack none; the scout and the
- * result their own Cobbles in place at both widths and none in their bars (the result's `TopBar` passes `balances={false}`);
- * the league and the defence log `DESKTOP` once routed.
+ * The PvP scenes (#647) take the same rule: the attack's flow (`pvp`: the search, the scout, the attack) and a replay none,
+ * as the game scenes; the result none in its bar (its `TopBar` passes `balances={false}`), the scout and the result drawing
+ * their own Cobbles in place; the league and the defence log `DESKTOP`.
  */
 export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   welcome: DESKTOP,
@@ -42,6 +42,11 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "settings/tiles": DESKTOP,
   "settings/credits": DESKTOP,
   settings: DESKTOP,
+  pvp: NONE,
+  "pvp/result/:id": NONE,
+  "pvp/replay/:attacker/:id": NONE,
+  "pvp/defence": DESKTOP,
+  "pvp/league": DESKTOP,
 };
 
 /** A page's rule; "not found" (no page) shows every balance from `desktop`, none on a phone. */

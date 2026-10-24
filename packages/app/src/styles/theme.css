@@ -263,8 +263,9 @@
   --resource-glint: rgb(255 255 255 / 0.14);
 }
 
-/* 3d. The PvP flow (#647): the search's clouds over their sky, the crowns, and each league's crest (a proposal until #644
-   names the leagues). The crests are told apart by their names too, never by colour alone. */
+/* 3d. The PvP flow (#647): the search's clouds over their sky, the crowns, and each league group's crest (#644's leagues:
+   Unranked, Bronze to Titan in three divisions each, Legend). The crests are told apart by their names too, never by colour
+   alone. */
 :root {
   --cloud: var(--color-charcoal-50);
   --cloud-shade: var(--color-charcoal-300);
@@ -277,7 +278,9 @@
   --league-crystal: var(--color-river-300);
   --league-master: var(--color-ember-400);
   --league-champion: var(--color-meadow-400);
+  --league-titan: var(--color-charcoal-500);
   --league-legend: var(--color-gold-100);
+  --league-unranked: var(--color-charcoal-400);
 }
 
 /* 3e. The tile stack (after Dorfromantik's): a tile's base as the renders draw it, a stone rim over earth; the pile, one
@@ -320,7 +323,9 @@
   --color-league-crystal: var(--league-crystal);
   --color-league-master: var(--league-master);
   --color-league-champion: var(--league-champion);
+  --color-league-titan: var(--league-titan);
   --color-league-legend: var(--league-legend);
+  --color-league-unranked: var(--league-unranked);
 }
 
 /* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
