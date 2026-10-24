@@ -6,25 +6,24 @@ import {
   LocalSession,
   startTraining,
   OrientationType,
-  TRAINING_KEY,
+  clearGame,
   gameStats,
-  loadGame,
   randomSeed,
   type KeyValueStore,
   type PageState,
   type PlaceMove,
-  type SavedGame,
   type GameStats,
-  type SavedMove,
-  type SavedVersion,
+  type TrainingMove,
   type ScoredStructure,
 } from "@paved/game-core";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
-import { queryKeys } from "./keys";
-import { remainingOf } from "./training-save";
 import { trainingStore, useDataSources } from "./sources";
 
-export { remainingOf, useTrainingSave } from "./training-save";
+/**
+ * The tiles left to play, the one in hand included: the deck's size less the tiles placed (the starter counts as
+ * placed, as on chain) and the tiles discarded, so a discard counts as spent (P3).
+ */
+export const remainingOf = (game: NonNullable<PageState["game"]>): number => Math.max(0, game.deckSize - game.placedCount - game.discardedCount);
 
 /** The board scene's data a session gives (the hand's orientation and state are the page's). */
 export type SessionBoard = Pick<BoardSceneProps, "tiles" | "score" | "remaining" | "discardedPlans" | "lastScored"> & {
@@ -53,22 +52,12 @@ const ORIENTATIONS = Object.values(OrientationType);
 /** The engine's categories in the order of their codes, as `LocalSession` maps a `Scored` to a `ScoredStructure`. */
 const CATEGORIES = Object.values(CategoryType);
 
-/** The save's seed as `LocalSession` writes it. */
-const hex = (seed: bigint) => `0x${seed.toString(16)}`;
-
-/**
- * Where the Training save stands: `ok` (the last move is saved), `off` (the browser gives no storage), `dropped` (the
- * storage is there but the last save did not land: quota, a refusal, another tab's write).
- */
-export type StorageStatus = "ok" | "off" | "dropped";
-
 /** A structure the game closed, with the tile that closed it (the over scene's list). */
 export type Closing = ScoredStructure & { tileId: number };
 
 /** What the board reads of a Training game; a new object after each move. */
 export interface TrainingSnapshot {
   state: PageState;
-  storage: StorageStatus;
   /** Points the last move added (a discard takes some: negative); null before the first move of this page. */
   delta: number | null;
   /** Every closing of the game, in move order. */
@@ -76,10 +65,10 @@ export interface TrainingSnapshot {
 }
 
 /**
- * A Training game: `LocalSession` (the game, its save) and a second engine of the same seed and moves, kept in step,
- * that answers what the session does not expose: the legal slots of the tile in hand and the points a placement would
- * score (the preview). Both keep their engine between moves and replay only to open a saved game. Moves go through
- * this object, never to the session directly, so the two stay in step.
+ * A Training game: `LocalSession` (the game) and a second engine of the same seed and moves, kept in step, that answers
+ * what the session does not expose: the legal slots of the tile in hand and the points a placement would score (the
+ * preview). Both keep their engine between moves, never replayed. Moves go through this object, never to the session
+ * directly, so the two stay in step. Nothing is saved (#718): the game lives in memory only.
  */
 export class TrainingGame {
   private readonly listeners = new Set<() => void>();
@@ -89,43 +78,13 @@ export class TrainingGame {
     readonly session: LocalSession,
     private readonly rules: EngineGame,
     readonly seed: bigint,
-    private readonly moves: SavedMove[],
-    closings: Closing[],
-    private readonly store: () => KeyValueStore | null,
   ) {
-    this.current = { state: session.state, storage: this.storageStatus(), delta: null, closings };
+    this.current = { state: session.state, delta: null, closings: [] };
   }
 
-  /** A new game of `seed`, saved at once. */
-  static start(seed: bigint, store: () => KeyValueStore | null): TrainingGame {
-    const session = LocalSession.start(seed, store);
-    return new TrainingGame(session, startTraining(seed, session.version), seed, [], [], store);
-  }
-
-  /** The saved game replayed; null when it does not replay. */
-  static resume(saved: SavedGame, store: () => KeyValueStore | null): TrainingGame | null {
-    const session = LocalSession.resume(saved, store);
-    if (!session) return null;
-    const seed = BigInt(saved.seed);
-    const rules = startTraining(seed, saved.v);
-    const closings: Closing[] = [];
-    try {
-      for (const move of saved.moves) closings.push(...apply(rules, move));
-    } catch {
-      return null;
-    }
-    return new TrainingGame(session, rules, seed, [...saved.moves], closings, store);
-  }
-
-  /** The saved game of this browser, or a new one with a random seed. */
-  static open(store: () => KeyValueStore | null): TrainingGame {
-    const saved = loadGame(store);
-    return (saved && TrainingGame.resume(saved, store)) || TrainingGame.start(randomSeed(), store);
-  }
-
-  /** The rules the game plays under (`SavedVersion`): a resumed save keeps its own. */
-  get version(): SavedVersion {
-    return this.session.version;
+  /** A new game of `seed` (`randomSeed` for a new deck, the same seed for a restart). */
+  static start(seed: bigint): TrainingGame {
+    return new TrainingGame(LocalSession.start(seed), startTraining(seed), seed);
   }
 
   get snapshot(): TrainingSnapshot {
@@ -135,21 +94,6 @@ export class TrainingGame {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
-  }
-
-  /** Whether `saved` is this game as it stands (same seed, same moves): a save another tab wrote is not. */
-  matches(saved: SavedGame): boolean {
-    return this.relation(saved) === "same";
-  }
-
-  /**
-   * How `saved` stands to this game: `same` (same seed, same moves), `behind` (same seed, its moves a strict prefix of
-   * this game's: a save that was dropped after them), or `other` (another seed, or moves this game lacks: another tab's).
-   */
-  relation(saved: SavedGame): "same" | "behind" | "other" {
-    if (saved.v !== this.version || saved.seed !== hex(this.seed) || saved.moves.length > this.moves.length) return "other";
-    if (!saved.moves.every((m, i) => sameMove(m, this.moves[i]!))) return "other";
-    return saved.moves.length === this.moves.length ? "same" : "behind";
   }
 
   /** Every legal slot of the tile in hand at `orientation` (1 North to 4 West), in the chain's coordinates. */
@@ -193,43 +137,26 @@ export class TrainingGame {
     return this.run({ k: "s" }, () => this.session.surrender());
   }
 
-  private async run(move: SavedMove, play: () => Promise<boolean>): Promise<boolean> {
+  private async run(move: TrainingMove, play: () => Promise<boolean>): Promise<boolean> {
     const before = this.session.state.game?.score ?? 0;
     if (!(await play())) {
       this.set({ ...this.current, state: this.session.state });
       return false;
     }
     const closed = apply(this.rules, move);
-    this.moves.push(move);
     const state = this.session.state;
     this.set({
       state,
-      storage: this.storageStatus(),
       delta: move.k === "s" ? null : (state.game?.score ?? 0) - before,
       closings: closed.length ? [...this.current.closings, ...closed] : this.current.closings,
     });
     return true;
   }
 
-  private storageStatus(): StorageStatus {
-    try {
-      if (!this.store()) return "off";
-    } catch {
-      return "off";
-    }
-    const saved = loadGame(this.store);
-    return saved && this.matches(saved) ? "ok" : "dropped";
-  }
-
   private set(snapshot: TrainingSnapshot): void {
     this.current = snapshot;
     for (const listener of this.listeners) listener();
   }
-}
-
-function sameMove(a: SavedMove, b: SavedMove): boolean {
-  if (a.k !== b.k) return false;
-  return a.k !== "b" || (b.k === "b" && a.o === b.o && a.x === b.x && a.y === b.y);
 }
 
 function toPlacement(move: PlaceMove) {
@@ -239,7 +166,7 @@ function toPlacement(move: PlaceMove) {
 }
 
 /** `move` played on `game`, as `LocalSession` plays it; what it closed, with the tile that closed it. */
-function apply(game: EngineGame, move: SavedMove): Closing[] {
+function apply(game: EngineGame, move: TrainingMove): Closing[] {
   if (move.k === "d") {
     game.discard();
     return [];
@@ -255,34 +182,41 @@ function apply(game: EngineGame, move: SavedMove): Closing[] {
 }
 
 /**
- * The Training game of each store, kept across the routes (`/training`, `/training/over`) so the board and its end
- * read the same game without a replay; a reload starts from the save.
+ * The Training game of each store, held in memory for the tab: the board's, so `/training/over` reads the game that just
+ * finished without a save. Keyed by the store only to keep the tests' data sources apart; the store holds nothing of it.
  */
 const games = new WeakMap<() => KeyValueStore | null, TrainingGame>();
 
-/**
- * The game of `store`: the one this tab holds, unless the save holds another game (another tab's moves or seed); else
- * the save, or a new game. A save behind the held game (a dropped save) never rewinds it: the held game is ahead.
- */
-function gameOf(store: () => KeyValueStore | null): TrainingGame {
-  const held = games.get(store);
-  if (held) {
-    const saved = loadGame(store);
-    if (!saved || held.relation(saved) !== "other") return held;
-  }
-  const game = TrainingGame.open(store);
-  games.set(store, game);
-  return game;
+/** The stores whose old save (`paved:training:v1`, before #718) this tab has cleared. */
+const cleared = new WeakSet<() => KeyValueStore | null>();
+
+/** Clears the save Training kept before #718, once per tab and store: no stale save stays on the device. */
+function clearOldSave(store: () => KeyValueStore | null): void {
+  if (cleared.has(store)) return;
+  cleared.add(store);
+  clearGame(store);
+}
+
+/** The game held for `store`, set by the board once its game is committed (never in render, which StrictMode runs twice). */
+function useHold(store: () => KeyValueStore | null, game: TrainingGame): void {
+  useEffect(() => {
+    clearOldSave(store);
+    games.set(store, game);
+  }, [store, game]);
+}
+
+/** A game read with `useSyncExternalStore`: its snapshot and the scene's board, a new object after each move. */
+function useSnapshot(game: TrainingGame) {
+  const subscribe = useCallback((listener: () => void) => game.subscribe(listener), [game]);
+  const snapshot = useSyncExternalStore(subscribe, () => game.snapshot);
+  return { game, session: game.session, state: snapshot.state, board: boardOf(snapshot.state), snapshot };
 }
 
 /**
- * The board's session in Training: the saved game of this browser resumed (replayed once), or a new one; each move is
- * applied to the session's engine, never replayed (`LocalSession`). `newGame` starts another seed, `restart` the same seed again.
- *
- * Two tabs on one save: the last save written wins. A tab follows the save another tab wrote (the `storage` event, which
- * fires only in the other tabs) whenever it holds moves this tab lacks, even at the same length (each tab played a
- * different move): it re-opens the game from the save as it now stands, and the board clears its unsent choice. So the
- * next move of either tab extends the latest game, and neither overwrites the other's moves with its own older game.
+ * The board's session in Training: a new game with a random seed on every entry (Home, Play, Welcome, the old link, a
+ * reload), never resumed (#718). Each move is applied to the session's engine, never replayed (`LocalSession`). The game
+ * lives in memory only, held for the tab so `/training/over` reads it (`useFinishedTraining`); leaving it loses it.
+ * `restart` plays the same seed again from its first tile.
  */
 export function useTrainingSession(): {
   game: TrainingGame;
@@ -290,37 +224,23 @@ export function useTrainingSession(): {
   state: PageState;
   board: SessionBoard;
   snapshot: TrainingSnapshot;
-  newGame: () => void;
   /** The same game again from its start: its seed, so its deck (#606, the settings' Restart). */
   restart: () => void;
 } {
-  const sources = useDataSources();
-  const store = trainingStore(sources);
-  const [game, setGame] = useState(() => gameOf(store));
-  const subscribe = useCallback((listener: () => void) => game.subscribe(listener), [game]);
-  const snapshot = useSyncExternalStore(subscribe, () => game.snapshot);
+  const store = trainingStore(useDataSources());
+  const [game, setGame] = useState(() => TrainingGame.start(randomSeed()));
+  useHold(store, game);
+  const restart = useCallback(() => setGame(TrainingGame.start(game.seed)), [game]);
+  return { ...useSnapshot(game), restart };
+}
 
-  const newGame = useCallback(() => {
-    const next = TrainingGame.start(randomSeed(), store);
-    games.set(store, next);
-    setGame(next);
-  }, [store]);
-
-  const restart = useCallback(() => {
-    const again = TrainingGame.start(game.seed, store);
-    games.set(store, again);
-    setGame(again);
-  }, [store, game]);
-
-  useEffect(() => {
-    const follow = (event: StorageEvent) => {
-      if (event.key !== TRAINING_KEY || event.newValue === null) return;
-      const next = gameOf(store);
-      if (next !== game) setGame(next);
-    };
-    window.addEventListener("storage", follow);
-    return () => window.removeEventListener("storage", follow);
-  }, [store, game]);
-
-  return { game, session: game.session, state: snapshot.state, board: boardOf(snapshot.state), snapshot, newGame, restart };
+/**
+ * The game the board of this tab played, for `/training/over`: the one held in memory. With none (a reload of the over
+ * page, or a direct link), a new game not yet played, which the over page sends to its board: Training then starts anew.
+ */
+export function useFinishedTraining(): { game: TrainingGame; snapshot: TrainingSnapshot } {
+  const store = trainingStore(useDataSources());
+  const [game] = useState(() => games.get(store) ?? TrainingGame.start(randomSeed()));
+  const { snapshot } = useSnapshot(game);
+  return { game, snapshot };
 }

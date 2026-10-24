@@ -7,7 +7,7 @@ const meta = {
   title: "Containers/ModeCard",
   component: ModeCard,
   parameters: { layout: "padded" },
-  args: { icon: "play", title: "Training", description: "A full game for free, saved on this device.", badge: "Free", onSelect: fn() },
+  args: { icon: "play", title: "Training", description: "A full game for free.", badge: "Free", onSelect: fn() },
   decorators: [(Story) => <div className="max-w-md"><Story /></div>],
 } satisfies Meta<typeof ModeCard>;
 export default meta;

@@ -355,7 +355,7 @@ describe("Board", () => {
     ["story", "Restart level", "Restart this level?"],
   ] as const)("%s: Restart in the settings, confirmed first; no Surrender", async (mode, row, title) => {
     const onRestart = vi.fn();
-    render(wrap(<BoardScene {...BOARD.storageDisabled} mode={mode} onRestart={onRestart} />));
+    render(wrap(<BoardScene {...BOARD.training} mode={mode} onRestart={onRestart} />));
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
     expect(within(sheet).queryByRole("button", { name: /Surrender/ })).not.toBeInTheDocument();
@@ -366,11 +366,10 @@ describe("Board", () => {
     expect(onRestart).toHaveBeenCalledOnce();
   });
 
-  it("warns when the last save was dropped, and plays on the plan view's slots", async () => {
+  it("plays on the plan view's slots", async () => {
     const onSlotClick = vi.fn();
     const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
-    render(wrap(<BoardScene {...BOARD.storageDisabled} storageDisabled={false} saveDropped slots={[slot]} onSlotClick={onSlotClick} />));
-    expect(screen.getByText("Last move not saved")).toBeInTheDocument();
+    render(wrap(<BoardScene {...BOARD.training} slots={[slot]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("group", { name: `Board of ${BOARD_38.tiles.length} tiles` })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^Slot / }));
     expect(onSlotClick).toHaveBeenCalledWith(slot);
@@ -380,14 +379,14 @@ describe("Board", () => {
     const onSlotClick = vi.fn();
     const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
     const plate = () => screen.getByRole("button", { name: /^Slot / }).querySelector("[data-plate]");
-    const { rerender } = render(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
+    const { rerender } = render(wrap(<BoardScene {...BOARD.training} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-lit", "true");
     // One playable plate whether or not the current rotation fits (PLACEMENT-TINTS).
     expect(plate()).toHaveAttribute("data-plate", "playable");
-    rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
+    rerender(wrap(<BoardScene {...BOARD.training} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
     expect(plate()).toHaveAttribute("data-plate", "playable");
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-fits", "true");
-    rerender(wrap(<BoardScene {...BOARD.storageDisabled} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
+    rerender(wrap(<BoardScene {...BOARD.training} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
     const plain = screen.getByRole("button", { name: /^Slot / });
     expect(plain).toHaveAttribute("data-lit", "false");
     expect(plain.querySelector("[data-plate]")).toBeNull();
@@ -395,11 +394,16 @@ describe("Board", () => {
     expect(onSlotClick).toHaveBeenCalledWith(slot);
   });
 
-  it("warns when storage is off, and a Training game shows no deadline", () => {
+  it("a Training game shows no deadline and no storage notice (#718)", () => {
+    render(wrap(<BoardScene {...BOARD.training} />));
+    expect(screen.getByRole("heading", { name: "Training" })).toBeInTheDocument();
+    expect(screen.queryByText("Storage is off")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Expires in/)).not.toBeInTheDocument();
+  });
+
+  it("warns in Story when storage is off: its progress is not saved", () => {
     render(wrap(<BoardScene {...BOARD.storageDisabled} />));
     expect(screen.getByText("Storage is off")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Training" })).toBeInTheDocument();
-    expect(screen.queryByText(/Expires in/)).not.toBeInTheDocument();
   });
 
   it("draws the 72-tile board and the canvas a page gives instead of the plan view", () => {

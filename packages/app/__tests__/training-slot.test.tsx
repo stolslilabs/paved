@@ -3,13 +3,13 @@ import { useEffect } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CENTER, OrientationType, TRAINING_KEY, loadGame, replayTraining } from "@paved/game-core";
+import { CENTER, OrientationType, replayTraining } from "@paved/game-core";
 import type { GameCanvasProps } from "@paved/renderer/react";
 import { App } from "../src/App";
 import { toChainSlot, toGridSlot, toRenderTiles } from "../src/components/containers/board-viewport";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed } from "../src/routes/welcomed";
-import { fakeSources, memoryStore } from "./data-fakes";
+import { fakeSources } from "./data-fakes";
 import { placeTile, preloadPages } from "./route-helpers";
 
 // The renderer's canvas, as the page drives it: the test reads what it is given (the lit slots, the ghost, the tiles)
@@ -40,6 +40,9 @@ vi.mock("../src/components/containers/tile-view", async (original) => ({
 const ORIENTATIONS = Object.values(OrientationType);
 const SEED = 0x5eed1234abcdn;
 
+// Training draws its seed at each entry (#718): the test's, so the engine beside it plays the same deck.
+vi.mock("@paved/game-core", async (original) => ({ ...(await original<typeof import("@paved/game-core")>()), randomSeed: () => SEED }));
+
 preloadPages("board");
 
 beforeEach(() => {
@@ -61,9 +64,8 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
     expect({ x: tile!.worldX, y: tile!.worldZ }).toEqual({ x: 4, y: -1 });
   });
 
-  it("round trip: the slot the renderer lights and the player clicks is the move saved, and the tile is drawn there", async () => {
-    const store = memoryStore({ [TRAINING_KEY]: JSON.stringify({ v: 1, seed: `0x${SEED.toString(16)}`, moves: [] }) });
-    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
+  it("round trip: the slot the renderer lights and the player clicks is the move made, and the tile is drawn there", async () => {
+    render(<App router={createTestRouter("/training")} sources={fakeSources().sources} />);
     await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
     // The canvas is found on the commit, before the page's mount effect (it resets the chosen slot and the orientation for a
     // new game) has run; a click made in that gap, as this test can with no rotation to await, is wiped by the effect.
@@ -89,10 +91,10 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
     await waitFor(() => expect(canvas.props!.hover).toMatchObject({ x: cell.x, y: cell.y, orientation: chosen, placed: true, valid: true }));
 
     await placeTile();
-    // The move saved is that cell in the engine's coordinates (y north), and the renderer now draws a tile on it.
-    expect(loadGame(() => store)!.moves).toEqual([{ k: "b", o: chosen, x: cell.x, y: 0 - cell.y }]);
+    // The move made is that cell in the engine's coordinates (y north), in the rotation chosen: the renderer now draws it there.
     await waitFor(() => expect(canvas.props!.tiles).toHaveLength(2));
     const placed = canvas.props!.tiles!.find((t) => t.id !== 1)!;
+    expect(placed.orientation).toBe(chosen);
     expect({ x: placed.worldX, y: placed.worldZ }).toEqual(cell);
     expect({ x: placed.x, y: placed.y }).toEqual({ x: CENTER + cell.x, y: CENTER - cell.y });
   });

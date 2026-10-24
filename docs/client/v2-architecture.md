@@ -597,24 +597,27 @@ Why this beats the references' hooks and contexts:
 - **Writes.** A write's receipt events go into the cache with `setQueryData` (today's "show a placement
   before one reconciling read"), then one `invalidateQueries` for the reconciling read. No polling: the
   refetch triggers are the receipt, window focus (replacing `onVisible`) and the user's action.
-- **Persistence.** Settings and the Training save stay in `localStorage`; the query cache is not persisted
-  (chain data must be fresh).
+- **Persistence.** Settings, Story's progress and the device's best Training score (`paved.training-best.v1`) stay in
+  `localStorage`; the query cache is not persisted (chain data must be fresh). A Training game is not saved (#718): it
+  lives in memory, and every entry starts a new one.
 
 **As built (P2).** The sessions are in `@paved/game-core` (`src/sessions/`): `PageSession` and `PageState` (structural
 copies of the chain's shapes, since `@paved/chain` depends on game-core; `GameSession` satisfies them unchanged, and app-web's
 `tsc` catches a drift of the chain's shapes through the state and the senders),
-`LocalSession` with its save (`paved:training:v1`) and `randomSeed`, and the tutorial run with its save
-(`paved.tutorial.v1`), both formats unchanged. `LocalSession` and `TutorialRun` keep their `EngineGame` between moves and
-replay only to resume (and the tutorial on Back, the engine having no undo). App-web imports them from there.
+`LocalSession` and `randomSeed`, and the tutorial run with its save (`paved.tutorial.v1`, its format unchanged).
+`LocalSession` and `TutorialRun` keep their `EngineGame` between moves (the tutorial replays only to resume and on Back,
+the engine having no undo). Since #718 `LocalSession` saves nothing: no `saveGame`, `loadGame`, `LocalSession.resume`,
+`openTraining` or `savedTrainingStatus` any more; the key Training saved under (`paved:training:v1`) is only cleared,
+once per tab, by `clearGame`, so no stale save stays on the device.
 The v2 app's data layer is `packages/app/src/data/`:
 
 | Module | What it holds |
 |---|---|
-| `keys.ts` | `queryKeys`, every key of the app: `['chain', read, ...args]` for a view or event read, `['indexer', read, ...args]` for the indexer, `['local', 'trainingSave']`; addresses normalised by `addressKey`, no bigint in a key |
+| `keys.ts` | `queryKeys`, every key of the app: `['chain', read, ...args]` for a view or event read, `['indexer', read, ...args]` for the indexer; addresses normalised by `addressKey`, no bigint in a key |
 | `sources.tsx` | `DataProvider` and `DataSources`: the game views, the event reader (`playerGames`), the economy views and the pool quoter (null without an economy), the indexer client, the Training store |
 | `chain.ts` | `useSpawnPaused`, `useEntryPrice`, `useGame`, `usePlayerGames`, `useActiveGame`, `useQuote`, `useSplit`, `usePoolQuote`, `useTerms`, `useEconomyDay`, `useVaultPosition`, `useUsdcBalance`, `usePavedBalance` |
 | `indexer.ts` | `useLeaderboard`, `useTopThree`, `useLeaderboardEntry`, `usePlayerProfile`, `useIndexedPlayerGames`, `useIndexedGame`, `useDefinitions`, `usePlayerQuests` (progress joined with each definition's schedule), `usePlayerAchievements`, `usePlayerStatus` |
-| `training.ts` | `useTrainingSession` (the board's session: `LocalSession` read with `useSyncExternalStore`, and `boardOf` for the scene), `useTrainingSave` (the home card) |
+| `training.ts` | `useTrainingSession` (the board's session: a new `TrainingGame` with a random seed on every entry, read with `useSyncExternalStore`, and `boardOf` for the scene), `useFinishedTraining` (`/training/over`: the game the board of this tab played, held in memory; none after a reload, so the page goes to `/training`, a new game) |
 | `scene-types.ts` | compile-time checks that each hook's data is its scene prop's type |
 
 Each hook returns the type its scene's prop takes; where the indexer's type differs, the hook maps it (the quests'
@@ -3021,7 +3024,7 @@ Sources, read at the pinned versions: `@cartridge/controller` 0.13.16, whose key
 |---|---|---|---|---|
 | welcome | controller connect | — | — | `welcomed` flag |
 | loading | — | — | — | — |
-| home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/players/:id` (the player's status) | — | the Training save (resume) |
+| home | `Challenge.spawn_paused`; the player's open games (`GameSpawned` events) | `/v1/players/:id` (the player's status) | — | — (Training is not saved, #718) |
 | play | `spawn_paused` | — | — | — |
 | purchase | `entry_price`, `Economy.quote`, `quote_swap`, `router`, `rate`, USDC `balance_of`, `Setup.pack`; `Economy.seller` (read at send); writes `approve` + `spawn(stake, referrer, min_out)`, `approve` + `buy_pack(pack_id, referrer, min_out)`, each one multicall and one wallet prompt (neither the approve nor the call that pulls the USDC is a session policy, P-65) | — | — | the referrer from `?ref=`; the hold of a purchase whose outcome is unknown (`paved:purchase-unknown:v1:<kind>:<player>`: its hash, or none for a send the wallet has not answered, written when the send starts, and when it was sent) |
 | board | `game(id)`, `tiles(id, from, count)`, the initial seed (section 9); writes `build`, `discard`, `surrender` | — | `EngineGame` (prediction, legality, preview points) | the Training and Tutorial moves |
@@ -3111,8 +3114,8 @@ latest build.
   the idle prefetches) go through Vite's event as well: when the file is still gone after the reload, the listener hands
   it to `StaleChunkGate` (in `RootLayout`), which throws it into the route, so `RouteError` shows it with the Reload.
   `RouteError` then forgets it, so Back home does not throw it again.
-- **Nothing to save first.** A Training game is saved at each move (`LocalSession`), and a Challenge placement is on
-  chain or not; the reload lands on the same URL.
+- **Nothing to save first.** A Challenge placement is on chain or not, and the reload lands on the same URL. A Training
+  game is not saved (#718): the reload starts a new one, as any entry to Training does.
 - **`reimport`** (`lib/reimport.ts`, #539) stays for a transient failure (the same file under a new query); a file that
   is gone fails there too and reaches the reload.
 - **The web client is not a PWA.** It has no service worker and no precache, and `site.webmanifest` has no `display`
@@ -3499,7 +3502,7 @@ with the hook that reads the same shape, and changes the scene only where the re
 |---|---|---|
 | P1 | App shell on the routes: SC1's navigation (bottom bar, desktop rail), top bars, the loading scene as boot screen and `Suspense` fallback, error boundaries; the welcome scene on `/welcome`. **Done** (2026-10-15) | 1 d |
 | P2 | Move `PageSession`, `LocalSession`, the tutorial run into `@paved/game-core`; the TanStack Query hooks over `@paved/chain`, returning the mocks' shapes. **Done** (2026-10-15; section 3.3, "As built (P2)") | 1.5 d |
-| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379). **Done** (2026-10-15): `/training` and `/training/over` on a `TrainingGame` (`src/data/training.ts`: the session and a rules engine of the same moves for the slots and the preview, both kept between moves); the plan view is playable where the renderer cannot start; a tab follows the save another tab writes (the `storage` event); `DataProvider` mounted in `App.tsx` (Training's store; the chain and indexer sources refuse until their pages) | 2 d |
+| P3 | The board scene on Training (`LocalSession`): the hand panel and the placement preview wired. Added by the PM (2026-10-14): a tiles-left counter that counts discards as spent (EL, owner 2026-10-14: the number of discarded tiles is not shown anywhere, the Over scene's row included); a notice when storage is off or a save was dropped; two-tab handling; Esc closes the Surrender dialog; the move sent is the slot the player sees (D1, #379). **Done** (2026-10-15): `/training` and `/training/over` on a `TrainingGame` (`src/data/training.ts`: the session and a rules engine of the same moves for the slots and the preview, both kept between moves); the plan view is playable where the renderer cannot start; a tab follows the save another tab writes (the `storage` event); `DataProvider` mounted in `App.tsx` (Training's store; the chain and indexer sources refuse until their pages). The save, the following of another tab and Training's storage notices left in #718: every entry starts a new game | 2 d |
 | P4 | Renderer: the post-processing chain and the zoom-following outline (section 5), measured with the bench | 3 d |
 | P5 | `PredictedSession` and the Challenge board (section 9) on CORE's `initial_seed` view (S1, #377). Added by the PM: prompt a surrender when `expires_at` is reached; the discard reseeds at (CENTER, CENTER); if the replay check at game open fails, fall back to no prediction. **Done** (2026-10-15; section 9.5, "As built (P5)"): `/game/:gameId` on the predicted session, read only until P6 fills the sources' `signer` | 3 d |
 | P6 | The home and play scenes on their data; the Tutorial on the board scene. **Done** (2026-10-15): the wallet (`src/wallet/`): `WalletProvider` fills the sources' `signer` (`PavedClient.writer` of the account: the moves, the tutorial's claim and P9's Cobbles claims) while connected and clears it on Disconnect; the Cartridge controller with the game's session policies outside devnet, the env's burner (`VITE_PLAYER_ADDRESS`, `VITE_PLAYER_PRIVATE_KEY`) on devnet, loaded in its own chunk on the first connect or on a page that reads the account (home, play, the tutorial's end), never by the welcome or Training; the welcome's Connect connects; (the shell's footer with the D-15 notice and Disconnect, and the board's compact notice, were removed by #536; the notice is on the Credits page). A devnet key is read only in a devnet build (static accesses behind a build-time test), and a production build without `VITE_NETWORK` names no network: the chain client refuses rather than falling back to devnet. Home and play on their data (section 6.4, "As wired (P6)"); `/tutorial` on the board scene with its own `TutorialRun` (`data/tutorial.ts`) and, at its end, the First Stone claim through the signer (D-21). "Play free" on home and play, and the wallet restored on quests and achievements: done (PLAYFREE; see the P9 row) | 1 d |
@@ -3850,10 +3853,9 @@ when a cut lands). `board` is the renderer, three and the engine, and is fetched
 **What is lazy, and why** (FIRST-LOAD). The first load of `/` fetches no game engine, no hashing under it (`@scure`, `@noble`)
 and no chain or wallet library: 181,633 B gzip (537,586 raw), from 213,838 (657,850 raw), and its limit is the new figure plus 2 %. The chain client, the economy, the wallet connector and the controller are
 `import()`ed at the first read or connect (`routes/sources.ts`, `wallet/wallet.tsx`). The engine is the one chunk `engine`
-(`vite.config.ts`: `@paved/game-core` apart from its formatters, its barrel and the Training save's storage): the boards, the
-Training and the end screen share it. The home card's Training save (`data/training-save.ts`) reads the save at once and
-replays it through `data/training-resume.ts`, which names `LocalSession` and is `import()`ed, so the card shows its
-"Resume" line a chunk fetch after the first paint, and a player without a save fetches nothing. Two settings keep it so: the
+(`vite.config.ts`: `@paved/game-core` apart from its formatters, its barrel and the device's storage): the boards, the
+Training and the end screen share it. The home card reads nothing of Training since #718 (no save, so no "Resume" line):
+`data/training-save.ts` and its `import()`ed `data/training-resume.ts` left with the save. Two settings keep it so: the
 bundler treats `game-core/dist` as free of side effects (the package declares none, and one imported name would keep its
 whole barrel), and an `import("@paved/game-core")` is never written in the first load (it makes the barrel's namespace and
 with it the engine): a lazy module names what it needs. `__tests__/first-load-modules.test.ts` reads the source maps of the
