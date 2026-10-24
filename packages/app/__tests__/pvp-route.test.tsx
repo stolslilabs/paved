@@ -209,7 +209,7 @@ describe("/pvp/replay/:attacker/:id: a failed read", { timeout: slow(30_000) }, 
   });
 });
 
-describe("receipt-cached attacks", { timeout: slow(30_000) }, () => {
+describe("receipt-cached attacks and the shield's read", { timeout: slow(30_000) }, () => {
   it("replays an attack whose receipt this visit cached, once a newer attack is the last", async () => {
     const me = mockImplementation().sources.signer!.address;
     await open(`/pvp/replay/${me}/1`, async (s, me) => {
@@ -222,6 +222,17 @@ describe("receipt-cached attacks", { timeout: slow(30_000) }, () => {
     const bar = await screen.findByRole("group", { name: "Replay" }, WAIT);
     await userEvent.click(within(bar).getByRole("button", { name: "Next move" }));
     expect(within(bar).getByText(/^1\//)).toBeInTheDocument();
+  });
+
+  it("/pvp/defence: a failed shield read is told, never shown as no shield", async () => {
+    await open("/pvp/defence", async (s) => {
+      const views = s.sources.views;
+      s.sources.views = new Proxy(views, { get: (t, k) => (k === "pvpShield" ? () => Promise.reject(new Error("Shield RPC unavailable")) : Reflect.get(t, k, t)) });
+    });
+    expect(await screen.findByText(/Shield RPC unavailable/, {}, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "unknown");
+    expect(screen.queryByText("No shield")).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });
 

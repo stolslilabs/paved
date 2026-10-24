@@ -35,11 +35,17 @@ export default function Page() {
       }))
     : null;
   const shield = status.data?.shield;
-  const error = me === null ? new Error("Connect to see the attacks on your village.") : log.error;
+  // The shield is read with the attacker's state: until it is read, or after its read failed, it is not known, never "No shield".
+  const shieldUnknown = me !== null && status.data == null;
+  const error =
+    me === null
+      ? new Error("Connect to see the attacks on your village.")
+      : (log.error ?? status.error ?? (status.data === null ? new Error("PvP is not on this network yet: no shield to read.") : null));
   return (
     <PvpDefenceScene
       attacks={me === null ? [] : attacks}
       shieldEndsAt={shield?.up ? shield.until : null}
+      shieldUnknown={shieldUnknown}
       now={now}
       error={error?.message ?? null}
       errorDetail={error && me !== null ? errorDetail(error) : undefined}
@@ -49,7 +55,10 @@ export default function Page() {
         if (a) go(`/pvp/replay/${a.attacker}/${a.id}`);
       }}
       onRetry={() => {
-        if (me) void client.invalidateQueries({ queryKey: pvpKeys.attacks(me, "defender") });
+        if (!me) return;
+        void client.invalidateQueries({ queryKey: pvpKeys.attacks(me, "defender") });
+        // The shield and the state it is read with.
+        void client.invalidateQueries({ queryKey: pvpKeys.all });
       }}
     />
   );
