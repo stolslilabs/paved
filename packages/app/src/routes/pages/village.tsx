@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useContext, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { UNSAFE_DataRouterContext, useBlocker, useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -31,8 +31,9 @@ const VillageV1 = lazy(() => import("./village-v1"));
  * its score, the level and slots, and the inventory from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting
  * from `useChests`, the Cobbles from the ledger. The own village founds itself (its starter layout) and saves the editor's whole
  * layout at once (`useFreeVillageWrites`); the score shown once saved is game-core's (`layoutScore`). Leaving the page with
- * unsaved changes, by any way, asks first. Chests and Shop lead to `/village/chests` and `/village/shop`. A source that does not
- * serve the v2 village (its read answers null) keeps the v1 village (`village-v1.tsx`) until step 3 wires the chain.
+ * unsaved changes, by any way (a reload and a closed tab too, through the browser's prompt), asks first. Chests and Shop
+ * lead to `/village/chests` and `/village/shop`. A source that does not serve the v2 village (its read answers null) keeps
+ * the v1 village (`village-v1.tsx`) until step 3 wires the chain.
  */
 export default function Page() {
   const { player } = useParams();
@@ -61,6 +62,16 @@ function Village({ player }: { player: string | null }) {
   const [dirty, setDirty] = useState(false);
   // The app's router is a data router, so leaving by any way is guarded; a plain one (Storybook's) has only the editor's Back.
   const guarded = useContext(UNSAFE_DataRouterContext) !== null;
+  // A reload or a closed tab leaves the document: the browser's own prompt asks first, in any router.
+  useEffect(() => {
+    if (!dirty) return;
+    const ask = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", ask);
+    return () => window.removeEventListener("beforeunload", ask);
+  }, [dirty]);
   const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
 
   const data = read.data;

@@ -90,11 +90,15 @@ describe("/village: the v2 village on the mock", () => {
     expect((await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0)).toBe(8);
   }, slow(30_000));
 
-  it("leaving with unsaved changes asks first, by any way out", async () => {
+  it("leaving with unsaved changes asks first, by any way out, a reload too", async () => {
     const s = await open("/village", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
     await userEvent.click((await screen.findAllByRole("button", { name: "Edit" }, WAIT))[0]!);
     fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
     expect(screen.getAllByLabelText("1 of 9 slots used").length).toBeGreaterThan(0);
+    // A reload or a closed tab: the browser's prompt is asked for.
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
     await s.router.navigate("/");
     const dialog = await screen.findByRole("dialog", { name: "Leave without saving?" }, WAIT);
     await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
@@ -102,6 +106,12 @@ describe("/village: the v2 village on the mock", () => {
     await s.router.navigate("/");
     await userEvent.click(within(await screen.findByRole("dialog", { name: "Leave without saving?" }, WAIT)).getByRole("button", { name: "Leave" }));
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/"));
+    // Gone with the editor: a reload no longer asks.
+    await waitFor(() => {
+      const after = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(after);
+      expect(after.defaultPrevented).toBe(false);
+    }, WAIT);
     // Nothing was saved.
     expect((await s.ledger.freeVillage(s.me)).tiles).toHaveLength(8);
   }, slow(30_000));
