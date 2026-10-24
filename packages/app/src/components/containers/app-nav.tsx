@@ -156,16 +156,17 @@ export function AppNav({ active, onNavigate, className }: AppNavProps) {
               >
                 <Icon name={tab.icon} size="md" />
                 {/* Not `sr-only mobile:not-sr-only`: Font Awesome injects its own `.sr-only` after Tailwind's, which wins. Below
-                    `desktop` the row folds to nothing but on the current item (0fr to 1fr), from `desktop` it is always there. */}
+                    `desktop` the row folds to nothing but on the current item (0fr to 1fr), and a folded row is hidden (`visibility`, which
+                    turns at the end of a fold and the start of an unfold); from `desktop` it is always there. */}
                 <span
                   data-slot="app-nav-label"
                   data-open={isActive || undefined}
                   className={cn(
-                    "hidden transition-[grid-template-rows,opacity] duration-(--tab-swipe-duration) ease-(--tab-swipe-ease) motion-reduce:transition-none mobile:grid",
-                    "desktop:block desktop:opacity-100 desktop:transition-none",
-                    isActive ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-                    wasActive && "max-desktop:starting:grid-rows-[1fr] max-desktop:starting:opacity-100",
-                    arrives && "max-desktop:starting:grid-rows-[0fr] max-desktop:starting:opacity-0",
+                    "hidden transition-[grid-template-rows,opacity,visibility] duration-(--tab-swipe-duration) ease-(--tab-swipe-ease) motion-reduce:transition-none mobile:grid",
+                    "desktop:visible desktop:block desktop:opacity-100 desktop:transition-none",
+                    isActive ? "grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0",
+                    wasActive && "max-desktop:starting:visible max-desktop:starting:grid-rows-[1fr] max-desktop:starting:opacity-100",
+                    arrives && "max-desktop:starting:invisible max-desktop:starting:grid-rows-[0fr] max-desktop:starting:opacity-0",
                   )}
                 >
                   <span className="min-h-0 overflow-hidden">
