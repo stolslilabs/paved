@@ -1,25 +1,16 @@
-// The three-tile queue (#645): the engine's `lookahead`, and Training played and saved with it.
+// The three-tile queue (#645): the engine's `lookahead`, and Training played with it.
 import { describe, expect, it } from "vitest";
 import {
   EngineGame,
   LocalSession,
   PlanType,
-  TRAINING_KEY,
   TRAINING_LOOKAHEAD,
-  loadGame,
-  openTraining,
   replayTraining,
-  type KeyValueStore,
   type Placement,
 } from "../src";
 
 const SEED = 0x5eed1234abcdn;
 const PLANS = Object.values(PlanType);
-
-function memoryStore(initial: Record<string, string> = {}): KeyValueStore & { data: Map<string, string> } {
-  const data = new Map(Object.entries(initial));
-  return { data, getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v), removeItem: (k) => void data.delete(k) };
-}
 
 /** Plays the first legal placement, or discards; `last` picks the last legal placement instead (another board). */
 function play(game: EngineGame, last = false): void {
@@ -116,28 +107,17 @@ describe("the engine's queue", () => {
 });
 
 describe("Training with the queue", () => {
-  it("a new game knows three tiles and is saved as version 2", () => {
-    const store = memoryStore();
-    const session = LocalSession.start(SEED, () => store);
+  it("a new game knows three tiles", () => {
+    const session = LocalSession.start(SEED);
     expect(TRAINING_LOOKAHEAD).toBe(3);
     expect(session.state.hand?.tileId).toBe(2);
     expect(session.state.coming?.map((t) => t.tileId)).toEqual([3, 4]);
     const engine = replayTraining(SEED, []);
     expect(session.state.coming?.map((t) => t.plan)).toEqual(engine.coming.map((t) => PLANS.indexOf(t.plan)));
-    expect(loadGame(() => store)?.v).toBe(2);
-  });
-
-  it("a save of version 1 resumes under its own rules: one tile known, and it stays version 1", async () => {
-    const store = memoryStore({ [TRAINING_KEY]: JSON.stringify({ v: 1, seed: `0x${SEED.toString(16)}`, moves: [{ k: "d" }] }) });
-    const session = openTraining(() => store);
-    expect(session.state.coming).toEqual([]);
-    expect(session.state.hand?.plan).toBe(PLANS.indexOf(replayTraining(SEED, [{ k: "d" }], 1).hand!.plan));
-    await session.discard();
-    expect(loadGame(() => store)).toMatchObject({ v: 1, moves: [{ k: "d" }, { k: "d" }] });
   });
 
   it("the last tiles: the queue shortens, nothing coming with the last tile", async () => {
-    const session = LocalSession.start(SEED, () => null);
+    const session = LocalSession.start(SEED);
     while (!session.state.game!.over && (session.state.coming?.length ?? 0) > 0) await session.discard();
     expect(session.state.hand).not.toBeNull();
     expect(session.state.coming).toEqual([]);

@@ -77,18 +77,17 @@ export const PROFILE = {
 } satisfies Record<string, ProfileState>;
 
 export const HOME = {
-  connected: { player: PLAYER_STATUS, activeGame, training: { score: 420, remaining: 31 }, spawnPaused: false, now: MOCK_NOW },
-  guest: { player: null, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW },
-  paused: { player: PLAYER_STATUS, activeGame, training: null, spawnPaused: true, now: MOCK_NOW },
+  connected: { player: PLAYER_STATUS, activeGame, spawnPaused: false, now: MOCK_NOW },
+  guest: { player: null, activeGame: null, spawnPaused: false, now: MOCK_NOW },
+  paused: { player: PLAYER_STATUS, activeGame, spawnPaused: true, now: MOCK_NOW },
   /** P-61: the Cobble balance in the header, no free game. */
-  cobbles: { player: PLAYER_STATUS, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 0 } },
+  cobbles: { player: PLAYER_STATUS, activeGame: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 0 } },
   /** P-61: two free games from the quests: Free game spends one. */
-  freeGame: { player: PLAYER_STATUS, activeGame: null, training: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 } },
+  freeGame: { player: PLAYER_STATUS, activeGame: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 } },
   /** WRAP360: the longest username, the widest balances and scores. */
   stress: {
     player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE } },
     activeGame: { ...activeGame, id: BIG_NUMBER, score: BIG_SCORE },
-    training: { score: BIG_SCORE, remaining: 99 },
     spawnPaused: false,
     now: MOCK_NOW,
     cobbles: { balance: BIG_NUMBER, credits: 999 },
@@ -151,7 +150,9 @@ export const BOARD = {
   pending: { ...boardBase, tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }], hand: { tile: hand, state: "pending", slotChosen: true } },
   refused: { ...boardBase, hand: { tile: hand, state: "refused", slotChosen: true, error: "Move refused by the contract: the edges do not match." } },
   expired: { ...boardBase, expiresAt: GAME_EXPIRED.expiresAt, hand: { tile: hand, state: "expired" } },
-  storageDisabled: { ...boardBase, mode: "training", gameId: undefined, expiresAt: null, hand: { tile: hand, state: "placing" }, storageDisabled: true },
+  training: { ...boardBase, mode: "training", gameId: undefined, expiresAt: null, hand: { tile: hand, state: "placing" } },
+  /** A Story level with `localStorage` refused: its progress is not saved (Training saves nothing, so has no notice: #718). */
+  storageDisabled: { ...boardBase, mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees", hand: { tile: hand, state: "placing" }, storageDisabled: true },
   large: {
     ...boardBase,
     tiles: BOARD_72.tiles,

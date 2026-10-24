@@ -83,7 +83,7 @@ export function SettingsScene(props: SettingsSceneProps) {
                 <Icon name="user" className="text-muted-foreground" size="md" fixedWidth />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-sm font-semibold">Guest</span>
-                  <span className="text-xs wrap-anywhere text-muted-foreground">Training is saved on this device only.</span>
+                  <span className="text-xs wrap-anywhere text-muted-foreground">Story progress is saved on this device only.</span>
                 </span>
                 <Button size="sm" onClick={props.onConnect} loading={props.connecting}>
                   Connect

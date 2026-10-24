@@ -1,5 +1,6 @@
+import { randomBytes } from "node:crypto";
 import type { Page } from "playwright-core";
-import { CENTER, OrientationType, TRAINING_KEY, replayTraining, type EngineGame, type SavedGame } from "@paved/game-core";
+import { CENTER, OrientationType } from "@paved/game-core";
 
 export { CENTER };
 
@@ -40,13 +41,40 @@ export function noWebGL(): void {
   } as typeof getContext;
 }
 
-export async function readSave(page: Page): Promise<SavedGame | null> {
-  const raw = await page.evaluate((key) => localStorage.getItem(key), TRAINING_KEY);
-  return raw ? (JSON.parse(raw) as SavedGame) : null;
+/** Where the test leaves the seed of the next Training game, in the tab's `sessionStorage` (it survives a reload). */
+export const SEED_KEY = "paved:e2e:seed";
+
+/**
+ * Training saves nothing (#718), so the test gives the seed instead of reading it: `randomSeed` draws 31 bytes from
+ * `crypto.getRandomValues`, and while the tab holds a seed under `SEED_KEY`, a draw of 31 bytes returns that seed's.
+ * Every other draw is the browser's. React's StrictMode draws twice for one game: both get the same seed. Runs in the
+ * page, before its scripts.
+ */
+export function seedFromTest(key: string): void {
+  const draw = crypto.getRandomValues.bind(crypto);
+  crypto.getRandomValues = function <T extends ArrayBufferView | null>(array: T): T {
+    let seed: string | null = null;
+    try {
+      seed = sessionStorage.getItem(key);
+    } catch {
+      // A frame with no storage (about:blank): the browser's draw.
+    }
+    if (seed && array instanceof Uint8Array && array.length === 31) {
+      const digits = BigInt(seed).toString(16).padStart(62, "0");
+      for (let i = 0; i < 31; i++) array[i] = parseInt(digits.slice(2 * i, 2 * i + 2), 16);
+      return array;
+    }
+    return draw(array as never) as T;
+  } as typeof crypto.getRandomValues;
 }
 
-/** The engine's own replay of what the browser saved: the oracle of every check. */
-export const replaySave = (save: SavedGame): EngineGame => replayTraining(BigInt(save.seed), save.moves, save.v);
+/** A seed as `randomSeed` draws one (31 random bytes), in hex. */
+export const newSeed = (): string => `0x${BigInt(`0x${randomBytes(31).toString("hex")}`).toString(16)}`;
+
+/** The seed the tab's next Training game takes (a new game: an entry, a reload, Play again). */
+export async function setSeed(page: Page, seed: string): Promise<void> {
+  await page.evaluate(([k, s]) => sessionStorage.setItem(k, s), [SEED_KEY, seed] as [string, string]);
+}
 
 /** A figure as `formatPoints` writes it ("1,234", "−12") as a number. */
 export function points(text: string): number {
@@ -143,34 +171,44 @@ export async function readPreview(page: Page): Promise<number | null> {
   return points(await preview.innerText());
 }
 
-/** The moves saved so far: a placement shows here as soon as the page has made it. */
-const savedMoves = async (page: Page) => (await readSave(page))?.moves.length ?? 0;
+/** The tiles left on the stack's badge; null when it shows none (the deck spent, or the over page). */
+const shownLeft = async (page: Page): Promise<number | null> => {
+  const text = await page.evaluate(() => document.querySelector('[data-testid="tiles-left"]')?.textContent ?? null);
+  return text === null ? null : Number(text);
+};
 
 /**
  * Places the tile as a player does: the mouse pressed on Validate and held until the page has made the move (the hold's
- * 800 ms and the save), then let go. A press let go before the end places nothing (`tapValidate`).
+ * 800 ms, then the tiles left drop by one), then let go. A press let go before the end places nothing (`tapValidate`).
  */
 export async function holdToPlace(page: Page): Promise<void> {
-  await holdUntilSaved(page, validateButton(page));
+  await holdUntilMoved(page, validateButton(page));
 }
 
 /** The tile stack's Discard (#606): held as Validate is, while no cell is chosen. */
 export const discardButton = (page: Page) => page.getByRole("region", { name: "Your tile" }).getByRole("button", { name: /^Hold to discard the tile/ });
 
-/** Discards the tile as a player does: the stack's trash held until the page has saved the discard, then let go. */
+/** Discards the tile as a player does: the stack's trash held until the page has made the discard, then let go. */
 export async function holdToDiscard(page: Page): Promise<void> {
-  await holdUntilSaved(page, discardButton(page));
+  await holdUntilMoved(page, discardButton(page));
 }
 
-/** The mouse pressed on `button` and held until the page has saved one more move, then let go. */
-async function holdUntilSaved(page: Page, button: ReturnType<Page["getByRole"]>): Promise<void> {
-  const before = await savedMoves(page);
+/**
+ * The mouse pressed on `button` and held until the page has made one more move, then let go: a place or a discard
+ * spends one tile, so the tiles left drop by one (the badge goes with the last tile, #699).
+ */
+async function holdUntilMoved(page: Page, button: ReturnType<Page["getByRole"]>): Promise<void> {
+  const before = await shownLeft(page);
+  if (before === null) throw new Error("no tiles left shown: no move to make");
   await button.hover();
   await page.mouse.down();
   try {
     await page.waitForFunction(
-      ([key, n]) => (JSON.parse(localStorage.getItem(key) ?? "{}").moves?.length ?? 0) > n,
-      [TRAINING_KEY, before] as [string, number],
+      (n) => {
+        const left = document.querySelector('[data-testid="tiles-left"]')?.textContent;
+        return left == null || Number(left) < n;
+      },
+      before,
       { timeout: 20_000 },
     );
   } finally {
@@ -178,13 +216,13 @@ async function holdUntilSaved(page: Page, button: ReturnType<Page["getByRole"]>)
   }
 }
 
-/** A short press on Validate (a tap): the ring starts and rewinds, nothing is placed. Returns whether the save is unchanged. */
+/** A short press on Validate (a tap): the ring starts and rewinds, nothing is placed. Returns whether the tiles left are unchanged. */
 export async function tapValidate(page: Page): Promise<boolean> {
-  const before = await savedMoves(page);
+  const before = await shownLeft(page);
   await validateButton(page).click();
-  // Longer than the hold: a tap that placed would have saved by now.
+  // Longer than the hold: a tap that placed would have spent its tile by now.
   await page.waitForTimeout(1_200);
-  return (await savedMoves(page)) === before;
+  return (await shownLeft(page)) === before;
 }
 /** The bubble on the tile placed and not sent (the plan view draws it above the tile stack). */
 export const bubble = (page: Page) => page.getByRole("toolbar", { name: "Tile" });

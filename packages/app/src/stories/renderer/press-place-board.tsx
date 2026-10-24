@@ -12,7 +12,7 @@ import { APP_ASSETS } from "../../mocks/assets";
  * cell's centre, for the captures; `data-placed` counts the tiles placed.
  */
 export function PressPlaceBoard({ seed = 1n }: { seed?: bigint }) {
-  const game = useMemo(() => TrainingGame.start(seed, () => null), [seed]);
+  const game = useMemo(() => TrainingGame.start(seed), [seed]);
   const snapshot = useSyncExternalStore(
     useCallback((listener: () => void) => game.subscribe(listener), [game]),
     () => game.snapshot,

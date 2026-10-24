@@ -139,8 +139,6 @@ function TrainingBoard() {
       tileRenders={renders}
       skins={skins}
       renderHandStack={view === "3d" && canDrawStack() ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
-      storageDisabled={snapshot.storage === "off"}
-      saveDropped={snapshot.storage === "dropped"}
       slots={slots}
       ghost={ghost}
       confirmed={placement.confirmed}
