@@ -7,9 +7,7 @@ export interface NativePointerEvent {
 export type NativeMappedEvent =
   | { type: "click"; x: number; y: number }
   | { type: "pan"; dx: number; dy: number }
-  | { type: "pinch"; scale: number }
-  /** Two fingers moved up or down together: `dy` px of their midpoint (`NativeCameraController.applyTilt`). */
-  | { type: "tilt"; dy: number };
+  | { type: "pinch"; scale: number };
 
 export interface NativeInputMapperConfig {
   clickThreshold?: number;
@@ -37,7 +35,6 @@ export class NativeInputMapper {
   private readonly pointers = new Map<number, PointerState>();
   private dragDetected = false;
   private lastPinchDistance: number | null = null;
-  private lastMidpointY: number | null = null;
 
   constructor(config: NativeInputMapperConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -54,7 +51,6 @@ export class NativeInputMapper {
     if (this.pointers.size >= 2) {
       this.dragDetected = true;
       this.lastPinchDistance = this.getPinchDistance();
-      this.lastMidpointY = this.getMidpointY();
     }
 
     return [];
@@ -75,12 +71,6 @@ export class NativeInputMapper {
         events.push({ type: "pinch", scale: nextDistance / this.lastPinchDistance });
       }
       this.lastPinchDistance = nextDistance;
-
-      const nextMidpointY = this.getMidpointY();
-      if (nextMidpointY !== null && this.lastMidpointY !== null && nextMidpointY !== this.lastMidpointY) {
-        events.push({ type: "tilt", dy: nextMidpointY - this.lastMidpointY });
-      }
-      this.lastMidpointY = nextMidpointY;
       return events;
     }
 
@@ -109,7 +99,6 @@ export class NativeInputMapper {
 
     if (this.pointers.size < 2) {
       this.lastPinchDistance = null;
-      this.lastMidpointY = null;
     }
 
     if (this.pointers.size === 0) {
@@ -125,14 +114,6 @@ export class NativeInputMapper {
     this.pointers.clear();
     this.dragDetected = false;
     this.lastPinchDistance = null;
-    this.lastMidpointY = null;
-  }
-
-  private getMidpointY(): number | null {
-    const values = Array.from(this.pointers.values());
-    if (values.length < 2) return null;
-
-    return (values[0].y + values[1].y) / 2;
   }
 
   private getPinchDistance(): number | null {

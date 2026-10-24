@@ -176,10 +176,10 @@ export interface PointerTapHandlers {
 
 /**
  * The board's taps and presses from the surface's pointer events, with the left button or one finger only. A click is a down
- * and up of one pointer within `threshold` px with no second pointer down between (a pinch or the two-finger tilt places
+ * and up of one pointer within `threshold` px with no second pointer down between (a two-finger pinch places
  * nothing). A press is reported from the down, so a hold can start under the finger; it never stands in the camera's way:
  * any move past the threshold, a second pointer, another button, the pointer leaving or a browser cancel ends it `cancelled`,
- * and the camera pans, pinches or tilts as it would without it.
+ * and the camera pans or pinches as it would without it.
  */
 export class PointerTap {
   /**
@@ -199,7 +199,7 @@ export class PointerTap {
         return this.pointerDown(event);
       case "pointermove":
         if (!this.down || !this.samePointer(event)) return;
-        // Another button pressed while the left is held (a chord: the right one tilts) comes as a move, never as a down.
+        // Another button pressed while the left is held (a chord: the right one pans) comes as a move, never as a down.
         if (event.buttons !== undefined && (event.buttons & ~1) !== 0) {
           this.down.cancelled = true;
           this.endPress("cancelled");
@@ -222,7 +222,7 @@ export class PointerTap {
   }
 
   private pointerDown(event: SurfaceInputEvent): void {
-    // The right button tilts and the middle one pans: neither taps, and either ends a press under way.
+    // The right button pans and the middle one zooms: neither taps, and either ends a press under way.
     if ((event.button ?? 0) !== 0) {
       this.endPress("cancelled");
       return;

@@ -18,6 +18,7 @@ import { APP_ASSETS, APP_MANIFEST } from "../../mocks/assets";
 import { skinsFor } from "./skins-board";
 import { BOUNDS, PLACED, SLOTS, WITH_PLACED, tiles as BOARD_TILES } from "./placement-board";
 import { viewPose, type View } from "./outlines-tour";
+import { placeCamera } from "./story-camera";
 
 /** The 19 plans' keys, in plan order. */
 export const DROP_PLANS = Array.from({ length: 19 }, (_, i) => getPlanKey(Plan.from(i + 1).value));
@@ -280,9 +281,7 @@ export function VoxelDropInContext({ flash, view, distance, replayMs, force, ...
     const pose = viewPose(view, BOUNDS, distance);
     // Centred on the placed tile (the pose's own target is the board's centre).
     const [dx, dz] = [PLACED.x * TILE_SIZE - pose.target[0], PLACED.y * TILE_SIZE - pose.target[2]];
-    scene.controls.controls.target.set(pose.target[0] + dx, pose.target[1], pose.target[2] + dz);
-    scene.camera.position.set(pose.position[0] + dx, pose.position[1], pose.position[2] + dz);
-    scene.camera.lookAt(pose.target[0] + dx, pose.target[1], pose.target[2] + dz);
+    placeCamera(scene, [pose.target[0] + dx, pose.target[1], pose.target[2] + dz], [pose.position[0] + dx, pose.position[1], pose.position[2] + dz]);
     scene.requestRender();
     // The chunk and the grid of the placed tile's model (the plan is on the board already), so the first drop begins in its call.
     void scene.prepareDrop(BOARD_TILES[1]!).then(() => setReady(true));
