@@ -58,7 +58,7 @@ describe("PointerTap (TILE-HOLD, #630)", () => {
     expect(t.clicks).toEqual([]);
   });
 
-  it("cancels the press on a second finger (a pinch or the tilt), and the gesture never clicks", () => {
+  it("cancels the press on a second finger (a pinch or its pan), and the gesture never clicks", () => {
     const t = tracker();
     t.send("pointerdown", 150, 250);
     t.send("pointerdown", 300, 300, { pointerId: 2 });
@@ -72,7 +72,7 @@ describe("PointerTap (TILE-HOLD, #630)", () => {
     expect(t.clicks).toEqual([]);
   });
 
-  it("takes the left button only: the right one (the tilt) neither presses nor clicks, and ends a press under way", () => {
+  it("takes the left button only: the right one (a pan) neither presses nor clicks, and ends a press under way", () => {
     const t = tracker();
     t.send("pointerdown", 150, 250, { button: 2 });
     t.send("pointerup", 150, 250, { button: 2 });

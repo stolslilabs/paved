@@ -5,6 +5,7 @@ import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
+import { placeCamera } from "./story-camera";
 import { PLACED, SLOTS } from "./placement-board";
 import { SKINS_MANIFEST, skinsFor } from "./skins-board";
 
@@ -93,9 +94,7 @@ export function DayNightBoard({ cycleSeconds, phase, season, speed, nightLights,
   useEffect(() => {
     if (!scene) return;
     const pose = viewPose(view, BOUNDS, distance);
-    scene.controls.controls.target.set(...pose.target);
-    scene.camera.position.set(...pose.position);
-    scene.camera.lookAt(...pose.target);
+    placeCamera(scene, pose.target, pose.position);
     scene.requestRender();
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setReady(true))));
     return () => cancelAnimationFrame(id);

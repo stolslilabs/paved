@@ -1,22 +1,19 @@
 import * as THREE from "three";
-import { CLOSEST_DISTANCE, PLAY_DEFAULT_POLAR_ANGLE, PLAY_MAX_POLAR_ANGLE, PLAY_ROTATE_SPEED, tiltedOffset } from "./CameraController";
+import { CLOSEST_DISTANCE, PLAY_DEFAULT_POLAR_ANGLE, tiltedOffset } from "./CameraController";
 import type { BoardBounds, CameraMode } from "./types";
 
 export interface NativeCameraControllerConfig {
   minDistance?: number;
   maxDistance?: number;
   initialDistance?: number;
-  /** The tilt from straight down it opens at, in radians; kept within 0 and `PLAY_MAX_POLAR_ANGLE`. */
-  initialPolarAngle?: number;
 }
 
-// The web controller's tilt (`CameraController`): opens at 27 degrees, from straight down to 54. The closest zoom is the
-// web's too, so the near plane does not cut the tallest tile at the steepest tilt.
+// The web controller's camera (`CameraController`): the tilt is locked at 27 degrees (#719), and the closest zoom is the
+// web's too, so the near plane does not cut the tallest tile.
 const DEFAULT_CONFIG: Required<NativeCameraControllerConfig> = {
   minDistance: CLOSEST_DISTANCE,
   maxDistance: 300,
   initialDistance: 24,
-  initialPolarAngle: PLAY_DEFAULT_POLAR_ANGLE,
 };
 
 export class NativeCameraController {
@@ -27,7 +24,6 @@ export class NativeCameraController {
   private readonly minDistance: number;
   private readonly maxDistance: number;
   private distance: number;
-  private polarAngle: number;
   private mode: CameraMode = "play";
   private boardBounds: BoardBounds | null = null;
 
@@ -40,7 +36,6 @@ export class NativeCameraController {
       this.minDistance,
       this.maxDistance,
     );
-    this.polarAngle = THREE.MathUtils.clamp(resolved.initialPolarAngle, 0, PLAY_MAX_POLAR_ANGLE);
   }
 
   setMode(mode: CameraMode): void {
@@ -82,31 +77,17 @@ export class NativeCameraController {
     );
   }
 
-  /**
-   * Tilts by a vertical drag of `dy` px on a surface `heightPx` high, as OrbitControls does on the web: a drag down
-   * tilts towards straight down, within 0 and `PLAY_MAX_POLAR_ANGLE`.
-   */
-  applyTilt(dy: number, heightPx: number): void {
-    if (heightPx <= 0) return;
-
-    this.polarAngle = THREE.MathUtils.clamp(
-      this.polarAngle - (2 * Math.PI * PLAY_ROTATE_SPEED * dy) / heightPx,
-      0,
-      PLAY_MAX_POLAR_ANGLE,
-    );
-  }
-
   getDistance(): number {
     return this.distance;
   }
 
-  /** The tilt from straight down, in radians. */
+  /** The tilt from straight down, in radians: locked at `PLAY_DEFAULT_POLAR_ANGLE` (#719). */
   getPolarAngle(): number {
-    return this.polarAngle;
+    return PLAY_DEFAULT_POLAR_ANGLE;
   }
 
   /** Where the camera stands: the target plus the tilted offset at the distance. */
   getPosition(): THREE.Vector3 {
-    return tiltedOffset(this.distance, this.polarAngle).add(this.target);
+    return tiltedOffset(this.distance, PLAY_DEFAULT_POLAR_ANGLE).add(this.target);
   }
 }

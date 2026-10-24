@@ -11,7 +11,6 @@ export {
   CLOSEST_DISTANCE,
   OPENING_DISTANCE_FACTOR,
   PLAY_DEFAULT_POLAR_ANGLE,
-  PLAY_MAX_POLAR_ANGLE,
 } from "./core/CameraController";
 export type { CameraConfig } from "./core/CameraController";
 export { NativeCameraController } from "./core/NativeCameraController";
