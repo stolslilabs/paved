@@ -4,7 +4,7 @@ import * as m from "motion/react-m";
 import { formatInteger, type Stars } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { StarRow } from "../elements/star-row";
-import { TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
+import { StoryBackground, TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
@@ -324,7 +324,9 @@ export interface CampaignCardProps {
   status: CampaignStatus;
   /** Locked: the stars still to earn over the campaigns before it. */
   missing?: number;
-  /** The plans of its decks (chain ids), the first eight drawn as its background. */
+  /** The campaign's tile theme (`StoryCampaign.theme`, 0 Default): its background is drawn in it. Unset: 0. */
+  theme?: number;
+  /** The plans of its decks (chain ids), the first eight drawn as its background when the build has no picture of it. */
   plans: readonly number[];
   renders?: TileRenders;
   /** Its levels are the ones shown under the cards. */
@@ -340,16 +342,17 @@ const UNLOCK = { turn: 0.5, lift: 0.8, duration: 0.9, fade: 1.3 } as const;
 const BLURRED = "blur(14px) saturate(0.5)";
 
 /**
- * One campaign (#592): its tiles as a background (build-time renders, no WebGL), its name, summary, levels and stars. A locked
- * one shows its background under a blur, a lock and the stars it still needs; an unlocking one plays the unlock once (at
- * once under reduced motion), when it is not `paused`. Pressing it shows its levels.
+ * One campaign (#592): its background (its build-time picture in its theme, #721; its tiles' renders without one; no WebGL),
+ * its name, summary, levels and stars. A locked one shows its background under a blur, a lock and the stars it still needs;
+ * an unlocking one plays the unlock once (at once under reduced motion), when it is not `paused`. Pressing it shows its levels.
  */
-export function CampaignCard({ id, name, summary, levels, stars, status, missing = 0, plans, renders, selected, paused, onSelect, className }: CampaignCardProps) {
+export function CampaignCard({ id, name, summary, levels, stars, status, missing = 0, theme = 0, plans, renders, selected, paused, onSelect, className }: CampaignCardProps) {
   const reduced = useReducedMotionConfig();
   const shown: CampaignStatus = status === "unlocking" && reduced ? "open" : status;
   const locked = shown === "locked";
   const unlocking = shown === "unlocking";
   const playing = unlocking && !paused;
+  const veiled = locked ? "scale-110 blur-[14px] saturate-50" : undefined;
   const total = levels * 3;
   return (
     <button
@@ -371,7 +374,13 @@ export function CampaignCard({ id, name, summary, levels, stars, status, missing
         animate={playing ? { filter: "blur(0px) saturate(1)", scale: 1 } : undefined}
         transition={{ delay: UNLOCK.lift, duration: UNLOCK.duration, ease: "easeOut" }}
       >
-        <TileMosaic plans={plans} renders={renders} className={cn("size-full aspect-auto", locked && "scale-110 blur-[14px] saturate-50")} />
+        <StoryBackground
+          campaign={id}
+          theme={theme}
+          renders={renders}
+          className={veiled}
+          fallback={<TileMosaic plans={plans} renders={renders} className={cn("size-full aspect-auto", veiled)} />}
+        />
       </m.span>
       <span aria-hidden className="absolute inset-0 bg-linear-to-t from-card via-card/75 to-transparent" />
       {(locked || unlocking) && (
