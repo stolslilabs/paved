@@ -53,8 +53,4 @@ export const queryKeys = {
     /** `/v1/players/:id/achievements`. */
     achievements: (playerId: string) => ["indexer", "achievements", addressKey(playerId)] as const,
   },
-  local: {
-    /** The Training save of this browser, as the home card reads it. */
-    trainingSave: () => ["local", "trainingSave"] as const,
-  },
 };

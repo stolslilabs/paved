@@ -30,7 +30,6 @@ export type SceneTypes = [
   // home
   Expect<Equal<Data<typeof indexer.usePlayerStatus>, HomeSceneProps["player"]>>,
   Expect<Equal<Data<typeof chain.useActiveGame>, HomeSceneProps["activeGame"]>>,
-  Expect<Equal<Data<typeof training.useTrainingSave>, HomeSceneProps["training"]>>,
   Expect<Equal<Data<typeof chain.useSpawnPaused>, HomeSceneProps["spawnPaused"]>>,
   // the XP ring and the profile sheet (#625): null is no player, the sheet takes undefined for it
   Expect<Equal<NonNullable<Data<typeof playerProgress.usePlayerProgress>>, NonNullable<ProfileSheetProps["progress"]>>>,
