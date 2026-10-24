@@ -7,6 +7,7 @@ import { errorDetail } from "../../routes/error-detail";
 import { leagueOf, shareOf, type PvpPlayer } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { Skeleton } from "../ui/skeleton";
 import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
 import { Crowns } from "../elements/crowns";
@@ -26,7 +27,8 @@ const loadVillage = () => import("./village-scene");
 /**
  * The village reward after an attack (owner decision, #637: at once, no timer, with a daily cap): `offer` (three tiles, or the
  * Cobbles; chosen on #646's reward sheet, over the player's village), `taken` (chosen: a tile placed or copied, or the
- * Cobbles), `capped` (the day's rewards are taken: the next at `resetsAt`), `none` (no star).
+ * Cobbles), `capped` (the day's rewards are taken: the next at `resetsAt`), `none` (no star), `loading` (the reward is being
+ * read), `error` (its read failed: said, with Retry, never taken for a capped day).
  */
 export type PvpReward =
   | { state: "offer"; offer: RewardOffer }
@@ -34,7 +36,9 @@ export type PvpReward =
   | { state: "sealed"; pending: number }
   | { state: "taken"; plan: number | null; cobbles: number | null }
   | { state: "capped"; resetsAt: number }
-  | { state: "none" };
+  | { state: "none" }
+  | { state: "loading" }
+  | { state: "error"; message: string; detail?: ErrorDetail };
 
 export interface PvpResultSceneProps {
   defender: PvpPlayer;
@@ -68,6 +72,8 @@ export interface PvpResultSceneProps {
   /** `sealed`: the draw is on its way. */
   opening?: boolean;
   onReplay?: () => void;
+  /** `error`: the reward is read again. */
+  onRetryReward?: () => void;
   /** Another attack: back to the search. */
   onAgain?: () => void;
   onHome?: () => void;
@@ -200,6 +206,21 @@ export function PvpResultScene(props: PvpResultSceneProps) {
             </p>
           )}
           {reward.state === "none" && <p className="text-sm text-muted-foreground">No star, no reward. Reach 70 % of a village's score for the first star.</p>}
+          {reward.state === "loading" && <Skeleton aria-label="Reading your reward" className="h-10 rounded-lg" />}
+          {reward.state === "error" && (
+            <InlineError
+              title="Village reward"
+              message={reward.message}
+              detail={reward.detail}
+              action={
+                props.onRetryReward && (
+                  <Button size="sm" variant="secondary" onClick={props.onRetryReward}>
+                    Try again
+                  </Button>
+                )
+              }
+            />
+          )}
         </section>
 
         <div className="mt-auto grid w-full gap-2 mobile:grid-cols-2">

@@ -16,7 +16,7 @@ import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
 import { useTileArt } from "../../data/tile-art";
 import { useTileRenders } from "../../data/tile-renders";
-import { useVillage, useVillageReward, useVillageWrites } from "../../data/village";
+import { useVillage, useVillageReward, useVillageWrites, villageKeys } from "../../data/village";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
@@ -88,9 +88,14 @@ function Result({ id }: { id: number }) {
   }
   const stars = settled.data.surrendered ? 0 : (settled.data.stars ?? starsFor(score, target));
   const offer = reward.data?.offer ?? null;
+  // The reward's read decides: failed, it is said with Retry; on its way, it waits. Never a capped day it was not read to be.
   const shown: PvpReward = taken
     ? { state: "taken", ...taken }
-    : offer
+    : reward.error && !reward.data
+      ? { state: "error", message: reward.error.message, detail: errorDetail(reward.error) }
+      : reward.data === undefined
+        ? { state: "loading" }
+        : offer
       ? { state: "offer", offer }
       : (reward.data?.pending ?? 0) > 0
         ? { state: "sealed", pending: reward.data!.pending }
@@ -127,6 +132,12 @@ function Result({ id }: { id: number }) {
       onAddCopy={(c) => send(() => writes.merge(c.slot), { plan: c.plan, cobbles: null }, "Copy added")}
       onTakeCobbles={() => send(writes.cobbles, { plan: null, cobbles: offer?.cobbles ?? 0 }, "Cobbles taken")}
       onReplay={() => go(`/pvp/replay/${me}/${id}`)}
+      onRetryReward={() => {
+        if (me) {
+          void client.invalidateQueries({ queryKey: villageKeys.offer(me) });
+          void client.invalidateQueries({ queryKey: villageKeys.grants(me) });
+        }
+      }}
       onAgain={() => go("/pvp")}
       onHome={() => go("/")}
     />

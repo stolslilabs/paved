@@ -203,6 +203,10 @@ export const PVP_RESULT = {
   rewardPlaced: result(ATTACK_SCORES.rival[3], { reward: { state: "taken", plan: REWARD.plans[0]!, cobbles: null } }),
   /** The Cobbles taken instead. */
   rewardCobbles: result(ATTACK_SCORES.rival[3], { reward: { state: "taken", plan: null, cobbles: REWARD.cobbles } }),
+  /** The reward is being read. */
+  rewardLoading: result(ATTACK_SCORES.rival[3], { reward: { state: "loading" } }),
+  /** The reward's read failed: said, with Try again, never a capped day. */
+  rewardError: result(ATTACK_SCORES.rival[3], { reward: { state: "error", message: "Your reward could not be read: the network did not answer.", detail: { code: "RpcError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 52) } } }),
   defeat: result(ATTACK_SCORES.rival[5]),
   /** A defeat that drops the attacker out of Silver II. */
   defeatDropped: { ...result(ATTACK_SCORES.rival[5]), crownsAfter: 990 },

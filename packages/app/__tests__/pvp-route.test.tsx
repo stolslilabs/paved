@@ -240,6 +240,17 @@ describe("receipt-cached attacks and the shield's read", { timeout: slow(30_000)
     expect(screen.getByRole("button", { name: /Search again/ })).toBeInTheDocument();
   });
 
+  it("/pvp/result/:id: a failed reward read is told with Try again, never a capped day", async () => {
+    await open("/pvp/result/1", async (s, me) => {
+      await attacked(s, me);
+      const views = s.sources.views;
+      s.sources.views = new Proxy(views, { get: (t, k) => (k === "rewardGrants" ? () => Promise.reject(new Error("Rewards RPC unavailable")) : Reflect.get(t, k, t)) });
+    });
+    expect(await screen.findByText(/Rewards RPC unavailable/, {}, WAIT)).toBeInTheDocument();
+    expect(screen.queryByText(/Today's rewards are all taken/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
   it("/pvp/defence: a failed shield read is told, never shown as no shield", async () => {
     await open("/pvp/defence", async (s) => {
       const views = s.sources.views;
