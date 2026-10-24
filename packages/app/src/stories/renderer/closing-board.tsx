@@ -145,7 +145,12 @@ export function ClosingBoard({ scenario, quality, reducedMotion, ...knobs }: Clo
   return (
     <div className="relative h-full min-h-dvh w-full bg-board" data-ready={scene ? true : undefined}>
       <GameCanvas tiles={board.tiles} closedStructures={board.closed} basePath={APP_ASSETS} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
-      {scenario === "stagger" && played && <ClosingFeed closings={AFTER.lastScored} className="absolute top-16 left-1/2 -translate-x-1/2" />}
+      {scenario === "stagger" && played && (
+        // Inline: a utility class no page uses would land in the app's CSS (stories are scanned) and grow its budget.
+        <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 64 }}>
+          <ClosingFeed closings={AFTER.lastScored} />
+        </div>
+      )}
       <div className="absolute top-3 left-3 flex items-center gap-2">
         {scenario === "stagger" && (
           <button type="button" className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground" onClick={() => setPlayed((p) => !p)}>
