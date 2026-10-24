@@ -147,14 +147,15 @@ const attack = async (ledger: MockLedger) => {
   await search(ledger);
   await ledger.writesFor(PLAYER_ID).startAttack();
 };
-const SEARCH: Setup = { latencyMs: 600_000 };
+/** The search's receipt comes after 12 s: long enough to see (and capture) the wait, then the village found and its scout. */
+const SEARCH: Setup = { latencyMs: 12_000 };
 const SCOUT: Setup = { prepare: search };
 const ATTACK: Setup = { prepare: async (ledger) => (await attack(ledger), await play(ledger, 11)) };
 const RESULT: Setup = { pvp: { crowns: 380, draws: 0, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 2, peak: 0 }, prepare: async (ledger) => (await attack(ledger), await play(ledger)) };
 const LEAGUE: Setup = { pvp: { crowns: 1172, draws: 9, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 3, peak: 7 } };
 const REPLAY: Setup = RESULT;
 
-/** The search's waiting screen: the matchmaker's draw on its way (its receipt held back), under the clouds. */
+/** The search's waiting screen: the matchmaker's draw on its way (its receipt 12 s off), under the clouds; then the village found. */
 export const Search: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SEARCH} /> };
 /** The scout of the village drawn: its score, each star's points and crowns, the loss, Next for a Cobble. */
 export const Scout: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SCOUT} /> };
