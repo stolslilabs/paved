@@ -177,7 +177,7 @@ const attack = async (ledger: MockLedger) => {
 /** The search's receipt comes after 12 s: long enough to see (and capture) the wait, then the village found and its scout. */
 const SEARCH: Setup = { latencyMs: 12_000, prepare: foundV2 };
 const SCOUT: Setup = { prepare: searchV2 };
-const ATTACK: Setup = { prepare: async (ledger) => (await searchV2(ledger), await ledger.writesFor(PLAYER_ID).startAttackV2(), await playV2(ledger, 11)) };
+const ATTACK: Setup = { prepare: async (ledger) => (await searchV2(ledger), await ledger.writesFor(PLAYER_ID).startAttackV2(), await playV2(ledger, 5)) };
 const RESULT: Setup = { pvp: { crowns: 380, draws: 0, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 2, peak: 0 }, prepare: async (ledger) => (await attack(ledger), await play(ledger)) };
 const LEAGUE: Setup = { pvp: { crowns: 1172, draws: 9, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 3, peak: 7 } };
 const REPLAY: Setup = RESULT;
@@ -186,7 +186,7 @@ const REPLAY: Setup = RESULT;
 export const Search: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SEARCH} /> };
 /** The scout of the village drawn: its score, each star's points (80 / 90 / 100 %) and crowns, the deck the attack will have. */
 export const Scout: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SCOUT} /> };
-/** A v2 attack eleven moves in: an open board, the tile in hand and the next two, the deck left, the score against the marks. */
+/** A v2 attack five moves in: an open board, the tile in hand and the next two, the deck left, the score against the marks. */
 export const Attack: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...ATTACK} /> };
 /** The attack's end: the stars, the crowns moved, the village reward the settlement granted (Open draws its tiles). */
 export const Result: Story = { parameters: { route: "/pvp/result/1" }, render: () => <PvpPages {...RESULT} /> };
