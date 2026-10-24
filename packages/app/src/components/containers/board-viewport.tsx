@@ -2,7 +2,7 @@ import { Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObj
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
 import { boardReveal, villageReveal } from "@paved/renderer";
-import type { FogCell, GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
+import type { ClosedStructure, FogCell, GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
 import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
 import type { Hold } from "../../lib/use-hold";
@@ -58,6 +58,12 @@ export interface BoardGhost {
 
 export interface BoardViewportProps {
   tiles: BoardTile[];
+  /**
+   * Every structure closed so far, in closing order, as its areas on its tiles (`PageState.closed`, #722): one that closes
+   * while the board is shown pulses bright yellow as its line appears in the closing feed, then shines for the rest of the
+   * game; those already closed when the board opens (a reload, a resumed game) shine at once. Unset: none.
+   */
+  closed?: ReadonlyArray<ReadonlyArray<{ tileId: number; areas: number }>>;
   /** The game's id: with each tile's x and y, it picks the tile's skin variant (the same for every viewer and reload). */
   gameId?: number;
   /**
@@ -337,7 +343,18 @@ export function useFogReveal(tiles: TileRenderData[], owned?: ReadonlyArray<{ x:
   return reveal;
 }
 
-export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, otherPlates = true, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
+/**
+ * The closed structures as the renderer takes them (`GameScene.setClosedStructures`): each one's id is its areas (a structure
+ * keeps them, and two structures never hold the same), so its clock survives a new state and a resync.
+ */
+export function toClosedStructures(closed: NonNullable<BoardViewportProps["closed"]>, gameId: number): ClosedStructure[] {
+  return closed.map((areas) => ({
+    id: areas.map((a) => `${a.tileId}:${a.areas}`).join(","),
+    areas: areas.map((a) => ({ gameId, id: a.tileId, areas: a.areas })),
+  }));
+}
+
+export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, fogOwned, otherPlates = true, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
   const covered = useContext(BoardCovered);
@@ -346,6 +363,9 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
     return () => onScene?.(null);
   }, [scene, onScene]);
   const renderTiles = useMemo(() => toRenderTiles(tiles, gameId), [tiles, gameId]);
+  // A session gives a new list with each state: the renderer gets a new one only when a structure closes.
+  const closedKey = JSON.stringify(closed ?? []);
+  const closedStructures = useMemo(() => toClosedStructures(closed ?? [], gameId), [closedKey, gameId]); // eslint-disable-line react-hooks/exhaustive-deps
   const fogReveal = useFogReveal(renderTiles, fogOwned);
   // A plate on every free cell next to a tile: playable or invalid (`boardPlates`), in the renderer's grid.
   const gridSlots = useMemo(
@@ -379,6 +399,7 @@ export function BoardViewport({ tiles, gameId = 0, skins, basePath, slots, ghost
     <div className={cn("absolute inset-0 touch-none bg-board select-none [-webkit-touch-callout:none]", className)} onContextMenu={(e) => e.preventDefault()}>
       <GameCanvas
         tiles={renderTiles}
+        closedStructures={closedStructures}
         basePath={basePath}
         skins={skins}
         settings={settings}
