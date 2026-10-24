@@ -20,7 +20,7 @@ export const bootScreen = <LoadingScene progress={null} />;
 /** The music volume from the player's pause (0) or resume, stored like a move of the slider. */
 const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));
 
-/** A leaf, so that the view transition's state re-renders it alone: it removes the swipe's mark when the swipe ends (TAB-SWIPE, #726). */
+/** A leaf, so that the view transition's state re-renders it alone: it removes the swipe's mark when the swipe ends (TAB-SWIPE, issue 726). */
 function TabSwipeEnd() {
   useTabSwipeEnd();
   return null;
