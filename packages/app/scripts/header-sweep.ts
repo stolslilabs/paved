@@ -1,9 +1,10 @@
 /**
- * HEADER-HEIGHT (#676): every page outside the board has one header height per breakpoint, and its content starts at the
- * same height. Each story of `Pages/Headers` (one per page, in the shell's providers; `src/stories/page-headers.ts` lists
- * them with the routes they cover) at 375 px and at 1440 px:
+ * HEADER-HEIGHT (#676): every page outside the game scenes has one header height per breakpoint, and its content starts at
+ * the same height; below `desktop` a page without balances has one row less (HEADER-BALANCES, #720: `page-header-single`),
+ * so there the pages fall in two groups, each with one height and one content start. Each story of `Pages/Headers` (one per
+ * page, in the shell's providers; `src/stories/page-headers.ts` lists them with the routes they cover) at 375 px and at 1440 px:
  * - one header at the top of the page (a `data-slot="page-header"` element, or the navigation's header from `desktop`, not
- *   the fixed bottom bar), as tall as the `--header-h` token (theme.css) at that width;
+ *   the fixed bottom bar), as tall as its own `--header-h` token (theme.css) at that width;
  * - every other page header shown (a tab page's title row from `desktop`, below the navigation) as tall as the token too;
  * - the content's first box (painted, text, a picture, a control, a tab page's title row from `desktop`) starts at the same
  *   height in the layout on every page but the heroes (Home, Welcome);
@@ -99,12 +100,12 @@ async function render(page: Page, origin: string, id: string): Promise<void> {
 }
 
 interface Measure {
-  /** `--header-h` at this width, in px. */
+  /** `--header-h` of the header at the top at this width (the root's without one), in px. */
   token: number;
-  /** The headers at the top of the page: their height. */
-  headers: { name: string; height: number }[];
-  /** Every other page header shown (not at the top): its height. */
-  others: { name: string; height: number }[];
+  /** The headers at the top of the page: their height and their own token. */
+  headers: { name: string; height: number; token: number }[];
+  /** Every other page header shown (not at the top): its height and its own token. */
+  others: { name: string; height: number; token: number }[];
   /** Where the content starts: the top of its first element below the header, in px. */
   content: number | null;
 }
@@ -113,8 +114,10 @@ interface Measure {
 function measure(): Measure {
   const root = document.documentElement;
   const rem = parseFloat(getComputedStyle(root).fontSize);
-  const raw = getComputedStyle(root).getPropertyValue("--header-h").trim();
-  const token = raw.endsWith("rem") ? parseFloat(raw) * rem : parseFloat(raw);
+  const tokenOf = (el: Element) => {
+    const raw = getComputedStyle(el).getPropertyValue("--header-h").trim();
+    return raw.endsWith("rem") ? parseFloat(raw) * rem : parseFloat(raw);
+  };
   const shown = (el: Element) => {
     const cs = getComputedStyle(el);
     const r = el.getBoundingClientRect();
@@ -149,10 +152,10 @@ function measure(): Measure {
   }
   const sized = (el: Element) => {
     const label = el.getAttribute("aria-label");
-    return { name: `${el.tagName.toLowerCase()}${label ? `[${label}]` : ""}`, height: Math.round(el.getBoundingClientRect().height * 100) / 100 };
+    return { name: `${el.tagName.toLowerCase()}${label ? `[${label}]` : ""}`, height: Math.round(el.getBoundingClientRect().height * 100) / 100, token: tokenOf(el) };
   };
   const others = [...document.querySelectorAll('[data-slot="page-header"]')].filter((el) => shown(el) && !top.includes(el));
-  return { token, content, headers: top.map(sized), others: others.map(sized) };
+  return { token: top[0] ? tokenOf(top[0]) : tokenOf(root), content, headers: top.map(sized), others: others.map(sized) };
 }
 
 async function main() {
@@ -171,8 +174,14 @@ async function main() {
   try {
     const page = await browser.newPage({ reducedMotion: "reduce" });
     for (const width of opts.widths) {
-      const heights = new Map<number, string[]>();
-      const starts = new Map<number, string[]>();
+      // By token: below `desktop` the pages with the balances' strip and those without (#720) each keep one height and one start.
+      const heights = new Map<number, Map<number, string[]>>();
+      const starts = new Map<number, Map<number, string[]>>();
+      const add = (m: Map<number, Map<number, string[]>>, token: number, value: number, name: string) => {
+        const of = m.get(token) ?? new Map<number, string[]>();
+        of.set(value, [...(of.get(value) ?? []), name]);
+        m.set(token, of);
+      };
       for (const id of stories) {
         const name = id.slice(PREFIX.length);
         await page.setViewportSize({ width, height: 800 });
@@ -181,30 +190,30 @@ async function main() {
         if (!(token > 0)) failures.push(`${name} at ${width} px: no --header-h`);
         if (headers.length !== 1) failures.push(`${name} at ${width} px: ${headers.length} headers at the top (${headers.map((h) => h.name).join(", ")}), not one`);
         for (const h of headers) {
-          if (Math.abs(h.height - token) > 0.5) failures.push(`${name} at ${width} px: ${h.name} is ${h.height} px, --header-h is ${token} px`);
-          heights.set(h.height, [...(heights.get(h.height) ?? []), name]);
+          if (Math.abs(h.height - h.token) > 0.5) failures.push(`${name} at ${width} px: ${h.name} is ${h.height} px, its --header-h is ${h.token} px`);
+          add(heights, h.token, h.height, name);
         }
         for (const h of others) {
-          if (Math.abs(h.height - token) > 0.5) failures.push(`${name} at ${width} px: ${h.name} below the top is ${h.height} px, --header-h is ${token} px`);
-          heights.set(h.height, [...(heights.get(h.height) ?? []), name]);
+          if (Math.abs(h.height - h.token) > 0.5) failures.push(`${name} at ${width} px: ${h.name} below the top is ${h.height} px, its --header-h is ${h.token} px`);
+          add(heights, h.token, h.height, name);
         }
         const hero = HERO_PAGES.includes(name);
         if (!hero) {
           if (content === null) failures.push(`${name} at ${width} px: no content below the header`);
-          else starts.set(content, [...(starts.get(content) ?? []), name]);
+          else add(starts, token, content, name);
         }
         console.log(`${width} px  ${name.padEnd(18)}  ${headers.map((h) => `${h.name} ${h.height}`).join(", ")}${others.map((h) => ` + ${h.name} ${h.height}`).join("")}  content at ${content}${hero ? " (hero)" : ""}  (--header-h ${token})`);
       }
       const list = (m: Map<number, string[]>) => [...m].map(([v, pages]) => `${v} px (${[...new Set(pages)].join(", ")})`).join("; ");
-      if (heights.size > 1) failures.push(`at ${width} px the headers differ: ${list(heights)}`);
-      if (starts.size > 1) failures.push(`at ${width} px the content starts at different heights: ${list(starts)}`);
+      for (const [token, of] of heights) if (of.size > 1) failures.push(`at ${width} px the ${token} px headers differ: ${list(of)}`);
+      for (const [token, of] of starts) if (of.size > 1) failures.push(`at ${width} px the content under the ${token} px headers starts at different heights: ${list(of)}`);
     }
   } finally {
     await browser.close();
     server.close();
   }
   for (const f of failures) console.log(`FAIL  ${f}`);
-  console.log(`\n${stories.length} pages x ${opts.widths.join(", ")} px: ${failures.length ? `${failures.length} failure(s)` : "one header height and one content start per width"}.`);
+  console.log(`\n${stories.length} pages x ${opts.widths.join(", ")} px: ${failures.length ? `${failures.length} failure(s)` : "one header height and one content start per width and header"}.`);
   process.exitCode = failures.length ? 1 : 0;
 }
 

@@ -110,39 +110,56 @@ describe("OverScene: the figures and the final board (#539)", () => {
     expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Left open1Largest: a road of 3 tiles");
   });
 
-  it("switches to the board and back, keeping the board mounted under the scores", async () => {
+  it("the board is the scores' background from the start: covered, inert, then free under Board, and covered again (#720)", async () => {
     const onViewChange = vi.fn();
-    show(<OverScene {...OVER.training} onViewChange={onViewChange} />);
-    expect(screen.queryByTestId("final-board")).toBeNull();
+    const onHome = vi.fn();
+    show(<OverScene {...OVER.training} onViewChange={onViewChange} onHome={onHome} />);
+    // Loaded as the screen opens, under the scores: no input reaches it there.
+    const board = await screen.findByTestId("final-board");
+    expect(await within(board).findByRole("img", { name: /Board of \d+ tiles/, hidden: true })).toBeInTheDocument();
+    expect(board).toHaveAttribute("aria-hidden", "true");
+    expect(board).toHaveAttribute("inert");
+    expect(screen.getByTestId("scores-overlay").closest('[aria-hidden="true"]')).toBeNull();
     const toggle = screen.getByRole("radiogroup", { name: "Show" });
     await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
     expect(onViewChange).toHaveBeenLastCalledWith("board");
-    expect(await within(screen.getByTestId("final-board")).findByRole("img", { name: /Board of \d+ tiles/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Final board" })).toBeInTheDocument();
+    expect(board).not.toHaveAttribute("aria-hidden", "true");
+    expect(board).not.toHaveAttribute("inert");
+    // One bar for both views, titled with the mode; its Back returns to the scores from the board.
+    expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(onViewChange).toHaveBeenLastCalledWith("scores");
-    expect(screen.getByTestId("final-board")).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+    expect(board).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
+    // From the scores, Back leaves the screen.
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(onHome).toHaveBeenCalledOnce();
   });
 
-  it("the final board's top bar keeps the title and the score, no balances over the board, after any number of switches (#620)", async () => {
+  it("one bar, the board's HUD: the mode and the score, no balances, no hairline, whatever the view (#720)", async () => {
     show(
       <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 10 } }}>
         <OverScene {...OVER.training} />
       </BalancesProvider>,
     );
     const toggle = screen.getByRole("radiogroup", { name: "Show" });
-    // The scores' bar carries them (the strip and the rail).
-    const scores = screen.getByRole("heading", { level: 1, name: "Final score" }).closest("header")!;
-    expect(await within(scores).findAllByRole("region", { name: "Balances" })).toHaveLength(2);
-    for (let i = 0; i < 2; i++) {
-      await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
-      const bar = screen.getByRole("heading", { level: 1, name: "Final board" }).closest("header")!;
+    for (const view of ["Board", "Scores", "Board"]) {
+      await userEvent.click(within(toggle).getByRole("radio", { name: view }));
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      const bar = screen.getByRole("heading", { level: 1, name: "Training" }).closest("header")!;
+      expect(bar).not.toHaveAttribute("data-slot", "page-header");
+      expect(bar.className).not.toMatch(/(^|\s)border-b(\s|$)/);
       expect(within(bar).queryByRole("region", { name: "Balances" })).toBeNull();
-      expect(within(bar).queryByRole("button", { name: /Connect/ })).toBeNull();
-      expect(bar).toHaveTextContent(/^Final board[\d,]+$/);
-      await userEvent.click(within(bar).getByRole("button", { name: "Back" }));
+      expect(bar).toHaveTextContent(/^TrainingScore[\d,]+$/);
     }
+    expect(screen.queryByRole("region", { name: "Balances" })).toBeNull();
+    // The score card has no label of its own any more: the bar names the mode.
+    expect(within(screen.getByTestId("final-score")).queryByText("Training")).toBeNull();
+  });
+
+  it("a Challenge's end is titled with its game", () => {
+    show(<OverScene {...OVER.rewarded} />);
+    expect(screen.getByRole("heading", { level: 1, name: `Challenge #${OVER.rewarded.game.id}` })).toBeInTheDocument();
   });
 
   it("has no toggle without a board", () => {

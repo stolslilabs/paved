@@ -98,7 +98,8 @@ export function PvpResultScene(props: PvpResultSceneProps) {
   const moved = after.index !== before.index ? (after.from > before.from ? "up" : "down") : null;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <TopBar title="Attack over" onBack={props.onHome} />
+      {/* No balances in its bar: the result shows its Cobbles in place (#720, `routes/header-balances.ts`). */}
+      <TopBar title="Attack over" onBack={props.onHome} balances={false} />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {/* The verdict on a card, as every page's content starts (HEADER-HEIGHT, #676): at the one line under the header. */}
         <section aria-label="Result" className="flex w-full flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-5 text-center">

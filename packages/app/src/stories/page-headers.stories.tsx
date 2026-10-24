@@ -6,7 +6,7 @@ import { TRACKS } from "../lib/music/tracks";
 import { UPCOMING_CAMPAIGNS } from "../data/story";
 import { appRenders } from "../mocks/assets";
 import { PROGRESS } from "../mocks/players";
-import { ACHIEVEMENTS, AVATAR_CREATOR, COBBLES, HOME, MY_TILES, OVER, PLAY, PROFILE, PURCHASE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
+import { ACHIEVEMENTS, AVATAR_CREATOR, COBBLES, HOME, MY_TILES, PLAY, PROFILE, PURCHASE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
 import { AchievementsScene } from "../components/scenes/achievements-scene";
 import { BalancesProvider } from "../components/containers/balances-context";
 import { ProfileProvider } from "../components/containers/profile-context";
@@ -21,7 +21,6 @@ import { CobblesScene } from "../components/scenes/cobbles-scene";
 import { CreditsScene } from "../components/scenes/credits-scene";
 import { HomeScene } from "../components/scenes/home-scene";
 import { MyTilesScene } from "../components/scenes/my-tiles-scene";
-import { OverScene } from "../components/scenes/over-scene";
 import { PlayScene } from "../components/scenes/play-scene";
 import { PurchaseScene } from "../components/scenes/purchase-scene";
 import { QuestsScene } from "../components/scenes/quests-scene";
@@ -32,22 +31,36 @@ import { ThemeScene } from "../components/scenes/theme-scene";
 import { ThemeShopScene } from "../components/scenes/theme-shop-scene";
 import { VaultScene } from "../components/scenes/vault-scene";
 import { WelcomeScene } from "../components/scenes/welcome-scene";
+import { HEADER_BALANCES } from "../routes/header-balances";
+import { PAGE_HEADER_STORIES } from "./page-headers";
 
-/** The shell's avatar and balances (`ProfileHost`, `BalancesHost`), a connected player's: the fullest header a page draws. */
-const withShell: Decorator = (Story) => (
+/**
+ * The shell's avatar and balances (`ProfileHost`, `BalancesHost`), a connected player's, with the page's rule (#720,
+ * `header-balances.ts`: the story's first route): the header each page draws in the app.
+ */
+const withShell: Decorator = (Story, { id }) => (
   <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
-    <BalancesProvider value={{ state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 1_250_400_000_000_000_000n, cobbles: 240 }, onAction: fn(), onConnect: fn(), faucet: true }}>
+    <BalancesProvider
+      value={{
+        state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 1_250_400_000_000_000_000n, cobbles: 240 },
+        onAction: fn(),
+        onConnect: fn(),
+        faucet: true,
+        show: HEADER_BALANCES[PAGE_HEADER_STORIES[id.replace("pages-headers--", "") as keyof typeof PAGE_HEADER_STORIES]?.[0] ?? ""],
+      }}
+    >
       <Story />
     </BalancesProvider>
   </ProfileProvider>
 );
 
 /**
- * HEADER-HEIGHT (#676): every page outside the board, one story each (`page-headers.ts` lists the routes each covers), in
- * the shell's providers (the avatar, the balances). Each page has one header at its top, `--header-h` tall, one value per
- * breakpoint (theme.css): the `TopBar`, a tab page's title row below `desktop`, Home's top row, the navigation's header from
- * `desktop` (where a tab page's title row is the first row of its content). The content starts at the same height on every
- * page but the heroes (Home, Welcome). `scripts/header-sweep.ts` measures both at 375 and 1440 px. Captures, Home, Vault and
+ * HEADER-HEIGHT (#676): every page outside the game scenes, one story each (`page-headers.ts` lists the routes each covers), in
+ * the shell's providers (the avatar, the balances by the page's rule, #720). Each page has one header at its top, `--header-h`
+ * tall, one value per breakpoint (theme.css), and below `desktop` one less row where the page shows no balance (56 px, not
+ * 96): the `TopBar`, a tab page's title row below `desktop`, Home's top row, the navigation's header from `desktop` (where a
+ * tab page's title row is the first row of its content). The content starts at the same height on every page of the same
+ * header but the heroes (Home, Welcome). `scripts/header-sweep.ts` measures both at 375 and 1440 px. Captures, Home, Vault and
  * Play side by side before and after: `captures/header-height/header-height-{375,1440}-{before,after}.webp`.
  */
 const meta = { title: "Pages/Headers", decorators: [withShell], parameters: { layout: "fullscreen" } } satisfies Meta;
@@ -76,5 +89,4 @@ export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.t
 export const PvpDefence: Story = { render: () => <PvpDefenceScene {...PVP_DEFENCE.shielded} onBack={fn()} /> };
 export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={fn()} /> };
 export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
-export const GameOver: Story = { render: () => <OverScene {...OVER.rewarded} /> };
 export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} /> };
