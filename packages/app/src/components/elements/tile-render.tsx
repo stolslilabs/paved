@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { TileChip, planCode } from "./tile-chip";
 
@@ -58,6 +59,56 @@ export function ThemeCover({ theme, renders, blurred, alt, className }: ThemeCov
         />
       )}
     </span>
+  );
+}
+
+/** A Story background's widths (`scripts/render-tiles.ts`, `STORY_WIDTHS`), 16:10: the phone's card at DPR 3, the grid's at DPR 2. */
+export const STORY_BACKGROUND_WIDTHS = [720, 1040] as const;
+/**
+ * The card's width on the page (`StoryScene`): about 86 % of a phone's width (the carousel) or all of it, half the tablet's
+ * grid (`max-w-3xl`), a third of the desktop's (`max-w-5xl`).
+ */
+const STORY_BACKGROUND_SIZES = "(min-width: 64rem) 330px, (min-width: 40rem) min(50vw, 370px), 100vw";
+
+/**
+ * A Story campaign's background (#721), from the build (`story-<campaign>-<width>` in the campaign's theme): the browser picks
+ * the width its card needs. Null when the manifest lists none (the card draws its tiles instead). Decorative.
+ */
+export function storyBackground(campaign: number, theme: number, renders: TileRenders | undefined): { src: string; srcSet: string } | null {
+  const found: { width: number; src: string }[] = [];
+  for (const width of STORY_BACKGROUND_WIDTHS) {
+    const src = renders?.(theme, `story-${campaign}-${width}`);
+    if (src) found.push({ width, src });
+  }
+  if (found.length === 0) return null;
+  return { src: found[found.length - 1]!.src, srcSet: found.map(({ width, src }) => `${src} ${width}w`).join(", ") };
+}
+
+export interface StoryBackgroundProps {
+  campaign: number;
+  theme: number;
+  renders?: TileRenders;
+  /** Without a background in the manifest (no manifest, an older build): what draws instead. */
+  fallback: ReactNode;
+  className?: string;
+}
+
+/** A Story campaign's background image, filling its box (`object-cover`), or `fallback` without one. */
+export function StoryBackground({ campaign, theme, renders, fallback, className }: StoryBackgroundProps) {
+  const image = storyBackground(campaign, theme, renders);
+  if (!image) return fallback;
+  return (
+    <img
+      src={image.src}
+      srcSet={image.srcSet}
+      sizes={STORY_BACKGROUND_SIZES}
+      alt=""
+      aria-hidden
+      decoding="async"
+      draggable={false}
+      data-background={campaign}
+      className={cn("block size-full object-cover", className)}
+    />
   );
 }
 
