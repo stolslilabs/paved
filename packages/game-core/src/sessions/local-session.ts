@@ -3,9 +3,6 @@ import type { Scored } from "../engine";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
-import { randomSeed } from "./seed";
-import { browserStore, type KeyValueStore } from "./storage";
-import { TRAINING_VERSION, loadGame, saveGame, type SavedGame, type SavedMove, type SavedVersion } from "./training-storage";
 import type { BoardTile, PageSession, PageState, PlaceMove, ScoredStructure } from "./types";
 
 const PLANS = Object.values(PlanType);
@@ -15,24 +12,25 @@ const CATEGORIES = Object.values(CategoryType);
 /** The player of a Training game: the engine's default, no account behind it. */
 const PLAYER = "0x1";
 
-const hex = (seed: bigint) => `0x${seed.toString(16)}`;
+/** One move of a Training game: the placement of the tile in hand, or a discard, or the surrender. */
+export type TrainingMove = { k: "b"; o: number; x: number; y: number } | { k: "d" } | { k: "s" };
 
 /** The tiles a Training game knows ahead, the tile in hand included: the VRF Challenge's queue (#645), so both play alike. */
 export const TRAINING_LOOKAHEAD = 3;
 
-/** A new engine game of Training of `seed`, under the rules of the save's `version` (`SavedVersion`). */
-export function startTraining(seed: bigint, version: SavedVersion = TRAINING_VERSION): EngineGame {
-  return EngineGame.start({ deck: "simple", seed, lookahead: version === 1 ? 1 : TRAINING_LOOKAHEAD });
+/** A new engine game of Training of `seed`. */
+export function startTraining(seed: bigint): EngineGame {
+  return EngineGame.start({ deck: "simple", seed, lookahead: TRAINING_LOOKAHEAD });
 }
 
-/** Plays `moves` on a new engine game of `seed`: the replay a resume does, and the tests do. */
-export function replayTraining(seed: bigint, moves: readonly SavedMove[], version: SavedVersion = TRAINING_VERSION): EngineGame {
-  const game = startTraining(seed, version);
+/** Plays `moves` on a new engine game of `seed`: the tests' mirror of a game. */
+export function replayTraining(seed: bigint, moves: readonly TrainingMove[]): EngineGame {
+  const game = startTraining(seed);
   for (const move of moves) apply(game, move);
   return game;
 }
 
-function apply(game: EngineGame, move: SavedMove): ReturnType<EngineGame["build"]> | null {
+function apply(game: EngineGame, move: TrainingMove): ReturnType<EngineGame["build"]> | null {
   if (move.k === "d") return game.discard();
   if (move.k === "s") {
     game.surrender();
@@ -49,42 +47,20 @@ function scoredOf(scored: readonly Scored[]): ScoredStructure[] {
 
 /**
  * A game of Training over the off-chain engine, in the shape the game page renders. Nothing here reaches a chain: the
- * `send` the page passes is never called. The engine game is kept between moves: a move is applied to it, and the
- * moves are replayed only to resume a saved game. After each move the seed and the moves are saved (`localStorage`,
- * every access guarded); with storage unavailable the game still plays and is just not resumable.
+ * `send` the page passes is never called. The engine game is kept between moves: a move is applied to it, never
+ * replayed. Nothing is saved (#718): the game lives as long as the object, and every entry to Training starts a new one.
  */
 export class LocalSession implements PageSession {
   private current: PageState;
   private readonly listeners = new Set<(state: PageState) => void>();
-  private moves: SavedMove[];
 
-  private constructor(
-    private game: EngineGame,
-    private readonly seed: bigint,
-    moves: SavedMove[],
-    private readonly store: () => KeyValueStore | null,
-    /** The rules the game plays under (`SavedVersion`): a resumed save keeps its own. */
-    readonly version: SavedVersion = TRAINING_VERSION,
-  ) {
-    this.moves = moves;
+  private constructor(private readonly game: EngineGame) {
     this.current = this.project([], null);
   }
 
-  /** A new game of this seed (see `randomSeed`), saved at once so that a reload resumes it. */
-  static start(seed: bigint, store: () => KeyValueStore | null): LocalSession {
-    const session = new LocalSession(replayTraining(seed, []), seed, [], store);
-    session.save();
-    return session;
-  }
-
-  /** The saved game replayed; null when its moves do not replay (a stale or edited value). */
-  static resume(saved: SavedGame, store: () => KeyValueStore | null): LocalSession | null {
-    try {
-      const seed = BigInt(saved.seed);
-      return new LocalSession(replayTraining(seed, saved.moves, saved.v), seed, [...saved.moves], store, saved.v);
-    } catch {
-      return null;
-    }
+  /** A new game of this seed (see `randomSeed`). */
+  static start(seed: bigint): LocalSession {
+    return new LocalSession(startTraining(seed));
   }
 
   get state(): PageState {
@@ -114,22 +90,16 @@ export class LocalSession implements PageSession {
     return this.run({ k: "s" });
   }
 
-  private async run(move: SavedMove): Promise<boolean> {
+  private async run(move: TrainingMove): Promise<boolean> {
     if (this.game.over) return false;
     try {
       const result = apply(this.game, move);
-      this.moves.push(move);
-      this.save();
       this.set(this.project(result ? scoredOf(result.scored) : [], null));
       return true;
     } catch (error) {
       this.set({ ...this.current, writeError: error instanceof Error ? error.message : String(error) });
       return false;
     }
-  }
-
-  private save(): void {
-    saveGame({ v: this.version, seed: hex(this.seed), moves: this.moves }, this.store);
   }
 
   private project(lastScored: ScoredStructure[], writeError: string | null): PageState {
@@ -172,18 +142,4 @@ export class LocalSession implements PageSession {
     this.current = state;
     for (const listener of this.listeners) listener(state);
   }
-}
-
-/** Resumes the saved game of this browser, or starts one with a random seed. */
-export function openTraining(store: () => KeyValueStore | null = browserStore): LocalSession {
-  const saved = loadGame(store);
-  return (saved && LocalSession.resume(saved, store)) || LocalSession.start(randomSeed(), store);
-}
-
-/** What the landing card says of the saved game: none (or one that does not replay), in progress, or finished. */
-export function savedTrainingStatus(store: () => KeyValueStore | null = browserStore): "none" | "playing" | "over" {
-  const saved = loadGame(store);
-  const session = saved && LocalSession.resume(saved, store);
-  if (!session) return "none";
-  return session.state.game?.over ? "over" : "playing";
 }

@@ -57,7 +57,7 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
             className="tablet:col-span-2"
           />
         )}
-        <ModeCard art={modeTraining} icon="play" title="Training" description="A full game for free, saved on this device." badge="Free" onSelect={onTraining} />
+        <ModeCard art={modeTraining} icon="play" title="Training" description="A full game for free." badge="Free" onSelect={onTraining} />
         <ModeCard art={modeTutorial} icon="book-open" title="Story" description="Learn the rules level by level, then earn three stars on fixed decks." badge="Free" onSelect={onStory} />
         <ModeCard
           icon="user-group"

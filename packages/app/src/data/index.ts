@@ -32,7 +32,7 @@ export {
   usePlayerQuests,
   usePlayerStatus,
 } from "./indexer";
-export { boardOf, remainingOf, useTrainingSave, useTrainingSession } from "./training";
+export { boardOf, remainingOf, useFinishedTraining, useTrainingSession } from "./training";
 export { useChallengeSession } from "./challenge";
 export { claimOutcome, findLevel, levelPath, nextLevel, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "./story";
 export * from "./rewards";

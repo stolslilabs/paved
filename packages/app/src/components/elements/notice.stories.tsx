@@ -7,7 +7,7 @@ const meta = {
   title: "Elements/Notice",
   component: Notice,
   parameters: { layout: "padded" },
-  args: { tone: "info", children: "Training is saved on this device." },
+  args: { tone: "info", children: "Story progress is saved on this device." },
   decorators: [(Story) => <div className="max-w-md"><Story /></div>],
 } satisfies Meta<typeof Notice>;
 export default meta;
