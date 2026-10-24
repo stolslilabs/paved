@@ -1,6 +1,6 @@
 import { CENTER } from "@paved/game-core";
 import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
-import { crownsFor, starsFor } from "../lib/pvp-rules";
+import { NEXT_PRICE, crownsFor, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { DefenceEntry, PvpDefenceSceneProps } from "../components/scenes/pvp-defence-scene";
 import type { PvpLeagueSceneProps } from "../components/scenes/pvp-league-scene";
@@ -18,7 +18,7 @@ import { REWARD, VILLAGE_GROWING } from "./village";
  * `PvpVillage`: its own fakes draw a village with `VillageBoard`, these with the game's board.
  */
 
-/** The attacker: Gold, 28 crowns short of Crystal (two stars keep them in Gold, three take them up). */
+/** The attacker: Silver II, 28 crowns short of Silver I (two stars keep them in Silver II, three take them up). */
 export const ME: PvpPlayer = { name: PLAYER.name, address: PLAYER_ID, level: 6, crowns: 1_172 };
 
 /** The defender drawn by the search. */
@@ -33,8 +33,8 @@ const ATTACKERS: PvpPlayer[] = [
   { name: "Old Tom Cobble", address: "0x04f5", level: 9, crowns: 1_301 },
 ];
 
-/** The crowns at stake against the rival (a proposal until #639): by stars won, and lost with none. */
-export const STAKES: CrownStakes = { win: [10, 20, 30], loss: 18 };
+/** The crowns at stake against the rival, 40 crowns above: the contracts' offer and cost at that gap (#639: 30 and 20). */
+export const STAKES: CrownStakes = stakesOf(30, 20);
 
 /** The rival's village: 38 tiles on 38 cells, 5,831 points. */
 export const RIVAL_VILLAGE = buildVillage(23);
@@ -70,14 +70,14 @@ export const PVP_SEARCH = {
 
 // Scout
 
-const scout = { defender: RIVAL, village: RIVAL_VILLAGE, stakes: STAKES, next: { price: 10, balance: 640 }, now: MOCK_NOW };
+const scout = { defender: RIVAL, village: RIVAL_VILLAGE, stakes: STAKES, next: { price: NEXT_PRICE, balance: 640 }, now: MOCK_NOW };
 
 export const PVP_SCOUT = {
   ready: scout,
   /** The attacker's village is shielded: attacking drops it. */
   shielded: { ...scout, shieldEndsAt: MOCK_NOW + 5 * HOUR + 12 * 60 },
   /** Not enough Cobbles for another village. */
-  short: { ...scout, next: { price: 10, balance: 6 } },
+  short: { ...scout, next: { price: NEXT_PRICE, balance: 0 } },
   nextPending: { ...scout, pending: "next" },
   attacking: { ...scout, pending: "attacking" },
   error: { ...scout, error: "The attack could not open: the village was attacked a moment ago and is now shielded.", errorDetail: { code: "Arena: village shielded", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 31) } },
@@ -195,7 +195,7 @@ function result(score: number, extra: Partial<Data<PvpResultSceneProps>> = {}): 
 
 export const PVP_RESULT = {
   twoStars: result(ATTACK_SCORES.rival[3]),
-  /** Three stars, and the crowns carry the attacker into Crystal. */
+  /** Three stars, and the crowns carry the attacker into Silver I. */
   threeStarsPromoted: result(ATTACK_SCORES.rival[10]),
   /** One star, the day's rewards already taken. */
   oneStarCapped: result(ATTACK_SCORES.rival[2], { reward: { state: "capped", resetsAt: MOCK_NOW + 7 * HOUR + 40 * 60 } }),
@@ -203,9 +203,13 @@ export const PVP_RESULT = {
   rewardPlaced: result(ATTACK_SCORES.rival[3], { reward: { state: "taken", plan: REWARD.plans[0]!, cobbles: null } }),
   /** The Cobbles taken instead. */
   rewardCobbles: result(ATTACK_SCORES.rival[3], { reward: { state: "taken", plan: null, cobbles: REWARD.cobbles } }),
+  /** The reward is being read. */
+  rewardLoading: result(ATTACK_SCORES.rival[3], { reward: { state: "loading" } }),
+  /** The reward's read failed: said, with Try again, never a capped day. */
+  rewardError: result(ATTACK_SCORES.rival[3], { reward: { state: "error", message: "Your reward could not be read: the network did not answer.", detail: { code: "RpcError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 52) } } }),
   defeat: result(ATTACK_SCORES.rival[5]),
-  /** A defeat that drops the attacker out of Gold. */
-  defeatDropped: { ...result(ATTACK_SCORES.rival[5]), crownsAfter: 790 },
+  /** A defeat that drops the attacker out of Silver II. */
+  defeatDropped: { ...result(ATTACK_SCORES.rival[5]), crownsAfter: 990 },
   pending: result(ATTACK_SCORES.rival[3], { pending: true }),
   error: result(ATTACK_SCORES.rival[3], { error: "The result is not recorded yet: the network did not answer.", errorDetail: { code: "RpcError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 52) } }),
 } satisfies Record<string, Data<PvpResultSceneProps>>;

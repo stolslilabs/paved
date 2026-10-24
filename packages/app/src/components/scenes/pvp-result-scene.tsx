@@ -7,6 +7,7 @@ import { errorDetail } from "../../routes/error-detail";
 import { leagueOf, shareOf, type PvpPlayer } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { Skeleton } from "../ui/skeleton";
 import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
 import { Crowns } from "../elements/crowns";
@@ -26,13 +27,18 @@ const loadVillage = () => import("./village-scene");
 /**
  * The village reward after an attack (owner decision, #637: at once, no timer, with a daily cap): `offer` (three tiles, or the
  * Cobbles; chosen on #646's reward sheet, over the player's village), `taken` (chosen: a tile placed or copied, or the
- * Cobbles), `capped` (the day's rewards are taken: the next at `resetsAt`), `none` (no star).
+ * Cobbles), `capped` (the day's rewards are taken: the next at `resetsAt`), `none` (no star), `loading` (the reward is being
+ * read), `error` (its read failed: said, with Retry, never taken for a capped day).
  */
 export type PvpReward =
   | { state: "offer"; offer: RewardOffer }
+  /** Granted, its three tiles not drawn yet (#642's `open_reward`, a VRF draw): Open draws them. */
+  | { state: "sealed"; pending: number }
   | { state: "taken"; plan: number | null; cobbles: number | null }
   | { state: "capped"; resetsAt: number }
-  | { state: "none" };
+  | { state: "none" }
+  | { state: "loading" }
+  | { state: "error"; message: string; detail?: ErrorDetail };
 
 export interface PvpResultSceneProps {
   defender: PvpPlayer;
@@ -61,7 +67,13 @@ export interface PvpResultSceneProps {
   onAddCopy?: (copy: VillageCopy) => void;
   /** The Cobbles taken instead of a tile. */
   onTakeCobbles?: () => void;
+  /** `sealed`: the reward's three tiles drawn. */
+  onOpenReward?: () => void;
+  /** `sealed`: the draw is on its way. */
+  opening?: boolean;
   onReplay?: () => void;
+  /** `error`: the reward is read again. */
+  onRetryReward?: () => void;
   /** Another attack: back to the search. */
   onAgain?: () => void;
   onHome?: () => void;
@@ -89,13 +101,14 @@ export function PvpResultScene(props: PvpResultSceneProps) {
   };
   const before = leagueOf(crownsAfter - crowns);
   const after = leagueOf(crownsAfter);
-  const moved = after.id !== before.id ? (after.from > before.from ? "up" : "down") : null;
+  const moved = after.index !== before.index ? (after.from > before.from ? "up" : "down") : null;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       {/* No balances in its bar: the result shows its Cobbles in place (#720, `routes/header-balances.ts`). */}
       <TopBar title="Attack over" onBack={props.onHome} balances={false} />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <section aria-label="Result" className="flex flex-col items-center gap-2 text-center">
+        {/* The verdict on a card, as every page's content starts (HEADER-HEIGHT, #676): at the one line under the header. */}
+        <section aria-label="Result" className="flex w-full flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-5 text-center">
           <div role="img" aria-label={`${stars} of 3 stars`} data-stars={stars} className="flex items-end gap-2">
             {[1, 2, 3].map((n) => (
               <m.span
@@ -162,6 +175,15 @@ export function PvpResultScene(props: PvpResultSceneProps) {
               </Button>
             </>
           )}
+          {reward.state === "sealed" && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">Your reward is waiting: open it to draw its three tiles.</p>
+              <Button size="lg" onClick={props.onOpenReward} disabled={props.pending} loading={props.opening}>
+                <Icon name="gift" size="sm" />
+                Open the reward
+              </Button>
+            </div>
+          )}
           {reward.state === "taken" && (
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Icon name="check" size="sm" className="text-success" />
@@ -184,6 +206,21 @@ export function PvpResultScene(props: PvpResultSceneProps) {
             </p>
           )}
           {reward.state === "none" && <p className="text-sm text-muted-foreground">No star, no reward. Reach 70 % of a village's score for the first star.</p>}
+          {reward.state === "loading" && <Skeleton aria-label="Reading your reward" className="h-10 rounded-lg" />}
+          {reward.state === "error" && (
+            <InlineError
+              title="Village reward"
+              message={reward.message}
+              detail={reward.detail}
+              action={
+                props.onRetryReward && (
+                  <Button size="sm" variant="secondary" onClick={props.onRetryReward}>
+                    Try again
+                  </Button>
+                )
+              }
+            />
+          )}
         </section>
 
         <div className="mt-auto grid w-full gap-2 mobile:grid-cols-2">

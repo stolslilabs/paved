@@ -21,9 +21,13 @@ import { MAX_TOURNAMENT_ID } from "./api.ts";
  * (docs/architecture/economy.md, "Events"), and `collection` mints the game NFTs (economy.md, section 9). The on-chain
  * Tutorial left with D-21 and Account with D-25 (E): their addresses are no longer read. A player is a wallet address.
  */
-export type Source = "challenge" | "setup" | "economy" | "collection";
+export type Source = "challenge" | "setup" | "economy" | "collection" | "arena";
 
-export const SOURCES: readonly Source[] = ["challenge", "setup", "economy", "collection"];
+/**
+ * `arena` (#643, `docs/architecture/pvp-attacks.md`) holds the PvP attacks: who attacked whom, the stars and the crowns (the
+ * defence log, #647). Optional, as `collection`: a deployment without `Arena` reads none.
+ */
+export const SOURCES: readonly Source[] = ["challenge", "setup", "economy", "collection", "arena"];
 
 /**
  * A past Tutorial game's token id was `TUTORIAL_OFFSET + game id`; a Challenge game's is its game id (`Collection`). The
@@ -219,6 +223,40 @@ export type Decoded =
       balance: bigint;
     }
   | {
+      /**
+       * An attack opened (#643, `Arena.start`): `attacker`'s attack `id` on `defender` (an NPC village's address is its id,
+       * 1 to 255, `npc`), the 3-star offer fixed at the draw, the target (the defender's score at the start) and its tiles.
+       */
+      name: "AttackOpened";
+      attacker: bigint;
+      defender: bigint;
+      id: number;
+      npc: boolean;
+      offer: number;
+      target: number;
+      tiles: number;
+    }
+  | {
+      /** An attack ended by its last move or a surrender: its score, its stars and the crowns that moved (`Matchmaker.settle`). */
+      name: "AttackFinished";
+      attacker: bigint;
+      defender: bigint;
+      id: number;
+      gameId: number;
+      score: number;
+      stars: number;
+      surrendered: boolean;
+      gained: number;
+      lost: number;
+    }
+  | {
+      /** An opponent that could not be attacked (#643, review 1): the match cancelled, nothing moved. */
+      name: "AttackSkipped";
+      attacker: bigint;
+      defender: bigint;
+      id: number;
+    }
+  | {
       /** The player's active skins after a `set_skins`: the whole packed word and its `SKIN_PLANS` themes, plan 1 first (0: the default). */
       name: "SkinsActivated";
       playerId: bigint;
@@ -366,6 +404,10 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   DayClosed: ["economy"],
   Settled: ["economy"],
   Transfer: ["collection"],
+  // The PvP attacks (#643): the defence log (#647).
+  AttackOpened: ["arena"],
+  AttackFinished: ["arena"],
+  AttackSkipped: ["arena"],
 };
 
 /** Events of the contracts' ABIs that are not indexed in v1 (indexer.md, "Not indexed"). */
@@ -426,6 +468,12 @@ export const IGNORED = [
   // screen's wiring (#646). Known by name so that the strict decoder never halts on a Setup that emits them.
   "RewardsSet",
   "SkinTierSet",
+  // The PvP attacks (#643): each tile drawn and each move of an attack, and the owner's wiring. No table reads them: the
+  // client reads a replay's moves from `Arena.moves` and the hand from `Arena.deck`.
+  "TileDrawn",
+  "AttackPlayed",
+  "WiringSet",
+  "NpcLevelSet",
 ] as const;
 
 /**
@@ -434,6 +482,9 @@ export const IGNORED = [
  * The Tutorial's address is not read at all.
  */
 const PAST_FROM: Partial<Record<Source, readonly EventName[]>> = {
+  // `Arena` embeds the engine for an attack's finish (#643): its game events are the replay's, never a game of the
+  // leaderboard. Skipped, as are its board events (`IGNORED`).
+  arena: ["GameSpawned", "GameOver"],
   challenge: [
     "QuestDefined",
     "QuestProgressed",
@@ -473,6 +524,9 @@ const INDEXED: readonly EventName[] = [
   "DayClosed",
   "Settled",
   "Transfer",
+  "AttackOpened",
+  "AttackFinished",
+  "AttackSkipped",
 ];
 
 /** Selector (a lowercase 0x hex without leading zeros) of every event name of the contracts. */
@@ -923,6 +977,37 @@ export function decode(
         prior: u64(data[2], "prior"),
         emaAfter: u64(data[3], "ema_after"),
       };
+    case "AttackOpened":
+      // keys attacker, defender; data id, npc, offer, target, tiles
+      shape(name, keys, data, 2, 5);
+      return {
+        name,
+        attacker: felt(keys[1]),
+        defender: felt(keys[2]),
+        id: small(data[0], 32, "id"),
+        npc: bool(data[1], "npc"),
+        offer: small(data[2], 8, "offer"),
+        target: small(data[3], 32, "target"),
+        tiles: small(data[4], 8, "tiles"),
+      };
+    case "AttackFinished":
+      // keys attacker, defender; data id, game_id, score, stars, surrendered, gained, lost
+      shape(name, keys, data, 2, 7);
+      return {
+        name,
+        attacker: felt(keys[1]),
+        defender: felt(keys[2]),
+        id: small(data[0], 32, "id"),
+        gameId: small(data[1], 32, "game_id"),
+        score: small(data[2], 32, "score"),
+        stars: small(data[3], 8, "stars"),
+        surrendered: bool(data[4], "surrendered"),
+        gained: small(data[5], 32, "gained"),
+        lost: small(data[6], 32, "lost"),
+      };
+    case "AttackSkipped":
+      shape(name, keys, data, 2, 1);
+      return { name, attacker: felt(keys[1]), defender: felt(keys[2]), id: small(data[0], 32, "id") };
     case "Settled":
       shape(name, keys, data, 2, 4);
       return {

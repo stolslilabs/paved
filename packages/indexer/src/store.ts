@@ -41,6 +41,8 @@ export type Config = {
   economy: string;
   /** Undefined for a deployment before E5b: no mint is read and no game has a token id. */
   collection: string | undefined;
+  /** Undefined for a deployment without `Arena` (#643): no attack is read. Optional for the configurations written before it. */
+  arena?: string | undefined;
   /** The first block indexed (the contracts' deployment block). */
   from: number;
   /** The chain id of the deployment file, as a canonical felt. */
@@ -50,18 +52,18 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "18";
+export const SCHEMA_VERSION = "19";
 
 /**
  * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
  * one): the identity of a deployment. Account left it in schema 9 (D-25 (E)); Daily is named Challenge since schema 11 (D-23b).
  */
 export function deploymentHash(
-  config: Pick<Config, "challenge" | "setup" | "economy" | "collection">,
+  config: Pick<Config, "challenge" | "setup" | "economy" | "collection" | "arena">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.challenge, config.setup, config.economy, config.collection]
+      [config.challenge, config.setup, config.economy, config.collection, config.arena]
         .filter((address): address is string => address !== undefined)
         .map((address) => canonical(address))
         .join(","),
@@ -280,6 +282,17 @@ const SCHEMA = `
     PRIMARY KEY (block, tx, idx)
   );
   CREATE INDEX IF NOT EXISTS xp_gains_player ON xp_gains (player_id, block, tx, idx);
+  -- PvP attacks (#643, #647, schema 19): one row per attack, keyed (attacker, id), from Arena's AttackOpened; its end
+  -- (AttackFinished: the score, the stars, the crowns; AttackSkipped: a drawn opponent that could not be attacked) sets
+  -- status (1 open, 2 finished, 3 surrendered, 4 skipped) and the finish columns. The defender is indexed: the defence log.
+  CREATE TABLE IF NOT EXISTS pvp_attacks (
+    attacker TEXT NOT NULL, id INTEGER NOT NULL, defender TEXT NOT NULL, npc INTEGER NOT NULL, offer INTEGER NOT NULL,
+    target INTEGER NOT NULL, tiles INTEGER NOT NULL, opened_block INTEGER NOT NULL, opened_time INTEGER NOT NULL,
+    status INTEGER NOT NULL, score INTEGER, stars INTEGER, gained INTEGER, lost INTEGER,
+    finished_block INTEGER, finished_time INTEGER,
+    PRIMARY KEY (attacker, id)
+  );
+  CREATE INDEX IF NOT EXISTS pvp_attacks_defender ON pvp_attacks (defender, opened_block);
   -- DayClosed: a day's mean, fixed at its first settlement.
   CREATE TABLE IF NOT EXISTS economy_days (
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
@@ -309,6 +322,7 @@ function normalize(config: Config): Config {
     setup: canonical(config.setup),
     economy: canonical(config.economy),
     collection: config.collection === undefined ? undefined : canonical(config.collection),
+    arena: config.arena === undefined ? undefined : canonical(config.arena),
     from: config.from,
     chainId: canonical(config.chainId),
   };
@@ -325,6 +339,7 @@ function metaOf(config: Config): Record<string, string> {
       setup: config.setup,
       economy: config.economy,
       collection: config.collection ?? null,
+      ...(config.arena === undefined ? {} : { arena: config.arena }),
     }),
   };
 }
@@ -501,7 +516,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { challenge: string; setup: string; economy: string; collection: string | null }
+    | { challenge: string; setup: string; economy: string; collection: string | null; arena?: string }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
@@ -955,6 +970,64 @@ export class Store {
             });
             break;
           }
+          case "AttackOpened": {
+            const attacker = padded(event.attacker);
+            const what = `AttackOpened of ${attacker} (attack ${event.id}) ${where}`;
+            if (this.sql.pvpAttack.get(attacker, event.id)) throw new Halt(`${what}: the attack is already open`);
+            this.sql.insertPlayer.run(attacker, at, block.timestamp);
+            this.sql.insertPvpAttack.run({
+              attacker,
+              id: event.id,
+              defender: padded(event.defender),
+              npc: event.npc ? 1 : 0,
+              offer: event.offer,
+              target: event.target,
+              tiles: event.tiles,
+              block: at,
+              time: block.timestamp,
+              status: 1,
+            });
+            break;
+          }
+          case "AttackFinished":
+          case "AttackSkipped": {
+            const attacker = padded(event.attacker);
+            const what = `${event.name} of ${attacker} (attack ${event.id}) ${where}`;
+            const row = this.sql.pvpAttack.get(attacker, event.id) as Row | undefined;
+            // A skipped opponent opens no attack: its row is written here, at its end.
+            if (event.name === "AttackSkipped") {
+              if (row) throw new Halt(`${what}: the attack exists`);
+              this.sql.insertPlayer.run(attacker, at, block.timestamp);
+              this.sql.insertPvpAttack.run({
+                attacker,
+                id: event.id,
+                defender: padded(event.defender),
+                npc: 0,
+                offer: 0,
+                target: 0,
+                tiles: 0,
+                block: at,
+                time: block.timestamp,
+                status: 4,
+              });
+              break;
+            }
+            if (!row) throw new Halt(`${what}: no AttackOpened for it`);
+            if (Number(row.status) !== 1) throw new Halt(`${what}: the attack is not open`);
+            if (row.defender !== padded(event.defender)) throw new Halt(`${what}: defender ${padded(event.defender)}, opened on ${row.defender}`);
+            this.sql.finishPvpAttack.run({
+              attacker,
+              id: event.id,
+              status: event.surrendered ? 3 : 2,
+              score: event.score,
+              stars: event.stars,
+              gained: event.gained,
+              lost: event.lost,
+              block: at,
+              time: block.timestamp,
+            });
+            break;
+          }
           case "XpGained": {
             const player = padded(event.playerId);
             // The running total is the chain's own: each credit adds its XP to the last total (0 before the first).
@@ -1126,6 +1199,8 @@ export class Store {
       this.sql.rewindCreditSpends.run(to);
       this.sql.rewindSkinActives.run(to);
       this.sql.rewindXpGains.run(to);
+      this.sql.rewindPvpAttacks.run(to);
+      this.sql.unfinishPvpAttacks.run(to);
       this.sql.rewindSkinPurchases.run(to);
       this.sql.rewindCobbleSpends.run(to);
       this.sql.rewindSkinPrices.run(to);
@@ -1175,6 +1250,7 @@ export class Store {
     | "skin_actives"
     | "cobble_spends"
     | "xp_gains"
+    | "pvp_attacks"
     | "events"
     | "blocks",
     Row[]
@@ -1202,6 +1278,7 @@ export class Store {
       skin_actives: all("SELECT * FROM skin_actives ORDER BY block, tx, idx"),
       cobble_spends: all("SELECT * FROM cobble_spends ORDER BY block, tx, idx"),
       xp_gains: all("SELECT * FROM xp_gains ORDER BY block, tx, idx"),
+      pvp_attacks: all("SELECT * FROM pvp_attacks ORDER BY attacker, id"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1462,6 +1539,22 @@ function statements(db: DatabaseSync) {
     rewindSkinActives: db.prepare("DELETE FROM skin_actives WHERE block > ?"),
     rewindCobbleSpends: db.prepare("DELETE FROM cobble_spends WHERE block > ?"),
     rewindXpGains: db.prepare("DELETE FROM xp_gains WHERE block > ?"),
+    pvpAttack: db.prepare("SELECT status, defender FROM pvp_attacks WHERE attacker = ? AND id = ?"),
+    insertPvpAttack: db.prepare(
+      `INSERT INTO pvp_attacks (attacker, id, defender, npc, offer, target, tiles, opened_block, opened_time, status)
+       VALUES (:attacker, :id, :defender, :npc, :offer, :target, :tiles, :block, :time, :status)`,
+    ),
+    finishPvpAttack: db.prepare(
+      `UPDATE pvp_attacks SET status = :status, score = :score, stars = :stars, gained = :gained, lost = :lost,
+         finished_block = :block, finished_time = :time
+       WHERE attacker = :attacker AND id = :id`,
+    ),
+    rewindPvpAttacks: db.prepare("DELETE FROM pvp_attacks WHERE opened_block > ?"),
+    unfinishPvpAttacks: db.prepare(
+      `UPDATE pvp_attacks SET status = 1, score = NULL, stars = NULL, gained = NULL, lost = NULL, finished_block = NULL,
+         finished_time = NULL
+       WHERE finished_block > ?`,
+    ),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),

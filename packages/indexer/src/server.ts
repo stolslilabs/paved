@@ -274,6 +274,12 @@ function route(url: URL): Read | null {
           ...queries.playerPacks(served.number, player, limit, before),
         });
       }
+      if ((b === "attacks" || b === "defences") && parts.length === 5) {
+        const player = playerId(a);
+        const p = parameters(url, [], ["limit"]);
+        const limit = limitOf(p.limit);
+        return (queries, served) => queries.playerAttacks(served.number, player, b === "attacks" ? "attacker" : "defender", limit);
+      }
       if (b === "referrals" && parts.length === 5) {
         const player = playerId(a);
         parameters(url, []);
@@ -304,6 +310,16 @@ function route(url: URL): Read | null {
         const before = gamesCursor(p.before);
         return (queries, served) =>
           queries.games(served.number, player, contract, limit, before);
+      }
+      if (b === "attacks" && c !== undefined && parts.length === 6 && d === undefined) {
+        const player = playerId(a);
+        const id = integer(c, "id", 0, U32_MAX);
+        parameters(url, []);
+        return (queries, served) => {
+          const attack = queries.playerAttack(served.number, player, id);
+          if (!attack) throw new NotFound("attack not found");
+          return { attack };
+        };
       }
       if (b === "tournaments" && c !== undefined && parts.length === 6 && d === undefined) {
         const player = playerId(a);
@@ -419,6 +435,7 @@ export type HeadInfo = {
     setup: string;
     economy: string;
     collection: string | null;
+    arena?: string;
   };
 };
 

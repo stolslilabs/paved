@@ -18,6 +18,10 @@ export interface PvpScoutSceneProps {
   /** The defender's village: its territory, its tiles, its score (the target). */
   village: PvpVillage;
   stakes: CrownStakes;
+  /** The defender's tiles the attack draws (the starter is not drawn); `village.tiles.length` when left out. */
+  tilesToPlay?: number;
+  /** An NPC village (#643): its Story level's board, open, with no territory. */
+  openBoard?: boolean;
   /** "Next": another village for `price` Cobbles; `balance` is the attacker's. */
   next: { price: number; balance: number };
   /** The attacker's own shield, while it lasts (seconds since the epoch): attacking drops it (owner decision). */
@@ -31,6 +35,13 @@ export interface PvpScoutSceneProps {
   canvas?: ReactNode;
   onBack?: () => void;
   onNext?: () => void;
+  /**
+   * The defender cannot be attacked now (shielded since the draw): a free search for another village, in place of Attack. A
+   * paid Next stays offered.
+   */
+  onSearchAgain?: () => void;
+  /** `onSearchAgain`'s search is on its way. */
+  searching?: boolean;
   onAttack?: () => void;
 }
 
@@ -78,9 +89,15 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
             <span className="numeric text-3xl font-semibold leading-none">{formatInteger(village.score)}</span>
           </div>
           <span className="text-right text-xs text-muted-foreground">
-            <span className="numeric">{village.tiles.length}</span> tiles to play
+            <span className="numeric">{props.tilesToPlay ?? village.tiles.length}</span> tiles to play
             <br />
-            on <span className="numeric">{village.cells.length}</span> cells
+            {props.openBoard ? (
+              "on an open board"
+            ) : (
+              <>
+                on <span className="numeric">{village.cells.length}</span> cells
+              </>
+            )}
           </span>
         </div>
 
@@ -123,10 +140,17 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
             Next
             <Cobbles value={next.price} size="sm" />
           </Button>
-          <Button size="lg" className="flex-[2]" onClick={props.onAttack} disabled={busy} loading={props.pending === "attacking"}>
-            <Icon name="swords" size="sm" />
-            Attack
-          </Button>
+          {props.onSearchAgain ? (
+            <Button size="lg" className="flex-[2]" onClick={props.onSearchAgain} disabled={busy || props.searching} loading={props.searching}>
+              <Icon name="rotate" size="sm" />
+              Search again, free
+            </Button>
+          ) : (
+            <Button size="lg" className="flex-[2]" onClick={props.onAttack} disabled={busy} loading={props.pending === "attacking"}>
+              <Icon name="swords" size="sm" />
+              Attack
+            </Button>
+          )}
         </div>
       </section>
     </div>
