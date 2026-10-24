@@ -20,7 +20,7 @@ export const ThreeStars: Story = { args: { score: 6_610 } };
 /** Far past the bar's end (125 %): the bar stays full, the share says how far. */
 export const Beyond: Story = { args: { score: 9_400 } };
 
-/** PvP v2 (#740): the marks at 80, 90 and 100 % (4,665, 5,248 and 5,831 points), the bar ending at 115 %. Under the first. */
+/** PvP v2 (#740): the marks at 80, 90 and 100 % (4,665, 5,248 and 5,831 points against 5,831), the bar ending at 115 %. Under the first. */
 export const V2NoStar: Story = { args: { percents: ATTACK_STAR_PERCENTS, score: 4_120 } };
 /** v2, past 80 %: the first star. */
 export const V2OneStar: Story = { args: { percents: ATTACK_STAR_PERCENTS, score: 4_700 } };

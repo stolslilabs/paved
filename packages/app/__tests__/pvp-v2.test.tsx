@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CENTER } from "@paved/game-core";
+import { attackDeck } from "@paved/game-core";
 import { ATTACK_DECK_PERCENT, ATTACK_STAR_PERCENTS, ATTACK_VIEW, attackDeckSize, attackExtras, attackStarPoints, attackStars } from "../src/lib/pvp-v2-rules";
 import { StarMeter } from "../src/components/elements/star-meter";
 import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
@@ -15,7 +16,7 @@ const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
 afterEach(cleanup);
 
-describe("PvP v2 attack rules (#740, owner decisions of 2026-10-24)", () => {
+describe("PvP v2 attack rules (#740, owner decisions of 2026-10-24): game-core's (#741)", () => {
   it("sizes the deck at ceil(1.15 x S), in integers", () => {
     expect(ATTACK_DECK_PERCENT).toBe(115);
     expect([9, 10, 20, 28].map(attackDeckSize)).toEqual([11, 12, 23, 33]);
@@ -32,9 +33,10 @@ describe("PvP v2 attack rules (#740, owner decisions of 2026-10-24)", () => {
 });
 
 describe("PvP v2 fakes, played on the engine", () => {
-  it("fills the rival's 20 slots and deals a deck of 23: its placed tiles and 3 extras", () => {
+  it("fills the rival's 20 slots (the starter's included) and deals game-core's deck of 23: its 19 tiles and 4 extras", () => {
     expect(RIVAL_V2_SLOTS).toBe(20);
-    expect(RIVAL_V2_VILLAGE.tiles).toHaveLength(21);
+    expect(RIVAL_V2_VILLAGE.tiles).toHaveLength(20);
+    expect(V2_DECK).toEqual(attackDeck(RIVAL_V2_VILLAGE.tiles.filter((t) => t.x !== CENTER || t.y !== CENTER).map((t) => t.plan), 20, 10n));
     expect(V2_DECK).toHaveLength(V2_DECK_SIZE);
     expect(V2_DECK_SIZE).toBe(23);
     const count = (plans: readonly number[]) => plans.reduce((m, p) => m.set(p, (m.get(p) ?? 0) + 1), new Map<number, number>());
@@ -101,13 +103,13 @@ describe("PvP v2 scenes (#740)", () => {
 
   it("scout: the village, its score, each star's points at 80 / 90 / 100 % and the deck the attack will have", () => {
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.ready} />));
-    expect(screen.getByText("Village score").nextSibling).toHaveTextContent("3,635");
+    expect(screen.getByText("Village score").nextSibling).toHaveTextContent("3,216");
     const stars = within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem");
-    expect(stars.map((s) => s.textContent)).toEqual(["2,908+10", "3,272+20", "3,635+30"]);
-    expect(screen.getByRole("img", { name: /^Board of 21 tiles$/ })).toBeInTheDocument();
+    expect(stars.map((s) => s.textContent)).toEqual(["2,573+10", "2,895+20", "3,216+30"]);
+    expect(screen.getByRole("img", { name: /^Board of 20 tiles$/ })).toBeInTheDocument();
     const region = screen.getByRole("region", { name: "Attack" });
     expect(region.querySelector("[data-deck]")).toHaveTextContent("23 tiles to play20 slots, on an open board");
-    expect(region).toHaveTextContent("You play the village's 20 tiles and 3 from the base deck, shuffled. You see the tile in hand and the next two.");
+    expect(region).toHaveTextContent("You play the village's 19 tiles and 4 from the base deck, shuffled. You see the tile in hand and the next two.");
     cleanup();
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.small} />));
     expect(screen.getByRole("region", { name: "Attack" }).querySelector("[data-deck]")).toHaveTextContent("11 tiles to play9 slots");

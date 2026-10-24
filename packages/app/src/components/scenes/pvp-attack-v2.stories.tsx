@@ -10,10 +10,10 @@ import { StackView } from "../containers/stack-view";
 import { PvpAttackScene, type PvpAttackSceneProps } from "./pvp-attack-scene";
 
 /**
- * The PvP v2 attack (#740), played on the engine: a level-12 rival's free village (20 slots), the attack's deck of
- * ceil(1.15 x 20) = 23 tiles (the village's 20 and 3 extras from the base deck, shuffled) on an unbounded board from the
- * starter, with no territory. The stack shows the tile in hand and the next two; the meter's marks sit at 80 / 90 / 100 %.
- * On fakes, the plan view of the game's board; mobile first (375 px), the desktop as is.
+ * The PvP v2 attack (#740), played on the engine: a level-12 rival's free village (20 slots, the starter's included), the
+ * attack's deck of ceil(1.15 x 20) = 23 tiles (game-core's `attackDeck`: the village's 19 tiles and 4 extras from the base
+ * deck, shuffled) on an unbounded board from the starter, with no territory. The stack shows the tile in hand and the next
+ * two; the meter's marks sit at 80 / 90 / 100 %. On fakes, the plan view of the game's board; mobile first (375 px).
  */
 const meta = {
   title: "Scenes/PvP/Attack v2",

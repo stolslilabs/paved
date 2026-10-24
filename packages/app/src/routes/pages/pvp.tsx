@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Attack, AttackDeck, PvpMatch, WriteResult } from "@paved/chain";
@@ -11,6 +11,7 @@ import { NEXT_PRICE, type PvpPlayer } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
 import { usePlayerStatus } from "../../data/indexer";
+import { useAttackV2 } from "../../data/free-attack";
 import { ATTACK_OPEN, noOpponent, pvpKeys, usePvpAttack, usePvpPlayer, usePvpScout, usePvpStatus, usePvpWrites } from "../../data/pvp";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
@@ -21,16 +22,43 @@ import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useUpTo } from "../ref";
 
+/** PvP v2's flow (#740), its own chunk: loaded where the sources serve it. */
+const PvpV2 = lazy(() => import("../pvp-v2"));
+
 /** How long the search shows the village found before the scout (the clouds part over it). */
 const FOUND_MS = 1_200;
 
 /**
- * `/pvp` (#647 PR 2): the attack's flow on the chain. Where the attacker stands in `Matchmaker` and `Arena` (`usePvpStatus`)
+ * `/pvp`: PvP v2's attack (#740) where the sources serve it (the mock, #741; the chain from step 3, #743), else v1's. The v2
+ * read answers null on a source without it, so the choice waits for it; v1's hooks run only once it is v1.
+ */
+export default function Page() {
+  const sources = useDataSources();
+  const wallet = useAccount();
+  const onBack = useUpTo("/pvp/league");
+  const me = sources.signer?.address ?? null;
+  const v2 = useAttackV2(me);
+  const player = usePvpPlayer(v2.data ? me : null, wallet.username ?? null);
+  const self = player.data ?? { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
+  if (me === null || v2.data === null) return <PvpV1 />;
+  if (!v2.data) {
+    if (v2.error) return <PvpSearchScene state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
+    return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
+  }
+  return (
+    <Suspense fallback={<PvpSearchScene state="searching" player={self} onCancel={onBack} />}>
+      <PvpV2 me={me} self={self} state={v2.data} onBack={onBack} />
+    </Suspense>
+  );
+}
+
+/**
+ * `/pvp` on PvP v1 (#647 PR 2): the attack's flow on the chain. Where the attacker stands in `Matchmaker` and `Arena` (`usePvpStatus`)
  * picks the screen: an open attack plays on; an opponent drawn is scouted; otherwise the search draws one (`search`, free, on
  * the VRF), its waiting screen until the receipt names it. The scout sends Next (a Cobble) or Attack (`start`); the attack
  * sends each move (`play`), the last one settling the attack, then the page moves to its result (`/pvp/result/:id`).
  */
-export default function Page() {
+function PvpV1() {
   const sources = useDataSources();
   const wallet = useAccount();
   const client = useQueryClient();

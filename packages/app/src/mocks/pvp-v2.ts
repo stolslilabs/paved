@@ -1,3 +1,4 @@
+import { slotsOf } from "@paved/game-core";
 import type { PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE } from "../lib/pvp-rules";
 import { ATTACK_STAR_PERCENTS, ATTACK_VIEW, attackDeckSize, attackStars } from "../lib/pvp-v2-rules";
@@ -16,17 +17,17 @@ import { attackDeckOf, buildFreeVillage, placedPlans, playAttackV2, type AttackS
 /** The defender: level 12, so 20 slots and a deck of 23 tiles. */
 export const RIVAL_V2: PvpPlayer = { name: "Wren of Hollowmere", address: "0x05c8f3a2b1d4e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f2", level: 12, crowns: 1_236 };
 
-/** The rival's slots: 8 + level (#741). */
-export const RIVAL_V2_SLOTS = 8 + RIVAL_V2.level;
+/** The rival's slots: 8 + level, the starter's included (#741). */
+export const RIVAL_V2_SLOTS = slotsOf(RIVAL_V2.level);
 /** The attack's deck: ceil(1.15 x 20) = 23. */
 export const V2_DECK_SIZE = attackDeckSize(RIVAL_V2_SLOTS);
 
-/** The rival's village: every slot filled, 20 tiles past the starter. */
+/** The rival's village: every slot filled, the starter and 19 tiles. */
 export const RIVAL_V2_VILLAGE = buildFreeVillage(31, RIVAL_V2_SLOTS);
-/** The attack's deck, in draw order: the village's 20 tiles and 3 extras. */
-export const V2_DECK = attackDeckOf(RIVAL_V2_VILLAGE, V2_DECK_SIZE, 7);
+/** The attack's deck, in draw order: the village's 19 tiles and 4 extras. */
+export const V2_DECK = attackDeckOf(RIVAL_V2_VILLAGE, RIVAL_V2_SLOTS, 10);
 /** The attack played in the stories, every move kept. */
-export const V2_ATTACK_STEPS = playAttackV2(V2_DECK, 5);
+export const V2_ATTACK_STEPS = playAttackV2(V2_DECK, 3);
 
 /** A scene's data without its callbacks. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
@@ -42,7 +43,7 @@ export const PVP_V2_SCOUT = {
   ready: scout,
   attacking: { ...scout, pending: "attacking" },
   /** A level-1 village: 9 slots, a deck of 11 tiles. */
-  small: { ...scout, defender: { ...RIVAL_V2, level: 1 }, village: SMALL_VILLAGE, deck: { slots: 9, size: attackDeckSize(9), placed: placedPlans(SMALL_VILLAGE).length } },
+  small: { ...scout, defender: { ...RIVAL_V2, level: 1 }, village: SMALL_VILLAGE, deck: { slots: slotsOf(1), size: attackDeckSize(slotsOf(1)), placed: placedPlans(SMALL_VILLAGE).length } },
 } satisfies Record<string, Data<PvpScoutSceneProps>>;
 
 // Attack

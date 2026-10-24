@@ -1,5 +1,5 @@
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, type EnginePlacement } from "@paved/game-core";
+import { CENTER, CategoryType, EngineGame, attackDeck, OrientationType, PlanType, type EnginePlacement } from "@paved/game-core";
 import type { PvpCell, PvpVillage } from "../lib/pvp-rules";
 
 /**
@@ -115,13 +115,13 @@ function shuffled(plans: readonly number[], next: () => number): number[] {
 }
 
 /**
- * A PvP v2 village (#740, the free village of #741): a game built freely on a Simple deck of `seed`, stopped once `slots`
- * tiles stand past the starter (a village never holds more than its slots). Its score is the game's.
+ * A PvP v2 village (#740, the free village of #741): a game built freely on a Simple deck of `seed`, stopped once its `slots`
+ * are filled, the starter's included (a village never holds more than its slots). Its score is the game's.
  */
 export function buildFreeVillage(seed: number, slots: number): PvpVillage {
   const game = EngineGame.start({ deck: "simple", seed: BigInt(seed) });
   const next = random(seed);
-  while (!game.over && game.placed().length - 1 < slots) {
+  while (!game.over && game.placed().length < slots) {
     const p = pick(game, next);
     if (p) game.build(p);
     else game.discard();
@@ -131,18 +131,11 @@ export function buildFreeVillage(seed: number, slots: number): PvpVillage {
 }
 
 /**
- * A PvP v2 attack's deck (#740): the village's placed tiles, then extras up to `size` drawn from the base deck's odds (the
- * hands of a Simple deck of `seed`), shuffled by `seed`. As chain plan ids, in draw order. game-core's `attackDeck` (#741) is
- * the rule; the fakes draw the same kind of deck on their own seed.
+ * A PvP v2 attack's deck (#740), game-core's `attackDeck` (#741): the village's placed tiles and extras from the base deck's
+ * odds up to ceil(1.15 x `slots`), shuffled from the random `seed`. As plan codes, in draw order.
  */
-export function attackDeckOf(village: PvpVillage, size: number, seed: number): number[] {
-  const deck = placedPlans(village);
-  const base = EngineGame.start({ deck: "simple", seed: BigInt(seed) });
-  while (deck.length < size && !base.over && base.hand) {
-    deck.push(PLANS.indexOf(base.hand.plan));
-    base.discard();
-  }
-  return shuffled(deck, random(seed));
+export function attackDeckOf(village: PvpVillage, slots: number, seed: number): number[] {
+  return attackDeck(placedPlans(village), slots, BigInt(seed));
 }
 
 /**

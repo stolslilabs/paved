@@ -16,7 +16,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A level-12 village: 20 slots, a deck of 23 tiles (its 20 and 3 extras). */
+/** A level-12 village: 20 slots, a deck of 23 tiles (its 19 tiles and 4 extras). */
 export const Ready: Story = { args: PVP_V2_SCOUT.ready };
 export const Attacking: Story = { args: PVP_V2_SCOUT.attacking };
 /** A level-1 village: 9 slots, a deck of 11. */

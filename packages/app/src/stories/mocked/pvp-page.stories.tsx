@@ -6,6 +6,7 @@ import { Route, Routes } from "react-router";
 import { Toaster } from "sonner";
 import { FakeGameViews, SKIN_PLANS, type IndexerClient, type WriteAccount } from "@paved/chain";
 import { AttackRun } from "@paved/game-core";
+import { attackV2Board } from "../../data/free-attack";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import type { DataSources, GameSigner } from "../../data/sources";
 import { MOCK_KEY, MOCK_STARTING_PAVED, MockLedger } from "../../data/mock/ledger";
@@ -25,7 +26,8 @@ import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
  * deployed): the pages' own hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and their writes go to
  * the ledger, whose rules are the contracts'. Each story seeds the ledger with its own writes (a search, an attack's moves),
  * then mounts the route. The player is connected (a stand-in for the controller); the opponents are the mock's rival
- * villages (`data/mock/pvp.ts`).
+ * villages (`data/mock/pvp.ts`). The mock serves PvP v2's attack (#740, #741), so the search, the scout and the attack are
+ * v2's: the rival's free village, the deck of ceil(1.15 x S) on an open board, the tile in hand and the next two.
  */
 const meta = { title: "Pages/PvP", parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
@@ -78,6 +80,25 @@ async function play(ledger: MockLedger, count = Infinity) {
       }
     }
     await writes.playAttack(best ? { discard: false, orientation: best.orientation, cell: best.cell } : { discard: true });
+  }
+}
+
+/** Plays `count` moves of the open v2 attack, as `play` does, on an unbounded board. */
+async function playV2(ledger: MockLedger, count: number) {
+  const writes = ledger.writesFor(PLAYER_ID);
+  for (let i = 0; i < count; i++) {
+    const { attack } = await ledger.attackV2(PLAYER_ID);
+    const hand = attack?.status === "open" ? attack.view[0] : undefined;
+    if (hand === undefined) return;
+    const run = attackV2Board(attack!);
+    let best: { cell: { x: number; y: number }; orientation: number; points: number } | null = null;
+    for (const cell of run.slots(hand)) {
+      for (const orientation of run.orientations(hand, cell)) {
+        const points = run.preview(hand, orientation, cell) ?? -1;
+        if (!best || points > best.points) best = { cell, orientation, points };
+      }
+    }
+    await writes.playAttackV2(best ? { discard: false, orientation: best.orientation, cell: best.cell } : { discard: true });
   }
 }
 
@@ -143,23 +164,29 @@ function PvpPages(setup: Setup) {
 }
 
 const search = (ledger: MockLedger) => ledger.writesFor(PLAYER_ID).drawOpponent("search").then(() => undefined);
+/** PvP v2: the player's free village founded (its starter layout), then a rival drawn. */
+const foundV2 = (ledger: MockLedger) => ledger.writesFor(PLAYER_ID).foundFreeVillage().then(() => undefined);
+const searchV2 = async (ledger: MockLedger) => {
+  await foundV2(ledger);
+  await ledger.writesFor(PLAYER_ID).drawOpponentV2("search");
+};
 const attack = async (ledger: MockLedger) => {
   await search(ledger);
   await ledger.writesFor(PLAYER_ID).startAttack();
 };
 /** The search's receipt comes after 12 s: long enough to see (and capture) the wait, then the village found and its scout. */
-const SEARCH: Setup = { latencyMs: 12_000 };
-const SCOUT: Setup = { prepare: search };
-const ATTACK: Setup = { prepare: async (ledger) => (await attack(ledger), await play(ledger, 11)) };
+const SEARCH: Setup = { latencyMs: 12_000, prepare: foundV2 };
+const SCOUT: Setup = { prepare: searchV2 };
+const ATTACK: Setup = { prepare: async (ledger) => (await searchV2(ledger), await ledger.writesFor(PLAYER_ID).startAttackV2(), await playV2(ledger, 11)) };
 const RESULT: Setup = { pvp: { crowns: 380, draws: 0, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 2, peak: 0 }, prepare: async (ledger) => (await attack(ledger), await play(ledger)) };
 const LEAGUE: Setup = { pvp: { crowns: 1172, draws: 9, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 3, peak: 7 } };
 const REPLAY: Setup = RESULT;
 
 /** The search's waiting screen: the matchmaker's draw on its way (its receipt 12 s off), under the clouds; then the village found. */
 export const Search: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SEARCH} /> };
-/** The scout of the village drawn: its score, each star's points and crowns, the loss, Next for a Cobble. */
+/** The scout of the village drawn: its score, each star's points (80 / 90 / 100 %) and crowns, the deck the attack will have. */
 export const Scout: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SCOUT} /> };
-/** An attack eleven moves in: the defender's territory, the tile in hand from the draw, the score against the star marks. */
+/** A v2 attack eleven moves in: an open board, the tile in hand and the next two, the deck left, the score against the marks. */
 export const Attack: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...ATTACK} /> };
 /** The attack's end: the stars, the crowns moved, the village reward the settlement granted (Open draws its tiles). */
 export const Result: Story = { parameters: { route: "/pvp/result/1" }, render: () => <PvpPages {...RESULT} /> };
