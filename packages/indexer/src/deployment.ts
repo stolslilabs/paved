@@ -19,6 +19,8 @@ export type Deployment = {
   economy: string;
   /** Optional: a deployment before E5b has none, and its games carry no token id. */
   collection: string | undefined;
+  /** Optional (#643): the PvP attacks, the defence log's. A deployment without `Arena` reads no attack. */
+  arena: string | undefined;
 };
 
 const ADDRESS = /^0x[0-9a-fA-F]{1,64}$/;
@@ -56,6 +58,7 @@ export function parseDeployment(file: unknown): Deployment {
     setup: address("Setup"),
     economy: address("Economy"),
     collection: contracts.Collection === undefined ? undefined : address("Collection"),
+    arena: contracts.Arena === undefined ? undefined : address("Arena"),
   };
 }
 

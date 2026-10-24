@@ -73,6 +73,8 @@ export interface HeadAnswer extends Envelope {
     economy: string;
     /** null for a deployment without a Collection (before E5b). Appended in E5b. */
     collection: string | null;
+    /** Absent for a deployment without an Arena (#643): no attack is read. Appended in schema 19, only with one. */
+    arena?: string;
   };
   checks: {
     /** Quest and achievement definitions left out of every answer: a task total of 0 or a task id repeated (P-30). */
@@ -470,6 +472,45 @@ export interface PlayerReferralsAnswer extends Envelope {
   total: string;
   games: { count: number; total: string };
   packs: { count: number; total: string };
+}
+
+/** An attack that ended (#643, `AttackFinished`): by its last move or a surrender. */
+export interface PvpAttack {
+  attacker: string;
+  /** The attack's id among its attacker's (`(attacker, id)` names it, and its replay: `Arena.moves`). */
+  id: number;
+  defender: string;
+  /** The defender is an NPC village (its address its id, 1 to 255). */
+  npc: boolean;
+  /** The defender's score at the start: the stars are shares of it. */
+  target: number;
+  /** The defender's tiles the attack played. */
+  tiles: number;
+  score: number;
+  stars: number;
+  surrendered: boolean;
+  /** The crowns the attacker won (1 to 3 stars), taken from the defender; 0 otherwise. */
+  gained: number;
+  /** The crowns the attacker lost (0 stars), given to the defender; 0 otherwise. */
+  lost: number;
+  /** Times of the blocks of `AttackOpened` and `AttackFinished`. */
+  opened_at: number;
+  finished_at: number;
+}
+
+/**
+ * A player's attacks that ended, newest first (by their end): those it made (`/players/:id/attacks`) or those on its village
+ * (`/players/:id/defences`, the defence log, #647). Open and skipped attacks are left out.
+ */
+export interface PlayerAttacksAnswer extends Envelope {
+  player_id: string;
+  side: "attacker" | "defender";
+  attacks: PvpAttack[];
+}
+
+/** One attack that ended (`/players/:attacker/attacks/:id`): a replay's metadata, however old. Not found while open or unknown. */
+export interface PlayerAttackAnswer extends Envelope {
+  attack: PvpAttack;
 }
 
 /** A claim of cobbles (`CobblesClaimed`). */

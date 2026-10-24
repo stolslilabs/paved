@@ -29,7 +29,7 @@ export interface Deployment {
   deployedBlock: number;
   /** From the deployment file only; null when it is missing or not an integer 0..77: amounts are then not shown. */
   tokenDecimals: number | null;
-  /** Addresses of the contracts; an empty string when unknown. `Setup`, `Avatar`, `Village` and `Rewards` are optional: not part of `configured`. */
+  /** Addresses of the contracts; an empty string when unknown. `Setup`, `Avatar`, `Village`, `Rewards`, `Matchmaker` and `Arena` are optional: not part of `configured`. */
   addresses: Record<ContractName, string>;
   /** The `Faucet`, the faucet's token, on devnet and Sepolia; an empty string where there is none (mainnet, any other network). Not part of `configured`. */
   faucet: string;
@@ -121,7 +121,9 @@ export function resolveDeployment(input: {
   addresses.Avatar = isAddress(avatar) ? avatar : "";
   // `Village` (#640) and `Rewards` (#642): the player's village, its rewards and the tiers. Optional as `Avatar`: without them
   // the village's reads are `not-configured` and its writes refused.
-  for (const name of ["Village", "Rewards"] as const) {
+  // `Matchmaker` (#639, #644) and `Arena` (#643): the PvP flow (#647). Optional too: without them the PvP reads are
+  // `not-configured` and its writes refused.
+  for (const name of ["Village", "Rewards", "Matchmaker", "Arena"] as const) {
     const value = env.addresses?.[name] || file.contracts?.[name]?.address;
     addresses[name] = isAddress(value) ? value : "";
   }

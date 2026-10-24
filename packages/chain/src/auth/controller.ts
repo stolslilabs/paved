@@ -43,6 +43,11 @@ export const CONTROLLER_ENTRY_POINTS = {
   // The village's rewards (#642): `open_reward` follows its VRF request (a policy too), `claim_reward` places a tile, adds a
   // copy or credits Cobbles. No token moves. Policies only where the deployment has Rewards.
   Rewards: ["open_reward", "claim_reward"],
+  // The PvP (#647): `search` and `next` draw an opponent after their VRF request (`next` spends a Cobble, which no token
+  // carries); `start`, `play` and `surrender` the attack, `start` and each `play` but the last after their request. No token
+  // moves. Policies only where the deployment has them.
+  Matchmaker: ["search", "next"],
+  Arena: ["start", "play", "surrender"],
 } as const;
 
 /** The VRF provider's entry point in the session (#645): `request_random`, which does nothing on chain. */

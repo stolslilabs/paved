@@ -1,0 +1,171 @@
+import { useEffect, useState } from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LazyMotion, domMax } from "motion/react";
+import { Route, Routes } from "react-router";
+import { Toaster } from "sonner";
+import { FakeGameViews, SKIN_PLANS, type IndexerClient, type WriteAccount } from "@paved/chain";
+import { AttackRun } from "@paved/game-core";
+import { MockMarkProvider } from "../../components/containers/mock-mark";
+import type { DataSources, GameSigner } from "../../data/sources";
+import { MOCK_KEY, MOCK_STARTING_PAVED, MockLedger } from "../../data/mock/ledger";
+import { mockGameViews, mockIndexer, mockSigner } from "../../data/mock/overlay";
+import { mockRival } from "../../data/mock/pvp";
+import { APP_MANIFEST } from "../../mocks/assets";
+import { PLAYER_ID } from "../../mocks/players";
+import PvpPage from "../../routes/pages/pvp";
+import PvpDefencePage from "../../routes/pages/pvp-defence";
+import PvpLeaguePage from "../../routes/pages/pvp-league";
+import PvpReplayPage from "../../routes/pages/pvp-replay";
+import PvpResultPage from "../../routes/pages/pvp-result";
+import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
+
+/**
+ * The PvP pages (#647 PR 2) as the app wires them, on the mock data source (Sepolia's, until `Matchmaker` and `Arena` are
+ * deployed): the pages' own hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and their writes go to
+ * the ledger, whose rules are the contracts'. Each story seeds the ledger with its own writes (a search, an attack's moves),
+ * then mounts the route. The player is connected (a stand-in for the controller); the opponents are the mock's rival
+ * villages (`data/mock/pvp.ts`).
+ */
+const meta = { title: "Pages/PvP", parameters: { layout: "fullscreen" } } satisfies Meta;
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** The tile art's manifest, served in memory as the village page's story does. */
+const served = globalThis.fetch.bind(globalThis);
+globalThis.fetch = (input, init) =>
+  String(input instanceof Request ? input.url : input).endsWith("renderer-assets/manifest.json")
+    ? Promise.resolve(new Response(JSON.stringify(APP_MANIFEST), { headers: { "content-type": "application/json" } }))
+    : served(input, init);
+
+const ME = `0x${BigInt(PLAYER_ID).toString(16)}`;
+
+/** The player's stored state: a founded village (in the matchmaker), `cobbles`, and the PvP record given. */
+function seeded(cobbles: number, pvp?: Record<string, unknown>) {
+  const player = {
+    cobbles,
+    credits: 0,
+    achievementsClaimed: "0",
+    days: {},
+    weeks: {},
+    owned: {},
+    active: new Array<number>(SKIN_PLANS).fill(0),
+    shares: "0",
+    paved: MOCK_STARTING_PAVED.toString(),
+    usdc: "0",
+    village: { parcels: [], tiles: [] },
+    ...(pvp ? { pvp } : {}),
+  };
+  const data = new Map([[MOCK_KEY, JSON.stringify({ version: 1, players: { [ME]: player }, vault: { assets: "0", supply: "0" }, transactions: 0 })]]);
+  return { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k) };
+}
+
+/** Plays `count` moves of the open attack (each tile where it fits first, else discarded), or to its end. */
+async function play(ledger: MockLedger, count = Infinity) {
+  const writes = ledger.writesFor(PLAYER_ID);
+  for (let i = 0; i < count; i++) {
+    const attack = await ledger.pvpAttack(PLAYER_ID);
+    if (attack.status !== 1) return;
+    const deck = await ledger.pvpDeck(PLAYER_ID, attack.id);
+    const moves = await ledger.pvpMoves(PLAYER_ID, attack.id);
+    const run = AttackRun.replay({ territory: mockRival(attack.defender)!.cells }, moves.map((m) => (m.discard ? { plan: m.plan, discard: true as const } : { ...m, discard: false as const })));
+    // The plain player of the fakes: the cell where the tile scores most.
+    let best: { cell: { x: number; y: number }; orientation: number; points: number } | null = null;
+    for (const cell of run.slots(deck.hand)) {
+      for (const orientation of run.orientations(deck.hand, cell)) {
+        const points = run.preview(deck.hand, orientation, cell) ?? -1;
+        if (!best || points > best.points) best = { cell, orientation, points };
+      }
+    }
+    await writes.playAttack(best ? { discard: false, orientation: best.orientation, cell: best.cell } : { discard: true });
+  }
+}
+
+interface Setup {
+  cobbles?: number;
+  pvp?: Record<string, unknown>;
+  /** Writes made before the page mounts, on a ledger with no latency. */
+  prepare?: (ledger: MockLedger) => Promise<void>;
+  /** The page's writes' latency (a search left waiting: long). */
+  latencyMs?: number;
+}
+
+/** An indexer stand-in for the mock's overlay: its head only (the PvP lists and the rivals' names are the ledger's). */
+const HEAD = {
+  head: async () => ({ data: { state: "following", chainId: "0x1", fromBlock: 0, contracts: {} }, head: { number: 1, hash: "0x1", timestamp: Math.floor(Date.now() / 1000) }, behind: 0, freshness: "fresh" }),
+  player: async (id: string) => ({ data: { player: { playerId: id, name: null, created: null }, stats: null }, head: { number: 1, hash: "0x1", timestamp: 0 }, behind: 0, freshness: "fresh" }),
+} as unknown as IndexerClient;
+
+function useEnvironment({ cobbles = 12, pvp, prepare, latencyMs = 600 }: Setup) {
+  const [env, setEnv] = useState<{ sources: DataSources; load: LoadConnector; client: QueryClient } | null>(null);
+  useEffect(() => {
+    const store = seeded(cobbles, pvp);
+    void (async () => {
+      await prepare?.(new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, lock: (s) => Promise.resolve(s()) }));
+      const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs, lock: (s) => Promise.resolve(s()) });
+      const sources: DataSources = { views: mockGameViews(new FakeGameViews(), ledger), events: { playerGames: async () => [] }, economy: null, pool: null, indexer: mockIndexer(HEAD, ledger), signer: null };
+      const account: WriteAccount = { address: PLAYER_ID, execute: async () => ({ transaction_hash: "0x0" }) };
+      const load: LoadConnector = async () => ({
+        probe: async () => account,
+        connect: async () => account,
+        disconnect: async () => undefined,
+        username: async () => "bal7hazar",
+        signer: (from) => mockSigner({ address: from.address } as unknown as GameSigner, ledger),
+      });
+      setEnv({ sources, load, client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) });
+    })();
+  }, [cobbles, pvp, prepare, latencyMs]);
+  return env;
+}
+
+/** The PvP routes, in the stories' router (the preview's, at `parameters.route`). */
+function PvpPages(setup: Setup) {
+  const env = useEnvironment(setup);
+  if (!env) return null;
+  return (
+    <QueryClientProvider client={env.client}>
+      <WalletProvider sources={env.sources} load={env.load}>
+        <MockMarkProvider value>
+          <LazyMotion features={domMax}>
+            <Routes>
+              <Route path="/pvp" element={<PvpPage />} />
+              <Route path="/pvp/result/:id" element={<PvpResultPage />} />
+              <Route path="/pvp/replay/:attacker/:id" element={<PvpReplayPage />} />
+              <Route path="/pvp/defence" element={<PvpDefencePage />} />
+              <Route path="/pvp/league" element={<PvpLeaguePage />} />
+            </Routes>
+            <Toaster />
+          </LazyMotion>
+        </MockMarkProvider>
+      </WalletProvider>
+    </QueryClientProvider>
+  );
+}
+
+const search = (ledger: MockLedger) => ledger.writesFor(PLAYER_ID).drawOpponent("search").then(() => undefined);
+const attack = async (ledger: MockLedger) => {
+  await search(ledger);
+  await ledger.writesFor(PLAYER_ID).startAttack();
+};
+/** The search's receipt comes after 12 s: long enough to see (and capture) the wait, then the village found and its scout. */
+const SEARCH: Setup = { latencyMs: 12_000 };
+const SCOUT: Setup = { prepare: search };
+const ATTACK: Setup = { prepare: async (ledger) => (await attack(ledger), await play(ledger, 11)) };
+const RESULT: Setup = { pvp: { crowns: 380, draws: 0, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 2, peak: 0 }, prepare: async (ledger) => (await attack(ledger), await play(ledger)) };
+const LEAGUE: Setup = { pvp: { crowns: 1172, draws: 9, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 3, peak: 7 } };
+const REPLAY: Setup = RESULT;
+
+/** The search's waiting screen: the matchmaker's draw on its way (its receipt 12 s off), under the clouds; then the village found. */
+export const Search: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SEARCH} /> };
+/** The scout of the village drawn: its score, each star's points and crowns, the loss, Next for a Cobble. */
+export const Scout: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SCOUT} /> };
+/** An attack eleven moves in: the defender's territory, the tile in hand from the draw, the score against the star marks. */
+export const Attack: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...ATTACK} /> };
+/** The attack's end: the stars, the crowns moved, the village reward the settlement granted (Open draws its tiles). */
+export const Result: Story = { parameters: { route: "/pvp/result/1" }, render: () => <PvpPages {...RESULT} /> };
+/** The attack replayed move by move. */
+export const Replay: Story = { parameters: { route: `/pvp/replay/${ME}/1` }, render: () => <PvpPages {...REPLAY} /> };
+/** The league: Silver II, the way to Silver I, the season's end and its reward after five attacks. */
+export const League: Story = { parameters: { route: "/pvp/league" }, render: () => <PvpPages {...LEAGUE} /> };
+/** The defence log of a village no rival of the mock attacks. */
+export const Defence: Story = { parameters: { route: "/pvp/defence" }, render: () => <PvpPages {...LEAGUE} /> };
