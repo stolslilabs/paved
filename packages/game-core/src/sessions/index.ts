@@ -2,10 +2,11 @@
 // `PredictedSession` (P5), and the `PageSession` shape a board drives. No chain, no DOM: the chain's `GameSession`
 // satisfies `PageSession` structurally.
 
-export type { BoardTile, Closure, MoveSenders, PageSession, PageState, PlaceMove, ScoredStructure, Send } from "./types";
+export type { BoardTile, ClosedTileAreas, Closure, MoveSenders, PageSession, PageState, PlaceMove, ScoredStructure, Send } from "./types";
 export { browserStore } from "./storage";
 export type { KeyValueStore } from "./storage";
 export { randomSeed } from "./seed";
+export { closedOf } from "./closed";
 export { TRAINING_KEY, clearGame } from "./training-storage";
 export { LocalSession, TRAINING_LOOKAHEAD, replayTraining, startTraining } from "./local-session";
 export type { TrainingMove } from "./local-session";

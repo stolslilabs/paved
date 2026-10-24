@@ -1,5 +1,6 @@
 import { CENTER, EngineGame } from "../engine";
 import type { MoveResult, Placement } from "../engine";
+import { closedOf } from "./closed";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
@@ -136,6 +137,15 @@ interface Entry {
   /** Set when a refusal or a resync drops the move before it is sent. */
   dropped: boolean;
 }
+
+/**
+ * `boardOf` writes the chain's tiles with their ids moved past the engine's own by this much; the starter (id 1) is the
+ * engine's own, not written, and keeps its id.
+ */
+const WRITTEN_ID_OFFSET = 1000;
+
+/** A tile of a written board (`boardOf`) as the chain names it: the starter as is, the others moved back. */
+const chainTileId = (engineId: number): number => (engineId > WRITTEN_ID_OFFSET ? engineId - WRITTEN_ID_OFFSET : engineId);
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -652,7 +662,9 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       const [game, chainTiles, draw] = await Promise.all([this.views.game(this.key), this.views.tiles(this.key), this.readDraw()]);
       this.chainQueue = draw;
       this.engine = this.boardOf(game, chainTiles);
-      this.set({ ...this.chainProjection(game, chainTiles), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
+      // The move's own closed structures in the order it scored them, the feed's (its tile, when it built one).
+      const closer = kind === "build" && hand ? hand.tileId : undefined;
+      this.set({ ...this.chainProjection(game, chainTiles, closer), pending: false, unconfirmed: 0, delta: game.score - before, expiresAt: game.expiresAt });
     } catch (error) {
       // The move landed but the next tile is unknown: the next action re-reads the game (`stale`).
       this.set({ pending: false, unconfirmed: 0, drawing: false, readError: message(error), stale: true });
@@ -673,13 +685,13 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     for (const t of tiles) {
       const placement = t.status === PLACED && t.id !== 1 ? toPlacement(t) : null;
       const plan = PLANS[t.plan] as PlanType | undefined;
-      if (placement && plan) board.write({ id: 1000 + t.id, plan, ...placement });
+      if (placement && plan) board.write({ id: WRITTEN_ID_OFFSET + t.id, plan, ...placement });
     }
     return board;
   }
 
   /** The board and the hand as the chain gives them (no prediction), with the queue of a game on the VRF. */
-  private chainProjection(game: ChainGame, tiles: readonly ChainTile[]): Partial<PredictedState> {
+  private chainProjection(game: ChainGame, tiles: readonly ChainTile[], closer?: number): Partial<PredictedState> {
     const placed = tiles.filter((t) => t.status === PLACED);
     // A viewer who cannot play still sees the game's hand and its queue (#701); every move of theirs is refused.
     const hand = !game.over && game.tileId ? { tileId: game.tileId, plan: game.plan } : null;
@@ -694,6 +706,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       },
       tiles: placed.map(({ id, plan, orientation, x, y }) => ({ id, plan, orientation, x, y })),
       discardedPlans: tiles.filter((t) => t.status === DISCARDED).map((t) => t.plan),
+      // Nothing was scored on the board written from the chain (`boardOf`): its closed structures are read off it.
+      closed: this.engine ? closedOf(this.engine.closedOnBoard(closer === undefined ? undefined : WRITTEN_ID_OFFSET + closer), chainTileId) : [],
       hand,
       coming: hand && this.chainQueue ? comingOf(hand.tileId, this.chainQueue) : [],
       drawing: false,
@@ -730,6 +744,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       tiles,
       discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
+      closed: closedOf(g.closings()),
       pending: this.queue.length > 0,
       unconfirmed: this.queue.length,
     };

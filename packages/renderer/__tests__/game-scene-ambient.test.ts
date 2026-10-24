@@ -10,6 +10,11 @@ import { createSnowUniforms } from "../src/core/snow-shader";
 import { boardReveal } from "../src/core/fog-of-war-settings";
 import { DEFAULT_WEATHER_SETTINGS } from "../src/core/weather-settings";
 
+/** A lazy chunk's load: its import can take well over `vi.waitFor`'s default 1 s on a loaded machine. */
+const CHUNK_WAIT = { timeout: 20_000 };
+// And a test that waits for one has the time to.
+vi.setConfig({ testTimeout: 30_000 });
+
 const adapter: RenderSurfaceAdapter = {
   getSize: () => ({ width: 375, height: 812 }),
   getDevicePixelRatio: () => 2,
@@ -202,7 +207,7 @@ describe("GameScene: the cloud shadows (#573) on the ambient loop", () => {
 
   it("load their chunk the first time the effects are on, drift on the loop and never redraw the shadow map", async () => {
     const { scene, tiles, frames, renders, shadowRedraws } = await createScene(CLOUDS);
-    await vi.waitFor(() => expect(scene.getClouds()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getClouds()).not.toBeNull(), CHUNK_WAIT);
     expect(scene.getClouds()).toMatchObject({ visible: true, coverage: 0.4, darkness: 0.2, wisps: false });
     // The tile shader's term reads the effect's map and darkness.
     expect(tiles.cloudUniforms.uCloudDark.value).toBe(0.2);
@@ -247,7 +252,7 @@ describe("GameScene: the cloud shadows (#573) on the ambient loop", () => {
     const night = { enabled: true, freezeAt: 0.8, reducedMotion: false };
     const { scene, tiles, frames, renders } = await createScene({ ...CLOUDS, dayNight: night });
     await (scene as any).dayNightLoad;
-    await vi.waitFor(() => expect(scene.getClouds()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getClouds()).not.toBeNull(), CHUNK_WAIT);
     expect(scene.getDayNight()).toMatchObject({ phase: "night" });
     // The default: the clouds go with the sun. Nothing to dim, nothing drawn, the time frozen board stays idle.
     expect(scene.getClouds()).toMatchObject({ visible: false });
@@ -306,7 +311,7 @@ describe("GameScene: the weather (#658) in every board", () => {
   it("loads its chunk, follows the wheel's season and fades into the next over three seconds on the loop", async () => {
     const { scene, tiles, frames, renders } = await createScene(held(AUTUMN));
     await (scene as any).dayNightLoad;
-    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull(), CHUNK_WAIT);
     frames(2);
     expect(scene.getWeather()).toMatchObject({ mode: "moving", season: "autumn", presence: { autumn: 1 } });
     expect(scene.getWeather()!.particles.rain).toBeGreaterThan(0);
@@ -336,7 +341,7 @@ describe("GameScene: the weather (#658) in every board", () => {
   it("is off with the 'Ambient effects' off and on the Low tier; still under reduced motion", async () => {
     const { scene, tiles } = await createScene(held(WINTER));
     await (scene as any).dayNightLoad;
-    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull(), CHUNK_WAIT);
     expect(scene.getWeather()!.mode).toBe("moving");
 
     scene.setSettings(held(WINTER, { ambient: { enabled: false } }));
@@ -356,7 +361,7 @@ describe("GameScene: the weather (#658) in every board", () => {
 
   it("with Day and night off (the wheel's fixed summer, the look's lights): summer's brightness, by day", async () => {
     const { scene } = await createScene(held(WINTER, { dayNight: { enabled: false } }));
-    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getWeather()).not.toBeNull(), CHUNK_WAIT);
     expect(scene.getDayNight()).toBeNull();
     expect(scene.getWeather()).toMatchObject({ mode: "moving", season: "summer", daylight: 1, presence: { summer: 1 }, drawCalls: 1 });
     // Turned on, the cycle's season takes over (winter held by the wheel).
@@ -410,7 +415,7 @@ describe("GameScene: the fog of war (#648)", () => {
   it("on with a reveal: loads its chunk in the board's group, the owner's variant (the landscape, rounded corners)", async () => {
     const { scene, tiles } = await createScene(FOG);
     scene.setFogReveal(board);
-    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull(), CHUNK_WAIT);
     expect(scene.getFog()).toMatchObject({ mode: "moving", cells: board.length });
     expect(scene.getFog()!.props).toBeGreaterThan(0);
     // The Landscape story's falloff and billow (#633), the study's drift and mist.
@@ -426,7 +431,7 @@ describe("GameScene: the fog of war (#648)", () => {
   it("stays on at every tier: still on Low and with the effects off; gone without a reveal or with the setting off", async () => {
     const { scene } = await createScene(FOG);
     scene.setFogReveal(board);
-    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull(), CHUNK_WAIT);
     scene.setSettings({ ...FOG, quality: "low" });
     expect(scene.getFog()!.mode).toBe("still");
     scene.setSettings({ ...FOG, ambient: { enabled: false } });
@@ -461,7 +466,7 @@ describe("GameScene: the fog of war (#648)", () => {
     // The ambient effects follow the device's reduced motion ("auto").
     const { scene, frames } = await createScene({ ...FOG, ambient: { enabled: true, reducedMotion: "auto", clouds: { enabled: false } } });
     scene.setFogReveal(board);
-    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull());
+    await vi.waitFor(() => expect(scene.getFog()).not.toBeNull(), CHUNK_WAIT);
     frames(10);
     scene.setFogReveal(boardReveal([{ x: 0, y: 0 }, { x: 1, y: 0 }]), [{ x: 1, y: 0 }]);
     expect(scene.getFog()).toMatchObject({ mode: "moving", lifting: true });

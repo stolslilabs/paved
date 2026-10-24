@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
 import { TileRenderer, type LitTile } from "./TileRenderer";
+import type { ClosedStructure, ClosedStructuresOptions } from "./closed-structures";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
 import { frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
@@ -499,6 +500,7 @@ export class GameScene {
     // The square grid's backdrop draws no mist on the Low tier and software WebGL, where a CPU draws every pixel of its noise
     // (SwiftShader: the backdrop's draw 2.3 times as long with it).
     if (this.squareGrid.setLowPower(this.getQuality() === "low" || this.webgl.software)) this.requestRender();
+    this.applyClosingSettings();
     const look = this.getLook();
     const profile = getLightingProfile(this.renderProfile);
     const play = getLightingProfile("play");
@@ -1062,6 +1064,7 @@ export class GameScene {
     const { reducedMotion } = this.settings.placement.motion;
     const reduced = reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion;
     this.tiles.setReducedMotion(reduced);
+    this.applyClosingSettings();
     this.squareGrid.setSettings(this.settings.squareGrid);
     this.squareGrid.setReducedMotion(reduced);
     // On the ambient loop only while it is on: off, the loop has nothing of it to step.
@@ -1120,6 +1123,33 @@ export class GameScene {
   setLitAreas(lit: Iterable<LitTile> | null): void {
     this.tiles.setLitAreas(lit);
     this.requestRender();
+  }
+
+  /**
+   * The closed structures (CLOSE-SHINE, #722): every structure closed so far, each with a stable id and its areas on its tiles
+   * (a mask per tile, bit `area - 1`, as `setLitAreas` takes them). One that appears after the first call pulses bright yellow
+   * (staggered as the closing feed's lines), then a band of light sweeps across it every few seconds for the rest of the game,
+   * on its own clock; the first call's (a board loaded mid-game) shine at once, with no pulse. `options.pulse` overrides that.
+   * The rest of the board is not dimmed. Frames are drawn only while a pulse or a sweep runs (`TileRenderer.update`).
+   */
+  setClosedStructures(structures: readonly ClosedStructure[], options?: ClosedStructuresOptions): void {
+    this.tiles.setClosedStructures(structures, options);
+    this.requestRender();
+  }
+
+  /**
+   * The closed structures' settings (`RendererSettings.closing`), with reduced motion as the placement reads it (the confirm's
+   * rule: a short pulse) and low power (the Low tier, software WebGL: no shine, as the ambient effects).
+   */
+  private applyClosingSettings(): void {
+    const { reducedMotion } = this.settings.placement.motion;
+    const reduced = reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion;
+    this.tiles.setClosingSettings(this.settings.closing, reduced, this.getQuality() === "low" || this.webgl.software);
+  }
+
+  /** The closed structures' layer, read only: how many, a structure's pulse and sweep at a time (the stories, the tests). */
+  getClosedStructures(): TileRenderer["closedLayer"] {
+    return this.tiles.closedLayer;
   }
 
   /** Switch between 3D voxel and 2D strategy rendering */
