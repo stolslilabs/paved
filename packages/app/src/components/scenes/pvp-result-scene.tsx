@@ -19,7 +19,7 @@ import type { RewardOffer } from "../containers/reward-sheet";
 import { TopBar } from "../containers/top-bar";
 import type { Village } from "../containers/village-rules";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
-import type { VillageCopy, VillagePlace } from "./village-scene";
+import type { VillagePlace } from "./village-scene";
 
 // The village and its reward sheet (#646) are their own chunk: loaded at the first Choose, never with the result.
 const loadVillage = () => import("./village-scene");
@@ -63,8 +63,6 @@ export interface PvpResultSceneProps {
   tileArt?: TileArt;
   /** The reward's tile placed on a free cell of the village (#646's sheet). */
   onPlace?: (place: VillagePlace) => void;
-  /** The reward's tile added as a copy to a placed tile of its plan. */
-  onAddCopy?: (copy: VillageCopy) => void;
   /** The Cobbles taken instead of a tile. */
   onTakeCobbles?: () => void;
   /** `sealed`: the reward's three tiles drawn. */
@@ -84,7 +82,7 @@ const VERDICT = ["Defeat", "Victory", "Victory", "Triumph"] as const;
 /**
  * The end of an attack (#647): the stars won, the score against the village's, the crowns won or lost and the league they
  * leave the attacker in (a promotion or a drop said in words), then the village reward: Choose opens the player's village
- * with #646's reward sheet (drag a tile to a lit cell, onto a tile of its plan for a copy, or take the Cobbles), full screen;
+ * with #646's reward sheet (drag a tile to a lit cell, or take the Cobbles), full screen;
  * a choice closes it. One column on a phone, the same column centred on a desktop.
  */
 export function PvpResultScene(props: PvpResultSceneProps) {
@@ -250,7 +248,6 @@ export function PvpResultScene(props: PvpResultSceneProps) {
               tileArt={props.tileArt}
               onBack={() => setChoosing(false)}
               onPlace={chosen(props.onPlace)}
-              onAddCopy={chosen(props.onAddCopy)}
               onTakeCobbles={() => {
                 setChoosing(false);
                 props.onTakeCobbles?.();

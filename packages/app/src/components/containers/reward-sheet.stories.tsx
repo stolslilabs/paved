@@ -4,7 +4,7 @@ import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { REWARD, REWARD_CRAMPED, VILLAGE_CRAMPED, VILLAGE_GROWING } from "../../mocks/village";
 import { RewardSheet } from "./reward-sheet";
 
-/** The reward's sheet (#646): three tiles with their tier's progress, or Cobbles. The scene drags from it (`Scenes/Village`). */
+/** The reward's sheet (#646): three tiles, or Cobbles. The scene drags from it (`Scenes/Village`). */
 const meta = {
   title: "Containers/RewardSheet",
   component: RewardSheet,

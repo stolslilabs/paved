@@ -3,45 +3,37 @@ import { fn } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAN, VILLAGE_CRAMPED, VILLAGE_FULL, VILLAGE_GROWING, VILLAGE_RIVAL, VILLAGE_START } from "../../mocks/village";
 import { VillageBoard } from "./village-board";
-import { copyTargets, legalCells } from "./village-rules";
+import { legalCells } from "./village-rules";
 
-/** A reward's tile being placed in `village`: its legal cells and its copy targets. */
-const placing = (village: typeof VILLAGE_GROWING, plan: number) => ({ plan, orientation: 1, legal: legalCells(village, plan), copies: copyTargets(village, plan).map((t) => t.id) });
+/** A reward's tile being placed in `village`: its legal cells. */
+const placing = (village: typeof VILLAGE_GROWING, plan: number) => ({ plan, orientation: 1, legal: legalCells(village, plan) });
 
 /**
- * The village board (#646), shared with the PvP flow (#647): the owned cells, the parcels around them, the fog beyond
- * (#633's village variant as a prop until #648). The PvP attack draws the defender's territory with `parcels` off.
+ * The v1 village board (#646), shared with the PvP flow (#647): the owned cells and the fog beyond. The parcels and the tiers'
+ * bases left with v2 (#739); the v2 village's board is `Containers/LayoutBoard`.
  */
 const meta = {
   title: "Containers/VillageBoard",
   component: VillageBoard,
   parameters: { layout: "fullscreen" },
   decorators: [(Story) => <div className="h-dvh">{Story()}</div>],
-  args: { village: VILLAGE_GROWING, tileArt: originalTileArt(SOURCE_ASSETS), onParcel: fn(), onPlace: fn(), onCopy: fn() },
+  args: { village: VILLAGE_GROWING, tileArt: originalTileArt(SOURCE_ASSETS), onPlace: fn() },
 } satisfies Meta<typeof VillageBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The player's village: the parcels are buttons. */
-export const Own: Story = { args: { parcels: true } };
+/** The player's village. */
+export const Own: Story = {};
 /** The start: 9 cells. */
-export const Start: Story = { args: { village: VILLAGE_START, parcels: true } };
-/** 38 cells: no parcel left. */
-export const Full: Story = { args: { village: VILLAGE_FULL, parcels: true } };
-/** Read-only (a visit, the attack's territory): no parcel buttons. */
+export const Start: Story = { args: { village: VILLAGE_START } };
+/** A large village: 38 cells. */
+export const Full: Story = { args: { village: VILLAGE_FULL } };
+/** Someone else's village (a visit, the attack's territory). */
 export const ReadOnly: Story = { args: { village: VILLAGE_RIVAL } };
 /** No fog. */
-export const FogOff: Story = { args: { parcels: true, fog: "off" } };
-/** A road being placed: its legal cells lit, the placed roads ringed. */
+export const FogOff: Story = { args: { fog: "off" } };
+/** A road being placed: its legal cells lit. */
 export const Placing: Story = { args: { placing: placing(VILLAGE_GROWING, PLAN.road) } };
-/** Dragged over a ringed tile: the copy it adds and the tier's progress. */
-export const CopyOver: Story = {
-  args: (() => {
-    const p = placing(VILLAGE_GROWING, PLAN.wonder);
-    const tile = VILLAGE_GROWING.tiles.find((t) => t.plan === PLAN.wonder)!;
-    return { placing: p, over: { x: tile.x, y: tile.y } };
-  })(),
-};
 /** Dragged over a lit cell: the tile previewed there. */
 export const PlaceOver: Story = {
   args: (() => {
@@ -49,5 +41,5 @@ export const PlaceOver: Story = {
     return { placing: p, over: p.legal[0] ?? null };
   })(),
 };
-/** A tile that fits nowhere and has no copy target: no cell lit. */
+/** A tile that fits nowhere: no cell lit. */
 export const NoFit: Story = { args: { village: VILLAGE_CRAMPED, placing: placing(VILLAGE_CRAMPED, PLAN.road) } };

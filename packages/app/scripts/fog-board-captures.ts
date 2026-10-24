@@ -1,5 +1,5 @@
 /**
- * FOG-EVERYWHERE (#648): stills of the fog of war on the game's board (`Scenes/Board`: Fog, FogAtNight, FogVillage), the
+ * FOG-EVERYWHERE (#648): stills of the fog of war on the game's board (`Scenes/Board`: Fog, FogAtNight), the
  * village's and the PvP attack's 3D boards (`Scenes/Village`, `Scenes/PvP/Attack`: Board3D and its night), on a phone (375 x 812
  * at DPR 2) and on desktop (1440 x 900 at DPR 1).
  *
@@ -29,8 +29,7 @@ if (!OUT) throw new Error("--out <folder> is required (captures are not committe
 const STORIES = [
   ["fog-board-day", "scenes-board--fog"],
   ["fog-board-night", "scenes-board--fog-at-night"],
-  ["fog-board-village", "scenes-board--fog-village"],
-  // The village and the PvP attack in 3D: the fog clear over the owned cells and their neighbours.
+  // The village and the PvP attack in 3D: the fog lifted around the tiles, as on every board (#739).
   ["fog-village-day", "scenes-village--board-3-d"],
   ["fog-village-night", "scenes-village--board-3-d-night"],
   ["fog-village-reward", "scenes-village--board-3-d-reward"],

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { AMBIENT_FPS, DEFAULT_FOG_SETTINGS, FIELD_REACH, MAX_CORNER_RADIUS, QUALITY_TIERS, VILLAGE_MAX_CELLS } from "@paved/renderer";
+import { AMBIENT_FPS, DEFAULT_FOG_SETTINGS, FIELD_REACH, MAX_CORNER_RADIUS, QUALITY_TIERS } from "@paved/renderer";
 import { PHONE_PLAY_DISTANCE } from "./birds-board";
 import { FogBoard, type FogBoardProps } from "./fog-board";
 
@@ -32,8 +32,6 @@ const ARGS: FogBoardProps = {
   reveal: "board",
   shape: "one",
   placed: 72,
-  villageCells: VILLAGE_MAX_CELLS,
-  villageBuilt: 30,
   plates: true,
   autoplay: 0,
   interactive: true,
@@ -55,15 +53,13 @@ const ARGS: FogBoardProps = {
  *   `falloff` cells, its edge billowing with the noise).
  * - **The landscape**: a ground and props (trees, bushes, rocks, voxel by voxel as the models) beyond the clear cells, fading into
  *   the fog; a prop sinks into the ground as the fog lifts over its cell.
- * - **A PvP village**: the clear cells are a village's owned cells (at most 38) and the cells next to them (the ones it can buy).
  *
  * One field drives it: a small texture of the distance to the nearest clear cell, built on the CPU when the reveal changes and while
  * a cell lifts; the fog's floor, its mist and the props read it. One draw for the fog's floor (or the ground), one for the mist, one
  * per kind of prop. On the ambient loop: the fog drifts and lifts there; on the Low tier, with the effects off or under reduced
  * motion it stands still and a cell lifts at once (it stays on at every tier: it tells where a tile can go).
  *
- * Tap a slot (or "Place next") to place a tile there; in a village, tap an owned empty cell to build on it, a cell next to the
- * village to buy it. The readout gives the fog's draws and the frame's, the field's size and build time, the frames a second and
+ * Tap a slot (or "Place next") to place a tile there. The readout gives the fog's draws and the frame's, the field's size and build time, the frames a second and
  * the CPU time of a frame (p95); on software WebGL the time is not a measure.
  */
 const meta = {
@@ -93,12 +89,10 @@ const meta = {
     decor: { ...range(0, 16, 1), description: `The props a forest cell holds (default ${d.landscape.decor})`, ...category("landscape") },
     decorScale: { ...range(0.25, 3, 0.05), description: `The props' size, times their own (default ${d.landscape.decorScale})`, ...category("landscape") },
 
-    reveal: { control: "inline-radio", options: ["board", "village", "shape"], description: "What stays clear: the tiles and their free slots, a village's owned cells and the cells next to them, or a shape's tiles and their free slots (no plates)", ...category("board") },
+    reveal: { control: "inline-radio", options: ["board", "shape"], description: "What stays clear: the tiles and their free slots, or a shape's tiles and their free slots (no plates)", ...category("board") },
     shape: { control: "inline-radio", options: ["one", "L", "diagonal"], description: "Shape: a lone tile, an L or a diagonal pair, with their free slots clear and unplated (to judge the corners)", ...category("board") },
     placed: { ...range(1, 72, 1), description: "Board: the recorded board's first tiles placed, in its order", ...category("board") },
-    villageCells: { ...range(1, VILLAGE_MAX_CELLS, 1), description: `Village: the cells owned (at most ${VILLAGE_MAX_CELLS})`, ...category("board") },
-    villageBuilt: { ...range(0, VILLAGE_MAX_CELLS, 1), description: "Village: how many owned cells hold a tile", ...category("board") },
-    plates: { control: "boolean", description: "The free slots (or the owned empty and buyable cells) as plates", ...category("board") },
+    plates: { control: "boolean", description: "The free slots as plates", ...category("board") },
     autoplay: { ...range(0, 5, 0.25), description: "Place (or buy) the next every this many seconds; 0 by hand", ...category("board") },
     interactive: { control: "boolean", description: "A tap on a slot places a tile there; the 'Place next' button", ...category("board") },
     view: { control: "inline-radio", options: ["game", "phone-play", "far", "close"], description: `The game's opening camera, a phone's play distance (${PHONE_PLAY_DISTANCE}), the farthest (300), or close (40)`, ...category("board") },
@@ -131,9 +125,6 @@ export const Landscape: Story = { args: { landscape: true, falloff: 2.5, billow:
 /** The landscape behind a hard edge: none of it shows, the fog starts at the border. */
 export const LandscapeHardEdge: Story = { args: { landscape: true, falloff: 0, mist: 0 } };
 
-/** A PvP village: 38 owned cells (30 built, 8 bought and empty) and the cells next to them, the ones it can buy (fainter plates). */
-export const Village: Story = { args: { reveal: "village", landscape: true, falloff: 2.5 } };
-
 /**
  * Interactive: the recorded board from its first three tiles. Tap a slot (or "Place next"): the tile goes there and the fog lifts
  * over its new free neighbours, from its side.
@@ -142,9 +133,6 @@ export const Interactive: Story = { args: { placed: 3, landscape: true, falloff:
 
 /** The interactive board placing a tile every 1.5 s, on its own. */
 export const Autoplay: Story = { args: { placed: 3, landscape: true, falloff: 1.2, billow: 0.4, autoplay: 1.5, view: "phone-play" } };
-
-/** A village growing from four built cells: a cell bought, then built on, every 1.5 s; each cell bought lifts the fog over the cells next to it. */
-export const VillageGrowing: Story = { args: { reveal: "village", villageCells: 4, villageBuilt: 4, landscape: true, falloff: 1.2, billow: 0.4, autoplay: 1.5, view: "phone-play" } };
 
 /** The night: the fog dims to a moonlit blue, the landscape takes the night's light. */
 export const Night: Story = { args: { landscape: true, falloff: 2.5, time: "night" } };
