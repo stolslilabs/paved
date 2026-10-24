@@ -1,9 +1,10 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { TabPage } from "./tab-page";
 import { BIG_AMOUNT_18, LONG_LABEL, LONG_SENTENCE } from "../../mocks/stress";
 import { Amount } from "../elements/amount";
-import { VIEWPORT_OPTIONS } from "../scenes/viewports";
+import { PHONE_375 } from "../scenes/viewports";
+import { BalancesProvider, type HeaderBalances } from "./balances-context";
 
 const meta = {
   title: "Containers/TabPage",
@@ -35,7 +36,7 @@ export const Stress: Story = {
 };
 
 /** An iPhone's viewport (375 x 812), for the stories of the frame (#611). */
-const PHONE = { viewport: { options: { ...VIEWPORT_OPTIONS, phone: { name: "iPhone 375", styles: { width: "375px", height: "812px" }, type: "mobile" } } } };
+const PHONE = PHONE_375.parameters;
 
 /**
  * FOOTER-FIXED (#611): a page taller than the viewport, at 375 px. The page scrolls in its own region between the top and
@@ -57,3 +58,17 @@ export const LongPage: Story = {
 
 /** A page shorter than the viewport, at 375 px: the navigation still sits at the bottom, nothing scrolls. */
 export const ShortPage: Story = { parameters: PHONE, globals: { viewport: { value: "phone", isRotated: false } } };
+
+const READY = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } as const;
+const withBalances = (show: HeaderBalances): Decorator[] => [
+  (Story) => (
+    <BalancesProvider value={{ state: READY, onAction: fn(), show }}>
+      <Story />
+    </BalancesProvider>
+  ),
+];
+
+/** HEADER-BALANCES (#720), at 375 px: a page where Cobbles move (Missions) keeps the Cobbles' strip under its title row, 96 px. */
+export const PhoneCobbles: Story = { ...PHONE_375, args: { tab: "quests", title: "Missions" }, decorators: withBalances({ phone: true, desktop: "all" }) };
+/** At 375 px, a page where none move (the Vault): no balance, the header is its title row alone, 56 px. */
+export const PhoneNoBalances: Story = { ...PHONE_375, args: { tab: "vault", title: "Vault" }, decorators: withBalances({ phone: false, desktop: "all" }) };

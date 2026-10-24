@@ -140,7 +140,7 @@ describe("/training (P3)", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
     expect(Date.now() - lastMoveAt).toBeGreaterThanOrEqual(GAME_OVER_HOLD_MS);
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
     const saved = loadGame(() => store)!;
     expect(replayTraining(BigInt(saved.seed), saved.moves).over).toBe(true);
     expect(saved.moves.some((m) => m.k === "b")).toBe(true);
@@ -203,7 +203,7 @@ describe("/training (P3)", () => {
     full = true;
     while (!handEmpty()) await discardTile();
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Tiles placed0");
     expect(router.state.location.pathname).toBe("/training/over");
     expect(loadGame(() => store)!.moves).toEqual([{ k: "d" }]);
@@ -290,7 +290,7 @@ describe("/training/over (P3)", () => {
     }
     const store = memoryStore({ [TRAINING_KEY]: save(moves) });
     const { router } = open("/training/over", store);
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
     const metrics = screen.getByRole("region", { name: "Game metrics" });
     expect(metrics).toHaveTextContent(`Tiles placed${game.built}`);
 
@@ -312,17 +312,19 @@ describe("/training/over (P3)", () => {
     expect(game.score).toBeGreaterThan(1);
     const store = memoryStore({ [TRAINING_KEY]: save(moves), [TRAINING_BEST_KEY]: JSON.stringify({ score: 1, seed: "0x1", previous: null }) });
     const { router, unmount } = open("/training/over", store);
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByText("New best")).toBeInTheDocument();
     expect(JSON.parse(store.getItem(TRAINING_BEST_KEY)!)).toEqual({ score: game.score, seed: `0x${SEED.toString(16)}`, previous: 1 });
 
     const toggle = screen.getByRole("radiogroup", { name: "Show" });
     await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Final board" })).toBeInTheDocument();
+    // The board under the scores from the start (#720), freed by Board.
+    await waitFor(() => expect(screen.getByTestId("final-board")).not.toHaveAttribute("aria-hidden", "true"));
     expect(await within(screen.getByTestId("final-board")).findByRole("img", { name: `Board of ${game.built + 1} tiles` })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/training/over");
     await userEvent.click(within(toggle).getByRole("radio", { name: "Scores" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("final-board")).toHaveAttribute("aria-hidden", "true"));
+    expect(screen.getByTestId("scores-overlay").closest('[aria-hidden="true"]')).toBeNull();
     expect(router.state.location.pathname).toBe("/training/over");
     unmount();
 

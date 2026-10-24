@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { BalancesProvider } from "../components/containers/balances-context";
+import { BalancesProvider, type HeaderBalances } from "../components/containers/balances-context";
 import type { BalanceKind } from "../components/containers/balances";
 import { toastError } from "../components/containers/error-toast";
 import { queryKeys } from "../data/keys";
@@ -17,8 +17,11 @@ const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } a
 const FAUCET_NETWORKS = ["devnet", "sepolia"];
 const FAUCET = FAUCET_NETWORKS.includes(import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : ""));
 
-/** Reads the balances once for the whole shell and hands them to the pages' headers and rail (`BalancesSlot`). */
-export function BalancesHost({ children }: { children: ReactNode }) {
+/**
+ * Reads the balances once for the whole shell and hands them to the pages' headers and rail (`BalancesSlot`), with the page's
+ * rule (`show`, `header-balances.ts`).
+ */
+export function BalancesHost({ show, children }: { show: HeaderBalances; children: ReactNode }) {
   const state = useBalances();
   const wallet = useAccount();
   const { signer } = useDataSources();
@@ -40,6 +43,6 @@ export function BalancesHost({ children }: { children: ReactNode }) {
     [go, signer, address, queryClient],
   );
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);
-  const value = useMemo(() => ({ state, onAction, onConnect, faucet: FAUCET && Boolean(signer), minting }), [state, onAction, onConnect, signer, minting]);
+  const value = useMemo(() => ({ state, onAction, onConnect, faucet: FAUCET && Boolean(signer), minting, show }), [state, onAction, onConnect, signer, minting, show]);
   return <BalancesProvider value={value}>{children}</BalancesProvider>;
 }

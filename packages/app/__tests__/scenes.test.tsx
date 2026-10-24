@@ -415,7 +415,7 @@ describe("Board", () => {
 describe("Over", () => {
   it("shows the final score, the metrics, every closing and the reward", () => {
     render(wrap(<OverScene {...OVER.rewarded} />));
-    expect(screen.getByTestId("score-value")).toHaveTextContent(pts(OVER.rewarded.game.score));
+    expect(within(screen.getByTestId("final-score")).getByTestId("score-value")).toHaveTextContent(pts(OVER.rewarded.game.score));
     expect(screen.getByText("New best")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Closings" })).getAllByRole("listitem")).toHaveLength(CLOSINGS_38.length);
     const reward = screen.getByRole("region", { name: "Reward" });

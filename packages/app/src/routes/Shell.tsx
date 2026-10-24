@@ -7,6 +7,7 @@ import { deviceSettings, useDeviceSettings, withVolume } from "../data/settings"
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { useRoutePage } from "./handle";
 import { BalancesHost } from "./balances-host";
+import { headerBalancesOf, showsNoBalance } from "./header-balances";
 import { ProfileHost } from "./profile-host";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
@@ -18,7 +19,7 @@ export const bootScreen = <LoadingScene progress={null} />;
 /** The music volume from the player's pause (0) or resume, stored like a move of the slider. */
 const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));
 
-/** The board routes: the scene fills the viewport (`h-dvh`), and it shows no balances. */
+/** The board routes: the scene fills the viewport (`h-dvh`), and it reads neither the balances nor the avatar. */
 const BOARD_PATHS = new Set(["game/:gameId", "training", "story/:campaign/:level"]);
 
 /**
@@ -36,6 +37,13 @@ export function RootLayout() {
   usePrefetchTabs();
   const [{ musicVolume, musicBefore, sfxVolume }] = useDeviceSettings();
   const onBoard = page !== null && BOARD_PATHS.has(page.path);
+  // The page's balances (HEADER-BALANCES, #720): a page that shows none (the game scenes) reads none.
+  const balances = headerBalancesOf(page);
+  const pages = (
+    <Suspense fallback={bootScreen}>
+      <Outlet />
+    </Suspense>
+  );
   return (
     // The audio engine is its own chunk and starts on the first gesture; the provider carries the two volumes, and a pause or a
     // resume of the music player (the settings, the lock screen) comes back as the music volume.
@@ -45,17 +53,9 @@ export function RootLayout() {
         <HistoryTracker>
           <StaleChunkGate />
           {/* A board shows no balances and no avatar: it reads neither (a board is the heaviest page, and its tests the most timing-bound). */}
-          {onBoard ? (
-            <Suspense fallback={bootScreen}>
-              <Outlet />
-            </Suspense>
-          ) : (
-            <BalancesHost>
-              <ProfileHost>
-                <Suspense fallback={bootScreen}>
-                  <Outlet />
-                </Suspense>
-              </ProfileHost>
+          {onBoard ? pages : showsNoBalance(balances) ? <ProfileHost>{pages}</ProfileHost> : (
+            <BalancesHost show={balances}>
+              <ProfileHost>{pages}</ProfileHost>
             </BalancesHost>
           )}
         </HistoryTracker>
