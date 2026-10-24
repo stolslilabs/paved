@@ -36,7 +36,7 @@ const meta = {
     seasonal: { control: "boolean", description: "The season's coverage factor while the cycle runs (the proposal)" },
     cycle: { control: "inline-radio", options: ["off", "running", "day", "dusk", "night"], description: "The day and night cycle: off (the look's sun), running (x10), or held" },
     season: { control: "inline-radio", options: SEASONS, description: "The season the cycle starts from or holds at" },
-    tilt: { control: { type: "range", min: 0, max: STEEPEST_TILT, step: 1 }, description: `The camera's tilt, degrees: ${OPENING_TILT} the game's opening, ${STEEPEST_TILT} the steepest` },
+    tilt: { control: { type: "range", min: 0, max: STEEPEST_TILT, step: 1 }, description: `The camera's tilt, degrees: ${OPENING_TILT} the game's (locked), ${STEEPEST_TILT} the former steepest` },
     distance: { control: { type: "range", min: 40, max: 300, step: 1 }, description: `Camera distance: ${PHONE_PLAY_DISTANCE} a phone's play distance` },
     fps: { control: { type: "range", min: 5, max: 60, step: 1 }, description: `The ambient loop's rate cap (default ${AMBIENT_FPS})` },
     quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Low turns the effects off" },
@@ -76,7 +76,7 @@ export const NightOnTheMoon: Story = { args: { cycle: "night", moon: 0.5 } };
 /** Held at an autumn noon: the season's coverage (x1.2). */
 export const Autumn: Story = { args: { cycle: "day", season: "autumn" } };
 
-/** Faint wisps between the camera and the board, at the steepest tilt: for the owner to judge (none by default). */
+/** Faint wisps between the camera and the board, at the former steepest tilt: for the owner to judge (none by default). */
 export const Wisps: Story = { args: { wisps: 0.06, tilt: STEEPEST_TILT } };
 
 /** Stronger and faster, to see the shapes and the motion (not a proposal). */
