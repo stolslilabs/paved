@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DAY_S, dayOf } from "@paved/game-core";
 import { VillageChestsScene, type Chest, type ChestTaken } from "../../components/scenes/village-chests-scene";
@@ -34,6 +34,14 @@ export default function Page() {
   const [taken, setTaken] = useState<ChestTaken | null>(null);
   // Each chest opened gets its own reveal (its choice starts empty).
   const [opens, setOpens] = useState(0);
+  // The day's PvP chests count from 0 at each UTC day: a new day reads them again (the read itself is not keyed by day).
+  const day = dayOf(now);
+  const shownDay = useRef(day);
+  useEffect(() => {
+    if (shownDay.current === day) return;
+    shownDay.current = day;
+    if (me) void client.invalidateQueries({ queryKey: queryKeys.chain.v2.chests(me) });
+  }, [day, me, client]);
 
   const data = read.data;
   const chests = useMemo<Chest[]>(() => (data ? data.pending.map((rank, i) => ({ id: i + 1, rank })) : []), [data]);
@@ -57,7 +65,7 @@ export default function Page() {
       chests={chests}
       inOrder
       pvpToday={data?.pvpToday ?? 0}
-      resetsAt={(dayOf(now) + 1) * DAY_S}
+      resetsAt={(day + 1) * DAY_S}
       now={now}
       opened={open ? { chestId: -1 - opens, draw: { rank: open.rank, plans: open.plans, cobbles: open.cobbles > 0 ? open.cobbles : null } } : null}
       opening={pending?.kind === "open" ? 1 : null}

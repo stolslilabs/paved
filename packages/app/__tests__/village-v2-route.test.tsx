@@ -1,8 +1,8 @@
 import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { VillageDraft, layoutScore, starterLayout } from "@paved/game-core";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { DAY_S, VillageDraft, dayOf, layoutScore, starterLayout } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { MOCK_KEY } from "../src/data/mock/ledger";
@@ -32,9 +32,9 @@ async function open(path: string, prepare?: (s: ReturnType<typeof mockImplementa
 }
 
 /** The player's stored v2 state and Cobbles, edited in place (a test's stand-in for what happened elsewhere). */
-function editPlayer(store: ReturnType<typeof mockImplementation>["store"], change: (player: { cobbles: number }) => void) {
+function editPlayer(store: ReturnType<typeof mockImplementation>["store"], change: (player: { cobbles: number; v2: { pvpChests: Record<string, number> } }) => void) {
   const state = JSON.parse(store.getItem(MOCK_KEY)!);
-  for (const player of Object.values(state.players as Record<string, { cobbles: number }>)) change(player);
+  for (const player of Object.values(state.players as Record<string, { cobbles: number; v2: { pvpChests: Record<string, number> } }>)) change(player);
   store.setItem(MOCK_KEY, JSON.stringify(state));
 }
 
@@ -49,6 +49,7 @@ beforeEach(() => {
   markWelcomed();
 });
 afterEach(() => {
+  vi.useRealTimers();
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();
@@ -141,6 +142,23 @@ describe("/village/chests", () => {
     // The bronze one is next: one tile, no choice.
     await userEvent.click(screen.getByRole("button", { name: /^Open the bronze chest: one tile/ }));
     expect(within(await screen.findByRole("list", { name: "Chest tiles" }, WAIT)).getAllByRole("button")).toHaveLength(1);
+  }, slow(30_000));
+});
+
+describe("/village/chests across midnight", () => {
+  it("a new UTC day reads the day's PvP chests again: yesterday's 3 no longer count", async () => {
+    // Only the clock is faked: the page's tick (each second) and the ledger both read it.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const today = dayOf(Date.now() / 1000);
+    vi.setSystemTime((today + 1) * DAY_S * 1000 - 3_000);
+    await open("/village/chests", async (s, me) => {
+      await s.ledger.writesFor(me).foundFreeVillage();
+      editPlayer(s.store, (p) => void (p.v2.pvpChests = { [today]: 3 }));
+    });
+    expect(await screen.findByLabelText("0 of 3 left today", {}, WAIT)).toBeInTheDocument();
+    vi.setSystemTime((today + 1) * DAY_S * 1000 + 2_000);
+    expect(await screen.findByLabelText("3 of 3 left today", {}, WAIT)).toBeInTheDocument();
+    expect(screen.queryByText(/Today's PvP chests are won/)).toBeNull();
   }, slow(30_000));
 });
 
