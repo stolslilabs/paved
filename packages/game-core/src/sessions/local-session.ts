@@ -3,6 +3,7 @@ import type { Scored } from "../engine";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
+import { closedOf } from "./closed";
 import type { BoardTile, PageSession, PageState, PlaceMove, ScoredStructure } from "./types";
 
 const PLANS = Object.values(PlanType);
@@ -131,6 +132,7 @@ export class LocalSession implements PageSession {
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
       coming: hand ? g.coming.map((t) => ({ tileId: t.id, plan: PLANS.indexOf(t.plan) })) : [],
       lastScored,
+      closed: closedOf(g.closings()),
       readonly: false,
       pending: false,
       writeError,
