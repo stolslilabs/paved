@@ -4,14 +4,12 @@ import {
   DAY_PHASE_AT,
   PLAY_DEFAULT_POLAR_ANGLE,
   TILE_SIZE,
-  VILLAGE_MAX_CELLS,
   boardReveal,
   cellKey,
   fogMode,
   freeSlots,
   loadFogOfWar,
   resolveFogSettings,
-  villageReveal,
   type FogCell,
   type FogOfWar,
   type FogSettings,
@@ -30,10 +28,10 @@ import { PHONE_PLAY_DISTANCE } from "./birds-board";
 import { skinsFor } from "./skins-board";
 
 /**
- * What the fog leaves clear: the board's tiles and free slots, a PvP village's owned cells and the cells next to them, or a
- * shape's tiles and their free slots, unplated (to judge the corners).
+ * What the fog leaves clear: the board's tiles and free slots, or a shape's tiles and their free slots, unplated (to judge the
+ * corners). The village's owned-cells variant left with the parcels (#739): a village's fog lifts around its tiles too.
  */
-export type FogReveal = "board" | "village" | "shape";
+export type FogReveal = "board" | "shape";
 /** The shapes that test the corners: a lone tile, an L, a diagonal pair. */
 export type FogShape = "one" | "L" | "diagonal";
 const SHAPES: Record<FogShape, FogCell[]> = {
@@ -85,12 +83,9 @@ export interface FogBoardProps {
   shape: FogShape;
   /** board: the recorded 72-tile board's first tiles placed, in its own order (each next to one before). */
   placed: number;
-  /** village: the owned cells (the recorded board's first, in its order), and how many of them hold a tile. */
-  villageCells: number;
-  villageBuilt: number;
-  /** The free slots (board) or the owned empty and buyable cells (village) as the placement's plates. */
+  /** The free slots as the placement's plates. */
   plates: boolean;
-  /** Place the next tile (or buy the next cell) every this many seconds; 0: by hand only (a tap on a slot, or the button). */
+  /** Place the next tile every this many seconds; 0: by hand only (a tap on a slot, or the button). */
   autoplay: number;
   /** The "Place next" button and the tap on a slot. */
   interactive: boolean;
@@ -137,62 +132,38 @@ function tileFor(cell: FogCell, id: number): TileRenderData {
   return { ...RECORDED[0]!, ...toChainSlot(cell.x, cell.y), id, plan, orientation: 1, worldX: cell.x, worldZ: cell.y };
 }
 
-/** The board state the story holds: the tiles placed, and in a village the cells owned. */
+/** The board state the story holds: the tiles placed. */
 interface Board {
   tiles: TileRenderData[];
-  owned: FogCell[];
-  /** The last cell placed or bought: the fog lifts from its side. */
+  /** The last cell placed: the fog lifts from its side. */
   last: FogCell | null;
 }
 
-function initialBoard(props: Pick<FogBoardProps, "reveal" | "shape" | "placed" | "villageCells" | "villageBuilt">): Board {
-  if (props.reveal === "shape") return { tiles: SHAPES[props.shape].map((c, i) => tileFor(c, 900 + i)), owned: [], last: null };
-  if (props.reveal === "board") return { tiles: RECORDED.slice(0, Math.max(1, props.placed)), owned: [], last: null };
-  const cells = Math.min(VILLAGE_MAX_CELLS, Math.max(1, props.villageCells));
-  const owned = RECORDED.slice(0, cells).map((t) => ({ x: t.worldX, y: t.worldZ }));
-  return { tiles: RECORDED.slice(0, Math.min(cells, Math.max(0, props.villageBuilt))), owned, last: null };
+function initialBoard(props: Pick<FogBoardProps, "reveal" | "shape" | "placed">): Board {
+  if (props.reveal === "shape") return { tiles: SHAPES[props.shape].map((c, i) => tileFor(c, 900 + i)), last: null };
+  return { tiles: RECORDED.slice(0, Math.max(1, props.placed)), last: null };
 }
 
-/** The cells the fog leaves clear for the board state. */
-function revealOf(reveal: FogReveal, board: Board): FogCell[] {
-  return reveal !== "village" ? boardReveal(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ }))) : villageReveal(board.owned);
+/** The cells the fog leaves clear for the board state: the tiles and their free slots, in every mode (#739). */
+function revealOf(board: Board): FogCell[] {
+  return boardReveal(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
 }
 
-/** The plates: the free slots (board); the owned empty cells, playable, and the buyable ones, fainter (village). */
+/** The plates: the free slots (none for a shape). */
 function platesOf(reveal: FogReveal, board: Board): PlacementSlot[] {
   if (reveal === "shape") return [];
-  if (reveal === "board") return freeSlots(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
-  const built = new Set(board.tiles.map((t) => cellKey(t.worldX, t.worldZ)));
-  const owned = board.owned.filter((c) => !built.has(cellKey(c.x, c.y)));
-  return [...owned, ...freeSlots(board.owned).map((c) => ({ ...c, legal: false }))];
+  return freeSlots(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
 }
 
-/**
- * The next move: on the board, the recorded board's next tile (or, on a tap, a tile on the slot tapped); in a village, a tile
- * on the first owned empty cell, else the next cell bought (the recorded board's next, or the one tapped). Null: nothing to do.
- */
+/** The next move: the recorded board's next tile (or, on a tap, a tile on the slot tapped). Null: nothing to do. */
 function nextBoard(reveal: FogReveal, board: Board, tapped: FogCell | null): Board | null {
   if (reveal === "shape") return null;
   const id = 1000 + board.tiles.length;
   const taken = new Set(board.tiles.map((t) => cellKey(t.worldX, t.worldZ)));
-  if (reveal === "board") {
-    const slots = freeSlots(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
-    const cell = tapped ? slots.find((s) => s.x === tapped.x && s.y === tapped.y) : RECORDED.map((t) => ({ x: t.worldX, y: t.worldZ })).find((c) => !taken.has(cellKey(c.x, c.y)) && slots.some((s) => s.x === c.x && s.y === c.y));
-    if (!cell) return null;
-    return { ...board, tiles: [...board.tiles, tileFor(cell, id)], last: cell };
-  }
-  const ownedKeys = new Set(board.owned.map((c) => cellKey(c.x, c.y)));
-  const empty = board.owned.filter((c) => !taken.has(cellKey(c.x, c.y)));
-  const buyable = freeSlots(board.owned);
-  if (tapped) {
-    if (empty.some((c) => c.x === tapped.x && c.y === tapped.y)) return { ...board, tiles: [...board.tiles, tileFor(tapped, id)], last: tapped };
-    if (board.owned.length < VILLAGE_MAX_CELLS && buyable.some((c) => c.x === tapped.x && c.y === tapped.y)) return { ...board, owned: [...board.owned, tapped], last: tapped };
-    return null;
-  }
-  if (empty.length) return { ...board, tiles: [...board.tiles, tileFor(empty[0]!, id)], last: empty[0]! };
-  if (board.owned.length >= VILLAGE_MAX_CELLS) return null;
-  const next = RECORDED.map((t) => ({ x: t.worldX, y: t.worldZ })).find((c) => !ownedKeys.has(cellKey(c.x, c.y)) && buyable.some((b) => b.x === c.x && b.y === c.y)) ?? buyable[0];
-  return next ? { ...board, owned: [...board.owned, next], last: next } : null;
+  const slots = freeSlots(board.tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
+  const cell = tapped ? slots.find((s) => s.x === tapped.x && s.y === tapped.y) : RECORDED.map((t) => ({ x: t.worldX, y: t.worldZ })).find((c) => !taken.has(cellKey(c.x, c.y)) && slots.some((s) => s.x === c.x && s.y === c.y));
+  if (!cell) return null;
+  return { ...board, tiles: [...board.tiles, tileFor(cell, id)], last: cell };
 }
 
 const p95 = (values: number[]) => (values.length ? [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * 0.95))]! : 0);
@@ -217,14 +188,14 @@ interface Readout {
  * The fog of war (FOG-STUDY) on the recorded 72-tile board at the game's camera. The board does not call the fog: the story loads
  * its chunk (`loadFogOfWar`), puts it in the board's group (it turns with the compass) and registers it on the scene's one ambient
  * loop (`scene.ambient`), which steps its drift and its lifts at its capped rate. What it leaves clear follows the board state the
- * story holds (`boardReveal`, or `villageReveal` for a PvP village); a tap on a slot (or "Place next", or the autoplay) places a
- * tile there, or buys the cell, and the fog lifts from its side. Its mode follows the settings, the tier and reduced motion
+ * story holds (`boardReveal`); a tap on a slot (or "Place next", or the autoplay) places a tile there, and the fog lifts from its
+ * side. Its mode follows the settings, the tier and reduced motion
  * (`fogMode`); its light the cycle (`setCycle`). The readout gives the fog's draws and the frame's, the frames a second and the
  * frame's CPU time, p95. The scene is exposed to the measuring scripts as `window.__fogScene`, the fog as `window.__fog`, the next
  * move as `window.__fogPlace()`.
  */
 export function FogBoard(props: FogBoardProps) {
-  const { reveal, shape, placed, villageCells, villageBuilt, plates, autoplay, interactive, view, time, enabled, reducedMotion, fps, quality } = props;
+  const { reveal, shape, placed, plates, autoplay, interactive, view, time, enabled, reducedMotion, fps, quality } = props;
   const [scene, setScene] = useState<GameScene | null>(null);
   const [fog, setFog] = useState<FogOfWar | null>(null);
   const [ready, setReady] = useState(false);
@@ -236,7 +207,7 @@ export function FogBoard(props: FogBoardProps) {
   settingsRef.current = fogSettings;
 
   // A new start (the controls' board) starts over.
-  useEffect(() => setBoard(initialBoard({ reveal, shape, placed, villageCells, villageBuilt })), [reveal, shape, placed, villageCells, villageBuilt]);
+  useEffect(() => setBoard(initialBoard({ reveal, shape, placed })), [reveal, shape, placed]);
 
   const settings = useMemo<RendererSettingsInput>(
     () => ({
@@ -288,7 +259,7 @@ export function FogBoard(props: FogBoardProps) {
   }, [scene, fog, fogSettings, enabled, reducedMotion, quality]);
 
   // What the fog leaves clear, lifted from the side of the last cell placed or bought.
-  const revealed = useMemo(() => revealOf(reveal, board), [reveal, board]);
+  const revealed = useMemo(() => revealOf(board), [board]);
   useEffect(() => {
     fog?.setRevealed(revealed, board.last ? [board.last] : []);
   }, [fog, revealed, board.last]);
@@ -333,10 +304,10 @@ export function FogBoard(props: FogBoardProps) {
     return () => cancelAnimationFrame(id);
     // The camera frames the board the story starts with, not each move: a placement does not move it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, view, reveal, shape, placed, villageCells]);
+  }, [scene, view, reveal, shape, placed]);
 
   // The readout: the frame observer times each frame drawn and counts its draws (three's counters kept over the passes).
-  const boardLabel = reveal === "shape" ? `shape: ${shape}` : reveal === "board" ? `${board.tiles.length} tiles` : `village: ${board.owned.length} of ${VILLAGE_MAX_CELLS} cells owned, ${board.tiles.length} built`;
+  const boardLabel = reveal === "shape" ? `shape: ${shape}` : `${board.tiles.length} tiles`;
   const labelRef = useRef(boardLabel);
   labelRef.current = boardLabel;
   useEffect(() => {

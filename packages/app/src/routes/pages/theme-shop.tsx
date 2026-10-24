@@ -9,7 +9,6 @@ import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { skinKeys, useSkinWrites, useThemeSkins } from "../../data/skins";
 import { useDataSources } from "../../data/sources";
 import { useThemeVariants, useTileRenders } from "../../data/tile-renders";
-import { useSkinTierGates, villageKeys } from "../../data/village";
 import { useAccount } from "../../wallet/wallet";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 import NotFound from "./not-found";
@@ -19,7 +18,7 @@ import { skinsStatus } from "../skins-status";
  * `/settings/theme/:theme` (THEMES-RENDERS): a theme's shop. Its 19 tiles from the build-time renders, each price, owned
  * and active state from the chain (`useThemeSkins`), and Buy: one `buy_skin`, with Cobbles only (the owner's ruling of
  * 2026-10-18), at the price the card showed. The receipt's `SkinBought` moves the balance and the owned word in the cache
- * (`useSkinWrites`). A skin reserved to a tier of its plan (`useSkinTierGates`, #642) waits for it. A theme not out yet (Snow, Desert, Volcano) is not read: coming soon. A path that names no theme (or
+ * (`useSkinWrites`). A theme not out yet (Snow, Desert, Volcano) is not read: coming soon. A path that names no theme (or
  * Default, which sells nothing) is not found.
  */
 export default function Page() {
@@ -38,11 +37,7 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
   const playerId = sources.signer?.address ?? null;
   const code = THEME_CODES[theme];
   const read = useThemeSkins(playerId, available ? code : null);
-  // The skins reserved to a tier of their plan (#642): Buy waits for the tier. None on a network without Rewards.
-  const gates = useSkinTierGates(playerId, available ? code : null);
-  // The skins shown once their tiers are read too: no Buy before the tiers say which skins wait for one, nor after their read failed.
-  const tiersIn = gates.data !== undefined && !gates.error;
-  const status = skinsStatus(playerId, { data: tiersIn ? read.data : undefined, error: read.error ?? gates.error });
+  const status = skinsStatus(playerId, read);
   const writes = useSkinWrites(playerId);
   const client = useQueryClient();
   const renders = useTileRenders(RENDERER_ASSETS);
@@ -68,8 +63,7 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       theme={theme}
       renders={renders}
       variants={variants}
-      tierGates={gates.data ?? undefined}
-      skins={tiersIn ? read.data : undefined}
+      skins={read.data}
       skinsStatus={available ? status : null}
       buying={writes.buying}
       refusal={writes.error?.message ?? null}
@@ -81,7 +75,6 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });
-        void client.invalidateQueries({ queryKey: villageKeys.all });
         void client.invalidateQueries({ queryKey: cobbleKeys.all });
       }}
       onBack={onBack}

@@ -70,6 +70,11 @@ export interface TileBubbleProps {
   discardCost?: number;
   /** Discard is enabled: no move on its way. */
   canDiscard?: boolean;
+  /**
+   * Sends the tile back to the inventory: the village editor's action in the bin's place (#739). A tap, not a hold: nothing is
+   * lost, the tile is in the inventory again.
+   */
+  onReturn?: () => void;
   /** Validates the placement: the end of a hold on the check (`HoldButton`), the only way to place a tile (#568). */
   onConfirm?: () => void;
   /** The tile can be placed (its rotation fits, the points are known): Validate is enabled. */
@@ -113,7 +118,7 @@ const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md focus-visible:ring-offset
  * pans, zooms and the compass without a render of its own: the position is written to the element on the renderer's
  * camera notifications.
  */
-export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCost, canDiscard = true, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, holdRef, className }: TileBubbleProps) {
+export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCost, canDiscard = true, onReturn, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, holdRef, className }: TileBubbleProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Each rotation asked from the bubble (its button or R): with the cell and the rotation, what Validate's hold validates.
   const [turns, setTurns] = useState(0);
@@ -125,7 +130,7 @@ export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCos
   const holdKey = `${cell?.x},${cell?.y}:${orientation ?? ""}:${turns}`;
   const play = useSfx();
   const canRotate = rotations > 1;
-  const size = bubbleSize(1 + (onDiscard ? 1 : 0) + (canRotate ? 1 : 0) + (onConfirm ? 1 : 0));
+  const size = bubbleSize(1 + (onDiscard || onReturn ? 1 : 0) + (canRotate ? 1 : 0) + (onConfirm ? 1 : 0));
 
   const place = useCallback(() => {
     const el = ref.current;
@@ -212,6 +217,22 @@ export function TileBubble({ rotations, onRotate, onClose, onDiscard, discardCos
       </Button>
       {onDiscard && (
         <DiscardHold onDiscard={onDiscard} cost={discardCost} disabled={!canDiscard || busy} holdMs={holdMs} className={cn(BUBBLE_BUTTON, coach === "discard" && COACH_RING, coach === "discard" && "rounded-full")} />
+      )}
+      {onReturn && !onDiscard && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={BUBBLE_BUTTON}
+          disabled={busy}
+          onClick={() => {
+            haptic("light");
+            onReturn();
+          }}
+          aria-label="Back to the inventory"
+          title="Back to the inventory"
+        >
+          <Icon name="layer-group" size="md" />
+        </Button>
       )}
       {canRotate && (
         <Button

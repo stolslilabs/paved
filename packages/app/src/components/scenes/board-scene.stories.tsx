@@ -76,7 +76,7 @@ function inHand(orientation: number, chosen: Slot | null): Pick<BoardSceneProps,
 }
 
 /** The board scene over the real renderer, with the renderer's settings (the day and night cycle's stories). */
-function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput, fogOwned?: ReadonlyArray<{ x: number; y: number }>) {
+function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
   return (
     <BoardScene
       {...args}
@@ -91,7 +91,6 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput, fo
           bubble={args.bubble}
           placementHighlight={args.placementHighlight}
           settings={settings}
-          fogOwned={fogOwned}
         />
       }
       renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
@@ -240,15 +239,6 @@ export const Fog: Story = { args: BOARD.large, render: (args) => renderBoard(arg
 
 /** The fog at a summer night. */
 export const FogAtNight: Story = { args: BOARD.large, render: (args) => renderBoard(args, FOG_NIGHT) };
-
-/**
- * The fog in a village or an attack (the prop `fogOwned`, which the village and PvP screens set): the owned cells and the cells
- * next to them stay clear, built or not. Here the recorded board's first twelve cells, its first eight built.
- */
-export const FogVillage: Story = {
-  args: { ...BOARD.large, tiles: BOARD.large.tiles.slice(0, 8) },
-  render: (args) => renderBoard(args, FOG_DAY, BOARD.large.tiles.slice(0, 12).map((t) => ({ x: t.x, y: t.y }))),
-};
 
 function WithDial(args: BoardSceneProps) {
   const board = useBoardSettings();

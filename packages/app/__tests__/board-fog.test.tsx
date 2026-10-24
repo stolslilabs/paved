@@ -4,8 +4,8 @@ import type { BoardTile } from "@paved/chain";
 import type { GameCanvasProps } from "@paved/renderer/react";
 import { BoardViewport, toChainSlot } from "../src/components/containers/board-viewport";
 
-// The fog of war in every mode (#648): the board hands the renderer its clear cells, the tiles and their free slots, or in a
-// village or an attack the owned cells and their neighbours.
+// The fog of war in every mode (#648): the board hands the renderer its clear cells, the tiles and their free slots, a village
+// and an attack included (#739).
 
 const canvas = vi.hoisted(() => ({ props: null as GameCanvasProps | null }));
 vi.mock("@paved/renderer/react", () => ({
@@ -36,9 +36,8 @@ describe("the fog of war on the board (#648)", () => {
     expect(canvas.props?.fogReveal).toBe(first);
   });
 
-  it("in a village or an attack, leaves the owned cells and their neighbours clear, whatever is built", () => {
-    const owned = [toChainSlot(3, 3), toChainSlot(3, 4)];
-    render(<BoardViewport tiles={[tile(3, 3, 1)]} fogOwned={owned} />);
-    expect(keys(canvas.props?.fogReveal?.cells)).toEqual(["2,3", "2,4", "3,2", "3,3", "3,4", "3,5", "4,3", "4,4"]);
+  it("takes no owned-cells variant any more: every mode lifts the fog around its tiles (#739)", () => {
+    render(<BoardViewport tiles={[tile(3, 3, 1)]} />);
+    expect(keys(canvas.props?.fogReveal?.cells)).toEqual(["2,3", "3,2", "3,3", "3,4", "4,3"]);
   });
 });

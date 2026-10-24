@@ -8,7 +8,6 @@ import {
   MAX_CORNER_RADIUS,
   RevealFieldBuilder,
   RevealTransition,
-  VILLAGE_MAX_CELLS,
   boardReveal,
   buildRevealField,
   cellKey,
@@ -20,7 +19,6 @@ import {
   liftedCells,
   resolveFogSettings,
   revealRects,
-  villageReveal,
   type FogCell,
   type FogSettings,
   type RevealField,
@@ -80,26 +78,6 @@ describe("the fog of war: the cells it reveals", () => {
       { x: 1, y: 2 },
       { x: 0, y: 1 },
     ]).filter((k) => k !== "0,1"));
-  });
-
-  it("reveals a PvP village's owned cells and the cells next to them, at most 38 owned", () => {
-    const owned = [
-      { x: 5, y: 5 },
-      { x: 5, y: 6 },
-    ];
-    expect(keys(villageReveal(owned))).toEqual(keys([
-      ...owned,
-      { x: 4, y: 5 },
-      { x: 6, y: 5 },
-      { x: 5, y: 4 },
-      { x: 4, y: 6 },
-      { x: 6, y: 6 },
-      { x: 5, y: 7 },
-    ]));
-    const row = Array.from({ length: VILLAGE_MAX_CELLS }, (_, i) => ({ x: i, y: 0 }));
-    // A row of 38: itself, the cells above and below each, and one at each end.
-    expect(villageReveal(row)).toHaveLength(VILLAGE_MAX_CELLS * 3 + 2);
-    expect(() => villageReveal([...row, { x: 99, y: 0 }])).toThrow(/at most 38/);
   });
 });
 
