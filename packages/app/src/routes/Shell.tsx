@@ -37,7 +37,7 @@ export function RootLayout() {
   usePrefetchTabs();
   const [{ musicVolume, musicBefore, sfxVolume }] = useDeviceSettings();
   const onBoard = page !== null && BOARD_PATHS.has(page.path);
-  // The page's balances (HEADER-BALANCES, #720): a page that shows none (the game scenes) reads none.
+  // The page's balances (HEADER-BALANCES, issue 720): a page that shows none (the game scenes) reads none.
   const balances = headerBalancesOf(page);
   const pages = (
     <Suspense fallback={bootScreen}>
