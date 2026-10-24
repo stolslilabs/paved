@@ -64,8 +64,9 @@ export function deckFingerprint(level: Pick<StoryLevel, "deck" | "placed">): str
 }
 
 /**
- * The fingerprints of the decks before #721, for progress saved without one: Tutorial 1-1 to 1-9 kept their decks, 1-10
- * lost its placed tiles, 1-11 became 1-12, and Open Country's levels were cut to 9 to 16 tiles.
+ * The fingerprints of the decks before #721, by the level that dealt them then, for progress saved without one: Tutorial 1-1
+ * to 1-9 kept their decks, 1-10 lost its placed tiles, 1-11 (the first village) became 1-12, and Open Country's levels were
+ * cut to 9 to 16 tiles.
  */
 const DECKS_BEFORE_721: Readonly<Record<string, string>> = {
   "1-1": "92d9fa40",
@@ -157,19 +158,30 @@ export function recordRun(
 }
 
 /**
- * `progress` with only what was played on today's decks of `campaigns` (#721): a level whose fingerprint differs from its
- * deck's, or that the plan no longer has, is dropped; one saved before fingerprints is kept, and given its fingerprint,
- * when its deck is the one it had then.
+ * `progress` with only what was played on today's decks of `campaigns` (#721): a level is kept where its fingerprint is its
+ * deck's, and dropped when its deck changed or the plan no longer has it. Progress saved before fingerprints is matched by
+ * the deck it was played on (`DECKS_BEFORE_721`), wherever that deck is now: kept at its level when the deck stayed there,
+ * moved to the level that deals it now (the Tutorial's first village, 1-11 then, is 1-12), its run renumbered with it.
  */
 export function currentProgress(progress: StoryProgress, campaigns: readonly StoryCampaign[] = CAMPAIGNS): StoryProgress {
+  // The progress saved before fingerprints, by the fingerprint of the deck it was played on.
+  const unmarked = new Map<string, LevelProgress>();
+  for (const [key, held] of Object.entries(progress.levels)) {
+    const before = DECKS_BEFORE_721[key];
+    if (!held.deck && before) unmarked.set(before, held);
+  }
   const levels: Record<string, LevelProgress> = {};
   for (const campaign of campaigns) {
     for (const level of campaign.levels) {
       const key = levelKey(campaign.id, level.id);
-      const held = progress.levels[key];
-      if (!held) continue;
       const deck = deckFingerprint(level);
-      if ((held.deck ?? DECKS_BEFORE_721[key]) === deck) levels[key] = held.deck ? held : { ...held, deck };
+      const marked = progress.levels[key];
+      if (marked?.deck === deck) {
+        levels[key] = marked;
+        continue;
+      }
+      const old = unmarked.get(deck);
+      if (old) levels[key] = { ...old, deck, run: { ...old.run, campaignId: campaign.id, levelIndex: level.id } };
     }
   }
   return { v: 1, levels };

@@ -149,11 +149,28 @@ describe("deck fingerprints (#721)", () => {
     expect(Object.keys(kept.levels)).toHaveLength(TUTORIAL.levels.length - 1);
   });
 
-  it("keeps progress saved before #721 on the levels whose deck did not change: Tutorial 1-1 to 1-9 only", () => {
-    const kept = currentProgress(unmarked(finished(3)));
-    expect(Object.keys(kept.levels)).toEqual(["1-1", "1-2", "1-3", "1-4", "1-5", "1-6", "1-7", "1-8", "1-9"]);
+  it("keeps progress saved before #721 on the decks that did not change: Tutorial 1-1 to 1-9, and the first village from 1-11 to 1-12", () => {
+    const village = TUTORIAL.levels[11]!;
+    expect(village.title).toBe("The first village");
+    // A device's save before #721, under the levels of then: 1-1 to 1-11 and Open Country 2-1 to 2-11, the first village at
+    // 1-11 with its run as it was sent then; no fingerprint anywhere.
+    const now = unmarked(finished(3));
+    const old: StoryProgress = {
+      v: 1,
+      levels: {
+        ...Object.fromEntries(Object.entries(now.levels).filter(([key]) => key !== "1-11" && key !== "1-12" && key !== "2-12")),
+        "1-11": { ...now.levels["1-12"]!, run: { ...now.levels["1-12"]!.run, levelIndex: 11, moves: [{ discard: true, orientation: 0, x: 0, y: 0 }] } },
+      },
+    };
+    const kept = currentProgress(old);
+    expect(Object.keys(kept.levels)).toEqual(["1-1", "1-2", "1-3", "1-4", "1-5", "1-6", "1-7", "1-8", "1-9", "1-12"]);
+    // The first village's best, stars and run, now at 1-12: the run renumbered, its moves as they were.
+    expect(kept.levels["1-12"]).toMatchObject({ best: village.target, stars: 3, deck: deckFingerprint(village), run: { campaignId: 1, levelIndex: 12 } });
+    expect(kept.levels["1-12"]?.run.moves).toEqual(old.levels["1-11"]!.run.moves);
     // Kept with its fingerprint, so the next save carries it.
     expect(kept.levels["1-1"]?.deck).toBe(deckFingerprint(TUTORIAL.levels[0]!));
+    // Once fingerprinted, the save loads as it is.
+    expect(currentProgress(kept)).toEqual(kept);
   });
 
   it("loads only the current decks, and a best on another deck is replaced by the next run, its stars included", () => {

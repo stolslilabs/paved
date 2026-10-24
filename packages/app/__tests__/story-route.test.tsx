@@ -265,9 +265,12 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(screen.getByTestId("deck-summary")).toHaveTextContent(`0 played, 0 discarded (dashed), ${level.deck.length} not yet.`);
   });
 
-  it("progress saved on an old deck is dropped: 1-10's best of its old deck no longer counts, 1-9's is kept (#721)", async () => {
+  it("progress saved on an old deck is dropped, an unchanged deck's is kept: 1-10's old best goes, 1-9's stays, the first village's moves from 1-11 to 1-12 (#721)", async () => {
     let progress = EMPTY_PROGRESS;
     for (const level of TUTORIAL.levels.slice(0, 10)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    const village = TUTORIAL.levels[11]!;
+    // The first village was 1-11 before #721: its run then.
+    progress = { ...progress, levels: { ...progress.levels, "1-11": recordRun(EMPTY_PROGRESS, village, { campaignId: 1, levelIndex: 11, moves: [] }, village.target).levels["1-11"]! } };
     // As a device saved it before #721: no fingerprint, and 1-10 played on its old deck (five tiles placed).
     const old = { v: 1, levels: Object.fromEntries(Object.entries(progress.levels).map(([key, { deck: _deck, ...held }]) => [key, held])) };
     // Open Country's unlock was shown before: the Tutorial stays the one in view.
@@ -279,5 +282,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(tenth).toBeEnabled();
     expect(tenth.getAttribute("aria-label")).not.toMatch(/stars$/);
     expect(within(tutorial).getByRole("button", { name: /^Level 11, .*, locked$/ })).toBeDisabled();
+    // The first village keeps its 3 stars at 1-12 (locked until the new 1-11 is finished).
+    expect(within(tutorial).getByRole("button", { name: /^Level 12, The first village, locked, 3 of 3 stars$/ })).toBeDisabled();
   });
 });
