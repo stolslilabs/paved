@@ -92,7 +92,8 @@ export function PvpResultScene(props: PvpResultSceneProps) {
   const moved = after.id !== before.id ? (after.from > before.from ? "up" : "down") : null;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <TopBar title="Attack over" onBack={props.onHome} />
+      {/* No balances in its bar: the result shows its Cobbles in place (#720, `routes/header-balances.ts`). */}
+      <TopBar title="Attack over" onBack={props.onHome} balances={false} />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <section aria-label="Result" className="flex flex-col items-center gap-2 text-center">
           <div role="img" aria-label={`${stars} of 3 stars`} data-stars={stars} className="flex items-end gap-2">

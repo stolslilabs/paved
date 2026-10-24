@@ -436,8 +436,8 @@ dropdown's items (`data-highlighted` is hover), the dialog's and sheet's close k
 packs, the board map's slots and the rows that are buttons use it.
 
 **Cards.** Rounded 12 px (`rounded-xl`) charcoal with the hairline edge, led by an image where the mockups put one: a render on
-the left of a row (`ModeCard` `art`, the Play list), a banner across the top (`ModeCard` `banner`, the Challenge on Home; the
-final score's board). Settings groups are one card with dividers, titled in the display font. Buttons are 44 px by default
+the left of a row (`ModeCard` `art`, the Play list), a banner across the top (`ModeCard` `banner`, the Challenge on Home).
+The end of a game has no banner: its scores are an overlay over the final board itself (#720). Settings groups are one card with dividers, titled in the display font. Buttons are 44 px by default
 (`lg` 56 px), 12 px corners.
 
 **Imagery.** Renders of the real board and tiles, drawn once by `packages/app/scripts/direction-renders.ts` (the bench's
@@ -449,10 +449,9 @@ WebGL on a machine with no GPU) and committed as the masters in `src/directions/
 |---|---|---|
 | `wordmark.webp` | 840 x 240, 14,352 B | `Wordmark` (Home, the nav header, Welcome, Loading) |
 | `hero-tall.webp` / `hero-wide.webp` | 750 x 1000, 122,366 B / 1440 x 720, 112,264 B | `BoardHero` (Home, Welcome); one of the two is fetched |
-| `score-wide.webp` | 960 x 448, 62,554 B | the over screen's banner |
 | `mode-challenge.webp`, `mode-training.webp`, `mode-tutorial.webp` | 320 x 200; 21,056, 7,878 and 5,550 B | the mode cards, the game to resume |
 
-Total 346,020 B. Each is its own file in `dist/assets` (no JavaScript chunk grows), fetched when its `<img>` is drawn
+Total 283,466 B (the over screen's banner, `score-wide.webp`, left with #720: the final board is that screen's background). Each is its own file in `dist/assets` (no JavaScript chunk grows), fetched when its `<img>` is drawn
 (`loading="lazy"` below the fold), with its width and height set; nothing is fetched from another host.
 
 ### 2.3 Fonts

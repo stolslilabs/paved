@@ -286,6 +286,7 @@ function VillageView({
       <TopBar
         title={title}
         onBack={onBack}
+        ownCobbles={own}
         end={
           own ? (
             <span className="pr-2">

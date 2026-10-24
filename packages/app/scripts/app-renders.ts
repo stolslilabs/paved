@@ -27,12 +27,11 @@ interface Copy {
   quality: number;
 }
 
-/** Each copy at twice its largest box: the hero at a phone's width and a wide screen's, the banner and the thumbnails as the scenes set them. */
+/** Each copy at twice its largest box: the hero at a phone's width and a wide screen's, the thumbnails as the scenes set them. */
 export const COPIES: readonly Copy[] = [
   { name: "wordmark", width: 840, height: 240, quality: 0.86 },
   { name: "hero-tall", width: 750, height: 1000, quality: 0.7 },
   { name: "hero-wide", width: 1440, height: 720, quality: 0.7 },
-  { name: "score-wide", width: 960, height: 448, quality: 0.72 },
   { name: "mode-challenge", width: 320, height: 200, quality: 0.8 },
   { name: "mode-training", width: 320, height: 200, quality: 0.8 },
   { name: "mode-tutorial", width: 320, height: 200, quality: 0.8 },
