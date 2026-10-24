@@ -179,8 +179,10 @@ function LayoutView({
   // The layout as it stands: the draft, the lifted tile back at its cell until it goes elsewhere.
   const whole = useMemo(() => (lifted ? [...draft, lifted] : draft), [draft, lifted]);
   const tiles = editing ? draft : village.tiles;
+  // A lifted tile still takes its slot: it is in hand, not in the inventory.
   const used = editing ? whole.length : village.tiles.length;
   const full = used >= slots;
+  const over = used > slots;
   const tray = trayOf(inventory, village.tiles, whole);
   const handPlan = hand ? (hand.from === "inventory" ? hand.plan : hand.tile.plan) : null;
   const plates = useMemo(() => (editing && handPlan != null ? legalSpots(draft, handPlan) : []), [editing, handPlan, draft]);
@@ -215,6 +217,8 @@ function LayoutView({
 
   const choosePlan = (plan: number | null) => {
     if (saving) return;
+    // Every slot used: no inventory tile comes into the hand (the lifted one, if any, stays in hand).
+    if (plan != null && full) return;
     if (lifted) setDraft((d) => [...d, lifted]);
     setHand(plan == null ? null : { from: "inventory", plan });
     setPending(null);
@@ -253,6 +257,8 @@ function LayoutView({
       setDraft((d) => [...d, { ...hand.tile, x: pending.x, y: pending.y, orientation: pending.orientation }]);
       setHand(null);
     } else {
+      // Never past the slots: an inventory tile needs a free one (the editor never places more than S tiles).
+      if (whole.length >= slots) return;
       setDraft((d) => placeTile(d, hand.plan, pending.orientation, pending));
       // The plan stays in hand while some are left and a slot is free: several of one plan go down in a row.
       if ((tray[hand.plan] ?? 0) <= 1 || used + 1 >= slots) setHand(null);
@@ -284,7 +290,7 @@ function LayoutView({
             ? `Tap a lit cell for ${tileName(handPlan!)}.`
             : `${tileName(handPlan!)} fits nowhere yet: send it back, or place another tile first.`
           : full
-            ? "Every slot is used: lift a tile to move it, or send it back."
+            ? "Every slot is used: lift a tile to move it, or send it back to free one."
             : "Choose a tile in the inventory, or tap a placed tile to lift it.";
 
   const title = own ? "My village" : `${village.owner}'s village`;
@@ -400,12 +406,13 @@ function LayoutView({
                     onClose={putBack}
                     onReturn={sendBack}
                     onConfirm={confirm}
+                    canConfirm={hand.from === "board" || whole.length < slots}
                   />
                 )}
                 <p role="status" aria-live="polite" className={cn("px-1 text-xs", shaking != null ? "text-warning" : "text-muted-foreground")}>
                   {hint}
                 </p>
-                <InventoryTray tray={tray} held={hand?.from === "inventory" ? hand.plan : null} full={full && hand?.from !== "board"} busy={saving} tileArt={tileArt} onSelect={choosePlan} />
+                <InventoryTray tray={tray} held={hand?.from === "inventory" ? hand.plan : null} full={full} busy={saving} tileArt={tileArt} onSelect={choosePlan} />
                 <div className="flex items-center gap-2">
                   <HoldButton label="Hold to reset all: the starter alone, every tile back in the inventory" title="Hold to reset all" icon="rotate" tone="destructive" holdMs={holdMs} disabled={saving || draft.length <= 1} onComplete={reset} />
                   <Button variant="outline" className="flex-1" onClick={discard} disabled={!changed || saving}>
@@ -415,10 +422,11 @@ function LayoutView({
                     className="flex-1"
                     onClick={() => {
                       // What is in hand stays where it is: a lifted tile at its cell, an inventory tile in the inventory.
+                      if (over) return;
                       putBack();
                       onSave?.(whole);
                     }}
-                    disabled={!changed || saving}
+                    disabled={!changed || over || saving}
                     loading={saving}
                   >
                     <Icon name="check" size="sm" /> Save

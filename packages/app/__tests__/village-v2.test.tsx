@@ -192,6 +192,30 @@ describe("the v2 village scene (#739)", () => {
     for (const card of within(screen.getByRole("region", { name: "Inventory tiles" })).getAllByRole("button")) expect(card).toBeDisabled();
   });
 
+  it("never goes past the slots: a lifted tile keeps its slot, and only sending it back frees one", async () => {
+    const onSave = vi.fn();
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.full} onSave={onSave} />));
+    const outer = [...LAYOUT_FULL.tiles].reverse().find((t) => canLift(LAYOUT_FULL.tiles, t.id))!;
+    const cards = () => within(screen.getByRole("region", { name: "Inventory tiles" })).getAllByRole("button");
+    // Lifted: the slot is still taken, the cards stay greyed, choosing one does nothing.
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${outer.id}"]`)!);
+    expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
+    for (const card of cards()) expect(card).toBeDisabled();
+    fireEvent.click(cards()[0]!);
+    expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
+    // Sent back: a slot is free, one inventory tile can go down, and then the slots are full again.
+    await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
+    expect(screen.getAllByLabelText("19 of 20 slots used").length).toBeGreaterThan(0);
+    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Tile 10, \d+ left$/ }));
+    await userEvent.click(document.querySelector<HTMLButtonElement>('[data-kind="plate"]')!);
+    fireEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Hold to place the tile" }));
+    expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
+    for (const card of cards()) expect(card).toBeDisabled();
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Save/ }));
+    expect(onSave.mock.calls[0]?.[0]).toHaveLength(20);
+  });
+
   it("a visit has no editor", () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.visit} />));
     expect(screen.getByRole("heading", { name: "Rook of Ashford's village" })).toBeInTheDocument();
