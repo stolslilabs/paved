@@ -4,18 +4,40 @@ import { DAY, MOCK_NOW } from "../../mocks/clock";
 import { OVER } from "../../mocks/scenes";
 import { BalancesProvider } from "../containers/balances-context";
 import { OverScene } from "./over-scene";
+import { PHONE_375, WIDE_1440 } from "./viewports";
 
-/** The end of a game: final score, metrics, every closing (P7), the reward or its absence. One story per state; the Viewport control reframes it. */
+/**
+ * The end of a game: final score, metrics, every closing (P7), the reward or its absence, as a translucent overlay over the
+ * final board (#720), under the board's own HUD. One story per state; the Viewport control reframes it (check each at 375 and
+ * 1440 px).
+ */
 const meta = { title: "Scenes/Over", component: OverScene, args: { onSettle: fn(), onPlayAgain: fn(), onHome: fn() } } satisfies Meta<typeof OverScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The final board (#539): the scores one tap away, the board panned and zoomed, no hand. */
+/** A Training end (#720): no stake, no reward; the scores over the final board, the bar titled "Training". */
+export const Training: Story = { args: OVER.training };
+
+/** The final board alone (#539): "Board" hid the scores; the board panned and zoomed, no hand. */
 export const FinalBoard: Story = { args: OVER.finalBoard };
 
+/** The board's chunk still on its way (#720): the scores at once over the board's colour, never waiting for it. */
+export const BoardLoading: Story = { args: { ...OVER.training, loadBoard: () => new Promise(() => {}) } };
+
+/** "Board" before the chunk is in: the board's place says it is loading. */
+export const BoardLoadingAlone: Story = { args: { ...OVER.finalBoard, loadBoard: () => new Promise(() => {}) } };
+
+/** The three at 375 px and at 1440 px (#720): the scores over the board, the board alone, the board still loading. */
+export const TrainingPhone: Story = { ...Training, ...PHONE_375 };
+export const TrainingWide: Story = { ...Training, ...WIDE_1440 };
+export const FinalBoardPhone: Story = { ...FinalBoard, ...PHONE_375 };
+export const FinalBoardWide: Story = { ...FinalBoard, ...WIDE_1440 };
+export const BoardLoadingPhone: Story = { ...BoardLoading, ...PHONE_375 };
+export const BoardLoadingWide: Story = { ...BoardLoading, ...WIDE_1440 };
+
 /**
- * The final board of a connected player, the shell's balances provided (#620): its top bar keeps only the title and the score,
- * no balances over the board (from `desktop` they stood a letter a line beside the rail, in this card).
+ * The final board of a connected player, the shell's balances provided (#620): the end's bar is the board's HUD, no balances
+ * over the board or the scores (#720: none in the game scenes).
  */
 export const FinalBoardConnected: Story = {
   args: OVER.finalBoard,
@@ -86,9 +108,6 @@ export const FreeGame: Story = { args: { ...OVER.awaiting, freeGame: true, rewar
 
 /** The closings could not be read: the rest of the page stands. */
 export const ClosingsUnavailable: Story = { args: { ...OVER.awaiting, closings: [], closingsNote: "The closings of this game could not be read." } };
-
-/** Training: no stake, no reward. */
-export const Training: Story = { args: OVER.training };
 
 /** Nothing closed: the list says so. */
 export const NoClosing: Story = { args: OVER.noClosing };

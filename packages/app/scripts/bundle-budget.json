@@ -12,12 +12,12 @@
       "gzip": 160128
     },
     "firstLoadJs": {
-      "raw": 557877,
-      "gzip": 189900
+      "raw": 558445,
+      "gzip": 190063
     },
     "css": {
-      "raw": 95397,
-      "gzip": 17097
+      "raw": 95493,
+      "gzip": 17129
     },
     "fontAwesome": {
       "raw": 103820,

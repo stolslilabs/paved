@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GameView, ScoredStructure } from "@paved/chain";
 import { CategoryType, type ClosedStructure, type GameStats, type OpenStructure } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { useDeferred } from "../../lib/deferred";
 import { failedModuleUrl, reimport } from "../../lib/reimport";
-import { prefetchAllowed, whenIdle } from "../../routes/prefetch";
 import { errorDetail } from "../../routes/error-detail";
 import { toastError } from "../containers/error-toast";
 import type { FinalBoardProps } from "../containers/final-board";
@@ -27,15 +26,14 @@ import { ClosingLine } from "../containers/closing-feed";
 import { GameMissions, type GameMission } from "../containers/game-missions";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
 import type { RewardCurve } from "../containers/reward-estimate";
-import scoreWide from "../../assets/renders/score-wide.webp";
-import { TopBar } from "../containers/top-bar";
+import { GameHud } from "../containers/game-hud";
 
-// The final board (#539) is its own chunk, with the renderer: loaded at the first "Board", and in the browser's idle time
-// once the scores are up, so the first switch finds it. The scores never wait for it.
+// The final board (#539) is its own chunk, with the renderer: loaded when the end screen opens (#720), the scores' background.
+// The scores never wait for it: they show at once over the board's colour, and the board appears under them once it is in.
 // A failed download is asked for again under another URL (`reimport`): the browser would answer the same `import()` with
 // the same failure, without a request, for the page's life.
 // The load that answered is kept, so a later switch asks for nothing; a failed one is forgotten, and the next tries again.
-type FinalBoardModule = typeof import("../containers/final-board");
+export type FinalBoardModule = typeof import("../containers/final-board");
 let finalBoardLoad: Promise<FinalBoardModule> | null = null;
 const loadFinalBoard = (): Promise<FinalBoardModule> =>
   (finalBoardLoad ??= import("../containers/final-board")
@@ -44,9 +42,8 @@ const loadFinalBoard = (): Promise<FinalBoardModule> =>
       finalBoardLoad = null;
       throw e;
     }));
-const PREFETCH_AFTER_MS = 1500;
 
-/** What the over route shows: the scores, or the final board under them (the toggle switches, one tap each way). */
+/** What the over route shows: the scores over the final board, or the board alone (the toggle switches, one tap each way). */
 export type OverView = "scores" | "board";
 
 /**
@@ -108,6 +105,8 @@ export interface OverSceneProps {
   stats?: GameStats;
   /** The finished game's board: the Board / Scores toggle shows it. None: no toggle (the board cannot be read). */
   board?: FinalBoardProps;
+  /** The final board's chunk: the scene's own when omitted (stories: one that never answers, the board still loading). */
+  loadBoard?: () => Promise<FinalBoardModule>;
   /** Which of the two shows (controlled by the route, so the system Back returns from the board to the scores). Uncontrolled when omitted. */
   view?: OverView;
   onViewChange?: (view: OverView) => void;
@@ -132,35 +131,36 @@ const duration = (seconds: number) => {
 };
 
 /**
- * The end of a game (`/game/:id/over`, `/training/over`): the final score, its figures, every closing, the reward; and the
- * final board, one tap away (#539). Mobile first: one column, the headline figures first; two columns on desktop.
+ * The end of a game (`/game/:id/over`, `/training/over`): the final score, its figures, every closing, the reward, as a
+ * translucent overlay over the final board (#539, #720). The board is the background from the start; "Board" hides the
+ * overlay and frees the board to pan and zoom, "Scores" shows it again. One bar for both, the board's own HUD (`GameHud`):
+ * Back, the mode ("Training", "Challenge #id"), the score. Mobile first: one column, the headline figures first; two columns
+ * on desktop.
  */
 export function OverScene(props: OverSceneProps) {
-  const { board, onViewChange } = props;
+  const { board, onViewChange, loadBoard = loadFinalBoard } = props;
   const [inner, setInner] = useState<OverView>("scores");
   const view = board ? (props.view ?? inner) : "scores";
   const setView = (next: OverView) => {
     setInner(next);
     onViewChange?.(next);
   };
-  // Mounted at the first switch to the board, then kept under the scores: the canvas keeps its context and its models.
-  const [wanted, setWanted] = useState(false);
+  const shown = useRef(view);
+  shown.current = view;
+  // Wanted as soon as there is a board (the route may read its tiles after the scores), then kept mounted under the scores:
+  // the canvas keeps its context and its models. A failed load is wanted again at the next "Board".
+  const hasBoard = board !== undefined;
+  const [wanted, setWanted] = useState(hasBoard);
+  useEffect(() => {
+    if (hasBoard) setWanted(true);
+  }, [hasBoard]);
   useEffect(() => {
     if (view === "board") setWanted(true);
   }, [view]);
-  const hasBoard = board !== undefined;
-  useEffect(() => {
-    if (!hasBoard || !prefetchAllowed()) return;
-    let cancel = () => {};
-    const timer = setTimeout(() => (cancel = whenIdle(() => void loadFinalBoard().catch(() => {}))), PREFETCH_AFTER_MS);
-    return () => {
-      clearTimeout(timer);
-      cancel();
-    };
-  }, [hasBoard]);
-  const finalBoard = useDeferred(loadFinalBoard, wanted, (e) => {
-    // Not wanted any more: the next "Board" turns it on again, and `useDeferred` loads again.
+  const finalBoard = useDeferred(loadBoard, wanted, (e) => {
     setWanted(false);
+    // Under the scores the board stays the plain background, and the next "Board" loads it again; asked for, it says why.
+    if (shown.current !== "board") return;
     setView("scores");
     // Where the failure names no URL (Safari), a new try cannot fetch it again: only a reload can.
     const message = failedModuleUrl(e) ? "The board could not load. Check your connection and try again." : "The board could not load. Check your connection and reload the page.";
@@ -169,41 +169,38 @@ export function OverScene(props: OverSceneProps) {
 
   const onBoard = view === "board";
   return (
-    <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-background text-foreground">
+    <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {board && wanted && (
-        <div data-testid="final-board" aria-hidden={!onBoard} className={cn("absolute inset-0 bg-board", !onBoard && "invisible")}>
+        // Under the scores it takes no input (`inert`), and its ambient effects stop (#572); "Board" frees it.
+        <div data-testid="final-board" aria-hidden={!onBoard} inert={!onBoard} className={cn("absolute inset-0", !onBoard && "pointer-events-none")}>
           {finalBoard ? (
-            // Kept mounted under the scores: covered there, its ambient effects stop (#572).
             <BoardCovered.Provider value={!onBoard}>
               <finalBoard.default {...board} />
             </BoardCovered.Provider>
           ) : (
-            <p role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
-              Loading the board…
-            </p>
+            onBoard && (
+              <p role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
+                Loading the board…
+              </p>
+            )
           )}
         </div>
       )}
-      {onBoard && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
-          <div data-slot="card" className="pointer-events-auto w-full max-w-2xl rounded-xl border border-border bg-card/95 shadow-lg backdrop-blur">
-            {/*
-              No balances over the board (#620: on every screen but the board). In this card (`max-w-2xl`) the desktop rail beside
-              the score made each side wider than half the bar: the title had no room left and stood a letter a line.
-            */}
-            <TopBar
-              title="Final board"
-              onBack={() => setView("scores")}
-              end={<Score value={props.game.score} size="sm" tone="gold" className="pr-2" />}
-              balances={false}
-              className="mb-0 pt-0"
-            />
-          </div>
+      {/* The bar where the board's HUD stands (`board-scene.tsx`), so the move from the board to its end does not jump. */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col">
+        <div className="flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+          <GameHud
+            title={props.mode === "challenge" ? `Challenge #${props.game.id}` : "Training"}
+            score={props.game.score}
+            now={0}
+            onBack={onBoard ? () => setView("scores") : props.onHome}
+            className="pointer-events-auto w-full max-w-2xl"
+          />
         </div>
-      )}
-      <ScrollRegion aria-hidden={onBoard} className={cn("absolute inset-0", onBoard && "invisible")}>
-        <Scores {...props} />
-      </ScrollRegion>
+        <ScrollRegion aria-hidden={onBoard} className={cn("pointer-events-auto min-h-0 flex-1", onBoard && "invisible")}>
+          <Scores {...props} />
+        </ScrollRegion>
+      </div>
       {board && (
         // Over the scores, a bar under the toggle so the rows it passes over do not show through; over the board, none.
         <div
@@ -236,8 +233,8 @@ export function OverScene(props: OverSceneProps) {
   );
 }
 
-/** The scores: the over screen's page, scrolled inside the scene so the board can sit under it. */
-function Scores({ mode, game, closings, previousBest, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
+/** The scores: the over screen's overlay, a translucent panel (as the HUD) scrolled on its own over the board. */
+function Scores({ game, closings, previousBest, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
   const play = useSfx();
   useEffect(() => play("gameover"), [play]);
@@ -250,18 +247,18 @@ function Scores({ mode, game, closings, previousBest, reward, settling, onSettle
     return { category, count: of.length, points: of.reduce((s, c) => s + c.points, 0) };
   }).filter((c) => c.count > 0);
   return (
-    <>
-      <TopBar title="Final score" onBack={onHome} />
-      <main className={cn("mx-auto grid w-full max-w-md gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-2 desktop:items-start", board && "pb-28")}>
+    <main className={cn("mx-auto w-full max-w-md px-2 pb-8 tablet:max-w-2xl tablet:px-4 desktop:max-w-5xl", board && "pb-28")}>
+      <div
+        data-slot="card"
+        data-testid="scores-overlay"
+        className="grid gap-4 rounded-xl border border-border bg-card/90 p-2 shadow-lg backdrop-blur mobile:p-3 tablet:p-4 desktop:grid-cols-2 desktop:items-start"
+      >
         <div className="flex flex-col gap-4">
-          {/* Direction D (#537): the mockups' banner, a render of a finished board (the bench's 38-tile game). Decorative. */}
-          <img src={scoreWide} alt="" width={960} height={448} draggable={false} decoding="async" className="h-36 w-full rounded-xl bg-secondary object-cover desktop:h-56" />
           <section
             data-slot="card"
             data-testid="final-score"
             className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-[radial-gradient(80%_70%_at_50%_0%,var(--glow),var(--card))] px-4 py-6 text-center"
           >
-            <span className="text-sm text-muted-foreground">{mode === "challenge" ? `Challenge #${game.id}` : "Training"}</span>
             <Score value={game.score} size="xl" tone="gold" className="items-center" />
             <span className="flex flex-wrap justify-center gap-2">
               {freeGame && <Badge variant="secondary">Free game</Badge>}
@@ -367,8 +364,8 @@ function Scores({ mode, game, closings, previousBest, reward, settling, onSettle
             <Button size="lg" variant="secondary" onClick={onHome}>Home</Button>
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }
 
