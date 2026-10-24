@@ -18,6 +18,16 @@ const FILES = import.meta.glob<{ default: DeploymentFile }>("../../../../contrac
 export const network = (): string => import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : "");
 
 let client: PavedClient | null = null;
+
+/** Calls the read `key` of `target`; a read it does not have is refused as a deployment without it is (`not-configured`). */
+export function readOf(target: object, key: PropertyKey, args: unknown[]): unknown {
+  const read = (target as Record<PropertyKey, unknown>)[key];
+  if (typeof read !== "function") throw new ViewError("not-configured", `${String(key)}: not a read of this deployment's client`);
+  return (read as (...a: unknown[]) => unknown).apply(target, args);
+}
+
+/** The read `key` of a part of the chain client (`routes/sources.ts`' lazy views and events), as `readOf` calls it. */
+export const chainRead = <T extends object>(part: (client: PavedClient) => T, key: PropertyKey, args: unknown[]): unknown => readOf(part(chainClient()), key, args);
 let ledger: MockLedger | null = null;
 
 /**
