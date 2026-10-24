@@ -1,5 +1,5 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react";
-import { useBlocker, useParams } from "react-router";
+import { Suspense, lazy, useCallback, useContext, useMemo, useState } from "react";
+import { UNSAFE_DataRouterContext, useBlocker, useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { layoutScore } from "@paved/game-core";
@@ -59,7 +59,8 @@ function Village({ player }: { player: string | null }) {
   const tileArt = useVillageArt(playerId);
   const [saved, setSaved] = useState<LayoutSaved | null>(null);
   const [dirty, setDirty] = useState(false);
-  const blocker = useBlocker(dirty);
+  // The app's router is a data router, so leaving by any way is guarded; a plain one (Storybook's) has only the editor's Back.
+  const guarded = useContext(UNSAFE_DataRouterContext) !== null;
   const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
 
   const data = read.data;
@@ -141,22 +142,30 @@ function Village({ player }: { player: string | null }) {
         onOpenChests={() => go("/village/chests")}
         onOpenShop={() => go("/village/shop")}
       />
-      <Dialog open={blocker.state === "blocked"} onOpenChange={(open) => !open && blocker.reset?.()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Leave without saving?</DialogTitle>
-            <DialogDescription>Your changes to the layout are lost; the village stays as it was saved.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => blocker.reset?.()}>
-              Keep editing
-            </Button>
-            <Button variant="destructive" onClick={() => blocker.proceed?.()}>
-              Leave
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {guarded && <LeaveGuard when={dirty} />}
     </>
+  );
+}
+
+/** Leaving the page with the editor's changes unsaved (a tab, the system Back, a link) asks first. */
+function LeaveGuard({ when }: { when: boolean }) {
+  const blocker = useBlocker(when);
+  return (
+    <Dialog open={blocker.state === "blocked"} onOpenChange={(open) => !open && blocker.reset?.()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Leave without saving?</DialogTitle>
+          <DialogDescription>Your changes to the layout are lost; the village stays as it was saved.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => blocker.reset?.()}>
+            Keep editing
+          </Button>
+          <Button variant="destructive" onClick={() => blocker.proceed?.()}>
+            Leave
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

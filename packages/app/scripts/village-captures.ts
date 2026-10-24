@@ -28,7 +28,6 @@ const SIZES = [
 ];
 const CAPTURES = [
   { name: "page-board", story: "pages-village--board" },
-  { name: "page-reward", story: "pages-village--reward" },
   { name: "page-visit", story: "pages-village--visit" },
 ];
 

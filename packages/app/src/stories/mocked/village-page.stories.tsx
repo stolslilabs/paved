@@ -4,34 +4,36 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
 import { Route, Routes } from "react-router";
 import { Toaster } from "sonner";
-import { FakeGameViews, IndexerClient, type WriteAccount } from "@paved/chain";
-import { SKIN_PLANS } from "@paved/chain";
-import { legalCells, type Cell } from "../../components/containers/village-rules";
+import { FakeGameViews, IndexerClient, SKIN_PLANS, type WriteAccount } from "@paved/chain";
+import { inventoryOf, starterLayout, xpFloor, type ChestRank } from "@paved/game-core";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import type { DataSources, GameSigner } from "../../data/sources";
 import { MOCK_KEY, MOCK_STARTING_PAVED, MockLedger } from "../../data/mock/ledger";
 import { mockGameViews, mockSigner } from "../../data/mock/overlay";
-import { STARTER } from "../../data/village";
+import { freshV2, mockRivalsV2 } from "../../data/mock/v2";
 import { APP_MANIFEST } from "../../mocks/assets";
 import { PLAYER_ID } from "../../mocks/players";
-import { PLAN, grow, square } from "../../mocks/village";
-import Page from "../../routes/pages/village";
+import { PLAN } from "../../mocks/village";
+import VillagePageRoute from "../../routes/pages/village";
+import ChestsPageRoute from "../../routes/pages/village-chests";
+import ShopPageRoute from "../../routes/pages/village-shop";
 import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
 
 /**
- * The village page (#646 PR 2) as the app wires it, on the mock data source (Sepolia's, until `Village` and `Rewards` are
- * deployed): the page's own hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and its writes go to the
- * ledger, so Found, Open, a placement and the Cobbles all complete here. Each story seeds the ledger's
- * state, then mounts the route. The player is connected (a stand-in for the controller); the visit reads another address.
+ * The v2 village's pages (#739) as the app wires them, on the mock data source (Sepolia's, MOCK-FIRST, #741): the pages' own
+ * hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and their writes go to the ledger, so Found, Save, a
+ * chest's opening and claim and a purchase all complete here. Each story seeds the ledger's state, then mounts the route. The
+ * player is connected (a stand-in for the controller); the visit reads one of the mock's rival villages.
  */
 const meta = { title: "Pages/Village", parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const RIVAL = "0x7a11ce";
+/** A rival of PvP v2 at level 16: a visit. */
+const RIVAL = mockRivalsV2().find((r) => r.level >= 16)!.address;
 
 /**
- * The page's tile art reads `renderer-assets/manifest.json` (`manifestBody`), which Storybook does not serve (the preview hands
+ * The pages' tile art reads `renderer-assets/manifest.json` (`manifestBody`), which Storybook does not serve (the preview hands
  * the renderer `APP_MANIFEST` in memory): this page's read gets the same manifest, so its tiles show their renders in the
  * owner's skins. Every other request goes through as it was.
  */
@@ -41,55 +43,51 @@ globalThis.fetch = (input, init) =>
     ? Promise.resolve(new Response(JSON.stringify(APP_MANIFEST), { headers: { "content-type": "application/json" } }))
     : served(input, init);
 
-/** A village grown by the rules from the starter: each plan on its first legal cell, nearest the centre. */
-function grown(cells: readonly Cell[], plans: readonly number[]) {
-  const tiles: { id: number; plan: number; orientation: number; x: number; y: number }[] = [{ ...STARTER }];
-  for (const plan of plans) {
-    const spot = legalCells({ cells, tiles }, plan).sort((a, b) => Math.abs(a.x) + Math.abs(a.y) - (Math.abs(b.x) + Math.abs(b.y)))[0];
-    if (spot) tiles.push({ id: tiles.length + 1, plan, orientation: spot.orientations[0]!, x: spot.x, y: spot.y });
-  }
-  return tiles.slice(1).map(({ plan, orientation, x, y }) => ({ plan, orientation, x, y }));
+const P = PLAN;
+/** The tiles chests and the shop gave besides the starter layout: they wait in the inventory. */
+const EXTRAS = [P.road, P.road, P.roadCross, P.roadBend, P.cityEdge, P.cityEdge, P.wonder, P.forestCity, P.stopRoads];
+
+interface Seed {
+  founded: boolean;
+  level: number;
+  cobbles: number;
+  chests: ChestRank[];
 }
 
-const P = PLAN;
-const MIXED = [P.road, P.roadCross, P.roadBend, P.cityEdge, P.wonder, P.forestCity, P.road, P.stopRoads, P.roadCity, P.cityForest, P.city, P.road, P.wonder, P.roadBend, P.cityEdge, P.road, P.roadBend, P.road];
-
-/** A player's stored state in the ledger's format: a village of `extra` parcels and `plans` placed, the rewards given. */
-function player(extra: number, plans: readonly number[], rewards: { pending: number; offer: [number, number, number] | null }, cobbles: number, theme = 0) {
-  const cells = grow(square(1), extra);
-  const tiles = grown(cells, plans);
-  const copies = new Array<number>(SKIN_PLANS).fill(0);
-  for (const t of tiles) copies[t.plan - 1]! += 1;
-  copies[P.wonder - 1]! += 2;
+/** The player's stored state in the ledger's format: the starter layout founded (or not), extras in the inventory, chests waiting. */
+function player({ founded, level, cobbles, chests }: Seed) {
+  const layout = starterLayout(BigInt(PLAYER_ID));
   return {
     cobbles,
     credits: 0,
     achievementsClaimed: "0",
     days: {},
     weeks: {},
-    // Every Forest skin owned and active when `theme` is 1: the board draws the tiles in it.
-    owned: theme ? { [theme]: 0xffffe } : {},
-    active: new Array<number>(SKIN_PLANS).fill(theme),
+    // Every Forest skin owned and active: the board draws the tiles in it.
+    owned: { 1: 0xffffe },
+    active: new Array<number>(SKIN_PLANS).fill(1),
     shares: "0",
     paved: MOCK_STARTING_PAVED.toString(),
     usdc: "0",
-    village: { parcels: cells.slice(9), tiles },
-    rewards: { pending: rewards.pending, opened: 4, offer: rewards.offer, index: 4, copies },
+    v2: {
+      ...freshV2(),
+      xp: xpFloor(level),
+      inventory: founded ? inventoryOf([...layout.map((t) => t.plan), ...EXTRAS]) : freshV2().inventory,
+      layout: founded ? layout : null,
+      chests: { pending: chests.map((rank) => ({ rank, league: 2 })), open: null, opened: 0 },
+    },
   };
 }
 
-function seeded(offer: [number, number, number] | null) {
-  const players = {
-    [`0x${BigInt(PLAYER_ID).toString(16)}`]: player(4, MIXED.slice(0, 9), { pending: offer ? 1 : 2, offer }, 85, 1),
-    [RIVAL]: player(20, [...MIXED, ...MIXED].slice(0, 26), { pending: 0, offer: null }, 0),
-  };
+function seeded(seed: Seed) {
+  const players = { [`0x${BigInt(PLAYER_ID).toString(16)}`]: player(seed) };
   const data = new Map([[MOCK_KEY, JSON.stringify({ version: 1, players, vault: { assets: "0", supply: "0" }, transactions: 0 })]]);
   return { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k) };
 }
 
 /** The app's sources on the mock ledger, and a connector whose account is the stories' player, its writes the ledger's. */
-function environment(offer: [number, number, number] | null) {
-  const store = seeded(offer);
+function environment(seed: Seed) {
+  const store = seeded(seed);
   const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 600 });
   const views = mockGameViews(new FakeGameViews(), ledger);
   const indexer = new IndexerClient({ url: "http://indexer.invalid/", fetch: (() => Promise.reject(new Error("No indexer in this story"))) as typeof fetch });
@@ -105,16 +103,20 @@ function environment(offer: [number, number, number] | null) {
   return { sources, load, client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) };
 }
 
-/** The page on its route, in the stories' router (the preview's, at `parameters.route`). */
-function VillagePage({ offer = null }: { offer?: [number, number, number] | null }) {
-  const [env] = useState(() => environment(offer));
+const SEED: Seed = { founded: true, level: 6, cobbles: 85, chests: ["gold", "silver", "bronze"] };
+
+/** The pages on their routes, in the stories' router (the preview's, at `parameters.route`). */
+function VillagePages({ seed = SEED }: { seed?: Seed }) {
+  const [env] = useState(() => environment(seed));
   return (
     <QueryClientProvider client={env.client}>
       <WalletProvider sources={env.sources} load={env.load}>
         <MockMarkProvider value>
           <LazyMotion features={domMax}>
             <Routes>
-              <Route path="/village/:player?" element={<Page />} />
+              <Route path="/village/chests" element={<ChestsPageRoute />} />
+              <Route path="/village/shop" element={<ShopPageRoute />} />
+              <Route path="/village/:player?" element={<VillagePageRoute />} />
             </Routes>
             <Toaster />
           </LazyMotion>
@@ -124,9 +126,13 @@ function VillagePage({ offer = null }: { offer?: [number, number, number] | null
   );
 }
 
-/** The player's village: 13 cells, 9 tiles in their Forest skins, the score from the engine, 85 Cobbles; two rewards wait (Open). */
-export const Board: Story = { parameters: { route: "/village" }, render: () => <VillagePage /> };
-/** A reward opened: its three tiles under the board; drag or tap one onto a lit cell, or take 5 Cobbles. */
-export const Reward: Story = { parameters: { route: "/village" }, render: () => <VillagePage offer={[P.road, P.wonder, P.roadCross]} /> };
-/** Another player's village from the PvP scout: read-only, their score and level. */
-export const Visit: Story = { parameters: { route: `/village/${RIVAL}?from=scout` }, render: () => <VillagePage /> };
+/** The player's village: the starter layout at level 6 (14 slots), 9 tiles waiting in the inventory, 3 chests. Edit opens the editor. */
+export const Board: Story = { parameters: { route: "/village" }, render: () => <VillagePages /> };
+/** A new player: the starter alone, and Found. */
+export const Fresh: Story = { parameters: { route: "/village" }, render: () => <VillagePages seed={{ founded: false, level: 1, cobbles: 0, chests: [] }} /> };
+/** The chests waiting, oldest first: a gold (1 of 3), a silver (1 of 2), a bronze (one tile). */
+export const Chests: Story = { parameters: { route: "/village/chests" }, render: () => <VillagePages /> };
+/** The day's shop: 3 base plans, each bought once a day. */
+export const Shop: Story = { parameters: { route: "/village/shop" }, render: () => <VillagePages seed={{ ...SEED, cobbles: 120 }} /> };
+/** A rival's village: read-only, their score and level. */
+export const Visit: Story = { parameters: { route: `/village/${RIVAL}` }, render: () => <VillagePages /> };
