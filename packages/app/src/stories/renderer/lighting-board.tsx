@@ -8,6 +8,7 @@ import { BOARD_72 } from "../../mocks/board";
 import { lookInput } from "./lighting-look";
 import { SKINS_MANIFEST, skinsFor } from "./skins-board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
+import { placeCamera } from "./story-camera";
 
 export interface LightingBoardProps {
   /** The look's preset; every look arg that is set overrides its field. */
@@ -132,9 +133,7 @@ export function LightingBoard({ preset, quality, view, distance, highlights, red
   useEffect(() => {
     if (!scene) return;
     const pose = viewPose(view, boundsFor(LIT[litStructure]), distance);
-    scene.controls.controls.target.set(...pose.target);
-    scene.camera.position.set(...pose.position);
-    scene.camera.lookAt(...pose.target);
+    placeCamera(scene, pose.target, pose.position);
     scene.requestRender();
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setReady(true))));
     return () => cancelAnimationFrame(id);

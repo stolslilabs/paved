@@ -12,6 +12,7 @@ import {
 import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
+import { placeCamera, STORY_MAX_POLAR } from "./story-camera";
 
 /** The cycle off (the look's fixed sun), running (two minutes a day and a night, x10 here to judge it), or held at a phase. */
 export type CloudCycle = "off" | "running" | "day" | "dusk" | "night";
@@ -51,7 +52,7 @@ const SEASON_INDEX: Record<Season, number> = { summer: 0, autumn: 1, winter: 2, 
  * The tilts, in degrees: the game's (27, locked since #719) and the former steepest (54), kept for the story's captures.
  */
 export const OPENING_TILT = Math.round((PLAY_DEFAULT_POLAR_ANGLE * 180) / Math.PI);
-export const STEEPEST_TILT = 54;
+export const STEEPEST_TILT = Math.round((STORY_MAX_POLAR * 180) / Math.PI);
 /** The distance a player on a phone plays at (the particles' and the outlines' stories use it too). */
 export const PHONE_PLAY_DISTANCE = 160;
 
@@ -114,10 +115,9 @@ export function CloudShadowsBoard(props: CloudShadowsBoardProps) {
   useEffect(() => {
     if (!scene) return;
     scene.focusBoard();
-    const target = scene.controls.controls.target;
+    const { x, y, z } = scene.controls.controls.target;
     const polar = (tilt * Math.PI) / 180;
-    scene.camera.position.set(target.x, target.y + distance * Math.cos(polar), target.z + distance * Math.sin(polar));
-    scene.camera.lookAt(target);
+    placeCamera(scene, [x, y, z], [x, y + distance * Math.cos(polar), z + distance * Math.sin(polar)]);
     scene.requestRender();
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setReady(true))));
     return () => cancelAnimationFrame(id);

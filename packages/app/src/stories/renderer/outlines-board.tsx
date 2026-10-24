@@ -6,6 +6,7 @@ import { toRenderTiles } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { tourPose, viewPose, type Bounds, type Pose, type View } from "./outlines-tour";
+import { placeCamera } from "./story-camera";
 
 export interface OutlinesBoardProps {
   /** Pan and zoom through the views by itself. Off under reduced motion, whatever this says. */
@@ -120,9 +121,7 @@ function boundsOf(tiles: { worldX: number; worldZ: number }[]): Bounds {
 }
 
 function place(scene: GameScene, pose: Pose): void {
-  scene.controls.controls.target.set(...pose.target);
-  scene.camera.position.set(...pose.position);
-  scene.camera.lookAt(...pose.target);
+  placeCamera(scene, pose.target, pose.position);
   scene.requestRender();
 }
 

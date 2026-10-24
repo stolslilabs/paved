@@ -82,7 +82,7 @@ export const Soft: Story = { args: { preset: "soft" } };
 /** Plain lights and no effect: only the scene and the final pass (tone map, sRGB) run. */
 export const Off: Story = { args: { preset: "off" } };
 
-/** Zoomed in at the play camera's steepest tilt, where the shadows, the AO and the water show most. */
+/** Zoomed in at the play camera's former steepest tilt (54 degrees), where the shadows, the AO and the water show most. */
 export const ZoomedIn: Story = { args: { view: "zoomed-in", distance: 30 } };
 
 /**

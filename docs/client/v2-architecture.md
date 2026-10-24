@@ -2834,8 +2834,9 @@ PLAY_DEFAULT_POLAR_ANGLE` and `enableRotate = false`; the azimuth stays locked a
 button pan, the wheel and the middle button zoom. Touch: one finger pans; two fingers pinch to zoom and their midpoint
 pans (`touches.TWO = DOLLY_PAN`); a second finger down still makes the gesture a pinch, never a placement (#570's rule).
 The native controller has no tilt (`applyTilt` and the mapper's `tilt` event are gone); its pinch and pan are unchanged.
-`PLAY_MAX_POLAR_ANGLE` and `PLAY_ROTATE_SPEED` left `@paved/renderer`; the Outlines tour and the cloud shadows' story keep
-a local 54 degrees for their captures. Unchanged: the opening frame for the screen size (#678), `reset()` and the
+`PLAY_MAX_POLAR_ANGLE` and `PLAY_ROTATE_SPEED` left `@paved/renderer`; the stories keep their captures' tilts (straight
+down to 54 degrees, `STORY_MAX_POLAR`) through `placeCamera` (`packages/app/src/stories/renderer/story-camera.ts`), which
+opens the controls' polar range for the story, since the lock would pull any other pose back to 27 degrees. Unchanged: the opening frame for the screen size (#678), `reset()` and the
 re-centre, the `showcase` mode (free orbit, the right button and one finger rotate). `CLOSEST_DISTANCE` stays at 10 (the
 issue's default), with `OUTLINE_CLOSEST_FACTOR` and the settings' `minDistance`: at 27 degrees the near plane needs 8.
 The rest of this section is TILT-54's record; where it speaks of tilting, #719 supersedes it.
