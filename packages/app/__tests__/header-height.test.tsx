@@ -14,8 +14,8 @@ import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 // HEADER-HEIGHT (#676): every page's header takes its height from the token, never its own. The heights themselves are
 // measured in a browser at 375 and 1440 px by `scripts/header-sweep.ts` (jsdom lays nothing out).
 const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-/;
-/** The board's routes (`Shell.tsx`): the scene fills the viewport, no header. */
-const BOARD = ["game/:gameId", "training", "story/:campaign/:level"];
+/** The game scenes: the boards (`Shell.tsx`) and the ends of a game (#720), whose bar is the board's HUD, no page header. */
+const BOARD = ["game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over"];
 
 function header(container: HTMLElement): HTMLElement {
   const found = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');
@@ -28,6 +28,8 @@ describe("the page headers", () => {
     const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
     expect(css).toMatch(/:root \{\s*--header-h: 6rem;[\s\S]*?@media \(width >= 64rem\) \{\s*--header-h: 4rem;/);
     expect(css).toMatch(/@utility page-header \{[^}]*height: calc\(var\(--header-h\) \+ env\(safe-area-inset-top\)\);/);
+    // A page with no balance on a phone (#720): its title row alone below `desktop`.
+    expect(css).toMatch(/@utility page-header-single \{\s*@media \(width < 64rem\) \{\s*--header-h: 3\.5rem;\s*--header-rows: 1fr;/);
   });
 
   it.each([
@@ -44,7 +46,7 @@ describe("the page headers", () => {
     expect(el.className).not.toMatch(OWN_HEIGHT);
   });
 
-  it("the page shells of Pages/Headers cover every route but the board's", () => {
+  it("the page shells of Pages/Headers cover every route but the game scenes'", () => {
     const covered = Object.values(PAGE_HEADER_STORIES).flat();
     expect([...covered].sort()).toEqual(PAGES.map((p) => p.path).filter((p) => !BOARD.includes(p)).sort());
   });

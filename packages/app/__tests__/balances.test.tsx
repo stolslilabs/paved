@@ -15,38 +15,27 @@ const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const READY: BalancesState = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 };
 
 describe("Balances (#538), the resource bar (#620)", () => {
-  it("pill: the Cobbles and USDC plates; a tap on USDC opens every balance with its action", async () => {
+  it("pill: the Cobbles' plate alone (#720), leading to the packs", async () => {
     const onAction = vi.fn();
     render(wrap(<Balances layout="pill" state={READY} onAction={onAction} />));
-    expect(screen.getByRole("button", { name: "240 Cobbles: Buy packs" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Balances" }));
-    const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText("48.50")).toBeInTheDocument();
-    expect(within(sheet).getByText("142.35")).toBeInTheDocument();
-    // Each row names its amount for assistive technology (the plate's figure is hidden from it).
-    expect(within(sheet).getByRole("button", { name: "48.50 USDC" })).toBeInTheDocument();
-    expect(within(sheet).getByRole("button", { name: "240 Cobbles: Buy packs" })).toBeInTheDocument();
-    // vPAVED shows only when held.
-    expect(within(sheet).queryByRole("button", { name: /vPAVED/ })).toBeNull();
-    await userEvent.click(within(sheet).getByRole("button", { name: "142.35 PAVED: Vault" }));
-    expect(onAction).toHaveBeenCalledWith("paved");
-  });
-
-  it("pill: the Cobbles' plate leads to the packs", async () => {
-    const onAction = vi.fn();
-    render(wrap(<Balances layout="pill" state={READY} onAction={onAction} />));
+    const region = screen.getByRole("region", { name: "Balances" });
+    expect(within(region).getAllByRole("button")).toHaveLength(1);
+    expect(screen.queryByText("48.50")).toBeNull();
+    expect(screen.queryByRole("button", { name: /USDC|PAVED/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "240 Cobbles: Buy packs" }));
     expect(onAction).toHaveBeenCalledWith("cobbles");
   });
 
-  it("pill: Escape closes the sheet and the focus returns to the USDC plate", async () => {
-    render(wrap(<Balances layout="pill" state={READY} />));
-    const pill = screen.getByRole("button", { name: "Balances" });
-    pill.focus();
-    await userEvent.keyboard("{Enter}");
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(pill).toHaveFocus());
+  it("pill: an error is a mark that says why, no sheet", () => {
+    render(wrap(<Balances layout="pill" state={{ status: "error", message: "RPC down" }} />));
+    expect(screen.getByRole("img", { name: "Balances unavailable: RPC down" })).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("rail: the Cobbles left out where the page draws its own (#720)", () => {
+    render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 1n }} noCobbles />));
+    expect(screen.getByRole("button", { name: "142.35 PAVED: Vault" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Cobbles/ })).toBeNull();
   });
 
   it("pill: a guest's tap connects", async () => {
@@ -127,15 +116,15 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(await screen.findAllByRole("region", { name: "Balances" })).toHaveLength(2);
   });
 
-  it("a page's header carries the pill through the shell's provider, and none without it", async () => {
+  it("a page's header carries the Cobbles through the shell's provider, and none without it", async () => {
     const { unmount } = render(wrap(<HomeScene {...HOME.connected} />));
-    expect(screen.queryByRole("button", { name: "Balances" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Cobbles/ })).toBeNull();
     unmount();
     render(wrap(<BalancesProvider value={{ state: READY }}><HomeScene {...HOME.connected} /></BalancesProvider>));
-    expect(await screen.findByRole("button", { name: "Balances" })).toBeInTheDocument();
+    expect(await screen.findAllByRole("button", { name: "240 Cobbles: Buy packs" })).toHaveLength(2);
   });
 
-  it("a flow's top bar carries the balances too: the strip on a phone, the rail from desktop", async () => {
+  it("a flow's top bar carries the balances too: the Cobbles' strip on a phone, the rail from desktop", async () => {
     const { unmount } = render(wrap(<TopBar title="Choose a mode" />));
     expect(screen.queryByRole("region", { name: "Balances" })).toBeNull();
     unmount();
