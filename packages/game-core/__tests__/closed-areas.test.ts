@@ -67,12 +67,42 @@ describe("the closed structures' areas (#722)", () => {
     expect(game.closings()).toEqual([]);
     const roads = game.closedOnBoard().filter((c) => c.category === CategoryType.Road);
     expect(roads).toHaveLength(2);
-    const closed = closedOf(roads, 1000);
+    const closed = closedOf(roads, (id) => id - 1000);
     expect(closed.map((areas) => areas.map((a) => a.tileId))).toEqual([
       [100, 101],
       [101, 102],
     ]);
     // Every structure listed is closed: no road end that still points at an empty cell.
     expect(game.openStructures().length).toBeGreaterThan(0);
+  });
+
+  it("puts a written board's last move's structures last, in the order the move scored them (the feed's)", () => {
+    // Played: the closing tile's two roads, in the order of its Scored events.
+    const played = EngineGame.start({ deck: "simple", seed: 0n });
+    played.write({ id: 100, plan: PlanType.SFRFRFFFR, orientation: North, x: 20, y: 20 });
+    played.write({ id: 101, plan: PlanType.SFRFRFFFR, orientation: North, x: 22, y: 20 });
+    played.force(PlanType.SFRFRFFFR);
+    const move = played.build({ orientation: North, x: 21, y: 20 });
+    const scoredOrder = move.closed.map((c) => c.areas!.find((a) => a.tileId === move.tileId)!.areas);
+    // Written: a road closed earlier elsewhere, then the same three tiles, the middle one last (id 103).
+    const written = EngineGame.start({ deck: "simple", seed: 0n });
+    written.write({ id: 90, plan: PlanType.SFRFRFFFR, orientation: North, x: 40, y: 40 });
+    written.write({ id: 91, plan: PlanType.SFRFRFFFR, orientation: North, x: 41, y: 40 });
+    written.write({ id: 100, plan: PlanType.SFRFRFFFR, orientation: North, x: 20, y: 20 });
+    written.write({ id: 101, plan: PlanType.SFRFRFFFR, orientation: North, x: 22, y: 20 });
+    written.write({ id: 103, plan: PlanType.SFRFRFFFR, orientation: North, x: 21, y: 20 });
+    const roads = written.closedOnBoard(103).filter((c) => c.category === CategoryType.Road);
+    expect(roads.map((c) => c.areas.map((a) => a.tileId))[0]).toEqual([90, 91]);
+    expect(roads.slice(1).map((c) => c.areas.find((a) => a.tileId === 103)!.areas)).toEqual(scoredOrder);
+    // Without a closer, the board's order: the same structures.
+    expect(new Set(written.closedOnBoard().map((c) => JSON.stringify(c)))).toEqual(new Set(written.closedOnBoard(103).map((c) => JSON.stringify(c))));
+  });
+
+  it("names each tile as the board does (closedOf), the starter included", () => {
+    const toChain = (id: number) => (id > 1000 ? id - 1000 : id);
+    expect(closedOf([{ areas: [{ tileId: 1, areas: 8 }, { tileId: 1003, areas: 2 }] }, {}], toChain)).toEqual([
+      [{ tileId: 1, areas: 8 }, { tileId: 3, areas: 2 }],
+      [],
+    ]);
   });
 });

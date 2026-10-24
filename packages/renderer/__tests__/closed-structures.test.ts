@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { ClosedStructuresLayer, type ClosedStructure } from "../src/core/closed-structures";
+import { CLOSED_SLOTS, ClosedStructuresLayer, closedGlsl, type ClosedStructure } from "../src/core/closed-structures";
 import {
   DEFAULT_CLOSING_SETTINGS,
   PULSE_RISE,
@@ -31,7 +31,10 @@ const CELLS = new Map<string, readonly [number, number]>([
   ["1-3", [2, 0]],
 ]);
 
-/** The layer's maps as the shader reads them: the structure (from 1) of an area of a cell, and a structure's two texels. */
+/**
+ * The layer's maps as the shader reads them: the structures (from 1) of an area of a cell (`slots`; `at`, the first), and a
+ * structure's two texels.
+ */
 function readMaps(layer: ClosedStructuresLayer) {
   const u = layer.uniforms;
   const rect = u.uClosedRect.value.toArray();
@@ -39,7 +42,11 @@ function readMaps(layer: ClosedStructuresLayer) {
   const data = u.uClosedData.value.image as { width: number; height: number; data: Float32Array };
   return {
     rect,
-    at: (x: number, z: number, area: number) => map.data[(z - rect[1]) * map.width + (x - rect[0]) * 9 + area - 1],
+    slots: (x: number, z: number, area: number) => {
+      const o = ((z - rect[1]!) * map.width + (x - rect[0]!) * 9 + area - 1) * CLOSED_SLOTS;
+      return [...map.data.slice(o, o + CLOSED_SLOTS)].filter(Boolean);
+    },
+    at: (x: number, z: number, area: number) => map.data[((z - rect[1]!) * map.width + (x - rect[0]!) * 9 + area - 1) * CLOSED_SLOTS],
     clock: (index: number) => [...data.data.slice((index - 1) * 8, (index - 1) * 8 + 4)],
     extent: (index: number) => [...data.data.slice((index - 1) * 8 + 4, (index - 1) * 8 + 6)],
   };
@@ -151,10 +158,26 @@ describe("the closed structures' layer: its masks", () => {
     expect(readMaps(layer).at(0, 2, 1)).toBe(3);
   });
 
-  it("draws a (tile, area) two structures hold with the later: a wonder's whole tiles over a road's area", () => {
+  it("keeps every structure that holds a (tile, area): a road under a wonder's whole tiles keeps its own clock", () => {
     const wonder: ClosedStructure = { id: "w", areas: [1, 2, 3].map((id) => ({ gameId: 1, id, areas: 0x1ff })) };
-    const { at } = readMaps(layerWith([...ROADS, wonder]));
-    expect([at(1, 0, 5), at(1, 0, 7), at(1, 0, 1)]).toEqual([3, 3, 3]);
+    const { slots } = readMaps(layerWith([...ROADS, wonder]));
+    expect([slots(1, 0, 5), slots(1, 0, 7), slots(1, 0, 1), slots(0, 0, 5)]).toEqual([[1, 3], [2, 3], [3], [1, 3]]);
+    // Closed by one move: the road pulses on its own line, the wonder on its later one, both on the shared area.
+    const layer = layerWith([]);
+    layer.set([ROADS[0]!, wonder], T0);
+    expect(layer.pulseAt("a", T0 + 105)).toBeCloseTo(1, 6);
+    expect(layer.pulseAt("w", T0 + 105)).toBe(0);
+    expect(layer.pulseAt("w", T0 + 150 + 105)).toBeCloseTo(1, 6);
+    // The shader walks every slot of the area and keeps the brightest pulse and band.
+    const glsl = closedGlsl("int labelArea = 1;");
+    expect(glsl).toContain(`for (int slot = 0; slot < ${CLOSED_SLOTS}; slot++)`);
+    expect(glsl).toContain("closedPulse = max(closedPulse,");
+    expect(glsl).toContain("closedShine = max(closedShine,");
+  });
+
+  it("past its slots, leaves out the earliest structures of an area", () => {
+    const many: ClosedStructure[] = [0, 1, 2, 3, 4].map((i) => ({ id: `s${i}`, areas: [{ gameId: 1, id: 1, areas: 1 }] }));
+    expect(readMaps(layerWith(many)).slots(0, 0, 1)).toEqual([2, 3, 4, 5]);
   });
 
   it("empties its maps and turns off when no structure is left; frees its textures", () => {

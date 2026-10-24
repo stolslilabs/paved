@@ -405,16 +405,47 @@ export class EngineGame {
    * is (`write`: the chain's board when the moves are not replayed), where nothing was scored: a forest closed while a
    * road along it was open, never scored on chain, shows closed once that road closes. A played game reads its
    * `closings()` instead. Read only.
+   *
+   * `closer`, the id of the tile the last move placed: the structures that move closed (every one holds that tile, a wonder
+   * as one of its 9) come last, in the order the move scored them (`assess`: the tile's start spots, then the wonders around
+   * it), the order of its `Scored` events and of the closing feed's lines.
    */
-  closedOnBoard(): ClosedAreas[] {
-    return this.board
+  closedOnBoard(closer?: number): ClosedAreas[] {
+    const closed = this.board
       .structures()
       .filter((s) => s.open === 0 && [CATEGORY_ROAD, CATEGORY_CITY, CATEGORY_FOREST, CATEGORY_WONDER].includes(s.category))
-      .filter((s) => s.category !== CATEGORY_FOREST || !this.board.scan(s.tile, s.area).openRoad)
+      .filter((s) => s.category !== CATEGORY_FOREST || !this.board.scan(s.tile, s.area).openRoad);
+    const tile = closer === undefined ? undefined : this.board.byId.get(closer);
+    const order = tile ? this.scoringRoots(tile) : [];
+    // Not the move's: -1. A stable sort: those keep the board's order, before the move's own.
+    const rank = (root: number) => order.indexOf(root);
+    return [...closed]
+      .sort((a, b) => rank(a.root) - rank(b.root))
       .map((s) => ({
         category: CATEGORIES[s.category] as CategoryType,
         areas: s.category === CATEGORY_WONDER ? this.wonderAreas(s.tile) : this.board.areasOf(s.root),
       }));
+  }
+
+  /** The roots `assess` visits for a move that placed `tile`, in its order: the tile's start spots, then the wonders around it. */
+  private scoringRoots(tile: BoardTile): number[] {
+    const roots: number[] = [];
+    const count = turns(tile.orientation);
+    for (const start of planRow(tile.plan).starts) {
+      const area = areaAt(tile.plan, tile.orientation, rotateSpot(start, count));
+      if (area === 0 || !tile.refs[area]) continue;
+      const { root } = this.board.rootOf(tile, area);
+      if (!roots.includes(root)) roots.push(root);
+    }
+    for (const direction of [2, 4, 6, 8, 1, 3, 5, 7]) {
+      const [x, y] = toward(tile.x, tile.y, direction);
+      const neighbor = this.board.at(x, y);
+      const wonder = neighbor ? wonderArea(neighbor.plan) : 0;
+      if (!neighbor || wonder === 0) continue;
+      const { root } = this.board.rootOf(neighbor, wonder);
+      if (!roots.includes(root)) roots.push(root);
+    }
+    return roots;
   }
 
   /**

@@ -818,16 +818,17 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     // Its own switch: the feature highlight (and its dimming) stays off; the models are labelled all the same.
     expect([below.uniforms.uClosedOn.value, below.uniforms.uFeatureOn.value, below.uniforms.uStructureOn.value]).toEqual([1, 0, 0]);
     expect((below.uniforms.uLabelMap.value as THREE.DataTexture).image.width).toBeGreaterThan(1);
-    expect(below.shader.fragmentShader).toContain("texelFetch(uClosedMap, ivec2(closedCell.x * 9 + labelArea - 1, closedCell.y), 0)");
+    expect(below.shader.fragmentShader).toContain("vec4 closedSlots = texelFetch(uClosedMap, ivec2(closedCell.x * 9 + labelArea - 1, closedCell.y), 0);");
     expect(below.shader.fragmentShader).toContain("uShineColor * uShineStrength * closedShine");
     expect(below.shader.vertexShader).toContain("vClosedBoard = (uBoardInverse * modelMatrix * vec4(position, 1.0)).xyz;");
     // The map holds the city's area at each of its cells (the grid's z is the contracts' y turned).
     const rect = (below.uniforms.uClosedRect.value as THREE.Vector4).toArray();
     expect(rect).toEqual([0, -1, 1, 2]);
     const map = (below.uniforms.uClosedMap.value as THREE.DataTexture).image as { width: number; data: Float32Array };
-    const north = areaOf(PlanType.FFCFFFCFF, SpotType.North);
-    expect(map.data[(0 - rect[1]!) * map.width + north - 1]).toBe(1);
-    expect(map.data[(0 - rect[1]!) * map.width + areaOf(PlanType.FFCFFFCFF, SpotType.South) - 1]).toBe(0);
+    // RGBA: four structures' slots per area.
+    const first = (area: number) => map.data[((0 - rect[1]!) * map.width + area - 1) * 4];
+    expect(first(areaOf(PlanType.FFCFFFCFF, SpotType.North))).toBe(1);
+    expect(first(areaOf(PlanType.FFCFFFCFF, SpotType.South))).toBe(0);
 
     // The tile in hand is not on the board: the layer is held off on its ghost (the confirm's overlay keeps it).
     tiles.setHover({ x: 3, y: 0, planIndex: planCode(PlanType.FFCFFFCFF), orientation: 1, valid: true, placed: true } as never);
