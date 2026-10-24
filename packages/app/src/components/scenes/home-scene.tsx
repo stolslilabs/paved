@@ -14,12 +14,6 @@ import { ModeCard } from "../containers/mode-card";
 import { ProfileSlot } from "../containers/profile-context";
 import type { PlayerStatusData } from "../containers/profile-sheet";
 
-/** The Training save on this device: enough to offer Resume. */
-export interface TrainingSave {
-  score: number;
-  remaining: number;
-}
-
 /** The player's Cobbles and free games (P-61, `AccountView`): provisional until CORE's gems PR 1. */
 export interface HomeCobbles {
   balance: number;
@@ -32,7 +26,6 @@ export interface HomeSceneProps {
   player: PlayerStatusData | null;
   /** The viewer's Challenge game still running (`GameSpawned` events, then `game(id)`); its deadline is `expiresAt`. */
   activeGame: GameView | null;
-  training: TrainingSave | null;
   /** `Challenge.spawn_paused`: a purchase is refused, a started game still plays (W1i). */
   spawnPaused: boolean;
   now: number;
@@ -56,7 +49,7 @@ export interface HomeSceneProps {
  * podium: the ranks left the UI (#623), to come back as leagues.
  */
 export function HomeScene(props: HomeSceneProps) {
-  const { player, activeGame, training, spawnPaused, now, cobbles } = props;
+  const { player, activeGame, spawnPaused, now, cobbles } = props;
   return (
     <TabFrame tab="home" onNavigate={props.onNavigate}>
       <header className="relative h-64 w-full tablet:h-80">
@@ -130,13 +123,7 @@ export function HomeScene(props: HomeSceneProps) {
             )}
 
             <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
-              <ModeCard
-                icon="play"
-                title="Training"
-                description={training ? `Resume: ${formatPoints(training.score)} pts, ${training.remaining} tiles left` : "A free game, saved on this device."}
-                badge="Free"
-                onSelect={props.onTraining}
-              />
+              <ModeCard icon="play" title="Training" description="A free game." badge="Free" onSelect={props.onTraining} />
               <ModeCard icon="book-open" title="Story" description="Learn the rules level by level, then go for three stars." onSelect={props.onStory} />
             </div>
           </div>

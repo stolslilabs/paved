@@ -5,7 +5,6 @@ import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { useCobbleAccount } from "../../data/cobbles";
 import { freeGameMessage, usePlayFree } from "../../data/play-free";
 import { usePlayerStatus } from "../../data/indexer";
-import { useTrainingSave } from "../../data/training-save";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
@@ -15,7 +14,7 @@ import { useAppNavigate, useTabNavigate } from "../ref";
 
 /**
  * `/` (P6, section 6.4): the connected player's status (the indexer), the active Challenge game (`GameSpawned` events,
- * then `game(id)`), the Training save, `spawn_paused`. No podium: the ranks left the UI (#623). Each read that is not
+ * then `game(id)`), `spawn_paused` (Training reads nothing: it is not saved, #718). No podium: the ranks left the UI (#623). Each read that is not
  * there yet, or fails, leaves its part empty rather than holding the page: no game to resume, not paused (the purchase page reads the pause again). The Cobbles balance shows once connected; "Play free" is
  * there with a credit and a signer that can spend it, disabled while spawn is paused, and opens the new game's board.
  */
@@ -28,7 +27,6 @@ export default function Page() {
   const address = wallet.address;
   const status = usePlayerStatus(address);
   const active = useActiveGame(address);
-  const training = useTrainingSave();
   const paused = useSpawnPaused();
   const account = useCobbleAccount(address);
   const free = usePlayFree(address);
@@ -55,7 +53,6 @@ export default function Page() {
       <HomeScene
         player={player}
         activeGame={address ? (active.data ?? null) : null}
-        training={training.data ?? null}
         spawnPaused={paused.data ?? false}
         cobbles={address && account.data ? { balance: account.data.cobbles, credits: free.available ? account.data.credits : 0 } : null}
         now={now}

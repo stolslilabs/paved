@@ -25,7 +25,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A connected player with a Challenge game running and a Training save. */
+/** A connected player with a Challenge game running. */
 export const Connected: Story = { args: HOME.connected };
 
 /** No wallet: the connect call, Training and Story mode open. */
