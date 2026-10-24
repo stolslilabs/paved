@@ -1,19 +1,20 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Score } from "../elements/score";
-import { BalancesProvider } from "./balances-context";
+import { BalancesProvider, type HeaderBalances } from "./balances-context";
 import { MockMarkProvider } from "./mock-mark";
 import { TopBar } from "./top-bar";
 import { LONG_LABEL, LONG_WORD } from "../../mocks/stress";
+import { PHONE_375 } from "../scenes/viewports";
 
 const meta = { title: "Containers/TopBar", component: TopBar, args: { title: "Choose a mode", onBack: fn() } } satisfies Meta<typeof TopBar>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const WithBack: Story = {};
-export const NoBack: Story = { args: { onBack: undefined, title: "Final score" } };
+export const NoBack: Story = { args: { onBack: undefined, title: "Something broke" } };
 export const WithAction: Story = {
   args: {
     end: (
@@ -39,12 +40,12 @@ export const WithMarkLongTitle: Story = {
 export const WithMarkStress: Story = { args: Stress.args, decorators: WithMark.decorators };
 
 /**
- * A bar in a card (`max-w-2xl`, as over a board) with the balances' rail and a score on its right, at desktop: two sides that
- * wide leave the centred title no room, so each side takes its own width and the title the rest (`sideWidth`), off centre but on
- * one line, never a letter a line.
+ * A bar in a card (`max-w-2xl`) with the balances' rail and a figure on its right, at desktop: two sides that wide leave the
+ * centred title no room, so each side takes its own width and the title the rest (`sideWidth`), off centre but on one line,
+ * never a letter a line.
  */
 export const NarrowWithBalances: Story = {
-  args: { title: "Final board", end: <Score value={7_558} size="sm" tone="gold" className="pr-2" />, className: "mb-0 pt-0" },
+  args: { title: "Cobbles", end: <Score value={7_558} size="sm" tone="gold" className="pr-2" />, className: "mb-0 pt-0" },
   globals: { viewport: { value: "desktop", isRotated: false } },
   decorators: [
     (Story) => (
@@ -58,3 +59,17 @@ export const NarrowWithBalances: Story = {
     ),
   ],
 };
+
+const READY = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } as const;
+const withBalances = (show: HeaderBalances): Decorator[] => [
+  (Story) => (
+    <BalancesProvider value={{ state: READY, onAction: fn(), show }}>
+      <Story />
+    </BalancesProvider>
+  ),
+];
+
+/** HEADER-BALANCES (#720), at 375 px: a flow where Cobbles move (the packs, the avatar): the Cobbles' strip under the title row, 96 px. */
+export const PhoneCobbles: Story = { ...PHONE_375, args: { title: "Cobbles" }, decorators: withBalances({ phone: true, desktop: "all" }) };
+/** At 375 px, a flow where none move (Play, the purchase, Story): no strip, one row, 56 px; its balances show from `desktop`. */
+export const PhoneNoBalances: Story = { ...PHONE_375, args: { title: "Choose a mode" }, decorators: withBalances({ phone: false, desktop: "all" }) };

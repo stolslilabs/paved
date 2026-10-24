@@ -16,3 +16,12 @@ export const TOOLBAR_VIEWPORTS = {
 export const VIEWPORT_OPTIONS = Object.fromEntries(
   Object.entries(TOOLBAR_VIEWPORTS).map(([key, v]) => [key, { name: v.name, styles: { width: `${v.width}px`, height: `${v.height}px` }, type: v.type }]),
 );
+
+/** An iPhone's viewport (375 x 812), the width the owner checks a screen at first: `parameters` and `globals` of a story pinned to it. */
+export const PHONE_375 = {
+  parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, phone: { name: "iPhone 375", styles: { width: "375px", height: "812px" }, type: "mobile" } } } },
+  globals: { viewport: { value: "phone", isRotated: false } },
+};
+
+/** The widest breakpoint (1440 x 900): `globals` of a story pinned to it. */
+export const WIDE_1440 = { globals: { viewport: { value: "wide", isRotated: false } } };
