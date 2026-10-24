@@ -40,7 +40,7 @@ import { useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogu
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../src/mocks/avatar";
 import { FakeVillageWriter } from "./village-fakes";
 import { MOCK_SKIN_TIERS, MOCK_STARTING_REWARDS } from "../src/data/mock/ledger";
-import { useSkinTierGates, useVillage, useVillageReward, useVillageWrites } from "../src/data/village";
+import { useVillage, useVillageReward, useVillageWrites } from "../src/data/village";
 import { legalCells } from "../src/components/containers/village-rules";
 
 // The mock data layer (#549, MOCK-FIRST): the same hooks, through the same `DataSources`, on the two implementations of the
@@ -222,32 +222,23 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     expect((unowned as AvatarRefusedError).reason).toBe("not-owned");
   });
 
-  it("a village founded, a parcel bought with Cobbles, rewards opened and claimed (#646)", async () => {
+  it("a village founded, rewards opened and claimed (#646); no parcel or tier read (#739)", async () => {
     const sources = make();
     const { result } = renderData(
-      () => ({ village: useVillage(PLAYER, "Ada"), reward: useVillageReward(PLAYER), writes: useVillageWrites(PLAYER), gates: useSkinTierGates(PLAYER, 1), account: useCobbleAccount(PLAYER), buy: useBuyPack(PLAYER) }),
+      () => ({ village: useVillage(PLAYER, "Ada"), reward: useVillageReward(PLAYER), writes: useVillageWrites(PLAYER), account: useCobbleAccount(PLAYER), buy: useBuyPack(PLAYER) }),
       sources,
     );
     await waitFor(() => expect(result.current.village.data?.founded).toBe(false));
     expect(result.current.reward.data).toEqual({ offer: null, pending: MOCK_STARTING_REWARDS });
-    await waitFor(() => expect(result.current.gates.data).toEqual({ 1: { tier: 1, name: "Silver", reached: false }, 18: { tier: 2, name: "Gold", reached: false } }));
+    // The mock reserves no skin to a tier any more.
+    expect(MOCK_SKIN_TIERS.size).toBe(0);
 
     await act(() => result.current.writes.found());
     await waitFor(() => expect(result.current.village.data?.founded).toBe(true));
     expect(result.current.village.data!.village.cells).toHaveLength(9);
-    expect(result.current.village.data!.parcel).toEqual({ price: 10, level: 1 });
-
-    // Short of Cobbles: refused, nothing bought; with a pack's 50, parcel 1 (10 Cobbles, level 1); parcel 2 needs level 2.
-    const short = await result.current.writes.buyParcel({ x: 2, y: 0 }, 10).catch((e: unknown) => e);
-    expect((short as VillageRefusedError).reason).toBe("not-enough-cobbles");
+    expect(result.current.village.data).not.toHaveProperty("parcel");
     await act(() => result.current.buy.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
     await waitFor(() => expect(result.current.account.data?.cobbles).toBe(50));
-    await act(() => result.current.writes.buyParcel({ x: 2, y: 0 }, 10));
-    await waitFor(() => expect(result.current.village.data?.village.cells).toHaveLength(10));
-    expect(result.current.village.data!.parcel).toEqual({ price: 20, level: 2 });
-    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(40));
-    const level = await result.current.writes.buyParcel({ x: 3, y: 0 }, 20).catch((e: unknown) => e);
-    expect((level as VillageRefusedError).reason).toBe("level-too-low");
 
     // A reward: three tiles of the base deck; the Cobbles instead.
     await act(() => result.current.writes.open());
@@ -255,10 +246,10 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     expect(result.current.reward.data!.pending).toBe(MOCK_STARTING_REWARDS - 1);
     for (const plan of result.current.reward.data!.offer!.plans) expect(plan).toBeGreaterThanOrEqual(1);
     await act(() => result.current.writes.cobbles());
-    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(45));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(55));
     expect(result.current.reward.data?.offer).toBeNull();
 
-    // Another: a tile placed where it fits, one copy of its plan; the score is the engine's.
+    // Another: a tile placed where it fits; the score is the engine's.
     await act(() => result.current.writes.open());
     await waitFor(() => expect(result.current.reward.data?.offer).not.toBeNull());
     const plans = result.current.reward.data!.offer!.plans;
@@ -267,9 +258,8 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     const spot = legalCells(village, plans[slot]!)[0]!;
     await act(() => result.current.writes.place(slot, spot.orientations[0]!, spot));
     await waitFor(() => expect(result.current.village.data?.village.tiles).toHaveLength(2));
-    expect(result.current.village.data!.village.copies).toEqual({ [plans[slot]!]: 1 });
     expect(result.current.reward.data?.pending).toBe(MOCK_STARTING_REWARDS - 2);
-    const twice = await result.current.writes.merge(0).catch((e: unknown) => e);
+    const twice = await result.current.writes.cobbles().catch((e: unknown) => e);
     expect((twice as VillageRefusedError).reason).toBe("no-offer");
   });
 

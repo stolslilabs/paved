@@ -569,9 +569,8 @@ export class GameScene {
   }
 
   /**
-   * The clear cells of the fog of war (FOG-EVERYWHERE, #648), in the grid: the board's tiles and free slots (`boardReveal`), or
-   * in a village or an attack the owned cells and the cells next to them (`villageReveal`). A cell added lifts from the side of
-   * `origin` (the tile just placed, the cell just bought). Null: no fog (a tile's preview). The fog shows only with
+   * The clear cells of the fog of war (FOG-EVERYWHERE, #648), in the grid: the board's tiles and free slots (`boardReveal`), in
+   * every mode (#739). A cell added lifts from the side of `origin` (the tile just placed). Null: no fog (a tile's preview). The fog shows only with
    * `RendererSettings.fog` on.
    */
   setFogReveal(cells: ReadonlyArray<FogCell> | null, origin: ReadonlyArray<FogCell> = []): void {

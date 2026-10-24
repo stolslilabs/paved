@@ -154,10 +154,10 @@ export const MOCK_MAX_CELLS = 38;
 export const MOCK_STARTING_REWARDS = 3;
 
 /**
- * The skins reserved to a tier in the mock (#642, `Setup.skin_tier`): theme 1 (Forest), by plan. No deployment sets any yet;
- * these show the gate: the full city's skin needs Silver (2 copies), the wonder's Gold (4).
+ * The skins reserved to a tier in the mock (#642, `Setup.skin_tier`), by theme and plan: none. No deployment sets any, and the
+ * tier-gated skins left the client with v2 (#739); the contract's gate goes with #736.
  */
-export const MOCK_SKIN_TIERS: ReadonlyMap<number, Readonly<Record<number, number>>> = new Map([[1, { 1: 1, 18: 2 }]]);
+export const MOCK_SKIN_TIERS: ReadonlyMap<number, Readonly<Record<number, number>>> = new Map();
 
 /** The starter `Village.found` writes at (0, 0): `RFFFRFCFR` (plan 9) facing South (orientation 3). */
 const STARTER = { id: 1, plan: 9, orientation: 3, x: 0, y: 0 } as const;

@@ -30,7 +30,7 @@ const nextDay = (now: number) => (Math.floor(now / 86_400) + 1) * 86_400;
  * `/pvp/result/:id` (#647 PR 2): the end of the attacker's attack `id`. Its score and stars from `Arena.attack` (the last
  * attack) or the indexer's row, the crowns it moved from its last receipt or the indexer, the crowns after it from
  * `Matchmaker.league`; then the village reward the settlement granted (#642, `Rewards`): Open draws its three tiles, and #646's
- * sheet places one, adds a copy, or takes the Cobbles (`useVillageWrites`).
+ * sheet places one or takes the Cobbles (`useVillageWrites`).
  */
 export default function Page() {
   const { id } = useParams();
@@ -122,14 +122,13 @@ function Result({ id }: { id: number }) {
       crowns={settled.data.gained - settled.data.lost}
       crownsAfter={status.data.league.crowns}
       reward={shown}
-      village={village.data?.village ?? { owner, level: 1, cells: [], tiles: [], copies: {}, score: 0, maxCells: 38 }}
+      village={village.data?.village ?? { owner, level: 1, cells: [], tiles: [], score: 0 }}
       balance={account.data?.cobbles ?? 0}
       now={now}
       opening={writes.pending?.kind === "open"}
       tileArt={tileArt}
       onOpenReward={() => send(writes.open, null, "Reward opened")}
       onPlace={(p) => send(() => writes.place(p.slot, p.orientation, { x: p.x, y: p.y }), { plan: p.plan, cobbles: null }, "Tile placed in your village")}
-      onAddCopy={(c) => send(() => writes.merge(c.slot), { plan: c.plan, cobbles: null }, "Copy added")}
       onTakeCobbles={() => send(writes.cobbles, { plan: null, cobbles: offer?.cobbles ?? 0 }, "Cobbles taken")}
       onReplay={() => go(`/pvp/replay/${me}/${id}`)}
       onRetryReward={() => {

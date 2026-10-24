@@ -5,7 +5,7 @@ import { ATTACK_STEPS, PVP_ATTACK, PVP_REPLAY, REPLAY_STEPS, attackAt, replayAt 
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { BOARD_FOG } from "../../data/settings";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
-import { PvpAttackBoard } from "../containers/pvp-attack-board";
+import { BoardViewport } from "../containers/board-viewport";
 import { StackView } from "../containers/stack-view";
 import { PvpAttackScene, type PvpAttackSceneProps } from "./pvp-attack-scene";
 
@@ -87,14 +87,14 @@ const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_F
 const NIGHT_3D: RendererSettingsInput = { ...DAY_3D, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
 
 /**
- * The attack on the 3D board as the page gives it (`PvpAttackBoard`): the fog of war clear over the territory and its neighbours;
- * the stack's tiles in 3D, as on the game's board (#701).
+ * The attack on the 3D board (`BoardViewport`): the fog of war lifted around the tiles, as on every board (#739); the stack's
+ * tiles in 3D, as on the game's board (#701).
  */
 function Attack3D({ settings, ...args }: PvpAttackSceneProps & { settings: RendererSettingsInput }) {
   return (
     <PvpAttackScene
       {...args}
-      canvas={<PvpAttackBoard territory={args.territory} tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
+      canvas={<BoardViewport tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
       renderHandStack={(v) => <StackView {...v} basePath={APP_ASSETS} skins={args.skins} />}
     />
   );
