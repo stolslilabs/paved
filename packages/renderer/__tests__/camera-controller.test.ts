@@ -54,8 +54,6 @@ import {
   CLOSEST_DISTANCE,
   OPENING_DISTANCE,
   PLAY_DEFAULT_POLAR_ANGLE,
-  PLAY_MAX_POLAR_ANGLE,
-  PLAY_ROTATE_SPEED,
   tiltedOffset,
 } from "../src/core/CameraController";
 
@@ -70,14 +68,14 @@ describe("CameraController camera modes", () => {
 
     expect(controller.controls.minAzimuthAngle).toBe(0);
     expect(controller.controls.maxAzimuthAngle).toBe(0);
-    expect(controller.controls.minPolarAngle).toBe(0);
-    expect(controller.controls.maxPolarAngle).toBeCloseTo(Math.PI * 0.3);
+    // The tilt is locked at the default (#719): nothing rotates the camera.
+    expect(controller.controls.minPolarAngle).toBe(PLAY_DEFAULT_POLAR_ANGLE);
+    expect(controller.controls.maxPolarAngle).toBe(PLAY_DEFAULT_POLAR_ANGLE);
+    expect(controller.controls.enableRotate).toBe(false);
   });
 
-  it("opens tilted 27 degrees at the opening distance, and tilts from straight down to 54 (TILT-54)", () => {
+  it("opens tilted 27 degrees at the opening distance (TILT-54)", () => {
     expect(PLAY_DEFAULT_POLAR_ANGLE).toBeCloseTo((27 * Math.PI) / 180, 12);
-    expect(PLAY_MAX_POLAR_ANGLE).toBeCloseTo((54 * Math.PI) / 180, 12);
-    expect(PLAY_MAX_POLAR_ANGLE).toBeCloseTo(2 * PLAY_DEFAULT_POLAR_ANGLE, 12);
     const controller = new CameraController(canvas);
     const offset = controller.camera.position.clone().sub(controller.controls.target);
     expect(offset.length()).toBeCloseTo(OPENING_DISTANCE, 9);
@@ -103,16 +101,13 @@ describe("CameraController camera modes", () => {
     expect(tiltedOffset(240, 0).toArray()).toEqual([0, 240, 0.001]);
   });
 
-  it("tilts with two fingers on touch (a pinch still zooms), pans with one, tilts with the right button", () => {
+  it("pans with one finger, pinches and pans with two, pans with the left and right buttons (#719)", () => {
     const controller = new CameraController(canvas);
-    expect(controller.controls.touches).toEqual({ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE });
-    expect(controller.controls.mouseButtons).toEqual({ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE });
-    expect(controller.controls.rotateSpeed).toBe(PLAY_ROTATE_SPEED);
-    // A drag over the surface's full height covers the whole range (OrbitControls: 2 PI x speed x dy / height).
-    expect(2 * Math.PI * PLAY_ROTATE_SPEED).toBeGreaterThan(PLAY_MAX_POLAR_ANGLE);
+    expect(controller.controls.touches).toEqual({ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN });
+    expect(controller.controls.mouseButtons).toEqual({ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN });
   });
 
-  it("comes no closer than the near plane allows at the steepest tilt", () => {
+  it("comes no closer than the near plane allows", () => {
     expect(CLOSEST_DISTANCE).toBe(10);
     expect(new CameraController(canvas).controls.minDistance).toBe(CLOSEST_DISTANCE);
   });
@@ -124,7 +119,10 @@ describe("CameraController camera modes", () => {
 
     expect(controller.controls.minAzimuthAngle).toBe(-Infinity);
     expect(controller.controls.maxAzimuthAngle).toBe(Infinity);
-    expect(controller.controls.maxPolarAngle).toBeGreaterThan(PLAY_MAX_POLAR_ANGLE);
+    expect(controller.controls.minPolarAngle).toBe(0);
+    expect(controller.controls.maxPolarAngle).toBeCloseTo(Math.PI * 0.42);
+    expect(controller.controls.enableRotate).toBe(true);
+    expect(controller.controls.mouseButtons.RIGHT).toBe(THREE.MOUSE.ROTATE);
   });
 
   it("returns to play mode after showcase", () => {
@@ -135,8 +133,11 @@ describe("CameraController camera modes", () => {
 
     expect(controller.controls.minAzimuthAngle).toBe(0);
     expect(controller.controls.maxAzimuthAngle).toBe(0);
-    expect(controller.controls.maxPolarAngle).toBeCloseTo(PLAY_MAX_POLAR_ANGLE);
-    expect(controller.controls.touches.TWO).toBe(THREE.TOUCH.DOLLY_ROTATE);
+    expect(controller.controls.minPolarAngle).toBe(PLAY_DEFAULT_POLAR_ANGLE);
+    expect(controller.controls.maxPolarAngle).toBe(PLAY_DEFAULT_POLAR_ANGLE);
+    expect(controller.controls.enableRotate).toBe(false);
+    expect(controller.controls.mouseButtons.RIGHT).toBe(THREE.MOUSE.PAN);
+    expect(controller.controls.touches.TWO).toBe(THREE.TOUCH.DOLLY_PAN);
   });
 
   it("clamps pan target to board bounds in play mode", () => {
@@ -166,11 +167,11 @@ describe("CameraController camera modes", () => {
     expect(controller.controls.target.z).toBe(-100);
   });
 
-  it("uses placement-safe touch mapping in play mode: one finger pans, two pinch and tilt", () => {
+  it("uses placement-safe touch mapping in play mode: one finger pans, two pinch and pan", () => {
     const controller = new CameraController(canvas);
 
     expect(controller.controls.touches.ONE).toBe(THREE.TOUCH.PAN);
-    expect(controller.controls.touches.TWO).toBe(THREE.TOUCH.DOLLY_ROTATE);
+    expect(controller.controls.touches.TWO).toBe(THREE.TOUCH.DOLLY_PAN);
   });
 
   it("uses rotate-friendly touch mapping in showcase mode", () => {

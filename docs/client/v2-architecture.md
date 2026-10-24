@@ -2829,7 +2829,20 @@ The still scene costs what the cycle off costs, within the runs' noise (one shad
 
 
 
-### 5.10 The camera's tilt (TILT-54, owner 2026-10-19)
+### 5.10 The camera's tilt (TILT-54, owner 2026-10-19; locked by CAMERA-TILT-LOCK, #719)
+
+**Locked (CAMERA-TILT-LOCK, #719).** The tilt is now locked at its default, 27 degrees (`PLAY_DEFAULT_POLAR_ANGLE`): the
+player only pans and zooms, no gesture tilts or turns the camera. In play mode `minPolarAngle = maxPolarAngle =
+PLAY_DEFAULT_POLAR_ANGLE` and `enableRotate = false`; the azimuth stays locked at 0. Desktop: the left and the right
+button pan, the wheel and the middle button zoom. Touch: one finger pans; two fingers pinch to zoom and their midpoint
+pans (`touches.TWO = DOLLY_PAN`); a second finger down still makes the gesture a pinch, never a placement (#570's rule).
+The native controller has no tilt (`applyTilt` and the mapper's `tilt` event are gone); its pinch and pan are unchanged.
+`PLAY_MAX_POLAR_ANGLE` and `PLAY_ROTATE_SPEED` left `@paved/renderer`; the stories keep their captures' tilts (straight
+down to 54 degrees, `STORY_MAX_POLAR`) through `placeCamera` (`packages/app/src/stories/renderer/story-camera.ts`), which
+opens the controls' polar range for the story, since the lock would pull any other pose back to 27 degrees. Unchanged: the opening frame for the screen size (#678), `reset()` and the
+re-centre, the `showcase` mode (free orbit, the right button and one finger rotate). `CLOSEST_DISTANCE` stays at 10 (the
+issue's default), with `OUTLINE_CLOSEST_FACTOR` and the settings' `minDistance`: at 27 degrees the near plane needs 8.
+The rest of this section is TILT-54's record; where it speaks of tilting, #719 supersedes it.
 
 The board opened straight down and the player could tilt it 27 degrees at most, with the mouse's right button only. The
 owner's decisions: the board **opens at 27 degrees** (`PLAY_DEFAULT_POLAR_ANGLE`, 0.15 PI, the former maximum), the
@@ -2862,9 +2875,9 @@ maximum, both ways from the default (`core/CameraController.ts`).
   and at 240 the board's far edge is only a few units farther than its centre. The shadow map is the light's fixed
   frustum (100 units around the board's origin, 2048 texels), independent of the camera: the same coverage and texel size
   at any tilt; zoomed in at 54 degrees a texel is seen more obliquely on the tops, an estimate, not measured.
-- **The native controller** (`NativeCameraController`, `native-input-mapper.ts`) has the same default and range: it
-  opens at 27 degrees, `applyTilt(dy, height)` tilts as OrbitControls does, and the mapper emits a `tilt` event when two
-  fingers move up or down together, beside the pinch. Its default `minDistance` is the web's closest zoom (10; 5 before).
+- **The native controller** (`NativeCameraController`, `native-input-mapper.ts`) had the same default and range: it
+  opened at 27 degrees, `applyTilt(dy, height)` tilted as OrbitControls does, and the mapper emitted a `tilt` event when
+  two fingers moved up or down together, beside the pinch (both removed by #719). Its default `minDistance` is the web's closest zoom (10; 5 before).
 - **Captures** (the "Renderer/Lighting" story, the 72-tile board, headless Chromium on the Mac's GPU, not SwiftShader;
   the tilt reached by the gesture itself, in `packages/app/src/stories/renderer/captures/`): `tilt54-phone-0.webp`,
   `tilt54-phone-27.webp` (as it opens), `tilt54-phone-54.webp` at 375 x 812 (DPR 3, stored at 1x);

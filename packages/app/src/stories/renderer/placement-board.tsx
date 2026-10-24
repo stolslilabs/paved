@@ -6,6 +6,7 @@ import { LazyTileBubble } from "../../components/containers/lazy-tile-bubble";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { viewPose, type Bounds, type View } from "./outlines-tour";
+import { placeCamera } from "./story-camera";
 
 /**
  * The placement states the story shows (SLOTS, P-68; PLATES, P-74; PLACEMENT-TINTS): `tour` plays hover, placed and confirm
@@ -184,9 +185,7 @@ export function PlacementBoard({ state, onPlaced = false, fill = false, board = 
   useEffect(() => {
     if (!scene) return;
     const pose = viewPose(view, onPlaced ? PLACED_BOUNDS : BOUNDS, distance);
-    scene.controls.controls.target.set(...pose.target);
-    scene.camera.position.set(...pose.position);
-    scene.camera.lookAt(...pose.target);
+    placeCamera(scene, pose.target, pose.position);
     scene.requestRender();
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setReady(true))));
     return () => cancelAnimationFrame(id);

@@ -64,26 +64,17 @@ export const CAMERA_NEAR = 5;
 export const TALLEST_TILE_HEIGHT = 2.625;
 
 /**
- * The tilt the play camera opens at, from straight down, in radians: 27 degrees (TILT-54, owner 2026-10-19: the former
- * steepest tilt). The player tilts from it up to straight down or down to `PLAY_MAX_POLAR_ANGLE`.
+ * The play camera's tilt from straight down, in radians: 27 degrees (TILT-54, owner 2026-10-19). It is locked there
+ * (CAMERA-TILT-LOCK, #719): the player pans and zooms, no gesture tilts or turns the camera.
  */
 export const PLAY_DEFAULT_POLAR_ANGLE = Math.PI * 0.15;
 
-/** The steepest tilt of the play camera from straight down (`setMode("play")`), in radians: 54 degrees, twice the default. */
-export const PLAY_MAX_POLAR_ANGLE = Math.PI * 0.3;
-
 /**
- * The closest the camera comes to its target (the default `minDistance`): the near plane plus the tallest tile seen at
- * the play camera's steepest tilt, 5 + 2.625 / cos 54 degrees = 9.47, rounded up. Closer, the near plane would cut the
- * tops of tall tiles: the target distance alone (5 before P4) did not account for them (8 at the former 27 degrees).
+ * The closest the camera comes to its target (the default `minDistance`): 10, kept from the former 54 degree maximum
+ * tilt (5 + 2.625 / cos 54 degrees = 9.47, rounded up; #719 keeps it). At the locked 27 degrees the near plane plus the
+ * tallest tile needs 8, so the tops of tall tiles stay clear of the near plane.
  */
 export const CLOSEST_DISTANCE = 10;
-
-/**
- * How fast a drag tilts the play camera (OrbitControls' `rotateSpeed`): a drag over the surface's full height tilts
- * 2 PI x 0.2 = 72 degrees, so the 54 degree range takes about three quarters of it (0.1 before TILT-54, for 27 degrees).
- */
-export const PLAY_ROTATE_SPEED = 0.2;
 
 const DEFAULT_CONFIG: Required<CameraConfig> = {
   position: [0, 0, 0],
@@ -167,7 +158,6 @@ export class CameraController {
     this.camera.updateProjectionMatrix();
 
     this.controls = createInputAdapter(this.camera, viewport.inputTarget);
-    this.controls.enableRotate = true;
     this.controls.enablePan = true;
     this.controls.enableDamping = true;
     this.controls.zoomToCursor = true;
@@ -175,13 +165,6 @@ export class CameraController {
 
     this.controls.minDistance = cfg.minDistance;
     this.controls.maxDistance = cfg.maxDistance;
-
-    // Mouse mapping
-    this.controls.mouseButtons = {
-      LEFT: THREE.MOUSE.PAN,
-      MIDDLE: THREE.MOUSE.DOLLY,
-      RIGHT: THREE.MOUSE.ROTATE,
-    };
 
     this.setMode("play");
 
@@ -270,26 +253,38 @@ export class CameraController {
     this.mode = mode;
     if (mode === "play") {
       this.controls.panSpeed = 0.8;
-      this.controls.rotateSpeed = PLAY_ROTATE_SPEED;
+      // The tilt and the azimuth are locked (#719): the camera only pans and zooms.
+      this.controls.enableRotate = false;
       this.controls.minAzimuthAngle = 0;
       this.controls.maxAzimuthAngle = 0;
-      this.controls.minPolarAngle = 0;
-      this.controls.maxPolarAngle = PLAY_MAX_POLAR_ANGLE;
-      // One finger pans; two fingers pinch to zoom and, dragged up or down, tilt: the azimuth is locked, so the rotation
-      // is only a tilt (TILT-54). Their midpoint moving sideways does nothing.
+      this.controls.minPolarAngle = PLAY_DEFAULT_POLAR_ANGLE;
+      this.controls.maxPolarAngle = PLAY_DEFAULT_POLAR_ANGLE;
+      // The left and the right button pan, the middle one (and the wheel) zooms.
+      this.controls.mouseButtons = {
+        LEFT: THREE.MOUSE.PAN,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN,
+      };
+      // One finger pans; two fingers pinch to zoom and their midpoint pans.
       this.controls.touches = {
         ONE: THREE.TOUCH.PAN,
-        TWO: THREE.TOUCH.DOLLY_ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN,
       };
       return;
     }
 
+    this.controls.enableRotate = true;
     this.controls.panSpeed = 1;
     this.controls.rotateSpeed = 0.35;
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.minPolarAngle = 0;
     this.controls.maxPolarAngle = Math.PI * 0.42;
+    this.controls.mouseButtons = {
+      LEFT: THREE.MOUSE.PAN,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.ROTATE,
+    };
     this.controls.touches = {
       ONE: THREE.TOUCH.ROTATE,
       TWO: THREE.TOUCH.DOLLY_PAN,

@@ -293,7 +293,7 @@ describe("RenderSurfaceAdapter integration", () => {
     expect(onTileClick).toHaveBeenCalledWith(0, 0);
   });
 
-  it("places nothing from a two-finger pinch or tilt, nor a cancelled touch, and taps again after (TILT-54)", async () => {
+  it("places nothing from a two-finger pinch or pan, nor a cancelled touch, and taps again after (TILT-54, #719)", async () => {
     const adapter = createSurfaceAdapter({ width: 400, height: 400 }, 1);
     const { scene } = createSceneHarness();
     const onTileClick = vi.fn();
