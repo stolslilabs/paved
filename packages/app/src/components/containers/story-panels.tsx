@@ -4,6 +4,7 @@ import * as m from "motion/react-m";
 import { formatInteger, type Stars } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { StarRow } from "../elements/star-row";
+import { planCode } from "../elements/tile-chip";
 import { StoryBackground, TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -29,8 +30,12 @@ export interface DeckPresentationProps {
   levelIndex: number;
   title: string;
   intro: string;
+  /** The level's tip (`StoryLevel.tip`, #721): one sentence, set apart under the tiles. None: no tip block. */
+  tip?: string;
   /** The tiles the level deals after the starter, in draw order (chain plan ids). */
   deck: readonly number[];
+  /** The campaign's tile theme (`StoryCampaign.theme`, #721): the tiles are drawn in it. Unset: 0 (Default). */
+  theme?: number;
   /** The build-time renders the tiles are drawn from; the plan's chip without one. */
   renders?: TileRenders;
   /** The best score so far on this device, with its stars. */
@@ -40,13 +45,15 @@ export interface DeckPresentationProps {
 }
 
 /**
- * A level's opening (#593): its title and intro, then the tiles it deals in draw order, numbered, the order the deck sheet
- * shows (#613), landing one after another; a tap anywhere, or Start, opens the board. No star threshold is shown.
- * Under reduced motion the tiles are there at once.
+ * A level's opening (#593, #721): its title and intro, then the tiles it deals in draw order, in its campaign's theme,
+ * numbered, the order the deck sheet shows (#613), landing one after another, then its tip, set apart under a bulb; a tap
+ * anywhere, or Start, opens the board. No star threshold is shown. Under reduced motion the tiles are there at once.
  */
-export function DeckPresentation({ campaign, levelIndex, title, intro, deck, renders, best, onStart, className }: DeckPresentationProps) {
+export function DeckPresentation({ campaign, levelIndex, title, intro, tip, deck, theme = 0, renders, best, onStart, className }: DeckPresentationProps) {
   const reduced = useReducedMotionConfig();
   const step = Math.min(0.07, PRESENT_SECONDS / Math.max(1, deck.length));
+  // A plan the theme has no render of keeps the base one, as the deck sheet's (`deckArt`).
+  const shownIn = (plan: number) => (renders?.(theme, planCode(plan).toLowerCase()) ? theme : 0);
   return (
     <section
       aria-label="Level deck"
@@ -76,13 +83,14 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, deck, ren
                 <m.li
                   key={i}
                   data-plan={plan}
+                  data-theme={shownIn(plan)}
                   aria-label={`Tile ${i + 1}`}
                   className="relative aspect-square overflow-hidden rounded-lg border border-border bg-board shadow-md"
                   initial={reduced ? false : { opacity: 0, y: 14, scale: 0.85 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ delay: 0.25 + i * step, duration: 0.3, ease: "easeOut" }}
                 >
-                  <TileRender plan={plan} theme={0} renders={renders} />
+                  <TileRender plan={plan} theme={shownIn(plan)} renders={renders} />
                   <span className="numeric absolute top-1 left-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow" aria-hidden>
                     {i + 1}
                   </span>
@@ -90,6 +98,24 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, deck, ren
               ))}
             </ol>
           </div>
+          {tip && (
+            <m.aside
+              aria-label="Tip"
+              data-testid="level-tip"
+              className="flex items-start gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3"
+              initial={reduced ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 + deck.length * step + 0.1, duration: 0.3 }}
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+                <Icon name="lightbulb" size="sm" />
+              </span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-xs font-semibold tracking-wide text-primary uppercase">Tip</span>
+                <span className="text-sm wrap-anywhere">{tip}</span>
+              </span>
+            </m.aside>
+          )}
           {best && (
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} size="xs" />

@@ -251,9 +251,9 @@ describe("the viewer's skins opt-out", () => {
     for (const board of drawn.board) expect(board.skins).toBe(NO_SKINS);
   });
 
-  it("opted out, Training and Story mode still draw the connected player's own skins (the switch hides the other players')", async () => {
+  it("opted out, Training still draws the connected player's own skins (the switch hides the other players'; Story draws its campaign's theme, #721)", async () => {
     localStorage.setItem(THEME_KEY, "default");
-    for (const path of ["/training", "/story/1/1"]) {
+    for (const path of ["/training"]) {
       drawn.board.length = 0;
       queryClient.clear();
       const fakes = skinned();

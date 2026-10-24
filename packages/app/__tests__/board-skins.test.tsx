@@ -2,7 +2,7 @@ import { slow } from "../test-slow";
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NO_SKINS, type TileSkins } from "@paved/renderer";
-import { getPlanKey, Plan } from "@paved/game-core";
+import { DARK_FOREST, EMPTY_PROGRESS, OPEN_COUNTRY, Plan, PlanType, STORY_KEY, TUTORIAL, getPlanKey, recordRun } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { useBoardSkins } from "../src/data/board-skins";
@@ -141,10 +141,32 @@ describe("the board page's player", () => {
     expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
   });
 
-  it("a Story level draws the connected player's skins", async () => {
+  it("a Tutorial level draws the base models, whatever skins the connected player set, with none read (#721)", async () => {
     const fakes = fakeSources({ signer: signer(VIEWER) });
     fakes.views.skinPlayer(VIEWER).active = active({ 4: 1 });
     render(<App router={createTestRouter("/story/1/1")} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(4)]: 1 }), { timeout: slow(5000) });
+    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
+    await waitFor(() => expect(lastHand()).toBeDefined());
+    expect(lastBoard()?.skins).toBe(NO_SKINS);
+    expect(lastHand()?.skins).toBe(NO_SKINS);
+    expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
+  });
+
+  it("a Dark Forest level draws every tile in Forest, the starter included, on the board and the hand; the player's skins are not read (#721)", async () => {
+    const fakes = fakeSources({ signer: signer(VIEWER) });
+    fakes.views.skinPlayer(VIEWER).active = active({ 4: 2, 9: 0 });
+    // Tutorial and Open Country at 2 stars a level: Dark Forest is open.
+    let progress = EMPTY_PROGRESS;
+    for (const campaign of [TUTORIAL, OPEN_COUNTRY]) {
+      for (const level of campaign.levels) progress = recordRun(progress, level, { campaignId: campaign.id, levelIndex: level.id, moves: [] }, Math.ceil(level.target * 0.7));
+    }
+    fakes.store.setItem(STORY_KEY, JSON.stringify(progress));
+    render(<App router={createTestRouter(`/story/${DARK_FOREST.id}/1`)} sources={fakes.sources} />);
+    const forest = Object.fromEntries(Array.from({ length: 19 }, (_, i) => [key(i + 1), DARK_FOREST.theme]));
+    expect(DARK_FOREST.theme).toBe(1);
+    expect(forest[getPlanKey(PlanType.RFFFRFCFR)]).toBe(1);
+    await waitFor(() => expect(lastBoard()?.skins).toEqual(forest), { timeout: slow(5000) });
+    await waitFor(() => expect(lastHand()?.skins).toEqual(forest));
+    expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
   });
 });

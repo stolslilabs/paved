@@ -2,12 +2,14 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { CAMPAIGNS, PlanType } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
+import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { Button } from "../ui/button";
 import { CampaignCard, DeckPresentation, StarFill, StoryCoach, StoryEnd, type CampaignCardProps } from "./story-panels";
 
 /**
- * The panels of a Story level (#546, #593): the deck presentation that opens it, a coach mark's tip, the end (the stars filling
- * one by one, then the score with the points short of the next star). No star threshold is shown anywhere.
+ * The panels of a Story level (#546, #593, #721): the deck presentation that opens it (with the level's tip, its tiles in the
+ * campaign's theme), a coach mark, the end (the stars filling one by one, then the score with the points short of the next
+ * star). No star threshold is shown anywhere.
  */
 const meta = { title: "Containers/Story panels", component: DeckPresentation, parameters: { layout: "padded" } } satisfies Meta<typeof DeckPresentation>;
 export default meta;
@@ -16,32 +18,32 @@ type Story = StoryObj<typeof meta>;
 const PLAN_IDS = Object.values(PlanType);
 const deckOf = (campaign: number, level: number) => CAMPAIGNS[campaign]!.levels[level]!.deck.map((p) => PLAN_IDS.indexOf(p));
 
-const TUTORIAL_1 = {
-  campaign: "Tutorial",
-  levelIndex: 1,
-  title: "First stone",
-  intro:
-    "Tap a cell next to the board to place the tile in your hand. Roads must meet roads. A road scores once both of its ends are closed, and a crossroads closes every road that reaches it.",
-  deck: deckOf(0, 0),
-  renders: appRenders,
-  onStart: fn(),
+/** The presentation of level `level` (from 0) of campaign `campaign` (from 0), as the level page shows it. */
+const levelArgs = (campaign: number, level: number) => {
+  const c = CAMPAIGNS[campaign]!;
+  const l = c.levels[level]!;
+  return { campaign: c.name, levelIndex: l.id, title: l.title, intro: l.intro, tip: l.tip, deck: deckOf(campaign, level), theme: c.theme, renders: appRenders, onStart: fn() };
 };
 
-/** A Tutorial level opens on its deck (#593): the title, the intro, its two tiles landing in turn; a tap anywhere starts. */
+const TUTORIAL_1 = levelArgs(0, 0);
+
+/** A Tutorial level opens on its deck (#593, #721): the title, the intro, its two tiles landing in turn, then its tip; a tap anywhere starts. */
 export const Presentation: Story = { args: TUTORIAL_1 };
 
-/** A long level: 37 tiles grouped by plan with their counts, and the player's best so far (no threshold). */
-export const PresentationLong: Story = {
-  args: {
-    ...TUTORIAL_1,
-    campaign: "Open Country",
-    levelIndex: 11,
-    title: "A full road",
-    intro: CAMPAIGNS[1]!.levels[10]!.intro,
-    deck: deckOf(1, 10),
-    best: { score: 10200, stars: 2 },
-  },
-};
+/** The intro with its tip at 375 x 812, the width the owner checks first. */
+export const PresentationPhone: Story = { args: TUTORIAL_1, ...PHONE_375 };
+
+/** The intro with its tip at 1440. */
+export const PresentationWide: Story = { args: TUTORIAL_1, ...WIDE_1440 };
+
+/** A Dark Forest level (#721): its tiles in the campaign's theme (Forest), whatever skins the player set; its tip under them. */
+export const PresentationForestPhone: Story = { args: levelArgs(2, 0), ...PHONE_375 };
+
+/** The same at 1440. */
+export const PresentationForestWide: Story = { args: levelArgs(2, 0), ...WIDE_1440 };
+
+/** The longest level of a campaign: 15 tiles after the starter, in draw order, the tip, and the player's best so far (no threshold). */
+export const PresentationLong: Story = { args: { ...levelArgs(1, 11), best: { score: 10200, stars: 2 } } };
 
 /** The same under reduced motion: every tile there at once. */
 export const PresentationReduced: Story = { args: PresentationLong.args, parameters: { reducedMotion: "always" } };

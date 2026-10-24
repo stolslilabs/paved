@@ -12,6 +12,8 @@ export {
   campaignRequirement,
   campaignStars,
   campaignUnlocked,
+  currentProgress,
+  deckFingerprint,
   levelKey,
   levelProgress,
   levelResult,
