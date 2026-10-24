@@ -31,11 +31,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * Direction D (#537): the bottom bar on a phone, each item an icon over its label (labels from 360 px); from 1024 px (the
- * theme's `desktop`) a header across the top, the voxel wordmark, the items icon beside label. The Viewport control switches
- * between them. The current item is gold on the white 15% layer; hover is 10%, a press 20%. No rail, no sliding indicator.
- * Play (#623), in the centre, has no label: a gold disc raised above the bar on a phone. The desktop header has no Play
- * (#668): Home, Missions, Vault, Settings, and Play is reached from the Home page. One story per item active.
+ * Direction D (#537): the bottom bar on a phone; from 1024 px (the theme's `desktop`) a header across the top, the voxel
+ * wordmark, the items icon beside label. The Viewport control switches between them. The current item is gold on the white
+ * 15% layer; hover is 10%, a press 20%. TAB-SWIPE (#726): on a phone the items are icons and only the current one shows its
+ * label; a click here slides the highlight to the new item, folds the old label and unfolds the new one (the bar stays
+ * mounted: plain transitions; in the app each page mounts its own bar, which starts from the last one's state). None under
+ * reduced motion. Play (#623), in the centre, has no label: a gold disc raised above the bar on a phone, and no highlight. The
+ * desktop header has no Play (#668): Home, Missions, Vault, Settings, and Play is reached from the Home page. One story per
+ * item active.
  */
 export const Default: Story = {};
 
