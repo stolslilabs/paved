@@ -279,6 +279,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
             placementHighlight={boardSettings.placementHighlight}
             skins={skins}
             tiles={state.tiles}
+            closed={state.closed}
             basePath={RENDERER_ASSETS}
             slots={phase === "play" ? slots : undefined}
             ghost={ghost}

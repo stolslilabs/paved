@@ -157,6 +157,7 @@ function TrainingBoard() {
             placementHighlight={boardSettings.placementHighlight}
             skins={skins}
             tiles={board.tiles}
+            closed={board.closed}
             basePath={RENDERER_ASSETS}
             slots={slots}
             ghost={ghost}
@@ -398,6 +399,7 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
             placementHighlight={boardSettings.placementHighlight}
             skins={skins}
             tiles={state.tiles}
+            closed={state.closed}
             gameId={gameId}
             basePath={RENDERER_ASSETS}
             slots={slots}

@@ -4,6 +4,7 @@ import {
   EngineGame,
   LocalSession,
   OrientationType,
+  PlanType,
   TRAINING_KEY,
   loadGame,
   openTraining,
@@ -82,4 +83,29 @@ describe("sessions keep their engine between moves", () => {
     expect(session.score).toBe(mirror.score);
   });
 
+});
+
+describe("the closed structures a session gives (#722)", () => {
+  it("resumes a Training game with its closed structures, and adds a move's at the end, in closing order", async () => {
+    const store = memoryStore({ [TRAINING_KEY]: OLD_TRAINING_SAVE });
+    const session = openTraining(() => store);
+    const engine = replayTraining(BigInt("0x5eed1234abcd"), JSON.parse(OLD_TRAINING_SAVE).moves, 1);
+    // One entry per closing, each its areas on its tiles, as the engine's closings carry them.
+    expect(session.state.closed).toEqual(engine.closings().map((c) => c.areas));
+    const before = session.state.closed!.length;
+    for (let tries = 0; tries < 20 && session.state.closed!.length === before && !session.state.game?.over; tries++) {
+      const hand = session.state.hand!;
+      const [placement] = engine.legalPlacements(Object.values(PlanType)[hand.plan] as PlanType);
+      if (placement) {
+        await session.place({ orientation: ORIENTATIONS.indexOf(placement.orientation), x: CENTER + placement.x, y: CENTER + placement.y });
+        engine.build(placement);
+      } else {
+        await session.discard();
+        engine.discard();
+      }
+      expect(session.state.closed).toEqual(engine.closings().map((c) => c.areas));
+    }
+    expect(session.state.closed!.length).toBeGreaterThan(before);
+    expect(session.state.closed!.slice(0, before)).toEqual(engine.closings().slice(0, before).map((c) => c.areas));
+  });
 });
