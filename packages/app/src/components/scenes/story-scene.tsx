@@ -57,7 +57,10 @@ export function upcomingText(upcoming: readonly UpcomingCampaign[]): string {
   return `${upcoming.length === 1 ? "One more campaign is" : `${upcoming.length} more campaigns are`} on the way: ${parts.join("; then ")}.`;
 }
 
-/** A campaign's background: the distinct plans of its decks in draw order, as chain ids. */
+/** A campaign's tile theme (`StoryCampaign.theme`, #721 PR 1), 0 (Default) for a plan that has none yet. */
+const themeOf = (campaign: StoryCampaign & { readonly theme?: number }): number => campaign.theme ?? 0;
+
+/** A campaign's background without its picture: the distinct plans of its decks in draw order, as chain ids. */
 const coverPlans = (campaign: StoryCampaign): number[] => [...new Set(campaign.levels.flatMap((l) => l.deck))].map((p) => PLAN_IDS.indexOf(p));
 
 function statusOf(progress: StoryProgress, campaigns: readonly StoryCampaign[], campaign: StoryCampaign, fresh: boolean): CampaignStatus {
@@ -134,6 +137,7 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
                     stars={campaignStars(progress, c)}
                     status={statusOf(progress, campaigns, c, justUnlocked.includes(c.id))}
                     missing={Math.max(0, needed - held(progress))}
+                    theme={themeOf(c)}
                     plans={coverPlans(c)}
                     renders={renders}
                     selected={c.id === campaign?.id}

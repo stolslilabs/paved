@@ -123,10 +123,10 @@ const card = (props: Partial<CampaignCardProps>) => () => (
   </div>
 );
 
-/** A campaign card (#592), open: its own tiles behind (build-time renders), its levels and stars. */
+/** A campaign card (#592), open: its background (the build's picture of a whole board in its theme, #721), its levels and stars. */
 export const CampaignOpen: Story = { args: TUTORIAL_1, render: card({ stars: 7, selected: true }) };
 
-/** Locked: the tiles under a blur, a lock, and the stars still to earn. */
+/** Locked: the background under a blur, a lock, and the stars still to earn. */
 export const CampaignLocked: Story = { args: TUTORIAL_1, render: card({ status: "locked", missing: 9 }) };
 
 /** Just unlocked (the first visit since): the lock turns open and goes, the blur lifts, once. */
@@ -140,3 +140,30 @@ export const CampaignComplete: Story = {
   args: TUTORIAL_1,
   render: card({ id: 1, name: "Tutorial", summary: CAMPAIGNS[0]!.summary, stars: 33, status: "complete", plans: plansOf(0) }),
 };
+
+/** Dark Forest (#721, campaign 3, the Forest theme): its board in Forest, open. Its plan (name, summary) is #721 PR 1's. */
+const DARK_FOREST: Partial<CampaignCardProps> = { id: 3, name: "Dark Forest", summary: "Twelve games in the deep woods, drawn in the Forest tiles: 10 to 16 tiles, chapels hidden among the trees.", levels: 12, theme: 1 };
+
+/** The Tutorial's card: its puzzle picture (#721), a small board with one tile lifted off its slot. */
+export const CampaignTutorial: Story = { args: TUTORIAL_1, render: card({ id: 1, name: "Tutorial", summary: CAMPAIGNS[0]!.summary, stars: 12, plans: plansOf(0), selected: true }) };
+
+/** Dark Forest's card, open: a whole board in the Forest theme. */
+export const CampaignDarkForest: Story = { args: TUTORIAL_1, render: card({ ...DARK_FOREST, stars: 4 }) };
+
+/**
+ * The three backgrounds side by side as `/story` lays them out from tablet up (one a row on a phone): the Tutorial open, Open
+ * Country unlocking (the lock turns, the blur lifts), Dark Forest locked. The Viewport control reframes it (375 and 1440 px
+ * for the captures).
+ */
+export const CampaignBackgrounds: Story = {
+  args: TUTORIAL_1,
+  parameters: { layout: "fullscreen" },
+  render: () => (
+    <div className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 p-4 tablet:max-w-3xl tablet:grid-cols-2 desktop:max-w-5xl desktop:grid-cols-3">
+      <CampaignCard {...CARD} id={1} name="Tutorial" summary={CAMPAIGNS[0]!.summary} stars={30} plans={plansOf(0)} selected />
+      <CampaignCard {...CARD} status="unlocking" />
+      <CampaignCard {...CARD} {...DARK_FOREST} status="locked" missing={14} />
+    </div>
+  ),
+};
+
