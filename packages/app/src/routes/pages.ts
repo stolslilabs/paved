@@ -27,6 +27,12 @@ export const PAGES: readonly PageDef[] = [
   { path: "village", title: "Village", nav: null },
   { path: "village/:player", title: "Village", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
+  // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, the defence log, the league.
+  { path: "pvp", title: "Attack", nav: null },
+  { path: "pvp/result/:id", title: "Result", nav: null },
+  { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
+  { path: "pvp/defence", title: "Defence log", nav: null },
+  { path: "pvp/league", title: "League", nav: null },
   { path: "training", title: "Training", nav: null },
   { path: "story", title: "Story", nav: null },
   { path: "story/:campaign/:level", title: "Story", nav: null },

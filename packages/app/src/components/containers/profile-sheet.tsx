@@ -35,6 +35,8 @@ export interface ProfileSheetProps {
   onEditAvatar?: () => void;
   /** Opens the player's village (#646); omitted, My village is not offered. */
   onOpenVillage?: () => void;
+  /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, League is not offered. */
+  onOpenLeague?: () => void;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
   returnFocus?: () => HTMLElement | null;
 }
@@ -47,7 +49,7 @@ const DESKTOP_QUERY = "(min-width: 64rem)";
  * the name, the short address with Copy, the Challenge figures the home card showed, My village (#646), Edit avatar (the
  * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625).
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, onOpenVillage, returnFocus }: ProfileSheetProps) {
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, onOpenVillage, onOpenLeague, returnFocus }: ProfileSheetProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
   const connected = state.status === "connected" ? state.data : null;
@@ -112,6 +114,12 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
               <Button variant="outline" onClick={onOpenVillage}>
                 <Icon name="house" size="xs" />
                 My village
+              </Button>
+            )}
+            {onOpenLeague && (
+              <Button variant="outline" onClick={onOpenLeague}>
+                <Icon name="swords" size="xs" />
+                League and attacks
               </Button>
             )}
             {onEditAvatar && (

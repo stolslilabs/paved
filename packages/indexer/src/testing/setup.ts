@@ -6,7 +6,7 @@
 import { Chain } from "../chain.ts";
 import { Indexer } from "../indexer.ts";
 import { Halt, Store } from "../store.ts";
-import { CHAIN_ID, COLLECTION, CHALLENGE, ECONOMY, FakeNode, SETUP } from "./fake-node.ts";
+import { ARENA, CHAIN_ID, COLLECTION, CHALLENGE, ECONOMY, FakeNode, SETUP } from "./fake-node.ts";
 
 export const CONFIG = {
   challenge: CHALLENGE,
@@ -37,6 +37,17 @@ export function indexerOf(
     store: new Store(":memory:"),
     config: CONFIG,
     depth,
+  });
+}
+
+/** The same indexer for a deployment with an Arena (#643): its attacks are read. */
+export function indexerWithArena(node: FakeNode): Indexer {
+  const config = { ...CONFIG, arena: ARENA };
+  return new Indexer({
+    chain: new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, collection: COLLECTION, arena: ARENA }),
+    store: new Store(":memory:"),
+    config,
+    depth: 1000,
   });
 }
 

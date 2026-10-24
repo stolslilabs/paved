@@ -10,7 +10,9 @@ const CREST: Record<LeagueId, string> = {
   crystal: "text-league-crystal",
   master: "text-league-master",
   champion: "text-league-champion",
+  titan: "text-league-titan",
   legend: "text-league-legend",
+  unranked: "text-league-unranked",
 };
 
 const crestVariants = cva("inline-flex items-center gap-1.5 font-semibold whitespace-nowrap", {
@@ -27,7 +29,7 @@ export interface LeagueCrestProps extends VariantProps<typeof crestVariants> {
   className?: string;
 }
 
-/** A league (issue 644's, proposed in `pvp-rules.ts`): its crest, a shield in the league's colour, and its name beside it. */
+/** A league (issue 644's, `pvp-rules.ts`): its crest, a shield in its group's colour, and its name beside it ("Gold II"). */
 export function LeagueCrest({ league, size, iconOnly, className }: LeagueCrestProps) {
   return (
     <span data-league={league.id} className={cn(crestVariants({ size }), className)}>

@@ -10,6 +10,8 @@ import { gameContract, type DrawView, type DrawViews, type GameKey } from "./vie
 import { withVrfRequest } from "./vrf";
 import { buyParcelCall, foundVillageCall, type VillageCell, type VillageViews } from "./village";
 import { claimRewardCall, openRewardCalls, type RewardClaim } from "./rewards";
+import { nextCalls, searchCalls, type PvpViews } from "./matchmaker";
+import { playCall, playCalls, startAttackCalls, surrenderCall, type AttackPlay } from "./arena";
 
 export interface Call {
   contractAddress: string;
@@ -425,6 +427,77 @@ function villageRevert(error: unknown): never {
   if (error instanceof WriteError && !(error instanceof VillageRefusedError)) {
     const known = VILLAGE_REVERTS.find(([reason]) => revertNames(error.message, reason));
     if (known) throw new VillageRefusedError(known[1], error.transactionHash);
+  }
+  throw error;
+}
+
+/** Why `Matchmaker` or `Arena` refused a PvP write, by its revert (`matchmaker.cairo`, `arena.cairo`, `errors`; `setup.cairo` for the Cobbles). */
+export type PvpRefusal =
+  | "not-joined"
+  | "no-opponent"
+  | "opponent-drawn"
+  | "opponent-shielded"
+  | "nothing-drawn"
+  | "attack-started"
+  | "not-enough-cobbles"
+  | "attack-open"
+  | "no-attack"
+  | "outside-territory"
+  | "tile-exists"
+  | "no-neighbors"
+  | "cannot-place"
+  | "invalid-move";
+
+const PVP_REVERTS: Array<[string, PvpRefusal]> = [
+  ["Matchmaker: not joined", "not-joined"],
+  ["Matchmaker: npc cannot play", "not-joined"],
+  ["Matchmaker: no opponent", "no-opponent"],
+  ["Matchmaker: opponent drawn", "opponent-drawn"],
+  ["Matchmaker: opponent shielded", "opponent-shielded"],
+  ["Matchmaker: nothing drawn", "nothing-drawn"],
+  ["Matchmaker: attack started", "attack-started"],
+  ["Setup: not enough cobbles", "not-enough-cobbles"],
+  ["Arena: attack open", "attack-open"],
+  ["Arena: no attack", "no-attack"],
+  ["Arena: outside territory", "outside-territory"],
+  ["Arena: invalid orientation", "invalid-move"],
+  ["Arena: invalid position", "invalid-move"],
+  ["Tile: already exists", "tile-exists"],
+  ["Tile: no neighbors", "no-neighbors"],
+  ["Tile: cannot place", "cannot-place"],
+];
+
+/** What the player reads for each refusal. */
+export const PVP_REFUSAL_TEXT: Record<PvpRefusal, string> = {
+  "not-joined": "Your village is not in the matchmaker yet: found your village first.",
+  "no-opponent": "No village is in range of your crowns right now: try again in a while.",
+  "opponent-drawn": "A village is already drawn for you: attack it, or take the next one.",
+  "opponent-shielded": "This village was attacked a moment ago and is now shielded: search again, it is free.",
+  "nothing-drawn": "No village is drawn yet: search first.",
+  "attack-started": "Your attack has started: play it to its end, or surrender.",
+  "not-enough-cobbles": "Not enough Cobbles for another village: earn them from quests and achievements, or buy a pack.",
+  "attack-open": "An attack of yours is still open: play it to its end, or surrender.",
+  "no-attack": "This attack is over.",
+  "outside-territory": "This cell is outside the defender's territory: play on their cells only.",
+  "tile-exists": "A tile is already on this cell.",
+  "no-neighbors": "A tile must touch another tile.",
+  "cannot-place": "This tile does not fit there: its sides must match the tiles around it.",
+  "invalid-move": "This move is not one the arena takes.",
+};
+
+/** `Matchmaker` or `Arena` refused a write: nothing changed and no Cobbles or crowns moved. */
+export class PvpRefusedError extends WriteError {
+  constructor(readonly reason: PvpRefusal, transactionHash?: string) {
+    super(PVP_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
+    this.name = "PvpRefusedError";
+  }
+}
+
+/** A known revert of a PvP write as its `PvpRefusedError`; any other error unchanged. */
+function pvpRevert(error: unknown): never {
+  if (error instanceof WriteError && !(error instanceof PvpRefusedError)) {
+    const known = PVP_REVERTS.find(([reason]) => revertNames(error.message, reason));
+    if (known) throw new PvpRefusedError(known[1], error.transactionHash);
   }
   throw error;
 }
@@ -857,6 +930,83 @@ export class PavedWriter {
       return Promise.reject(new WriteError(error instanceof Error ? error.message : String(error)));
     }
     return this.send("Rewards", [call]).catch(villageRevert);
+  }
+
+  /**
+   * `Matchmaker.search()` (free) or `next()` (`NEXT_PRICE` Cobbles): an opponent drawn on the VRF (#639). The draw's index (the
+   * attacker's `village(attacker).draws`) is read inside the serialised send, after any earlier write has landed; with the
+   * deployment's provider the request goes first, without one (the devnet's mock) the call goes alone. The receipt's
+   * `OpponentDrawn` names the opponent, its offer and its cost.
+   */
+  drawOpponent(kind: "search" | "next", views: Pick<PvpViews, "pvpVillage">): Promise<WriteResult> {
+    const matchmaker = this.options.deployment.addresses.Matchmaker;
+    if (!matchmaker) return Promise.reject(new WriteError("No Matchmaker contract in this deployment: no village can be drawn"));
+    return this.serialised(async () => {
+      const provider = this.options.deployment.vrfProvider;
+      if (!provider) return this.sendNow("Matchmaker", [{ contractAddress: matchmaker, entrypoint: kind, calldata: [] }]);
+      let draws: number;
+      try {
+        draws = (await views.pvpVillage(this.address)).draws;
+      } catch (error) {
+        throw new WriteError(`Cannot read the draw: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      return this.sendNow("Matchmaker", (kind === "search" ? searchCalls : nextCalls)(matchmaker, provider, this.address, draws));
+    }).catch(pvpRevert);
+  }
+
+  /**
+   * `Arena.start()`: the attack on the opponent drawn (#643), its first tile drawn on the VRF. The attacker's last attack id
+   * (`attack(attacker).id`, the salt's) is read inside the serialised send. The receipt's `AttackOpened` (or `AttackSkipped`:
+   * an opponent that could not be attacked, the next search free) and `TileDrawn` carry the attack and the tile in hand.
+   */
+  startAttack(views: Pick<PvpViews, "pvpAttack">): Promise<WriteResult> {
+    const arena = this.options.deployment.addresses.Arena;
+    if (!arena) return Promise.reject(new WriteError("No Arena contract in this deployment: no attack can start"));
+    return this.serialised(async () => {
+      const provider = this.options.deployment.vrfProvider;
+      if (!provider) return this.sendNow("Arena", [{ contractAddress: arena, entrypoint: "start", calldata: [] }]);
+      let last: number;
+      try {
+        last = (await views.pvpAttack(this.address)).id;
+      } catch (error) {
+        throw new WriteError(`Cannot read your last attack: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      return this.sendNow("Arena", startAttackCalls(arena, provider, this.address, last));
+    }).catch(pvpRevert);
+  }
+
+  /**
+   * `Arena.play(...)`: the tile in hand built at a cell or discarded. The open attack and its deck are read inside the
+   * serialised send: while a tile is left to draw the request goes first (the salt of draw `deck.drawn`); the last move
+   * draws nothing and its receipt's `AttackFinished` carries the score, the stars and the crowns.
+   */
+  playAttack(play: AttackPlay, views: Pick<PvpViews, "pvpAttack" | "pvpDeck">): Promise<WriteResult> {
+    const arena = this.options.deployment.addresses.Arena;
+    if (!arena) return Promise.reject(new WriteError("No Arena contract in this deployment: no attack can be played"));
+    try {
+      playCall(arena, play);
+    } catch (error) {
+      return Promise.reject(new WriteError(error instanceof Error ? error.message : String(error)));
+    }
+    return this.serialised(async () => {
+      const provider = this.options.deployment.vrfProvider;
+      if (!provider) return this.sendNow("Arena", [playCall(arena, play)]);
+      let calls: Call[];
+      try {
+        const { id } = await views.pvpAttack(this.address);
+        calls = playCalls(arena, provider, this.address, id, await views.pvpDeck(this.address, id), play);
+      } catch (error) {
+        throw new WriteError(`Cannot read your attack's next draw: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      return this.sendNow("Arena", calls);
+    }).catch(pvpRevert);
+  }
+
+  /** `Arena.surrender()`: the open attack ended at 0 stars, its 0-star cost to the defender. */
+  surrenderAttack(): Promise<WriteResult> {
+    const arena = this.options.deployment.addresses.Arena;
+    if (!arena) return Promise.reject(new WriteError("No Arena contract in this deployment: no attack to surrender"));
+    return this.send("Arena", [surrenderCall(arena)]).catch(pvpRevert);
   }
 
   /** Places the tile in hand. A Challenge game is bought, not spawned here: `EconomyWriter.purchase` sends `Challenge.spawn`. */

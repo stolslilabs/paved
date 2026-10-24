@@ -13,7 +13,7 @@ const copy = (text: string) => (navigator.clipboard?.writeText ? navigator.clipb
 /**
  * Reads who is connected once for the whole shell and hands it to the menu screens' avatar (`ProfileSlot`, #624). The profile
  * is Home's read (`usePlayerStatus`, one cache entry): before the indexer answers, the player is shown by the wallet's name or
- * address, with zero figures. The avatar is the one saved on chain (`useAvatar`, #626); Edit avatar opens the creator, My village the village (#646).
+ * address, with zero figures. The avatar is the one saved on chain (`useAvatar`, #626); Edit avatar opens the creator, My village the village (#646), League and attacks the PvP league (#647).
  */
 export function ProfileHost({ children }: { children: ReactNode }) {
   const wallet = useAccount();
@@ -40,9 +40,10 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const shown = progress.isPending ? undefined : (progress.data ?? undefined);
   const onEditAvatar = useCallback(() => go("/avatar"), [go]);
   const onOpenVillage = useCallback(() => go("/village"), [go]);
+  const onOpenLeague = useCallback(() => go("/pvp/league"), [go]);
   const value = useMemo(
-    () => ({ state, progress: shown, look, onConnect, onDisconnect, onCopy: copy, onEditAvatar, onOpenVillage }),
-    [state, shown, look, onConnect, onDisconnect, onEditAvatar, onOpenVillage],
+    () => ({ state, progress: shown, look, onConnect, onDisconnect, onCopy: copy, onEditAvatar, onOpenVillage, onOpenLeague }),
+    [state, shown, look, onConnect, onDisconnect, onEditAvatar, onOpenVillage, onOpenLeague],
   );
   return <ProfileProvider value={value}>{children}</ProfileProvider>;
 }

@@ -1,10 +1,12 @@
 import type { BoardTile } from "@paved/chain";
 
 /**
- * The PvP flow's rules as the screens read them (#647), until the contracts fix them: the star marks (#643), the leagues and
- * the season (#644), the crowns at stake (#639). Owner decisions (#637): an attack plays the defender's placed tiles, drawn at
- * random, in the defender's territory; crowns are the rating; an attacked village gets an 8-hour shield, dropped if its owner
- * attacks. Every figure below that is not one of those is a proposal.
+ * The PvP flow's rules as the screens read them (#647), the contracts' figures as literals: the star marks (#643,
+ * `paved::matchmaker::stars`), the leagues and the season's rewards (#644, `paved::matchmaker::leagues`), the crowns at
+ * stake (#639, `paved::matchmaker::crowns`). A value import of `@paved/chain` would bring starknet.js into the PvP chunk:
+ * `__tests__/pvp.test.tsx` checks every table here against the chain's. Owner decisions (#637): an attack plays the
+ * defender's placed tiles, drawn at random, in the defender's territory; crowns are the rating; an attacked village gets an
+ * 8-hour shield, dropped if its owner attacks. The star marks (70 / 85 / 110 %) wait for the owner's ruling (#643, section 9).
  */
 
 /** A cell of a territory, in the contracts' coordinates (x east, y north). */
@@ -14,21 +16,24 @@ export interface PvpCell {
 }
 
 /**
- * The three star marks in whole percent of the defender's score: 70 / 85 / 110 % (the measured proposal of #637, open point 1).
- * They give 1 star in about half the attacks, 2 in a quarter to a third, 3 in 7 to 14 %. The rules count in integers: a share
- * times a score in floating point lands just past a whole point (1.1 x 5,130 is 5,643.000...1) and would ask one point more.
+ * The three star marks in whole percent of the defender's score: 70 / 85 / 110 % (`STAR_PERCENTS` of `arena.ts`, #637 open
+ * point 1). The rules count in integers: a share times a score in floating point lands just past a whole point (1.1 x 5,130
+ * is 5,643.000...1) and would ask one point more.
  */
 export const STAR_PERCENTS = [70, 85, 110] as const;
 
 /** The same marks as shares of the target, for drawing them. */
 export const STAR_MARKS = STAR_PERCENTS.map((p) => p / 100) as readonly number[];
 
-/** The shield an attacked village gets: 8 hours (owner decision). */
+/** The shield an attacked village gets: 8 hours (owner decision, `ATTACK_SHIELD`). */
 export const SHIELD_S = 8 * 3_600;
 
-/** The stars an attack's score earns against `target`: 0 to 3, each once `score` is at least its share of the target. */
+/** The Cobbles of "Next" (`NEXT_PRICE`). */
+export const NEXT_PRICE = 1;
+
+/** The stars an attack's score earns against `target`, as `stars_of`: 0 for a score of 0, 3 for any score against 0. */
 export function starsFor(score: number, target: number): number {
-  if (target <= 0) return 3;
+  if (score <= 0) return 0;
   return STAR_PERCENTS.filter((p) => score * 100 >= p * target).length;
 }
 
@@ -42,10 +47,15 @@ export function shareOf(score: number, target: number): number {
   return target > 0 ? Math.max(0, score / target) : 0;
 }
 
-/** The crowns at stake in an attack (#639 decides): gained per star reached (1, 2 or 3), lost when no star is. */
+/** The crowns at stake in an attack, fixed at the draw (#639): gained per star reached (1, 2 or 3), lost when no star is. */
 export interface CrownStakes {
   win: readonly [number, number, number];
   loss: number;
+}
+
+/** The stakes of a match's offer and cost: a third of the offer per star, rounded up (`prize_of`); the cost with none. */
+export function stakesOf(offer: number, cost: number): CrownStakes {
+  return { win: [1, 2, 3].map((stars) => Math.ceil((offer * stars) / 3)) as [number, number, number], loss: cost };
 }
 
 /** The crowns an attack ends with: `win[stars - 1]`, or `-loss` with no star. */
@@ -53,36 +63,60 @@ export function crownsFor(stakes: CrownStakes, stars: number): number {
   return stars > 0 ? stakes.win[Math.min(stars, 3) - 1]! : -stakes.loss;
 }
 
-export type LeagueId = "bronze" | "silver" | "gold" | "crystal" | "master" | "champion" | "legend";
+/** A league's group: its crest's colour. Unranked is under 400 crowns; Bronze to Titan have three divisions; Legend one. */
+export type LeagueId = "unranked" | "bronze" | "silver" | "gold" | "crystal" | "master" | "champion" | "titan" | "legend";
 
 export interface League {
+  /** The league's number on chain (`league_of`): 0 Unranked, 1 to 21 Bronze III to Titan I, 22 Legend. */
+  index: number;
   id: LeagueId;
+  /** "Gold II". */
   name: string;
   /** The crowns it starts at. */
   from: number;
-  /** The Cobbles a season ending in it gives (#644 decides). */
+  /** The Cobbles a season ending in it gives (`reward_of`). */
   seasonCobbles: number;
+  /** The Cobbles of reaching it the first time in a season (`bonus_of`). */
+  bonus: number;
 }
 
-/** The leagues by crowns (a proposal until #644): seven, 400 crowns apart, the last one open-ended. */
+/** The floors of leagues 1 to 22 (`LEAGUE_FLOORS`). */
+export const LEAGUE_FLOORS = [400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3500, 3800, 4100, 4400, 4700, 5000] as const;
+const GROUPS: readonly { id: LeagueId; name: string; bonus: number; reward: number }[] = [
+  { id: "bronze", name: "Bronze", bonus: 5, reward: 10 },
+  { id: "silver", name: "Silver", bonus: 10, reward: 20 },
+  { id: "gold", name: "Gold", bonus: 15, reward: 35 },
+  { id: "crystal", name: "Crystal", bonus: 20, reward: 50 },
+  { id: "master", name: "Master", bonus: 25, reward: 75 },
+  { id: "champion", name: "Champion", bonus: 30, reward: 100 },
+  { id: "titan", name: "Titan", bonus: 40, reward: 150 },
+  { id: "legend", name: "Legend", bonus: 50, reward: 250 },
+];
+const DIVISIONS = ["III", "II", "I"] as const;
+
+/** The 23 leagues, Unranked first. */
 export const LEAGUES: readonly League[] = [
-  { id: "bronze", name: "Bronze", from: 0, seasonCobbles: 20 },
-  { id: "silver", name: "Silver", from: 400, seasonCobbles: 40 },
-  { id: "gold", name: "Gold", from: 800, seasonCobbles: 70 },
-  { id: "crystal", name: "Crystal", from: 1_200, seasonCobbles: 110 },
-  { id: "master", name: "Master", from: 1_600, seasonCobbles: 160 },
-  { id: "champion", name: "Champion", from: 2_000, seasonCobbles: 220 },
-  { id: "legend", name: "Legend", from: 2_400, seasonCobbles: 300 },
+  { index: 0, id: "unranked", name: "Unranked", from: 0, seasonCobbles: 0, bonus: 0 },
+  ...LEAGUE_FLOORS.map((from, i): League => {
+    const group = i === 21 ? GROUPS[7]! : GROUPS[Math.floor(i / 3)]!;
+    return { index: i + 1, id: group.id, name: i === 21 ? group.name : `${group.name} ${DIVISIONS[i % 3]}`, from, seasonCobbles: group.reward, bonus: group.bonus };
+  }),
 ];
 
-/** The league of a crown count. */
+/** Each group's first league, Bronze to Legend: the ladder of the league screen. */
+export const LEAGUE_LADDER: readonly League[] = GROUPS.map((g) => {
+  const first = LEAGUES.find((l) => l.id === g.id)!;
+  return { ...first, name: g.name };
+});
+
+/** The league of a crown count (`league_of`). */
 export function leagueOf(crowns: number): League {
-  return [...LEAGUES].reverse().find((l) => crowns >= l.from) ?? LEAGUES[0]!;
+  return LEAGUES[LEAGUE_FLOORS.filter((f) => f <= crowns).length]!;
 }
 
 /** The league after `league`, null at the top. */
 export function nextLeague(league: League): League | null {
-  return LEAGUES[LEAGUES.indexOf(league) + 1] ?? null;
+  return LEAGUES[league.index + 1] ?? null;
 }
 
 /** A player as the PvP screens show them: the name, the level, the crowns. */

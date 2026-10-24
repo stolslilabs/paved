@@ -20,6 +20,11 @@ const village: PageLoader = () => {
   return import("./pages/village");
 };
 
+const pvp: PageLoader = () => {
+  void manifestBody(RENDERER_ASSETS).catch(() => {});
+  return import("./pages/pvp");
+};
+
 export const PAGE_LOADERS: Record<string, PageLoader> = {
   welcome: () => import("./pages/welcome"),
   "": () => import("./pages/home"),
@@ -31,6 +36,13 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   // The village (#646 PR 2), its own chunk, the own and a visit; its tile art reads the renderer's manifest, asked for with the code.
   village: village,
   "village/:player": village,
+  // The PvP flow (#647 PR 2), its own chunks: the attack (its board's tile art reads the renderer's manifest, asked for with
+  // the code), the result, a replay, the defence log, the league.
+  pvp: pvp,
+  "pvp/result/:id": () => import("./pages/pvp-result"),
+  "pvp/replay/:attacker/:id": () => import("./pages/pvp-replay"),
+  "pvp/defence": () => import("./pages/pvp-defence"),
+  "pvp/league": () => import("./pages/pvp-league"),
   "game/:gameId": board,
   training: board,
   story: () => import("./pages/story"),

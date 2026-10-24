@@ -496,19 +496,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("IX-XP: schema 18 (the XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 17, 16, 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("18");
-    for (const old of ["17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
+  test("PVP-FLOW-2: schema 19 (the PvP attacks, #643; 18 was the XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("19");
+    for (const old of ["18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 18: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 18.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 19: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 19.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("18");
+      expect(rebuilt.meta("schema")).toBe("19");
       rebuilt.close();
     }
   });
