@@ -9,7 +9,7 @@ import {
   CAMERA_NEAR,
   CLOSEST_DISTANCE,
   CameraController,
-  PLAY_MAX_POLAR_ANGLE,
+  PLAY_DEFAULT_POLAR_ANGLE,
   TALLEST_TILE_HEIGHT,
   type CameraInputAdapter,
 } from "../src/core/CameraController";
@@ -192,12 +192,12 @@ describe("the camera's near plane", () => {
     expect(DEFAULT_RENDERER_SETTINGS.camera.minDistance).toBe(CLOSEST_DISTANCE);
   });
 
-  it("stays in front of the tallest tile at the closest zoom and the play camera's steepest tilt", () => {
+  it("stays in front of the tallest tile at the closest zoom and the play camera's locked tilt", () => {
     const files = readdirSync(MODELS).filter((f) => f.endsWith(".glb"));
     expect(files.length).toBeGreaterThan(0);
     const tallest = Math.max(...files.map((f) => tileHeight(`${MODELS}/${f}`)));
     expect(tallest).toBeCloseTo(TALLEST_TILE_HEIGHT, 3);
     // Along the view, a tile top under the target is TALLEST / cos(tilt) closer than the target.
-    expect(CAMERA_NEAR + TALLEST_TILE_HEIGHT / Math.cos(PLAY_MAX_POLAR_ANGLE)).toBeLessThanOrEqual(CLOSEST_DISTANCE);
+    expect(CAMERA_NEAR + TALLEST_TILE_HEIGHT / Math.cos(PLAY_DEFAULT_POLAR_ANGLE)).toBeLessThanOrEqual(CLOSEST_DISTANCE);
   });
 });

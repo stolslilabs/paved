@@ -4,7 +4,6 @@ import {
   DAY_PHASE_AT,
   DEFAULT_CLOUD_SHADOWS,
   PLAY_DEFAULT_POLAR_ANGLE,
-  PLAY_MAX_POLAR_ANGLE,
   type GameScene,
   type QualityTier,
   type RendererSettingsInput,
@@ -48,9 +47,11 @@ const BOARD_TILES = toRenderTiles(BOARD_72.tiles, 1);
 const NO_SEASONS = { summer: 1, autumn: 1, winter: 1, spring: 1 };
 const SEASON_INDEX: Record<Season, number> = { summer: 0, autumn: 1, winter: 2, spring: 3 };
 
-/** The game's tilts, in degrees: the opening (27) and the steepest (54). */
+/**
+ * The tilts, in degrees: the game's (27, locked since #719) and the former steepest (54), kept for the story's captures.
+ */
 export const OPENING_TILT = Math.round((PLAY_DEFAULT_POLAR_ANGLE * 180) / Math.PI);
-export const STEEPEST_TILT = Math.round((PLAY_MAX_POLAR_ANGLE * 180) / Math.PI);
+export const STEEPEST_TILT = 54;
 /** The distance a player on a phone plays at (the particles' and the outlines' stories use it too). */
 export const PHONE_PLAY_DISTANCE = 160;
 

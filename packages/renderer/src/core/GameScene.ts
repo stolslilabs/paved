@@ -188,7 +188,7 @@ export class GameScene {
   /** The renderer's pixel ratio: device px per CSS px of the drawing buffer, the device's capped at `maxPixelRatio`. */
   private pixelRatio = 1;
 
-  /** The board's taps and presses (`PointerTap`): a two-finger pinch or tilt places nothing, whatever its fingers' travel. */
+  /** The board's taps and presses (`PointerTap`): a two-finger pinch places nothing, whatever its fingers' travel. */
   private pointerTap: PointerTap | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
   private onTilePressCallback: TilePressListener | null = null;

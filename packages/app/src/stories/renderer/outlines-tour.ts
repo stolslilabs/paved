@@ -1,4 +1,4 @@
-import { DEFAULT_RENDERER_SETTINGS, PLAY_DEFAULT_POLAR_ANGLE, PLAY_MAX_POLAR_ANGLE } from "@paved/renderer";
+import { DEFAULT_RENDERER_SETTINGS, PLAY_DEFAULT_POLAR_ANGLE } from "@paved/renderer";
 
 /**
  * The camera stops of the "Renderer/Outlines" story, and the tour through them: pure functions of the board's bounds
@@ -38,7 +38,11 @@ export const MAX_DISTANCE = DEFAULT_RENDERER_SETTINGS.camera.maxDistance;
 export const DEFAULT_DISTANCE = 240;
 /** Close enough that the outlines are on in a small window (a tile about 160 px wide at 500 px high). */
 const TOP_DISTANCE = 50;
-const MAX_POLAR = PLAY_MAX_POLAR_ANGLE;
+/**
+ * 54 degrees, the play camera's former steepest tilt: kept for the tour's captures, though the game locks the tilt at
+ * `PLAY_DEFAULT_POLAR_ANGLE` (#719).
+ */
+const MAX_POLAR = Math.PI * 0.3;
 /** Straight down: the camera's own start has the same tiny offset (no gimbal lock). */
 const DOWN = 0.0001;
 
