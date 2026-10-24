@@ -124,7 +124,11 @@ export function ClosingBoard({ scenario, quality, reducedMotion, ...knobs }: Clo
     }),
     [key], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const onReady = useCallback((s: GameScene) => setScene(s), []);
+  const onReady = useCallback((s: GameScene) => {
+    // A capture script reads the layer through it (as the Lighting story's `__lightingScene`).
+    (window as { __closingScene?: GameScene }).__closingScene = s;
+    setScene(s);
+  }, []);
 
   useEffect(() => {
     if (!scene) return;
