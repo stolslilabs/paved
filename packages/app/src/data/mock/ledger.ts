@@ -14,6 +14,9 @@ import {
   VaultZeroSharesError,
   REWARD_COBBLES,
   VillageRefusedError,
+  PvpRefusedError,
+  costOf,
+  offerOf,
   WriteError,
   playerLevelOf,
   redeemFee,
@@ -55,8 +58,22 @@ import {
   type VillageTile,
   type VillageViews,
   type WriteResult,
+  type Attack,
+  type AttackDeck,
+  type AttackMove,
+  type AttackPlay,
+  type IndexedAttack,
+  type LeagueStatus,
+  type MatchmakerVillage,
+  type NpcLevel,
+  type PvpMatch,
+  type PvpShield,
+  type PvpViews,
+  type PvpRefusal,
 } from "@paved/chain";
-import { offerPlans, parcelLevel, parcelPrice, placeInVillage, poseidon, startTerritory, villageGame, villageRefusal, type KeyValueStore } from "@paved/game-core";
+import { AttackRun, offerPlans, parcelLevel, parcelPrice, placeInVillage, poseidon, startTerritory, villageGame, villageRefusal, type KeyValueStore } from "@paved/game-core";
+import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
+import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
@@ -123,6 +140,7 @@ export interface MockedReads
     LevelViews,
     AvatarViews,
     VillageViews,
+    PvpViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
     VaultViews,
     Pick<EconomyViews, "split" | "seller" | "usdcBalance"> {}
@@ -142,6 +160,10 @@ export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" |
   buyParcel(request: BuyParcelRequest): Promise<WriteResult>;
   openReward(): Promise<WriteResult>;
   claimReward(claim: RewardClaim): Promise<WriteResult>;
+  drawOpponent(kind: "search" | "next"): Promise<WriteResult>;
+  startAttack(): Promise<WriteResult>;
+  playAttack(play: AttackPlay): Promise<WriteResult>;
+  surrenderAttack(): Promise<WriteResult>;
   buyPack(request: PackPurchaseRequest): Promise<PackReceipt>;
   deposit(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult>;
   withdraw(amount: bigint, options: { confirmedAmount: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
@@ -178,6 +200,41 @@ interface StoredPlayer {
   village?: { parcels: VillageCell[]; tiles: Array<{ plan: number; orientation: number; x: number; y: number }> };
   /** The rewards (#642): pending, opened, the open offer (null: none) and its index, the copies of each plan (plan 1 first); absent: a new player's. */
   rewards?: StoredRewards;
+  /** The PvP (#647); absent: a player who never searched. */
+  pvp?: StoredPvp;
+}
+
+/** One attack of the mock's `Arena`: the snapshot (its defender, target, deck), the draws, the moves and the end. */
+interface StoredAttack {
+  id: number;
+  status: number;
+  defender: string;
+  target: number;
+  offer: number;
+  cost: number;
+  /** The deck's plans, the defender's tiles but the starter, in `Village.tiles` order. */
+  plans: number[];
+  /** The deck's indexes drawn, in draw order; the last one is in hand while the attack is open. */
+  drawn: number[];
+  moves: AttackMove[];
+  openedAt: number;
+  score: number;
+  stars: number;
+  gained: number;
+  lost: number;
+  finishedAt: number;
+}
+
+/** The player's PvP (#647): crowns, the draws made, the match drawn, the attacks, the shield, the season's record. */
+interface StoredPvp {
+  crowns: number;
+  draws: number;
+  match: PvpMatch | null;
+  attacks: StoredAttack[];
+  shieldUntil: number;
+  season: number;
+  seasonAttacks: number;
+  peak: number;
 }
 
 interface StoredRewards {
@@ -188,11 +245,43 @@ interface StoredRewards {
   copies: number[];
 }
 
+const freshPvp = (): StoredPvp => ({ crowns: 0, draws: 0, match: null, attacks: [], shieldUntil: 0, season: 0, seasonAttacks: 0, peak: 0 });
+
+/** `Arena`'s attack status codes. */
+const MOCK_ATTACK = { open: 1, finished: 2, surrendered: 3 } as const;
+/** The matchmaker's address in the mock's receipts. */
+const MOCK_MATCHMAKER = "0x6d61746368";
+/** The kinds of the mock's draws, as the contracts name them (`'MATCH'`, `'ATTACK'`). */
+const MATCH_DRAW = 0x4d41544348n;
+const ATTACK_DRAW = 0x41545441434bn;
+
+/** `Arena.play`'s reverts, as the engine names them, to the writer's refusals. */
+const PLAY_REFUSALS: Record<string, PvpRefusal> = {
+  "Village: cell not owned": "outside-territory",
+  "Tile: already exists": "tile-exists",
+  "Tile: no neighbors": "no-neighbors",
+  "Tile: cannot place": "cannot-place",
+};
+
+/** The league of a crown count (`league_of`). */
+const leagueIndex = (crowns: number): number => LEAGUE_FLOORS.filter((f) => f <= crowns).length;
+
+/** The next tile of an attack: its draw's random (a Poseidon for the VRF) modulo the tiles left, the rank among those not drawn. */
+function drawTile(account: string, a: StoredAttack): number {
+  const left = a.plans.map((_, i) => i).filter((i) => !a.drawn.includes(i));
+  const random = poseidon(ATTACK_DRAW, BigInt(account), BigInt(a.id * 128 + a.drawn.length));
+  const index = left[Number(random % BigInt(left.length))]!;
+  a.drawn.push(index);
+  return a.plans[index]!;
+}
+
 const freshRewards = (): StoredRewards => ({ pending: MOCK_STARTING_REWARDS, opened: 0, offer: null, index: 0, copies: new Array<number>(SKIN_PLANS).fill(0) });
 
 interface StoredState {
   version: 1;
   players: Record<string, StoredPlayer>;
+  /** The rivals' shields (#647), by address key: until when (seconds). Absent: none up. */
+  rivalShields?: Record<string, number>;
   vault: { assets: string; supply: string };
   transactions: number;
 }
@@ -402,6 +491,8 @@ export class MockLedger {
 
   /** `Village.village(player_id)`, as the contract computes it: the score is the engine's replay of the tiles (game-core). */
   async village(playerId: string): Promise<VillageInfo> {
+    const rival = mockRival(playerId);
+    if (rival) return { gameId: 1, cells: rival.cells.length, tiles: rival.tiles.length - 1, score: rival.score, nextParcel: 0, nextPrice: 0, nextLevel: 0 };
     this.sync();
     const v = this.peek(playerId).village;
     if (!v) return { gameId: 0, cells: 0, tiles: 0, score: 0, nextParcel: 1, nextPrice: parcelPrice(1), nextLevel: parcelLevel(1) };
@@ -419,12 +510,16 @@ export class MockLedger {
   }
 
   async villageCells(playerId: string): Promise<VillageCell[]> {
+    const rival = mockRival(playerId);
+    if (rival) return rival.cells.map((c) => ({ ...c }));
     this.sync();
     const v = this.peek(playerId).village;
     return v ? [...startTerritory(), ...v.parcels].map((c) => ({ x: c.x, y: c.y })) : [];
   }
 
   async villageTiles(playerId: string): Promise<VillageTile[]> {
+    const rival = mockRival(playerId);
+    if (rival) return rival.tiles.map((t) => ({ ...t }));
     this.sync();
     const v = this.peek(playerId).village;
     return v ? this.tilesOf(v) : [];
@@ -454,6 +549,110 @@ export class MockLedger {
   async skinTiers(theme: number): Promise<number[]> {
     const tiers = MOCK_SKIN_TIERS.get(theme) ?? {};
     return Array.from({ length: SKIN_PLANS }, (_, i) => tiers[i + 1] ?? 0);
+  }
+
+  /** `Matchmaker.village(v)`: a founded village is joined (an operator joins it, #639); a rival always is. */
+  async pvpVillage(village: string): Promise<MatchmakerVillage> {
+    if (mockRival(village)) return { status: 1, draws: 0 };
+    this.sync();
+    const p = this.peek(village);
+    return { status: p.village ? 1 : 0, draws: p.pvp?.draws ?? 0 };
+  }
+
+  async pvpMatch(attacker: string): Promise<PvpMatch> {
+    this.sync();
+    const match = this.peek(attacker).pvp?.match;
+    return match ? { ...match } : { opponent: "0x0", offer: 0, cost: 0, started: false };
+  }
+
+  /** `Matchmaker.league(v)`: the season of the mock's clock, the crowns and their league, the season's peak and attacks. */
+  async pvpLeague(village: string): Promise<LeagueStatus> {
+    const season = mockSeasonOf(Math.floor(Date.now() / 1000));
+    const rival = mockRival(village);
+    if (rival) return { season, crowns: rival.crowns, league: leagueIndex(rival.crowns), peak: leagueIndex(rival.crowns), attacks: 0, pending: 0 };
+    this.sync();
+    const pvp = this.peek(village).pvp;
+    const crowns = pvp?.crowns ?? 0;
+    const current = pvp?.season === season;
+    return { season, crowns, league: leagueIndex(crowns), peak: current ? Math.max(pvp!.peak, leagueIndex(crowns)) : leagueIndex(crowns), attacks: current ? pvp!.seasonAttacks : 0, pending: 0 };
+  }
+
+  /** `Matchmaker.shield(v)`: an attacked village's 8 hours (queue 2), dropped when its owner attacks. */
+  async pvpShield(village: string): Promise<PvpShield> {
+    this.sync();
+    const until = mockRival(village) ? (this.state.rivalShields?.[addressKey(village)] ?? 0) : (this.peek(village).pvp?.shieldUntil ?? 0);
+    const up = until > Math.floor(Date.now() / 1000);
+    return { queue: up ? 2 : 0, up, seq: 0, until: up ? until : 0 };
+  }
+
+  async pvpSeasonStart(season: number): Promise<number> {
+    return MOCK_SEASON_STARTS[season - 1] ?? 0;
+  }
+
+  async pvpAttack(attacker: string): Promise<Attack> {
+    this.sync();
+    const a = this.peek(attacker).pvp?.attacks.at(-1);
+    if (!a) return { id: 0, status: 0, defender: "0x0", npc: false, parcels: 0, target: 0, board: 0, placed: 0, startedAt: 0, score: 0, stars: 0 };
+    const rival = mockRival(a.defender);
+    return {
+      id: a.id,
+      status: a.status,
+      defender: a.defender,
+      npc: false,
+      parcels: (rival?.cells.length ?? 9) - 9,
+      target: a.target,
+      board: a.id,
+      placed: a.moves.filter((m) => !m.discard).length,
+      startedAt: a.openedAt,
+      score: a.score,
+      stars: a.stars,
+    };
+  }
+
+  async pvpDeck(attacker: string, id: number): Promise<AttackDeck> {
+    this.sync();
+    const a = this.peek(attacker).pvp?.attacks.find((x) => x.id === id);
+    if (!a) return { size: 0, drawn: 0, hand: 0, bitmap: 0n };
+    const open = a.status === MOCK_ATTACK.open && a.drawn.length > a.moves.length;
+    return { size: a.plans.length, drawn: a.drawn.length, hand: open ? a.plans[a.drawn.at(-1)!]! : 0, bitmap: a.drawn.reduce((b, i) => b | (1n << BigInt(i)), 0n) };
+  }
+
+  async pvpMoves(attacker: string, id: number): Promise<AttackMove[]> {
+    this.sync();
+    return (this.peek(attacker).pvp?.attacks.find((x) => x.id === id)?.moves ?? []).map((m) => (m.discard ? { ...m } : { ...m, cell: { ...m.cell } }));
+  }
+
+  async pvpNpcLevel(): Promise<NpcLevel> {
+    return { campaign: 0, level: 0 };
+  }
+
+  /** A rival village's name (the mock's opponents), or null for any other player. */
+  rivalName(playerId: string): string | null {
+    return mockRival(playerId)?.name ?? null;
+  }
+
+  /** The indexer's attacks that ended (`/players/:id/attacks` and `/defences`): the mock's rivals never attack, so a village has none. */
+  attacksOf(playerId: string, side: "attacker" | "defender"): IndexedAttack[] {
+    this.sync();
+    if (side === "defender") return [];
+    return (this.peek(playerId).pvp?.attacks ?? [])
+      .filter((a) => a.status === MOCK_ATTACK.finished || a.status === MOCK_ATTACK.surrendered)
+      .map((a) => ({
+        attacker: addressKey(playerId),
+        id: a.id,
+        defender: a.defender,
+        npc: false,
+        target: a.target,
+        tiles: a.plans.length,
+        score: a.score,
+        stars: a.stars,
+        surrendered: a.status === MOCK_ATTACK.surrendered,
+        gained: a.gained,
+        lost: a.lost,
+        openedAt: a.openedAt,
+        finishedAt: a.finishedAt,
+      }))
+      .reverse();
   }
 
   async spawnPaused(): Promise<boolean> {
@@ -536,6 +735,10 @@ export class MockLedger {
       buyParcel: (request) => this.buyParcel(account, request),
       openReward: () => this.openReward(account),
       claimReward: (claim) => this.claimReward(account, claim),
+      drawOpponent: (kind) => this.drawOpponent(account, kind),
+      startAttack: () => this.startAttack(account),
+      playAttack: (play) => this.playAttack(account, play),
+      surrenderAttack: () => this.surrenderAttack(account),
       buyPack: async (request) => this.buyPack(account, request, await balances.usdc()),
       deposit: async (amount, options) => this.deposit(account, amount, options, await balances.paved()),
       withdraw: (amount, options) => this.withdraw(account, amount, options),
@@ -736,6 +939,126 @@ export class MockLedger {
   }
 
   /**
+   * `Matchmaker.search()` (free) or `next()` (a Cobble): a rival drawn among the three nearest the attacker's crowns that are
+   * not shielded (a Poseidon of the draw stands in for the VRF), its offer and cost fixed now. `search` refuses while a drawn
+   * opponent is still open to attack; `next` needs one drawn and draws another.
+   */
+  async drawOpponent(account: string, kind: "search" | "next"): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      if (!p.village) throw new PvpRefusedError("not-joined", hash);
+      const pvp = (p.pvp ??= freshPvp());
+      const now = Math.floor(Date.now() / 1000);
+      if (pvp.attacks.at(-1)?.status === MOCK_ATTACK.open) throw new PvpRefusedError("attack-started", hash);
+      const shielded = (address: string) => (this.state.rivalShields?.[addressKey(address)] ?? 0) > now;
+      if (kind === "search" && pvp.match && !shielded(pvp.match.opponent)) throw new PvpRefusedError("opponent-drawn", hash);
+      if (kind === "next" && !pvp.match) throw new PvpRefusedError("nothing-drawn", hash);
+      const events: DecodedEvent[] = [];
+      if (kind === "next") {
+        if (p.cobbles < NEXT_PRICE) throw new PvpRefusedError("not-enough-cobbles", hash);
+        p.cobbles -= NEXT_PRICE;
+        events.push(this.event("CobblesSpent", { playerId: account, spender: MOCK_MATCHMAKER, reason: "MATCH_NEXT", cobbles: NEXT_PRICE, balance: p.cobbles }));
+      }
+      const current = pvp.match ? BigInt(pvp.match.opponent) : -1n;
+      const pool = mockRivals()
+        .filter((r) => !shielded(r.address) && BigInt(r.address) !== current)
+        .sort((a, b) => Math.abs(a.crowns - pvp.crowns) - Math.abs(b.crowns - pvp.crowns))
+        .slice(0, 3);
+      if (pool.length === 0) throw new PvpRefusedError("no-opponent", hash);
+      const rival = pool[Number(poseidon(MATCH_DRAW, BigInt(account), BigInt(pvp.draws)) % BigInt(pool.length))]!;
+      const offer = offerOf(pvp.crowns, rival.crowns);
+      const cost = costOf(pvp.crowns, rival.crowns);
+      events.push(this.event("OpponentDrawn", { attacker: account, opponent: rival.address, offer, cost, drawIndex: pvp.draws, paid: kind === "next" }));
+      pvp.draws += 1;
+      pvp.match = { opponent: rival.address, offer, cost, started: false };
+      return events;
+    });
+  }
+
+  /** `Arena.start()`: the attack on the drawn rival, its tiles copied (the snapshot), the first one drawn; the attacker's shield dropped, the rival's up for 8 hours. */
+  async startAttack(account: string): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const pvp = (p.pvp ??= freshPvp());
+      if (pvp.attacks.at(-1)?.status === MOCK_ATTACK.open) throw new PvpRefusedError("attack-open", hash);
+      if (!pvp.match) throw new PvpRefusedError("nothing-drawn", hash);
+      const now = Math.floor(Date.now() / 1000);
+      const key = addressKey(pvp.match.opponent);
+      if ((this.state.rivalShields?.[key] ?? 0) > now) throw new PvpRefusedError("opponent-shielded", hash);
+      const rival = mockRival(pvp.match.opponent)!;
+      const id = pvp.attacks.length + 1;
+      const plans = rival.tiles.filter((t) => t.id !== 1).map((t) => t.plan);
+      const attack: StoredAttack = {
+        id,
+        status: MOCK_ATTACK.open,
+        defender: rival.address,
+        target: rival.score,
+        offer: pvp.match.offer,
+        cost: pvp.match.cost,
+        plans,
+        drawn: [],
+        moves: [],
+        openedAt: now,
+        score: 0,
+        stars: 0,
+        gained: 0,
+        lost: 0,
+        finishedAt: 0,
+      };
+      const first = drawTile(account, attack);
+      pvp.attacks.push(attack);
+      pvp.match = { ...pvp.match, started: true };
+      pvp.shieldUntil = 0;
+      this.state.rivalShields = { ...this.state.rivalShields, [key]: now + SHIELD_S };
+      return [
+        this.event("AttackOpened", { attacker: account, defender: rival.address, id, npc: false, offer: attack.offer, target: attack.target, tiles: plans.length }),
+        this.event("TileDrawn", { attacker: account, id, draw: 0, plan: first }),
+      ];
+    });
+  }
+
+  /**
+   * `Arena.play(...)`: the tile in hand built (checked on game-core's engine in the snapshot's territory, as `Arena` checks
+   * it) or discarded; the next tile drawn, or the finish: the moves scored, the stars, the crowns settled, a village reward
+   * granted (#642, `Setup.report_pvp`).
+   */
+  async playAttack(account: string, play: AttackPlay): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const a = p.pvp?.attacks.at(-1);
+      if (!a || a.status !== MOCK_ATTACK.open) throw new PvpRefusedError("no-attack", hash);
+      const plan = a.plans[a.drawn.at(-1)!]!;
+      const run = this.attackRun(a);
+      const move: AttackMove = play.discard ? { plan, discard: true } : { plan, discard: false, orientation: play.orientation, cell: { ...play.cell } };
+      if (!play.discard) {
+        const refused = run.refusal(plan, play.orientation, play.cell);
+        if (refused) throw new PvpRefusedError(PLAY_REFUSALS[refused] ?? "cannot-place", hash);
+      }
+      run.apply(move.discard ? { plan, discard: true } : { plan, discard: false, orientation: move.orientation, cell: move.cell });
+      const index = a.moves.length;
+      a.moves.push(move);
+      const at = move.discard ? { orientation: 0, x: 0, y: 0 } : { orientation: move.orientation, x: 0x7fffffff + move.cell.x, y: 0x7fffffff + move.cell.y };
+      const events = [this.event("AttackPlayed", { attacker: account, id: a.id, index, plan, discard: move.discard, ...at })];
+      if (a.drawn.length < a.plans.length) {
+        const next = drawTile(account, a);
+        events.push(this.event("TileDrawn", { attacker: account, id: a.id, draw: a.drawn.length - 1, plan: next }));
+        return events;
+      }
+      return [...events, ...this.finish(account, p, a, run.score, false)];
+    });
+  }
+
+  /** `Arena.surrender()`: the open attack ended at 0 stars, its 0-star cost paid. */
+  async surrenderAttack(account: string): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const a = p.pvp?.attacks.at(-1);
+      if (!a || a.status !== MOCK_ATTACK.open) throw new PvpRefusedError("no-attack", hash);
+      return this.finish(account, p, a, 0, true);
+    });
+  }
+
+  /**
    * `Setup.buy_pack`: the pack on sale at the confirmed price (`PackBuyer`'s checks), paid from the player's USDC (the chain's
    * `usdc`, less what earlier packs took), its Cobbles added. The pool and the referral are not run: no PAVED is burned.
    */
@@ -887,6 +1210,38 @@ export class MockLedger {
   /** A stored village's tiles as `Village.tiles` lists them: the starter first, then the tiles placed, ids 2 on. */
   private tilesOf(v: NonNullable<StoredPlayer["village"]>): VillageTile[] {
     return [{ ...STARTER }, ...v.tiles.map((t, i) => ({ id: i + 2, ...t }))];
+  }
+
+  /** A stored attack's moves on game-core's engine, in its defender's territory. */
+  private attackRun(a: StoredAttack): AttackRun {
+    const rival = mockRival(a.defender);
+    return AttackRun.replay(
+      { territory: rival?.cells ?? startTerritory() },
+      a.moves.map((m) => (m.discard ? { plan: m.plan, discard: true as const } : { plan: m.plan, discard: false as const, orientation: m.orientation, cell: m.cell })),
+    );
+  }
+
+  /** An attack's end (`Matchmaker.settle`): the stars of its score, the crowns (a rival's never change, as an NPC's), the season's count, a village reward. */
+  private finish(account: string, p: StoredPlayer, a: StoredAttack, score: number, surrendered: boolean): DecodedEvent[] {
+    const pvp = p.pvp!;
+    const stars = surrendered ? 0 : starsFor(score, a.target);
+    const stakes = stakesOf(a.offer, a.cost);
+    const gained = stars > 0 ? stakes.win[stars - 1]! : 0;
+    const lost = stars > 0 ? 0 : Math.min(a.cost, pvp.crowns);
+    pvp.crowns += gained - lost;
+    const season = mockSeasonOf(Math.floor(Date.now() / 1000));
+    if (pvp.season !== season) {
+      pvp.season = season;
+      pvp.seasonAttacks = 0;
+      pvp.peak = 0;
+    }
+    pvp.seasonAttacks += 1;
+    pvp.peak = Math.max(pvp.peak, leagueIndex(pvp.crowns));
+    pvp.match = null;
+    Object.assign(a, { status: surrendered ? MOCK_ATTACK.surrendered : MOCK_ATTACK.finished, score, stars, gained, lost, finishedAt: Math.floor(Date.now() / 1000) });
+    const rewards = (p.rewards ??= freshRewards());
+    rewards.pending += 1;
+    return [this.event("AttackFinished", { attacker: account, defender: a.defender, id: a.id, gameId: a.id, score, stars, surrendered, gained, lost })];
   }
 
   /** A stored village on game-core's engine. */

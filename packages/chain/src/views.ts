@@ -21,6 +21,8 @@ import { playerLevel, playerLevelOf, type LevelViews, type PlayerLevel } from ".
 import { avatarItem, unlistedItem, type AvatarItem, type AvatarViews, type FakeAvatarState } from "./avatar";
 import { SKIN_PLANS, type FakeSkinPlayer, type SkinViews } from "./skins";
 import { rewardGrants, rewardOffer, type RewardGrants, type RewardOffer } from "./rewards";
+import { attack as attackOf, attackDeck, attackMove, type Attack, type AttackDeck, type AttackMove } from "./arena";
+import { NO_MATCH, leagueStatus, matchmakerVillage, npcLevel, pvpMatch, pvpShield, type FakePvpState, type LeagueStatus, type MatchmakerVillage, type NpcLevel, type PvpMatch, type PvpShield, type PvpViews } from "./matchmaker";
 import { NO_VILLAGE, villageCell, villageInfo, villageTile, type FakeVillagePlayer, type VillageCell, type VillageInfo, type VillageTile, type VillageViews } from "./village";
 
 /**
@@ -239,7 +241,7 @@ export interface CallProvider {
 export const MAX_PAGE = 64;
 
 /** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`), `Avatar`'s (`avatar.ts`), and the village's (`village.ts`). */
-export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews {
+export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews, PvpViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -412,6 +414,42 @@ export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackView
     return Promise.all(Array.from({ length: SKIN_PLANS }, async (_, i) => Number(await this.call("Setup", "skin_tier", [theme, i + 1]))));
   }
 
+  async pvpMatch(attacker: string): Promise<PvpMatch> {
+    return pvpMatch((await this.call("Matchmaker", "current_match", [attacker])) as Struct);
+  }
+
+  async pvpVillage(village: string): Promise<MatchmakerVillage> {
+    return matchmakerVillage((await this.call("Matchmaker", "village", [village])) as Struct);
+  }
+
+  async pvpLeague(village: string): Promise<LeagueStatus> {
+    return leagueStatus((await this.call("Matchmaker", "league", [village])) as Struct);
+  }
+
+  async pvpShield(village: string): Promise<PvpShield> {
+    return pvpShield((await this.call("Matchmaker", "shield", [village])) as Struct);
+  }
+
+  async pvpSeasonStart(season: number): Promise<number> {
+    return Number(await this.call("Matchmaker", "season_start", [season]));
+  }
+
+  async pvpAttack(attacker: string): Promise<Attack> {
+    return attackOf((await this.call("Arena", "attack", [attacker])) as Struct);
+  }
+
+  async pvpDeck(attacker: string, id: number): Promise<AttackDeck> {
+    return attackDeck((await this.call("Arena", "deck", [attacker, id])) as Struct);
+  }
+
+  async pvpMoves(attacker: string, id: number): Promise<AttackMove[]> {
+    return ((await this.call("Arena", "moves", [attacker, id])) as Struct[]).map(attackMove);
+  }
+
+  async pvpNpcLevel(npcId: number): Promise<NpcLevel> {
+    return npcLevel((await this.call("Arena", "npc_level", [npcId])) as Struct);
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -459,7 +497,7 @@ function gameKeyId(key: GameKey): string {
 }
 
 /** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins and the avatar too. */
-export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews {
+export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews, PvpViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -496,6 +534,20 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   readonly skinTierTable = new Map<string, number>();
   /** Set to an Error to make every village read fail (the rewards' and the tiers' too). */
   villageFail: Error | null = null;
+  /** The PvP views' answers by address key (`BigInt` of the address as a string) or `attacker:id`; a missing one is the chain's "none". */
+  readonly pvp: FakePvpState = {
+    matches: new Map(),
+    villages: new Map(),
+    leagues: new Map(),
+    shields: new Map(),
+    seasonStarts: new Map(),
+    attacks: new Map(),
+    decks: new Map(),
+    moves: new Map(),
+    npcLevels: new Map(),
+  };
+  /** Set to an Error to make every PvP read fail. */
+  pvpFail: Error | null = null;
 
   /** The player's village, created unfounded on first use: a test edits it in place. */
   villagePlayer(playerId: string): FakeVillagePlayer {
@@ -751,6 +803,57 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   async skinTiers(theme: number): Promise<number[]> {
     this.villageCall(`skin_tiers ${theme}`);
     return Array.from({ length: SKIN_PLANS }, (_, i) => this.skinTierTable.get(`${theme}:${i + 1}`) ?? 0);
+  }
+
+  async pvpMatch(attacker: string): Promise<PvpMatch> {
+    this.pvpCall(`current_match ${BigInt(attacker)}`);
+    return { ...(this.pvp.matches.get(BigInt(attacker).toString()) ?? NO_MATCH) };
+  }
+
+  async pvpVillage(village: string): Promise<MatchmakerVillage> {
+    this.pvpCall(`mm_village ${BigInt(village)}`);
+    return { ...(this.pvp.villages.get(BigInt(village).toString()) ?? { status: 0, draws: 0 }) };
+  }
+
+  async pvpLeague(village: string): Promise<LeagueStatus> {
+    this.pvpCall(`league ${BigInt(village)}`);
+    return { ...(this.pvp.leagues.get(BigInt(village).toString()) ?? { season: 0, crowns: 0, league: 0, peak: 0, attacks: 0, pending: 0 }) };
+  }
+
+  async pvpShield(village: string): Promise<PvpShield> {
+    this.pvpCall(`shield ${BigInt(village)}`);
+    return { ...(this.pvp.shields.get(BigInt(village).toString()) ?? { queue: 0, up: false, seq: 0, until: 0 }) };
+  }
+
+  async pvpSeasonStart(season: number): Promise<number> {
+    this.pvpCall(`season_start ${season}`);
+    return this.pvp.seasonStarts.get(season) ?? 0;
+  }
+
+  async pvpAttack(attacker: string): Promise<Attack> {
+    this.pvpCall(`attack ${BigInt(attacker)}`);
+    const found = this.pvp.attacks.get(BigInt(attacker).toString());
+    return found ? { ...found } : { id: 0, status: 0, defender: "0x0", npc: false, parcels: 0, target: 0, board: 0, placed: 0, startedAt: 0, score: 0, stars: 0 };
+  }
+
+  async pvpDeck(attacker: string, id: number): Promise<AttackDeck> {
+    this.pvpCall(`deck ${BigInt(attacker)} ${id}`);
+    return { ...(this.pvp.decks.get(`${BigInt(attacker)}:${id}`) ?? { size: 0, drawn: 0, hand: 0, bitmap: 0n }) };
+  }
+
+  async pvpMoves(attacker: string, id: number): Promise<AttackMove[]> {
+    this.pvpCall(`moves ${BigInt(attacker)} ${id}`);
+    return (this.pvp.moves.get(`${BigInt(attacker)}:${id}`) ?? []).map((m) => (m.discard ? { ...m } : { ...m, cell: { ...m.cell } }));
+  }
+
+  async pvpNpcLevel(npcId: number): Promise<NpcLevel> {
+    this.pvpCall(`npc_level ${npcId}`);
+    return { ...(this.pvp.npcLevels.get(npcId) ?? { campaign: 0, level: 0 }) };
+  }
+
+  private pvpCall(call: string): void {
+    this.calls.push(call);
+    if (this.pvpFail) throw this.pvpFail;
   }
 
   private villageCall(call: string): void {

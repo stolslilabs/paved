@@ -54,6 +54,10 @@ export const RewardPlaced: Story = { args: PVP_RESULT.rewardPlaced };
 /** The Cobbles taken instead. */
 export const RewardCobbles: Story = { args: PVP_RESULT.rewardCobbles };
 /** Under 70 %: no star, crowns lost, no reward. */
+/** The reward is being read. */
+export const RewardLoading: Story = { args: PVP_RESULT.rewardLoading };
+/** The reward's read failed: the error and Try again, never "Today's rewards are all taken". */
+export const RewardError: Story = { args: { ...PVP_RESULT.rewardError, onRetryReward: fn() } };
 export const Defeat: Story = { args: PVP_RESULT.defeat };
 /** A defeat that drops the attacker to Silver. */
 export const DefeatDropped: Story = { args: PVP_RESULT.defeatDropped };
