@@ -115,10 +115,10 @@ describe("/game/:gameId/over (P7a)", () => {
   it("shows the final score and the counters from game(id) and every closing of the game from its tiles", async () => {
     const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
     over(s);
-    expect(await screen.findByTestId("score-value", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
-    expect(screen.getByText(`Challenge #${GAME_ID}`)).toBeInTheDocument();
-    expect(screen.getByTestId("score-value")).toHaveTextContent(formatPoints(played.game.score));
+    expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    // One bar, the board's HUD, titled with the game (#720).
+    expect(screen.getByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` })).toBeInTheDocument();
+    expect(within(screen.getByTestId("final-score")).getByTestId("score-value")).toHaveTextContent(formatPoints(played.game.score));
     const metrics = screen.getByRole("region", { name: "Game metrics" });
     // The starter is not counted (#539): the tiles the player placed.
     expect(within(metrics).getByText("Tiles placed").closest("div")).toHaveTextContent(`Tiles placed${played.game.placedCount - 1}`);
@@ -145,13 +145,15 @@ describe("/game/:gameId/over (P7a)", () => {
       const city = stats.categories.find((c) => c.category === "City")!;
       expect(within(highlights).getByTestId("highlight-city")).toHaveTextContent(city.largest ? `${city.largest.tiles} tile` : "None closed");
       expect(within(highlights).getByTestId("highlight-best")).toHaveTextContent(formatPoints(stats.best!.points));
-      expect(screen.queryByTestId("final-board")).not.toBeInTheDocument();
+      // The board loads as the screen opens, under the scores (#720): covered, it takes no input.
+      expect(await screen.findByTestId("final-board")).toHaveAttribute("aria-hidden", "true");
+      expect(screen.getByTestId("final-board")).toHaveAttribute("inert");
 
       await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
       expect(router.state.location.search).toContain("view=board");
       const board = await screen.findByTestId("final-board");
       expect(board).not.toHaveAttribute("aria-hidden", "true");
-      expect(screen.getByRole("heading", { level: 1, name: "Final board" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` })).toBeInTheDocument();
       // jsdom has no WebGL: the plan view, one cell per placed tile, no hand.
       expect(await within(board).findByRole("img", { name: `Board of ${stats.placed + 1} tiles` })).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Your tile" })).not.toBeInTheDocument();
@@ -176,9 +178,12 @@ describe("/game/:gameId/over (P7a)", () => {
     it("opens on the board from a link with ?view=board, and its Back then shows the scores in place", async () => {
       const s = setup({ terms: { settled: true, reward: 8n * PAVED }, indexed: { economy: null } });
       const { router } = open(`/game/${GAME_ID}/over?view=board`, s);
-      expect(await screen.findByRole("heading", { level: 1, name: "Final board" }, { timeout: slow(5000) })).toBeInTheDocument();
+      const board = await screen.findByTestId("final-board", {}, { timeout: slow(5000) });
+      expect(board).not.toHaveAttribute("aria-hidden", "true");
+      expect(screen.getByTestId("scores-overlay").closest('[aria-hidden="true"]')).not.toBeNull();
       await userEvent.click(screen.getByRole("button", { name: "Back" }));
-      expect(await screen.findByRole("heading", { level: 1, name: "Final score" })).toBeInTheDocument();
+      await waitFor(() => expect(board).toHaveAttribute("aria-hidden", "true"));
+      expect(screen.getByTestId("scores-overlay").closest('[aria-hidden="true"]')).toBeNull();
       expect(router.state.location.pathname).toBe(`/game/${GAME_ID}/over`);
     });
 
@@ -500,7 +505,7 @@ describe("/game/:gameId/over (P7a)", () => {
       const s = setup({ game: { score: played.game.score + 1 } });
       over(s);
       expect(await screen.findByText("The closings of this game could not be read.", {}, { timeout: slow(5000) })).toBeInTheDocument();
-      expect(screen.getByTestId("score-value")).toBeInTheDocument();
+      expect(within(screen.getByTestId("final-score")).getByTestId("score-value")).toBeInTheDocument();
     });
   });
 

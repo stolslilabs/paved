@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { BalancesSlot } from "./balances-context";
+import { BalancesSlot, useBalancesStrip } from "./balances-context";
 import { MockMark, useMockMarked } from "./mock-mark";
 
 export interface TopBarProps {
@@ -11,8 +11,16 @@ export interface TopBarProps {
   onBack?: () => void;
   /** The right side: a balance, a settings button. */
   end?: ReactNode;
-  /** The player's balances (#620), on by default: a strip under the title below `desktop`, the bar's right side from it. */
+  /**
+   * The player's balances (#620), on by default, as the page's rule says (#720, `routes/header-balances.ts`): the Cobbles in a
+   * strip under the title below `desktop`, the bar's right side from it.
+   */
   balances?: boolean;
+  /**
+   * The page draws the player's Cobbles itself (the own village, in `end`): the bar leaves them out at every width, so they
+   * never show twice (#720); below `desktop` it then has no strip.
+   */
+  ownCobbles?: boolean;
   className?: string;
 }
 
@@ -37,12 +45,14 @@ const px = (value: string) => Number.parseFloat(value) || 0;
  * with a hairline. The space under that line is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
  * flush, so every such page has the same gap. The balances (#620) show as on the tab pages, where the shell provides them: on a
  * phone in a strip under the title (the bar's sides stay narrow, so the title keeps its room), from `desktop` before `end`.
- * Its height is every page's header height (`page-header`, #676): the title row and the strip below `desktop` (the strip's
- * room kept without balances), one row from it. A title takes two lines at most.
+ * Its height is every page's header height (`page-header`, #676): the title row and the strip below `desktop`, one row from it.
+ * A page without balances on a phone has no strip: its bar is the title row alone (`page-header-single`, #720). A title takes
+ * two lines at most.
  * A bar too narrow to centre its title between two such sides keeps the title readable instead (`sideWidth`).
  */
-export function TopBar({ title, onBack, end, balances = true, className }: TopBarProps) {
+export function TopBar({ title, onBack, end, balances = true, ownCobbles = false, className }: TopBarProps) {
   const marked = useMockMarked();
+  const strip = useBalancesStrip() && balances && !ownCobbles;
   const bar = useRef<HTMLElement>(null);
   // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds, while the bar has the room.
   useLayoutEffect(() => {
@@ -65,6 +75,7 @@ export function TopBar({ title, onBack, end, balances = true, className }: TopBa
       data-slot="page-header"
       className={cn(
         "page-header grid grid-cols-[var(--side,3rem)_minmax(0,1fr)_var(--side,3rem)] items-center gap-x-1 mb-4 border-b border-border px-2",
+        !strip && "page-header-single",
         className,
       )}
     >
@@ -91,11 +102,11 @@ export function TopBar({ title, onBack, end, balances = true, className }: TopBa
       </span>
       <span className="flex justify-end">
         <span className="flex w-max shrink-0 items-center justify-end gap-2">
-          {balances && <BalancesSlot layout="rail" className="hidden desktop:flex" />}
+          {balances && <BalancesSlot layout="rail" noCobbles={ownCobbles} className="hidden desktop:flex" />}
           {end}
         </span>
       </span>
-      {balances && (
+      {strip && (
         <span className="col-span-3 flex justify-end empty:hidden desktop:hidden">
           <BalancesSlot layout="pill" />
         </span>

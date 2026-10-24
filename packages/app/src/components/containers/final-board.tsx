@@ -20,8 +20,8 @@ export interface FinalBoardProps {
 
 /**
  * The board of a finished game, read only (#539): pan and zoom, no hand, no plate, no ghost. Its own chunk, loaded by the
- * over scene at the first "Board" (and in the browser's idle time before it), so the scores do not wait for the renderer.
- * Once loaded it stays mounted under the scores: one WebGL context, the models loaded once, whatever the switches.
+ * over scene as it opens (#720), so the scores do not wait for the renderer: it is their background once it is in. It stays
+ * mounted under the scores: one WebGL context, the models loaded once, whatever the switches.
  */
 export default function FinalBoard({ tiles, gameId, skins, basePath, settings, webgl }: FinalBoardProps) {
   const [view, setView] = useState<"3d" | "plan">(() => ((webgl ?? hasWebGL()) ? "3d" : "plan"));
