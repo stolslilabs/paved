@@ -13,7 +13,7 @@ export interface StarMeterProps {
   target: number;
   /**
    * The three star marks in whole percent of the target: v1's 70 / 85 / 110 % (`STAR_PERCENTS`) when left out, v2's
-   * 80 / 90 / 100 % (`ATTACK_STAR_PERCENTS`, #740).
+   * 80 / 90 / 100 % (`ATTACK_STAR_PERCENTS`, issue 740).
    */
   percents?: readonly number[];
   className?: string;
