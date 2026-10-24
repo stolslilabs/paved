@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { CAMPAIGNS } from "@paved/game-core";
 import { StoryScene } from "../../components/scenes/story-scene";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
-import { UPCOMING_CAMPAIGNS, levelPath, useCampaignUnlocks, useStoryProgress } from "../../data/story";
+import { levelPath, useCampaignUnlocks, useStoryProgress } from "../../data/story";
 import { useTileRenders } from "../../data/tile-renders";
 import { useAppNavigate, useUpTo } from "../ref";
 
@@ -37,7 +37,6 @@ export default function Page() {
       campaignId={campaignId}
       justUnlocked={justUnlocked}
       renders={renders}
-      upcoming={UPCOMING_CAMPAIGNS}
       storageOff={!saved}
       onBack={onBack}
       onCampaign={(id) => {

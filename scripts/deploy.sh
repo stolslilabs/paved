@@ -2290,10 +2290,11 @@ FRESH_PACKS=("1 50 5000000" "2 100 9000000" "3 500 40000000" "4 1000 70000000")
 # set_level) after the wiring, one multicall of what Story lacks, and read back through its views campaign and level.
 # Campaigns: `id level_count unlock_average`. Levels: `campaign level target plans placed`, the plans by Plan code in draw
 # order (comma-separated), the placed tiles `plan:orientation:dx:dy` relative to the starter (comma-separated, `-` for
-# none); every level starts from the usual starter, RFFFRFCFR facing South at the centre. The Tutorial campaign of the
-# plan (packages/game-core/src/story/plan.ts at 2179cb2, docs/client/story-mode.md; target = its optimum); the
-# other campaigns are added here when the client plan has them (the wiring task).
-FRESH_STORY_CAMPAIGNS=("1 11 2")
+# none); every level starts from the usual starter, RFFFRFCFR facing South at the centre, and since #721 from it alone (no
+# level of the plan has placed tiles). The Tutorial campaign of the plan (packages/game-core/src/story/plan.ts,
+# docs/client/story-mode.md; target = its exact optimum or best known score; a game-core test keeps both in step): 12
+# levels. Open Country and Dark Forest are added here with the wiring (#548), which sends the runs that earn their stars.
+FRESH_STORY_CAMPAIGNS=("1 12 2")
 FRESH_STORY_LEVELS=(
   "1 1 321 17,17 -"
   "1 2 643 4,13,8 -"
@@ -2304,8 +2305,9 @@ FRESH_STORY_LEVELS=(
   "1 7 1285 15,14,19,7,17 -"
   "1 8 1515 6,12,3,3,1 -"
   "1 9 971 10,2,18,3,3 -"
-  "1 10 900 5,13,3 18:1:0:-1,13:2:-1:0,14:4:1:0,7:2:-1:-1,7:1:1:-1"
-  "1 11 1578 7,15,6,17,6,4 -"
+  "1 10 1543 18,13,14,7,7,5,13,3 -"
+  "1 11 2250 15,3,3,6,7 -"
+  "1 12 1578 7,15,6,17,6,4 -"
 )
 # The avatar on chain (#627, docs/architecture/avatar-chain.md): the defaults Avatar's owner sets after the wiring, one multicall
 # of what Avatar lacks, read back through its views parts, price_bounds and item. Every value stays the owner's to change
