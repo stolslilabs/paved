@@ -55,7 +55,7 @@ key where it fits, fields at fixed bit offsets.
 - **The games** the runs are replayed in live in `PavedStorage` (`paved::store`, the node `selector!("paved")`), in
   `Story`'s own storage, one new game id per run (`game_count`); `Challenge`'s games are untouched.
 
-Sizes: the 50 levels planned take about 50 x 3 to 4 slots (header, 1 to 3 plan pages, placed tiles where any); a player
+Sizes: the 36 levels planned (#721: three campaigns of 12, at most 16 tiles, no placed tiles) take about 36 x 2 slots (header, 1 plan page); a player
 takes one slot per campaign played and one per level played.
 
 ## 3. The owner's calls (the initialisation phase, and corrections later)
@@ -78,8 +78,8 @@ StoryTile { plan: u8, orientation: u8, x: u32, y: u32 }
   changes a campaign's count or rule (a lower count makes the levels above it unplayable; their stars stay held). A
   player's best stars and best score are kept through a correction: **a star paid stays paid**, and a later run is judged
   against the new definition (a lower target can make a replay gain stars; a higher one never takes a star back).
-- **Initialisation**: `scripts/deploy.sh`'s fresh path sets the Tutorial campaign (11 levels, rule 2) from the plan
-  (`FRESH_STORY_CAMPAIGNS`, `FRESH_STORY_LEVELS`, section 8). The other campaigns are added when the client plan has them.
+- **Initialisation**: `scripts/deploy.sh`'s fresh path sets the Tutorial campaign (12 levels, rule 2) from the plan
+  (`FRESH_STORY_CAMPAIGNS`, `FRESH_STORY_LEVELS`, section 8). Open Country and Dark Forest are added with the wiring (#548).
 
 ## 4. The submission
 

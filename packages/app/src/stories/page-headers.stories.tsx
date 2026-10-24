@@ -3,7 +3,6 @@ import { fn } from "storybook/test";
 import { CAMPAIGNS, EMPTY_PROGRESS } from "@paved/game-core";
 import { titleOf } from "../lib/music/track-info";
 import { TRACKS } from "../lib/music/tracks";
-import { UPCOMING_CAMPAIGNS } from "../data/story";
 import { appRenders } from "../mocks/assets";
 import { PROGRESS } from "../mocks/players";
 import { ACHIEVEMENTS, AVATAR_CREATOR, COBBLES, HOME, MY_TILES, PLAY, PROFILE, PURCHASE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
@@ -75,7 +74,7 @@ export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> }
 export const Settings: Story = { render: () => <SettingsScene {...SETTINGS.connected} /> };
 export const StoryCampaigns: Story = {
   name: "Story",
-  render: () => <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} upcoming={UPCOMING_CAMPAIGNS} onBack={fn()} />,
+  render: () => <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} />,
 };
 export const MyTiles: Story = { render: () => <MyTilesScene {...MY_TILES.owned} onBack={fn()} /> };
 export const Themes: Story = { render: () => <ThemeScene {...THEME.mixed} onBack={fn()} /> };

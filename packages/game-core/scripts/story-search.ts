@@ -4,7 +4,7 @@
 // replayed first and kept unless something beats it, so a target only ever rises. Prints a Markdown table of the cost per
 // level; `--write` stores the designer's lines, the higher targets and their lines in the plan.
 //
-//   nice -n 10 bun scripts/story-search.ts [--campaign 2] [--level 11] [--cap 120] [--write]
+//   nice -n 10 bun scripts/story-search.ts [--campaign 2] [--level 12] [--cap 120] [--write]
 //
 // Run it outside the tests, one at a time: a long level takes the whole cap.
 
@@ -88,9 +88,13 @@ function search(level: StoryLevel): Found {
   return { ...best, method: `${best.method} (${tried} settings)`, nodes, ms: Math.round(performance.now() - started), designer: designed };
 }
 
+/** The constant that holds each campaign's levels in the plan, by campaign id. */
+const CONSTANTS: Record<number, string> = { 1: "TUTORIAL_LEVELS", 2: "OPEN_COUNTRY_LEVELS", 3: "DARK_FOREST_LEVELS" };
+
 /** `source` with the target, method and line of `level` of `campaign` replaced. */
 function store(source: string, campaign: StoryCampaign, level: StoryLevel, found: Found): string {
-  const constant = campaign.id === 1 ? "const TUTORIAL_LEVELS" : "const OPEN_COUNTRY_LEVELS";
+  if (!CONSTANTS[campaign.id]) throw new Error(`campaign ${campaign.id} has no levels constant here`);
+  const constant = `const ${CONSTANTS[campaign.id]}`;
   const from = source.indexOf(`    id: ${level.id},\n`, source.indexOf(constant));
   const to = source.indexOf("\n  },", from);
   if (from < 0 || to < 0) throw new Error(`level ${campaign.id}-${level.id} not found in the plan`);

@@ -189,13 +189,6 @@ export interface UpcomingCampaign {
   finaleTiles?: number;
 }
 
-/**
- * The campaigns not built yet (#546 amendments, #593), for the card that announces them; with the Tutorial's 11 and Open
- * Country's 11, 50 levels in all. The third campaign is the last: 27 full games of 38 tiles, closed by one level of the whole
- * 72-tile deck. There is no 72-tile campaign: the whole deck is always the same game.
- */
-export const UPCOMING_CAMPAIGNS: readonly UpcomingCampaign[] = [{ levels: 28, tiles: 38, finaleTiles: 72 }];
-
 /** A run of `level`, one per mounted level page: its engine kept between moves, `restart` starts the level again. */
 export function useStoryRun(campaign: StoryCampaign, level: StoryLevel): { run: StoryRun; snapshot: StorySnapshot } {
   const [run] = useState(() => new StoryRun(campaign, level));
