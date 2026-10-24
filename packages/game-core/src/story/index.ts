@@ -1,7 +1,7 @@
 // Story mode (#546): the campaigns and their levels, a level's run on the engine, and the progress kept on the device.
 // The searches that set the targets (`engine/solver.ts`, `engine/beam.ts`) stay out: the client never runs them.
 
-export { CAMPAIGNS, OPEN_COUNTRY, TUTORIAL, twoStars } from "./plan";
+export { CAMPAIGNS, DARK_FOREST, OPEN_COUNTRY, TUTORIAL, twoStars } from "./plan";
 export type { StoryCampaign, StoryLevel, TargetMethod } from "./plan";
 export { decodeLine, encodeLine, replayLine } from "./line";
 export type { LineMove } from "./line";
