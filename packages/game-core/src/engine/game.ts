@@ -753,7 +753,7 @@ export class EngineGame {
     this._tileCount += 1;
     this._discarded += 1;
     this._discardedPlans.push(code);
-    return { action: "discard", tileId: this._tileCount, plan, scored: [], points: taken, score: this._score, over: false };
+    return { action: "discard", tileId: this._tileCount, plan, scored: [], closed: [], points: taken, score: this._score, over: false };
   }
 
   /** Why `Village.demolish` refuses the tile at `cell`, or `null`: a village, a placed tile there, never the starter. */
