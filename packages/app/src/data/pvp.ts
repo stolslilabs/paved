@@ -423,8 +423,9 @@ export interface PvpSettled {
 
 /**
  * The crowns attack `id` of `attacker` moved (#647's result, a replay's metadata): its last receipt's `AttackFinished` if this
- * visit sent it, else the indexer's row of that attack (`/players/:attacker/attacks/:id`, however old). Null while the indexer
- * has not seen it end (its not-found).
+ * visit sent it, merged with the indexer's row of that attack (`/players/:attacker/attacks/:id`, however old), which alone
+ * carries its target and defender (an attack no longer the attacker's last needs them). The receipt answers at once; the row
+ * completes it. Null while neither is known and the indexer has not seen it end (its not-found).
  */
 export function usePvpSettled(attacker: string | null, id: number | null): Result<PvpSettled> {
   const { indexer } = useDataSources();
@@ -441,10 +442,14 @@ export function usePvpSettled(attacker: string | null, id: number | null): Resul
         throw error;
       }
     },
-    enabled: attacker !== null && id !== null && fromReceipt === undefined,
+    enabled: attacker !== null && id !== null,
   });
   if (attacker === null || id === null) return { data: undefined, isPending: false, error: null };
-  if (fromReceipt) return { data: fromReceipt, isPending: false, error: null };
+  if (fromReceipt) {
+    // The receipt's figures, the row's target and defender once read; the row's failure is told, never hidden by the receipt.
+    const merged = row.data ? { ...fromReceipt, target: row.data.target, defender: row.data.defender, npc: row.data.npc } : fromReceipt;
+    return { data: merged, isPending: row.data === undefined && !row.error, error: row.error };
+  }
   if (row.data === undefined) return { data: undefined, isPending: !row.error, error: row.error };
   return { data: row.data, isPending: false, error: null };
 }

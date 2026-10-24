@@ -9,6 +9,7 @@ import { queryClient } from "../src/lib/query-client";
 import { mockRival } from "../src/data/mock/pvp";
 import { MOCK_KEY } from "../src/data/mock/ledger";
 import { addressKey } from "../src/data/keys";
+import { pvpKeys } from "../src/data/pvp";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
@@ -205,6 +206,22 @@ describe("/pvp/replay/:attacker/:id: a failed read", { timeout: slow(30_000) }, 
     expect(screen.getByRole("button", { name: /Search again/ })).toBeInTheDocument();
     // The waiting screen's heading leaves (its exit animation), never to come back.
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Searching for a village" })).toBeNull(), WAIT);
+  });
+});
+
+describe("receipt-cached attacks", { timeout: slow(30_000) }, () => {
+  it("replays an attack whose receipt this visit cached, once a newer attack is the last", async () => {
+    const me = mockImplementation().sources.signer!.address;
+    await open(`/pvp/replay/${me}/1`, async (s, me) => {
+      await attacked(s, me);
+      await attacked(s, me);
+      // What `applyPvpEvents` keeps of attack 1's last receipt: no target, no defender.
+      const row = s.ledger.attacksOf(me, "attacker").find((a) => a.id === 1)!;
+      queryClient.setQueryData(pvpKeys.settled(me, 1), { score: row.score, stars: row.stars, surrendered: row.surrendered, gained: row.gained, lost: row.lost });
+    });
+    const bar = await screen.findByRole("group", { name: "Replay" }, WAIT);
+    await userEvent.click(within(bar).getByRole("button", { name: "Next move" }));
+    expect(within(bar).getByText(/^1\//)).toBeInTheDocument();
   });
 });
 

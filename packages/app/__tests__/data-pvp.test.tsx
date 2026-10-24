@@ -187,6 +187,23 @@ describe("the indexer's lists and the season", () => {
     await waitFor(() => expect(result.current.settled.data).toMatchObject({ stars: 3, gained: 30, target: 1000, defender: RIVAL.address }));
   });
 
+  it("usePvpSettled completes a cached receipt with the row's target and defender, and tells the row's failure", async () => {
+    const fakes = fakeSources();
+    fakes.fixture.attacks = [{ attacker: PLAYER_ID, id: 1, defender: RIVAL.address, npc: false, target: 900, tiles: 20, score: 700, stars: 1, surrendered: false, gained: 10, lost: 0, opened_at: 1, finished_at: 2 }];
+    const receipt = { score: 700, stars: 1, surrendered: false, gained: 10, lost: 0 };
+    const merged = renderData(() => usePvpSettled(PLAYER_ID, 1), fakes.sources);
+    merged.client.setQueryData(pvpKeys.settled(PLAYER_ID, 1), receipt);
+    merged.rerender();
+    await waitFor(() => expect(merged.result.current.data).toMatchObject({ ...receipt, target: 900, defender: RIVAL.address }));
+    // The row's read fails: the receipt stays, the failure is told.
+    const down = fakeSources();
+    const failing = renderData(() => usePvpSettled(PLAYER_ID, 1), { ...down.sources, indexer: new Proxy(down.indexer, { get: (t, k) => (k === "playerAttack" ? () => Promise.reject(new Error("indexer down")) : Reflect.get(t, k, t)) }) });
+    failing.client.setQueryData(pvpKeys.settled(PLAYER_ID, 1), receipt);
+    failing.rerender();
+    await waitFor(() => expect(failing.result.current.error?.message).toBe("indexer down"));
+    expect(failing.result.current.data).toMatchObject(receipt);
+  });
+
   it("usePvpSettled finds an attack however old: by its id, not in the latest page", async () => {
     const fakes = fakeSources();
     fakes.fixture.attacks = Array.from({ length: 30 }, (_, i) => ({ attacker: PLAYER_ID, id: i + 1, defender: RIVAL.address, npc: false, target: 900, tiles: 20, score: 100 * i, stars: i % 4, surrendered: false, gained: 0, lost: 0, opened_at: i, finished_at: 1_000 + i }));

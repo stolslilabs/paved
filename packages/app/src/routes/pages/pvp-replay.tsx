@@ -80,7 +80,10 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
     // Every read the replay waits on: the attack's moves and board, its metadata (the indexer's row) and the attacker's last
     // attack. A failed one ends the wait with its error: the moves' read waits on the metadata, so it never fails alone.
     const error = read.error ?? (last ? null : settled.error) ?? status.error ?? null;
-    const missing = read.data === null || (settled.data === null && !last) ? "This attack cannot be replayed: it is not recorded on this network." : (error?.message ?? null);
+    // Not the attacker's last attack: its target and defender are the indexer's row's. Read and absent (a receipt alone, the
+    // indexer behind), the replay cannot be built yet.
+    const unrecorded = status.data != null && !last && !settled.isPending && !settled.error && settled.data?.target === undefined;
+    const missing = read.data === null || unrecorded ? "This attack cannot be replayed: it is not recorded on this network." : (error?.message ?? null);
     return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} onRetry={error ? retry : undefined} />;
   }
   const tiles = step.run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y }));
