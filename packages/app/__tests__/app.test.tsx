@@ -37,8 +37,8 @@ describe("app", () => {
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });
 
-  it("keeps the section 6.1 route map: 28 pages, each path once", () => {
-    expect(PAGES).toHaveLength(28);
+  it("keeps the section 6.1 route map: 30 pages, each path once", () => {
+    expect(PAGES).toHaveLength(30);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 

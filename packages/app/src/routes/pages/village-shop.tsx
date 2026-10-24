@@ -4,20 +4,20 @@ import { DAY_S, dayOf } from "@paved/game-core";
 import { VillageShopScene } from "../../components/scenes/village-shop-scene";
 import type { SkinsStatus } from "../../components/containers/skins-status";
 import { tileName } from "../../components/elements/tile-render";
-import { useChainClock } from "../../data/clock";
 import { cobbleKeys, useCobbleAccount } from "../../data/cobbles";
 import { useFreeVillage, useFreeVillageWrites, useShop } from "../../data/free-village";
 import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
+import { useNow } from "../now";
 import { useAppNavigate, useUpTo } from "../ref";
 import { countsByPlan, refusalText, useVillageArt } from "../village-v2";
 
 /**
  * `/village/shop` (#739, PvP v2 step 1): the day's 3 base plans from `useShop` (the mock ledger in step 1, #741), each with its
- * rarity and price, bought once a day at the price shown (`buy`); the tile goes to the inventory. The day is the chain's clock
- * (`useChainClock`), the time left is until the next UTC day. Short of Cobbles, Get Cobbles leads to the packs.
+ * rarity and price, bought once a day at the price shown (`buy`); the tile goes to the inventory. The day is the device's clock
+ * (the mock's, step 1), the time left is until the next UTC day. Short of Cobbles, Get Cobbles leads to the packs.
  */
 export default function Page() {
   const wallet = useAccount();
@@ -25,7 +25,8 @@ export default function Page() {
   const client = useQueryClient();
   const go = useAppNavigate();
   const onBack = useUpTo("/village");
-  const now = useChainClock();
+  // The day is the device's, as the mock ledger rules on it in step 1 (#741); step 3 (#742) reads the chain's with the contracts.
+  const now = useNow();
   const me = sources.signer?.address ?? null;
   const day = dayOf(now);
   const read = useShop(me, day);

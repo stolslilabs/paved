@@ -3,12 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { DAY_S, dayOf } from "@paved/game-core";
 import { VillageChestsScene, type Chest, type ChestTaken } from "../../components/scenes/village-chests-scene";
 import type { SkinsStatus } from "../../components/containers/skins-status";
-import { useChainClock } from "../../data/clock";
 import { useChests, useFreeVillage, useFreeVillageWrites } from "../../data/free-village";
 import { queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
+import { useNow } from "../now";
 import { useAppNavigate, useUpTo } from "../ref";
 import { countsByPlan, refusalText, useVillageArt } from "../village-v2";
 
@@ -24,7 +24,8 @@ export default function Page() {
   const client = useQueryClient();
   const go = useAppNavigate();
   const onBack = useUpTo("/village");
-  const now = useChainClock();
+  // The day is the device's, as the mock ledger rules on it in step 1 (#741); step 3 (#742) reads the chain's with the contracts.
+  const now = useNow();
   const me = sources.signer?.address ?? null;
   const read = useChests(me);
   const village = useFreeVillage(me);
