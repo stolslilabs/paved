@@ -2902,6 +2902,75 @@ maximum, both ways from the default (`core/CameraController.ts`).
   under the 12 ms desktop and 16.6 ms phone limits. The GPU p95 alone is 3.2 to 4.2 ms and the CPU p95 1.9 to 2.7 ms.
   The draw calls and triangles were not recorded: `renderer.info` read after the frame counts only the composer's last pass.
 
+### 5.11 Closed structures: the pulse and the shine (CLOSE-SHINE, #722)
+
+The owner's request (2026-10-24): when a move closes a structure, the board highlights it in two steps. A brief bright-yellow
+**pulse** as its line appears in the closing feed, then a **shine**: a band of light that sweeps across it at regular, spaced
+intervals, like a reflection. The look is animate-ui's Shine (a band slanted at -15 degrees, 1.2 s a sweep,
+`cubic-bezier(0.4, 0, 0.2, 1)`, 0.3 opacity, then a pause), reimplemented in the renderer: nothing is imported or fetched.
+Decided by the owner: a closed structure keeps its shine for the rest of the game, each structure on its own clock. Open
+points, taken as proposed: one sweep per structure (not one band over the whole board); the tuning proposed in the story.
+
+- **The data (`@paved/game-core`).** Each structure a move closes comes with its areas: `MoveResult.closed`, beside
+  `scored` (one per `Scored` event, same order; the events stay the contract's), and `ClosedStructure.areas` in
+  `closings()`. The areas are the root's nodes in the union-find (`Board.areasOf`): a mask per tile, bit `area - 1`, as
+  `StructureBoard` gives them. A wonder covers its tile and the 8 around it, whole (`ALL_AREAS`), as D-19 counts them. A
+  board written as it is (the Challenge's `boardOf`, a VRF game or an engine not in step) has no moves to score:
+  `EngineGame.closedOnBoard()` reads its closed structures off it (a road, city or wonder with no open half-edge; a forest
+  also once no road along it is open; so a forest closed while a road was open, never scored on chain, shows closed once that
+  road closes). Given the move's tile (`closedOnBoard(closer)`), the structures that move closed come last, in the order it
+  scored them (`assess`: the tile's start spots, then the wonders around it), which is the order of its `Scored` events and
+  of the feed's lines, so their pulses match the lines. `PageState.closed` carries them in Training (`LocalSession`),
+  Challenge (`PredictedSession`: the prediction's closings, or the written board's, its ids moved back to the chain's, the
+  starter, the engine's own tile 1, kept as it is) and Story (`StoryRun`), through `closedOf`.
+- **The board (`packages/app`).** `BoardViewport.closed` (the three game pages pass their state's) becomes
+  `GameCanvas.closedStructures` (`toClosedStructures`: each one's id is its areas, so its clock survives a new state or a
+  resync), then `GameScene.setClosedStructures`. Out of scope, as the issue says: the read-only boards (replays, PvP attack
+  replays) and the over page.
+- **The layer (`core/closed-structures.ts`, `ClosedStructuresLayer`, owned by `TileRenderer`).** A structure seen for the
+  first time pulses, staggered by `pulse.staggerMs` (150, the feed's 0.15 s a line) by its order among the move's new ones;
+  its shine starts at its pulse's end. The first call's structures (a board loaded mid-game: a reload, a resumed Challenge)
+  shine at once with no pulse, each at its own phase (its id's hash, a point in its first interval). A structure no longer
+  listed is dropped (a rollback, a new game). The tile shader reads three float textures: `uClosedMap`, one RG texel per area
+  of each cell, where its run of structures starts in `uClosedList` and how many it holds; `uClosedList`, the runs, one
+  structure index (from 1) a texel, `CLOSED_LIST_WIDTH` (256) a row. A run has no length limit: a wonder's whole tiles hold a
+  road's or a city's area too, and the rings of wonders near each other overlap (up to 10 holders on one area in a game: its
+  own structure and the 9 wonders whose rings reach its tile). Every holder keeps its own pulse and sweep there, the brightest
+  winning, and none is ever left out. Then `uClosedData`, two texels per structure (its pulse start, shine start, interval in seconds on
+  `uClosedTime`'s clock, whether it pulses; its extent across the sweep). The fragment's area is FEATURE-HL's label
+  (`LABEL_GLSL`, shared with `FEATURE_HIGHLIGHT_GLSL`), so the models are labelled once a structure is closed, as for a
+  highlight. Its own switch (`uClosedOn`): the rest of the board is **not** dimmed. The maps are built again only when the
+  structures, their cells or the settings change.
+- **The pulse.** The voxels go to `pulse.color` (FEATURE-HL's `#ffc23d`) at `pulse.strength` (0.6, the confirm's), with
+  `pulse.glow` (0.35) of emissive light, over `pulse.ms` (700, the confirm's): a quick rise over the first 15 % (`PULSE_RISE`),
+  then a smoothstep fade (`pulseLevel`). It adds to the confirm's green: the confirm's overlay (a ghost of the same patched
+  material) keeps the layer and tints over it, so both show; the tile in hand's ghost holds the layer off (`uClosedOn` 0).
+- **The shine.** A soft band (`1 - smoothstep` across `shine.width`, 3 world units, a tile) of `shine.color` at
+  `shine.strength` (0.3), added as emissive light on top of the voxels' colour, never a flat fill. It is slanted on a
+  direction of the board seen from the fixed camera (#719, 27 degrees, azimuth 0: `sweepAxis`): a point's place across the
+  sweep is `right + tan(angle) * up` of the screen, the voxel's height included, so the band leans `shine.angle` (-15
+  degrees, its top to the right) on screen. Its centre crosses the structure's extent (its tiles' boxes, from just before to
+  just after) in `shine.durationMs` (1200) on the reference's ease (`sweepEase`, Newton on the Bézier's x, the same in GLSL),
+  then waits: one sweep every `shine.intervalMinMs` to `shine.intervalMaxMs` (6 to 8 s), each structure its own interval.
+  The board's frame, not the world's: a turned compass turns the band with the board.
+- **Frames.** `TileRenderer.update` reports `animating` while a pulse or a sweep runs, and once more on the frame after the
+  last one ends (no tint left behind). Between sweeps the board is still, as before: a long Training game does not keep the
+  GPU busy. The clock costs a loop over the closed structures per tick, no draw.
+- **Reduced motion and power.** Under reduced motion (`placement.motion.reducedMotion`, the confirm's rule) the pulse is a
+  short tint (`pulse.reducedMs`, 150) and there is no shine. The Low tier and software WebGL draw no shine (the ambient
+  effects' rule, #572); the pulse stays. `RendererSettings.closing` (`closing-settings.ts`) holds every knob, `enabled`
+  turning both off.
+- **Stories** ("Renderer/Closing", `closing.stories.tsx`): Stagger (engine moves; Play closes a road, a forest, a city and a
+  road at once, with the closing feed), Many structures (37 moves, 17 closed, no pulse, each on its phase), Reduced motion;
+  every setting a control, and a readout of the closed, pulsing and sweeping structures.
+- **Tests.** `closed-areas.test.ts` (game-core: one tile closing two roads, a wonder, a written board),
+  `closed-structures.test.ts` (renderer: the settings, the curves, the layer's masks and clocks, a road under a wonder on its
+  own clock, every holder of an area kept (12 on one, a list over several rows), the frames asked for, reduced motion and low power), `features.test.ts` (the shader's term through the labels,
+  no dimming, the hand's ghost), and `predicted-session.test.ts` (chain: a VRF game's closed structures off the chain's
+  board, the starter's areas, each move's own in its `Scored` order).
+- **Not measured.** The shader adds a texel read, then three per structure of the area (at most 10 in a game), and a short loop per fragment of a closed structure's voxels, and only
+  while one is closed; no bench figure was taken (no GPU run from this task): an estimate, not a measure.
+
 ---
 
 ## 6. The page map

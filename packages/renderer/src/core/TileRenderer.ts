@@ -19,6 +19,8 @@ import type * as Classifier from "./features";
 import { DEFAULT_WINDOW_LIGHT, WINDOW_SPILL_LAYERS, type WindowLightSettings } from "./daynight-settings";
 import { CLOUD_FRAGMENT_GLSL, CLOUD_VERTEX_GLSL, cloudLightsFragment, createCloudUniforms } from "./cloud-shader";
 import { SNOW_APPLY_GLSL, SNOW_FRAGMENT_GLSL, createSnowUniforms } from "./snow-shader";
+import { CLOSED_UNIFORMS_GLSL, ClosedStructuresLayer, closedGlsl, type ClosedStructure, type ClosedStructuresOptions } from "./closed-structures";
+import type { ClosingSettings } from "./closing-settings";
 // The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are on.
 import type * as Windows from "./windows";
 import type * as Voxelizer from "./voxelizer";
@@ -84,11 +86,10 @@ export const WATER_MASK_GLSL = /* glsl */ `
  * read from the board's lit map at the tile's cell (`vCell`). It runs after the water mask, on the palette's colour.
  * Off (`uFeatureOn` 0, the default), it skips the whole block: the board pays no texture read and no label per fragment.
  * A pending tile's material is patched as its model's; the placeholder quad (a plan's image, no voxels to label) and the
- * ghost (the tile in hand: `ghostMaterial`) are drawn as they are, neither lit nor dimmed.
+ * ghost (the tile in hand: `ghostMaterial`) are drawn as they are, neither lit nor dimmed. The label's read (`LABEL_GLSL`) is
+ * the closed structures' too (`closedGlsl`, CLOSE-SHINE).
  */
-export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
-  float featureLit = 0.0;
-  if (uFeatureOn > 0.5) {
+const LABEL_GLSL = /* glsl */ `
     vec3 labelAt = vGrid - normalize(vGridNormal) * 0.5;
     ivec2 labelTexel = clamp(ivec2(floor(labelAt.xz)), ivec2(0), textureSize(uLabelMap, 0) - 1);
     int label = int(texelFetch(uLabelMap, labelTexel, 0).r * 255.0 + 0.5);
@@ -97,7 +98,11 @@ export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
     if (labelFeature == ${FEATURE_CODE.road} && vGrid.y > ${(GROUND_VOXELS + ABOVE_GROUND_VOXELS).toFixed(1)}) {
       labelFeature = 0;
       labelArea = 0;
-    }
+    }`;
+
+export const FEATURE_HIGHLIGHT_GLSL = /* glsl */ `
+  float featureLit = 0.0;
+  if (uFeatureOn > 0.5) {${LABEL_GLSL}
     featureLit = labelFeature == int(uFeature + 0.5) ? 1.0 : 0.0;
     if (uStructureOn > 0.5) {
       ivec2 litTexel = ivec2(floor(vCell - uLitRect.xy + 0.5));
@@ -323,6 +328,11 @@ export class TileRenderer {
   private emptyWindowLight = emptyWindowLight();
   /** Whether the night lights are on: the models drawn then are labelled, as for a highlight. */
   private nightLights = false;
+  /**
+   * The closed structures (CLOSE-SHINE, #722, `setClosedStructures`): each pulses as it closes, then shines on its own clock.
+   * Its uniforms are shared by every tile material, as the lit structure's.
+   */
+  private closed = new ClosedStructuresLayer(now());
   /** The lit tiles' masks by tile key (`setLitAreas`); null when no structure is lit. */
   private litAreas: Map<string, number> | null = null;
   /** The grid cell of each tile given (`updateTiles`), by tile key: where the lit map puts its mask. */
@@ -491,6 +501,7 @@ export class TileRenderer {
     this.placement.setTileCells(tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
     for (const key of this.tileCells.keys()) if (!currentKeys.has(key)) this.tileCells.delete(key);
     this.buildLitMap();
+    this.closed.build(this.tileCells);
     if (changed) this.rebuildWindowSpill();
     return changed;
   }
@@ -743,6 +754,7 @@ export class TileRenderer {
       ...this.waterUniforms,
       ...this.featureUniforms,
       ...this.structureUniforms,
+      ...this.closed.uniforms,
       ...this.nightUniforms,
       ...this.cloudUniforms,
       ...this.snowUniforms,
@@ -764,12 +776,14 @@ export class TileRenderer {
           "flat varying vec2 vCell;",
           "varying vec2 vBoardVoxel;",
           "varying vec3 vCloudWorld;",
+          "varying vec3 vClosedBoard;",
           "void main() {",
           CLOUD_VERTEX_GLSL,
           "  vGrid = (uGridMatrix * vec4(position, 1.0)).xyz;",
           "  vGridNormal = mat3(uGridMatrix) * normal;",
           "  vCell = floor((uBoardInverse * modelMatrix * vec4(uFootprint, 1.0)).xz / uTileSize + 0.5);",
           "  vBoardVoxel = (uBoardInverse * modelMatrix * vec4(position, 1.0)).xz * uSpillScale;",
+          "  vClosedBoard = (uBoardInverse * modelMatrix * vec4(position, 1.0)).xyz;",
         ].join("\n"),
       );
       shader.fragmentShader = shader.fragmentShader
@@ -802,13 +816,15 @@ export class TileRenderer {
             "varying vec3 vGridNormal;",
             "flat varying vec2 vCell;",
             "varying vec2 vBoardVoxel;",
+            "varying vec3 vClosedBoard;",
+            CLOSED_UNIFORMS_GLSL,
             WINDOW_SWITCH_GLSL,
             CLOUD_FRAGMENT_GLSL,
             SNOW_FRAGMENT_GLSL,
             "void main() {",
           ].join("\n"),
         )
-        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}\n${NIGHT_WINDOWS_GLSL}`)
+        .replace("#include <map_fragment>", `#include <map_fragment>\n${WATER_MASK_GLSL}\n${FEATURE_HIGHLIGHT_GLSL}\n${closedGlsl(LABEL_GLSL)}\n${NIGHT_WINDOWS_GLSL}`)
         .replace(
           "#include <roughnessmap_fragment>",
           "#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, uWaterRoughness, waterMask);",
@@ -817,7 +833,7 @@ export class TileRenderer {
         .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>\n${SNOW_APPLY_GLSL}`)
         .replace(
           "#include <emissivemap_fragment>",
-          "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;\n  totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;",
+          "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uFeatureColor * uFeatureGlow * featureLit;\n  totalEmissiveRadiance += uNightColor * uNightGlow * nightLit;\n  totalEmissiveRadiance += uPulseColor * uPulseGlow * closedPulse + uShineColor * uShineStrength * closedShine;",
         )
         // The cloud shadows dim the directional lights' direct light only (`cloudLightsFragment`).
         .replace("#include <lights_fragment_begin>", cloudLightsFragment());
@@ -862,6 +878,28 @@ export class TileRenderer {
     }
     this.applyHighlight();
     this.buildLitMap();
+  }
+
+  /**
+   * The closed structures (CLOSE-SHINE, #722): each structure's areas on its tiles, with a stable id. One seen for the first
+   * time pulses, then shines; the first call's shine at once (`ClosedStructuresLayer.set`). The voxels are labelled on the
+   * first call, as for a highlight. The rest of the board is not dimmed.
+   */
+  setClosedStructures(structures: readonly ClosedStructure[], options?: ClosedStructuresOptions): void {
+    this.closed.set(structures, now(), options);
+    this.applyHighlight();
+    this.closed.build(this.tileCells);
+  }
+
+  /** The closed structures' settings, reduced motion and low power (the Low tier, software WebGL: no shine). */
+  setClosingSettings(settings: ClosingSettings, reducedMotion: boolean, lowPower: boolean): void {
+    this.closed.setSettings(settings, reducedMotion, lowPower);
+    this.closed.build(this.tileCells);
+  }
+
+  /** The closed structures' layer, read only (the stories' readout, the tests). */
+  get closedLayer(): Pick<ClosedStructuresLayer, "size" | "pulseAt" | "sweepingAt"> {
+    return this.closed;
   }
 
   /**
@@ -1056,7 +1094,7 @@ export class TileRenderer {
     const on = this.look.featureHighlight.enabled || this.litAreas !== null;
     this.featureUniforms.uFeatureOn.value = on ? 1 : 0;
     this.structureUniforms.uStructureOn.value = this.litAreas !== null ? 1 : 0;
-    const labelling = on || this.nightLights;
+    const labelling = on || this.nightLights || this.closed.size > 0;
     if (labelling && !this.labelling) for (const [key, model] of this.tileTypes) this.queueLabels(key, model);
     this.labelling = labelling;
   }
@@ -1342,6 +1380,8 @@ export class TileRenderer {
           patch.call(material, shader, renderer);
           shader.uniforms.uFeatureOn = GHOST_FEATURE_OFF;
           shader.uniforms.uNightOn = GHOST_FEATURE_OFF;
+          // The tile in hand is not on the board yet: no closed structure. The confirm's overlay keeps the pulse under its green.
+          if (role === "hand") shader.uniforms.uClosedOn = GHOST_FEATURE_OFF;
         }
         shader.uniforms.uTintColor = look.color;
         shader.uniforms.uTintMix = look.mix;
@@ -1487,7 +1527,8 @@ export class TileRenderer {
     const placement = this.placement.update(time);
     this.applyLook("hand", this.placement.ghostTint(time));
     if (this.confirmContainer) this.applyConfirmLook(time);
-    return { animating: placement.animating || drops.animating, shadow: drops.shadow };
+    const closing = this.closed.update(time);
+    return { animating: placement.animating || drops.animating || closing, shadow: drops.shadow };
   }
 
   /** Width, opacity and colour of every tile's outlines (one shared material): `outlineStroke` of the current zoom. */
@@ -1565,6 +1606,7 @@ export class TileRenderer {
     this.placeholderOutline?.geometry.dispose();
     this.placeholderOutline = null;
     this.structureUniforms.uLitMap.value.dispose();
+    this.closed.dispose();
     for (const { uLabelMap } of this.labelMaps.values()) if (uLabelMap.value !== this.emptyLabelMap) uLabelMap.value.dispose();
     this.labelMaps.clear();
     this.emptyLabelMap.dispose();

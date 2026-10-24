@@ -4,6 +4,16 @@ export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export type { CellCorner, TilePressPhase, TilePressListener } from "./core/interaction";
 export { TileRenderer } from "./core/TileRenderer";
 export type { LitTile } from "./core/TileRenderer";
+export type { ClosedStructure, ClosedStructuresOptions } from "./core/closed-structures";
+export {
+  DEFAULT_CLOSING_SETTINGS,
+  resolveClosingSettings,
+  pulseLevel,
+  sweepEase,
+  sweepAxis,
+  shineAllowed,
+} from "./core/closing-settings";
+export type { ClosingSettings, ClosingSettingsInput, ClosingPulseSettings, ClosingShineSettings } from "./core/closing-settings";
 export { FEATURES } from "./core/feature-codes";
 export type { FeatureName } from "./core/feature-codes";
 export {

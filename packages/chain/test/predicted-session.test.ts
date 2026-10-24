@@ -454,6 +454,33 @@ describe("PredictedSession: a game on the VRF (#645)", () => {
     expect(session.state).toMatchObject({ ...before, drawing: false, pending: false, writeError: "Tile: cannot place" });
   });
 
+  test("the closed structures (#722) are read off the chain's board: the starter's areas named 1, a move's own in the feed's order", async () => {
+    const { chain, session, send } = setup({ vrf: true });
+    await session.open();
+    const sign = (areas: readonly { tileId: number; areas: number }[] | undefined) => (areas ?? []).map((a) => `${a.tileId}:${a.areas}`).join(",");
+    let starter = false;
+    let several = false;
+    for (let moves = 0; moves < 60 && !chain.game.over && !(starter && several); moves++) {
+      const before = chain.game.closings().length;
+      const move = legalMove(chain.game);
+      if (move) expect(await session.place(move, send.build(move))).toBe(true);
+      else expect(await session.discard(send.discard())).toBe(true);
+      const closings = chain.game.closings();
+      const closed = session.state.closed!;
+      // Every structure the chain scored is lit, with the chain's tile ids (the starter is 1, never moved past the offset).
+      const lit = new Set(closed.map(sign));
+      for (const c of closings) expect(lit.has(sign(c.areas)), sign(c.areas)).toBe(true);
+      expect(closed.flat().every((a) => a.tileId >= 1 && a.tileId < 1000)).toBe(true);
+      // The move's own come last, in the order of its Scored events (the feed's lines).
+      const fresh = closings.slice(before);
+      expect(closed.slice(closed.length - fresh.length).map(sign)).toEqual(fresh.map((c) => sign(c.areas)));
+      expect(session.state.lastScored.map((s) => s.points)).toEqual(fresh.map((c) => c.points));
+      starter ||= closed.flat().some((a) => a.tileId === 1);
+      several ||= fresh.length > 1;
+    }
+    expect([starter, several]).toEqual([true, true]);
+  });
+
   test("the deck's end: the last moves draw nothing, the queue shortens to the last tile", async () => {
     const { chain, session, send } = setup({ vrf: true });
     await playOnChain(chain, chain.game.tileLimit - 4);

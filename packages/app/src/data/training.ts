@@ -13,6 +13,7 @@ import {
   type PageState,
   type PlaceMove,
   type GameStats,
+  type ClosedTileAreas,
   type TrainingMove,
   type ScoredStructure,
 } from "@paved/game-core";
@@ -32,6 +33,8 @@ export type SessionBoard = Pick<BoardSceneProps, "tiles" | "score" | "remaining"
   /** The tiles known after it, in draw order (#645): the next two, fewer at the deck's end. */
   coming: { plan: number }[];
   over: boolean;
+  /** Every structure closed so far, as its areas on its tiles (`PageState.closed`): the board pulses and shines them (#722). */
+  closed: ClosedTileAreas[][];
 };
 
 /** A session's state as the board scene reads it. */
@@ -45,6 +48,7 @@ export function boardOf(state: PageState): SessionBoard {
     hand: state.hand ? { plan: state.hand.plan } : null,
     coming: (state.coming ?? []).map((t) => ({ plan: t.plan })),
     over: state.game?.over ?? false,
+    closed: state.closed ?? [],
   };
 }
 

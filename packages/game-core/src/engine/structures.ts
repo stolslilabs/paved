@@ -38,6 +38,15 @@ interface StructureRecord {
   tiles: Set<number>;
 }
 
+/** The areas a structure holds on one of its tiles: a mask, bit `area - 1` (the plan's areas, A to I). */
+export interface TileAreas {
+  readonly tileId: number;
+  readonly areas: number;
+}
+
+/** Every area of a tile (A to I): a wonder's tiles count whole (D-19). */
+export const ALL_AREAS = 0x1ff;
+
 /** A number per position (a game spans at most 255 tiles), cheaper to hash than a string. */
 export function positionKey(x: number, y: number): number {
   return (x + 1024) * 4096 + (y + 1024);
@@ -168,6 +177,21 @@ export class Board {
     kept.open = opens;
     kept.tiles = tiles;
     return root;
+  }
+
+  /** The areas the structure of `root` holds on each of its tiles (its nodes), in tile id order. */
+  areasOf(root: number): TileAreas[] {
+    const record = this.records.get(root);
+    if (!record) throw new Error("Structure: none");
+    const areas: TileAreas[] = [];
+    for (const tileId of [...record.tiles].sort((a, b) => a - b)) {
+      const tile = this.byId.get(tileId);
+      if (!tile) continue;
+      let mask = 0;
+      for (let area = 1; area <= 9; area++) if (tile.refs[area] && this.rootOf(tile, area).root === root) mask |= 1 << (area - 1);
+      if (mask) areas.push({ tileId, areas: mask });
+    }
+    return areas;
   }
 
   /** Every structure of the board (a root), in the order of its first node (tiles by id, then areas): its category code, nodes, tiles and open half-edges. */

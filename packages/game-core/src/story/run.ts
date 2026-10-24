@@ -4,6 +4,7 @@
 
 import { CENTER, EngineGame, type Placement } from "../engine";
 import type { ClosedStructure, Scored } from "../engine";
+import { closedOf } from "../sessions/closed";
 import type { BoardTile, PageState, PlaceMove, ScoredStructure } from "../sessions/types";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
@@ -177,6 +178,7 @@ export class StoryRun {
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
       coming,
       lastScored,
+      closed: closedOf(g.closings()),
       readonly: false,
       pending: false,
       writeError,
