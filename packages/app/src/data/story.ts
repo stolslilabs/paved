@@ -181,14 +181,6 @@ export function useDeckPresented(campaignId: number, levelIndex: number): { pres
   return { presented, markPresented };
 }
 
-/** A campaign not built yet: its number of levels, the tiles of each, and the tiles of its last level when they differ. */
-export interface UpcomingCampaign {
-  levels: number;
-  tiles: number;
-  /** The last level's tiles, when it closes the campaign on a longer deck. */
-  finaleTiles?: number;
-}
-
 /** A run of `level`, one per mounted level page: its engine kept between moves, `restart` starts the level again. */
 export function useStoryRun(campaign: StoryCampaign, level: StoryLevel): { run: StoryRun; snapshot: StorySnapshot } {
   const [run] = useState(() => new StoryRun(campaign, level));

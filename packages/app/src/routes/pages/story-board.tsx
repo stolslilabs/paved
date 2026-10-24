@@ -12,7 +12,7 @@ import {
   type StoryCampaign,
   type StoryLevel,
 } from "@paved/game-core";
-import { provideManifest } from "@paved/renderer";
+import { NO_SKINS, provideManifest, skinsOf, type TileSkins } from "@paved/renderer";
 import { BoardViewport } from "../../components/containers/board-viewport";
 import type { CoachTarget } from "../../components/containers/coach";
 import { DeckPresentation, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
@@ -24,10 +24,8 @@ import { Notice } from "../../components/elements/notice";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { Button } from "../../components/ui/button";
 import { useBoardSettings } from "../../data/board-settings";
-import { useBoardSkins } from "../../data/board-skins";
 import { usePlacement, type Slot } from "../../data/placement";
 import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
-import { useDataSources } from "../../data/sources";
 import { findLevel, levelPath, nextLevel, useDeckPresented, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
 import { useTileArt } from "../../data/tile-art";
 import { useTileRenders } from "../../data/tile-renders";
@@ -40,10 +38,10 @@ import { useAppNavigate, useUpTo } from "../ref";
 provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
 /**
- * The coach marks of the levels that introduce a control (#546): the tip names the control, the board rings it. The
- * placement's ring ("place") is on the bubble's Validate, on the tile (#568); the discard's on the trash, the tile stack's or,
- * with the tile on a cell, the bubble's (#606); the deck's on the tile stack; the rotate and cancel tip has no ring. Keyed by
- * `campaign-level`.
+ * The coach marks of the levels that introduce a control (#546), besides the tip of every level's intro (#721): the coach
+ * mark names the control, the board rings it. The placement's ring ("place") is on the bubble's Validate, on the tile (#568);
+ * the discard's on the trash, the tile stack's or, with the tile on a cell, the bubble's (#606); the deck's on the tile stack
+ * (1-5 opens it, 1-11 plans with it); the rotate and cancel tip has no ring. Keyed by `campaign-level`.
  */
 export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: string }>> = {
   "1-1": { target: "place", tip: "Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." },
@@ -53,10 +51,19 @@ export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: s
   "1-5": { target: "deck", tip: "Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." },
   "1-6": { target: "wheel", tip: "The season wheel turns the board through the seasons. Tap it to step on; the score does not change." },
   "1-7": { target: "settings", tip: "The gear opens the settings (sound, the placement highlight, Restart level) without leaving the level." },
-  "2-1": { target: "deck", tip: "Longer levels: the deck sheet lists the whole deck of this level. Plan with it." },
+  "1-11": { target: "deck", tip: "Tap the tile stack: the deck sheet lists the tiles still to come, in order. Plan with it." },
 };
 
 const PLAN_IDS = Object.values(PlanType);
+
+/**
+ * The skins of a Story board (#721): every plan in its campaign's theme (`StoryCampaign.theme`), the starter included,
+ * whatever skins the player set. Theme 0 is `NO_SKINS` (the base models).
+ */
+export function campaignSkins(campaign: Pick<StoryCampaign, "theme">): TileSkins {
+  if (!campaign.theme) return NO_SKINS;
+  return skinsOf(Object.values(PlanType).slice(1).map(() => campaign.theme));
+}
 
 /** The points a run scoring `score` was short of its next star, from its result; null at 3 stars. */
 export function pointsToNextStar(result: { stars: number; twoStars: number; target: number }, score: number): number | null {
@@ -89,16 +96,16 @@ export default function Page() {
 
 /**
  * A Story level on the board (#546, #593): the presentation of its deck first, the first time this device opens it (the
- * deck sheet shows it again on request), then the board on the level's `StoryRun` with the tip of the control it
- * introduces, then its end (the stars filling one by one, the score, the points short of the next star, Replay and Next).
+ * deck sheet shows it again on request) with the level's tip, then the board on the level's `StoryRun`, every tile in the
+ * campaign's theme, with the coach mark of the control it introduces, then its end (the stars filling one by one, the score, the points short of the next star, Replay and Next).
  * The star thresholds are never shown. The run is played as Training's (lit slots, the bubble, Place, Discard); a finished run is recorded on the device.
  * Tutorial level 1 offers the claim of First Stone (D-21).
  */
 function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: StoryLevel }) {
   const { run, snapshot } = useStoryRun(campaign, level);
   const { progress, saved, record } = useStoryProgress();
-  const sources = useDataSources();
-  const skins = useBoardSkins(sources.signer?.address ?? null);
+  // The campaign's theme on every tile, never the player's skins (#721).
+  const skins = useMemo(() => campaignSkins(campaign), [campaign]);
   const [attempt, setAttempt] = useState(0);
   const boardSettings = useBoardSettings(attempt);
   const go = useAppNavigate();
@@ -185,7 +192,9 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         levelIndex={level.id}
         title={level.title}
         intro={level.intro}
+        tip={level.tip}
         deck={deckIds}
+        theme={campaign.theme}
         renders={renders}
         best={best && { score: best.best, stars: best.stars }}
         onStart={start}
