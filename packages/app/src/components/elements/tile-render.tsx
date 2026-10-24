@@ -66,12 +66,12 @@ export function ThemeCover({ theme, renders, blurred, alt, className }: ThemeCov
 export const STORY_BACKGROUND_WIDTHS = [720, 1040] as const;
 /**
  * The card's width on the page (`StoryScene`): about 86 % of a phone's width (the carousel) or all of it, half the tablet's
- * grid (`max-w-3xl`), a third of the desktop's (`max-w-5xl`).
+ * grid (768 px at most), a third of the desktop's (1024 px at most).
  */
 const STORY_BACKGROUND_SIZES = "(min-width: 64rem) 330px, (min-width: 40rem) min(50vw, 370px), 100vw";
 
 /**
- * A Story campaign's background (#721), from the build (`story-<campaign>-<width>` in the campaign's theme): the browser picks
+ * A Story campaign's background (issue 721), from the build (`story-<campaign>-<width>` in the campaign's theme): the browser picks
  * the width its card needs. Null when the manifest lists none (the card draws its tiles instead). Decorative.
  */
 export function storyBackground(campaign: number, theme: number, renders: TileRenders | undefined): { src: string; srcSet: string } | null {
