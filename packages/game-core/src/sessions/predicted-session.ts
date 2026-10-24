@@ -1,5 +1,6 @@
 import { CENTER, EngineGame } from "../engine";
 import type { MoveResult, Placement } from "../engine";
+import { closedOf } from "./closed";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
@@ -136,6 +137,9 @@ interface Entry {
   /** Set when a refusal or a resync drops the move before it is sent. */
   dropped: boolean;
 }
+
+/** `boardOf` writes the chain's tiles with their ids moved past the engine's own by this much. */
+const WRITTEN_ID_OFFSET = 1000;
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -673,7 +677,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
     for (const t of tiles) {
       const placement = t.status === PLACED && t.id !== 1 ? toPlacement(t) : null;
       const plan = PLANS[t.plan] as PlanType | undefined;
-      if (placement && plan) board.write({ id: 1000 + t.id, plan, ...placement });
+      if (placement && plan) board.write({ id: WRITTEN_ID_OFFSET + t.id, plan, ...placement });
     }
     return board;
   }
@@ -694,6 +698,8 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       },
       tiles: placed.map(({ id, plan, orientation, x, y }) => ({ id, plan, orientation, x, y })),
       discardedPlans: tiles.filter((t) => t.status === DISCARDED).map((t) => t.plan),
+      // Nothing was scored on the board written from the chain (`boardOf`): its closed structures are read off it.
+      closed: this.engine ? closedOf(this.engine.closedOnBoard(), WRITTEN_ID_OFFSET) : [],
       hand,
       coming: hand && this.chainQueue ? comingOf(hand.tileId, this.chainQueue) : [],
       drawing: false,
@@ -730,6 +736,7 @@ export class PredictedSession<K extends { gameId: number }, R extends MoveReceip
       tiles,
       discardedPlans: [...g.discardedPlans],
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
+      closed: closedOf(g.closings()),
       pending: this.queue.length > 0,
       unconfirmed: this.queue.length,
     };

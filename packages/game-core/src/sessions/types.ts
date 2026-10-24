@@ -27,6 +27,12 @@ export interface ScoredStructure {
   points: number;
 }
 
+/** The areas a closed structure holds on one of its tiles: a mask, bit `area - 1` (the engine's `TileAreas`). */
+export interface ClosedTileAreas {
+  tileId: number;
+  areas: number;
+}
+
 /** A closed structure as the closures list shows it: the same shape as a `Scored` event. */
 export type Closure = ScoredStructure;
 
@@ -61,6 +67,12 @@ export interface PageState {
    */
   drawing?: boolean;
   lastScored: ScoredStructure[];
+  /**
+   * Every structure closed so far, in closing order, as its areas on each of its tiles (#722): the board lights them. A
+   * structure that appears here after the board is shown has just closed (it pulses); those there when it opens shine at
+   * once. Absent when the session does not give them (the chain's own session).
+   */
+  closed?: ClosedTileAreas[][];
   /** The viewer cannot play (no account, another player's game): `hand` and `coming` are still the game's, shown read only (#701). */
   readonly: boolean;
   pending: boolean;

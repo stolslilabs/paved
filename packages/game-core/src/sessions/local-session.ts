@@ -6,6 +6,7 @@ import { PlanType } from "../types/plan";
 import { randomSeed } from "./seed";
 import { browserStore, type KeyValueStore } from "./storage";
 import { TRAINING_VERSION, loadGame, saveGame, type SavedGame, type SavedMove, type SavedVersion } from "./training-storage";
+import { closedOf } from "./closed";
 import type { BoardTile, PageSession, PageState, PlaceMove, ScoredStructure } from "./types";
 
 const PLANS = Object.values(PlanType);
@@ -161,6 +162,7 @@ export class LocalSession implements PageSession {
       hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
       coming: hand ? g.coming.map((t) => ({ tileId: t.id, plan: PLANS.indexOf(t.plan) })) : [],
       lastScored,
+      closed: closedOf(g.closings()),
       readonly: false,
       pending: false,
       writeError,

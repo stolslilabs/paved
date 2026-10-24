@@ -8,6 +8,7 @@ import { NO_SKINS, type TileSkins } from "../core/skins";
 import type { PlacementSlot } from "../core/placement";
 import type { TilePressListener } from "../core/interaction";
 import type { FogCell } from "../core/fog-of-war-settings";
+import type { ClosedStructure } from "../core/closed-structures";
 import type {
   TileRenderData,
   HoverState,
@@ -43,6 +44,12 @@ export interface GameCanvasProps {
    * slots, or a village's owned cells and their neighbours. Unset: no fog. It shows with `settings.fog` on.
    */
   fogReveal?: { cells: ReadonlyArray<FogCell>; origin?: ReadonlyArray<FogCell> } | null;
+  /**
+   * Every structure closed so far, with a stable id and its areas (`GameScene.setClosedStructures`, CLOSE-SHINE): the ones
+   * there when the scene opens shine at once, one that comes later pulses, then shines. Keep the array between renders while
+   * it does not change. Unset: none.
+   */
+  closedStructures?: readonly ClosedStructure[];
   onReady?: (scene: GameScene) => void;
   /** Called when the scene cannot start, for example without a WebGL context. */
   onError?: (error: unknown) => void;
@@ -55,6 +62,8 @@ export interface GameCanvasProps {
 
 /** No slot: one array, so an unset prop does not set the slots again on every render. */
 const NO_SLOTS: ReadonlyArray<PlacementSlot> = [];
+/** No closed structure, likewise. */
+const NO_CLOSED: readonly ClosedStructure[] = [];
 
 export function GameCanvas({
   tiles = [],
@@ -69,6 +78,7 @@ export function GameCanvas({
   manifest,
   covered = false,
   fogReveal = null,
+  closedStructures = NO_CLOSED,
   basePath = "",
   style,
   className,
@@ -162,6 +172,11 @@ export function GameCanvas({
   useEffect(() => {
     sceneRef.current?.updateTiles(tiles);
   }, [tiles]);
+
+  // After the tiles: a structure's cells are its tiles'. The scene's first call is the board as it opens (no pulse).
+  useEffect(() => {
+    sceneRef.current?.setClosedStructures(closedStructures);
+  }, [closedStructures]);
 
   useEffect(() => {
     sceneRef.current?.setHoveredTile(hover);

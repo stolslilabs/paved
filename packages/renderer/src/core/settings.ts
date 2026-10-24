@@ -8,6 +8,7 @@ import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings, type VoxelDropSe
 import { DEFAULT_AMBIENT_SETTINGS, resolveAmbientSettings, type AmbientSettings, type AmbientSettingsInput } from "./ambient-settings";
 import { DEFAULT_FOG_SETTINGS, LANDSCAPE_FOG, resolveFogSettings, type FogSettings, type FogSettingsInput } from "./fog-of-war-settings";
 import { DEFAULT_WEATHER_SETTINGS, resolveWeatherSettings, type WeatherSettings, type WeatherSettingsInput } from "./weather-settings";
+import { DEFAULT_CLOSING_SETTINGS, resolveClosingSettings, type ClosingSettings, type ClosingSettingsInput } from "./closing-settings";
 import { DEFAULT_SQUARE_GRID_SETTINGS, resolveSquareGridSettings, type SquareGridSettings, type SquareGridSettingsInput } from "./square-grid";
 import {
   DEFAULT_LOOK_PRESET,
@@ -103,6 +104,12 @@ export interface RendererSettings {
    */
   squareGrid: SquareGridSettings;
   /**
+   * The closed structures' highlight (CLOSE-SHINE, #722, `closing-settings.ts`): a structure a move closes pulses, then shines
+   * for the rest of the game (`GameScene.setClosedStructures`). On by default; under reduced motion (the placement's, as the
+   * confirm) a short tint and no shine, and no shine on the Low tier or software WebGL.
+   */
+  closing: ClosingSettings;
+  /**
    * The scene over the page instead of on its own background (the app's tile stack, `StackView`): the canvas keeps its
    * alpha, and no background, fog or day and night backdrop is drawn. Read at `init`, when the canvas's context is made.
    * Off by default (the board).
@@ -150,6 +157,8 @@ export interface RendererSettingsInput {
   weather?: WeatherSettingsInput;
   /** The square grid: each group's fields over the defaults'. */
   squareGrid?: SquareGridSettingsInput;
+  /** The closed structures' highlight: each group's fields over the defaults'. */
+  closing?: ClosingSettingsInput;
   /** Over the page, no background of its own (read at `init`). */
   transparent?: boolean;
 }
@@ -181,6 +190,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   fog: resolveFogSettings({ ...LANDSCAPE_FOG, enabled: false }, DEFAULT_FOG_SETTINGS),
   weather: DEFAULT_WEATHER_SETTINGS,
   squareGrid: DEFAULT_SQUARE_GRID_SETTINGS,
+  closing: DEFAULT_CLOSING_SETTINGS,
   transparent: false,
 };
 
@@ -254,6 +264,7 @@ export function resolveRendererSettings(
     fog: resolveFogSettings(input.fog, base.fog),
     weather: resolveWeatherSettings(input.weather, base.weather),
     squareGrid: resolveSquareGridSettings(input.squareGrid, base.squareGrid),
+    closing: resolveClosingSettings(input.closing, base.closing),
     transparent: input.transparent ?? base.transparent,
   };
 }
