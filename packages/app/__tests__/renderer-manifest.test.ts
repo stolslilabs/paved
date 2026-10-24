@@ -219,12 +219,14 @@ describe("the dev middleware's manifest", () => {
 describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
   const RENDERS = join(APP, "public/renderer-assets/renders");
 
-  it("lists a WebP render per plan, its top-down one (#606) and a cover, for the base models and each theme, each with its hash in its name", () => {
+  it("lists a WebP render per plan, its top-down one (#606) and a cover, for the base models and each theme, and each Story campaign's background (#721) in its theme, each with its hash in its name", () => {
     const { renders, themes } = rendererManifest();
     expect(Object.keys(renders).sort()).toEqual(["0", ...Object.keys(themes)].sort());
+    // The Tutorial (a puzzle) and Open Country in Default, Dark Forest in Forest, each at the phone's and the grid's width.
+    const story: Record<string, string[]> = { "0": ["story-1-1040", "story-1-720", "story-2-1040", "story-2-720"], "1": ["story-3-1040", "story-3-720"] };
     const listed: string[] = [];
     for (const [theme, plans] of Object.entries(renders)) {
-      expect(Object.keys(plans).sort()).toEqual([...KEYS, ...KEYS.map((key) => `${key}-top`), "cover"].sort());
+      expect(Object.keys(plans).sort()).toEqual([...KEYS, ...KEYS.map((key) => `${key}-top`), "cover", ...(story[theme] ?? [])].sort());
       for (const [key, path] of Object.entries(plans)) {
         expect(path).toMatch(new RegExp(`^renders/${key}\\.${theme}\\.[0-9a-f]{10}\\.webp$`));
         const webp = readFileSync(join(APP, "public/renderer-assets", path));
@@ -237,7 +239,7 @@ describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
   });
 
   it("are current: every render there, named by its hash, drawn from the manifest's models", () => {
-    expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("78 renders: current");
+    expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("84 renders: current");
   }, slow(60_000));
 
   it("fail the check on a missing render, a wrong hash, a model that changed or another version", () => {
