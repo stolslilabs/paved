@@ -35,18 +35,13 @@ function lazyIndexer(): IndexerClient {
 
 /**
  * A part of the chain client whose reads load it on the first call (`data/chain-client.ts`, its own chunk): starknet.js
- * stays out of the first bundle. A deployment that is not configured refuses each read with a `not-configured` error.
+ * stays out of the first bundle. A deployment that is not configured refuses each read with a `not-configured` error, and
+ * so does a read the client does not have (`chainRead`): the proxy answers every name, so a hook's probe finds a function,
+ * and the read's `not-configured` tells it the data is not served (PvP v2's before step 3, #741).
  */
 function lazyChain<T extends object>(part: (client: PavedClient) => T): T {
   return new Proxy({} as T, {
-    get: (_target, key) =>
-      key === "then"
-        ? undefined
-        : async (...args: unknown[]) => {
-            const { chainClient } = await import("../data/chain-client");
-            const target = part(chainClient()) as Record<PropertyKey, (...a: unknown[]) => unknown>;
-            return target[key]!(...args);
-          },
+    get: (_target, key) => (key === "then" ? undefined : async (...args: unknown[]) => (await import("../data/chain-client")).chainRead(part, key, args)),
   });
 }
 

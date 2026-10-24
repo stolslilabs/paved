@@ -151,3 +151,6 @@ export {
   formatUnits,
 } from "./format";
 export type { NumberOptions, RelativeOptions } from "./format";
+
+// PvP v2 (#732, #741): the free village, slots and XP, starter layouts, the attack's deck and queue, chests, the daily shop
+export * from "./rules";

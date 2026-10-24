@@ -38,6 +38,20 @@ export const queryKeys = {
     vault: (account: string) => ["chain", "economy", "vault", addressKey(account)] as const,
     usdcBalance: (account: string) => ["chain", "balance", "usdc", addressKey(account)] as const,
     pavedBalance: (account: string) => ["chain", "balance", "paved", addressKey(account)] as const,
+    /** PvP v2 (#741): the free village, the inventory, the chests, the shop, the attack. Served by the mock until step 3 (#742, #743). */
+    v2: {
+      all: ["chain", "v2"] as const,
+      /** The village's layout, its score, the player's level and slots (a rival's too). */
+      village: (playerId: string) => ["chain", "v2", "village", addressKey(playerId)] as const,
+      /** The tiles held, by plan. */
+      inventory: (playerId: string) => ["chain", "v2", "inventory", addressKey(playerId)] as const,
+      /** The chests waiting, the one open, the day's PvP chests. */
+      chests: (playerId: string) => ["chain", "v2", "chests", addressKey(playerId)] as const,
+      /** The day's 3 offers and what the player bought of them. */
+      shop: (playerId: string, day: number) => ["chain", "v2", "shop", addressKey(playerId), day] as const,
+      /** The opponent drawn and the attack, the open one or the last. */
+      attack: (attacker: string) => ["chain", "v2", "attack", addressKey(attacker)] as const,
+    },
   },
   indexer: {
     all: ["indexer"] as const,
