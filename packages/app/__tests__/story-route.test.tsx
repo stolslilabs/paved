@@ -69,6 +69,10 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(tutorial.querySelector('[title="Turn it around"]')).not.toBeNull();
     // The campaigns are cards; the locked one says what it needs, and pressing it shows its levels, locked.
     const cards = screen.getByRole("region", { name: "Campaigns" });
+    // Three campaigns, and no card announcing one to come (#721).
+    expect(within(cards).getAllByRole("button", { name: /levels/ }).map((b) => b.getAttribute("data-campaign"))).toEqual(["1", "2", "3"]);
+    expect(within(cards).getByRole("button", { name: /^Dark Forest/ })).toHaveTextContent("48 more stars to open");
+    expect(cards).not.toHaveTextContent(/on the way/);
     const locked = within(cards).getByRole("button", { name: /^Open Country/ });
     expect(locked).toHaveAttribute("data-status", "locked");
     expect(locked).toHaveTextContent("24 more stars to open");
@@ -133,6 +137,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(within(intro).getByLabelText("Tile 2")).toBeInTheDocument();
     expect(intro).not.toHaveTextContent(String(level.target));
     expect(intro).not.toHaveTextContent(String(Math.ceil(level.target * 0.7)));
+    // Its tip, set apart (#721); the coach mark of the control it introduces still comes on the board.
+    expect(within(intro).getByTestId("level-tip")).toHaveTextContent(level.tip);
     expect(screen.queryByRole("region", { name: "Your tile" })).toBeNull();
     await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
     expect(JSON.parse(store.getItem(PRESENTED_KEY)!)).toEqual(["1-1"]);
@@ -242,8 +248,11 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const ids = level.deck.map((plan) => String(Object.values(PlanType).indexOf(plan)));
     const presented = [...within(intro).getByTestId("presented-tiles").querySelectorAll("li")].map((li) => li.getAttribute("data-plan"));
     expect(presented).toEqual(ids);
+    expect(within(intro).getByTestId("level-tip")).toHaveTextContent(level.tip);
     await userEvent.click(within(intro).getByRole("button", { name: /Start/ }));
+    // No tile but the starter before the first draw, and no coach mark: 1-10 introduces no control.
     expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(level.deck.length));
+    expect(screen.queryByTestId("story-coach")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
     expect(await screen.findByText(`This level deals these ${level.deck.length} tiles in this order, the next one first.`, {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByText(/some never come/)).toBeNull();
@@ -254,5 +263,26 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(slots.map((li) => li.getAttribute("data-plan"))).toEqual(level.deck);
     expect(slots.map((li) => li.getAttribute("data-slot-state"))).toEqual(["hand", ...level.deck.slice(1).map(() => "next")]);
     expect(screen.getByTestId("deck-summary")).toHaveTextContent(`0 played, 0 discarded (dashed), ${level.deck.length} not yet.`);
+  });
+
+  it("progress saved on an old deck is dropped, an unchanged deck's is kept: 1-10's old best goes, 1-9's stays, the first village's moves from 1-11 to 1-12 (#721)", async () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels.slice(0, 10)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    const village = TUTORIAL.levels[11]!;
+    // The first village was 1-11 before #721: its run then.
+    progress = { ...progress, levels: { ...progress.levels, "1-11": recordRun(EMPTY_PROGRESS, village, { campaignId: 1, levelIndex: 11, moves: [] }, village.target).levels["1-11"]! } };
+    // As a device saved it before #721: no fingerprint, and 1-10 played on its old deck (five tiles placed).
+    const old = { v: 1, levels: Object.fromEntries(Object.entries(progress.levels).map(([key, { deck: _deck, ...held }]) => [key, held])) };
+    // Open Country's unlock was shown before: the Tutorial stays the one in view.
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(old), [UNLOCKS_KEY]: JSON.stringify([2]) });
+    render(<App router={createTestRouter("/story?campaign=1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
+    const tutorial = await screen.findByRole("region", { name: "Tutorial" }, { timeout: slow(5000) });
+    expect(within(tutorial).getByRole("button", { name: /^Level 9, .*, 3 of 3 stars$/ })).toBeEnabled();
+    const tenth = within(tutorial).getByRole("button", { name: /^Level 10, / });
+    expect(tenth).toBeEnabled();
+    expect(tenth.getAttribute("aria-label")).not.toMatch(/stars$/);
+    expect(within(tutorial).getByRole("button", { name: /^Level 11, .*, locked$/ })).toBeDisabled();
+    // The first village keeps its 3 stars at 1-12 (locked until the new 1-11 is finished).
+    expect(within(tutorial).getByRole("button", { name: /^Level 12, The first village, locked, 3 of 3 stars$/ })).toBeDisabled();
   });
 });
