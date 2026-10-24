@@ -40,4 +40,23 @@ describe("Story campaign cards (#592)", () => {
     expect(longest).toHaveClass("h-16");
     for (const title of within(levels).getAllByTestId("level-title")) expect(title).toHaveClass("truncate");
   });
+
+  it("draw the campaign's background from the build in its theme, both widths in its srcset, blurred while locked; its tiles without one", () => {
+    // The build's backgrounds: Open Country's in Default (theme 0), none in Forest.
+    const renders = (theme: number, key: string) => (theme === 0 && key.startsWith("story-2-") ? `/renderer-assets/renders/${key}.${theme}.0123456789.webp` : null);
+    const background = (container: HTMLElement) => container.querySelector("img[data-background]");
+    const { container, rerender } = render(wrap(<CampaignCard {...CARD} status="open" renders={renders} />));
+    const image = background(container)!;
+    expect(image).toHaveAttribute("data-background", "2");
+    expect(image).toHaveAttribute("srcset", "/renderer-assets/renders/story-2-720.0.0123456789.webp 720w, /renderer-assets/renders/story-2-1040.0.0123456789.webp 1040w");
+    expect(image).toHaveAttribute("src", "/renderer-assets/renders/story-2-1040.0.0123456789.webp");
+    expect(image).toHaveAttribute("sizes");
+    expect(image).not.toHaveClass("blur-[14px]");
+    rerender(wrap(<CampaignCard {...CARD} status="locked" missing={3} renders={renders} />));
+    expect(background(container)).toHaveClass("blur-[14px]");
+    // In a theme the build has no background for: the mosaic of its tiles, as before.
+    rerender(wrap(<CampaignCard {...CARD} status="open" theme={1} renders={renders} />));
+    expect(background(container)).toBeNull();
+    expect(container.querySelector(".grid-cols-4")).not.toBeNull();
+  });
 });

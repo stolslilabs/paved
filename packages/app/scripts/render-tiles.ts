@@ -3,7 +3,7 @@
  * tile (`TileView` is one live context each, and browsers keep about 16).
  *
  *   bun run build --filter @paved/renderer      (the page imports the renderer's dist)
- *   nice -n 10 node scripts/render-tiles.ts [--check] [--out <dir>]
+ *   nice -n 10 node scripts/render-tiles.ts [--check] [--out <dir>] [--only story | story-<campaign>]
  *
  * Without `--check` it serves `render-tiles/page.ts` with the app's `public/` and manifest (a Vite server on a free local
  * port), opens it in one headless Chromium (playwright-core's, `bunx playwright-core install chromium-headless-shell` once),
@@ -14,9 +14,12 @@
  * - the same plans seen from straight above, north up, `TOP` x `TOP`, for the deck sheet (#606), which turns them as tile
  *   chips: `renders/<plan>-top.<theme>.<hash>.webp`;
  * - each theme's cover, a few tiles side by side for its card, `COVER_W` x `COVER_H`: `renders/cover.<theme>.<hash>.webp`;
+ * - each Story campaign's background (#721), 16:10 at each of `STORY_WIDTHS`, in the campaign's theme:
+ *   `renders/story-<campaign>-<width>.<theme>.<hash>.webp` (`STORY`);
  * - `renders/sources.json`: the script's `VERSION` and, per render, the hashed model files it drew.
  *
- * Each run removes the renders of an earlier one. The hash is the first 10 hex digits of the file's SHA-256, as the models'
+ * Each run removes the renders of an earlier one; `--only story` draws the Story backgrounds alone and keeps the other renders
+ * (and their entries in `sources.json`) as they are, and `--only story-<campaign>` one campaign's. The hash is the first 10 hex digits of the file's SHA-256, as the models'
  * and tiles' (`vite/renderer-assets.ts` lists them in the manifest's `renders`). The pixels depend on the GPU and its driver,
  * so `--check` does not draw again: it fails when a render is missing or extra, a name's hash is not its file's, the
  * `VERSION` changed, or a model a render drew is no longer the manifest's (a model changed: render again). It needs no browser.
@@ -56,14 +59,51 @@ const COVER = [
   { key: "rfffrfffr", dx: 0, dy: 0, orientation: 2 },
   { key: "ffcfffcff", dx: 1, dy: 0, orientation: 1 },
 ];
+/**
+ * A Story card's background widths (16:10): the phone's card at DPR 3 (343 CSS px, one a row at 375; the carousel's is
+ * 86 % of that), and the tablet's and desktop's grid at DPR 2 (about 360 CSS px a card at most). The card picks by `srcset`.
+ */
+export const STORY_WIDTHS = [1040, 720] as const;
+/**
+ * The Story campaigns' backgrounds (#721), by campaign id, in its theme (`StoryCampaign.theme`: 0 Default, 1 Forest).
+ * - The Tutorial: a puzzle picture, a small board with one tile lifted off its cell, offset and turned a little, its shadow
+ *   on its cell's plate, as if about to drop into its slot. Outlines on, as the tile renders.
+ * - Open Country and Dark Forest: a whole board (`board.ts`: every cell a fitting tile, no edge, no void; Dark Forest's leans
+ *   to the plans with the most forest, the Forest set's showpiece) larger than the frame, seen low; no outlines, so
+ *   neighbouring tiles meet with no dark line; the depth of field (the page's, at build only): the far and near rows out of
+ *   focus, the middle ones sharp.
+ */
+const STORY = [
+  {
+    campaign: 1,
+    theme: 0,
+    spec: { board: { columns: 4, rows: 3, seed: 7 }, zoom: 3.5, polar: 50, azimuth: 28, lift: { cell: { dx: 1, dy: -1 }, height: 1.6, dx: -0.42, dz: 0.28, yaw: 12 } },
+  },
+  {
+    campaign: 2,
+    theme: 0,
+    spec: { board: { columns: 11, rows: 17, seed: 2 }, zoom: 3.1, polar: 66, azimuth: 24, outlines: false, depthOfField: { focus: 0.56, sharp: 0.16, far: 6, near: 9 } },
+  },
+  {
+    campaign: 3,
+    theme: 1,
+    spec: { board: { columns: 11, rows: 17, seed: 3, forest: 3 }, zoom: 3.1, polar: 66, azimuth: 24, outlines: false, depthOfField: { focus: 0.56, sharp: 0.16, far: 6, near: 9 } },
+  },
+] as const;
+const storyName = (campaign: number, width: number) => `story-${campaign}-${width}`;
+/** `--only story` (or `story-<campaign>`): the Story backgrounds alone (those of one campaign), the other renders kept. */
+const ONLY = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1]! : null;
+if (ONLY && !/^story(-\d+)?$/.test(ONLY)) throw new Error(`render-tiles: --only takes story or story-<campaign>, not ${ONLY}`);
+const STORY_ONLY = ONLY != null;
+
 /** The zooms that frame one tile and the cover at the page's fixed distance. */
 const TILE_ZOOM = 7.8;
 const COVER_ZOOM = 3.6;
 /** The zoom that fills the top-down square with the tile, its edge just inside. */
 const TOP_ZOOM = 12;
 
-/** A render's name: a plan key (`-top` for the top-down one) or `cover`, the theme id, then the hash. */
-export const RENDER = /^([a-z]{9}(?:-top)?|cover)\.(\d+)\.([0-9a-f]{10})\.webp$/;
+/** A render's name: a plan key (`-top` for the top-down one), `cover` or a Story background, the theme id, then the hash. */
+export const RENDER = /^([a-z]{9}(?:-top)?|cover|story-\d+-\d+)\.(\d+)\.([0-9a-f]{10})\.webp$/;
 
 interface Sources {
   version: number;
@@ -79,11 +119,15 @@ async function currentModels(): Promise<{ models: Record<string, string>; themes
   return rendererManifest();
 }
 
-/** The renders a run writes: theme 0 and each theme of the manifest, each with its 19 plans, their top-down renders and its cover. */
+/**
+ * The renders a run writes: theme 0 and each theme of the manifest, each with its 19 plans, their top-down renders and its
+ * cover; then each Story campaign's background at each width.
+ */
 function expected(models: Record<string, string>, themes: Record<string, Record<string, string[]>>): Array<{ theme: number; name: string }> {
   const ids = [0, ...Object.keys(themes).map(Number)].sort((a, b) => a - b);
   const keys = Object.keys(models).sort();
-  return ids.flatMap((theme) => [...keys, ...keys.map((key) => `${key}-top`), "cover"].map((name) => ({ theme, name })));
+  const tiles = ids.flatMap((theme) => [...keys, ...keys.map((key) => `${key}-top`), "cover"].map((name) => ({ theme, name })));
+  return [...tiles, ...STORY.flatMap(({ campaign, theme }) => STORY_WIDTHS.map((width) => ({ theme, name: storyName(campaign, width) })))];
 }
 
 async function check(): Promise<void> {
@@ -129,7 +173,8 @@ async function run(): Promise<void> {
     root: join(HERE, "render-tiles"),
     publicDir: join(APP, "public"),
     plugins: [rendererAssets()],
-    server: { host: "127.0.0.1", port: 0, strictPort: false },
+    // No reload while it draws: an edit of the page mid-run would navigate away from a render.
+    server: { host: "127.0.0.1", port: 0, strictPort: false, hmr: false, watch: null },
     logLevel: "warn",
   });
   await server.listen();
@@ -137,21 +182,28 @@ async function run(): Promise<void> {
   if (!address) throw new Error("render-tiles: the server has no local address");
   // A GPU when the machine gives headless Chromium one (ANGLE on Metal on macOS); SwiftShader otherwise.
   const browser = await chromium.launch({ headless: true, args: ["--ignore-gpu-blocklist", "--enable-gpu", ...(process.platform === "darwin" ? ["--use-angle=metal"] : [])] });
-  const written: Sources = { version: VERSION, files: {} };
+  const kept: Sources | null = STORY_ONLY && existsSync(SOURCES) ? (JSON.parse(readFileSync(SOURCES, "utf8")) as Sources) : null;
+  if (STORY_ONLY && kept?.version !== VERSION) throw new Error("render-tiles: --only story keeps renders of another version: run the whole script");
+  const story = (name: string) => name.startsWith(ONLY === "story" ? "story-" : `${ONLY}-`);
+  const written: Sources = { version: VERSION, files: kept ? Object.fromEntries(Object.entries(kept.files).filter(([file]) => !story(file.slice("renders/".length)))) : {} };
   let bytes = 0;
   try {
     const page = await browser.newPage({ viewport: { width: COVER_W * 2, height: COVER_W * 2 }, deviceScaleFactor: 1 });
     page.on("pageerror", (e) => console.error(`page: ${e.message}`));
+    page.on("console", (m) => (m.type() === "error" || m.type() === "warning") && console.error(`page ${m.type()}: ${m.text()}`));
     await page.goto(address);
     await page.waitForFunction(() => "paved" in window);
     const gl = await page.evaluate(() => (window as unknown as { paved: { setup(): Promise<{ renderer: string | null; software: boolean }> } }).paved.setup());
     console.log(`WebGL: ${gl.software ? "software (SwiftShader)" : "GPU"}`);
     mkdirSync(OUT, { recursive: true });
-    for (const name of readdirSync(OUT)) unlinkSync(join(OUT, name));
+    for (const name of readdirSync(OUT)) if (!STORY_ONLY || story(name)) unlinkSync(join(OUT, name));
     for (const { theme, name } of expected(models, themes)) {
+      if (STORY_ONLY && !story(name)) continue;
       const top = name.endsWith("-top");
-      const spec =
-        name === "cover"
+      const [, campaign, width] = (/^story-(\d+)-(\d+)$/.exec(name) ?? []).map(Number);
+      const spec = campaign
+        ? { theme, tiles: [], width, height: (width! * 10) / 16, ...STORY.find((s) => s.campaign === campaign)!.spec }
+        : name === "cover"
           ? { theme, tiles: COVER, width: COVER_W, height: COVER_H, zoom: COVER_ZOOM }
           : top
             ? { theme, tiles: [{ key: name.slice(0, -"-top".length), dx: 0, dy: 0, orientation: 1 }], width: TOP, height: TOP, zoom: TOP_ZOOM, top: true }
