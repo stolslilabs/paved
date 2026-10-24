@@ -307,7 +307,14 @@ function LayoutView({
             ? "Every slot is used: lift a tile to move it, or send it back to free one."
             : "Choose a tile in the inventory, or tap a placed tile to lift it.";
 
-  const title = own ? "My village" : `${village.owner}'s village`;
+  // An owner without a name is a short address: it stays whole on its line, the title wrapping before "village" only.
+  const title = own ? (
+    "My village"
+  ) : (
+    <>
+      <span className="whitespace-nowrap">{village.owner}&apos;s</span> village
+    </>
+  );
   return (
     <div className="flex min-h-dvh flex-col bg-background desktop:h-dvh desktop:overflow-hidden">
       <TopBar
