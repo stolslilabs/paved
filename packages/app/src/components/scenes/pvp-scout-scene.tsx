@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import { starPoints, type CrownStakes, type PvpPlayer, type PvpVillage } from "../../lib/pvp-rules";
+import { STAR_PERCENTS, type CrownStakes, type PvpPlayer, type PvpVillage } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Cobbles } from "../elements/cobbles";
@@ -13,6 +13,16 @@ import { StarRow } from "../elements/star-row";
 import { BoardMap } from "../containers/board-map";
 import { PvpPlayerRow } from "../containers/pvp-player-row";
 
+/** PvP v2's attack deck (#740): ceil(1.15 x S) tiles, the defender's placed tiles and extras from the base deck. */
+export interface ScoutDeck {
+  /** The defender's slots, S = 8 + level. */
+  slots: number;
+  /** The tiles the attack will draw: ceil(1.15 x S). */
+  size: number;
+  /** Of them, the defender's placed tiles (the starter is not drawn); the rest are extras. */
+  placed: number;
+}
+
 export interface PvpScoutSceneProps {
   defender: PvpPlayer;
   /** The defender's village: its territory, its tiles, its score (the target). */
@@ -22,6 +32,13 @@ export interface PvpScoutSceneProps {
   tilesToPlay?: number;
   /** An NPC village (#643): its Story level's board, open, with no territory. */
   openBoard?: boolean;
+  /**
+   * PvP v2 (#740): the deck the attack will have, sized on the defender's slots, played on an unbounded board (no territory
+   * drawn). v1's defender's tiles on their cells when left out.
+   */
+  deck?: ScoutDeck | null;
+  /** The star marks in whole percent of the village's score: v1's 70 / 85 / 110 % when left out, v2's 80 / 90 / 100 %. */
+  starPercents?: readonly number[];
   /** "Next": another village for `price` Cobbles; `balance` is the attacker's. */
   next: { price: number; balance: number };
   /** The attacker's own shield, while it lasts (seconds since the epoch): attacking drops it (owner decision). */
@@ -52,7 +69,10 @@ export interface PvpScoutSceneProps {
  */
 export function PvpScoutScene(props: PvpScoutSceneProps) {
   const { defender, village, stakes, next, now } = props;
-  const marks = starPoints(village.score);
+  const percents = props.starPercents ?? STAR_PERCENTS;
+  // The least whole score of each mark, in integers.
+  const marks = percents.map((p) => Math.floor((p * village.score + 99) / 100));
+  const deck = props.deck ?? null;
   const shielded = props.shieldEndsAt != null && props.shieldEndsAt > now;
   const short = next.balance < next.price;
   const busy = props.pending != null;
@@ -62,7 +82,7 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
     <div className="relative flex h-dvh min-h-[36rem] flex-col overflow-hidden bg-board text-foreground">
       <div data-scout-board className="relative min-h-0 flex-1 desktop:absolute desktop:inset-0">
         {props.canvas ?? (
-          <BoardMap tiles={[...village.tiles]} territory={village.cells} highlight={false} fit className="p-3 tablet:p-6 desktop:pt-20 desktop:pr-[27rem]" />
+          <BoardMap tiles={[...village.tiles]} territory={deck ? undefined : village.cells} highlight={false} fit className="p-3 tablet:p-6 desktop:pt-20 desktop:pr-[27rem]" />
         )}
       </div>
 
@@ -88,6 +108,13 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
             <span className="text-xs text-muted-foreground">Village score</span>
             <span className="numeric text-3xl font-semibold leading-none">{formatInteger(village.score)}</span>
           </div>
+          {deck ? (
+            <span data-deck className="text-right text-xs text-muted-foreground">
+              <span className="numeric text-sm font-semibold text-foreground">{deck.size}</span> tiles to play
+              <br />
+              <span className="numeric">{deck.slots}</span> slots, on an open board
+            </span>
+          ) : (
           <span className="text-right text-xs text-muted-foreground">
             <span className="numeric">{props.tilesToPlay ?? village.tiles.length}</span> tiles to play
             <br />
@@ -99,6 +126,7 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
               </>
             )}
           </span>
+          )}
         </div>
 
         <ul aria-label="Stars" className="grid grid-cols-3 gap-2">
@@ -114,7 +142,15 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
           <p className="flex flex-wrap items-center gap-x-1.5">
             No star: you lose <Crowns value={-stakes.loss} signed size="sm" />
           </p>
-          <p>You play the defender's tiles, drawn at random, on their cells.</p>
+          {deck ? (
+            <p>
+              You play the village's <span className="numeric">{deck.placed}</span> tiles and{" "}
+              <span className="numeric">{Math.max(0, deck.size - deck.placed)}</span> from the base deck, shuffled. You see the tile in
+              hand and the next two.
+            </p>
+          ) : (
+            <p>You play the defender's tiles, drawn at random, on their cells.</p>
+          )}
         </div>
 
         {shielded && (

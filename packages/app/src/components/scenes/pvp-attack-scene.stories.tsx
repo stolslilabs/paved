@@ -94,7 +94,7 @@ function Attack3D({ settings, ...args }: PvpAttackSceneProps & { settings: Rende
   return (
     <PvpAttackScene
       {...args}
-      canvas={<PvpAttackBoard territory={args.territory} tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
+      canvas={<PvpAttackBoard territory={args.territory ?? []} tiles={args.tiles} slots={args.slots} ghost={args.ghost} bubble={args.bubble} basePath={APP_ASSETS} settings={settings} onCellClick={args.onSlotClick} />}
       renderHandStack={(v) => <StackView {...v} basePath={APP_ASSETS} skins={args.skins} />}
     />
   );
