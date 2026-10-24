@@ -12,12 +12,19 @@ import { ProfileHost } from "./profile-host";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
 import { StaleChunkGate } from "./stale-chunk-gate";
+import { useTabSwipeEnd } from "./tab-swipe";
 
 /** The boot screen: also the router's `hydrateFallbackElement` and every route's `Suspense` fallback (section 6.1). */
 export const bootScreen = <LoadingScene progress={null} />;
 
 /** The music volume from the player's pause (0) or resume, stored like a move of the slider. */
 const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));
+
+/** A leaf, so that the view transition's state re-renders it alone: it removes the swipe's mark when the swipe ends (TAB-SWIPE, issue 726). */
+function TabSwipeEnd() {
+  useTabSwipeEnd();
+  return null;
+}
 
 /** The board routes: the scene fills the viewport (`h-dvh`), and it reads neither the balances nor the avatar. */
 const BOARD_PATHS = new Set(["game/:gameId", "training", "story/:campaign/:level"]);
@@ -52,6 +59,7 @@ export function RootLayout() {
       <MockMarkProvider value={MOCKED && page !== null && MOCKED_PAGES.has(page.path)}>
         <HistoryTracker>
           <StaleChunkGate />
+          <TabSwipeEnd />
           {/* A board shows no balances and no avatar: it reads neither (a board is the heaviest page, and its tests the most timing-bound). */}
           {onBoard ? pages : showsNoBalance(balances) ? <ProfileHost>{pages}</ProfileHost> : (
             <BalancesHost show={balances}>

@@ -62,7 +62,7 @@ Paths below are relative to
   `--input-surface` inside cards and dialogs; do not override it.
 - Mobile first, written without a prefix; each named breakpoint adds. The names are `mobile` (360), `tablet` (640),
   `desktop` (1024) and `wide` (1440), beside Tailwind's defaults. Pattern: `desktop:flex-row`, `tablet:max-w-2xl`.
-  What changes at each (section 3.4): mobile shows tab labels, tablet two columns, desktop turns the bottom
+  What changes at each (section 3.4): mobile shows the current tab's label (TAB-SWIPE), tablet two columns, desktop turns the bottom
   navigation into a left rail (`containers/app-nav.tsx`), wide caps content at 1200 px except the board.
 - Full-height screens: `min-h-dvh`. Notches: `env(safe-area-inset-*)`, as `app-nav.tsx` does. Touch targets 44 px or more.
 - Feels like an app (P-69): text is not selectable by default (`select-none` on `body`, `styles/theme.css`). Only a copy
