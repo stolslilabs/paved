@@ -159,7 +159,7 @@ function OfferCard({ offer, held, cobbles, buying, busy, tileArt, onBuy }: { off
       data-bought={offer.bought || undefined}
       className={cn("flex items-center gap-3 rounded-xl border border-border bg-card p-3 desktop:flex-col desktop:items-stretch desktop:p-4", offer.bought && "opacity-70")}
     >
-      <span className="block size-20 shrink-0 desktop:aspect-square desktop:size-auto desktop:w-full">
+      <span className="block size-14 shrink-0 mobile:size-20 desktop:aspect-square desktop:size-auto desktop:w-full">
         <TileChip plan={offer.plan} art={tileArt} className="size-full rounded-[3px] border-0" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -174,7 +174,7 @@ function OfferCard({ offer, held, cobbles, buying, busy, tileArt, onBuy }: { off
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1 desktop:items-stretch">
         {offer.bought ? (
-          <span className="flex items-center gap-1 text-xs text-success">
+          <span className="flex items-center gap-1 text-right text-xs text-success">
             <Icon name="circle-check" size="xs" /> Bought today
           </span>
         ) : (

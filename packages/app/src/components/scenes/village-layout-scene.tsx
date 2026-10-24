@@ -295,7 +295,7 @@ function LayoutView({
 
   const title = own ? "My village" : `${village.owner}'s village`;
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+    <div className="flex min-h-dvh flex-col bg-background desktop:h-dvh desktop:overflow-hidden">
       <TopBar
         title={editing ? "Edit layout" : title}
         onBack={back}
@@ -345,7 +345,9 @@ function LayoutView({
             tileArt={tileArt}
             onTile={lift}
             onPlate={choosePlate}
-            className="min-h-0 flex-1"
+            // On a phone the board takes what the header and the editor leave (the page scrolls only on a short screen); from
+            // desktop it fills its card.
+            className={cn("flex-none desktop:min-h-0 desktop:flex-1", editing ? "h-[max(14rem,calc(100dvh-30rem))]" : "h-[max(14rem,calc(100dvh-14rem))]", "desktop:h-auto")}
           />
           {own && saved && !editing && (
             <div className="border-t border-border px-4 py-2">
@@ -415,8 +417,8 @@ function LayoutView({
                 <InventoryTray tray={tray} held={hand?.from === "inventory" ? hand.plan : null} full={full} busy={saving} tileArt={tileArt} onSelect={choosePlan} />
                 <div className="flex items-center gap-2">
                   <HoldButton label="Hold to reset all: the starter alone, every tile back in the inventory" title="Hold to reset all" icon="rotate" tone="destructive" holdMs={holdMs} disabled={saving || draft.length <= 1} onComplete={reset} />
-                  <Button variant="outline" className="flex-1" onClick={discard} disabled={!changed || saving}>
-                    Discard changes
+                  <Button variant="outline" className="flex-1" onClick={discard} disabled={!changed || saving} aria-label="Discard changes">
+                    Discard
                   </Button>
                   <Button
                     className="flex-1"

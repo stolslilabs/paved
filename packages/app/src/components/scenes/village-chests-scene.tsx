@@ -177,7 +177,7 @@ export function VillageChestsScene({
                         <ChestBadge rank={chest.rank} size="sm" />
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="text-sm font-semibold">{CHEST_NAME[chest.rank]}</span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {chest.source === "pvp" ? "PvP" : "Story"} · {chest.label}
                           </span>
                         </div>
