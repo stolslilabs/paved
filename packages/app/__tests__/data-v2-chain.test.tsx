@@ -12,7 +12,11 @@ import { fakeSources, renderData } from "./data-fakes";
 // every name, so the hooks' probes find functions; the read refuses with `not-configured`, and the hooks answer null.
 
 const chain = vi.hoisted(() => ({ views: null as unknown }));
-vi.mock("../src/data/chain-client", () => ({ chainClient: () => ({ views: chain.views, events: {} }) }));
+// The chain client itself needs a network: its reads go to `chain.views`, through the module's own `readOf`.
+vi.mock("../src/data/chain-client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/data/chain-client")>();
+  return { ...actual, chainRead: (part: (c: never) => object, key: PropertyKey, args: unknown[]) => actual.readOf(part({ views: chain.views, events: {} } as never), key, args) };
+});
 
 describe("PvP v2 through the app's lazy views, on a chain without the v2 reads", () => {
   it("answers null for the village, the chests, the shop and the attack, with no error", async () => {

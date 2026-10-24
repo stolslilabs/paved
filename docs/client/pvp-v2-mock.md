@@ -64,8 +64,8 @@ Choices made where the decisions leave room (each can be reversed by changing on
 
 The interfaces (`FreeVillageViews`, `FreeVillageWrites`, `AttackV2Views`, `AttackV2Writes`) are in `free-village.ts` and
 `free-attack.ts`; a refusal is a `V2RefusedError` with its reason. On the chain path (before step 3) the reads answer null
-and the writes have no signer, as for any view a deployment lacks: the app's lazy views (`routes/sources.ts`) refuse a read
-the chain client does not have with `not-configured`, which the hooks turn into null (`__tests__/data-v2-chain.test.tsx`).
+and the writes have no signer, as for any view a deployment lacks: the app's lazy views (`routes/sources.ts`, `chainRead` of
+`data/chain-client.ts`) refuse a read the chain client does not have with `not-configured`, which the hooks turn into null (`__tests__/data-v2-chain.test.tsx`).
 `__tests__/data-mock-v2.test.tsx` plays the loop from a fresh device.
 
 ## Not in this step
