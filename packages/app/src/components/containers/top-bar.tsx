@@ -16,6 +16,11 @@ export interface TopBarProps {
    * strip under the title below `desktop`, the bar's right side from it.
    */
   balances?: boolean;
+  /**
+   * The page draws the player's Cobbles itself (the own village, in `end`): the bar leaves them out at every width, so they
+   * never show twice (#720); below `desktop` it then has no strip.
+   */
+  ownCobbles?: boolean;
   className?: string;
 }
 
@@ -45,9 +50,9 @@ const px = (value: string) => Number.parseFloat(value) || 0;
  * two lines at most.
  * A bar too narrow to centre its title between two such sides keeps the title readable instead (`sideWidth`).
  */
-export function TopBar({ title, onBack, end, balances = true, className }: TopBarProps) {
+export function TopBar({ title, onBack, end, balances = true, ownCobbles = false, className }: TopBarProps) {
   const marked = useMockMarked();
-  const strip = useBalancesStrip() && balances;
+  const strip = useBalancesStrip() && balances && !ownCobbles;
   const bar = useRef<HTMLElement>(null);
   // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds, while the bar has the room.
   useLayoutEffect(() => {
@@ -97,7 +102,7 @@ export function TopBar({ title, onBack, end, balances = true, className }: TopBa
       </span>
       <span className="flex justify-end">
         <span className="flex w-max shrink-0 items-center justify-end gap-2">
-          {balances && <BalancesSlot layout="rail" className="hidden desktop:flex" />}
+          {balances && <BalancesSlot layout="rail" noCobbles={ownCobbles} className="hidden desktop:flex" />}
           {end}
         </span>
       </span>

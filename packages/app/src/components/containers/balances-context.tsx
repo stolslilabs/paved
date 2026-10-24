@@ -5,12 +5,11 @@ import type { BalancesProps } from "./balances";
 
 /**
  * Which balances a page's header shows (HEADER-BALANCES, #720; the rule by route is `routes/header-balances.ts`): `phone`, the
- * Cobbles' plate below `desktop`; `desktop`, every balance (`all`), every one but the Cobbles where the page draws its own
- * (`no-cobbles`), or none.
+ * Cobbles' plate below `desktop`; `desktop`, every balance (`all`) or none.
  */
 export interface HeaderBalances {
   phone: boolean;
-  desktop: "all" | "no-cobbles" | "none";
+  desktop: "all" | "none";
 }
 
 /** A provider that names no rule (stories, tests): every balance the header can show. */
@@ -38,16 +37,17 @@ const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balan
 /**
  * The balances where a page puts them: `pill` in a header below `desktop` (the Cobbles), `rail` at the end of the navigation's
  * header from it. The page's rule says whether each shows; the place says at which widths (`className`: `desktop:hidden`,
- * `hidden desktop:flex`), so a flow's top bar can choose its own. The space is held while the chunk arrives, so nothing moves.
+ * `hidden desktop:flex`), so a flow's top bar can choose its own. `noCobbles`: the page draws its own Cobbles plate, so the
+ * slot leaves them out (the pill is then empty). The space is held while the chunk arrives, so nothing moves.
  */
-export function BalancesSlot({ layout, className }: { layout: BalancesProps["layout"]; className?: string }) {
+export function BalancesSlot({ layout, noCobbles, className }: { layout: BalancesProps["layout"]; noCobbles?: boolean; className?: string }) {
   const value = useContext(BalancesContext);
   const show = useHeaderBalances();
-  if (!value || !show || (layout === "pill" ? !show.phone : show.desktop === "none")) return null;
+  if (!value || !show || (layout === "pill" ? !show.phone || noCobbles : show.desktop === "none")) return null;
   const hold = <Skeleton className={cn("h-8 rounded-full", layout === "pill" ? "w-24" : "w-80", className)} />;
   return (
     <Suspense fallback={hold}>
-      <Balances {...value} layout={layout} noCobbles={show.desktop === "no-cobbles"} className={className} />
+      <Balances {...value} layout={layout} noCobbles={noCobbles} className={className} />
     </Suspense>
   );
 }

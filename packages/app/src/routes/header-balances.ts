@@ -7,14 +7,13 @@ const COBBLES: HeaderBalances = { phone: true, desktop: "all" };
 const DESKTOP: HeaderBalances = { phone: false, desktop: "all" };
 /** None at any width: the game scenes. */
 const NONE: HeaderBalances = { phone: false, desktop: "none" };
-/** A scene that draws the Cobbles itself, at every width: the header adds the other balances from `desktop`, never the Cobbles. */
-const OWN_COBBLES: HeaderBalances = { phone: false, desktop: "no-cobbles" };
 
 /**
  * HEADER-BALANCES (#720, the owner's table): which balances a page's header shows, by route and width, the one place that says
  * it. On a phone no currency but the Cobbles, and those only where they move: Home, and the pages where Cobbles are bought,
  * earned or spent. From `desktop` every balance outside the game scenes. The game scenes (the boards, the ends of a game) show
- * none. The Cobbles never show twice: a scene with its own Cobbles plate (the village) gets none from its header.
+ * none. The Cobbles never show twice: a scene that draws its own Cobbles plate (the player's own village) tells its bar
+ * (`TopBar` `ownCobbles`), which then leaves them out at every width; a visit to another's village keeps the header's.
  * Not routed yet, so absent here, the PvP scenes take the same rule in their own bars: the attack none; the scout and the
  * result their own Cobbles in place at both widths and none in their bars (the result's `TopBar` passes `balances={false}`);
  * the league and the defence log `DESKTOP` once routed.
@@ -26,8 +25,8 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "play/challenge": DESKTOP,
   cobbles: COBBLES,
   avatar: COBBLES,
-  village: OWN_COBBLES,
-  "village/:player": OWN_COBBLES,
+  village: COBBLES,
+  "village/:player": COBBLES,
   "game/:gameId": NONE,
   training: NONE,
   story: DESKTOP,
