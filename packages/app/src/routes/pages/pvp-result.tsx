@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { deckArt } from "../../components/containers/deck-sheet";
 import { toastError } from "../../components/containers/error-toast";
@@ -10,7 +11,7 @@ import { starsFor } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
 import { usePlayerStatus } from "../../data/indexer";
-import { usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
+import { pvpKeys, usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
 import { useTileArt } from "../../data/tile-art";
@@ -57,6 +58,12 @@ function Result({ id }: { id: number }) {
   const [taken, setTaken] = useState<{ plan: number | null; cobbles: number | null } | null>(null);
   const tileArt = deckArt(useTileRenders(RENDERER_ASSETS), useBoardSkins(me), useTileArt(RENDERER_ASSETS));
 
+  const client = useQueryClient();
+  /** Reads the attack's row and the attacker's state again (the indexer may have caught up). */
+  const retry = () => {
+    if (me) void client.invalidateQueries({ queryKey: pvpKeys.attackRow(me, id) });
+    void client.invalidateQueries({ queryKey: pvpKeys.all });
+  };
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
   const error = status.error ?? settled.error ?? defender.error;
   const target = last?.target ?? settled.data?.target;
@@ -64,8 +71,20 @@ function Result({ id }: { id: number }) {
   if (me === null) return <PvpSearchScene state="error" player={self} error="Connect to see your attack's result." onRetry={() => void wallet.connect()} onCancel={onBack} />;
   if (status.data === null) return <PvpSearchScene state="error" player={self} error="PvP is not on this network yet." onCancel={onBack} />;
   if (!status.data || !settled.data || !defender.data || target === undefined || score === undefined) {
-    const missing = settled.data === null && !status.isPending ? "This attack is not recorded yet: its result shows once the indexer has it." : (error?.message ?? null);
-    return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} />;
+    // Not the attacker's last attack: its target and defender are the indexer's row's. Read and absent (a cached receipt alone,
+    // the indexer behind), the result cannot show yet: said, with Retry, never an endless wait.
+    const unrecorded = status.data != null && !last && !settled.isPending && !settled.error && settled.data?.target === undefined;
+    const missing = settled.data === null || unrecorded ? "This attack is not recorded yet: its result shows once the indexer has it." : (error?.message ?? null);
+    return (
+      <PvpSearchScene
+        state={missing ? "error" : "searching"}
+        player={self}
+        error={missing}
+        errorDetail={error ? errorDetail(error) : undefined}
+        onRetry={missing ? retry : undefined}
+        onCancel={onBack}
+      />
+    );
   }
   const stars = settled.data.surrendered ? 0 : (settled.data.stars ?? starsFor(score, target));
   const offer = reward.data?.offer ?? null;

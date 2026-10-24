@@ -2,7 +2,7 @@ import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { ViewError } from "@paved/chain";
+import { IndexerError, ViewError } from "@paved/chain";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { queryClient } from "../src/lib/query-client";
@@ -222,6 +222,22 @@ describe("receipt-cached attacks and the shield's read", { timeout: slow(30_000)
     const bar = await screen.findByRole("group", { name: "Replay" }, WAIT);
     await userEvent.click(within(bar).getByRole("button", { name: "Next move" }));
     expect(within(bar).getByText(/^1\//)).toBeInTheDocument();
+  });
+
+  it("an older attack's result with a cached receipt and no indexer row says so, with Retry, never waits", async () => {
+    await open("/pvp/result/1", async (s, me) => {
+      await attacked(s, me);
+      await attacked(s, me);
+      const row = s.ledger.attacksOf(me, "attacker").find((a) => a.id === 1)!;
+      queryClient.setQueryData(pvpKeys.settled(me, 1), { score: row.score, stars: row.stars, surrendered: row.surrendered, gained: row.gained, lost: row.lost });
+      // The indexer has not seen attack 1 end yet: its row is not found.
+      const indexer = s.sources.indexer;
+      s.sources.indexer = new Proxy(indexer, {
+        get: (t, k) => (k === "playerAttack" ? () => Promise.reject(new IndexerError("not-found", "attack not found", { httpStatus: 404 })) : Reflect.get(t, k, t)),
+      });
+    });
+    expect(await screen.findByText(/This attack is not recorded yet/, {}, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Search again/ })).toBeInTheDocument();
   });
 
   it("/pvp/defence: a failed shield read is told, never shown as no shield", async () => {

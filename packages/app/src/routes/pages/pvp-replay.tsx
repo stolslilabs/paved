@@ -84,7 +84,7 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
     // indexer behind), the replay cannot be built yet.
     const unrecorded = status.data != null && !last && !settled.isPending && !settled.error && settled.data?.target === undefined;
     const missing = read.data === null || unrecorded ? "This attack cannot be replayed: it is not recorded on this network." : (error?.message ?? null);
-    return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} onRetry={error ? retry : undefined} />;
+    return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} onRetry={error || unrecorded ? retry : undefined} />;
   }
   const tiles = step.run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y }));
   return (
