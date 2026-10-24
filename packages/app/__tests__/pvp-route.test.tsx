@@ -86,9 +86,11 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     const s = await open("/pvp/league");
     expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
+    // The search draws as the page opens: the village found (held `FOUND_MS`, 1.2 s), then its scout. The wait starts before
+    // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks.
+    const found = screen.findByRole("heading", { name: "Village found" }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Attack/ }));
-    // The search draws as the page opens: the village found, then its scout.
-    expect(await screen.findByRole("heading", { name: "Village found" }, WAIT)).toBeInTheDocument();
+    expect(await found).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
     const match = await s.ledger.pvpMatch(s.me);
     const rival = mockRival(match.opponent)!;

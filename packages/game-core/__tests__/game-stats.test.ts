@@ -36,7 +36,9 @@ describe("gameStats on the parity fixture", () => {
 
       // The closings are the moves' `Scored` events in order, each with the tile that closed it.
       const events = moves.flatMap((m) => m.result.scored.map((s) => ({ ...s, tileId: m.result.tileId })));
-      expect(stats.closings.map(({ tiles: _, ...c }) => c)).toEqual(events);
+      expect(stats.closings.map(({ tiles: _, areas: __, ...c }) => c)).toEqual(events);
+      // The moves' closed structures, with their areas (#722), are the game's closings.
+      expect(stats.closings).toEqual(moves.flatMap((m) => m.result.closed));
       for (const [index, move] of game.moves.entries()) {
         if (move.scored) expect(moves[index]!.scored).toEqual(move.scored);
       }

@@ -105,6 +105,7 @@ export {
   demolitionPrice,
   demolitionPayable,
   MAX_DEMOLITION_PRICE,
+  ALL_AREAS,
 } from "./engine";
 export type {
   EngineConfig,
@@ -115,6 +116,8 @@ export type {
   PlacedTile as EnginePlacedTile,
   Counters as EngineCounters,
   ClosedStructure,
+  ClosedAreas,
+  TileAreas,
   OpenStructure,
   GameStats,
   CategoryStats,

@@ -53,6 +53,9 @@ with `docs/`, `scripts/` or `packages/`.
 - The placement effects draw through the same tick: `TileRenderer.update` reports `animating` while a plate eases, the
   confirm fades, or a tile is pending (its opacity pulse, #681: every frame while it pulses, none under reduced motion);
   with none of these the board is back to render on demand.
+- The **closed structures** (CLOSE-SHINE, #722, `core/closed-structures.ts`, `GameScene.setClosedStructures`) draw through the
+  same tick: `TileRenderer.update` reports `animating` while a structure pulses or a sweep crosses one, and for one frame after;
+  between sweeps, nothing. Their term reads FEATURE-HL's labels (`LABEL_GLSL`) and never dims the board (doc 5.11).
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel

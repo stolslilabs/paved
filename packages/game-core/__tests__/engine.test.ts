@@ -88,7 +88,7 @@ describe("engine draw", () => {
         current = poseidon(current, count);
       }
     }
-  });
+  }, 60_000); // Whole games of draws: well over the default 5 s on a loaded machine (a load average of 30 and more).
 
   it("draws the goldens' first tiles from their seeds", () => {
     // daily_deck (day 3) and daily_full_deck (day 10): real draws, golden/daily.cairo and full_deck.cairo
