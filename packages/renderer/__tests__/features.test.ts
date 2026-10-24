@@ -818,15 +818,19 @@ describe("one structure lit across its tiles (setLitAreas)", () => {
     // Its own switch: the feature highlight (and its dimming) stays off; the models are labelled all the same.
     expect([below.uniforms.uClosedOn.value, below.uniforms.uFeatureOn.value, below.uniforms.uStructureOn.value]).toEqual([1, 0, 0]);
     expect((below.uniforms.uLabelMap.value as THREE.DataTexture).image.width).toBeGreaterThan(1);
-    expect(below.shader.fragmentShader).toContain("vec4 closedSlots = texelFetch(uClosedMap, ivec2(closedCell.x * 9 + labelArea - 1, closedCell.y), 0);");
+    expect(below.shader.fragmentShader).toContain("vec2 closedRun = texelFetch(uClosedMap, ivec2(closedCell.x * 9 + labelArea - 1, closedCell.y), 0).rg;");
     expect(below.shader.fragmentShader).toContain("uShineColor * uShineStrength * closedShine");
     expect(below.shader.vertexShader).toContain("vClosedBoard = (uBoardInverse * modelMatrix * vec4(position, 1.0)).xyz;");
     // The map holds the city's area at each of its cells (the grid's z is the contracts' y turned).
     const rect = (below.uniforms.uClosedRect.value as THREE.Vector4).toArray();
     expect(rect).toEqual([0, -1, 1, 2]);
     const map = (below.uniforms.uClosedMap.value as THREE.DataTexture).image as { width: number; data: Float32Array };
-    // RGBA: four structures' slots per area.
-    const first = (area: number) => map.data[((0 - rect[1]!) * map.width + area - 1) * 4];
+    // RG per area: its run in the list (start, count); the city is index 1.
+    const list = (below.uniforms.uClosedList.value as THREE.DataTexture).image as { data: Float32Array };
+    const first = (area: number) => {
+      const o = ((0 - rect[1]!) * map.width + area - 1) * 2;
+      return map.data[o + 1] ? list.data[map.data[o]!] : 0;
+    };
     expect(first(areaOf(PlanType.FFCFFFCFF, SpotType.North))).toBe(1);
     expect(first(areaOf(PlanType.FFCFFFCFF, SpotType.South))).toBe(0);
 

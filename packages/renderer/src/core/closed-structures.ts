@@ -26,8 +26,8 @@ export interface ClosedStructuresOptions {
   pulse?: boolean;
 }
 
-/** The structures one area of a tile can show at once (the channels of a texel of `uClosedMap`). */
-export const CLOSED_SLOTS = 4;
+/** The structure indexes a row of `uClosedList` holds. */
+export const CLOSED_LIST_WIDTH = 256;
 
 /** The tallest tile's height, world units (`TALLEST_TILE_HEIGHT`): a structure's box for its extent across the sweep. */
 const STRUCTURE_HEIGHT = 2.625;
@@ -46,20 +46,22 @@ interface Tracked {
  * once (if it closed while the board was shown), then shines for the rest of the game, on its own clock. The tile shader reads
  * it (`CLOSED_GLSL`) from two maps:
  *
- * - `uClosedMap`: one RGBA float texel per area of each cell of the smallest rectangle that holds the closed tiles (9 a cell,
- *   area `a` at `x * 9 + a - 1`), the indexes (from 1) of up to `CLOSED_SLOTS` structures that hold it, 0 for none;
+ * - `uClosedMap`: one RG float texel per area of each cell of the smallest rectangle that holds the closed tiles (9 a cell,
+ *   area `a` at `x * 9 + a - 1`): where its run of structures starts in `uClosedList`, and how many (0 for none);
+ * - `uClosedList`: the runs, one float texel per structure index (from 1), `CLOSED_LIST_WIDTH` a row;
  * - `uClosedData`: two texels per structure: its clock (pulse start, shine start, interval, all in seconds on `uClosedTime`'s
  *   clock, and whether it pulses) and its extent across the sweep.
  *
- * A (tile, area) held by several structures (a wonder's tiles count whole, so a road on one is held by both) draws each on its
- * own clock: each pulses and sweeps it in its turn, the brightest winning where two overlap. Past `CLOSED_SLOTS` (a tile among
- * more than three wonders' rings with a structure of its own), the earliest are left out. The maps are built again only when the
+ * A (tile, area) held by several structures (a wonder's tiles count whole, so a road on one is held by both, and the rings of
+ * wonders near each other overlap) draws every one of them on its own clock, however many: each pulses and sweeps it in its
+ * turn, the brightest winning where two overlap. None is ever left out. The maps are built again only when the
  * structures, their cells or the settings change; between sweeps nothing moves and no frame is asked for (`update`).
  */
 export class ClosedStructuresLayer {
   readonly uniforms = {
     uClosedOn: { value: 0 },
-    uClosedMap: { value: emptyTexture(THREE.RGBAFormat, CLOSED_SLOTS) },
+    uClosedMap: { value: emptyTexture(THREE.RGFormat, 2) },
+    uClosedList: { value: emptyTexture(THREE.RedFormat, 1) },
     uClosedRect: { value: new THREE.Vector4(0, 0, 0, 0) },
     uClosedData: { value: emptyTexture(THREE.RGBAFormat, 4) },
     uClosedTime: { value: 0 },
@@ -175,9 +177,11 @@ export class ClosedStructuresLayer {
     const u = this.uniforms;
     const all = placed.flatMap((p) => p.cells);
     u.uClosedMap.value.dispose();
+    u.uClosedList.value.dispose();
     u.uClosedData.value.dispose();
     if (!all.length) {
-      u.uClosedMap.value = emptyTexture(THREE.RGBAFormat, CLOSED_SLOTS);
+      u.uClosedMap.value = emptyTexture(THREE.RGFormat, 2);
+      u.uClosedList.value = emptyTexture(THREE.RedFormat, 1);
       u.uClosedData.value = emptyTexture(THREE.RGBAFormat, 4);
       u.uClosedRect.value.set(0, 0, 0, 0);
       return;
@@ -185,22 +189,18 @@ export class ClosedStructuresLayer {
     const [minX, minZ] = [Math.min(...all.map((c) => c[0])), Math.min(...all.map((c) => c[1]))];
     const width = Math.max(...all.map((c) => c[0])) - minX + 1;
     const depth = Math.max(...all.map((c) => c[1])) - minZ + 1;
-    const map = new Float32Array(width * 9 * depth * CLOSED_SLOTS);
+    // Each area's structures, in closing order, then laid out as runs in the list.
+    const holders = new Map<number, number[]>();
     const data = new Float32Array(placed.length * 2 * 4);
     const axis = sweepAxis(shine.angle);
     placed.forEach(({ tracked, cells: at }, i) => {
       for (const [x, z, mask] of at) {
         for (let area = 1; area <= 9; area++) {
           if (!(mask & (1 << (area - 1)))) continue;
-          const o = ((z - minZ) * width * 9 + (x - minX) * 9 + area - 1) * CLOSED_SLOTS;
-          // The first free slot; all full, the earliest goes and the later ones move up.
-          let slot = 0;
-          while (slot < CLOSED_SLOTS && map[o + slot]) slot++;
-          if (slot === CLOSED_SLOTS) {
-            map.copyWithin(o, o + 1, o + CLOSED_SLOTS);
-            slot = CLOSED_SLOTS - 1;
-          }
-          map[o + slot] = i + 1;
+          const texel = (z - minZ) * width * 9 + (x - minX) * 9 + area - 1;
+          let run = holders.get(texel);
+          if (!run) holders.set(texel, (run = []));
+          if (!run.includes(i + 1)) run.push(i + 1);
         }
       }
       const [low, high] = sweepExtent(at.map(([x, z]) => [x, z] as const), axis, TILE_UNITS, STRUCTURE_HEIGHT);
@@ -212,7 +212,18 @@ export class ClosedStructuresLayer {
       data[o + 4] = low;
       data[o + 5] = high;
     });
-    u.uClosedMap.value = dataTexture(map, width * 9, depth, THREE.RGBAFormat);
+    const map = new Float32Array(width * 9 * depth * 2);
+    const entries = [...holders.values()].reduce((n, run) => n + run.length, 0);
+    const list = new Float32Array(Math.ceil(entries / CLOSED_LIST_WIDTH) * CLOSED_LIST_WIDTH);
+    let next = 0;
+    for (const [texel, run] of holders) {
+      map[texel * 2] = next;
+      map[texel * 2 + 1] = run.length;
+      list.set(run, next);
+      next += run.length;
+    }
+    u.uClosedMap.value = dataTexture(map, width * 9, depth, THREE.RGFormat);
+    u.uClosedList.value = dataTexture(list, CLOSED_LIST_WIDTH, list.length / CLOSED_LIST_WIDTH, THREE.RedFormat);
     u.uClosedData.value = dataTexture(data, 2, placed.length, THREE.RGBAFormat);
     u.uClosedRect.value.set(minX, minZ, width, depth);
   }
@@ -250,6 +261,7 @@ export class ClosedStructuresLayer {
 
   dispose(): void {
     this.uniforms.uClosedMap.value.dispose();
+    this.uniforms.uClosedList.value.dispose();
     this.uniforms.uClosedData.value.dispose();
     this.tracked.clear();
     this.builtKey = "";
@@ -276,6 +288,7 @@ function emptyTexture(format: THREE.PixelFormat, channels: number): THREE.DataTe
 export const CLOSED_UNIFORMS_GLSL = /* glsl */ `
 uniform float uClosedOn;
 uniform sampler2D uClosedMap;
+uniform sampler2D uClosedList;
 uniform vec4 uClosedRect;
 uniform sampler2D uClosedData;
 uniform float uClosedTime;
@@ -321,10 +334,12 @@ export function closedGlsl(labelGlsl: string): string {
     ${labelGlsl}
     ivec2 closedCell = ivec2(floor(vCell - uClosedRect.xy + 0.5));
     if (labelArea > 0 && all(greaterThanEqual(closedCell, ivec2(0))) && all(lessThan(closedCell, ivec2(uClosedRect.zw + 0.5)))) {
-      vec4 closedSlots = texelFetch(uClosedMap, ivec2(closedCell.x * 9 + labelArea - 1, closedCell.y), 0);
-      for (int slot = 0; slot < ${CLOSED_SLOTS}; slot++) {
-        int closedIndex = int(closedSlots[slot] + 0.5);
-        if (closedIndex == 0) break;
+      vec2 closedRun = texelFetch(uClosedMap, ivec2(closedCell.x * 9 + labelArea - 1, closedCell.y), 0).rg;
+      int closedStart = int(closedRun.x + 0.5);
+      int closedCount = int(closedRun.y + 0.5);
+      for (int k = 0; k < closedCount; k++) {
+        int closedAt = closedStart + k;
+        int closedIndex = int(texelFetch(uClosedList, ivec2(closedAt % ${CLOSED_LIST_WIDTH}, closedAt / ${CLOSED_LIST_WIDTH}), 0).r + 0.5);
         vec4 closedClock = texelFetch(uClosedData, ivec2(0, closedIndex - 1), 0);
         vec4 closedExtent = texelFetch(uClosedData, ivec2(1, closedIndex - 1), 0);
         float pulseElapsed = (uClosedTime - closedClock.x) / uPulseDuration;

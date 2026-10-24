@@ -2931,10 +2931,12 @@ points, taken as proposed: one sweep per structure (not one band over the whole 
   first time pulses, staggered by `pulse.staggerMs` (150, the feed's 0.15 s a line) by its order among the move's new ones;
   its shine starts at its pulse's end. The first call's structures (a board loaded mid-game: a reload, a resumed Challenge)
   shine at once with no pulse, each at its own phase (its id's hash, a point in its first interval). A structure no longer
-  listed is dropped (a rollback, a new game). The tile shader reads two float maps: `uClosedMap`, one RGBA texel per area of
-  each cell, the indexes (from 1) of up to four structures that hold it (`CLOSED_SLOTS`: a wonder's whole tiles hold a road's
-  or a city's area too, and each keeps its own pulse and sweep there, the brightest winning; past four, the earliest are
-  left out), and `uClosedData`, two texels per structure (its pulse start, shine start, interval in seconds on
+  listed is dropped (a rollback, a new game). The tile shader reads three float textures: `uClosedMap`, one RG texel per area
+  of each cell, where its run of structures starts in `uClosedList` and how many it holds; `uClosedList`, the runs, one
+  structure index (from 1) a texel, `CLOSED_LIST_WIDTH` (256) a row. A run has no length limit: a wonder's whole tiles hold a
+  road's or a city's area too, and the rings of wonders near each other overlap (up to 10 holders on one area in a game: its
+  own structure and the 9 wonders whose rings reach its tile). Every holder keeps its own pulse and sweep there, the brightest
+  winning, and none is ever left out. Then `uClosedData`, two texels per structure (its pulse start, shine start, interval in seconds on
   `uClosedTime`'s clock, whether it pulses; its extent across the sweep). The fragment's area is FEATURE-HL's label
   (`LABEL_GLSL`, shared with `FEATURE_HIGHLIGHT_GLSL`), so the models are labelled once a structure is closed, as for a
   highlight. Its own switch (`uClosedOn`): the rest of the board is **not** dimmed. The maps are built again only when the
@@ -2963,10 +2965,10 @@ points, taken as proposed: one sweep per structure (not one band over the whole 
   every setting a control, and a readout of the closed, pulsing and sweeping structures.
 - **Tests.** `closed-areas.test.ts` (game-core: one tile closing two roads, a wonder, a written board),
   `closed-structures.test.ts` (renderer: the settings, the curves, the layer's masks and clocks, a road under a wonder on its
-  own clock, the frames asked for, reduced motion and low power), `features.test.ts` (the shader's term through the labels,
+  own clock, every holder of an area kept (12 on one, a list over several rows), the frames asked for, reduced motion and low power), `features.test.ts` (the shader's term through the labels,
   no dimming, the hand's ghost), and `predicted-session.test.ts` (chain: a VRF game's closed structures off the chain's
   board, the starter's areas, each move's own in its `Scored` order).
-- **Not measured.** The shader adds a texel read, then two per structure of the area (at most four), and a short loop per fragment of a closed structure's voxels, and only
+- **Not measured.** The shader adds a texel read, then three per structure of the area (at most 10 in a game), and a short loop per fragment of a closed structure's voxels, and only
   while one is closed; no bench figure was taken (no GPU run from this task): an estimate, not a measure.
 
 ---

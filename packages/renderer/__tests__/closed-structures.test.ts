@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { CLOSED_SLOTS, ClosedStructuresLayer, closedGlsl, type ClosedStructure } from "../src/core/closed-structures";
+import { CLOSED_LIST_WIDTH, ClosedStructuresLayer, closedGlsl, type ClosedStructure } from "../src/core/closed-structures";
 import {
   DEFAULT_CLOSING_SETTINGS,
   PULSE_RISE,
@@ -39,14 +39,20 @@ function readMaps(layer: ClosedStructuresLayer) {
   const u = layer.uniforms;
   const rect = u.uClosedRect.value.toArray();
   const map = u.uClosedMap.value.image as { width: number; height: number; data: Float32Array };
+  const list = u.uClosedList.value.image as { width: number; height: number; data: Float32Array };
   const data = u.uClosedData.value.image as { width: number; height: number; data: Float32Array };
   return {
     rect,
+    // The area's run in the list (its start and length in the map's RG texel), as the shader walks it.
     slots: (x: number, z: number, area: number) => {
-      const o = ((z - rect[1]!) * map.width + (x - rect[0]!) * 9 + area - 1) * CLOSED_SLOTS;
-      return [...map.data.slice(o, o + CLOSED_SLOTS)].filter(Boolean);
+      const o = ((z - rect[1]!) * map.width + (x - rect[0]!) * 9 + area - 1) * 2;
+      const [start, count] = [map.data[o]!, map.data[o + 1]!];
+      return [...list.data.slice(start, start + count)];
     },
-    at: (x: number, z: number, area: number) => map.data[((z - rect[1]!) * map.width + (x - rect[0]!) * 9 + area - 1) * CLOSED_SLOTS],
+    at: (x: number, z: number, area: number) => {
+      const o = ((z - rect[1]!) * map.width + (x - rect[0]!) * 9 + area - 1) * 2;
+      return map.data[o + 1] ? list.data[map.data[o]!] : 0;
+    },
     clock: (index: number) => [...data.data.slice((index - 1) * 8, (index - 1) * 8 + 4)],
     extent: (index: number) => [...data.data.slice((index - 1) * 8 + 4, (index - 1) * 8 + 6)],
   };
@@ -170,14 +176,36 @@ describe("the closed structures' layer: its masks", () => {
     expect(layer.pulseAt("w", T0 + 150 + 105)).toBeCloseTo(1, 6);
     // The shader walks every slot of the area and keeps the brightest pulse and band.
     const glsl = closedGlsl("int labelArea = 1;");
-    expect(glsl).toContain(`for (int slot = 0; slot < ${CLOSED_SLOTS}; slot++)`);
+    expect(glsl).toContain("for (int k = 0; k < closedCount; k++)");
+    expect(glsl).toContain(`texelFetch(uClosedList, ivec2(closedAt % ${CLOSED_LIST_WIDTH}, closedAt / ${CLOSED_LIST_WIDTH}), 0)`);
     expect(glsl).toContain("closedPulse = max(closedPulse,");
     expect(glsl).toContain("closedShine = max(closedShine,");
   });
 
-  it("past its slots, leaves out the earliest structures of an area", () => {
-    const many: ClosedStructure[] = [0, 1, 2, 3, 4].map((i) => ({ id: `s${i}`, areas: [{ gameId: 1, id: 1, areas: 1 }] }));
-    expect(readMaps(layerWith(many)).slots(0, 0, 1)).toEqual([2, 3, 4, 5]);
+  it("keeps every structure of an area, however many: none is left out", () => {
+    // Ten holders of one area (its own structure and the nine wonders whose rings can reach a tile), and more.
+    const many: ClosedStructure[] = Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, areas: [{ gameId: 1, id: 1, areas: 1 }] }));
+    const layer = layerWith([]);
+    layer.set(many, T0);
+    layer.build(CELLS);
+    expect(readMaps(layer).slots(0, 0, 1)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+    // The first still pulses on its own line, the last on its own, later one.
+    expect(layer.pulseAt("s0", T0 + 105)).toBeCloseTo(1, 6);
+    expect(layer.pulseAt("s11", T0 + 11 * 150 + 105)).toBeCloseTo(1, 6);
+  });
+
+  it("lays the runs out over several rows of the list when they pass a row", () => {
+    // 300 structures over one area each of 300 tiles in a row, then one more holding them all: 600 entries, three rows.
+    const cells = new Map<string, readonly [number, number]>(Array.from({ length: 300 }, (_, i) => [`1-${i + 1}`, [i, 0] as const]));
+    const own: ClosedStructure[] = Array.from({ length: 300 }, (_, i) => ({ id: `o${i}`, areas: [{ gameId: 1, id: i + 1, areas: 1 }] }));
+    const all: ClosedStructure = { id: "all", areas: Array.from({ length: 300 }, (_, i) => ({ gameId: 1, id: i + 1, areas: 1 })) };
+    const layer = new ClosedStructuresLayer(0);
+    layer.set([...own, all], T0);
+    layer.build(cells);
+    const { slots } = readMaps(layer);
+    expect(slots(0, 0, 1)).toEqual([1, 301]);
+    expect(slots(299, 0, 1)).toEqual([300, 301]);
+    expect((layer.uniforms.uClosedList.value.image as { height: number }).height).toBe(Math.ceil(600 / CLOSED_LIST_WIDTH));
   });
 
   it("empties its maps and turns off when no structure is left; frees its textures", () => {
