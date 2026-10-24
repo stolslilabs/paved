@@ -1,5 +1,5 @@
 import type { BoardTile } from "@paved/chain";
-import { EngineGame } from "@paved/game-core";
+import { EngineGame, layoutScore as coreLayoutScore } from "@paved/game-core";
 import { planCode } from "../elements/tile-chip";
 
 /**
@@ -174,9 +174,17 @@ export function canLift(tiles: readonly BoardTile[], id: number): boolean {
   return detachedOf(tiles.filter((t) => t.id !== id)).length === 0;
 }
 
-/** A layout's score by the off-chain engine (`EngineGame.villageOf`): its cells as the territory, its tiles rebuilt from the starter. */
+/**
+ * A layout's score, game-core's (`layoutScore` of the v2 rules, #741): its tiles built in the canonical order, the starter left
+ * out of the list, so the editor's live score is the one saved and attacked. A layout the rules refuse (a story's fake) falls
+ * back to the engine's rebuild from the starter (`EngineGame.villageOf`).
+ */
 export function layoutScore(tiles: readonly BoardTile[]): number {
-  return EngineGame.villageOf({ territory: tiles.map((t) => ({ x: t.x, y: t.y })), tiles }).score;
+  try {
+    return coreLayoutScore(tiles.filter((t) => !isStarter(t)));
+  } catch {
+    return EngineGame.villageOf({ territory: tiles.map((t) => ({ x: t.x, y: t.y })), tiles }).score;
+  }
 }
 
 /** The plan counts of a set of tiles. */

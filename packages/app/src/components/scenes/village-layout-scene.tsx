@@ -41,6 +41,10 @@ export interface VillageLayoutSceneProps {
   inventory?: Inventory;
   /** The player's own village (edit, chests, shop), or someone else's, read-only. */
   mode?: "own" | "visit";
+  /** The own village is founded; false: the starter alone, and Found (its starter layout comes with it). */
+  founded?: boolean;
+  /** The founding on its way. */
+  founding?: boolean;
   /** The player's Cobbles (own village). */
   cobbles?: number;
   /** The chests waiting to be opened (own village): a count on Chests. */
@@ -66,6 +70,10 @@ export interface VillageLayoutSceneProps {
   onRetry?: () => void;
   /** Save the draft: always valid (the editor keeps it so), within the slots. */
   onSave?: (tiles: readonly BoardTile[]) => void;
+  /** Found the village (own, not founded). */
+  onFound?: () => void;
+  /** The editor holds changes not saved (true), or none (false): the page asks before leaving it by any other way than Back. */
+  onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
   onOpenChests?: () => void;
@@ -119,6 +127,8 @@ function LayoutView({
   village,
   mode = "own",
   inventory = {},
+  founded = true,
+  founding = false,
   cobbles = 0,
   chests = 0,
   saving = false,
@@ -134,6 +144,8 @@ function LayoutView({
   initialLeaving = false,
   onBack,
   onSave,
+  onFound,
+  onDirtyChange,
   onDismissSaved,
   onDismissRefusal,
   onOpenChests,
@@ -188,6 +200,8 @@ function LayoutView({
   const plates = useMemo(() => (editing && handPlan != null ? legalSpots(draft, handPlan) : []), [editing, handPlan, draft]);
   const score = useMemo(() => (editing ? layoutScore(whole) : village.score), [editing, whole, village.score]);
   const changed = !sameLayout(whole, village.tiles);
+  const dirty = editing && changed;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const open = () => {
     onDismissSaved?.();
@@ -381,7 +395,12 @@ function LayoutView({
             </div>
           )}
           {!own && <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">Read-only: the tiles stay as their owner laid them out.</p>}
-          {own && !editing && (
+          {own && !editing && !founded && (
+            <div className="border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] desktop:hidden">
+              <FoundNotice founding={founding} onFound={onFound} />
+            </div>
+          )}
+          {own && !editing && founded && (
             <div className="grid grid-cols-3 gap-2 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] desktop:hidden">
               <ViewActions chests={chests} onEdit={open} onOpenChests={onOpenChests} onOpenShop={onOpenShop} />
             </div>
@@ -435,6 +454,8 @@ function LayoutView({
                   </Button>
                 </div>
               </>
+            ) : !founded ? (
+              <FoundNotice founding={founding} onFound={onFound} />
             ) : (
               <>
                 <h2 className="font-display text-lg">Your village</h2>
@@ -466,6 +487,23 @@ function LayoutView({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** A village not founded yet: Found lays out its starter layout (8 tiles around the starter, picked by the address). */
+function FoundNotice({ founding, onFound }: { founding: boolean; onFound?: () => void }) {
+  return (
+    <Notice
+      icon="house"
+      title="Found your village"
+      action={
+        <Button size="sm" loading={founding} onClick={onFound}>
+          Found
+        </Button>
+      }
+    >
+      It is free: 8 tiles laid out around the starter come with it, and chests and the daily shop add more.
+    </Notice>
   );
 }
 

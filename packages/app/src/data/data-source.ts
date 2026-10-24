@@ -44,4 +44,4 @@ export const MOCKED = DATA_SOURCE === "mock";
  * boards, the game-over pages, the leaderboard, the player pages, Training, the tutorial and Settings read only the chain and
  * the indexer.
  */
-export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "cobbles", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "avatar", "village", "village/:player", "pvp", "pvp/result/:id", "pvp/defence", "pvp/replay/:attacker/:id", "pvp/league"]);
+export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "cobbles", "missions/lifetime", "missions/:day?", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "avatar", "village", "village/:player", "village/chests", "village/shop", "pvp", "pvp/result/:id", "pvp/defence", "pvp/replay/:attacker/:id", "pvp/league"]);
