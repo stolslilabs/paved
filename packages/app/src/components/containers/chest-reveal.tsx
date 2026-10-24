@@ -94,7 +94,7 @@ export function ChestReveal({ draw, owned = {}, initialChoice = null, busy, tile
         })}
       </ul>
       <Button size="lg" className="w-full" disabled={picked === undefined} loading={busy} onClick={() => choice != null && onTake?.(choice)}>
-        <Icon name="arrow-down" size="sm" /> {picked === undefined ? "Choose a tile" : `Keep ${tileName(picked)}`}
+        {picked === undefined ? "Choose a tile" : `Keep ${tileName(picked)}`}
       </Button>
     </section>
   );

@@ -13,7 +13,7 @@ type Story = StoryObj<typeof meta>;
 export const Bronze: Story = { args: { rank: "bronze" } };
 export const Silver: Story = { args: { rank: "silver" } };
 export const Gold: Story = { args: { rank: "gold" } };
-/** Opened: the lid up. */
+/** Opened: dimmed. */
 export const Opened: Story = { args: { rank: "gold", open: true, size: "lg" } };
 /** The three sizes side by side. */
 export const Sizes: Story = {

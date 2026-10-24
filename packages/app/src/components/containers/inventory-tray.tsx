@@ -49,9 +49,7 @@ export function InventoryTray({ tray, held = null, orientation = 1, full = false
         </h2>
         <p className="text-xs text-muted-foreground" aria-live="polite">
           {dropping ? (
-            <>
-              <Icon name="arrow-down" size="xs" /> Drop to take it off
-            </>
+            "Drop to take it off"
           ) : full ? (
             "Every slot is used"
           ) : held != null ? (

@@ -196,7 +196,7 @@ export function VillageChestsScene({
                 </section>
               ) : (
                 !opened && (
-                  <Notice icon="treasure-chest" title="No chest waiting">
+                  <Notice icon="gift" title="No chest waiting">
                     Win stars to earn one: in PvP, 1 star gives a bronze chest, 2 a silver one, 3 a gold one; in Story, 3 stars on a level the first time.
                   </Notice>
                 )

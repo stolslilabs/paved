@@ -20,7 +20,7 @@ export const chestVariants = cva("inline-grid shrink-0 place-items-center rounde
 
 export interface ChestBadgeProps extends VariantProps<typeof chestVariants> {
   rank: ChestRank;
-  /** Opened: the lid up. */
+  /** Opened: dimmed. */
   open?: boolean;
   className?: string;
 }
@@ -31,7 +31,7 @@ const ICON_SIZE = { sm: "md", md: "lg", lg: "xl" } as const;
 export function ChestBadge({ rank, size = "md", open = false, className }: ChestBadgeProps) {
   return (
     <span role="img" aria-label={CHEST_NAME[rank]} data-rank={rank} className={cn(chestVariants({ rank, size }), className)}>
-      <Icon name={open ? "box-open" : "treasure-chest"} variant="solid" size={ICON_SIZE[size ?? "md"]} />
+      <Icon name="gift" variant="solid" size={ICON_SIZE[size ?? "md"]} className={open ? "opacity-60" : undefined} />
     </span>
   );
 }

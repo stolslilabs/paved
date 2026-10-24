@@ -424,7 +424,7 @@ function LayoutView({
                     Cancel
                   </Button>
                   <Button onClick={() => onSave?.(draft)} disabled={!check.valid || !changed} loading={saving} aria-describedby={problem ? "layout-problem" : undefined}>
-                    <Icon name="floppy-disk" size="sm" /> Save
+                    <Icon name="check" size="sm" /> Save
                   </Button>
                 </div>
                 {problem && (
@@ -461,10 +461,10 @@ function ViewActions({ chests, onEdit, onOpenChests, onOpenShop }: { chests: num
   return (
     <>
       <Button onClick={onEdit}>
-        <Icon name="pen-to-square" size="sm" /> Edit
+        Edit
       </Button>
       <Button variant="outline" onClick={onOpenChests} aria-label={chests > 0 ? `Chests, ${chests} waiting` : "Chests"} className="relative">
-        <Icon name="treasure-chest" size="sm" /> Chests
+        <Icon name="gift" size="sm" /> Chests
         {chests > 0 && (
           <span aria-hidden className="numeric absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
             {chests}
@@ -472,7 +472,7 @@ function ViewActions({ chests, onEdit, onOpenChests, onOpenShop }: { chests: num
         )}
       </Button>
       <Button variant="outline" onClick={onOpenShop}>
-        <Icon name="store" size="sm" /> Shop
+        Shop
       </Button>
     </>
   );
@@ -493,13 +493,13 @@ function ChosenTile({ tile, tileArt, busy, onRotate, onTakeOff, onDone }: { tile
           <Button size="icon" variant="outline" aria-label="Rotate the tile" onClick={onRotate} disabled={busy}>
             <Icon name="rotate-right" size="sm" />
           </Button>
-          <Button size="icon" variant="outline" aria-label="Take it off" onClick={onTakeOff} disabled={busy}>
-            <Icon name="arrow-down" size="sm" />
+          <Button size="sm" variant="outline" aria-label="Take it off" onClick={onTakeOff} disabled={busy}>
+            Take off
           </Button>
         </>
       )}
       <Button size="icon" variant="ghost" aria-label="Done" onClick={onDone}>
-        <Icon name="xmark" size="sm" />
+        <Icon name="check" size="sm" />
       </Button>
     </div>
   );
