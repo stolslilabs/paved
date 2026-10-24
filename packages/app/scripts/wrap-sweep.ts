@@ -67,8 +67,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // ScrollRegion with the edge hint, by design.
   // The wired village page (#646 PR 2) and its header story draw the same plan in the same scroller.
   { story: /^(scenes-village|containers-villageboard|pages-village)--|^pages-headers--village$/, kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
-  // The v2 village (#739): its layout board scrolls both ways the same, and the editor's inventory is a row that scrolls on a phone.
-  { story: /^(scenes-village-v2-layout|containers-layoutboard|containers-inventorytray)--/, kind: "scroll", element: "div[scroll-region]", why: "v2 village scrollers" },
+  // The v2 village (#739): its layout board scrolls both ways the same; the editor's inventory is a carousel whose window clips its track.
+  { story: /^(scenes-village-v2-layout|containers-layoutboard)--/, kind: "scroll", element: "div[scroll-region]", why: "v2 village scroller" },
+  { story: /^(scenes-village-v2-layout|containers-inventorytray)--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with

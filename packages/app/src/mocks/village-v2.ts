@@ -1,10 +1,9 @@
 import type { BoardTile } from "@paved/chain";
-import { EngineGame } from "@paved/game-core";
 import type { Chest, VillageChestsSceneProps } from "../components/scenes/village-chests-scene";
 import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/village-shop-scene";
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
 import { rarityOf, type Rarity } from "../components/elements/rarity-badge";
-import { SIDES, STARTER, cellKey, countPlans, edgeOf, isStarter, type Cell, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
+import { STARTER, canLift, countPlans, fittingAt, frontier, isStarter, layoutScore, legalSpots, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, MOCK_NOW } from "./clock";
 import { PLAYER } from "./players";
 import { PLAN } from "./village";
@@ -18,34 +17,12 @@ import { PLAN } from "./village";
 
 const ME = PLAYER.name ?? "bal7hazar";
 
-/** The neighbour cells of a layout's tiles, nearest the centre first, north before south, east before west. */
-function frontier(tiles: readonly BoardTile[]): Cell[] {
-  const taken = new Set(tiles.map(cellKey));
-  const out = new Map<string, Cell>();
-  for (const t of tiles) for (const [dx, dy] of SIDES) {
-    const c = { x: t.x + dx, y: t.y + dy };
-    if (!taken.has(cellKey(c))) out.set(cellKey(c), c);
-  }
-  return [...out.values()].sort((a, b) => Math.abs(a.x) + Math.abs(a.y) - (Math.abs(b.x) + Math.abs(b.y)) || b.y - a.y || b.x - a.x);
-}
-
-/** The orientations of `plan` at `cell` whose edges match every placed neighbour. */
-function fitting(tiles: readonly BoardTile[], plan: number, cell: Cell): number[] {
-  const byCell = new Map(tiles.map((t) => [cellKey(t), t]));
-  return [1, 2, 3, 4].filter((o) =>
-    SIDES.every(([dx, dy], side) => {
-      const n = byCell.get(cellKey({ x: cell.x + dx, y: cell.y + dy }));
-      return !n || edgeOf(plan, o, side) === edgeOf(n.plan, n.orientation, (side + 2) % 4);
-    }),
-  );
-}
-
 /** A valid layout: the starter, then `plans` one by one on the first cell next to the layout where an orientation fits. */
 export function lay(plans: readonly number[]): BoardTile[] {
   const tiles: BoardTile[] = [{ ...STARTER }];
   for (const plan of plans) {
     for (const cell of frontier(tiles)) {
-      const o = fitting(tiles, plan, cell)[0];
+      const o = fittingAt(tiles, plan, cell)[0];
       if (o !== undefined) {
         tiles.push({ id: tiles.length + 1, plan, orientation: o, x: cell.x, y: cell.y });
         break;
@@ -55,10 +32,8 @@ export function lay(plans: readonly number[]): BoardTile[] {
   return tiles;
 }
 
-/** A layout's score by the off-chain engine: its cells as the territory, its tiles rebuilt from the starter. */
-export function fakeScore(tiles: readonly BoardTile[]): number {
-  return EngineGame.villageOf({ territory: tiles.map((t) => ({ x: t.x, y: t.y })), tiles }).score;
-}
+/** A layout's score by the off-chain engine (`layoutScore`), as the contracts will compute it. */
+export const fakeScore = layoutScore;
 
 const P = PLAN;
 /** Plans of the base deck, common ones first: what a village is built of. */
@@ -90,23 +65,13 @@ export function ownedOf(village: VillageLayout, inventory: Inventory): Record<nu
   return out;
 }
 
-/**
- * A draft with every fault the editor shows: a tile turned so its edges no longer match, and a tile moved away from the rest
- * (cut off from the starter).
- */
-export const DRAFT_FAULTY: BoardTile[] = (() => {
-  const tiles = LAYOUT_GROWING.tiles.map((t) => ({ ...t }));
-  const turned = tiles.find((t) => t.id === 4)!;
-  turned.orientation = (turned.orientation % 4) + 1;
-  const far = tiles[tiles.length - 1]!;
-  const xs = tiles.map((t) => t.x);
-  far.x = Math.max(...xs) + 2;
-  far.y = 0;
-  return tiles;
-})();
-
 /** A draft three tiles richer than the saved layout (a road, a forest city, a bend from the inventory): valid, changed, Save enabled, a structure closed. */
 export const DRAFT_VALID: BoardTile[] = lay(MIXED.slice(0, 24));
+
+/** An outer tile of the growing village: lifting it leaves the rest joined to the starter. */
+export const OUTER_TILE = [...LAYOUT_GROWING.tiles].reverse().find((t) => canLift(LAYOUT_GROWING.tiles, t.id))!;
+/** A tile that holds the growing village together: lifting it would split it. */
+export const KEY_TILE = LAYOUT_GROWING.tiles.find((t) => !isStarter(t) && !canLift(LAYOUT_GROWING.tiles, t.id))!;
 
 /** A scene's data without its callbacks. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
@@ -116,12 +81,13 @@ export const VILLAGE_LAYOUT = {
   start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, cobbles: 120, chests: 1 },
   growing: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, chests: 2 },
   editing: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, chests: 2, initialEditing: true },
-  holding: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHeld: P.road },
-  chosen: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialSelected: 6 },
-  starterChosen: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialSelected: 1 },
-  faulty: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: DRAFT_FAULTY },
-  valid: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: DRAFT_VALID },
+  holding: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHand: { plan: P.road } },
+  placing: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHand: { plan: P.road }, initialPending: legalSpots(LAYOUT_GROWING.tiles, P.road)[0]! },
+  lifted: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHand: { lift: OUTER_TILE.id } },
+  changed: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: DRAFT_VALID },
+  reset: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: [{ ...STARTER }] },
   full: { village: LAYOUT_FULL, inventory: INVENTORY, cobbles: 640, initialEditing: true },
+  leaving: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: DRAFT_VALID, initialLeaving: true },
   saving: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: DRAFT_VALID, saving: true },
   saved: { village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, inventory: { ...INVENTORY, [P.road]: 3, [P.forestCity]: 1, [P.roadBend]: 1 }, cobbles: 640, chests: 2, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
   refused: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: DRAFT_VALID, refusal: "The layout changed on another device: read it again. Nothing was saved." },

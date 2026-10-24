@@ -1,4 +1,5 @@
 import type { BoardTile } from "@paved/chain";
+import { EngineGame } from "@paved/game-core";
 import { planCode } from "../elements/tile-chip";
 
 /**
@@ -8,9 +9,10 @@ import { planCode } from "../elements/tile-chip";
  *
  * - A village is a free layout of the player's collected tiles: any cells, no territory, rearranged at any time.
  * - Its tiles are capped by the slots unlocked: 8 + level (level 1 is 9 slots, level 20 is 28). The starter takes one.
- * - A layout is saved only when valid: every tile joined to the starter (connected), every pair of facing edges matched.
- *   While editing, any state is allowed, and the faults are shown.
- * - The starter stays: at (0, 0), facing South, never moved, turned or taken off.
+ * - A layout is valid when every tile is joined to the starter (connected) and every pair of facing edges matches. The
+ *   editor keeps it valid at every step (the owner's decisions of #739): a tile goes only on a legal cell, as on the board
+ *   (next to a placed tile, every facing edge matching), and a tile whose removal would split the village cannot be lifted.
+ * - The starter stays: at (0, 0), facing South, never selected, moved, turned or sent back.
  */
 
 export interface Cell {
@@ -131,6 +133,52 @@ export function layoutProblem(check: LayoutCheck): string | null {
   return parts.length ? `${parts.join("; ")}.` : null;
 }
 
+/** A cell where a plan can go, with the orientations that fit there (1 north to 4 west). */
+export type Spot = Cell & { orientations: number[] };
+
+/** The empty cells next to the layout's tiles, nearest the centre first, north before south, east before west. */
+export function frontier(tiles: readonly BoardTile[]): Cell[] {
+  const taken = new Set(tiles.map(cellKey));
+  const out = new Map<string, Cell>();
+  for (const t of tiles) {
+    for (const [dx, dy] of SIDES) {
+      const c = { x: t.x + dx, y: t.y + dy };
+      if (!taken.has(cellKey(c))) out.set(cellKey(c), c);
+    }
+  }
+  return [...out.values()].sort((a, b) => Math.abs(a.x) + Math.abs(a.y) - (Math.abs(b.x) + Math.abs(b.y)) || b.y - a.y || b.x - a.x);
+}
+
+/** The orientations of `plan` at `cell` whose edges match every placed neighbour. */
+export function fittingAt(tiles: readonly BoardTile[], plan: number, cell: Cell): number[] {
+  const byCell = new Map(tiles.map((t) => [cellKey(t), t]));
+  return [1, 2, 3, 4].filter((o) =>
+    SIDES.every(([dx, dy], side) => {
+      const n = byCell.get(cellKey({ x: cell.x + dx, y: cell.y + dy }));
+      return !n || edgeOf(plan, o, side) === edgeOf(n.plan, n.orientation, (side + 2) % 4);
+    }),
+  );
+}
+
+/** The legal cells of `plan`, as the board's plates: next to a placed tile, with an orientation whose every facing edge matches. */
+export function legalSpots(tiles: readonly BoardTile[], plan: number): Spot[] {
+  return frontier(tiles)
+    .map((c) => ({ ...c, orientations: fittingAt(tiles, plan, c) }))
+    .filter((c) => c.orientations.length > 0);
+}
+
+/** Whether tile `id` can be lifted: not the starter, and the others stay joined to the starter without it. */
+export function canLift(tiles: readonly BoardTile[], id: number): boolean {
+  const tile = tiles.find((t) => t.id === id);
+  if (!tile || isStarter(tile)) return false;
+  return detachedOf(tiles.filter((t) => t.id !== id)).length === 0;
+}
+
+/** A layout's score by the off-chain engine (`EngineGame.villageOf`): its cells as the territory, its tiles rebuilt from the starter. */
+export function layoutScore(tiles: readonly BoardTile[]): number {
+  return EngineGame.villageOf({ territory: tiles.map((t) => ({ x: t.x, y: t.y })), tiles }).score;
+}
+
 /** The plan counts of a set of tiles. */
 export function countPlans(tiles: readonly Pick<BoardTile, "plan">[]): Record<number, number> {
   const out: Record<number, number> = {};
@@ -156,21 +204,7 @@ export function placeTile(tiles: readonly BoardTile[], plan: number, orientation
   return [...tiles, { id, plan, orientation, x: cell.x, y: cell.y }];
 }
 
-/** The draft with tile `id` moved to `cell`; onto another tile, the two swap. The starter stays. */
-export function moveTile(tiles: readonly BoardTile[], id: number, cell: Cell): BoardTile[] {
-  const tile = tiles.find((t) => t.id === id);
-  if (!tile || isStarter(tile)) return [...tiles];
-  const other = tiles.find((t) => t.x === cell.x && t.y === cell.y && t.id !== id);
-  if (other && isStarter(other)) return [...tiles];
-  return tiles.map((t) => (t.id === id ? { ...t, x: cell.x, y: cell.y } : other && t.id === other.id ? { ...t, x: tile.x, y: tile.y } : t));
-}
-
-/** The draft with tile `id` turned a quarter clockwise. The starter stays. */
-export function rotateTile(tiles: readonly BoardTile[], id: number): BoardTile[] {
-  return tiles.map((t) => (t.id === id && !isStarter(t) ? { ...t, orientation: (t.orientation % 4) + 1 } : t));
-}
-
-/** The draft with tile `id` taken off (back to the tray). The starter stays. */
+/** The draft with tile `id` taken off (back to the inventory). The starter stays. */
 export function takeOffTile(tiles: readonly BoardTile[], id: number): BoardTile[] {
   return tiles.filter((t) => t.id !== id || isStarter(t));
 }

@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
+import * as m from "motion/react-m";
 import type { BoardTile } from "@paved/chain";
 import { cn } from "../../lib/utils";
 import { TileChip, type TileArt } from "../elements/tile-chip";
@@ -6,45 +7,49 @@ import { tileName } from "../elements/tile-render";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { FogVeil, cellName } from "./village-board";
-import { SIDES, cellKey, isStarter, type Cell, type Fault } from "./layout-rules";
+import { SIDES, cellKey, isStarter, type Cell, type Spot } from "./layout-rules";
+
+/** The tile in hand set on a cell, waiting for the hold that places it. */
+export interface LayoutPending extends Cell {
+  plan: number;
+  orientation: number;
+}
 
 export interface LayoutBoardProps {
+  /** The layout's tiles (a tile lifted into the hand is not among them). */
   tiles: readonly BoardTile[];
-  /** The layout being edited: tiles and empty cells are buttons. Off: drawn, inert, under the fog. */
+  /** The layout being edited: the placed tiles and the plates are buttons. Off: drawn, inert, under the fog. */
   editing?: boolean;
-  /** The placed tile chosen (its id): ringed. */
-  selected?: number | null;
-  /** A plan held from the tray, or a tile chosen: the empty cells take it. */
-  targets?: boolean;
-  faults?: readonly Fault[];
-  /** The ids of the tiles cut off from the starter: outlined. */
-  detached?: ReadonlySet<number>;
-  /** The cell a dragged tile is over. */
-  over?: Cell | null;
-  /** What the drag would put there: a preview on an empty cell. */
-  preview?: { plan: number; orientation: number } | null;
+  /** The legal cells of the tile in hand, as the board's plates. */
+  plates?: readonly Spot[];
+  /** The tile in hand on its cell, ringed: the bubble's hold places it there. */
+  pending?: LayoutPending | null;
+  /** A tile that cannot be lifted (its removal would split the village): it shakes. */
+  shaking?: number | null;
   tileArt?: TileArt;
+  /** A placed tile chosen (never the starter): lift it into the hand. */
   onTile?: (tile: BoardTile) => void;
-  /** A press on a placed tile while editing: the scene starts a drag from it once the pointer moves. */
-  onTilePress?: (tile: BoardTile, event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onCell?: (cell: Cell) => void;
+  /** A plate chosen: the tile in hand goes there. */
+  onPlate?: (spot: Spot) => void;
   className?: string;
 }
 
 /** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */
 const MIN_CELL = 46;
 
-/** The empty rings around the tiles: room to place while editing, the fog's roll-off in the view. */
-const EDIT_RINGS = 2;
-const VIEW_RINGS = 2;
+/** The empty rings around the tiles: room for the plates while editing, the fog's roll-off in the view. */
+const RINGS = 2;
+
+/** A shake, as a refused move on the board. */
+const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
 
 /**
  * The v2 village from above (#739): a free layout of tiles, no territory. In the view, the tiles under the fog, which lifts
- * around them as on every board. While editing, every tile and every empty cell in reach is a button (`data-cell`, so a
- * drag finds it under the pointer): a tile is chosen, an empty cell takes the plan held or the tile chosen. The faulty edges
- * are red marks on the edge itself, the tiles cut off from the starter are outlined, the starter wears its lock.
+ * around them as on every board. While editing, placing works as on the board: the tile in hand lights its legal cells
+ * (plates, `data-cell`), a tap sets it on one (ringed, the bubble's hold places it), and a placed tile is a button that lifts
+ * it into the hand. The starter wears its lock and is never a button.
  */
-export function LayoutBoard({ tiles, editing = false, selected = null, targets = false, faults = [], detached, over, preview, tileArt, onTile, onTilePress, onCell, className }: LayoutBoardProps) {
+export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, shaking = null, tileArt, onTile, onPlate, className }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is.
   const extent = tiles.length;
@@ -56,17 +61,18 @@ export function LayoutBoard({ tiles, editing = false, selected = null, targets =
   }, [extent, editing]);
 
   const byCell = new Map(tiles.map((t) => [cellKey(t), t]));
-  const ring = editing ? EDIT_RINGS : VIEW_RINGS;
-  const xs = tiles.length ? tiles.map((t) => t.x) : [0];
-  const ys = tiles.length ? tiles.map((t) => t.y) : [0];
-  const minX = Math.min(...xs) - ring;
-  const maxX = Math.max(...xs) + ring;
-  const minY = Math.min(...ys) - ring;
-  const maxY = Math.max(...ys) + ring;
+  const plateAt = new Map(plates.map((p) => [cellKey(p), p]));
+  const all: Cell[] = [...tiles, ...plates, ...(pending ? [pending] : [])];
+  const xs = all.length ? all.map((t) => t.x) : [0];
+  const ys = all.length ? all.map((t) => t.y) : [0];
+  const minX = Math.min(...xs) - RINGS;
+  const maxX = Math.max(...xs) + RINGS;
+  const minY = Math.min(...ys) - RINGS;
+  const maxY = Math.max(...ys) + RINGS;
   const cols = maxX - minX + 1;
   const rows = maxY - minY + 1;
   const at = (c: Cell) => ({ gridColumn: c.x - minX + 1, gridRow: maxY - c.y + 1 });
-  const overKey = over ? cellKey(over) : null;
+  const pendingKey = pending ? cellKey(pending) : null;
   // The fog's clear cells in the view: the tiles and the cells next to them, as on every board (#739).
   const clear: Cell[] = [];
   if (!editing) {
@@ -86,73 +92,63 @@ export function LayoutBoard({ tiles, editing = false, selected = null, targets =
       const tile = byCell.get(key);
       if (tile) {
         const starter = isStarter(tile);
-        const cut = detached?.has(tile.id) ?? false;
-        const chosen = selected === tile.id;
-        const swapping = overKey === key && preview != null;
-        const body = (
-          <>
-            <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} className={cn("size-full rounded-[2px] border-0", swapping && "opacity-50")} />
-            {starter && (
-              <span aria-hidden className="absolute top-0.5 left-0.5 grid size-4 place-items-center rounded-sm bg-background/80 text-primary">
-                <Icon name="lock" size="xs" />
-              </span>
-            )}
-          </>
-        );
-        const ringed = cn(
-          "relative block min-h-0 min-w-0 rounded-[3px]",
-          cut && "outline-2 outline-offset-1 outline-dashed outline-destructive-text",
-          chosen && "z-10 ring-2 ring-primary ring-offset-2 ring-offset-board",
+        const chip = <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} className={cn("size-full rounded-[2px] border-0", editing && pending && "opacity-70")} />;
+        const lock = starter && (
+          <span aria-hidden className="absolute top-0.5 left-0.5 grid size-4 place-items-center rounded-sm bg-background/80 text-primary">
+            <Icon name="lock" size="xs" />
+          </span>
         );
         cells.push(
-          editing ? (
-            <button
+          editing && !starter ? (
+            <m.button
               key={key}
               type="button"
               data-cell={key}
               data-kind="tile"
               data-tile={tile.id}
-              aria-pressed={chosen}
-              aria-label={`${starter ? "The starter" : tileName(tile.plan)} at ${cellName(c)}${cut ? ", cut off" : ""}`}
+              aria-label={`${tileName(tile.plan)} at ${cellName(c)}: lift it`}
               onClick={() => onTile?.(tile)}
-              onPointerDown={(e) => onTilePress?.(tile, e)}
+              animate={shaking === tile.id ? SHAKE : { x: 0 }}
+              transition={{ duration: 0.4 }}
               style={at(c)}
-              className={cn(ringed, "touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring", shaking === tile.id && "ring-2 ring-warning")}
             >
-              {body}
-            </button>
+              {chip}
+            </m.button>
           ) : (
-            <span key={key} data-cell={key} data-kind="tile" style={at(c)} className={ringed}>
-              {body}
+            <span key={key} data-cell={key} data-kind={starter ? "starter" : "tile"} aria-label={starter && editing ? "The starter: it stays" : undefined} style={at(c)} className="relative block min-h-0 min-w-0 rounded-[3px]">
+              {chip}
+              {lock}
             </span>
           ),
         );
         continue;
       }
-      if (editing) {
-        const hovered = overKey === key;
+      if (key === pendingKey && pending) {
+        cells.push(
+          <span key={key} data-cell={key} data-kind="pending" style={at(c)} className="relative z-10 block min-h-0 min-w-0 rounded-[3px] ring-2 ring-primary ring-offset-2 ring-offset-board">
+            <TileChip plan={pending.plan} orientation={pending.orientation} art={tileArt} className="size-full rounded-[2px] border-0" />
+          </span>,
+        );
+        continue;
+      }
+      const plate = editing ? plateAt.get(key) : undefined;
+      if (plate) {
         cells.push(
           <button
             key={key}
             type="button"
             data-cell={key}
-            data-kind="free"
-            aria-label={`Empty cell at ${cellName(c)}`}
-            disabled={!targets}
-            onClick={() => onCell?.(c)}
+            data-kind="plate"
+            aria-label={`Place it at ${cellName(c)}`}
+            onClick={() => onPlate?.(plate)}
             style={at(c)}
-            className={cn(
-              "relative block min-h-0 min-w-0 rounded-[3px] border border-dashed border-input/60 bg-secondary/25 outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              targets && "state-layer border-primary/50 bg-plate/40",
-              hovered && "border-solid border-primary",
-            )}
-          >
-            {hovered && preview && <TileChip plan={preview.plan} orientation={preview.orientation} art={tileArt} className="size-full rounded-[2px] border-0 opacity-80" />}
-          </button>,
+            className="state-layer relative block min-h-0 min-w-0 rounded-[3px] border border-primary/60 bg-plate/55 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />,
         );
         continue;
       }
-      cells.push(<span key={key} aria-hidden style={at(c)} className="block min-h-0 min-w-0 rounded-[3px] bg-secondary/20" />);
+      cells.push(<span key={key} aria-hidden style={at(c)} className={cn("block min-h-0 min-w-0 rounded-[3px]", editing ? "border border-dashed border-input/40" : "bg-secondary/20")} />);
     }
   }
 
@@ -162,7 +158,7 @@ export function LayoutBoard({ tiles, editing = false, selected = null, targets =
       <div
         ref={grid}
         role={editing ? "group" : "img"}
-        aria-label={`Village layout of ${tiles.length} ${tiles.length === 1 ? "tile" : "tiles"}${faults.length ? `, ${faults.length} faulty ${faults.length === 1 ? "edge" : "edges"}` : ""}`}
+        aria-label={`Village layout of ${tiles.length} ${tiles.length === 1 ? "tile" : "tiles"}`}
         className="relative grid shrink-0 gap-0.5"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
@@ -173,28 +169,6 @@ export function LayoutBoard({ tiles, editing = false, selected = null, targets =
         }}
       >
         {cells}
-        {faults.map((f) => {
-          // The mark sits on the shared edge: the north edge of `cell` (side 0), or its east edge (side 1).
-          const left = f.side === 0 ? (f.cell.x - minX + 0.5) / cols : (f.cell.x - minX + 1) / cols;
-          const top = f.side === 0 ? (maxY - f.cell.y) / rows : (maxY - f.cell.y + 0.5) / rows;
-          return (
-            <span
-              key={`${cellKey(f.cell)}:${f.side}`}
-              aria-hidden
-              data-fault={`${cellKey(f.cell)}:${f.side}`}
-              className={cn(
-                "pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-destructive shadow-[0_0_0_2px_var(--board)]",
-                f.side === 0 ? "h-1.5" : "w-1.5",
-              )}
-              style={{
-                left: `${left * 100}%`,
-                top: `${top * 100}%`,
-                // Six tenths of the edge it marks.
-                ...(f.side === 0 ? { width: `${(60 / cols).toFixed(3)}%` } : { height: `${(60 / rows).toFixed(3)}%` }),
-              }}
-            />
-          );
-        })}
         {!editing && <FogVeil clear={clear} minX={minX} maxY={maxY} cols={cols} rows={rows} />}
       </div>
     </ScrollRegion>

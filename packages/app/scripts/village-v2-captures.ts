@@ -29,7 +29,7 @@ const layout = (state: string) => ({ name: `layout-${state}`, story: `scenes-vil
 const chests = (state: string) => ({ name: `chests-${state}`, story: `scenes-village-v2-chests--${state}` });
 const shop = (state: string) => ({ name: `shop-${state}`, story: `scenes-village-v2-shop--${state}` });
 const CAPTURES = [
-  ...["start", "growing", "editing", "holding", "chosen", "faulty", "valid", "full", "saved", "visit"].map(layout),
+  ...["start", "growing", "editing", "holding", "placing", "lifted", "changed", "reset", "full", "leaving", "saved", "visit"].map(layout),
   ...["waiting", "gold", "gold-chosen", "silver", "bronze", "cobbles-won", "taken", "capped", "empty"].map(chests),
   ...["today", "one-bought", "all-bought", "short"].map(shop),
 ];

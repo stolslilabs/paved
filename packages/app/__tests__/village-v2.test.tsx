@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
@@ -9,13 +9,14 @@ import { CHEST_CHOICES } from "../src/components/elements/chest-badge";
 import { deckCount, rarityOf } from "../src/components/elements/rarity-badge";
 import {
   STARTER,
+  canLift,
   checkLayout,
   detachedOf,
   faultsOf,
+  fittingAt,
   layoutProblem,
-  moveTile,
+  legalSpots,
   placeTile,
-  rotateTile,
   slotsFor,
   takeOffTile,
   trayOf,
@@ -24,7 +25,7 @@ import { VillageChestsScene } from "../src/components/scenes/village-chests-scen
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { PLAN } from "../src/mocks/village";
-import { DRAFT_FAULTY, INVENTORY, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, SHOP_PRICE, VILLAGE_CHESTS, VILLAGE_LAYOUT, VILLAGE_SHOP, fakeScore, lay } from "../src/mocks/village-v2";
+import { INVENTORY, KEY_TILE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, OUTER_TILE, SHOP_PRICE, VILLAGE_CHESTS, VILLAGE_LAYOUT, VILLAGE_SHOP, fakeScore, lay } from "../src/mocks/village-v2";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 afterEach(cleanup);
@@ -55,35 +56,32 @@ describe("the v2 village's rules (#739)", () => {
     expect(detachedOf([tile(2, PLAN.road, 1, 0, 1)])).toHaveLength(1);
   });
 
-  it("saves only a valid, connected layout with the starter, within the slots", () => {
+  it("checks a layout: connected, every edge matched, the starter there, within the slots", () => {
     expect(checkLayout(LAYOUT_GROWING.tiles, 28).valid).toBe(true);
-    const faulty = checkLayout(DRAFT_FAULTY, 28);
+    const faulty = checkLayout([STARTER, tile(2, PLAN.road, 1, 0, 1), tile(3, PLAN.road, 1, 5, 5)], 28);
     expect(faulty.valid).toBe(false);
-    expect(faulty.faults.length).toBeGreaterThan(0);
-    expect(faulty.detached).toHaveLength(1);
-    expect(layoutProblem(faulty)).toMatch(/1 tile is cut off from the starter; \d+ edges? do(es)? not match\./);
+    expect(layoutProblem(faulty)).toBe("1 tile is cut off from the starter; 1 edge does not match.");
     expect(layoutProblem(checkLayout(LAYOUT_GROWING.tiles, 20))).toBe("1 tile past your slots: take it off.");
     expect(layoutProblem(checkLayout(LAYOUT_GROWING.tiles.slice(1), 28))).toBe("The starter is missing.");
   });
 
-  it("keeps the starter in place: never moved, turned or taken off", () => {
-    const tiles = [STARTER, tile(2, PLAN.road, 1, 0, 1)];
-    expect(moveTile(tiles, 1, { x: 3, y: 3 })).toEqual(tiles);
-    expect(moveTile(tiles, 2, { x: 0, y: 0 })).toEqual(tiles);
-    expect(rotateTile(tiles, 1)).toEqual(tiles);
-    expect(takeOffTile(tiles, 1)).toEqual(tiles);
+  it("lights only the legal cells, as on the board: next to a tile, every facing edge matching", () => {
+    const spots = legalSpots([STARTER], PLAN.city);
+    // A full city fits only on the starter's city side, north of it.
+    expect(spots).toEqual([{ x: 0, y: 1, orientations: [1, 2, 3, 4] }]);
+    for (const spot of legalSpots(LAYOUT_GROWING.tiles, PLAN.road)) {
+      for (const o of spot.orientations) expect(checkLayout(placeTile(LAYOUT_GROWING.tiles, PLAN.road, o, spot), 28).valid).toBe(true);
+    }
+    expect(fittingAt([STARTER], PLAN.road, { x: 0, y: 1 })).toEqual([]);
   });
 
-  it("places, moves (swapping onto a tile), turns and takes off the other tiles", () => {
-    let tiles = placeTile([STARTER], PLAN.road, 1, { x: 0, y: 1 });
-    expect(tiles[1]).toEqual(tile(2, PLAN.road, 1, 0, 1));
-    expect(placeTile(tiles, PLAN.city, 1, { x: 0, y: 1 })).toEqual(tiles);
-    tiles = placeTile(tiles, PLAN.city, 1, { x: 1, y: 1 });
-    tiles = moveTile(tiles, 2, { x: 1, y: 1 });
-    expect(tiles.find((t) => t.id === 2)).toMatchObject({ x: 1, y: 1 });
-    expect(tiles.find((t) => t.id === 3)).toMatchObject({ x: 0, y: 1 });
-    expect(rotateTile(tiles, 2).find((t) => t.id === 2)?.orientation).toBe(2);
-    expect(takeOffTile(tiles, 3)).toHaveLength(2);
+  it("never lifts the starter, nor a tile whose removal would split the village", () => {
+    expect(canLift(LAYOUT_GROWING.tiles, STARTER.id)).toBe(false);
+    expect(canLift(LAYOUT_GROWING.tiles, OUTER_TILE.id)).toBe(true);
+    expect(canLift(LAYOUT_GROWING.tiles, KEY_TILE.id)).toBe(false);
+    expect(detachedOf(LAYOUT_GROWING.tiles.filter((t) => t.id !== KEY_TILE.id)).length).toBeGreaterThan(0);
+    expect(takeOffTile([STARTER], STARTER.id)).toEqual([STARTER]);
+    expect(placeTile([STARTER], PLAN.city, 1, { x: 0, y: 1 })[1]).toEqual(tile(2, PLAN.city, 1, 0, 1));
   });
 
   it("counts the tray from the inventory, the saved layout and the draft", () => {
@@ -113,7 +111,8 @@ describe("the v2 village's rules (#739)", () => {
     for (const fixture of Object.values(VILLAGE_LAYOUT)) {
       if (!("village" in fixture)) continue;
       const draft = "initialDraft" in fixture ? fixture.initialDraft : fixture.village.tiles;
-      expect(Object.values(trayOf(fixture.inventory ?? {}, fixture.village.tiles, draft)).every((n) => n >= 0)).toBe(true);
+      expect(checkLayout(draft, slotsFor(fixture.village.level)).valid).toBe(true);
+      expect(Object.values(trayOf("inventory" in fixture ? fixture.inventory : {}, fixture.village.tiles, draft)).every((n) => n >= 0)).toBe(true);
     }
   });
 });
@@ -132,66 +131,71 @@ describe("the v2 village scene (#739)", () => {
     expect(screen.queryByRole("list", { name: "Inventory tiles" })).toBeNull();
   });
 
-  it("places a tile from the inventory with two taps", async () => {
+  it("places a tile from the inventory as on the board: a card, a lit cell, the bubble's hold", async () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.growing} />));
-    await userEvent.click(screen.getAllByRole("button", { name: /Edit/ })[0]!);
-    const save = screen.getByRole("button", { name: /Save/ });
-    // The saved layout itself: nothing to save.
-    expect(save).toBeDisabled();
-    const inventory = screen.getByRole("list", { name: "Inventory tiles" });
+    await userEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]!);
+    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
+    const inventory = screen.getByRole("region", { name: "Inventory tiles" });
     await userEvent.click(within(inventory).getByRole("button", { name: /^Tile 10, 4 left$/ }));
     // The board's cells by their marks: a role query over a few hundred cells is slow in jsdom.
-    const free = document.querySelectorAll<HTMLButtonElement>('[data-kind="free"]:not(:disabled)');
-    expect(free.length).toBeGreaterThan(0);
-    await userEvent.click(free[0]!);
+    const plates = document.querySelectorAll<HTMLButtonElement>('[data-kind="plate"]');
+    expect(plates.length).toBe(legalSpots(LAYOUT_GROWING.tiles, PLAN.road).length);
+    await userEvent.click(plates[0]!);
+    const bubble = screen.getByRole("toolbar", { name: "Tile" });
+    // An activation with no press acts at once (a screen reader's): the hold guards a slip of the finger.
+    fireEvent.click(within(bubble).getByRole("button", { name: "Hold to place the tile" }));
     expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
     expect(within(inventory).getByRole("button", { name: /^Tile 10, 3 left$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
   });
 
-  it("marks an invalid draft and keeps Save off until it is fixed", () => {
-    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.faulty} />));
-    expect(screen.getByRole("status")).toHaveTextContent(/cut off from the starter/);
-    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
-    expect(screen.getByRole("group", { name: /faulty edge/ })).toBeInTheDocument();
-    expect(document.querySelector('[data-kind="tile"][aria-label$=", cut off"]')).not.toBeNull();
+  it("lifts an outer tile and sends it back; a tile that holds the village shakes; the starter is no button", async () => {
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} />));
+    expect(document.querySelector('[data-kind="starter"]')?.tagName).toBe("SPAN");
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${KEY_TILE.id}"]`)!);
+    expect(screen.getByText(/holds the village together/)).toBeInTheDocument();
+    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${OUTER_TILE.id}"]`)!);
+    await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
+    expect(screen.getAllByLabelText("20 of 28 slots used").length).toBeGreaterThan(0);
   });
 
-  it("saves a valid, changed draft and shows the new score", async () => {
+  it("Reset all brings the village back to the starter; Discard changes back to the saved layout", async () => {
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} />));
+    fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
+    expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+  });
+
+  it("saves a changed layout and shows the new score; leaving with changes asks first", async () => {
     const onSave = vi.fn();
-    const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.valid} onSave={onSave} />));
+    const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.changed} onSave={onSave} />));
+    expect(screen.getByText("Layout score")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
-    expect(onSave).toHaveBeenCalledWith(VILLAGE_LAYOUT.valid.initialDraft);
+    expect(onSave).toHaveBeenCalledWith(VILLAGE_LAYOUT.changed.initialDraft);
     unmount();
-    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.saved} />));
+    const { unmount: saved } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.saved} />));
     expect(screen.getByText("Layout saved")).toBeInTheDocument();
     expect(screen.getByText(/\+1,122/)).toBeInTheDocument();
+    saved();
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.leaving} />));
+    const dialog = screen.getByRole("dialog", { name: "Leave without saving?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Leave" }));
+    expect(screen.queryByRole("region", { name: "Inventory tiles" })).toBeNull();
   });
 
-  it("takes a chosen tile off to the inventory; the starter stays", async () => {
-    const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.chosen} />));
-    await userEvent.click(screen.getByRole("button", { name: "Take it off" }));
-    expect(screen.getAllByLabelText("20 of 28 slots used").length).toBeGreaterThan(0);
-    unmount();
-    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.starterChosen} />));
-    expect(screen.getByText(/It stays at the centre/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Take it off" })).toBeNull();
-  });
-
-  it("waits for a free slot once every slot is used", () => {
+  it("greys the inventory once every slot is used", () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.full} />));
     expect(screen.getByText("Every slot is used")).toBeInTheDocument();
-    for (const chip of within(screen.getByRole("list", { name: "Inventory tiles" })).getAllByRole("button")) expect(chip).toBeDisabled();
+    for (const card of within(screen.getByRole("region", { name: "Inventory tiles" })).getAllByRole("button")) expect(card).toBeDisabled();
   });
 
-  it("Cancel drops the draft; a visit has no editor", async () => {
-    const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.faulty} />));
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("list", { name: "Inventory tiles" })).toBeNull();
-    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
-    unmount();
+  it("a visit has no editor", () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.visit} />));
     expect(screen.getByRole("heading", { name: "Rook of Ashford's village" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
   });
 
   it("says why the village is not shown", () => {

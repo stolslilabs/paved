@@ -10,7 +10,7 @@ import { VillageLayoutScene, type LayoutSaved, type VillageLayoutSceneProps } fr
 /**
  * The v2 village (#739, part of #732) on fakes: the free layout, the slots, the editor and its inventory. One story per state
  * of `VILLAGE_LAYOUT` (`mocks/village-v2.ts`); the Viewport control reframes it (designed at 375 first; the editor's panel beside
- * the board from `desktop`). `Interactive` keeps its own state and saves with the off-chain engine's score.
+ * the board from `desktop`). `Interactive` keeps its own state and saves with the off-chain engine's score; its holds are short.
  */
 const meta = {
   title: "Scenes/Village v2/Layout",
@@ -34,20 +34,22 @@ type Story = StoryObj<typeof meta>;
 export const Start: Story = { args: VILLAGE_LAYOUT.start };
 /** Halfway: 21 of 28 slots used, under the fog that lifts around the tiles; Edit, Chests (2 waiting), Shop. */
 export const Growing: Story = { args: VILLAGE_LAYOUT.growing };
-/** The editor open on the saved layout: the inventory under the board, Save waiting for a change. */
+/** The editor open on the saved layout: the inventory's carousel at the bottom, Reset all, Discard changes and Save. */
 export const Editing: Story = { args: VILLAGE_LAYOUT.editing };
-/** A road held from the inventory: every empty cell takes it, Rotate turns it. */
+/** A road in hand from the inventory: its legal cells lit, as on the board. */
 export const Holding: Story = { args: VILLAGE_LAYOUT.holding };
-/** A placed tile chosen: turn it, take it off, or tap a cell to move it (a tile to swap). */
-export const Chosen: Story = { args: VILLAGE_LAYOUT.chosen };
-/** The starter chosen: it stays at the centre, as it is. */
-export const StarterChosen: Story = { args: VILLAGE_LAYOUT.starterChosen };
-/** An invalid draft: a tile turned (its edges marked in red) and one cut off from the starter (outlined); Save waits. */
-export const Faulty: Story = { args: VILLAGE_LAYOUT.faulty };
-/** A valid, changed draft: three tiles more, Save enabled. */
-export const Valid: Story = { args: VILLAGE_LAYOUT.valid };
-/** Every slot used (20 of 20): the inventory waits until a tile is taken off. */
+/** The road set on a lit cell: the bubble rotates it, sends it back to the inventory, or places it with a hold. */
+export const Placing: Story = { args: VILLAGE_LAYOUT.placing };
+/** A placed tile lifted into the hand, with the bubble: rotate it in place, tap another lit cell to move it, or send it back. */
+export const Lifted: Story = { args: VILLAGE_LAYOUT.lifted };
+/** Three tiles more than the saved layout: the live score, Save and Discard changes enabled. */
+export const Changed: Story = { args: VILLAGE_LAYOUT.changed };
+/** After Reset all: the starter alone, every tile back in the inventory, until saved. */
+export const Reset: Story = { args: VILLAGE_LAYOUT.reset };
+/** Every slot used (20 of 20): the carousel greyed until a tile is sent back. */
 export const Full: Story = { args: VILLAGE_LAYOUT.full };
+/** Back with unsaved changes: asked first. */
+export const Leaving: Story = { args: VILLAGE_LAYOUT.leaving };
 /** The save on its way. */
 export const Saving: Story = { args: VILLAGE_LAYOUT.saving };
 /** The save landed: the new score and what it gained. */
@@ -89,5 +91,5 @@ function Playground(props: VillageLayoutSceneProps) {
   return <VillageLayoutScene {...props} village={village} inventory={inventory} saving={saving} saved={saved} onSave={save} onDismissSaved={() => setSaved(null)} />;
 }
 
-/** Play it: Edit, drag tiles from the inventory, move or take them off, fix the red edges, Save to see the new score. */
-export const Interactive: Story = { args: VILLAGE_LAYOUT.growing, render: (args) => <Playground {...args} /> };
+/** Play it: Edit, choose a tile, tap a lit cell, hold the check; lift a tile to move it or send it back; Save to see the new score. */
+export const Interactive: Story = { args: { ...VILLAGE_LAYOUT.growing, holdMs: 300 }, render: (args) => <Playground {...args} /> };

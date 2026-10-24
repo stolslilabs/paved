@@ -1,35 +1,24 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Cobbles } from "../elements/cobbles";
+import { HoldButton } from "../elements/hold-button";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { Score } from "../elements/score";
-import { TileChip, type TileArt } from "../elements/tile-chip";
+import { type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { InventoryTray } from "../containers/inventory-tray";
-import { LayoutBoard } from "../containers/layout-board";
-import {
-  checkLayout,
-  isStarter,
-  layoutProblem,
-  moveTile,
-  placeTile,
-  rotateTile,
-  sameLayout,
-  slotsFor,
-  takeOffTile,
-  trayOf,
-  type Cell,
-  type Inventory,
-  type VillageLayout,
-} from "../containers/layout-rules";
+import { LayoutBoard, type LayoutPending } from "../containers/layout-board";
+import { STARTER, canLift, fittingAt, layoutScore, legalSpots, placeTile, sameLayout, slotsFor, trayOf, type Inventory, type Spot, type VillageLayout } from "../containers/layout-rules";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
+import { TileBubble } from "../containers/tile-bubble";
 import { TopBar } from "../containers/top-bar";
 
 /** Why the village is not shown: a guest (Connect), the reads on their way, a failed read (Retry). */
@@ -40,6 +29,9 @@ export interface LayoutSaved {
   score: number;
   previous: number;
 }
+
+/** The tile in hand: from the inventory (a plan), or lifted from the board (the tile, its cell and rotation kept). */
+export type LayoutHand = { from: "inventory"; plan: number } | { from: "board"; tile: BoardTile };
 
 export interface VillageLayoutSceneProps {
   /** The village; omitted, `status` says why. */
@@ -61,15 +53,18 @@ export interface VillageLayoutSceneProps {
   refusal?: string | null;
   refusalDetail?: ErrorDetail;
   tileArt?: TileArt;
-  /** Where the stories start: the editor open on this draft (the saved layout when unset), a tile chosen, a plan held. */
+  /** The hold's length on the bubble and Reset all, ms (the stories and tests tune it). */
+  holdMs?: number;
+  /** Where the stories start: the editor open on this draft (the saved layout when unset), a tile in hand, set on a cell, the leave dialog. */
   initialEditing?: boolean;
   initialDraft?: readonly BoardTile[];
-  initialSelected?: number | null;
-  initialHeld?: number | null;
+  initialHand?: { plan: number } | { lift: number } | null;
+  initialPending?: Spot | null;
+  initialLeaving?: boolean;
   onBack?: () => void;
   onConnect?: () => void;
   onRetry?: () => void;
-  /** Save the draft: a valid, connected layout that holds the starter, within the slots. */
+  /** Save the draft: always valid (the editor keeps it so), within the slots. */
   onSave?: (tiles: readonly BoardTile[]) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
@@ -77,32 +72,17 @@ export interface VillageLayoutSceneProps {
   onOpenShop?: () => void;
 }
 
-/** A press becomes a drag past this many pixels (the sheets' slop); under it, it is a tap. */
-const DRAG_SLOP = 6;
-
-/** What a drag carries: a plan from the tray, or a placed tile. */
-type DragSource = { kind: "plan"; plan: number } | { kind: "tile"; id: number };
-type DropTarget = { kind: "cell"; cell: Cell } | { kind: "tray" } | null;
-
-/** What is under the pointer while dragging: a board cell (`data-cell`), the tray (`data-tray`), or nothing. */
-function targetAt(x: number, y: number): DropTarget {
-  const under = document.elementFromPoint?.(x, y);
-  if (under?.closest("[data-tray]")) return { kind: "tray" };
-  const el = under?.closest<HTMLElement>("[data-cell]");
-  if (!el) return null;
-  const [cx, cy] = (el.dataset.cell ?? "").split(",").map(Number);
-  return { kind: "cell", cell: { x: cx!, y: cy! } };
-}
-
 /**
  * The v2 village (#739, part of #732): a free layout of the player's collected tiles, rearranged at any time, capped by the
  * slots unlocked (8 + level). The view shows the layout under the fog, which lifts around its tiles, the score, the level
- * and the slots used ("21 / 28"), and leads to the chests and the shop. Edit opens the editor: drag a tile from the inventory
- * onto the board (or tap it, then a cell), drag a placed tile to move it (onto another, they swap) or back onto the inventory
- * to take it off; a tap on a placed tile chooses it, to turn or take off. Any state is allowed while editing: the faulty edges
- * are marked, the tiles cut off from the starter outlined, and Save waits for a valid, connected layout with the starter (it
- * stays at the centre). Saving shows the new score. A visit shows someone else's village read-only. Data and the save come
- * as props and callbacks: the page wires them to the v2 contracts (#733) in a later task.
+ * and the slots used ("21 / 28"), and leads to the chests and the shop. Edit opens the editor, where placing works as on the
+ * board (the owner's decisions): a card of the inventory's carousel puts its tile in hand, its legal cells light up, a tap
+ * sets it on one, and the bubble rotates it, sends it back to the inventory (in the bin's place) or places it with a hold. A
+ * placed tile is lifted into the hand with a tap, to move, turn or send back; a tile that holds the village together shakes
+ * instead. The starter never moves. "Reset all", held, brings the village back to the starter alone. The layout stays valid at
+ * every step; its live score is the engine's. Save sends it when something changed and shows the new score once confirmed;
+ * Discard changes goes back to the saved layout, and leaving with changes asks first. Data and the save come as props and
+ * callbacks: the page wires them to the mock ledger (#741) and then the contracts (#733) in later tasks.
  */
 export function VillageLayoutScene({ village, status, mode = "own", onBack, onConnect, onRetry, ...props }: VillageLayoutSceneProps) {
   if (village) return <LayoutView village={village} mode={mode} onBack={onBack} {...props} />;
@@ -132,6 +112,9 @@ export function VillageLayoutScene({ village, status, mode = "own", onBack, onCo
   );
 }
 
+/** The orientation the tile takes on `spot`: the one it has if it fits there, else the first that does. */
+const fitOn = (spot: Spot, orientation: number) => (spot.orientations.includes(orientation) ? orientation : spot.orientations[0]!);
+
 function LayoutView({
   village,
   mode = "own",
@@ -143,10 +126,12 @@ function LayoutView({
   refusal = null,
   refusalDetail,
   tileArt,
+  holdMs,
   initialEditing = false,
   initialDraft,
-  initialSelected = null,
-  initialHeld = null,
+  initialHand = null,
+  initialPending = null,
+  initialLeaving = false,
   onBack,
   onSave,
   onDismissSaved,
@@ -156,147 +141,158 @@ function LayoutView({
 }: Omit<VillageLayoutSceneProps, "village" | "status" | "onConnect" | "onRetry"> & { village: VillageLayout }) {
   const own = mode === "own";
   const slots = slotsFor(village.level);
+  const start = initialDraft ?? village.tiles;
+  const startHand: LayoutHand | null = !initialHand
+    ? null
+    : "plan" in initialHand
+      ? { from: "inventory", plan: initialHand.plan }
+      : (() => {
+          const tile = start.find((t) => t.id === initialHand.lift);
+          return tile ? { from: "board", tile } : null;
+        })();
   const [editing, setEditing] = useState(own && initialEditing);
-  const [draft, setDraft] = useState<readonly BoardTile[]>(initialDraft ?? village.tiles);
-  const [selected, setSelected] = useState<number | null>(initialSelected);
-  const [held, setHeld] = useState<number | null>(initialHeld);
-  const [orientation, setOrientation] = useState(1);
-  const [drag, setDrag] = useState<{ source: DragSource; x: number; y: number; over: DropTarget } | null>(null);
-  const press = useRef<{ source: DragSource; x: number; y: number; moved: boolean; el: HTMLElement } | null>(null);
-  const clickAfterDrag = useRef(false);
-  const stop = useRef<(() => void) | null>(null);
-  useEffect(() => () => stop.current?.(), []);
+  const [draft, setDraft] = useState<readonly BoardTile[]>(startHand?.from === "board" ? start.filter((t) => t.id !== startHand.tile.id) : start);
+  const [hand, setHand] = useState<LayoutHand | null>(startHand);
+  const [pending, setPending] = useState<LayoutPending | null>(() => {
+    if (startHand?.from === "board") return { ...startHand.tile };
+    if (startHand && initialPending) return { x: initialPending.x, y: initialPending.y, plan: startHand.plan, orientation: initialPending.orientations[0]! };
+    return null;
+  });
+  const [shaking, setShaking] = useState<number | null>(null);
+  const [leaving, setLeaving] = useState(initialLeaving);
+  const shake = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (shake.current && clearTimeout(shake.current)), []);
 
   // A save that landed closes the editor on the new layout.
   useEffect(() => {
     if (!saved) return;
     setEditing(false);
-    setSelected(null);
-    setHeld(null);
+    setHand(null);
+    setPending(null);
   }, [saved]);
   // The saved layout changed (a save, a read): a closed editor follows it.
   useEffect(() => {
     if (!editing) setDraft(village.tiles);
   }, [village.tiles, editing]);
 
+  const lifted = hand?.from === "board" ? hand.tile : null;
+  // The layout as it stands: the draft, the lifted tile back at its cell until it goes elsewhere.
+  const whole = useMemo(() => (lifted ? [...draft, lifted] : draft), [draft, lifted]);
   const tiles = editing ? draft : village.tiles;
-  const check = checkLayout(tiles, slots);
-  const problem = layoutProblem(check);
-  const changed = !sameLayout(draft, village.tiles);
-  const tray = trayOf(inventory, village.tiles, draft);
-  const full = draft.length >= slots;
-  const chosen = selected != null ? (draft.find((t) => t.id === selected) ?? null) : null;
+  const used = editing ? whole.length : village.tiles.length;
+  const full = used >= slots;
+  const tray = trayOf(inventory, village.tiles, whole);
+  const handPlan = hand ? (hand.from === "inventory" ? hand.plan : hand.tile.plan) : null;
+  const plates = useMemo(() => (editing && handPlan != null ? legalSpots(draft, handPlan) : []), [editing, handPlan, draft]);
+  const score = useMemo(() => (editing ? layoutScore(whole) : village.score), [editing, whole, village.score]);
+  const changed = !sameLayout(whole, village.tiles);
 
   const open = () => {
     onDismissSaved?.();
     setDraft(village.tiles);
-    setSelected(null);
-    setHeld(null);
+    setHand(null);
+    setPending(null);
     setEditing(true);
   };
-  const cancel = () => {
+  /** The tile in hand put down: a lifted tile back where it was, an inventory tile back in the inventory. */
+  const putBack = () => {
+    if (lifted) setDraft((d) => [...d, lifted]);
+    setHand(null);
+    setPending(null);
+  };
+  const close = () => {
     setDraft(village.tiles);
-    setSelected(null);
-    setHeld(null);
+    setHand(null);
+    setPending(null);
+    setLeaving(false);
     setEditing(false);
   };
-  const place = (plan: number, cell: Cell) => {
-    if ((tray[plan] ?? 0) <= 0 || full || draft.some((t) => t.x === cell.x && t.y === cell.y)) return;
-    setDraft((d) => placeTile(d, plan, orientation, cell));
-    // The plan stays in hand while some are left: several of one plan go down in a row.
-    if ((tray[plan] ?? 0) <= 1 || draft.length + 1 >= slots) setHeld(null);
-  };
-  const move = (id: number, cell: Cell) => {
-    setDraft((d) => moveTile(d, id, cell));
-    setSelected(null);
-  };
-  const takeOff = (id: number) => {
-    setDraft((d) => takeOffTile(d, id));
-    setSelected(null);
+  const back = () => {
+    if (!editing) return onBack?.();
+    if (changed) setLeaving(true);
+    else close();
   };
 
-  const onCell = (cell: Cell) => {
+  const choosePlan = (plan: number | null) => {
     if (saving) return;
-    if (held != null) place(held, cell);
-    else if (selected != null) move(selected, cell);
+    if (lifted) setDraft((d) => [...d, lifted]);
+    setHand(plan == null ? null : { from: "inventory", plan });
+    setPending(null);
   };
-  const onTile = (tile: BoardTile) => {
+  const choosePlate = (spot: Spot) => {
+    if (handPlan == null || saving) return;
+    setPending((p) => ({ x: spot.x, y: spot.y, plan: handPlan, orientation: fitOn(spot, p?.orientation ?? (lifted?.orientation ?? 1)) }));
+  };
+  const lift = (tile: BoardTile) => {
     if (saving) return;
-    if (clickAfterDrag.current) {
-      clickAfterDrag.current = false;
+    // What is in hand goes back first: one tile in hand at a time.
+    const base = lifted ? [...draft, lifted] : draft;
+    if (!canLift(base, tile.id)) {
+      setShaking(tile.id);
+      if (shake.current) clearTimeout(shake.current);
+      shake.current = setTimeout(() => setShaking(null), 1_600);
+      setDraft(base);
+      setHand(null);
+      setPending(null);
       return;
     }
-    // A tile chosen and another tapped: the two swap; the same one again lets it go.
-    if (selected != null && selected !== tile.id && !isStarter(tile) && chosen && !isStarter(chosen)) return move(selected, tile);
-    setHeld(null);
-    setSelected(selected === tile.id ? null : tile.id);
+    setShaking(null);
+    setDraft(base.filter((t) => t.id !== tile.id));
+    setHand({ from: "board", tile });
+    setPending({ ...tile });
   };
-  const onSelectPlan = (plan: number | null) => {
-    if (clickAfterDrag.current) {
-      clickAfterDrag.current = false;
-      return;
+  const rotations = pending ? fittingAt(draft, pending.plan, pending) : [];
+  const rotate = () => {
+    if (!pending || rotations.length < 2) return;
+    const i = rotations.indexOf(pending.orientation);
+    setPending({ ...pending, orientation: rotations[(i + 1) % rotations.length]! });
+  };
+  const confirm = () => {
+    if (!pending || !hand) return;
+    if (hand.from === "board") {
+      setDraft((d) => [...d, { ...hand.tile, x: pending.x, y: pending.y, orientation: pending.orientation }]);
+      setHand(null);
+    } else {
+      setDraft((d) => placeTile(d, hand.plan, pending.orientation, pending));
+      // The plan stays in hand while some are left and a slot is free: several of one plan go down in a row.
+      if ((tray[hand.plan] ?? 0) <= 1 || used + 1 >= slots) setHand(null);
     }
-    setSelected(null);
-    setHeld(plan);
-    setOrientation(1);
+    setPending(null);
+  };
+  const sendBack = () => {
+    setHand(null);
+    setPending(null);
+  };
+  const reset = () => {
+    setDraft([{ ...STARTER }]);
+    setHand(null);
+    setPending(null);
+  };
+  const discard = () => {
+    setDraft(village.tiles);
+    setHand(null);
+    setPending(null);
   };
 
-  const drop = (source: DragSource, target: DropTarget) => {
-    if (!target) return;
-    if (source.kind === "plan" && target.kind === "cell") place(source.plan, target.cell);
-    if (source.kind === "tile" && target.kind === "cell") move(source.id, target.cell);
-    if (source.kind === "tile" && target.kind === "tray") takeOff(source.id);
-  };
-  const startDrag = (source: DragSource, e: ReactPointerEvent<HTMLElement>) => {
-    if (e.button !== 0 || saving) return;
-    if (source.kind === "tile" && isStarter({ id: source.id })) return;
-    stop.current?.();
-    press.current = { source, x: e.clientX, y: e.clientY, moved: false, el: e.currentTarget };
-    const moveAt = (ev: PointerEvent) => {
-      const p = press.current;
-      if (!p) return;
-      if (!p.moved && Math.hypot(ev.clientX - p.x, ev.clientY - p.y) < DRAG_SLOP) return;
-      p.moved = true;
-      setDrag({ source: p.source, x: ev.clientX, y: ev.clientY, over: targetAt(ev.clientX, ev.clientY) });
-    };
-    const end = (ev: PointerEvent, dropped: boolean) => {
-      const p = press.current;
-      press.current = null;
-      stop.current?.();
-      if (!p?.moved) return;
-      // A release over the element it started on is followed by a click on it: that click ends the drag, it is no tap.
-      const under = document.elementFromPoint?.(ev.clientX, ev.clientY);
-      if (under && p.el.contains(under)) {
-        clickAfterDrag.current = true;
-        setTimeout(() => (clickAfterDrag.current = false), 0);
-      }
-      setDrag(null);
-      if (dropped) drop(p.source, targetAt(ev.clientX, ev.clientY));
-    };
-    const up = (ev: PointerEvent) => end(ev, true);
-    const cancelDrag = (ev: PointerEvent) => end(ev, false);
-    window.addEventListener("pointermove", moveAt);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", cancelDrag);
-    stop.current = () => {
-      window.removeEventListener("pointermove", moveAt);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", cancelDrag);
-      stop.current = null;
-    };
-  };
-
-  const draggedTile = drag?.source.kind === "tile" ? draft.find((t) => drag.source.kind === "tile" && t.id === drag.source.id) : undefined;
-  const dragged = drag?.source.kind === "plan" ? { plan: drag.source.plan, orientation } : draggedTile ? { plan: draggedTile.plan, orientation: draggedTile.orientation } : null;
-  const overCell = drag?.over?.kind === "cell" ? drag.over.cell : null;
-  const targets = editing && !saving && (held != null || (chosen != null && !isStarter(chosen)) || drag != null);
+  const hint =
+    shaking != null
+      ? "This tile holds the village together: take the outer tiles first."
+      : pending
+        ? "Rotate, then hold the check to place it."
+        : hand
+          ? plates.length
+            ? `Tap a lit cell for ${tileName(handPlan!)}.`
+            : `${tileName(handPlan!)} fits nowhere yet: send it back, or place another tile first.`
+          : full
+            ? "Every slot is used: lift a tile to move it, or send it back."
+            : "Choose a tile in the inventory, or tap a placed tile to lift it.";
 
   const title = own ? "My village" : `${village.owner}'s village`;
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
       <TopBar
         title={editing ? "Edit layout" : title}
-        onBack={editing ? cancel : onBack}
+        onBack={back}
         ownCobbles={own}
         end={
           own ? (
@@ -309,7 +305,14 @@ function LayoutView({
       <div className="flex min-h-0 flex-1 flex-col desktop:flex-row desktop:gap-4 desktop:p-4 desktop:pt-0">
         <div className="flex min-h-0 flex-1 flex-col desktop:overflow-hidden desktop:rounded-2xl desktop:border desktop:border-border">
           <div className="flex items-end justify-between gap-3 border-b border-border px-4 pb-2 desktop:pt-2">
-            <Score value={village.score} label="Village score" size="sm" className="shrink-0" />
+            <div className="flex shrink-0 items-end gap-3">
+              <Score value={score} label={editing ? "Layout score" : "Village score"} size="sm" />
+              {editing && score !== village.score && (
+                <span className="pb-0.5 text-xs text-muted-foreground">
+                  saved <span className="numeric">{formatInteger(village.score)}</span>
+                </span>
+              )}
+            </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               {!own && (
                 <Badge variant="outline">
@@ -319,33 +322,23 @@ function LayoutView({
               <Badge variant="secondary" aria-label={`Level ${village.level}`}>
                 Lv <span className="numeric">{village.level}</span>
               </Badge>
-              <Badge variant={check.over > 0 ? "warning" : "secondary"} aria-label={`${check.used} of ${slots} slots used`}>
-                <Icon name="layer-group" size="xs" />
+              <Badge variant="secondary" aria-label={`${used} of ${slots} slots used`}>
+                <Icon name="table-cells-large" size="xs" />
                 <span className="numeric">
-                  {check.used} / {slots}
+                  {used} / {slots}
                 </span>
               </Badge>
             </div>
           </div>
-          {editing && (
-            <div role="status" aria-live="polite" className={cn("flex items-center gap-2 border-b border-border px-4 py-2 text-sm", problem ? "text-warning" : "text-success")}>
-              <Icon name={problem ? "triangle-exclamation" : "circle-check"} size="sm" />
-              <span>{problem ?? (changed ? "A valid layout: save it to score it." : "Your saved layout.")}</span>
-            </div>
-          )}
           <LayoutBoard
             tiles={tiles}
             editing={editing}
-            selected={selected}
-            targets={targets}
-            faults={editing ? check.faults : []}
-            detached={editing ? new Set(check.detached.map((t) => t.id)) : undefined}
-            over={overCell}
-            preview={drag ? dragged : null}
+            plates={plates}
+            pending={editing ? pending : null}
+            shaking={shaking}
             tileArt={tileArt}
-            onTile={onTile}
-            onCell={onCell}
-            onTilePress={(tile, e) => startDrag({ kind: "tile", id: tile.id }, e)}
+            onTile={lift}
+            onPlate={choosePlate}
             className="min-h-0 flex-1"
           />
           {own && saved && !editing && (
@@ -396,48 +389,47 @@ function LayoutView({
           >
             {editing ? (
               <>
-                {chosen ? (
-                  <ChosenTile tile={chosen} tileArt={tileArt} busy={saving} onRotate={() => setDraft((d) => rotateTile(d, chosen.id))} onTakeOff={() => takeOff(chosen.id)} onDone={() => setSelected(null)} />
-                ) : held != null ? (
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <p className="text-sm">
-                      Placing <span className="font-semibold">{tileName(held)}</span>
-                    </p>
-                    <Button size="icon" variant="outline" aria-label="Rotate the tile" onClick={() => setOrientation((o) => (o % 4) + 1)}>
-                      <Icon name="rotate-right" size="sm" />
-                    </Button>
-                  </div>
-                ) : null}
-                <InventoryTray
-                  tray={tray}
-                  held={held}
-                  orientation={orientation}
-                  full={full}
-                  dropping={drag?.source.kind === "tile" && drag.over?.kind === "tray"}
-                  dragging={drag?.source.kind === "plan" ? drag.source.plan : null}
-                  tileArt={tileArt}
-                  onSelect={onSelectPlan}
-                  onDragStart={(plan, e) => startDrag({ kind: "plan", plan }, e)}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" onClick={cancel} disabled={saving}>
-                    Cancel
+                {pending && hand && (
+                  <TileBubble
+                    rotations={rotations.length}
+                    orientation={pending.orientation}
+                    cell={pending}
+                    holdMs={holdMs}
+                    busy={saving}
+                    onRotate={rotate}
+                    onClose={putBack}
+                    onReturn={sendBack}
+                    onConfirm={confirm}
+                  />
+                )}
+                <p role="status" aria-live="polite" className={cn("px-1 text-xs", shaking != null ? "text-warning" : "text-muted-foreground")}>
+                  {hint}
+                </p>
+                <InventoryTray tray={tray} held={hand?.from === "inventory" ? hand.plan : null} full={full && hand?.from !== "board"} busy={saving} tileArt={tileArt} onSelect={choosePlan} />
+                <div className="flex items-center gap-2">
+                  <HoldButton label="Hold to reset all: the starter alone, every tile back in the inventory" title="Hold to reset all" icon="rotate" tone="destructive" holdMs={holdMs} disabled={saving || draft.length <= 1} onComplete={reset} />
+                  <Button variant="outline" className="flex-1" onClick={discard} disabled={!changed || saving}>
+                    Discard changes
                   </Button>
-                  <Button onClick={() => onSave?.(draft)} disabled={!check.valid || !changed} loading={saving} aria-describedby={problem ? "layout-problem" : undefined}>
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      // What is in hand stays where it is: a lifted tile at its cell, an inventory tile in the inventory.
+                      putBack();
+                      onSave?.(whole);
+                    }}
+                    disabled={!changed || saving}
+                    loading={saving}
+                  >
                     <Icon name="check" size="sm" /> Save
                   </Button>
                 </div>
-                {problem && (
-                  <p id="layout-problem" className="sr-only">
-                    {problem}
-                  </p>
-                )}
               </>
             ) : (
               <>
                 <h2 className="font-display text-lg">Your village</h2>
                 <p className="text-sm text-muted-foreground">
-                  <span className="numeric">{check.used}</span> of your <span className="numeric">{slots}</span> slots hold a tile; each level unlocks one more, up to 28.
+                  <span className="numeric">{used}</span> of your <span className="numeric">{slots}</span> slots hold a tile; each level unlocks one more, up to 28.
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   <ViewActions chests={chests} onEdit={open} onOpenChests={onOpenChests} onOpenShop={onOpenShop} />
@@ -447,11 +439,22 @@ function LayoutView({
           </aside>
         )}
       </div>
-      {drag && dragged && (
-        <span aria-hidden className="pointer-events-none fixed z-50 size-16 -translate-x-1/2 -translate-y-1/2 drop-shadow-lg" style={{ left: drag.x, top: drag.y }}>
-          <TileChip plan={dragged.plan} orientation={dragged.orientation} art={tileArt} className={cn("size-full border-primary", drag.over && "opacity-60")} />
-        </span>
-      )}
+      <Dialog open={leaving} onOpenChange={setLeaving}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave without saving?</DialogTitle>
+            <DialogDescription>Your changes to the layout are lost; the village stays as it was saved.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLeaving(false)}>
+              Keep editing
+            </Button>
+            <Button variant="destructive" onClick={close}>
+              Leave
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -460,9 +463,7 @@ function LayoutView({
 function ViewActions({ chests, onEdit, onOpenChests, onOpenShop }: { chests: number; onEdit: () => void; onOpenChests?: () => void; onOpenShop?: () => void }) {
   return (
     <>
-      <Button onClick={onEdit}>
-        Edit
-      </Button>
+      <Button onClick={onEdit}>Edit</Button>
       <Button variant="outline" onClick={onOpenChests} aria-label={chests > 0 ? `Chests, ${chests} waiting` : "Chests"} className="relative">
         <Icon name="gift" size="sm" /> Chests
         {chests > 0 && (
@@ -475,32 +476,5 @@ function ViewActions({ chests, onEdit, onOpenChests, onOpenShop }: { chests: num
         Shop
       </Button>
     </>
-  );
-}
-
-/** The placed tile chosen: turn it, take it off, or let it go. The starter stays as it is. */
-function ChosenTile({ tile, tileArt, busy, onRotate, onTakeOff, onDone }: { tile: BoardTile; tileArt?: TileArt; busy: boolean; onRotate: () => void; onTakeOff: () => void; onDone: () => void }) {
-  const starter = isStarter(tile);
-  return (
-    <div className="flex items-center gap-3 px-1">
-      <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} className="size-12 rounded-[3px] border-0" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-sm font-semibold">{starter ? "The starter" : tileName(tile.plan)}</span>
-        <span className="text-xs text-muted-foreground">{starter ? "It stays at the centre, as it is." : "Tap a cell to move it, or a tile to swap."}</span>
-      </div>
-      {!starter && (
-        <>
-          <Button size="icon" variant="outline" aria-label="Rotate the tile" onClick={onRotate} disabled={busy}>
-            <Icon name="rotate-right" size="sm" />
-          </Button>
-          <Button size="sm" variant="outline" aria-label="Take it off" onClick={onTakeOff} disabled={busy}>
-            Take off
-          </Button>
-        </>
-      )}
-      <Button size="icon" variant="ghost" aria-label="Done" onClick={onDone}>
-        <Icon name="check" size="sm" />
-      </Button>
-    </div>
   );
 }
