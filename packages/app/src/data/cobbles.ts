@@ -157,8 +157,8 @@ export function useAchievementRewards(playerId: string | null): { data: Achievem
 
 /**
  * A claim's receipt into the cache: each `CobblesClaimed` sets the balance and the claimed bit (a quest's in its day or
- * week, by the definitions' `cobbles_kind`), each `CreditClaimed` the credits and the period's credit. The reads not in
- * the cache are left to the reconciling read.
+ * week, by the definitions' `cobbles_kind`), each `CreditClaimed` the credits, the period's credit and, when it pays bonus
+ * Cobbles (PvP v2), the balance. The reads not in the cache are left to the reconciling read.
  */
 export function applyClaimEvents(client: QueryClient, playerId: string, events: readonly DecodedEvent[]): void {
   const definitions = client.getQueryData<Definitions>(queryKeys.indexer.definitions());
@@ -175,7 +175,8 @@ export function applyClaimEvents(client: QueryClient, playerId: string, events: 
       const kind = Number(fields.kind) === 1 ? kindOf(Number(fields.id)) : null;
       if (kind !== null) progress(kind === "weekly", period, (p) => ({ ...p, claimed: p.claimed | bit }));
     } else if (name === "CreditClaimed") {
-      account((a) => ({ ...a, credits: Number(fields.credits) }));
+      // PvP v2 (#741, #738): a credit that pays bonus Cobbles names the new balance
+      account((a) => ({ ...a, credits: Number(fields.credits), cobbles: fields.balance === undefined ? a.cobbles : Number(fields.balance) }));
       progress(Number(fields.kind) === 2, period, (p) => ({ ...p, credit: true }));
     }
   }

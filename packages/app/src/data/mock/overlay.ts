@@ -46,13 +46,18 @@ export const MOCKED_GAME_READS = [
   "pvpDeck",
   "pvpMoves",
   "pvpNpcLevel",
+  "freeVillage",
+  "inventory",
+  "chests",
+  "shop",
+  "attackV2",
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers; `pavedBalance` and `usdcBalance` are the chain's, adjusted by the mock's moves. */
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers. */
-export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "spawnFree"] as const;
+export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
 
 /**
  * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
@@ -225,6 +230,17 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     startAttack: () => writes.startAttack(),
     playAttack: (play: AttackPlay) => writes.playAttack(play),
     surrenderAttack: writes.surrenderAttack,
+    // PvP v2 (#741): the free village, chests, shop, Story report and the attack, all the ledger's
+    foundFreeVillage: writes.foundFreeVillage,
+    saveLayout: writes.saveLayout,
+    openChest: writes.openChest,
+    claimChest: writes.claimChest,
+    buyTile: writes.buyTile,
+    reportStory: writes.reportStory,
+    drawOpponentV2: writes.drawOpponentV2,
+    startAttackV2: writes.startAttackV2,
+    playAttackV2: writes.playAttackV2,
+    surrenderAttackV2: writes.surrenderAttackV2,
     spawnFree: () => Promise.reject(new WriteError(FREE_SPAWN_MOCKED)),
   });
 }
