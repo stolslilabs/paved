@@ -550,3 +550,44 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/*
+ * 6. TAB-SWIPE (#726, owner decisions of 2026-10-24): below `desktop`, a pick in the bar moves the page sideways, from one tab's
+ * page to the next, and the bar's highlight and labels move with it, in one duration and one easing. The swipe is a view
+ * transition of the page's region only (`routes/tab-swipe.ts`): while `<html>` carries the mark `data-tab-swipe` (`next`, a
+ * tab to the right; `prev`), the region (`TabFrame`'s `page-scroll`) is named `tab-page`, its old snapshot leaves on one side
+ * and the new one comes in from the other, clipped to the region. The root's snapshots are not animated: the rest of the
+ * screen, the bar included, is the new page at once, its own transitions (`AppNav`) running live. No swipe under reduced
+ * motion and from `desktop` (the helper starts none).
+ */
+:root {
+  --tab-swipe-duration: 320ms;
+  --tab-swipe-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+html[data-tab-swipe] [data-slot="page-scroll"] {
+  view-transition-name: tab-page;
+}
+html[data-tab-swipe]::view-transition-old(root),
+html[data-tab-swipe]::view-transition-new(root) {
+  animation: none;
+}
+html[data-tab-swipe]::view-transition-group(tab-page) {
+  overflow: clip;
+  animation-duration: var(--tab-swipe-duration);
+  animation-timing-function: var(--tab-swipe-ease);
+}
+html[data-tab-swipe]::view-transition-old(tab-page),
+html[data-tab-swipe]::view-transition-new(tab-page) {
+  mix-blend-mode: normal;
+  animation-duration: var(--tab-swipe-duration);
+  animation-timing-function: var(--tab-swipe-ease);
+  animation-fill-mode: both;
+}
+html[data-tab-swipe="next"]::view-transition-old(tab-page) { animation-name: tab-swipe-to-start; }
+html[data-tab-swipe="next"]::view-transition-new(tab-page) { animation-name: tab-swipe-from-end; }
+html[data-tab-swipe="prev"]::view-transition-old(tab-page) { animation-name: tab-swipe-to-end; }
+html[data-tab-swipe="prev"]::view-transition-new(tab-page) { animation-name: tab-swipe-from-start; }
+@keyframes tab-swipe-to-start { to { translate: -100% 0; } }
+@keyframes tab-swipe-to-end { to { translate: 100% 0; } }
+@keyframes tab-swipe-from-start { from { translate: -100% 0; } }
+@keyframes tab-swipe-from-end { from { translate: 100% 0; } }

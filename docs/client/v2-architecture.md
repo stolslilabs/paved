@@ -656,7 +656,7 @@ Mobile first: the base styles are the small mobile; each breakpoint adds.
 | Name | From | Devices | What changes |
 |---|---|---|---|
 | (base) small mobile | 320 px | iPhone SE, small Android | one column; the bottom navigation shows icons only; the tile hand is a compact bar (tile, rotate, place); 14 px body text; page titles 20 px |
-| `mobile` | 360 px (22.5 rem) | most phones | bottom navigation with labels (the mockups); hand panel as in the mockups (tile preview + Place / Discard); 16 px body |
+| `mobile` | 360 px (22.5 rem) | most phones | bottom navigation with the current item's label under its icon (TAB-SWIPE, #726); hand panel as in the mockups (tile preview + Place / Discard); 16 px body |
 | `tablet` | 640 px (40 rem) | large phones landscape, tablets | lists and cards in two columns (quests, achievements, leaderboard + player); the board's hand panel becomes a floating card at the bottom right; dialogs centred instead of bottom sheets |
 | `desktop` | 1024 px (64 rem) | laptops | the bottom navigation becomes a header across the top (direction D, section 6.2; the left rail is gone); the board takes the centre with a right panel (score, tile in hand, placement preview, actions); hover states and keyboard shortcuts shown (R rotate, D discard, V camera) |
 | `wide` | 1440 px (90 rem) | large screens | content capped at 1200 px except the board, which fills |
@@ -2940,10 +2940,17 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
 - **Direction D (#537, applied 2026-10-19; replaces the bar with a sliding indicator and the left rail, which read as
   Cartridge's):** `containers/app-nav.tsx`.
 - **Mobile and tablet:** a bottom bar of five items, fixed to the viewport's bottom (outside the page's scrolling region,
-  `TabFrame`, #611; a pull past the top never moves it), each an icon over its label (labels from `mobile`, icon only
-  below), safe-area padded, as the mockups draw it. Play, the centre item (D-29), is a larger gold disc raised above the bar,
-  icon only (`aria-label="Play"`). The current item is gold (`text-primary`) on the white 15% layer; hover
-  10%, pressed 20% (`state-layer`, section 2.2b). No indicator slides. Hidden on full-screen flows (welcome, play, purchase,
+  `TabFrame`, #611; a pull past the top never moves it), each an icon, safe-area padded. Play, the centre item (D-29), is a
+  larger gold disc raised above the bar, icon only (`aria-label="Play"`). The current item is gold (`text-primary`) on the
+  white 15% layer; hover 10%, pressed 20% (`state-layer`, section 2.2b). TAB-SWIPE (#726, owner decisions of 2026-10-24):
+  only the current item shows its label under its icon (from `mobile`; icons only below), and the label folds and unfolds
+  (`grid-template-rows` 0fr to 1fr, and opacity) at a fixed item height (44 px, 52 px from `mobile`); the 15% layer is one
+  highlight per bar that slides to the current column (none for Play). A pick of another tab's page slides the pages
+  sideways, the next tab's page coming in from the right, the previous one's from the left: a view transition of the page's
+  region only (`routes/tab-swipe.ts`, the TAB-SWIPE block of `styles/theme.css`), the bar staying still while its highlight
+  and labels move in the same duration and easing (each page mounts its own bar, which starts from the last one's state,
+  `@starting-style`). No swipe for Play, within one tab, under reduced motion, or without `document.startViewTransition`;
+  none from `desktop`. Hidden on full-screen flows (welcome, play, purchase,
   board, over), which get a top bar with Back, the title centred and a hairline under it. The balances (#620) sit in the
   page header (the Cobbles and USDC plates; USDC opens a sheet with every balance) and, on a flow, in a strip under the top
   bar; on every screen but the board.
