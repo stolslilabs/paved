@@ -7,22 +7,23 @@ import { tileName } from "../elements/tile-render";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { FogVeil, cellName } from "./village-board";
+import type { BoardBubble } from "./board-viewport";
 import { SIDES, cellKey, isStarter, type Cell, type Spot } from "./layout-rules";
 
-/** The tile in hand set on a cell, waiting for the hold that places it. */
+/** The tile under the editor's bubble (#756), placed on its cell: drawn ringed, apart from the layout. */
 export interface LayoutPending extends Cell {
   plan: number;
   orientation: number;
 }
 
 export interface LayoutBoardProps {
-  /** The layout's tiles (a tile lifted into the hand is not among them). */
+  /** The layout's tiles (the tile under the bubble, `pending`, is not among them). */
   tiles: readonly BoardTile[];
   /** The layout being edited: the placed tiles and the plates are buttons. Off: drawn, inert, under the fog. */
   editing?: boolean;
   /** The legal cells of the tile in hand, as the board's plates. */
   plates?: readonly Spot[];
-  /** The tile in hand on its cell, ringed: the bubble's hold places it there. */
+  /** The tile under the bubble on its cell, ringed: a tap on it lets it go (`onPending`). */
   pending?: LayoutPending | null;
   /** A tile that cannot be lifted (its removal would split the village): it shakes. */
   shaking?: number | null;
@@ -36,11 +37,17 @@ export interface LayoutBoardProps {
   onTile?: (tile: BoardTile) => void;
   /** A plate chosen: the tile in hand goes there. */
   onPlate?: (spot: Spot) => void;
+  /** The tile under the bubble tapped: let go, it stays where it is. */
+  onPending?: () => void;
   className?: string;
 }
 
-/** What a drawing of the layout takes (the plan view here, the home's 3D scene, #753): the editor's state and its two taps. */
-export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing" | "plates" | "pending" | "shaking">> & Pick<LayoutBoardProps, "onTile" | "onPlate">;
+/**
+ * What a drawing of the layout takes (the plan view here, the home's 3D scene, #753): the editor's state and its taps, and the
+ * bubble the 3D scene stands by the tile (#756; the plan view's stands still in the editor's panel).
+ */
+export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing" | "plates" | "pending" | "shaking">> &
+  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending"> & { bubble?: BoardBubble | null };
 
 /** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */
 const MIN_CELL = 46;
@@ -54,10 +61,10 @@ const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
 /**
  * The v2 village from above (#739): a free layout of tiles, no territory. In the view, the tiles under the fog, which lifts
  * around them as on every board. While editing, placing works as on the board: the tile in hand lights its legal cells
- * (plates, `data-cell`), a tap sets it on one (ringed, the bubble's hold places it), and a placed tile is a button that lifts
+ * (plates, `data-cell`), a tap places it on one (ringed, under the bubble, #756), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, shaking = null, fit = false, tileArt, onTile, onPlate, className }: LayoutBoardProps) {
+export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, shaking = null, fit = false, tileArt, onTile, onPlate, onPending, className }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is.
   const extent = tiles.length;
@@ -134,9 +141,19 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
       }
       if (key === pendingKey && pending) {
         cells.push(
-          <span key={key} data-cell={key} data-kind="pending" style={at(c)} className="relative z-10 block min-h-0 min-w-0 rounded-[3px] ring-2 ring-primary ring-offset-2 ring-offset-board">
+          <button
+            key={key}
+            type="button"
+            data-cell={key}
+            data-kind="pending"
+            aria-label={`${tileName(pending.plan)} at ${cellName(c)}: let it go`}
+            aria-pressed
+            onClick={onPending}
+            style={at(c)}
+            className="relative z-10 block min-h-0 min-w-0 rounded-[3px] ring-2 ring-primary ring-offset-2 ring-offset-board outline-none focus-visible:ring-ring"
+          >
             <TileChip plan={pending.plan} orientation={pending.orientation} art={tileArt} className="size-full rounded-[2px] border-0" />
-          </span>,
+          </button>,
         );
         continue;
       }
