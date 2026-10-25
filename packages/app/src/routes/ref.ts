@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate, type NavigateOptions } from "react-router";
-import { useActiveTab } from "./handle";
+import { useActiveTab, useRoutePage } from "./handle";
 import { useCanGoBack } from "./history";
 import { TABS, type Tab } from "./pages";
 import { tabSwipe } from "./tab-swipe";
@@ -35,14 +35,16 @@ export function useTabNavigate() {
 }
 
 /**
- * Back (a scene's `onBack`): the previous in-app entry, or Home when there is none (a deep link, an old link, a redirect).
- * Only for a page whose previous entry can never be a game: a page reached after a game goes up with `useUpTo` instead.
+ * Back (a scene's `onBack`): the previous in-app entry, or the page's parent in the route map when there is none (a deep link,
+ * an old link, a reload; `PageDef.parent`, #760), the home for a page without one. Only for a page whose previous entry can
+ * never be a game: a page reached after a game goes up with `useUpTo` instead.
  */
 export function useBack() {
   const navigate = useNavigate();
   const go = useAppNavigate();
   const canGoBack = useCanGoBack();
-  return useCallback(() => (canGoBack() ? navigate(-1) : go("/", { replace: true })), [canGoBack, go, navigate]);
+  const parent = useRoutePage()?.parent ?? "/";
+  return useCallback(() => (canGoBack() ? navigate(-1) : go(parent, { replace: true })), [canGoBack, go, navigate, parent]);
 }
 
 /**

@@ -45,8 +45,8 @@ describe("the header's balances by page (#720)", () => {
     }
   });
 
-  // The shell's wiring, each route's page a stand-in top bar: the Cobbles' strip (below `desktop`) where the rule shows it,
-  // else a one-row bar; the rail (from `desktop`) outside the game scenes. jsdom applies no media query: each part is told by
+  // The shell's wiring, each route's page a stand-in top bar: the Cobbles (below `desktop`) under the bar where the rule shows
+  // them, the bar one row at every width; the rail (from `desktop`) outside the game scenes. jsdom applies no media query: each part is told by
   // the width its class keeps it to.
   it.each(PAGES.map((p) => [p.path || "/", p.path] as const))("%s", async (_, path) => {
     const router = createTestRouter(concrete(path), (routes) => {
@@ -64,8 +64,12 @@ describe("the header's balances by page (#720)", () => {
     expect(phone).toHaveLength(rule.phone ? 1 : 0);
     expect(desktop).toHaveLength(rule.desktop === "none" ? 0 : 1);
     expect(bar).toHaveClass("page-header");
-    if (rule.phone) expect(bar).not.toHaveClass("page-header-single");
-    else expect(bar).toHaveClass("page-header-single");
+    // One row below `desktop` (#760): the phone's Cobbles in the page, right after the bar, never in it; the rail in it.
+    for (const region of phone) {
+      expect(bar).not.toContainElement(region);
+      expect(bar.nextElementSibling).toBe(region.parentElement);
+    }
+    for (const region of desktop) expect(bar).toContainElement(region);
   });
 });
 
@@ -85,21 +89,22 @@ describe("the village's Cobbles, never twice (#720)", () => {
     const bar = screen.getByRole("heading", { level: 1, name: "My village" }).closest("header")!;
     expect(within(bar).getByRole("img", { name: "640 Cobbles" })).toBeInTheDocument();
     const regions = await within(bar).findAllByRole("region", { name: "Balances" });
-    // The rail alone (from `desktop`), with every balance but the Cobbles; no strip below it.
+    // The rail alone (from `desktop`), with every balance but the Cobbles; none under the bar below it.
     expect(regions).toHaveLength(1);
     expect(regions[0]).toHaveClass("desktop:flex");
     expect(within(regions[0]!).getByRole("button", { name: "142.35 PAVED: Vault" })).toBeInTheDocument();
     expect(within(regions[0]!).queryByRole("button", { name: /Cobbles/ })).toBeNull();
-    expect(bar).toHaveClass("page-header-single");
+    expect(screen.getAllByRole("region", { name: "Balances" })).toHaveLength(1);
   });
 
   it("a visit to another's village keeps the header's Cobbles and Buy packs, on a phone and from desktop", async () => {
     village(VILLAGE.visitProfile);
     const bar = screen.getAllByRole("heading", { level: 1 })[0]!.closest("header")!;
     expect(within(bar).queryByRole("img", { name: /Cobbles/ })).toBeNull();
-    const regions = await within(bar).findAllByRole("region", { name: "Balances" });
+    // The rail in the bar (from `desktop`), the pill under it (below `desktop`, #760).
+    const regions = await screen.findAllByRole("region", { name: "Balances" });
     expect(regions).toHaveLength(2);
+    expect(regions.filter((r) => bar.contains(r))).toHaveLength(1);
     for (const region of regions) expect(await within(region).findByRole("button", { name: "240 Cobbles: Buy packs" })).toBeInTheDocument();
-    expect(bar).not.toHaveClass("page-header-single");
   });
 });

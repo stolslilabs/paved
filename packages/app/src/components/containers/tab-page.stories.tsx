@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import { TabPage } from "./tab-page";
 import { BIG_AMOUNT_18, LONG_LABEL, LONG_SENTENCE } from "../../mocks/stress";
 import { Amount } from "../elements/amount";
-import { PHONE_375 } from "../scenes/viewports";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { BalancesProvider, type HeaderBalances } from "./balances-context";
 
 const meta = {
@@ -19,8 +19,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** A tab's own page (#760): Back at the top left, to the village (`onNavigate("home")`). */
 export const Default: Story = {};
-/** Reached from another page: Back before the title. */
+/** Reached from another page: Back before the title, to its parent. */
 export const WithBack: Story = { args: { title: "Theme", onBack: fn(), subtitle: "How the board looks" } };
 /** An action on the header's right. */
 export const WithEnd: Story = { args: { tab: "vault", title: "Vault", end: <span className="text-xs text-muted-foreground">Wallet</span> } };
@@ -35,6 +36,12 @@ export const Stress: Story = {
   },
 };
 
+const CARDS = Array.from({ length: 12 }, (_, i) => (
+  <div key={i} data-slot="card" className="flex h-24 shrink-0 items-center rounded-xl border border-border bg-card px-4 text-sm">
+    Card {i + 1}
+  </div>
+));
+
 /** An iPhone's viewport (375 x 812), for the stories of the frame (#611). */
 const PHONE = PHONE_375.parameters;
 
@@ -48,11 +55,7 @@ export const LongPage: Story = {
   args: {
     tab: "quests",
     title: "Missions",
-    children: Array.from({ length: 12 }, (_, i) => (
-      <div key={i} data-slot="card" className="flex h-24 shrink-0 items-center rounded-xl border border-border bg-card px-4 text-sm">
-        Card {i + 1}
-      </div>
-    )),
+    children: CARDS,
   },
 };
 
@@ -68,7 +71,32 @@ const withBalances = (show: HeaderBalances): Decorator[] => [
   ),
 ];
 
-/** HEADER-BALANCES (#720), at 375 px: a page where Cobbles move (Missions) keeps the Cobbles' strip under its title row, 96 px. */
+/**
+ * PAGE-HEADER (#760), at 375 px: a page where Cobbles move (Missions). The header stays one row, 56 px; the Cobbles sit in the
+ * page, under it at the content's top right, and scroll with it.
+ */
 export const PhoneCobbles: Story = { ...PHONE_375, args: { tab: "quests", title: "Missions" }, decorators: withBalances({ phone: true, desktop: "all" }) };
-/** At 375 px, a page where none move (the Vault): no balance, the header is its title row alone, 56 px. */
+/** At 375 px, a page where none move (the Vault): no balance in the page, the same one-row header. */
 export const PhoneNoBalances: Story = { ...PHONE_375, args: { tab: "vault", title: "Vault" }, decorators: withBalances({ phone: false, desktop: "all" }) };
+/** At 320 px, the Cobbles and a long title: the title is cut with an ellipsis, the header keeps one row. */
+export const Phone320Cobbles: Story = {
+  ...PHONE_320,
+  args: { tab: "settings", title: "Themes and tiles of the season", subtitle: LONG_SENTENCE, onBack: fn() },
+  decorators: withBalances({ phone: true, desktop: "all" }),
+};
+/** At 1440 px: the navigation is the top header (with the balances), the page's one-row header opens the content, Back on its left. */
+export const WideCobbles: Story = { ...WIDE_1440, args: { tab: "quests", title: "Missions" }, decorators: withBalances({ phone: true, desktop: "all" }) };
+/**
+ * At 375 px, scrolled to the bottom: the header is sticky, so Back stays in view; the fade under it shows the page has more
+ * above (none under reduced motion's toggle: the fade switches without a transition).
+ */
+export const PhoneScrolled: Story = {
+  parameters: PHONE,
+  globals: { viewport: { value: "phone", isRotated: false } },
+  args: { tab: "quests", title: "Missions", children: CARDS },
+  decorators: withBalances({ phone: true, desktop: "all" }),
+  play: async ({ canvasElement }) => {
+    const region = canvasElement.querySelector<HTMLElement>('[data-slot="page-scroll"]')!;
+    region.scrollTop = region.scrollHeight;
+  },
+};
