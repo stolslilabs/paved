@@ -28,14 +28,12 @@ export function useHeaderBalances(): HeaderBalances | null {
   return value ? (value.show ?? FULLEST) : null;
 }
 
-/** The header has the Cobbles' strip below `desktop`: its second row (`page-header`, theme.css), one row without it. */
-export const useBalancesStrip = () => useHeaderBalances()?.phone ?? false;
 
 /** The balances in their own chunk (BALANCES, #538): the tab pages load it beside their code, the first bundle does not carry it. */
 const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balances })));
 
 /**
- * The balances where a page puts them: `pill` in a header below `desktop` (the Cobbles), `rail` at the end of the navigation's
+ * The balances where a page puts them: `pill` in the page below `desktop` (the Cobbles, `PageBalances`), `rail` at the end of the navigation's
  * header from it. The page's rule says whether each shows; the place says at which widths (`className`: `desktop:hidden`,
  * `hidden desktop:flex`), so a flow's top bar can choose its own. `noCobbles`: the page draws its own Cobbles plate, so the
  * slot leaves them out (the pill is then empty). The space is held while the chunk arrives, so nothing moves.
@@ -49,5 +47,21 @@ export function BalancesSlot({ layout, noCobbles, className }: { layout: Balance
     <Suspense fallback={hold}>
       <Balances {...value} layout={layout} noCobbles={noCobbles} className={className} />
     </Suspense>
+  );
+}
+
+/**
+ * The balances below `desktop` (PAGE-HEADER, #760): in the page, right under its header, at the content's top right, scrolling
+ * with it; never in the header, which stays one row. From `desktop` they are on the header's row (`BalancesSlot` `rail`).
+ * Nothing at all where the page's rule shows no Cobbles on a phone, or where the page draws its own (`noCobbles`).
+ */
+export function PageBalances({ noCobbles, className }: { noCobbles?: boolean; className?: string }) {
+  const value = useContext(BalancesContext);
+  const show = useHeaderBalances();
+  if (!value || !show?.phone || noCobbles) return null;
+  return (
+    <div data-slot="page-balances" className={cn("flex justify-end desktop:hidden", className)}>
+      <BalancesSlot layout="pill" />
+    </div>
   );
 }

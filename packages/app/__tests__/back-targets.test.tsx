@@ -12,7 +12,7 @@ import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { discardTile, preloadPages } from "./route-helpers";
 
-preloadPages("home", "play", "story", "story-board");
+preloadPages("home", "play", "story", "story-board", "quests", "vault", "settings", "credits", "referral", "theme", "welcome");
 
 beforeEach(() => {
   localStorage.clear();
@@ -109,5 +109,43 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await screen.findByText("This level is locked", {}, { timeout: slow(5000) });
     await back();
     await waitFor(() => expect(at(router)).toBe("/story"));
+  });
+});
+
+describe("Back to the village (#760): every page's top left", { timeout: slow(30_000) }, () => {
+  // Opened directly (a link, a reload): no earlier in-app entry, so Back is the page's parent in the route map.
+  it.each([
+    ["/missions", "Missions", "/"],
+    ["/vault", "Vault", "/"],
+    ["/settings", "Settings", "/"],
+    ["/settings/credits", "Credits", "/settings"],
+    ["/referral", "Referral", "/settings"],
+    ["/settings/theme", "Themes", "/settings"],
+  ])("%s opened directly: Back lands on %s's parent", async (path, title, parent) => {
+    const router = open(path);
+    const heading = await screen.findByRole("heading", { level: 1, name: title }, { timeout: slow(5000) });
+    // Back is the header's first control, before the title.
+    expect(heading.closest("header")!.querySelector("button")).toHaveAccessibleName("Back");
+    await back();
+    await waitFor(() => expect(at(router)).toBe(parent));
+  });
+
+  it("the welcome, a first visit: Back opens the village as a guest, and the welcome does not come back", async () => {
+    localStorage.clear();
+    resetWelcomedForTests();
+    const router = open("/welcome");
+    await screen.findByRole("heading", { level: 1, name: "Welcome to Paved" }, { timeout: slow(5000) });
+    expect(screen.getByRole("banner").querySelector("button")).toHaveAccessibleName("Back");
+    await back();
+    await waitFor(() => expect(at(router)).toBe("/"));
+  });
+
+  it("from Settings reached through Vault, Back is the village, not Vault", async () => {
+    const router = open("/vault");
+    await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Settings" }));
+    await screen.findByRole("heading", { level: 1, name: "Settings" }, { timeout: slow(5000) });
+    await back();
+    await waitFor(() => expect(at(router)).toBe("/"));
   });
 });
