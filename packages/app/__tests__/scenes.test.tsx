@@ -154,8 +154,8 @@ describe("Home (#753): the village with its overlays", () => {
     const outside = (name: string) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
     for (const name of ["Settings", "Play"]) expect(outside(name).className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:inline-flex"]));
     // Edit's row and the dial clear the bar's measured height below `desktop`.
-    expect(screen.getByRole("button", { name: "Edit village" }).parentElement!.className).toContain("bottom-[calc(var(--app-nav-h,0px)+0.5rem)]");
-    expect(document.querySelector("[data-dial-place]")!.className).toContain("bottom-[calc(var(--app-nav-h,0px)+0.5rem)]");
+    expect(screen.getByRole("button", { name: "Edit village" }).parentElement!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
+    expect(document.querySelector("[data-dial-place]")!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
   });
 
   it("draws Play as a hammer with no text and Edit as a pen, both large and named (#755)", () => {

@@ -184,8 +184,8 @@ const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-bac
 
 /** The right column's buttons whose place is the bar below `desktop` (#763). */
 const BAR_ONLY_BELOW_DESKTOP = "hidden desktop:flex";
-/** The bottom overlays' place: above the bar below `desktop` (its measured height, 0 before it is), the scene's foot from it. */
-const ABOVE_BAR = "bottom-[calc(var(--app-nav-h,0px)+0.5rem)] tablet:bottom-[calc(var(--app-nav-h,0px)+1rem)] desktop:bottom-4";
+/** The bottom overlays' place: 8 px above the bar below `desktop` (its height, measured before the first paint), the scene's foot from it. */
+const ABOVE_BAR = "bottom-[calc(var(--app-nav-h)+0.5rem)] desktop:bottom-4";
 
 /**
  * The home's bar below `desktop` (#763), fixed at the viewport's bottom, its height on the scene (`--app-nav-h`) for the bottom
@@ -195,14 +195,12 @@ const ABOVE_BAR = "bottom-[calc(var(--app-nav-h,0px)+0.5rem)] tablet:bottom-[cal
 function HomeBar({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const el = ref.current;
-    const scene = el?.parentElement;
-    if (!el || !scene) return;
-    const measure = () => scene.style.setProperty("--app-nav-h", `${el.offsetHeight}px`);
+    const el = ref.current!;
+    const measure = () => el.parentElement!.style.setProperty("--app-nav-h", `${el.offsetHeight}px`);
     measure();
-    const resize = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
-    resize?.observe(el);
-    return () => resize?.disconnect();
+    const resize = new ResizeObserver(measure);
+    resize.observe(el);
+    return () => resize.disconnect();
   }, []);
   // The bar's box: its items' height, its padding and its top border; empty, so nothing for assistive technology.
   const standIn = <div className="box-content h-11 border-t bg-background/95 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] mobile:h-13" />;
