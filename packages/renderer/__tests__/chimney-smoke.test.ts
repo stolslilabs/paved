@@ -76,6 +76,13 @@ describe("the chimney smoke", () => {
     const puffs = smoke.object.getObjectByName("chimney-smoke-puffs") as THREE.Mesh<THREE.InstancedBufferGeometry>;
     expect(puffs.geometry.instanceCount).toBe(stats.puffs);
     expect(puffs.frustumCulled).toBe(false);
+    // One draw each, as `drawCalls` counts them: three draws a transparent double-sided material twice (WebGLRenderer's
+    // renderObject) unless it is forced to a single pass; the caps are opaque.
+    const material = puffs.material as THREE.ShaderMaterial;
+    expect(material.transparent && material.side === THREE.DoubleSide ? material.forceSinglePass : true).toBe(true);
+    const caps = smoke.object.getObjectByName("chimney-caps") as THREE.InstancedMesh;
+    const capMaterial = caps.material as THREE.Material;
+    expect(capMaterial.transparent || capMaterial.side === THREE.DoubleSide).toBe(false);
     smoke.dispose();
   });
 

@@ -1,15 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { DEFAULT_CLOUD_SHADOWS, DEFAULT_SMOKE_SETTINGS, QUALITY_TIERS, SEASONS, SMOKE_LOOKS, type SmokeLookName } from "@paved/renderer";
+import { DEFAULT_CLOUD_SHADOWS, DEFAULT_SMOKE_SETTINGS, QUALITY_TIERS, SEASONS, SMOKE_LOOKS, type SmokeLook } from "@paved/renderer";
 import { ChimneySmokeBoard, SMOKE_PLANS, type ChimneySmokeBoardProps } from "./chimney-smoke-board";
 
 const range = (min: number, max: number, step: number) => ({ control: { type: "range" as const, min, max, step } });
 const category = (name: string) => ({ table: { category: name } });
-
-/** A look's knobs as the controls' values. */
-const lookArgs = (look: SmokeLookName) => {
-  const { opacity, puffs, lifeSeconds, rise, sizeStart, sizeEnd, swirl, billow, stretch, drift, color, shade } = SMOKE_LOOKS[look];
-  return { look, opacity, puffs, lifeSeconds, rise, sizeStart, sizeEnd, swirl, billow, stretch, drift, color, shade };
-};
+/** A knob's two looks' values, for its description: unset, the knob takes the chosen look's. */
+const looks = (key: keyof SmokeLook) => ` (unset: the look's, puffs ${SMOKE_LOOKS.puffs[key]}, wisps ${SMOKE_LOOKS.wisps[key]})`;
 
 /** The defaults: the look "puffs" on the recorded board through the Forest skin (its smoking chimneys), autumn's day. */
 const ARGS: ChimneySmokeBoardProps = {
@@ -20,7 +16,7 @@ const ARGS: ChimneySmokeBoardProps = {
   fadeTo: null,
   time: "day",
   view: "game",
-  ...lookArgs("puffs"),
+  look: "puffs",
   winterAmount: DEFAULT_SMOKE_SETTINGS.seasons.winter.amount,
   spring: DEFAULT_SMOKE_SETTINGS.seasons.spring.enabled,
   fadeSeconds: DEFAULT_SMOKE_SETTINGS.fadeSeconds,
@@ -56,19 +52,19 @@ const meta = {
     fadeTo: { control: "inline-radio", options: [null, ...SEASONS], description: "Two seconds after the board is up, the wheel turns to this season: the fade", ...category("Scene") },
     time: { control: "inline-radio", options: ["day", "night"], description: "The season's day, or its night (the smoke takes the light, not the hour)", ...category("Scene") },
     view: { control: "inline-radio", options: ["game", "phone-play", "close"], description: "The game's opening camera, a phone's play distance, or close", ...category("Scene") },
-    look: { control: "inline-radio", options: ["puffs", "wisps"], description: "The look (its knobs below override it)", ...category("Look") },
-    opacity: { ...range(0, 1, 0.01), description: "A puff's opacity at its thickest", ...category("Look") },
-    puffs: { ...range(1, 32, 1), description: "The puffs a chimney sends up at a time", ...category("Look") },
-    lifeSeconds: { ...range(1, 15, 0.5), description: "A puff's time from the mouth to its fading out, s", ...category("Look") },
-    rise: { ...range(0.5, 6, 0.1), description: "How high a puff rises, world units (a tile is 3)", ...category("Look") },
-    sizeStart: { ...range(0.02, 0.6, 0.01), description: "A puff's size at the mouth, world units", ...category("Look") },
-    sizeEnd: { ...range(0.05, 1.5, 0.01), description: "A puff's size at the top, world units", ...category("Look") },
-    swirl: { ...range(0, 1, 0.01), description: "How far a puff sways at the top, world units", ...category("Look") },
-    billow: { ...range(0, 1.5, 0.05), description: "How ragged a puff's edge is", ...category("Look") },
-    stretch: { ...range(0.5, 3, 0.05), description: "A puff's height over its width", ...category("Look") },
-    drift: { ...range(0, 3, 0.05), description: "How far the wind bends the plume", ...category("Look") },
-    color: { control: "color", description: "The plume's lit colour", ...category("Look") },
-    shade: { control: "color", description: "The plume's shaded side", ...category("Look") },
+    look: { control: "inline-radio", options: ["puffs", "wisps"], description: "The look: every knob below takes its value, unless that knob was moved", ...category("Look") },
+    opacity: { ...range(0, 1, 0.01), description: "A puff's opacity at its thickest" + looks("opacity"), ...category("Look") },
+    puffs: { ...range(1, 32, 1), description: "The puffs a chimney sends up at a time" + looks("puffs"), ...category("Look") },
+    lifeSeconds: { ...range(1, 15, 0.5), description: "A puff's time from the mouth to its fading out, s" + looks("lifeSeconds"), ...category("Look") },
+    rise: { ...range(0.5, 6, 0.1), description: "How high a puff rises, world units (a tile is 3)" + looks("rise"), ...category("Look") },
+    sizeStart: { ...range(0.02, 0.6, 0.01), description: "A puff's size at the mouth, world units" + looks("sizeStart"), ...category("Look") },
+    sizeEnd: { ...range(0.05, 1.5, 0.01), description: "A puff's size at the top, world units" + looks("sizeEnd"), ...category("Look") },
+    swirl: { ...range(0, 1, 0.01), description: "How far a puff sways at the top, world units" + looks("swirl"), ...category("Look") },
+    billow: { ...range(0, 1.5, 0.05), description: "How ragged a puff's edge is" + looks("billow"), ...category("Look") },
+    stretch: { ...range(0.5, 3, 0.05), description: "A puff's height over its width" + looks("stretch"), ...category("Look") },
+    drift: { ...range(0, 3, 0.05), description: "How far the wind bends the plume" + looks("drift"), ...category("Look") },
+    color: { control: "color", description: "The plume's lit colour" + looks("color"), ...category("Look") },
+    shade: { control: "color", description: "The plume's shaded side" + looks("shade"), ...category("Look") },
     winterAmount: { ...range(0, 2, 0.05), description: "Winter's thickness (1 the look as it is)", ...category("Seasons") },
     spring: { control: "boolean", description: "Smoke in spring (on for a start; it may lose it later)", ...category("Seasons") },
     fadeSeconds: { ...range(0, 6, 0.1), description: "A change of season's fade, s", ...category("Seasons") },
@@ -84,7 +80,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const tile = { layout: "tile" as const, view: "close" as const };
-const wisps = lookArgs("wisps");
+/** The second look: the look alone, its knobs left to it. */
+const wisps = { look: "wisps" as const };
 
 /** On a tile, autumn: the base `sfrfrfffr` (two smoking chimneys, one 2 x 2, and a bare one), look "puffs". */
 export const TileAutumn: Story = { args: { ...tile, forest: false, season: "autumn" } };

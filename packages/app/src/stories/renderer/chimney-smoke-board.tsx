@@ -42,20 +42,23 @@ export interface ChimneySmokeBoardProps {
   fadeTo: Season | null;
   time: "day" | "night";
   view: SmokeView;
-  /** The look (#770, open point 2), and its knobs over it. */
+  /**
+   * The look (#770, open point 2). Its knobs below are overrides: unset, the look's own value (`SMOKE_LOOKS`), so a change of look
+   * changes them all; set (a control moved), that value over either look.
+   */
   look: SmokeLookName;
-  opacity: number;
-  puffs: number;
-  lifeSeconds: number;
-  rise: number;
-  sizeStart: number;
-  sizeEnd: number;
-  swirl: number;
-  billow: number;
-  stretch: number;
-  drift: number;
-  color: string;
-  shade: string;
+  opacity?: number;
+  puffs?: number;
+  lifeSeconds?: number;
+  rise?: number;
+  sizeStart?: number;
+  sizeEnd?: number;
+  swirl?: number;
+  billow?: number;
+  stretch?: number;
+  drift?: number;
+  color?: string;
+  shade?: string;
   /** Winter's thickness (1 the look as it is). */
   winterAmount: number;
   /** Spring's smoke on (owner: on for a start; it may lose it later). */
@@ -83,7 +86,8 @@ const p95 = (values: number[]) => (values.length ? [...values].sort((a, b) => a 
 export function smokeInput(props: ChimneySmokeBoardProps): SmokeSettings {
   return resolveSmokeSettings({
     look: props.look,
-    custom: Object.fromEntries(LOOK_KEYS.map((k) => [k, props[k]])) as Partial<SmokeLook>,
+    // Only the knobs that were set: the others are the look's own.
+    custom: Object.fromEntries(LOOK_KEYS.filter((k) => props[k] !== undefined).map((k) => [k, props[k]])) as Partial<SmokeLook>,
     fadeSeconds: props.fadeSeconds,
     seasons: { winter: { amount: props.winterAmount }, spring: { enabled: props.spring } },
   });

@@ -362,6 +362,9 @@ export class ChimneySmoke implements AmbientEffect {
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide,
+      // A transparent double-sided material is drawn twice by three (its back faces, then its front ones). A puff is a quad that
+      // faces the camera, with nothing behind it to sort: one pass, one draw.
+      forceSinglePass: true,
     });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = "chimney-smoke-puffs";
