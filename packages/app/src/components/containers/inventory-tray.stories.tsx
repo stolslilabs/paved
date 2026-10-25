@@ -39,7 +39,7 @@ export const GridWide: Story = {
   args: { tray: INVENTORY_LONG },
   decorators: [
     (Story) => (
-      <div className="flex h-[26rem] w-96 flex-col gap-3 border border-border bg-card p-4">
+      <div className="flex h-[26rem] w-full max-w-96 flex-col gap-3 border border-border bg-card p-4">
         <Story />
       </div>
     ),
