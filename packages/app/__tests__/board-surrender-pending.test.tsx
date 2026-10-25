@@ -35,18 +35,24 @@ describe("BoardScene, the Surrender dialog still loading", () => {
         <BoardScene {...BOARD.expired} />
       </LazyMotion>,
     );
-    const button = screen.getByRole("button", { name: /Surrender/ });
-    expect(button).not.toHaveAttribute("aria-busy");
     // The banner's action comes in through its own animated container: on a loaded machine a tap can land on a node that is about
-    // to be replaced, so the tap is repeated until the button is busy (a busy button is disabled, and ignores a second tap).
+    // to be replaced, and be lost. So the tap waits until the button has been the same node, not busy, for a full quarter second.
+    // That is only a wait before the action: the tap is made once, and the button must be busy as soon as it has resolved.
+    let button = screen.getByRole("button", { name: /Surrender/ });
     await waitFor(
       async () => {
         const current = screen.getByRole("button", { name: /Surrender/ });
-        if (current.getAttribute("aria-busy") !== "true") await userEvent.click(current);
-        expect(screen.getByRole("button", { name: /Surrender/ })).toHaveAttribute("aria-busy", "true");
+        const stable = current === button;
+        button = current;
+        if (!stable) throw new Error("the Surrender button was replaced");
+        await new Promise((r) => setTimeout(r, 250));
+        if (screen.getByRole("button", { name: /Surrender/ }) !== button) throw new Error("the Surrender button was replaced");
       },
       { timeout: slow(10_000) },
     );
+    expect(button).not.toHaveAttribute("aria-busy");
+    await userEvent.click(button);
+    expect(screen.getByRole("button", { name: /Surrender/ })).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("button", { name: /Surrender/ })).toBeDisabled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     gate.open();
