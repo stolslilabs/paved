@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ReactNode } from "react";
+import { Suspense, lazy, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
@@ -12,7 +12,6 @@ import { formatPoints } from "../elements/score";
 import { type TileArt } from "../elements/tile-chip";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { AppNav } from "../containers/app-nav";
 import { BalancesSlot } from "../containers/balances-context";
 import { OverlayButton } from "../containers/home-overlays";
 import type { LayoutBoardView } from "../containers/layout-board";
@@ -24,6 +23,9 @@ import type { Tab } from "../../routes/pages";
 
 // The season wheel (#547) in its own chunk, as on the boards: its slot keeps its size meanwhile.
 const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
+// The app's bar (#763) in its own chunk, shared with the tab pages: the home's first load stays as it was; a stand-in of its size
+// holds its place meanwhile.
+const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ default: m.AppNav })));
 // The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
 const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 
@@ -179,6 +181,35 @@ const BAR_ONLY_BELOW_DESKTOP = "hidden desktop:flex";
 /** The bottom overlays' place: above the bar below `desktop` (its measured height, 0 before it is), the scene's foot from it. */
 const ABOVE_BAR = "bottom-[calc(var(--app-nav-h,0px)+0.5rem)] tablet:bottom-[calc(var(--app-nav-h,0px)+1rem)] desktop:bottom-4";
 
+/**
+ * The home's bar below `desktop` (#763), fixed at the viewport's bottom, its height on the scene (`--app-nav-h`) for the bottom
+ * overlays. While the bar's chunk loads, a stand-in of its box (`AppNav`'s sizes below `desktop`) holds its place, so nothing
+ * above it moves when it comes.
+ */
+function HomeBar({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const scene = el?.parentElement;
+    if (!el || !scene) return;
+    const measure = () => scene.style.setProperty("--app-nav-h", `${el.offsetHeight}px`);
+    measure();
+    const resize = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    resize?.observe(el);
+    return () => resize?.disconnect();
+  }, []);
+  const standIn = (
+    <div aria-hidden className="border-t border-border bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur">
+      <div className="h-11 mobile:h-13" />
+    </div>
+  );
+  return (
+    <div ref={ref} data-slot="home-bar" className="fixed inset-x-0 bottom-0 z-20 desktop:hidden">
+      <Suspense fallback={standIn}>{children}</Suspense>
+    </div>
+  );
+}
+
 /** A pick in the home's bar: each of its items opens its page as the overlay's buttons did. */
 function barPick(props: HomeVillageSceneProps, tab: Tab) {
   const open: Partial<Record<Tab, (() => void) | undefined>> = {
@@ -301,8 +332,10 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
         </Button>
       </div>
 
-      {/* The app's bar below `desktop` (#763): it measures itself on the scene (`--app-nav-h`), which the bottom overlays clear. */}
-      <AppNav active={null} desktop="none" badges={{ chests: props.chests }} onNavigate={(tab) => barPick(props, tab)} />
+      {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
+      <HomeBar>
+        <LazyAppNav active={null} desktop="none" badges={{ chests: props.chests }} onNavigate={(tab) => barPick(props, tab)} className="relative" />
+      </HomeBar>
     </>
   );
 }

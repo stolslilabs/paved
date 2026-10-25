@@ -67,7 +67,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     expect((await s.ledger.freeVillage(s.me)).tiles).toEqual(layout);
     expect(screen.getByText(layoutScore(layout).toLocaleString("en-US"))).toBeInTheDocument();
     // The phone's bar is on the home (#763), and edit mode takes it away until it is left.
-    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(await screen.findByRole("navigation", { name: "Main" }, WAIT)).toBeInTheDocument();
     await userEvent.click(await editButton());
     await waitFor(() => expect(s.router.state.location.search).toBe("?edit"));
     await waitFor(() => expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull(), WAIT);

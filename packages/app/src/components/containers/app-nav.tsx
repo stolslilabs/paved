@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { BAR_TABS, HEADER_TABS, type Tab } from "../../routes/pages";
+import { useEffect, useState, type CSSProperties } from "react";
+import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { Wordmark } from "../elements/wordmark";
@@ -7,20 +7,25 @@ import { BalancesSlot } from "./balances-context";
 import { ProfileSlot } from "./profile-context";
 
 /**
- * The navigation's items (the route map's `TABS`, with icons), in one row: the phone's bar (`BAR_TABS`, #763: Shop, Chests, Play,
- * League, Settings) and the desktop's header (`HEADER_TABS`: Home, Missions, Vault, Settings) read in this order, each item drawn
- * at the widths of the lists it is in. Play (#623) is the main action, in the bar's centre: icon only, a gold disc (#668).
+ * The navigation's items (the route map's `TABS`, with icons), in one row: the phone's bar (`bar`, the route map's `BAR_TABS`,
+ * #763: Shop, Chests, Play, League, Settings) and the desktop's header (`header`, `HEADER_TABS`: Home, Missions, Vault, Settings)
+ * read in this order, each item drawn at the widths of the lists it is in. The flags, not the route map's lists: the bar's chunk
+ * stays apart from the route map's (the home loads it lazily). Play (#623) is the main action, in the bar's centre: icon only, a
+ * gold disc (#668).
  */
-export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
-  { id: "home", label: "Home", icon: "house" },
-  { id: "quests", label: "Missions", icon: "scroll" },
-  { id: "shop", label: "Shop", icon: "store" },
-  { id: "chests", label: "Chests", icon: "gift" },
-  { id: "play", label: "Play", icon: "hammer" },
-  { id: "league", label: "League", icon: "trophy" },
-  { id: "vault", label: "Vault", icon: "piggy-bank" },
-  { id: "settings", label: "Settings", icon: "gear" },
+export const NAV_TABS: readonly { id: Tab; label: string; icon: string; bar?: true; header?: true }[] = [
+  { id: "home", label: "Home", icon: "house", header: true },
+  { id: "quests", label: "Missions", icon: "scroll", header: true },
+  { id: "shop", label: "Shop", icon: "store", bar: true },
+  { id: "chests", label: "Chests", icon: "gift", bar: true },
+  { id: "play", label: "Play", icon: "hammer", bar: true },
+  { id: "league", label: "League", icon: "trophy", bar: true },
+  { id: "vault", label: "Vault", icon: "piggy-bank", header: true },
+  { id: "settings", label: "Settings", icon: "gear", bar: true, header: true },
 ];
+
+/** The phone's bar, left to right. */
+const BAR = NAV_TABS.filter((t) => t.bar).map((t) => t.id);
 
 export interface AppNavProps {
   /** The current item; `null` on a page of no item (the home, #763): no highlight. */
@@ -37,7 +42,7 @@ export interface AppNavProps {
 }
 
 /** The column of `tab` in the phone's bar, from the left (Play the third); -1 for a tab not in it. */
-const columnOf = (tab: Tab | null) => (tab ? BAR_TABS.indexOf(tab) : -1);
+const columnOf = (tab: Tab | null) => (tab ? BAR.indexOf(tab) : -1);
 
 /** The tab the last bar drew as current (TAB-SWIPE), `null` once no bar is on screen (a flow: a new bar then starts still). */
 let lastDrawn: { tab: Tab | null } | null = null;
@@ -63,25 +68,6 @@ function useStartTab(active: Tab | null): Tab | null {
     lastDrawn = { tab: active };
   }, [active]);
   return start;
-}
-
-/**
- * The bar's height on its parent, `--app-nav-h` (0 where the bar is not drawn): the tab page's region ends there (`TabFrame`),
- * the home's bottom overlays sit above it. It changes with the labels (from `mobile`) and the safe area.
- */
-function useNavHeight() {
-  const ref = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    const nav = ref.current;
-    const parent = nav?.parentElement;
-    if (!nav || !parent) return;
-    const measure = () => parent.style.setProperty("--app-nav-h", `${nav.offsetHeight}px`);
-    measure();
-    const resize = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
-    resize?.observe(nav);
-    return () => resize?.disconnect();
-  }, []);
-  return ref;
 }
 
 /**
@@ -117,13 +103,11 @@ export function AppNav({ active, onNavigate, badges, desktop = "header", classNa
   const column = columnOf(active);
   const startColumn = columnOf(start);
   const header = desktop === "header";
-  const ref = useNavHeight();
   // From `desktop` with no header, the bar's own items alone (no header item, even hidden, beside the page's own buttons).
-  const items = header ? NAV_TABS : NAV_TABS.filter((t) => BAR_TABS.includes(t.id));
+  const items = header ? NAV_TABS : NAV_TABS.filter((t) => t.bar);
   return (
     <>
       <nav
-        ref={ref}
         aria-label="Main"
         className={cn(
           "z-20 flex items-center border-border bg-background/95 backdrop-blur",
@@ -159,7 +143,7 @@ export function AppNav({ active, onNavigate, badges, desktop = "header", classNa
             const isActive = tab.id === active;
             const badge = badges?.[tab.id] ?? 0;
             // Each item at the widths of its lists: the bar's below `desktop`, the header's from it.
-            const where = cn(!BAR_TABS.includes(tab.id) && "max-desktop:hidden", !HEADER_TABS.includes(tab.id) && "desktop:hidden");
+            const where = cn(!tab.bar && "max-desktop:hidden", !tab.header && "desktop:hidden");
             if (tab.id === "play") {
               return (
                 // The slot keeps the bar's five equal columns; the disc rises above the bar (over the edge hint: `z-10`). Gone from `desktop`

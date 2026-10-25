@@ -86,7 +86,7 @@ describe("the active tab comes from the route's own entry", () => {
   it("is on the home with no item current (#763), beside the village's overlays", async () => {
     open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
-    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(await screen.findByRole("navigation", { name: "Main" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { current: "page" })).toBeNull();
     expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
   });
@@ -100,14 +100,14 @@ describe("the active tab comes from the route's own entry", () => {
     ] as const) {
       const router = open("/");
       await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
-      await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: new RegExp(`^${name}`) }));
+      await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: new RegExp(`^${name}`) }));
       await waitFor(() => expect(router.state.location.pathname).toBe(path), { timeout: slow(5000) });
       expect(await screen.findByRole("button", { current: "page" }, { timeout: slow(5000) })).toHaveAccessibleName(current);
       cleanup();
     }
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
-    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Play" }));
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: "Play" }));
     await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) });
     expect(router.state.location.pathname).toBe("/play");
   });

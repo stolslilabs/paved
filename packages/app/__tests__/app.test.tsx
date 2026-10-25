@@ -28,7 +28,7 @@ describe("app", () => {
     render(<App router={createTestRouter("/")} />);
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: "Main" });
+    const nav = await screen.findByRole("navigation", { name: "Main" });
     expect(within(nav).getByRole("button", { name: "Play" })).toBeInTheDocument();
     // No item of the bar is current on the home, and no header from `desktop` (the overlay's column there).
     expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
