@@ -132,7 +132,11 @@ export interface BoardBubble {
   onDiscard?: () => void;
   /** What a discard costs now (at most the score): its label says it. */
   discardCost?: number;
-  /** The end of the hold on Validate: the page sends the move (#568). */
+  /** The village editor's Back to the inventory (#756), in Discard's place. */
+  onReturn?: () => void;
+  /** The Cancel button shows (the default); off, Escape alone cancels (`TileBubble`). */
+  cancelButton?: boolean;
+  /** The end of the hold on Validate: the page sends the move (#568). Unset: no Validate (the village editor, #756). */
   onConfirm?: () => void;
   /** Validate is enabled: the rotation fits and the points are known. */
   canConfirm?: boolean;
@@ -417,7 +421,9 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
             rotations={bubble.rotations}
             onRotate={bubble.onRotate}
             onClose={bubble.onClose}
+            cancelButton={bubble.cancelButton}
             onDiscard={bubble.onDiscard}
+            onReturn={bubble.onReturn}
             discardCost={bubble.discardCost}
             onConfirm={bubble.onConfirm}
             canConfirm={bubble.canConfirm}

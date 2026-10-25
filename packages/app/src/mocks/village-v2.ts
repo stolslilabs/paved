@@ -72,6 +72,11 @@ export const DRAFT_VALID: BoardTile[] = lay(MIXED.slice(0, 24));
 
 /** An outer tile of the growing village: lifting it leaves the rest joined to the starter. */
 export const OUTER_TILE = [...LAYOUT_GROWING.tiles].reverse().find((t) => canLift(LAYOUT_GROWING.tiles, t.id))!;
+/** Where the outer tile may move: a legal cell of its plan in the village without it, not its own. */
+export const MOVED_SPOT = legalSpots(
+  LAYOUT_GROWING.tiles.filter((t) => t.id !== OUTER_TILE.id),
+  OUTER_TILE.plan,
+).find((s) => s.x !== OUTER_TILE.x || s.y !== OUTER_TILE.y)!;
 /** A tile that holds the growing village together: lifting it would split it. */
 export const KEY_TILE = LAYOUT_GROWING.tiles.find((t) => !isStarter(t) && !canLift(LAYOUT_GROWING.tiles, t.id))!;
 
@@ -86,6 +91,7 @@ export const VILLAGE_LAYOUT = {
   holding: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHand: { plan: P.road } },
   placing: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHand: { plan: P.road }, initialPending: legalSpots(LAYOUT_GROWING.tiles, P.road)[0]! },
   lifted: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHand: { lift: OUTER_TILE.id } },
+  moved: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialHand: { lift: OUTER_TILE.id }, initialPending: MOVED_SPOT },
   changed: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: DRAFT_VALID },
   reset: { village: LAYOUT_GROWING, inventory: INVENTORY, cobbles: 640, initialEditing: true, initialDraft: [{ ...STARTER }] },
   full: { village: LAYOUT_FULL, inventory: INVENTORY, cobbles: 640, initialEditing: true },
@@ -181,12 +187,16 @@ export const HOME_VILLAGE = {
   error: { now: MOCK_NOW, error: { message: "Village: the node did not answer" } },
   /** The save landed: the new score over the village. */
   saved: { ...home, village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
-  /** Edit mode: the editor's bar, the inventory, Reset all, Discard and Save, in the same scene. */
+  /** Edit mode: the editor's bar (Reset all beside the slots), the inventory and Save, in the same scene. */
   editing: { ...home, editing: true },
   /** A road in hand: its legal cells lit. */
   holding: { ...home, editing: true, initialHand: { plan: P.road } },
-  /** The road set on a lit cell: the bubble. */
+  /** The road placed on a lit cell: the bubble by it (Rotate, Back to the inventory), the score with it. */
   placing: { ...home, editing: true, initialHand: { plan: P.road }, initialPending: legalSpots(LAYOUT_GROWING.tiles, P.road)[0]! },
+  /** An outer tile lifted: the bubble by it with Cancel, its legal cells lit. */
+  lifted: { ...home, editing: true, initialHand: { lift: OUTER_TILE.id } },
+  /** The lifted tile moved to another lit cell: Cancel puts it back. */
+  moved: { ...home, editing: true, initialHand: { lift: OUTER_TILE.id }, initialPending: MOVED_SPOT },
   /** Three tiles more than saved: the live score against the saved one. */
   changed: { ...home, editing: true, initialDraft: DRAFT_VALID },
   /** Back with unsaved changes: asked first. */
