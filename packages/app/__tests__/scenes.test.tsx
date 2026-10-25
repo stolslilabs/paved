@@ -96,21 +96,20 @@ describe("Loading", () => {
 
 describe("Home (#753): the village with its overlays", () => {
   it("shows the village full screen with the right column, Play and Edit, and no tab bar", async () => {
-    const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onDefence: vi.fn(), onSettings: vi.fn() };
+    const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
     // The stage (the board, the editor) is its own chunk: it arrives after the overlays.
     expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", `League, ${leagueOf(1_240).name}`, "Defence"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", "League"]);
     for (const [name, handler] of [
       ["Missions, 3 waiting", on.onMissions],
       ["Chests, 2 waiting", on.onChests],
       ["Shop", on.onShop],
       ["Vault", on.onVault],
-      [/^League, /, on.onLeague],
-      ["Defence", on.onDefence],
+      ["League", on.onLeague],
       ["Settings", on.onSettings],
       [/^Play/, on.onPlay],
     ] as const) {
@@ -120,7 +119,21 @@ describe("Home (#753): the village with its overlays", () => {
     expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
   });
 
-  it("shows the crowns and the league at the top right once PvP is played; a tap opens the league", async () => {
+  it("draws Play as a hammer with no text and Edit as a pen, both large and named (#755)", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
+    const play = screen.getByRole("button", { name: "Play" });
+    expect(play).toHaveTextContent("");
+    expect(play.querySelector("[data-icon=hammer]")).not.toBeNull();
+    expect(play.className).toMatch(/\bsize-16\b/);
+    const edit = screen.getByRole("button", { name: "Edit village" });
+    expect(edit.querySelector("[data-icon=pen]")).not.toBeNull();
+    expect(edit.className).toMatch(/\bsize-14\b/);
+    // The defence log is the league page's: no overlay button. League is labelled plainly, the badge shows which.
+    expect(screen.queryByRole("button", { name: /^Defence/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^League,/ })).toBeNull();
+  });
+
+  it("shows the crowns and the league by the avatar; a tap opens the league", async () => {
     const onLeague = vi.fn();
     const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onLeague={onLeague} />));
     const name = leagueOf(1_240).name;
@@ -130,10 +143,11 @@ describe("Home (#753): the village with its overlays", () => {
     await userEvent.click(standing);
     expect(onLeague).toHaveBeenCalledTimes(1);
     unmount();
-    // Before any PvP: no standing, the column's League is plain.
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.start} />));
-    expect(screen.queryByRole("button", { name: /^League: / })).toBeNull();
-    expect(screen.getByRole("button", { name: "League" })).toBeInTheDocument();
+    // Before any PvP: Unranked with 0 crowns, still the way to the league.
+    // Merged over the view's fixture, as the Start story's args are: its own `league: null` wins.
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.start} onLeague={onLeague} />));
+    await userEvent.click(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
+    expect(onLeague).toHaveBeenCalledTimes(2);
   });
 
   it("carries today's home content as chips: Resume and the spawn pause", async () => {
