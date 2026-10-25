@@ -118,7 +118,10 @@ describe("the village on the board module (open point 3)", () => {
     const onScene = vi.fn();
     render(<HomeCanvas view={VIEW} settings={settings} skins={SKINS} onScene={onScene} />);
     const drawnBoard = drawn.board.at(-1)!;
-    expect(drawnBoard).toMatchObject({ basePath: RENDERER_ASSETS, settings, skins: SKINS, onScene, otherPlates: false });
+    expect(drawnBoard).toMatchObject({ basePath: RENDERER_ASSETS, settings, skins: SKINS, otherPlates: false });
+    // The page's scene handle, through the village's ready signal (#761).
+    drawnBoard.onScene?.(null);
+    expect(onScene).toHaveBeenCalledWith(null);
     // The layout's cells counted from the contracts' centre, as before.
     expect(drawnBoard.tiles.map((t) => [t.x, t.y])).toEqual([
       [2_147_483_647, 2_147_483_647],

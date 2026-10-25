@@ -1,6 +1,6 @@
 import type { GameScene, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import type { LayoutBoardView } from "../components/containers/layout-board";
-import { useLayoutCanvas } from "../components/containers/village-layout-canvas";
+import { useLayoutCanvas, type LayoutCanvasSignals } from "../components/containers/village-layout-canvas";
 import { BoardCanvas } from "./board-canvas";
 
 export interface VillageCanvasProps {
@@ -10,6 +10,8 @@ export interface VillageCanvasProps {
   settings?: RendererSettingsInput;
   skins?: TileSkins;
   onScene?: (scene: GameScene | null) => void;
+  /** The village and its assets are drawn (#761, `LayoutCanvasSignals.onReady`): the stage lifts its fog. */
+  onReady?: LayoutCanvasSignals["onReady"];
   /** The renderer could not start: the stage falls back to the plan view (`LayoutBoard`). */
   onError?: (error: unknown) => void;
 }
@@ -20,6 +22,7 @@ export interface VillageCanvasProps {
  * village's stage and the editor's overlays stay its own (#772, open point 3). The home's overlays paint before it, over a
  * placeholder sky.
  */
-export default function VillageCanvas({ view, settings, skins, onScene, onError }: VillageCanvasProps) {
-  return <BoardCanvas {...useLayoutCanvas(view)} board={{ renderer: settings, onScene }} skins={skins} onError={onError} />;
+export default function VillageCanvas({ view, settings, skins, onScene, onReady, onError }: VillageCanvasProps) {
+  const { onScene: handleScene, ...board } = useLayoutCanvas(view, { onScene, onReady, onError });
+  return <BoardCanvas {...board} board={{ renderer: settings, onScene: handleScene }} skins={skins} />;
 }
