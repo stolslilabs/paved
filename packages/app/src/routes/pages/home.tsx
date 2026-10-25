@@ -16,6 +16,7 @@ import { usePvpLeague } from "../../data/pvp-league";
 import { useMissionsReady } from "../../data/quests";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
+import { chestsBadge, chestsSeenDay, utcDay } from "../chests-seen";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
@@ -55,6 +56,19 @@ export default function Page() {
   const me = sources.signer?.address ?? wallet.address ?? null;
   const read = useFreeVillageHeld(me);
   const chests = useChests(me);
+  // Read at each render: the home is drawn again on the way back from the Chests page, which marks the day seen.
+  const seenDay = chestsSeenDay();
+  // The day's slots count from 0 at each UTC day (#759): a home left open across midnight reads the chests again, and until that
+  // read is in, a read of yesterday counts none of today's slots as won.
+  const day = utcDay(now);
+  const chestsKey = queryKeys.chain.v2.chests(me ?? "0x0");
+  const chestsReadDay = utcDay((client.getQueryState(chestsKey)?.dataUpdatedAt ?? 0) / 1000);
+  const shownDay = useRef(day);
+  useEffect(() => {
+    if (shownDay.current === day) return;
+    shownDay.current = day;
+    if (me) void client.invalidateQueries({ queryKey: chestsKey });
+  }, [day, me, client, chestsKey]);
   const writes = useFreeVillageWrites(me);
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
@@ -145,7 +159,18 @@ export default function Page() {
         saved={saved}
         refusal={writes.error ? refusalText(writes.error) : null}
         refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
-        chests={(chests.data?.pending.length ?? 0) + (chests.data?.open ? 1 : 0)}
+        chests={
+          chests.data
+            ? chestsBadge({
+                waiting: chests.data.pending.length + (chests.data.open ? 1 : 0),
+                pvpToday: chests.data.pvpToday,
+                pvpCap: chests.data.pvpCap,
+                readDay: chestsReadDay,
+                day,
+                seenDay,
+              })
+            : 0
+        }
         missions={missions}
         league={league ? { crowns: league.crowns } : null}
         activeGame={wallet.address ? (active.data ?? null) : null}
