@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { PvpDefenceScene, type DefenceEntry } from "../../components/scenes/pvp-defence-scene";
 import { pvpKeys, useDefenceLog, usePvpStatus } from "../../data/pvp";
@@ -9,11 +10,13 @@ import { useAppNavigate, useUpTo } from "../ref";
 /**
  * `/pvp/defence` (#647 PR 2): the attacks on the player's village, newest first, from the indexer's `pvp_attacks` (each with
  * its stars against the village's score then, the crowns it cost or won, and its replay, `/pvp/replay/:attacker/:id`), and the
- * village's shield from `Matchmaker.shield`.
+ * village's shield from `Matchmaker.shield`. Back goes up to the league, or to the village when the home's Defence opened it
+ * (`?from=home`, #753).
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onBack = useUpTo("/pvp/league");
+  const [params] = useSearchParams();
+  const onBack = useUpTo(params.get("from") === "home" ? "/" : "/pvp/league");
   const now = useNow();
   const client = useQueryClient();
   const me = useDataSources().signer?.address ?? null;

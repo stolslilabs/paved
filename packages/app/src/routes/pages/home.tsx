@@ -155,7 +155,7 @@ export default function Page() {
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
         onLeague={() => go("/pvp/league")}
-        onDefence={() => go("/pvp/defence")}
+        onDefence={() => go("/pvp/defence?from=home")}
         onSettings={() => go("/settings")}
         onResume={(id) => go(`/game/${id}`)}
         onRetry={() => {

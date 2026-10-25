@@ -174,6 +174,39 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     }
   }, slow(60_000));
 
+  it("each overlay page's own Back (a tab page's Home) lands on the village", async () => {
+    const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
+    for (const [name, path, back] of [
+      [/^Chests/, "/village/chests", "Back"],
+      ["Shop", "/village/shop", "Back"],
+      ["League", "/pvp/league", "Back"],
+      ["Defence", "/pvp/defence", "Back"],
+      [/^Play/, "/play", "Back"],
+      [/^Missions/, "/missions", "Home"],
+      ["Vault", "/vault", "Home"],
+      ["Settings", "/settings", "Home"],
+    ] as const) {
+      await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+      await waitFor(() => {
+        if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
+          const column = screen.queryByRole("navigation", { name: "Village" });
+          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+        }
+        expect(s.router.state.location.pathname).toBe(path);
+      }, WAIT);
+      // The page's own way back: its top bar's Back, or the tab bar's Home.
+      const way = back === "Home" ? within(await screen.findByRole("navigation", { name: "Main" }, WAIT)).getByRole("button", { name: "Home" }) : await screen.findByRole("button", { name: "Back" }, WAIT);
+      await userEvent.click(way);
+      await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
+    }
+  }, slow(90_000));
+
+  it("the defence log opened from the league goes back up to the league", async () => {
+    const s = await open("/pvp/defence");
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
+    await waitFor(() => expect(s.router.state.location.pathname).toBe("/pvp/league"), WAIT);
+  }, slow(30_000));
+
   it("/village redirects to / (its entry replaced), and a visit stays", async () => {
     const s = await open("/village");
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/"));
