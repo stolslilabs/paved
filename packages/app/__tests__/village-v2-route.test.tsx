@@ -13,8 +13,8 @@ import { mockImplementation } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
-// The v2 village's routes (#739, PvP v2 step 1) on the mock ledger (#741), whose rules are game-core's: found the village, edit
-// and save its whole layout (the score shown is game-core's), leave with changes only after asking, open the chests by rank, and
+// The v2 village's routes (#739, PvP v2 step 1) on the mock ledger (#741), whose rules are game-core's: on the home (`/`, #753),
+// found the village, edit it (`?edit`) and save its whole layout (the score shown is game-core's), leave with changes only after asking, open the chests by rank, and
 // buy from the daily shop once per offer. The chain path (no v2 views) keeps the v1 village: `village-route.test.tsx`.
 
 const WAIT = { timeout: slow(8000) };
@@ -38,7 +38,7 @@ function editPlayer(store: ReturnType<typeof mockImplementation>["store"], chang
   store.setItem(MOCK_KEY, JSON.stringify(state));
 }
 
-preloadPages("home");
+preloadPages("home", "quests", "vault", "settings", "play");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/village-shop")]);
 }, slow(60_000));
@@ -55,21 +55,25 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/village: the v2 village on the mock", () => {
-  it("founds the village: its starter layout, 9 of 9 slots, game-core's score", async () => {
-    const s = await open("/village");
-    const found = await screen.findAllByRole("button", { name: "Found" }, WAIT);
-    await userEvent.click(found[0]!);
-    await waitFor(() => expect(screen.getAllByLabelText("9 of 9 slots used").length).toBeGreaterThan(0), WAIT);
+/** The home's Edit (a hammer, #753): edit mode, in the URL. */
+const editButton = () => screen.findByRole("button", { name: "Edit village" }, WAIT);
+
+describe("/: the player's village is the home (#753), on the mock", () => {
+  it("founds the village: its starter layout and game-core's score, then Edit", async () => {
+    const s = await open("/");
+    await userEvent.click(await screen.findByRole("button", { name: "Found" }, WAIT));
+    expect(await editButton()).toBeInTheDocument();
     const layout = starterLayout(BigInt(s.me));
     expect((await s.ledger.freeVillage(s.me)).tiles).toEqual(layout);
     expect(screen.getByText(layoutScore(layout).toLocaleString("en-US"))).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Edit" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   }, slow(30_000));
 
-  it("sends an outer tile back to the inventory and saves the whole layout at once", async () => {
-    const s = await open("/village", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
-    await userEvent.click((await screen.findAllByRole("button", { name: "Edit" }, WAIT))[0]!);
+  it("Edit switches to edit mode in the URL; an outer tile goes back to the inventory and the whole layout saves at once", async () => {
+    const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
+    await userEvent.click(await editButton());
+    await waitFor(() => expect(s.router.state.location.search).toBe("?edit"));
+    await waitFor(() => expect(screen.queryByRole("navigation", { name: "Village" })).toBeNull());
     const village = await s.ledger.freeVillage(s.me);
     // An outer tile, by the rules: the editor lifts it.
     const draft = new VillageDraft({ slots: village.slots, inventory: await s.ledger.inventory(s.me) }, village.tiles);
@@ -78,12 +82,15 @@ describe("/village: the v2 village on the mock", () => {
     // The scene's ids: the starter 1, then the saved tiles in order from 2.
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${index + 2}"]`)!);
     await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
-    expect(screen.getAllByLabelText("8 of 9 slots used").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("8 of 9 slots used")).toBeInTheDocument();
     draft.lift(outer.x, outer.y);
     expect(screen.getByText(draft.score.toLocaleString("en-US"))).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
     expect(await screen.findByText("Layout saved", {}, WAIT)).toBeInTheDocument();
+    // The save closes edit mode: the entry Edit pushed goes, the view's overlays come back.
+    await waitFor(() => expect(s.router.state.location.search).toBe(""));
+    expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
     const saved = await s.ledger.freeVillage(s.me);
     expect(saved.tiles).toHaveLength(7);
     expect(saved.score).toBe(draft.score);
@@ -91,22 +98,44 @@ describe("/village: the v2 village on the mock", () => {
     expect((await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0)).toBe(8);
   }, slow(30_000));
 
-  it("leaving with unsaved changes asks first, by any way out, a reload too", async () => {
-    const s = await open("/village", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
-    await userEvent.click((await screen.findAllByRole("button", { name: "Edit" }, WAIT))[0]!);
-    fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
-    expect(screen.getAllByLabelText("1 of 9 slots used").length).toBeGreaterThan(0);
+  it("Back leaves edit mode first, and stays on the village", async () => {
+    const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
+    await userEvent.click(await editButton());
+    await waitFor(() => expect(s.router.state.location.search).toBe("?edit"));
+    await s.router.navigate(-1);
+    await waitFor(() => expect(s.router.state.location.search).toBe(""));
+    expect(s.router.state.location.pathname).toBe("/");
+    expect(await screen.findByRole("navigation", { name: "Village" }, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
+  }, slow(30_000));
+
+  it("opened on /?edit, the editor's Back drops the mode in place", async () => {
+    const s = await open("/?edit", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
+    await userEvent.click(await screen.findByRole("button", { name: "Leave edit mode" }, WAIT));
+    await waitFor(() => expect(s.router.state.location.search).toBe(""));
+    expect(s.router.state.location.pathname).toBe("/");
+  }, slow(30_000));
+
+  it("leaving edit mode with unsaved changes asks first, by any way out, a reload too", async () => {
+    const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
+    await userEvent.click(await editButton());
+    fireEvent.click(await screen.findByRole("button", { name: /^Hold to reset all/ }, WAIT));
+    expect(screen.getByLabelText("1 of 9 slots used")).toBeInTheDocument();
     // A reload or a closed tab: the browser's prompt is asked for.
     const unload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(true);
-    await s.router.navigate("/");
+    // The system Back: asked, and Keep editing stays in edit mode.
+    await s.router.navigate(-1);
     const dialog = await screen.findByRole("dialog", { name: "Leave without saving?" }, WAIT);
     await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
-    expect(s.router.state.location.pathname).toBe("/village");
-    await s.router.navigate("/");
+    expect(s.router.state.location.search).toBe("?edit");
+    expect(screen.getByLabelText("1 of 9 slots used")).toBeInTheDocument();
+    // The editor's own Back: asked too; Leave goes back to the view, on the village.
+    await userEvent.click(await screen.findByRole("button", { name: "Leave edit mode" }, WAIT));
     await userEvent.click(within(await screen.findByRole("dialog", { name: "Leave without saving?" }, WAIT)).getByRole("button", { name: "Leave" }));
-    await waitFor(() => expect(s.router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(s.router.state.location.search).toBe(""));
+    expect(s.router.state.location.pathname).toBe("/");
     // Gone with the editor: a reload no longer asks.
     await waitFor(() => {
       const after = new Event("beforeunload", { cancelable: true });
@@ -115,6 +144,33 @@ describe("/village: the v2 village on the mock", () => {
     }, WAIT);
     // Nothing was saved.
     expect((await s.ledger.freeVillage(s.me)).tiles).toHaveLength(8);
+  }, slow(30_000));
+
+  it("each overlay reaches its page, and Back lands on the village", async () => {
+    const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
+    for (const [name, path] of [
+      [/^Chests/, "/village/chests"],
+      ["Shop", "/village/shop"],
+      [/^Missions/, "/missions"],
+      ["Vault", "/vault"],
+      ["League", "/pvp/league"],
+      ["Defence", "/pvp/defence"],
+      ["Settings", "/settings"],
+      [/^Play/, "/play"],
+    ] as const) {
+      // The home is back, not the page left behind (the chests' page has a Shop of its own).
+      await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+      await userEvent.click(within(await screen.findByRole("navigation", { name: "Village" }, WAIT)).queryByRole("button", { name }) ?? screen.getByRole("button", { name }));
+      await waitFor(() => expect(s.router.state.location.pathname).toBe(path));
+      await s.router.navigate(-1);
+      await waitFor(() => expect(s.router.state.location.pathname).toBe("/"));
+    }
+  }, slow(60_000));
+
+  it("/village redirects to / (its entry replaced), and a visit stays", async () => {
+    const s = await open("/village");
+    await waitFor(() => expect(s.router.state.location.pathname).toBe("/"));
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));
 });
 

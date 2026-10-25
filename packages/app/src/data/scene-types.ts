@@ -3,7 +3,7 @@
 import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
 import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
-import type { HomeSceneProps } from "../components/scenes/home-scene";
+import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import type { ProfileSheetProps } from "../components/containers/profile-sheet";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
@@ -31,10 +31,9 @@ type Data<H extends (...args: never[]) => { data: unknown }> = Exclude<ReturnTyp
 type OrNull<T> = T | null;
 
 export type SceneTypes = [
-  // home
-  Expect<Equal<Data<typeof indexer.usePlayerStatus>, HomeSceneProps["player"]>>,
-  Expect<Equal<Data<typeof chain.useActiveGame>, HomeSceneProps["activeGame"]>>,
-  Expect<Equal<Data<typeof chain.useSpawnPaused>, HomeSceneProps["spawnPaused"]>>,
+  // home (#753): the profile is the shell's (`ProfileHost`)
+  Expect<Equal<Data<typeof chain.useActiveGame>, Exclude<HomeVillageSceneProps["activeGame"], undefined>>>,
+  Expect<Equal<Data<typeof chain.useSpawnPaused>, Exclude<HomeVillageSceneProps["spawnPaused"], undefined>>>,
   // the XP ring and the profile sheet (#625): null is no player, the sheet takes undefined for it
   Expect<Equal<NonNullable<Data<typeof playerProgress.usePlayerProgress>>, NonNullable<ProfileSheetProps["progress"]>>>,
   // purchase

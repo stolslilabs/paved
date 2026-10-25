@@ -73,8 +73,8 @@ describe("the scrollable regions", () => {
 });
 
 describe("the page's hint", () => {
-  it("comes with TabFrame, which every tab page renders, Home included (not only TabPage), from its scrolling region", () => {
-    for (const f of ["src/components/scenes/home-scene.tsx", "src/components/containers/tab-page.tsx"]) {
+  it("comes with TabFrame, which every tab page renders (not only TabPage), from its scrolling region", () => {
+    for (const f of ["src/components/containers/tab-page.tsx"]) {
       expect(readFileSync(f, "utf8"), f).toContain("<TabFrame");
     }
     const root = document.documentElement;

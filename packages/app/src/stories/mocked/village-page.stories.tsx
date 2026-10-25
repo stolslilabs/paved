@@ -14,13 +14,14 @@ import { freshV2, mockRivalsV2 } from "../../data/mock/v2";
 import { APP_MANIFEST } from "../../mocks/assets";
 import { PLAYER_ID } from "../../mocks/players";
 import { PLAN } from "../../mocks/village";
+import HomePageRoute from "../../routes/pages/home";
 import VillagePageRoute from "../../routes/pages/village";
 import ChestsPageRoute from "../../routes/pages/village-chests";
 import ShopPageRoute from "../../routes/pages/village-shop";
 import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
 
 /**
- * The v2 village's pages (#739) as the app wires them, on the mock data source (Sepolia's, MOCK-FIRST, #741): the pages' own
+ * The v2 village's pages (#739; the own village is the home since #753) as the app wires them, on the mock data source (Sepolia's, MOCK-FIRST, #741): the pages' own
  * hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and their writes go to the ledger, so Found, Save, a
  * chest's opening and claim and a purchase all complete here. Each story seeds the ledger's state, then mounts the route. The
  * player is connected (a stand-in for the controller); the visit reads one of the mock's rival villages.
@@ -114,6 +115,7 @@ function VillagePages({ seed = SEED }: { seed?: Seed }) {
         <MockMarkProvider value>
           <LazyMotion features={domMax}>
             <Routes>
+              <Route path="/" element={<HomePageRoute />} />
               <Route path="/village/chests" element={<ChestsPageRoute />} />
               <Route path="/village/shop" element={<ShopPageRoute />} />
               <Route path="/village/:player?" element={<VillagePageRoute />} />
@@ -126,10 +128,10 @@ function VillagePages({ seed = SEED }: { seed?: Seed }) {
   );
 }
 
-/** The player's village: the starter layout at level 6 (14 slots), 9 tiles waiting in the inventory, 3 chests. Edit opens the editor. */
-export const Board: Story = { parameters: { route: "/village" }, render: () => <VillagePages /> };
+/** The player's village, the home (#753): the starter layout at level 6 (14 slots), 9 tiles waiting in the inventory, 3 chests. Edit opens the editor. */
+export const Board: Story = { parameters: { route: "/" }, render: () => <VillagePages /> };
 /** A new player: the starter alone, and Found. */
-export const Fresh: Story = { parameters: { route: "/village" }, render: () => <VillagePages seed={{ founded: false, level: 1, cobbles: 0, chests: [] }} /> };
+export const Fresh: Story = { parameters: { route: "/" }, render: () => <VillagePages seed={{ founded: false, level: 1, cobbles: 0, chests: [] }} /> };
 /** The chests waiting, oldest first: a gold (1 of 3), a silver (1 of 2), a bronze (one tile). */
 export const Chests: Story = { parameters: { route: "/village/chests" }, render: () => <VillagePages /> };
 /** The day's shop: 3 base plans, each bought once a day. */

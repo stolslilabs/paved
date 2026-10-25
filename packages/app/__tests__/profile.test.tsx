@@ -8,9 +8,10 @@ import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-a
 import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
 import { TabPage } from "../src/components/containers/tab-page";
-import { HomeScene } from "../src/components/scenes/home-scene";
+import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { PLAYER_ID } from "../src/mocks/players";
-import { HOME, PROFILE } from "../src/mocks/scenes";
+import { PROFILE } from "../src/mocks/scenes";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const withProfile = (value: ProfileValue, ui: ReactNode) => wrap(<ProfileProvider value={value}>{ui}</ProfileProvider>);
@@ -133,9 +134,9 @@ describe("ProfileSlot (#624)", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 
-  it("Home: the avatar replaces the player card", () => {
-    render(withProfile(value(PROFILE.connected), <HomeScene {...HOME.connected} />));
-    expect(screen.getAllByRole("button", { name: "Profile: bal7hazar" })).toHaveLength(2);
+  it("Home (#753): the avatar and its name at the top left, no player card", () => {
+    render(withProfile(value(PROFILE.connected), <HomeVillageScene {...HOME_VILLAGE.view} />));
+    expect(screen.getByRole("button", { name: "Profile: bal7hazar" })).toHaveTextContent("bal7hazar");
     expect(screen.queryByText(/games · best/)).toBeNull();
     expect(screen.queryByText("Playing as a guest")).toBeNull();
   });

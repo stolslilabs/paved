@@ -9,7 +9,8 @@ import { Cobbles, formatCobbles } from "../src/components/elements/cobbles";
 import { CobblePacks, formatUsd } from "../src/components/containers/cobble-packs";
 import { PLANS, applySkinChanges, chooseTheme, isClaimed, packDiscount, pickSkin, referencePrice, themeInUse, themeSet } from "../src/components/containers/cobble-types";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
-import { HomeScene } from "../src/components/scenes/home-scene";
+import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { CobblesScene } from "../src/components/scenes/cobbles-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
@@ -18,7 +19,7 @@ import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { QUEST_DEFINITIONS } from "../src/mocks/quests";
-import { ACHIEVEMENTS, COBBLES, HOME, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
+import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -381,29 +382,24 @@ describe("Achievements: Cobbles", () => {
 });
 
 describe("Home and Play: Cobbles", () => {
-  it("keeps the free-game card on Home, with no day or Daily wording", () => {
-    render(wrap(<HomeScene {...HOME.cobbles} />));
-    expect(screen.queryByText(/^Day \d+/)).not.toBeInTheDocument();
+  it("leaves the free game to Play: the home's village has no free-game card (#753)", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
     expect(screen.queryByText("Daily")).not.toBeInTheDocument();
-    expect(screen.queryByText("Free game")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Free game/)).not.toBeInTheDocument();
   });
 
-  it("offers a free game on Home and Play that spends a credit", async () => {
+  it("offers a free game on Play that spends a credit", async () => {
     const onPlayFree = vi.fn();
-    const { unmount } = render(wrap(<HomeScene {...HOME.freeGame} onPlayFree={onPlayFree} />));
-    await userEvent.click(screen.getByRole("button", { name: /Free game/ }));
-    expect(screen.getByText("2 free Challenge games from your missions.")).toBeInTheDocument();
-    unmount();
     render(wrap(<PlayScene {...PLAY.freeGame} onPlayFree={onPlayFree} />));
     await userEvent.click(screen.getByRole("button", { name: /Free Challenge/ }));
-    expect(onPlayFree).toHaveBeenCalledTimes(2);
+    expect(onPlayFree).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("SC3 stories", () => {
   // The SC1 scenes that gained states: their stories list the states of their mock object (the SC2 scenes are in scenes-2).
-  const fixtures = { home: HOME, play: PLAY, purchase: PURCHASE, cobbles: COBBLES };
-  const names = { home: "HOME", play: "PLAY", purchase: "PURCHASE", cobbles: "COBBLES" } as const;
+  const fixtures = { play: PLAY, purchase: PURCHASE, cobbles: COBBLES };
+  const names = { play: "PLAY", purchase: "PURCHASE", cobbles: "COBBLES" } as const;
   it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s in one story", (scene) => {
     const text = readFileSync(join(__dirname, `../src/components/scenes/${scene}-scene.stories.tsx`), "utf8");
     const stories = [...text.matchAll(/^export const (\w+): Story = \{ args: (\w+)\.(\w+) \};$/gm)];

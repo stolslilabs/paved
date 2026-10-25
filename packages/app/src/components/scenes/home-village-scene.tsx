@@ -5,21 +5,22 @@ import type { BoardWheel } from "../../data/board-settings";
 import { cn } from "../../lib/utils";
 import { Countdown } from "../elements/countdown";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
-import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { type TileArt } from "../elements/tile-chip";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { BalancesSlot } from "../containers/balances-context";
 import { OverlayButton } from "../containers/home-overlays";
-import { LayoutBoard, type LayoutBoardView } from "../containers/layout-board";
-import { LayoutEditorPanel, LeaveEditDialog, useLayoutEditor, type LayoutSaved } from "../containers/layout-editor";
+import type { LayoutBoardView } from "../containers/layout-board";
+import type { LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
+import type { VillageStageProps } from "../containers/village-stage";
 import { ProfileSlot } from "../containers/profile-context";
 
 // The season wheel (#547) in its own chunk, as on the boards: its slot keeps its size meanwhile.
 const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
+// The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
+const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 
 export interface HomeVillageSceneProps {
   /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
@@ -28,6 +29,8 @@ export interface HomeVillageSceneProps {
   error?: { message: string; detail?: ErrorDetail } | null;
   /** No wallet: the village shown is a starter one, nothing to edit; Connect at hand. */
   guest?: boolean;
+  /** A village to look at, not to edit (a source that does not serve the v2 village yet: a starter one). */
+  readOnly?: boolean;
   connecting?: boolean;
   /** The editor open (the page's URL, `?edit`): the editor's overlays instead of the view's. */
   editing?: boolean;
@@ -65,6 +68,11 @@ export interface HomeVillageSceneProps {
    * plan view (`LayoutBoard`), as where WebGL is missing and in the render tests.
    */
   renderCanvas?: (view: LayoutBoardView) => ReactNode;
+  /**
+   * The stage as the page draws it (its lazy wrapper, which adds the tile art and the 3D canvas), from the props the scene hands
+   * the stage. Unset: the scene's own (`VillageStage`), as in the stories and the render tests.
+   */
+  renderStage?: (stage: VillageStageProps) => ReactNode;
   onPlay?: () => void;
   onMissions?: () => void;
   onChests?: () => void;
@@ -77,7 +85,7 @@ export interface HomeVillageSceneProps {
   onConnect?: () => void;
   onRetry?: () => void;
   onFound?: () => void;
-  onSave?: (tiles: readonly BoardTile[]) => void;
+  onSave?: (tiles: readonly BoardTile[], score: number) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
@@ -92,24 +100,43 @@ export interface HomeVillageSceneProps {
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots), the inventory, Save, Discard and
  * Reset all; Back with changes asks first. No tab bar: the overlays replace it.
  */
-export function HomeVillageScene(props: HomeVillageSceneProps) {
-  const { village, guest = false, founded = true } = props;
-  const editable = !!village && !guest && founded;
+export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProps) {
+  const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
+  const editable = !!village && !guest && !readOnly && founded;
+  const editing = editable && (props.editing ?? false);
+  const stage: VillageStageProps = {
+    village,
+    editable,
+    editing,
+    onEditingChange: props.onEditingChange,
+    inventory: props.inventory,
+    saving: props.saving,
+    saved: props.saved,
+    refusal: props.refusal,
+    refusalDetail: props.refusalDetail,
+    tileArt: props.tileArt,
+    holdMs: props.holdMs,
+    initialDraft: props.initialDraft,
+    initialHand: props.initialHand,
+    initialPending: props.initialPending,
+    initialLeaving: props.initialLeaving,
+    renderCanvas: props.renderCanvas,
+    onSave: props.onSave,
+    onDirtyChange: props.onDirtyChange,
+    onDismissSaved: props.onDismissSaved,
+    onDismissRefusal: props.onDismissRefusal,
+  };
+  const edit = () => {
+    props.onDismissSaved?.();
+    props.onEditingChange?.(true);
+  };
   return (
     <div className="relative flex h-dvh min-h-[32rem] flex-col overflow-hidden bg-board text-foreground desktop:flex-row">
       <h1 className="sr-only">Home</h1>
-      {village ? <VillageView {...props} village={village} editable={editable} /> : <Sky {...props} />}
-    </div>
-  );
-}
-
-/** The village not read yet (a placeholder sky under the overlays), or its read failed (Retry). */
-function Sky({ error, onRetry, ...props }: HomeVillageSceneProps) {
-  return (
-    <div className="relative min-h-0 flex-1">
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-background/40 to-board" />
-      <ViewOverlays {...props} editable={false} onEdit={() => {}} />
-      {error && (
+      {/* The village's stage, its own chunk (the editor, the board, the engine): a placeholder sky until it is in. */}
+      <Suspense fallback={SKY}>{renderStage ? renderStage(stage) : <LazyVillageStage {...stage} />}</Suspense>
+      {!editing && <ViewOverlays {...props} editable={editable} onEdit={edit} />}
+      {error && !village && (
         <div className="absolute inset-x-4 top-1/3 mx-auto max-w-md">
           <InlineError
             title="The village could not be read"
@@ -130,107 +157,8 @@ function Sky({ error, onRetry, ...props }: HomeVillageSceneProps) {
   );
 }
 
-function VillageView({ village, editable, ...props }: HomeVillageSceneProps & { village: VillageLayout; editable: boolean }) {
-  const editor = useLayoutEditor({
-    village,
-    inventory: props.inventory,
-    own: editable,
-    saving: props.saving,
-    saved: props.saved,
-    editing: editable && (props.editing ?? false),
-    onEditingChange: props.onEditingChange,
-    initialDraft: props.initialDraft,
-    initialHand: props.initialHand,
-    initialPending: props.initialPending,
-    initialLeaving: props.initialLeaving,
-    onSave: props.onSave,
-    onDismissSaved: props.onDismissSaved,
-    onDirtyChange: props.onDirtyChange,
-  });
-  const { editing } = editor;
-  const view: LayoutBoardView = { tiles: editor.tiles, editing, plates: editor.plates, pending: editor.pending, shaking: editor.shaking, onTile: editor.lift, onPlate: editor.choosePlate };
-  return (
-    <>
-      {/* The scene's box: the whole screen in view, what the editor's panel leaves in edit mode. Its place in the tree never changes, so the canvas stays up across the modes. */}
-      <div className="relative min-h-0 flex-1">
-        {props.renderCanvas ? props.renderCanvas(view) : <LayoutBoard {...view} tileArt={props.tileArt} className="absolute inset-0 bg-board" />}
-        {editing ? <EditBar editor={editor} village={village} /> : <ViewOverlays {...props} village={village} editable={editable} onEdit={editor.open} />}
-        {!editing && props.saved && (
-          <div className="pointer-events-none absolute inset-x-2 top-[calc(max(0.5rem,env(safe-area-inset-top))+4.5rem)] flex justify-center">
-            <Notice
-              icon="circle-check"
-              title="Layout saved"
-              className="pointer-events-auto w-full max-w-sm bg-card/95 backdrop-blur"
-              action={
-                props.onDismissSaved && (
-                  <Button size="icon" variant="ghost" onClick={props.onDismissSaved} aria-label="Dismiss">
-                    <Icon name="xmark" size="sm" />
-                  </Button>
-                )
-              }
-            >
-              Your village scores <span className="numeric font-semibold">{formatInteger(props.saved.score)}</span>: attackers play against it now.
-            </Notice>
-          </div>
-        )}
-      </div>
-      {editing && (
-        <aside
-          aria-label="Editor"
-          className="flex shrink-0 flex-col gap-2 border-t border-border bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur desktop:w-96 desktop:border-t-0 desktop:border-l desktop:p-4"
-        >
-          {props.refusal && (
-            <InlineError
-              title="Not saved"
-              message={props.refusal}
-              detail={props.refusalDetail}
-              action={
-                props.onDismissRefusal && (
-                  <Button size="sm" variant="ghost" onClick={props.onDismissRefusal}>
-                    Dismiss
-                  </Button>
-                )
-              }
-            />
-          )}
-          <LayoutEditorPanel editor={editor} tileArt={props.tileArt} holdMs={props.holdMs} />
-        </aside>
-      )}
-      <LeaveEditDialog editor={editor} />
-    </>
-  );
-}
-
-/** Edit mode's bar over the scene: Back (out of edit mode, asking first with changes), the live score against the saved one, the slots. */
-function EditBar({ editor, village }: { editor: ReturnType<typeof useLayoutEditor>; village: VillageLayout }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
-      <header className="pointer-events-auto flex w-full max-w-2xl items-center gap-2 rounded-xl border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur">
-        <Button size="icon" variant="ghost" onClick={editor.back} aria-label="Leave edit mode">
-          <Icon name="chevron-left" size="md" />
-        </Button>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-display text-lg leading-tight">Edit village</span>
-          <span className="text-xs text-muted-foreground">
-            Score <span className="numeric font-semibold text-foreground">{formatInteger(editor.score)}</span>
-            {editor.score !== village.score && (
-              <>
-                {" "}
-                · saved <span className="numeric">{formatInteger(village.score)}</span>
-              </>
-            )}
-          </span>
-        </div>
-        <Badge variant="secondary" aria-label={`${editor.used} of ${editor.slots} slots used`}>
-          <Icon name="table-cells-large" size="xs" />
-          <span className="numeric">
-            {editor.used} / {editor.slots}
-          </span>
-        </Badge>
-      </header>
-    </div>
-  );
-}
+/** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
+const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
 
 /** The view's overlays: the corners, the right column, Play and Edit, the chips. */
 function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneProps & { editable: boolean; onEdit: () => void }) {
@@ -310,7 +238,7 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
         </div>
       )}
       <div className={cn("absolute right-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex items-end gap-2 tablet:right-4 tablet:bottom-4", props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
-        {village && !guest && !founded ? (
+        {village && !guest && !props.readOnly && !founded ? (
           <Button size="lg" variant="outline" className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
             <Icon name="house" size="sm" /> Found
           </Button>

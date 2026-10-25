@@ -48,7 +48,8 @@ export interface LayoutEditorOptions {
   initialLeaving?: boolean;
   /** Back with the editor closed. */
   onBack?: () => void;
-  onSave?: (tiles: readonly BoardTile[]) => void;
+  /** Save the draft, with the score the engine gives it. */
+  onSave?: (tiles: readonly BoardTile[], score: number) => void;
   onDismissSaved?: () => void;
   /** The editor holds changes not saved (true), or none (false). */
   onDirtyChange?: (dirty: boolean) => void;
@@ -118,13 +119,22 @@ export function useLayoutEditor({
     setHand(null);
     setPending(null);
   }, [saved]);
-  // The saved layout changed (a save, a read), or the editor closed from outside (the home's Back): a closed editor follows it.
+  // The editor closed from outside (the home's Back): it lets go of the draft.
   useEffect(() => {
     if (editing) return;
     setDraft(village.tiles);
     setHand(null);
     setPending(null);
     setLeaving(false);
+  }, [village.tiles, editing]);
+  // The saved layout changed (a save, a read, the village arriving after the editor opened on `?edit`): a draft with nothing
+  // changed on the old layout follows it; one with changes is the player's, and stays.
+  const savedTiles = useRef(village.tiles);
+  useEffect(() => {
+    const before = savedTiles.current;
+    savedTiles.current = village.tiles;
+    if (before === village.tiles || !editing) return;
+    setDraft((d) => (sameLayout(d, before) ? village.tiles : d));
   }, [village.tiles, editing]);
 
   const lifted = hand?.from === "board" ? hand.tile : null;
@@ -237,7 +247,7 @@ export function useLayoutEditor({
     // What is in hand stays where it is: a lifted tile at its cell, an inventory tile in the inventory.
     if (over) return;
     putBack();
-    onSave?.(whole);
+    onSave?.(whole, score);
   };
 
   const hint =

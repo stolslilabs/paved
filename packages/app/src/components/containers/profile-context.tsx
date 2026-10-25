@@ -98,13 +98,6 @@ export function ProfileSlot({ withName = false, className }: { /** The name on a
                 value.onEditAvatar?.();
               })
             }
-            onOpenVillage={
-              value.onOpenVillage &&
-              (() => {
-                setOpen(false);
-                value.onOpenVillage?.();
-              })
-            }
             onOpenLeague={
               value.onOpenLeague &&
               (() => {

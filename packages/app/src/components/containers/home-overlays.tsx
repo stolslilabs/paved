@@ -29,7 +29,7 @@ export function OverlayButton({ icon, label, badge = 0, onClick, className }: Ov
       <span className="state-layer relative grid size-12 place-items-center rounded-full border border-border bg-card/90 text-primary shadow-lg backdrop-blur tablet:size-14">
         <Icon name={icon} size="md" fixedWidth />
         {badge > 0 && (
-          <span aria-hidden className="numeric absolute -top-1 -right-1 grid min-w-5 place-items-center rounded-full bg-destructive px-1 text-xs font-semibold text-destructive-foreground">
+          <span aria-hidden className="numeric absolute -top-1 -right-1 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
             {badge}
           </span>
         )}

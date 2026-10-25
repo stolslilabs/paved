@@ -43,69 +43,56 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/ (P6): home on its data", () => {
-  it("a connected player: their open game to resume, no podium (#623)", async () => {
+describe("/ (#753): the village home on its data", () => {
+  const resume = `Resume Challenge #${GAME_PLAYING.id}`;
+
+  it("a connected player: the Resume chip of their open game, no ranking; Play opens the mode choice", async () => {
     const { router, fixture } = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
     // The newest open game of the player's `GameSpawned` events, read with `game(id)`.
-    expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
+    const chip = await screen.findByRole("button", { name: resume }, { timeout: slow(5000) });
     expect(screen.queryByText("Playing as a guest")).toBeNull();
     // No day notion on Home (#538), and no ranking (#623): the leaderboard is never read.
-    expect(screen.queryByText(/Day \d+/)).toBeNull();
     expect(screen.queryByText("Daily")).toBeNull();
-    expect(screen.queryByText("Top 3")).toBeNull();
-    await waitFor(() => expect(fixture.requests.some((r) => r.startsWith("/v1/players/"))).toBe(true));
     expect(fixture.requests.some((r) => r.includes("/leaderboard") || r.includes("/entry/"))).toBe(false);
-    await userEvent.click(screen.getByRole("button", { name: "Resume" }));
+    await userEvent.click(chip);
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_PLAYING.id}`));
+    await router.navigate(-1);
+    await userEvent.click(await screen.findByRole("button", { name: /^Play/ }, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
   });
 
-  it("the player is the avatar at the top left (#624): its sheet names them and disconnects; no player card", async () => {
+  it("the player is the avatar and name at the top left (#624): its sheet names them and disconnects", async () => {
     const { wallet } = open("/");
-    await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`, {}, { timeout: slow(5000) });
-    expect(screen.queryByText(/games · best/)).toBeNull();
-    // The page header's avatar and the navigation's (one shown at each width).
-    const avatars = screen.getAllByRole("button", { name: /^Profile: / });
-    expect(avatars).toHaveLength(2);
+    await screen.findByRole("button", { name: resume }, { timeout: slow(5000) });
+    // One avatar: the home has no navigation rail.
+    const avatar = screen.getByRole("button", { name: /^Profile: / });
     // The XP ring's seam (#625): level 1 and 0 XP for everyone until the contracts define XP.
-    expect(avatars[0]).toHaveAccessibleName(/, level 1$/);
-    await userEvent.click(avatars[0]!);
+    expect(avatar).toHaveAccessibleName(/, level 1$/);
+    await userEvent.click(avatar);
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("0 / 100 XP")).toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: /My village/ })).toBeNull();
     await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
     expect(wallet.calls).toContain("disconnect");
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Profile: guest" })).toHaveLength(2));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Profile: guest" })).toBeInTheDocument());
   });
 
-  it("no wallet: the guest's connect call, no game to resume; Connect connects", async () => {
+  it("no wallet: a starter village to look at, Connect, no game to resume, no Edit; Connect connects", async () => {
     const { wallet } = open("/", { guest: true });
     expect(await screen.findByText("Playing as a guest", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.queryByText(/in progress/)).toBeNull();
-    await userEvent.click(within(screen.getByText("Playing as a guest").closest("[role=status]") as HTMLElement).getByRole("button", { name: "Connect" }));
-    expect(await screen.findByText(`Challenge #${GAME_PLAYING.id} in progress`)).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /^Village layout of 9 tiles/ }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: resume })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit village" })).toBeNull();
+    await userEvent.click(within(screen.getByText("Playing as a guest").parentElement as HTMLElement).getByRole("button", { name: "Connect" }));
+    expect(await screen.findByRole("button", { name: resume })).toBeInTheDocument();
     expect(wallet.calls).toContain("connect");
   });
 
-  it("spawn_paused: the purchases-paused notice; the running game still resumes", async () => {
+  it("spawn_paused: the notice; the running game still resumes", async () => {
     open("/", { paused: true });
-    expect(await screen.findByText("New Challenge games are paused for now. A game already started still plays.", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Resume" })).toBeEnabled();
-  });
-
-  it("the Training card offers a new game, never a resume, even with an old save on the device (#718); it opens /training", async () => {
-    const store = memoryStore({ [TRAINING_KEY]: JSON.stringify({ v: 2, seed: "0x5eed", moves: [{ k: "d" }] }) });
-    const { router } = open("/", { guest: true, overrides: { store: () => store } });
-    const card = await screen.findByText("A free game.", {}, { timeout: slow(5000) });
-    expect(screen.queryByText(/^Resume: /)).not.toBeInTheDocument();
-    expect(screen.queryByText(/saved on this device/)).not.toBeInTheDocument();
-    await userEvent.click(card);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
-  });
-
-  it("the Story card opens /story", async () => {
-    const { router } = open("/", { guest: true });
-    await userEvent.click(await screen.findByText("Learn the rules level by level, then go for three stars.", {}, { timeout: slow(5000) }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/story"));
+    expect(await screen.findByText("New Challenge games are paused", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: resume })).toBeEnabled();
   });
 });
 
@@ -128,6 +115,25 @@ describe("/play (P6): the mode choice", () => {
     await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
     await userEvent.click(challenge());
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
+  });
+
+  it("the Training card offers a new game, never a resume, even with an old save on the device (#718); it opens /training", async () => {
+    const store = memoryStore({ [TRAINING_KEY]: JSON.stringify({ v: 2, seed: "0x5eed", moves: [{ k: "d" }] }) });
+    const { router } = open("/play", { guest: true, overrides: { store: () => store } });
+    const card = await screen.findByText("A full game for free.", {}, { timeout: slow(5000) });
+    expect(screen.queryByText(/^Resume: /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/saved on this device/)).not.toBeInTheDocument();
+    await userEvent.click(card);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
+  });
+
+  it("the Story card opens /story, the Attack card the PvP flow (#753)", async () => {
+    const { router } = open("/play");
+    await userEvent.click(await screen.findByText("Learn the rules level by level, then earn three stars on fixed decks.", {}, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/story"));
+    await router.navigate("/play");
+    await userEvent.click(await screen.findByText("Raid a rival village for stars, crowns and chests.", {}, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/pvp"));
   });
 
   it("spawn_paused: the Challenge is disabled with its notice; Training and Story mode stay open", async () => {

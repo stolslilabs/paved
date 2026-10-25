@@ -23,7 +23,7 @@ export default function Page() {
   const sources = useDataSources();
   const client = useQueryClient();
   const go = useAppNavigate();
-  const onBack = useUpTo("/village");
+  const onBack = useUpTo("/");
   // The day is the device's, as the mock ledger rules on it in step 1 (#741); step 3 (#742) reads the chain's with the contracts.
   const now = useNow();
   const me = sources.signer?.address ?? null;
@@ -98,7 +98,7 @@ export default function Page() {
         );
       }}
       onDismissRefusal={writes.reset}
-      onEditLayout={() => go("/village")}
+      onEditLayout={() => go("/?edit")}
     />
   );
 }

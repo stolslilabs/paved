@@ -137,7 +137,7 @@ function LayoutView({
   onOpenShop,
 }: Omit<VillageLayoutSceneProps, "village" | "status" | "onConnect" | "onRetry"> & { village: VillageLayout }) {
   const own = mode === "own";
-  const editor = useLayoutEditor({ village, inventory, own, saving, saved, initialEditing, initialDraft, initialHand, initialPending, initialLeaving, onBack, onSave, onDismissSaved, onDirtyChange });
+  const editor = useLayoutEditor({ village, inventory, own, saving, saved, initialEditing, initialDraft, initialHand, initialPending, initialLeaving, onBack, onSave: onSave && ((tiles) => onSave(tiles)), onDismissSaved, onDirtyChange });
   const { editing, slots, used, score, pending, open, back } = editor;
 
   // An owner without a name is a short address: it stays whole on its line, the title wrapping before "village" only.
