@@ -11,7 +11,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { LayoutBoard } from "../containers/layout-board";
-import { LayoutEditorPanel, LeaveEditDialog, useLayoutEditor, type LayoutSaved } from "../containers/layout-editor";
+import { LayoutEditorPanel, LeaveEditDialog, ResetAllHold, useLayoutEditor, type LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
@@ -45,7 +45,7 @@ export interface VillageLayoutSceneProps {
   refusal?: string | null;
   refusalDetail?: ErrorDetail;
   tileArt?: TileArt;
-  /** The hold's length on the bubble and Reset all, ms (the stories and tests tune it). */
+  /** The hold's length on Reset all, ms (the stories and tests tune it). */
   holdMs?: number;
   /** Where the stories start: the editor open on this draft (the saved layout when unset), a tile in hand, set on a cell, the leave dialog. */
   initialEditing?: boolean;
@@ -72,12 +72,12 @@ export interface VillageLayoutSceneProps {
  * The v2 village (#739, part of #732): a free layout of the player's collected tiles, rearranged at any time, capped by the
  * slots unlocked (8 + level). The view shows the layout under the fog, which lifts around its tiles, the score, the level
  * and the slots used ("21 / 28"), and leads to the chests and the shop. Edit opens the editor, where placing works as on the
- * board (the owner's decisions): a card of the inventory's carousel puts its tile in hand, its legal cells light up, a tap
- * sets it on one, and the bubble rotates it, sends it back to the inventory (in the bin's place) or places it with a hold. A
- * placed tile is lifted into the hand with a tap, to move, turn or send back; a tile that holds the village together shakes
- * instead. The starter never moves. "Reset all", held, brings the village back to the starter alone. The layout stays valid at
- * every step; its live score is the engine's. Save sends it when something changed and shows the new score once confirmed;
- * Discard changes goes back to the saved layout, and leaving with changes asks first. Data and the save come as props and
+ * board with no validation (#756): a card of the inventory's carousel puts its tile in hand, its legal cells light up, a tap
+ * places it on one, and the bubble rotates it or sends it back to the inventory (in the bin's place); a tap on another lit cell
+ * moves it. A placed tile is lifted with a tap, to move, turn or send back (Cancel puts it back where it was); a tile that
+ * holds the village together shakes instead. The starter never moves. "Reset all", the eraser held beside the slots, brings
+ * the village back to the starter alone. The layout stays valid at every step; its live score is the engine's. Save sends it
+ * when something changed and shows the new score once confirmed; Back with changes asks first, the way to drop them. Data and the save come as props and
  * callbacks: the page wires them to the mock ledger (#741) and then the contracts (#733) in later tasks.
  */
 export function VillageLayoutScene({ village, status, mode = "own", onBack, onConnect, onRetry, ...props }: VillageLayoutSceneProps) {
@@ -188,6 +188,7 @@ function LayoutView({
                   {used} / {slots}
                 </span>
               </Badge>
+              {editing && <ResetAllHold editor={editor} holdMs={holdMs} />}
             </div>
           </div>
           <LayoutBoard
@@ -199,6 +200,7 @@ function LayoutView({
             tileArt={tileArt}
             onTile={editor.lift}
             onPlate={editor.choosePlate}
+            onPending={editor.letGo}
             // On a phone the board takes what the header and the editor leave (the page scrolls only on a short screen); from
             // desktop it fills its card.
             className={cn("flex-none desktop:min-h-0 desktop:flex-1", editing ? "h-[max(14rem,calc(100dvh-30rem))]" : "h-[max(14rem,calc(100dvh-14rem))]", "desktop:h-auto")}
@@ -255,7 +257,7 @@ function LayoutView({
             )}
           >
             {editing ? (
-              <LayoutEditorPanel editor={editor} tileArt={tileArt} holdMs={holdMs} />
+              <LayoutEditorPanel editor={editor} tileArt={tileArt} />
             ) : !founded ? (
               <FoundNotice founding={founding} onFound={onFound} />
             ) : (

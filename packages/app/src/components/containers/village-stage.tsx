@@ -8,7 +8,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { LayoutBoard, type LayoutBoardView } from "./layout-board";
-import { LayoutEditorPanel, LeaveEditDialog, useLayoutEditor, type LayoutSaved } from "./layout-editor";
+import { LayoutEditorPanel, LeaveEditDialog, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutSaved } from "./layout-editor";
 import type { Inventory, Spot, VillageLayout } from "./layout-rules";
 
 export interface VillageStageProps {
@@ -41,8 +41,9 @@ export interface VillageStageProps {
 
 /**
  * The home's village (#753): the scene's box (the 3D canvas, else the plan view) and, in edit mode, the editor's overlays (#739):
- * its bar (Back, the live score, the slots), its panel (the inventory, Reset all, Discard, Save) beside or under the box, and the
- * leave dialog. The view's overlays are the scene's, painted before this chunk (the editor, the board, the engine) arrives.
+ * its bar (Back, the live score, the slots, Reset all), its panel (the hint, the inventory, Save) beside or under the box, and the
+ * leave dialog. The bubble of the tile in hand stands by the tile on the 3D scene, clear of the bar and the panel; the plan view
+ * stands it still in the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the board, the engine) arrives.
  */
 const NONE: VillageLayout = { owner: "", level: 1, tiles: [], score: 0 };
 
@@ -64,7 +65,8 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     onDirtyChange: props.onDirtyChange,
   });
   const { editing } = editor;
-  const view: LayoutBoardView = { tiles: editor.tiles, editing, plates: editor.plates, pending: editor.pending, shaking: editor.shaking, onTile: editor.lift, onPlate: editor.choosePlate };
+  const scene = !!props.renderCanvas;
+  const view: LayoutBoardView = { ...editor.view, bubble: scene ? editor.bubble : null };
   return (
     <>
       {/* The scene's box: the whole screen in view, what the editor's panel leaves in edit mode. Its place in the tree never changes, so the canvas stays up across the modes. */}
@@ -78,7 +80,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
           // In view nothing on the plan is tapped: it fits the screen. The editor keeps the touch floor, and scrolls past it.
           <LayoutBoard {...view} fit={!editing} tileArt={props.tileArt} className="absolute inset-0 bg-board" />
         )}
-        {editing && village && <EditBar editor={editor} village={village} />}
+        {editing && village && <EditBar editor={editor} village={village} holdMs={props.holdMs} />}
         {!editing && props.saved && (
           <div className="pointer-events-none absolute inset-x-2 top-[calc(max(0.5rem,env(safe-area-inset-top))+4.5rem)] flex justify-center">
             <Notice
@@ -101,6 +103,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
       {editing && (
         <aside
           aria-label="Editor"
+          data-bubble-avoid
           className="flex shrink-0 flex-col gap-2 border-t border-border bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur desktop:w-96 desktop:border-t-0 desktop:border-l desktop:p-4"
         >
           {props.refusal && (
@@ -117,7 +120,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
               }
             />
           )}
-          <LayoutEditorPanel editor={editor} tileArt={props.tileArt} holdMs={props.holdMs} />
+          <LayoutEditorPanel editor={editor} tileArt={props.tileArt} bubble={scene ? "scene" : "panel"} />
         </aside>
       )}
       <LeaveEditDialog editor={editor} />
@@ -125,10 +128,13 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   );
 }
 
-/** Edit mode's bar over the scene: Back (out of edit mode, asking first with changes), the live score against the saved one, the slots. */
-function EditBar({ editor, village }: { editor: ReturnType<typeof useLayoutEditor>; village: VillageLayout }) {
+/**
+ * Edit mode's bar over the scene: Back (out of edit mode, asking first with changes: it is the way to drop a draft), the live
+ * score against the saved one, the slots, and Reset all held beside them (#756).
+ */
+function EditBar({ editor, village, holdMs }: { editor: LayoutEditor; village: VillageLayout; holdMs?: number }) {
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+    <div data-bubble-avoid className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
       <header className="pointer-events-auto flex w-full max-w-2xl items-center gap-2 rounded-xl border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur">
         <Button size="icon" variant="ghost" onClick={editor.back} aria-label="Leave edit mode">
           <Icon name="chevron-left" size="md" />
@@ -151,6 +157,7 @@ function EditBar({ editor, village }: { editor: ReturnType<typeof useLayoutEdito
             {editor.used} / {editor.slots}
           </span>
         </Badge>
+        <ResetAllHold editor={editor} holdMs={holdMs} />
       </header>
     </div>
   );

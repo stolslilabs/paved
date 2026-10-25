@@ -100,8 +100,8 @@ export interface HomeVillageSceneProps {
  * the safe areas. In view: the avatar, its level ring and name at the top left; the balances and the gear at the top right; the
  * right column (Missions, Chests, Shop, Vault, League, Defence log) with their counts; Play, large, at the bottom right with
  * Edit (a hammer) beside it; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
- * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots), the inventory, Save, Discard and
- * Reset all; Back with changes asks first. No tab bar: the overlays replace it.
+ * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
+ * Save, the bubble by the tile in hand (#756); Back with changes asks first. No tab bar: the overlays replace it.
  */
 export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProps) {
   const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;

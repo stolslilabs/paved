@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup as cleanupAll, fireEvent, render, screen } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -64,6 +64,30 @@ describe("HoldButton", () => {
     fireEvent.pointerCancel(button());
     act(() => vi.advanceTimersByTime(HOLD_MS * 2));
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("tells a press let go before the end (onShort, #756), never a completed hold nor a disabled button's", () => {
+    const onShort = vi.fn();
+    const onComplete = setup({ onShort });
+    fireEvent.pointerDown(button(), { button: 0 });
+    act(() => vi.advanceTimersByTime(200));
+    fireEvent.pointerUp(button(), { button: 0 });
+    fireEvent.click(button(), { detail: 1 });
+    expect(onShort).toHaveBeenCalledOnce();
+    fireEvent.keyDown(button(), { key: "Enter" });
+    fireEvent.keyUp(button(), { key: "Enter" });
+    expect(onShort).toHaveBeenCalledTimes(2);
+    fireEvent.pointerDown(button(), { button: 0 });
+    act(() => vi.advanceTimersByTime(HOLD_MS));
+    fireEvent.pointerUp(button(), { button: 0 });
+    fireEvent.pointerLeave(button());
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(onShort).toHaveBeenCalledTimes(2);
+    cleanupAll();
+    setup({ onShort, disabled: true });
+    fireEvent.pointerDown(button(), { button: 0 });
+    fireEvent.pointerUp(button(), { button: 0 });
+    expect(onShort).toHaveBeenCalledTimes(2);
   });
 
   it("holding Enter or Space acts; a key let go early cancels; the key's repeats do not restart the hold", () => {
@@ -250,6 +274,20 @@ describe("Discard in the bubble (#606)", () => {
   it("is disabled while the move is on its way", () => {
     render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} onConfirm={vi.fn()} busy />));
     expect(discardButton()).toBeDisabled();
+  });
+
+  it("the village editor's (#756): Back to the inventory (share-from-square) and Rotate, no Validate; Cancel only when asked, Escape always", () => {
+    const onClose = vi.fn();
+    const onReturn = vi.fn();
+    const { rerender } = render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={onClose} onReturn={onReturn} cancelButton={false} />));
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Back to the inventory", "Rotate tile"]);
+    expect(screen.getByRole("button", { name: "Back to the inventory" }).querySelector("[data-icon]")).toHaveAttribute("data-icon", "share-from-square");
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the inventory" }));
+    expect(onReturn).toHaveBeenCalledOnce();
+    rerender(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={onClose} onReturn={onReturn} />));
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Cancel placement", "Back to the inventory"]);
   });
 
   it("Cancel and Rotate tick lightly where the device has haptics", () => {
