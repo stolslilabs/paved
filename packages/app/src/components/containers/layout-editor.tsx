@@ -310,7 +310,7 @@ export type LayoutEditor = ReturnType<typeof useLayoutEditor>;
 export function LayoutEditorPanel({ editor, tileArt, holdMs, className }: { editor: LayoutEditor; tileArt?: TileArt; holdMs?: number; className?: string }) {
   const { pending, hand, saving } = editor;
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div className={cn("flex flex-col gap-3 desktop:min-h-0 desktop:flex-1", className)}>
       {pending && hand && (
         <TileBubble
           rotations={editor.rotations.length}

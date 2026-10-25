@@ -3,7 +3,7 @@ import type { Chest, VillageChestsSceneProps } from "../components/scenes/villag
 import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/village-shop-scene";
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
-import { rarityOf, type Rarity } from "../components/elements/rarity-badge";
+import { deckCount, rarityOf, type Rarity } from "../components/elements/rarity-badge";
 import { STARTER, canLift, countPlans, fittingAt, frontier, isStarter, layoutScore, legalSpots, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, MOCK_NOW } from "./clock";
 import { GAME_PLAYING } from "./games";
@@ -59,6 +59,12 @@ export const LAYOUT_RIVAL = layout("Rook of Ashford", 16, [...MIXED].reverse().s
 export const INVENTORY: Inventory = { [P.road]: 4, [P.roadCross]: 2, [P.wonder]: 1, [P.cityEdge]: 3, [P.city]: 1, [P.stopRoads]: 1, [P.roadBend]: 2, [P.forestCity]: 2 };
 /** A new account: no tile off the layout. */
 export const INVENTORY_EMPTY: Inventory = {};
+/** A long-standing player (#757): one to four copies of every plan of the base deck, more cards than the editor's column holds. */
+export const INVENTORY_LONG: Inventory = Object.fromEntries(
+  Array.from({ length: 32 }, (_, plan) => plan)
+    .filter((plan) => deckCount(plan) > 0)
+    .map((plan) => [plan, 1 + (plan % 4)]),
+);
 
 /** How many of each plan a player holds: the layout's and the inventory's. */
 export function ownedOf(village: VillageLayout, inventory: Inventory): Record<number, number> {

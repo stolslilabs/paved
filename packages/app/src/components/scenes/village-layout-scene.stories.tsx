@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { BoardTile } from "@paved/chain";
 import { fn } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
-import { VILLAGE_LAYOUT, fakeScore } from "../../mocks/village-v2";
+import { INVENTORY_LONG, VILLAGE_LAYOUT, fakeScore } from "../../mocks/village-v2";
+import { PHONE_375, WIDE_1440 } from "./viewports";
 import { isStarter, type Inventory, type VillageLayout } from "../containers/layout-rules";
 import { VillageLayoutScene, type LayoutSaved, type VillageLayoutSceneProps } from "./village-layout-scene";
 
@@ -48,6 +49,10 @@ export const Changed: Story = { args: VILLAGE_LAYOUT.changed };
 export const Reset: Story = { args: VILLAGE_LAYOUT.reset };
 /** Every slot used (20 of 20): the carousel greyed until a tile is sent back. */
 export const Full: Story = { args: VILLAGE_LAYOUT.full };
+/** Every slot used with a long inventory at 1440 px (#757): the grid wraps in the panel and scrolls, Save stays in view. */
+export const FullLongWide: Story = { ...WIDE_1440, args: { ...VILLAGE_LAYOUT.full, inventory: INVENTORY_LONG } };
+/** The same at 375 px: the carousel, greyed, drags and swipes though every visible card waits. */
+export const FullLongPhone: Story = { ...PHONE_375, args: { ...VILLAGE_LAYOUT.full, inventory: INVENTORY_LONG } };
 /** Back with unsaved changes: asked first. */
 export const Leaving: Story = { args: VILLAGE_LAYOUT.leaving };
 /** The save on its way. */

@@ -250,7 +250,7 @@ function LayoutView({
           <aside
             aria-label={editing ? "Editor" : "Village"}
             className={cn(
-              "flex shrink-0 flex-col gap-3 border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] desktop:w-96 desktop:self-start desktop:rounded-2xl desktop:border desktop:p-4",
+              "flex shrink-0 flex-col gap-3 border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] desktop:max-h-full desktop:w-96 desktop:self-start desktop:rounded-2xl desktop:border desktop:p-4",
               !editing && "hidden desktop:flex",
             )}
           >

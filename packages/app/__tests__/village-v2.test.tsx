@@ -189,7 +189,7 @@ describe("the v2 village scene (#739)", () => {
   it("greys the inventory once every slot is used", () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.full} />));
     expect(screen.getByText("Every slot is used")).toBeInTheDocument();
-    for (const card of within(screen.getByRole("region", { name: "Inventory tiles" })).getAllByRole("button")) expect(card).toBeDisabled();
+    for (const card of within(screen.getByRole("region", { name: "Inventory tiles" })).getAllByRole("button")) expect(card).toHaveAttribute("aria-disabled", "true");
   });
 
   it("never goes past the slots: a lifted tile keeps its slot, and only sending it back frees one", async () => {
@@ -200,7 +200,7 @@ describe("the v2 village scene (#739)", () => {
     // Lifted: the slot is still taken, the cards stay greyed, choosing one does nothing.
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${outer.id}"]`)!);
     expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
-    for (const card of cards()) expect(card).toBeDisabled();
+    for (const card of cards()) expect(card).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(cards()[0]!);
     expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
     // Sent back: a slot is free, one inventory tile can go down, and then the slots are full again.
@@ -210,7 +210,7 @@ describe("the v2 village scene (#739)", () => {
     await userEvent.click(document.querySelector<HTMLButtonElement>('[data-kind="plate"]')!);
     fireEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Hold to place the tile" }));
     expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
-    for (const card of cards()) expect(card).toBeDisabled();
+    for (const card of cards()) expect(card).toHaveAttribute("aria-disabled", "true");
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
     expect(onSave.mock.calls[0]?.[0]).toHaveLength(20);
