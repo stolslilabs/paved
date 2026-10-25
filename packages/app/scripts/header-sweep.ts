@@ -1,7 +1,7 @@
 /**
  * HEADER-HEIGHT (#676): every page outside the game scenes has one header height per breakpoint, and its content starts at
- * the same height; below `desktop` a page without balances has one row less (HEADER-BALANCES, #720: `page-header-single`),
- * so there the pages fall in two groups, each with one height and one content start. Each story of `Pages/Headers` (one per
+ * the same height; one row at every width (PAGE-HEADER, #760: below `desktop` the balances sit in the page, under the
+ * header, and are its content's first box). Each story of `Pages/Headers` (one per
  * page, in the shell's providers; `src/stories/page-headers.ts` lists them with the routes they cover) at 375 px and at 1440 px:
  * - one header at the top of the page (a `data-slot="page-header"` element, or the navigation's header from `desktop`, not
  *   the fixed bottom bar), as tall as its own `--header-h` token (theme.css) at that width;
