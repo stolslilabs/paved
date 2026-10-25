@@ -33,6 +33,24 @@ export interface IsoOptions {
   switchOf?: (owner: number) => number;
   /** Text drawn over the tile at a cell (x, y, layer): the structures' numbers of the readout. */
   labels?: ReadonlyArray<{ x: number; y: number; layer: number; text: string }>;
+  /** Boxes of cells drawn as wire frames over the tile (the chimneys' stories, #770), both ends included, with an optional fill. */
+  boxes?: ReadonlyArray<IsoBox>;
+  /** Voxels left out of the view (the chimneys' smoke, hidden). */
+  hide?: (x: number, y: number, layer: number) => boolean;
+}
+
+/** A box of cells marked on the view: x, y and layer from the first cell to the last, both included. */
+export interface IsoBox {
+  readonly x0: number;
+  readonly y0: number;
+  readonly layer0: number;
+  readonly x1: number;
+  readonly y1: number;
+  readonly layer1: number;
+  readonly color: string;
+  /** A solid fill of the box's top (the chimneys' caps), instead of a wire frame. */
+  readonly fill?: string;
+  readonly dashed?: boolean;
 }
 
 export const MARK_COLORS: Record<OpeningKind | "unlit", string> = { window: "#22d3ee", door: "#e879f9", gap: "#9ca3af", unlit: "#fb923c" };
@@ -97,7 +115,8 @@ export function drawIso(canvas: HTMLCanvasElement, grid: VoxelGrid, options: Iso
   for (const w of options.windows) if (w.kind === "window" || w.kind === "door") for (const [x, y, l] of windowCells(w)) windowCell.add(x + n * (y + n * l));
 
   const order: number[] = [];
-  for (let v = 0; v < grid.count; v++) if (grid.visible[v]) order.push(v);
+  const hide = options.hide;
+  for (let v = 0; v < grid.count; v++) if (grid.visible[v] && !hide?.(grid.cells[v * 3]!, grid.cells[v * 3 + 1]!, grid.cells[v * 3 + 2]!)) order.push(v);
   const key = (v: number) => {
     const [rx, ry] = turnCell(grid.cells[v * 3]!, grid.cells[v * 3 + 1]!);
     return (rx + ry) * 256 + grid.cells[v * 3 + 2]!;
@@ -195,6 +214,31 @@ export function drawIso(canvas: HTMLCanvasElement, grid: VoxelGrid, options: Iso
   };
   for (const w of options.windows) if (options.marks.has(w.kind)) mark(w, MARK_COLORS[w.kind]);
   if (options.marks.has("unlit")) for (const w of options.unlit) mark(w, MARK_COLORS.unlit);
+  for (const box of options.boxes ?? []) {
+    const corner = (x: number, y: number, z: number) => {
+      const [rx, ry] = turn(x, y);
+      return project(rx, ry, z);
+    };
+    const [x0, y0, x1, y1, z0, z1] = [box.x0, box.y0, box.x1 + 1, box.y1 + 1, box.layer0, box.layer1 + 1];
+    if (box.fill) {
+      const top = [corner(x0, y0, z1), corner(x1, y0, z1), corner(x1, y1, z1), corner(x0, y1, z1)];
+      polygon(top, box.fill);
+    }
+    const edges: Array<[[number, number, number], [number, number, number]]> = [];
+    for (const z of [z0, z1]) edges.push([[x0, y0, z], [x1, y0, z]], [[x1, y0, z], [x1, y1, z]], [[x1, y1, z], [x0, y1, z]], [[x0, y1, z], [x0, y0, z]]);
+    for (const [x, y] of [[x0, y0], [x1, y0], [x1, y1], [x0, y1]] as const) edges.push([[x, y, z0], [x, y, z1]]);
+    context.beginPath();
+    for (const [a, b] of edges) {
+      const [p, q] = [corner(...a), corner(...b)];
+      context.moveTo(p[0], p[1]);
+      context.lineTo(q[0], q[1]);
+    }
+    context.setLineDash(box.dashed ? [3, 3] : []);
+    context.strokeStyle = box.color;
+    context.lineWidth = Math.max(1.5, scale / 4);
+    context.stroke();
+    context.setLineDash([]);
+  }
   context.font = `bold ${Math.max(10, Math.round(scale * 1.3))}px ui-monospace, monospace`;
   context.textAlign = "center";
   for (const label of options.labels ?? []) {

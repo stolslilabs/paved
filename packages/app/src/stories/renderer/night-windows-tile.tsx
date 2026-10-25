@@ -81,7 +81,7 @@ interface Baked {
 }
 
 /** The model id a plan and a skin draw: the base key, or the manifest's Forest variant (theme 1). */
-function modelId(plan: string, skin: TileSkin, variant: number): string {
+export function modelId(plan: string, skin: TileSkin, variant: number): string {
   const variants = APP_MANIFEST.themes?.["1"]?.[plan];
   if (skin === "forest" && variants?.length) return variants[Math.min(Math.max(1, variant), variants.length) - 1]!;
   return plan;
@@ -94,7 +94,7 @@ export const forestVariantCount = (plan: string): number => APP_MANIFEST.themes?
  * The loader of a story. The models in `wanted` (Forest variants) are asked for before `preloadAll`, which is what makes the
  * loader choose them: a `want` after `preloadModels` alone would queue them and never load them. With none wanted, the 19 base models.
  */
-function useLoader(wanted: readonly string[] = []): AssetLoader | null {
+export function useLoader(wanted: readonly string[] = []): AssetLoader | null {
   const [loader, setLoader] = useState<AssetLoader | null>(null);
   const key = wanted.join(",");
   useEffect(() => {
@@ -112,7 +112,7 @@ function useLoader(wanted: readonly string[] = []): AssetLoader | null {
 }
 
 /** The ids of a plan's Forest variants, or of every plan's. */
-const forestIds = (plans: readonly string[]): string[] => plans.flatMap((plan) => Array.from({ length: forestVariantCount(plan) }, (_, i) => modelId(plan, "forest", i + 1)));
+export const forestIds = (plans: readonly string[]): string[] => plans.flatMap((plan) => Array.from({ length: forestVariantCount(plan) }, (_, i) => modelId(plan, "forest", i + 1)));
 
 /** The filter a rule gives (`findOpenings`): the renderer's, from the model's palette's vegetation, or none. */
 function filterOf(rule: StoryRule, plants: number[], detection: WindowDetection): OpeningFilter {
