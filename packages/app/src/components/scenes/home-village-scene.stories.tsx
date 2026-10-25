@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { BoardTile } from "@paved/chain";
-import { fn } from "storybook/test";
+import { fireEvent, fn, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAYER_STATUS } from "../../mocks/scenes";
@@ -82,12 +82,23 @@ export const Loading: Story = { args: HOME_VILLAGE.loading };
 export const ReadFailed: Story = { args: HOME_VILLAGE.error };
 /** The save landed: the new score over the village. */
 export const Saved: Story = { args: HOME_VILLAGE.saved };
-/** Edit mode: the editor's bar, the inventory, Reset all, Discard and Save. */
+/** Edit mode: the editor's bar (Back, the score, the slots, Reset all), the inventory and Save. */
 export const Editing: Story = { args: HOME_VILLAGE.editing };
 /** A road in hand: its legal cells lit. */
 export const Holding: Story = { args: HOME_VILLAGE.holding };
-/** The road set on a lit cell: the bubble rotates it, sends it back, or places it with a hold. */
+/** The road placed on a lit cell at once (no validation, #756): the bubble rotates it or sends it back to the inventory. */
 export const Placing: Story = { args: HOME_VILLAGE.placing };
+/** An outer tile lifted: its legal cells lit, the bubble with Cancel. */
+export const Lifted: Story = { args: HOME_VILLAGE.lifted };
+/** The lifted tile moved to another lit cell: Cancel puts it back. */
+export const Moved: Story = { args: HOME_VILLAGE.moved };
+/** Reset all held, beside the slots: the red ring fills around the eraser (a 6 s hold here, so it can be looked at). */
+export const ResetHolding: Story = {
+  args: { ...HOME_VILLAGE.editing, holdMs: 6000 },
+  play: async ({ canvasElement }) => {
+    fireEvent.pointerDown(await within(canvasElement).findByRole("button", { name: /^Hold to reset all/ }), { button: 0 });
+  },
+};
 /** Three tiles more than saved: the live score against the saved one, Save and Discard enabled. */
 export const Changed: Story = { args: HOME_VILLAGE.changed };
 /** Back with unsaved changes: asked first. */
@@ -118,6 +129,10 @@ function InScene(args: HomeVillageSceneProps) {
 export const Scene: Story = { args: HOME_VILLAGE.view, render: (args) => <InScene {...args} /> };
 /** The same scene in edit mode: the overlays switched to the editor's, the scene's box what the panel leaves. */
 export const SceneEditing: Story = { args: HOME_VILLAGE.holding, render: (args) => <InScene {...args} /> };
+/** A road placed on the scene (#756): the bubble by the tile, following pans, zooms and the compass, clear of the bar and the panel. */
+export const ScenePlaced: Story = { args: HOME_VILLAGE.placing, render: (args) => <InScene {...args} /> };
+/** A lifted tile moved on the scene: the bubble by it, with Cancel. */
+export const SceneMoved: Story = { args: HOME_VILLAGE.moved, render: (args) => <InScene {...args} /> };
 
 /** View and edit at 375, 768 and 1440 px: the overlays' positions as tuned for #753. */
 export const ScenePhone: Story = { ...Scene, ...PHONE_375 };
@@ -126,9 +141,14 @@ export const SceneWide: Story = { ...Scene, ...WIDE_1440 };
 export const SceneEditingPhone: Story = { ...SceneEditing, ...PHONE_375 };
 export const SceneEditingTablet: Story = { ...SceneEditing, ...TABLET_768 };
 export const SceneEditingWide: Story = { ...SceneEditing, ...WIDE_1440 };
+export const ScenePlacedPhone: Story = { ...ScenePlaced, ...PHONE_375 };
+export const ScenePlacedWide: Story = { ...ScenePlaced, ...WIDE_1440 };
+export const SceneMovedPhone: Story = { ...SceneMoved, ...PHONE_375 };
+export const SceneMovedWide: Story = { ...SceneMoved, ...WIDE_1440 };
 
 /** The fakes played: Edit opens edit mode, Save keeps the layout (its engine score, after a short wait) and goes back to the view. */
-function Playground(props: HomeVillageSceneProps) {
+function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene?: boolean }) {
+  const board = useBoardSettings();
   const [editing, setEditing] = useState(false);
   const [village, setVillage] = useState<VillageLayout>(props.village!);
   const [saving, setSaving] = useState(false);
@@ -155,9 +175,12 @@ function Playground(props: HomeVillageSceneProps) {
       }}
       onSave={save}
       onDismissSaved={() => setSaved(null)}
+      {...(scene && { seasonWheel: board.wheel, renderCanvas: (view) => <VillageLayoutCanvas view={view} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} /> })}
     />
   );
 }
 
 /** Edit, place, save or leave: the modes switch in the same scene (the GIF of #753 plays this one). */
 export const Interactive: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} /> };
+/** The same on the 3D scene at 375 px: place a tile, move it, send it back, the bubble following it (the GIF of #756 plays this one). */
+export const InteractiveScene: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} scene />, ...PHONE_375 };

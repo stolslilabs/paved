@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { BoardTile } from "@paved/chain";
-import { fn } from "storybook/test";
+import { fireEvent, fn, within } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { INVENTORY_LONG, VILLAGE_LAYOUT, fakeScore } from "../../mocks/village-v2";
 import { PHONE_375, WIDE_1440 } from "./viewports";
@@ -35,18 +35,27 @@ type Story = StoryObj<typeof meta>;
 export const Start: Story = { args: VILLAGE_LAYOUT.start };
 /** Halfway: 21 of 28 slots used, under the fog that lifts around the tiles; Edit, Chests (2 waiting), Shop. */
 export const Growing: Story = { args: VILLAGE_LAYOUT.growing };
-/** The editor open on the saved layout: the inventory's carousel at the bottom, Reset all, Discard changes and Save. */
+/** The editor open on the saved layout: Reset all (the eraser, held) beside the slots, the inventory's carousel and Save. */
 export const Editing: Story = { args: VILLAGE_LAYOUT.editing };
 /** A road in hand from the inventory: its legal cells lit, as on the board. */
 export const Holding: Story = { args: VILLAGE_LAYOUT.holding };
-/** The road set on a lit cell: the bubble rotates it, sends it back to the inventory, or places it with a hold. */
+/** The road placed on a lit cell at once (no validation, #756): the bubble rotates it or sends it back to the inventory. */
 export const Placing: Story = { args: VILLAGE_LAYOUT.placing };
-/** A placed tile lifted into the hand, with the bubble: rotate it in place, tap another lit cell to move it, or send it back. */
+/** A placed tile lifted, with the bubble: rotate it in place, tap another lit cell to move it, send it back, or Cancel. */
 export const Lifted: Story = { args: VILLAGE_LAYOUT.lifted };
-/** Three tiles more than the saved layout: the live score, Save and Discard changes enabled. */
+/** The lifted tile moved to another lit cell: placed there already; Cancel puts it back where it was. */
+export const Moved: Story = { args: VILLAGE_LAYOUT.moved };
+/** Three tiles more than the saved layout: the live score, Save enabled. */
 export const Changed: Story = { args: VILLAGE_LAYOUT.changed };
 /** After Reset all: the starter alone, every tile back in the inventory, until saved. */
 export const Reset: Story = { args: VILLAGE_LAYOUT.reset };
+/** Reset all held: the red ring fills around the eraser in its grey circle (a 6 s hold here, so it can be looked at). */
+export const ResetHolding: Story = {
+  args: { ...VILLAGE_LAYOUT.editing, holdMs: 6000 },
+  play: async ({ canvasElement }) => {
+    fireEvent.pointerDown(within(canvasElement).getByRole("button", { name: /^Hold to reset all/ }), { button: 0 });
+  },
+};
 /** Every slot used (20 of 20): the carousel greyed until a tile is sent back. */
 export const Full: Story = { args: VILLAGE_LAYOUT.full };
 /** Every slot used with a long inventory at 1440 px (#757): the grid wraps in the panel and scrolls, Save stays in view. */
@@ -96,5 +105,5 @@ function Playground(props: VillageLayoutSceneProps) {
   return <VillageLayoutScene {...props} village={village} inventory={inventory} saving={saving} saved={saved} onSave={save} onDismissSaved={() => setSaved(null)} />;
 }
 
-/** Play it: Edit, choose a tile, tap a lit cell, hold the check; lift a tile to move it or send it back; Save to see the new score. */
+/** Play it: Edit, choose a tile, tap a lit cell, tap another to move it; lift a tile to move it or send it back; Save to see the new score. */
 export const Interactive: Story = { args: { ...VILLAGE_LAYOUT.growing, holdMs: 300 }, render: (args) => <Playground {...args} /> };

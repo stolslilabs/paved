@@ -252,6 +252,20 @@ describe("Discard in the bubble (#606)", () => {
     expect(discardButton()).toBeDisabled();
   });
 
+  it("the village editor's (#756): Back to the inventory (share-from-square) and Rotate, no Validate; Cancel only when asked, Escape always", () => {
+    const onClose = vi.fn();
+    const onReturn = vi.fn();
+    const { rerender } = render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={onClose} onReturn={onReturn} cancelButton={false} />));
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Back to the inventory", "Rotate tile"]);
+    expect(screen.getByRole("button", { name: "Back to the inventory" }).querySelector("[data-icon]")).toHaveAttribute("data-icon", "share-from-square");
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the inventory" }));
+    expect(onReturn).toHaveBeenCalledOnce();
+    rerender(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={onClose} onReturn={onReturn} />));
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Cancel placement", "Back to the inventory"]);
+  });
+
   it("Cancel and Rotate tick lightly where the device has haptics", () => {
     const vibrate = vi.fn();
     Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });

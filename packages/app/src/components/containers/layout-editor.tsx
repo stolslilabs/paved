@@ -7,14 +7,15 @@ import { tileName } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Icon } from "../ui/icon";
+import type { BoardBubble } from "./board-viewport";
 import { InventoryTray } from "./inventory-tray";
-import type { LayoutPending } from "./layout-board";
+import type { LayoutBoardView, LayoutPending } from "./layout-board";
 import { STARTER, canLift, fittingAt, layoutScore, legalSpots, placeTile, sameLayout, slotsFor, trayOf, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { TileBubble } from "./tile-bubble";
 
 // The v2 village's editor (#739), shared by the village page (`VillageLayoutScene`) and the home's edit mode (#753): its state
-// (the draft, the tile in hand, the cell it is set on), its rules (the layout valid at every step, never past the slots) and its
-// panel (the bubble, the hint, the inventory, Reset all, Discard and Save).
+// (the draft, the tile in hand), its rules (the layout valid at every step, never past the slots), its panel (the hint, the
+// inventory, Save; the still bubble of the plan view) and Reset all.
 
 /** A layout saved: the score it gives, against the one before. */
 export interface LayoutSaved {
@@ -22,8 +23,12 @@ export interface LayoutSaved {
   previous: number;
 }
 
-/** The tile in hand: from the inventory (a plan), or lifted from the board (the tile, its cell and rotation kept). */
-export type LayoutHand = { from: "inventory"; plan: number } | { from: "board"; tile: BoardTile };
+/**
+ * The tile in hand: a plan of the inventory, not set down yet (its legal cells lit), or a tile of the layout under the bubble
+ * (#756), placed already: `origin` is where it stood when it was lifted; null, it came from the inventory, so Cancel sends it
+ * back there.
+ */
+export type LayoutHand = { from: "inventory"; plan: number } | { from: "board"; id: number; origin: BoardTile | null };
 
 export interface LayoutEditorOptions {
   village: VillageLayout;
@@ -40,7 +45,10 @@ export interface LayoutEditorOptions {
    */
   editing?: boolean;
   onEditingChange?: (editing: boolean) => void;
-  /** Where the stories start: the editor open on this draft (the saved layout when unset), a tile in hand, set on a cell, the leave dialog. */
+  /**
+   * Where the stories start: the editor open on this draft (the saved layout when unset), a plan in hand or a tile lifted, and
+   * `initialPending`, the cell the plan was placed on or the lifted tile moved to; the leave dialog.
+   */
   initialEditing?: boolean;
   initialDraft?: readonly BoardTile[];
   initialHand?: { plan: number } | { lift: number } | null;
@@ -58,11 +66,31 @@ export interface LayoutEditorOptions {
 /** The orientation the tile takes on `spot`: the one it has if it fits there, else the first that does. */
 const fitOn = (spot: Spot, orientation: number) => (spot.orientations.includes(orientation) ? orientation : spot.orientations[0]!);
 
+/** The draft and the hand a story starts on: a plan placed on `at`, or a tile lifted and moved there. */
+function startOf(tiles: readonly BoardTile[], hand: LayoutEditorOptions["initialHand"], at: Spot | null): { draft: readonly BoardTile[]; hand: LayoutHand | null } {
+  if (!hand) return { draft: tiles, hand: null };
+  if ("plan" in hand) {
+    if (!at) return { draft: tiles, hand: { from: "inventory", plan: hand.plan } };
+    const draft = placeTile(tiles, hand.plan, fitOn(at, 1), at);
+    return { draft, hand: { from: "board", id: draft[draft.length - 1]!.id, origin: null } };
+  }
+  const tile = tiles.find((t) => t.id === hand.lift);
+  if (!tile) return { draft: tiles, hand: null };
+  const draft = at ? tiles.map((t) => (t.id === tile.id ? { ...t, x: at.x, y: at.y, orientation: fitOn(at, t.orientation) } : t)) : tiles;
+  return { draft, hand: { from: "board", id: tile.id, origin: tile } };
+}
+
+/** How long a refused tile shakes, ms. */
+const SHAKE_MS = 1_600;
+
 /**
- * The editor's state and moves. Placing works as on the board (the owner's decisions): a card of the inventory puts its tile in
- * hand, its legal cells light up (`plates`), a tap sets it on one (`pending`), and the bubble rotates it, sends it back or places
- * it with a hold. A placed tile is lifted into the hand with a tap; a tile that holds the village together shakes instead. The
- * starter never moves. Back with changes asks first (`leaving`).
+ * The editor's state and moves. Placing works as on the boards, with no validation (#756, the owner's decisions): a card of the
+ * inventory puts its plan in hand and lights its legal cells; a tap on one places the tile there at once, in the draft, and the
+ * bubble stands by it (Rotate, Back to the inventory). A tap on another lit cell moves that tile; a tap on another placed tile
+ * lifts that one instead, the first staying where it is; a tap on the tile under the bubble lets it go. Cancel (Escape) puts it
+ * back where it started: a lifted tile at its first cell, an inventory tile in the inventory. A tile that holds the village
+ * together shakes instead of lifting, and the starter never moves: the layout is valid after every tap. Back with changes asks
+ * first (`leaving`).
  */
 export function useLayoutEditor({
   village,
@@ -70,7 +98,7 @@ export function useLayoutEditor({
   own = true,
   saving = false,
   saved = null,
-  editing: held,
+  editing: heldOpen,
   onEditingChange,
   initialEditing = false,
   initialDraft,
@@ -83,28 +111,15 @@ export function useLayoutEditor({
   onDirtyChange,
 }: LayoutEditorOptions) {
   const slots = slotsFor(village.level);
-  const start = initialDraft ?? village.tiles;
-  const startHand: LayoutHand | null = !initialHand
-    ? null
-    : "plan" in initialHand
-      ? { from: "inventory", plan: initialHand.plan }
-      : (() => {
-          const tile = start.find((t) => t.id === initialHand.lift);
-          return tile ? { from: "board", tile } : null;
-        })();
+  const [start] = useState(() => startOf(initialDraft ?? village.tiles, initialHand, initialPending));
   const [ownEditing, setOwnEditing] = useState(own && initialEditing);
-  const editing = own && (held ?? ownEditing);
+  const editing = own && (heldOpen ?? ownEditing);
   const setEditing = (next: boolean) => {
-    if (held === undefined) setOwnEditing(next);
+    if (heldOpen === undefined) setOwnEditing(next);
     onEditingChange?.(next);
   };
-  const [draft, setDraft] = useState<readonly BoardTile[]>(startHand?.from === "board" ? start.filter((t) => t.id !== startHand.tile.id) : start);
-  const [hand, setHand] = useState<LayoutHand | null>(startHand);
-  const [pending, setPending] = useState<LayoutPending | null>(() => {
-    if (startHand?.from === "board") return { ...startHand.tile };
-    if (startHand && initialPending) return { x: initialPending.x, y: initialPending.y, plan: startHand.plan, orientation: initialPending.orientations[0]! };
-    return null;
-  });
+  const [draft, setDraft] = useState<readonly BoardTile[]>(start.draft);
+  const [hand, setHand] = useState<LayoutHand | null>(start.hand);
   const [shaking, setShaking] = useState<number | null>(null);
   const [leaving, setLeaving] = useState(initialLeaving);
   const shake = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,14 +132,12 @@ export function useLayoutEditor({
     if (!saved) return;
     closeOnSave.current(false);
     setHand(null);
-    setPending(null);
   }, [saved]);
   // The editor closed from outside (the home's Back): it lets go of the draft.
   useEffect(() => {
     if (editing) return;
     setDraft(village.tiles);
     setHand(null);
-    setPending(null);
     setLeaving(false);
   }, [village.tiles, editing]);
   // The saved layout changed (a save, a read, the village arriving after the editor opened on `?edit`): a draft with nothing
@@ -137,39 +150,36 @@ export function useLayoutEditor({
     setDraft((d) => (sameLayout(d, before) ? village.tiles : d));
   }, [village.tiles, editing]);
 
-  const lifted = hand?.from === "board" ? hand.tile : null;
-  // The layout as it stands: the draft, the lifted tile back at its cell until it goes elsewhere.
-  const whole = useMemo(() => (lifted ? [...draft, lifted] : draft), [draft, lifted]);
-  const tiles = editing ? draft : village.tiles;
-  // A lifted tile still takes its slot: it is in hand, not in the inventory.
-  const used = editing ? whole.length : village.tiles.length;
+  // The tile under the bubble, placed; the layout without it (where it may move).
+  const held = (hand?.from === "board" && draft.find((t) => t.id === hand.id)) || null;
+  const rest = useMemo(() => (held ? draft.filter((t) => t.id !== held.id) : draft), [draft, held]);
+  const tiles = editing ? rest : village.tiles;
+  const used = editing ? draft.length : village.tiles.length;
   const full = used >= slots;
   const over = used > slots;
-  const tray = trayOf(inventory, village.tiles, whole);
-  const handPlan = hand ? (hand.from === "inventory" ? hand.plan : hand.tile.plan) : null;
-  const plates = useMemo(() => (editing && handPlan != null ? legalSpots(draft, handPlan) : []), [editing, handPlan, draft]);
-  const score = useMemo(() => (editing ? layoutScore(whole) : village.score), [editing, whole, village.score]);
-  const changed = !sameLayout(whole, village.tiles);
+  const tray = trayOf(inventory, village.tiles, draft);
+  const handPlan = hand?.from === "inventory" ? hand.plan : (held?.plan ?? null);
+  // The legal cells of the plan in hand, or of the tile under the bubble without its own cell.
+  const plates = useMemo(
+    () => (editing && handPlan != null ? legalSpots(rest, handPlan).filter((s) => !held || s.x !== held.x || s.y !== held.y) : []),
+    [editing, handPlan, rest, held],
+  );
+  const score = useMemo(() => (editing ? layoutScore(draft) : village.score), [editing, draft, village.score]);
+  const changed = !sameLayout(draft, village.tiles);
   const dirty = editing && changed;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  const pending: LayoutPending | null = editing && held ? { x: held.x, y: held.y, plan: held.plan, orientation: held.orientation } : null;
+  const rotations = held ? fittingAt(rest, held.plan, held) : [];
 
   const open = () => {
     onDismissSaved?.();
     setDraft(village.tiles);
     setHand(null);
-    setPending(null);
     setEditing(true);
-  };
-  /** The tile in hand put down: a lifted tile back where it was, an inventory tile back in the inventory. */
-  const putBack = () => {
-    if (lifted) setDraft((d) => [...d, lifted]);
-    setHand(null);
-    setPending(null);
   };
   const close = () => {
     setDraft(village.tiles);
     setHand(null);
-    setPending(null);
     setLeaving(false);
     setEditing(false);
   };
@@ -181,96 +191,99 @@ export function useLayoutEditor({
 
   const choosePlan = (plan: number | null) => {
     if (saving) return;
-    // Every slot used: no inventory tile comes into the hand (the lifted one, if any, stays in hand).
+    // Every slot used: no inventory tile comes into the hand.
     if (plan != null && full) return;
-    if (lifted) setDraft((d) => [...d, lifted]);
+    // The tile under the bubble stays where it is: the card takes the next one.
     setHand(plan == null ? null : { from: "inventory", plan });
-    setPending(null);
   };
   const choosePlate = (spot: Spot) => {
-    if (handPlan == null || saving) return;
-    setPending((p) => ({ x: spot.x, y: spot.y, plan: handPlan, orientation: fitOn(spot, p?.orientation ?? (lifted?.orientation ?? 1)) }));
+    if (saving || !hand) return;
+    if (hand.from === "inventory") {
+      // Never past the slots: an inventory tile needs a free one.
+      if (draft.length >= slots) return;
+      const next = placeTile(draft, hand.plan, fitOn(spot, 1), spot);
+      setDraft(next);
+      setHand({ from: "board", id: next[next.length - 1]!.id, origin: null });
+    } else if (held) {
+      setDraft((d) => d.map((t) => (t.id === held.id ? { ...t, x: spot.x, y: spot.y, orientation: fitOn(spot, t.orientation) } : t)));
+    }
   };
+  /** The tile under the bubble let go: it stays where it is. */
+  const letGo = () => setHand(null);
   const lift = (tile: BoardTile) => {
     if (saving) return;
-    // What is in hand goes back first: one tile in hand at a time.
-    const base = lifted ? [...draft, lifted] : draft;
-    if (!canLift(base, tile.id)) {
+    if (held?.id === tile.id) return letGo();
+    if (!canLift(draft, tile.id)) {
       setShaking(tile.id);
       if (shake.current) clearTimeout(shake.current);
-      shake.current = setTimeout(() => setShaking(null), 1_600);
-      setDraft(base);
-      setHand(null);
-      setPending(null);
+      shake.current = setTimeout(() => setShaking(null), SHAKE_MS);
       return;
     }
     setShaking(null);
-    setDraft(base.filter((t) => t.id !== tile.id));
-    setHand({ from: "board", tile });
-    setPending({ ...tile });
+    setHand({ from: "board", id: tile.id, origin: tile });
   };
-  const rotations = pending ? fittingAt(draft, pending.plan, pending) : [];
   const rotate = () => {
-    if (!pending || rotations.length < 2) return;
-    const i = rotations.indexOf(pending.orientation);
-    setPending({ ...pending, orientation: rotations[(i + 1) % rotations.length]! });
+    if (!held || rotations.length < 2) return;
+    const next = rotations[(rotations.indexOf(held.orientation) + 1) % rotations.length]!;
+    setDraft((d) => d.map((t) => (t.id === held.id ? { ...t, orientation: next } : t)));
   };
-  const confirm = () => {
-    if (!pending || !hand) return;
-    if (hand.from === "board") {
-      setDraft((d) => [...d, { ...hand.tile, x: pending.x, y: pending.y, orientation: pending.orientation }]);
-      setHand(null);
-    } else {
-      // Never past the slots: an inventory tile needs a free one (the editor never places more than S tiles).
-      if (whole.length >= slots) return;
-      setDraft((d) => placeTile(d, hand.plan, pending.orientation, pending));
-      // The plan stays in hand while some are left and a slot is free: several of one plan go down in a row.
-      if ((tray[hand.plan] ?? 0) <= 1 || used + 1 >= slots) setHand(null);
+  /** The tile in hand back where it started: a lifted tile at its first cell and rotation, an inventory tile in the inventory. */
+  const cancel = () => {
+    if (hand?.from === "board") {
+      const { id, origin } = hand;
+      setDraft((d) => (origin ? d.map((t) => (t.id === id ? origin : t)) : d.filter((t) => t.id !== id)));
     }
-    setPending(null);
-  };
-  const sendBack = () => {
     setHand(null);
-    setPending(null);
+  };
+  /** The tile under the bubble back to the inventory: its slot is free. */
+  const sendBack = () => {
+    if (held) setDraft((d) => d.filter((t) => t.id !== held.id));
+    setHand(null);
   };
   const reset = () => {
     setDraft([{ ...STARTER }]);
     setHand(null);
-    setPending(null);
-  };
-  const discard = () => {
-    setDraft(village.tiles);
-    setHand(null);
-    setPending(null);
   };
   const save = () => {
-    // What is in hand stays where it is: a lifted tile at its cell, an inventory tile in the inventory.
     if (over) return;
-    putBack();
-    onSave?.(whole, score);
+    setHand(null);
+    onSave?.(draft, score);
   };
 
   const hint =
     shaking != null
       ? "This tile holds the village together: take the outer tiles first."
-      : pending
-        ? "Rotate, then hold the check to place it."
-        : hand
+      : held
+        ? `Tap a lit cell to move ${tileName(held.plan)}, or tap it to let it go.`
+        : handPlan != null
           ? plates.length
-            ? `Tap a lit cell for ${tileName(handPlan!)}.`
-            : `${tileName(handPlan!)} fits nowhere yet: send it back, or place another tile first.`
+            ? `Tap a lit cell to place ${tileName(handPlan)}.`
+            : `${tileName(handPlan)} fits nowhere yet: place another tile first.`
           : full
-            ? "Every slot is used: lift a tile to move it, or send it back to free one."
-            : "Choose a tile in the inventory, or tap a placed tile to lift it.";
+            ? "Every slot is used: tap a placed tile to move it, or send it back to free one."
+            : "Choose a tile in the inventory, or tap a placed tile to move it.";
+
+  const bubble: BoardBubble | null = pending && {
+    cell: pending,
+    rotations: rotations.length,
+    orientation: pending.orientation,
+    busy: saving,
+    onRotate: rotate,
+    onClose: cancel,
+    onReturn: sendBack,
+    // Cancel shows for a lifted tile; an inventory tile's would do what Back to the inventory does (Escape does it for both).
+    cancelButton: hand?.from === "board" && hand.origin !== null,
+  };
+  const view: LayoutBoardView = { tiles, editing, plates, pending, shaking, onTile: lift, onPlate: choosePlate, onPending: letGo };
 
   return {
     editing,
     slots,
     tiles,
-    whole,
     draft,
     hand,
-    pending: editing ? pending : null,
+    held,
+    pending,
     plates,
     shaking,
     used,
@@ -283,20 +296,21 @@ export function useLayoutEditor({
     rotations,
     saving,
     hint,
+    bubble,
+    view,
     leaving,
     setLeaving,
     open,
     close,
     back,
-    putBack,
     choosePlan,
     choosePlate,
     lift,
+    letGo,
     rotate,
-    confirm,
+    cancel,
     sendBack,
     reset,
-    discard,
     save,
   };
 }
@@ -304,40 +318,53 @@ export function useLayoutEditor({
 export type LayoutEditor = ReturnType<typeof useLayoutEditor>;
 
 /**
- * The editor's tools: the bubble of the tile set on a cell, the hint, the inventory's carousel, Reset all (held), Discard and
- * Save.
+ * Reset all (#756): the eraser held, in the style of the board's discard (a grey circle whose ring fills red). Only its look
+ * changed: held, it brings the village back to the starter alone, every tile in the inventory, as before. Its place is the
+ * edit bar, beside the slots.
  */
-export function LayoutEditorPanel({ editor, tileArt, holdMs, className }: { editor: LayoutEditor; tileArt?: TileArt; holdMs?: number; className?: string }) {
-  const { pending, hand, saving } = editor;
+export function ResetAllHold({ editor, holdMs, className }: { editor: LayoutEditor; holdMs?: number; className?: string }) {
+  return (
+    <HoldButton
+      label="Hold to reset all: the starter alone, every tile back in the inventory"
+      title="Hold to reset all"
+      icon="eraser"
+      tone="destructive"
+      holdMs={holdMs}
+      disabled={editor.saving || editor.draft.length <= 1}
+      onComplete={editor.reset}
+      className={cn("size-11 rounded-full", className)}
+    />
+  );
+}
+
+/**
+ * The editor's tools: the hint, the inventory's carousel and Save. `bubble="panel"` (the plan view) also stands the bubble of
+ * the tile in hand above them, still; `"scene"`: the 3D scene draws it by the tile (`BoardViewport`).
+ */
+export function LayoutEditorPanel({ editor, tileArt, bubble = "panel", className }: { editor: LayoutEditor; tileArt?: TileArt; bubble?: "panel" | "scene"; className?: string }) {
+  const { hand, saving } = editor;
+  const still = bubble === "panel" ? editor.bubble : null;
   return (
     <div className={cn("flex flex-col gap-3 desktop:min-h-0 desktop:flex-1", className)}>
-      {pending && hand && (
+      {still && (
         <TileBubble
-          rotations={editor.rotations.length}
-          orientation={pending.orientation}
-          cell={pending}
-          holdMs={holdMs}
+          rotations={still.rotations}
+          orientation={still.orientation}
+          cell={still.cell}
           busy={saving}
-          onRotate={editor.rotate}
-          onClose={editor.putBack}
-          onReturn={editor.sendBack}
-          onConfirm={editor.confirm}
-          canConfirm={hand.from === "board" || editor.whole.length < editor.slots}
+          onRotate={still.onRotate}
+          onClose={still.onClose}
+          onReturn={still.onReturn}
+          cancelButton={still.cancelButton}
         />
       )}
       <p role="status" aria-live="polite" className={cn("px-1 text-xs", editor.shaking != null ? "text-warning" : "text-muted-foreground")}>
         {editor.hint}
       </p>
       <InventoryTray tray={editor.tray} held={hand?.from === "inventory" ? hand.plan : null} full={editor.full} busy={saving} tileArt={tileArt} onSelect={editor.choosePlan} />
-      <div className="flex items-center gap-2">
-        <HoldButton label="Hold to reset all: the starter alone, every tile back in the inventory" title="Hold to reset all" icon="rotate" tone="destructive" holdMs={holdMs} disabled={saving || editor.draft.length <= 1} onComplete={editor.reset} />
-        <Button variant="outline" className="flex-1" onClick={editor.discard} disabled={!editor.changed || saving} aria-label="Discard changes">
-          Discard
-        </Button>
-        <Button className="flex-1" onClick={editor.save} disabled={!editor.changed || editor.over || saving} loading={saving}>
-          <Icon name="check" size="sm" /> Save
-        </Button>
-      </div>
+      <Button onClick={editor.save} disabled={!editor.changed || editor.over || saving} loading={saving}>
+        <Icon name="check" size="sm" /> Save
+      </Button>
     </div>
   );
 }
