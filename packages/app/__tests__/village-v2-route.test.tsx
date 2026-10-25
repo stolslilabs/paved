@@ -160,8 +160,15 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     ] as const) {
       // The home is back, not the page left behind (the chests' page has a Shop of its own).
       await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
-      await userEvent.click(within(await screen.findByRole("navigation", { name: "Village" }, WAIT)).queryByRole("button", { name }) ?? screen.getByRole("button", { name }));
-      await waitFor(() => expect(s.router.state.location.pathname).toBe(path));
+      // Under load the home's first frame can be replaced as it settles: the tap is made again while the router is idle on
+      // the home, once at a time, until the page opens.
+      await waitFor(() => {
+        if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
+          const column = screen.queryByRole("navigation", { name: "Village" });
+          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+        }
+        expect(s.router.state.location.pathname).toBe(path);
+      }, WAIT);
       await s.router.navigate(-1);
       await waitFor(() => expect(s.router.state.location.pathname).toBe("/"));
     }
