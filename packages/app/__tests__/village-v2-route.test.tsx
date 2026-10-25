@@ -153,6 +153,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
       ["Shop", "/village/shop"],
       [/^Missions/, "/missions"],
       ["Vault", "/vault"],
+      ["League", "/pvp/league"],
       [/^League: /, "/pvp/league"],
       ["Settings", "/settings"],
       [/^Play/, "/play"],
@@ -178,7 +179,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     for (const [name, path, back] of [
       [/^Chests/, "/village/chests", "Back"],
       ["Shop", "/village/shop", "Back"],
-      [/^League: /, "/pvp/league", "Back"],
+      ["League", "/pvp/league", "Back"],
       [/^Play/, "/play", "Back"],
       [/^Missions/, "/missions", "Home"],
       ["Vault", "/vault", "Home"],

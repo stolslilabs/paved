@@ -100,7 +100,7 @@ export interface HomeVillageSceneProps {
  * Home (`/`, #753): the player's village full screen, a game scene like the boards (the renderer, its camera framed for the
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
  * the safe areas. In view: the avatar, its level ring and name at the top left, the village score and the league badge under it
- * (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault) with their counts; Play
+ * (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
  * (a hammer, no text), large, at the bottom right with Edit (a pen) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots), the inventory, Save, Discard and
  * Reset all; Back with changes asks first. No tab bar: the overlays replace it.
@@ -245,6 +245,8 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
         <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} />
         <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
         <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
+        {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
+        <OverlayButton icon="trophy" label="League" onClick={props.onLeague} />
       </nav>
 
       {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}

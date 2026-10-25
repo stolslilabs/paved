@@ -96,19 +96,20 @@ describe("Loading", () => {
 
 describe("Home (#753): the village with its overlays", () => {
   it("shows the village full screen with the right column, Play and Edit, and no tab bar", async () => {
-    const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onSettings: vi.fn() };
+    const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
     // The stage (the board, the editor) is its own chunk: it arrives after the overlays.
     expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", "League"]);
     for (const [name, handler] of [
       ["Missions, 3 waiting", on.onMissions],
       ["Chests, 2 waiting", on.onChests],
       ["Shop", on.onShop],
       ["Vault", on.onVault],
+      ["League", on.onLeague],
       ["Settings", on.onSettings],
       [/^Play/, on.onPlay],
     ] as const) {
@@ -127,7 +128,7 @@ describe("Home (#753): the village with its overlays", () => {
     const edit = screen.getByRole("button", { name: "Edit village" });
     expect(edit.querySelector("[data-icon=pen]")).not.toBeNull();
     expect(edit.className).toMatch(/\bsize-14\b/);
-    // The defence log is the league page's, the league the badge's: neither is an overlay button.
+    // The defence log is the league page's: no overlay button. League is labelled plainly, the badge shows which.
     expect(screen.queryByRole("button", { name: /^Defence/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^League,/ })).toBeNull();
   });
