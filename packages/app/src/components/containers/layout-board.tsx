@@ -34,6 +34,9 @@ export interface LayoutBoardProps {
   className?: string;
 }
 
+/** What a drawing of the layout takes (the plan view here, the home's 3D scene, #753): the editor's state and its two taps. */
+export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing" | "plates" | "pending" | "shaking">> & Pick<LayoutBoardProps, "onTile" | "onPlate">;
+
 /** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */
 const MIN_CELL = 46;
 
