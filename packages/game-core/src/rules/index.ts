@@ -25,20 +25,20 @@ export type { LevelStatus } from "./xp";
 export {
   STARTER_TILE,
   VillageDraft,
-  breakdownOf,
   buildOrder,
   emptyInventory,
   freeInventory,
   inventoryOf,
   inventorySize,
-  layoutBreakdown,
   layoutGame,
   layoutRefusal,
   layoutScore,
   sameLayout,
   starterBoard,
 } from "./free-village";
-export type { CellAreas, DraftRefusal, Inventory, LayoutLimits, LayoutBreakdown, LayoutLine, LayoutRefusal, LayoutTile } from "./free-village";
+export type { DraftRefusal, Inventory, LayoutLimits, LayoutRefusal, LayoutTile } from "./free-village";
+export { breakdownOf, layoutBreakdown } from "./breakdown";
+export type { CellAreas, LayoutBreakdown, LayoutLine } from "./breakdown";
 export { STARTER_LAYOUTS, STARTER_TILES, starterIndex, starterLayout } from "./starters";
 export {
   ATTACK_DECK_PERCENT,

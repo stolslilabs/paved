@@ -1,10 +1,9 @@
-import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
+import { Suspense, lazy, useState, type ReactNode } from "react";
 import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
 import { cn } from "../../lib/utils";
 import { leagueOf } from "../../lib/pvp-rules";
-import { useSidePanel } from "../../lib/side-panel";
 import { Countdown } from "../elements/countdown";
 import { Crowns } from "../elements/crowns";
 import { LeagueCrest } from "../elements/league-crest";
@@ -200,24 +199,6 @@ interface PointsState {
   onClose: () => void;
 }
 
-/**
- * The view's points (#758) once the stage's chunk is in: under the chip from `tablet`, a bottom panel on a phone. Escape closes
- * it, as a popover.
- */
-function ViewPoints({ village, points, className }: { village: VillageLayout; points: PointsState; className?: string }) {
-  const { onClose } = points;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <Suspense fallback={null}>
-      <LazyVillagePoints tiles={village.tiles} {...points} className={className} />
-    </Suspense>
-  );
-}
-
 /** The view's overlays: the corners, the right column, Play and Edit, the chips. */
 function ViewOverlays({
   village,
@@ -230,8 +211,6 @@ function ViewOverlays({
   const { activeGame, now, guest, founded = true } = props;
   const crowns = props.league?.crowns ?? 0;
   const standing = leagueOf(crowns);
-  // The points under the chip from `tablet`; on a phone, a bottom panel over Play.
-  const side = useSidePanel();
   return (
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
@@ -268,7 +247,12 @@ function ViewOverlays({
                 <Crowns value={crowns} size="sm" />
               </button>
             </div>
-            {points && village && side && <ViewPoints village={village} points={points} className="mt-1 w-80" />}
+            {/* The points (#758) under the chip from `tablet`; on a phone, a bottom panel over Play (the panel picks its place). */}
+            {points && village && (
+              <Suspense fallback={null}>
+                <LazyVillagePoints place="side" tiles={village.tiles} {...points} className="mt-1 w-80" />
+              </Suspense>
+            )}
           </div>
           <div className="pointer-events-auto flex shrink-0 items-center gap-2">
             <BalancesSlot layout="pill" className="desktop:hidden" />
@@ -345,10 +329,10 @@ function ViewOverlays({
           <Icon name="hammer" size="xl" />
         </Button>
       </div>
-      {points && village && !side && (
-        <div className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-20">
-          <ViewPoints village={village} points={points} />
-        </div>
+      {points && village && (
+        <Suspense fallback={null}>
+          <LazyVillagePoints place="bottom" tiles={village.tiles} {...points} />
+        </Suspense>
       )}
     </>
   );

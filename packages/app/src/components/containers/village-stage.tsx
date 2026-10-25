@@ -167,12 +167,28 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
 }
 
 /**
- * The view's points panel (#758), drawn by the scene under the profile when its score chip is tapped: the saved layout's lines,
- * computed here, in the stage's chunk (the engine's).
+ * The view's points panel (#758), drawn by the scene when its score chip is tapped: the saved layout's lines, computed here, in
+ * the stage's chunk (the engine's). The scene mounts it in both places; it draws in one, `side` (under the chip) from `tablet`,
+ * `bottom` (a bottom panel over Play) on a phone. Escape closes it, as a popover.
  */
-export function VillagePoints({ tiles, ...panel }: Omit<PointsPanelProps, "breakdown"> & { tiles: VillageLayout["tiles"] }) {
+export function VillagePoints({ tiles, place, ...panel }: Omit<PointsPanelProps, "breakdown"> & { tiles: VillageLayout["tiles"]; place: "side" | "bottom" }) {
+  const side = useSidePanel();
+  const shown = side === (place === "side");
   const breakdown = useMemo(() => layoutPoints(tiles), [tiles]);
-  return <PointsPanel breakdown={breakdown} {...panel} />;
+  const { onClose } = panel;
+  useEffect(() => {
+    if (!shown) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shown, onClose]);
+  if (!shown) return null;
+  if (place === "side") return <PointsPanel breakdown={breakdown} {...panel} />;
+  return (
+    <div className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-20">
+      <PointsPanel breakdown={breakdown} {...panel} />
+    </div>
+  );
 }
 
 /**
