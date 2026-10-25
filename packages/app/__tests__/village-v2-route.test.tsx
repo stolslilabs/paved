@@ -8,7 +8,7 @@ import type { GameSigner } from "../src/data";
 import { MOCK_KEY } from "../src/data/mock/ledger";
 import { queryClient } from "../src/lib/query-client";
 import { READY_S } from "../src/components/containers/chest-slots";
-import { resetChestsSeenForTests } from "../src/routes/chests-seen";
+import { markChestsSeen, resetChestsSeenForTests } from "../src/routes/chests-seen";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
@@ -255,6 +255,24 @@ describe("the home's Chests badge (#759)", () => {
     expect(await screen.findByLabelText("2 of 3 left today", {}, WAIT)).toBeInTheDocument();
     await s.router.navigate(-1);
     expect(await screen.findByRole("button", { name: "Chests" }, WAIT)).toBeInTheDocument();
+  }, slow(30_000));
+});
+
+describe("the home's Chests badge across midnight (#759)", () => {
+  it("a home left open across the reset counts the new day's free slots", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const today = dayOf(Date.now() / 1000);
+    vi.setSystemTime((today + 1) * DAY_S * 1000 - 3_000);
+    // Today's 3 slots won and the page seen today: no badge.
+    markChestsSeen(today);
+    await open("/", async (s, me) => {
+      await s.ledger.writesFor(me).foundFreeVillage();
+      editPlayer(s.store, (p) => void (p.v2.pvpChests = { [today]: 3 }));
+    });
+    expect(await screen.findByRole("button", { name: "Chests" }, WAIT)).toBeInTheDocument();
+    // Midnight: the 3 slots are free again, and the page is not seen on the new day.
+    vi.setSystemTime((today + 1) * DAY_S * 1000 + 2_000);
+    expect(await screen.findByRole("button", { name: "Chests, 3 waiting" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));
 });
 

@@ -29,9 +29,23 @@ export function markChestsSeen(day: number): void {
   }
 }
 
+export interface ChestsBadgeInput {
+  /** The chests waiting, the open one included. */
+  waiting: number;
+  /** The day's PvP chests won and the cap, as the read gave them. */
+  pvpToday: number;
+  pvpCap: number;
+  /** The UTC day of that read: a read of an earlier day counts no slot won today (the reset came since). */
+  readDay: number;
+  /** Today (UTC) and the last day the Chests page was seen. */
+  day: number;
+  seenDay: number;
+}
+
 /** The home's Chests badge: the chests waiting, plus the day's free slots while the page has not been seen today. */
-export function chestsBadge(waiting: number, freeSlots: number, day: number, seenDay: number): number {
-  return waiting + (seenDay < day ? Math.max(0, freeSlots) : 0);
+export function chestsBadge({ waiting, pvpToday, pvpCap, readDay, day, seenDay }: ChestsBadgeInput): number {
+  const free = readDay < day ? pvpCap : pvpCap - pvpToday;
+  return waiting + (seenDay < day ? Math.max(0, free) : 0);
 }
 
 /** For the tests: forget the in-memory day. */
