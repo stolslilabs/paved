@@ -2,13 +2,14 @@
  * V2-HOME-LOADING (#761): the home's loading for the pull request. The stories of the fog (`Elements/VillageFog`, and the
  * home's `Fogged`, `Clearing` and `Ready`) at 375 x 812 and 1440 x 900 (DPR 2), as WebP; and, with `--app`, a GIF at 375 px
  * of a cold arrival on the built app under the throttled phone profile (`load-trace.ts`'s `phone`: the CPU slowed 4x, the
- * network shaped as DevTools' Fast 4G, 9 Mbit/s down and a 170 ms round trip), from Chromium's screencast, resampled at 10
- * frames a second, with the times of the village's first frame and of the fog's clearing.
+ * network shaped as DevTools' Fast 4G, 9 Mbit/s down and a 170 ms round trip), from screenshots in a loop, resampled at 10
+ * frames a second, with the times of the village's first frame and of the fog's clearing (the CPU throttle is lifted at the
+ * ready signal: see `gif`).
  *
  *   bun run storybook                 (in another shell, or pass --storybook to a Storybook already up)
  *   node scripts/home-loading-captures.ts --out <folder> [--storybook http://localhost:6006]
  *     [--app https://localhost:8743/ --spki <base64 sha256>]   (the built app served over HTTPS, see load-trace.ts)
- *     [--only stories|gif]
+ *     [--only stories|gif|<capture name>]
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,7 +35,6 @@ const SIZES = [
 const STORIES = [
   { name: "fog-element", story: "elements-villagefog--fogged", until: "fogged" },
   { name: "fogged", story: "scenes-home--fogged", until: "fogged" },
-  { name: "clearing", story: "scenes-home--clearing", until: "clearing" },
   { name: "ready", story: "scenes-home--clearing", until: "gone" },
 ] as const;
 
@@ -64,15 +64,15 @@ async function decode(browser: Browser, bytes: Buffer, mime: string, as: "webp" 
 }
 
 async function stories(browser: Browser) {
-  for (const s of STORIES) {
+  for (const s of STORIES.filter((s) => !ONLY || ONLY === "stories" || ONLY === s.name)) {
     for (const size of SIZES) {
       const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
       await page.goto(`${STORYBOOK}/iframe.html?id=${s.story}&viewMode=story`, { waitUntil: "load" });
       await page.waitForSelector("[data-village-fog]", { state: "attached", timeout: 120_000 });
-      if (s.until === "clearing") await page.waitForSelector("[data-village-fog=clearing]", { state: "attached", timeout: 180_000, });
       if (s.until === "gone") await page.waitForSelector("[data-village-fog]", { state: "detached", timeout: 180_000 });
-      // The fogged frames settle (the mist rolls in); the clearing one is caught mid-way; the drawn village gets its next frames.
-      await page.waitForTimeout(s.until === "clearing" ? 250 : s.until === "gone" ? 2_000 : 1_500);
+      // The fogged frames settle (the mist rolls in); the drawn village gets its next frames. The clearing (600 ms) is shorter
+      // than a screenshot of a WebGL page on software GL: the GIF and the story `Clearing` show it.
+      await page.waitForTimeout(s.until === "gone" ? 2_000 : 1_500);
       const png = await page.screenshot({ timeout: 180_000 });
       await page.close();
       const file = join(OUT, `${s.name}-${size.width}.webp`);
@@ -82,7 +82,7 @@ async function stories(browser: Browser) {
   }
 }
 
-/** A cold arrival on the throttled phone profile: the screencast's frames until the fog is gone, then a second more. */
+/** A cold arrival on the throttled phone profile, from the navigation until the fog is gone and a second and a half more. */
 async function gif(browser: Browser) {
   const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 1 });
   await context.addInitScript(() => {
@@ -101,17 +101,26 @@ async function gif(browser: Browser) {
   await cdp.send("Network.enable");
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
   await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 170, downloadThroughput: (9e6 / 8) | 0, uploadThroughput: (1.5e6 / 8) | 0 });
+  // Screenshots in a loop (the screencast stops sending frames once the WebGL canvas draws, on software GL), each stamped
+  // with the time it was taken, until the fog has been gone for a second and a half.
   const frames: Array<{ at: number; jpeg: Buffer }> = [];
-  cdp.on("Page.screencastFrame", (e) => {
-    frames.push({ at: e.metadata.timestamp! * 1000, jpeg: Buffer.from(e.data, "base64") });
-    void cdp.send("Page.screencastFrameAck", { sessionId: e.sessionId }).catch(() => {});
-  });
-  await cdp.send("Page.startScreencast", { format: "jpeg", quality: 80, maxWidth: 375, maxHeight: 812, everyNthFrame: 1 });
   const start = Date.now();
   await page.goto(APP, { waitUntil: "commit", timeout: 180_000 });
-  await page.waitForFunction(() => (globalThis as { __fog?: Record<string, number> }).__fog?.gone !== undefined, undefined, { timeout: 180_000, polling: 100 });
-  await page.waitForTimeout(1_000);
-  await cdp.send("Page.stopScreencast");
+  const fog = () => page.evaluate(() => (globalThis as { __fog?: Record<string, number> }).__fog).catch(() => undefined);
+  let lifted = false;
+  for (let goneAt: number | undefined; !goneAt || Date.now() - start < goneAt + 1_500; ) {
+    if (Date.now() - start > 180_000) throw new Error("the fog never cleared");
+    const jpeg = await page.screenshot({ type: "jpeg", quality: 80, timeout: 60_000 }).catch(() => null);
+    if (jpeg) frames.push({ at: Date.now() - 50, jpeg });
+    const state = await fog();
+    goneAt ??= state?.gone;
+    // At the ready signal the CPU throttle is lifted: under it, the screenshots taken after the fog had left the DOM still
+    // showed it (seen on software GL). The times printed, the ready signal's included, are those under the throttle.
+    if (state?.clearing !== undefined && !lifted) {
+      lifted = true;
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    }
+  }
   const times = await page.evaluate(() => ({
     ...(globalThis as { __fog?: Record<string, number> }).__fog,
     firstFrame: (() => {
@@ -120,7 +129,7 @@ async function gif(browser: Browser) {
     })(),
   }));
   await context.close();
-  // 10 frames a second from the navigation: each shows the last screencast frame before its time.
+  // 10 frames a second from the navigation: each shows the last screenshot taken before its time.
   const t0 = start;
   const end = frames[frames.length - 1]!.at;
   const picked: Buffer[] = [];
@@ -142,7 +151,7 @@ const browser = await chromium.launch({
 });
 try {
   if (ONLY !== "gif") await stories(browser);
-  if (APP && ONLY !== "stories") await gif(browser);
+  if (APP && (!ONLY || ONLY === "gif")) await gif(browser);
 } finally {
   await browser.close();
 }

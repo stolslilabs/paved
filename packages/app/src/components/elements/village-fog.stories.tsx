@@ -33,7 +33,7 @@ function Stage({ clearAfter, ...args }: VillageFogProps & { clearAfter?: number 
       <div className="absolute inset-0 grid place-items-center">
         <div className="grid grid-cols-5 gap-1">
           {Array.from({ length: 25 }, (_, i) => (
-            <span key={i} className={i % 3 ? "size-12 rounded-sm bg-success/60" : "size-12 rounded-sm bg-primary/70"} />
+            <span key={i} className={i % 3 ? "size-12 rounded-sm bg-success" : "size-12 rounded-sm bg-primary/70"} />
           ))}
         </div>
       </div>

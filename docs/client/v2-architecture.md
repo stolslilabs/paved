@@ -2670,6 +2670,30 @@ show". Targets (to confirm by measure): the first 3D tile under 1 s warm and und
 - **Reversed** by giving each loader its own models again (`sharedModels`), or by dropping `provideManifest` (each loader
   then asks for its own manifest).
 
+**The home's load (V2-HOME-LOADING, #761, 2026-10-25).** Measured first, as the owner asked: the time from the navigation to
+the village's first full frame (its tiles and tile images drawn, `paved:first-frame` of the home's one scene), on the built
+app as a guest (the starter village), with `packages/app/scripts/load-trace.ts --storage welcomed=1 --chunks
+home,home-stage,starter-village,home-canvas` (same method and server as above: Caddy, HTTP/2, the hosts' cache headers,
+software WebGL, three runs a cell, the median; the machine was shared and loaded, load average 13 to 23 on 8 cores, so the
+warm rows moved by up to 3 s run to run). The split: the home's chunk (the overlays), the stage's chunk, the village's read
+(the starter village's chunk), the canvas's chunk, the manifest, the tile images, the first models, the first frame drawn.
+
+| Profile, cache | Home chunk | Stage chunk | Village read | Canvas chunk | Manifest | Tile images | First models | **Village drawn** (runs) |
+|---|---|---|---|---|---|---|---|---|
+| phone, cold | 1162 | 1502 | 1776 | 2527 | 2544 | 3204 | 3723 | **4894** (4819, 4894, 4996) |
+| phone, warm | 2411 | 2683 | 3102 | 3951 | 4586 | 5092 | 5694 | **7158** (5215, 7158, 7830) |
+| desktop, cold | 462 | 876 | 991 | 1389 | 1491 | 2205 | 2392 | **3214** (2769, 3214, 3540) |
+| desktop, warm | 2855 | 2986 | 3169 | 3464 | 3509 | 4502 | 4853 | **5532** (2860, 5532, 5965) |
+
+The threshold (1 s, cold, phone) is passed on every row, the fastest run included (desktop warm, 2.86 s): the home arrives
+fogged (`elements/village-fog.tsx`). The overlays paint first, as before; the scene's box is under a thick fog (the
+placeholder sky under two drifting banks of mist) from the stage's mount until the canvas's ready signal
+(`VillageLayoutCanvas`'s `onReady`: `GameCanvas`'s, after `GameScene.init` has awaited the models of the tiles handed over
+and the tile images, and `start` has drawn that frame), then thins out in 600 ms (a plain fade under reduced motion). The
+fog takes no pointer and covers the scene's box only (not the overlays, not the editor's panel). The plan view (low
+quality, no WebGL, a renderer that failed) has none. A later arrival in the same page (Back from a page) fades in in
+200 ms (`routes/village-arrival.ts`). Captures and the GIF: `packages/app/scripts/home-loading-captures.ts`.
+
 ### 5.9 Day and night (DAYNIGHT, P-73)
 
 The owner's request (2026-10-17, via the PM, P-73): an animated, coloured background instead of the flat dark one. A gradient in summer colours turns to a summer night, then to an autumn day, and so on round the seasons. The cycle is progressive, two minutes long, and starts on a random season. The light moves east to west over the day, so the shadows turn. At night the cities and the buildings along the roads light up progressively, using FEATURE-HL's labels, to make up for the fading light. The PM's rulings fill the gaps (a cycle is a day then a night of one season; OKLab; stable shadows; staggered lights; a brightness floor; story controls; a Settings row; a still scene for reduced motion and the Low tier; its own lazy chunk).

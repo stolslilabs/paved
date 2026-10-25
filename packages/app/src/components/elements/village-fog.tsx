@@ -13,10 +13,12 @@ export type VillageArrival = "fog" | "fade";
 export const FOG_CLEAR_MS = 600;
 export const FADE_MS = 200;
 
-/** A bank of mist: wide soft blobs of the fog's grey, drawn twice as wide as the scene so that it can drift. */
+/** A bank of mist: wide soft blobs of the fog's grey, drawn wider than the scene so that it can drift. */
 const mist = (blobs: ReadonlyArray<readonly [x: number, y: number, w: number, h: number, alpha: number]>): CSSProperties => ({
-  left: "-50%",
-  width: "200%",
+  left: "-20%",
+  width: "140%",
+  // Its own layer: the drift and the clearing move it on the compositor, with no repaint of the gradients.
+  willChange: "transform, opacity",
   backgroundImage: blobs
     .map(([x, y, w, h, alpha]) => `radial-gradient(${w}% ${h}% at ${x}% ${y}%, color-mix(in oklab, var(--fog) ${alpha}%, transparent), transparent)`)
     .join(", "),
