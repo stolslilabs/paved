@@ -169,7 +169,7 @@ export const HOME_VILLAGE = {
   start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, now: MOCK_NOW },
   /** Not founded yet: the starter alone, Found in Edit's place. */
   unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, now: MOCK_NOW },
-  /** No wallet: a starter village to look at, Connect at hand, nothing to edit. */
+  /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */
   guest: { village: LAYOUT_START, guest: true, now: MOCK_NOW },
   /** The village on its way: the overlays over the sky. */
   loading: { now: MOCK_NOW },

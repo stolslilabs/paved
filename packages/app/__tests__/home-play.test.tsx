@@ -51,7 +51,7 @@ describe("/ (#753): the village home on its data", () => {
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
     // The newest open game of the player's `GameSpawned` events, read with `game(id)`.
     const chip = await screen.findByRole("button", { name: resume }, { timeout: slow(5000) });
-    expect(screen.queryByText("Playing as a guest")).toBeNull();
+    expect(screen.queryByText(/Playing as a guest/)).toBeNull();
     // No day notion on Home (#538), and no ranking (#623): the leaderboard is never read.
     expect(screen.queryByText("Daily")).toBeNull();
     expect(fixture.requests.some((r) => r.includes("/leaderboard") || r.includes("/entry/"))).toBe(false);
@@ -80,11 +80,12 @@ describe("/ (#753): the village home on its data", () => {
 
   it("no wallet: a starter village to look at, Connect, no game to resume, no Edit; Connect connects", async () => {
     const { wallet } = open("/", { guest: true });
-    expect(await screen.findByText("Playing as a guest", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByText("Playing as a guest: connect to build your village", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /^Village layout of 9 tiles/ }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: resume })).toBeNull();
     expect(screen.queryByRole("button", { name: "Edit village" })).toBeNull();
-    await userEvent.click(within(screen.getByText("Playing as a guest").parentElement as HTMLElement).getByRole("button", { name: "Connect" }));
+    // Connect is the header's, with the balances.
+    await userEvent.click((await screen.findAllByRole("button", { name: "Connect" }))[0]!);
     expect(await screen.findByRole("button", { name: resume })).toBeInTheDocument();
     expect(wallet.calls).toContain("connect");
   });

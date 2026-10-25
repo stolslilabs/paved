@@ -134,7 +134,6 @@ export default function Page() {
         error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
         guest={me === null}
         readOnly={readOnly}
-        connecting={wallet.status === "connecting"}
         editing={editing}
         onEditingChange={onEditingChange}
         founded={data?.founded ?? true}
@@ -159,7 +158,6 @@ export default function Page() {
         onDefence={() => go("/pvp/defence")}
         onSettings={() => go("/settings")}
         onResume={(id) => go(`/game/${id}`)}
-        onConnect={() => void wallet.connect()}
         onRetry={() => {
           void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all });
           void client.invalidateQueries({ queryKey: cobbleKeys.all });

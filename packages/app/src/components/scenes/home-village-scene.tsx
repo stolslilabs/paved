@@ -27,11 +27,10 @@ export interface HomeVillageSceneProps {
   village?: VillageLayout;
   /** The own village's read failed: Retry. */
   error?: { message: string; detail?: ErrorDetail } | null;
-  /** No wallet: the village shown is a starter one, nothing to edit; Connect at hand. */
+  /** No wallet: the village shown is a starter one, nothing to edit (Connect is the header's, with the balances). */
   guest?: boolean;
   /** A village to look at, not to edit (a source that does not serve the v2 village yet: a starter one). */
   readOnly?: boolean;
-  connecting?: boolean;
   /** The editor open (the page's URL, `?edit`): the editor's overlays instead of the view's. */
   editing?: boolean;
   /** Edit asked (true), or edit mode left (false): the page changes its URL. */
@@ -82,7 +81,6 @@ export interface HomeVillageSceneProps {
   onDefence?: () => void;
   onSettings?: () => void;
   onResume?: (gameId: number) => void;
-  onConnect?: () => void;
   onRetry?: () => void;
   onFound?: () => void;
   onSave?: (tiles: readonly BoardTile[], score: number) => void;
@@ -186,7 +184,8 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
             </Button>
           </div>
         </div>
-        <div className="flex flex-col items-center gap-2 tablet:items-start">
+        {/* The chips under the avatar, clear of the right column. */}
+        <div className="flex flex-col items-start gap-2 pr-[4.75rem] tablet:pr-24">
           {activeGame && (
             <button
               type="button"
@@ -198,7 +197,7 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
                 <Icon name="play" size="xs" />
               </span>
               <span className="font-semibold">Resume #{activeGame.id}</span>
-              <span className="numeric text-muted-foreground">{formatPoints(activeGame.score)} pts</span>
+              <span className="numeric hidden text-muted-foreground min-[24.5rem]:inline">{formatPoints(activeGame.score)} pts</span>
               <Countdown expiresAt={activeGame.expiresAt} now={now} hideLabel />
             </button>
           )}
@@ -209,11 +208,9 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
             </span>
           )}
           {guest && (
-            <span className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/90 py-1 pr-1 pl-3 text-xs backdrop-blur">
-              Playing as a guest
-              <Button size="sm" className="h-8 rounded-full" onClick={props.onConnect} loading={props.connecting}>
-                Connect
-              </Button>
+            // Connect is the header's (the balances' place): the chip says why, once.
+            <span role="status" className="pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
+              Playing as a guest: connect to build your village
             </span>
           )}
         </div>

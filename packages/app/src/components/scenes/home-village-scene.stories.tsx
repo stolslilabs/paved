@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { BoardTile } from "@paved/chain";
 import { fn } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
@@ -6,6 +8,8 @@ import { PLAYER_STATUS } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { HOME_VILLAGE } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
+import type { LayoutSaved } from "../containers/layout-editor";
+import type { VillageLayout } from "../containers/layout-rules";
 import { ProfileProvider } from "../containers/profile-context";
 import VillageLayoutCanvas from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
@@ -35,7 +39,6 @@ const meta = {
     onDefence: fn(),
     onSettings: fn(),
     onResume: fn(),
-    onConnect: fn(),
     onRetry: fn(),
     onFound: fn(),
     onSave: fn(),
@@ -46,10 +49,9 @@ const meta = {
     (Story, { args }) => (
       <ProfileProvider
         value={{
-          state: args.guest ? { status: "guest", connecting: args.connecting } : { status: "connected", data: PLAYER_STATUS },
+          state: args.guest ? { status: "guest" } : { status: "connected", data: PLAYER_STATUS },
           progress: PROGRESS.start,
-          onConnect: fn(),
-          onDisconnect: fn(),
+                onDisconnect: fn(),
           onCopy: fn(async () => {}),
         }}
       >
@@ -73,7 +75,7 @@ export const Paused: Story = { args: HOME_VILLAGE.paused };
 export const Start: Story = { args: HOME_VILLAGE.start };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };
-/** No wallet: a starter village to look at, Connect at hand, no Edit. */
+/** No wallet: a starter village to look at, Connect in the header, no Edit. */
 export const Guest: Story = { args: HOME_VILLAGE.guest };
 /** The village on its way: the overlays paint first, over the sky. */
 export const Loading: Story = { args: HOME_VILLAGE.loading };
@@ -118,3 +120,38 @@ export const SceneWide: Story = { ...Scene, ...WIDE_1440 };
 export const SceneEditingPhone: Story = { ...SceneEditing, ...PHONE_375 };
 export const SceneEditingTablet: Story = { ...SceneEditing, ...TABLET_768 };
 export const SceneEditingWide: Story = { ...SceneEditing, ...WIDE_1440 };
+
+/** The fakes played: Edit opens edit mode, Save keeps the layout (its engine score, after a short wait) and goes back to the view. */
+function Playground(props: HomeVillageSceneProps) {
+  const [editing, setEditing] = useState(false);
+  const [village, setVillage] = useState<VillageLayout>(props.village!);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<LayoutSaved | null>(null);
+  const save = (tiles: readonly BoardTile[], score: number) => {
+    props.onSave?.(tiles, score);
+    setSaving(true);
+    setTimeout(() => {
+      setSaved({ score, previous: village.score });
+      setVillage({ ...village, tiles: [...tiles], score });
+      setSaving(false);
+    }, 600);
+  };
+  return (
+    <HomeVillageScene
+      {...props}
+      village={village}
+      editing={editing}
+      saving={saving}
+      saved={saved}
+      onEditingChange={(next) => {
+        props.onEditingChange?.(next);
+        setEditing(next);
+      }}
+      onSave={save}
+      onDismissSaved={() => setSaved(null)}
+    />
+  );
+}
+
+/** Edit, place, save or leave: the modes switch in the same scene (the GIF of #753 plays this one). */
+export const Interactive: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} /> };

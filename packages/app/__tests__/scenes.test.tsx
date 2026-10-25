@@ -127,10 +127,9 @@ describe("Home (#753): the village with its overlays", () => {
     expect(screen.getByText("New Challenge games are paused")).toBeInTheDocument();
   });
 
-  it("shows a guest a starter village to look at, Connect, and no Edit", () => {
+  it("shows a guest a starter village to look at and no Edit", () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.guest} />));
-    expect(screen.getByText("Playing as a guest")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+    expect(screen.getByText("Playing as a guest: connect to build your village")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit village" })).not.toBeInTheDocument();
   });
 
