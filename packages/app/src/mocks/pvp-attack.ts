@@ -1,5 +1,5 @@
 import type { BoardTile, ScoredStructure } from "@paved/chain";
-import { CENTER, CategoryType, EngineGame, OrientationType, PlanType, type EnginePlacement } from "@paved/game-core";
+import { CENTER, CategoryType, EngineGame, attackDeck, OrientationType, PlanType, type EnginePlacement } from "@paved/game-core";
 import type { PvpCell, PvpVillage } from "../lib/pvp-rules";
 
 /**
@@ -94,17 +94,67 @@ export interface AttackStep {
  */
 export function playAttack(village: PvpVillage, seed: number): AttackStep[] {
   const next = random(seed);
-  const plans = village.tiles.filter((t) => t.x !== CENTER || t.y !== CENTER).map((t) => PLANS[t.plan] as PlanType);
-  for (let i = plans.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [plans[i], plans[j]] = [plans[j]!, plans[i]!];
-  }
+  const plans = shuffled(placedPlans(village), next);
   const territory = new Set(village.cells.map((c) => `${c.x - CENTER},${c.y - CENTER}`));
-  const game = EngineGame.start({ deck: "story", seed: 0n, sequence: plans });
+  return playDeck(plans, territory, next);
+}
+
+/** The village's placed plans but the starter's (which every board starts with), as chain plan ids, in board order. */
+export function placedPlans(village: PvpVillage): number[] {
+  return village.tiles.filter((t) => t.x !== CENTER || t.y !== CENTER).map((t) => t.plan);
+}
+
+/** `plans` shuffled by `next` (Fisher-Yates from the end). */
+function shuffled(plans: readonly number[], next: () => number): number[] {
+  const out = [...plans];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
+/**
+ * A PvP v2 village (#740, the free village of #741): a game built freely on a Simple deck of `seed`, stopped once its `slots`
+ * are filled, the starter's included (a village never holds more than its slots). Its score is the game's.
+ */
+export function buildFreeVillage(seed: number, slots: number): PvpVillage {
+  const game = EngineGame.start({ deck: "simple", seed: BigInt(seed) });
+  const next = random(seed);
+  while (!game.over && game.placed().length < slots) {
+    const p = pick(game, next);
+    if (p) game.build(p);
+    else game.discard();
+  }
+  const tiles = boardTiles(game);
+  return { cells: tiles.map(({ x, y }) => ({ x, y })), tiles, score: game.score };
+}
+
+/**
+ * A PvP v2 attack's deck (#740), game-core's `attackDeck` (#741): the village's placed tiles and extras from the base deck's
+ * odds up to ceil(1.15 x `slots`), shuffled from the random `seed`. As plan codes, in draw order.
+ */
+export function attackDeckOf(village: PvpVillage, slots: number, seed: number): number[] {
+  return attackDeck(placedPlans(village), slots, BigInt(seed));
+}
+
+/**
+ * A PvP v2 attack (#740): `deck` played in its order by the plain player on an unbounded board from the starter (any cell
+ * next to a tile), a tile discarded where it fits nowhere. Every step is kept.
+ */
+export function playAttackV2(deck: readonly number[], seed: number): AttackStep[] {
+  return playDeck(deck, null, random(seed));
+}
+
+/** `plans` (chain plan ids) played in order from the starter, inside `territory` when one is given. */
+function playDeck(plans: readonly number[], territory: ReadonlySet<string> | null, next: () => number): AttackStep[] {
+  const sequence = plans.map((p) => PLANS[p] as PlanType);
+  const inside = (p: { x: number; y: number }) => territory === null || territory.has(`${p.x},${p.y}`);
+  const game = EngineGame.start({ deck: "story", seed: 0n, sequence });
   const snapshot = (delta: number | null, scored: ScoredStructure[], placed: BoardTile | null): AttackStep => {
     const hand = game.over ? null : game.hand;
     const slots = hand
-      ? [...new Map(game.legalPlacements().filter((p) => territory.has(`${p.x},${p.y}`)).map((p) => [`${p.x},${p.y}`, { x: CENTER + p.x, y: CENTER + p.y }])).values()]
+      ? [...new Map(game.legalPlacements().filter(inside).map((p) => [`${p.x},${p.y}`, { x: CENTER + p.x, y: CENTER + p.y }])).values()]
       : [];
     return {
       tiles: boardTiles(game),
@@ -120,7 +170,7 @@ export function playAttack(village: PvpVillage, seed: number): AttackStep[] {
   };
   const steps = [snapshot(null, [], null)];
   while (!game.over) {
-    const p = pick(game, next, territory);
+    const p = pick(game, next, territory ?? undefined);
     const move = p ? game.build(p) : game.discard();
     const scored = move.scored.map((s) => ({ category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points }));
     const placed = p ? (boardTiles(game).find((t) => t.id === move.tileId) ?? null) : null;

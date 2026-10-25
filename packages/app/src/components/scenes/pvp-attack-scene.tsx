@@ -35,15 +35,20 @@ export interface PvpAttackSceneProps {
   defender: PvpPlayer;
   /** The defender's village score: the stars are shares of it. */
   target: number;
-  /** The defender's owned cells: the only cells a tile goes on. */
-  territory: readonly PvpCell[];
+  /**
+   * The defender's owned cells, the only cells a tile goes on (v1, #647). Left out on PvP v2's unbounded board (#740): the
+   * attack builds anywhere from the starter, and no territory is drawn.
+   */
+  territory?: readonly PvpCell[] | null;
+  /** The star marks in whole percent of the target: v1's 70 / 85 / 110 % when left out, v2's 80 / 90 / 100 % (#740). */
+  starPercents?: readonly number[];
   tiles: BoardTile[];
   score: number;
   /** Points the last move added. */
   delta?: number | null;
   /** What the last move closed, shown as it arrives. */
   lastScored: ScoredStructure[];
-  /** The defender's tiles left to draw, the one in hand included. */
+  /** The tiles left to draw, the one in hand included: v1 the defender's, v2 the attack's deck of ceil(1.15 x S) (#740). */
   remaining: number;
   hand: {
     tile: { plan: number; orientation: number } | null;
@@ -59,7 +64,7 @@ export interface PvpAttackSceneProps {
     error?: string | null;
     errorDetail?: ErrorDetail;
   };
-  /** The legal cells of the tile in hand, inside the territory. */
+  /** The legal cells of the tile in hand (inside the territory, if any). */
   slots?: { x: number; y: number; fits?: boolean }[];
   ghost?: BoardGhost | null;
   bubble?: BoardBubble | null;
@@ -68,7 +73,7 @@ export interface PvpAttackSceneProps {
   tileRenders?: TileRenders;
   /** The defender's skins (plan key to theme): the stack's tiles in the theme the board draws them in. */
   skins?: TileSkins;
-  /** The defender's tiles, the deck the attack draws from (chain plan ids): the stack's pile draws its tiles from them. */
+  /** The deck the attack draws from (chain plan ids): the stack's pile draws its tiles from them. */
   pilePlans?: readonly number[];
   renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page as the board scene's. */
@@ -116,6 +121,9 @@ function ReplayBar({ replay }: { replay: PvpReplay }) {
  * random), the live score as a share of the village's with its three star marks, the tiles left on the stack. The board is
  * the game's (`BoardMap`, or the page's 3D canvas), the hand and its bubble too; no character, no ability (owner decision).
  * With `replay` the same board steps through a finished attack, the defence log's replay.
+ *
+ * PvP v2 (#740) is the same scene with no `territory` (an unbounded board from the starter), its marks at 80 / 90 / 100 %
+ * (`starPercents`), the stack's next two tiles (`hand.coming`) and the attack's deck as the tiles left.
  */
 export function PvpAttackScene(props: PvpAttackSceneProps) {
   const { defender, hand, replay } = props;
@@ -128,7 +136,7 @@ export function PvpAttackScene(props: PvpAttackSceneProps) {
       {props.canvas ?? (
         <BoardMap
           tiles={props.tiles}
-          territory={props.territory}
+          territory={props.territory ?? undefined}
           fit
           slots={replay ? undefined : props.slots}
           ghost={replay ? null : props.ghost}
@@ -149,7 +157,7 @@ export function PvpAttackScene(props: PvpAttackSceneProps) {
           className="pointer-events-auto w-full max-w-2xl"
         />
         <div className="w-full max-w-2xl rounded-xl border border-border bg-card/90 px-3 pt-1 pb-2 shadow-lg backdrop-blur">
-          <StarMeter score={props.score} target={props.target} />
+          <StarMeter score={props.score} target={props.target} percents={props.starPercents} />
         </div>
         <ClosingFeed closings={props.lastScored} className="mt-1" />
       </div>
