@@ -24,8 +24,10 @@ import { Notice } from "../../components/elements/notice";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { Button } from "../../components/ui/button";
 import { useBoardSettings } from "../../data/board-settings";
+import { useFreeVillageWrites } from "../../data/free-village";
 import { usePlacement, type Slot } from "../../data/placement";
 import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
+import { useDataSources } from "../../data/sources";
 import { findLevel, levelPath, nextLevel, useDeckPresented, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
 import { useTileArt } from "../../data/tile-art";
 import { useTileRenders } from "../../data/tile-renders";
@@ -148,11 +150,18 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   // The best before this run, read once per attempt, then the run recorded once it is over.
   const [previousBest, setPreviousBest] = useState<number | null>(null);
   const recorded = useRef(-1);
+  // PvP v2 (#739, #741): a finished run is reported to the village side too (XP by the stars earned the first time, a chest on
+  // 3 stars the first time). The mock serves it in step 1; a source without the v2 writes (the chain before step 3) reports nothing.
+  const sources = useDataSources();
+  const v2 = useFreeVillageWrites(sources.signer?.address ?? null);
+  const report = useRef<typeof v2.reportStory | null>(null);
+  report.current = v2.signer ? v2.reportStory : null;
   useEffect(() => {
     if (!over || recorded.current === attempt) return;
     recorded.current = attempt;
     setPreviousBest(levelProgress(progress, campaign.id, level.id)?.best ?? null);
     record(level, run.submission(), run.score);
+    report.current?.({ campaign: campaign.id, level: level.id, stars: levelResult(level, run.score).stars }).catch(() => undefined);
   }, [over, attempt, progress, campaign.id, level, record, run]);
 
   const confirm = useCallback(() => {

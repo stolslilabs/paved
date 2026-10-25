@@ -36,6 +36,15 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   // The village (#646 PR 2), its own chunk, the own and a visit; its tile art reads the renderer's manifest, asked for with the code.
   village: village,
   "village/:player": village,
+  // The v2 village's chests and daily shop (#739), a chunk each; their tile cards read the renderer's manifest too.
+  "village/chests": () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/village-chests");
+  },
+  "village/shop": () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/village-shop");
+  },
   // The PvP flow (#647 PR 2), its own chunks: the attack (its board's tile art reads the renderer's manifest, asked for with
   // the code), the result, a replay, the defence log, the league.
   pvp: pvp,

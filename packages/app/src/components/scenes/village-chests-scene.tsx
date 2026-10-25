@@ -18,10 +18,10 @@ import { cn } from "../../lib/utils";
 export interface Chest {
   id: number;
   rank: ChestRank;
-  /** PvP (1, 2 or 3 stars) or Story (3 stars, the first time). */
-  source: "pvp" | "story";
-  /** What it was won on: "3 stars against Rook", "Campaign 2, level 5". */
-  label: string;
+  /** PvP (1, 2 or 3 stars) or Story (3 stars, the first time); unset when the read does not say. */
+  source?: "pvp" | "story";
+  /** What it was won on: "3 stars against Rook", "Campaign 2, level 5"; unset when the read does not say. */
+  label?: string;
 }
 
 /** The tile just kept (and the Cobbles, if any): said until the next chest opens. */
@@ -34,6 +34,8 @@ export interface VillageChestsSceneProps {
   /** Why the chests are not shown: a guest, the reads on their way, a failed read. */
   status?: SkinsStatus | null;
   chests?: readonly Chest[];
+  /** The chests open in the order won (the rules', #741): only the first waiting can be opened. */
+  inOrder?: boolean;
   /** The PvP chests won today (at most 3 a day, #732). */
   pvpToday?: number;
   /** Seconds since the epoch: the next UTC day, when the day's PvP chests count again from 0. */
@@ -72,6 +74,7 @@ export interface VillageChestsSceneProps {
 export function VillageChestsScene({
   status,
   chests = [],
+  inOrder = false,
   pvpToday = 0,
   resetsAt,
   now,
@@ -168,22 +171,25 @@ export function VillageChestsScene({
               )}
               {waiting.length > 0 ? (
                 <section aria-labelledby="chests-title" className="flex flex-col gap-2">
-                  <h2 id="chests-title" className="text-sm font-semibold">
+                  <h2 id="chests-title" className="flex items-center gap-1 text-sm font-semibold">
                     Waiting <span className="numeric text-muted-foreground">{waiting.length}</span>
                   </h2>
                   <ul className="flex flex-col gap-2">
-                    {waiting.map((chest) => (
+                    {waiting.map((chest, i) => (
                       <li key={chest.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
                         <ChestBadge rank={chest.rank} size="sm" />
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="text-sm font-semibold">{CHEST_NAME[chest.rank]}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {chest.source === "pvp" ? "PvP" : "Story"} · {chest.label}
-                          </span>
+                          {(chest.source || chest.label) && (
+                            <span className="text-xs text-muted-foreground">
+                              {[chest.source && (chest.source === "pvp" ? "PvP" : "Story"), chest.label].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
+                          {inOrder && i > 0 && <span className="text-xs text-muted-foreground">Opens after the one above</span>}
                         </div>
                         <Button
                           size="sm"
-                          disabled={opened != null || (opening != null && opening !== chest.id) || busy}
+                          disabled={opened != null || (opening != null && opening !== chest.id) || busy || (inOrder && i > 0)}
                           loading={opening === chest.id}
                           onClick={() => onOpen?.(chest.id)}
                           aria-label={`Open the ${CHEST_NAME[chest.rank].toLowerCase()}: ${CHEST_CHOICES[chest.rank] === 1 ? "one tile" : `one of ${CHEST_CHOICES[chest.rank]} tiles`}`}
