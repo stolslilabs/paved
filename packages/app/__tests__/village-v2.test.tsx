@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { LazyMotion, domMax } from "motion/react";
+import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
@@ -353,6 +353,88 @@ describe("the chests (#739)", () => {
     capped();
     render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.empty} />));
     expect(screen.getByText("No chest waiting")).toBeInTheDocument();
+  });
+});
+
+describe("the chests' slots (#759)", () => {
+  const slots = () => within(screen.getByRole("list", { name: "Today's PvP slots" })).getAllByRole("listitem").map((li) => li.getAttribute("aria-label"));
+
+  it("shows the day's three slots first: free pedestals, then the chests won, with the reset ticking", () => {
+    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.free} />));
+    expect(slots()).toEqual(["Slot 1: free", "Slot 2: free", "Slot 3: free"]);
+    expect(screen.getByRole("timer", { name: "Slots reset in 9:00:00" })).toBeInTheDocument();
+    unmount();
+    const { rerender } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.waiting} />));
+    expect(slots()).toEqual(["Slot 1: won, gold chest", "Slot 2: won, silver chest", "Slot 3: free"]);
+    // The hero comes before the chests in the page.
+    const hero = screen.getByRole("region", { name: "Today's PvP chests" });
+    expect(hero.compareDocumentPosition(screen.getByRole("region", { name: /Waiting/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The clock ticks: the countdown follows `now`.
+    rerender(wrap(<VillageChestsScene {...VILLAGE_CHESTS.waiting} now={VILLAGE_CHESTS.waiting.now + 1} />));
+    expect(screen.getByRole("timer", { name: "Slots reset in 8:59:59" })).toBeInTheDocument();
+  });
+
+  it("says a won slot with no rank as won, and the rules in one line", () => {
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.noRanks} />));
+    expect(slots()).toEqual(["Slot 1: won", "Slot 2: won", "Slot 3: free"]);
+    expect(screen.getByText(/Bronze: one tile · Silver: one of 2 · Gold: one of 3 · A chest may hold Cobbles\./)).toBeInTheDocument();
+  });
+
+  it("puts the countdown at the centre once the three are won, and pulses it in the last minute", () => {
+    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.capped} />));
+    const hero = screen.getByRole("region", { name: "Today's PvP chests" });
+    expect(hero).toHaveAttribute("data-state", "full");
+    // The countdown comes before the slots.
+    expect(screen.getByRole("timer").compareDocumentPosition(screen.getByRole("list", { name: "Today's PvP slots" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(hero.querySelector("[data-pulse]")).toBeNull();
+    unmount();
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.lastMinute} />));
+    expect(screen.getByRole("timer", { name: "More chests in 0:00:42" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Today's PvP chests" }).querySelector("[data-pulse]")).not.toBeNull();
+  });
+
+  it("keeps every frame still under reduced motion", () => {
+    render(
+      <MotionConfig reducedMotion="always">
+        {wrap(<VillageChestsScene {...VILLAGE_CHESTS.lastMinute} chests={VILLAGE_CHESTS.waiting.chests} />)}
+      </MotionConfig>,
+    );
+    expect(document.querySelector("[data-pulse]")).toBeNull();
+    expect(document.querySelector("[data-wobble]")).toBeNull();
+  });
+
+  it("wobbles only the chest that can be opened", () => {
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.waiting} inOrder />));
+    expect(document.querySelectorAll("[data-wobble]")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Open the silver chest/ })).toBeDisabled();
+    expect(screen.getAllByText("Opens after the one before")).toHaveLength(2);
+  });
+
+  it("says Ready at the reset, given or reached on the scene's clock", () => {
+    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.ready} />));
+    expect(screen.getByRole("status")).toHaveTextContent("Ready");
+    expect(slots()).toEqual(["Slot 1: free, ready", "Slot 2: free, ready", "Slot 3: free, ready"]);
+    expect(screen.queryByRole("timer")).toBeNull();
+    unmount();
+    // The read still says yesterday's 3: the clock at the reset frees the slots all the same.
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.capped} now={VILLAGE_CHESTS.capped.resetsAt} />));
+    expect(screen.getByLabelText("3 of 3 left today")).toBeInTheDocument();
+    expect(screen.getByText(/3 new chests to win today/)).toBeInTheDocument();
+  });
+
+  it("invites to attack when no chest waits: a button to the mode choice", async () => {
+    const onPlay = vi.fn();
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.empty} onPlay={onPlay} />));
+    expect(screen.getByText(/Win stars to fill a slot/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Choose a mode" }));
+    expect(onPlay).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws the dial direction with the same slots and countdown", () => {
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.capped} look="dial" />));
+    expect(screen.getByRole("region", { name: "Today's PvP chests" })).toHaveAttribute("data-look", "dial");
+    expect(slots()).toHaveLength(3);
+    expect(screen.getByRole("timer", { name: /More chests in/ })).toBeInTheDocument();
   });
 });
 
