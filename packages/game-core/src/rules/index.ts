@@ -37,6 +37,8 @@ export {
   starterBoard,
 } from "./free-village";
 export type { DraftRefusal, Inventory, LayoutLimits, LayoutRefusal, LayoutTile } from "./free-village";
+export { breakdownOf, layoutBreakdown } from "./breakdown";
+export type { CellAreas, LayoutBreakdown, LayoutLine } from "./breakdown";
 export { STARTER_LAYOUTS, STARTER_TILES, starterIndex, starterLayout } from "./starters";
 export {
   ATTACK_DECK_PERCENT,
