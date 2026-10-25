@@ -87,7 +87,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
     expect(screen.getByLabelText("8 of 9 slots used")).toBeInTheDocument();
     draft.lift(outer.x, outer.y);
-    expect(screen.getByText(draft.score.toLocaleString("en-US"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Score ${draft.score.toLocaleString("en-US")}: show the points` })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
     expect(await screen.findByText("Layout saved", {}, WAIT)).toBeInTheDocument();
