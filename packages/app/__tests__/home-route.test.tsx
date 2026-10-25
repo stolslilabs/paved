@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
@@ -57,19 +57,21 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/: the PvP standing at the top right", () => {
-  it("shows the crowns and their league once PvP is played, and the column's League names it", async () => {
+describe("/: the PvP standing by the avatar (#755)", () => {
+  it("shows the crowns and their league, and the column has no League nor Defence", async () => {
     await open({ crowns: 1_240 });
     const name = leagueOf(1_240).name;
     expect(await screen.findByRole("button", { name: `League: ${name}, 1,240 crowns` }, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: `League, ${name}` })).toBeInTheDocument();
+    const column = screen.getByRole("navigation", { name: "Village" });
+    expect(within(column).queryByRole("button", { name: /^League/ })).toBeNull();
+    expect(within(column).queryByRole("button", { name: /^Defence/ })).toBeNull();
   }, slow(30_000));
 
-  it("shows none before any PvP", async () => {
-    await open();
+  it("shows Unranked with 0 crowns before any PvP, a tap to the league", async () => {
+    const { router } = await open();
     await screen.findByRole("button", { name: "Edit village" }, WAIT);
-    expect(screen.queryByRole("button", { name: /^League: / })).toBeNull();
-    expect(screen.getByRole("button", { name: "League" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/pvp/league"), WAIT);
   }, slow(30_000));
 });
 
