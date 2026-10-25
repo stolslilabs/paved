@@ -7,6 +7,8 @@
    browsers and a home-screen app of an older manifest (`display-mode: standalone`, dropped in #589) never match; the width keeps iPad out. */
 /* NO-SCROLLBARS (#609): the tab page's region has more below (`pageScrollHintRef`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
 @custom-variant page-more (&:where(html[data-scroll-end] *));
+/* PAGE-HEADER (#760): the page has more above, under its sticky header (the tab page's region or a flow's document, `data-scroll-start` on `<html>`). */
+@custom-variant page-less (&:where(html[data-scroll-start] *));
 @custom-variant iphone-tab {
   @supports (-webkit-touch-callout: none) {
     @media (display-mode: browser) and (max-width: 40rem) {
@@ -154,19 +156,16 @@
 }
 
 /* 2c. HEADER-HEIGHT (#676, owner decision of 2026-10-21): one header height per breakpoint, the same on every page outside
-   the board. Below `desktop` a page's header holds two rows, its title row (Back or the avatar, the title, an action) and the
-   balances' strip; from `desktop` one row (the navigation's header, a flow's top bar; a tab page's title row is then the
-   first row of its content). The `page-header` utility below puts a header on it; every page has one at its top, and the
-   content below starts at the same height on every page. The values
-   are the flows' top bar as measured at 375 px (96 px, its title row 56) and the navigation's header at 1440 px (64 px).
-   HEADER-BALANCES (#720): a page without balances on a phone has no strip, so its header is its title row alone below
-   `desktop` (56 px, `page-header-single`); the pages that keep the strip keep the 96 px. From `desktop`, 64 px on every page. */
+   the board. PAGE-HEADER (#760, owner decisions of 2026-10-25): a page's header is one short row at every width (Back, the
+   title, an action); below `desktop` the balances sit in the page, under the header, never in a second row. From `desktop`
+   the navigation's header, a flow's top bar, and a tab page's title row (then the first row of its content) are one row too.
+   The `page-header` utility below puts a header on it; every page has one at its top, and the content below starts at the
+   same height on every page. The values are a flow's title row as measured at 375 px (56 px) and the navigation's header at
+   1440 px (64 px). */
 :root {
-  --header-h: 6rem;
-  --header-rows: 3.5rem 1fr;
+  --header-h: 3.5rem;
   @media (width >= 64rem) {
     --header-h: 4rem;
-    --header-rows: 1fr;
   }
 }
 
@@ -402,21 +401,11 @@
   }
 }
 
-/* A page's header (2c): `--header-h` tall, the notch's safe area added above it; never grows, never shrinks. A grid header
-   takes the rows: below `desktop` the title row (56 px) over the balances' row, from it one row. */
+/* A page's header (2c): `--header-h` tall, the notch's safe area added above it; never grows, never shrinks. One row. */
 @utility page-header {
   flex-shrink: 0;
   height: calc(var(--header-h) + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
-  grid-template-rows: var(--header-rows);
-}
-
-/* A page header without the balances' strip below `desktop` (#720): its title row alone, 56 px. From `desktop` the same row. */
-@utility page-header-single {
-  @media (width < 64rem) {
-    --header-h: 3.5rem;
-    --header-rows: 1fr;
-  }
 }
 
 /*

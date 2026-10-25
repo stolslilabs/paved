@@ -1,8 +1,8 @@
 import { useCallback } from "react";
-import { useLocation, useNavigate, type NavigateOptions } from "react-router";
+import { matchPath, useLocation, useNavigate, type NavigateOptions } from "react-router";
 import { useActiveTab } from "./handle";
 import { useCanGoBack } from "./history";
-import { TABS, type Tab } from "./pages";
+import { PAGES, TABS, type Tab } from "./pages";
 import { tabSwipe } from "./tab-swipe";
 
 /** The query key of the referral link (section 6.2): kept across every link and redirect of the app. */
@@ -35,14 +35,24 @@ export function useTabNavigate() {
 }
 
 /**
- * Back (a scene's `onBack`): the previous in-app entry, or Home when there is none (a deep link, an old link, a redirect).
- * Only for a page whose previous entry can never be a game: a page reached after a game goes up with `useUpTo` instead.
+ * The parent in the route map of the page at `pathname` (`PageDef.parent`), the home without one. Read from the location, not
+ * the route's matches, so a page in a plain router (the stories' `MemoryRouter`) reads it too.
+ */
+export function parentOf(pathname: string): string {
+  return PAGES.find((p) => matchPath({ path: `/${p.path}`, end: true }, pathname))?.parent ?? "/";
+}
+
+/**
+ * Back (a scene's `onBack`): the previous in-app entry, or the page's parent in the route map when there is none (a deep link,
+ * an old link, a reload; `PageDef.parent`, #760), the home for a page without one. Only for a page whose previous entry can
+ * never be a game: a page reached after a game goes up with `useUpTo` instead.
  */
 export function useBack() {
   const navigate = useNavigate();
   const go = useAppNavigate();
   const canGoBack = useCanGoBack();
-  return useCallback(() => (canGoBack() ? navigate(-1) : go("/", { replace: true })), [canGoBack, go, navigate]);
+  const parent = parentOf(useLocation().pathname);
+  return useCallback(() => (canGoBack() ? navigate(-1) : go(parent, { replace: true })), [canGoBack, go, navigate, parent]);
 }
 
 /**
