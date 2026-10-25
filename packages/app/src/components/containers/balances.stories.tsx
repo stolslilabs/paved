@@ -37,7 +37,7 @@ function InPage({ state, onAction, onConnect, faucet, show }: InProps) {
 }
 const page = (state: BalancesState, show?: HeaderBalances): Story => ({ render: (args) => <InPage {...args} state={state} show={show} /> });
 
-/** In a full-screen flow (#620): the Cobbles in a strip under the top bar below `desktop` where the rule shows them, the bar's right side from it. */
+/** In a full-screen flow (#620): the Cobbles in the page under the top bar below `desktop` where the rule shows them (#760), the bar's right side from it. */
 function InFlow({ state, onAction, onConnect, faucet, show }: InProps) {
   return (
     <BalancesProvider value={{ state, onAction, onConnect, faucet, show }}>
@@ -76,7 +76,7 @@ function Live({ layout, onAction }: Pick<BalancesProps, "layout" | "onAction">) 
   );
 }
 
-/** Mobile (360), a page where Cobbles move (#720): the Cobbles' plate alone in the header's strip, leading to the packs. */
+/** Mobile (360), a page where Cobbles move (#720): the Cobbles' plate alone, under the header, leading to the packs. */
 export const Connected: Story = { ...page(CONNECTED), globals: MOBILE };
 /** Mobile, a page where no Cobbles move (#720): no balance, and the header is its title row alone. */
 export const NoneOnPhone: Story = { ...page(CONNECTED, DESKTOP_ONLY), globals: MOBILE };
@@ -98,9 +98,9 @@ export const RailLoading: Story = { ...page({ status: "loading" }), globals: WID
 export const RailError: Story = { ...page({ status: "error", message: "The balances could not be read." }), globals: WIDE };
 export const RailDisconnected: Story = { ...page({ status: "disconnected" }), globals: WIDE };
 
-/** A flow where Cobbles move (the packs, the avatar) on a phone: the Cobbles in a strip under the top bar. */
+/** A flow where Cobbles move (the packs, the avatar) on a phone: the Cobbles in the page, under the top bar (#760). */
 export const FlowConnected: Story = { ...flow(CONNECTED), globals: MOBILE };
-/** A flow where no Cobbles move (Play, the purchase, Story) on a phone: no strip, a one-row bar (56 px). */
+/** A flow where no Cobbles move (Play, the purchase, Story) on a phone: nothing under the bar (56 px). */
 export const FlowNoneOnPhone: Story = { ...flow(CONNECTED, DESKTOP_ONLY), globals: MOBILE };
 export const FlowDisconnected: Story = { ...flow({ status: "disconnected" }), globals: MOBILE };
 /** A flow from `desktop`: the balances on the top bar's right. */
