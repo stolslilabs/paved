@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import type { GameScene, LitTile, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import { BoardViewport, type BoardBubble, type BoardGhost } from "./board-viewport";
@@ -18,6 +18,13 @@ export interface VillageLayoutCanvasProps {
   basePath?: string;
   skins?: TileSkins;
   onScene?: (scene: GameScene | null) => void;
+  /**
+   * The ready signal (#761): the scene's first frame is drawn with the models of every tile handed over (the boards' asset
+   * loading: `GameScene.init` waits for them, then `start` draws that frame), and every tile image is in
+   * (`GameScene.tileImagesReady`, which asks again for one that failed). Once per scene. Images that never come call
+   * `onError` instead.
+   */
+  onReady?: () => void;
   /** The renderer could not start: the page falls back to the plan view (`LayoutBoard`). */
   onError?: (error: unknown) => void;
 }
@@ -59,7 +66,7 @@ export function sceneTilesOf({ tiles, pending, lit }: Pick<LayoutBoardView, "til
  * `view.lit`) lights its structure's areas and dims the rest (`setLitAreas`). Its own lazy chunk: the home's overlays paint
  * before it.
  */
-export default function VillageLayoutCanvas({ view, settings, basePath, skins, onScene, onError }: VillageLayoutCanvasProps) {
+export default function VillageLayoutCanvas({ view, settings, basePath, skins, onScene, onReady, onError }: VillageLayoutCanvasProps) {
   const { tiles: layout, plates, pending, editing, onTile, onPlate, onPending } = view;
   const drawn = useMemo(() => sceneTilesOf({ tiles: layout, pending, lit: view.lit }), [layout, pending, view.lit]);
   const tiles = useMemo<BoardTile[]>(() => drawn.tiles.map((t) => ({ ...t, ...toChain(t) })), [drawn]);
@@ -67,18 +74,34 @@ export default function VillageLayoutCanvas({ view, settings, basePath, skins, o
   const held = drawn.ghost;
   const ghost = useMemo<BoardGhost | null>(() => (held ? { ...toChain(held), plan: held.plan, orientation: held.orientation, placed: true, fits: true } : null), [held]);
   const bubble = useMemo<BoardBubble | null>(() => (view.bubble ? { ...view.bubble, cell: toChain(view.bubble.cell) } : null), [view.bubble]);
-  const [scene, setScene] = useState<GameScene | null>(null);
-  const handleScene = useCallback(
-    (next: GameScene | null) => {
-      setScene(next);
-      onScene?.(next);
-    },
-    [onScene],
-  );
-  // The lit structure on the scene's tiles, the tile under the bubble included.
-  const { lit } = drawn;
+  // One stable handler for the viewport (it calls it again on every change of its identity): the page's, then the ready signal
+  // once the tile images are in too (`init` lets the scene start without one that failed) and a frame drawn after them; images
+  // that never come are the renderer's failure (the plan view), so the signal never comes with an asset missing.
+  const latest = useRef({ onScene, onReady, onError });
   useEffect(() => {
-    scene?.setLitAreas(lit);
+    latest.current = { onScene, onReady, onError };
+  });
+  const current = useRef<GameScene | null>(null);
+  // The scene in state too, for the lit structure (#758).
+  const [scene, setScene] = useState<GameScene | null>(null);
+  const handleScene = useCallback((scene: GameScene | null) => {
+    current.current = scene;
+    setScene(scene);
+    latest.current.onScene?.(scene);
+    if (!scene) return;
+    scene.tileImagesReady().then(
+      () => requestAnimationFrame(() => current.current === scene && latest.current.onReady?.()),
+      (error: unknown) => current.current === scene && latest.current.onError?.(error),
+    );
+  }, []);
+  // The lit structure on the scene's tiles, the tile under the bubble included. A scene starts with none: nothing to say until a
+  // line is chosen, then each change, the light off included.
+  const { lit } = drawn;
+  const litOnce = useRef(false);
+  useEffect(() => {
+    if (!scene || (lit === null && !litOnce.current)) return;
+    litOnce.current = true;
+    scene.setLitAreas(lit);
   }, [scene, lit]);
   const onCellClick = (chain: Cell) => {
     if (!editing) return;
