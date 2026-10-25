@@ -18,6 +18,7 @@ import { planCode } from "../src/components/elements/tile-chip";
 import { TileView } from "../src/components/containers/tile-view";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { LoadingScene } from "../src/components/scenes/loading-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
@@ -71,6 +72,15 @@ describe("Welcome", () => {
     await userEvent.click(screen.getByRole("button", { name: /play training/i }));
     expect(onConnect).toHaveBeenCalledOnce();
     expect(onTraining).toHaveBeenCalledOnce();
+  });
+
+  it("has Back at its top left, to the village (#760)", async () => {
+    const onBack = vi.fn();
+    render(wrap(<WelcomeScene {...WELCOME.firstVisit} onBack={onBack} />));
+    const header = screen.getByRole("banner");
+    expect(header.querySelector("button")).toHaveAccessibleName("Back");
+    await userEvent.click(within(header).getByRole("button", { name: "Back" }));
+    expect(onBack).toHaveBeenCalledOnce();
   });
 
   it("is busy while connecting, and says why a connect failed", () => {
@@ -202,6 +212,32 @@ describe("Home (#753): the village with its overlays", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Leave edit mode" }));
     await userEvent.click(await screen.findByRole("button", { name: "Leave" }));
     expect(onEditingChange).toHaveBeenCalledWith(false);
+  });
+
+  it("places tiles as the boards (#756): the 3D scene gets the bubble, clear of the bar and the panel; no Discard, Reset all in the bar", async () => {
+    const views: LayoutBoardView[] = [];
+    const renderCanvas = (view: LayoutBoardView) => {
+      views.push(view);
+      return <div data-testid="canvas" />;
+    };
+    const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.placing} renderCanvas={renderCanvas} />));
+    await screen.findByTestId("canvas", {}, { timeout: slow(5000) });
+    const view = views[views.length - 1]!;
+    // The bubble goes to the scene, by the placed tile: Rotate and Back to the inventory, no Validate, no Cancel for an inventory tile.
+    expect(view.bubble).toMatchObject({ cell: { x: view.pending!.x, y: view.pending!.y }, cancelButton: false });
+    expect(view.bubble!.onReturn).toBeTypeOf("function");
+    expect(view.bubble!.onConfirm).toBeUndefined();
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Editor" })).toHaveAttribute("data-bubble-avoid");
+    expect(screen.getByRole("button", { name: "Leave edit mode" }).closest("[data-bubble-avoid]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Leave edit mode" }).closest("header")).toContainElement(screen.getByRole("button", { name: /^Hold to reset all/ }));
+    expect(screen.queryByRole("button", { name: "Discard changes" })).toBeNull();
+    unmount();
+    // The plan view keeps the still bubble in the panel.
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.placing} />));
+    const bubble = await screen.findByRole("toolbar", { name: "Tile" }, { timeout: slow(5000) });
+    expect(bubble).toHaveAttribute("data-follows", "hand");
+    expect(within(bubble).getByRole("button", { name: "Back to the inventory" })).toBeInTheDocument();
   });
 });
 

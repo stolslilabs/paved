@@ -13,6 +13,8 @@ export interface WelcomeSceneProps {
   errorDetail?: ErrorDetail;
   onConnect?: () => void;
   onTraining?: () => void;
+  /** Back, at the top left (#760): to the village, the home, as a guest. */
+  onBack?: () => void;
 }
 
 const POINTS: { icon: string; title: string; text: string }[] = [
@@ -21,13 +23,21 @@ const POINTS: { icon: string; title: string; text: string }[] = [
   { icon: "trophy", title: "Beat the day", text: "A daily Challenge, with a reward above the threshold." },
 ];
 
-/** The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. */
-export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTraining }: WelcomeSceneProps) {
+/**
+ * The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. Its header is every
+ * page's (PAGE-HEADER, #760): one row, sticky, Back at the top left to the village; no title, the card's heading is the page's.
+ * No edge fade under it: the hero fits a phone's height, and the flows' hint would cost the first load a chunk.
+ */
+export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTraining, onBack }: WelcomeSceneProps) {
   return (
-    <main className="relative flex min-h-dvh flex-col overflow-hidden bg-background text-foreground">
+    // Clipped sideways, not `overflow: hidden`: a scroll container would hold the sticky header in place of the document.
+    <main className="relative flex min-h-dvh flex-col overflow-x-clip bg-background text-foreground">
       <BoardHero shade="veil" />
-      {/* No bar on the first visit, but every page's header height above the content (`page-header`, #676): it starts where it does on the other pages. */}
-      <div aria-hidden data-slot="page-header" className="page-header" />
+      <header data-slot="page-header" className="page-header sticky top-0 z-30 flex items-center bg-background/95 px-2 backdrop-blur">
+        <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
+          <Icon name="chevron-left" />
+        </Button>
+      </header>
 
       <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-end gap-8 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] desktop:max-w-4xl desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-16">
         <div className="flex flex-col items-center gap-6 desktop:flex-1 desktop:items-start">

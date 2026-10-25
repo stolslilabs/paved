@@ -45,6 +45,10 @@ export const DiscardHolding: Story = {
 };
 /** At 0 points a discard is free: its label says so. */
 export const FreeDiscard: Story = { args: { discardCost: 0 } };
+/** The village editor's bubble on a tile from the inventory (#756): Back to the inventory and Rotate, no Cancel (Escape cancels) and no Validate. */
+export const Editor: Story = { args: { onDiscard: undefined, onConfirm: undefined, onReturn: fn(), cancelButton: false } };
+/** The village editor's bubble on a lifted tile: Cancel puts it back where it was. */
+export const EditorLifted: Story = { args: { onDiscard: undefined, onConfirm: undefined, onReturn: fn() } };
 /** The move is on its way: Validate spins and is disabled. */
 export const Busy: Story = { args: { busy: true } };
 /** The tile cannot be placed yet (its points not known): Validate is disabled. */

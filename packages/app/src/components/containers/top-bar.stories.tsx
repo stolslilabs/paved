@@ -7,7 +7,7 @@ import { BalancesProvider, type HeaderBalances } from "./balances-context";
 import { MockMarkProvider } from "./mock-mark";
 import { TopBar } from "./top-bar";
 import { LONG_LABEL, LONG_WORD } from "../../mocks/stress";
-import { PHONE_375 } from "../scenes/viewports";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
 
 const meta = { title: "Containers/TopBar", component: TopBar, args: { title: "Choose a mode", onBack: fn() } } satisfies Meta<typeof TopBar>;
 export default meta;
@@ -24,19 +24,19 @@ export const WithAction: Story = {
     ),
   },
 };
-/** WRAP360: a long title wraps, two lines at most, then an ellipsis (the whole title in `title`); the bar keeps its height (HEADER-HEIGHT). */
+/** WRAP360: a long title keeps one line, cut with an ellipsis (the whole title in `title`, #760); the bar keeps its height (HEADER-HEIGHT). */
 export const Stress: Story = { args: { title: `${LONG_LABEL} ${LONG_WORD}` } };
 /** MOCK-MARK (#622): "Mock" on the title's line, the title and the mark centred together. */
 export const WithMark: Story = {
   args: { title: "Challenge" },
   decorators: [(Story) => <MockMarkProvider value><Story /></MockMarkProvider>],
 };
-/** A long title wraps; the mark stays on its last line. */
+/** A long title is cut on one line; the mark stays after it while it fits. */
 export const WithMarkLongTitle: Story = {
   args: { title: "Challenge of the long winter day" },
   decorators: WithMark.decorators,
 };
-/** The stress title with the mark: a compound breaks and the mark follows its last piece. */
+/** The stress title with the mark, cut on one line. */
 export const WithMarkStress: Story = { args: Stress.args, decorators: WithMark.decorators };
 
 /**
@@ -69,7 +69,50 @@ const withBalances = (show: HeaderBalances): Decorator[] => [
   ),
 ];
 
-/** HEADER-BALANCES (#720), at 375 px: a flow where Cobbles move (the packs, the avatar): the Cobbles' strip under the title row, 96 px. */
-export const PhoneCobbles: Story = { ...PHONE_375, args: { title: "Cobbles" }, decorators: withBalances({ phone: true, desktop: "all" }) };
-/** At 375 px, a flow where none move (Play, the purchase, Story): no strip, one row, 56 px; its balances show from `desktop`. */
+/** A flow's column (`min-h-dvh`), its content taller than the viewport, as the avatar page and the packs lay themselves out. */
+const inColumn: Decorator = (Story) => (
+  <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <Story />
+    <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-6">
+      {Array.from({ length: 10 }, (_, i) => (
+        <div key={i} data-slot="card" className="flex h-24 shrink-0 items-center rounded-xl border border-border bg-card px-4 text-sm">
+          Card {i + 1}
+        </div>
+      ))}
+    </main>
+  </div>
+);
+
+/**
+ * PAGE-HEADER (#760), at 375 px: a flow where Cobbles move (the packs, the avatar). The bar stays one row, 56 px; the Cobbles
+ * sit in the page, under it at the top right, and scroll with it.
+ */
+export const PhoneCobbles: Story = {
+  ...PHONE_375,
+  args: { title: "Avatar" },
+  parameters: { ...PHONE_375.parameters, layout: "fullscreen" },
+  decorators: [inColumn, ...withBalances({ phone: true, desktop: "all" })],
+};
+/** At 375 px, a flow where none move (Play, the purchase, Story): nothing under the bar; its balances show from `desktop`. */
 export const PhoneNoBalances: Story = { ...PHONE_375, args: { title: "Choose a mode" }, decorators: withBalances({ phone: false, desktop: "all" }) };
+/** At 320 px, the Cobbles and a long title with an action: one row, the title cut with an ellipsis. */
+export const Phone320Cobbles: Story = {
+  ...PHONE_320,
+  args: { title: LONG_LABEL, end: WithAction.args!.end },
+  parameters: { ...PHONE_320.parameters, layout: "fullscreen" },
+  decorators: [inColumn, ...withBalances({ phone: true, desktop: "all" })],
+};
+/** At 1440 px: every balance on the bar's row, before `end`, nothing under it. */
+export const WideBalances: Story = {
+  ...WIDE_1440,
+  args: { title: "Avatar" },
+  parameters: { layout: "fullscreen" },
+  decorators: [inColumn, ...withBalances({ phone: true, desktop: "all" })],
+};
+/** At 375 px, scrolled to the bottom: the bar is sticky, so Back stays in view, the fade under it shows the page has more above. */
+export const PhoneScrolled: Story = {
+  ...PhoneCobbles,
+  play: async () => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  },
+};

@@ -57,8 +57,8 @@ const withShell: Decorator = (Story, { id }) => (
 /**
  * HEADER-HEIGHT (#676): every page outside the game scenes, one story each (`page-headers.ts` lists the routes each covers), in
  * the shell's providers (the avatar, the balances by the page's rule, #720). Each page has one header at its top, `--header-h`
- * tall, one value per breakpoint (theme.css), and below `desktop` one less row where the page shows no balance (56 px, not
- * 96): the `TopBar`, a tab page's title row below `desktop`, the navigation's header from `desktop` (where a
+ * tall, one value per breakpoint (theme.css), one row at every width whatever balances the page shows (#760: below `desktop`
+ * they sit in the page, under the header): the `TopBar`, a tab page's header below `desktop`, the navigation's header from `desktop` (where a
  * tab page's title row is the first row of its content). The content starts at the same height on every page of the same
  * header but the hero (Welcome); the home is a game scene since #753. `scripts/header-sweep.ts` measures both at 375 and 1440 px. Captures, Home, Vault and
  * Play side by side before and after: `captures/header-height/header-height-{375,1440}-{before,after}.webp`.
@@ -90,4 +90,4 @@ export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.t
 export const PvpDefence: Story = { render: () => <PvpDefenceScene {...PVP_DEFENCE.shielded} onBack={fn()} /> };
 export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={fn()} /> };
 export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
-export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} /> };
+export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} onBack={fn()} /> };
