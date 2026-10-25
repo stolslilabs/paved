@@ -2688,10 +2688,13 @@ warm rows moved by up to 3 s run to run). The split: the home's chunk (the overl
 The threshold (1 s, cold, phone) is passed on every row, the fastest run included (desktop warm, 2.86 s): the home arrives
 fogged (`elements/village-fog.tsx`). The overlays paint first, as before; the scene's box is under a thick fog (the
 placeholder sky under two drifting banks of mist) from the stage's mount until the canvas's ready signal
-(`VillageLayoutCanvas`'s `onReady`: `GameCanvas`'s, after `GameScene.init` has awaited the models of the tiles handed over
-and the tile images, and `start` has drawn that frame), then thins out in 600 ms (a plain fade under reduced motion). The
-fog takes no pointer and covers the scene's box only (not the overlays, not the editor's panel). The plan view (low
-quality, no WebGL, a renderer that failed) has none. A later arrival in the same page (Back from a page) fades in in
+(`VillageLayoutCanvas`'s `onReady`: after `GameCanvas`'s, which comes once `GameScene.init` has awaited the models of the
+tiles handed over and `start` has drawn that frame, it also waits for every tile image, `GameScene.tileImagesReady`, since
+`init` lets the scene start without an image that failed; that call asks again for the missing images, four tries in all
+with a doubling pause from 500 ms, then a frame is drawn), then thins out in 600 ms (a plain fade under reduced motion).
+Images that never come are the renderer's failure: the plan view replaces the canvas, and the fog goes with it, so it never
+clears onto a village with an asset missing. The fog takes no pointer and covers the scene's box only (not the overlays,
+not the editor's panel). The plan view (low quality, no WebGL, a renderer that failed) has none. A later arrival in the same page (Back from a page) fades in in
 200 ms (`routes/village-arrival.ts`). Captures and the GIF: `packages/app/scripts/home-loading-captures.ts`.
 
 ### 5.9 Day and night (DAYNIGHT, P-73)

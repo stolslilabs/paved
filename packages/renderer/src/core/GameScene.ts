@@ -973,6 +973,27 @@ export class GameScene {
     this.onHoverLeaveCallback = cb;
   }
 
+  /**
+   * Every plan's tile image is in (the plan view's, and the placeholder quads'): `init` waits for the models of the tiles
+   * handed over but lets the scene start without an image that failed, which is tried again after the first frame. This
+   * asks for the missing images again after each failure (`attempts` tries in all, `retryMs` doubling between them), and
+   * resolves once all are in, or rejects with the last failure (or when the scene is disposed). A host's ready signal
+   * (#761) waits for it after `onReady`.
+   */
+  async tileImagesReady({ attempts = 4, retryMs = 500 }: { attempts?: number; retryMs?: number } = {}): Promise<void> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.assets.preloadTextures();
+      } catch (error) {
+        if (this.disposed || attempt >= attempts) throw error;
+        await new Promise((done) => setTimeout(done, retryMs * 2 ** (attempt - 1)));
+        continue;
+      }
+      if (this.disposed) throw new Error("GameScene: disposed before its tile images were in");
+      return;
+    }
+  }
+
   /** Update placed tiles */
   updateTiles(tiles: TileRenderData[]): void {
     this.latestTiles = tiles.slice();

@@ -33,7 +33,7 @@ export interface VillageStageProps {
   initialLeaving?: boolean;
   /**
    * The village in 3D, drawn from the editor's state; without it, the plan view. `onDrawn` is its ready signal: called once its
-   * first frame with every tile and texture is drawn (`GameCanvas`'s `onReady`, after the boards' asset loading).
+   * first frame is drawn with every tile's model and every tile image in (`VillageLayoutCanvas`'s `onReady`).
    */
   renderCanvas?: (view: LayoutBoardView, onDrawn: () => void) => ReactNode;
   /**

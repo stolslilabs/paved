@@ -19,8 +19,10 @@ export interface VillageLayoutCanvasProps {
   skins?: TileSkins;
   onScene?: (scene: GameScene | null) => void;
   /**
-   * The ready signal (#761): the scene's first frame is drawn, with the models of every tile handed over and the tile images
-   * (the boards' asset loading: `GameScene.init` waits for them, then `start` draws that frame). Once per scene.
+   * The ready signal (#761): the scene's first frame is drawn with the models of every tile handed over (the boards' asset
+   * loading: `GameScene.init` waits for them, then `start` draws that frame), and every tile image is in
+   * (`GameScene.tileImagesReady`, which asks again for one that failed). Once per scene. Images that never come call
+   * `onError` instead.
    */
   onReady?: () => void;
   /** The renderer could not start: the page falls back to the plan view (`LayoutBoard`). */
@@ -41,14 +43,22 @@ export default function VillageLayoutCanvas({ view, settings, basePath, skins, o
   const slots = useMemo(() => (editing ? plates.map((p) => ({ ...toChain(p), fits: true })) : undefined), [editing, plates]);
   const ghost = useMemo<BoardGhost | null>(() => (pending ? { ...toChain(pending), plan: pending.plan, orientation: pending.orientation, placed: true, fits: true } : null), [pending]);
   const bubble = useMemo<BoardBubble | null>(() => (view.bubble ? { ...view.bubble, cell: toChain(view.bubble.cell) } : null), [view.bubble]);
-  // One stable handler for the viewport (it calls it again on every change of its identity): the page's, then the ready signal.
-  const latest = useRef({ onScene, onReady });
+  // One stable handler for the viewport (it calls it again on every change of its identity): the page's, then the ready signal
+  // once the tile images are in too (`init` lets the scene start without one that failed) and a frame drawn after them; images
+  // that never come are the renderer's failure (the plan view), so the signal never comes with an asset missing.
+  const latest = useRef({ onScene, onReady, onError });
   useEffect(() => {
-    latest.current = { onScene, onReady };
+    latest.current = { onScene, onReady, onError };
   });
+  const current = useRef<GameScene | null>(null);
   const handleScene = useCallback((scene: GameScene | null) => {
+    current.current = scene;
     latest.current.onScene?.(scene);
-    if (scene) latest.current.onReady?.();
+    if (!scene) return;
+    scene.tileImagesReady().then(
+      () => requestAnimationFrame(() => current.current === scene && latest.current.onReady?.()),
+      (error: unknown) => current.current === scene && latest.current.onError?.(error),
+    );
   }, []);
   const onCellClick = (chain: Cell) => {
     if (!editing) return;

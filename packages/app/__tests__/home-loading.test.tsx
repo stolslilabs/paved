@@ -5,6 +5,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { FADE_MS, FOG_CLEAR_MS, VillageFog } from "../src/components/elements/village-fog";
+import VillageLayoutCanvas from "../src/components/containers/village-layout-canvas";
+import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { SETTINGS_KEY } from "../src/data/settings";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
@@ -29,6 +31,21 @@ vi.mock("../src/routes/home-canvas", () => ({
     </div>
   ),
 }));
+
+// The village canvas's viewport: a stand-in that hands the scene it is given (`viewport.scene`) to `onScene` on mount.
+const viewport = vi.hoisted(() => ({ scene: null as unknown }));
+vi.mock("../src/components/containers/board-viewport", async () => {
+  const { useEffect } = await import("react");
+  return {
+    BoardViewport: ({ onScene }: { onScene?: (scene: unknown) => void }) => {
+      useEffect(() => {
+        onScene?.(viewport.scene);
+        return () => onScene?.(null);
+      }, [onScene]);
+      return null;
+    },
+  };
+});
 
 const WAIT = { timeout: slow(8000) };
 const fog = () => document.querySelector<HTMLElement>("[data-village-fog]");
@@ -138,5 +155,52 @@ describe("VillageFog", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("VillageLayoutCanvas: the ready signal", () => {
+  const view = { tiles: [], editing: false, plates: [], pending: null } as unknown as LayoutBoardView;
+  /** A scene whose tile images come in when the test says (`images.resolve`), or never (`images.reject`). */
+  function fakeScene() {
+    let resolve!: () => void;
+    let reject!: (error: unknown) => void;
+    const ready = new Promise<void>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    viewport.scene = { tileImagesReady: () => ready };
+    return { resolve, reject };
+  }
+
+  it("waits for every tile image after the first frame (one that failed at init is asked for again)", async () => {
+    const images = fakeScene();
+    const onReady = vi.fn();
+    const onError = vi.fn();
+    render(<VillageLayoutCanvas view={view} onReady={onReady} onError={onError} />);
+    await act(async () => {});
+    expect(onReady).not.toHaveBeenCalled();
+    await act(async () => images.resolve());
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reports images that never come as the renderer's failure, never as ready", async () => {
+    const images = fakeScene();
+    const onReady = vi.fn();
+    const onError = vi.fn();
+    render(<VillageLayoutCanvas view={view} onReady={onReady} onError={onError} />);
+    await act(async () => images.reject(new Error("404 tile image")));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "404 tile image" })));
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
+  it("says nothing once the canvas is gone", async () => {
+    const images = fakeScene();
+    const onReady = vi.fn();
+    const { unmount } = render(<VillageLayoutCanvas view={view} onReady={onReady} />);
+    unmount();
+    await act(async () => images.resolve());
+    await new Promise((done) => setTimeout(done, 50));
+    expect(onReady).not.toHaveBeenCalled();
   });
 });
