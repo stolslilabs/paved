@@ -1,5 +1,5 @@
 // No three here: the chimney smoke's settings, small and eager; the effect is a chunk of its own (`chimney-smoke.ts`, loaded by
-// `loadChimneySmoke`). CHIMNEY-SMOKE-1 (#770 PR 1): the study's knobs; nothing on the board reads them yet.
+// `GameScene.syncSmoke`). CHIMNEY-SMOKE-1 (#770 PR 1) made them the study's knobs; CHIMNEY-SMOKE-2 reads them as `RendererSettings.smoke`.
 import type { QualityTier } from "./look";
 import type { Season } from "./daynight-settings";
 
@@ -57,17 +57,24 @@ export interface SmokeSettings {
   custom: Partial<SmokeLook>;
   /** A change of season fades the smoke in or out over this (#770 item 5: about 2 s, never a pop). */
   fadeSeconds: number;
+  /** A tile just placed: its smoke fades in over this, its white voxels gone at once (#770 item 3: about 1 s). */
+  placeSeconds: number;
   /** The smoke's light at full night, a share of the day's (as the fog's: it takes the scene's light, not the hour). */
   night: number;
   /** Each season's smoke (owner, 2026-10-25: on in autumn, winter and spring, off in summer). */
   seasons: Record<Season, SmokeSeason>;
 }
 
+/**
+ * The smoke's own defaults: on, the look "puffs" (#770 open point 2's default: the owner chose no other on PR 1). A scene's are
+ * `SCENE_SMOKE_SETTINGS`: off until its owner turns it on.
+ */
 export const DEFAULT_SMOKE_SETTINGS: SmokeSettings = {
   enabled: true,
   look: "puffs",
   custom: {},
   fadeSeconds: 2,
+  placeSeconds: 1,
   night: 0.35,
   seasons: {
     summer: { enabled: false, amount: 1 },
@@ -97,6 +104,7 @@ export function resolveSmokeSettings(input: SmokeSettingsInput = {}, base: Smoke
     look: input.look === "puffs" || input.look === "wisps" ? input.look : base.look,
     custom: { ...base.custom, ...input.custom },
     fadeSeconds: Math.max(0, finite(input.fadeSeconds, base.fadeSeconds)),
+    placeSeconds: Math.max(0, finite(input.placeSeconds, base.placeSeconds)),
     night: clamp01(finite(input.night, base.night)),
     seasons,
   };
@@ -118,3 +126,9 @@ export function smokeMode(input: { enabled: boolean; ambient: boolean; tier: Qua
 
 /** The most chimneys one smoke mesh holds (its instances are `puffs` a chimney): a full Forest board has about 40. */
 export const MAX_SMOKE_CHIMNEYS = 256;
+
+/**
+ * `RendererSettings.smoke`'s default: off. A scene draws the smoke (and hides the white voxels) only when its owner turns it on, as
+ * the app's board scenes do (`BOARD_SMOKE`): the tile views, the 3D stack and the build-time images keep the white voxels (#770).
+ */
+export const SCENE_SMOKE_SETTINGS: SmokeSettings = { ...DEFAULT_SMOKE_SETTINGS, enabled: false };

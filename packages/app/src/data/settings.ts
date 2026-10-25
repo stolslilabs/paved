@@ -187,13 +187,20 @@ export function squareGridSettings(on: boolean, search: string = globalThis.loca
 export const BOARD_FOG = { enabled: true } as const;
 
 /**
- * What the board takes of the settings: the renderer's settings (quality, the day and night cycle, the ambient effects, the fog, memoised so a change
+ * The chimney smoke on every board (CHIMNEY-SMOKE-2, #770): the renderer's is off by default, so the tile views, the 3D stack and
+ * the build-time images keep the models' white smoke voxels. An ambient effect: none on the Low tier, under reduced motion or with
+ * "Ambient effects" off, the white voxels shown then.
+ */
+export const BOARD_SMOKE = { enabled: true } as const;
+
+/**
+ * What the board takes of the settings: the renderer's settings (quality, the day and night cycle, the ambient effects, the fog, the smoke, memoised so a change
  * applies and a render does not), and the two board switches.
  */
 export function useBoardSettings(): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean } {
   const [{ quality, dayNight, ambient, tilePreview, placementHighlight, squareGrid }] = useDeviceSettings();
   const renderer = useMemo<RendererSettingsInput>(
-    () => ({ quality, dayNight: { enabled: dayNight }, ambient: { enabled: ambient }, fog: BOARD_FOG, squareGrid: squareGridSettings(squareGrid) }),
+    () => ({ quality, dayNight: { enabled: dayNight }, ambient: { enabled: ambient }, fog: BOARD_FOG, smoke: BOARD_SMOKE, squareGrid: squareGridSettings(squareGrid) }),
     [quality, dayNight, ambient, squareGrid],
   );
   return { renderer, tilePreview, placementHighlight };
