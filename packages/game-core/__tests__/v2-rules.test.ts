@@ -13,6 +13,7 @@ import {
   VillageDraft,
   XP_CAP,
   addXp,
+  breakdownOf,
   attackDeck,
   attackDeckSize,
   attackExtras,
@@ -25,6 +26,8 @@ import {
   drawChest,
   freeInventory,
   inventoryOf,
+  layoutBreakdown,
+  layoutGame,
   layoutRefusal,
   layoutScore,
   leagueBoostBps,
@@ -140,6 +143,53 @@ describe("the free village", () => {
     const free = freeInventory(inventory, STARTER);
     expect(free.reduce((a, b) => a + b, 0)).toBe(2);
     expect(free[9]).toBe(2);
+  });
+});
+
+describe("a layout's points by structure", () => {
+  it("adds up to the layout's score on every starter layout, the most points first, each structure once", () => {
+    for (const layout of STARTER_LAYOUTS) {
+      const { lines, other, score } = layoutBreakdown(layout);
+      expect(score).toBe(layoutScore(layout));
+      expect(other).toBe(0);
+      expect(lines.reduce((sum, l) => sum + l.points, 0)).toBe(score);
+      expect(lines.length).toBeGreaterThan(0);
+      for (let i = 1; i < lines.length; i++) expect(lines[i - 1]!.points).toBeGreaterThanOrEqual(lines[i]!.points);
+      expect(new Set(lines.map((l) => l.key)).size).toBe(lines.length);
+    }
+  });
+
+  it("gives each structure its areas by cell, on the layout's cells, as many as its tiles", () => {
+    const cells = new Set([STARTER_TILE, ...STARTER].map((t) => `${t.x},${t.y}`));
+    for (const line of layoutBreakdown(STARTER).lines) {
+      expect(line.areas).toHaveLength(line.tiles);
+      for (const a of line.areas) {
+        expect(cells.has(`${a.x},${a.y}`)).toBe(true);
+        expect(a.areas).toBeGreaterThan(0);
+        expect(a.areas).toBeLessThanOrEqual(0x1ff);
+      }
+    }
+  });
+
+  it("is a function of the layout alone: the same lines whatever the listing order", () => {
+    expect(layoutBreakdown([...STARTER].reverse())).toEqual(layoutBreakdown(STARTER));
+  });
+
+  it("keeps a structure's key while the layout changes elsewhere", () => {
+    const before = layoutBreakdown(STARTER).lines;
+    // The last tile sent back: the structures it was not part of keep their keys.
+    const last = STARTER[STARTER.length - 1]!;
+    const after = new Set(layoutBreakdown(STARTER.slice(0, -1)).lines.map((l) => l.key));
+    const untouched = before.filter((l) => !l.areas.some((a) => a.x === last.x && a.y === last.y));
+    expect(untouched.length).toBeGreaterThan(0);
+    for (const l of untouched) expect(after.has(l.key)).toBe(true);
+  });
+
+  it("is empty for the starter alone, and puts the points no structure holds on their own", () => {
+    expect(layoutBreakdown([])).toEqual({ lines: [], other: 0, score: 0 });
+    const game = layoutGame(STARTER);
+    const { lines, other } = breakdownOf(game);
+    expect(lines.reduce((sum, l) => sum + l.points, 0) + other).toBe(game.score);
   });
 });
 
