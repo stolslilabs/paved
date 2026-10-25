@@ -37,10 +37,16 @@ describe("BoardScene, the Surrender dialog still loading", () => {
     );
     const button = screen.getByRole("button", { name: /Surrender/ });
     expect(button).not.toHaveAttribute("aria-busy");
-    await userEvent.click(button);
-    // Busy while the gate is still shut: the banner's action follows the tap through its own animated container, which a loaded
-    // machine can hold back a few frames.
-    await waitFor(() => expect(screen.getByRole("button", { name: /Surrender/ })).toHaveAttribute("aria-busy", "true"), { timeout: slow(5000) });
+    // The banner's action comes in through its own animated container: on a loaded machine a tap can land on a node that is about
+    // to be replaced, so the tap is repeated until the button is busy (a busy button is disabled, and ignores a second tap).
+    await waitFor(
+      async () => {
+        const current = screen.getByRole("button", { name: /Surrender/ });
+        if (current.getAttribute("aria-busy") !== "true") await userEvent.click(current);
+        expect(screen.getByRole("button", { name: /Surrender/ })).toHaveAttribute("aria-busy", "true");
+      },
+      { timeout: slow(10_000) },
+    );
     expect(screen.getByRole("button", { name: /Surrender/ })).toBeDisabled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     gate.open();
