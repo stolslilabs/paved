@@ -8,6 +8,7 @@ const SIZES = {
   md: "text-[1.25rem]",
   lg: "text-[1.5rem]",
   xl: "text-[2rem]",
+  "2xl": "text-[3rem]",
 } as const;
 
 export type IconSize = keyof typeof SIZES;
@@ -17,7 +18,7 @@ export interface IconProps {
   name: string;
   /** Which of the owner's files: `solid` (`solid.min.js`, every solid icon) or `thin` (`thin.min.js`, one icon so far). */
   variant?: FaVariant;
-  /** 12, 16, 20, 24 or 32 px. Default `md`. */
+  /** 12, 16, 20, 24, 32 or 48 px. Default `md`. */
   size?: IconSize;
   /** The accessible name. Without it the icon is decorative and hidden from assistive technology. */
   label?: string;

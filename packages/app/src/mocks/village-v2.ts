@@ -111,7 +111,9 @@ export const CHESTS: readonly Chest[] = [
 
 /** One fixture per state of the chests (`Scenes/Village v2/Chests`). */
 export const VILLAGE_CHESTS = {
-  waiting: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW },
+  waiting: { chests: CHESTS, pvpToday: 2, pvpRanks: ["gold", "silver"], resetsAt: TOMORROW, now: MOCK_NOW },
+  free: { chests: CHESTS.slice(2), pvpToday: 0, resetsAt: TOMORROW, now: MOCK_NOW },
+  noRanks: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW },
   opening: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opening: 41 },
   gold: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 41, draw: { rank: "gold", plans: [P.road, P.wonder, P.cityEdge], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
   goldChosen: {
@@ -128,7 +130,9 @@ export const VILLAGE_CHESTS = {
   cobbles: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 41, draw: { rank: "gold", plans: [P.road, P.wonder, P.cityEdge], cobbles: 50 } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
   taking: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, initialChoice: 1, busy: true },
   taken: { chests: CHESTS.slice(1), pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, taken: { plan: P.wonder, cobbles: 50 } },
-  capped: { chests: CHESTS.slice(2), pvpToday: 3, resetsAt: TOMORROW, now: MOCK_NOW },
+  capped: { chests: CHESTS.slice(2), pvpToday: 3, pvpRanks: ["gold", "silver", "bronze"], resetsAt: TOMORROW, now: MOCK_NOW },
+  lastMinute: { chests: CHESTS.slice(2), pvpToday: 3, pvpRanks: ["gold", "silver", "bronze"], resetsAt: TOMORROW, now: TOMORROW - 42 },
+  ready: { chests: CHESTS.slice(2), pvpToday: 0, ready: true, resetsAt: TOMORROW + DAY, now: TOMORROW + 3 },
   empty: { chests: [], pvpToday: 0, resetsAt: TOMORROW, now: MOCK_NOW },
   refused: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, refusal: "This chest was opened already. Nothing was taken." },
   loading: { status: { kind: "loading" } },

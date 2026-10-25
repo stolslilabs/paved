@@ -10,13 +10,16 @@ import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useUpTo } from "../ref";
+import { chestsSeenDay } from "../chests-seen";
+import { READY_S } from "../../components/containers/chest-slots";
 import { countsByPlan, refusalText, useVillageArt } from "../village-v2";
 
 /**
  * `/village/chests` (#739, PvP v2 step 1): the chests won and not opened yet, by rank, from `useChests` (the mock ledger in step
  * 1, #741). They open in the order won: Open draws the oldest's tiles (bronze one, silver 2, gold 3) and the Cobbles it may hold;
- * the tile kept (`claimChest`) goes to the inventory. The day's PvP chests left, until the next UTC day. A source that does not
- * serve them (the chain before step 3) says so.
+ * the tile kept (`claimChest`) goes to the inventory. The day's PvP chests left, until the next UTC day: the slots' countdown
+ * ticks with the clock, and a new day reached on the page says "Ready" for `READY_S` (#759). Seeing the page marks the day seen,
+ * which takes the free slots off the home's badge. A source that does not serve them (the chain before step 3) says so.
  */
 export default function Page() {
   const wallet = useAccount();
@@ -37,11 +40,16 @@ export default function Page() {
   // The day's PvP chests count from 0 at each UTC day: a new day reads them again (the read itself is not keyed by day).
   const day = dayOf(now);
   const shownDay = useRef(day);
+  // The moment the new day was reached on the page: the slots say "Ready" until `READY_S` after it.
+  const [resetAt, setResetAt] = useState<number | null>(null);
   useEffect(() => {
+    chestsSeenDay.set(day);
     if (shownDay.current === day) return;
     shownDay.current = day;
+    setResetAt(day * DAY_S);
     if (me) void client.invalidateQueries({ queryKey: queryKeys.chain.v2.chests(me) });
   }, [day, me, client]);
+  const ready = resetAt !== null && now < resetAt + READY_S;
 
   const data = read.data;
   const chests = useMemo<Chest[]>(() => (data ? data.pending.map((rank, i) => ({ id: i + 1, rank })) : []), [data]);
@@ -65,6 +73,7 @@ export default function Page() {
       chests={chests}
       inOrder
       pvpToday={data?.pvpToday ?? 0}
+      ready={ready}
       resetsAt={(day + 1) * DAY_S}
       now={now}
       opened={open ? { chestId: -1 - opens, draw: { rank: open.rank, plans: open.plans, cobbles: open.cobbles > 0 ? open.cobbles : null } } : null}
@@ -76,6 +85,7 @@ export default function Page() {
       owned={village.data ? countsByPlan(village.data.inventory) : undefined}
       tileArt={tileArt}
       onBack={onBack}
+      onPlay={() => go("/play")}
       onConnect={() => void wallet.connect()}
       onRetry={() => void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all })}
       onOpen={() => {

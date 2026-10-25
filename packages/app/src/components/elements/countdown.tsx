@@ -23,11 +23,13 @@ export interface CountdownProps {
   label?: string;
   /** Leaves the visible label out (the icon and the time stay); the timer's accessible name still carries it. */
   hideLabel?: boolean;
+  /** `lg`: the label over a large figure, as a page's hero (the Chests page's reset, issue 759). Default `sm`, one line. */
+  size?: "sm" | "lg";
   className?: string;
 }
 
 /** The time left before a game expires (`expires_at`); amber under an hour, red once expired. */
-export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, className }: CountdownProps) {
+export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, size = "sm", className }: CountdownProps) {
   const left = expiresAt - now;
   const state = left <= 0 ? "expired" : left < COUNTDOWN_WARN_S ? "warning" : "ok";
   return (
@@ -36,21 +38,36 @@ export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, cla
       role="timer"
       aria-label={state === "expired" ? "Expired" : `${label} ${formatRemaining(left)}`}
       data-state={state}
+      data-size={size}
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs whitespace-nowrap",
+        size === "lg" ? "inline-flex flex-col items-center gap-1 whitespace-nowrap" : "inline-flex items-center gap-1.5 text-xs whitespace-nowrap",
         state === "ok" && "text-muted-foreground",
         state === "warning" && "text-warning",
         state === "expired" && "text-destructive-text",
         className,
       )}
     >
-      <Icon name="clock" size="sm" />
-      {state === "expired" ? (
-        <span className="font-semibold">Expired</span>
+      {size === "lg" ? (
+        <>
+          <span className="flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase">
+            <Icon name="clock" size="xs" />
+            {state === "expired" ? "Expired" : label}
+          </span>
+          <time dateTime={`PT${Math.max(0, left)}S`} className="numeric text-4xl font-bold text-foreground desktop:text-5xl">
+            {formatRemaining(left)}
+          </time>
+        </>
       ) : (
         <>
-          {!hideLabel && <span className="hidden tablet:inline">{label}</span>}
-          <time dateTime={`PT${Math.max(0, left)}S`} className="numeric font-semibold">{formatRemaining(left)}</time>
+          <Icon name="clock" size="sm" />
+          {state === "expired" ? (
+            <span className="font-semibold">Expired</span>
+          ) : (
+            <>
+              {!hideLabel && <span className="hidden tablet:inline">{label}</span>}
+              <time dateTime={`PT${Math.max(0, left)}S`} className="numeric font-semibold">{formatRemaining(left)}</time>
+            </>
+          )}
         </>
       )}
     </span>
