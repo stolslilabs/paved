@@ -13,7 +13,7 @@ import { ProfileSlot } from "./profile-context";
 export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "house" },
   { id: "quests", label: "Missions", icon: "scroll" },
-  { id: "play", label: "Play", icon: "play" },
+  { id: "play", label: "Play", icon: "hammer" },
   { id: "vault", label: "Vault", icon: "piggy-bank" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];

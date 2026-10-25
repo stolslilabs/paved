@@ -12,7 +12,7 @@ import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
 import { useChests, useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
 import { queryKeys } from "../../data/keys";
-import { playedPvp, usePvpLeague } from "../../data/pvp-league";
+import { usePvpLeague } from "../../data/pvp-league";
 import { useMissionsReady } from "../../data/quests";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
@@ -35,7 +35,7 @@ const EDIT = "edit";
 /**
  * `/` (#753, PvP v2 step 1): the player's own village full screen, the home of the game. The village, its inventory and the
  * level from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting, today's missions to claim, the crowns and
- * league once PvP is played (`Matchmaker.league`), the active
+ * league (`Matchmaker.league`, Unranked before any PvP: the badge is the home's way to the league, #755), the active
  * Challenge game and the spawn pause. The overlays paint first; the stage (`home-stage.tsx`: the editor, the engine, the tile art)
  * and then the 3D scene (`home-canvas.tsx`) load lazily under them, the plan view where WebGL is
  * missing or the renderer cannot start. Edit mode is in the URL (`?edit`, an entry of its own), so Back leaves it first; leaving
@@ -134,7 +134,7 @@ export default function Page() {
 
   const failed = readOnly ? null : read.error;
   return (
-    <PrefetchOnIntent routes={["/play", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/pvp/defence", "/settings"]}>
+    <PrefetchOnIntent routes={["/play", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
       <HomeVillageScene
         village={village}
         error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
@@ -154,7 +154,7 @@ export default function Page() {
             : 0
         }
         missions={missions}
-        league={league && playedPvp(league) ? { crowns: league.crowns } : null}
+        league={league ? { crowns: league.crowns } : null}
         activeGame={wallet.address ? (active.data ?? null) : null}
         spawnPaused={paused.data ?? false}
         now={now}
@@ -166,7 +166,6 @@ export default function Page() {
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
         onLeague={() => go("/pvp/league")}
-        onDefence={() => go("/pvp/defence?from=home")}
         onSettings={() => go("/settings")}
         onResume={(id) => go(`/game/${id}`)}
         onRetry={() => {
