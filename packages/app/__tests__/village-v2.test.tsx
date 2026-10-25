@@ -235,30 +235,24 @@ describe("the v2 village scene (#739)", () => {
     expect(document.querySelector(`[data-tile="${OUTER_TILE.id}"]`)).toHaveAttribute("data-cell", `${MOVED_SPOT.x},${MOVED_SPOT.y}`);
   });
 
-  it("Reset all is the eraser held (#756): mouse, touch and keyboard each reset; a tap says it is held; disabled with the starter alone", async () => {
+  it("Reset all is the eraser held in the discard style (#756), resetting as before with the mouse, a finger or the keyboard", async () => {
     for (const press of ["mouse", "touch", "keyboard"] as const) {
       const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} holdMs={50} />));
-      const reset = screen.getByRole("button", { name: /^Hold to reset all/ });
+      const reset = screen.getByRole("button", { name: "Hold to reset all: the starter alone, every tile back in the inventory" });
       expect(reset.querySelector("[data-icon]")).toHaveAttribute("data-icon", "eraser");
       expect(reset).toHaveAttribute("data-tone", "destructive");
-      // A tap: nothing reset, the hint says to hold.
-      if (press === "keyboard") {
-        fireEvent.keyDown(reset, { key: "Enter" });
-        fireEvent.keyUp(reset, { key: "Enter" });
-      } else {
-        fireEvent.pointerDown(reset, { button: 0, pointerType: press });
-        fireEvent.pointerUp(reset, { button: 0, pointerType: press });
-      }
-      expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
-      expect(screen.getByRole("status")).toHaveTextContent(/Hold the eraser to reset all/);
-      // Held: the starter alone.
       if (press === "keyboard") fireEvent.keyDown(reset, { key: " " });
       else fireEvent.pointerDown(reset, { button: 0, pointerType: press });
       await waitFor(() => expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0));
       expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
+      // The starter alone: nothing left to reset.
       expect(screen.getByRole("button", { name: /^Hold to reset all/ })).toBeDisabled();
       unmount();
     }
+    // A screen reader's activation acts at once, as every hold's.
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} />));
+    fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
+    expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
   });
 
   it("saves a changed layout and shows the new score; leaving with changes asks first", async () => {

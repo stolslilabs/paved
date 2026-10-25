@@ -7,7 +7,6 @@ import { tileName } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Icon } from "../ui/icon";
-import { useSfx } from "./audio-provider";
 import type { BoardBubble } from "./board-viewport";
 import { InventoryTray } from "./inventory-tray";
 import type { LayoutBoardView, LayoutPending } from "./layout-board";
@@ -81,8 +80,8 @@ function startOf(tiles: readonly BoardTile[], hand: LayoutEditorOptions["initial
   return { draft, hand: { from: "board", id: tile.id, origin: tile } };
 }
 
-/** How long a refused tile shakes, and a tap on Reset all says it is held, ms. */
-const FLASH_MS = 1_600;
+/** How long a refused tile shakes, ms. */
+const SHAKE_MS = 1_600;
 
 /**
  * The editor's state and moves. Placing works as on the boards, with no validation (#756, the owner's decisions): a card of the
@@ -122,17 +121,9 @@ export function useLayoutEditor({
   const [draft, setDraft] = useState<readonly BoardTile[]>(start.draft);
   const [hand, setHand] = useState<LayoutHand | null>(start.hand);
   const [shaking, setShaking] = useState<number | null>(null);
-  const [resetTapped, setResetTapped] = useState(false);
   const [leaving, setLeaving] = useState(initialLeaving);
   const shake = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tapped = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (shake.current) clearTimeout(shake.current);
-      if (tapped.current) clearTimeout(tapped.current);
-    },
-    [],
-  );
+  useEffect(() => () => void (shake.current && clearTimeout(shake.current)), []);
 
   // A save that landed closes the editor on the new layout.
   const closeOnSave = useRef(setEditing);
@@ -225,7 +216,7 @@ export function useLayoutEditor({
     if (!canLift(draft, tile.id)) {
       setShaking(tile.id);
       if (shake.current) clearTimeout(shake.current);
-      shake.current = setTimeout(() => setShaking(null), FLASH_MS);
+      shake.current = setTimeout(() => setShaking(null), SHAKE_MS);
       return;
     }
     setShaking(null);
@@ -253,12 +244,6 @@ export function useLayoutEditor({
     setDraft([{ ...STARTER }]);
     setHand(null);
   };
-  /** Reset all tapped, not held: the hint says it is held. */
-  const resetTap = () => {
-    setResetTapped(true);
-    if (tapped.current) clearTimeout(tapped.current);
-    tapped.current = setTimeout(() => setResetTapped(false), FLASH_MS * 2);
-  };
   const save = () => {
     if (over) return;
     setHand(null);
@@ -268,17 +253,15 @@ export function useLayoutEditor({
   const hint =
     shaking != null
       ? "This tile holds the village together: take the outer tiles first."
-      : resetTapped
-        ? "Hold the eraser to reset all: the starter alone, every tile back in the inventory."
-        : held
-          ? `Tap a lit cell to move ${tileName(held.plan)}, or tap it to let it go.`
-          : handPlan != null
-            ? plates.length
-              ? `Tap a lit cell to place ${tileName(handPlan)}.`
-              : `${tileName(handPlan)} fits nowhere yet: place another tile first.`
-            : full
-              ? "Every slot is used: tap a placed tile to move it, or send it back to free one."
-              : "Choose a tile in the inventory, or tap a placed tile to move it.";
+      : held
+        ? `Tap a lit cell to move ${tileName(held.plan)}, or tap it to let it go.`
+        : handPlan != null
+          ? plates.length
+            ? `Tap a lit cell to place ${tileName(handPlan)}.`
+            : `${tileName(handPlan)} fits nowhere yet: place another tile first.`
+          : full
+            ? "Every slot is used: tap a placed tile to move it, or send it back to free one."
+            : "Choose a tile in the inventory, or tap a placed tile to move it.";
 
   const bubble: BoardBubble | null = pending && {
     cell: pending,
@@ -328,7 +311,6 @@ export function useLayoutEditor({
     cancel,
     sendBack,
     reset,
-    resetTap,
     save,
   };
 }
@@ -336,12 +318,11 @@ export function useLayoutEditor({
 export type LayoutEditor = ReturnType<typeof useLayoutEditor>;
 
 /**
- * Reset all (#756): the eraser held, in the style of the board's discard (a grey circle whose ring fills red). It brings the
- * village back to the starter alone, every tile in the inventory. A tap says in the hint that it is held. Its place is the
+ * Reset all (#756): the eraser held, in the style of the board's discard (a grey circle whose ring fills red). Only its look
+ * changed: held, it brings the village back to the starter alone, every tile in the inventory, as before. Its place is the
  * edit bar, beside the slots.
  */
 export function ResetAllHold({ editor, holdMs, className }: { editor: LayoutEditor; holdMs?: number; className?: string }) {
-  const play = useSfx();
   return (
     <HoldButton
       label="Hold to reset all: the starter alone, every tile back in the inventory"
@@ -350,11 +331,7 @@ export function ResetAllHold({ editor, holdMs, className }: { editor: LayoutEdit
       tone="destructive"
       holdMs={holdMs}
       disabled={editor.saving || editor.draft.length <= 1}
-      onComplete={() => {
-        play("discard");
-        editor.reset();
-      }}
-      onShort={editor.resetTap}
+      onComplete={editor.reset}
       className={cn("size-11 rounded-full", className)}
     />
   );

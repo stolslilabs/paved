@@ -48,8 +48,6 @@ export interface HoldButtonProps {
    * `holdMs` and `holdKey`; the button's are unused.
    */
   hold?: Hold;
-  /** A press on the button let go before the end (a tap): nothing acted, the caller may say that it is held. */
-  onShort?: () => void;
   className?: string;
 }
 
@@ -60,7 +58,7 @@ export interface HoldButtonProps {
  * (hold Enter or Space). An activation with no press before it, as a screen reader's double tap sends, acts at once: the
  * hold guards a slip of the finger, which that activation is not.
  */
-export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", hold: shared, onShort, className }: HoldButtonProps) {
+export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", hold: shared, className }: HoldButtonProps) {
   const off = disabled || busy;
   const own = useHold({ onComplete, holdMs, holdKey, disabled: off });
   const hold = shared ?? own;
@@ -74,9 +72,7 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
     hold.start();
   };
   const release = () => {
-    if (!pressed.current) return;
-    if (hold.state === "holding" && !hold.completed()) onShort?.();
-    hold.release();
+    if (pressed.current) hold.release();
   };
 
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {

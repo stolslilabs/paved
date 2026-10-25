@@ -1,4 +1,4 @@
-import { act, cleanup as cleanupAll, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -64,30 +64,6 @@ describe("HoldButton", () => {
     fireEvent.pointerCancel(button());
     act(() => vi.advanceTimersByTime(HOLD_MS * 2));
     expect(onComplete).not.toHaveBeenCalled();
-  });
-
-  it("tells a press let go before the end (onShort, #756), never a completed hold nor a disabled button's", () => {
-    const onShort = vi.fn();
-    const onComplete = setup({ onShort });
-    fireEvent.pointerDown(button(), { button: 0 });
-    act(() => vi.advanceTimersByTime(200));
-    fireEvent.pointerUp(button(), { button: 0 });
-    fireEvent.click(button(), { detail: 1 });
-    expect(onShort).toHaveBeenCalledOnce();
-    fireEvent.keyDown(button(), { key: "Enter" });
-    fireEvent.keyUp(button(), { key: "Enter" });
-    expect(onShort).toHaveBeenCalledTimes(2);
-    fireEvent.pointerDown(button(), { button: 0 });
-    act(() => vi.advanceTimersByTime(HOLD_MS));
-    fireEvent.pointerUp(button(), { button: 0 });
-    fireEvent.pointerLeave(button());
-    expect(onComplete).toHaveBeenCalledOnce();
-    expect(onShort).toHaveBeenCalledTimes(2);
-    cleanupAll();
-    setup({ onShort, disabled: true });
-    fireEvent.pointerDown(button(), { button: 0 });
-    fireEvent.pointerUp(button(), { button: 0 });
-    expect(onShort).toHaveBeenCalledTimes(2);
   });
 
   it("holding Enter or Space acts; a key let go early cancels; the key's repeats do not restart the hold", () => {
