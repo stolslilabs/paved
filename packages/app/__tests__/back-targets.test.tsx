@@ -12,7 +12,7 @@ import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { discardTile, preloadPages } from "./route-helpers";
 
-preloadPages("home", "play", "story", "story-board", "quests", "vault", "settings", "credits", "referral", "theme");
+preloadPages("home", "play", "story", "story-board", "quests", "vault", "settings", "credits", "referral", "theme", "welcome");
 
 beforeEach(() => {
   localStorage.clear();
@@ -128,6 +128,16 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     expect(heading.closest("header")!.querySelector("button")).toHaveAccessibleName("Back");
     await back();
     await waitFor(() => expect(at(router)).toBe(parent));
+  });
+
+  it("the welcome, a first visit: Back opens the village as a guest, and the welcome does not come back", async () => {
+    localStorage.clear();
+    resetWelcomedForTests();
+    const router = open("/welcome");
+    await screen.findByRole("heading", { level: 1, name: "Welcome to Paved" }, { timeout: slow(5000) });
+    expect(screen.getByRole("banner").querySelector("button")).toHaveAccessibleName("Back");
+    await back();
+    await waitFor(() => expect(at(router)).toBe("/"));
   });
 
   it("from Settings reached through Vault, Back is the village, not Vault", async () => {

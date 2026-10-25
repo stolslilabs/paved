@@ -40,7 +40,7 @@ describe("the page headers", () => {
     ["a flow's top bar without balances", () => <TopBar title="Something broke" balances={false} />],
     ["a tab page's title row", () => <TabPage tab="vault" title="Vault" subtitle="Deposit PAVED for vPAVED" end={<span>Wallet</span>}>{null}</TabPage>],
     ["a page reached from another", () => <TabPage tab="settings" title="Credits" onBack={() => {}}>{null}</TabPage>],
-    ["Welcome's space above the content", () => <WelcomeScene {...WELCOME.firstVisit} />],
+    ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
   ])("%s is a page header on the token", (_, page) => {
     const { container } = render(page());
     const el = header(container);
@@ -53,6 +53,7 @@ describe("the page headers", () => {
   it.each([
     ["a flow's top bar", () => <TopBar title="Choose a mode" onBack={() => {}} />],
     ["a tab page's header", () => <TabPage tab="vault" title="Vault">{null}</TabPage>],
+    ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
   ])("%s is sticky, with Back at its top left", (_, page) => {
     const { container } = render(page());
     const el = header(container);

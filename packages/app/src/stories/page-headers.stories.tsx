@@ -90,4 +90,4 @@ export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.t
 export const PvpDefence: Story = { render: () => <PvpDefenceScene {...PVP_DEFENCE.shielded} onBack={fn()} /> };
 export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={fn()} /> };
 export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
-export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} /> };
+export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} onBack={fn()} /> };

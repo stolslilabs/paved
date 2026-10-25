@@ -73,6 +73,15 @@ describe("Welcome", () => {
     expect(onTraining).toHaveBeenCalledOnce();
   });
 
+  it("has Back at its top left, to the village (#760)", async () => {
+    const onBack = vi.fn();
+    render(wrap(<WelcomeScene {...WELCOME.firstVisit} onBack={onBack} />));
+    const header = screen.getByRole("banner");
+    expect(header.querySelector("button")).toHaveAccessibleName("Back");
+    await userEvent.click(within(header).getByRole("button", { name: "Back" }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
   it("is busy while connecting, and says why a connect failed", () => {
     const { unmount } = render(wrap(<WelcomeScene {...WELCOME.connecting} />));
     expect(screen.getByRole("button", { name: /connecting/i })).toHaveAttribute("aria-busy", "true");
