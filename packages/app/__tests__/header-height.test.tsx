@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AppNav } from "../src/components/containers/app-nav";
 import { TabPage } from "../src/components/containers/tab-page";
@@ -29,10 +29,10 @@ function header(container: HTMLElement): HTMLElement {
 describe("the page headers", () => {
   it("the token holds one value below desktop and one from it, and the utility takes it", () => {
     const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
-    expect(css).toMatch(/:root \{\s*--header-h: 6rem;[\s\S]*?@media \(width >= 64rem\) \{\s*--header-h: 4rem;/);
+    // One row at every width (#760): the title row's 56 px below `desktop`, whatever balances the page shows.
+    expect(css).toMatch(/:root \{\s*--header-h: 3\.5rem;\s*@media \(width >= 64rem\) \{\s*--header-h: 4rem;/);
     expect(css).toMatch(/@utility page-header \{[^}]*height: calc\(var\(--header-h\) \+ env\(safe-area-inset-top\)\);/);
-    // A page with no balance on a phone (#720): its title row alone below `desktop`.
-    expect(css).toMatch(/@utility page-header-single \{\s*@media \(width < 64rem\) \{\s*--header-h: 3\.5rem;\s*--header-rows: 1fr;/);
+    expect(css).not.toMatch(/page-header-single|--header-rows/);
   });
 
   it.each([
@@ -40,12 +40,26 @@ describe("the page headers", () => {
     ["a flow's top bar without balances", () => <TopBar title="Something broke" balances={false} />],
     ["a tab page's title row", () => <TabPage tab="vault" title="Vault" subtitle="Deposit PAVED for vPAVED" end={<span>Wallet</span>}>{null}</TabPage>],
     ["a page reached from another", () => <TabPage tab="settings" title="Credits" onBack={() => {}}>{null}</TabPage>],
-    ["Welcome's space above the content", () => <WelcomeScene {...WELCOME.firstVisit} />],
+    ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
   ])("%s is a page header on the token", (_, page) => {
     const { container } = render(page());
     const el = header(container);
     expect(el).toHaveClass("page-header");
     expect(el.className).not.toMatch(OWN_HEIGHT);
+  });
+
+  // PAGE-HEADER (#760): sticky at the top of the page's scrolling region (a tab page's) or of its column (a flow's document), on
+  // the navigation's backdrop, with Back at its top left.
+  it.each([
+    ["a flow's top bar", () => <TopBar title="Choose a mode" onBack={() => {}} />],
+    ["a tab page's header", () => <TabPage tab="vault" title="Vault">{null}</TabPage>],
+    ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
+  ])("%s is sticky, with Back at its top left", (_, page) => {
+    const { container } = render(page());
+    const el = header(container);
+    expect(el).toHaveClass("sticky", "top-0", "backdrop-blur");
+    const back = within(el).getByRole("button", { name: "Back" });
+    expect(el.querySelector("button")).toBe(back);
   });
 
   it("the page shells of Pages/Headers cover every route but the game scenes'", () => {
