@@ -66,8 +66,8 @@ export interface SmokeSettings {
 }
 
 /**
- * The smoke's own defaults: on, the look "puffs" (#770 open point 2's default: the owner chose no other on PR 1). A scene's are
- * `SCENE_SMOKE_SETTINGS`: off until its owner turns it on.
+ * The smoke's own defaults: on, the look "puffs" (#770 open point 2's default: the owner chose no other on PR 1). A scene's
+ * `RendererSettings.smoke` is off until its owner turns it on; the chunk resolves it over these.
  */
 export const DEFAULT_SMOKE_SETTINGS: SmokeSettings = {
   enabled: true,
@@ -126,9 +126,3 @@ export function smokeMode(input: { enabled: boolean; ambient: boolean; tier: Qua
 
 /** The most chimneys one smoke mesh holds (its instances are `puffs` a chimney): a full Forest board has about 40. */
 export const MAX_SMOKE_CHIMNEYS = 256;
-
-/**
- * `RendererSettings.smoke`'s default: off. A scene draws the smoke (and hides the white voxels) only when its owner turns it on, as
- * the app's board scenes do (`BOARD_SMOKE`): the tile views, the 3D stack and the build-time images keep the white voxels (#770).
- */
-export const SCENE_SMOKE_SETTINGS: SmokeSettings = { ...DEFAULT_SMOKE_SETTINGS, enabled: false };

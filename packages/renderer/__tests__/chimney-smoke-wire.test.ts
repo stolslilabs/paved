@@ -7,7 +7,7 @@ import { Plan, getPlanKey } from "@paved/game-core";
 import { GameScene } from "../src/core/GameScene";
 import { TileRenderer } from "../src/core/TileRenderer";
 import { ChimneySmoke } from "../src/core/chimney-smoke";
-import { DEFAULT_SMOKE_SETTINGS } from "../src/core/chimney-smoke-settings";
+import { DEFAULT_SMOKE_SETTINGS, resolveSmokeSettings } from "../src/core/chimney-smoke-settings";
 import { chimneyOptionsOf, findChimneys } from "../src/core/chimneys";
 import { isOutline } from "../src/core/outlines";
 import { resolveRendererSettings, type RendererSettingsInput } from "../src/core/settings";
@@ -129,7 +129,10 @@ describe("TileRenderer: the white voxels on the placed tiles only (#770 item 2)"
 describe("the scene's smoke setting", () => {
   it("is off by default (the tile views, the 3D stack and the build-time images keep their white voxels), on in the boards", () => {
     expect(resolveRendererSettings({}).smoke.enabled).toBe(false);
-    expect(resolveRendererSettings({ smoke: { enabled: true } }).smoke).toEqual({ ...DEFAULT_SMOKE_SETTINGS, enabled: true });
+    expect(resolveRendererSettings({ smoke: { enabled: true } }).smoke).toEqual({ enabled: true });
+    // Kept as given: the smoke's chunk resolves it over its defaults.
+    const given = resolveRendererSettings({ smoke: { enabled: true, fadeSeconds: 3, seasons: { spring: { enabled: false } } } }).smoke;
+    expect(resolveSmokeSettings(given)).toMatchObject({ enabled: true, fadeSeconds: 3, look: "puffs", seasons: { spring: { enabled: false } } });
   });
 });
 

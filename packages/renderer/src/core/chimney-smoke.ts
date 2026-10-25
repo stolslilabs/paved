@@ -8,7 +8,7 @@
 import * as THREE from "three";
 import type { AmbientEffect } from "./ambient-loop";
 import { chimneyOptionsOf, findChimneys, mouthPoint, type CellBox, type Chimney } from "./chimneys";
-import { MAX_SMOKE_CHIMNEYS, smokeLookOf, type SmokeMode, type SmokeSettings } from "./chimney-smoke-settings";
+import { MAX_SMOKE_CHIMNEYS, resolveSmokeSettings, smokeLookOf, type SmokeMode, type SmokeSettings, type SmokeSettingsInput } from "./chimney-smoke-settings";
 import type { Season } from "./daynight-settings";
 import { sunAt } from "./daynight";
 import { isOutline, outlineGeometry } from "./outlines";
@@ -379,9 +379,9 @@ export class ChimneySmoke implements AmbientEffect {
 
   constructor(
     private readonly time: { value: number },
-    settings: SmokeSettings,
+    settings: SmokeSettingsInput,
   ) {
-    this.settings = settings;
+    this.settings = resolveSmokeSettings(settings);
     this.object.name = "chimney-smoke";
     const geometry = quad();
     this.mouths = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SMOKE_CHIMNEYS * 32 * 4), 4);
@@ -538,8 +538,10 @@ export class ChimneySmoke implements AmbientEffect {
     return sources.filter((s) => this.prepared.has(s.key));
   }
 
-  setSettings(settings: SmokeSettings): void {
+  /** The settings, a partial input over the defaults (`RendererSettings.smoke` is the input as given: resolved here, in the chunk). */
+  setSettings(input: SmokeSettingsInput): void {
     const puffs = smokeLookOf(this.settings).puffs;
+    const settings = resolveSmokeSettings(input);
     this.settings = settings;
     if (this.mode !== "moving") this.snap();
     // A new number of puffs a chimney needs the instances laid out again: the caller's `setTiles`.
