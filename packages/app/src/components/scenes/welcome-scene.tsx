@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { documentScrollStartHint } from "../../lib/document-scroll-hint";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
@@ -28,9 +26,9 @@ const POINTS: { icon: string; title: string; text: string }[] = [
 /**
  * The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. Its header is every
  * page's (PAGE-HEADER, #760): one row, sticky, Back at the top left to the village; no title, the card's heading is the page's.
+ * No edge fade under it: the hero fits a phone's height, and the flows' hint would cost the first load a chunk.
  */
 export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTraining, onBack }: WelcomeSceneProps) {
-  useEffect(documentScrollStartHint, []);
   return (
     // Clipped sideways, not `overflow: hidden`: a scroll container would hold the sticky header in place of the document.
     <main className="relative flex min-h-dvh flex-col overflow-x-clip bg-background text-foreground">
@@ -39,7 +37,6 @@ export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTrai
         <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
           <Icon name="chevron-left" />
         </Button>
-        <span aria-hidden data-slot="page-top-hint" className="pointer-events-none absolute inset-x-0 top-full h-6 bg-linear-to-t to-background opacity-0 transition-opacity motion-reduce:transition-none page-less:opacity-100" />
       </header>
 
       <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-end gap-8 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] desktop:max-w-4xl desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-16">
