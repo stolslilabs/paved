@@ -30,6 +30,14 @@ function editState(store: ReturnType<typeof mockImplementation>["store"], change
   store.setItem(MOCK_KEY, JSON.stringify(state));
 }
 
+/**
+ * The mock's views without PvP v2's attack (`attackV2`): `/pvp` serves v2 where it is read (#740, `pvp-v2-route.test.tsx`), so
+ * these tests keep v1's flow, as the chain serves it until step 3.
+ */
+function v1Only<T extends object>(views: T): T {
+  return new Proxy(views, { get: (target, key) => (key === "attackV2" ? undefined : Reflect.get(target, key)) });
+}
+
 /** The mock's sources with the player's village founded (a founded village is in the matchmaker), the wallet restored. */
 async function open(
   path: string,
@@ -37,6 +45,7 @@ async function open(
   signer: (s: ReturnType<typeof mockImplementation>, mine: GameSigner) => GameSigner = (_, mine) => mine,
 ) {
   const s = mockImplementation();
+  s.sources.views = v1Only(s.sources.views);
   const me = s.sources.signer!.address;
   await s.ledger.writesFor(me).foundVillage();
   await prepare?.(s, me);
