@@ -257,6 +257,16 @@ describe("/village/chests", () => {
   }, slow(30_000));
 });
 
+/** The home's Chests in the overlay's column, and in the phone's bar (#763), which carries the same count. */
+async function homeChests(name: string) {
+  const column = await screen.findByRole("navigation", { name: "Village" }, WAIT);
+  const bar = await screen.findByRole("navigation", { name: "Main" }, WAIT);
+  return waitFor(() => {
+    expect(within(bar).getByRole("button", { name: /^Chests/ })).toHaveAccessibleName(name);
+    return within(column).getByRole("button", { name });
+  }, WAIT);
+}
+
 describe("the home's Chests badge (#759)", () => {
   it("counts the day's free slots until the Chests page is seen that day", async () => {
     const s = await open("/", async (s, me) => {
@@ -264,11 +274,11 @@ describe("the home's Chests badge (#759)", () => {
       editPlayer(s.store, (p) => void (p.v2.pvpChests = { [dayOf(Date.now() / 1000)]: 1 }));
     });
     // No chest waiting, 2 of the day's 3 slots free, the page not seen today.
-    await userEvent.click(await screen.findByRole("button", { name: "Chests, 2 waiting" }, WAIT));
+    await userEvent.click(await homeChests("Chests, 2 waiting"));
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/village/chests"), WAIT);
     expect(await screen.findByLabelText("2 of 3 left today", {}, WAIT)).toBeInTheDocument();
     await s.router.navigate(-1);
-    expect(await screen.findByRole("button", { name: "Chests" }, WAIT)).toBeInTheDocument();
+    expect(await homeChests("Chests")).toBeInTheDocument();
   }, slow(30_000));
 });
 
@@ -283,10 +293,10 @@ describe("the home's Chests badge across midnight (#759)", () => {
       await s.ledger.writesFor(me).foundFreeVillage();
       editPlayer(s.store, (p) => void (p.v2.pvpChests = { [today]: 3 }));
     });
-    expect(await screen.findByRole("button", { name: "Chests" }, WAIT)).toBeInTheDocument();
+    expect(await homeChests("Chests")).toBeInTheDocument();
     // Midnight: the 3 slots are free again, and the page is not seen on the new day.
     vi.setSystemTime((today + 1) * DAY_S * 1000 + 2_000);
-    expect(await screen.findByRole("button", { name: "Chests, 3 waiting" }, WAIT)).toBeInTheDocument();
+    expect(await homeChests("Chests, 3 waiting")).toBeInTheDocument();
   }, slow(30_000));
 });
 

@@ -94,6 +94,8 @@ export interface HomeVillageSceneProps {
   onVault?: () => void;
   onLeague?: () => void;
   onSettings?: () => void;
+  /** A pick in the phone's bar (#763): Shop, Chests, Play, League or Settings, as the overlay's buttons lead. */
+  onNavigate?: (tab: Tab) => void;
   onResume?: (gameId: number) => void;
   onRetry?: () => void;
   onFound?: () => void;
@@ -202,28 +204,13 @@ function HomeBar({ children }: { children: ReactNode }) {
     resize?.observe(el);
     return () => resize?.disconnect();
   }, []);
-  const standIn = (
-    <div aria-hidden className="border-t border-border bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur">
-      <div className="h-11 mobile:h-13" />
-    </div>
-  );
+  // The bar's box: its items' height, its padding and its top border; empty, so nothing for assistive technology.
+  const standIn = <div className="box-content h-11 border-t bg-background/95 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] mobile:h-13" />;
   return (
-    <div ref={ref} data-slot="home-bar" className="fixed inset-x-0 bottom-0 z-20 desktop:hidden">
+    <div ref={ref} className="fixed inset-x-0 bottom-0 z-20 desktop:hidden">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
-}
-
-/** A pick in the home's bar: each of its items opens its page as the overlay's buttons did. */
-function barPick(props: HomeVillageSceneProps, tab: Tab) {
-  const open: Partial<Record<Tab, (() => void) | undefined>> = {
-    shop: props.onShop,
-    chests: props.onChests,
-    play: props.onPlay,
-    league: props.onLeague,
-    settings: props.onSettings,
-  };
-  open[tab]?.();
 }
 
 /** The view's overlays: the corners, the right column, Play and Edit, the chips. */
@@ -338,7 +325,7 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
 
       {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
       <HomeBar>
-        <LazyAppNav active={null} desktop="none" badges={{ chests: props.chests }} onNavigate={(tab) => barPick(props, tab)} className="relative" />
+        <LazyAppNav active={null} desktop="none" badges={{ chests: props.chests }} onNavigate={props.onNavigate} className="relative" />
       </HomeBar>
     </>
   );

@@ -37,6 +37,7 @@ const meta = {
     onVault: fn(),
     onLeague: fn(),
     onSettings: fn(),
+    onNavigate: fn(),
     onResume: fn(),
     onRetry: fn(),
     onFound: fn(),

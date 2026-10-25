@@ -131,8 +131,8 @@ describe("Home (#753): the village with its overlays", () => {
   });
 
   it("has the phone's bar below desktop (#763): Shop, Chests, Play, League, Settings, each reaching its page", async () => {
-    const on = { onPlay: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
+    const onNavigate = vi.fn();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onNavigate={onNavigate} />));
     // The bar is its own chunk on the home: a stand-in of its size holds its place until it comes.
     const nav = await screen.findByRole("navigation", { name: "Main" });
     // Below `desktop` only: from it the overlay's column, gear and Play stay (#762).
@@ -142,10 +142,8 @@ describe("Home (#753): the village with its overlays", () => {
     // No item current on the home; the chests waiting on Chests.
     expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
     expect(within(within(nav).getByRole("button", { name: "Chests, 2 waiting" })).getByText("2")).toBeInTheDocument();
-    for (const [i, handler] of [on.onShop, on.onChests, on.onPlay, on.onLeague, on.onSettings].entries()) {
-      await userEvent.click(items[i]!);
-      expect(handler).toHaveBeenCalledTimes(1);
-    }
+    for (const item of items) await userEvent.click(item);
+    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "chests", "play", "league", "settings"]);
   });
 
   it("keeps Missions and Vault in the column below desktop, with no gear and no large Play; Edit and the dial above the bar (#763)", () => {
