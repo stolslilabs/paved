@@ -171,7 +171,7 @@ export function VillageChestsScene({
               )}
               {waiting.length > 0 ? (
                 <section aria-labelledby="chests-title" className="flex flex-col gap-2">
-                  <h2 id="chests-title" className="text-sm font-semibold">
+                  <h2 id="chests-title" className="flex items-center gap-1 text-sm font-semibold">
                     Waiting <span className="numeric text-muted-foreground">{waiting.length}</span>
                   </h2>
                   <ul className="flex flex-col gap-2">
