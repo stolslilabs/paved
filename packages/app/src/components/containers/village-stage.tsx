@@ -68,14 +68,15 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   return (
     <>
       {/* The scene's box: the whole screen in view, what the editor's panel leaves in edit mode. Its place in the tree never changes, so the canvas stays up across the modes. */}
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {/* The village not read yet: a placeholder sky under the overlays (they paint first). */}
         {!village ? (
           <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-background/40 to-board" />
         ) : props.renderCanvas ? (
           props.renderCanvas(view)
         ) : (
-          <LayoutBoard {...view} tileArt={props.tileArt} className="absolute inset-0 bg-board" />
+          // In view nothing on the plan is tapped: it fits the screen. The editor keeps the touch floor, and scrolls past it.
+          <LayoutBoard {...view} fit={!editing} tileArt={props.tileArt} className="absolute inset-0 bg-board" />
         )}
         {editing && village && <EditBar editor={editor} village={village} />}
         {!editing && props.saved && (

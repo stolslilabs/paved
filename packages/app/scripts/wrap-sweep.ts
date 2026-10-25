@@ -71,6 +71,11 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^(scenes-village-v2-layout|containers-layoutboard)--/, kind: "scroll", element: "div[scroll-region]", why: "v2 village scroller" },
   { story: /^(scenes-village-v2-layout|containers-inventorytray)--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   { story: /^(scenes-village-v2-layout|containers-inventorytray)--/, kind: "overflow", element: 'div "×', why: "carousel track" },
+  // The home's edit mode (#753) is the v2 village's editor in the home's scene: its plan keeps the touch floor and scrolls both
+  // ways, its inventory is the same carousel. The home's view fits its plan to the screen: no scroller there.
+  { story: /^scenes-home--(editing|holding|placing|changed|leaving|refused|scene-editing)/, kind: "scroll", element: "div[scroll-region]", why: "v2 village scroller" },
+  { story: /^scenes-home--(editing|holding|placing|changed|leaving|refused|scene-editing)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^scenes-home--(editing|holding|placing|changed|leaving|refused|scene-editing)/, kind: "overflow", element: 'div "×', why: "carousel track" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with

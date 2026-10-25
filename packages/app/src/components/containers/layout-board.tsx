@@ -27,6 +27,11 @@ export interface LayoutBoardProps {
   /** A tile that cannot be lifted (its removal would split the village): it shakes. */
   shaking?: number | null;
   tileArt?: TileArt;
+  /**
+   * Fit the plan to its box, below the 44 px touch floor if need be, so it never scrolls across: a view where no cell is tapped
+   * (the home, #753). Off: every cell keeps the floor, and a plan wider than the box scrolls.
+   */
+  fit?: boolean;
   /** A placed tile chosen (never the starter): lift it into the hand. */
   onTile?: (tile: BoardTile) => void;
   /** A plate chosen: the tile in hand goes there. */
@@ -52,7 +57,7 @@ const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
  * (plates, `data-cell`), a tap sets it on one (ringed, the bubble's hold places it), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, shaking = null, tileArt, onTile, onPlate, className }: LayoutBoardProps) {
+export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, shaking = null, fit = false, tileArt, onTile, onPlate, className }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is.
   const extent = tiles.length;
@@ -168,7 +173,7 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
           gridTemplateRows: `repeat(${rows}, 1fr)`,
           aspectRatio: `${cols} / ${rows}`,
           // Every cell keeps the 44 px touch floor: past what the screen holds, the board scrolls.
-          width: `max(${cols * MIN_CELL}px, min(100%, 70dvh))`,
+          width: fit ? "min(100%, 70dvh)" : `max(${cols * MIN_CELL}px, min(100%, 70dvh))`,
         }}
       >
         {cells}

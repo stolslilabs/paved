@@ -129,7 +129,9 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     props.onEditingChange?.(true);
   };
   return (
-    <div className="relative flex h-dvh min-h-[32rem] flex-col overflow-hidden bg-board text-foreground desktop:flex-row">
+    // A game scene's frame, clipped as the boards' (the dial's ring included). In edit mode it clips vertically only: across, the
+    // inventory's carousel clips its own track (its window), and the scene's box clips the canvas.
+    <div className={cn("relative flex h-dvh min-h-[32rem] flex-col bg-board text-foreground desktop:flex-row", editing ? "overflow-x-visible overflow-y-clip" : "overflow-hidden")}>
       <h1 className="sr-only">Home</h1>
       {/* The village's stage, its own chunk (the editor, the board, the engine): a placeholder sky until it is in. */}
       <Suspense fallback={SKY}>{renderStage ? renderStage(stage) : <LazyVillageStage {...stage} />}</Suspense>
