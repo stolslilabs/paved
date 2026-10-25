@@ -11,7 +11,9 @@ import { BalancesProvider } from "../containers/balances-context";
 import type { LayoutSaved } from "../containers/layout-editor";
 import type { VillageLayout } from "../containers/layout-rules";
 import { ProfileProvider } from "../containers/profile-context";
-import VillageLayoutCanvas from "../containers/village-layout-canvas";
+import { BoardViewport } from "../containers/board-viewport";
+import type { LayoutBoardView } from "../containers/layout-board";
+import { useLayoutCanvas } from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
@@ -106,6 +108,11 @@ export const Leaving: Story = { args: HOME_VILLAGE.leaving };
 /** The chain refused the save: what happened, above the editor, the draft kept. */
 export const Refused: Story = { args: HOME_VILLAGE.refused };
 
+/** The village on the board's canvas as the board module draws it (`VillageCanvas`), on Storybook's assets. */
+function StoryVillageCanvas({ view, board }: { view: LayoutBoardView; board: ReturnType<typeof useBoardSettings> }) {
+  return <BoardViewport {...useLayoutCanvas(view)} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} />;
+}
+
 /** The scene as the page wires it: the board's renderer under the overlays, its settings and the season dial (`useBoardSettings`). */
 function InScene(args: HomeVillageSceneProps) {
   const board = useBoardSettings();
@@ -113,7 +120,7 @@ function InScene(args: HomeVillageSceneProps) {
     <HomeVillageScene
       {...args}
       seasonWheel={board.wheel}
-      renderCanvas={(view) => <VillageLayoutCanvas view={view} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} />}
+      renderCanvas={(view) => <StoryVillageCanvas view={view} board={board} />}
     />
   );
 }
@@ -168,7 +175,7 @@ function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene
       }}
       onSave={save}
       onDismissSaved={() => setSaved(null)}
-      {...(scene && { seasonWheel: board.wheel, renderCanvas: (view) => <VillageLayoutCanvas view={view} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} /> })}
+      {...(scene && { seasonWheel: board.wheel, renderCanvas: (view) => <StoryVillageCanvas view={view} board={board} /> })}
     />
   );
 }

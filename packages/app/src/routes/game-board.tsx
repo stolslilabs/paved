@@ -1,21 +1,16 @@
 import { useState } from "react";
 import type { BoardTile } from "@paved/chain";
-import { provideManifest, type TileSkins } from "@paved/renderer";
-import { BoardViewport, type BoardBubble, type BoardViewportProps } from "../components/containers/board-viewport";
+import type { TileSkins } from "@paved/renderer";
+import type { BoardBubble, BoardViewportProps } from "../components/containers/board-viewport";
 import { StackView, canDrawStack } from "../components/containers/stack-view";
 import { hasWebGL } from "../components/containers/tile-view";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
 import { useBoardSettings } from "../data/board-settings";
 import { usePlacement, type Slot } from "../data/placement";
-import { RENDERER_ASSETS, manifestBody } from "../data/renderer-manifest";
+import { RENDERER_ASSETS } from "../data/renderer-manifest";
 import { useTileArt } from "../data/tile-art";
 import { useTileRenders } from "../data/tile-renders";
-
-/**
- * The renderer reads the manifest the route asked for with this code (`data/renderer-manifest.ts`), not one of its own. If
- * a model does not load, or the browser has no WebGL, the board falls back to the plan view, which plays the same game.
- */
-provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
+import { BoardCanvas } from "./board-canvas";
 
 /** What the boards' placement reads of the session (`usePlacement`'s input but the confirm fade, the board settings'). */
 export interface GameBoardPlacement {
@@ -45,12 +40,12 @@ export type GameBoardSceneProps = Pick<
 >;
 
 /**
- * The one board of every game (#772): from one set of inputs, the 3D board (`BoardViewport`, with the renderer's settings,
+ * The one board of every game (#772): from one set of inputs, the 3D board (`BoardCanvas`, with the renderer's settings,
  * the skins, the fog, the weather and the day and night) or its plan view fallback (the scene's `BoardMap`, without WebGL or
  * once the renderer cannot start), the stack's 3D tiles (`StackView`) or its CSS pile, the season dial, and the placement
  * (`usePlacement`: the plates, the ghost, the hold to confirm). `resetKey` starts the season wheel again (a new game, a
- * restarted level). The page builds its bubble from `placement`, then spreads `scene(...)` into `BoardScene`: no route draws
- * `BoardViewport` or `StackView` itself.
+ * restarted level). The page builds its bubble from `placement`, then spreads `scene(...)` into `BoardScene`. The 3D board is
+ * the module's canvas (`board-canvas.tsx`), the village's too; no route draws `BoardViewport` or `StackView` itself.
  */
 export function useGameBoard({ skins, resetKey, placement: input }: { skins?: TileSkins; resetKey?: unknown; placement: GameBoardPlacement }) {
   const settings = useBoardSettings(resetKey);
@@ -77,16 +72,12 @@ export function useGameBoard({ skins, resetKey, placement: input }: { skins?: Ti
     seasonWheel: settings.wheel,
     canvas:
       view === "3d" ? (
-        <BoardViewport
-          settings={settings.renderer}
-          onScene={settings.onScene}
-          tilePreview={settings.tilePreview}
-          placementHighlight={settings.placementHighlight}
+        <BoardCanvas
+          board={settings}
           skins={skins}
           tiles={tiles}
           closed={closed}
           gameId={gameId}
-          basePath={RENDERER_ASSETS}
           slots={slots}
           ghost={ghost}
           confirmed={confirmed}
