@@ -189,6 +189,27 @@ export { DEFAULT_BIRD_SETTINGS, MAX_BIRDS, resolveBirdSettings } from "./core/bi
 export type { BirdSettings, BirdSettingsInput } from "./core/bird-settings";
 export type { BirdSource, BirdState, Birds } from "./core/birds";
 export const loadBirds = (): Promise<typeof import("./core/birds")> => import("./core/birds");
+// The chimneys (CHIMNEY-SMOKE-1, #770 PR 1), stories only: the board does not call them yet. The detection reads a model's voxel grid
+// (smoking chimneys, with white smoke voxels, and bare ones); the smoke's settings are small and eager; the smoke is a chunk of its
+// own, loaded by `loadChimneySmoke` (nothing in the app's board calls it, so the app's build has no such chunk).
+export {
+  CHIMNEY_ENTRIES,
+  CHIMNEY_OVERRIDES,
+  CRENEL_REACH,
+  LIGHT_ENTRIES,
+  MAX_BARE_STACK,
+  chimneyOptionsOf,
+  findChimneys,
+  lightEntries,
+  mouthPoint,
+  overridesOf,
+  runsOf,
+} from "./core/chimneys";
+export type { CellBox, Chimney, ChimneyKind, ChimneyOptions, ChimneyOverride, ChimneyReject, FoundChimneys, HighPointReject, PlumeReject, RejectedCandidate } from "./core/chimneys";
+export { DEFAULT_SMOKE_SETTINGS, MAX_SMOKE_CHIMNEYS, SMOKE_LOOKS, resolveSmokeSettings, smokeLookOf, smokeMode } from "./core/chimney-smoke-settings";
+export type { SmokeLook, SmokeLookName, SmokeMode, SmokeSeason, SmokeSettings, SmokeSettingsInput } from "./core/chimney-smoke-settings";
+export type { ChimneySmoke, SmokeSource, SmokeStats } from "./core/chimney-smoke";
+export const loadChimneySmoke = (): Promise<typeof import("./core/chimney-smoke")> => import("./core/chimney-smoke");
 // The weather (WEATHER-STUDY, #607 PR 2; WEATHER-WIRE, #658): every board's scene shows it (`RendererSettings.weather`,
 // `GameScene.getWeather`). Its settings are small and eager; the effect is a chunk of its own, which `GameScene` loads the first time
 // it shows. The snow on the tops is a term of the tile shader (`TileRenderer.snowUniforms`), off until the weather sets it.
