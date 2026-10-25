@@ -10,7 +10,7 @@ import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useUpTo } from "../ref";
-import { chestsSeenDay } from "../chests-seen";
+import { markChestsSeen } from "../chests-seen";
 import { READY_S } from "../../components/containers/chest-slots";
 import { countsByPlan, refusalText, useVillageArt } from "../village-v2";
 
@@ -43,7 +43,7 @@ export default function Page() {
   // The moment the new day was reached on the page: the slots say "Ready" until `READY_S` after it.
   const [resetAt, setResetAt] = useState<number | null>(null);
   useEffect(() => {
-    chestsSeenDay.set(day);
+    markChestsSeen(day);
     if (shownDay.current === day) return;
     shownDay.current = day;
     setResetAt(day * DAY_S);

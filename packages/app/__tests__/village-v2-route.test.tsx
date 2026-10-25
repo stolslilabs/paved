@@ -8,6 +8,7 @@ import type { GameSigner } from "../src/data";
 import { MOCK_KEY } from "../src/data/mock/ledger";
 import { queryClient } from "../src/lib/query-client";
 import { READY_S } from "../src/components/containers/chest-slots";
+import { resetChestsSeenForTests } from "../src/routes/chests-seen";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
@@ -46,6 +47,7 @@ beforeAll(async () => {
 beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
+  resetChestsSeenForTests();
   resetWelcomedForTests();
   markWelcomed();
 });

@@ -215,9 +215,7 @@ export function VillageChestsScene({
                               ) : disabled ? (
                                 <span className="font-normal text-muted-foreground">Waits its turn</span>
                               ) : (
-                                <>
-                                  <Icon name="hand-pointer" size="xs" /> Tap to open
-                                </>
+                                "Tap to open"
                               )}
                             </span>
                           </Button>

@@ -3,13 +3,11 @@ import { UNSAFE_DataRouterContext, useBlocker, useLocation, useNavigate, useSear
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { BoardTile } from "@paved/chain";
-import { dayOf } from "@paved/game-core";
 import { shortAddress } from "../../components/elements/short-address";
 import type { LayoutSaved } from "../../components/containers/layout-editor";
 import type { VillageLayout } from "../../components/containers/layout-rules";
 import { HomeVillageScene } from "../../components/scenes/home-village-scene";
 import { useBoardSettings } from "../../data/board-settings";
-import { useDeviceStore } from "../../data/device-store";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
 import { useChests, useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
@@ -18,7 +16,7 @@ import { playedPvp, usePvpLeague } from "../../data/pvp-league";
 import { useMissionsReady } from "../../data/quests";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
-import { chestsBadge, chestsSeenDay } from "../chests-seen";
+import { chestsBadge, chestsSeenDay, utcDay } from "../chests-seen";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
@@ -58,7 +56,8 @@ export default function Page() {
   const me = sources.signer?.address ?? wallet.address ?? null;
   const read = useFreeVillageHeld(me);
   const chests = useChests(me);
-  const [seenDay] = useDeviceStore(chestsSeenDay);
+  // Read at each render: the home is drawn again on the way back from the Chests page, which marks the day seen.
+  const seenDay = chestsSeenDay();
   const writes = useFreeVillageWrites(me);
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
@@ -151,7 +150,7 @@ export default function Page() {
         refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
         chests={
           chests.data
-            ? chestsBadge(chests.data.pending.length + (chests.data.open ? 1 : 0), chests.data.pvpCap - chests.data.pvpToday, dayOf(now), seenDay)
+            ? chestsBadge(chests.data.pending.length + (chests.data.open ? 1 : 0), chests.data.pvpCap - chests.data.pvpToday, utcDay(now), seenDay)
             : 0
         }
         missions={missions}

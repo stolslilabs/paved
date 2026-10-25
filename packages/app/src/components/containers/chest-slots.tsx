@@ -3,7 +3,7 @@ import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
 import { CHEST_NAME, ChestBadge, type ChestRank } from "../elements/chest-badge";
-import { Countdown } from "../elements/countdown";
+import { HeroCountdown } from "../elements/hero-countdown";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { PVP_CHESTS_A_DAY } from "./layout-rules";
@@ -59,7 +59,7 @@ export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "p
       animate={lastMinute && !reduced ? { scale: [1, 1.08, 1] } : { scale: 1 }}
       transition={lastMinute && !reduced ? { duration: 1, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
     >
-      <Countdown size="lg" expiresAt={resetsAt} now={now} label={full ? "More chests in" : "Slots reset in"} className={cn(lastMinute && "text-warning")} />
+      <HeroCountdown expiresAt={resetsAt} now={now} label={full ? "More chests in" : "Slots reset in"} className={cn(lastMinute && "text-warning")} />
     </m.div>
   );
 
