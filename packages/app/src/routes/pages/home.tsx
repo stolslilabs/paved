@@ -1,71 +1,189 @@
-import { toastError } from "../../components/containers/error-toast";
-import type { PlayerStatusData } from "../../components/containers/profile-sheet";
-import { HomeScene } from "../../components/scenes/home-scene";
+import { Suspense, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { UNSAFE_DataRouterContext, useBlocker, useLocation, useNavigate, useSearchParams } from "react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import type { BoardTile } from "@paved/chain";
+import { shortAddress } from "../../components/elements/short-address";
+import type { LayoutSaved } from "../../components/containers/layout-editor";
+import type { VillageLayout } from "../../components/containers/layout-rules";
+import { HomeVillageScene } from "../../components/scenes/home-village-scene";
+import { useBoardSettings } from "../../data/board-settings";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
-import { useCobbleAccount } from "../../data/cobbles";
-import { freeGameMessage, usePlayFree } from "../../data/play-free";
-import { usePlayerStatus } from "../../data/indexer";
+import { cobbleKeys } from "../../data/cobbles";
+import { useChests, useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
+import { queryKeys } from "../../data/keys";
+import { playedPvp, usePvpLeague } from "../../data/pvp-league";
+import { useMissionsReady } from "../../data/quests";
+import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { PrefetchOnIntent } from "../prefetch";
-import { useAppNavigate, useTabNavigate } from "../ref";
+import { useAppNavigate } from "../ref";
+import { boardTilesOf, layoutTilesOf, refusalText } from "../village-shapes";
+
+/** The village's stage as the app wires it (the editor, the engine, the art; the renderer after it): the overlays paint first. */
+const HomeStage = lazy(() => import("../home-stage"));
+/** The leave dialog, its own chunk: loaded only when a leave is blocked. */
+const LeaveDialog = lazy(() => import("../leave-dialog"));
+
+/** The query key of edit mode: `/?edit`. */
+const EDIT = "edit";
 
 /**
- * `/` (P6, section 6.4): the connected player's status (the indexer), the active Challenge game (`GameSpawned` events,
- * then `game(id)`), `spawn_paused` (Training reads nothing: it is not saved, #718). No podium: the ranks left the UI (#623). Each read that is not
- * there yet, or fails, leaves its part empty rather than holding the page: no game to resume, not paused (the purchase page reads the pause again). The Cobbles balance shows once connected; "Play free" is
- * there with a credit and a signer that can spend it, disabled while spawn is paused, and opens the new game's board.
+ * `/` (#753, PvP v2 step 1): the player's own village full screen, the home of the game. The village, its inventory and the
+ * level from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting, today's missions to claim, the crowns and
+ * league once PvP is played (`Matchmaker.league`), the active
+ * Challenge game and the spawn pause. The overlays paint first; the stage (`home-stage.tsx`: the editor, the engine, the tile art)
+ * and then the 3D scene (`home-canvas.tsx`) load lazily under them, the plan view where WebGL is
+ * missing or the renderer cannot start. Edit mode is in the URL (`?edit`, an entry of its own), so Back leaves it first; leaving
+ * it with changes not saved, by any way (Back, a link, a reload), asks first. A guest, and a player whose source does not
+ * serve the v2 village yet, see a starter village, read only. The welcome comes first on a first visit (the router's loader).
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onNavigate = useTabNavigate();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [params] = useSearchParams();
+  const editing = params.has(EDIT);
   const now = useNow();
   const wallet = useAccount();
   useConnectError(wallet.error);
-  const address = wallet.address;
-  const status = usePlayerStatus(address);
-  const active = useActiveGame(address);
+  const sources = useDataSources();
+  const client = useQueryClient();
+  const me = sources.signer?.address ?? wallet.address ?? null;
+  const read = useFreeVillageHeld(me);
+  const chests = useChests(me);
+  const writes = useFreeVillageWrites(me);
+  const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
-  const account = useCobbleAccount(address);
-  const free = usePlayFree(address);
-  const playFree = () => {
-    free
-      .spend()
-      .then((id) => id !== null && go(`/game/${id}`))
-      .catch((e: unknown) => toastError({ title: "The free game did not start", message: freeGameMessage(e), detail: errorDetail(e) }));
+  const missions = useMissionsReady(me);
+  const league = usePvpLeague(me).data;
+  const board = useBoardSettings();
+  const [saved, setSaved] = useState<LayoutSaved | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
+
+  const owner = wallet.username ?? (me ? shortAddress(me) : "");
+  const data = read.data;
+  // Not served (the chain before step 3), or a guest: a starter village to look at.
+  const readOnly = me === null || data === null;
+  // A starter village is laid out and scored by the engine, loaded on demand.
+  const starter = useQuery({
+    queryKey: ["home", "starter", owner, me],
+    queryFn: async () => (await import("../starter-village")).starterVillage(owner, me),
+    enabled: readOnly,
+    staleTime: Infinity,
+  });
+  const village = useMemo<VillageLayout | undefined>(() => {
+    if (readOnly) return starter.data;
+    return data ? { owner, level: data.level, tiles: boardTilesOf(data.tiles), score: data.score } : undefined;
+  }, [readOnly, starter.data, data, owner]);
+  const pending = writes.pending?.kind;
+
+  // Edit mode's way out from the scene (Back with nothing to lose, Leave asked, a save that landed): the entry Edit pushed goes,
+  // or, opened on `/?edit`, the URL drops the mode. Neither asks again.
+  const leaving = useRef(false);
+  useEffect(() => {
+    leaving.current = false;
+  }, [location.key]);
+  const fromView = (location.state as { fromView?: boolean } | null)?.fromView === true;
+  const onEditingChange = (next: boolean) => {
+    if (next === editing) return;
+    if (next) return void go(`/?${EDIT}`, { state: { fromView: true } });
+    leaving.current = true;
+    if (fromView) navigate(-1);
+    else go("/", { replace: true });
   };
 
-  // A connected player the indexer has not answered for yet (or cannot) is shown by their address, with zero figures.
-  const player: PlayerStatusData | null = address
-    ? (status.data ?? {
-        player: { playerId: address, name: wallet.username, created: null },
-        stats: { challengeGames: 0, challengeFinished: 0, bestScore: 0, paidGames: 0, settledGames: 0, rewards: "0" },
-      })
-    : null;
+  // A reload or a closed tab leaves the document: the browser's own prompt asks first.
+  useEffect(() => {
+    if (!dirty) return;
+    const ask = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", ask);
+    return () => window.removeEventListener("beforeunload", ask);
+  }, [dirty]);
+  // The app's router is a data router, so leaving by any way is guarded; a plain one (Storybook's) has only the editor's Back.
+  const guarded = useContext(UNSAFE_DataRouterContext) !== null;
 
-  const activeGameId = address ? (active.data?.id ?? null) : null;
-  // The pages the buttons lead to: Play (the mode choice), the Challenge, and the game to resume.
-  const next = activeGameId === null ? ["/play", "/play/challenge"] : ["/play", "/play/challenge", `/game/${activeGameId}`];
+  const save = (tiles: readonly BoardTile[], score: number) => {
+    if (pending || !village) return;
+    writes.reset();
+    const layout = layoutTilesOf(tiles);
+    const previous = village.score;
+    writes.save(layout).then(
+      () => setSaved({ score, previous }),
+      () => undefined,
+    );
+  };
+  const found = () => {
+    if (pending) return;
+    writes.reset();
+    writes.found().then(
+      () => toast.success("Village founded", { description: "Its starter layout is yours. Edit it at any time." }),
+      () => undefined,
+    );
+  };
+
+  const failed = readOnly ? null : read.error;
   return (
-    <PrefetchOnIntent routes={next}>
-      <HomeScene
-        player={player}
-        activeGame={address ? (active.data ?? null) : null}
+    <PrefetchOnIntent routes={["/play", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/pvp/defence", "/settings"]}>
+      <HomeVillageScene
+        village={village}
+        error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
+        guest={me === null}
+        readOnly={readOnly}
+        editing={editing}
+        onEditingChange={onEditingChange}
+        founded={data?.founded ?? true}
+        founding={pending === "found"}
+        saving={pending === "save"}
+        saved={saved}
+        refusal={writes.error ? refusalText(writes.error) : null}
+        refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
+        chests={(chests.data?.pending.length ?? 0) + (chests.data?.open ? 1 : 0)}
+        missions={missions}
+        league={league && playedPvp(league) ? { crowns: league.crowns } : null}
+        activeGame={wallet.address ? (active.data ?? null) : null}
         spawnPaused={paused.data ?? false}
-        cobbles={address && account.data ? { balance: account.data.cobbles, credits: free.available ? account.data.credits : 0 } : null}
         now={now}
-        connecting={wallet.status === "connecting"}
+        seasonWheel={board.wheel}
+        renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} onScene={board.onScene} />}
         onPlay={() => go("/play")}
-        onPlayFree={playFree}
-        onChallenge={() => (address ? go("/play/challenge") : void wallet.connect())}
-        onTraining={() => go("/training")}
-        onStory={() => go("/story")}
+        onMissions={() => go("/missions")}
+        onChests={() => go("/village/chests")}
+        onShop={() => go("/village/shop")}
+        onVault={() => go("/vault")}
+        onLeague={() => go("/pvp/league")}
+        onDefence={() => go("/pvp/defence?from=home")}
+        onSettings={() => go("/settings")}
         onResume={(id) => go(`/game/${id}`)}
-        onConnect={() => void wallet.connect()}
-        onNavigate={onNavigate}
+        onRetry={() => {
+          void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all });
+          void client.invalidateQueries({ queryKey: cobbleKeys.all });
+        }}
+        onFound={found}
+        onSave={save}
+        onDirtyChange={onDirtyChange}
+        onDismissSaved={() => setSaved(null)}
+        onDismissRefusal={writes.reset}
       />
+      {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
     </PrefetchOnIntent>
+  );
+}
+
+/** Leaving edit mode with changes not saved (the system Back, a link) asks first; the scene's own ways out have asked already. */
+function LeaveGuard({ when, leaving }: { when: boolean; leaving: { current: boolean } }) {
+  const blocker = useBlocker(() => when && !leaving.current);
+  if (blocker.state !== "blocked") return null;
+  return (
+    <Suspense fallback={null}>
+      <LeaveDialog onStay={() => blocker.reset?.()} onLeave={() => blocker.proceed?.()} />
+    </Suspense>
   );
 }

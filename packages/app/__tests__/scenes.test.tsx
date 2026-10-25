@@ -17,7 +17,7 @@ import { formatPoints } from "../src/components/elements/score";
 import { planCode } from "../src/components/elements/tile-chip";
 import { TileView } from "../src/components/containers/tile-view";
 import { BoardScene } from "../src/components/scenes/board-scene";
-import { HomeScene } from "../src/components/scenes/home-scene";
+import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { LoadingScene } from "../src/components/scenes/loading-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
@@ -29,7 +29,9 @@ import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
-import { BOARD, HOME, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
+import { BOARD, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
+import { HOME_VILLAGE } from "../src/mocks/village-v2";
+import { leagueOf } from "../src/lib/pvp-rules";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -92,33 +94,100 @@ describe("Loading", () => {
   });
 });
 
-describe("Home", () => {
-  it("shows the game to resume, no player card, no podium, and the nav with Play in the centre", async () => {
+describe("Home (#753): the village with its overlays", () => {
+  it("shows the village full screen with the right column, Play and Edit, and no tab bar", async () => {
+    const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onDefence: vi.fn(), onSettings: vi.fn() };
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
+    expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    // The stage (the board, the editor) is its own chunk: it arrives after the overlays.
+    expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+    const column = screen.getByRole("navigation", { name: "Village" });
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", `League, ${leagueOf(1_240).name}`, "Defence"]);
+    for (const [name, handler] of [
+      ["Missions, 3 waiting", on.onMissions],
+      ["Chests, 2 waiting", on.onChests],
+      ["Shop", on.onShop],
+      ["Vault", on.onVault],
+      [/^League, /, on.onLeague],
+      ["Defence", on.onDefence],
+      ["Settings", on.onSettings],
+      [/^Play/, on.onPlay],
+    ] as const) {
+      await userEvent.click(screen.getByRole("button", { name }));
+      expect(handler).toHaveBeenCalledTimes(1);
+    }
+    expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
+  });
+
+  it("shows the crowns and the league at the top right once PvP is played; a tap opens the league", async () => {
+    const onLeague = vi.fn();
+    const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onLeague={onLeague} />));
+    const name = leagueOf(1_240).name;
+    const standing = screen.getByRole("button", { name: `League: ${name}, 1,240 crowns` });
+    expect(within(standing).getByText(name)).toBeInTheDocument();
+    expect(within(standing).getByRole("img", { name: "1,240 crowns" })).toBeInTheDocument();
+    await userEvent.click(standing);
+    expect(onLeague).toHaveBeenCalledTimes(1);
+    unmount();
+    // Before any PvP: no standing, the column's League is plain.
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.start} />));
+    expect(screen.queryByRole("button", { name: /^League: / })).toBeNull();
+    expect(screen.getByRole("button", { name: "League" })).toBeInTheDocument();
+  });
+
+  it("carries today's home content as chips: Resume and the spawn pause", async () => {
     const onResume = vi.fn();
-    render(wrap(<HomeScene {...HOME.connected} onResume={onResume} />));
-    // The player is the avatar at the top left, which the shell supplies (#624, `profile.test.tsx`): no card names them.
-    expect(screen.queryByText("bal7hazar")).not.toBeInTheDocument();
-    expect(screen.queryByText("Playing as a guest")).not.toBeInTheDocument();
-    // The ranks left the UI (#623): no podium on the Challenge card.
-    expect(screen.queryByRole("list", { name: "Top 3" })).not.toBeInTheDocument();
-    expect(screen.queryByText("stonemaster")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Resume" }));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.paused} onResume={onResume} />));
+    await userEvent.click(screen.getByRole("button", { name: "Resume Challenge #1042" }));
     expect(onResume).toHaveBeenCalledWith(1042);
-    const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Home", "Missions", "Play", "Vault", "Settings"]);
-    expect(within(nav).getByRole("button", { name: "Home" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("New Challenge games are paused")).toBeInTheDocument();
   });
 
-  it("asks a guest to connect and offers no game to resume", () => {
-    render(wrap(<HomeScene {...HOME.guest} />));
-    expect(screen.getByText("Playing as a guest")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+  it("shows a guest a starter village to look at and no Edit", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.guest} />));
+    expect(screen.getByText("Playing as a guest: connect to build your village")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit village" })).not.toBeInTheDocument();
   });
 
-  it("disables the Challenge while purchases are paused", () => {
-    render(wrap(<HomeScene {...HOME.paused} />));
-    expect(screen.getByText(/New Challenge games are paused for now/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Challenge/ })).toBeDisabled();
+  it("offers Found in Edit's place before the village is founded", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.unfounded} />));
+    expect(screen.getByRole("button", { name: "Found" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit village" })).not.toBeInTheDocument();
+  });
+
+  it("paints the overlays while the village is on its way", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.loading} />));
+    expect(screen.getByRole("button", { name: /^Play/ })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /^Village layout/ })).not.toBeInTheDocument();
+  });
+
+  it("Edit asks for edit mode; in it, the editor's overlays replace the view's in the same scene", async () => {
+    const onEditingChange = vi.fn();
+    const { rerender } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onEditingChange={onEditingChange} />));
+    await userEvent.click(screen.getByRole("button", { name: "Edit village" }));
+    expect(onEditingChange).toHaveBeenCalledWith(true);
+    rerender(wrap(<HomeVillageScene {...HOME_VILLAGE.view} editing onEditingChange={onEditingChange} />));
+    expect(screen.getByText("Edit village")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Editor" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Village" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Play/ })).not.toBeInTheDocument();
+    // Nothing changed: Back leaves edit mode at once.
+    await userEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
+    expect(onEditingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("asks before leaving edit mode with changes, and keeps them on Keep editing", async () => {
+    const onEditingChange = vi.fn();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.changed} onEditingChange={onEditingChange} />));
+    await userEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
+    expect(await screen.findByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(onEditingChange).not.toHaveBeenCalled();
+    // The dialog's exit over, the scene is reachable again.
+    await userEvent.click(await screen.findByRole("button", { name: "Leave edit mode" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Leave" }));
+    expect(onEditingChange).toHaveBeenCalledWith(false);
   });
 });
 

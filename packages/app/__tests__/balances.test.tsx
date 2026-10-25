@@ -8,8 +8,8 @@ import { Balances, type BalancesState } from "../src/components/containers/balan
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { TopBar } from "../src/components/containers/top-bar";
 import { ResourcePlate } from "../src/components/elements/resource-plate";
-import { HomeScene } from "../src/components/scenes/home-scene";
-import { HOME } from "../src/mocks/scenes";
+import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import { HOME_VILLAGE } from "../src/mocks/village-v2";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const READY: BalancesState = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 };
@@ -112,15 +112,15 @@ describe("Balances (#538), the resource bar (#620)", () => {
   });
 
   it("rail: the slot lays out the rail even when its value says pill (stories' bug)", async () => {
-    render(wrap(<BalancesProvider value={{ state: READY, faucet: true }}><HomeScene {...HOME.connected} /></BalancesProvider>));
+    render(wrap(<BalancesProvider value={{ state: READY, faucet: true }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
     expect(await screen.findAllByRole("region", { name: "Balances" })).toHaveLength(2);
   });
 
   it("a page's header carries the Cobbles through the shell's provider, and none without it", async () => {
-    const { unmount } = render(wrap(<HomeScene {...HOME.connected} />));
+    const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
     expect(screen.queryByRole("button", { name: /Cobbles/ })).toBeNull();
     unmount();
-    render(wrap(<BalancesProvider value={{ state: READY }}><HomeScene {...HOME.connected} /></BalancesProvider>));
+    render(wrap(<BalancesProvider value={{ state: READY }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
     expect(await screen.findAllByRole("button", { name: "240 Cobbles: Buy packs" })).toHaveLength(2);
   });
 

@@ -15,7 +15,7 @@ import { fakeSources } from "./data-fakes";
 
 // HEADER-BALANCES (#720): the owner's table, by route and width. Below `desktop` the Cobbles only where they move; from
 // `desktop` every balance outside the game scenes; none in the game scenes; the Cobbles never twice.
-const PHONE_COBBLES = ["", "cobbles", "missions/lifetime", "missions/:day?", "avatar", "settings/theme", "settings/theme/:theme", "village", "village/:player", "village/chests", "village/shop"];
+const PHONE_COBBLES = ["", "cobbles", "missions/lifetime", "missions/:day?", "avatar", "settings/theme", "settings/theme/:theme", "village/:player", "village/chests", "village/shop"];
 /** The game scenes: the boards and the ends of a game. */
 // The PvP attack's flow, its result and a replay (#647) show none either, as the owner's table says (`header-balances.ts`).
 const GAME_SCENES = ["game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id"];
@@ -74,7 +74,7 @@ describe("the village's Cobbles, never twice (#720)", () => {
   const village = (props: Parameters<typeof VillageScene>[0]) =>
     render(
       <LazyMotion features={domMax}>
-        <BalancesProvider value={{ state: READY, show: HEADER_BALANCES.village }}>
+        <BalancesProvider value={{ state: READY, show: HEADER_BALANCES["village/:player"] }}>
           <VillageScene {...props} onBack={() => {}} />
         </BalancesProvider>
       </LazyMotion>,

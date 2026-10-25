@@ -38,7 +38,7 @@ const label = (state: ProfileState, progress: ProfileValue["progress"]) =>
  * The player's avatar where a menu screen puts it (#624): the top left of the page's header below `desktop`, the left of the
  * navigation's header from it (each hidden at the other size by its `className`). A tap opens the profile sheet.
  */
-export function ProfileSlot({ className }: { className?: string }) {
+export function ProfileSlot({ withName = false, className }: { /** The name on a plate beside the avatar (the home's top left, #753). */ withName?: boolean; className?: string }) {
   const value = useContext(ProfileContext);
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -65,7 +65,7 @@ export function ProfileSlot({ className }: { className?: string }) {
           setOpened(true);
           setOpen(true);
         }}
-        className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+        className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", withName && "flex items-center gap-2 pr-3", className)}
       >
         <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"} look={look}>
           {state.status === "connected" && (
@@ -74,6 +74,11 @@ export function ProfileSlot({ className }: { className?: string }) {
             </Suspense>
           )}
         </PlayerAvatar>
+        {withName && (
+          <span aria-hidden className="max-w-36 truncate rounded-md bg-background/70 px-2 py-0.5 text-sm font-semibold backdrop-blur">
+            {state.status === "connected" ? (state.data.player.name ?? shortAddress(state.data.player.playerId)) : state.status === "guest" ? "Guest" : ""}
+          </span>
+        )}
       </button>
       {opened && (
         <Suspense fallback={null}>
@@ -91,13 +96,6 @@ export function ProfileSlot({ className }: { className?: string }) {
               (() => {
                 setOpen(false);
                 value.onEditAvatar?.();
-              })
-            }
-            onOpenVillage={
-              value.onOpenVillage &&
-              (() => {
-                setOpen(false);
-                value.onOpenVillage?.();
               })
             }
             onOpenLeague={

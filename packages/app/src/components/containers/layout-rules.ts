@@ -1,6 +1,7 @@
 import type { BoardTile } from "@paved/chain";
 import { EngineGame, layoutScore as coreLayoutScore } from "@paved/game-core";
 import { planCode } from "../elements/tile-chip";
+import { STARTER, isStarter } from "./layout-starter";
 
 /**
  * The v2 village's rules on the client's side (#739, part of #732), for the stories' fakes until the contracts give them
@@ -30,9 +31,7 @@ export const BASE_SLOTS = 8;
 /** The slots a level unlocks: `8 + level`, the level held between 1 and `MAX_LEVEL`. */
 export const slotsFor = (level: number): number => BASE_SLOTS + Math.min(MAX_LEVEL, Math.max(1, Math.floor(level)));
 
-/** The starter (`RFFFRFCFR` facing South at (0, 0), id 1): every village has it, and it stays. */
-export const STARTER: BoardTile = { id: 1, plan: 9, orientation: 3, x: 0, y: 0 };
-export const isStarter = (tile: Pick<BoardTile, "id">): boolean => tile.id === STARTER.id;
+export { STARTER, isStarter } from "./layout-starter";
 
 /** A player's v2 village: its saved layout (the starter included), the owner's level, the score an attacker plays against. */
 export interface VillageLayout {

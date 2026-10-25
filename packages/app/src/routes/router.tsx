@@ -68,6 +68,8 @@ export const routes: RouteObject[] = [
       // The ranks left the UI (#623), to come back as leagues: their old links land on Home.
       { path: "leaderboard/:day?", loader: ({ request }) => to("/", request) },
       { path: "player/:id", loader: ({ request }) => to("/", request) },
+      // The own village is the home (#753): its old link lands there; a visit (`village/:player`) stays.
+      { path: "village", loader: ({ request }) => to("/", request) },
       // The scripted tutorial gave way to Story mode (#546), whose first campaign teaches the rules.
       { path: "tutorial", loader: ({ request }) => to("/story", request) },
       { path: "*", element: <NotFound />, errorElement: <RouteError /> },

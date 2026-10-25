@@ -21,6 +21,8 @@ import { fakeWallet } from "./wallet-fakes";
 // `FakeVillageWriter` (with their checks, the placement on game-core's engine), the player restored by the wallet.
 
 const RIVAL = "0x99";
+/** The own village of v1 (a source without the v2 village): `/village` is the home since #753, a visit to one's own address is the own village. */
+const OWN = `/village/${PLAYER_ID}`;
 
 /** The line over Open: "2 rewards wait: ...", its count in a span of its own. */
 const waiting = (n: number) => (_: string, el: Element | null) => el?.tagName === "P" && (el.textContent ?? "").startsWith(`${n} ${n === 1 ? "reward waits" : "rewards wait"}`);
@@ -58,10 +60,10 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("/village: the own village", () => {
+describe("/village/<own address>: the own village", () => {
   it("founds the village, opens a reward and places one of its tiles", async () => {
     const c = chain();
-    open(c, "/village");
+    open(c, OWN);
     await userEvent.click(await screen.findByRole("button", { name: "Found" }, { timeout: 5000 }));
     expect(await screen.findByText(waiting(2), {}, { timeout: 5000 })).toBeInTheDocument();
     expect(c.views.villagePlayer(PLAYER_ID).info.gameId).toBe(1);
@@ -82,7 +84,7 @@ describe("/village: the own village", () => {
     const c = chain(50, 1);
     await c.writer.foundVillage();
     c.views.villagePlayer(PLAYER_ID).offer = { index: 1, plans: [18, 18, 13] };
-    open(c, "/village");
+    open(c, OWN);
     await userEvent.click(await screen.findByRole("button", { name: "Take 5 Cobbles instead" }, { timeout: 5000 }));
     await waitFor(() => expect(c.views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(55));
     await waitFor(() => expect(screen.queryByRole("list", { name: "Reward tiles" })).toBeNull());
@@ -93,7 +95,7 @@ describe("/village: the own village", () => {
     await c.writer.foundVillage();
     const v = c.views.villagePlayer(PLAYER_ID);
     v.offer = { index: 1, plans: [18, 18, 13] };
-    open(c, "/village");
+    open(c, OWN);
     const take = await screen.findByRole("button", { name: "Take 5 Cobbles instead" }, { timeout: 5000 });
     // Claimed on another device meanwhile: the chain has no offer open any more.
     v.offer = { index: 0, plans: [0, 0, 0] };
@@ -110,7 +112,7 @@ describe("/village: the own village", () => {
     const account = c.views.account.bind(c.views);
     let fail = true;
     c.views.account = (player: string) => (fail ? Promise.reject(new Error("account RPC unavailable")) : account(player));
-    open(c, "/village");
+    open(c, OWN);
     // The error can show twice (the page and its retry state) while the read settles: at least one is the assertion.
     expect((await screen.findAllByText("account RPC unavailable", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
     expect(screen.queryByLabelText(/^Village of 9 cells/)).toBeNull();
@@ -127,7 +129,7 @@ describe("/village: the own village", () => {
     const level = c.views.playerLevel.bind(c.views);
     let fail = true;
     c.views.playerLevel = (player: string) => (fail ? Promise.reject(new Error("level down")) : level(player));
-    open(c, "/village");
+    open(c, OWN);
     expect(await screen.findByText("level down", {}, { timeout: 5000 })).toBeInTheDocument();
     fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -140,7 +142,7 @@ describe("/village: the own village", () => {
     const grants = c.views.rewardGrants.bind(c.views);
     let fail = true;
     c.views.rewardGrants = (player: string) => (fail ? Promise.reject(new Error("rewards down")) : grants(player));
-    open(c, "/village");
+    open(c, OWN);
     expect(await screen.findByText("Your rewards could not be read", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText("rewards down")).toBeInTheDocument();
     expect(screen.queryByText(/No reward waits/)).toBeNull();
@@ -164,7 +166,7 @@ describe("/village: the own village", () => {
       v.cells = startTerritory();
       v.tiles = [{ ...STARTER }];
       v.info = { gameId: 7, cells: 9, tiles: 0, score: 0, nextParcel: 1, nextPrice: 10, nextLevel: 1 };
-      const first = open(c, "/village");
+      const first = open(c, OWN);
       const board = await screen.findByLabelText(/^Village of 9 cells/, {}, { timeout: 5000 });
       await waitFor(() => expect(board.querySelector('img[src$="rfffrfcfr-top.1.forest.webp"]')).not.toBeNull());
       first.unmount();
@@ -185,34 +187,28 @@ describe("/village: the own village", () => {
     const c = chain(50, 0);
     await c.writer.foundVillage();
     c.views.villagePlayer(PLAYER_ID).copies[8] = 4;
-    open(c, "/village");
+    open(c, OWN);
     const board = await screen.findByLabelText(/^Village of 9 cells and 1 tiles$/, {}, { timeout: 5000 });
     expect(board.querySelector("[data-tier]")).toBeNull();
     expect(screen.queryByRole("button", { name: /^Parcel at/ })).toBeNull();
     expect(screen.getByText(/No reward waits/)).toBeInTheDocument();
   });
 
-  it("a guest is asked to connect", async () => {
-    const c = chain();
-    open(c, "/village", { guest: true });
-    expect(await screen.findByText("Connect to build your village", {}, { timeout: 5000 })).toBeInTheDocument();
-  });
-
   it("a network without Village says so", async () => {
     const c = chain();
     c.views.villageFail = new ViewError("not-configured", "Village address is not configured");
-    open(c, "/village");
+    open(c, OWN);
     expect(await screen.findByText("Villages are coming", {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
-  it("My village in the profile sheet opens it", async () => {
+  it("/village is the home now (#753): its old link lands on /, and the profile sheet offers no My village", async () => {
     const c = chain();
-    const { router } = open(c, "/");
+    const { router } = open(c, "/village");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 });
-    await userEvent.click(screen.getAllByRole("button", { name: /^Profile: / })[0]!);
+    await userEvent.click((await screen.findAllByRole("button", { name: /^Profile: / }, { timeout: 5000 }))[0]!);
     const sheet = await screen.findByRole("dialog");
-    await userEvent.click(within(sheet).getByRole("button", { name: /My village/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/village"));
+    expect(within(sheet).queryByRole("button", { name: /My village/ })).toBeNull();
   });
 });
 

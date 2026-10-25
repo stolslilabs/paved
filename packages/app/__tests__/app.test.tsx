@@ -24,9 +24,17 @@ afterEach(() => {
 });
 
 describe("app", () => {
-  it("renders the home page with the five destinations, Play in the centre", async () => {
+  it("renders the home page as the village with its overlays, no tab bar (#753)", async () => {
     render(<App router={createTestRouter("/")} />);
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Play/ })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+  });
+
+  it("gives the tab pages the five destinations, Play in the centre", async () => {
+    render(<App router={createTestRouter("/vault")} />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Main" });
     // The five tabs are the buttons of the nav's item row (direction D: after the wordmark); the header's Balances section (its
     // Connect, its rows) comes after them.
@@ -37,8 +45,8 @@ describe("app", () => {
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });
 
-  it("keeps the section 6.1 route map: 30 pages, each path once", () => {
-    expect(PAGES).toHaveLength(30);
+  it("keeps the section 6.1 route map: 29 pages, each path once", () => {
+    expect(PAGES).toHaveLength(29);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
@@ -48,7 +56,7 @@ describe("app", () => {
   // `leaderboard-route.test.tsx`; the purchase and the Cobble packs: P7b and #621, `purchase-route.test.tsx`; the theme: P11b, `theme-route.test.tsx`; the Challenge's end: P7a, `over-route.test.tsx`; the vault and the referral: P10,
   // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`; the avatar creator: #626,
   // `avatar-route.test.tsx`; the village: #646, `village-route.test.tsx`; the PvP flow: #647, `pvp-route.test.tsx`).
-  const WIRED = ["welcome", "", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral", "avatar", "village", "village/:player", "village/chests", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/defence", "pvp/league"];
+  const WIRED = ["welcome", "", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/chests", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/defence", "pvp/league"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

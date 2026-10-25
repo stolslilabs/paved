@@ -1,6 +1,5 @@
 import type { PlayerStatusData, ProfileState } from "../components/containers/profile-sheet";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
-import type { HomeSceneProps } from "../components/scenes/home-scene";
 import type { LoadingSceneProps } from "../components/scenes/loading-scene";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
@@ -75,23 +74,6 @@ export const PROFILE = {
   stress: { status: "connected", data: { player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE } } },
 } satisfies Record<string, ProfileState>;
 
-export const HOME = {
-  connected: { player: PLAYER_STATUS, activeGame, spawnPaused: false, now: MOCK_NOW },
-  guest: { player: null, activeGame: null, spawnPaused: false, now: MOCK_NOW },
-  paused: { player: PLAYER_STATUS, activeGame, spawnPaused: true, now: MOCK_NOW },
-  /** P-61: the Cobble balance in the header, no free game. */
-  cobbles: { player: PLAYER_STATUS, activeGame: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 0 } },
-  /** P-61: two free games from the quests: Free game spends one. */
-  freeGame: { player: PLAYER_STATUS, activeGame: null, spawnPaused: false, now: MOCK_NOW, cobbles: { balance: ACCOUNT.gems, credits: 2 } },
-  /** WRAP360: the longest username, the widest balances and scores. */
-  stress: {
-    player: { ...PLAYER_STATUS, player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE } },
-    activeGame: { ...activeGame, id: BIG_NUMBER, score: BIG_SCORE },
-    spawnPaused: false,
-    now: MOCK_NOW,
-    cobbles: { balance: BIG_NUMBER, credits: 999 },
-  },
-} satisfies Record<string, Data<HomeSceneProps>>;
 
 // Play
 

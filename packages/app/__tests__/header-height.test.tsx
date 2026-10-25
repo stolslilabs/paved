@@ -5,9 +5,8 @@ import { describe, expect, it } from "vitest";
 import { AppNav } from "../src/components/containers/app-nav";
 import { TabPage } from "../src/components/containers/tab-page";
 import { TopBar } from "../src/components/containers/top-bar";
-import { HomeScene } from "../src/components/scenes/home-scene";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
-import { HOME, WELCOME } from "../src/mocks/scenes";
+import { WELCOME } from "../src/mocks/scenes";
 import { PAGES } from "../src/routes/pages";
 import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 
@@ -16,9 +15,10 @@ import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-/;
 /**
  * The game scenes: the boards (`Shell.tsx`) and the ends of a game (#720), whose bar is the board's HUD, no page header. So do
- * the PvP attack's (#647: the search's sky, the scout's and the attack's board) and its replay's.
+ * the PvP attack's (#647: the search's sky, the scout's and the attack's board) and its replay's, and the home, the village's
+ * scene with its overlays (#753).
  */
-const BOARD = ["game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/replay/:attacker/:id"];
+const BOARD = ["", "game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/replay/:attacker/:id"];
 
 function header(container: HTMLElement): HTMLElement {
   const found = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');
@@ -40,7 +40,6 @@ describe("the page headers", () => {
     ["a flow's top bar without balances", () => <TopBar title="Something broke" balances={false} />],
     ["a tab page's title row", () => <TabPage tab="vault" title="Vault" subtitle="Deposit PAVED for vPAVED" end={<span>Wallet</span>}>{null}</TabPage>],
     ["a page reached from another", () => <TabPage tab="settings" title="Credits" onBack={() => {}}>{null}</TabPage>],
-    ["Home's top row", () => <HomeScene {...HOME.connected} />],
     ["Welcome's space above the content", () => <WelcomeScene {...WELCOME.firstVisit} />],
   ])("%s is a page header on the token", (_, page) => {
     const { container } = render(page());

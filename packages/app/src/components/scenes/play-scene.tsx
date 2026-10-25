@@ -18,14 +18,16 @@ export interface PlaySceneProps {
   onChallenge?: () => void;
   onTraining?: () => void;
   onStory?: () => void;
+  /** The PvP attack (#647, #740): a rival village; a guest's tap connects first. Omitted: no Attack. */
+  onAttack?: () => void;
   onConnect?: () => void;
 }
 
 /**
- * The mode choice (`/play`): Challenge, Training, Story, and Multiplayer disabled ("coming soon", owner D-4). Direction D
+ * The mode choice (`/play`, opened by the home's Play, #753): Challenge, Training, Story, Attack, and Multiplayer disabled ("coming soon", owner D-4). Direction D
  * (#537): each mode a row with a render of its board on the left, as the mockups' Play list.
  */
-export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onStory, onConnect, onPlayFree }: PlaySceneProps) {
+export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onStory, onAttack, onConnect, onPlayFree }: PlaySceneProps) {
   // A guest's tap on the Challenge connects first; a pause disables it.
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
@@ -59,6 +61,9 @@ export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChall
         )}
         <ModeCard art={modeTraining} icon="play" title="Training" description="A full game for free." badge="Free" onSelect={onTraining} />
         <ModeCard art={modeTutorial} icon="book-open" title="Story" description="Learn the rules level by level, then earn three stars on fixed decks." badge="Free" onSelect={onStory} />
+        {onAttack && (
+          <ModeCard icon="swords" title="Attack" description="Raid a rival village for stars, crowns and chests." badge="PvP" onSelect={connected ? onAttack : onConnect} className="tablet:col-span-2" />
+        )}
         <ModeCard
           icon="user-group"
           title="Multiplayer"

@@ -33,8 +33,8 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   cobbles: () => import("./pages/cobbles"),
   // The avatar creator (#626 PR 2), its own chunk; its 3D preview and stills are the renderer's avatar chunk, loaded by the page.
   avatar: () => import("./pages/avatar"),
-  // The village (#646 PR 2), its own chunk, the own and a visit; its tile art reads the renderer's manifest, asked for with the code.
-  village: village,
+  // A visit to a village (#646 PR 2), its own chunk; its tile art reads the renderer's manifest, asked for with the code. The own
+  // village is the home (#753).
   "village/:player": village,
   // The v2 village's chests and daily shop (#739), a chunk each; their tile cards read the renderer's manifest too.
   "village/chests": () => {

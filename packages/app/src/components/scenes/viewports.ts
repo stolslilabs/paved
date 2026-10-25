@@ -25,3 +25,9 @@ export const PHONE_375 = {
 
 /** The widest breakpoint (1440 x 900): `globals` of a story pinned to it. */
 export const WIDE_1440 = { globals: { viewport: { value: "wide", isRotated: false } } };
+
+/** A tablet in portrait (768 x 1024), between `tablet` and `desktop`: `parameters` and `globals` of a story pinned to it. */
+export const TABLET_768 = {
+  parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, portrait: { name: "iPad 768", styles: { width: "768px", height: "1024px" }, type: "tablet" } } } },
+  globals: { viewport: { value: "portrait", isRotated: false } },
+};

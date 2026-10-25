@@ -47,7 +47,8 @@ afterEach(() => {
 describe("the active tab comes from the route's own entry", () => {
   const TAB_LABEL = { home: "Home", quests: "Missions", play: "Play", vault: "Vault", settings: "Settings" } as const;
 
-  it.each(PAGES.filter((p) => p.nav).map((p) => [p.path || "/", p] as const))("%s", async (_path, page) => {
+  // The home has no tab bar (#753): its overlays replace it; the other tab pages keep theirs.
+  it.each(PAGES.filter((p) => p.nav && p.path !== "").map((p) => [p.path, p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
     // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
     await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
@@ -80,13 +81,23 @@ describe("the active tab comes from the route's own entry", () => {
     expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Vault");
   });
 
-  it("changes with a tab press and moves the page", async () => {
-    const router = open("/");
-    await screen.findByRole("heading", { name: "Home" });
+  it("is not on the home (#753): the village's overlays replace it", async () => {
+    open("/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
+  });
+
+  it("changes with a tab press and moves the page; Home lands on the village", async () => {
+    const router = open("/vault");
+    await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
     await userEvent.click(screen.getByRole("button", { name: "Missions" }));
     await screen.findByRole("heading", { level: 1, name: "Missions" });
     expect(router.state.location.pathname).toBe("/missions");
     expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Missions");
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Home" }));
+    await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    expect(router.state.location.pathname).toBe("/");
   });
 
   it("opens Choose a mode from the nav's Play, the centre item (#623)", async () => {

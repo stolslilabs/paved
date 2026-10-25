@@ -2,9 +2,11 @@ import type { BoardTile } from "@paved/chain";
 import type { Chest, VillageChestsSceneProps } from "../components/scenes/village-chests-scene";
 import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/village-shop-scene";
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
+import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import { rarityOf, type Rarity } from "../components/elements/rarity-badge";
 import { STARTER, canLift, countPlans, fittingAt, frontier, isStarter, layoutScore, legalSpots, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, MOCK_NOW } from "./clock";
+import { GAME_PLAYING } from "./games";
 import { PLAYER } from "./players";
 import { PLAN } from "./village";
 
@@ -152,3 +154,39 @@ export const VILLAGE_SHOP = {
   loading: { status: { kind: "loading" } },
   guest: { status: { kind: "guest" } },
 } satisfies Record<string, Data<VillageShopSceneProps>>;
+
+/** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock. */
+const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
+
+/** One fixture per state of the home (`Scenes/Home`): the village in view, its chips, and edit mode. */
+export const HOME_VILLAGE = {
+  view: home,
+  /** A Challenge game running: the Resume chip. */
+  resume: { ...home, activeGame: GAME_PLAYING },
+  /** `spawn_paused`: the notice beside the Resume chip. */
+  paused: { ...home, activeGame: GAME_PLAYING, spawnPaused: true },
+  /** A new player: the starter village (level 1), no badge. */
+  start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, now: MOCK_NOW },
+  /** Not founded yet: the starter alone, Found in Edit's place. */
+  unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, now: MOCK_NOW },
+  /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */
+  guest: { village: LAYOUT_START, guest: true, now: MOCK_NOW },
+  /** The village on its way: the overlays over the sky. */
+  loading: { now: MOCK_NOW },
+  /** The village's read failed: Retry. */
+  error: { now: MOCK_NOW, error: { message: "Village: the node did not answer" } },
+  /** The save landed: the new score over the village. */
+  saved: { ...home, village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
+  /** Edit mode: the editor's bar, the inventory, Reset all, Discard and Save, in the same scene. */
+  editing: { ...home, editing: true },
+  /** A road in hand: its legal cells lit. */
+  holding: { ...home, editing: true, initialHand: { plan: P.road } },
+  /** The road set on a lit cell: the bubble. */
+  placing: { ...home, editing: true, initialHand: { plan: P.road }, initialPending: legalSpots(LAYOUT_GROWING.tiles, P.road)[0]! },
+  /** Three tiles more than saved: the live score against the saved one. */
+  changed: { ...home, editing: true, initialDraft: DRAFT_VALID },
+  /** Back with unsaved changes: asked first. */
+  leaving: { ...home, editing: true, initialDraft: DRAFT_VALID, initialLeaving: true },
+  /** The chain refused the save: what happened, the draft kept. */
+  refused: { ...home, editing: true, initialDraft: DRAFT_VALID, refusal: "The layout changed on another device: read it again. Nothing was saved." },
+} satisfies Record<string, Data<HomeVillageSceneProps>>;
