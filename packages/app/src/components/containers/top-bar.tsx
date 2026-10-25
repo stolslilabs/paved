@@ -54,6 +54,12 @@ const px = (value: string) => Number.parseFloat(value) || 0;
 export function TopBar({ title, onBack, end, balances = true, ownCobbles = false, className }: TopBarProps) {
   const marked = useMockMarked();
   const bar = useRef<HTMLElement>(null);
+  const label = useRef<HTMLSpanElement>(null);
+  // A title cut on its line keeps its whole text in `title` (a string as is, a composed title by its text).
+  useLayoutEffect(() => {
+    const el = label.current!;
+    el.title = el.querySelector("h1")!.textContent ?? "";
+  });
   // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds, while the bar has the room.
   useLayoutEffect(() => {
     const el = bar.current!;
@@ -93,7 +99,7 @@ export function TopBar({ title, onBack, end, balances = true, ownCobbles = false
         The mark on the title's line, after its last word when the title wraps (#622). It takes no width in the line (its
         negative margin); the title's box keeps its room on both sides instead, so the title stays at the centre.
       */}
-      <span title={typeof title === "string" ? title : undefined} className={cn("line-clamp-1 text-center", marked && "px-12")}>
+      <span ref={label} className={cn("line-clamp-1 text-center", marked && "px-12")}>
         <h1 className="inline text-lg leading-tight font-semibold wrap-anywhere">{title}</h1>
         {marked && (
           <span className="-mr-12 ml-1 inline-flex w-11 align-[0.125rem]">
