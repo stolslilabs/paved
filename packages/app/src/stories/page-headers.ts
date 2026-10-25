@@ -12,6 +12,8 @@ export const PAGE_HEADER_STORIES = {
   cobbles: ["cobbles"],
   avatar: ["avatar"],
   village: ["village", "village/:player"],
+  "village-chests": ["village/chests"],
+  "village-shop": ["village/shop"],
   "pvp-result": ["pvp/result/:id"],
   "pvp-defence": ["pvp/defence"],
   "pvp-league": ["pvp/league"],

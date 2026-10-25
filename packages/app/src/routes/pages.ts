@@ -25,6 +25,9 @@ export const PAGES: readonly PageDef[] = [
   { path: "cobbles", title: "Cobbles", nav: null },
   { path: "avatar", title: "Avatar", nav: null },
   { path: "village", title: "Village", nav: null },
+  // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
+  { path: "village/chests", title: "Chests", nav: null },
+  { path: "village/shop", title: "Tile shop", nav: null },
   { path: "village/:player", title: "Village", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
   // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, the defence log, the league.

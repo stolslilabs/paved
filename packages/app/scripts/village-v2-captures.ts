@@ -1,6 +1,7 @@
 /**
  * V2-VILLAGE-UI (#739): the v2 village's captures at 375 x 812 and 1440 x 900 (DPR 2), from the stories `Scenes/Village v2`
- * (the layout and its editor, the chests, the daily shop, on fakes), for the pull request.
+ * (the layout and its editor, the chests, the daily shop, on fakes) and `Pages/Village` (the pages on the mock ledger), for the
+ * pull request.
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up, or a static build served)
  *   node scripts/village-v2-captures.ts --out <folder> [--url http://localhost:6006] [--only chests]
@@ -32,6 +33,8 @@ const CAPTURES = [
   ...["start", "growing", "editing", "holding", "placing", "lifted", "changed", "reset", "full", "leaving", "saved", "visit"].map(layout),
   ...["waiting", "gold", "gold-chosen", "silver", "bronze", "cobbles-won", "taken", "capped", "empty"].map(chests),
   ...["today", "one-bought", "all-bought", "short"].map(shop),
+  // The pages as the app wires them, on the mock ledger (#739): `Pages/Village`.
+  ...["board", "fresh", "chests", "shop", "visit"].map((state) => ({ name: `page-${state}`, story: `pages-village--${state}` })),
 ];
 
 /** A PNG encoded as WebP by the browser (a blank page's canvas). */
