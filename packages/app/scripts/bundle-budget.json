@@ -13,14 +13,14 @@
     },
     "firstLoadJs": {
       "raw": 578560,
-      "gzip": 197632
+      "gzip": 198144
     },
     "css": {
-      "raw": 101888,
-      "gzip": 18176
+      "raw": 106496,
+      "gzip": 18688
     },
     "fontAwesome": {
-      "raw": 104960,
+      "raw": 105472,
       "gzip": 37376
     }
   }
