@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { BoardTile } from "@paved/chain";
 import type { GameScene, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import { BoardViewport, type BoardBubble, type BoardGhost } from "./board-viewport";
@@ -18,6 +18,13 @@ export interface VillageLayoutCanvasProps {
   basePath?: string;
   skins?: TileSkins;
   onScene?: (scene: GameScene | null) => void;
+  /**
+   * The ready signal (#761): the scene's first frame is drawn with the models of every tile handed over (the boards' asset
+   * loading: `GameScene.init` waits for them, then `start` draws that frame), and every tile image is in
+   * (`GameScene.tileImagesReady`, which asks again for one that failed). Once per scene. Images that never come call
+   * `onError` instead.
+   */
+  onReady?: () => void;
   /** The renderer could not start: the page falls back to the plan view (`LayoutBoard`). */
   onError?: (error: unknown) => void;
 }
@@ -30,12 +37,29 @@ export interface VillageLayoutCanvasProps {
  * placed tile (never the starter) lifts it, a tap on the tile under the bubble lets it go. Its own lazy chunk: the home's
  * overlays paint before it.
  */
-export default function VillageLayoutCanvas({ view, settings, basePath, skins, onScene, onError }: VillageLayoutCanvasProps) {
+export default function VillageLayoutCanvas({ view, settings, basePath, skins, onScene, onReady, onError }: VillageLayoutCanvasProps) {
   const { tiles: layout, plates, pending, editing, onTile, onPlate, onPending } = view;
   const tiles = useMemo<BoardTile[]>(() => layout.map((t) => ({ ...t, ...toChain(t) })), [layout]);
   const slots = useMemo(() => (editing ? plates.map((p) => ({ ...toChain(p), fits: true })) : undefined), [editing, plates]);
   const ghost = useMemo<BoardGhost | null>(() => (pending ? { ...toChain(pending), plan: pending.plan, orientation: pending.orientation, placed: true, fits: true } : null), [pending]);
   const bubble = useMemo<BoardBubble | null>(() => (view.bubble ? { ...view.bubble, cell: toChain(view.bubble.cell) } : null), [view.bubble]);
+  // One stable handler for the viewport (it calls it again on every change of its identity): the page's, then the ready signal
+  // once the tile images are in too (`init` lets the scene start without one that failed) and a frame drawn after them; images
+  // that never come are the renderer's failure (the plan view), so the signal never comes with an asset missing.
+  const latest = useRef({ onScene, onReady, onError });
+  useEffect(() => {
+    latest.current = { onScene, onReady, onError };
+  });
+  const current = useRef<GameScene | null>(null);
+  const handleScene = useCallback((scene: GameScene | null) => {
+    current.current = scene;
+    latest.current.onScene?.(scene);
+    if (!scene) return;
+    scene.tileImagesReady().then(
+      () => requestAnimationFrame(() => current.current === scene && latest.current.onReady?.()),
+      (error: unknown) => current.current === scene && latest.current.onError?.(error),
+    );
+  }, []);
   const onCellClick = (chain: Cell) => {
     if (!editing) return;
     const key = cellKey(fromChain(chain));
@@ -55,7 +79,7 @@ export default function VillageLayoutCanvas({ view, settings, basePath, skins, o
       otherPlates={false}
       ghost={ghost}
       bubble={bubble}
-      onScene={onScene}
+      onScene={handleScene}
       onCellClick={onCellClick}
       onError={onError}
     />
