@@ -1,4 +1,4 @@
-import { Suspense, lazy, useLayoutEffect, useRef, type ReactNode } from "react";
+import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
@@ -29,6 +29,8 @@ const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ default: m.AppNav })));
 // The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
 const LazyVillageStage = lazy(() => import("../containers/village-stage"));
+// The village's points (#758), computed with the engine: from the stage's chunk too.
+const LazyVillagePoints = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.VillagePoints })));
 
 export interface HomeVillageSceneProps {
   /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
@@ -60,6 +62,9 @@ export interface HomeVillageSceneProps {
   initialHand?: { plan: number } | { lift: number } | null;
   initialPending?: Spot | null;
   initialLeaving?: boolean;
+  /** Where the stories start: the view's points open (#758), a line lit (its structure's key); in edit mode, the editor's points unfolded. */
+  initialPointsOpen?: boolean;
+  initialLit?: string | null;
   /** Chests waiting, missions to claim: the badges of the right column (and of the phone's bar, Chests). */
   chests?: number;
   missions?: number;
@@ -123,6 +128,14 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
   const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
   const editable = !!village && !guest && !readOnly && founded;
   const editing = editable && (props.editing ?? false);
+  // The view's points (#758): the panel from the score chip, and the line lit on the scene. Closing it turns the light off.
+  const [pointsOpen, setPointsOpen] = useState(!editing && (props.initialPointsOpen ?? false));
+  const [lit, setLit] = useState<string | null>(!editing ? (props.initialLit ?? null) : null);
+  const closePoints = () => {
+    setPointsOpen(false);
+    setLit(null);
+  };
+  const showPoints = pointsOpen && !editing && !!village;
   const stage: VillageStageProps = {
     village,
     editable,
@@ -139,6 +152,9 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     initialHand: props.initialHand,
     initialPending: props.initialPending,
     initialLeaving: props.initialLeaving,
+    initialPointsOpen: editing ? props.initialPointsOpen : undefined,
+    initialLit: editing ? props.initialLit : undefined,
+    lit: showPoints ? lit : null,
     renderCanvas: props.renderCanvas,
     arrival: props.arrival,
     onSave: props.onSave,
@@ -147,6 +163,7 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     onDismissRefusal: props.onDismissRefusal,
   };
   const edit = () => {
+    closePoints();
     props.onDismissSaved?.();
     props.onEditingChange?.(true);
   };
@@ -157,7 +174,15 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
       <h1 className="sr-only">Home</h1>
       {/* The village's stage, its own chunk (the editor, the board, the engine): a placeholder sky until it is in. */}
       <Suspense fallback={SKY}>{renderStage ? renderStage(stage) : <LazyVillageStage {...stage} />}</Suspense>
-      {!editing && <ViewOverlays {...props} editable={editable} onEdit={edit} />}
+      {!editing && (
+        <ViewOverlays
+          {...props}
+          editable={editable}
+          onEdit={edit}
+          points={showPoints ? { selected: lit, onSelect: setLit, onClose: closePoints } : null}
+          onPoints={() => (pointsOpen ? closePoints() : setPointsOpen(true))}
+        />
+      )}
       {error && !village && (
         <div className="absolute inset-x-4 top-1/3 mx-auto max-w-md">
           <InlineError
@@ -211,8 +236,22 @@ function HomeBar({ children }: { children: ReactNode }) {
   );
 }
 
+/** The view's points panel open: the line lit, and its taps. */
+interface PointsState {
+  selected: string | null;
+  onSelect: (key: string | null) => void;
+  onClose: () => void;
+}
+
 /** The view's overlays: the corners, the right column, Play and Edit, the chips. */
-function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneProps & { editable: boolean; onEdit: () => void }) {
+function ViewOverlays({
+  village,
+  editable,
+  onEdit,
+  points,
+  onPoints,
+  ...props
+}: HomeVillageSceneProps & { editable: boolean; onEdit: () => void; points: PointsState | null; onPoints: () => void }) {
   const { activeGame, now, guest, founded = true } = props;
   const crowns = props.league?.crowns ?? 0;
   const standing = leagueOf(crowns);
@@ -226,11 +265,21 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
             {/* By the avatar (#755): the village score, and the crowns and their league, a tap to the league (Unranked before PvP). */}
             <div className="ml-1 flex flex-wrap items-center gap-1.5">
               {village && (
-                <span className="flex items-center gap-1.5 rounded-md bg-background/70 px-2 py-0.5 text-xs backdrop-blur">
+                // The village score; a tap opens its points by structure (#758).
+                <button
+                  type="button"
+                  onClick={onPoints}
+                  aria-label={`Village score ${formatInteger(village.score)}: ${points ? "hide" : "show"} the points`}
+                  aria-expanded={!!points}
+                  aria-controls={points ? "village-points" : undefined}
+                  className={cn(
+                    "state-layer flex min-h-7 items-center gap-1.5 rounded-md bg-background/70 px-2 py-0.5 text-xs backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    points && "ring-1 ring-primary",
+                  )}
+                >
                   <Icon name="house-chimney" size="xs" className="text-primary" />
                   <span className="numeric font-semibold">{formatInteger(village.score)}</span>
-                  <span className="sr-only">village score</span>
-                </span>
+                </button>
               )}
               <button
                 type="button"
@@ -242,6 +291,12 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
                 <Crowns value={crowns} size="sm" />
               </button>
             </div>
+            {/* The points (#758) under the chip from `tablet`; on a phone, a bottom panel over Play (the panel picks its place). */}
+            {points && village && (
+              <Suspense fallback={null}>
+                <LazyVillagePoints place="side" tiles={village.tiles} {...points} className="mt-1 w-80" />
+              </Suspense>
+            )}
           </div>
           <div className="pointer-events-auto flex shrink-0 items-center gap-2">
             <BalancesSlot layout="pill" className="desktop:hidden" />
@@ -320,6 +375,14 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
           <Icon name="hammer" size="xl" />
         </Button>
       </div>
+      {points && village && (
+        // Anchored at the bar's top (#763): the panel, at its anchor's foot, opens above the bar, not under it.
+        <div className="absolute inset-x-0 bottom-(--app-nav-h) z-20 h-0">
+          <Suspense fallback={null}>
+            <LazyVillagePoints place="bottom" tiles={village.tiles} {...points} />
+          </Suspense>
+        </div>
+      )}
 
       {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
       <HomeBar>

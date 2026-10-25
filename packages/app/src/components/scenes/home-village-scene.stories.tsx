@@ -83,8 +83,14 @@ export const Loading: Story = { args: HOME_VILLAGE.loading };
 export const ReadFailed: Story = { args: HOME_VILLAGE.error };
 /** The save landed: the new score over the village. */
 export const Saved: Story = { args: HOME_VILLAGE.saved };
+/** The score chip tapped (#758): the points by structure, a line lit (on the plan view, its tiles ringed, the rest dimmed). */
+export const Points: Story = { args: HOME_VILLAGE.points };
 /** Edit mode: the editor's bar (Back, the score, the slots, Reset all), the inventory and Save. */
 export const Editing: Story = { args: HOME_VILLAGE.editing };
+/** Edit mode's points unfolded above the inventory (#758), a line lit. */
+export const EditingPoints: Story = { args: HOME_VILLAGE.editingPoints };
+/** A tile of the lit structure lifted (#758): under the bubble, it stays lit with the rest of its structure. */
+export const EditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted };
 /** A road in hand: its legal cells lit. */
 export const Holding: Story = { args: HOME_VILLAGE.holding };
 /** The road placed on a lit cell at once (no validation, #756): the bubble rotates it or sends it back to the inventory. */
@@ -131,6 +137,11 @@ export const ScenePlaced: Story = { args: HOME_VILLAGE.placing, render: (args) =
 /** A lifted tile moved on the scene: the bubble by it, with Cancel. */
 export const SceneMoved: Story = { args: HOME_VILLAGE.moved, render: (args) => <InScene {...args} /> };
 
+/** The points on the scene (#758): a line lit lights its structure's areas and dims the rest, in view and in edit mode. */
+export const ScenePoints: Story = { args: HOME_VILLAGE.points, render: (args) => <InScene {...args} /> };
+export const SceneEditingPoints: Story = { args: HOME_VILLAGE.editingPoints, render: (args) => <InScene {...args} /> };
+export const SceneEditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted, render: (args) => <InScene {...args} /> };
+
 /** A cold arrival (#761), the village and its assets still loading: the overlays in view and usable over a thick fog. */
 export const Fogged: Story = { args: { ...HOME_VILLAGE.view, arrival: "fog" }, render: (args) => <InScene {...args} held /> };
 /** A cold arrival as it plays: the fog thins out (600 ms) once the canvas says the village and its assets are drawn. */
@@ -149,6 +160,12 @@ export const ScenePlacedPhone: Story = { ...ScenePlaced, ...PHONE_375 };
 export const ScenePlacedWide: Story = { ...ScenePlaced, ...WIDE_1440 };
 export const SceneMovedPhone: Story = { ...SceneMoved, ...PHONE_375 };
 export const SceneMovedWide: Story = { ...SceneMoved, ...WIDE_1440 };
+export const ScenePointsPhone: Story = { ...ScenePoints, ...PHONE_375 };
+export const ScenePointsWide: Story = { ...ScenePoints, ...WIDE_1440 };
+export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_375 };
+export const SceneEditingPointsWide: Story = { ...SceneEditingPoints, ...WIDE_1440 };
+export const SceneEditingPointsLiftedPhone: Story = { ...SceneEditingPointsLifted, ...PHONE_375 };
+export const SceneEditingPointsLiftedWide: Story = { ...SceneEditingPointsLifted, ...WIDE_1440 };
 
 /**
  * PHONE-NAV (#763): the app's bar on the home below `desktop` (Shop, Chests with the chests waiting, Play, League, Settings; no
