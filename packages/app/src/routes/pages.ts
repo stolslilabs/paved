@@ -15,6 +15,11 @@ export interface PageDef {
   title: string;
   /** The tab shown as active, or `null` for a full-screen flow. */
   nav: Tab | null;
+  /**
+   * Where Back leads when the page has no earlier in-app entry (a link, a reload; PAGE-HEADER, #760): the page's parent.
+   * Omitted, the home (`/`, the village).
+   */
+  parent?: string;
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -44,11 +49,11 @@ export const PAGES: readonly PageDef[] = [
   { path: "missions/lifetime", title: "Missions", nav: "quests" },
   { path: "missions/:day?", title: "Missions", nav: "quests" },
   { path: "vault", title: "Vault", nav: "vault" },
-  { path: "referral", title: "Referral", nav: "settings" },
-  { path: "settings/theme", title: "Themes", nav: "settings" },
-  { path: "settings/theme/:theme", title: "Theme", nav: "settings" },
-  { path: "settings/tiles", title: "My tiles", nav: "settings" },
-  { path: "settings/credits", title: "Credits", nav: "settings" },
+  { path: "referral", title: "Referral", nav: "settings", parent: "/settings" },
+  { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings" },
+  { path: "settings/theme/:theme", title: "Theme", nav: "settings", parent: "/settings/theme" },
+  { path: "settings/tiles", title: "My tiles", nav: "settings", parent: "/settings" },
+  { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings" },
   { path: "settings", title: "Settings", nav: "settings" },
 ] as const;
 
