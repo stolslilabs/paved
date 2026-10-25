@@ -19,6 +19,3 @@ export function usePvpLeague(playerId: string | null): { data: LeagueStatus | nu
   if (playerId === null || !served) return { data: null, error: null };
   return { data: league.data, error: league.error };
 }
-
-/** PvP was played: crowns held, a league reached this season, or an attack made. */
-export const playedPvp = (league: LeagueStatus): boolean => league.crowns > 0 || league.peak > 0 || league.attacks > 0;
