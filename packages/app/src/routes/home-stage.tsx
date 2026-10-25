@@ -7,6 +7,7 @@ import type { FreeVillageHeld } from "../data/free-village-base";
 import { RENDERER_ASSETS } from "../data/renderer-manifest";
 import { useDeviceSettings } from "../data/settings";
 import { hasWebGL } from "../lib/webgl";
+import { villageArrival, markVillageDrawn } from "./village-arrival";
 import { countsByPlan, useVillageArt } from "./village-v2";
 
 /** The 3D village, its own chunk (the renderer's), after the stage. */
@@ -24,8 +25,8 @@ export interface HomeStageProps extends VillageStageProps {
 
 /**
  * The home's village stage as the app wires it (#753), its own chunk: the stage (the editor, the board, the engine) with the
- * tile art in the owner's skins and the 3D scene under it; the plan view under the low graphics quality, where WebGL is missing
- * or where the renderer cannot start.
+ * tile art in the owner's skins and the 3D scene under it, arriving under the fog the first time (#761); the plan view, with no
+ * fog, under the low graphics quality, where WebGL is missing or where the renderer cannot start.
  */
 export default function HomeStage({ playerId, held, settings, onScene, ...stage }: HomeStageProps) {
   const inventory = useMemo(() => (held ? countsByPlan(freeInventory(held.inventory, held.tiles)) : stage.inventory), [held, stage.inventory]);
@@ -36,16 +37,30 @@ export default function HomeStage({ playerId, held, settings, onScene, ...stage 
   const [{ quality }] = useDeviceSettings();
   const [failed, setFailed] = useState(() => !hasWebGL());
   const view = failed || quality === "low" ? "plan" : "3d";
+  // Read once, as the stage mounts: the first arrival of the page under the fog, the later ones with a fade.
+  const [arrival] = useState(villageArrival);
   return (
     <VillageStage
       {...stage}
       inventory={inventory}
       tileArt={tileArt}
+      arrival={arrival}
       renderCanvas={
         view === "3d"
-          ? (v) => (
+          ? (v, onDrawn) => (
               <Suspense fallback={null}>
-                <HomeCanvas view={v} basePath={RENDERER_ASSETS} skins={skins} settings={settings} onScene={onScene} onError={() => setFailed(true)} />
+                <HomeCanvas
+                  view={v}
+                  basePath={RENDERER_ASSETS}
+                  skins={skins}
+                  settings={settings}
+                  onScene={onScene}
+                  onReady={() => {
+                    markVillageDrawn();
+                    onDrawn();
+                  }}
+                  onError={() => setFailed(true)}
+                />
               </Suspense>
             )
           : undefined

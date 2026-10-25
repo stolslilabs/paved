@@ -10,6 +10,7 @@ import { LeagueCrest } from "../elements/league-crest";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { formatPoints } from "../elements/score";
 import { type TileArt } from "../elements/tile-chip";
+import type { VillageArrival } from "../elements/village-fog";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { BalancesSlot } from "../containers/balances-context";
@@ -78,7 +79,9 @@ export interface HomeVillageSceneProps {
    * The village in 3D (the board's renderer, given by the page): drawn from the editor's state. Without it the scene draws the
    * plan view (`LayoutBoard`), as where WebGL is missing and in the render tests.
    */
-  renderCanvas?: (view: LayoutBoardView) => ReactNode;
+  renderCanvas?: (view: LayoutBoardView, onDrawn: () => void) => ReactNode;
+  /** With `renderCanvas`: the 3D village arrives under a fog that clears once it is drawn, or with a short fade (#761). */
+  arrival?: VillageArrival;
   /**
    * The stage as the page draws it (its lazy wrapper, which adds the tile art and the 3D canvas), from the props the scene hands
    * the stage. Unset: the scene's own (`VillageStage`), as in the stories and the render tests.
@@ -135,6 +138,7 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     initialPending: props.initialPending,
     initialLeaving: props.initialLeaving,
     renderCanvas: props.renderCanvas,
+    arrival: props.arrival,
     onSave: props.onSave,
     onDirtyChange: props.onDirtyChange,
     onDismissSaved: props.onDismissSaved,
