@@ -36,7 +36,6 @@ const meta = {
     onShop: fn(),
     onVault: fn(),
     onLeague: fn(),
-    onDefence: fn(),
     onSettings: fn(),
     onResume: fn(),
     onRetry: fn(),
@@ -71,7 +70,7 @@ export const View: Story = { args: HOME_VILLAGE.view };
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */
 export const Paused: Story = { args: HOME_VILLAGE.paused };
-/** A new player: the starter village, level 1. */
+/** A new player: the starter village, level 1, the league badge Unranked with 0 crowns (#755). */
 export const Start: Story = { args: HOME_VILLAGE.start };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };

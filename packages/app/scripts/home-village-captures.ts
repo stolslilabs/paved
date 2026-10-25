@@ -190,7 +190,7 @@ try {
     }
   }
   if (GIF) {
-    // View, Edit (the hammer), a road in hand, set on a cell, Back (asked: changes), Leave: one frame each, held two seconds, at 375 px.
+    // View, Edit (the pen), a road in hand, set on a cell, Back (asked: changes), Leave: one frame each, held two seconds, at 375 px.
     const page = await open("scenes-home--interactive", { width: 375, height: 812 }, 1);
     const frames: Uint8Array[] = [];
     let size = { width: 375, height: 812 };
