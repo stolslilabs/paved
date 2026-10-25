@@ -11,7 +11,9 @@ import { Skeleton } from "../ui/skeleton";
 import { ChestReveal, type ChestDraw } from "../containers/chest-reveal";
 import { PVP_CHESTS_A_DAY } from "../containers/layout-rules";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
+import { TabFrame } from "../containers/tab-frame";
 import { TopBar } from "../containers/top-bar";
+import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
 
 /** A chest waiting to be opened (#736): its rank from the result, and where it was won. */
@@ -57,6 +59,8 @@ export interface VillageChestsSceneProps {
   /** Where the stories start: a tile chosen in the open chest. */
   initialChoice?: number | null;
   onBack?: () => void;
+  /** A pick in the phone's bar (#763): the page is the Chests tab's. */
+  onNavigate?: (tab: Tab) => void;
   onConnect?: () => void;
   onRetry?: () => void;
   onOpen?: (chestId: number) => void;
@@ -88,6 +92,7 @@ export function VillageChestsScene({
   tileArt,
   initialChoice,
   onBack,
+  onNavigate,
   onConnect,
   onRetry,
   onOpen,
@@ -98,124 +103,126 @@ export function VillageChestsScene({
   const left = Math.max(0, PVP_CHESTS_A_DAY - pvpToday);
   const waiting = chests.filter((c) => c.id !== opened?.chestId);
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <TopBar title="Chests" onBack={onBack} />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] desktop:max-w-4xl">
-        {status ? (
-          <SkinsStatusView
-            status={status}
-            guestTitle="Connect to open your chests"
-            guestText="Chests come with your stars: in PvP 1 star gives a bronze chest, 2 a silver one, 3 a gold one."
-            errorTitle="The chests could not be read"
-            skeleton={
-              <div className="flex flex-col gap-3">
-                <Skeleton className="h-16 w-full rounded-xl" />
-                <Skeleton className="h-20 w-full rounded-xl" />
-                <Skeleton className="h-20 w-full rounded-xl" />
-              </div>
-            }
-            onConnect={onConnect}
-            onRetry={onRetry}
-          />
-        ) : (
-          <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-[1fr_22rem] desktop:items-start">
-            <div className="flex flex-col gap-4 desktop:order-2">
-              <section aria-label="Today's PvP chests" className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold">PvP chests today</span>
-                  <span className="text-sm" aria-label={`${left} of ${PVP_CHESTS_A_DAY} left today`}>
-                    <span className="numeric font-semibold">{left}</span>
-                    <span className="text-muted-foreground"> / {PVP_CHESTS_A_DAY} left</span>
-                  </span>
+    <TabFrame tab="chests" onNavigate={onNavigate} desktop="none">
+      <div className="flex min-h-full flex-col bg-background">
+        <TopBar title="Chests" onBack={onBack} />
+        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] desktop:max-w-4xl">
+          {status ? (
+            <SkinsStatusView
+              status={status}
+              guestTitle="Connect to open your chests"
+              guestText="Chests come with your stars: in PvP 1 star gives a bronze chest, 2 a silver one, 3 a gold one."
+              errorTitle="The chests could not be read"
+              skeleton={
+                <div className="flex flex-col gap-3">
+                  <Skeleton className="h-16 w-full rounded-xl" />
+                  <Skeleton className="h-20 w-full rounded-xl" />
+                  <Skeleton className="h-20 w-full rounded-xl" />
                 </div>
-                <div aria-hidden className="flex gap-1.5">
-                  {Array.from({ length: PVP_CHESTS_A_DAY }, (_, i) => (
-                    <span key={i} className={cn("h-1.5 flex-1 rounded-full", i < pvpToday ? "bg-muted-foreground/40" : "bg-primary")} />
-                  ))}
-                </div>
-                {resetsAt != null && now != null && (
-                  <Countdown expiresAt={resetsAt} now={now} label={left === 0 ? "More chests in" : "Resets in"} className="self-start" />
-                )}
-                {left === 0 && <p className="text-xs text-muted-foreground">Today's PvP chests are won: attacks still win crowns and XP.</p>}
-              </section>
-              <p className="hidden text-xs text-muted-foreground desktop:block">
-                Bronze: one tile. Silver: keep one of 2. Gold: keep one of 3. A chest may also hold Cobbles, more often the higher its rank and your league.
-              </p>
-            </div>
-            <div className="flex flex-col gap-4 desktop:order-1">
-              {refusal && (
-                <InlineError
-                  title="Not done"
-                  message={refusal}
-                  detail={refusalDetail}
-                  action={
-                    onDismissRefusal && (
-                      <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
-                        Dismiss
-                      </Button>
-                    )
-                  }
-                />
-              )}
-              {taken && !opened && (
-                <Notice icon="circle-check" title="Added to your inventory" action={onEditLayout && <Button size="sm" variant="outline" onClick={onEditLayout}>Edit layout</Button>}>
-                  <span className="inline-flex flex-wrap items-center gap-2">
-                    <TileChip plan={taken.plan} art={tileArt} size="sm" className="border-0" />
-                    {tileName(taken.plan)}
-                    {taken.cobbles != null && <Cobbles value={taken.cobbles} sign="+" size="sm" />}
-                  </span>
-                </Notice>
-              )}
-              {opened && (
-                <ChestReveal key={opened.chestId} draw={opened.draw} owned={owned} initialChoice={initialChoice} busy={busy} tileArt={tileArt} onTake={(i) => onTake?.(opened.chestId, i)} />
-              )}
-              {waiting.length > 0 ? (
-                <section aria-labelledby="chests-title" className="flex flex-col gap-2">
-                  <h2 id="chests-title" className="flex items-center gap-1 text-sm font-semibold">
-                    Waiting <span className="numeric text-muted-foreground">{waiting.length}</span>
-                  </h2>
-                  <ul className="flex flex-col gap-2">
-                    {waiting.map((chest, i) => (
-                      <li key={chest.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                        <ChestBadge rank={chest.rank} size="sm" />
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="text-sm font-semibold">{CHEST_NAME[chest.rank]}</span>
-                          {(chest.source || chest.label) && (
-                            <span className="text-xs text-muted-foreground">
-                              {[chest.source && (chest.source === "pvp" ? "PvP" : "Story"), chest.label].filter(Boolean).join(" · ")}
-                            </span>
-                          )}
-                          {inOrder && i > 0 && <span className="text-xs text-muted-foreground">Opens after the one above</span>}
-                        </div>
-                        <Button
-                          size="sm"
-                          disabled={opened != null || (opening != null && opening !== chest.id) || busy || (inOrder && i > 0)}
-                          loading={opening === chest.id}
-                          onClick={() => onOpen?.(chest.id)}
-                          aria-label={`Open the ${CHEST_NAME[chest.rank].toLowerCase()}: ${CHEST_CHOICES[chest.rank] === 1 ? "one tile" : `one of ${CHEST_CHOICES[chest.rank]} tiles`}`}
-                        >
-                          Open
-                        </Button>
-                      </li>
+              }
+              onConnect={onConnect}
+              onRetry={onRetry}
+            />
+          ) : (
+            <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-[1fr_22rem] desktop:items-start">
+              <div className="flex flex-col gap-4 desktop:order-2">
+                <section aria-label="Today's PvP chests" className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">PvP chests today</span>
+                    <span className="text-sm" aria-label={`${left} of ${PVP_CHESTS_A_DAY} left today`}>
+                      <span className="numeric font-semibold">{left}</span>
+                      <span className="text-muted-foreground"> / {PVP_CHESTS_A_DAY} left</span>
+                    </span>
+                  </div>
+                  <div aria-hidden className="flex gap-1.5">
+                    {Array.from({ length: PVP_CHESTS_A_DAY }, (_, i) => (
+                      <span key={i} className={cn("h-1.5 flex-1 rounded-full", i < pvpToday ? "bg-muted-foreground/40" : "bg-primary")} />
                     ))}
-                  </ul>
+                  </div>
+                  {resetsAt != null && now != null && (
+                    <Countdown expiresAt={resetsAt} now={now} label={left === 0 ? "More chests in" : "Resets in"} className="self-start" />
+                  )}
+                  {left === 0 && <p className="text-xs text-muted-foreground">Today's PvP chests are won: attacks still win crowns and XP.</p>}
                 </section>
-              ) : (
-                !opened && (
-                  <Notice icon="gift" title="No chest waiting">
-                    Win stars to earn one: in PvP, 1 star gives a bronze chest, 2 a silver one, 3 a gold one; in Story, 3 stars on a level the first time.
-                  </Notice>
-                )
-              )}
-              {opened == null && waiting.length > 0 && (
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground desktop:hidden">
-                  <Icon name="circle-info" size="xs" /> A chest may also hold Cobbles, more often the higher its rank.
+                <p className="hidden text-xs text-muted-foreground desktop:block">
+                  Bronze: one tile. Silver: keep one of 2. Gold: keep one of 3. A chest may also hold Cobbles, more often the higher its rank and your league.
                 </p>
-              )}
+              </div>
+              <div className="flex flex-col gap-4 desktop:order-1">
+                {refusal && (
+                  <InlineError
+                    title="Not done"
+                    message={refusal}
+                    detail={refusalDetail}
+                    action={
+                      onDismissRefusal && (
+                        <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                          Dismiss
+                        </Button>
+                      )
+                    }
+                  />
+                )}
+                {taken && !opened && (
+                  <Notice icon="circle-check" title="Added to your inventory" action={onEditLayout && <Button size="sm" variant="outline" onClick={onEditLayout}>Edit layout</Button>}>
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <TileChip plan={taken.plan} art={tileArt} size="sm" className="border-0" />
+                      {tileName(taken.plan)}
+                      {taken.cobbles != null && <Cobbles value={taken.cobbles} sign="+" size="sm" />}
+                    </span>
+                  </Notice>
+                )}
+                {opened && (
+                  <ChestReveal key={opened.chestId} draw={opened.draw} owned={owned} initialChoice={initialChoice} busy={busy} tileArt={tileArt} onTake={(i) => onTake?.(opened.chestId, i)} />
+                )}
+                {waiting.length > 0 ? (
+                  <section aria-labelledby="chests-title" className="flex flex-col gap-2">
+                    <h2 id="chests-title" className="flex items-center gap-1 text-sm font-semibold">
+                      Waiting <span className="numeric text-muted-foreground">{waiting.length}</span>
+                    </h2>
+                    <ul className="flex flex-col gap-2">
+                      {waiting.map((chest, i) => (
+                        <li key={chest.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                          <ChestBadge rank={chest.rank} size="sm" />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="text-sm font-semibold">{CHEST_NAME[chest.rank]}</span>
+                            {(chest.source || chest.label) && (
+                              <span className="text-xs text-muted-foreground">
+                                {[chest.source && (chest.source === "pvp" ? "PvP" : "Story"), chest.label].filter(Boolean).join(" · ")}
+                              </span>
+                            )}
+                            {inOrder && i > 0 && <span className="text-xs text-muted-foreground">Opens after the one above</span>}
+                          </div>
+                          <Button
+                            size="sm"
+                            disabled={opened != null || (opening != null && opening !== chest.id) || busy || (inOrder && i > 0)}
+                            loading={opening === chest.id}
+                            onClick={() => onOpen?.(chest.id)}
+                            aria-label={`Open the ${CHEST_NAME[chest.rank].toLowerCase()}: ${CHEST_CHOICES[chest.rank] === 1 ? "one tile" : `one of ${CHEST_CHOICES[chest.rank]} tiles`}`}
+                          >
+                            Open
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : (
+                  !opened && (
+                    <Notice icon="gift" title="No chest waiting">
+                      Win stars to earn one: in PvP, 1 star gives a bronze chest, 2 a silver one, 3 a gold one; in Story, 3 stars on a level the first time.
+                    </Notice>
+                  )
+                )}
+                {opened == null && waiting.length > 0 && (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground desktop:hidden">
+                    <Icon name="circle-info" size="xs" /> A chest may also hold Cobbles, more often the higher its rank.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </main>
-    </div>
+          )}
+        </main>
+      </div>
+    </TabFrame>
   );
 }

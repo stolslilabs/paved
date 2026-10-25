@@ -2,11 +2,13 @@ import { useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject } 
 import { useInRouterContext, useLocation, useNavigationType } from "react-router";
 import type { Tab } from "../../routes/pages";
 import { pageScrollHintRef } from "../../lib/page-scroll-hint";
-import { AppNav } from "./app-nav";
+import { AppNav, type AppNavProps } from "./app-nav";
 
 export interface TabFrameProps {
   tab: Tab;
   onNavigate?: (tab: Tab) => void;
+  /** The navigation from `desktop` (`AppNav`): the tab pages' header, or none (a page of the phone's bar only, #763). */
+  desktop?: AppNavProps["desktop"];
   children: ReactNode;
 }
 
@@ -20,27 +22,16 @@ export interface TabFrameProps {
  * the fades `AppNav` draws), not the `scroll-hint` mask of a `ScrollRegion`, and it keeps its offset per history entry
  * (`RegionScrollKeeper`).
  */
-export function TabFrame({ tab, onNavigate, children }: TabFrameProps) {
-  const frame = useRef<HTMLDivElement>(null);
+export function TabFrame({ tab, onNavigate, desktop, children }: TabFrameProps) {
   const region = useRef<HTMLDivElement | null>(null);
   const regionRef = useCallback((el: HTMLDivElement | null) => {
     region.current = el;
     return pageScrollHintRef(el);
   }, []);
-  // The bar's height, for the region's bottom margin: it changes with the labels (from `mobile`) and the safe area.
-  useLayoutEffect(() => {
-    const el = frame.current;
-    const nav = el?.querySelector<HTMLElement>(":scope > nav");
-    if (!el || !nav) return;
-    const measure = () => el.style.setProperty("--app-nav-h", `${nav.offsetHeight}px`);
-    measure();
-    const resize = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
-    resize?.observe(nav);
-    return () => resize?.disconnect();
-  }, []);
   return (
-    <div ref={frame} className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      <AppNav active={tab} onNavigate={onNavigate} />
+    <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+      {/* The bar sets its height on this frame (`--app-nav-h`), where the region ends. */}
+      <AppNav active={tab} onNavigate={onNavigate} desktop={desktop} />
       <div ref={regionRef} data-slot="page-scroll" className="mb-(--app-nav-h) min-h-0 flex-1 overflow-y-auto overscroll-contain desktop:mb-0">
         {children}
       </div>

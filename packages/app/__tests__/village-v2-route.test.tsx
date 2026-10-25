@@ -66,7 +66,14 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     const layout = starterLayout(BigInt(s.me));
     expect((await s.ledger.freeVillage(s.me)).tiles).toEqual(layout);
     expect(screen.getByText(layoutScore(layout).toLocaleString("en-US"))).toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    // The phone's bar is on the home (#763), and edit mode takes it away until it is left.
+    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    await userEvent.click(await editButton());
+    await waitFor(() => expect(s.router.state.location.search).toBe("?edit"));
+    await waitFor(() => expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull(), WAIT);
+    await userEvent.click(await screen.findByRole("button", { name: "Leave edit mode" }, WAIT));
+    await waitFor(() => expect(s.router.state.location.search).toBe(""));
+    expect(await screen.findByRole("navigation", { name: "Main" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));
 
   it("Edit switches to edit mode in the URL; an outer tile goes back to the inventory and the whole layout saves at once", async () => {
@@ -164,8 +171,10 @@ describe("/: the player's village is the home (#753), on the mock", () => {
       // the home, once at a time, until the page opens.
       await waitFor(() => {
         if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
+          // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
           const column = screen.queryByRole("navigation", { name: "Village" });
-          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+          const bar = screen.queryByRole("navigation", { name: "Main" });
+          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
         }
         expect(s.router.state.location.pathname).toBe(path);
       }, WAIT);
@@ -188,13 +197,18 @@ describe("/: the player's village is the home (#753), on the mock", () => {
       await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
       await waitFor(() => {
         if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
+          // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
           const column = screen.queryByRole("navigation", { name: "Village" });
-          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+          const bar = screen.queryByRole("navigation", { name: "Main" });
+          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
         }
         expect(s.router.state.location.pathname).toBe(path);
       }, WAIT);
-      // The page's own way back: its top bar's Back, or the tab bar's Home.
-      const way = back === "Home" ? within(await screen.findByRole("navigation", { name: "Main" }, WAIT)).getByRole("button", { name: "Home" }) : await screen.findByRole("button", { name: "Back" }, WAIT);
+      // The page's own way back: its header's Back (#760), or the desktop header's Home (the tab pages').
+      const way =
+        back === "Home"
+          ? await waitFor(() => within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Home" }), WAIT)
+          : await screen.findByRole("button", { name: "Back" }, WAIT);
       await userEvent.click(way);
       await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
     }

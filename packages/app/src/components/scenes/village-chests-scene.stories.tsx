@@ -7,6 +7,7 @@ import { CHESTS, VILLAGE_CHESTS } from "../../mocks/village-v2";
 import { CHEST_CHOICES } from "../elements/chest-badge";
 import type { ChestDraw } from "../containers/chest-reveal";
 import { VillageChestsScene, type ChestTaken, type VillageChestsSceneProps } from "./village-chests-scene";
+import { PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The chests (#739, part of #732) on fakes: the chests waiting by rank, the day's PvP chests left, a chest opened. One story
@@ -16,7 +17,7 @@ const meta = {
   title: "Scenes/Village v2/Chests",
   component: VillageChestsScene,
   parameters: { layout: "fullscreen" },
-  args: { ...VILLAGE_CHESTS.waiting, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onOpen: fn(), onTake: fn(), onDismissRefusal: fn(), onEditLayout: fn() },
+  args: { ...VILLAGE_CHESTS.waiting, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onNavigate: fn(), onOpen: fn(), onTake: fn(), onDismissRefusal: fn(), onEditLayout: fn() },
 } satisfies Meta<typeof VillageChestsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -70,3 +71,7 @@ function Playground(props: VillageChestsSceneProps) {
 }
 
 export const Interactive: Story = { render: (args) => <Playground {...args} /> };
+
+/** In the phone's bar (#763): the Chests current at 375 px; from 1440 px the page's top bar alone, as before (#762). */
+export const WaitingPhone: Story = { ...Waiting, ...PHONE_375 };
+export const WaitingWide: Story = { ...Waiting, ...WIDE_1440 };

@@ -1,5 +1,6 @@
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
+import { cn } from "../../lib/utils";
 import { leagueOf, type PvpPlayer } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -24,6 +25,8 @@ export interface PvpSearchSceneProps {
   /** Stops the search (`searching`), or leaves (`none`, `error`). */
   onCancel?: () => void;
   onRetry?: () => void;
+  /** The scene's box: one viewport tall by default, its frame's height in a tab page's region (`h-full`, the league's waits). */
+  className?: string;
 }
 
 /**
@@ -31,10 +34,10 @@ export interface PvpSearchSceneProps {
  * near the attacker's crowns (#639). Found, the clouds part and the defender's name shows, and the page moves on to the
  * scout. Full screen, no navigation: the only way out is Cancel.
  */
-export function PvpSearchScene({ state, player, opponent, error, errorDetail, onCancel, onRetry }: PvpSearchSceneProps) {
+export function PvpSearchScene({ state, player, opponent, error, errorDetail, onCancel, onRetry, className }: PvpSearchSceneProps) {
   const league = leagueOf(player.crowns);
   return (
-    <div className="relative flex h-dvh min-h-[32rem] flex-col overflow-hidden bg-linear-to-b from-sky-search-top to-sky-search-bottom text-foreground">
+    <div className={cn("relative flex h-dvh min-h-[32rem] flex-col overflow-hidden bg-linear-to-b from-sky-search-top to-sky-search-bottom text-foreground", className)}>
       <SearchClouds parted={state !== "searching"} />
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center gap-4 px-4 pt-[env(safe-area-inset-top)]">
         <div role="status" aria-live="polite" className="flex w-full max-w-sm flex-col items-center gap-3 rounded-xl border border-border bg-card/90 px-4 py-5 text-center shadow-lg backdrop-blur">
