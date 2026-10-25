@@ -99,8 +99,7 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks.
     const found = screen.findByRole("heading", { name: "Village found" }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Attack/ }));
-    // It showed: on a loaded machine it may be gone again (the scout's turn) by the time the await returns.
-    expect(await found).toBeTruthy();
+    expect(await found).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
     const match = await s.ledger.pvpMatch(s.me);
     const rival = mockRival(match.opponent)!;
