@@ -165,12 +165,12 @@ export const HOME_VILLAGE = {
   resume: { ...home, activeGame: GAME_PLAYING },
   /** `spawn_paused`: the notice beside the Resume chip. */
   paused: { ...home, activeGame: GAME_PLAYING, spawnPaused: true },
-  /** A new player: the starter village (level 1), no badge. */
-  start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, now: MOCK_NOW },
+  /** A new player: the starter village (level 1), no PvP played: the badge Unranked with 0 crowns (#755). */
+  start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, now: MOCK_NOW },
   /** Not founded yet: the starter alone, Found in Edit's place. */
-  unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, now: MOCK_NOW },
+  unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, league: null, now: MOCK_NOW },
   /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */
-  guest: { village: LAYOUT_START, guest: true, now: MOCK_NOW },
+  guest: { village: LAYOUT_START, guest: true, league: null, now: MOCK_NOW },
   /** The village on its way: the overlays over the sky. */
   loading: { now: MOCK_NOW },
   /** The village's read failed: Retry. */

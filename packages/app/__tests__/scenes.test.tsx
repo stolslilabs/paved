@@ -143,7 +143,8 @@ describe("Home (#753): the village with its overlays", () => {
     expect(onLeague).toHaveBeenCalledTimes(1);
     unmount();
     // Before any PvP: Unranked with 0 crowns, still the way to the league.
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.start} onLeague={onLeague} />));
+    // Merged over the view's fixture, as the Start story's args are: its own `league: null` wins.
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.start} onLeague={onLeague} />));
     await userEvent.click(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
     expect(onLeague).toHaveBeenCalledTimes(2);
   });
