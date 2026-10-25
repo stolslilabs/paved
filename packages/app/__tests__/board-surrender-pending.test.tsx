@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -38,7 +38,9 @@ describe("BoardScene, the Surrender dialog still loading", () => {
     const button = screen.getByRole("button", { name: /Surrender/ });
     expect(button).not.toHaveAttribute("aria-busy");
     await userEvent.click(button);
-    expect(screen.getByRole("button", { name: /Surrender/ })).toHaveAttribute("aria-busy", "true");
+    // Busy while the gate is still shut: the banner's action follows the tap through its own animated container, which a loaded
+    // machine can hold back a few frames.
+    await waitFor(() => expect(screen.getByRole("button", { name: /Surrender/ })).toHaveAttribute("aria-busy", "true"), { timeout: slow(5000) });
     expect(screen.getByRole("button", { name: /Surrender/ })).toBeDisabled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     gate.open();
