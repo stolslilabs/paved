@@ -1,10 +1,11 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { formatInteger } from "@paved/game-core";
 import { CHEST_CHOICES } from "../src/components/elements/chest-badge";
 import { deckCount, rarityOf } from "../src/components/elements/rarity-badge";
 import {
@@ -15,6 +16,7 @@ import {
   faultsOf,
   fittingAt,
   layoutProblem,
+  layoutScore,
   legalSpots,
   placeTile,
   slotsFor,
@@ -25,7 +27,7 @@ import { VillageChestsScene } from "../src/components/scenes/village-chests-scen
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { PLAN } from "../src/mocks/village";
-import { INVENTORY, KEY_TILE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, OUTER_TILE, SHOP_PRICE, VILLAGE_CHESTS, VILLAGE_LAYOUT, VILLAGE_SHOP, fakeScore, lay } from "../src/mocks/village-v2";
+import { INVENTORY, KEY_TILE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, MOVED_SPOT, OUTER_TILE, SHOP_PRICE, VILLAGE_CHESTS, VILLAGE_LAYOUT, VILLAGE_SHOP, fakeScore, lay } from "../src/mocks/village-v2";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 afterEach(cleanup);
@@ -131,7 +133,7 @@ describe("the v2 village scene (#739)", () => {
     expect(screen.queryByRole("list", { name: "Inventory tiles" })).toBeNull();
   });
 
-  it("places a tile from the inventory as on the board: a card, a lit cell, the bubble's hold", async () => {
+  it("places a tile from the inventory at once (#756): a card, a lit cell, the bubble by it with no Validate, the score with it", async () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.growing} />));
     await userEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]!);
     expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
@@ -141,32 +143,116 @@ describe("the v2 village scene (#739)", () => {
     const plates = document.querySelectorAll<HTMLButtonElement>('[data-kind="plate"]');
     expect(plates.length).toBe(legalSpots(LAYOUT_GROWING.tiles, PLAN.road).length);
     await userEvent.click(plates[0]!);
-    const bubble = screen.getByRole("toolbar", { name: "Tile" });
-    // An activation with no press acts at once (a screen reader's): the hold guards a slip of the finger.
-    fireEvent.click(within(bubble).getByRole("button", { name: "Hold to place the tile" }));
+    // Placed by the tap: the slot taken, the card counted, Save enabled, the score moved.
     expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
     expect(within(inventory).getByRole("button", { name: /^Tile 10, 3 left$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
+    const bubble = screen.getByRole("toolbar", { name: "Tile" });
+    expect(within(bubble).queryByRole("button", { name: "Hold to place the tile" })).toBeNull();
+    // An inventory tile's Cancel would be Back to the inventory: the bubble shows only the latter.
+    expect(within(bubble).queryByRole("button", { name: "Cancel placement" })).toBeNull();
+    expect(within(bubble).getByRole("button", { name: "Back to the inventory" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Discard changes" })).toBeNull();
   });
 
-  it("lifts an outer tile and sends it back; a tile that holds the village shakes; the starter is no button", async () => {
+  it("the live score follows each tap, the saved one beside it", async () => {
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} />));
+    expect(screen.queryByText(/^saved/)).toBeNull();
+    // Plan 9 on a cell where it grows the score.
+    const spot = legalSpots(LAYOUT_GROWING.tiles, 9).find((c) => layoutScore(placeTile(LAYOUT_GROWING.tiles, 9, c.orientations.includes(1) ? 1 : c.orientations[0]!, c)) !== LAYOUT_GROWING.score)!;
+    const placed = placeTile(LAYOUT_GROWING.tiles, 9, spot.orientations.includes(1) ? 1 : spot.orientations[0]!, spot);
+    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Tile 9, 2 left$/ }));
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-kind="plate"][data-cell="${spot.x},${spot.y}"]`)!);
+    expect(screen.getByText(/^saved/)).toBeInTheDocument();
+    expect(screen.getByText("Layout score").closest("div")).toHaveTextContent(formatInteger(layoutScore(placed)));
+  });
+
+  it("moves the tile under the bubble with a tap on another lit cell; a tap on it lets it go; the card takes the next copy", async () => {
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.placing} />));
+    const pending = () => document.querySelector<HTMLButtonElement>('[data-kind="pending"]');
+    const first = pending()!.dataset.cell;
+    const plates = () => [...document.querySelectorAll<HTMLButtonElement>('[data-kind="plate"]')];
+    // The tile's own cell is no plate; every other lit cell stays valid for it.
+    expect(plates().some((p) => p.dataset.cell === first)).toBe(false);
+    const target = plates()[plates().length - 1]!;
+    const to = target.dataset.cell;
+    await userEvent.click(target);
+    expect(pending()!.dataset.cell).toBe(to);
+    expect(document.querySelector(`[data-cell="${first}"]`)?.getAttribute("data-kind")).not.toBe("tile");
+    expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
+    // Let go: it stays, the bubble goes.
+    await userEvent.click(pending()!);
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    expect(document.querySelector(`[data-cell="${to}"]`)).toHaveAttribute("data-kind", "tile");
+    // The card again: the next copy in hand, placed by its own tap.
+    const inventory = screen.getByRole("region", { name: "Inventory tiles" });
+    await userEvent.click(within(inventory).getByRole("button", { name: /^Tile 10, 3 left$/ }));
+    await userEvent.click(plates()[0]!);
+    expect(screen.getAllByLabelText("23 of 28 slots used").length).toBeGreaterThan(0);
+    expect(within(inventory).getByRole("button", { name: /^Tile 10, 2 left$/ })).toBeInTheDocument();
+  });
+
+  it("Back to the inventory frees the slot; Escape sends an inventory tile back too", async () => {
+    const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.placing} />));
+    expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
+    await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
+    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
+    unmount();
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.placing} />));
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
+  });
+
+  it("lifts an outer tile, moves it, and Cancel puts it back where it was; a tile that holds the village shakes; the starter is no button", async () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} />));
     expect(document.querySelector('[data-kind="starter"]')?.tagName).toBe("SPAN");
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${KEY_TILE.id}"]`)!);
     expect(screen.getByText(/holds the village together/)).toBeInTheDocument();
-    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${OUTER_TILE.id}"]`)!);
+    const home = `${OUTER_TILE.x},${OUTER_TILE.y}`;
+    expect(document.querySelector('[data-kind="pending"]')).toHaveAttribute("data-cell", home);
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-cell="${MOVED_SPOT.x},${MOVED_SPOT.y}"]`)!);
+    expect(document.querySelector('[data-kind="pending"]')).toHaveAttribute("data-cell", `${MOVED_SPOT.x},${MOVED_SPOT.y}`);
+    expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
+    await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Cancel placement" }));
+    expect(document.querySelector(`[data-tile="${OUTER_TILE.id}"]`)).toHaveAttribute("data-cell", home);
+    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
+    // Lifted again and sent back: its slot is free.
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${OUTER_TILE.id}"]`)!);
     await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
     expect(screen.getAllByLabelText("20 of 28 slots used").length).toBeGreaterThan(0);
   });
 
-  it("Reset all brings the village back to the starter; Discard changes back to the saved layout", async () => {
+  it("a tap on another placed tile lifts that one; the first stays where it was moved", async () => {
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.moved} />));
+    const other = LAYOUT_GROWING.tiles.find((t) => t.id !== OUTER_TILE.id && canLift(LAYOUT_GROWING.tiles.filter((u) => u.id !== OUTER_TILE.id).concat({ ...OUTER_TILE, ...MOVED_SPOT }), t.id))!;
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${other.id}"]`)!);
+    expect(document.querySelector('[data-kind="pending"]')).toHaveAttribute("data-cell", `${other.x},${other.y}`);
+    expect(document.querySelector(`[data-tile="${OUTER_TILE.id}"]`)).toHaveAttribute("data-cell", `${MOVED_SPOT.x},${MOVED_SPOT.y}`);
+  });
+
+  it("Reset all is the eraser held in the discard style (#756), resetting as before with the mouse, a finger or the keyboard", async () => {
+    for (const press of ["mouse", "touch", "keyboard"] as const) {
+      const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} holdMs={50} />));
+      const reset = screen.getByRole("button", { name: "Hold to reset all: the starter alone, every tile back in the inventory" });
+      expect(reset.querySelector("[data-icon]")).toHaveAttribute("data-icon", "eraser");
+      expect(reset).toHaveAttribute("data-tone", "destructive");
+      if (press === "keyboard") fireEvent.keyDown(reset, { key: " " });
+      else fireEvent.pointerDown(reset, { button: 0, pointerType: press });
+      await waitFor(() => expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0));
+      expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
+      // The starter alone: nothing left to reset.
+      expect(screen.getByRole("button", { name: /^Hold to reset all/ })).toBeDisabled();
+      unmount();
+    }
+    // A screen reader's activation acts at once, as every hold's.
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} />));
     fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
     expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
-    await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
   });
 
   it("saves a changed layout and shows the new score; leaving with changes asks first", async () => {
@@ -192,7 +278,7 @@ describe("the v2 village scene (#739)", () => {
     for (const card of within(screen.getByRole("region", { name: "Inventory tiles" })).getAllByRole("button")) expect(card).toBeDisabled();
   });
 
-  it("never goes past the slots: a lifted tile keeps its slot, and only sending it back frees one", async () => {
+  it("never goes past the slots: a lifted tile stays in its slot, and only sending it back frees one", async () => {
     const onSave = vi.fn();
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.full} onSave={onSave} />));
     const outer = [...LAYOUT_FULL.tiles].reverse().find((t) => canLift(LAYOUT_FULL.tiles, t.id))!;
@@ -208,10 +294,8 @@ describe("the v2 village scene (#739)", () => {
     expect(screen.getAllByLabelText("19 of 20 slots used").length).toBeGreaterThan(0);
     await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Tile 10, \d+ left$/ }));
     await userEvent.click(document.querySelector<HTMLButtonElement>('[data-kind="plate"]')!);
-    fireEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Hold to place the tile" }));
     expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
     for (const card of cards()) expect(card).toBeDisabled();
-    expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
     expect(onSave.mock.calls[0]?.[0]).toHaveLength(20);
   });
