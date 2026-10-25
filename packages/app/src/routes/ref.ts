@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { matchPath, useLocation, useNavigate, type NavigateOptions } from "react-router";
-import { useActiveTab } from "./handle";
 import { useCanGoBack } from "./history";
 import { PAGES, TABS, type Tab } from "./pages";
 import { tabSwipe } from "./tab-swipe";
@@ -27,19 +26,26 @@ export function useAppNavigate() {
   return useCallback((to: string, options?: NavigateOptions) => navigate(withRef(to, search), options), [navigate, search]);
 }
 
-/** A tab was picked in the navigation (a scene's `onNavigate`); below `desktop` the page swipes to another tab's (TAB-SWIPE, `tab-swipe.ts`). */
+/**
+ * A tab was picked in the navigation (a scene's `onNavigate`); below `desktop` the page swipes to another tab's (TAB-SWIPE,
+ * `tab-swipe.ts`). The tab it leaves is read from the location, as `parentOf`, so a page of the bar (#763) in a plain router
+ * (the stories') has it too.
+ */
 export function useTabNavigate() {
   const go = useAppNavigate();
-  const from = useActiveTab();
+  const from = pageAt(useLocation().pathname)?.nav ?? null;
   return useCallback((tab: Tab) => go(TABS.find((t) => t.id === tab)?.to ?? "/", tabSwipe(from, tab)), [go, from]);
 }
+
+/** The route map's page at `pathname`, in table order (a static path before a parameter's). */
+const pageAt = (pathname: string) => PAGES.find((p) => matchPath({ path: `/${p.path}`, end: true }, pathname));
 
 /**
  * The parent in the route map of the page at `pathname` (`PageDef.parent`), the home without one. Read from the location, not
  * the route's matches, so a page in a plain router (the stories' `MemoryRouter`) reads it too.
  */
 export function parentOf(pathname: string): string {
-  return PAGES.find((p) => matchPath({ path: `/${p.path}`, end: true }, pathname))?.parent ?? "/";
+  return pageAt(pathname)?.parent ?? "/";
 }
 
 /**

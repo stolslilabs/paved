@@ -185,10 +185,11 @@ export function AppNav({ active, onNavigate, badges, desktop = "header", classNa
                   arrives && "max-desktop:starting:text-foreground",
                 )}
               >
-                <span className="relative">
+                {/* The badge sits inside the icon's box (its side padding), so the item's content never leaves it, two digits included. */}
+                <span className={cn("relative", badge > 0 && "px-2.5")}>
                   <Icon name={tab.icon} size="md" fixedWidth />
                   {badge > 0 && (
-                    <span aria-hidden data-slot="app-nav-badge" className="numeric absolute -top-2 -right-3 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground ring-2 ring-background">
+                    <span aria-hidden data-slot="app-nav-badge" className="numeric absolute -top-2 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground ring-2 ring-background">
                       {badge}
                     </span>
                   )}
