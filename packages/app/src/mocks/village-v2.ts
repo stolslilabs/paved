@@ -4,7 +4,7 @@ import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/vill
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import { rarityOf, type Rarity } from "../components/elements/rarity-badge";
-import { STARTER, canLift, countPlans, fittingAt, frontier, isStarter, layoutScore, legalSpots, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
+import { STARTER, canLift, countPlans, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, MOCK_NOW } from "./clock";
 import { GAME_PLAYING } from "./games";
 import { PLAYER } from "./players";
@@ -163,6 +163,8 @@ export const VILLAGE_SHOP = {
 
 /** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock. */
 const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
+/** The home village's points (#758): its line of the most points, lit in the stories. */
+export const HOME_POINTS = layoutPoints(LAYOUT_GROWING.tiles);
 
 /** One fixture per state of the home (`Scenes/Home`): the village in view, its chips, and edit mode. */
 export const HOME_VILLAGE = {
@@ -183,8 +185,12 @@ export const HOME_VILLAGE = {
   error: { now: MOCK_NOW, error: { message: "Village: the node did not answer" } },
   /** The save landed: the new score over the village. */
   saved: { ...home, village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
+  /** The score chip tapped (#758): the points by structure, the most points first, its first line lit on the scene. */
+  points: { ...home, initialPointsOpen: true, initialLit: HOME_POINTS.lines[0]!.key },
   /** Edit mode: the editor's bar (Reset all beside the slots), the inventory and Save, in the same scene. */
   editing: { ...home, editing: true },
+  /** Edit mode's points unfolded above the inventory (#758), a line lit; they follow the draft live. */
+  editingPoints: { ...home, editing: true, initialPointsOpen: true, initialLit: HOME_POINTS.lines[1]!.key },
   /** A road in hand: its legal cells lit. */
   holding: { ...home, editing: true, initialHand: { plan: P.road } },
   /** The road placed on a lit cell: the bubble by it (Rotate, Back to the inventory), the score with it. */

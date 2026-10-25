@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import * as m from "motion/react-m";
 import type { BoardTile } from "@paved/chain";
+import type { CellAreas } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
@@ -25,6 +26,11 @@ export interface LayoutBoardProps {
   plates?: readonly Spot[];
   /** The tile under the bubble on its cell, ringed: a tap on it lets it go (`onPending`). */
   pending?: LayoutPending | null;
+  /**
+   * A structure lit (#758), its areas by cell: the plan view rings its tiles and dims the rest (the 3D scene lights its areas).
+   * Null: no light.
+   */
+  lit?: readonly CellAreas[] | null;
   /** A tile that cannot be lifted (its removal would split the village): it shakes. */
   shaking?: number | null;
   tileArt?: TileArt;
@@ -47,7 +53,7 @@ export interface LayoutBoardProps {
  * bubble the 3D scene stands by the tile (#756; the plan view's stands still in the editor's panel).
  */
 export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing" | "plates" | "pending" | "shaking">> &
-  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending"> & { bubble?: BoardBubble | null };
+  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending" | "lit"> & { bubble?: BoardBubble | null };
 
 /** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */
 const MIN_CELL = 46;
@@ -64,7 +70,7 @@ const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
  * (plates, `data-cell`), a tap places it on one (ringed, under the bubble, #756), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, shaking = null, fit = false, tileArt, onTile, onPlate, onPending, className }: LayoutBoardProps) {
+export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, onTile, onPlate, onPending, className }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is.
   const extent = tiles.length;
@@ -88,6 +94,9 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
   const rows = maxY - minY + 1;
   const at = (c: Cell) => ({ gridColumn: c.x - minX + 1, gridRow: maxY - c.y + 1 });
   const pendingKey = pending ? cellKey(pending) : null;
+  // The lit structure's tiles (#758): ringed, the others dimmed.
+  const litCells = lit ? new Set(lit.map(cellKey)) : null;
+  const litClass = (key: string) => (litCells ? (litCells.has(key) ? "z-10 ring-2 ring-primary ring-offset-1 ring-offset-board" : "opacity-40") : undefined);
   // The fog's clear cells in the view: the tiles and the cells next to them, as on every board (#739).
   const clear: Cell[] = [];
   if (!editing) {
@@ -121,17 +130,26 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
               data-cell={key}
               data-kind="tile"
               data-tile={tile.id}
+              data-lit={litCells?.has(key) || undefined}
               aria-label={`${tileName(tile.plan)} at ${cellName(c)}: lift it`}
               onClick={() => onTile?.(tile)}
               animate={shaking === tile.id ? SHAKE : { x: 0 }}
               transition={{ duration: 0.4 }}
               style={at(c)}
-              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring", shaking === tile.id && "ring-2 ring-warning")}
+              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring", litClass(key), shaking === tile.id && "ring-2 ring-warning")}
             >
               {chip}
             </m.button>
           ) : (
-            <span key={key} data-cell={key} data-kind={starter ? "starter" : "tile"} aria-label={starter && editing ? "The starter: it stays" : undefined} style={at(c)} className="relative block min-h-0 min-w-0 rounded-[3px]">
+            <span
+              key={key}
+              data-cell={key}
+              data-kind={starter ? "starter" : "tile"}
+              data-lit={litCells?.has(key) || undefined}
+              aria-label={starter && editing ? "The starter: it stays" : undefined}
+              style={at(c)}
+              className={cn("relative block min-h-0 min-w-0 rounded-[3px]", litClass(key))}
+            >
               {chip}
               {lock}
             </span>
@@ -148,6 +166,7 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
             data-kind="pending"
             aria-label={`${tileName(pending.plan)} at ${cellName(c)}: let it go`}
             aria-pressed
+            data-lit={litCells?.has(key) || undefined}
             onClick={onPending}
             style={at(c)}
             className="relative z-10 block min-h-0 min-w-0 rounded-[3px] ring-2 ring-primary ring-offset-2 ring-offset-board outline-none focus-visible:ring-ring"
