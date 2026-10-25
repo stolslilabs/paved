@@ -259,6 +259,57 @@ describe("a tile image that fails or comes late", () => {
     s.dispose();
   });
 
+  it("tileImagesReady (#761): resolves once every image is in, asking again for the one that failed at init", async () => {
+    const at = nextBase();
+    // Fails at init and on its first retry; the next try loads.
+    tries.set(image(at, 5), ["fail", "fail"]);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = scene();
+    const init = s.init({ surface: surface(), basePath: at });
+    s.updateTiles([tile(1, 9)]);
+    await init;
+    let ready = false;
+    const images = s.tileImagesReady({ retryMs: 0 }).then(() => (ready = true));
+    await settle();
+    await images;
+    expect(ready).toBe(true);
+    expect(imageCalls(image(at, 5))).toBe(3);
+    // In already: no new request.
+    await expect(s.tileImagesReady()).resolves.toBeUndefined();
+    expect(imageCalls(image(at, 5))).toBe(3);
+    s.dispose();
+  });
+
+  it("tileImagesReady: waits for an image that is late, and rejects when one never comes or the scene goes", async () => {
+    const at = nextBase();
+    tries.set(image(at, 5), ["fail", "hold"]);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = scene();
+    const init = s.init({ surface: surface(), basePath: at });
+    s.updateTiles([tile(1, 9)]);
+    await init;
+    let ready = false;
+    void s.tileImagesReady({ retryMs: 0 }).then(() => (ready = true));
+    await settle();
+    expect(ready).toBe(false);
+    releaseImage(image(at, 5));
+    await settle();
+    await settle();
+    expect(ready).toBe(true);
+    s.dispose();
+
+    const other = nextBase();
+    tries.set(image(other, 7), ["fail", "fail", "fail", "fail", "fail"]);
+    const t = scene();
+    const tInit = t.init({ surface: surface(), basePath: other });
+    t.updateTiles([tile(1, 9)]);
+    await tInit;
+    await expect(t.tileImagesReady({ attempts: 3, retryMs: 0 })).rejects.toThrow("404");
+    expect(imageCalls(image(other, 7))).toBe(4);
+    t.dispose();
+    await expect(t.tileImagesReady({ retryMs: 0 })).rejects.toThrow();
+  });
+
   it("still stops the scene when the plan view asked for the images and one fails", async () => {
     const at = nextBase();
     tries.set(image(at, 5), ["fail"]);

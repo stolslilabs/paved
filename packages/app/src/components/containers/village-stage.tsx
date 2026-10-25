@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { type TileArt } from "../elements/tile-chip";
+import { VillageFog, type VillageArrival } from "../elements/village-fog";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -30,8 +31,16 @@ export interface VillageStageProps {
   initialHand?: { plan: number } | { lift: number } | null;
   initialPending?: Spot | null;
   initialLeaving?: boolean;
-  /** The village in 3D, drawn from the editor's state; without it, the plan view. */
-  renderCanvas?: (view: LayoutBoardView) => ReactNode;
+  /**
+   * The village in 3D, drawn from the editor's state; without it, the plan view. `onDrawn` is its ready signal: called once its
+   * first frame is drawn with every tile's model and every tile image in (`VillageLayoutCanvas`'s `onReady`).
+   */
+  renderCanvas?: (view: LayoutBoardView, onDrawn: () => void) => ReactNode;
+  /**
+   * How the 3D village arrives (#761): under a fog that clears once the canvas says it is drawn, or a short fade. Unset, or
+   * the plan view: neither.
+   */
+  arrival?: VillageArrival;
   /** Save the draft, with the score the engine gives it. */
   onSave?: (tiles: readonly BoardTile[], score: number) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -65,6 +74,8 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     onDirtyChange: props.onDirtyChange,
   });
   const { editing } = editor;
+  const [drawn, setDrawn] = useState(false);
+  const onDrawn = useCallback(() => setDrawn(true), []);
   const scene = !!props.renderCanvas;
   const view: LayoutBoardView = { ...editor.view, bubble: scene ? editor.bubble : null };
   return (
@@ -75,11 +86,13 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
         {!village ? (
           <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-background/40 to-board" />
         ) : props.renderCanvas ? (
-          props.renderCanvas(view)
+          props.renderCanvas(view, onDrawn)
         ) : (
           // In view nothing on the plan is tapped: it fits the screen. The editor keeps the touch floor, and scrolls past it.
           <LayoutBoard {...view} fit={!editing} tileArt={props.tileArt} className="absolute inset-0 bg-board" />
         )}
+        {/* Over the canvas and under the editor's bar: the box alone, never the overlays nor the editor's panel. */}
+        {props.arrival && props.renderCanvas && <VillageFog arrival={props.arrival} cleared={drawn} />}
         {editing && village && <EditBar editor={editor} village={village} holdMs={props.holdMs} />}
         {!editing && props.saved && (
           <div className="pointer-events-none absolute inset-x-2 top-[calc(max(0.5rem,env(safe-area-inset-top))+4.5rem)] flex justify-center">

@@ -11,6 +11,10 @@
  *     [--cpuprofile <file>]   (the measured load's CPU profile, DevTools' format, last run)
  *     [--network-only]        (a page without the load trace, such as a published build: waits for the network to be
  *                              idle and gives the requests only)
+ *     [--storage key=value]   (set in the page's localStorage before it loads, repeatable: `welcomed=1` opens Home, not
+ *                              the welcome of a first visit)
+ *     [--chunks a,b]          (the end of the download of each JavaScript chunk named `<a>-<hash>.js`, as `chunk:<a>`:
+ *                              the home's split is `--chunks home,home-stage,starter-village,home-canvas`)
  *
  * `desktop`: 1440 x 900 at DPR 2, no throttling. `phone`: 360 x 780 at DPR 3, the CPU slowed 4x and the network shaped to
  * 9 Mbit/s down, 170 ms round trip (an approximation of a phone on 4G: the CPU and the GPU are still this machine's).
@@ -34,6 +38,8 @@ const { values: args } = parseArgs({
     cpuprofile: { type: "string" },
     spki: { type: "string" },
     "network-only": { type: "boolean", default: false },
+    storage: { type: "string", multiple: true, default: [] },
+    chunks: { type: "string", default: "" },
   },
 });
 if (!args.url) throw new Error("load-trace: --url <page> is required");
@@ -76,6 +82,9 @@ interface Capture {
   requests: Request[];
   longTasks: Entry[];
 }
+
+const CHUNKS = (args.chunks ?? "").split(",").filter(Boolean);
+const STORAGE = (args.storage ?? []).map((kv) => [kv.slice(0, kv.indexOf("=")), kv.slice(kv.indexOf("=") + 1)] as [string, string]);
 
 const isModel = (url: string) => /\.glb(\?|$)/.test(url);
 const isTile = (url: string) => /\/tiles\/[^/]+\.png(\?|$)/.test(url);
@@ -194,6 +203,12 @@ function summarise(c: Capture) {
     scenes: firstFrames.length,
     allLoaded: round(mark("all-loaded")),
     longTasksOver50: c.longTasks.length,
+    ...Object.fromEntries(
+      CHUNKS.map((name) => {
+        const chunk = c.resources.find((r) => new RegExp(`/${name}-[\\w-]{8}\\.js(\\?|$)`).test(r.name));
+        return [`chunk:${name}`, round(chunk?.responseEnd)];
+      })
+    ),
     requests: c.requests.length,
     bytes: c.requests.reduce((t, r) => t + r.bytes, 0),
   };
@@ -208,7 +223,8 @@ for (let run = 0; run < Number(args.runs); run++) {
   });
   try {
     const context = await browser.newContext({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.dpr });
-    await context.addInitScript(() => {
+    await context.addInitScript((storage) => {
+      for (const [key, value] of storage) localStorage.setItem(key, value);
       (globalThis as { __PAVED_LOAD_TRACE__?: boolean }).__PAVED_LOAD_TRACE__ = true;
       const tasks: PerformanceEntry[] = [];
       (globalThis as { __longTasks?: PerformanceEntry[] }).__longTasks = tasks;
@@ -217,7 +233,7 @@ for (let run = 0; run < Number(args.runs); run++) {
       } catch {
         // No long-task timing in this browser: the count stays 0.
       }
-    });
+    }, STORAGE);
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
     await shape(cdp);
