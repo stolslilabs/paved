@@ -168,7 +168,7 @@ export function useLayoutEditor({
   const changed = !sameLayout(draft, village.tiles);
   const dirty = editing && changed;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
-  const pending: LayoutPending | null = editing && held ? { x: held.x, y: held.y, plan: held.plan, orientation: held.orientation } : null;
+  const pending: LayoutPending | null = editing && held ? { id: held.id, x: held.x, y: held.y, plan: held.plan, orientation: held.orientation } : null;
   const rotations = held ? fittingAt(rest, held.plan, held) : [];
 
   const open = () => {

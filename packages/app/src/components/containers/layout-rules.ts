@@ -1,5 +1,5 @@
 import type { BoardTile } from "@paved/chain";
-import { EngineGame, layoutScore as coreLayoutScore } from "@paved/game-core";
+import { EngineGame, breakdownOf, layoutBreakdown, layoutScore as coreLayoutScore, type LayoutBreakdown } from "@paved/game-core";
 import { planCode } from "../elements/tile-chip";
 import { STARTER, isStarter } from "./layout-starter";
 
@@ -183,6 +183,18 @@ export function layoutScore(tiles: readonly BoardTile[]): number {
     return coreLayoutScore(tiles.filter((t) => !isStarter(t)));
   } catch {
     return EngineGame.villageOf({ territory: tiles.map((t) => ({ x: t.x, y: t.y })), tiles }).score;
+  }
+}
+
+/**
+ * A layout's points by structure (#758), game-core's (`layoutBreakdown`): one line per structure scored, the most points first,
+ * adding up to `layoutScore` exactly. A layout the rules refuse (a story's fake) is read from the same rebuild as its score.
+ */
+export function layoutPoints(tiles: readonly BoardTile[]): LayoutBreakdown {
+  try {
+    return layoutBreakdown(tiles.filter((t) => !isStarter(t)));
+  } catch {
+    return breakdownOf(EngineGame.villageOf({ territory: tiles.map((t) => ({ x: t.x, y: t.y })), tiles }));
   }
 }
 
