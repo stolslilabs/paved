@@ -15,6 +15,8 @@ import { SIDES, cellKey, isStarter, type Cell, type Spot } from "./layout-rules"
 export interface LayoutPending extends Cell {
   plan: number;
   orientation: number;
+  /** Its id in the draft: the 3D scene draws it as a placed tile while a lit structure holds it (#758). */
+  id?: number;
 }
 
 export interface LayoutBoardProps {

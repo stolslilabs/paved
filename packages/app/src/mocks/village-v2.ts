@@ -165,6 +165,8 @@ export const VILLAGE_SHOP = {
 const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
 /** The home village's points (#758): its line of the most points, lit in the stories. */
 export const HOME_POINTS = layoutPoints(LAYOUT_GROWING.tiles);
+/** A tile of the second line's structure that can be lifted: under the bubble, the structure stays lit whole. */
+const LIT_TILE = LAYOUT_GROWING.tiles.find((t) => HOME_POINTS.lines[1]!.areas.some((a) => a.x === t.x && a.y === t.y) && canLift(LAYOUT_GROWING.tiles, t.id))!;
 
 /** One fixture per state of the home (`Scenes/Home`): the village in view, its chips, and edit mode. */
 export const HOME_VILLAGE = {
@@ -191,6 +193,8 @@ export const HOME_VILLAGE = {
   editing: { ...home, editing: true },
   /** Edit mode's points unfolded above the inventory (#758), a line lit; they follow the draft live. */
   editingPoints: { ...home, editing: true, initialPointsOpen: true, initialLit: HOME_POINTS.lines[1]!.key },
+  /** A tile of the lit structure lifted: under the bubble, it stays lit with the rest of its structure. */
+  editingPointsLifted: { ...home, editing: true, initialPointsOpen: true, initialLit: HOME_POINTS.lines[1]!.key, initialHand: { lift: LIT_TILE.id } },
   /** A road in hand: its legal cells lit. */
   holding: { ...home, editing: true, initialHand: { plan: P.road } },
   /** The road placed on a lit cell: the bubble by it (Rotate, Back to the inventory), the score with it. */

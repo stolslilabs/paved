@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readdirSync, readFileSync } from "node:fs";
@@ -34,6 +34,7 @@ import { BOARD, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scen
 import { DRAFT_VALID, HOME_POINTS, HOME_VILLAGE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_RIVAL, LAYOUT_START } from "../src/mocks/village-v2";
 import { canLift, layoutPoints, layoutScore, legalSpots } from "../src/components/containers/layout-rules";
 import { PLAN } from "../src/mocks/village";
+import { sceneTilesOf } from "../src/components/containers/village-layout-canvas";
 import { leagueOf } from "../src/lib/pvp-rules";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
@@ -333,6 +334,32 @@ describe("Home's points by structure (#758)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Back to the inventory" }));
     expect(litCells()).toEqual([]);
     expect(lineButtons().every((b) => b.getAttribute("aria-pressed") === "false")).toBe(true);
+  });
+
+  it("in edit mode, lights the whole structure on the scene, the tile under the bubble included", async () => {
+    const { renderCanvas, last } = canvas();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.editingPoints} renderCanvas={renderCanvas} />));
+    await screen.findByTestId("canvas", {}, { timeout: slow(5000) });
+    const line = HOME_POINTS.lines[1]!;
+    const cells = line.areas.map((a) => `${a.x},${a.y}`).sort();
+    const litIds = () => sceneTilesOf(last()).lit!.map((l) => l.id);
+    expect(litIds()).toHaveLength(cells.length);
+    // A tile of the lit structure lifted: under the bubble, it is no longer one of the layout's tiles, but the light keeps it.
+    const tile = LAYOUT_GROWING.tiles.find((t) => cells.includes(`${t.x},${t.y}`) && canLift(LAYOUT_GROWING.tiles, t.id))!;
+    act(() => last().onTile!(tile));
+    expect(last().pending).toMatchObject({ id: tile.id, x: tile.x, y: tile.y });
+    expect(last().tiles.some((t) => t.id === tile.id)).toBe(false);
+    expect(last().lit).toEqual(line.areas);
+    const drawn = sceneTilesOf(last());
+    // Drawn as a placed tile while lit (the ghost takes no feature light), each cell of the structure lit.
+    expect(drawn.ghost).toBeNull();
+    expect(drawn.tiles.find((t) => t.id === tile.id)).toMatchObject({ x: tile.x, y: tile.y, plan: tile.plan });
+    expect(drawn.lit!.map((l) => l.id)).toContain(tile.id);
+    expect(drawn.lit!.map((l) => { const t = drawn.tiles.find((d) => d.id === l.id)!; return `${t.x},${t.y}`; }).sort()).toEqual(cells);
+    // The light off: the tile under the bubble is the ghost again.
+    await userEvent.click(lineButtons()[1]!);
+    expect(sceneTilesOf(last())).toMatchObject({ ghost: { id: tile.id }, lit: null });
+    expect(sceneTilesOf(last()).tiles.some((t) => t.id === tile.id)).toBe(false);
   });
 
   it("in edit mode, the fold is folded on a phone, the bar's score unfolds it; folding or leaving turns the light off", async () => {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import type { GameScene, LitTile, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import { BoardViewport, type BoardBubble, type BoardGhost } from "./board-viewport";
-import type { LayoutBoardView } from "./layout-board";
+import type { LayoutBoardView, LayoutPending } from "./layout-board";
 import { cellKey, isStarter, type Cell } from "./layout-rules";
 
 /** The layout's first cell on the renderer's board (the contracts' centre): a layout's cells are counted from the starter. */
@@ -23,6 +23,34 @@ export interface VillageLayoutCanvasProps {
 }
 
 /**
+ * What the scene draws of the editor's state (#758): the layout's tiles, and the tile under the bubble as the ghost, or as a placed
+ * tile while the lit structure holds its cell (the ghost takes no feature light, so the structure would show only in part); and
+ * the lit structure's areas on the drawn tiles' ids (the board's game 0). Cells are the layout's; the caller moves them to the
+ * board's.
+ */
+export function sceneTilesOf({ tiles, pending, lit }: Pick<LayoutBoardView, "tiles" | "pending" | "lit">): {
+  tiles: BoardTile[];
+  ghost: LayoutPending | null;
+  lit: LitTile[] | null;
+} {
+  const pendingLit = !!pending && !!lit?.some((c) => cellKey(c) === cellKey(pending));
+  const drawn: BoardTile[] = pendingLit
+    ? [...tiles, { id: pending.id ?? Math.max(0, ...tiles.map((t) => t.id)) + 1, plan: pending.plan, orientation: pending.orientation, x: pending.x, y: pending.y }]
+    : [...tiles];
+  const ids = new Map(drawn.map((t) => [cellKey(t), t.id]));
+  return {
+    tiles: drawn,
+    ghost: pendingLit ? null : pending,
+    lit: lit
+      ? lit.flatMap((c) => {
+          const id = ids.get(cellKey(c));
+          return id === undefined ? [] : [{ gameId: 0, id, areas: c.areas }];
+        })
+      : null,
+  };
+}
+
+/**
  * The v2 village in 3D (#753): the free layout on the board's renderer, its camera framed for the screen, the fog lifted around
  * the tiles, the landscape, the weather and the day and night beyond, as on every board. In edit mode it is the editor's board:
  * the legal cells of the tile in hand as plates, the tile under the bubble drawn on its cell (its rotation the bubble's) with
@@ -33,11 +61,12 @@ export interface VillageLayoutCanvasProps {
  */
 export default function VillageLayoutCanvas({ view, settings, basePath, skins, onScene, onError }: VillageLayoutCanvasProps) {
   const { tiles: layout, plates, pending, editing, onTile, onPlate, onPending } = view;
-  const tiles = useMemo<BoardTile[]>(() => layout.map((t) => ({ ...t, ...toChain(t) })), [layout]);
+  const drawn = useMemo(() => sceneTilesOf({ tiles: layout, pending, lit: view.lit }), [layout, pending, view.lit]);
+  const tiles = useMemo<BoardTile[]>(() => drawn.tiles.map((t) => ({ ...t, ...toChain(t) })), [drawn]);
   const slots = useMemo(() => (editing ? plates.map((p) => ({ ...toChain(p), fits: true })) : undefined), [editing, plates]);
-  const ghost = useMemo<BoardGhost | null>(() => (pending ? { ...toChain(pending), plan: pending.plan, orientation: pending.orientation, placed: true, fits: true } : null), [pending]);
+  const held = drawn.ghost;
+  const ghost = useMemo<BoardGhost | null>(() => (held ? { ...toChain(held), plan: held.plan, orientation: held.orientation, placed: true, fits: true } : null), [held]);
   const bubble = useMemo<BoardBubble | null>(() => (view.bubble ? { ...view.bubble, cell: toChain(view.bubble.cell) } : null), [view.bubble]);
-  // The lit structure on the scene's tiles (the board's game 0), by their ids; the tile under the bubble is a preview, not lit.
   const [scene, setScene] = useState<GameScene | null>(null);
   const handleScene = useCallback(
     (next: GameScene | null) => {
@@ -46,14 +75,8 @@ export default function VillageLayoutCanvas({ view, settings, basePath, skins, o
     },
     [onScene],
   );
-  const lit = useMemo<LitTile[] | null>(() => {
-    if (!view.lit) return null;
-    const ids = new Map(layout.map((t) => [cellKey(t), t.id]));
-    return view.lit.flatMap((c) => {
-      const id = ids.get(cellKey(c));
-      return id === undefined ? [] : [{ gameId: 0, id, areas: c.areas }];
-    });
-  }, [view.lit, layout]);
+  // The lit structure on the scene's tiles, the tile under the bubble included.
+  const { lit } = drawn;
   useEffect(() => {
     scene?.setLitAreas(lit);
   }, [scene, lit]);

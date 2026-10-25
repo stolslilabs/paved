@@ -88,6 +88,8 @@ export const Points: Story = { args: HOME_VILLAGE.points };
 export const Editing: Story = { args: HOME_VILLAGE.editing };
 /** Edit mode's points unfolded above the inventory (#758), a line lit. */
 export const EditingPoints: Story = { args: HOME_VILLAGE.editingPoints };
+/** A tile of the lit structure lifted (#758): under the bubble, it stays lit with the rest of its structure. */
+export const EditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted };
 /** A road in hand: its legal cells lit. */
 export const Holding: Story = { args: HOME_VILLAGE.holding };
 /** The road placed on a lit cell at once (no validation, #756): the bubble rotates it or sends it back to the inventory. */
@@ -134,6 +136,7 @@ export const SceneMoved: Story = { args: HOME_VILLAGE.moved, render: (args) => <
 /** The points on the scene (#758): a line lit lights its structure's areas and dims the rest, in view and in edit mode. */
 export const ScenePoints: Story = { args: HOME_VILLAGE.points, render: (args) => <InScene {...args} /> };
 export const SceneEditingPoints: Story = { args: HOME_VILLAGE.editingPoints, render: (args) => <InScene {...args} /> };
+export const SceneEditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted, render: (args) => <InScene {...args} /> };
 
 /** View and edit at 375, 768 and 1440 px: the overlays' positions as tuned for #753. */
 export const ScenePhone: Story = { ...Scene, ...PHONE_375 };
@@ -150,6 +153,8 @@ export const ScenePointsPhone: Story = { ...ScenePoints, ...PHONE_375 };
 export const ScenePointsWide: Story = { ...ScenePoints, ...WIDE_1440 };
 export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_375 };
 export const SceneEditingPointsWide: Story = { ...SceneEditingPoints, ...WIDE_1440 };
+export const SceneEditingPointsLiftedPhone: Story = { ...SceneEditingPointsLifted, ...PHONE_375 };
+export const SceneEditingPointsLiftedWide: Story = { ...SceneEditingPointsLifted, ...WIDE_1440 };
 
 /** The fakes played: Edit opens edit mode, Save keeps the layout (its engine score, after a short wait) and goes back to the view. */
 function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene?: boolean }) {
