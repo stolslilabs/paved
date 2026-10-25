@@ -12,6 +12,7 @@ import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
 import { useChests, useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
 import { queryKeys } from "../../data/keys";
+import { playedPvp, usePvpLeague } from "../../data/pvp-league";
 import { useMissionsReady } from "../../data/quests";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
@@ -32,7 +33,8 @@ const EDIT = "edit";
 
 /**
  * `/` (#753, PvP v2 step 1): the player's own village full screen, the home of the game. The village, its inventory and the
- * level from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting, today's missions to claim, the active
+ * level from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting, today's missions to claim, the crowns and
+ * league once PvP is played (`Matchmaker.league`), the active
  * Challenge game and the spawn pause. The overlays paint first; the stage (`home-stage.tsx`: the editor, the engine, the tile art)
  * and then the 3D scene (`home-canvas.tsx`) load lazily under them, the plan view where WebGL is
  * missing or the renderer cannot start. Edit mode is in the URL (`?edit`, an entry of its own), so Back leaves it first; leaving
@@ -57,6 +59,7 @@ export default function Page() {
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
   const missions = useMissionsReady(me);
+  const league = usePvpLeague(me).data;
   const board = useBoardSettings();
   const [saved, setSaved] = useState<LayoutSaved | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -144,6 +147,7 @@ export default function Page() {
         refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
         chests={(chests.data?.pending.length ?? 0) + (chests.data?.open ? 1 : 0)}
         missions={missions}
+        league={league && playedPvp(league) ? { crowns: league.crowns } : null}
         activeGame={wallet.address ? (active.data ?? null) : null}
         spawnPaused={paused.data ?? false}
         now={now}

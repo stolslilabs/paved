@@ -31,6 +31,7 @@ import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { BOARD, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
+import { leagueOf } from "../src/lib/pvp-rules";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -102,13 +103,13 @@ describe("Home (#753): the village with its overlays", () => {
     expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", "League", "Defence"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", `League, ${leagueOf(1_240).name}`, "Defence"]);
     for (const [name, handler] of [
       ["Missions, 3 waiting", on.onMissions],
       ["Chests, 2 waiting", on.onChests],
       ["Shop", on.onShop],
       ["Vault", on.onVault],
-      ["League", on.onLeague],
+      [/^League, /, on.onLeague],
       ["Defence", on.onDefence],
       ["Settings", on.onSettings],
       [/^Play/, on.onPlay],
@@ -117,6 +118,22 @@ describe("Home (#753): the village with its overlays", () => {
       expect(handler).toHaveBeenCalledTimes(1);
     }
     expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
+  });
+
+  it("shows the crowns and the league at the top right once PvP is played; a tap opens the league", async () => {
+    const onLeague = vi.fn();
+    const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onLeague={onLeague} />));
+    const name = leagueOf(1_240).name;
+    const standing = screen.getByRole("button", { name: `League: ${name}, 1,240 crowns` });
+    expect(within(standing).getByText(name)).toBeInTheDocument();
+    expect(within(standing).getByRole("img", { name: "1,240 crowns" })).toBeInTheDocument();
+    await userEvent.click(standing);
+    expect(onLeague).toHaveBeenCalledTimes(1);
+    unmount();
+    // Before any PvP: no standing, the column's League is plain.
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.start} />));
+    expect(screen.queryByRole("button", { name: /^League: / })).toBeNull();
+    expect(screen.getByRole("button", { name: "League" })).toBeInTheDocument();
   });
 
   it("carries today's home content as chips: Resume and the spawn pause", async () => {

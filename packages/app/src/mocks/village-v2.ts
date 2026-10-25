@@ -155,8 +155,8 @@ export const VILLAGE_SHOP = {
   guest: { status: { kind: "guest" } },
 } satisfies Record<string, Data<VillageShopSceneProps>>;
 
-/** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, at the mocks' clock. */
-const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, now: MOCK_NOW } as const;
+/** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock. */
+const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
 
 /** One fixture per state of the home (`Scenes/Home`): the village in view, its chips, and edit mode. */
 export const HOME_VILLAGE = {

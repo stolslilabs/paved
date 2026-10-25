@@ -5,6 +5,7 @@ import VillageStage, { type VillageStageProps } from "../components/containers/v
 import { useBoardSkins } from "../data/board-skins";
 import type { FreeVillageHeld } from "../data/free-village-base";
 import { RENDERER_ASSETS } from "../data/renderer-manifest";
+import { useDeviceSettings } from "../data/settings";
 import { hasWebGL } from "../lib/webgl";
 import { countsByPlan, useVillageArt } from "./village-v2";
 
@@ -23,13 +24,18 @@ export interface HomeStageProps extends VillageStageProps {
 
 /**
  * The home's village stage as the app wires it (#753), its own chunk: the stage (the editor, the board, the engine) with the
- * tile art in the owner's skins and the 3D scene under it, the plan view where WebGL is missing or the renderer cannot start.
+ * tile art in the owner's skins and the 3D scene under it; the plan view under the low graphics quality, where WebGL is missing
+ * or where the renderer cannot start.
  */
 export default function HomeStage({ playerId, held, settings, onScene, ...stage }: HomeStageProps) {
   const inventory = useMemo(() => (held ? countsByPlan(freeInventory(held.inventory, held.tiles)) : stage.inventory), [held, stage.inventory]);
   const tileArt = useVillageArt(playerId);
   const skins = useBoardSkins(playerId);
-  const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
+  // The plan view under reduced quality (the Graphics quality setting at "low", followed as it changes), where WebGL is
+  // missing, or once the renderer failed.
+  const [{ quality }] = useDeviceSettings();
+  const [failed, setFailed] = useState(() => !hasWebGL());
+  const view = failed || quality === "low" ? "plan" : "3d";
   return (
     <VillageStage
       {...stage}
@@ -39,7 +45,7 @@ export default function HomeStage({ playerId, held, settings, onScene, ...stage 
         view === "3d"
           ? (v) => (
               <Suspense fallback={null}>
-                <HomeCanvas view={v} basePath={RENDERER_ASSETS} skins={skins} settings={settings} onScene={onScene} onError={() => setView("plan")} />
+                <HomeCanvas view={v} basePath={RENDERER_ASSETS} skins={skins} settings={settings} onScene={onScene} onError={() => setFailed(true)} />
               </Suspense>
             )
           : undefined

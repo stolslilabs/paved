@@ -3,7 +3,10 @@ import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
 import { cn } from "../../lib/utils";
+import { leagueOf } from "../../lib/pvp-rules";
 import { Countdown } from "../elements/countdown";
+import { Crowns } from "../elements/crowns";
+import { LeagueCrest } from "../elements/league-crest";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { formatPoints } from "../elements/score";
 import { type TileArt } from "../elements/tile-chip";
@@ -57,6 +60,8 @@ export interface HomeVillageSceneProps {
   missions?: number;
   /** The viewer's Challenge game still running: the Resume chip. */
   activeGame?: GameView | null;
+  /** The player's PvP standing (`Matchmaker.league`), once PvP is played: the crowns and their league at the top right. */
+  league?: { crowns: number } | null;
   /** `Challenge.spawn_paused`: the notice. */
   spawnPaused?: boolean;
   now: number;
@@ -163,6 +168,7 @@ const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-bac
 /** The view's overlays: the corners, the right column, Play and Edit, the chips. */
 function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneProps & { editable: boolean; onEdit: () => void }) {
   const { activeGame, now, guest, founded = true } = props;
+  const standing = props.league ? leagueOf(props.league.crowns) : null;
   return (
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
@@ -178,12 +184,26 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
               </span>
             )}
           </div>
-          <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-            <BalancesSlot layout="pill" className="desktop:hidden" />
-            <BalancesSlot layout="rail" className="hidden desktop:flex" />
-            <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="rounded-full bg-card/90 backdrop-blur">
-              <Icon name="gear" size="md" />
-            </Button>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <div className="pointer-events-auto flex items-center gap-2">
+              <BalancesSlot layout="pill" className="desktop:hidden" />
+              <BalancesSlot layout="rail" className="hidden desktop:flex" />
+              <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="rounded-full bg-card/90 backdrop-blur">
+                <Icon name="gear" size="md" />
+              </Button>
+            </div>
+            {/* Once PvP is played: the crowns and the league, a tap to the league. */}
+            {standing && (
+              <button
+                type="button"
+                onClick={props.onLeague}
+                aria-label={`League: ${standing.name}, ${formatInteger(props.league!.crowns)} ${props.league!.crowns === 1 ? "crown" : "crowns"}`}
+                className="state-layer pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/90 px-2.5 py-1 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <LeagueCrest league={standing} size="sm" />
+                <Crowns value={props.league!.crowns} size="sm" />
+              </button>
+            )}
           </div>
         </div>
         {/* The chips under the avatar, clear of the right column. */}
@@ -224,7 +244,7 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
         <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} />
         <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
         <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
-        <OverlayButton icon="trophy" label="League" onClick={props.onLeague} />
+        <OverlayButton icon="trophy" label="League" detail={standing?.name} onClick={props.onLeague} />
         <OverlayButton icon="shield-halved" label="Defence" onClick={props.onDefence} />
       </nav>
 
