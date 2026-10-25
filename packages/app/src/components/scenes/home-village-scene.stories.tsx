@@ -113,14 +113,17 @@ export const EditingFullWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.ed
 /** Every slot used at 375 px: the carousel greyed, every visible card waiting, and it still drags and swipes. */
 export const EditingFullPhone: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.editing, village: LAYOUT_FULL, inventory: INVENTORY_LONG } };
 
-/** The scene as the page wires it: the board's renderer under the overlays, its settings and the season dial (`useBoardSettings`). */
-function InScene(args: HomeVillageSceneProps) {
+/**
+ * The scene as the page wires it: the board's renderer under the overlays, its settings and the season dial (`useBoardSettings`).
+ * `held`: the canvas's ready signal never reaches the stage (the fog stays).
+ */
+function InScene({ held, ...args }: HomeVillageSceneProps & { held?: boolean }) {
   const board = useBoardSettings();
   return (
     <HomeVillageScene
       {...args}
       seasonWheel={board.wheel}
-      renderCanvas={(view) => <VillageLayoutCanvas view={view} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} />}
+      renderCanvas={(view, onDrawn) => <VillageLayoutCanvas view={view} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} onReady={held ? undefined : onDrawn} />}
     />
   );
 }
@@ -133,6 +136,13 @@ export const SceneEditing: Story = { args: HOME_VILLAGE.holding, render: (args) 
 export const ScenePlaced: Story = { args: HOME_VILLAGE.placing, render: (args) => <InScene {...args} /> };
 /** A lifted tile moved on the scene: the bubble by it, with Cancel. */
 export const SceneMoved: Story = { args: HOME_VILLAGE.moved, render: (args) => <InScene {...args} /> };
+
+/** A cold arrival (#761), the village and its assets still loading: the overlays in view and usable over a thick fog. */
+export const Fogged: Story = { args: { ...HOME_VILLAGE.view, arrival: "fog" }, render: (args) => <InScene {...args} held /> };
+/** A cold arrival as it plays: the fog thins out (600 ms) once the canvas says the village and its assets are drawn. */
+export const Clearing: Story = { args: { ...HOME_VILLAGE.view, arrival: "fog" }, render: (args) => <InScene {...args} /> };
+/** A later arrival (Back from a page), the scene loaded warm: a short fade from the sky to the drawn village. */
+export const Ready: Story = { args: { ...HOME_VILLAGE.view, arrival: "fade" }, render: (args) => <InScene {...args} /> };
 
 /** View and edit at 375, 768 and 1440 px: the overlays' positions as tuned for #753. */
 export const ScenePhone: Story = { ...Scene, ...PHONE_375 };
