@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { BoardTile } from "@paved/chain";
 import type { GameScene, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import { BoardViewport, type BoardGhost } from "./board-viewport";
@@ -18,6 +18,11 @@ export interface VillageLayoutCanvasProps {
   basePath?: string;
   skins?: TileSkins;
   onScene?: (scene: GameScene | null) => void;
+  /**
+   * The ready signal (#761): the scene's first frame is drawn, with the models of every tile handed over and the tile images
+   * (the boards' asset loading: `GameScene.init` waits for them, then `start` draws that frame). Once per scene.
+   */
+  onReady?: () => void;
   /** The renderer could not start: the page falls back to the plan view (`LayoutBoard`). */
   onError?: (error: unknown) => void;
 }
@@ -29,11 +34,20 @@ export interface VillageLayoutCanvasProps {
  * on a plate sets the tile there, a tap on a placed tile (never the starter) lifts it. Its own lazy chunk: the home's overlays
  * paint before it.
  */
-export default function VillageLayoutCanvas({ view, settings, basePath, skins, onScene, onError }: VillageLayoutCanvasProps) {
+export default function VillageLayoutCanvas({ view, settings, basePath, skins, onScene, onReady, onError }: VillageLayoutCanvasProps) {
   const { tiles: layout, plates, pending, editing, onTile, onPlate } = view;
   const tiles = useMemo<BoardTile[]>(() => layout.map((t) => ({ ...t, ...toChain(t) })), [layout]);
   const slots = useMemo(() => (editing ? plates.map((p) => ({ ...toChain(p), fits: true })) : undefined), [editing, plates]);
   const ghost = useMemo<BoardGhost | null>(() => (pending ? { ...toChain(pending), plan: pending.plan, orientation: pending.orientation, placed: true, fits: true } : null), [pending]);
+  // One stable handler for the viewport (it calls it again on every change of its identity): the page's, then the ready signal.
+  const latest = useRef({ onScene, onReady });
+  useEffect(() => {
+    latest.current = { onScene, onReady };
+  });
+  const handleScene = useCallback((scene: GameScene | null) => {
+    latest.current.onScene?.(scene);
+    if (scene) latest.current.onReady?.();
+  }, []);
   const onCellClick = (chain: Cell) => {
     if (!editing) return;
     const key = cellKey(fromChain(chain));
@@ -51,7 +65,7 @@ export default function VillageLayoutCanvas({ view, settings, basePath, skins, o
       slots={slots}
       otherPlates={false}
       ghost={ghost}
-      onScene={onScene}
+      onScene={handleScene}
       onCellClick={onCellClick}
       onError={onError}
     />
