@@ -60,7 +60,10 @@ export interface HomeVillageSceneProps {
   missions?: number;
   /** The viewer's Challenge game still running: the Resume chip. */
   activeGame?: GameView | null;
-  /** The player's PvP standing (`Matchmaker.league`), once PvP is played: the crowns and their league at the top right. */
+  /**
+   * The player's PvP standing (`Matchmaker.league`): the crowns and their league by the avatar, a tap to the league page (the
+   * home's only way there, #755). None (no PvP played yet, or not read): Unranked with 0 crowns.
+   */
   league?: { crowns: number } | null;
   /** `Challenge.spawn_paused`: the notice. */
   spawnPaused?: boolean;
@@ -83,7 +86,6 @@ export interface HomeVillageSceneProps {
   onShop?: () => void;
   onVault?: () => void;
   onLeague?: () => void;
-  onDefence?: () => void;
   onSettings?: () => void;
   onResume?: (gameId: number) => void;
   onRetry?: () => void;
@@ -97,9 +99,9 @@ export interface HomeVillageSceneProps {
 /**
  * Home (`/`, #753): the player's village full screen, a game scene like the boards (the renderer, its camera framed for the
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
- * the safe areas. In view: the avatar, its level ring and name at the top left; the balances and the gear at the top right; the
- * right column (Missions, Chests, Shop, Vault, League, Defence log) with their counts; Play, large, at the bottom right with
- * Edit (a hammer) beside it; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
+ * the safe areas. In view: the avatar, its level ring and name at the top left, the village score and the league badge under it
+ * (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
+ * (a hammer, no text), large, at the bottom right with Edit (a pen) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. No tab bar: the overlays replace it.
  */
@@ -168,7 +170,8 @@ const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-bac
 /** The view's overlays: the corners, the right column, Play and Edit, the chips. */
 function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneProps & { editable: boolean; onEdit: () => void }) {
   const { activeGame, now, guest, founded = true } = props;
-  const standing = props.league ? leagueOf(props.league.crowns) : null;
+  const crowns = props.league?.crowns ?? 0;
+  const standing = leagueOf(crowns);
   return (
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
@@ -176,34 +179,32 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
         <div className="flex items-start justify-between gap-2">
           <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-1">
             <ProfileSlot withName />
-            {village && (
-              <span className="ml-1 flex items-center gap-1.5 rounded-md bg-background/70 px-2 py-0.5 text-xs backdrop-blur">
-                <Icon name="house-chimney" size="xs" className="text-primary" />
-                <span className="numeric font-semibold">{formatInteger(village.score)}</span>
-                <span className="sr-only">village score</span>
-              </span>
-            )}
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <div className="pointer-events-auto flex items-center gap-2">
-              <BalancesSlot layout="pill" className="desktop:hidden" />
-              <BalancesSlot layout="rail" className="hidden desktop:flex" />
-              <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="rounded-full bg-card/90 backdrop-blur">
-                <Icon name="gear" size="md" />
-              </Button>
-            </div>
-            {/* Once PvP is played: the crowns and the league, a tap to the league. */}
-            {standing && (
+            {/* By the avatar (#755): the village score, and the crowns and their league, a tap to the league (Unranked before PvP). */}
+            <div className="ml-1 flex flex-wrap items-center gap-1.5">
+              {village && (
+                <span className="flex items-center gap-1.5 rounded-md bg-background/70 px-2 py-0.5 text-xs backdrop-blur">
+                  <Icon name="house-chimney" size="xs" className="text-primary" />
+                  <span className="numeric font-semibold">{formatInteger(village.score)}</span>
+                  <span className="sr-only">village score</span>
+                </span>
+              )}
               <button
                 type="button"
                 onClick={props.onLeague}
-                aria-label={`League: ${standing.name}, ${formatInteger(props.league!.crowns)} ${props.league!.crowns === 1 ? "crown" : "crowns"}`}
-                className="state-layer pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/90 px-2.5 py-1 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`League: ${standing.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
+                className="state-layer flex items-center gap-2 rounded-full border border-border bg-card/90 px-2.5 py-1 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <LeagueCrest league={standing} size="sm" />
-                <Crowns value={props.league!.crowns} size="sm" />
+                <Crowns value={crowns} size="sm" />
               </button>
-            )}
+            </div>
+          </div>
+          <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+            <BalancesSlot layout="pill" className="desktop:hidden" />
+            <BalancesSlot layout="rail" className="hidden desktop:flex" />
+            <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="rounded-full bg-card/90 backdrop-blur">
+              <Icon name="gear" size="md" />
+            </Button>
           </div>
         </div>
         {/* The chips under the avatar, clear of the right column. */}
@@ -244,8 +245,8 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
         <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} />
         <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
         <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
-        <OverlayButton icon="trophy" label="League" detail={standing?.name} onClick={props.onLeague} />
-        <OverlayButton icon="shield-halved" label="Defence" onClick={props.onDefence} />
+        {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
+        <OverlayButton icon="trophy" label="League" onClick={props.onLeague} />
       </nav>
 
       {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
@@ -264,12 +265,13 @@ function ViewOverlays({ village, editable, onEdit, ...props }: HomeVillageSceneP
         ) : (
           editable && (
             <Button size="icon" variant="outline" onClick={onEdit} aria-label="Edit village" className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
-              <Icon name="hammer" size="lg" />
+              <Icon name="pen" size="lg" />
             </Button>
           )
         )}
-        <Button size="lg" onClick={props.onPlay} className="h-16 min-w-32 rounded-2xl px-6 font-display text-2xl shadow-lg tablet:min-w-40">
-          Play <Icon name="play" size="md" />
+        {/* Play, the main action (#755): a hammer, no text, gold and large; the tab bar's Play disc takes the same icon. */}
+        <Button size="icon" onClick={props.onPlay} aria-label="Play" className="size-16 rounded-2xl shadow-lg tablet:size-18">
+          <Icon name="hammer" size="xl" />
         </Button>
       </div>
     </>
