@@ -18,10 +18,15 @@ vi.mock("../src/components/containers/surrender-dialog", async (importOriginal) 
 });
 
 describe("BoardScene, the Surrender dialog still loading", () => {
-  // The real module is transformed and evaluated here, ahead of the gate, so that opening the gate costs a cache hit, not a cold
-  // transform that a loaded machine stretches past the wait ceiling.
+  // The dialog's real module and the board's other lazy chunks are transformed and evaluated here, ahead of the test, so that the
+  // test's own waits cost cache hits, not cold transforms that a loaded machine stretches past its ceilings.
   beforeAll(async () => {
-    await vi.importActual("../src/components/containers/surrender-dialog");
+    await Promise.all([
+      vi.importActual("../src/components/containers/surrender-dialog"),
+      import("../src/components/containers/board-season-wheel"),
+      import("../src/components/containers/deck-sheet"),
+      import("../src/components/containers/device-settings-sheet"),
+    ]);
   }, slow(30000));
 
   it("the expired banner's tap shows the button busy at once, opens the dialog once when the module arrives, and opens it only once", async () => {
@@ -40,5 +45,5 @@ describe("BoardScene, the Surrender dialog still loading", () => {
     const dialog = await screen.findByRole("dialog", { name: "Surrender this game?" }, { timeout: slow(5000) });
     expect(within(dialog).getByRole("button", { name: "Surrender" })).toBeInTheDocument();
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
-  });
+  }, slow(60_000));
 });
