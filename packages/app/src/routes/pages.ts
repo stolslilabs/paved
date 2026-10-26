@@ -4,10 +4,12 @@
  * no tabs).
  */
 /**
- * The navigation's five destinations (#623): Home, Missions, Play, Vault, Settings. `play` opens the mode choice, a
- * full-screen flow (`nav: null`), so no page shows it as the current one; the four others are tabs of pages.
+ * The navigation's destinations. Below `desktop` the bar holds Shop, Chests, Play, League, Settings (`BAR_TABS`, #763); from it
+ * the header holds Home, Missions, Vault, Settings (`HEADER_TABS`, #623, #668) until #762. `play` opens the mode choice, a
+ * full-screen flow (`nav: null`), so no page shows it as the current one; the others are tabs of pages. The home, Missions and
+ * the Vault are not in the phone's bar: the home's overlay leads to the two, the pages' Back to the home (#760).
  */
-export type Tab = "home" | "quests" | "play" | "vault" | "settings";
+export type Tab = "home" | "quests" | "vault" | "shop" | "chests" | "play" | "league" | "settings";
 
 export interface PageDef {
   /** The route path, relative to the root. */
@@ -30,16 +32,17 @@ export const PAGES: readonly PageDef[] = [
   { path: "cobbles", title: "Cobbles", nav: null },
   { path: "avatar", title: "Avatar", nav: null },
   // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
-  { path: "village/chests", title: "Chests", nav: null },
-  { path: "village/shop", title: "Tile shop", nav: null },
+  { path: "village/chests", title: "Chests", nav: "chests" },
+  { path: "village/shop", title: "Tile shop", nav: "shop" },
   { path: "village/:player", title: "Village", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
   // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, the defence log, the league.
   { path: "pvp", title: "Attack", nav: null },
   { path: "pvp/result/:id", title: "Result", nav: null },
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
-  { path: "pvp/defence", title: "Defence log", nav: null },
-  { path: "pvp/league", title: "League", nav: null },
+  // Under the League's tab (#763): the defence log is reached from the league page.
+  { path: "pvp/defence", title: "Defence log", nav: "league" },
+  { path: "pvp/league", title: "League", nav: "league" },
   { path: "training", title: "Training", nav: null },
   { path: "story", title: "Story", nav: null },
   { path: "story/:campaign/:level", title: "Story", nav: null },
@@ -60,7 +63,16 @@ export const PAGES: readonly PageDef[] = [
 export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "home", label: "Home", to: "/" },
   { id: "quests", label: "Missions", to: "/missions" },
-  { id: "play", label: "Play", to: "/play" },
   { id: "vault", label: "Vault", to: "/vault" },
+  { id: "shop", label: "Shop", to: "/village/shop" },
+  { id: "chests", label: "Chests", to: "/village/chests" },
+  { id: "play", label: "Play", to: "/play" },
+  { id: "league", label: "League", to: "/pvp/league" },
   { id: "settings", label: "Settings", to: "/settings" },
 ];
+
+/** The phone's bar, left to right (#763, the owner's decision of 2026-10-25): Play in the centre. The tab swipe follows it. */
+export const BAR_TABS: readonly Tab[] = ["shop", "chests", "play", "league", "settings"];
+
+/** The header's items from `desktop`, left to right (#668: no Play there), until the desktop's overlay navigation (#762). */
+export const HEADER_TABS: readonly Tab[] = ["home", "quests", "vault", "settings"];

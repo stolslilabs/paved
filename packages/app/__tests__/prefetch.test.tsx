@@ -22,6 +22,9 @@ vi.mock("../src/routes/page-loaders", () => {
       "missions/:day?": loader("quests"),
       vault: loader("vault"),
       settings: loader("settings"),
+      "village/shop": loader("shop"),
+      "village/chests": loader("chests"),
+      "pvp/league": loader("league"),
     },
   };
 });
@@ -98,16 +101,16 @@ describe("prefetchRoute", () => {
 });
 
 describe("the idle prefetch of the tab pages", () => {
-  it("fetches the five tab pages, one per idle slot, and nothing before the first slot", () => {
+  it("fetches the tab pages (the bar's and the header's, #763), one per idle slot, and nothing before the first slot", () => {
     vi.useFakeTimers();
     prefetchTabsWhenIdle();
     expect(loads).toEqual([]);
     vi.advanceTimersByTime(200);
     expect(loads).toEqual(["home"]);
-    vi.advanceTimersByTime(200 * 4);
-    expect(loads).toEqual(["home", "quests", "play", "vault", "settings"]);
+    vi.advanceTimersByTime(200 * 7);
+    expect(loads).toEqual(["home", "quests", "vault", "shop", "chests", "play", "league", "settings"]);
     vi.advanceTimersByTime(5000);
-    expect(loads).toHaveLength(5);
+    expect(loads).toHaveLength(8);
   });
 
   it("stops when cancelled", () => {

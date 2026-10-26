@@ -21,7 +21,7 @@ import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { PrefetchOnIntent } from "../prefetch";
-import { useAppNavigate } from "../ref";
+import { useAppNavigate, useTabNavigate } from "../ref";
 import { boardTilesOf, layoutTilesOf, refusalText } from "../village-shapes";
 
 /** The village's stage as the app wires it (the editor, the engine, the art; the renderer after it): the overlays paint first. */
@@ -44,6 +44,7 @@ const EDIT = "edit";
  */
 export default function Page() {
   const go = useAppNavigate();
+  const onNavigate = useTabNavigate();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -185,6 +186,7 @@ export default function Page() {
         onVault={() => go("/vault")}
         onLeague={() => go("/pvp/league")}
         onSettings={() => go("/settings")}
+        onNavigate={onNavigate}
         onResume={(id) => go(`/game/${id}`)}
         onRetry={() => {
           void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all });

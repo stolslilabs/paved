@@ -15,7 +15,7 @@ import { BoardViewport } from "../containers/board-viewport";
 import type { LayoutBoardView } from "../containers/layout-board";
 import { useLayoutCanvas } from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
-import { PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
+import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
 /**
  * Home (`/`, #753): the player's village full screen with Clash of Clans' overlays, and edit mode in the same scene. One story
@@ -39,6 +39,7 @@ const meta = {
     onVault: fn(),
     onLeague: fn(),
     onSettings: fn(),
+    onNavigate: fn(),
     onResume: fn(),
     onRetry: fn(),
     onFound: fn(),
@@ -172,6 +173,17 @@ export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_
 export const SceneEditingPointsWide: Story = { ...SceneEditingPoints, ...WIDE_1440 };
 export const SceneEditingPointsLiftedPhone: Story = { ...SceneEditingPointsLifted, ...PHONE_375 };
 export const SceneEditingPointsLiftedWide: Story = { ...SceneEditingPointsLifted, ...WIDE_1440 };
+
+/**
+ * PHONE-NAV (#763): the app's bar on the home below `desktop` (Shop, Chests with the chests waiting, Play, League, Settings; no
+ * item current), the right column down to Missions and Vault, no gear and no large Play; Edit and the dial above the bar. At
+ * 320, 375 and 768 px; edit mode has no bar (`SceneEditingPhone`); from 1440 px none of it (`SceneWide`).
+ */
+export const BarPhone320: Story = { ...Scene, ...PHONE_320 };
+export const BarPhone375: Story = { ...Scene, ...PHONE_375 };
+export const BarTablet768: Story = { ...Scene, ...TABLET_768 };
+/** The guest's home at 375 px: the bar as for a player, no Edit. */
+export const BarGuestPhone: Story = { args: HOME_VILLAGE.guest, render: (args) => <InScene {...args} />, ...PHONE_375 };
 
 /** The fakes played: Edit opens edit mode, Save keeps the layout (its engine score, after a short wait) and goes back to the view. */
 function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene?: boolean }) {
