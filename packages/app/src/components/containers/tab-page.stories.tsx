@@ -85,7 +85,7 @@ export const Phone320Cobbles: Story = {
   args: { tab: "settings", title: "Themes and tiles of the season", subtitle: LONG_SENTENCE, onBack: fn() },
   decorators: withBalances({ phone: true, desktop: "all" }),
 };
-/** At 1440 px, in the home's side panel (#762): the phone's layout, no Back, the Cobbles and the panel's close in the header. */
+/** At 1440 px, in the home's side panel (#762): the phone's layout, no Back, the Cobbles in the header (no close button, #782). */
 export const WideCobbles: Story = { ...WIDE_1440, args: { tab: "quests", title: "Missions" }, decorators: [inPanel("Missions"), ...withBalances({ phone: true, desktop: "all" })] };
 /**
  * At 375 px, scrolled to the bottom: the header is sticky, so Back stays in view; the fade under it shows the page has more

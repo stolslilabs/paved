@@ -79,80 +79,78 @@ export function VillageShopScene({
   const short = offers.some((o) => !o.bought && o.price > cobbles);
   return (
     <TabFrame tab="shop" onNavigate={onNavigate}>
-      <div className="flex min-h-full flex-col bg-background">
-        <TopBar
-          title="Tile shop"
-          onBack={onBack}
-          ownCobbles
-          end={
-            <span className="pr-2">
-              <Cobbles value={cobbles} />
-            </span>
-          }
-        />
-        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {status ? (
-            <SkinsStatusView
-              status={status}
-              guestTitle="Connect to visit the shop"
-              guestText="Three tiles a day, the same for everyone: buy them with Cobbles for your village."
-              errorTitle="The shop could not be read"
-              skeleton={
-                <div className="flex flex-col gap-3">
-                  {Array.from({ length: SHOP_OFFERS }, (_, i) => (
-                    <Skeleton key={i} className="h-24 w-full rounded-xl" />
-                  ))}
-                </div>
-              }
-              onConnect={onConnect}
-              onRetry={onRetry}
-            />
-          ) : (
-            <>
-              <header className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-col">
-                  <h2 className="font-display text-lg">Today's tiles</h2>
-                  <p className="text-xs text-muted-foreground">The same three for everyone, each bought once a day.</p>
-                </div>
-                {resetsAt != null && now != null && <Countdown expiresAt={resetsAt} now={now} label="New tiles in" />}
-              </header>
-              {refusal && (
-                <InlineError
-                  title="Not bought"
-                  message={refusal}
-                  detail={refusalDetail}
-                  action={
-                    onDismissRefusal && (
-                      <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
-                        Dismiss
-                      </Button>
-                    )
-                  }
-                />
-              )}
-              <ul aria-label="Today's offers" className="flex flex-col gap-2">
-                {offers.map((offer, i) => (
-                  <OfferCard
-                    key={`${offer.plan}-${i}`}
-                    offer={offer}
-                    held={owned[offer.plan] ?? 0}
-                    cobbles={cobbles}
-                    buying={buying === i}
-                    busy={buying != null && buying !== i}
-                    tileArt={tileArt}
-                    onBuy={() => onBuy?.(i)}
-                  />
+      <TopBar
+        title="Tile shop"
+        onBack={onBack}
+        ownCobbles
+        end={
+          <span className="pr-2">
+            <Cobbles value={cobbles} />
+          </span>
+        }
+      />
+      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {status ? (
+          <SkinsStatusView
+            status={status}
+            guestTitle="Connect to visit the shop"
+            guestText="Three tiles a day, the same for everyone: buy them with Cobbles for your village."
+            errorTitle="The shop could not be read"
+            skeleton={
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: SHOP_OFFERS }, (_, i) => (
+                  <Skeleton key={i} className="h-24 w-full rounded-xl" />
                 ))}
-              </ul>
-              {short && onGetCobbles && (
-                <Button variant="outline" className="self-center" onClick={onGetCobbles}>
-                  <Icon name="plus" size="sm" /> Get Cobbles
-                </Button>
-              )}
-            </>
-          )}
-        </main>
-      </div>
+              </div>
+            }
+            onConnect={onConnect}
+            onRetry={onRetry}
+          />
+        ) : (
+          <>
+            <header className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-col">
+                <h2 className="font-display text-lg">Today's tiles</h2>
+                <p className="text-xs text-muted-foreground">The same three for everyone, each bought once a day.</p>
+              </div>
+              {resetsAt != null && now != null && <Countdown expiresAt={resetsAt} now={now} label="New tiles in" />}
+            </header>
+            {refusal && (
+              <InlineError
+                title="Not bought"
+                message={refusal}
+                detail={refusalDetail}
+                action={
+                  onDismissRefusal && (
+                    <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                      Dismiss
+                    </Button>
+                  )
+                }
+              />
+            )}
+            <ul aria-label="Today's offers" className="flex flex-col gap-2">
+              {offers.map((offer, i) => (
+                <OfferCard
+                  key={`${offer.plan}-${i}`}
+                  offer={offer}
+                  held={owned[offer.plan] ?? 0}
+                  cobbles={cobbles}
+                  buying={buying === i}
+                  busy={buying != null && buying !== i}
+                  tileArt={tileArt}
+                  onBuy={() => onBuy?.(i)}
+                />
+              ))}
+            </ul>
+            {short && onGetCobbles && (
+              <Button variant="outline" className="self-center" onClick={onGetCobbles}>
+                <Icon name="plus" size="sm" /> Get Cobbles
+              </Button>
+            )}
+          </>
+        )}
+      </main>
     </TabFrame>
   );
 }

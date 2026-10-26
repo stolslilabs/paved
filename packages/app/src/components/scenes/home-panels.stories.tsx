@@ -31,7 +31,7 @@ const tileArt = originalTileArt(SOURCE_ASSETS);
 
 /**
  * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the overlay's pages open in a side panel on the right,
- * over the village (dimmed; a click on it, Escape or the `xmark` closes), laid out as on a phone. One story per page of the
+ * over the village (dimmed; a click on it or Escape closes it, no close button since #782), laid out as on a phone. One story per page of the
  * overlay at 1440 px (the Viewport toolbar can switch it; below `desktop` the app draws these pages full screen instead); the
  * Cobbles in the panel's header only where the page's rule shows them; Themes and the defence log, reached from another page,
  * keep Back. The profile opens on the left. The village is the plan view (the `Scene` stories of `Scenes/Home` have the 3D).

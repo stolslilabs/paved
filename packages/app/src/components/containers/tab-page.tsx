@@ -6,7 +6,6 @@ import { Icon } from "../ui/icon";
 import { PageBalances, PanelBalances } from "./balances-context";
 import { MockMarkSlot } from "./mock-mark";
 import { usePagePanel } from "./page-panel-context";
-import { PanelClose } from "./panel-close";
 import { TabFrame } from "./tab-frame";
 
 export interface TabPageProps {
@@ -40,8 +39,8 @@ const COLUMN = "mx-auto w-full max-w-md px-4 tablet:max-w-2xl";
  * (`page-less`). Below `desktop` the balances, the Cobbles where the page's rule shows them (#720), sit in the page under it,
  * at the content's top right (`PageBalances`), and scroll with it.
  * DESK-PANELS (#762): from `desktop` the page is in the home's side panel, laid out as on a phone. Its header ends with the
- * panel's close (`PanelClose`), after the Cobbles where the page's rule shows them (`PanelBalances`); a page of the overlay
- * itself has no Back (the close leads to the village), a page reached from another keeps it.
+ * Cobbles where the page's rule shows them (`PanelBalances`); a page of the overlay itself has no Back (a click outside the
+ * panel or Escape leads to the village; no close button, #782), a page reached from another keeps it.
  */
 export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, children, className }: TabPageProps) {
   const panel = usePagePanel();
@@ -73,7 +72,6 @@ export function TabPage({ tab, title, subtitle, onBack, end, onNavigate, childre
             <div className="flex items-center gap-2">
               {end}
               <PanelBalances />
-              <PanelClose />
             </div>
           )}
         </div>

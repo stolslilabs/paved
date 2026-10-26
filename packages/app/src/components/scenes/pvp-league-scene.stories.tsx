@@ -4,6 +4,7 @@ import { PVP_LEAGUE } from "../../mocks/pvp";
 import { PvpLeagueScene } from "./pvp-league-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
 import { inPanel } from "../../stories/in-panel";
+import { scrolledToEnd } from "../../stories/scrolled-to-end";
 
 /** The league (#647): crowns, the league and the way to the next, the season's end and its rewards. On fakes; the leagues are a proposal until #644. */
 const meta = {
@@ -29,3 +30,7 @@ export const Ended: Story = { args: PVP_LEAGUE.ended };
 /** In the phone's bar (#763): the League current at 375 px; from 1440 px in the home's side panel, laid out as on a phone (#762). */
 export const GoldPhone: Story = { ...Gold, ...PHONE_375 };
 export const GoldWide: Story = { ...Gold, ...WIDE_1440, decorators: [inPanel("League")] };
+/** PAGES-SCROLL (#782): at 375 px the page scrolls in its region to the last league, the header sticky above it. */
+export const GoldPhoneScrolled: Story = { ...GoldPhone, play: scrolledToEnd };
+/** PAGES-SCROLL (#782): at 1440 px the panel's body scrolls to the last league; no close button (a click outside or Escape). */
+export const GoldWideScrolled: Story = { ...GoldWide, play: scrolledToEnd };

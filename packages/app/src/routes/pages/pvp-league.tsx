@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { PanelClose } from "../../components/containers/panel-close";
 import { TabFrame } from "../../components/containers/tab-frame";
 import { PvpLeagueScene } from "../../components/scenes/pvp-league-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
@@ -26,10 +25,9 @@ export default function Page() {
   const span = useSeasonSpan(league?.season ?? null);
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
   // Its waits and refusals in the League tab's frame too (#763): the bar stays while the league is read. In the side panel from
-  // `desktop` (#762) they have no header: the panel's close sits at their top right.
+  // `desktop` (#762) a click outside it or Escape closes it (#782).
   const wait = (scene: ReactNode) => (
     <TabFrame tab="league" onNavigate={onNavigate}>
-      <PanelClose className="absolute top-2 right-2 z-20" />
       {scene}
     </TabFrame>
   );
