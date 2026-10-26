@@ -722,6 +722,13 @@ export class MockLedger {
     return { match, attack: a ? this.attackView(a) : null };
   }
 
+  /** The attacker's v2 attack `id`, open or ended, or null: every attack stays in the record, so a result's link stays good. */
+  async attackV2Of(attacker: string, id: number): Promise<AttackV2 | null> {
+    this.sync();
+    const a = (this.peek(attacker).v2 ?? freshV2()).attacks.find((x) => x.id === id);
+    return a ? this.attackView(a) : null;
+  }
+
   /** A rival village's name (the mock's opponents, PvP v1's and v2's), or null for any other player. */
   rivalName(playerId: string): string | null {
     return mockRival(playerId)?.name ?? mockRivalV2(playerId)?.name ?? null;
