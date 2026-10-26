@@ -570,6 +570,10 @@
  * and the new one comes in from the other, clipped to the region. The root's snapshots are not animated: the rest of the
  * screen, the bar included, is the new page at once, its own transitions (`AppNav`) running live. No swipe under reduced
  * motion and from `desktop` (the helper starts none).
+ * SWIPE-DISC (#780, the owner's decision of 2026-10-26: the Play disc is always whole): the bar is a view transition of its own
+ * (`app-nav`), its group painted above the page's, so the disc's top half, which stands over the region, is never covered by
+ * the page's moving snapshots. It is not animated: its new snapshot alone shows, live (the bar's own transitions run in it),
+ * the old one hidden.
  */
 :root {
   --tab-swipe-duration: 320ms;
@@ -577,6 +581,9 @@
 }
 html[data-tab-swipe] [data-slot="page-scroll"] {
   view-transition-name: tab-page;
+}
+html[data-tab-swipe] [data-slot="app-nav"] {
+  view-transition-name: app-nav;
 }
 html[data-tab-swipe]::view-transition-old(root),
 html[data-tab-swipe]::view-transition-new(root) {
@@ -593,6 +600,18 @@ html[data-tab-swipe]::view-transition-new(tab-page) {
   animation-duration: var(--tab-swipe-duration);
   animation-timing-function: var(--tab-swipe-ease);
   animation-fill-mode: both;
+}
+html[data-tab-swipe]::view-transition-group(app-nav) {
+  z-index: 1;
+  animation: none;
+}
+html[data-tab-swipe]::view-transition-old(app-nav) {
+  animation: none;
+  opacity: 0;
+}
+html[data-tab-swipe]::view-transition-new(app-nav) {
+  mix-blend-mode: normal;
+  animation: none;
 }
 html[data-tab-swipe="next"]::view-transition-old(tab-page) { animation-name: tab-swipe-to-start; }
 html[data-tab-swipe="next"]::view-transition-new(tab-page) { animation-name: tab-swipe-from-end; }
