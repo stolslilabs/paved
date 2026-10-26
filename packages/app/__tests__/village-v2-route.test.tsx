@@ -79,6 +79,19 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     expect(await screen.findByRole("navigation", { name: "Main" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));
 
+  it("a long press on a tile of the village opens edit mode, in the URL, by Edit's path (#799)", async () => {
+    const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
+    await editButton();
+    const plan = await screen.findByRole("img", { name: /^Village layout/ }, WAIT);
+    const starter = plan.querySelector<HTMLElement>("[data-kind=starter]")!;
+    fireEvent.pointerDown(starter, { button: 0, pointerId: 1 });
+    // The bubble's Edit beside the scene's, its ring filling; at the hold's end, edit mode.
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Edit village" })).toHaveLength(2), WAIT);
+    await waitFor(() => expect(s.router.state.location.search).toBe("?edit"), WAIT);
+    fireEvent.pointerUp(starter, { button: 0, pointerId: 1 });
+    expect(await screen.findByRole("button", { name: "Leave edit mode" }, WAIT)).toBeInTheDocument();
+  }, slow(30_000));
+
   it("Edit switches to edit mode in the URL; an outer tile goes back to the inventory and the whole layout saves at once", async () => {
     const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
     await userEvent.click(await editButton());
