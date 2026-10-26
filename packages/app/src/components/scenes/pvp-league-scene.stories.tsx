@@ -5,7 +5,10 @@ import { PvpLeagueScene } from "./pvp-league-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
 import { inPanel } from "../../stories/in-panel";
 
-/** The league (#647): crowns, the league and the way to the next, the season's end and its rewards. On fakes; the leagues are a proposal until #644. */
+/**
+ * The league (#647): a carousel of the 23 leagues opening on the player's (#785), the details of the one in view, the season's
+ * end and its rewards. The arrows, a swipe and the arrow keys move it; reduced motion cuts instead of sliding. On fakes.
+ */
 const meta = {
   title: "Scenes/PvP/League",
   component: PvpLeagueScene,
@@ -15,13 +18,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Gold, 28 crowns from Crystal; the season ends in 4 days. */
+/** The player's league, Silver II, 28 crowns from Silver I; the season ends in 4 days. */
 export const Gold: Story = { args: PVP_LEAGUE.gold };
+/** The carousel on a higher league (Gold II): its floor, the crowns to go, its rewards; "Back to my league". */
+export const Higher: Story = { args: PVP_LEAGUE.higher };
+/** The carousel on a lower league (Bronze II): reached. */
+export const Lower: Story = { args: PVP_LEAGUE.lower };
 /** The season's last day: its timer. */
 export const LastDay: Story = { args: PVP_LEAGUE.lastDay };
-/** The top league. */
+/** The top league: the next arrow stops there. */
 export const Legend: Story = { args: PVP_LEAGUE.legend };
-/** No attack yet: no league. */
+/** No attack yet: Unranked, the first view; the previous arrow stops there. */
 export const Unranked: Story = { args: PVP_LEAGUE.unranked };
 /** The season has ended: its rewards on their way. */
 export const Ended: Story = { args: PVP_LEAGUE.ended };
@@ -29,3 +36,13 @@ export const Ended: Story = { args: PVP_LEAGUE.ended };
 /** In the phone's bar (#763): the League current at 375 px; from 1440 px in the home's side panel, laid out as on a phone (#762). */
 export const GoldPhone: Story = { ...Gold, ...PHONE_375 };
 export const GoldWide: Story = { ...Gold, ...WIDE_1440, decorators: [inPanel("League")] };
+export const HigherPhone: Story = { ...Higher, ...PHONE_375 };
+export const HigherWide: Story = { ...Higher, ...WIDE_1440, decorators: [inPanel("League")] };
+export const LowerPhone: Story = { ...Lower, ...PHONE_375 };
+export const LowerWide: Story = { ...Lower, ...WIDE_1440, decorators: [inPanel("League")] };
+export const UnrankedPhone: Story = { ...Unranked, ...PHONE_375 };
+export const UnrankedWide: Story = { ...Unranked, ...WIDE_1440, decorators: [inPanel("League")] };
+export const LegendPhone: Story = { ...Legend, ...PHONE_375 };
+export const LegendWide: Story = { ...Legend, ...WIDE_1440, decorators: [inPanel("League")] };
+/** Reduced motion: the arrows cut from league to league. */
+export const ReducedMotion: Story = { ...GoldPhone, parameters: { ...GoldPhone.parameters, reducedMotion: "always" } };

@@ -15,6 +15,11 @@ const CREST: Record<LeagueId, string> = {
   unranked: "text-league-unranked",
 };
 
+/** A league group's crest colour, for a crest drawn larger than `LeagueCrest`'s sizes (the league carousel's). */
+export function crestClass(id: LeagueId): string {
+  return CREST[id];
+}
+
 const crestVariants = cva("inline-flex items-center gap-1.5 font-semibold whitespace-nowrap", {
   variants: { size: { sm: "text-xs", md: "text-sm", lg: "text-xl" } },
   defaultVariants: { size: "md" },
