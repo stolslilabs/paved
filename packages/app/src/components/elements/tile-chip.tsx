@@ -1,4 +1,5 @@
 import { PlanType } from "@paved/game-core";
+import { useId } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
@@ -89,6 +90,53 @@ export function TileChip({ plan, orientation = 1, art, view = "art", size, state
           <path d="M1 0v3M2 0v3M0 1h3M0 2h3" stroke="var(--background)" strokeWidth={0.04} opacity={0.35} />
         </svg>
       )}
+    </span>
+  );
+}
+
+/** The "?" of the unknown tile, by the chip's size: large, over half its side. */
+const UNKNOWN_GLYPH = { sm: "text-2xl", md: "text-4xl", lg: "text-7xl", xl: "text-7xl" } as const;
+
+/** The unknown tile's voxel texture: a 4x4 grid of blocks, a few lit and a few shaded, faint over the stone fill. */
+const VOXELS: readonly (readonly [number, number, number])[] = [
+  [0, 0, 1], [2, 0, -1], [1, 1, -1], [3, 1, 1], [0, 2, -1], [2, 2, 1], [1, 3, 1], [3, 3, -1],
+];
+
+export interface UnknownTileChipProps extends VariantProps<typeof chipVariants> {
+  className?: string;
+}
+
+/**
+ * A tile not known yet (V2-DECK-SHEET): an extra of a PvP attack's deck, drawn at random, whose plan shows only once it is drawn. The
+ * chip's frame, sizes and states, on a muted stone fill with a faint voxel texture and a large "?" in the display font.
+ */
+export function UnknownTileChip({ size, state, className }: UnknownTileChipProps) {
+  // An id fit for `url(#…)`: React's own carries punctuation.
+  const stone = `stone${useId().replace(/[^\w-]/g, "")}`;
+  return (
+    <span
+      role="img"
+      aria-label="Unknown tile"
+      data-state={state ?? "default"}
+      data-view="unknown"
+      className={cn(chipVariants({ size, state }), "place-items-center bg-muted", className)}
+    >
+      <svg aria-hidden viewBox="0 0 4 4" className="absolute inset-0 size-full" shapeRendering="crispEdges">
+        <defs>
+          <linearGradient id={stone} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="var(--muted)" />
+            <stop offset="1" stopColor="var(--card)" />
+          </linearGradient>
+        </defs>
+        <rect width={4} height={4} fill={`url(#${stone})`} />
+        {VOXELS.map(([x, y, light]) => (
+          <rect key={`${x},${y}`} x={x} y={y} width={1} height={1} fill={light > 0 ? "var(--foreground)" : "var(--background)"} opacity={light > 0 ? 0.06 : 0.25} />
+        ))}
+        <path d="M1 0v4M2 0v4M3 0v4M0 1h4M0 2h4M0 3h4" stroke="var(--background)" strokeWidth={0.04} opacity={0.35} />
+      </svg>
+      <span aria-hidden className={cn("relative font-display leading-none text-muted-foreground", UNKNOWN_GLYPH[size ?? "md"])}>
+        ?
+      </span>
     </span>
   );
 }
