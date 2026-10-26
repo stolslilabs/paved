@@ -11,6 +11,7 @@ import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
+import { useCobblesSheet } from "../cobbles-sheet";
 import { useAppNavigate, useTabNavigate, useUpTo } from "../ref";
 import { countsByPlan, refusalText, useVillageArt } from "../village-v2";
 
@@ -24,6 +25,7 @@ export default function Page() {
   const sources = useDataSources();
   const client = useQueryClient();
   const go = useAppNavigate();
+  const cobbles = useCobblesSheet();
   const onNavigate = useTabNavigate();
   const onBack = useUpTo("/");
   // The day is the device's, as the mock ledger rules on it in step 1 (#741); step 3 (#742) reads the chain's with the contracts.
@@ -53,35 +55,38 @@ export default function Page() {
   const pending = writes.pending;
 
   return (
-    <VillageShopScene
-      status={status}
-      offers={offers.map((o) => ({ plan: o.plan, rarity: o.rarity, price: o.price, bought: o.bought }))}
-      cobbles={account.data?.cobbles ?? 0}
-      owned={village.data ? countsByPlan(village.data.inventory) : {}}
-      resetsAt={data?.endsAt ?? (day + 1) * DAY_S}
-      now={now}
-      buying={pending?.kind === "buy" ? offers.findIndex((o) => o.slot === pending.request.slot) : null}
-      refusal={writes.error ? refusalText(writes.error) : null}
-      refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
-      tileArt={tileArt}
-      onBack={onBack}
-      onNavigate={onNavigate}
-      onConnect={() => void wallet.connect()}
-      onRetry={() => {
-        void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all });
-        void client.invalidateQueries({ queryKey: cobbleKeys.all });
-      }}
-      onBuy={(index) => {
-        const offer = offers[index];
-        if (pending || !data || !offer || offer.bought) return;
-        writes.reset();
-        writes.buy({ day: data.day, slot: offer.slot, confirmedPrice: offer.price }).then(
-          () => toast.success(`${tileName(offer.plan)} bought`, { description: "It is in your inventory: place it in the editor." }),
-          () => undefined,
-        );
-      }}
-      onGetCobbles={() => go("/cobbles")}
-      onDismissRefusal={writes.reset}
-    />
+    <>
+      <VillageShopScene
+        status={status}
+        offers={offers.map((o) => ({ plan: o.plan, rarity: o.rarity, price: o.price, bought: o.bought }))}
+        cobbles={account.data?.cobbles ?? 0}
+        owned={village.data ? countsByPlan(village.data.inventory) : {}}
+        resetsAt={data?.endsAt ?? (day + 1) * DAY_S}
+        now={now}
+        buying={pending?.kind === "buy" ? offers.findIndex((o) => o.slot === pending.request.slot) : null}
+        refusal={writes.error ? refusalText(writes.error) : null}
+        refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
+        tileArt={tileArt}
+        onBack={onBack}
+        onNavigate={onNavigate}
+        onConnect={() => void wallet.connect()}
+        onRetry={() => {
+          void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all });
+          void client.invalidateQueries({ queryKey: cobbleKeys.all });
+        }}
+        onBuy={(index) => {
+          const offer = offers[index];
+          if (pending || !data || !offer || offer.bought) return;
+          writes.reset();
+          writes.buy({ day: data.day, slot: offer.slot, confirmedPrice: offer.price }).then(
+            () => toast.success(`${tileName(offer.plan)} bought`, { description: "It is in your inventory: place it in the editor." }),
+            () => undefined,
+          );
+        }}
+        onGetCobbles={cobbles.open}
+        onDismissRefusal={writes.reset}
+      />
+      {cobbles.sheet}
+    </>
   );
 }

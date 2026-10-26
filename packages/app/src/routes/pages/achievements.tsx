@@ -9,7 +9,7 @@ import { usePlayerAchievements } from "../../data/indexer";
 import { cobbleKeys, useAchievementRewards, useClaims, type ClaimTarget } from "../../data/cobbles";
 import { queryKeys } from "../../data/keys";
 import { useAccount } from "../../wallet/wallet";
-import { useAppNavigate, useTabNavigate } from "../ref";
+import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 
 /**
  * `/missions/lifetime` (P9): the player's achievements from the indexer, their Cobbles and the claimed ones from `Setup`'s ledger
@@ -19,6 +19,7 @@ import { useAppNavigate, useTabNavigate } from "../ref";
 export default function Page() {
   const go = useAppNavigate();
   const onNavigate = useTabNavigate();
+  const onBack = useBack();
   useAccount();
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
@@ -52,12 +53,13 @@ export default function Page() {
       canClaim={claims.claimer !== null}
       onClaim={(achievementId) => send(achievementId, [{ kind: "achievement", achievementId }])}
       onClaimAll={claimAll}
-      onTab={(tab) => go(tab === "quests" ? "/missions" : "/missions/lifetime")}
+      onTab={(tab) => go(tab === "quests" ? "/missions" : "/missions/lifetime", { replace: true })}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: queryKeys.indexer.all });
         void client.invalidateQueries({ queryKey: cobbleKeys.all });
       }}
+      onBack={onBack}
       onNavigate={onNavigate}
     />
   );

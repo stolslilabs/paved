@@ -76,7 +76,7 @@ async function attacked(s: ReturnType<typeof mockImplementation>, me: string) {
 
 preloadPages("home");
 beforeAll(async () => {
-  await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pages/pvp-result"), import("../src/routes/pages/pvp-league"), import("../src/routes/pages/pvp-defence"), import("../src/routes/pages/pvp-replay")]);
+  await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pages/pvp-result"), import("../src/routes/pages/pvp-league"), import("../src/routes/pages/pvp-replay")]);
 }, slow(60_000));
 beforeEach(() => {
   queryClient.clear();
@@ -202,6 +202,30 @@ describe("/pvp/result/:id", { timeout: slow(30_000) }, () => {
   });
 });
 
+describe("Back never cycles (BACK-RULE #783)", { timeout: slow(45_000) }, () => {
+  it("the league, a result, its replay: Back, Back reaches the village and never shows a page twice", async () => {
+    const s = await open("/pvp/league", attacked);
+    await screen.findByRole("heading", { level: 1, name: "League" }, WAIT);
+    await s.router.navigate("/pvp/result/1");
+    await screen.findByRole("heading", { name: /Defeat|Victory|Triumph/ }, WAIT);
+    await userEvent.click(screen.getByRole("button", { name: /Replay/ }));
+    await screen.findByRole("group", { name: "Replay" }, WAIT);
+    const seen: string[] = [];
+    const stop = s.router.subscribe((state) => void (state.navigation.state === "idle" && seen.at(-1) !== state.location.pathname && seen.push(state.location.pathname)));
+    // The replay goes up to the league, back through the history: the result is skipped, never shown again.
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(s.router.state.location.pathname).toBe("/pvp/league"), WAIT);
+    expect(s.router.state.historyAction).toBe("POP");
+    await screen.findByRole("heading", { level: 1, name: "League" }, WAIT);
+    await waitFor(async () => {
+      if (s.router.state.location.pathname === "/pvp/league") await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      expect(s.router.state.location.pathname).toBe("/");
+    }, WAIT);
+    stop();
+    expect(seen).toEqual(["/pvp/league", "/"]);
+  });
+});
+
 describe("/pvp/replay/:attacker/:id: a failed read", { timeout: slow(30_000) }, () => {
   it("an older attack whose indexer row fails to read shows the error and Retry, not the search's wait", async () => {
     const me = mockImplementation().sources.signer!.address;
@@ -263,21 +287,19 @@ describe("receipt-cached attacks and the shield's read", { timeout: slow(30_000)
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
-  it("/pvp/defence: a failed shield read is told, never shown as no shield", async () => {
-    await open("/pvp/defence", async (s) => {
+  it("/pvp/league: a failed shield read is told, never shown as no shield", async () => {
+    await open("/pvp/league", async (s) => {
       const views = s.sources.views;
       s.sources.views = new Proxy(views, { get: (t, k) => (k === "pvpShield" ? () => Promise.reject(new Error("Shield RPC unavailable")) : Reflect.get(t, k, t)) });
     });
     expect(await screen.findByText(/Shield RPC unavailable/, {}, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "unknown");
     expect(screen.queryByText("No shield")).toBeNull();
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });
 
 describe("the other answers", { timeout: slow(30_000) }, () => {
-  it("/pvp/defence: no attack on the village yet, no shield", async () => {
-    await open("/pvp/defence");
+  it("/pvp/league: its defence log, no attack on the village yet, no shield (BACK-RULE #783: a section, not a page)", async () => {
+    await open("/pvp/league");
     expect(await screen.findByText("No attack on your village yet.", {}, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "off");
   });

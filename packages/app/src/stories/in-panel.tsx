@@ -4,7 +4,7 @@ import PagePanel from "../components/containers/page-panel";
 
 /**
  * A page's story drawn as the app draws it from `desktop` (DESK-PANELS, #762): in the home's side panel, laid out as on a phone.
- * `top`: a page of the overlay itself (no Back); false for a page reached from another.
+ * `top`: a page of the overlay itself (no Back); false for a page whose header keeps Back.
  */
 export const inPanel =
   (title: string, top = true): Decorator =>
