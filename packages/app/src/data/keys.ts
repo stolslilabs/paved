@@ -51,6 +51,8 @@ export const queryKeys = {
       shop: (playerId: string, day: number) => ["chain", "v2", "shop", addressKey(playerId), day] as const,
       /** The opponent drawn and the attack, the open one or the last. */
       attack: (attacker: string) => ["chain", "v2", "attack", addressKey(attacker)] as const,
+      /** One attack of the attacker by its id, open or ended: its result's page (#790). */
+      attackOf: (attacker: string, id: number) => ["chain", "v2", "attack-of", addressKey(attacker), id] as const,
     },
   },
   indexer: {
