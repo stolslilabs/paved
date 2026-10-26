@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { NumberTicker } from "./number-ticker";
 
-// The balances' change (#620), shared by `ResourcePlate` and the village score (#802): the figure counts to its new value
+// The balances' change (issue 620), shared by `ResourcePlate` and the village score (issue 802): the figure counts to its new value
 // (`NumberTicker`, from `start` to `target`) and briefly takes the change's colour; up, a "+N" rises and the icon pops; down,
 // a "−N" drops and the icon dips. Under reduced motion only the colour flashes.
 
@@ -110,7 +110,7 @@ export function ChangeFloat({ change, moving, className }: { change: AmountChang
 }
 
 /**
- * A score that counts from `from` to `value` once, as it mounts (the village's, after a save, #802), the balances' way: the
+ * A score that counts from `from` to `value` once, as it mounts (the village's, after a save, issue 802), the balances' way: the
  * colour of the change, the "+N" or "−N", the icon's pop. Equal, or no `from`: the score, still. A later change of `value`
  * plays again. Assistive technology reads the score alone, never the counting figure.
  */

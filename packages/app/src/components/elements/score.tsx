@@ -15,7 +15,7 @@ const scoreVariants = cva("numeric font-semibold leading-none", {
   defaultVariants: { size: "md", tone: "default" },
 });
 
-// The count after a save (#802, the balances' change): its own chunk, loaded by a save alone.
+// The count after a save (issue 802, the balances' change): its own chunk, loaded by a save alone.
 const LazyScoreCount = lazy(() => import("./amount-change").then((m) => ({ default: m.ScoreCount })));
 
 /** Points with a comma every three digits, in en-US like every number (P-66): "1,270". The owner's word wins over the mockups' "1 240". */
@@ -43,7 +43,7 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
    * the season wheel and the deck. Unset or null: none.
    */
   preview?: number | null;
-  /** The score shown before (a save that just landed, #802): it counts from it to `value` once, the balances' way. */
+  /** The score shown before (a save that just landed, issue 802): it counts from it to `value` once, the balances' way. */
   from?: number;
   className?: string;
 }
