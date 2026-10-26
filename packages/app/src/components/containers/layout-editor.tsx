@@ -366,7 +366,8 @@ export function useLayoutEditor({
     cancelRoll();
     if (over) return;
     setHand(null);
-    onSave?.(draft, score);
+    // The saved draft's own score: the one shown may be a render behind (`shown`). The die's drafts read their worker's points.
+    onSave?.(draft, layoutScore(draft));
   };
 
   const hint =

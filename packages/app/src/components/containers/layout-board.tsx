@@ -98,8 +98,13 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
     centre();
   }, []);
   useEffect(() => {
-    const frame = requestAnimationFrame(centre);
-    return () => cancelAnimationFrame(frame);
+    // A task posted from the next frame runs once that frame is drawn: its layout is clean, the read costs nothing.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => (timer = setTimeout(centre, 0)));
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
   }, [extent, editing]);
 
   const presses = usePlanPress(press, editing);
