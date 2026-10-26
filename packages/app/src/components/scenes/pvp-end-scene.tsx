@@ -26,8 +26,9 @@ export type EndBoardModule = typeof import("../containers/final-board");
 const loadFinalBoard = (): Promise<EndBoardModule> => import("../containers/final-board");
 
 /**
- * The chest of the attack (#790): `won` (its rank, opened on the Chests page), `capped` (stars won, but the day's PvP slots are
- * full: shown disabled, with the time to the next slot), `none` (no star, or surrendered: nothing shown).
+ * The chest of the attack (#790): `won` (its rank, opened on the Chests page), `capped` (stars won, but the day's PvP slots were
+ * full: shown disabled, with the time to the slots' return at `resetsAt`, then "open again" once it passed), `none` (no star,
+ * or surrendered: nothing shown).
  */
 export type PvpEndChest = { state: "won"; rank: ChestRank } | { state: "capped"; rank: ChestRank; resetsAt: number } | { state: "none" };
 
@@ -173,7 +174,9 @@ export function PvpEndScene(props: PvpEndSceneProps) {
                   ) : (
                     <>
                       <span className="font-semibold text-muted-foreground">{CHEST_NAME[chest.rank]}</span>
-                      <span className="text-sm text-muted-foreground">No slot left today, next in {waitText(chest.resetsAt - props.now)}.</span>
+                      <span className="text-sm text-muted-foreground">
+                        {chest.resetsAt > props.now ? `No slot left today, next in ${waitText(chest.resetsAt - props.now)}.` : "No slot was left that day. Your chest slots are open again."}
+                      </span>
                     </>
                   )}
                 </div>

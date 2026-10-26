@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { describe, expect, it, vi } from "vitest";
@@ -101,13 +101,23 @@ describe("PvpEndScene (#790)", () => {
 });
 
 describe("the end's reading of the record (#790)", () => {
-  const now = 20_000 * DAY_S + 19 * 3_600;
+  it("a chest granted is won; stars with none granted are the capped day, until the UTC day after the attack's end; no star or a surrender, none", () => {
+    const finishedAt = 20_000 * DAY_S + 19 * 3_600;
+    expect(endChest({ chest: "silver", stars: 2, status: "finished", finishedAt })).toEqual({ state: "won", rank: "silver" });
+    expect(endChest({ chest: null, stars: 3, status: "finished", finishedAt })).toEqual({ state: "capped", rank: "gold", resetsAt: 20_001 * DAY_S });
+    expect(endChest({ chest: null, stars: 0, status: "finished", finishedAt })).toEqual({ state: "none" });
+    expect(endChest({ chest: null, stars: 0, status: "surrendered", finishedAt })).toEqual({ state: "none" });
+  });
 
-  it("a chest granted is won; stars with none granted are the capped day, until the next UTC day; no star or a surrender, none", () => {
-    expect(endChest({ chest: "silver", stars: 2, status: "finished" }, now)).toEqual({ state: "won", rank: "silver" });
-    expect(endChest({ chest: null, stars: 3, status: "finished" }, now)).toEqual({ state: "capped", rank: "gold", resetsAt: 20_001 * DAY_S });
-    expect(endChest({ chest: null, stars: 0, status: "finished" }, now)).toEqual({ state: "none" });
-    expect(endChest({ chest: null, stars: 0, status: "surrendered" }, now)).toEqual({ state: "none" });
+  it("a capped chest's deadline does not roll forward at midnight: past it, the slots are said to be open again", () => {
+    const chest = PVP_END.chestCapped.chest as Extract<PvpEndSceneProps["chest"], { state: "capped" }>;
+    show({ ...PVP_END.chestCapped, now: chest.resetsAt - 30 });
+    expect(screen.getByRole("region", { name: "Chest" })).toHaveTextContent("No slot left today, next in 1 min.");
+    cleanup();
+    show({ ...PVP_END.chestCapped, now: chest.resetsAt });
+    const region = screen.getByRole("region", { name: "Chest" });
+    expect(region).toHaveTextContent("No slot was left that day. Your chest slots are open again.");
+    expect(region).not.toHaveTextContent("No slot left today");
   });
 
   it("the wait for the next slot, in hours from an hour, in minutes under it", () => {

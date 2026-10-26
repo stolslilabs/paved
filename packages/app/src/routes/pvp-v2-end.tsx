@@ -38,12 +38,13 @@ export function attackEnd(attack: Pick<AttackV2, "moves">): { tiles: BoardTile[]
 
 /**
  * The chest of a finished attack: the record's when one was granted; with stars and none granted, the day's slots were full
- * (the record's chest is null then, #741), shown disabled until the next UTC day; nothing with no star or a surrender.
+ * (the record's chest is null then, #741): shown disabled, its slots back at the UTC day after the attack's end (the day the
+ * ledger counted it in), not the day of the clock; nothing with no star or a surrender.
  */
-export function endChest(attack: Pick<AttackV2, "chest" | "stars" | "status">, now: number): PvpEndChest {
+export function endChest(attack: Pick<AttackV2, "chest" | "stars" | "status" | "finishedAt">): PvpEndChest {
   if (attack.chest) return { state: "won", rank: attack.chest };
   const rank = attack.status === "surrendered" ? null : pvpChestRank(attack.stars);
-  return rank ? { state: "capped", rank, resetsAt: (dayOf(now) + 1) * DAY_S } : { state: "none" };
+  return rank ? { state: "capped", rank, resetsAt: (dayOf(attack.finishedAt) + 1) * DAY_S } : { state: "none" };
 }
 
 /** The XP the attack gave and the level it leaves, from the player's XP now. */
@@ -96,7 +97,7 @@ function End({ me, attack, onBack }: { me: string; attack: AttackV2; onBack: () 
       crowns={crowns}
       crownsAfter={league.data?.crowns ?? crowns}
       xp={xp}
-      chest={endChest(attack, now)}
+      chest={endChest(attack)}
       closings={closings}
       board={board}
       now={now}
