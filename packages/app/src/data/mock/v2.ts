@@ -1,4 +1,5 @@
 import { attackDeckSize, emptyInventory, layoutScore, slotsOf, type ChestRank, type LayoutTile, type QueuedMove } from "@paved/game-core";
+import type { ChestOrigin } from "../free-village-base";
 import { RIVAL_SEEDS } from "./rivals";
 
 // The mock's PvP v2 (#741, MOCK-FIRST): what a player's free village, inventory, chests, shop and attacks hold on the device
@@ -11,6 +12,8 @@ import { RIVAL_SEEDS } from "./rivals";
 export interface StoredChest {
   rank: ChestRank;
   league: number;
+  /** Where it was won (#784): a day's PvP slot or a Story level; absent in a save from before it. */
+  origin?: ChestOrigin;
 }
 
 /** An attack of PvP v2: its snapshot (the defender, slots, target, the deck drawn at the start), the moves, the end. */
@@ -42,7 +45,7 @@ export interface StoredV2 {
   inventory: number[];
   /** The saved layout, the starter left out; null: not founded. */
   layout: LayoutTile[] | null;
-  chests: { pending: StoredChest[]; open: { rank: ChestRank; plans: number[]; cobbles: number } | null; opened: number };
+  chests: { pending: StoredChest[]; open: { rank: ChestRank; plans: number[]; cobbles: number; origin?: ChestOrigin } | null; opened: number };
   /** The PvP chests granted, by day. */
   pvpChests: Record<string, number>;
   /** The shop's slots bought, by day. */
