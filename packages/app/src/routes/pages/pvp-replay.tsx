@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { sameAddress, type Attack } from "@paved/chain";
+import type { Attack } from "@paved/chain";
 import { AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
 import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { useBoardSkins } from "../../data/board-skins";
 import { usePlayerStatus } from "../../data/indexer";
+import { addressKey } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
 import { ATTACK_FINISHED, moveCodes, pvpKeys, usePvpAttack, usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
 import { errorDetail } from "../error-detail";
@@ -79,7 +80,7 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
   // The 3D board of every game, read only (#772): green on a replay of an attack on the viewer's own village (the defence log's),
   // red on someone else's (open point 5). The defender's skins, as the attack drew them.
   const me = useDataSources().signer?.address ?? null;
-  const own = me !== null && attack !== null && sameAddress(attack.defender, me);
+  const own = me !== null && attack !== null && addressKey(attack.defender) === addressKey(me);
   const skins = useBoardSkins(attack?.defender ?? null);
   const { scene } = useGameBoard({ skins, side: own ? "own" : "rival", resetKey: id, placement: READ_ONLY_PLACEMENT });
 

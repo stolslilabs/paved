@@ -7,7 +7,7 @@ import { App } from "../src/App";
 import type { BoardViewportProps } from "../src/components/containers/board-viewport";
 import type { GameSigner } from "../src/data";
 import { BOARD_FOG } from "../src/data/settings";
-import { RIVAL_BACKDROP, RIVAL_FOG, sideSettings } from "../src/data/board-settings";
+import { RIVAL_BACKDROP, RIVAL_FOG, sideSettings } from "../src/data/board-side";
 import { RENDERER_ASSETS } from "../src/data/renderer-manifest";
 import { queryClient } from "../src/lib/query-client";
 import { useAttackLegality } from "../src/routes/attack-board";

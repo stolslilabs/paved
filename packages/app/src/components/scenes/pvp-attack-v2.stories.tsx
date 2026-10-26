@@ -4,7 +4,7 @@ import { fn } from "storybook/test";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { PVP_V2_ATTACK, V2_ATTACK_STEPS, attackV2At } from "../../mocks/pvp-v2";
 import { squareGridSettings } from "../../data/settings";
-import { sideSettings } from "../../data/board-settings";
+import { sideSettings } from "../../data/board-side";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { BoardViewport } from "../containers/board-viewport";
 import { StackView } from "../containers/stack-view";

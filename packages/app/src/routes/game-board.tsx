@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import type { TileSkins } from "@paved/renderer";
 import type { BoardBubble, BoardViewportProps } from "../components/containers/board-viewport";
 import { StackView, canDrawStack } from "../components/containers/stack-view";
 import { hasWebGL } from "../components/containers/tile-view";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
-import { useBoardSettings, type BoardSide } from "../data/board-settings";
+import { useBoardSettings } from "../data/board-settings";
+import { sideSettings, type BoardSide } from "../data/board-side";
 import { usePlacement, type Slot } from "../data/placement";
 import { RENDERER_ASSETS } from "../data/renderer-manifest";
 import { useTileArt } from "../data/tile-art";
@@ -54,7 +55,13 @@ export type GameBoardSceneProps = Pick<
  * on another village) gives it red tones (#772). A read-only board (a replay, the scout) gives `plan: null`: no plate, no ghost.
  */
 export function useGameBoard({ skins, resetKey, side = "own", placement: input }: { skins?: TileSkins; resetKey?: unknown; side?: BoardSide; placement: GameBoardPlacement }) {
-  const settings = useBoardSettings(resetKey, side);
+  const board = useBoardSettings(resetKey);
+  // The void's colours for the side, over the board's renderer settings (memoised there: a new object only when they change).
+  const renderer = useMemo(() => {
+    const { squareGrid, fog } = board.renderer;
+    return side === "own" || !squareGrid ? board.renderer : { ...board.renderer, ...sideSettings(side, squareGrid, fog) };
+  }, [board.renderer, side]);
+  const settings = { ...board, renderer };
   // The 3D board, unless this browser has no WebGL or the renderer cannot start (its models not served): the plan view.
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   // The hand's tile chip draws the 256 px copy the manifest lists (the plan's areas until it is read).

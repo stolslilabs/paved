@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { DAY_PHASE_AT, SEASONS, type DayPhase, type RendererSettingsInput, type Season } from "@paved/renderer";
-import { sideSettings, type BoardSide } from "../../data/board-settings";
+import { sideSettings, type BoardSide } from "../../data/board-side";
 import { squareGridSettings } from "../../data/settings";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { PVP_REPLAY } from "../../mocks/pvp";
