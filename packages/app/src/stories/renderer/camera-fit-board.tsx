@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BoardTile } from "@paved/chain";
-import { frameInsetsFor, type GameScene, type RendererSettingsInput } from "@paved/renderer";
+import { frameFloorFor, frameInsetsFor, type GameScene, type RendererSettingsInput } from "@paved/renderer";
 import { BoardViewport } from "../../components/containers/board-viewport";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
+import { PVP_V2_ATTACK } from "../../mocks/pvp-v2";
+import { LAYOUT_START } from "../../mocks/village-v2";
 
 /** The viewports of the issue (#678), phone first. */
 export const FIT_VIEWPORTS = {
@@ -24,9 +26,17 @@ const LONG_BOARD: BoardTile[] = Array.from({ length: 48 }, (_, i) => {
   return { ...source, id: i + 1, x: CENTER - 12 + (i % 24), y: CENTER - Math.floor(i / 24) };
 });
 
-/** The boards of the issue: the starter alone (a game's start), 10 tiles, the bench's 38, and a long board. */
+/** A village's cells counted from the board's centre, as the home's canvas draws them (`village-layout-canvas.tsx`). */
+const onBoard = (tiles: readonly BoardTile[]): BoardTile[] => tiles.map((t) => ({ ...t, x: CENTER + t.x, y: CENTER + t.y }));
+
+/**
+ * The boards of the issues: the starter alone (a game's start), 10 tiles, the bench's 38, a long board (#678), and the
+ * openings of an attack (its starter alone) and of a small village (the starter and the first 2 tiles of a new layout, #791).
+ */
 export const FIT_BOARDS = {
   "1 tile": [STARTER],
+  "attack start": PVP_V2_ATTACK.start.tiles,
+  "small village": onBoard(LAYOUT_START.tiles.slice(0, 3)),
   "10 tiles": BOARD_38.tiles.slice(0, 10),
   "38 tiles": BOARD_38.tiles,
   "long board": LONG_BOARD,
@@ -36,8 +46,10 @@ export type FitBoard = keyof typeof FIT_BOARDS;
 export interface CameraFitBoardProps {
   viewport: FitViewport;
   board: FitBoard;
-  /** The floor N: at least N x N cells framed (5 proposed). */
-  floorCells: number;
+  /** The floor N: at least N x N cells framed; "auto", by width (3 on a phone, 5 from 640 px, #791). */
+  floorCells: number | "auto";
+  /** Cells added on each side of the floor; "auto", by width (a third on a phone, none from 640 px). */
+  marginCells?: number | "auto";
   /** Free cells framed around the tiles (1: their slots). */
   ring: number;
   /** Re-fit after each move while the camera is untouched (the open point; off by default). */
@@ -67,12 +79,12 @@ interface Readout {
  * frame's figures: the distance, what binds it, the tile's size against S (the outlines' reference at 240) and the
  * outlines' opacity there.
  */
-export function CameraFitBoard({ viewport, board, floorCells, ring, followBoard, enabled, showInsets, forceOutlines }: CameraFitBoardProps) {
+export function CameraFitBoard({ viewport, board, floorCells, marginCells = "auto", ring, followBoard, enabled, showInsets, forceOutlines }: CameraFitBoardProps) {
   const size = FIT_VIEWPORTS[viewport];
   const tiles = FIT_BOARDS[board];
   const settings = useMemo<RendererSettingsInput>(
-    () => ({ cameraFit: { enabled, floorCells, ring, followBoard }, ...(forceOutlines ? { outlines: { force: "on" as const } } : {}) }),
-    [enabled, floorCells, ring, followBoard, forceOutlines],
+    () => ({ cameraFit: { enabled, floorCells, marginCells, ring, followBoard }, ...(forceOutlines ? { outlines: { force: "on" as const } } : {}) }),
+    [enabled, floorCells, marginCells, ring, followBoard, forceOutlines],
   );
   const [scene, setScene] = useState<GameScene | null>(null);
   const [readout, setReadout] = useState<Readout | null>(null);
@@ -95,12 +107,16 @@ export function CameraFitBoard({ viewport, board, floorCells, ring, followBoard,
     return scene.onCameraChange(read);
   }, [scene, read]);
   const insets = frameInsetsFor(size.width);
+  const floor = frameFloorFor(size.width);
+  const n = floorCells === "auto" ? floor.cells : floorCells;
+  const m = marginCells === "auto" ? floor.margin : marginCells;
   return (
     // Inline styles: a story class the app does not use would grow the app's CSS (Tailwind scans the stories).
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, padding: 8, minHeight: "100dvh", overflow: "auto", background: "var(--background)", color: "var(--foreground)" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, fontFamily: "var(--font-mono)", fontSize: 12 }} data-testid="camera-fit-readout">
         <span>
-          {viewport} · {board} · N {floorCells}
+          {viewport} · {board} · N {n}
+          {m > 0 ? ` + ${(2 * m).toFixed(2)}` : ""}
         </span>
         {readout && (
           <>
