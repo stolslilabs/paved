@@ -5,8 +5,10 @@ import { BASE_PLAN_CODES } from "./rarity";
 // A random compact village (#803, owner decisions of 2026-10-26): the die of the editor. Not an optimiser: it grows a layout
 // from the starter alone, a tile at a time, each on a legal cell (next to a tile, every facing edge matching, the same rule as
 // `VillageDraft`), chosen by compactness (the cell with the most neighbours, the bounding box kept near a square) plus a seeded
-// random share, so two seeds give two villages. The score is never looked at. Several tries run within a budget of steps (never
-// of time, so a seed always gives the same village); the one with the most tiles wins, then the squarest. A light board of its own (edges only, no engine game, no structure scored), so a
+// random share, so two seeds give two villages. The score is never looked at. Several tries run within a budget; the one with the
+// most tiles wins, then the squarest. The budget is of steps (work counted, the same on every machine, so a seed gives the same
+// village) and of time (150 ms, the issue's short limit): the steps are sized to stop the tries well within the time on a
+// mid-range phone, so the clock is a guard that cuts only a machine too slow for them, its result then marked `timedOut`. A light board of its own (edges only, no engine game, no structure scored), so a
 // try costs little; the client runs it in a Web Worker.
 
 /** North, east, south, west: the step to the neighbour and the engine's direction code of the edge facing it. */
@@ -26,12 +28,18 @@ export const RANDOM_LAYOUT_TRIES = 48;
  * work, within the issue's 150 ms on a phone about 4x slower.
  */
 export const RANDOM_LAYOUT_STEPS = 100_000;
+/** The time the tries may take, ms (#803's default: 150 ms of tries in the worker). */
+export const RANDOM_LAYOUT_MS = 150;
 
 export interface RandomLayoutBudget {
   /** At most this many tries (default `RANDOM_LAYOUT_TRIES`). */
   readonly tries?: number;
   /** No try starts once this many steps are used (default `RANDOM_LAYOUT_STEPS`); the first one always runs. */
   readonly steps?: number;
+  /** No try starts once this much time has passed, ms (default `RANDOM_LAYOUT_MS`); the first one always runs. */
+  readonly ms?: number;
+  /** The clock, ms (default `Date.now`). */
+  readonly now?: () => number;
 }
 
 export interface RandomLayout {
@@ -43,6 +51,11 @@ export interface RandomLayout {
   readonly steps: number;
   /** The steps ran out before the tries did: the best found so far (the same for the same seed). */
   readonly exhausted: boolean;
+  /**
+   * The time ran out first (a machine too slow for the steps): the best of the tries that ran, which may be fewer than the same
+   * seed runs on a faster machine.
+   */
+  readonly timedOut: boolean;
 }
 
 /** A 32-bit PRNG (mulberry32): the same seed, the same numbers in [0, 1). */
@@ -137,7 +150,8 @@ function grow(stock: readonly number[], target: number, side: number, next: () =
 /**
  * A random compact layout of `stock` (the player's whole stock by plan, the starter left out: the inventory plus the tiles placed
  * now) within `slots` (the starter included): as many tiles as fit, up to `slots - 1`, in a shape near a square. The same seed
- * and budget always give the same layout, on any machine; another seed, most likely another layout.
+ * and budget give the same layout on any machine whose tries end within the time (not `timedOut`); another seed, most likely
+ * another layout.
  */
 export function randomLayout(stock: Inventory, slots: number, seed: number, budget: RandomLayoutBudget = {}): RandomLayout {
   const counts = BASE_PLAN_CODES.map((plan) => Math.max(0, Math.floor(stock[plan - 1] ?? 0)));
@@ -148,13 +162,21 @@ export function randomLayout(stock: Inventory, slots: number, seed: number, budg
   const ideal = [0, side, side * Math.ceil(cells / side) - cells, side - Math.ceil(cells / side)];
   const tries = Math.max(1, Math.floor(budget.tries ?? RANDOM_LAYOUT_TRIES));
   const limit = budget.steps ?? RANDOM_LAYOUT_STEPS;
+  const ms = budget.ms ?? RANDOM_LAYOUT_MS;
+  const now = budget.now ?? Date.now;
+  const start = now();
   let best: { grown: Grown; rank: number[] } | null = null;
   let ran = 0;
   let steps = 0;
   let exhausted = false;
+  let timedOut = false;
   while (ran < tries) {
     if (ran > 0 && steps >= limit) {
       exhausted = true;
+      break;
+    }
+    if (ran > 0 && now() - start >= ms) {
+      timedOut = true;
       break;
     }
     const grown = grow(counts, target, side, random(trySeed(seed, ran)));
@@ -164,5 +186,5 @@ export function randomLayout(stock: Inventory, slots: number, seed: number, budg
     if (!best || better(r, best.rank)) best = { grown, rank: r };
     if (!better(ideal, best.rank)) break;
   }
-  return { tiles: best!.grown.tiles, tries: ran, steps, exhausted };
+  return { tiles: best!.grown.tiles, tries: ran, steps, exhausted, timedOut };
 }

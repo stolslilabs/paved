@@ -10,7 +10,7 @@ import VillageStage from "../src/components/containers/village-stage";
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
 import { answerRandomLayout, type RandomLayoutRequest } from "../src/lib/random-layout-protocol";
 import { browserRandomLayoutRunner, workerRunner, type WorkerLike } from "../src/lib/random-layout-runner";
-import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, mainThreadRandomizer, seedsOf } from "../src/mocks/random-layout";
+import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, STILL, mainThreadRandomizer, seedsOf } from "../src/mocks/random-layout";
 import { DIE_VILLAGES, INVENTORY, LAYOUT_GROWING, LAYOUT_START, VILLAGE_LAYOUT } from "../src/mocks/village-v2";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -42,7 +42,7 @@ class FakeWorker implements WorkerLike {
 }
 
 const STOCK = stockOf(INVENTORY, LAYOUT_GROWING.tiles);
-const build = (stock: readonly number[], slots: number, seed: number) => randomLayout(stock, slots, seed);
+const build = (stock: readonly number[], slots: number, seed: number) => randomLayout(stock, slots, seed, STILL);
 
 describe("the die's runner", () => {
   it("is missing where Web Workers are (the die is hidden)", () => {
@@ -97,6 +97,16 @@ describe("the die's runner", () => {
     workers[1]!.onmessage?.call(workers[1] as unknown as Worker, { data: { id: 2, error: "Layout: boom" } } as MessageEvent);
     await expect(next).rejects.toThrow("Layout: boom");
     await expect(workerRunner(() => { throw new Error("no worker"); })!.run(STOCK, 28, 1)).rejects.toThrow("no worker");
+  });
+
+  it("builds within the generator's 150 ms in the worker: a machine too slow for the steps gets the best found in time", () => {
+    // The worker's own call (the default budget, the real clock), on a clock that reads 100 ms more at each look.
+    let clock = 0;
+    const now = vi.spyOn(Date, "now").mockImplementation(() => (clock += 100));
+    const answer = answerRandomLayout({ id: 4, stock: STOCK, slots: 28, seed: 11 }, randomLayout);
+    now.mockRestore();
+    expect(answer).toMatchObject({ id: 4, timedOut: true, tries: 2 });
+    expect("tiles" in answer && layoutRefusal(answer.tiles, { slots: 28, inventory: STOCK })).toBeNull();
   });
 
   it("answers a failed build with its error", () => {

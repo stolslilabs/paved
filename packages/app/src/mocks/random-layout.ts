@@ -4,7 +4,10 @@ import type { RandomLayoutRunner } from "../lib/random-layout-runner";
 // The die's fakes (#803) for the stories and the render tests, where no worker runs (jsdom has none): the same generator on
 // the main thread after a delay, a build that never ends, one that fails. The app itself only ever builds in the worker.
 
-/** game-core's `randomLayout` on the main thread, `delayMs` after the press; a new press or a cancel drops the one at work. */
+/**
+ * game-core's `randomLayout` on the main thread, `delayMs` after the press; a new press or a cancel drops the one at work. Its
+ * clock never moves (the steps alone stop the tries), so a seed gives the same village however loaded the machine.
+ */
 export function mainThreadRandomizer(delayMs = 0): RandomLayoutRunner {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const cancel = () => {
@@ -17,13 +20,16 @@ export function mainThreadRandomizer(delayMs = 0): RandomLayoutRunner {
       return new Promise((resolve) => {
         timer = setTimeout(() => {
           timer = null;
-          resolve(randomLayout(stock, slots, seed).tiles);
+          resolve(randomLayout(stock, slots, seed, STILL).tiles);
         }, delayMs);
       });
     },
     cancel,
   };
 }
+
+/** The generator's default budget on a clock that never moves: the stories and tests' villages never depend on the load. */
+export const STILL = { now: () => 0 } as const;
 
 /** A build that never ends: the die stays busy (then "Still building…"). */
 export const PENDING_RANDOMIZER: RandomLayoutRunner = { run: () => new Promise(() => {}), cancel: () => {} };

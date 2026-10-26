@@ -7,7 +7,7 @@ import { deckCount, rarityOf, type Rarity } from "../components/elements/rarity-
 import { STARTER, canLift, countPlans, draftOf, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, slotsFor, stockOf, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, MOCK_NOW } from "./clock";
 import { randomLayout } from "@paved/game-core";
-import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, mainThreadRandomizer, seedsOf } from "./random-layout";
+import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, STILL, mainThreadRandomizer, seedsOf } from "./random-layout";
 import { GAME_PLAYING } from "./games";
 import { PLAYER } from "./players";
 import { PLAN } from "./village";
@@ -69,7 +69,7 @@ export const INVENTORY_LONG: Inventory = Object.fromEntries(
 );
 
 /** The die's villages (#803) on the home's stock (level 20, 28 slots), seeds 1, 2 and 3: three versions of one stock. */
-export const DIE_VILLAGES = [1, 2, 3].map((seed) => draftOf(randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), slotsFor(LAYOUT_GROWING.level), seed).tiles));
+export const DIE_VILLAGES = [1, 2, 3].map((seed) => draftOf(randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), slotsFor(LAYOUT_GROWING.level), seed, STILL).tiles));
 
 /** How many of each plan a player holds: the layout's and the inventory's. */
 export function ownedOf(village: VillageLayout, inventory: Inventory): Record<number, number> {
