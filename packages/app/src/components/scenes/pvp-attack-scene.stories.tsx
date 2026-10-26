@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { ATTACK_STEPS, PVP_ATTACK, PVP_REPLAY, REPLAY_STEPS, attackAt, replayAt } from "../../mocks/pvp";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
-import { BOARD_FOG } from "../../data/settings";
+import { squareGridSettings } from "../../data/settings";
+import { sideSettings } from "../../data/board-side";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { BoardViewport } from "../containers/board-viewport";
 import { StackView } from "../containers/stack-view";
@@ -82,8 +83,8 @@ function ReplayPlayer() {
 }
 export const Replay: Story = { render: () => <ReplayPlayer /> };
 
-/** The game's board settings with the fog (`BOARD_FOG`), the ambient effects on, a summer's day held. */
-const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
+/** The game's board settings on a rival's village (the red void, #772), the ambient effects on, a summer's day held. */
+const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, ...sideSettings("rival", squareGridSettings(true, "")), dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
 const NIGHT_3D: RendererSettingsInput = { ...DAY_3D, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
 
 /**

@@ -1,9 +1,9 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { Attack, AttackDeck, PvpMatch, WriteResult } from "@paved/chain";
-import { CENTER } from "@paved/game-core";
-import { deckArt } from "../../components/containers/deck-sheet";
+import type { Attack, AttackDeck, BoardTile, PvpMatch, WriteResult } from "@paved/chain";
+import { DISCARD_POINTS } from "@paved/game-core";
+import type { BoardGhost } from "../../components/containers/board-viewport";
 import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../../components/scenes/pvp-scout-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
@@ -13,17 +13,18 @@ import { useCobbleAccount } from "../../data/cobbles";
 import { usePlayerStatus } from "../../data/indexer";
 import { useAttackV2 } from "../../data/free-attack";
 import { ATTACK_OPEN, noOpponent, pvpKeys, usePvpAttack, usePvpPlayer, usePvpScout, usePvpStatus, usePvpWrites } from "../../data/pvp";
-import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
-import { useTileArt } from "../../data/tile-art";
-import { useTileRenders } from "../../data/tile-renders";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
+import { fromBoard, useAttackLegality, useScoutCanvas } from "../attack-board";
+import { useGameBoard } from "../game-board";
 import { useNow } from "../now";
 import { useAppNavigate, useUpTo } from "../ref";
 
 /** PvP v2's flow (#740), its own chunk: loaded where the sources serve it. */
 const PvpV2 = lazy(() => import("../pvp-v2"));
+
+const NO_TILES: BoardTile[] = [];
 
 /** How long the search shows the village found before the scout (the clouds part over it). */
 const FOUND_MS = 1_200;
@@ -143,6 +144,8 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
   const name = usePlayerStatus(match.opponent).data?.player.name ?? scout.data?.npc?.title ?? null;
   const defender = usePvpPlayer(match.opponent, scout.data?.npc?.title ?? name);
   const account = useCobbleAccount(me);
+  const tiles = useMemo(() => (scout.data ? [...scout.data.village.tiles] : NO_TILES), [scout.data]);
+  const canvas = useScoutCanvas(match.opponent, tiles);
   const pending = writes.pending?.kind === "next" ? "next" : writes.pending?.kind === "start" ? "attacking" : null;
   const send = (write: () => Promise<WriteResult>) => {
     if (writes.pending) return;
@@ -166,6 +169,7 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
     <PvpScoutScene
       defender={defender.data}
       village={scout.data.village}
+      canvas={canvas}
       stakes={scout.data.stakes}
       tilesToPlay={scout.data.tilesToPlay}
       openBoard={scout.data.npc !== null}
@@ -184,95 +188,84 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
   );
 }
 
-/** A cell chosen for the tile in hand: where, and which of its fitting orientations. */
-interface Chosen {
-  cell: { x: number; y: number };
-  orientations: number[];
-  turn: number;
-}
-
-/** The open attack: the board, the tile in hand, a cell chosen and turned, each move a write; the last one ends it. */
+/** The open attack: the board, the tile in hand placed as a Training game places it (`usePlacement`), each move a write; the last one ends it. */
 function AttackView({ me, attack, deck, writes, onBack }: { me: string; attack: Attack; deck: AttackDeck | null; writes: Writes; onBack: () => void }) {
   const go = useAppNavigate();
   const read = usePvpAttack(me, attack, deck);
   const indexed = usePlayerStatus(attack.defender).data?.player.name ?? null;
   const name = read.data?.npcTitle ?? indexed;
   const defender = usePvpPlayer(attack.defender, name).data ?? { name, address: attack.defender, level: 0, crowns: 0 };
-  const [chosen, setChosen] = useState<Chosen | null>(null);
   const skins = useBoardSkins(attack.defender);
-  const tileArt = deckArt(useTileRenders(RENDERER_ASSETS), skins, useTileArt(RENDERER_ASSETS));
   const data = read.data;
-  if (!data) {
+  // A plan of 0 is no tile in hand.
+  const hand = data?.hand ? data.hand : null;
+  const run = data?.run ?? null;
+  const legal = useAttackLegality(run, hand);
+  // The rival's village in red (#772), on the same board as every game; v1 gets it with no further work (open point 4).
+  const { placement, scene } = useGameBoard({ skins, side: "rival", resetKey: attack.id, placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: data?.remaining } });
+  if (!data || !run) {
     const message = data === null ? "This attack cannot be read on this network." : read.error?.message;
     return <PvpSearchScene state={message ? "error" : "searching"} player={defender} error={message} errorDetail={read.error ? errorDetail(read.error) : undefined} onCancel={onBack} />;
   }
-  const { run, hand } = data;
-  const slots = hand ? run.slots(hand).map((c) => ({ x: CENTER + c.x, y: CENTER + c.y })) : [];
+  const { orientation, move } = placement;
   const pending = writes.pending?.kind === "play";
-  const play = (move: Parameters<Writes["play"]>[0]) => {
+  const play = (next: Parameters<Writes["play"]>[0], ghost: BoardGhost | null = null) => {
     if (writes.pending) return;
     writes.reset();
-    writes.play(move).then(
+    writes.play(next).then(
       (receipt) => {
-        setChosen(null);
+        if (ghost) placement.accepted(ghost);
+        else placement.clear();
+        placement.setOrientation(1);
         if (receipt.events.some((e) => e.name === "AttackFinished")) go(`/pvp/result/${attack.id}`, { replace: true });
       },
       () => undefined,
     );
   };
-  const orientation = chosen ? chosen.orientations[chosen.turn % chosen.orientations.length]! : 1;
-  const preview = chosen && hand ? data.run.preview(hand, orientation, chosen.cell) : null;
+  const discard = () => play({ discard: true });
+  const preview = move && hand !== null ? run.preview(hand, move.orientation, fromBoard(move)) : null;
+  const confirm = () => {
+    if (!placement.canConfirm || !move) return;
+    play({ discard: false, orientation: move.orientation, cell: fromBoard(move) }, placement.ghost);
+  };
+  const bubble = placement.chosen
+    ? {
+        cell: placement.chosen,
+        rotations: placement.rotations.length,
+        orientation,
+        onRotate: placement.rotate,
+        onClose: placement.clear,
+        onDiscard: discard,
+        discardCost: Math.min(data.score, DISCARD_POINTS),
+        onConfirm: confirm,
+        canConfirm: placement.canConfirm && preview !== null && !pending,
+        busy: pending,
+      }
+    : null;
   return (
     <PvpAttackScene
       defender={defender}
       target={data.target}
       territory={data.territory}
-      tiles={data.tiles}
       score={data.score}
       delta={data.delta}
       lastScored={data.lastScored}
       remaining={data.remaining}
       hand={{
-        tile: hand ? { plan: hand, orientation } : null,
-        state: pending ? "pending" : writes.error ? "refused" : hand ? "placing" : "empty",
+        tile: hand !== null ? { plan: hand, orientation } : null,
+        state: pending ? "pending" : writes.error ? "refused" : hand !== null ? "placing" : "empty",
         coming: [],
-        slotChosen: chosen !== null,
-        fitsNowhere: hand !== 0 && slots.length === 0,
+        slotChosen: placement.canConfirm && preview !== null,
+        cellChosen: placement.chosen !== null,
+        fitsNowhere: hand !== null && legal.empty,
         preview,
         error: writes.error?.message ?? null,
         errorDetail: writes.error ? errorDetail(writes.error) : undefined,
       }}
-      slots={slots}
-      ghost={chosen && hand ? { x: CENTER + chosen.cell.x, y: CENTER + chosen.cell.y, plan: hand, orientation, placed: true, fits: true } : null}
-      bubble={
-        chosen && hand
-          ? {
-              cell: { x: CENTER + chosen.cell.x, y: CENTER + chosen.cell.y },
-              rotations: chosen.orientations.length,
-              orientation,
-              onRotate: () => setChosen({ ...chosen, turn: chosen.turn + 1 }),
-              onClose: () => setChosen(null),
-              onDiscard: () => play({ discard: true }),
-              onConfirm: () => play({ discard: false, orientation, cell: chosen.cell }),
-              canConfirm: !pending,
-              busy: pending,
-            }
-          : null
-      }
-      tileArt={tileArt}
-      skins={skins}
+      {...scene({ tiles: data.tiles, bubble })}
       pilePlans={data.pilePlans}
       onBack={onBack}
-      onSlotClick={(slot) => {
-        if (!hand || pending) return;
-        const cell = { x: slot.x - CENTER, y: slot.y - CENTER };
-        const orientations = run.orientations(hand, cell);
-        if (orientations.length === 0) return;
-        writes.reset();
-        setChosen({ cell, orientations, turn: 0 });
-      }}
-      onDiscard={() => play({ discard: true })}
+      onDiscard={discard}
     />
   );
 }
-

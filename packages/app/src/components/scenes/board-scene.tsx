@@ -27,7 +27,20 @@ import type { GameAction } from "../containers/device-settings-sheet";
 import { COACH_RING, type CoachTarget } from "../containers/coach";
 export type { CoachTarget } from "../containers/coach";
 
-export type BoardMode = "challenge" | "training" | "story";
+export type BoardMode = "challenge" | "training" | "story" | "attack";
+
+/**
+ * An attack's own pieces (`mode: "attack"`, #772), in the board's slots; everything else is the boards': the HUD, the closing
+ * feed, the bubble, the stack, the season dial and the sounds.
+ */
+export interface AttackSlots {
+  /** Under the HUD: the star meter against the defender's village. */
+  meter: ReactNode;
+  /** A replay (#647): its bar in place of the stack, the board read only. */
+  replay?: ReactNode;
+  /** v1's territory (the defender's owned cells), drawn by the plan view; v2's open board has none. */
+  territory?: readonly { x: number; y: number }[];
+}
 
 // The Surrender and Restart dialogs (and Radix under them) are not the first frame's: their module loads at the first
 // Surrender or Restart, and in the browser's idle time after the board is up (BOARD-CHUNK, `__tests__/board-modules.test.ts`). The plan view stays: it is
@@ -48,7 +61,7 @@ const STACK_BESIDE_DIAL = "max-w-[min(20rem,calc(100vw-7.5rem))] min-[24.375rem]
 /** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
 const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
 
-const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story" };
+const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack" };
 
 export interface BoardSceneProps {
   mode: BoardMode;
@@ -58,6 +71,10 @@ export interface BoardSceneProps {
   title?: string;
   /** A Story level's draw where it stands (`deckSheetOrder`): the deck sheet shows it in order (#613); the counted base deck otherwise. */
   deckOrder?: DeckSheetOrder;
+  /** The attack's own pieces (`mode: "attack"`): the star meter, the replay's bar, v1's territory. */
+  attack?: AttackSlots;
+  /** The plans the stack's pile draws (chain ids): an attack's deck; the Story level's or the base deck when left out. */
+  pilePlans?: readonly number[];
   /** A Story level: the deck sheet offers the level's deck presentation again (#593). */
   onPresentDeck?: () => void;
   /** The control a Story coach mark points at: ringed. */
@@ -146,9 +163,10 @@ export interface BoardSceneProps {
 }
 
 /**
- * The game board (`/game/:id`, `/training`, `/story/:campaign/:level`): the scene full screen, its header, the closings, the
- * tile stack (the hand, bottom right, #606). The gear's settings carry the game's Surrender (Challenge) or Restart (Story
- * mode, Training), each confirmed by a dialog.
+ * The game board (`/game/:id`, `/training`, `/story/:campaign/:level`, and PvP's attack and replay through `PvpAttackScene`):
+ * the scene full screen, its header, the closings, the tile stack (the hand, bottom right, #606). The gear's settings carry the
+ * game's Surrender (Challenge) or Restart (Story mode, Training), each confirmed by a dialog; an attack has neither, and its deck
+ * (shuffled, two tiles known) has no sheet.
  */
 export function BoardScene(props: BoardSceneProps) {
   const { mode, gameId, tiles, hand, now } = props;
@@ -193,7 +211,8 @@ export function BoardScene(props: BoardSceneProps) {
   });
   const discardCost = Math.min(props.score, DISCARD_POINTS);
   // The pile's tiles come from the deck the game deals: a Story level's own (#701), the base deck otherwise.
-  const pilePlans = props.deckOrder?.slots.length ? props.deckOrder.slots.map((s) => s.plan) : BASE_DECK_PLANS;
+  const pilePlans = props.pilePlans ?? (props.deckOrder?.slots.length ? props.deckOrder.slots.map((s) => s.plan) : BASE_DECK_PLANS);
+  const attack = mode === "attack" ? props.attack : undefined;
   const openDeck = () => {
     play("tap");
     setDeckOpen(true);
@@ -203,7 +222,7 @@ export function BoardScene(props: BoardSceneProps) {
     setSettingsOpen(false);
     open(true);
   };
-  const gameAction: GameAction | undefined = props.readOnly
+  const gameAction: GameAction | undefined = props.readOnly || mode === "attack"
     ? undefined
     : mode === "challenge"
       ? { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: pick(setSurrendering), disabled: !props.onSurrender || hand.state === "pending" || hand.state === "empty" }
@@ -215,7 +234,7 @@ export function BoardScene(props: BoardSceneProps) {
       {props.canvas ? (
         <BoardCovered.Provider value={covered}>{props.canvas}</BoardCovered.Provider>
       ) : (
-        <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} />
+        <BoardMap tiles={tiles} slots={props.slots} ghost={props.ghost} confirmed={props.confirmed} onSlotClick={props.onSlotClick} highlight={props.placementHighlight ?? true} territory={attack?.territory} />
       )}
 
       <div data-bubble-avoid className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
@@ -235,6 +254,7 @@ export function BoardScene(props: BoardSceneProps) {
           coach={props.coach}
           className="pointer-events-auto w-full max-w-2xl"
         />
+        {attack?.meter}
         {props.storageDisabled && (
           <Notice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
             This browser refuses local storage: this game is not saved and ends if the page closes.
@@ -278,31 +298,36 @@ export function BoardScene(props: BoardSceneProps) {
             />
           </Suspense>
         )}
-        <TileStack
-          tile={hand.tile}
-          state={hand.state}
-          remaining={props.remaining}
-          coming={hand.coming}
-          drawing={hand.drawing}
-          cellChosen={hand.cellChosen ?? hand.slotChosen}
-          fitsNowhere={hand.fitsNowhere}
-          error={hand.error}
-          errorDetail={hand.errorDetail}
-          tileArt={props.tileArt}
-          renders={props.tileRenders}
-          skins={props.skins}
-          renderTile={props.renderHandTile}
-          renderStack={props.renderHandStack}
-          pilePlans={pilePlans}
-          onDeck={openDeck}
-          onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
-          discardCost={discardCost}
-          onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
-          surrenderPending={surrendering && !surrenderDialog}
-          coach={props.coach}
-          readOnly={props.readOnly}
-          className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
-        />
+        {/* A replay's bar takes the stack's place, beside the dial as the stack is. */}
+        {attack?.replay ? (
+          <div className={cn("flex justify-end", props.seasonWheel && STACK_BESIDE_DIAL)}>{attack.replay}</div>
+        ) : (
+          <TileStack
+            tile={hand.tile}
+            state={hand.state}
+            remaining={props.remaining}
+            coming={hand.coming}
+            drawing={hand.drawing}
+            cellChosen={hand.cellChosen ?? hand.slotChosen}
+            fitsNowhere={hand.fitsNowhere}
+            error={hand.error}
+            errorDetail={hand.errorDetail}
+            tileArt={props.tileArt}
+            renders={props.tileRenders}
+            skins={props.skins}
+            renderTile={props.renderHandTile}
+            renderStack={props.renderHandStack}
+            pilePlans={pilePlans}
+            onDeck={mode === "attack" ? undefined : openDeck}
+            onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
+            discardCost={discardCost}
+            onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
+            surrenderPending={surrendering && !surrenderDialog}
+            coach={props.coach}
+            readOnly={props.readOnly}
+            className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
+          />
+        )}
       </div>
 
       {deckSheet && (
@@ -326,7 +351,7 @@ export function BoardScene(props: BoardSceneProps) {
       {surrenderDialog && (
         <surrenderDialog.SurrenderDialog open={surrendering} onOpenChange={setSurrendering} expired={promptSurrender} score={props.score} onSurrender={() => props.onSurrender?.()} />
       )}
-      {surrenderDialog && mode !== "challenge" && (
+      {surrenderDialog && (mode === "training" || mode === "story") && (
         <surrenderDialog.RestartDialog open={restarting} onOpenChange={setRestarting} mode={mode} onRestart={() => props.onRestart?.()} />
       )}
     </div>

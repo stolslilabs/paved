@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { PVP_V2_ATTACK, V2_ATTACK_STEPS, attackV2At } from "../../mocks/pvp-v2";
-import { BOARD_FOG } from "../../data/settings";
+import { squareGridSettings } from "../../data/settings";
+import { sideSettings } from "../../data/board-side";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { BoardViewport } from "../containers/board-viewport";
 import { StackView } from "../containers/stack-view";
@@ -53,8 +54,8 @@ function AutoPlay({ ms }: { ms: number }) {
 /** The attack played through, a move every 600 ms, then again. */
 export const Autoplay: StoryObj<{ ms: number }> = { args: { ms: 600 }, render: ({ ms }) => <AutoPlay ms={ms} /> };
 
-/** The game's board settings with the fog (`BOARD_FOG`), a summer's day held. */
-const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, fog: BOARD_FOG, dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
+/** The game's board settings on a rival's village (the red void, #772), a summer's day held. */
+const DAY_3D: RendererSettingsInput = { ambient: { enabled: true }, ...sideSettings("rival", squareGridSettings(true, "")), dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.day } };
 
 /** The attack on the 3D board: the game's board (no territory, the fog following the tiles), the stack's tiles in 3D. */
 function Attack3D(args: PvpAttackSceneProps) {
