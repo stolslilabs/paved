@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
@@ -15,6 +15,9 @@ import { LayoutEditorPanel, LeaveEditDialog, ResetAllHold, useLayoutEditor, type
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
+
+// The score's count after a save (issue 802, the balances' change): its own chunk, loaded by a save alone.
+const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
 
 /** Why the village is not shown: a guest (Connect), the reads on their way, a failed read (Retry). */
 export type VillageLayoutStatus = SkinsStatus;
@@ -162,7 +165,18 @@ function LayoutView({
           <div className="flex items-end justify-between gap-3 border-b border-border px-4 pb-2 desktop:pt-2">
             <div className="flex shrink-0 items-end gap-3">
               {/* Back in view after a save (#802), the score counts from the one before, once. */}
-              <Score value={shown} from={after?.previous} label={editing ? "Layout score" : "Village score"} size="sm" />
+              <Score
+                value={shown}
+                label={editing ? "Layout score" : "Village score"}
+                size="sm"
+                figure={
+                  after && (
+                    <Suspense fallback={formatInteger(after.previous)}>
+                      <LazyScoreCount value={shown} from={after.previous} />
+                    </Suspense>
+                  )
+                }
+              />
               {editing && score !== village.score && (
                 <span className="pb-0.5 text-xs text-muted-foreground">
                   saved <span className="numeric">{formatInteger(village.score)}</span>

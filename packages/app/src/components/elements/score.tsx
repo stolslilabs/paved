@@ -2,7 +2,7 @@ import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { formatInteger } from "@paved/game-core";
 import { cva, type VariantProps } from "class-variance-authority";
-import { lazy, Suspense } from "react";
+import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import type { IconSize } from "../ui/icon";
 import { ValueRow } from "./value-row";
@@ -14,9 +14,6 @@ const scoreVariants = cva("numeric font-semibold leading-none", {
   },
   defaultVariants: { size: "md", tone: "default" },
 });
-
-// The count after a save (issue 802, the balances' change): its own chunk, loaded by a save alone.
-const LazyScoreCount = lazy(() => import("./amount-change").then((m) => ({ default: m.ScoreCount })));
 
 /** Points with a comma every three digits, in en-US like every number (P-66): "1,270". The owner's word wins over the mockups' "1 240". */
 export function formatPoints(points: number): string {
@@ -43,8 +40,8 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
    * the season wheel and the deck. Unset or null: none.
    */
   preview?: number | null;
-  /** The score shown before (a save that just landed, issue 802): it counts from it to `value` once, the balances' way. */
-  from?: number;
+  /** Drawn in place of the figure (the village page's count after a save, issue 802, from its own chunk). */
+  figure?: ReactNode;
   className?: string;
 }
 
@@ -52,7 +49,7 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
  * A score: the font token `mono` with tabular figures, so a counting score never shifts its neighbours. The last move's
  * points ride on the label's line, so a narrow header keeps its width.
  */
-export function Score({ value, label, icon, iconClassName, delta, preview, from, size, tone, className }: ScoreProps) {
+export function Score({ value, label, icon, iconClassName, delta, preview, figure, size, tone, className }: ScoreProps) {
   const gain = (
     <AnimatePresence>
       {delta ? (
@@ -85,13 +82,7 @@ export function Score({ value, label, icon, iconClassName, delta, preview, from,
       )}
       <ValueRow icon={icon} iconSize={ICON_SIZE[size ?? "md"]} iconClassName={cn("text-primary", iconClassName)}>
         <span className={scoreVariants({ size, tone })} data-testid="score-value">
-          {from === undefined ? (
-            formatPoints(value)
-          ) : (
-            <Suspense fallback={formatPoints(from)}>
-              <LazyScoreCount value={value} from={from} />
-            </Suspense>
-          )}
+          {figure ?? formatPoints(value)}
         </span>
         {!label && (previewed ?? gain)}
       </ValueRow>
