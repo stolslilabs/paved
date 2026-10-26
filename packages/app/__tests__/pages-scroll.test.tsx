@@ -142,11 +142,14 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
       expect(el.className).not.toMatch(/(^|\s)(overflow-(y-)?(auto|scroll|hidden|clip)|h-dvh|h-screen|h-full)(\s|$)/);
   });
 
-  it("the League and the Chests draw their whole lists in the region: every league, every waiting chest", () => {
+  it("the League and the Chests draw their content in the region: the leagues' carousel and season, every waiting chest", () => {
     const { unmount } = draw(PAGES[2]![1], false, "League");
     const region = document.querySelector("[data-slot=page-scroll]")!;
+    // The carousel of the 23 leagues (#785), then the season and the actions, all under the sticky header.
     expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
-    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("li").length).toBeGreaterThanOrEqual(8);
+    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-league]").length).toBe(23);
+    expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
+    expect(region).toContainElement(screen.getByRole("button", { name: /Defence log/ }));
     unmount();
     draw(PAGES[1]![1], false, "Chests");
     const waiting = screen.getByRole("region", { name: /Waiting/ });

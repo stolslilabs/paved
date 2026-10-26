@@ -52,12 +52,13 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
 const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play", "cobbles"]);
 
 /**
- * The pages whose content has a fixed length (no list to grow: the leagues' ladder, the referral's link and earnings), shorter
+ * The pages whose content has a fixed length (no list to grow: the league's carousel and season, the referral's link and earnings), shorter
  * than a 1440 x 900 panel (and, the referral, than a 375 x 812 phone): they are measured on a shorter screen of the same width,
  * an iPhone SE's 667 px, a 720 px laptop (the referral's panel: 667 px), where that content is taller than the region.
  */
 const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: number }>> = {
-  league: { phone: 812, desktop: 720 },
+  // The league's carousel (#785), its season and its actions: one card each, shorter than a phone since the ladder left.
+  league: { phone: 548, desktop: 560 },
   referral: { phone: 667, desktop: 667 },
   // The mode choice's five rows and the Cobbles' packs, of fixed length too: an iPhone SE's view under Safari's bars (548 px),
   // a 560 px browser window.
