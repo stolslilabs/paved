@@ -28,7 +28,7 @@ export function XpBarFrame({ level, fill, children, left, className }: { level: 
   return (
     <span data-slot="xp-bar" aria-hidden className={cn("flex min-w-0 flex-col gap-0.5", className)}>
       <span className="flex items-center gap-1.5">
-        <span data-slot="level" className="numeric shrink-0 overflow-hidden text-xs leading-none font-bold text-primary perspective-[200px]">
+        <span data-slot="level" className="numeric shrink-0 text-xs leading-none font-bold text-primary perspective-[200px]">
           {level}
         </span>
         <span className="relative h-2 min-w-0 flex-1 rounded-full bg-primary/25">
@@ -36,7 +36,7 @@ export function XpBarFrame({ level, fill, children, left, className }: { level: 
           {children}
         </span>
       </span>
-      <span data-slot="xp-left" className="numeric truncate text-xs leading-4 text-muted-foreground">
+      <span data-slot="xp-left" className="numeric text-xs leading-4 text-muted-foreground wrap-anywhere">
         {left}
       </span>
     </span>

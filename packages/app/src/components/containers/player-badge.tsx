@@ -82,7 +82,7 @@ export function PlayerBadge({ crowns, onLeague, className }: PlayerBadgeProps) {
             )}
           </PlayerAvatar>
           <span className="flex w-28 min-w-0 flex-col gap-0.5 mobile:w-32 tablet:w-40">
-            <span aria-hidden className="truncate text-sm leading-5 font-semibold">
+            <span aria-hidden title={profileName(value.state)} className="truncate text-sm leading-5 font-semibold">
               {profileName(value.state)}
             </span>
             {connected && (
