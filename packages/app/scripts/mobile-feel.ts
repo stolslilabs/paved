@@ -59,6 +59,8 @@ async function main(): Promise<void> {
   const browser = await chromium.launch({ headless: true, args: ARGS });
   try {
     const context = await browser.newContext({ ...devices["Pixel 7"], reducedMotion: "reduce" });
+    // The welcome seen: the village (`/`) opens, not the welcome, when the current tab picked again returns to it (#800).
+    await context.addInitScript(() => localStorage.setItem("welcomed", "1"));
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
 
@@ -117,23 +119,29 @@ async function main(): Promise<void> {
     check("tab page: Back restores the page's scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
     await region.evaluate((el) => (el.scrollTop = 0));
     await page.waitForTimeout(300);
-    // The same page kept mounted across entries: Settings picked again opens a new entry at the top, and Back returns to the
-    // first entry's offset, the top included.
-    const settingsTab = nav.getByRole("button", { name: "Settings" });
-    await settingsTab.click();
-    await page.waitForTimeout(300);
+    // Back to an entry left at the top returns to the top: Settings left at 0, the Shop picked in the bar, then Back.
+    await nav.getByRole("button", { name: "Shop" }).click();
+    await page.waitForURL(/village\/shop/);
     await region.evaluate((el) => (el.scrollTop = 500));
     await page.waitForTimeout(300);
     await page.goBack();
+    await page.getByRole("button", { name: /Credits/ }).waitFor();
     await page.waitForTimeout(500);
     const backToTop = await region.evaluate((el) => el.scrollTop);
     check("tab page: Back to an entry left at the top returns to the top", backToTop === 0, `scrollTop ${backToTop}`);
-    await region.evaluate((el) => (el.scrollTop = 500));
-    await page.waitForTimeout(300);
-    await settingsTab.click();
+    // TAB-RETAP (#800): the current tab picked again closes its page and returns to the village, in place of the page's entry
+    // (Settings was the first entry here), so Back does not reopen it.
+    const entries = await page.evaluate(() => history.length);
+    await nav.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/", { waitUntil: "commit" });
     await page.waitForTimeout(500);
-    const newEntry = await region.evaluate((el) => el.scrollTop);
-    check("tab page: the current tab picked again opens a new entry at the top", newEntry === 0, `scrollTop ${newEntry}`);
+    const village = { current: await nav.locator("[aria-current=page]").count(), entries: await page.evaluate(() => history.length) };
+    check("tab page: the current tab picked again returns to the village, no item current, its entry replaced", village.current === 0 && village.entries === entries, JSON.stringify(village));
+    await page.goBack();
+    await page.waitForTimeout(500);
+    check("tab page: Back after the retap does not reopen the page", !new URL(page.url(), base).pathname.startsWith("/settings"), page.url());
+    await page.goto(`${base}/settings`, { waitUntil: "networkidle" });
+    await region.waitFor();
     // A fresh document (a typed URL) opens at the top: its first entry never takes another page's offset.
     await region.evaluate((el) => (el.scrollTop = el.scrollHeight));
     await page.waitForTimeout(300);
