@@ -90,6 +90,13 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     expect(within(screen.getByRole("group", { name: "Replay" })).getByText(`${s.attack.moves.length}/${s.attack.moves.length}`)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Previous move" }));
     expect(within(screen.getByRole("group", { name: "Replay" })).getByText(`${s.attack.moves.length - 1}/${s.attack.moves.length}`)).toBeInTheDocument();
+    // The build opens whole: Play replays it from the start, move by move (open point 2).
+    await userEvent.click(screen.getByRole("button", { name: "Next move" }));
+    const replay = () => screen.getByRole("group", { name: "Replay" });
+    await userEvent.click(within(replay()).getByRole("button", { name: "Play from the start" }));
+    await waitFor(() => expect(within(replay()).getByText(`1/${s.attack.moves.length}`)).toBeInTheDocument(), WAIT);
+    await waitFor(() => expect(within(replay()).getByText(`2/${s.attack.moves.length}`)).toBeInTheDocument(), WAIT);
+    await userEvent.click(within(replay()).getByRole("button", { name: "Pause" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/pvp/league"), WAIT);

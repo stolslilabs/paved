@@ -13,6 +13,7 @@ export interface PvpReplay {
   move: number;
   total: number;
   playing: boolean;
+  /** Plays on from the move shown; at the end, from the start (a match's build opens whole, #786). */
   onPlay?: () => void;
   onPause?: () => void;
   /** One move back (-1) or on (+1). */
@@ -55,7 +56,7 @@ export function ReplayBar({ replay }: { replay: PvpReplay }) {
           <Icon name="pause" />
         </Button>
       ) : (
-        <Button variant="ghost" size="icon" aria-label="Play" disabled={replay.move >= replay.total} onClick={replay.onPlay}>
+        <Button variant="ghost" size="icon" aria-label={replay.move >= replay.total ? "Play from the start" : "Play"} disabled={replay.total === 0} onClick={replay.onPlay}>
           <Icon name="play" />
         </Button>
       )}
