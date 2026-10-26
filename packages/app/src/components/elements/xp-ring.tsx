@@ -56,18 +56,14 @@ export interface XpRingProps {
 }
 
 /**
- * The XP ring and level badge around `PlayerAvatar` (issue 625), drawn in its band (pass it as the avatar's children). The arc is
- * the share of the current level. A gain fills the arc to its new share and a "+N XP" rises and fades; a level up completes
- * the arc, turns the badge over to the next number with a short burst, then fills the new level. Under reduced motion the
- * values change at once with a brief flash, and nothing moves. Decorative, like the avatar: the control that holds it says the level.
+ * The motion of a level's progress (issue 625, shared by the ring and issue 787's bar): the share drawn, the level shown, and the events
+ * (a "+N XP", a level up's burst, reduced motion's flash), each a fresh id the drawing keys on and clears once played. A gain
+ * fills the share; a level up completes it, turns the level over, then fills the new one; under reduced motion the values change
+ * at once with the flash.
  */
-export function XpRing({ progress, size = "md", className }: XpRingProps) {
-  const { box, stroke, rise } = GEOMETRY[size];
-  const r = (box - stroke) / 2;
+export function useXpMotion(progress: PlayerProgress | undefined) {
   const reduced = useReducedMotionConfig();
   const share = useMotionValue(progress ? levelShare(progress) : 0);
-  // A round cap draws a dot at length 0: the arc is hidden there.
-  const arcOpacity = useTransform(share, (v) => (v > 0.001 ? 1 : 0));
   const [level, setLevel] = useState(progress?.level);
   const [gain, setGain] = useState<{ id: number; amount: number } | null>(null);
   const [burst, setBurst] = useState<number | null>(null);
@@ -117,6 +113,22 @@ export function XpRing({ progress, size = "md", className }: XpRingProps) {
       run.stop();
     };
   }, [lv, xp, next, total, reduced, share]);
+
+  return { share, level, gain, setGain, burst, setBurst, flash, setFlash };
+}
+
+/**
+ * The XP ring and level badge around `PlayerAvatar` (issue 625), drawn in its band (pass it as the avatar's children). The arc is
+ * the share of the current level. A gain fills the arc to its new share and a "+N XP" rises and fades; a level up completes
+ * the arc, turns the badge over to the next number with a short burst, then fills the new level. Under reduced motion the
+ * values change at once with a brief flash, and nothing moves. Decorative, like the avatar: the control that holds it says the level.
+ */
+export function XpRing({ progress, size = "md", className }: XpRingProps) {
+  const { box, stroke, rise } = GEOMETRY[size];
+  const r = (box - stroke) / 2;
+  const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress);
+  // A round cap draws a dot at length 0: the arc is hidden there.
+  const arcOpacity = useTransform(share, (v) => (v > 0.001 ? 1 : 0));
 
   return (
     <span data-slot="xp-ring" aria-hidden className={cn("pointer-events-none absolute inset-0", className)}>
