@@ -1,8 +1,8 @@
 // The sound effects (AUDIO-SETTINGS, #541): the names and where the files are served. Nothing here imports a file, and the
 // engine (its own chunk) is what fetches and decodes them: `public/sfx/*.wav`, written by `scripts/make-sfx.ts`.
 
-/** The first set. A structure closed has one sound per category. */
-export const SFX_NAMES = ["tap", "select", "rotate", "place", "invalid", "discard", "road", "city", "forest", "wonder", "cobbles", "gameover"] as const;
+/** The first set. A structure closed has one sound per category. A chest's opening (#784): `shake`, `burst`, `flip` (each tile), `keep`. */
+export const SFX_NAMES = ["tap", "select", "rotate", "place", "invalid", "discard", "road", "city", "forest", "wonder", "cobbles", "gameover", "shake", "burst", "flip", "keep"] as const;
 export type SfxName = (typeof SFX_NAMES)[number];
 
 export const SFX_DIR = "/sfx";
