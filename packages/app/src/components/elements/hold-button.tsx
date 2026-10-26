@@ -108,8 +108,6 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
     if (!off && e.detail === 0) hold.act();
   };
 
-  const offset = state === "idle" ? RING_C : 0;
-  const transition = state === "holding" ? `stroke-dashoffset ${hold.holdMs}ms linear` : state === "idle" ? `stroke-dashoffset ${REWIND_MS}ms ease-out, opacity ${REWIND_MS}ms ease-out` : "none";
   return (
     <Button
       size="icon"
@@ -132,21 +130,34 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
       className={cn("relative touch-none select-none [-webkit-touch-callout:none]", className)}
     >
       {!busy && <Icon name={icon} size="md" />}
-      <svg data-ring aria-hidden viewBox="0 0 44 44" className="absolute inset-0 size-full -rotate-90">
-        <circle cx="22" cy="22" r={RING_R} fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={3} />
-        <circle
-          data-ring-progress
-          cx="22"
-          cy="22"
-          r={RING_R}
-          fill="none"
-          className={TONE[tone].progress}
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeDasharray={RING_C}
-          style={{ strokeDashoffset: offset, transition, opacity: state === "idle" ? 0 : 1 }}
-        />
-      </svg>
+      <HoldRing state={state} holdMs={hold.holdMs} tone={tone} />
     </Button>
+  );
+}
+
+/**
+ * The hold's ring around a 44 px button's icon (`HoldButton`'s, and the press bubble's, #799): it fills clockwise from the top
+ * over `holdMs` while held, stays full once done, and rewinds when let go early. The fill is the hold's progress, so it shows
+ * under reduced motion too.
+ */
+export function HoldRing({ state, holdMs, tone = "primary" }: { state: HoldState; holdMs: number; tone?: HoldTone }) {
+  const offset = state === "idle" ? RING_C : 0;
+  const transition = state === "holding" ? `stroke-dashoffset ${holdMs}ms linear` : state === "idle" ? `stroke-dashoffset ${REWIND_MS}ms ease-out, opacity ${REWIND_MS}ms ease-out` : "none";
+  return (
+    <svg data-ring aria-hidden viewBox="0 0 44 44" className="absolute inset-0 size-full -rotate-90">
+      <circle cx="22" cy="22" r={RING_R} fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={3} />
+      <circle
+        data-ring-progress
+        cx="22"
+        cy="22"
+        r={RING_R}
+        fill="none"
+        className={TONE[tone].progress}
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeDasharray={RING_C}
+        style={{ strokeDashoffset: offset, transition, opacity: state === "idle" ? 0 : 1 }}
+      />
+    </svg>
   );
 }
