@@ -28,7 +28,8 @@ describe("League carousel (#785)", () => {
     expect(within(inView()).getByText("You")).toBeInTheDocument();
     expect(position()).toHaveTextContent("Silver II · 6 of 23");
     expect(carousel().querySelectorAll("[data-slot='carousel-item']")).toHaveLength(LEAGUES.length);
-    expect(screen.queryByRole("list")).toBeNull();
+    // The defence log's list of attacks is the page's own (BACK-RULE #783); no other list.
+    expect(screen.queryAllByRole("list").map((l) => l.getAttribute("aria-label"))).toEqual(["Attacks"]);
     expect(screen.queryByRole("button", { name: "Back to my league" })).toBeNull();
     // The player's own: the way to the next league, as before.
     expect(screen.getByRole("progressbar", { name: "28 crowns to Silver I" })).toBeInTheDocument();

@@ -37,7 +37,6 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   pvp: "none",
   "pvp/result/:id": "none",
   "pvp/replay/:attacker/:id": "none",
-  "pvp/defence": "home",
   "pvp/league": "home",
 };
 

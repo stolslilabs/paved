@@ -35,7 +35,7 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
   missions: "Missions",
   lifetime: "Missions",
   vault: "Vault",
-  defence: "Defence log",
+  defence: "League",
   themes: "Themes",
   tiles: "My tiles",
   referral: "Referral",

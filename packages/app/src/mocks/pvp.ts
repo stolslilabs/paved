@@ -6,7 +6,7 @@ import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE, crownsFor, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { PvpEndSceneProps } from "../components/scenes/pvp-end-scene";
-import type { DefenceEntry, PvpDefenceSceneProps } from "../components/scenes/pvp-defence-scene";
+import type { DefenceEntry, DefenceLogProps } from "../components/containers/defence-log";
 import type { PvpLeagueSceneProps } from "../components/scenes/pvp-league-scene";
 import type { PvpResultSceneProps } from "../components/scenes/pvp-result-scene";
 import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
@@ -236,20 +236,26 @@ export const DEFENCE_LOG: DefenceEntry[] = [
   defence(4, 10, MOCK_NOW - 3 * DAY - 5 * HOUR),
 ];
 
+/** The League page's defence log (BACK-RULE #783: a section of the page, no longer a page), on the page's clock. */
 export const PVP_DEFENCE = {
-  shielded: { attacks: DEFENCE_LOG, shieldEndsAt: DEFENCE_LOG[0]!.at + 8 * HOUR, now: MOCK_NOW },
-  open: { attacks: DEFENCE_LOG.slice(1), shieldEndsAt: null, now: MOCK_NOW },
-  empty: { attacks: [], now: MOCK_NOW },
-  loading: { attacks: null, now: MOCK_NOW },
-  error: { attacks: null, now: MOCK_NOW, error: "The defence log could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
-} satisfies Record<string, Data<PvpDefenceSceneProps>>;
+  shielded: { attacks: DEFENCE_LOG, shieldEndsAt: DEFENCE_LOG[0]!.at + 8 * HOUR },
+  open: { attacks: DEFENCE_LOG.slice(1), shieldEndsAt: null },
+  empty: { attacks: [] },
+  loading: { attacks: null },
+  error: { attacks: null, error: "The defence log could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
+} satisfies Record<string, Data<Omit<DefenceLogProps, "now">>>;
 
 // League
 
 const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 
 export const PVP_LEAGUE = {
-  gold: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW },
+  gold: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.shielded },
+  // The defence log's states, a section of the page (BACK-RULE #783).
+  defencesOpen: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.open },
+  defencesEmpty: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.empty },
+  defencesLoading: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.loading },
+  defencesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.error },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
   // The carousel on a league above the player's (Gold II) and one below (Bronze II): the "Back to my league" chip.
   higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },

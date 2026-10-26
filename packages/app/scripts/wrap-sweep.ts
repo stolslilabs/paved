@@ -57,8 +57,8 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^ui-carousel--/, kind: "overflow", element: 'div "DailyOne deck', why: "carousel track" },
   // Story's campaign cards (#592): the same carousel on a phone, its next card peeking past the window, by design.
   // The same page among the page shells of HEADER-HEIGHT (#676).
-  { story: /^(scenes-story--|pages-headers--story-campaigns$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^(scenes-story--|pages-headers--story-campaigns$)/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
+  { story: /^(scenes-story--|pages-headers--story-campaigns$|containers-pagesheet--story-(phone|wide)$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^(scenes-story--|pages-headers--story-campaigns$|containers-pagesheet--story-(phone|wide)$)/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
   // A horizontal scroller, by design: the story shows ScrollArea's horizontal mode.
   { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
   // The same for ScrollRegion (NO-SCROLLBARS, #609): its horizontal story is a sideways scroller with the edge hint.
@@ -77,8 +77,8 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit)/, kind: "overflow", element: 'div "×', why: "carousel track" },
   // The League page's carousel of the 23 leagues (#785), one per view: its window clips its track, by design.
-  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league$|pages-headers--pvp-league$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league$|pages-headers--pvp-league$)/, kind: "overflow", element: 'div "UnrankedYou', why: "carousel track" },
+  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "overflow", element: 'div "UnrankedYou', why: "carousel track" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with
