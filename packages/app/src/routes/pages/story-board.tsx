@@ -12,32 +12,23 @@ import {
   type StoryCampaign,
   type StoryLevel,
 } from "@paved/game-core";
-import { NO_SKINS, provideManifest, skinsOf, type TileSkins } from "@paved/renderer";
-import { BoardViewport } from "../../components/containers/board-viewport";
+import { NO_SKINS, skinsOf, type TileSkins } from "@paved/renderer";
 import type { CoachTarget } from "../../components/containers/coach";
 import { DeckPresentation, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
-import { hasWebGL } from "../../components/containers/tile-view";
-import { StackView, canDrawStack } from "../../components/containers/stack-view";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { Button } from "../../components/ui/button";
-import { useBoardSettings } from "../../data/board-settings";
 import { useFreeVillageWrites } from "../../data/free-village";
-import { usePlacement, type Slot } from "../../data/placement";
-import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
+import type { Slot } from "../../data/placement";
 import { useDataSources } from "../../data/sources";
 import { findLevel, levelPath, nextLevel, useDeckPresented, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
-import { useTileArt } from "../../data/tile-art";
-import { useTileRenders } from "../../data/tile-renders";
 import { remainingOf } from "../../data/training";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
+import { useGameBoard } from "../game-board";
 import { useAppNavigate, useUpTo } from "../ref";
-
-// As the other boards: the renderer reads the manifest the route asked for (`data/renderer-manifest.ts`).
-provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
 
 /**
  * The coach marks of the levels that introduce a control (#546), besides the tip of every level's intro (#721): the coach
@@ -109,7 +100,6 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   // The campaign's theme on every tile, never the player's skins (#721).
   const skins = useMemo(() => campaignSkins(campaign), [campaign]);
   const [attempt, setAttempt] = useState(0);
-  const boardSettings = useBoardSettings(attempt);
   const go = useAppNavigate();
   // Back is the campaign's level list, never the history: after Next, the entry before is the previous level (#614).
   const levels = `/story?campaign=${campaign.id}`;
@@ -117,7 +107,6 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const { presented, markPresented } = useDeckPresented(campaign.id, level.id);
   const [presenting, setPresenting] = useState(!presented);
   const phase = presenting ? "intro" : "play";
-  const renders = useTileRenders(RENDERER_ASSETS);
   const deckIds = useMemo(() => level.deck.map((plan) => PLAN_IDS.indexOf(plan)), [level]);
   const start = useCallback(() => {
     markPresented();
@@ -125,23 +114,15 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   }, [markPresented]);
   const coach = COACH[`${campaign.id}-${level.id}`] ?? null;
   const [coachOn, setCoachOn] = useState(true);
-  const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
-  const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
 
   const state = snapshot.state;
   const over = state.game?.over ?? false;
   const hand = over ? null : state.hand;
   const slotsAt = useCallback((o: number) => run.slots(o), [run]);
   const orientationsAt = useCallback((cell: Slot) => run.orientationsAt(cell), [run]);
-  const placement = usePlacement({
-    plan: phase === "play" && hand ? hand.plan : null,
-    slotsAt,
-    orientationsAt,
-    version: snapshot,
-    resetKey: attempt,
-    confirmMs: boardSettings.renderer?.placement?.motion?.confirmMs,
-  });
-  const { orientation, move, ghost, slots } = placement;
+  // A new attempt starts the season wheel again. Off the play phase there is no tile to place: no plate.
+  const { placement, renders, scene } = useGameBoard({ skins, resetKey: attempt, placement: { plan: phase === "play" && hand ? hand.plan : null, slotsAt, orientationsAt, version: snapshot, resetKey: attempt } });
+  const { orientation, move, slots } = placement;
   const preview = useMemo(() => (move ? run.preview(move) : null), [run, snapshot, move]);
   const handErrorDetail = useErrorDetail(state.writeError);
   // The deck sheet shows the level's draw in its order (#613), the order the presentation shows.
@@ -255,7 +236,6 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       deckOrder={deckOrder}
       onPresentDeck={over ? undefined : () => setPresenting(true)}
       coach={coachTarget}
-      tiles={state.tiles}
       score={state.game?.score ?? 0}
       delta={snapshot.delta}
       remaining={state.game ? remainingOf(state.game) : 0}
@@ -274,42 +254,10 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         errorDetail: handErrorDetail,
       }}
       lastScored={state.lastScored}
-      tileArt={tileArt}
-      tileRenders={renders}
-      skins={skins}
-      renderHandStack={view === "3d" && canDrawStack() ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
+      {...scene({ tiles: state.tiles, closed: state.closed, bubble })}
       storageDisabled={!saved}
-      slots={phase === "play" ? slots : undefined}
-      ghost={ghost}
-      confirmed={placement.confirmed}
-      bubble={bubble}
-      onSlotClick={placement.choose}
       readOnly={phase === "intro" || over}
       notices={notices}
-      placementHighlight={boardSettings.placementHighlight}
-      seasonWheel={boardSettings.wheel}
-      canvas={
-        view === "3d" ? (
-          <BoardViewport
-            settings={boardSettings.renderer}
-            onScene={boardSettings.onScene}
-            tilePreview={boardSettings.tilePreview}
-            placementHighlight={boardSettings.placementHighlight}
-            skins={skins}
-            tiles={state.tiles}
-            closed={state.closed}
-            basePath={RENDERER_ASSETS}
-            slots={phase === "play" ? slots : undefined}
-            ghost={ghost}
-            confirmed={placement.confirmed}
-            bubble={bubble}
-            onCellClick={placement.choose}
-            onCellPress={placement.choose}
-            onCellHover={placement.setHovered}
-            onError={() => setView("plan")}
-          />
-        ) : undefined
-      }
       onBack={onBack}
       onDiscard={discard}
       onRestart={replay}

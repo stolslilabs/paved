@@ -5,7 +5,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { FADE_MS, FOG_CLEAR_MS, VillageFog } from "../src/components/elements/village-fog";
-import VillageLayoutCanvas from "../src/components/containers/village-layout-canvas";
+import { BoardViewport } from "../src/components/containers/board-viewport";
+import { useLayoutCanvas, type LayoutCanvasSignals } from "../src/components/containers/village-layout-canvas";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { SETTINGS_KEY } from "../src/data/settings";
 import { queryClient } from "../src/lib/query-client";
@@ -158,6 +159,11 @@ describe("VillageFog", () => {
     }
   });
 });
+
+/** The village canvas as the board module draws it (`home-canvas.tsx`, mocked above): the editor's hook on the viewport. */
+function VillageLayoutCanvas({ view, ...signals }: { view: LayoutBoardView } & LayoutCanvasSignals) {
+  return <BoardViewport {...useLayoutCanvas(view, signals)} />;
+}
 
 describe("VillageLayoutCanvas: the ready signal", () => {
   const view = { tiles: [], editing: false, plates: [], pending: null } as unknown as LayoutBoardView;
