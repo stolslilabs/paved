@@ -3,7 +3,9 @@ import * as THREE from "three";
 import {
   computeCameraFit,
   DEFAULT_CAMERA_FIT_SETTINGS,
+  FRAME_FLOORS,
   FRAME_INSETS,
+  frameFloorFor,
   frameInsetsFor,
   projectGround,
   type CellExtent,
@@ -89,23 +91,73 @@ describe("computeCameraFit (CAMERA-FIT, #678)", () => {
     }
   }
 
-  it("frames the tiles and one ring of free slots, widened to the 5 x 5 floor around a small board", () => {
-    const one = computeCameraFit({ cells: BOARDS["1 tile"], width: 375, height: 812 });
+  it("frames the tiles and one ring of free slots, widened to the floor around a small board: 5 x 5 from the tablet breakpoint", () => {
+    const one = computeCameraFit({ cells: BOARDS["1 tile"], width: 1440, height: 900 });
     // The starter's 3 x 3 cells (it and its ring) widened to 5 x 5 cells of 3 units, centred on the starter.
     expect(one.area).toEqual({ minX: -7.5, maxX: 7.5, minZ: -7.5, maxZ: 7.5 });
-    const ten = computeCameraFit({ cells: BOARDS["10 tiles"], width: 375, height: 812 });
+    const ten = computeCameraFit({ cells: BOARDS["10 tiles"], width: 1440, height: 900 });
     // 4 x 3 cells and the ring: 6 x 5 cells (x from -3 to 2, z from -2 to 2).
     expect(ten.area).toEqual({ minX: -10.5, maxX: 7.5, minZ: -7.5, maxZ: 7.5 });
-    const empty = computeCameraFit({ cells: null, width: 375, height: 812 });
+    const empty = computeCameraFit({ cells: null, width: 1440, height: 900 });
     expect(empty).toEqual(one);
+    expect(computeCameraFit({ cells: null, width: 640, height: 900 }).area).toEqual(one.area);
   });
 
-  it("never zooms in until the starter tile fills the screen: it opens at most a fifth of the free band wide", () => {
+  it("opens a phone on three cells across and a third of a cell beyond each side (V2-PHONE-ZOOM, #791)", () => {
+    for (const viewport of VIEWPORTS.filter((v) => v.width < 640)) {
+      const one = computeCameraFit({ cells: BOARDS["1 tile"], ...viewport });
+      // The starter and one cell on each side (x from -4.5 to 4.5), and a third of a cell (1 unit) beyond: 3.67 cells.
+      expect(one.area.minX).toBeCloseTo(-5.5, 9);
+      expect(one.area.maxX).toBeCloseTo(5.5, 9);
+      expect(one.limitedBy).toBe("width");
+      const band = freeBand(viewport.width, viewport.height, frameInsetsFor(viewport.width));
+      const y = projectGround({ x: 0, z: 0 }, one, viewport).y;
+      // The width binds at the near edge: there the margin's outer edges touch the band's sides, a cell is 3 / 11 of
+      // it, and the three cells' edges sit inside it.
+      const at = (x: number) => projectGround({ x, z: one.area.maxZ }, one, viewport).x;
+      expect(at(-5.5)).toBeCloseTo(band.left, 6);
+      expect(at(5.5)).toBeCloseTo(band.right, 6);
+      expect((at(1.5) - at(-1.5)) / (band.right - band.left)).toBeCloseTo(3 / 11, 6);
+      expect(at(-4.5)).toBeGreaterThan(band.left);
+      expect(at(4.5)).toBeLessThan(band.right);
+      // The HUD clear: the starter's cell sits inside the band's height.
+      expect(y).toBeGreaterThan(band.bottom);
+      expect(y).toBeLessThan(band.top);
+      expect(computeCameraFit({ cells: null, ...viewport })).toEqual(one);
+    }
+    // Closer than the larger frame on the same phone, and past the closest zoom.
+    const phone = computeCameraFit({ cells: BOARDS["1 tile"], width: 375, height: 812 });
+    const five = computeCameraFit({ cells: BOARDS["1 tile"], width: 375, height: 812, floorCells: 5, marginCells: 0 });
+    expect(phone.distance).toBeLessThan(five.distance);
+    expect(phone.distance).toBeGreaterThan(CLOSEST_DISTANCE);
+  });
+
+  it("takes no margin once a board outgrows the phone's floor: its tiles and their ring, as before", () => {
+    // Two tiles side by side: 4 cells across with the ring, past the floor; its depth (3 cells) still takes the floor.
+    const two = computeCameraFit({ cells: { minX: 0, maxX: 1, minZ: 0, maxZ: 0 }, width: 375, height: 812 });
+    expect(two.area.minX).toBeCloseTo(-4.5, 9);
+    expect(two.area.maxX).toBeCloseTo(7.5, 9);
+    expect(two.area.minZ).toBeCloseTo(-5.5, 9);
+    expect(two.area.maxZ).toBeCloseTo(5.5, 9);
+    const ten = computeCameraFit({ cells: BOARDS["10 tiles"], width: 375, height: 812 });
+    expect(ten.area).toEqual({ minX: -10.5, maxX: 7.5, minZ: -7.5, maxZ: 7.5 });
+  });
+
+  it("takes the phone's floor below the tablet breakpoint and the five cells from it", () => {
+    expect(frameFloorFor(375)).toBe(FRAME_FLOORS.phone);
+    expect(frameFloorFor(639)).toBe(FRAME_FLOORS.phone);
+    expect(frameFloorFor(640)).toBe(FRAME_FLOORS.tablet);
+    expect(FRAME_FLOORS.phone).toEqual({ cells: 3, margin: 1 / 3 });
+    expect(FRAME_FLOORS.tablet).toEqual({ cells: 5, margin: 0 });
+  });
+
+  it("never zooms in until the starter tile fills the screen: it opens at most a fifth of the free band wide (3 / 11 on a phone)", () => {
     for (const viewport of VIEWPORTS) {
       const fit = computeCameraFit({ cells: BOARDS["1 tile"], width: viewport.width, height: viewport.height });
       const tile = [projectGround({ x: -1.5, z: 1.5 }, fit, viewport), projectGround({ x: 1.5, z: 1.5 }, fit, viewport)];
       const band = freeBand(viewport.width, viewport.height, frameInsetsFor(viewport.width));
-      expect((tile[1].x - tile[0].x) / (band.right - band.left)).toBeLessThanOrEqual(1 / 5 + 1e-9);
+      const floor = frameFloorFor(viewport.width);
+      expect((tile[1].x - tile[0].x) / (band.right - band.left)).toBeLessThanOrEqual(1 / (floor.cells + 2 * floor.margin) + 1e-9);
     }
   });
 
@@ -214,9 +266,9 @@ describe("computeCameraFit (CAMERA-FIT, #678)", () => {
     }
   });
 
-  it("is a settings group with its defaults: on, a floor of 5, one ring, auto insets, no following", () => {
+  it("is a settings group with its defaults: on, the floor and margin by width, one ring, auto insets, no following", () => {
     expect(DEFAULT_RENDERER_SETTINGS.cameraFit).toEqual(DEFAULT_CAMERA_FIT_SETTINGS);
-    expect(DEFAULT_CAMERA_FIT_SETTINGS).toEqual({ enabled: true, floorCells: 5, ring: 1, insets: "auto", followBoard: false });
+    expect(DEFAULT_CAMERA_FIT_SETTINGS).toEqual({ enabled: true, floorCells: "auto", marginCells: "auto", ring: 1, insets: "auto", followBoard: false });
     expect(resolveRendererSettings({ cameraFit: { floorCells: 7 } }).cameraFit).toEqual({ ...DEFAULT_CAMERA_FIT_SETTINGS, floorCells: 7 });
   });
 
