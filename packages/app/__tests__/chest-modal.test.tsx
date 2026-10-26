@@ -61,6 +61,23 @@ describe("the chest modal (#784)", () => {
     expect(screen.getByText("Added to your inventory")).toBeInTheDocument();
   });
 
+  it("after Later on the tile kept, shows the chest asked for, not the tile again", async () => {
+    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.taken} />));
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Added to your inventory" })).getByRole("button", { name: "Later" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // The page still says the tile kept.
+    expect(screen.getByText("Added to your inventory")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Open the silver chest of slot 2" }));
+    expect(await screen.findByRole("dialog", { name: "Silver chest" })).toHaveAttribute("data-phase", "closed");
+    unmount();
+    // The same through Open your chests, and after the cross.
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.taken} />));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await userEvent.click(screen.getByRole("button", { name: /Open your chests/ }));
+    expect(await screen.findByRole("dialog", { name: "Silver chest" })).toBeInTheDocument();
+  });
+
   it("stays closed for the visit once closed; a won slot or Open your chests brings it back", async () => {
     render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.waiting} />));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));

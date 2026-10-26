@@ -122,9 +122,11 @@ export function VillageChestsScene({
   const reset = ready || (resetsAt != null && now != null && now >= resetsAt);
   const empty = waiting.length === 0 && !opened;
   const ranks = Array.from({ length: Math.max(pvpToday, 0) }, (_, i) => pvpRanks?.[i] ?? chests.find((c) => c.slot === i)?.rank);
+  // A chest asked for (a won slot, "Open your chests"): it, not the tile kept before, which the page itself still says.
   const show = (chestId?: number) => {
     setDismissed(false);
     setPicked(chestId ?? null);
+    setPassed(taken);
   };
   return (
     <TabFrame tab="chests" onNavigate={onNavigate}>
@@ -213,7 +215,11 @@ export function VillageChestsScene({
       </div>
       <ChestModal
         open={modal}
-        onClose={() => setDismissed(true)}
+        onClose={() => {
+          setDismissed(true);
+          // Later, Done or the cross: the tile kept was seen; the page says it until the next chest opens.
+          setPassed(taken);
+        }}
         chest={current}
         more={more}
         opened={opened}

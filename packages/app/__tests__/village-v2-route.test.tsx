@@ -292,15 +292,21 @@ describe("/village/chests", () => {
     expect(within(await screen.findByRole("list", { name: "Chest tiles" }, WAIT)).getAllByRole("button")).toHaveLength(2);
     await waitFor(async () => expect((await s.ledger.chests(s.me)).open?.rank).toBe("silver"), WAIT);
     expect((await s.ledger.chests(s.me)).pending).toEqual(["bronze", "gold"]);
-    // Kept: the next is the gold one, PvP before Story, and slot 2 is grey while slot 1 still waits.
+    // Kept, then Later: slot 2 is grey while slot 1 still waits, and slot 1's tap shows its gold chest, not the tile kept.
     await userEvent.click(within(screen.getByRole("list", { name: "Chest tiles" })).getAllByRole("button")[0]!);
     await userEvent.click(screen.getByRole("button", { name: /^Keep / }));
-    await userEvent.click(within(await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT)).getByRole("button", { name: /Next chest/ }));
-    expect(await screen.findByRole("dialog", { name: "Gold chest" }, WAIT)).toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT)).getByRole("button", { name: "Later" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
     const slots = within(screen.getByRole("list", { name: "Today's PvP slots" })).getAllByRole("listitem");
     expect(slots.map((li) => li.getAttribute("aria-label"))).toEqual(["Slot 1: won, gold chest", "Slot 2: opened", "Slot 3: free"]);
+    await userEvent.click(screen.getByRole("button", { name: "Open the gold chest of slot 1" }));
+    const gold = await screen.findByRole("dialog", { name: "Gold chest" }, WAIT);
+    expect(within(gold).getByText("Tap to open")).toBeInTheDocument();
+    // Closed again, Open your chests: the queue's first, the PvP gold one, before the Story bronze.
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
+    await userEvent.click(screen.getByRole("button", { name: /Open your chests/ }));
+    expect(await screen.findByRole("dialog", { name: "Gold chest" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));
 });
 
