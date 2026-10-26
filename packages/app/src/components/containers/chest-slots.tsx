@@ -186,7 +186,7 @@ function Slot({ index, state, rank, ready, small, reduced, onOpen }: SlotProps) 
         </span>
       )
     ) : state === "opened" ? (
-      <span aria-hidden data-spent="" className={cn("grid place-items-center rounded-2xl border-2 border-border bg-secondary/50 text-muted-foreground/50", box)}>
+      <span aria-hidden data-spent="" className={cn("grid place-items-center rounded-2xl border-2 border-border bg-secondary/50 text-muted-foreground opacity-40", box)}>
         <Icon name="treasure-chest" variant="solid" size={small ? "xl" : "2xl"} />
       </span>
     ) : (
