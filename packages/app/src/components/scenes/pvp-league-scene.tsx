@@ -76,60 +76,57 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   const ended = season !== null && left <= 0;
   return (
     <TabFrame tab="league" onNavigate={onNavigate}>
-      <div className="flex min-h-full flex-col bg-background text-foreground">
-        <TopBar title="League" onBack={onBack} />
-        <main className="mx-auto grid w-full max-w-5xl flex-1 content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-          <div className="flex min-w-0 flex-col gap-4">
-            <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card px-2 pt-2 pb-4">
-              <LeagueCarousel selected={selected} onSelect={setSelected} mine={mine.index} />
-              <LeagueDetails league={LEAGUES[selected]!} mine={mine} crowns={crowns} best={best} unranked={unranked} />
-            </div>
-
-            {season === null ? (
-              <section aria-label="Season" className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
-                <h2 className="font-semibold">Before the first season</h2>
-                <p className="text-sm text-muted-foreground">The seasons start soon: attack now, your crowns count from the first day.</p>
-              </section>
-            ) : (
-              <section aria-label="Season" data-ended={ended} className={cn("flex flex-col gap-2 rounded-xl border px-4 py-3", !ended && left < LAST_DAY_S ? "border-warning/40 bg-warning/10" : "border-border bg-card")}>
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-semibold">{season.name}</h2>
-                  {ended ? (
-                    <span className="text-xs text-muted-foreground">Ended {formatRelative(left)}</span>
-                  ) : left < LAST_DAY_S ? (
-                    <Countdown expiresAt={season.endsAt} now={now} label="Ends in" className="text-warning" />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Ends {formatRelative(left)}</span>
-                  )}
-                </div>
-                <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                  {ended ? "Its rewards are on their way." : "At its end, your league gives"}
-                  {!ended && <Cobbles value={outside ? 0 : league.seasonCobbles} sign="+" />}
-                  {!ended && attacks !== undefined && (
-                    <span className="w-full text-xs">
-                      {attacks >= MIN_SEASON_ATTACKS ? (
-                        "Earned: you attacked enough this season."
-                      ) : (
-                        <>
-                          once you attack <span className="numeric font-semibold text-foreground">{MIN_SEASON_ATTACKS - attacks}</span> more {MIN_SEASON_ATTACKS - attacks === 1 ? "time" : "times"} this season.
-                        </>
-                      )}
-                    </span>
-                  )}
-                </p>
-              </section>
-            )}
-
-            <Button size="lg" onClick={onAttack}>
-              <Icon name="swords" size="sm" />
-              Attack
-            </Button>
-
-            {defences && <DefenceLog {...defences} now={now} onReplay={onReplay} onRetry={onRetryDefences} />}
+      <TopBar title="League" onBack={onBack} />
+      <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card px-2 pt-2 pb-4">
+            <LeagueCarousel selected={selected} onSelect={setSelected} mine={mine.index} />
+            <LeagueDetails league={LEAGUES[selected]!} mine={mine} crowns={crowns} best={best} unranked={unranked} />
           </div>
 
-        </main>
-      </div>
+          {season === null ? (
+            <section aria-label="Season" className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
+              <h2 className="font-semibold">Before the first season</h2>
+              <p className="text-sm text-muted-foreground">The seasons start soon: attack now, your crowns count from the first day.</p>
+            </section>
+          ) : (
+            <section aria-label="Season" data-ended={ended} className={cn("flex flex-col gap-2 rounded-xl border px-4 py-3", !ended && left < LAST_DAY_S ? "border-warning/40 bg-warning/10" : "border-border bg-card")}>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-semibold">{season.name}</h2>
+                {ended ? (
+                  <span className="text-xs text-muted-foreground">Ended {formatRelative(left)}</span>
+                ) : left < LAST_DAY_S ? (
+                  <Countdown expiresAt={season.endsAt} now={now} label="Ends in" className="text-warning" />
+                ) : (
+                  <span className="text-xs text-muted-foreground">Ends {formatRelative(left)}</span>
+                )}
+              </div>
+              <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                {ended ? "Its rewards are on their way." : "At its end, your league gives"}
+                {!ended && <Cobbles value={outside ? 0 : league.seasonCobbles} sign="+" />}
+                {!ended && attacks !== undefined && (
+                  <span className="w-full text-xs">
+                    {attacks >= MIN_SEASON_ATTACKS ? (
+                      "Earned: you attacked enough this season."
+                    ) : (
+                      <>
+                        once you attack <span className="numeric font-semibold text-foreground">{MIN_SEASON_ATTACKS - attacks}</span> more {MIN_SEASON_ATTACKS - attacks === 1 ? "time" : "times"} this season.
+                      </>
+                    )}
+                  </span>
+                )}
+              </p>
+            </section>
+          )}
+
+          <Button size="lg" onClick={onAttack}>
+            <Icon name="swords" size="sm" />
+            Attack
+          </Button>
+
+          {defences && <DefenceLog {...defences} now={now} onReplay={onReplay} onRetry={onRetryDefences} />}
+        </div>
+      </main>
     </TabFrame>
   );
 }

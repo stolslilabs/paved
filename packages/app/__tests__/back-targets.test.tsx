@@ -34,8 +34,8 @@ function open(path: string, store = memoryStore()) {
 
 const at = (router: ReturnType<typeof createTestRouter>) => `${router.state.location.pathname}${router.state.location.search}`;
 const back = () => userEvent.click(screen.getByRole("button", { name: "Back" }));
-/** The close of the sheet over a page (BACK-RULE #783): Story's campaigns are a sheet over Play. */
-const close = async (sheet: string) => userEvent.click(within(await screen.findByRole("dialog", { name: sheet }, { timeout: slow(5000) })).getByRole("button", { name: "Close" }));
+/** The Back of the sheet over a page, which closes it (BACK-RULE #783): Story's campaigns are a sheet over Play. */
+const close = async (sheet: string) => userEvent.click(within(await screen.findByRole("dialog", { name: sheet }, { timeout: slow(5000) })).getByRole("button", { name: "Back" }));
 
 /** Discards every tile of Tutorial level 1 (its deck presented already): the level's end. */
 async function finishLevelOne() {

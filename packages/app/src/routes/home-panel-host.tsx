@@ -44,7 +44,7 @@ function usePanelTrail(onHome: boolean) {
 /**
  * The side panel of the home's route from `desktop` (DESK-PANELS, #762), its own chunk with the panel's frame: mounted over the
  * home for as long as the layout is at that width. A child of the home's route (`PageDef.panel`) opens in it (`PagePanel`).
- * Closing it (its `xmark`, Escape, a click on the village) goes back to the home's entry when the panel's pages were walked from
+ * Closing it (Escape, a click or a tap on the village; no close button, #782) goes back to the home's entry when the panel's pages were walked from
  * it, so Back never reopens it; reached by a link or a reload, it replaces the entry with the home's. While it slides out the
  * panel keeps the page it showed.
  */

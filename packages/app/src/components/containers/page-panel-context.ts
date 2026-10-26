@@ -2,17 +2,18 @@ import { createContext, useContext } from "react";
 
 /**
  * A page drawn in the side panel (DESK-PANELS, #762): what its header needs. `top`: a page of the overlay itself (Missions, the
- * Chests), whose header has no Back, the panel's close in its place (a sheet over a page, `PageSheet`, too); otherwise the header
- * keeps Back beside the close.
+ * Chests), whose header has no Back (a click outside the panel or Escape closes it, #782); a page reached from another in the
+ * panel keeps Back to it. `back`: a sheet over a page (`PageSheet`, BACK-RULE #783), whose header's Back closes it, whatever the
+ * page's own Back (Escape, a tap outside and a drag down close it too).
  */
 export interface PagePanelValue {
-  onClose: () => void;
   top: boolean;
+  back?: () => void;
 }
 
 /**
  * Given by the panel's frame (`page-panel.tsx`); absent on a full page. A file apart from the frame, and of no import, so the
- * shell's first load (the balances read it) carries neither the panel's chunk (the Radix dialog, the slide) nor its close.
+ * shell's first load (the balances read it) carries not the panel's chunk (the Radix dialog, the slide).
  */
 const PagePanelContext = createContext<PagePanelValue | null>(null);
 export const PagePanelProvider = PagePanelContext.Provider;

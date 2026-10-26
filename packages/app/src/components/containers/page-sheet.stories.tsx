@@ -25,8 +25,8 @@ const READY = { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_
 /**
  * BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page. Settings' pages (the themes, a theme, My
  * tiles, the credits, the referral) are this sheet over Settings: from the bottom on a phone (a drag down closes it), from the
- * right from `desktop`, over Settings' side panel. Its header has the title, the Cobbles and the close, never Back: the close goes
- * up to Settings. Story's campaigns are the same sheet over Play's modes, and the Cobble packs open in it over the page that asks
+ * right from `desktop`, over Settings' side panel. Its header has Back, the title and the Cobbles: Back (or Escape, a tap outside,
+ * a drag down) closes it, up to Settings. Story's campaigns are the same sheet over Play's modes, and the Cobble packs open in it over the page that asks
  * for them (a theme's Get Cobbles, the tile shop's, the avatar's, the header's Cobbles off the village). On the mock.
  */
 const meta = {

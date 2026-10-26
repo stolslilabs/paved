@@ -156,7 +156,7 @@ describe("/settings/theme/forest: the shop", () => {
     await waitFor(
       async () => {
         const packs = screen.queryByRole("dialog", { name: "Cobbles" });
-        if (packs) await userEvent.click(within(packs).getByRole("button", { name: "Close" }));
+        if (packs) await userEvent.click(within(packs).getByRole("button", { name: "Back" }));
         expect(screen.queryByRole("dialog", { name: "Cobbles" })).toBeNull();
       },
       { timeout: slow(5000) },

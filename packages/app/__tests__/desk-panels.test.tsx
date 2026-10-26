@@ -40,6 +40,8 @@ function open(path: string) {
 
 /** The panel (a modal dialog named after its page): the home behind it is hidden from assistive technology while it is open. */
 const panel = (name: string) => screen.findByRole("dialog", { name }, { timeout: slow(5000) });
+/** A click on the dimmed village outside the panel: the panel has no close button (#782). */
+const clickOutside = async () => userEvent.click(document.querySelector<HTMLElement>("[data-slot=sheet-overlay]")!);
 /** The home's village stays mounted under the panel (hidden behind the modal). */
 const village = () => screen.getByRole("navigation", { name: "Village", hidden: true });
 
@@ -107,8 +109,9 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     const dialog = await panel(title);
     expect(router.state.location.pathname).toBe(path);
     expect(village()).toBeInTheDocument();
-    // A page of the overlay itself: the panel's close, no Back.
-    expect(await within(dialog).findByRole("button", { name: "Close" }, { timeout: slow(5000) })).toBeInTheDocument();
+    // A page of the overlay itself: no Back, and no close button (#782): a click outside or Escape closes it.
+    await waitFor(() => expect(dialog.querySelector("[data-slot=page-scroll]")?.childElementCount).toBeGreaterThan(0), { timeout: slow(5000) });
+    expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
     expect(within(dialog).queryByRole("button", { name: "Back" })).toBeNull();
   });
 
@@ -118,7 +121,7 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await userEvent.click(screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav"))!);
     await panel("Settings");
     expect(router.state.location.pathname).toBe("/settings");
-    await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: "Close" }, { timeout: slow(5000) })));
+    await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     // The village takes the pointer and assistive technology back once the panel has slid out.
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
@@ -132,13 +135,29 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     const router = open("/vault");
     await panel("Vault");
     await waitFor(() => expect(village()).toBeInTheDocument(), { timeout: slow(5000) });
-    await userEvent.click((await within(await panel("Vault")).findByRole("button", { name: "Close" }, { timeout: slow(5000) })));
+    await panel("Vault");
+    await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("REPLACE");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
   });
 
-  it("closes on Escape, back to the home's own entry (Back does not reopen it)", async () => {
+  it("has no close button; a click on the village closes it, and the focus goes back to the overlay's button that opened it (#782)", async () => {
+    const router = open("/");
+    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    const opener = within(column).getByRole("button", { name: /^League/ });
+    await userEvent.click(opener);
+    const dialog = await panel("League");
+    // Its accessible name stays (the dialog's title), and the keyboard's way out is Escape.
+    expect(dialog).toHaveAccessibleName("League");
+    expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
+    await clickOutside();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^League/ })).toHaveFocus());
+  });
+
+  it("closes on Escape, back to the home's own entry (Back does not reopen it), the focus on the button that opened it", async () => {
     const router = open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(within(column).getByRole("button", { name: /^Missions/ }));
@@ -146,6 +165,8 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^Missions/ })).toHaveFocus());
   });
 
   it("the browser's Back closes it", async () => {
@@ -165,14 +186,15 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) })));
     const themes = await panel("Themes");
     expect(router.state.location.pathname).toBe("/settings/theme");
-    // Settings stays in its panel under the sheet; the sheet has its close, no Back.
+    // Settings stays in its panel under the sheet; the sheet's Back closes it, back to Settings.
     expect(screen.getByRole("dialog", { name: "Settings", hidden: true })).toBeInTheDocument();
-    expect(within(themes).queryByRole("button", { name: "Back" })).toBeNull();
-    await userEvent.click(await within(themes).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    await userEvent.click(await within(themes).findByRole("button", { name: "Back" }, { timeout: slow(5000) }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     expect(router.state.historyAction).toBe("POP");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Themes" })).toBeNull(), { timeout: slow(5000) });
-    await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: "Close" }, { timeout: slow(5000) })));
+    // The panel has no close button (#782): a click on the village outside it.
+    await panel("Settings");
+    await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
   });
@@ -190,11 +212,14 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await panel("Settings");
     await act(() => router.navigate(1));
     expect(router.state.location.pathname).toBe("/settings/theme");
-    await userEvent.click(await within(await panel("Themes")).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    // Escape closes the sheet (back to Settings), then the panel (to the home's entry).
+    await panel("Themes");
+    await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     expect(router.state.historyAction).toBe("POP");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Themes" })).toBeNull(), { timeout: slow(5000) });
-    await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    await panel("Settings");
+    await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
     // The entries before are the home's alone: nothing of the panel's is behind it.
@@ -252,7 +277,7 @@ describe("the panel's header (#762, #781)", () => {
     render(
       <LazyMotion features={domMax}>
         <BalancesProvider value={BALANCES}>
-          <PagePanelProvider value={{ onClose: vi.fn(), top }}>{page}</PagePanelProvider>
+          <PagePanelProvider value={{ top }}>{page}</PagePanelProvider>
         </BalancesProvider>
       </LazyMotion>,
     );
@@ -261,20 +286,22 @@ describe("the panel's header (#762, #781)", () => {
   it.each([
     ["a flow's top bar", () => <TopBar title="Chests" onBack={vi.fn()} />, "Chests"],
     ["a tab page", () => <TabPage tab="vault" title="Vault">Body</TabPage>, "Vault"],
-  ])("%s: the home's balances and the close in the header, nothing under it, no Back on the overlay's own page", async (_, page, title) => {
+  ])("%s: the home's balances in the header and no close button (#782), nothing under it, no Back on the overlay's own page", async (_, page, title) => {
     inPanel(page());
     const header = screen.getByRole("heading", { level: 1, name: title }).closest("header")!;
     const regions = await screen.findAllByRole("region", { name: "Balances" });
     expect(regions).toHaveLength(2);
     for (const region of regions) expect(header).toContainElement(region);
-    expect(within(header).getByRole("button", { name: "Close" })).toBeInTheDocument();
+    // No close button in the panel's header (#782).
+    expect(within(header).queryByRole("button", { name: "Close" })).toBeNull();
     expect(within(header).queryByRole("button", { name: "Back" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   });
 
   it("keeps Back on a page reached from another", () => {
     inPanel(<TabPage tab="settings" title="Themes" onBack={vi.fn()}>Body</TabPage>, false);
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   });
 });

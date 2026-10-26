@@ -62,16 +62,15 @@ describe("Settings' pages are sheets over it", { timeout: slow(30_000) }, () => 
     ["Themes", "/settings/theme", "Themes"],
     ["Referral", "/referral", "Referral"],
     ["Credits", "/settings/credits", "Credits"],
-  ])("%s opens in a sheet over Settings; its close goes back to Settings, whose Back is the village", async (row, path, title) => {
+  ])("%s opens in a sheet over Settings; its Back goes back to Settings, whose Back is the village", async (row, path, title) => {
     const router = open("/settings");
     await screen.findByRole("heading", { level: 1, name: "Settings" }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: new RegExp(`^${row}`) }));
     const dialog = await sheet(title);
     expect(router.state.location.pathname).toBe(path);
     expect(settingsUnder()).toBeInTheDocument();
-    // A sheet's header has its close, never Back.
-    expect(within(dialog).queryByRole("button", { name: "Back" })).toBeNull();
-    await userEvent.click(await within(dialog).findByRole("button", { name: "Close" }, WAIT));
+    // A sheet's header has Back, which closes it (no close button since PAGES-SCROLL, #782).
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Back" }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     // Back through the history to Settings' own entry: never a push of it.
     expect(router.state.historyAction).toBe("POP");
@@ -85,7 +84,7 @@ describe("Settings' pages are sheets over it", { timeout: slow(30_000) }, () => 
     const dialog = await sheet("Theme");
     expect(await within(dialog).findByRole("heading", { level: 1, name: "Forest" }, WAIT)).toBeInTheDocument();
     expect(settingsUnder()).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     // No earlier entry of Settings: it takes the sheet's place.
     expect(router.state.historyAction).toBe("REPLACE");
@@ -103,7 +102,7 @@ describe("Settings' pages are sheets over it", { timeout: slow(30_000) }, () => 
     await userEvent.click(await within(themes).findByRole("button", { name: "Forest tiles" }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings/theme/forest"));
     expect(router.state.historyAction).toBe("REPLACE");
-    await userEvent.click(within(await sheet("Theme")).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(await sheet("Theme")).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     expect(router.state.historyAction).toBe("POP");
   });
@@ -140,7 +139,7 @@ describe("Play's modes (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
     const dialog = await sheet("Story");
     expect(router.state.location.pathname).toBe("/story");
     expect(screen.getByRole("heading", { level: 1, name: "Choose a mode", hidden: true })).toBeInTheDocument();
-    await userEvent.click(await within(dialog).findByRole("button", { name: "Close" }, WAIT));
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Back" }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
     expect(router.state.historyAction).toBe("POP");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
@@ -176,10 +175,10 @@ describe("the Cobble packs open in place over a page (BACK-RULE #783)", { timeou
     await userEvent.click(plate);
     await sheet("Cobbles");
     expect(router.state.location.pathname).toBe("/missions");
-    // The packs' header may still swap its nodes as they load: the close is pressed again until the sheet goes.
+    // The packs' header may still swap its nodes as they load: Back is pressed again until the sheet goes.
     await waitFor(async () => {
       const open = screen.queryByRole("dialog", { name: "Cobbles" });
-      if (open) await userEvent.click(within(open).getByRole("button", { name: "Close" }));
+      if (open) await userEvent.click(within(open).getByRole("button", { name: "Back" }));
       expect(screen.queryByRole("dialog")).toBeNull();
     }, WAIT);
     expect(router.state.location.pathname).toBe("/missions");

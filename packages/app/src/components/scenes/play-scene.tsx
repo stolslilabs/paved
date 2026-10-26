@@ -4,6 +4,8 @@ import { TopBar } from "../containers/top-bar";
 import modeChallenge from "../../assets/renders/mode-challenge.webp";
 import modeTraining from "../../assets/renders/mode-training.webp";
 import modeTutorial from "../../assets/renders/mode-tutorial.webp";
+import { useInPageRegion } from "../containers/page-region";
+import { cn } from "../../lib/utils";
 
 export interface PlaySceneProps {
   /** A wallet is connected: the Challenge can be bought. */
@@ -28,9 +30,11 @@ export interface PlaySceneProps {
  * (#537): each mode a row with a render of its board on the left, as the mockups' Play list.
  */
 export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onStory, onAttack, onConnect, onPlayFree }: PlaySceneProps) {
+  // A full-screen flow fills the viewport; in a scrolling region (the side panel, #782) the page takes its content's height.
+  const inRegion = useInPageRegion();
   // A guest's tap on the Challenge connects first; a pause disables it.
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <div className={cn("flex flex-col bg-background text-foreground", !inRegion && "min-h-dvh")}>
       <TopBar title="Choose a mode" onBack={onBack} />
       <main className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-8 tablet:max-w-2xl tablet:grid tablet:grid-cols-2 tablet:gap-4">
         <ModeCard
