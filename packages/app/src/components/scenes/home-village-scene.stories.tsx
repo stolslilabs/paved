@@ -11,7 +11,9 @@ import { BalancesProvider } from "../containers/balances-context";
 import type { LayoutSaved } from "../containers/layout-editor";
 import type { VillageLayout } from "../containers/layout-rules";
 import { ProfileProvider } from "../containers/profile-context";
-import VillageLayoutCanvas from "../containers/village-layout-canvas";
+import { BoardViewport } from "../containers/board-viewport";
+import type { LayoutBoardView } from "../containers/layout-board";
+import { useLayoutCanvas } from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
@@ -113,6 +115,11 @@ export const Leaving: Story = { args: HOME_VILLAGE.leaving };
 /** The chain refused the save: what happened, above the editor, the draft kept. */
 export const Refused: Story = { args: HOME_VILLAGE.refused };
 
+/** The village on the board's canvas as the board module draws it (`home-canvas.tsx`), on Storybook's assets. */
+function StoryVillageCanvas({ view, board, onReady }: { view: LayoutBoardView; board: ReturnType<typeof useBoardSettings>; onReady?: () => void }) {
+  return <BoardViewport {...useLayoutCanvas(view, { onScene: board.onScene, onReady })} basePath={APP_ASSETS} settings={board.renderer} />;
+}
+
 /**
  * The scene as the page wires it: the board's renderer under the overlays, its settings and the season dial (`useBoardSettings`).
  * `held`: the canvas's ready signal never reaches the stage (the fog stays).
@@ -123,7 +130,7 @@ function InScene({ held, ...args }: HomeVillageSceneProps & { held?: boolean }) 
     <HomeVillageScene
       {...args}
       seasonWheel={board.wheel}
-      renderCanvas={(view, onDrawn) => <VillageLayoutCanvas view={view} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} onReady={held ? undefined : onDrawn} />}
+      renderCanvas={(view, onDrawn) => <StoryVillageCanvas view={view} board={board} onReady={held ? undefined : onDrawn} />}
     />
   );
 }
@@ -207,7 +214,7 @@ function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene
       }}
       onSave={save}
       onDismissSaved={() => setSaved(null)}
-      {...(scene && { seasonWheel: board.wheel, renderCanvas: (view) => <VillageLayoutCanvas view={view} basePath={APP_ASSETS} settings={board.renderer} onScene={board.onScene} /> })}
+      {...(scene && { seasonWheel: board.wheel, renderCanvas: (view) => <StoryVillageCanvas view={view} board={board} /> })}
     />
   );
 }

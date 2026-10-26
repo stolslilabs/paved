@@ -36,9 +36,20 @@ describe.skipIf(!built)("the board's route chunk in the production build", () =>
     expect(existsSync(join(DIST, "assets", `${board[0]}.map`))).toBe(true);
   });
 
-  // The board's first frame: its chunk and the chunks it imports statically. Since Story mode (#546) shares the board scene,
-  // the bundler puts the scene in a chunk both boards import, so the scene's `import()`s are in that chunk, not the board's.
-  const firstFrame = board.length ? [board[0]!, ...staticImports(readFileSync(join(DIST, "assets", board[0]!), "utf8"))] : [];
+  // The board's first frame: its chunk and every chunk it imports statically, at any depth (what the browser loads with it).
+  // Since Story mode (#546) shares the board scene, and since the boards share one board module (#772), the bundler puts the
+  // scene and the module in a chunk the boards import, so their `import()`s are in that chunk (or one it imports), not the board's.
+  const closure = (from: string): string[] => {
+    const seen = new Set<string>();
+    const visit = (chunk: string) => {
+      if (seen.has(chunk) || !existsSync(join(DIST, "assets", chunk))) return;
+      seen.add(chunk);
+      for (const next of staticImports(readFileSync(join(DIST, "assets", chunk), "utf8"))) visit(next);
+    };
+    visit(from);
+    return [...seen];
+  };
+  const firstFrame = board.length ? closure(board[0]!) : [];
 
   it("holds none of the modules moved out of it, nor do the chunks it loads with it", () => {
     for (const chunk of firstFrame.filter((f) => existsSync(join(DIST, "assets", `${f}.map`)))) {
