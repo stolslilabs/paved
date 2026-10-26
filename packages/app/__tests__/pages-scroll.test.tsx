@@ -10,7 +10,6 @@ import { PlayScene } from "../src/components/scenes/play-scene";
 import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { CreditsScene } from "../src/components/scenes/credits-scene";
-import { PvpDefenceScene } from "../src/components/scenes/pvp-defence-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { QuestsScene } from "../src/components/scenes/quests-scene";
 import { ReferralScene } from "../src/components/scenes/referral-scene";
@@ -19,7 +18,7 @@ import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
 import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
-import { PVP_DEFENCE, PVP_LEAGUE } from "../src/mocks/pvp";
+import { PVP_LEAGUE } from "../src/mocks/pvp";
 import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
 import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
 import { titleOf } from "../src/lib/music/track-info";
@@ -38,12 +37,11 @@ const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
   ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onNavigate={no()} onBuy={no()} onGetCobbles={no()} />],
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
-  ["League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={no()} onNavigate={no()} onAttack={no()} onDefence={no()} />],
+  ["League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={no()} onNavigate={no()} onAttack={no()} onReplay={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
   ["Missions", <QuestsScene {...QUESTS.today} onNavigate={no()} onDayChange={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
   ["Missions", <AchievementsScene {...ACHIEVEMENTS.mixed} onNavigate={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
   ["Vault", <VaultScene {...VAULT.position} onNavigate={no()} />],
-  ["Defence log", <PvpDefenceScene {...PVP_DEFENCE.shielded} onBack={no()} onNavigate={no()} onReplay={no()} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onNavigate={no()} onUse={no()} onOpen={no()} />],
   ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} onNavigate={no()} />],
   ["My tiles", <MyTilesScene {...MY_TILES.owned} onBack={no()} onNavigate={no()} />],
@@ -147,7 +145,9 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
     expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-league]").length).toBe(23);
     expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
-    expect(region).toContainElement(screen.getByRole("button", { name: /Defence log/ }));
+    expect(region).toContainElement(screen.getByRole("button", { name: /Attack/ }));
+    // The defence log, a section of the page since BACK-RULE (#783), in the same region.
+    expect(region).toContainElement(screen.getByRole("heading", { level: 2, name: "Defences" }));
     unmount();
     draw(PAGES[1]![1], false, "Chests");
     // The page with the chest modal closed (#784): the day's three slots, under the sticky header.

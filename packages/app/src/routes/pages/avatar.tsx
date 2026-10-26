@@ -11,6 +11,7 @@ import { avatarOffers } from "../../data/avatar-offers";
 import { cobbleKeys } from "../../data/cobbles";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
+import { useCobblesSheet } from "../cobbles-sheet";
 import { useAppNavigate, useBack } from "../ref";
 import { skinsStatus } from "../skins-status";
 
@@ -22,6 +23,7 @@ import { skinsStatus } from "../skins-status";
  */
 export default function Page() {
   const go = useAppNavigate();
+  const cobbles = useCobblesSheet();
   const onBack = useBack();
   const wallet = useAccount();
   const sources = useDataSources();
@@ -96,28 +98,31 @@ export default function Page() {
   };
 
   return (
-    <AvatarCreatorScene
-      creator={creator}
-      status={skinsStatus(playerId, read)}
-      onPick={(part, id) => draft && edit(withPart(draft, part, id))}
-      onBuy={buy}
-      onSave={save}
-      onRandomise={() => creator && edit(randomUsable(creator.offers))}
-      onReset={() => {
-        if (busy) return;
-        writes.reset();
-        setChanges(null);
-      }}
-      onDismissRefusal={writes.reset}
-      onBuyCobbles={() => go("/cobbles")}
-      // Connect here, as the profile sheet does: `/welcome` sends a returning visitor Home, without the wallet.
-      onConnect={() => void wallet.connect()}
-      onRetry={() => {
-        void client.invalidateQueries({ queryKey: avatarKeys.all });
-        void client.invalidateQueries({ queryKey: cobbleKeys.all });
-      }}
-      onBack={onBack}
-    />
+    <>
+      <AvatarCreatorScene
+        creator={creator}
+        status={skinsStatus(playerId, read)}
+        onPick={(part, id) => draft && edit(withPart(draft, part, id))}
+        onBuy={buy}
+        onSave={save}
+        onRandomise={() => creator && edit(randomUsable(creator.offers))}
+        onReset={() => {
+          if (busy) return;
+          writes.reset();
+          setChanges(null);
+        }}
+        onDismissRefusal={writes.reset}
+        onBuyCobbles={cobbles.open}
+        // Connect here, as the profile sheet does: `/welcome` sends a returning visitor Home, without the wallet.
+        onConnect={() => void wallet.connect()}
+        onRetry={() => {
+          void client.invalidateQueries({ queryKey: avatarKeys.all });
+          void client.invalidateQueries({ queryKey: cobbleKeys.all });
+        }}
+        onBack={onBack}
+      />
+      {cobbles.sheet}
+    </>
   );
 }
 

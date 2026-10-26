@@ -3,10 +3,12 @@ import { createContext, useContext } from "react";
 /**
  * A page drawn in the side panel (DESK-PANELS, #762): what its header needs. `top`: a page of the overlay itself (Missions, the
  * Chests), whose header has no Back (a click outside the panel or Escape closes it, #782); a page reached from another in the
- * panel (a theme, the defence log) keeps Back to it.
+ * panel keeps Back to it. `back`: a sheet over a page (`PageSheet`, BACK-RULE #783), whose header's Back closes it, whatever the
+ * page's own Back (Escape, a tap outside and a drag down close it too).
  */
 export interface PagePanelValue {
   top: boolean;
+  back?: () => void;
 }
 
 /**

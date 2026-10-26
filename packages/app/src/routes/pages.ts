@@ -18,10 +18,16 @@ export interface PageDef {
   /** The tab shown as active, or `null` for a full-screen flow. */
   nav: Tab | null;
   /**
-   * Where Back leads when the page has no earlier in-app entry (a link, a reload; PAGE-HEADER, #760): the page's parent.
-   * Omitted, the home (`/`, the village).
+   * Where Back leads (BACK-RULE #783, `useBack`): the page's parent, one level up; omitted, the home (`/`, the village). So Back
+   * reaches the village in two steps at most. Only a sheet (`sheet`) or a flow names one.
    */
   parent?: string;
+  /**
+   * BACK-RULE (#783, the owner's decisions of 2026-10-26: no page opens another page): the page is a sheet over its parent
+   * (`parent`), not a page of its own. Its URL stays, so a link opens it over the parent; its close goes up to the parent
+   * (`routes/page-sheets.tsx`). A move from one sheet to another replaces the entry, so the close still lands on the parent.
+   */
+  sheet?: true;
   /**
    * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the page opens in the side panel on the right, over the
    * home's village, which stays mounted (`routes/home-layout.tsx`): the overlay's pages and the pages reached from them. Below
@@ -34,7 +40,8 @@ export const PAGES: readonly PageDef[] = [
   { path: "welcome", title: "Welcome", nav: null },
   { path: "", title: "Home", nav: "home" },
   { path: "play", title: "Play", nav: null, panel: true },
-  { path: "play/challenge", title: "Purchase", nav: null },
+  // A flow opened from Play: Back goes up to it.
+  { path: "play/challenge", title: "Purchase", nav: null, parent: "/play" },
   { path: "cobbles", title: "Cobbles", nav: null, panel: true },
   { path: "avatar", title: "Avatar", nav: null },
   // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
@@ -42,27 +49,30 @@ export const PAGES: readonly PageDef[] = [
   { path: "village/shop", title: "Tile shop", nav: "shop", panel: true },
   { path: "village/:player", title: "Village", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
-  // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, the defence log, the league.
+  // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, the league. The defence log is a section of
+  // the league since BACK-RULE (#783): its old link lands there (`router.tsx`).
   { path: "pvp", title: "Attack", nav: null },
   { path: "pvp/result/:id", title: "Result", nav: null },
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
-  // Under the League's tab (#763): the defence log is reached from the league page.
-  { path: "pvp/defence", title: "Defence log", nav: "league", parent: "/pvp/league", panel: true },
   { path: "pvp/league", title: "League", nav: "league", panel: true },
   { path: "training", title: "Training", nav: null },
-  { path: "story", title: "Story", nav: null },
+  // Story's campaigns, a sheet over Play's mode choice (BACK-RULE #783); a level is a full-screen flow.
+  { path: "story", title: "Story", nav: null, parent: "/play", sheet: true, panel: true },
   { path: "story/:campaign/:level", title: "Story", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
-  // The static `missions/lifetime` first: `prefetch` matches in table order, and `:day?` would take "lifetime".
+  // Missions' two tabs, the day's and the lifetime missions (BACK-RULE #783): one switches to the other in place (its entry
+  // replaced), and both go up to the village. The static `missions/lifetime` first: `prefetch` matches in table order, and `:day?`
+  // would take "lifetime".
   { path: "missions/lifetime", title: "Missions", nav: "quests", panel: true },
   { path: "missions/:day?", title: "Missions", nav: "quests", panel: true },
   { path: "vault", title: "Vault", nav: "vault", panel: true },
-  { path: "referral", title: "Referral", nav: "settings", parent: "/settings", panel: true },
-  { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", panel: true },
-  { path: "settings/theme/:theme", title: "Theme", nav: "settings", parent: "/settings/theme", panel: true },
-  { path: "settings/tiles", title: "My tiles", nav: "settings", parent: "/settings", panel: true },
-  { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings", panel: true },
+  // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it, a theme's too.
+  { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
+  { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },
+  { path: "settings/theme/:theme", title: "Theme", nav: "settings", parent: "/settings", sheet: true, panel: true },
+  { path: "settings/tiles", title: "My tiles", nav: "settings", parent: "/settings", sheet: true, panel: true },
+  { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings", title: "Settings", nav: "settings", panel: true },
 ] as const;
 

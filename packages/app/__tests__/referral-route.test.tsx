@@ -38,7 +38,8 @@ const earned = () => screen.findByRole("region", { name: "Earned" }, { timeout: 
 
 beforeEach(async () => {
   // The page's module loaded before the route asks for it: on a loaded machine its first transform outlasted the wait.
-  await import("../src/routes/pages/referral");
+  // The referral is a sheet over Settings (BACK-RULE #783): Settings' module and the sheet's host load with it.
+  await Promise.all([import("../src/routes/pages/referral"), import("../src/routes/pages/settings"), import("../src/routes/page-sheet-host")]);
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();
