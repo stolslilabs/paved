@@ -64,6 +64,11 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   initialHand?: { plan: number } | { lift: number } | null;
   initialPending?: Spot | null;
   initialLeaving?: boolean;
+  /**
+   * A page over the scene (from `desktop`, a side panel, #762: the route is a child of the home's): the view's points close
+   * under it (#792), and stay closed when it goes.
+   */
+  covered?: boolean;
   /** Where the stories start: the view's points open (#758), a line lit (its structure's key); in edit mode, the editor's points unfolded. */
   initialPointsOpen?: boolean;
   initialLit?: string | null;
@@ -141,7 +146,10 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     setPointsOpen(false);
     setLit(null);
   };
-  const showPoints = pointsOpen && !editing && !!village;
+  // Never open behind edit mode or a side panel (#792): closed when either comes, however it came (the URL included).
+  const covered = editing || !!props.covered;
+  if (covered && pointsOpen) closePoints();
+  const showPoints = pointsOpen && !covered && !!village;
   const edit = () => {
     closePoints();
     props.onDismissSaved?.();
@@ -284,7 +292,11 @@ function ViewOverlays({
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <div className="flex items-start justify-between gap-2">
-          <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-1">
+          {/* The badge's profile and league each open a sheet or a page over the scene, tapped or keyed: the points close under it (#792). */}
+          <div
+            className="pointer-events-auto flex min-w-0 flex-col items-start gap-1"
+            onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge]") && points?.onClose()}
+          >
             {/* The profile and the league as one (#787): the avatar in its league's border, the name, the XP bar, the badge and the crowns. */}
             <PlayerBadge crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
             {village && (

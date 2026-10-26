@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import { useSidePanel } from "../../lib/side-panel";
+import { useTapOutside } from "../../lib/use-tap-outside";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { type TileArt } from "../elements/tile-chip";
 import { VillageFog, type VillageArrival } from "../elements/village-fog";
@@ -127,7 +128,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   }, []);
   const onEdit = props.onEdit;
   const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", icon: EDIT_ICON, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
-  const lit = litLine?.areas ?? null;
+  const lit = litLine?.lit ?? null;
   const bubble = scene ? editor.bubble : null;
   const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press }), [editor.view, bubble, lit, press]);
   return (
@@ -176,27 +177,39 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   );
 }
 
+/** The score chip that opens the view's points (the scene's): a tap on it is its own toggle, not a tap outside. */
+const POINTS_TOGGLE = '[aria-controls="village-points"]';
+
 /**
  * The view's points panel (#758), drawn by the scene when its score chip is tapped: the saved layout's lines, computed here, in
  * the stage's chunk (the engine's). The scene mounts it in both places; it draws in one, `side` (under the chip) from `tablet`,
- * `bottom` (a bottom panel over Play) on a phone. Escape closes it, as a popover.
+ * `bottom` (a bottom panel over Play) on a phone. Escape closes it, as a popover, and Close: the focus goes back to the chip.
+ * A tap or a click outside closes it too (#792), the focus left where the tap put it; a drag or a pinch (a pan or a zoom of
+ * the scene, around a lit structure) does not.
  */
-export function VillagePoints({ tiles, place, ...panel }: Omit<PointsPanelProps, "breakdown"> & { tiles: VillageLayout["tiles"]; place: "side" | "bottom" }) {
+export function VillagePoints({ tiles, place, ...panel }: Omit<PointsPanelProps, "breakdown" | "ref"> & { tiles: VillageLayout["tiles"]; place: "side" | "bottom" }) {
   const side = useSidePanel();
   const shown = side === (place === "side");
   const breakdown = useMemo(() => layoutPoints(tiles), [tiles]);
+  const ref = useRef<HTMLElement>(null);
   const { onClose } = panel;
+  const close = useCallback(() => {
+    const toggle = document.querySelector<HTMLElement>(POINTS_TOGGLE);
+    onClose();
+    toggle?.focus();
+  }, [onClose]);
+  useTapOutside(ref, onClose, { enabled: shown, ignore: POINTS_TOGGLE });
   useEffect(() => {
     if (!shown) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, onClose]);
+  }, [shown, close]);
   if (!shown) return null;
-  if (place === "side") return <PointsPanel breakdown={breakdown} {...panel} />;
+  if (place === "side") return <PointsPanel ref={ref} breakdown={breakdown} {...panel} onClose={close} />;
   return (
     <div className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-20">
-      <PointsPanel breakdown={breakdown} {...panel} />
+      <PointsPanel ref={ref} breakdown={breakdown} {...panel} onClose={close} />
     </div>
   );
 }

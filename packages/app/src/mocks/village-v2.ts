@@ -1,4 +1,5 @@
 import type { BoardTile } from "@paved/chain";
+import { CategoryType } from "@paved/game-core";
 import type { Chest, VillageChestsSceneProps } from "../components/scenes/village-chests-scene";
 import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/village-shop-scene";
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
@@ -52,6 +53,11 @@ function layout(owner: string, level: number, plans: readonly number[]): Village
 export const LAYOUT_START = layout(ME, 1, [P.road, P.cityEdge, P.roadCross, P.forestCity, P.road, P.roadBend, P.cityForest, P.road]);
 /** Halfway (level 20, 28 slots): 21 tiles placed, "21 / 28". */
 export const LAYOUT_GROWING = layout(ME, 20, MIXED.slice(0, 21));
+/**
+ * A village around a closed Wonder (#792): the wonder laid first, the next 23 tiles of the mix (its own wonder left out) around it
+ * and on. Its points' lines include the Wonder's, which lights the wonder's tile alone.
+ */
+export const LAYOUT_WONDER = layout(ME, 20, [P.wonder, ...MIXED.filter((plan) => plan !== P.wonder).slice(0, 23)]);
 /** Every slot used (level 12, 20 slots): Save needs a tile taken off before another goes on. */
 export const LAYOUT_FULL = layout(ME, 12, MIXED.slice(0, 20));
 /** Someone else's village, for a visit. */
@@ -209,6 +215,10 @@ export const HOME_POINTS = layoutPoints(LAYOUT_GROWING.tiles);
 /** A tile of the second line's structure that can be lifted: under the bubble, the structure stays lit whole. */
 const LIT_TILE = LAYOUT_GROWING.tiles.find((t) => HOME_POINTS.lines[1]!.areas.some((a) => a.x === t.x && a.y === t.y) && canLift(LAYOUT_GROWING.tiles, t.id))!;
 
+/** The Wonder village's points (#792): its Wonder's line, lit in the stories. */
+export const WONDER_POINTS = layoutPoints(LAYOUT_WONDER.tiles);
+const WONDER_LINE = WONDER_POINTS.lines.find((l) => l.category === CategoryType.Wonder)!;
+
 /** One fixture per state of the home (`Scenes/Home`): the village in view, its chips, and edit mode. */
 export const HOME_VILLAGE = {
   view: home,
@@ -236,6 +246,8 @@ export const HOME_VILLAGE = {
   points: { ...home, initialPointsOpen: true, initialLit: HOME_POINTS.lines[0]!.key },
   /** Edit mode: the editor's bar (Reset all beside the slots), the inventory and Save, in the same scene. */
   editing: { ...home, editing: true },
+  /** The points open on a village with a closed Wonder (#792), its line lit: the wonder's tile alone, not the 8 around it. */
+  pointsWonder: { ...home, village: LAYOUT_WONDER, initialPointsOpen: true, initialLit: WONDER_LINE.key },
   /** Edit mode's points unfolded above the inventory (#758), a line lit; they follow the draft live. */
   editingPoints: { ...home, editing: true, initialPointsOpen: true, initialLit: HOME_POINTS.lines[1]!.key },
   /** A tile of the lit structure lifted: under the bubble, it stays lit with the rest of its structure. */

@@ -18,6 +18,7 @@ import { planCode } from "../src/components/elements/tile-chip";
 import { TileView } from "../src/components/containers/tile-view";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import { ProfileProvider } from "../src/components/containers/profile-context";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { LoadingScene } from "../src/components/scenes/loading-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
@@ -30,8 +31,9 @@ import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
-import { BOARD, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
-import { DRAFT_VALID, HOME_POINTS, HOME_VILLAGE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_RIVAL, LAYOUT_START } from "../src/mocks/village-v2";
+import { BOARD, LOADING, OVER, PLAY, PLAYER_STATUS, PURCHASE, WELCOME } from "../src/mocks/scenes";
+import { PROGRESS } from "../src/mocks/players";
+import { DRAFT_VALID, HOME_POINTS, HOME_VILLAGE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_RIVAL, LAYOUT_START, WONDER_POINTS } from "../src/mocks/village-v2";
 import { canLift, layoutPoints, layoutScore, legalSpots } from "../src/components/containers/layout-rules";
 import { PLAN } from "../src/mocks/village";
 import { sceneTilesOf } from "../src/components/containers/village-layout-canvas";
@@ -331,6 +333,120 @@ describe("Home's points by structure (#758)", () => {
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
     expect(last().lit).toBeNull();
+  });
+
+  it("closes on a tap or a click outside, not on a drag, a pinch or a scroll; the chip toggles it; Escape gives the chip the focus (#792)", async () => {
+    const { renderCanvas, last } = canvas();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.points} renderCanvas={renderCanvas} />));
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    const scene = screen.getByTestId("canvas");
+    const open = () => screen.queryByRole("region", { name: "Village points" }) !== null;
+    const press = (id: number, x: number, extra: object = {}) => ({ pointerId: id, pointerType: "touch", button: 0, clientX: x, clientY: 200, ...extra });
+    expect(last().lit).toEqual(HOME_POINTS.lines[0]!.lit);
+    // A drag (a pan of the scene): kept open, the light on.
+    fireEvent.pointerDown(scene, press(1, 100));
+    fireEvent.pointerMove(scene, press(1, 130));
+    fireEvent.pointerUp(scene, press(1, 100));
+    // A pinch: two fingers, neither moving far.
+    fireEvent.pointerDown(scene, press(1, 100));
+    fireEvent.pointerDown(scene, press(2, 160));
+    fireEvent.pointerUp(scene, press(2, 160));
+    fireEvent.pointerUp(scene, press(1, 100));
+    // A press the browser took for a scroll, and a mouse's right button.
+    fireEvent.pointerDown(scene, press(1, 100));
+    fireEvent.pointerCancel(scene, press(1, 100));
+    fireEvent.pointerDown(scene, press(1, 100, { pointerType: "mouse", button: 2 }));
+    fireEvent.pointerUp(scene, press(1, 100, { pointerType: "mouse", button: 2 }));
+    // A tap inside the panel.
+    const panel = screen.getByRole("region", { name: "Village points" });
+    fireEvent.pointerDown(within(panel).getByRole("heading"), press(1, 100));
+    fireEvent.pointerUp(within(panel).getByRole("heading"), press(1, 100));
+    expect(open()).toBe(true);
+    expect(last().lit).not.toBeNull();
+    // A tap outside, a few px of jitter: closed, the light off.
+    fireEvent.pointerDown(scene, press(1, 100));
+    fireEvent.pointerMove(scene, press(1, 104));
+    act(() => void fireEvent.pointerUp(scene, press(1, 104)));
+    expect(open()).toBe(false);
+    expect(last().lit).toBeNull();
+    // The chip opens and closes it, a second tap on it is not a tap outside that the click would reopen.
+    const chip = screen.getByRole("button", { name: /^Village score / });
+    await userEvent.click(chip);
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    await userEvent.click(chip);
+    expect(open()).toBe(false);
+    // A mouse's click outside closes it as a tap does.
+    await userEvent.click(chip);
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    await userEvent.click(scene);
+    expect(open()).toBe(false);
+    // Escape: closed, the focus on the chip.
+    await userEvent.click(chip);
+    await userEvent.click(within(await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) })).getAllByRole("button", { pressed: false })[0]!);
+    await userEvent.keyboard("{Escape}");
+    expect(open()).toBe(false);
+    expect(chip).toHaveFocus();
+  });
+
+  it("never stays open under edit mode or a side panel, and does not come back after them (#792)", async () => {
+    const { renderCanvas, last } = canvas();
+    const props = { ...HOME_VILLAGE.points, renderCanvas };
+    const { rerender } = render(wrap(<HomeVillageScene {...props} />));
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    rerender(wrap(<HomeVillageScene {...props} covered />));
+    expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
+    expect(last().lit).toBeNull();
+    rerender(wrap(<HomeVillageScene {...props} covered={false} />));
+    expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /^Village score .*: show the points$/ }));
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    // Edit mode opened by the URL (not Edit's button): closed, and still closed once left.
+    rerender(wrap(<HomeVillageScene {...props} editing />));
+    rerender(wrap(<HomeVillageScene {...props} editing={false} />));
+    expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
+    expect(last().lit).toBeNull();
+  });
+
+  it("closes under the profile sheet opened with the keyboard, and stays closed when it goes (#792)", async () => {
+    const { renderCanvas, last } = canvas();
+    render(
+      wrap(
+        <ProfileProvider value={{ state: { status: "connected", data: PLAYER_STATUS }, progress: PROGRESS.start, onDisconnect: vi.fn(), onCopy: vi.fn(async () => {}) }}>
+          <HomeVillageScene {...HOME_VILLAGE.points} renderCanvas={renderCanvas} />
+        </ProfileProvider>,
+      ),
+    );
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    screen.getByRole("button", { name: /^Profile/ }).focus();
+    await userEvent.keyboard("{Enter}");
+    const sheet = await screen.findByRole("dialog", {}, { timeout: slow(5000) });
+    expect(screen.queryByRole("region", { name: "Village points", hidden: true })).toBeNull();
+    expect(last().lit).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(sheet).not.toBeInTheDocument(), { timeout: slow(5000) });
+    expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
+  });
+
+  it("lights a Wonder's tile alone, its line still counting the whole structure (#792)", async () => {
+    const wonder = WONDER_POINTS.lines.find((l) => l.category === "Wonder")!;
+    expect(wonder.tiles).toBe(9);
+    expect(wonder.areas).toHaveLength(9);
+    expect(wonder.lit).toHaveLength(1);
+    const [centre] = wonder.lit;
+    const cells = new Set(wonder.areas.map((a) => `${a.x},${a.y}`));
+    for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) expect(cells.has(`${centre!.x + dx},${centre!.y + dy}`)).toBe(true);
+    // On the scene: its lit areas are the wonder's tile's.
+    const { renderCanvas, last } = canvas();
+    const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.pointsWonder} renderCanvas={renderCanvas} />));
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    expect(last().lit).toEqual(wonder.lit);
+    expect(screen.getByRole("button", { pressed: true })).toHaveTextContent(formatPoints(wonder.points));
+    unmount();
+    // On the plan view: the wonder's cell alone ringed, the rest dimmed.
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.pointsWonder} />));
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    const plan = screen.getByRole("img", { name: /^Village layout of/ });
+    expect([...plan.querySelectorAll("[data-lit]")].map((c) => c.getAttribute("data-cell"))).toEqual([`${centre!.x},${centre!.y}`]);
   });
 
   it("on the plan view, rings the lit structure's tiles and dims the rest", async () => {

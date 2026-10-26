@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type Ref } from "react";
 import { CategoryType, formatInteger, type LayoutBreakdown } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { formatPoints } from "../elements/score";
@@ -74,16 +74,18 @@ function Total({ score }: { score: number }) {
 
 export interface PointsPanelProps extends PointsListProps {
   onClose: () => void;
+  ref?: Ref<HTMLElement>;
 }
 
 /**
  * The view's panel (#758), opened by the score chip under the profile: not modal, so the scene stays in sight (and in hand: pan,
- * zoom) while a line lights its structure. A bottom panel on a phone, a card under the chip from `tablet`. Close (or Escape, the
- * caller's) turns the light off.
+ * zoom) while a line lights its structure. A bottom panel on a phone, a card under the chip from `tablet`. Close (or Escape, or
+ * a tap outside, #792: the caller's) turns the light off.
  */
-export function PointsPanel({ onClose, className, ...list }: PointsPanelProps) {
+export function PointsPanel({ onClose, className, ref, ...list }: PointsPanelProps) {
   return (
     <section
+      ref={ref}
       id="village-points"
       aria-label="Village points"
       className={cn("pointer-events-auto flex max-h-[min(24rem,45dvh)] flex-col gap-2 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur", className)}
