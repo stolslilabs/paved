@@ -9,6 +9,7 @@ import { PagePanelProvider } from "../src/components/containers/page-panel-conte
 import { TabPage } from "../src/components/containers/tab-page";
 import { TopBar } from "../src/components/containers/top-bar";
 import { DESKTOP_QUERY } from "../src/routes/home-layout";
+import { nextTrail } from "../src/routes/home-panel-host";
 import { PAGES } from "../src/routes/pages";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -171,6 +172,55 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await userEvent.click((await within(await panel("Themes")).findByRole("button", { name: "Close" }, { timeout: slow(5000) })));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
+  });
+
+  it("a panel reopened by Forward closes back to the home's entry too: Back then never reopens it", async () => {
+    const router = open("/");
+    await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await userEvent.click(screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav"))!);
+    await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) }));
+    await userEvent.click(await within(await panel("Themes")).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    // Forward, Forward: Settings, then Themes, in the panel again.
+    await router.navigate(1);
+    await panel("Settings");
+    await router.navigate(1);
+    expect(router.state.location.pathname).toBe("/settings/theme");
+    await userEvent.click(await within(await panel("Themes")).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("POP");
+    // The entries before are the home's alone: nothing of the panel's is behind it.
+    await router.navigate(-1);
+    expect(router.state.location.pathname).not.toMatch(/^\/settings/);
+  });
+});
+
+describe("the panel's trail: the entries walked from the home's (#762)", () => {
+  it("keeps the entries after the home's on a Back, so a Forward into the panel is placed again", () => {
+    let t = nextTrail(null, "h", "POP", true);
+    t = nextTrail(t, "s", "PUSH", false);
+    t = nextTrail(t, "t", "PUSH", false);
+    expect(t).toEqual({ keys: ["h", "s", "t"], at: 2 });
+    // The close walks back to the home's entry; Forward and Forward come back into the panel.
+    t = nextTrail(t, "h", "POP", true);
+    expect(t).toEqual({ keys: ["h", "s", "t"], at: 0 });
+    t = nextTrail(t, "s", "POP", false);
+    t = nextTrail(t, "t", "POP", false);
+    expect(t).toEqual({ keys: ["h", "s", "t"], at: 2 });
+  });
+
+  it("drops the entries after the current one on a new page, as the browser does", () => {
+    let t = nextTrail({ keys: ["h", "s", "t"], at: 1 }, "v", "PUSH", false);
+    expect(t).toEqual({ keys: ["h", "s", "v"], at: 2 });
+    t = nextTrail(t, "w", "REPLACE", false);
+    expect(t).toEqual({ keys: ["h", "s", "w"], at: 2 });
+  });
+
+  it("knows no way back from an entry it never saw (a link, a reload); a new home's entry starts it again", () => {
+    expect(nextTrail(null, "s", "POP", false)).toBeNull();
+    expect(nextTrail({ keys: ["h", "s"], at: 1 }, "x", "POP", false)).toBeNull();
+    expect(nextTrail(null, "h2", "REPLACE", true)).toEqual({ keys: ["h2"], at: 0 });
+    expect(nextTrail({ keys: ["h", "s"], at: 0 }, "h2", "PUSH", true)).toEqual({ keys: ["h2"], at: 0 });
   });
 });
 
