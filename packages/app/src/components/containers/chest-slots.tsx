@@ -10,6 +10,7 @@ import { PVP_CHESTS_A_DAY } from "./layout-rules";
 
 /** A UTC day: the dial's turn. */
 const DAY = 86_400;
+const NONE: readonly number[] = [];
 /** The countdown's last minute: it pulses. */
 export const LAST_MINUTE_S = 60;
 /** How long the slots say "Ready" once the reset is reached on the page. */
@@ -25,8 +26,10 @@ export type ChestSlotsLook = "pedestals" | "dial";
 export interface ChestSlotsProps {
   /** The PvP chests won today (at most 3, #732). */
   won: number;
-  /** Their ranks in the order won, when the read gives them: a slot then shows its chest; unset, a chest of no rank. */
-  ranks?: readonly ChestRank[];
+  /** Of those, the slots whose chest was opened already (#784), by index: they show a grey, disabled chest. */
+  opened?: readonly number[];
+  /** Their ranks by slot, when the read gives them: a won slot then shows its chest in its rank's colour; unset, a chest of no rank. */
+  ranks?: readonly (ChestRank | undefined)[];
   /** Seconds since the epoch: the next UTC day, when the slots are free again. */
   resetsAt?: number;
   /** Seconds since the epoch: the scene's clock. */
@@ -36,15 +39,18 @@ export interface ChestSlotsProps {
   look?: ChestSlotsLook;
   /** To the mode choice: win stars to fill a slot. */
   onPlay?: () => void;
+  /** A tap on a won slot not opened yet (#784): its chest opens in the modal. Unset, the slots are not buttons. */
+  onOpenSlot?: (index: number) => void;
   className?: string;
 }
 
 /**
- * The day's three PvP chest slots (#759), the Chests page's hero: a slot won today shows its chest, a free one an empty pedestal
- * waiting for a win; the reset's countdown ticks under them, at the centre once the three are won, and pulses in its last
- * minute. At the reset a short "Ready" lights the slots again. Under reduced motion every frame is still.
+ * The day's three PvP chest slots (#759), the Chests page's hero. A slot says its state (#784): a free one is its outline alone, a
+ * won one shows its chest in its rank's colour (a tap opens it), an opened one a grey, disabled chest. The reset's countdown
+ * ticks under them, at the centre once the three are won, and pulses in its last minute. At the reset a short "Ready" lights
+ * the slots again. Under reduced motion every frame is still.
  */
-export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "pedestals", onPlay, className }: ChestSlotsProps) {
+export function ChestSlots({ won, opened = NONE, ranks, resetsAt, now, ready = false, look = "pedestals", onPlay, onOpenSlot, className }: ChestSlotsProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const taken = ready ? 0 : Math.min(PVP_CHESTS_A_DAY, Math.max(0, won));
   const left = PVP_CHESTS_A_DAY - taken;
@@ -66,7 +72,16 @@ export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "p
   const slots = (
     <ol aria-label="Today's PvP slots" className="grid grid-cols-3 gap-3">
       {Array.from({ length: PVP_CHESTS_A_DAY }, (_, i) => (
-        <Slot key={i} index={i} won={i < taken} rank={ranks?.[i]} ready={ready} small={look === "dial" || (full && look === "pedestals")} reduced={reduced} />
+        <Slot
+          key={i}
+          index={i}
+          state={i >= taken ? "free" : opened.includes(i) ? "opened" : "won"}
+          rank={ranks?.[i]}
+          ready={ready}
+          small={look === "dial" || (full && look === "pedestals")}
+          reduced={reduced}
+          onOpen={onOpenSlot && (() => onOpenSlot(i))}
+        />
       ))}
     </ol>
   );
@@ -140,58 +155,85 @@ export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "p
   );
 }
 
+/** A slot's state (#784): free (its outline alone), won (its chest, to open), opened (a grey, disabled chest). */
+export type ChestSlotState = "free" | "won" | "opened";
+
 interface SlotProps {
   index: number;
-  won: boolean;
+  state: ChestSlotState;
   rank?: ChestRank;
   ready: boolean;
   small: boolean;
   reduced: boolean;
+  onOpen?: () => void;
 }
 
-/** One slot: its chest on its pedestal once won, an empty pedestal while free. */
-function Slot({ index, won, rank, ready, small, reduced }: SlotProps) {
-  const name = won ? `Slot ${index + 1}: won${rank ? `, ${CHEST_NAME[rank].toLowerCase()}` : ""}` : `Slot ${index + 1}: free${ready ? ", ready" : ""}`;
+const STATE_TEXT: Readonly<Record<ChestSlotState, string>> = { free: "Free", won: "Tap to open", opened: "Opened" };
+
+/** One slot on its pedestal: its outline while free, its chest once won, the chest grey once opened. */
+function Slot({ index, state, rank, ready, small, reduced, onOpen }: SlotProps) {
+  const chest = rank ? CHEST_NAME[rank].toLowerCase() : "chest";
+  const name =
+    state === "won" ? `Slot ${index + 1}: won${rank ? `, ${chest}` : ""}` : state === "opened" ? `Slot ${index + 1}: opened` : `Slot ${index + 1}: free${ready ? ", ready" : ""}`;
   const box = small ? "size-16" : "size-24";
-  return (
-    <li aria-label={name} data-slot-state={won ? "won" : ready ? "ready" : "free"} className="flex flex-col items-center gap-1.5">
+  const art =
+    state === "won" ? (
+      rank ? (
+        <ChestBadge rank={rank} size={small ? "md" : "lg"} glow className={cn(box, "[&_svg]:text-[2.5rem]")} />
+      ) : (
+        <span aria-hidden className={cn("grid place-items-center rounded-2xl border-2 border-primary/60 bg-secondary text-primary", box)}>
+          <Icon name="treasure-chest" variant="solid" size={small ? "xl" : "2xl"} />
+        </span>
+      )
+    ) : state === "opened" ? (
+      <span aria-hidden data-spent="" className={cn("grid place-items-center rounded-2xl border-2 border-border bg-secondary/50 text-muted-foreground opacity-40", box)}>
+        <Icon name="treasure-chest" variant="solid" size={small ? "xl" : "2xl"} />
+      </span>
+    ) : (
+      <span
+        aria-hidden
+        className={cn(
+          "grid place-items-center rounded-2xl border-2 border-dashed transition-colors",
+          ready ? "border-primary bg-primary/10 text-primary shadow-[0_0_2rem_-0.5rem_var(--primary)]" : "border-border",
+          box,
+        )}
+      >
+        {ready && <Icon name="sparkles" size={small ? "xl" : "2xl"} />}
+      </span>
+    );
+  const body = (
+    <>
       <m.div
         className="relative"
         initial={ready && !reduced ? { scale: 0.6, opacity: 0 } : false}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 380, damping: 16, delay: ready && !reduced ? index * 0.12 : 0 }}
       >
-        {won ? (
-          rank ? (
-            <ChestBadge rank={rank} size={small ? "md" : "lg"} className={cn(box, "[&_svg]:text-[2.5rem]")} />
-          ) : (
-            <span aria-hidden className={cn("grid place-items-center rounded-2xl border-2 border-primary/60 bg-secondary text-primary", box)}>
-              <Icon name="treasure-chest" size={small ? "xl" : "2xl"} />
-            </span>
-          )
-        ) : (
-          <span
-            aria-hidden
-            className={cn(
-              "grid place-items-center rounded-2xl border-2 border-dashed text-muted-foreground/40 transition-colors",
-              ready ? "border-primary bg-primary/10 text-primary shadow-[0_0_2rem_-0.5rem_var(--primary)]" : "border-border bg-background/40",
-              box,
-            )}
-          >
-            <Icon name={ready ? "sparkles" : "treasure-chest"} size={small ? "xl" : "2xl"} />
-          </span>
-        )}
-        {won && (
-          <span aria-hidden className="absolute -right-1.5 -bottom-1.5 grid size-6 place-items-center rounded-full bg-success text-background">
-            <Icon name="check" size="xs" />
-          </span>
-        )}
+        {art}
       </m.div>
       {/* The pedestal. */}
-      <span aria-hidden className={cn("h-2 rounded-[50%]", small ? "w-14" : "w-20", won ? "bg-muted-foreground/40" : ready ? "bg-primary/50" : "bg-secondary")} />
-      <span aria-hidden className={cn("text-xs font-semibold", won ? "text-foreground" : ready ? "text-primary" : "text-muted-foreground")}>
-        {won ? "Won" : ready ? "Ready" : "Free"}
+      <span aria-hidden className={cn("h-2 rounded-[50%]", small ? "w-14" : "w-20", state === "won" ? "bg-muted-foreground/40" : ready ? "bg-primary/50" : "bg-secondary")} />
+      <span aria-hidden className={cn("text-xs font-semibold", state === "won" || ready ? "text-primary" : "text-muted-foreground")}>
+        {state === "free" && ready ? "Ready" : state === "won" && !onOpen ? "Won" : STATE_TEXT[state]}
       </span>
+    </>
+  );
+  return (
+    <li aria-label={name} data-slot-state={state === "free" && ready ? "ready" : state} className="flex flex-col items-center">
+      {state === "won" && onOpen ? (
+        <button
+          type="button"
+          aria-label={`Open the ${chest} of slot ${index + 1}`}
+          onClick={onOpen}
+          className="state-layer flex flex-col items-center gap-1.5 rounded-2xl p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {body}
+        </button>
+      ) : (
+        <div aria-disabled={state === "opened" || undefined} className="flex flex-col items-center gap-1.5 p-1">
+          {body}
+        </div>
+      )}
     </li>
   );
 }
