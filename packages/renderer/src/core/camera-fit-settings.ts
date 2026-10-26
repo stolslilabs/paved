@@ -26,12 +26,34 @@ export const FRAME_INSETS = {
 /** The width from which the larger HUD's insets apply: the app's `tablet` breakpoint, in CSS px. */
 export const FRAME_TABLET_PX = 640;
 
+/**
+ * The frame's floor by width class, in cells (V2-PHONE-ZOOM, #791): a board smaller than `cells` x `cells` is framed as
+ * that square widened by `margin` cells on each side. On a phone held upright the width binds, so a game opens on three
+ * cells across (the starter and one cell on each side) and a third of a cell beyond each, about 3.7 cells. From the
+ * `tablet` breakpoint (`FRAME_TABLET_PX`) the five cells of #678, no margin. A board that has outgrown the floor is framed
+ * as its tiles and their ring, with no margin.
+ */
+export interface FrameFloor {
+  cells: number;
+  margin: number;
+}
+
+export const FRAME_FLOORS = {
+  phone: { cells: 3, margin: 1 / 3 },
+  tablet: { cells: 5, margin: 0 },
+} as const satisfies Record<string, FrameFloor>;
+
 /** The camera's opening frame (`RendererSettings.cameraFit`). */
 export interface CameraFitSettings {
   /** Frame the board at the opening, on a resize while the player has not moved the camera, and on `recenter`. Off: the camera opens at `OPENING_DISTANCE` over the starter. */
   enabled: boolean;
-  /** The frame is at least this many cells wide and deep (5: the starter, its slots and one more ring), so the starter alone never fills the screen. */
-  floorCells: number;
+  /**
+   * The frame is at least this many cells wide and deep, so the starter alone never fills the screen, or `"auto"`:
+   * `FRAME_FLOORS` by the surface's width (3 on a phone, 5 from `tablet`: the starter, its slots and one more ring).
+   */
+  floorCells: number | "auto";
+  /** Cells added on each side of the floor when it binds, or `"auto"`: `FRAME_FLOORS` by width (a third on a phone, none from `tablet`). */
+  marginCells: number | "auto";
   /** Free cells framed around the placed tiles: 1, the ring of their free slots. */
   ring: number;
   /** The HUD's room in CSS px, or `"auto"`: `FRAME_INSETS` by the surface's width. */
@@ -45,7 +67,8 @@ export interface CameraFitSettings {
 
 export const DEFAULT_CAMERA_FIT_SETTINGS: CameraFitSettings = {
   enabled: true,
-  floorCells: 5,
+  floorCells: "auto",
+  marginCells: "auto",
   ring: 1,
   insets: "auto",
   followBoard: false,
@@ -71,7 +94,9 @@ export interface CameraFitInput {
   /** The tilt from straight down, in radians (`PLAY_DEFAULT_POLAR_ANGLE`); the camera leans towards +z. */
   polar?: number;
   insets?: FrameInsets;
+  /** The floor and its margin, in cells; by default `FRAME_FLOORS` by `width`. */
   floorCells?: number;
+  marginCells?: number;
   ring?: number;
   /** The closest and farthest the frame may put the camera (`CLOSEST_DISTANCE`, and today's opening, `OPENING_DISTANCE`). */
   minDistance?: number;
@@ -86,7 +111,7 @@ export interface CameraFit {
   target: { x: number; z: number };
   /** The camera's distance from it, at the tilt given. */
   distance: number;
-  /** The framed area on the ground, in world units: the tiles and their ring, widened to the floor, centred on them. */
+  /** The framed area on the ground, in world units: the tiles and their ring, widened to the floor and its margin, centred on them. */
   area: { minX: number; maxX: number; minZ: number; maxZ: number };
   limitedBy: CameraFitLimit;
 }
@@ -94,4 +119,9 @@ export interface CameraFit {
 /** The insets of a surface `width` px wide, for `"auto"`. */
 export function frameInsetsFor(width: number): FrameInsets {
   return width >= FRAME_TABLET_PX ? FRAME_INSETS.tablet : FRAME_INSETS.phone;
+}
+
+/** The floor of a surface `width` px wide, for `"auto"`. */
+export function frameFloorFor(width: number): FrameFloor {
+  return width >= FRAME_TABLET_PX ? FRAME_FLOORS.tablet : FRAME_FLOORS.phone;
 }

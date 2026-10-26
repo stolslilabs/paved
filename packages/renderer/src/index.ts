@@ -77,8 +77,8 @@ export {
 export type { RendererSettings, RendererSettingsInput, CameraZoomSettings, PixelRatioDevice } from "./core/settings";
 // The camera's opening frame (CAMERA-FIT, #678): its settings here; the fit itself (`core/camera-fit.ts`) is a chunk of its
 // own, loaded by the scene.
-export { frameInsetsFor, FRAME_INSETS, FRAME_TABLET_PX, DEFAULT_CAMERA_FIT_SETTINGS } from "./core/camera-fit-settings";
-export type { CameraFit, CameraFitInput, CameraFitLimit, CameraFitSettings, CellExtent, FrameInsets } from "./core/camera-fit-settings";
+export { frameFloorFor, frameInsetsFor, FRAME_FLOORS, FRAME_INSETS, FRAME_TABLET_PX, DEFAULT_CAMERA_FIT_SETTINGS } from "./core/camera-fit-settings";
+export type { CameraFit, CameraFitInput, CameraFitLimit, CameraFitSettings, CellExtent, FrameFloor, FrameInsets } from "./core/camera-fit-settings";
 export const loadCameraFit = (): Promise<typeof import("./core/camera-fit")> => import("./core/camera-fit");
 export {
   DEFAULT_PLACEMENT_SETTINGS,
