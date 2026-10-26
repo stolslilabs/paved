@@ -99,7 +99,8 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks.
     const found = screen.findByRole("heading", { name: "Village found" }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Attack/ }));
-    expect(await found).toBeInTheDocument();
+    // Found means it was drawn: by the time a loaded machine checks again, its 1.2 s may be over and the scout drawn instead.
+    expect((await found).textContent).toBe("Village found");
     expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
     const match = await s.ledger.pvpMatch(s.me);
     const rival = mockRival(match.opponent)!;
