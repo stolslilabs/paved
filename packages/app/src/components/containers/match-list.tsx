@@ -102,17 +102,16 @@ export function MatchCard({ match: m, now, onOpen }: { match: MatchCardData; now
       data-side={m.side}
       aria-label={cardName(m)}
       onClick={() => onOpen?.(m.id)}
-      className="state-layer relative isolate flex w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="state-layer relative flex w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {m.village && m.village.length > 0 && (
         // The village larger than the card, its middle in view (the card crops it), faded toward the text.
-        <div aria-hidden inert className="pointer-events-none absolute top-1/2 right-0 -z-10 h-[260%] w-4/5 -translate-y-1/2 opacity-70 [mask-image:linear-gradient(to_right,transparent,black_55%)]">
+        <div aria-hidden inert className="pointer-events-none absolute top-1/2 right-0 h-[260%] w-3/4 -translate-y-1/2 opacity-40 [mask-image:linear-gradient(to_right,transparent,black_55%)]">
           <BoardMap tiles={[...m.village]} fit className="bg-transparent p-0" />
         </div>
       )}
-      <span aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-card via-card/80 to-card/10" />
-      <span aria-hidden className={cn("absolute inset-y-0 left-0 -z-10 w-1", attack ? "bg-info" : "bg-warning")} />
-      <div className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-3 pl-4">
+      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", attack ? "bg-info" : "bg-warning")} />
+      <div className="relative flex min-w-0 flex-1 items-center gap-3 py-3 pr-3 pl-4">
         <PlayerAvatar player={m.rival} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex min-w-0 items-center gap-2">
