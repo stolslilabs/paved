@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
-import { BalancesProvider, type HeaderBalances } from "../src/components/containers/balances-context";
+import { BalancesProvider } from "../src/components/containers/balances-context";
 import { PagePanelProvider } from "../src/components/containers/page-panel-context";
 import { TabPage } from "../src/components/containers/tab-page";
 import { TopBar } from "../src/components/containers/top-bar";
@@ -262,37 +262,36 @@ describe("below desktop the same routes are full pages (#762, #763)", () => {
   });
 });
 
-describe("the panel's header (#762)", () => {
+describe("the panel's header (#762, #781)", () => {
   const BALANCES = { state: { status: "ready", usdc: 0n, paved: 0n, cobbles: 640 }, faucet: false } as const;
-  const inPanel = (show: HeaderBalances, page: React.ReactNode, top = true) =>
+  const inPanel = (page: React.ReactNode, top = true) =>
     render(
       <LazyMotion features={domMax}>
-        <BalancesProvider value={{ ...BALANCES, show }}>
+        <BalancesProvider value={BALANCES}>
           <PagePanelProvider value={{ top }}>{page}</PagePanelProvider>
         </BalancesProvider>
       </LazyMotion>,
     );
 
-  it("shows the Cobbles in the header only where the page's rule shows them, and never under it nor the desktop's rail", async () => {
-    inPanel({ phone: true, desktop: "all" }, <TopBar title="Chests" onBack={vi.fn()} />);
-    const header = screen.getByRole("heading", { level: 1, name: "Chests" }).closest("header")!;
+  // In the panel the `desktop` variant does not apply (`data-page-panel`, theme.css): the pill shows, the rail stays hidden.
+  it.each([
+    ["a flow's top bar", () => <TopBar title="Chests" onBack={vi.fn()} />, "Chests"],
+    ["a tab page", () => <TabPage tab="vault" title="Vault">Body</TabPage>, "Vault"],
+  ])("%s: the home's balances in the header and no close button (#782), nothing under it, no Back on the overlay's own page", async (_, page, title) => {
+    inPanel(page());
+    const header = screen.getByRole("heading", { level: 1, name: title }).closest("header")!;
     const regions = await screen.findAllByRole("region", { name: "Balances" });
-    expect(regions).toHaveLength(1);
-    expect(header).toContainElement(regions[0]!);
+    expect(regions).toHaveLength(2);
+    for (const region of regions) expect(header).toContainElement(region);
     // No close button in the panel's header (#782).
     expect(within(header).queryByRole("button", { name: "Close" })).toBeNull();
     expect(within(header).queryByRole("button", { name: "Back" })).toBeNull();
-  });
-
-  it("shows none where the page's rule has none on a phone", () => {
-    inPanel({ phone: false, desktop: "all" }, <TabPage tab="vault" title="Vault">Body</TabPage>);
-    expect(screen.queryAllByRole("region", { name: "Balances" })).toHaveLength(0);
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   });
 
   it("keeps Back on a page reached from another", () => {
-    inPanel({ phone: true, desktop: "all" }, <TabPage tab="settings" title="Themes" onBack={vi.fn()}>Body</TabPage>, false);
+    inPanel(<TabPage tab="settings" title="Themes" onBack={vi.fn()}>Body</TabPage>, false);
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   });

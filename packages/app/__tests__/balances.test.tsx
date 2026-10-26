@@ -32,12 +32,6 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("rail: the Cobbles left out where the page draws its own (#720)", () => {
-    render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 1n }} noCobbles />));
-    expect(screen.getByRole("button", { name: "142.35 PAVED: Vault" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Cobbles/ })).toBeNull();
-  });
-
   it("pill: a guest's tap connects", async () => {
     const onConnect = vi.fn();
     render(wrap(<Balances layout="pill" state={{ status: "disconnected" }} onConnect={onConnect} />));
@@ -124,14 +118,16 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(await screen.findAllByRole("button", { name: "240 Cobbles: Buy packs" })).toHaveLength(2);
   });
 
-  it("a flow's top bar carries the balances too: the Cobbles' strip on a phone, the rail from desktop", async () => {
+  it("a flow's top bar carries the home's balances in its row: the Cobbles' pill on a phone, the rail from desktop (#781)", async () => {
     const { unmount } = render(wrap(<TopBar title="Choose a mode" />));
     expect(screen.queryByRole("region", { name: "Balances" })).toBeNull();
     unmount();
     render(wrap(<BalancesProvider value={{ state: READY }}><TopBar title="Choose a mode" /></BalancesProvider>));
     const regions = await screen.findAllByRole("region", { name: "Balances" });
     expect(regions).toHaveLength(2);
-    expect(regions.map((r) => r.parentElement!.className.includes("desktop:hidden") || r.className.includes("desktop:flex"))).toEqual([true, true]);
+    const bar = screen.getByRole("heading", { level: 1, name: "Choose a mode" }).closest("header")!;
+    for (const region of regions) expect(bar).toContainElement(region);
+    expect(regions.map((r) => r.className)).toEqual([expect.stringContaining("desktop:hidden"), expect.stringContaining("hidden desktop:flex")]);
   });
 });
 

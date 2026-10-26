@@ -18,7 +18,8 @@ const READY = { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_
 /**
  * The side panel of the overlay's pages from `desktop` (DESK-PANELS, #762): 28 rem on the right, over the dimmed village, the page
  * laid out as on a phone (the cards keep their phone height at 1440 px). No close button (#782): a click on the village or
- * Escape closes it. The body scrolls when the page is taller than the panel. The Cobbles show in the header where the page's rule shows them. The scenes in it: `Scenes/Home/Panels`.
+ * Escape closes it. The body scrolls when the page is taller than the panel. The home's Cobbles show in every page's header
+ * (#781). The scenes in it: `Scenes/Home/Panels`.
  */
 const meta = {
   title: "Containers/PagePanel",
@@ -33,7 +34,7 @@ type Story = StoryObj<typeof meta>;
 /** A tab page of the overlay (`TabPage`): no Back, the Cobbles in its header (no close, #782), the content scrolling under it. */
 export const TabPageInPanel: Story = {
   render: (args) => (
-    <BalancesProvider value={{ state: READY, onAction: fn(), show: { phone: true, desktop: "all" } }}>
+    <BalancesProvider value={{ state: READY, onAction: fn() }}>
       <PagePanel {...args}>
         <TabPage tab="quests" title="Missions">
           {CARDS}
@@ -47,7 +48,7 @@ export const TabPageInPanel: Story = {
 export const WithBack: Story = {
   args: { title: "Themes", top: false },
   render: (args) => (
-    <BalancesProvider value={{ state: READY, onAction: fn(), show: { phone: true, desktop: "all" } }}>
+    <BalancesProvider value={{ state: READY, onAction: fn() }}>
       <PagePanel {...args}>
         <TabPage tab="settings" title="Themes" onBack={fn()}>
           {CARDS}
@@ -57,11 +58,11 @@ export const WithBack: Story = {
   ),
 };
 
-/** A flow's top bar as the panel's header (the Chests, the Shop, Play): its title centred, no balance where the rule shows none. */
+/** A flow's top bar as the panel's header (the Chests, the Shop, Play): the same header as a tab page's (#781). */
 export const TopBarInPanel: Story = {
   args: { title: "Vault" },
   render: (args) => (
-    <BalancesProvider value={{ state: READY, onAction: fn(), show: { phone: false, desktop: "all" } }}>
+    <BalancesProvider value={{ state: READY, onAction: fn() }}>
       <PagePanel {...args}>
         <TopBar title="Vault" onBack={fn()} />
         <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-6">{CARDS}</main>
