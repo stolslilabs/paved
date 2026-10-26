@@ -52,7 +52,7 @@ const meta = {
       <ProfileProvider
         value={{
           state: args.guest ? { status: "guest" } : { status: "connected", data: PLAYER_STATUS },
-          progress: PROGRESS.start,
+          progress: PROGRESS.partWay,
                 onDisconnect: fn(),
           onCopy: fn(async () => {}),
         }}

@@ -26,4 +26,6 @@ export const PROGRESS = {
   nearlyFull: { level: 7, xp: 470, xpForNext: 500 },
   /** WRAP360: a level and a threshold in the thousands. */
   stress: { level: 1_234, xp: 98_765, xpForNext: 123_456 },
+  /** The level cap (20, #734): the view's next level is its floor, nothing left to make (#787's "Max level"). */
+  maxLevel: { level: 20, xp: 0, xpForNext: 0 },
 } satisfies Record<string, PlayerProgress>;
