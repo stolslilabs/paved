@@ -1,6 +1,6 @@
 /** The editor's random compact layout (#803): valid, as many tiles as fit, near a square, the seed's determinism, the budget. */
 import { describe, expect, it } from "vitest";
-import { BASE_PLAN_CODES, STARTER_LAYOUTS, inventoryOf, layoutRefusal, randomLayout, sameLayout, type LayoutTile } from "../src";
+import { BASE_PLAN_CODES, RANDOM_LAYOUT_MS, STARTER_LAYOUTS, inventoryOf, layoutRefusal, randomLayout, sameLayout, type LayoutTile } from "../src";
 
 /** A stock of `copies` of every plan. */
 const every = (copies: number) => BASE_PLAN_CODES.map(() => copies);
@@ -72,12 +72,13 @@ describe("randomLayout", () => {
     expect(randomLayout(every(3), 28, 5, { ms: 0, now: () => 0 }).tries).toBe(1);
   });
 
-  it("runs within its default budget", () => {
-    const start = performance.now();
-    // Every try runs (about 20 ms here), or the tries stop at 150 ms: a try started just before runs on (a try is a few ms).
-    const result = randomLayout(every(1), 28, 11);
-    expect(performance.now() - start).toBeLessThan(400);
-    // Out of time on a loaded machine, the best found so far: valid, whatever its size.
+  it("stops at 150 ms by default", () => {
+    // The clock reads 10 ms more at each look: the tries stop once it reads 150 ms from the start, whatever the machine's load.
+    let clock = 0;
+    const result = randomLayout(every(1), 28, 11, { now: () => (clock += 10) });
+    expect(RANDOM_LAYOUT_MS).toBe(150);
+    expect(result.timedOut).toBe(true);
+    expect(result.tries).toBe(15);
     expect(layoutRefusal(result.tiles, { slots: 28, inventory: every(1) })).toBeNull();
   });
 });
