@@ -2,6 +2,7 @@ import { slotsOf } from "@paved/game-core";
 import type { PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE } from "../lib/pvp-rules";
 import { ATTACK_STAR_PERCENTS, ATTACK_VIEW, attackDeckSize, attackStars } from "../lib/pvp-v2-rules";
+import { attackDeckSheet, type AttackDeckSheet } from "../lib/attack-deck-sheet";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
 import { MOCK_NOW } from "./clock";
@@ -49,6 +50,15 @@ export const PVP_V2_SCOUT = {
 // Attack
 
 /**
+ * The attack's deck sheet (#789) after `played` moves of `V2_DECK` (each placed, or discarded where the stories' player
+ * discarded it): the village's 19 tiles by plan and the 4 extras, the played ones crossed out, the next three seen.
+ */
+export function attackV2Deck(played: number, steps: readonly AttackStep[] = V2_ATTACK_STEPS): AttackDeckSheet {
+  const moves = V2_DECK.slice(0, played).map((plan, k) => ({ plan, discard: steps[k + 1]?.placed == null }));
+  return attackDeckSheet({ defenderPlans: placedPlans(RIVAL_V2_VILLAGE), size: V2_DECK_SIZE, moves, view: V2_DECK.slice(played, played + ATTACK_VIEW) });
+}
+
+/**
  * The attack scene at step `i` of `steps`: the board with no territory, the score against the 80 / 90 / 100 % marks, the tile
  * in hand and the next two of the deck (`ATTACK_VIEW`), the deck's tiles left.
  */
@@ -68,6 +78,7 @@ export function attackV2At(steps: readonly AttackStep[], i: number): Data<PvpAtt
     hand: { tile: step.hand, state: step.hand ? "placing" : "empty", coming, fitsNowhere: step.hand !== null && step.slots.length === 0 },
     slots: step.slots,
     pilePlans: V2_DECK,
+    deck: attackV2Deck(at, steps),
   };
 }
 

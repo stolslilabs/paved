@@ -25,6 +25,7 @@ import { useSfx } from "../containers/audio-provider";
 import { TileStack, type HandState, type StackFrame } from "../containers/tile-stack";
 import type { GameAction } from "../containers/device-settings-sheet";
 import { COACH_RING, type CoachTarget } from "../containers/coach";
+import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 export type { CoachTarget } from "../containers/coach";
 
 export type BoardMode = "challenge" | "training" | "story" | "attack";
@@ -40,6 +41,8 @@ export interface AttackSlots {
   replay?: ReactNode;
   /** v1's territory (the defender's owned cells), drawn by the plan view; v2's open board has none. */
   territory?: readonly { x: number; y: number }[];
+  /** PvP v2's deck (#789, `attackDeckSheet`): the stack opens the deck sheet on it. v1's attack has none, and no sheet. */
+  deck?: AttackDeckSheet;
 }
 
 // The Surrender and Restart dialogs (and Radix under them) are not the first frame's: their module loads at the first
@@ -165,8 +168,8 @@ export interface BoardSceneProps {
 /**
  * The game board (`/game/:id`, `/training`, `/story/:campaign/:level`, and PvP's attack and replay through `PvpAttackScene`):
  * the scene full screen, its header, the closings, the tile stack (the hand, bottom right, #606). The gear's settings carry the
- * game's Surrender (Challenge) or Restart (Story mode, Training), each confirmed by a dialog; an attack has neither, and its deck
- * (shuffled, two tiles known) has no sheet.
+ * game's Surrender (Challenge) or Restart (Story mode, Training), each confirmed by a dialog; an attack has neither. Its deck
+ * sheet (#789) shows the defender's tiles and the extras drawn at random, never the order.
  */
 export function BoardScene(props: BoardSceneProps) {
   const { mode, gameId, tiles, hand, now } = props;
@@ -318,7 +321,7 @@ export function BoardScene(props: BoardSceneProps) {
             renderTile={props.renderHandTile}
             renderStack={props.renderHandStack}
             pilePlans={pilePlans}
-            onDeck={mode === "attack" ? undefined : openDeck}
+            onDeck={mode === "attack" && !attack?.deck ? undefined : openDeck}
             onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
             discardCost={discardCost}
             onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
@@ -332,6 +335,7 @@ export function BoardScene(props: BoardSceneProps) {
 
       {deckSheet && (
         <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} order={props.deckOrder}
+          attack={attack?.deck}
           handPlan={hand.tile?.plan ?? null}
           tileArt={props.tileArt}
           renders={props.tileRenders}
