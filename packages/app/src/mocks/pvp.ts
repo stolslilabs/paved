@@ -1,7 +1,11 @@
-import { CENTER } from "@paved/game-core";
+import { CENTER, levelStatus, pvpXp } from "@paved/game-core";
+import { sideSettings } from "../data/board-side";
+import { BOARD_FOG, squareGridSettings } from "../data/settings";
+import { APP_ASSETS } from "./assets";
 import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE, crownsFor, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
+import type { PvpEndSceneProps } from "../components/scenes/pvp-end-scene";
 import type { DefenceEntry, PvpDefenceSceneProps } from "../components/scenes/pvp-defence-scene";
 import type { PvpLeagueSceneProps } from "../components/scenes/pvp-league-scene";
 import type { PvpResultSceneProps } from "../components/scenes/pvp-result-scene";
@@ -251,3 +255,67 @@ export const PVP_LEAGUE = {
   unranked: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
   ended: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW - 2 * HOUR }, now: MOCK_NOW },
 } satisfies Record<string, Data<PvpLeagueSceneProps>>;
+
+// End (#790): PvP v2's end screen
+
+/** The rival village's score, the v2 attack's target: 80 / 90 / 100 % of it are the stars. */
+const END_TARGET = RIVAL_VILLAGE.score;
+const endScore = (percent: number) => Math.round((END_TARGET * percent) / 100);
+
+/** The attack's final board in the rival's red void (#772), on the app's compressed models (the plan view without WebGL). */
+const END_BOARD = {
+  tiles: ATTACK_STEPS.at(-1)!.tiles,
+  basePath: APP_ASSETS,
+  settings: sideSettings("rival", squareGridSettings(true, ""), BOARD_FOG),
+} as const;
+
+/** Every closing of the stories' attack, with the move that closed it. */
+const END_CLOSINGS = ATTACK_STEPS.flatMap((s, i) => s.lastScored.map((c) => ({ ...c, move: i })));
+
+/** The player's XP after an attack that gave `gained`: level 5, near 6. */
+function endXp(gained: number, xp = 1_480) {
+  const after = levelStatus(xp);
+  return { gained, xp: after.xp, level: after.level, floor: after.floor, next: after.next, levelBefore: levelStatus(xp - gained).level };
+}
+
+function end(stars: number, percent: number, crowns: number, extra: Partial<Data<PvpEndSceneProps>> = {}): Data<PvpEndSceneProps> {
+  const rank = (["bronze", "silver", "gold"] as const)[stars - 1];
+  return {
+    defender: RIVAL,
+    stars,
+    score: endScore(percent),
+    target: END_TARGET,
+    crowns,
+    crownsAfter: ME.crowns + crowns,
+    xp: endXp(pvpXp(stars)),
+    chest: rank ? { state: "won", rank } : { state: "none" },
+    closings: END_CLOSINGS,
+    board: END_BOARD,
+    now: MOCK_NOW,
+    ...extra,
+  };
+}
+
+/** The day's PvP chest slots full: the next one at the next UTC day, 5 h away. */
+const CAPPED_AT = MOCK_NOW + 4 * HOUR + 40 * 60;
+
+export const PVP_END = {
+  /** Under 80 %: no star, crowns lost, no chest. */
+  zeroStars: end(0, 72, -STAKES.loss),
+  /** 80 %: a bronze chest. */
+  oneStar: end(1, 84, STAKES.win[0]),
+  /** 95 %: a silver chest, still in Silver II. */
+  twoStars: end(2, 95, STAKES.win[1]),
+  /** Past the village's score: a gold chest, and the crowns carry the attacker into Silver I. */
+  threeStars: end(3, 104, STAKES.win[2]),
+  /** A defeat that drops the attacker out of Silver II. */
+  dropped: { ...end(0, 64, -STAKES.loss), crownsAfter: 990 },
+  /** Stars won, but the day's 3 PvP chest slots are full: the chest grey and disabled, with the wait. */
+  chestCapped: end(2, 92, STAKES.win[1], { chest: { state: "capped", rank: "silver", resetsAt: CAPPED_AT } }),
+  /** A level reached with the attack's XP. */
+  levelUp: end(3, 101, STAKES.win[2], { xp: endXp(pvpXp(3), levelStatus(1_480).floor + 10) }),
+  /** The attack given up: 0 stars and what it cost. */
+  surrendered: end(0, 40, -STAKES.loss, { surrendered: true }),
+  /** The level still being read. */
+  xpLoading: end(2, 95, STAKES.win[1], { xp: null }),
+} satisfies Record<string, Data<PvpEndSceneProps>>;

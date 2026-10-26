@@ -15,7 +15,7 @@ import { fakeWallet } from "./wallet-fakes";
 
 // `/pvp` on PvP v2 (#740) on the mock's rules and ledger (#741): the search draws a rival village, the scout shows the deck
 // the attack will have (ceil(1.15 x S)), the attack plays it on an unbounded board with the tile in hand and the next two, its
-// marks at 80 / 90 / 100 %; the last tile ends it and the page goes back to the league.
+// marks at 80 / 90 / 100 %; the last tile ends it on its end screen (`/pvp/result/:id`, #790), whose Back goes to the league.
 
 const WAIT = { timeout: slow(8000) };
 
@@ -31,7 +31,7 @@ async function open(path: string, prepare?: (s: ReturnType<typeof mockImplementa
 
 preloadPages("home");
 beforeAll(async () => {
-  await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pvp-v2"), import("../src/routes/pages/pvp-league")]);
+  await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pvp-v2"), import("../src/routes/pages/pvp-league"), import("../src/routes/pages/pvp-result"), import("../src/routes/pvp-v2-end"), import("../src/components/containers/final-board")]);
 }, slow(60_000));
 beforeEach(() => {
   queryClient.clear();
@@ -74,7 +74,7 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(screen.getByRole("button", { name: /^Tiles left/ })).toHaveTextContent(String(attackDeckSize(rival.slots) - 1));
   });
 
-  it("resumes an open attack, and its last tile ends it: the stars told, back to the league", async () => {
+  it("resumes an open attack, and its last tile ends it on its end screen; Back goes to the league", async () => {
     const s = await open("/pvp", async (s, me) => {
       const writes = s.ledger.writesFor(me);
       await writes.foundFreeVillage();
@@ -87,8 +87,29 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(screen.getByRole("button", { name: /^Tiles left/ })).toHaveTextContent("1");
     expect(screen.queryByTestId("coming-tiles")).toBeNull();
     await discardTile();
-    expect(await screen.findByText("0 stars", {}, WAIT)).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Attack over" }, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "0 of 3 stars" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Defeat" })).toBeInTheDocument();
+    // No star: no chest, and no Open chest.
+    expect(screen.queryByRole("region", { name: "Chest" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Open chest/ })).toBeNull();
     expect((await s.ledger.attackV2(s.me)).attack!.status).toBe("finished");
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
+  });
+
+  it("shows a finished attack's end again on a reload of its route: a surrender, said with what it cost", async () => {
+    await open("/pvp/result/1", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      await writes.drawOpponentV2("search");
+      await writes.startAttackV2();
+      await writes.surrenderAttackV2();
+    });
+    expect(await screen.findByRole("heading", { name: "Surrendered" }, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Attack over" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Crowns" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /League/ }));
+    expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
   });
 });
