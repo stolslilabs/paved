@@ -51,6 +51,7 @@ export const MOCKED_GAME_READS = [
   "chests",
   "shop",
   "attackV2",
+  "attackV2Of",
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers; `pavedBalance` and `usdcBalance` are the chain's, adjusted by the mock's moves. */
