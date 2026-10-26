@@ -62,6 +62,11 @@ export interface HomeVillageSceneProps {
   initialHand?: { plan: number } | { lift: number } | null;
   initialPending?: Spot | null;
   initialLeaving?: boolean;
+  /**
+   * A page over the scene (from `desktop`, a side panel, #762: the route is a child of the home's): the view's points close
+   * under it (#792), and stay closed when it goes.
+   */
+  covered?: boolean;
   /** Where the stories start: the view's points open (#758), a line lit (its structure's key); in edit mode, the editor's points unfolded. */
   initialPointsOpen?: boolean;
   initialLit?: string | null;
@@ -138,7 +143,10 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     setPointsOpen(false);
     setLit(null);
   };
-  const showPoints = pointsOpen && !editing && !!village;
+  // Never open behind edit mode or a side panel (#792): closed when either comes, however it came (the URL included).
+  const covered = props.covered ?? false;
+  if ((editing || covered) && (pointsOpen || lit !== null)) closePoints();
+  const showPoints = pointsOpen && !editing && !covered && !!village;
   const stage: VillageStageProps = {
     village,
     editable,

@@ -87,6 +87,8 @@ export const ReadFailed: Story = { args: HOME_VILLAGE.error };
 export const Saved: Story = { args: HOME_VILLAGE.saved };
 /** The score chip tapped (#758): the points by structure, a line lit (on the plan view, its tiles ringed, the rest dimmed). */
 export const Points: Story = { args: HOME_VILLAGE.points };
+/** A Wonder's line lit (#792): the wonder's tile alone, not the 8 around it, which the line still counts. */
+export const PointsWonder: Story = { args: HOME_VILLAGE.pointsWonder };
 /** Edit mode: the editor's bar (Back, the score, the slots, Reset all), the inventory and Save. */
 export const Editing: Story = { args: HOME_VILLAGE.editing };
 /** Edit mode's points unfolded above the inventory (#758), a line lit. */
@@ -156,6 +158,29 @@ export const ScenePoints: Story = { args: HOME_VILLAGE.points, render: (args) =>
 export const SceneEditingPoints: Story = { args: HOME_VILLAGE.editingPoints, render: (args) => <InScene {...args} /> };
 export const SceneEditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted, render: (args) => <InScene {...args} /> };
 
+/** A Wonder's line lit on the scene (#792): the wonder's tile alone lit, the rest of the board dimmed as for any line. */
+export const ScenePointsWonder: Story = { args: HOME_VILLAGE.pointsWonder, render: (args) => <InScene {...args} /> };
+
+/**
+ * A press on the scene, away from the overlays (its middle, a little low): a tap (`by` 0), or a drag of `by` px across, as a
+ * finger panning the village.
+ */
+async function pressScene(canvasElement: HTMLElement, by: number) {
+  await within(canvasElement).findByRole("region", { name: "Village points" }, { timeout: 10_000 });
+  const box = canvasElement.getBoundingClientRect();
+  const x = box.left + box.width / 2;
+  const y = box.top + box.height * 0.55;
+  const target = document.elementFromPoint(x, y) ?? canvasElement;
+  const at = (dx: number) => ({ pointerId: 7, pointerType: "touch", isPrimary: true, button: 0, clientX: x + dx, clientY: y });
+  fireEvent.pointerDown(target, at(0));
+  for (let step = 1; step <= 4; step++) fireEvent.pointerMove(target, at((by * step) / 4));
+  fireEvent.pointerUp(target, at(by));
+}
+/** A tap on the scene outside the open points (#792): the panel closes, the light off. At 375 and 1440 px. */
+export const ScenePointsTapOutside: Story = { ...ScenePoints, play: ({ canvasElement }) => pressScene(canvasElement, 0) };
+/** A drag on the scene outside the open points (#792), a pan: the panel stays open, the structure still lit. At 375 and 1440 px. */
+export const ScenePointsDragOutside: Story = { ...ScenePoints, play: ({ canvasElement }) => pressScene(canvasElement, 80) };
+
 /** A cold arrival (#761), the village and its assets still loading: the overlays in view and usable over a thick fog. */
 export const Fogged: Story = { args: { ...HOME_VILLAGE.view, arrival: "fog" }, render: (args) => <InScene {...args} held /> };
 /** A cold arrival as it plays: the fog thins out (600 ms) once the canvas says the village and its assets are drawn. */
@@ -176,6 +201,12 @@ export const SceneMovedPhone: Story = { ...SceneMoved, ...PHONE_375 };
 export const SceneMovedWide: Story = { ...SceneMoved, ...WIDE_1440 };
 export const ScenePointsPhone: Story = { ...ScenePoints, ...PHONE_375 };
 export const ScenePointsWide: Story = { ...ScenePoints, ...WIDE_1440 };
+export const ScenePointsWonderPhone: Story = { ...ScenePointsWonder, ...PHONE_375 };
+export const ScenePointsWonderWide: Story = { ...ScenePointsWonder, ...WIDE_1440 };
+export const ScenePointsTapOutsidePhone: Story = { ...ScenePointsTapOutside, ...PHONE_375 };
+export const ScenePointsTapOutsideWide: Story = { ...ScenePointsTapOutside, ...WIDE_1440 };
+export const ScenePointsDragOutsidePhone: Story = { ...ScenePointsDragOutside, ...PHONE_375 };
+export const ScenePointsDragOutsideWide: Story = { ...ScenePointsDragOutside, ...WIDE_1440 };
 export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_375 };
 export const SceneEditingPointsWide: Story = { ...SceneEditingPoints, ...WIDE_1440 };
 export const SceneEditingPointsLiftedPhone: Story = { ...SceneEditingPointsLifted, ...PHONE_375 };

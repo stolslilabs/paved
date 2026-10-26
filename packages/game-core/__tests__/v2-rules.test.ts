@@ -1,7 +1,12 @@
 /** The rules of PvP v2 (#732, #741): the free village, slots and XP, starter layouts, the attack, chests, the shop, quests. */
 import { describe, expect, it } from "vitest";
 import {
+  ALL_AREAS,
   ATTACK_STAR_PERCENTS,
+  CategoryType,
+  EngineGame,
+  OrientationType,
+  PlanType,
   CHEST_CHOICES,
   LEVEL_CAP,
   PVP_CHESTS_PER_DAY,
@@ -183,6 +188,27 @@ describe("a layout's points by structure", () => {
     const untouched = before.filter((l) => !l.areas.some((a) => a.x === last.x && a.y === last.y));
     expect(untouched.length).toBeGreaterThan(0);
     for (const l of untouched) expect(after.has(l.key)).toBe(true);
+  });
+
+  it("lights a line's own areas, but a wonder's tile alone, its line still counting the 9 (#792)", () => {
+    for (const line of layoutBreakdown(STARTER).lines) expect(line.lit).toBe(line.areas);
+    // A wonder at (1, 0), its 8 around it: the starter, six written and the last built, which closes it.
+    const game = EngineGame.start({ deck: "simple", seed: 0n });
+    game.force(PlanType.WFFFFFFFR);
+    game.build({ orientation: OrientationType.North, x: 1, y: 0 });
+    [[1, 1], [2, 1], [2, 0], [2, -1], [1, -1], [0, -1]].forEach(([x, y], index) => {
+      game.write({ id: 100 + index, plan: PlanType.FFFFFFCFF, orientation: OrientationType.North, x: x!, y: y! });
+    });
+    game.force(PlanType.FFFFFFCFF);
+    game.build({ orientation: OrientationType.North, x: 0, y: 1 });
+    const { lines } = breakdownOf(game);
+    const wonder = lines.find((l) => l.category === CategoryType.Wonder)!;
+    expect(wonder.tiles).toBe(9);
+    expect(wonder.areas).toHaveLength(9);
+    expect(wonder.points).toBeGreaterThan(0);
+    expect(wonder.lit).toEqual([{ x: 1, y: 0, areas: ALL_AREAS }]);
+    // The other lines light what they hold.
+    for (const line of lines.filter((l) => l !== wonder)) expect(line.lit).toBe(line.areas);
   });
 
   it("is empty for the starter alone, and puts the points no structure holds on their own", () => {
