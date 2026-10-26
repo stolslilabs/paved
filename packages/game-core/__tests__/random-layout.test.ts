@@ -1,6 +1,6 @@
 /** The editor's random compact layout (#803): valid, as many tiles as fit, near a square, the seed's determinism, the budget. */
-import { describe, expect, it } from "vitest";
-import { BASE_PLAN_CODES, RANDOM_LAYOUT_MS, STARTER_LAYOUTS, inventoryOf, layoutRefusal, randomLayout, sameLayout, type LayoutTile } from "../src";
+import { describe, expect, it, vi } from "vitest";
+import { BASE_PLAN_CODES, RANDOM_LAYOUT_STEPS, STARTER_LAYOUTS, inventoryOf, layoutRefusal, randomLayout, sameLayout, type LayoutTile } from "../src";
 
 /** A stock of `copies` of every plan. */
 const every = (copies: number) => BASE_PLAN_CODES.map(() => copies);
@@ -14,7 +14,7 @@ function box(tiles: readonly LayoutTile[]) {
   return { width: Math.max(...xs) - Math.min(...xs) + 1, height: Math.max(...ys) - Math.min(...ys) + 1 };
 }
 
-const unbounded = { ms: Number.POSITIVE_INFINITY };
+const unbounded = { steps: Number.POSITIVE_INFINITY };
 
 describe("randomLayout", () => {
   it.each([
@@ -49,36 +49,52 @@ describe("randomLayout", () => {
     expect(new Set([a.tiles, ...others].map((t) => JSON.stringify(t))).size).toBeGreaterThan(2);
   });
 
+  it("gives the same layout for the same seed under its default budget, however slow the machine", () => {
+    // The review's case: one of each plan, 28 slots, seed 11. The budget counts work, not time, so a clock that runs fast (a
+    // slow machine) changes nothing.
+    const now = vi.spyOn(Date, "now");
+    const runs = [0, 200, 10_000].map((tick) => {
+      let clock = 0;
+      now.mockImplementation(() => (clock += tick));
+      return randomLayout(every(1), 28, 11);
+    });
+    now.mockRestore();
+    for (const run of runs) expect(run).toEqual(runs[0]);
+    expect(randomLayout(every(1), 28, 11).tiles).toEqual(runs[0]!.tiles);
+    const p = vi.spyOn(performance, "now").mockReturnValue(1e12);
+    expect(randomLayout(every(1), 28, 11).tiles).toEqual(runs[0]!.tiles);
+    p.mockRestore();
+  });
+
   it("gives the starter alone for an empty stock", () => {
     expect(randomLayout(every(0), 28, 7).tiles).toEqual([]);
   });
 
-  it("stops at the step budget", () => {
-    // One try only: the first, whatever it gives.
-    expect(randomLayout(every(1), 28, 5, { tries: 1, ms: Number.POSITIVE_INFINITY }).tries).toBe(1);
-    expect(randomLayout(every(1), 28, 5, { tries: 6, ms: Number.POSITIVE_INFINITY }).tries).toBe(6);
+  it("stops at the tries budget", () => {
+    expect(randomLayout(every(1), 28, 5, { tries: 1 }).tries).toBe(1);
+    expect(randomLayout(every(1), 28, 5, { tries: 6 }).tries).toBe(6);
   });
 
-  it("stops at the time budget with the best found, never before the first try", () => {
-    let clock = 0;
-    const now = () => (clock += 100);
-    // One of each plan never fills a perfect box, so every try would run: the clock stops them.
-    const result = randomLayout(every(1), 28, 5, { ms: 250, now });
-    expect(result.timedOut).toBe(true);
-    // The clock reads 100 ms more at each look: the start, then before tries 2 and 3 (100 and 200 ms), then 300 ms.
-    expect(result.tries).toBe(3);
+  it("stops at the step budget with the best found, the same each time, never before the first try", () => {
+    const first = randomLayout(every(1), 28, 5, { tries: 1 });
+    // A budget of two tries' steps: a third try never starts.
+    const budget = { steps: first.steps + 1 };
+    const result = randomLayout(every(1), 28, 5, budget);
+    expect(result.exhausted).toBe(true);
+    expect(result.tries).toBe(2);
+    expect(result.steps).toBeGreaterThanOrEqual(budget.steps);
     expect(layoutRefusal(result.tiles, { slots: 28, inventory: every(1) })).toBeNull();
-    // Out of time at once: the first try still runs.
-    expect(randomLayout(every(3), 28, 5, { ms: 0, now: () => 0 }).tries).toBe(1);
+    expect(randomLayout(every(1), 28, 5, budget)).toEqual(result);
+    // No step at all: the first try still runs.
+    expect(randomLayout(every(3), 28, 5, { steps: 0 }).tries).toBe(1);
   });
 
-  it("stops at 150 ms by default", () => {
-    // The clock reads 10 ms more at each look: the tries stop once it reads 150 ms from the start, whatever the machine's load.
-    let clock = 0;
-    const result = randomLayout(every(1), 28, 11, { now: () => (clock += 10) });
-    expect(RANDOM_LAYOUT_MS).toBe(150);
-    expect(result.timedOut).toBe(true);
-    expect(result.tries).toBe(15);
-    expect(layoutRefusal(result.tiles, { slots: 28, inventory: every(1) })).toBeNull();
+  it("keeps the hardest stock within its default budget, all its tries run", () => {
+    // One of each plan never fills a perfect box, so all 48 tries run: about 91,000 steps, under the budget.
+    const result = randomLayout(every(1), 28, 11);
+    expect(RANDOM_LAYOUT_STEPS).toBe(100_000);
+    expect(result.tries).toBe(48);
+    expect(result.exhausted).toBe(false);
+    expect(result.steps).toBeLessThan(RANDOM_LAYOUT_STEPS);
   });
 });

@@ -239,6 +239,7 @@ export function useLayoutEditor({
   };
 
   const choosePlan = (plan: number | null) => {
+    cancelRoll();
     if (saving) return;
     // Every slot used: no inventory tile comes into the hand.
     if (plan != null && full) return;
@@ -246,6 +247,7 @@ export function useLayoutEditor({
     setHand(plan == null ? null : { from: "inventory", plan });
   };
   const choosePlate = (spot: Spot) => {
+    cancelRoll();
     if (saving || !hand) return;
     if (hand.from === "inventory") {
       // Never past the slots: an inventory tile needs a free one.
@@ -260,6 +262,7 @@ export function useLayoutEditor({
   /** The tile under the bubble let go: it stays where it is. */
   const letGo = () => setHand(null);
   const lift = (tile: BoardTile) => {
+    cancelRoll();
     if (saving) return;
     if (held?.id === tile.id) return letGo();
     if (!canLift(draft, tile.id)) {
@@ -272,12 +275,14 @@ export function useLayoutEditor({
     setHand({ from: "board", id: tile.id, origin: tile });
   };
   const rotate = () => {
+    cancelRoll();
     if (!held || rotations.length < 2) return;
     const next = rotations[(rotations.indexOf(held.orientation) + 1) % rotations.length]!;
     setDraft((d) => d.map((t) => (t.id === held.id ? { ...t, orientation: next } : t)));
   };
   /** The tile in hand back where it started: a lifted tile at its first cell and rotation, an inventory tile in the inventory. */
   const cancel = () => {
+    cancelRoll();
     if (hand?.from === "board") {
       const { id, origin } = hand;
       setDraft((d) => (origin ? d.map((t) => (t.id === id ? origin : t)) : d.filter((t) => t.id !== id)));
@@ -286,10 +291,12 @@ export function useLayoutEditor({
   };
   /** The tile under the bubble back to the inventory: its slot is free. */
   const sendBack = () => {
+    cancelRoll();
     if (held) setDraft((d) => d.filter((t) => t.id !== held.id));
     setHand(null);
   };
   const reset = () => {
+    cancelRoll();
     setDraft([{ ...STARTER }]);
     setHand(null);
   };
@@ -324,7 +331,10 @@ export function useLayoutEditor({
       },
     );
   };
-  /** The build at work stopped: the draft stays as it was. */
+  /**
+   * The build at work stopped: the draft stays as it was. Cancel, and any edit of the player's while the die builds (Reset all,
+   * a tile chosen, placed, lifted, turned or sent back, Save): the build's late answer would undo the edit.
+   */
   const cancelRoll = () => {
     if (rolling === null) return;
     press.current += 1;
@@ -335,6 +345,7 @@ export function useLayoutEditor({
   cancelRollRef.current = cancelRoll;
   rollRef.current = roll;
   const save = () => {
+    cancelRoll();
     if (over) return;
     setHand(null);
     onSave?.(draft, score);

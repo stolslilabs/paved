@@ -42,9 +42,7 @@ class FakeWorker implements WorkerLike {
 }
 
 const STOCK = stockOf(INVENTORY, LAYOUT_GROWING.tiles);
-/** The generator bounded by its tries only, so a seed gives one village however loaded the machine. */
-const UNBOUNDED = { ms: Number.POSITIVE_INFINITY };
-const build = (stock: readonly number[], slots: number, seed: number) => randomLayout(stock, slots, seed, UNBOUNDED);
+const build = (stock: readonly number[], slots: number, seed: number) => randomLayout(stock, slots, seed);
 
 describe("the die's runner", () => {
   it("is missing where Web Workers are (the die is hidden)", () => {
@@ -169,6 +167,29 @@ describe("the die in the editor", () => {
     expect(screen.queryByText("Still building…")).toBeNull();
     expect(screen.getByRole("button", { name: "Random village from your tiles" }).getAttribute("aria-busy")).toBeNull();
     expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+  });
+
+  it("never lets a late answer undo an edit made while it builds: Reset all, a tile placed", async () => {
+    // A build whose answer comes when the test says, and whose cancel does not stop it (the review's delayed worker).
+    const late: ((tiles: ReturnType<typeof build>["tiles"]) => void)[] = [];
+    const randomizer = { run: () => new Promise<ReturnType<typeof build>["tiles"]>((resolve) => void late.push(resolve)), cancel: vi.fn() };
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} />));
+    fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
+    expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
+    // The edit stopped the build: the die is idle, the worker told to stop.
+    expect(randomizer.cancel).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Random village from your tiles" }).getAttribute("aria-busy")).toBeNull();
+    await act(async () => late[0]!(build(STOCK, 28, 1).tiles));
+    expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
+
+    // The same with a tile chosen and placed while it builds.
+    fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /, \d+ left$/ })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Place it at/ })[0]!);
+    expect(screen.getAllByLabelText("2 of 28 slots used").length).toBeGreaterThan(0);
+    await act(async () => late[1]!(build(STOCK, 28, 2).tiles));
+    expect(screen.getAllByLabelText("2 of 28 slots used").length).toBeGreaterThan(0);
   });
 
   it("shows a message when the worker fails, the draft kept", async () => {

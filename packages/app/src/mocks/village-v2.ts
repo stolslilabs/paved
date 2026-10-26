@@ -69,7 +69,7 @@ export const INVENTORY_LONG: Inventory = Object.fromEntries(
 );
 
 /** The die's villages (#803) on the home's stock (level 20, 28 slots), seeds 1, 2 and 3: three versions of one stock. */
-export const DIE_VILLAGES = [1, 2, 3].map((seed) => draftOf(randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), slotsFor(LAYOUT_GROWING.level), seed, { ms: Number.POSITIVE_INFINITY }).tiles));
+export const DIE_VILLAGES = [1, 2, 3].map((seed) => draftOf(randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), slotsFor(LAYOUT_GROWING.level), seed).tiles));
 
 /** How many of each plan a player holds: the layout's and the inventory's. */
 export function ownedOf(village: VillageLayout, inventory: Inventory): Record<number, number> {

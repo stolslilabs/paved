@@ -12,7 +12,7 @@ export interface RandomLayoutRequest {
 }
 
 export type RandomLayoutAnswer =
-  | { readonly id: number; readonly tiles: LayoutTile[]; readonly tries: number; readonly timedOut: boolean }
+  | { readonly id: number; readonly tiles: LayoutTile[]; readonly tries: number; readonly exhausted: boolean }
   | { readonly id: number; readonly error: string };
 
 /** The worker's answer to a request (its whole logic, here so it is tested without a worker). */
@@ -21,8 +21,8 @@ export function answerRandomLayout(
   generate: (stock: readonly number[], slots: number, seed: number, budget?: RandomLayoutBudget) => RandomLayout,
 ): RandomLayoutAnswer {
   try {
-    const { tiles, tries, timedOut } = generate(request.stock, request.slots, request.seed);
-    return { id: request.id, tiles, tries, timedOut };
+    const { tiles, tries, exhausted } = generate(request.stock, request.slots, request.seed);
+    return { id: request.id, tiles, tries, exhausted };
   } catch (error) {
     return { id: request.id, error: error instanceof Error ? error.message : String(error) };
   }

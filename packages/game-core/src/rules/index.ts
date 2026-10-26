@@ -38,7 +38,7 @@ export {
   starterBoard,
 } from "./free-village";
 export type { DraftRefusal, Inventory, LayoutLimits, LayoutRefusal, LayoutTile } from "./free-village";
-export { RANDOM_LAYOUT_MS, RANDOM_LAYOUT_TRIES, randomLayout } from "./random-layout";
+export { RANDOM_LAYOUT_STEPS, RANDOM_LAYOUT_TRIES, randomLayout } from "./random-layout";
 export type { RandomLayout, RandomLayoutBudget } from "./random-layout";
 export { breakdownOf, layoutBreakdown } from "./breakdown";
 export type { CellAreas, LayoutBreakdown, LayoutLine } from "./breakdown";

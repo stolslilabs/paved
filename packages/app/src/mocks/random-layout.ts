@@ -4,10 +4,7 @@ import type { RandomLayoutRunner } from "../lib/random-layout-runner";
 // The die's fakes (#803) for the stories and the render tests, where no worker runs (jsdom has none): the same generator on
 // the main thread after a delay, a build that never ends, one that fails. The app itself only ever builds in the worker.
 
-/**
- * game-core's `randomLayout` on the main thread, `delayMs` after the press; a new press or a cancel drops the one at work. Its
- * tries are bounded by count only (no clock), so a seed gives the same village however loaded the machine.
- */
+/** game-core's `randomLayout` on the main thread, `delayMs` after the press; a new press or a cancel drops the one at work. */
 export function mainThreadRandomizer(delayMs = 0): RandomLayoutRunner {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const cancel = () => {
@@ -20,7 +17,7 @@ export function mainThreadRandomizer(delayMs = 0): RandomLayoutRunner {
       return new Promise((resolve) => {
         timer = setTimeout(() => {
           timer = null;
-          resolve(randomLayout(stock, slots, seed, { ms: Number.POSITIVE_INFINITY }).tiles);
+          resolve(randomLayout(stock, slots, seed).tiles);
         }, delayMs);
       });
     },
