@@ -146,6 +146,25 @@ describe("/settings/theme/forest: the shop", () => {
     expect(s.views.calls.filter((c) => c.startsWith("skin_tiers") || c.startsWith("copies"))).toEqual([]);
   });
 
+  it("Get Cobbles opens the packs in place, over the theme's sheet (BACK-RULE #783); their close leaves the theme open", async () => {
+    const router = open(setup(), "/settings/theme/forest");
+    const theme = await screen.findByRole("dialog", { name: "Theme" }, { timeout: slow(5000) });
+    await userEvent.click((await within(theme).findAllByRole("button", { name: /Get Cobbles/ }, { timeout: slow(5000) }))[0]!);
+    await screen.findByRole("dialog", { name: "Cobbles" }, { timeout: slow(5000) });
+    expect(router.state.location.pathname).toBe("/settings/theme/forest");
+    // The packs' header may still swap its nodes as they load: the close is pressed again until the sheet goes.
+    await waitFor(
+      async () => {
+        const packs = screen.queryByRole("dialog", { name: "Cobbles" });
+        if (packs) await userEvent.click(within(packs).getByRole("button", { name: "Back" }));
+        expect(screen.queryByRole("dialog", { name: "Cobbles" })).toBeNull();
+      },
+      { timeout: slow(5000) },
+    );
+    expect(router.state.location.pathname).toBe("/settings/theme/forest");
+    expect(screen.getByRole("dialog", { name: "Theme" })).toBeInTheDocument();
+  });
+
   it("shows each tile's price, owned and active state", async () => {
     open(setup(), "/settings/theme/forest");
     expect(await screen.findByRole("heading", { level: 1, name: "Forest" }, { timeout: slow(5000) })).toBeInTheDocument();

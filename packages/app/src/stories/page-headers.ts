@@ -14,7 +14,6 @@ export const PAGE_HEADER_STORIES = {
   "village-chests": ["village/chests"],
   "village-shop": ["village/shop"],
   "pvp-result": ["pvp/result/:id"],
-  "pvp-defence": ["pvp/defence"],
   "pvp-league": ["pvp/league"],
   "story-campaigns": ["story"],
   "missions-lifetime": ["missions/lifetime"],

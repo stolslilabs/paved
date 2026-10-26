@@ -69,6 +69,8 @@ export interface QuestsSceneProps {
   onTab?: (tab: QuestsTab) => void;
   onConnect?: () => void;
   onRetry?: () => void;
+  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
 
@@ -154,7 +156,7 @@ export function QuestsScene(props: QuestsSceneProps) {
   };
 
   return (
-    <TabPage tab="quests" title="Missions" onNavigate={props.onNavigate}>
+    <TabPage tab="quests" title="Missions" onBack={props.onBack} onNavigate={props.onNavigate}>
       <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
         <QuestsTabs active="quests" onSelect={props.onTab} />
         <DayPicker day={day} today={today} first={props.firstDay} onChange={props.onDayChange} />
