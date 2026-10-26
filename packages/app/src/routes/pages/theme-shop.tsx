@@ -10,6 +10,7 @@ import { skinKeys, useSkinWrites, useThemeSkins } from "../../data/skins";
 import { useDataSources } from "../../data/sources";
 import { useThemeVariants, useTileRenders } from "../../data/tile-renders";
 import { useAccount } from "../../wallet/wallet";
+import { useCobblesSheet } from "../cobbles-sheet";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 import NotFound from "./not-found";
 import { skinsStatus } from "../skins-status";
@@ -30,6 +31,7 @@ export default function Page() {
 
 function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) {
   const go = useAppNavigate();
+  const cobbles = useCobblesSheet();
   const onNavigate = useTabNavigate();
   const onBack = useBack();
   useAccount();
@@ -52,33 +54,36 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       () =>
         toast.success("Tile bought", {
           description: "Use the theme on Themes, or choose it in My tiles.",
-          action: { label: "My tiles", onClick: () => go("/settings/tiles") },
+          action: { label: "My tiles", onClick: () => go("/settings/tiles", { replace: true }) },
         }),
       () => undefined,
     );
   };
 
   return (
-    <ThemeShopScene
-      theme={theme}
-      renders={renders}
-      variants={variants}
-      skins={read.data}
-      skinsStatus={available ? status : null}
-      buying={writes.buying}
-      refusal={writes.error?.message ?? null}
-      refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
-      onDismissRefusal={writes.reset}
-      onBuy={buy}
-      onBuyCobbles={() => go("/cobbles")}
-      onMyTiles={() => go("/settings/tiles")}
-      onConnect={() => go("/welcome")}
-      onRetry={() => {
-        void client.invalidateQueries({ queryKey: skinKeys.all });
-        void client.invalidateQueries({ queryKey: cobbleKeys.all });
-      }}
-      onBack={onBack}
-      onNavigate={onNavigate}
-    />
+    <>
+      <ThemeShopScene
+        theme={theme}
+        renders={renders}
+        variants={variants}
+        skins={read.data}
+        skinsStatus={available ? status : null}
+        buying={writes.buying}
+        refusal={writes.error?.message ?? null}
+        refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
+        onDismissRefusal={writes.reset}
+        onBuy={buy}
+        onBuyCobbles={cobbles.open}
+        onMyTiles={() => go("/settings/tiles", { replace: true })}
+        onConnect={() => go("/welcome")}
+        onRetry={() => {
+          void client.invalidateQueries({ queryKey: skinKeys.all });
+          void client.invalidateQueries({ queryKey: cobbleKeys.all });
+        }}
+        onBack={onBack}
+        onNavigate={onNavigate}
+      />
+      {cobbles.sheet}
+    </>
   );
 }

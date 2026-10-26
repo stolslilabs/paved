@@ -69,5 +69,5 @@ export const BalancesError: Story = { ...WIDE_1440, decorators: [shell({ status:
 export const ReducedMotion: Story = { ...WIDE_1440, parameters: { layout: "fullscreen", reducedMotion: "always" }, decorators: READY_SHELL };
 /** From `desktop`, the header of the home's side panel (#762): laid out as on a phone, no Back, the Cobbles and the close. */
 export const InPanel: Story = { ...WIDE_1440, decorators: [inPanel("Missions"), ...READY_SHELL] };
-/** In the panel, a page reached from another (a theme from Settings): Back to it, the Cobbles and the close. */
+/** In the panel, a page whose header keeps Back (`top` false), the Cobbles and the close; a sheet (BACK-RULE #783) has the close alone. */
 export const InPanelWithBack: Story = { ...WIDE_1440, args: { title: "Themes" }, decorators: [inPanel("Themes", false), ...READY_SHELL] };

@@ -16,7 +16,6 @@ import { APP_MANIFEST } from "../../mocks/assets";
 import { PLAYER_ID } from "../../mocks/players";
 import { PHONE_375, WIDE_1440 } from "../../components/scenes/viewports";
 import PvpPage from "../../routes/pages/pvp";
-import PvpDefencePage from "../../routes/pages/pvp-defence";
 import PvpLeaguePage from "../../routes/pages/pvp-league";
 import PvpReplayPage from "../../routes/pages/pvp-replay";
 import PvpResultPage from "../../routes/pages/pvp-result";
@@ -153,7 +152,6 @@ function PvpPages(setup: Setup) {
               <Route path="/pvp" element={<PvpPage />} />
               <Route path="/pvp/result/:id" element={<PvpResultPage />} />
               <Route path="/pvp/replay/:attacker/:id" element={<PvpReplayPage />} />
-              <Route path="/pvp/defence" element={<PvpDefencePage />} />
               <Route path="/pvp/league" element={<PvpLeaguePage />} />
             </Routes>
             <Toaster />
@@ -210,7 +208,10 @@ export const LastMove: Story = { parameters: { route: "/pvp" }, render: () => <P
 export const Result: Story = { parameters: { route: "/pvp/result/1" }, render: () => <PvpPages {...RESULT} /> };
 /** The attack replayed move by move. */
 export const Replay: Story = { parameters: { route: `/pvp/replay/${ME}/1` }, render: () => <PvpPages {...REPLAY} /> };
-/** The league: Silver II, the way to Silver I, the season's end and its reward after five attacks. */
+/**
+ * The league: Silver II, the way to Silver I, the season's end and its reward after five attacks, and under Attack the defence
+ * log in place (BACK-RULE #783), of a village no rival of the mock attacks.
+ */
 export const League: Story = { parameters: { route: "/pvp/league" }, render: () => <PvpPages {...LEAGUE} /> };
-/** The defence log of a village no rival of the mock attacks. */
-export const Defence: Story = { parameters: { route: "/pvp/defence" }, render: () => <PvpPages {...LEAGUE} /> };
+export const LeaguePhone: Story = { ...League, ...PHONE_375 };
+export const LeagueWide: Story = { ...League, ...WIDE_1440 };

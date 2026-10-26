@@ -38,6 +38,8 @@ export interface SettingsSceneProps {
   onOpenTheme?: () => void;
   onOpenReferral?: () => void;
   onOpenCredits?: () => void;
+  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
 
@@ -45,7 +47,7 @@ export interface SettingsSceneProps {
 export function SettingsScene(props: SettingsSceneProps) {
   const { preferences: p, account, onChange } = props;
   return (
-    <TabPage tab="settings" title="Settings" onNavigate={props.onNavigate}>
+    <TabPage tab="settings" title="Settings" onBack={props.onBack} onNavigate={props.onNavigate}>
       <div className="grid grid-cols-1 gap-4">
         <DeviceSettingsPanel
           preferences={p}

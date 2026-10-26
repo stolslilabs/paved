@@ -19,6 +19,8 @@ const pageComponent = (path: string): ComponentType => {
   return lazies.get(load)!;
 };
 const NotFound = lazy(() => import("./pages/not-found"));
+/** A page and its sheets (BACK-RULE #783): its own chunk, as the pages. */
+const PageWithSheets = lazy(() => import("./page-sheets"));
 
 /** A redirect that keeps the request's `?ref=`. It replaces the entry, so Back never lands on the old link. */
 function to(path: string, request: Request) {
@@ -57,6 +59,29 @@ function pageRoute(page: PageDef): RouteObject {
   return { path: page.path, handle: { page }, loader: LOADERS[page.path], element: <Page />, errorElement: <RouteError /> };
 }
 
+/**
+ * BACK-RULE (#783): a page and the sheets drawn over it (`PageDef.sheet`), one route without a path of its own. The page stays
+ * mounted under its sheets (`PageWithSheets`), so a link to a sheet opens it over the page and its close finds the page as it was.
+ */
+function pageWithSheets(page: PageDef, sheets: readonly PageDef[]): RouteObject {
+  const Page = pageComponent(page.path);
+  return {
+    element: <PageWithSheets page={<Page />} />,
+    errorElement: <RouteError />,
+    children: [{ path: page.path, handle: { page }, loader: LOADERS[page.path] }, ...sheets.map(pageRoute)],
+  };
+}
+
+/** The routes of `pages`: each page, its sheets under it. */
+function pageRoutes(pages: readonly PageDef[]): RouteObject[] {
+  return pages
+    .filter((page) => !page.sheet)
+    .map((page) => {
+      const sheets = pages.filter((s) => s.sheet && s.parent === `/${page.path}`);
+      return sheets.length > 0 ? pageWithSheets(page, sheets) : pageRoute(page);
+    });
+}
+
 const HOME = PAGES.find((page) => page.path === "")!;
 const Home = pageComponent(HOME.path);
 
@@ -72,12 +97,14 @@ export const routes: RouteObject[] = [
         id: "home",
         element: <HomeLayout home={<Home />} />,
         errorElement: <RouteError />,
-        children: [{ index: true, handle: { page: HOME }, loader: homeLoader }, ...PAGES.filter((page) => page.panel).map(pageRoute)],
+        children: [{ index: true, handle: { page: HOME }, loader: homeLoader }, ...pageRoutes(PAGES.filter((page) => page.panel))],
       },
-      ...PAGES.filter((page) => page.path !== "" && !page.panel).map(pageRoute),
+      ...pageRoutes(PAGES.filter((page) => page.path !== "" && !page.panel)),
       { path: "game", loader: gameRedirect },
       { path: "quests/:day?", loader: ({ request, params }) => to(params.day ? `/missions/${params.day}` : "/missions", request) },
       { path: "achievements", loader: ({ request }) => to("/missions/lifetime", request) },
+      // The defence log became a section of the league (BACK-RULE #783): its old link lands there.
+      { path: "pvp/defence", loader: ({ request }) => to("/pvp/league", request) },
       { path: "economy", loader: ({ request }) => to("/vault", request) },
       // The ranks left the UI (#623), to come back as leagues: their old links land on Home.
       { path: "leaderboard/:day?", loader: ({ request }) => to("/", request) },

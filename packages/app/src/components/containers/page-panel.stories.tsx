@@ -44,7 +44,7 @@ export const TabPageInPanel: Story = {
   ),
 };
 
-/** A page reached from another (the themes, from Settings): Back to it. */
+/** A page whose header keeps Back in the panel (`top` false). No page of the app is one since BACK-RULE (#783): a sheet's Back closes it. */
 export const WithBack: Story = {
   args: { title: "Themes", top: false },
   render: (args) => (

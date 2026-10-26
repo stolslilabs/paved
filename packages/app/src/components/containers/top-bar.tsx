@@ -36,19 +36,21 @@ export interface PageHeaderProps {
  */
 export function PageHeader({ title, onBack, balances = true, document = false, className }: PageHeaderProps) {
   const panel = usePagePanel();
+  // A sheet's Back closes it (BACK-RULE #783), whatever the page's own.
+  const back = panel?.back ?? onBack;
   // In a region (a tab page's frame, the panel's body, #782) the region's hint shows (`pageScrollHintRef`); the document does not scroll.
   const documentHint = document && !useInPageRegion();
   useEffect(() => (documentHint ? documentScrollStartHint() : undefined), [documentHint]);
   return (
     <header data-slot="page-header" className={cn("page-header sticky top-0 z-30 bg-background/95 backdrop-blur", className)}>
       <div className="flex h-full items-center gap-2 pr-3 pl-2">
-        {onBack && !panel?.top && (
-          <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack} className="shrink-0">
+        {back && !panel?.top && (
+          <Button variant="ghost" size="icon" aria-label="Back" onClick={back} className="shrink-0">
             <Icon name="chevron-left" />
           </Button>
         )}
         {/* Cut sideways only (`overflow-x: clip`): the display font's glyphs stand taller than its line. The mark on the title's line, after it (#622). */}
-        <span data-slot="page-title" title={title} className={cn("min-w-0 flex-1 overflow-x-clip text-ellipsis whitespace-nowrap", !(onBack && !panel?.top) && "pl-2")}>
+        <span data-slot="page-title" title={title} className={cn("min-w-0 flex-1 overflow-x-clip text-ellipsis whitespace-nowrap", !(back && !panel?.top) && "pl-2")}>
           <h1 className="inline font-display text-3xl font-semibold tracking-wide">{title}</h1>
           <MockMarkSlot className="ml-2 align-[0.375rem]" />
         </span>

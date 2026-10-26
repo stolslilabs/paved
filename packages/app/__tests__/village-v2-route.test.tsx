@@ -232,10 +232,12 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     }
   }, slow(90_000));
 
-  it("the defence log opened from the league goes back up to the league", async () => {
+  it("the defence log's old link lands on the league, its section (BACK-RULE #783), whose Back is the village", async () => {
     const s = await open("/pvp/defence");
-    await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/pvp/league"), WAIT);
+    expect(await screen.findByRole("heading", { level: 2, name: "Defences" }, WAIT)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
+    await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
   }, slow(30_000));
 
   it("/village redirects to / (its entry replaced), and a visit stays", async () => {
