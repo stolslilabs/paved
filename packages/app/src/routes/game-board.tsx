@@ -53,9 +53,10 @@ export type GameBoardSceneProps = Pick<
  *
  * `side` is whose board it is: `own` (the default) keeps the green void, `rival` (an attack, its scout, the replay of an attack
  * on another village) gives it red tones (#772). A read-only board (a replay, the scout) gives `plan: null`: no plate, no ghost.
+ * `summerDay` (the scout and a visit, #788) holds the board on summer's day, with no season dial: no night, no smoke.
  */
-export function useGameBoard({ skins, resetKey, side = "own", placement: input }: { skins?: TileSkins; resetKey?: unknown; side?: BoardSide; placement: GameBoardPlacement }) {
-  const board = useBoardSettings(resetKey);
+export function useGameBoard({ skins, resetKey, side = "own", summerDay = false, placement: input }: { skins?: TileSkins; resetKey?: unknown; side?: BoardSide; summerDay?: boolean; placement: GameBoardPlacement }) {
+  const board = useBoardSettings(resetKey, summerDay);
   // The void's colours for the side, over the board's renderer settings (memoised there: a new object only when they change).
   const renderer = useMemo(() => {
     const { squareGrid, fog } = board.renderer;
@@ -82,7 +83,7 @@ export function useGameBoard({ skins, resetKey, side = "own", placement: input }
     bubble,
     onSlotClick: placement.choose,
     placementHighlight: settings.placementHighlight,
-    seasonWheel: settings.wheel,
+    seasonWheel: summerDay ? undefined : settings.wheel,
     canvas:
       view === "3d" ? (
         <BoardCanvas
