@@ -14,6 +14,7 @@ import { mockGameViews, mockIndexer, mockSigner } from "../../data/mock/overlay"
 import { mockRival } from "../../data/mock/pvp";
 import { APP_MANIFEST } from "../../mocks/assets";
 import { PLAYER_ID } from "../../mocks/players";
+import { PHONE_375, WIDE_1440 } from "../../components/scenes/viewports";
 import PvpPage from "../../routes/pages/pvp";
 import PvpDefencePage from "../../routes/pages/pvp-defence";
 import PvpLeaguePage from "../../routes/pages/pvp-league";
@@ -178,6 +179,17 @@ const attack = async (ledger: MockLedger) => {
 const SEARCH: Setup = { latencyMs: 12_000, prepare: foundV2 };
 const SCOUT: Setup = { prepare: searchV2 };
 const ATTACK: Setup = { prepare: async (ledger) => (await searchV2(ledger), await ledger.writesFor(PLAYER_ID).startAttackV2(), await playV2(ledger, 5)) };
+/** A v2 attack played to its end (the mock's first, id 1): its end screen on reload or a link (#790). */
+const END: Setup = { prepare: async (ledger) => (await searchV2(ledger), await ledger.writesFor(PLAYER_ID).startAttackV2(), await playV2(ledger, Infinity)) };
+/** A v2 attack one tile from its end: the last move opens the end screen in place of the attack (#790). */
+const LAST_MOVE: Setup = {
+  prepare: async (ledger) => {
+    await searchV2(ledger);
+    await ledger.writesFor(PLAYER_ID).startAttackV2();
+    const { attack } = await ledger.attackV2(PLAYER_ID);
+    await playV2(ledger, attack!.deck - 1);
+  },
+};
 const RESULT: Setup = { pvp: { crowns: 380, draws: 0, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 2, peak: 0 }, prepare: async (ledger) => (await attack(ledger), await play(ledger)) };
 const LEAGUE: Setup = { pvp: { crowns: 1172, draws: 9, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 3, peak: 7 } };
 const REPLAY: Setup = RESULT;
@@ -188,7 +200,13 @@ export const Search: Story = { parameters: { route: "/pvp" }, render: () => <Pvp
 export const Scout: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SCOUT} /> };
 /** A v2 attack five moves in: an open board, the tile in hand and the next two, the deck left, the score against the marks. */
 export const Attack: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...ATTACK} /> };
-/** The attack's end: the stars, the crowns moved, the village reward the settlement granted (Open draws its tiles). */
+/** A v2 attack's end screen (#790): the stars, the score, the crowns and the league, the XP, the chest won, every closing. */
+export const End: Story = { parameters: { route: "/pvp/result/1" }, render: () => <PvpPages {...END} /> };
+/** A v2 attack at its last tile: placing it opens the end screen at `/pvp/result/1`, and Back goes to the league. */
+export const EndPhone: Story = { ...End, ...PHONE_375 };
+export const EndWide: Story = { ...End, ...WIDE_1440 };
+export const LastMove: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...LAST_MOVE} /> };
+/** v1's attack end (an id that is not the last v2 attack's): the stars, the crowns moved, the village reward the settlement granted (Open draws its tiles). */
 export const Result: Story = { parameters: { route: "/pvp/result/1" }, render: () => <PvpPages {...RESULT} /> };
 /** The attack replayed move by move. */
 export const Replay: Story = { parameters: { route: `/pvp/replay/${ME}/1` }, render: () => <PvpPages {...REPLAY} /> };

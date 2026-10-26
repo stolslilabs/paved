@@ -115,7 +115,8 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     await s.router.navigate(-1);
     await waitFor(() => expect(s.router.state.location.search).toBe(""));
     expect(s.router.state.location.pathname).toBe("/");
-    // The view's overlays as they settle (edit mode's leave may still swap them on a loaded machine): both there at once.
+    // The view's overlays come back as the editor leaves: on a loaded machine they can mount twice, so the node found first may
+    // be gone a moment later. Both are waited for together, as they stand once the view has settled.
     await waitFor(() => {
       expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
