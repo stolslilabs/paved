@@ -18,7 +18,8 @@ import { VaultPosition } from "../containers/vault-position";
  */
 export type VaultStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string; detail?: ErrorDetail };
 
-const SUBTITLE = "Deposit PAVED for vPAVED";
+/** The page's first line, under its header (#781). */
+const INTRO = "Deposit PAVED for vPAVED.";
 
 export interface VaultSceneProps {
   /** The economy's addresses are configured (`EconomyDeployment.configured`); false: nothing to read or send. */
@@ -62,16 +63,11 @@ export interface VaultSceneProps {
  */
 export function VaultScene(props: VaultSceneProps) {
   const { deployed, position, balance, split, status } = props;
-  const end = deployed ? (
-    <span className="flex flex-col items-end text-xs text-muted-foreground">
-      Wallet
-      <Amount value={balance} token="paved" className="text-sm text-foreground" />
-    </span>
-  ) : undefined;
 
   if (status) {
     return (
-      <TabPage tab="vault" title="Vault" subtitle={SUBTITLE} onNavigate={props.onNavigate}>
+      <TabPage tab="vault" title="Vault" onNavigate={props.onNavigate}>
+        <p className="text-sm text-muted-foreground">{INTRO}</p>
         <div className="flex flex-col gap-4">
           {status.kind === "guest" ? (
             <Notice title="Connect to use the Vault" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
@@ -92,7 +88,8 @@ export function VaultScene(props: VaultSceneProps) {
 
   if (!deployed || !position) {
     return (
-      <TabPage tab="vault" title="Vault" subtitle={SUBTITLE} onNavigate={props.onNavigate}>
+      <TabPage tab="vault" title="Vault" onNavigate={props.onNavigate}>
+        <p className="text-sm text-muted-foreground">{INTRO}</p>
         <Notice tone="warning" title="Economy not deployed">
           This network has no Vault yet: there is nothing to deposit or withdraw. Training and Story mode still play.
         </Notice>
@@ -103,7 +100,15 @@ export function VaultScene(props: VaultSceneProps) {
   const none = position.shares === 0n;
   const nothing = none && balance === 0n;
   return (
-    <TabPage tab="vault" title="Vault" subtitle={SUBTITLE} end={end} onNavigate={props.onNavigate}>
+    <TabPage tab="vault" title="Vault" onNavigate={props.onNavigate}>
+      {/* The page's first line (ONE-HEADER, #781: no subtitle, nothing but the home's balances in the header): what the Vault does, and the wallet's PAVED. */}
+      <div className="flex items-end justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{INTRO}</p>
+        <span className="flex shrink-0 flex-col items-end text-xs text-muted-foreground">
+          Wallet
+          <Amount value={balance} token="paved" className="text-sm text-foreground" />
+        </span>
+      </div>
       <div className="grid grid-cols-1 gap-4">
         <div className="flex flex-col gap-4">
           <section aria-label="Your position" data-slot="card" className="rounded-xl border border-primary/30 bg-card px-4 pt-4 pb-2">

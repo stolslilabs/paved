@@ -61,7 +61,8 @@ export function MyTilesScene({ renders, skins, skinsStatus, onPick, onSave, onDi
   const choices = plans.filter((p) => p.options.length > 1 || (current[p.plan - 1] ?? 0) !== 0 || (skins?.active[p.plan - 1] ?? 0) !== 0);
   const defaults = plans.filter((p) => !choices.includes(p));
   return (
-    <TabPage tab="settings" title="My tiles" subtitle="The skin each tile wears on your boards" onBack={onBack} onNavigate={onNavigate}>
+    <TabPage tab="settings" title="My tiles" onBack={onBack} onNavigate={onNavigate}>
+      <p className="text-sm text-muted-foreground">The skin each tile wears on your boards.</p>
       {!skins ? (
         skinsStatus && (
           <SkinsStatusView

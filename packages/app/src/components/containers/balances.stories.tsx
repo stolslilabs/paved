@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
 import { Balances, type BalancesProps, type BalancesState } from "./balances";
-import { BalancesProvider, type HeaderBalances } from "./balances-context";
+import { BalancesProvider } from "./balances-context";
 import { TabPage } from "./tab-page";
 import { TopBar } from "./top-bar";
 
@@ -18,29 +18,27 @@ type Story = StoryObj<typeof meta>;
 const MOBILE = { viewport: { value: "mobile", isRotated: false } } as const;
 const WIDE = { viewport: { value: "wide", isRotated: false } } as const;
 
-type InProps = Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet"> & { show?: HeaderBalances };
-/** A page with no balance on a phone (#720: Vault, Play, Settings…): every balance from `desktop`. */
-const DESKTOP_ONLY: HeaderBalances = { phone: false, desktop: "all" };
+type InProps = Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet">;
 
 /**
- * In a tab page, as the shell lays it out: the Cobbles in the header below `desktop` where the page's rule shows them (#720),
- * every balance at the end of the navigation's header from it (direction D).
+ * In a tab page, as the shell lays it out (ONE-HEADER, #781): the home's balances at the header's top right, the Cobbles' pill
+ * below `desktop`, every balance's rail from it.
  */
-function InPage({ state, onAction, onConnect, faucet, show }: InProps) {
+function InPage({ state, onAction, onConnect, faucet }: InProps) {
   return (
-    <BalancesProvider value={{ state, onAction, onConnect, faucet, show }}>
+    <BalancesProvider value={{ state, onAction, onConnect, faucet }}>
       <TabPage tab="vault" title="Vault">
         <div data-slot="card" className="h-40 rounded-xl border border-border bg-card" />
       </TabPage>
     </BalancesProvider>
   );
 }
-const page = (state: BalancesState, show?: HeaderBalances): Story => ({ render: (args) => <InPage {...args} state={state} show={show} /> });
+const page = (state: BalancesState): Story => ({ render: (args) => <InPage {...args} state={state} /> });
 
-/** In a full-screen flow (#620): the Cobbles in the page under the top bar below `desktop` where the rule shows them (#760), the bar's right side from it. */
-function InFlow({ state, onAction, onConnect, faucet, show }: InProps) {
+/** In a full-screen flow (#620): the same header, the same balances (#781). */
+function InFlow({ state, onAction, onConnect, faucet }: InProps) {
   return (
-    <BalancesProvider value={{ state, onAction, onConnect, faucet, show }}>
+    <BalancesProvider value={{ state, onAction, onConnect, faucet }}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <TopBar title="Choose a mode" onBack={fn()} />
         <div className="mx-auto h-40 w-full max-w-md rounded-xl border border-border bg-card" data-slot="card" />
@@ -48,7 +46,7 @@ function InFlow({ state, onAction, onConnect, faucet, show }: InProps) {
     </BalancesProvider>
   );
 }
-const flow = (state: BalancesState, show?: HeaderBalances): Story => ({ render: (args) => <InFlow {...args} state={state} show={show} /> });
+const flow = (state: BalancesState): Story => ({ render: (args) => <InFlow {...args} state={state} /> });
 
 type Ready = Extract<BalancesState, { status: "ready" }>;
 // No Vault position: a known zero (the vault read's `shares`), so a first deposit animates its plate in.
@@ -76,10 +74,8 @@ function Live({ layout, onAction }: Pick<BalancesProps, "layout" | "onAction">) 
   );
 }
 
-/** Mobile (360), a page where Cobbles move (#720): the Cobbles' plate alone, under the header, leading to the packs. */
+/** Mobile (360): the Cobbles' plate alone, at the header's top right, leading to the packs (#781: on every page). */
 export const Connected: Story = { ...page(CONNECTED), globals: MOBILE };
-/** Mobile, a page where no Cobbles move (#720): no balance, and the header is its title row alone. */
-export const NoneOnPhone: Story = { ...page(CONNECTED, DESKTOP_ONLY), globals: MOBILE };
 export const Loading: Story = { ...page({ status: "loading" }), globals: MOBILE };
 /** The balances could not be read: a mark on a phone, its message in its name. */
 export const ErrorState: Story = { args: { state: { status: "error", message: "The balances could not be read." } }, globals: MOBILE };
@@ -87,10 +83,8 @@ export const ErrorState: Story = { args: { state: { status: "error", message: "T
 export const Disconnected: Story = { ...page({ status: "disconnected" }), globals: MOBILE };
 /** WRAP360: the widest amounts. */
 export const Stress: Story = { args: { state: { status: "ready", usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18, cobbles: 999_999 } }, globals: MOBILE };
-/** The rail without the Cobbles, where the page draws its own (the village, #720): the Cobbles never show twice. */
-export const RailNoCobbles: Story = { args: { layout: "rail", noCobbles: true, state: HOLDER }, globals: WIDE };
 
-/** Desktop (1440): every balance always visible at the end of the navigation's header. */
+/** Desktop (1440): every balance always visible at the header's top right. */
 export const RailConnected: Story = { ...page(CONNECTED), globals: WIDE };
 /** A Vault holder: vPAVED joins the rail. */
 export const RailHolder: Story = { ...page(HOLDER), globals: WIDE };
@@ -98,10 +92,8 @@ export const RailLoading: Story = { ...page({ status: "loading" }), globals: WID
 export const RailError: Story = { ...page({ status: "error", message: "The balances could not be read." }), globals: WIDE };
 export const RailDisconnected: Story = { ...page({ status: "disconnected" }), globals: WIDE };
 
-/** A flow where Cobbles move (the packs, the avatar) on a phone: the Cobbles in the page, under the top bar (#760). */
+/** A flow on a phone: the Cobbles in the top bar's row, nothing under it (#781). */
 export const FlowConnected: Story = { ...flow(CONNECTED), globals: MOBILE };
-/** A flow where no Cobbles move (Play, the purchase, Story) on a phone: nothing under the bar (56 px). */
-export const FlowNoneOnPhone: Story = { ...flow(CONNECTED, DESKTOP_ONLY), globals: MOBILE };
 export const FlowDisconnected: Story = { ...flow({ status: "disconnected" }), globals: MOBILE };
 /** A flow from `desktop`: the balances on the top bar's right. */
 export const FlowRail: Story = { ...flow(HOLDER), globals: WIDE };

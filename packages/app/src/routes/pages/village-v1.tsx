@@ -5,7 +5,7 @@ import { deckArt } from "../../components/containers/deck-sheet";
 import { shortAddress } from "../../components/elements/short-address";
 import { VillageScene, type VillageStatus } from "../../components/scenes/village-scene";
 import { useBoardSkins } from "../../data/board-skins";
-import { cobbleKeys, useCobbleAccount } from "../../data/cobbles";
+import { cobbleKeys } from "../../data/cobbles";
 import { usePlayerStatus } from "../../data/indexer";
 import { addressKey, queryKeys } from "../../data/keys";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
@@ -38,7 +38,6 @@ export default function Village({ player }: { player: string | null }) {
   const owner = own ? (wallet.username ?? (me ? shortAddress(me) : "")) : (profile.data?.player.name ?? (playerId ? shortAddress(playerId) : ""));
   const read = useVillage(playerId, owner);
   const reward = useVillageReward(own ? playerId : null);
-  const account = useCobbleAccount(own ? playerId : null);
   const writes = useVillageWrites(own ? playerId : null);
   // Each tile in the theme its owner made active (`active_skins`, as the boards draw them; another's only when this device
   // shows other players' skins): its top-down render, else the base art.
@@ -46,15 +45,12 @@ export default function Village({ player }: { player: string | null }) {
   const renders = useTileRenders(RENDERER_ASSETS);
   const tileArt = deckArt(renders, skins, useTileArt(RENDERER_ASSETS));
 
-  // The own village's Cobbles are part of its read: a balance not read yet, or whose read failed, is never shown as 0 (Retry
-  // reads them again with the rest).
-  const balanceError = own ? account.error : null;
-  const failed = read.error ?? balanceError ?? null;
-  const waiting = read.data === undefined || (own && account.data === undefined);
+  const failed = read.error ?? null;
+  const waiting = read.data === undefined;
   const status: VillageStatus | null =
     own && me === null
       ? { kind: "guest" }
-      : failed && (waiting || balanceError)
+      : failed && waiting
         ? { kind: "error", message: failed.message, detail: errorDetail(failed) }
         : waiting
           ? { kind: "loading" }
@@ -83,7 +79,6 @@ export default function Village({ player }: { player: string | null }) {
       founded={data?.founded ?? true}
       pending={reward.data?.pending ?? 0}
       reward={reward.data?.offer ?? null}
-      cobbles={account.data?.cobbles ?? 0}
       busy={busy}
       rewardError={rewardError}
       refusal={writes.error?.message ?? null}
