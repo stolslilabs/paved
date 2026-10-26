@@ -38,13 +38,23 @@ type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
 const SMALL_VILLAGE = buildFreeVillage(11, 9);
 
 const deck = { slots: RIVAL_V2_SLOTS, size: V2_DECK_SIZE, placed: placedPlans(RIVAL_V2_VILLAGE).length };
-const scout = { defender: RIVAL_V2, village: RIVAL_V2_VILLAGE, stakes: STAKES, deck, starPercents: ATTACK_STAR_PERCENTS, next: { price: NEXT_PRICE, balance: 640 }, now: MOCK_NOW };
+/** The village's tile list (#788): the attack's deck sheet before its first tile. */
+const deckSheet = attackDeckSheet({ defenderPlans: placedPlans(RIVAL_V2_VILLAGE), size: V2_DECK_SIZE, moves: [], view: [] });
+const scout = { defender: RIVAL_V2, village: RIVAL_V2_VILLAGE, stakes: STAKES, deck, deckSheet, starPercents: ATTACK_STAR_PERCENTS, next: { price: NEXT_PRICE, balance: 640 }, now: MOCK_NOW };
 
 export const PVP_V2_SCOUT = {
   ready: scout,
   attacking: { ...scout, pending: "attacking" },
   /** A level-1 village: 9 slots, a deck of 11 tiles. */
-  small: { ...scout, defender: { ...RIVAL_V2, level: 1 }, village: SMALL_VILLAGE, deck: { slots: slotsOf(1), size: attackDeckSize(slotsOf(1)), placed: placedPlans(SMALL_VILLAGE).length } },
+  small: {
+    ...scout,
+    defender: { ...RIVAL_V2, level: 1 },
+    village: SMALL_VILLAGE,
+    deck: { slots: slotsOf(1), size: attackDeckSize(slotsOf(1)), placed: placedPlans(SMALL_VILLAGE).length },
+    deckSheet: attackDeckSheet({ defenderPlans: placedPlans(SMALL_VILLAGE), size: attackDeckSize(slotsOf(1)), moves: [], view: [] }),
+  },
+  /** The attacker's own village is shielded: attacking drops it. */
+  shielded: { ...scout, shieldEndsAt: MOCK_NOW + 5 * 3_600 + 12 * 60 },
 } satisfies Record<string, Data<PvpScoutSceneProps>>;
 
 // Attack

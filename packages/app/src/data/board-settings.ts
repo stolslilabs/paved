@@ -13,19 +13,23 @@ export interface BoardWheel {
   read: (() => WheelPoint | null) | null;
 }
 
+/** The renderer's cycle off: summer's day with its fixed lights, no night and no chimney smoke (the renderer's rule, #770). */
+export const SUMMER_DAY = { enabled: false, freezeAt: null } as const;
+
 /**
  * The renderer's settings (quality, the day and night cycle, the ambient effects, the fog and the smoke, memoised so a change applies and a render does not), the two
  * board switches, and the season wheel of this game (#547: it starts from the Day and night setting, and `resetKey`, the
- * game, starts it again). The cycle's settings follow the wheel; `onScene` is the canvas's.
+ * game, starts it again). The cycle's settings follow the wheel; `onScene` is the canvas's. `summerDay` (the scout and a visit,
+ * #788) holds summer's day whatever the wheel and the Day and night setting say.
  */
-export function useBoardSettings(resetKey?: unknown): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean; wheel: BoardWheel; onScene: (scene: GameScene | null) => void } {
+export function useBoardSettings(resetKey?: unknown, summerDay = false): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean; wheel: BoardWheel; onScene: (scene: GameScene | null) => void } {
   const [{ quality, dayNight, ambient, tilePreview, placementHighlight, squareGrid }] = useDeviceSettings();
   const { state, next } = useSeasonWheel(dayNight, resetKey);
   const [scene, setScene] = useState<GameScene | null>(null);
   const read = useCallback(() => scene?.getDayNight?.() ?? null, [scene]);
   const renderer = useMemo<RendererSettingsInput>(
-    () => ({ quality, dayNight: wheelDayNight(state, dayNight), ambient: { enabled: ambient }, fog: BOARD_FOG, smoke: BOARD_SMOKE, squareGrid: squareGridSettings(squareGrid) }),
-    [quality, dayNight, ambient, state, squareGrid],
+    () => ({ quality, dayNight: summerDay ? SUMMER_DAY : wheelDayNight(state, dayNight), ambient: { enabled: ambient }, fog: BOARD_FOG, smoke: BOARD_SMOKE, squareGrid: squareGridSettings(squareGrid) }),
+    [quality, dayNight, ambient, state, squareGrid, summerDay],
   );
   // A tap goes to the season after the cycle's (#634), read as the tap lands.
   const onNext = useCallback(() => next(read()?.season), [next, read]);
