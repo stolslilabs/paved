@@ -147,9 +147,9 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     setLit(null);
   };
   // Never open behind edit mode or a side panel (#792): closed when either comes, however it came (the URL included).
-  const covered = props.covered ?? false;
-  if ((editing || covered) && (pointsOpen || lit !== null)) closePoints();
-  const showPoints = pointsOpen && !editing && !covered && !!village;
+  const covered = editing || !!props.covered;
+  if (covered && pointsOpen) closePoints();
+  const showPoints = pointsOpen && !covered && !!village;
   const edit = () => {
     closePoints();
     props.onDismissSaved?.();
@@ -291,7 +291,7 @@ function ViewOverlays({
           {/* The badge's profile and league each open a sheet or a page over the scene, tapped or keyed: the points close under it (#792). */}
           <div
             className="pointer-events-auto flex min-w-0 flex-col items-start gap-1"
-            onClickCapture={(e) => points && e.target instanceof Element && e.target.closest("[data-slot=player-badge]") && points.onClose()}
+            onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge]") && points?.onClose()}
           >
             {/* The profile and the league as one (#787): the avatar in its league's border, the name, the XP bar, the badge and the crowns. */}
             <PlayerBadge crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
