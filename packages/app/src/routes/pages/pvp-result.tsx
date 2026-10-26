@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { starsFor } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
+import { useAttackV2Of } from "../../data/free-attack";
 import { usePlayerStatus } from "../../data/indexer";
 import { pvpKeys, usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
@@ -32,10 +33,35 @@ const nextDay = (now: number) => (Math.floor(now / 86_400) + 1) * 86_400;
  * `Matchmaker.league`; then the village reward the settlement granted (#642, `Rewards`): Open draws its three tiles, and #646's
  * sheet places one or takes the Cobbles (`useVillageWrites`).
  */
+/** PvP v2's end screen (#790), its own chunk: loaded where the sources serve v2. */
+const PvpV2End = lazy(() => import("../pvp-v2-end"));
+
 export default function Page() {
   const { id } = useParams();
   if (!id || !/^\d+$/.test(id)) return <NotFound />;
-  return <Result id={Number(id)} />;
+  return <Pick id={Number(id)} />;
+}
+
+/**
+ * v2's end (#790) where the sources serve v2 (the mock; the chain from step 3) and the player has a v2 attack `id` (read by its
+ * id, so a result's link stays good after the next attack), else v1's result; the choice waits for the read.
+ */
+function Pick({ id }: { id: number }) {
+  const wallet = useAccount();
+  const onBack = useUpTo("/pvp/league");
+  const me = useDataSources().signer?.address ?? null;
+  const v2 = useAttackV2Of(me, id);
+  if (me === null || v2.data === null) return <Result id={id} />;
+  const self = { name: wallet.username ?? null, address: me, level: 0, crowns: 0 };
+  if (!v2.data) {
+    if (v2.error) return <PvpSearchScene state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
+    return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
+  }
+  return (
+    <Suspense fallback={<PvpSearchScene state="searching" player={self} onCancel={onBack} />}>
+      <PvpV2End me={me} attack={v2.data} self={self} />
+    </Suspense>
+  );
 }
 
 function Result({ id }: { id: number }) {

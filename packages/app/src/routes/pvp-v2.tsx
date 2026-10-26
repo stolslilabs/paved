@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import type { BoardTile, WriteResult } from "@paved/chain";
 import { AttackRun, CENTER, CategoryType, DISCARD_POINTS, OrientationType, PlanType, STARTER_TILE, type LayoutTile } from "@paved/game-core";
 import type { BoardGhost } from "../components/containers/board-viewport";
@@ -23,8 +22,8 @@ import { useAppNavigate } from "./ref";
 // `/pvp` on PvP v2 (#740, step 1 of #732): the attack on the mock's rules and ledger (#741), its own chunk. The page picks it
 // where the sources serve `attackV2` (the mock; the chain from step 3): the search draws a rival village, the scout shows it
 // with the deck the attack will have (ceil(1.15 x S)), the attack plays that deck on an unbounded board, the tile in hand and
-// the next two shown, stars at 80 / 90 / 100 %. The last tile ends it: its stars, crowns, XP and chest are told, and the page
-// goes back to the league.
+// the next two shown, stars at 80 / 90 / 100 %. The last tile ends it: the page moves to its end screen (`/pvp/result/:id`,
+// #790), which tells its stars, crowns, XP and chest.
 
 const PLANS = Object.values(PlanType);
 const ORIENTATIONS = Object.values(OrientationType);
@@ -168,15 +167,6 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
   );
 }
 
-/** What an attack's end tells: its stars, crowns, XP and chest. */
-function endText(fields: Record<string, unknown>): { title: string; description: string } {
-  const stars = Number(fields.stars ?? 0);
-  const crowns = Number(fields.gained ?? 0) - Number(fields.lost ?? 0);
-  const chest = String(fields.chest ?? "");
-  const parts = [`${crowns >= 0 ? "+" : ""}${crowns} crowns`, `+${Number(fields.xp ?? 0)} XP`, chest ? `a ${chest} chest` : "no chest"];
-  return { title: `${stars} ${stars === 1 ? "star" : "stars"}`, description: parts.join(", ") };
-}
-
 /** The open attack: the deck played on an unbounded board, as a Training game places (`usePlacement`), each move a write; the last one ends it. */
 function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; match: MatchV2 | null; writes: Writes; ended: { current: boolean }; onBack: () => void }) {
   const go = useAppNavigate();
@@ -207,9 +197,8 @@ function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; ma
         const finished = receipt.events.find((e) => e.name === "AttackFinished");
         if (!finished) return;
         ended.current = true;
-        const { title, description } = endText(finished.fields);
-        toast(title, { description });
-        go("/pvp/league", { replace: true });
+        // Its end screen (#790), in place of the attack: Back from it never returns into the finished attack.
+        go(`/pvp/result/${attack.id}`, { replace: true });
       },
       () => undefined,
     );
