@@ -10,17 +10,18 @@ import { BOARD_FOG } from "./settings";
 export type BoardSide = "own" | "rival";
 
 /**
- * The rival's void (#772, open point 7: the reds tuned in the story `Scenes/Board/Attack and Training`, Voids): the square grid's
- * backdrop with a dark ground touched with red in place of the green, a muted rose veil in place of the sage (as light, so it
- * shows at the veil's small share), threads and lines to match, and less of the season's hue (`seasonShare` 0.3 of the green's
- * 0.6) so the red holds in every season. Rust and rose, not the HUD's ember (`--destructive`): the void must not read as an error.
+ * The rival's void (#772, open point 7: the reds tuned in the story `Scenes/Board/Attack and Training`, Voids, whose controls
+ * change them): the square grid's backdrop with a dark wine ground in place of the green's near black (the Low tier and software
+ * WebGL draw no mist, so the ground carries the red alone there), a rose-rust veil in place of the sage (as light, so it shows at
+ * the veil's small share), threads and lines to match, and less of the season's hue (`seasonShare` 0.3 of the green's 0.6) so
+ * the red holds in every season. Rust and rose, not the HUD's ember (`--destructive`): the void must not read as an error.
  */
 export const RIVAL_BACKDROP = {
-  ground: "#130c0b",
-  veil: "#b08a82",
-  energyColor: "#e8956b",
-  energyGlow: "#f4c4a6",
-  lineColor: "#7d6c69",
+  ground: "#220c0a",
+  veil: "#c47c70",
+  energyColor: "#ec8a6a",
+  energyGlow: "#f6bea8",
+  lineColor: "#8c625c",
   seasonShare: 0.3,
 } as const;
 

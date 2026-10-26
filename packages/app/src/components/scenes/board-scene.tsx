@@ -302,31 +302,31 @@ export function BoardScene(props: BoardSceneProps) {
         {attack?.replay ? (
           <div className={cn("flex justify-end", props.seasonWheel && STACK_BESIDE_DIAL)}>{attack.replay}</div>
         ) : (
-        <TileStack
-          tile={hand.tile}
-          state={hand.state}
-          remaining={props.remaining}
-          coming={hand.coming}
-          drawing={hand.drawing}
-          cellChosen={hand.cellChosen ?? hand.slotChosen}
-          fitsNowhere={hand.fitsNowhere}
-          error={hand.error}
-          errorDetail={hand.errorDetail}
-          tileArt={props.tileArt}
-          renders={props.tileRenders}
-          skins={props.skins}
-          renderTile={props.renderHandTile}
-          renderStack={props.renderHandStack}
-          pilePlans={pilePlans}
-          onDeck={mode === "attack" ? undefined : openDeck}
-          onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
-          discardCost={discardCost}
-          onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
-          surrenderPending={surrendering && !surrenderDialog}
-          coach={props.coach}
-          readOnly={props.readOnly}
-          className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
-        />
+          <TileStack
+            tile={hand.tile}
+            state={hand.state}
+            remaining={props.remaining}
+            coming={hand.coming}
+            drawing={hand.drawing}
+            cellChosen={hand.cellChosen ?? hand.slotChosen}
+            fitsNowhere={hand.fitsNowhere}
+            error={hand.error}
+            errorDetail={hand.errorDetail}
+            tileArt={props.tileArt}
+            renders={props.tileRenders}
+            skins={props.skins}
+            renderTile={props.renderHandTile}
+            renderStack={props.renderHandStack}
+            pilePlans={pilePlans}
+            onDeck={mode === "attack" ? undefined : openDeck}
+            onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
+            discardCost={discardCost}
+            onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
+            surrenderPending={surrendering && !surrenderDialog}
+            coach={props.coach}
+            readOnly={props.readOnly}
+            className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
+          />
         )}
       </div>
 

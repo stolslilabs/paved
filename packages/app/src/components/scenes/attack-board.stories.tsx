@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { DAY_PHASE_AT, SEASONS, type DayPhase, type RendererSettingsInput, type Season } from "@paved/renderer";
-import { sideSettings, type BoardSide } from "../../data/board-side";
+import { RIVAL_BACKDROP, sideSettings, type BoardSide } from "../../data/board-side";
 import { squareGridSettings } from "../../data/settings";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { PVP_REPLAY } from "../../mocks/pvp";
@@ -74,21 +74,43 @@ export const Scout: StoryObj = {
   render: () => <PvpScoutScene {...PVP_V2_SCOUT.ready} canvas={board3d("rival", { tiles: [...RIVAL_V2_VILLAGE.tiles] }).canvas} onBack={fn()} onNext={fn()} onAttack={fn()} />,
 };
 
+type Reds = { -readonly [K in keyof typeof RIVAL_BACKDROP]: (typeof RIVAL_BACKDROP)[K] extends number ? number : string };
+
 /**
- * The two voids side by side on the same village: the player's own (green, left) and a rival's (red, right), at the season and
- * the time of day the controls pick. `seasonShare` is 0.3 on the rival's side so the red holds in every season.
+ * The two voids side by side on the same village: the player's own (green, left or top) and a rival's (red, right or bottom), at
+ * the season and the time of day the controls pick. The rival's colours are controls too, `RIVAL_BACKDROP` by default, to tune the
+ * reds with the owner (open point 7); `seasonShare` is 0.3 on the rival's side so the red holds in every season. On the Low tier
+ * and software WebGL the renderer draws no mist: the void is its ground alone, so the ground carries the red by itself.
  */
-export const Voids: StoryObj<{ season: Season; phase: DayPhase }> = {
-  args: { season: "summer", phase: "day" },
-  argTypes: { season: { control: "inline-radio", options: [...SEASONS] }, phase: { control: "inline-radio", options: Object.keys(DAY_PHASE_AT) } },
-  render: ({ season, phase }) => (
+export const Voids: StoryObj<{ season: Season; phase: DayPhase } & Reds> = {
+  args: { season: "summer", phase: "day", ...RIVAL_BACKDROP },
+  argTypes: {
+    season: { control: "inline-radio", options: [...SEASONS] },
+    phase: { control: "inline-radio", options: Object.keys(DAY_PHASE_AT) },
+    ground: { control: "color" },
+    veil: { control: "color" },
+    energyColor: { control: "color" },
+    energyGlow: { control: "color" },
+    lineColor: { control: "color" },
+    seasonShare: { control: { type: "range", min: 0, max: 1, step: 0.05 } },
+  },
+  render: ({ season, phase, ...reds }) => (
     <div className="flex h-dvh flex-col bg-board tablet:flex-row">
-      {(["own", "rival"] as const).map((side) => (
-        <div key={side} data-side={side} className="relative min-h-0 flex-1">
-          <BoardViewport key={`${season}-${phase}`} tiles={[...RIVAL_V2_VILLAGE.tiles]} basePath={APP_ASSETS} settings={held(side, season, phase)} />
-          <span className="absolute top-2 left-2 rounded-md bg-card/90 px-2 py-1 text-xs font-semibold">{side === "own" ? "Own village: green" : "Rival's village: red"}</span>
-        </div>
-      ))}
+      {(["own", "rival"] as const).map((side) => {
+        const settings = held(side, season, phase);
+        const grid = settings.squareGrid!;
+        return (
+          <div key={side} data-side={side} className="relative min-h-0 flex-1">
+            <BoardViewport
+              key={`${season}-${phase}`}
+              tiles={[...RIVAL_V2_VILLAGE.tiles]}
+              basePath={APP_ASSETS}
+              settings={side === "own" ? settings : { ...settings, squareGrid: { ...grid, backdrop: { ...grid.backdrop, ...reds } } }}
+            />
+            <span className="absolute top-2 left-2 rounded-md bg-card/90 px-2 py-1 text-xs font-semibold">{side === "own" ? "Own village: green" : "Rival's village: red"}</span>
+          </div>
+        );
+      })}
     </div>
   ),
 };
