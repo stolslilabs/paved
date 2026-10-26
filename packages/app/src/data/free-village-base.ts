@@ -31,10 +31,20 @@ export interface OpenChest {
   cobbles: number;
 }
 
+/**
+ * Where a chest was won (#784): a PvP slot of a UTC day (days from the epoch; `slot`, 0 to 2, the day's slot it fills), or a
+ * Story level, which takes no slot.
+ */
+export type ChestOrigin = { source: "pvp"; day: number; slot?: number } | { source: "story" };
+
 /** A player's chests: those waiting to be opened (oldest first), the one open, the PvP chests of the day and the cap. */
 export interface ChestsView {
   pending: ChestRank[];
+  /** Where each waiting chest was won, in `pending`'s order; unset (or an entry null) when the read does not say. */
+  origins?: (ChestOrigin | null)[];
   open: OpenChest | null;
+  /** Where the open chest was won; unset or null when the read does not say. */
+  openOrigin?: ChestOrigin | null;
   pvpToday: number;
   pvpCap: number;
 }
@@ -77,8 +87,11 @@ export interface FreeVillageWrites {
   foundFreeVillage(): Promise<WriteResult>;
   /** Saves the whole layout at once (the editor's draft), checked as `layoutRefusal` checks it. */
   saveLayout(tiles: readonly LayoutTile[]): Promise<WriteResult>;
-  /** Opens the oldest chest waiting: its tiles drawn, its Cobbles credited when they drop. */
-  openChest(): Promise<WriteResult>;
+  /**
+   * Opens a chest waiting: the one at `index` in `ChestsView.pending` (the player's pick, #784), the oldest when unset. Its
+   * tiles drawn, its Cobbles credited when they drop.
+   */
+  openChest(index?: number): Promise<WriteResult>;
   /** Takes tile `slot` of the open chest into the inventory. */
   claimChest(slot: number): Promise<WriteResult>;
   buyTile(request: BuyTileRequest): Promise<WriteResult>;
@@ -202,7 +215,7 @@ export function invalidateV2(client: QueryClient, playerId: string): void {
 export type FreeVillageWrite =
   | { kind: "found" }
   | { kind: "save"; tiles: readonly LayoutTile[] }
-  | { kind: "open" }
+  | { kind: "open"; index?: number }
   | { kind: "claim"; slot: number }
   | { kind: "buy"; request: BuyTileRequest }
   | { kind: "story"; report: StoryReport };
@@ -225,7 +238,7 @@ export function useFreeVillageWrites(playerId: string | null) {
         case "save":
           return signer.saveLayout(write.tiles);
         case "open":
-          return signer.openChest();
+          return signer.openChest(write.index);
         case "claim":
           return signer.claimChest(write.slot);
         case "buy":
@@ -247,7 +260,7 @@ export function useFreeVillageWrites(playerId: string | null) {
     reset: () => mutation.reset(),
     found: () => mutation.mutateAsync({ kind: "found" }),
     save: (tiles: readonly LayoutTile[]) => mutation.mutateAsync({ kind: "save", tiles }),
-    openChest: () => mutation.mutateAsync({ kind: "open" }),
+    openChest: (index?: number) => mutation.mutateAsync(index === undefined ? { kind: "open" } : { kind: "open", index }),
     claimChest: (slot: number) => mutation.mutateAsync({ kind: "claim", slot }),
     buy: (request: BuyTileRequest) => mutation.mutateAsync({ kind: "buy", request }),
     reportStory: (report: StoryReport) => mutation.mutateAsync({ kind: "story", report }),

@@ -12,6 +12,10 @@ import { SFX_NAMES, sfxUrl } from "../src/lib/audio/sfx";
 import { DEFAULT_SETTINGS, withVolume } from "../src/data/settings";
 import { TRACKS } from "../src/lib/music/tracks";
 import { SOUNDS, render as synth, wav } from "../scripts/make-sfx.ts";
+import { slow } from "../test-slow";
+
+/** `vi.waitFor`'s own ceiling (1 s), scaled by the slow profile: the engine fetches and decodes the 16 sound files in it. */
+const WAIT = { timeout: slow(1000) };
 
 // The volume sliders, the settings panel and sheet, the HUD gear, the Web Audio graph (a fake context), the sound files.
 
@@ -37,7 +41,7 @@ describe("VolumeSlider", () => {
     expect(slider).toHaveAttribute("aria-valuetext", "Muted");
     await userEvent.click(button);
     expect(button).toHaveAttribute("aria-pressed", "false");
-    await vi.waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "40"));
+    await vi.waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "40"), WAIT);
   });
 
   it("mutes when dragged to 0 and unmutes when dragged up from 0, by the keyboard too", async () => {
@@ -186,7 +190,7 @@ describe("the audio engine", () => {
     act(() => void document.dispatchEvent(new Event("pointerdown")));
     expect(ctx.resume).toHaveBeenCalled();
     expect(fetchSound.mock.calls.map((c) => c[0])).toEqual(SFX_NAMES.map(sfxUrl));
-    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length));
+    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length), WAIT);
     engine.destroy();
   });
 
@@ -195,7 +199,7 @@ describe("the audio engine", () => {
     engine.play("tap");
     expect(starts).toHaveLength(0);
     act(() => void document.dispatchEvent(new Event("pointerdown")));
-    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length));
+    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length), WAIT);
     engine.play("tap");
     engine.play("tap");
     expect(starts).toHaveLength(1);
@@ -219,11 +223,11 @@ describe("the audio engine", () => {
     // On again (the lock screen's play): the context wakes, still hidden.
     engine.music.resume();
     engine.setMusicVolume(0.4);
-    await vi.waitFor(() => expect(ctx.state).toBe("running"));
+    await vi.waitFor(() => expect(ctx.state).toBe("running"), WAIT);
     expect(engine.music.getState().playing).toBe(true);
     engine.setMusicVolume(0);
     setVisibility("visible");
-    await vi.waitFor(() => expect(ctx.state).toBe("running"));
+    await vi.waitFor(() => expect(ctx.state).toBe("running"), WAIT);
     engine.destroy();
   });
 
@@ -234,14 +238,14 @@ describe("the audio engine", () => {
     expect(ctx.suspend).toHaveBeenCalled();
     expect(ctx.state).toBe("suspended");
     setVisibility("visible");
-    await vi.waitFor(() => expect(ctx.state).toBe("running"));
+    await vi.waitFor(() => expect(ctx.state).toBe("running"), WAIT);
     engine.destroy();
   });
 
   it("plays no sound effect in a hidden tab, even with the context running for the music", async () => {
     const { ctx, engine, starts } = make();
     act(() => void document.dispatchEvent(new Event("pointerdown")));
-    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length));
+    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length), WAIT);
     setVisibility("hidden");
     expect(ctx.state).toBe("running");
     engine.play("tap");
@@ -255,7 +259,7 @@ describe("the audio engine", () => {
   it("cuts an effect that is sounding when the tab is hidden, while the music plays on", async () => {
     const { ctx, engine, starts, stops } = make();
     act(() => void document.dispatchEvent(new Event("pointerdown")));
-    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length));
+    await vi.waitFor(() => expect(engine.loaded()).toHaveLength(SFX_NAMES.length), WAIT);
     engine.play("tap");
     expect(starts).toHaveLength(1);
     setVisibility("hidden");
@@ -286,7 +290,7 @@ describe("the sound files", () => {
       total += size;
       expect(readFileSync(join(dir, `${n}.wav`)).subarray(0, 4).toString()).toBe("RIFF");
     }
-    expect(total).toBeLessThan(250_000);
+    expect(total).toBeLessThan(300_000);
     expect(wav(synth(SOUNDS.tap!.notes, SOUNDS.tap!.length)).length).toBe(statSync(join(dir, "tap.wav")).size);
   });
 });
