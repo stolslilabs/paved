@@ -87,8 +87,11 @@ export function ChangePop({ change, moving, children }: { change: AmountChange |
   );
 }
 
-/** The "+N" that rises off the top, or the "−N" that drops off the bottom, and fades. Its owner is `relative`. */
-export function ChangeFloat({ change, moving, className }: { change: AmountChange | null; moving: boolean; className?: string }) {
+/**
+ * The "+N" that rises off the top, or the "−N" that drops off the bottom, and fades. Its owner is `relative`. `below`: both
+ * start just under the owner, at its right edge, and drift away from it (down), the space above left to what stands there.
+ */
+export function ChangeFloat({ change, moving, below, className }: { change: AmountChange | null; moving: boolean; below?: boolean; className?: string }) {
   return (
     <AnimatePresence>
       {moving && (
@@ -96,9 +99,15 @@ export function ChangeFloat({ change, moving, className }: { change: AmountChang
           key={change!.id}
           aria-hidden
           data-slot="resource-change"
-          className={cn("pointer-events-none absolute right-2 z-10 numeric text-xs font-bold", change!.up ? "-top-3 text-success" : "-bottom-3 text-warning", className)}
-          initial={{ opacity: 1, y: change!.up ? 4 : -4 }}
-          animate={{ opacity: 0, y: change!.up ? -14 : 14 }}
+          className={cn(
+            "pointer-events-none absolute z-10 numeric text-xs font-bold",
+            below ? "top-full right-0" : "right-2",
+            !below && (change!.up ? "-top-3" : "-bottom-3"),
+            change!.up ? "text-success" : "text-warning",
+            className,
+          )}
+          initial={{ opacity: 1, y: below ? -2 : change!.up ? 4 : -4 }}
+          animate={{ opacity: 0, y: below ? 10 : change!.up ? -14 : 14 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1.1, ease: "easeOut" }}
         >
@@ -122,13 +131,14 @@ export function ScoreCount({ value, from, icon, className }: { value: number; fr
     from: from === undefined ? undefined : BigInt(Math.round(from)),
   });
   return (
-    <span data-slot="score-count" className={cn("relative inline-flex items-center gap-1.5", className)}>
+    // At least as wide as the floating figure, which stands inside the box: a "−1,122" under an "838" stays over it.
+    <span data-slot="score-count" className={cn("relative inline-flex items-center gap-1.5", className)} style={moving ? { minWidth: `${change!.text.length}ch` } : undefined}>
       {icon && <ChangePop change={change} moving={moving}>{icon}</ChangePop>}
       <span aria-hidden className={cn("numeric transition-colors duration-700 motion-reduce:duration-300", changeTone(flash, change))}>
         <NumberTicker value={target} startValue={start} format={format} className="tracking-normal" />
       </span>
-      {/* Beside the figure, not over it: the label above (the village page's) and the badge above the chip (the home's) stay clear. */}
-      <ChangeFloat change={change} moving={moving} className="top-0 right-auto bottom-auto left-full ml-3 drop-shadow-sm" />
+      {/* Under the figure, inside its width: the label above (the village page's) and the badge above the chip (the home's) stay clear. */}
+      <ChangeFloat change={change} moving={moving} below className="drop-shadow-sm" />
       <span className="sr-only">{formatInteger(value)}</span>
     </span>
   );
