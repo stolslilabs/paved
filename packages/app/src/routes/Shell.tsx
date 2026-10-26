@@ -7,7 +7,7 @@ import { deviceSettings, useDeviceSettings, withVolume } from "../data/settings"
 import { LoadingScene } from "../components/scenes/loading-scene";
 import { useRoutePage } from "./handle";
 import { BalancesHost } from "./balances-host";
-import { headerBalancesOf, showsNoBalance } from "./header-balances";
+import { showsNoBalance } from "./header-balances";
 import { ProfileHost } from "./profile-host";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
@@ -44,8 +44,8 @@ export function RootLayout() {
   usePrefetchTabs();
   const [{ musicVolume, musicBefore, sfxVolume }] = useDeviceSettings();
   const onBoard = page !== null && BOARD_PATHS.has(page.path);
-  // The page's balances (HEADER-BALANCES, issue 720): a page that shows none (the game scenes) reads none.
-  const balances = headerBalancesOf(page);
+  // The page's balances (HEADER-BALANCES, issues 720 and 781): the home's on every page, none in the game scenes, which read none.
+  const noBalance = showsNoBalance(page);
   const pages = (
     <Suspense fallback={bootScreen}>
       <Outlet />
@@ -61,8 +61,8 @@ export function RootLayout() {
           <StaleChunkGate />
           <TabSwipeEnd />
           {/* A board shows no balances and no avatar: it reads neither (a board is the heaviest page, and its tests the most timing-bound). */}
-          {onBoard ? pages : showsNoBalance(balances) ? <ProfileHost>{pages}</ProfileHost> : (
-            <BalancesHost show={balances}>
+          {onBoard ? pages : noBalance ? <ProfileHost>{pages}</ProfileHost> : (
+            <BalancesHost>
               <ProfileHost>{pages}</ProfileHost>
             </BalancesHost>
           )}

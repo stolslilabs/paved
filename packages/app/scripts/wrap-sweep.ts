@@ -206,10 +206,13 @@ function inspect(): { kind: string; element: string }[] {
       if (!parent || parent.closest("svg") || parent.closest(".sr-only")) continue;
       const pcs = getComputedStyle(parent);
       if (pcs.visibility === "hidden" || pcs.display === "none") continue;
+      // Text in a scroller, or cut by an ellipsis box, below `el` is that box's to judge (`scroll`, `truncate`), not `el`'s: a
+      // page title cut with an ellipsis (#781) runs past a clipping page root without being cut by it.
       let scrolled = false;
       for (let a: Element | null = parent; a && a !== el; a = a.parentElement) {
         const acs = getComputedStyle(a);
         if (scrolls(acs.overflowX) || scrolls(acs.overflowY)) scrolled = true;
+        if (acs.textOverflow === "ellipsis" && clips(acs.overflowX)) scrolled = true;
       }
       if (scrolled) continue;
       const range = document.createRange();

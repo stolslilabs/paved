@@ -35,7 +35,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  */
 export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_URL, onBack, onNavigate }: CreditsSceneProps) {
   return (
-    <TabPage tab="settings" title="Credits" subtitle="Who made what Paved uses" onBack={onBack} onNavigate={onNavigate}>
+    <TabPage tab="settings" title="Credits" onBack={onBack} onNavigate={onNavigate}>
+      <p className="text-sm text-muted-foreground">Who made what Paved uses.</p>
       <Section title="Cartridge Controller">
         <p className="wrap-anywhere">Uses Cartridge Controller, © Cartridge Gaming Company.</p>
         <p>

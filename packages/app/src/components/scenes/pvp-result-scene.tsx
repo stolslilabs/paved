@@ -243,7 +243,6 @@ export function PvpResultScene(props: PvpResultSceneProps) {
             <DialogTitle className="sr-only">Village reward</DialogTitle>
             <villageScene.VillageScene
               village={props.village}
-              cobbles={props.balance}
               reward={reward.state === "offer" ? reward.offer : null}
               tileArt={props.tileArt}
               onBack={() => setChoosing(false)}
