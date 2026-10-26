@@ -3,8 +3,10 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { documentScrollStartHint } from "../../lib/document-scroll-hint";
-import { BalancesSlot, PageBalances } from "./balances-context";
+import { BalancesSlot, PageBalances, PanelBalances } from "./balances-context";
 import { MockMark, useMockMarked } from "./mock-mark";
+import { usePagePanel } from "./page-panel-context";
+import { PanelClose } from "./panel-close";
 
 export interface TopBarProps {
   title?: ReactNode;
@@ -50,9 +52,14 @@ const px = (value: string) => Number.parseFloat(value) || 0;
  * show as on the tab pages, where the shell provides them: from `desktop` before `end`; below it in the page, under the bar at
  * its top right (`PageBalances`), so the bar never takes a second row. A title takes one line, cut with an ellipsis (its whole text in `title`).
  * A bar too narrow to centre its title between two such sides keeps the title readable instead (`sideWidth`).
+ * DESK-PANELS (#762): in the home's side panel from `desktop`, the bar is the panel's header, laid out as on a phone: it ends with
+ * the panel's close (`PanelClose`), after the Cobbles where the page's rule shows them (`PanelBalances`, none under it); a page of
+ * the overlay itself has no Back (the close leads to the village), a page reached from another keeps it. The panel's body
+ * scrolls, not the document.
  */
 export function TopBar({ title, onBack, end, balances = true, ownCobbles = false, className }: TopBarProps) {
   const marked = useMockMarked();
+  const panel = usePagePanel();
   const bar = useRef<HTMLElement>(null);
   const label = useRef<HTMLSpanElement>(null);
   // A title cut on its line keeps its whole text in `title` (a string as is, a composed title by its text).
@@ -75,7 +82,9 @@ export function TopBar({ title, onBack, end, balances = true, ownCobbles = false
     [el, ...sides].forEach((node) => observer.observe(node));
     return () => observer.disconnect();
   }, []);
-  useEffect(documentScrollStartHint, []);
+  // In a panel its body is the region whose hint shows (`page-panel.tsx`); the document does not scroll.
+  const inPanel = panel !== null;
+  useEffect(() => (inPanel ? undefined : documentScrollStartHint()), [inPanel]);
   return (
     <>
     <header
@@ -88,7 +97,7 @@ export function TopBar({ title, onBack, end, balances = true, ownCobbles = false
     >
       <span className="flex">
         <span className="flex w-max shrink-0">
-          {onBack && (
+          {onBack && !panel?.top && (
             <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
               <Icon name="chevron-left" />
             </Button>
@@ -109,8 +118,10 @@ export function TopBar({ title, onBack, end, balances = true, ownCobbles = false
       </span>
       <span className="flex justify-end">
         <span className="flex w-max shrink-0 items-center justify-end gap-2">
-          {balances && <BalancesSlot layout="rail" noCobbles={ownCobbles} className="hidden desktop:flex" />}
+          {balances && !panel && <BalancesSlot layout="rail" noCobbles={ownCobbles} className="hidden desktop:flex" />}
           {end}
+          {balances && <PanelBalances noCobbles={ownCobbles} />}
+          <PanelClose />
         </span>
       </span>
       <span aria-hidden data-slot="page-top-hint" className="pointer-events-none absolute inset-x-0 top-full h-6 bg-linear-to-t to-background opacity-0 transition-opacity motion-reduce:transition-none page-less:opacity-100" />

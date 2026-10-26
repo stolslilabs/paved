@@ -9,6 +9,30 @@
 @custom-variant page-more (&:where(html[data-scroll-end] *));
 /* PAGE-HEADER (#760): the page has more above, under its sticky header (the tab page's region or a flow's document, `data-scroll-start` on `<html>`). */
 @custom-variant page-less (&:where(html[data-scroll-start] *));
+/* DESK-PANELS (#762): a page in the side panel (`data-page-panel`, containers/page-panel.tsx) is laid out as on a phone, so the
+   breakpoints past `mobile` skip what is inside it: the same media queries as the theme's breakpoints below, and not in a panel.
+   The `max-*` variants keep their media queries (only the phone's bar uses one, and it is never in a panel). */
+@custom-variant tablet {
+  @media (width >= 40rem) {
+    &:not(:where([data-page-panel] *)) {
+      @slot;
+    }
+  }
+}
+@custom-variant desktop {
+  @media (width >= 64rem) {
+    &:not(:where([data-page-panel] *)) {
+      @slot;
+    }
+  }
+}
+@custom-variant wide {
+  @media (width >= 90rem) {
+    &:not(:where([data-page-panel] *)) {
+      @slot;
+    }
+  }
+}
 @custom-variant iphone-tab {
   @supports (-webkit-touch-callout: none) {
     @media (display-mode: browser) and (max-width: 40rem) {
@@ -167,6 +191,10 @@
   @media (width >= 64rem) {
     --header-h: 4rem;
   }
+}
+/* A page in the side panel (#762) is laid out as on a phone: the phone's header height. */
+[data-page-panel] {
+  --header-h: 3.5rem;
 }
 
 /* 3. Semantic tokens (shadcn names), dark values. Dark only: no light block yet. */
@@ -383,7 +411,8 @@
   /* NO-SCROLLBARS (#609): no scrollbar is drawn from `desktop`, on any element, the document included; every scroller still
      scrolls by wheel, trackpad, keyboard and touch. Below `desktop` the OS draws overlay bars that hide themselves: unchanged.
      What tells the player a region scrolls is the edge fade, `scroll-hint` below. */
-  @variant desktop {
+  /* The breakpoint's media query, not the `desktop` variant: a panel's page (#762) hides its bars too. */
+  @media (width >= 64rem) {
     * { scrollbar-width: none; }
     *::-webkit-scrollbar { display: none; }
   }

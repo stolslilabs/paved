@@ -61,8 +61,9 @@ describe("the scrollable regions", () => {
     const root = resolve("src");
     const files = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(resolve(dir, e.name)) : /\.tsx?$/.test(e.name) ? [resolve(dir, e.name)] : []));
-    // The tab page's region is the page's document (#611): the page's hint, not the mask (`TabFrame`).
-    const allowed = new Set(["components/ui/scroll-region.tsx", "components/containers/tab-frame.tsx"]);
+    // The tab page's region is the page's document (#611): the page's hint, not the mask (`TabFrame`); so is the side panel's body
+    // from `desktop` (#762), where the page is drawn (`PagePanel`).
+    const allowed = new Set(["components/ui/scroll-region.tsx", "components/containers/tab-frame.tsx", "components/containers/page-panel.tsx"]);
     const offenders = files(root)
       .map((f) => relative(root, f))
       // Storybook's own tools (renderer benches, lighting) are not the app's screens.
@@ -83,9 +84,9 @@ describe("the page's hint", () => {
     try {
       const { container, unmount } = render(<TabFrame tab="home"><p>Body</p></TabFrame>);
       expect(root).toHaveAttribute("data-scroll-end");
-      // Two fades: above the bar below `desktop`, at the viewport's foot from it (outside the bar's backdrop filter).
-      expect(container.querySelectorAll("[data-slot=page-scroll-hint]")).toHaveLength(2);
-      expect(container.querySelector("nav > [data-slot=page-scroll-hint].fixed")).toBeNull();
+      // One fade, above the bar: from `desktop` there is no bar, the page is in the home's side panel (#762).
+      expect(container.querySelectorAll("[data-slot=page-scroll-hint]")).toHaveLength(1);
+      expect(container.querySelector("nav > [data-slot=page-scroll-hint]")).not.toBeNull();
       unmount();
       expect(root).not.toHaveAttribute("data-scroll-end");
     } finally {
@@ -118,8 +119,9 @@ describe("the dropdown menu", () => {
 });
 
 describe("theme.css", () => {
-  it("hides every scrollbar from desktop, the document included", () => {
-    expect(theme).toMatch(/@variant desktop \{\s*\* \{ scrollbar-width: none; \}\s*\*::-webkit-scrollbar \{ display: none; \}/);
+  it("hides every scrollbar from desktop, the document and the side panel's page included", () => {
+    // The breakpoint's media query, not the `desktop` variant, which skips a side panel's page (#762).
+    expect(theme).toMatch(/@media \(width >= 64rem\) \{\s*\* \{ scrollbar-width: none; \}\s*\*::-webkit-scrollbar \{ display: none; \}/);
   });
 
   it("the hint fades the sides marked by data-scroll-start / data-scroll-end", () => {

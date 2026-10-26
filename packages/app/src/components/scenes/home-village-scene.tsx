@@ -121,8 +121,11 @@ export interface HomeVillageSceneProps {
  * PHONE-NAV (#763, the owner's decisions of 2026-10-25): below `desktop` the view has the app's bottom bar again (Shop, Chests
  * with its count, Play, League, Settings; no item current), so the right column keeps Missions and Vault, and the gear and the
  * large Play go (the bar's Settings and centre disc); Edit and the season dial sit above the bar (its measured `--app-nav-h`).
- * Edit mode has no bar: the editor's panel takes the bottom. From `desktop` none of this applies: no bar, the column of five,
- * the gear and Play (#762 reworks it).
+ * Edit mode has no bar: the editor's panel takes the bottom.
+ * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the navigation is this overlay, with no bar and no
+ * header: the column of five (Missions, Chests, Shop, Vault, League; League beside the badge on purpose), the gear and Play. Each
+ * opens its page in a side panel on the right, over the village, which stays in view (`routes/home-layout.tsx`); the profile
+ * opens on the left.
  */
 export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProps) {
   const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
@@ -386,7 +389,7 @@ function ViewOverlays({
 
       {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
       <HomeBar>
-        <LazyAppNav active={null} desktop="none" badges={{ chests: props.chests }} onNavigate={props.onNavigate} className="relative" />
+        <LazyAppNav active={null} badges={{ chests: props.chests }} onNavigate={props.onNavigate} className="relative" />
       </HomeBar>
     </>
   );

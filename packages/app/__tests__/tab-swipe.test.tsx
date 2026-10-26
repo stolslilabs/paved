@@ -142,11 +142,12 @@ describe("a pick in the bar", () => {
   it("from desktop, changes the page with no transition", async () => {
     media({ below: false });
     const { start } = viewTransitions();
-    const router = open("/vault");
-    await screen.findByRole("heading", { level: 1, name: "Vault" });
-    await userEvent.click(screen.getByRole("button", { name: "Missions" }));
-    await screen.findByRole("heading", { level: 1, name: "Missions" });
-    expect(router.state.location.pathname).toBe("/missions");
+    // (The side panel's query is not matched here: the pages stay full, their bar's picks are what is tested.)
+    const router = open("/settings");
+    await screen.findByRole("heading", { level: 1, name: "Settings" });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Shop" }));
+    await screen.findByRole("heading", { level: 1, name: "Tile shop" });
+    expect(router.state.location.pathname).toBe("/village/shop");
     expect(start).not.toHaveBeenCalled();
     expect(html.hasAttribute(TAB_SWIPE_MARK)).toBe(false);
   });
@@ -177,7 +178,7 @@ describe("the bar", () => {
     const { unmount } = render(<AppNav active="play" />);
     expect(highlight().className).toContain("opacity-0");
     unmount();
-    const home = render(<AppNav active={null} desktop="none" />);
+    const home = render(<AppNav active={null} />);
     expect(highlight().className).toContain("opacity-0");
     expect(screen.queryByRole("button", { current: "page" })).toBeNull();
     home.unmount();
@@ -198,7 +199,7 @@ describe("the bar", () => {
   });
 
   it("fades the highlight in on its column when the last bar had no item current (the home's)", () => {
-    const { rerender } = render(<AppNav key="home" active={null} desktop="none" />);
+    const { rerender } = render(<AppNav key="home" active={null} />);
     rerender(<AppNav key="chests" active="chests" />);
     expect(highlight().style.getPropertyValue("--nav-col")).toBe("1");
     expect(highlight().className).toContain("max-desktop:starting:opacity-0");
@@ -221,17 +222,14 @@ describe("the bar", () => {
     expect(label("Shop")).not.toHaveAttribute("data-open");
   });
 
-  it("holds Shop, Chests, Play, League, Settings in that order below desktop, and the header's items from it (#763)", () => {
+  it("holds Shop, Chests, Play, League, Settings in that order below desktop, and nothing from it (#763, #762)", () => {
     render(<AppNav active="shop" />);
-    // An item's widths are on its button, or on Play's slot around its disc.
-    const classes = (b: HTMLElement) => (b.getAttribute("aria-label") === "Play" ? b.parentElement! : b).className.split(" ");
-    const names = (keep: (b: HTMLElement) => boolean) => screen.getAllByRole("button").filter(keep).map((b) => b.getAttribute("aria-label"));
-    expect(names((b) => !classes(b).includes("max-desktop:hidden"))).toEqual(["Shop", "Chests", "Play", "League", "Settings"]);
-    expect(names((b) => !classes(b).includes("desktop:hidden"))).toEqual(["Home", "Missions", "Vault", "Settings"]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "League", "Settings"]);
+    expect(screen.getByRole("navigation", { name: "Main" })).toHaveClass("desktop:hidden");
   });
 
   it("on the home, shows the bar's items alone, the chests waiting on Chests, and nothing from desktop", () => {
-    render(<AppNav active={null} desktop="none" badges={{ chests: 2 }} />);
+    render(<AppNav active={null} badges={{ chests: 2 }} />);
     expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "League", "Settings"]);
     expect(screen.getByRole("navigation", { name: "Main" }).className).toContain("desktop:hidden");
     expect(document.querySelector('[data-slot="app-nav-badge"]')).toHaveTextContent("2");

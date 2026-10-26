@@ -2,6 +2,7 @@ import { createContext, lazy, Suspense, useContext } from "react";
 import { cn } from "../../lib/utils";
 import { Skeleton } from "../ui/skeleton";
 import type { BalancesProps } from "./balances";
+import { usePagePanel } from "./page-panel-context";
 
 /**
  * Which balances a page's header shows (HEADER-BALANCES, #720; the rule by route is `routes/header-balances.ts`): `phone`, the
@@ -53,15 +54,27 @@ export function BalancesSlot({ layout, noCobbles, className }: { layout: Balance
 /**
  * The balances below `desktop` (PAGE-HEADER, #760): in the page, right under its header, at the content's top right, scrolling
  * with it; never in the header, which stays one row. From `desktop` they are on the header's row (`BalancesSlot` `rail`).
- * Nothing at all where the page's rule shows no Cobbles on a phone, or where the page draws its own (`noCobbles`).
+ * Nothing at all where the page's rule shows no Cobbles on a phone, or where the page draws its own (`noCobbles`). Nothing in
+ * the side panel (#762), whose page's header has the room for them (`PanelBalances`).
  */
 export function PageBalances({ noCobbles, className }: { noCobbles?: boolean; className?: string }) {
   const value = useContext(BalancesContext);
   const show = useHeaderBalances();
-  if (!value || !show?.phone || noCobbles) return null;
+  const panel = usePagePanel();
+  if (!value || !show?.phone || noCobbles || panel) return null;
   return (
     <div data-slot="page-balances" className={cn("flex justify-end desktop:hidden", className)}>
       <BalancesSlot layout="pill" />
     </div>
   );
+}
+
+/**
+ * The balances in a side panel's header (DESK-PANELS, #762, the owner's decision of 2026-10-25): the panel covers the home's
+ * rail, so they come back in the page's header, only where they matter to the page (the phone's rule, `HeaderBalances.phone`: the
+ * Cobbles, where they are bought, earned or spent). Nothing on a full page.
+ */
+export function PanelBalances({ noCobbles }: { noCobbles?: boolean }) {
+  if (!usePagePanel()) return null;
+  return <BalancesSlot layout="pill" noCobbles={noCobbles} />;
 }

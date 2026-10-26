@@ -5,6 +5,7 @@ import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { SHOP_TODAY, VILLAGE_SHOP } from "../../mocks/village-v2";
 import { VillageShopScene, type VillageShopSceneProps } from "./village-shop-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
+import { inPanel } from "../../stories/in-panel";
 
 /**
  * The daily tile shop (#739, part of #732) on fakes: the day's 3 offers with their rarity and price, each bought once a day,
@@ -52,6 +53,6 @@ function Playground(props: VillageShopSceneProps) {
 
 export const Interactive: Story = { render: (args) => <Playground {...args} /> };
 
-/** In the phone's bar (#763): the Shop current at 375 px; from 1440 px the page's top bar alone, as before (#762). */
+/** In the phone's bar (#763): the Shop current at 375 px; from 1440 px in the home's side panel, laid out as on a phone (#762). */
 export const TodayPhone: Story = { ...Today, ...PHONE_375 };
-export const TodayWide: Story = { ...Today, ...WIDE_1440 };
+export const TodayWide: Story = { ...Today, ...WIDE_1440, decorators: [inPanel("Tile shop")] };

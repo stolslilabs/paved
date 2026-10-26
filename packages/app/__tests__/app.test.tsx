@@ -35,15 +35,15 @@ describe("app", () => {
     expect(nav.className).toContain("desktop:hidden");
   });
 
-  it("gives the tab pages the bar's five items, Play in the centre, and the header's four from desktop", async () => {
+  it("gives the tab pages the bar's five items, Play in the centre, and no header from desktop (#762)", async () => {
     render(<App router={createTestRouter("/vault")} />);
     expect(await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Main" });
-    // The items are the buttons of the nav's item row (direction D: after the wordmark); the header's Balances section (its
-    // Connect, its rows) comes after them. Play sits in a slot of its own.
-    expect(nav.querySelectorAll(":scope > div > button")).toHaveLength(7);
-    // #763: the bar's Shop, Chests, Play, League, Settings and the header's Home, Missions, Vault, Settings, in one row.
-    expect([...nav.querySelectorAll(":scope > div > button, :scope > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Home", "Missions", "Shop", "Chests", "Play", "League", "Vault", "Settings"]);
+    // The items are the buttons of the nav's item row; Play sits in a slot of its own.
+    expect(nav.querySelectorAll(":scope > div > button")).toHaveLength(4);
+    // #763: the bar's Shop, Chests, Play, League, Settings; from `desktop` no bar and no header (#762: the home's overlay).
+    expect([...nav.querySelectorAll(":scope > div > button, :scope > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "League", "Settings"]);
+    expect(nav).toHaveClass("desktop:hidden");
     expect(within(nav).getByRole("button", { name: "Play" })).toHaveTextContent("");
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });

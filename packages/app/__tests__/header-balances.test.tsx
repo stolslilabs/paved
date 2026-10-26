@@ -1,3 +1,4 @@
+import { routeOf } from "./route-helpers";
 import { slow } from "../test-slow";
 import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
@@ -50,9 +51,11 @@ describe("the header's balances by page (#720)", () => {
   // the width its class keeps it to.
   it.each(PAGES.map((p) => [p.path || "/", p.path] as const))("%s", async (_, path) => {
     const router = createTestRouter(concrete(path), (routes) => {
-      const route = routes[0]!.children!.find((r) => (path === "" ? r.index : r.path === path))!;
+      const route = routeOf(routes, path);
       route.element = <TopBar title="Stand-in" />;
       route.loader = undefined;
+      // The home's welcome loader is its index's (#762).
+      if (path === "") route.children![0]!.loader = undefined;
       return routes;
     });
     render(<App router={router} sources={fakeSources().sources} />);

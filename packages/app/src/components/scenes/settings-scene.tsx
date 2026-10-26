@@ -46,7 +46,7 @@ export function SettingsScene(props: SettingsSceneProps) {
   const { preferences: p, account, onChange } = props;
   return (
     <TabPage tab="settings" title="Settings" onNavigate={props.onNavigate}>
-      <div className="grid grid-cols-1 gap-4 desktop:grid-cols-2 desktop:items-start">
+      <div className="grid grid-cols-1 gap-4">
         <DeviceSettingsPanel
           preferences={p}
           autoQuality={props.autoQuality}

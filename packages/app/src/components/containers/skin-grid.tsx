@@ -98,7 +98,7 @@ export interface SkinGridProps {
 export function SkinGrid({ theme, prices, owned, active, variants, balance, buying, renders, onBuy, className }: SkinGridProps) {
   const code = THEME_CODES[theme];
   return (
-    <ul aria-label="Tiles" className={cn("grid grid-cols-3 gap-2 tablet:grid-cols-4 desktop:grid-cols-6", className)}>
+    <ul aria-label="Tiles" className={cn("grid grid-cols-3 gap-2 tablet:grid-cols-4", className)}>
       {Array.from({ length: PLANS }, (_, i) => i + 1).map((plan) => {
         const state: SkinState = !ownsSkin(owned, plan) ? "none" : active[plan - 1] === code ? "active" : "owned";
         return (

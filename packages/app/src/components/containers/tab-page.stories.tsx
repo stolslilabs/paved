@@ -5,6 +5,7 @@ import { BIG_AMOUNT_18, LONG_LABEL, LONG_SENTENCE } from "../../mocks/stress";
 import { Amount } from "../elements/amount";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { BalancesProvider, type HeaderBalances } from "./balances-context";
+import { inPanel } from "../../stories/in-panel";
 
 const meta = {
   title: "Containers/TabPage",
@@ -84,8 +85,8 @@ export const Phone320Cobbles: Story = {
   args: { tab: "settings", title: "Themes and tiles of the season", subtitle: LONG_SENTENCE, onBack: fn() },
   decorators: withBalances({ phone: true, desktop: "all" }),
 };
-/** At 1440 px: the navigation is the top header (with the balances), the page's one-row header opens the content, Back on its left. */
-export const WideCobbles: Story = { ...WIDE_1440, args: { tab: "quests", title: "Missions" }, decorators: withBalances({ phone: true, desktop: "all" }) };
+/** At 1440 px, in the home's side panel (#762): the phone's layout, no Back, the Cobbles and the panel's close in the header. */
+export const WideCobbles: Story = { ...WIDE_1440, args: { tab: "quests", title: "Missions" }, decorators: [inPanel("Missions"), ...withBalances({ phone: true, desktop: "all" })] };
 /**
  * At 375 px, scrolled to the bottom: the header is sticky, so Back stays in view; the fade under it shows the page has more
  * above (none under reduced motion's toggle: the fade switches without a transition).

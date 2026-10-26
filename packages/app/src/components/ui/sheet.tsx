@@ -198,7 +198,14 @@ function useSheetDrag(el: HTMLElement | null, active: boolean, close: () => void
   }, [el, active, close, reduced]);
 }
 
-export function SheetContent({ className, children, side = "right", ...props }: ComponentProps<typeof SheetPrimitive.Content> & { side?: Side }) {
+/** `closeButton`: the panel's own close at its top right; off where the content's header draws it (the page panel, DESK-PANELS). */
+export function SheetContent({
+  className,
+  children,
+  side = "right",
+  closeButton = true,
+  ...props
+}: ComponentProps<typeof SheetPrimitive.Content> & { side?: Side; closeButton?: boolean }) {
   const { open, close } = useContext(OpenContext);
   // The portal mounts the panel a render late: a state, not a ref, so that the drag attaches once it is there.
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
@@ -233,6 +240,7 @@ export function SheetContent({ className, children, side = "right", ...props }: 
                 </div>
               )}
               {children}
+              {closeButton && (
               <SheetPrimitive.Close
                 data-slot="sheet-close-x"
                 className="state-layer absolute top-3 right-3 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
@@ -240,6 +248,7 @@ export function SheetContent({ className, children, side = "right", ...props }: 
                 <CloseIcon />
                 <span className="sr-only">Close</span>
               </SheetPrimitive.Close>
+              )}
             </m.div>
           </SheetPrimitive.Content>
         </SheetPrimitive.Portal>

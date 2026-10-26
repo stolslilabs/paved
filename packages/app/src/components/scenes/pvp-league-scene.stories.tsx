@@ -3,6 +3,7 @@ import { fn } from "storybook/test";
 import { PVP_LEAGUE } from "../../mocks/pvp";
 import { PvpLeagueScene } from "./pvp-league-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
+import { inPanel } from "../../stories/in-panel";
 
 /** The league (#647): crowns, the league and the way to the next, the season's end and its rewards. On fakes; the leagues are a proposal until #644. */
 const meta = {
@@ -25,6 +26,6 @@ export const Unranked: Story = { args: PVP_LEAGUE.unranked };
 /** The season has ended: its rewards on their way. */
 export const Ended: Story = { args: PVP_LEAGUE.ended };
 
-/** In the phone's bar (#763): the League current at 375 px; from 1440 px the page's top bar alone, as before (#762). */
+/** In the phone's bar (#763): the League current at 375 px; from 1440 px in the home's side panel, laid out as on a phone (#762). */
 export const GoldPhone: Story = { ...Gold, ...PHONE_375 };
-export const GoldWide: Story = { ...Gold, ...WIDE_1440 };
+export const GoldWide: Story = { ...Gold, ...WIDE_1440, decorators: [inPanel("League")] };

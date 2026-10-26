@@ -10,6 +10,7 @@ import type { ChestDraw } from "../containers/chest-reveal";
 import { READY_S } from "../containers/chest-slots";
 import { VillageChestsScene, type ChestTaken, type VillageChestsSceneProps } from "./village-chests-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
+import { inPanel } from "../../stories/in-panel";
 
 /**
  * The chests (#739, part of #732; livelier since #759) on fakes: the day's three slots and their reset, the chests waiting by
@@ -113,6 +114,6 @@ function ResetPlayground(props: VillageChestsSceneProps) {
 
 export const ResetLive: Story = { args: VILLAGE_CHESTS.capped, render: (args) => <ResetPlayground {...args} /> };
 
-/** In the phone's bar (#763): the Chests current at 375 px; from 1440 px the page's top bar alone, as before (#762). */
+/** In the phone's bar (#763): the Chests current at 375 px; from 1440 px in the home's side panel, laid out as on a phone (#762). */
 export const WaitingPhone: Story = { ...Waiting, ...PHONE_375 };
-export const WaitingWide: Story = { ...Waiting, ...WIDE_1440 };
+export const WaitingWide: Story = { ...Waiting, ...WIDE_1440, decorators: [inPanel("Chests")] };

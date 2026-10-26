@@ -68,7 +68,8 @@ describe("Vault", () => {
     expect(within(position).getByText("Withdrawable now").closest("div")?.parentElement).toHaveTextContent("1,291.12");
     expect(within(position).getByText("Rate").closest("div")?.parentElement).toHaveTextContent("1 : 1.0841");
     expect(within(position).getByText("Exit fee").closest("div")?.parentElement).toHaveTextContent("5%");
-    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Vault" })).toHaveAttribute("aria-current", "page");
+    // The Vault is the home's overlay's, not the bar's (#763): no item current.
+    expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("button", { current: "page" })).toBeNull();
   });
 
   it("shows the split of each purchase: burn 73.68%, Vault 26.32%, the referral's 5% out of the Vault's part", () => {
@@ -392,7 +393,8 @@ describe("Achievements", () => {
     expect(screen.getByRole("article", { name: "Settler V" })).toBeInTheDocument();
     expect(screen.queryByText(/Mission #/)).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Lifetime" })).toHaveAttribute("aria-selected", "true");
-    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Missions" })).toHaveAttribute("aria-current", "page");
+    // Missions are the home's overlay's, not the bar's (#763): no item current.
+    expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("button", { current: "page" })).toBeNull();
   });
 
   it.each([

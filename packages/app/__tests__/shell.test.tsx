@@ -7,13 +7,13 @@ import { createBrowserRouter, createMemoryRouter } from "react-router";
 import { App } from "../src/App";
 import { earlierEntryExists } from "../src/routes/history";
 import { routes } from "../src/routes/router";
-import { PAGES } from "../src/routes/pages";
+import { BAR_TABS, PAGES } from "../src/routes/pages";
 import { withRef } from "../src/routes/ref";
 import { createTestRouter } from "../src/routes/router";
 import { hasWelcomed, markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
-import { preloadPages } from "./route-helpers";
+import { preloadPages, routeOf } from "./route-helpers";
 
 // A player id is an address (P8): the page of anything else is not found.
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:id/g, "0x1").replace(/:theme/g, "forest").replace(/:(\w+)/g, "1");
@@ -54,33 +54,33 @@ describe("the active tab comes from the route's own entry", () => {
     // A guest's league is its connect prompt, under the bar (#763).
     if (page.path === "pvp/league") await screen.findByText("Connect to see your league.", undefined, { timeout: slow(5000) });
     else await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
-    const active = screen.getAllByRole("button", { current: "page" });
-    expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
+    // The bar's own tabs are current on their pages; Missions and the Vault are the home's overlay's, no item current (#763).
+    const active = screen.queryAllByRole("button", { current: "page" });
+    expect(active.map((b) => b.getAttribute("aria-label"))).toEqual(BAR_TABS.includes(page.nav!) ? [TAB_LABEL[page.nav!]] : []);
   });
 
-  it("holds for the nested routes: /settings/theme and /referral are Settings, /missions/lifetime is Missions", async () => {
+  it("holds for the nested routes: /settings/theme and /referral are Settings, /pvp/defence is League", async () => {
     for (const [path, tab] of [
       ["/settings/theme", "Settings"],
       ["/referral", "Settings"],
-      ["/missions/lifetime", "Missions"],
+      ["/pvp/defence", "League"],
     ] as const) {
       const { unmount } = render(<App router={createTestRouter(path)} />);
-      await screen.findByRole("navigation", { name: "Main" });
-      expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName(tab);
+      await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
+      expect(await screen.findByRole("button", { current: "page" })).toHaveAccessibleName(tab);
       unmount();
     }
   });
 
   it("is read from the handle, not the path: a route whose path says otherwise follows its entry", async () => {
-    const router = createTestRouter("/vault", (rs) => {
-      const vault = rs[0]!.children!.find((r) => r.path === "vault")!;
-      vault.path = "settings-looking-path";
+    const router = createTestRouter("/settings", (rs) => {
+      routeOf(rs, "settings").path = "shop-looking-path";
       return rs;
     });
-    router.navigate("/settings-looking-path");
+    router.navigate("/shop-looking-path");
     render(<App router={router} />);
-    await screen.findByRole("heading", { level: 1, name: "Vault" });
-    expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Vault");
+    await screen.findByRole("heading", { level: 1, name: "Settings" }, { timeout: slow(5000) });
+    expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Settings");
   });
 
   it("is on the home with no item current (#763), beside the village's overlays", async () => {
@@ -112,14 +112,13 @@ describe("the active tab comes from the route's own entry", () => {
     expect(router.state.location.pathname).toBe("/play");
   });
 
-  it("changes with a tab press and moves the page; Home lands on the village", async () => {
-    const router = open("/vault");
-    await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
-    await userEvent.click(screen.getByRole("button", { name: "Missions" }));
-    await screen.findByRole("heading", { level: 1, name: "Missions" });
-    expect(router.state.location.pathname).toBe("/missions");
-    expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Missions");
-    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Home" }));
+  it("changes with a tab press and moves the page; Back lands on the village", async () => {
+    const router = open("/settings");
+    await screen.findByRole("heading", { level: 1, name: "Settings" }, { timeout: slow(5000) });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Shop" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/village/shop"), { timeout: slow(5000) });
+    expect(await screen.findByRole("button", { current: "page" }, { timeout: slow(5000) })).toHaveAccessibleName("Shop");
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     expect(router.state.location.pathname).toBe("/");
   });
@@ -195,11 +194,11 @@ describe("?ref= survives", () => {
   it("is kept by the tab bar and by the error page's way home", async () => {
     const router = open("/?ref=0xabc");
     await screen.findByRole("heading", { name: "Home" });
-    await userEvent.click(screen.getByRole("button", { name: "Vault" }));
-    await screen.findByRole("heading", { level: 1, name: "Vault" });
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Village" })).getByRole("button", { name: "Vault" }));
+    await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
     expect(router.state.location.search).toBe("?ref=0xabc");
-    await userEvent.click(screen.getByRole("button", { name: "Missions" }));
-    await screen.findByRole("heading", { level: 1, name: "Missions" });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Shop" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/village/shop"), { timeout: slow(5000) });
     expect(router.state.location.search).toBe("?ref=0xabc");
   });
 
@@ -223,7 +222,7 @@ describe("a page that throws", () => {
       throw new Error("the page blew up");
     }
     const router = createTestRouter("/vault", (rs) => {
-      rs[0]!.children!.find((r) => r.path === "vault")!.element = <Boom />;
+      routeOf(rs, "vault").element = <Boom />;
       return rs;
     });
     render(<App router={router} />);
@@ -342,7 +341,7 @@ describe("?ref= on the error and not-found pages", () => {
       throw new Error("boom");
     }
     const router = createTestRouter("/vault?ref=0xabc", (rs) => {
-      rs[0]!.children!.find((r) => r.path === "vault")!.element = <Boom />;
+      routeOf(rs, "vault").element = <Boom />;
       return rs;
     });
     render(<App router={router} />);
