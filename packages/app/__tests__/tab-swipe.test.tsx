@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -233,5 +235,30 @@ describe("the bar", () => {
     expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "League", "Settings"]);
     expect(screen.getByRole("navigation", { name: "Main" }).className).toContain("desktop:hidden");
     expect(document.querySelector('[data-slot="app-nav-badge"]')).toHaveTextContent("2");
+  });
+});
+
+describe("the Play disc during a swipe (SWIPE-DISC, #780)", () => {
+  const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
+  /** The declarations of the first rule whose selector is `selector`. */
+  const rule = (selector: string) => {
+    const at = css.indexOf(`${selector} {`);
+    expect(at, selector).toBeGreaterThanOrEqual(0);
+    return css.slice(css.indexOf("{", at) + 1, css.indexOf("}", at));
+  };
+
+  it("names the bar on its own while the mark is on, so the page's snapshots never cover the disc", () => {
+    render(<AppNav active="shop" />);
+    expect(screen.getByRole("navigation", { name: "Main" })).toHaveAttribute("data-slot", "app-nav");
+    expect(rule('html[data-tab-swipe] [data-slot="app-nav"]')).toContain("view-transition-name: app-nav");
+    expect(rule('html[data-tab-swipe] [data-slot="page-scroll"]')).toContain("view-transition-name: tab-page");
+  });
+
+  it("paints the bar's group above the page's, still: its new snapshot alone, not animated", () => {
+    expect(rule("html[data-tab-swipe]::view-transition-group(app-nav)")).toMatch(/z-index: [1-9]/);
+    expect(rule("html[data-tab-swipe]::view-transition-group(tab-page)")).not.toContain("z-index");
+    expect(rule("html[data-tab-swipe]::view-transition-group(app-nav)")).toContain("animation: none");
+    expect(rule("html[data-tab-swipe]::view-transition-old(app-nav)")).toMatch(/animation: none;\s+opacity: 0/);
+    expect(rule("html[data-tab-swipe]::view-transition-new(app-nav)")).toContain("animation: none");
   });
 });

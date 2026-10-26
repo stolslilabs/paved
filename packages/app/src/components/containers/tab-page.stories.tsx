@@ -1,5 +1,9 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
+import { flushSync } from "react-dom";
 import { fn } from "storybook/test";
+import type { Tab } from "../../routes/pages";
+import { TAB_SWIPE_MARK, tabSwipeWay } from "../../routes/tab-swipe";
 import { TabPage } from "./tab-page";
 import { BIG_AMOUNT_18, LONG_LABEL, LONG_SENTENCE } from "../../mocks/stress";
 import { Amount } from "../elements/amount";
@@ -101,3 +105,69 @@ export const PhoneScrolled: Story = {
     region.scrollTop = region.scrollHeight;
   },
 };
+
+/** The pages of the swipe's stories: a tab's title, and cards down to the bar, so the moving page passes under the Play disc. */
+const SWIPE_TITLES: Partial<Record<Tab, string>> = { shop: "Tile shop", chests: "Chests", league: "League", settings: "Settings" };
+
+/** A tab page whose bar's picks swipe as in the app (`tab-swipe.ts`), each page keyed by its tab so each mounts its own bar. */
+function Swiping({ from }: { from: Tab }) {
+  const [tab, setTab] = useState<Tab>(from);
+  const go = (to: Tab) => {
+    const way = tabSwipeWay(tab, to);
+    if (!way || typeof document.startViewTransition !== "function") return setTab(to);
+    const html = document.documentElement;
+    html.setAttribute(TAB_SWIPE_MARK, way);
+    const transition = document.startViewTransition(() => flushSync(() => setTab(to)));
+    void transition.finished.finally(() => html.removeAttribute(TAB_SWIPE_MARK));
+  };
+  return (
+    <TabPage key={tab} tab={tab} title={SWIPE_TITLES[tab] ?? tab} onNavigate={go}>
+      <div className="flex flex-col gap-3 pb-4">{CARDS}</div>
+    </TabPage>
+  );
+}
+
+/**
+ * Holds a swipe mid-way: picks `to` in the bar, then pauses the view transition's animations at a quarter of the swipe's
+ * duration (`--tab-swipe-duration`, read from each animation's own timing, in milliseconds, whatever unit the CSS computes
+ * it in; the easing has the pages about half way there), so the frame stays on screen. Nothing held in a browser without view
+ * transitions.
+ */
+const holdSwipe =
+  (to: string) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await document.fonts.ready;
+    const nav = canvasElement.querySelector<HTMLElement>('[data-slot="app-nav"]')!;
+    const pick = [...nav.querySelectorAll("button")].find((b) => b.getAttribute("aria-label")?.startsWith(to))!;
+    pick.click();
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    for (const animation of document.getAnimations()) {
+      const effect = animation.effect as KeyframeEffect | null;
+      if (!effect?.pseudoElement?.startsWith("::view-transition")) continue;
+      const ms = Number(effect.getComputedTiming().duration) || 320;
+      animation.pause();
+      animation.currentTime = ms / 4;
+    }
+  };
+
+/**
+ * SWIPE-DISC (#780, the owner's decision of 2026-10-26), at 375 px: a swipe from Shop to League held mid-way. The page's
+ * region moves under the bar, and the Play disc, whose top half stands over the region, stays whole above it (the bar is a view
+ * transition of its own, painted above the page's). A pick in the bar swipes again (the hold ends with the page's change).
+ */
+export const SwipeHeldPhone375: Story = {
+  ...PHONE_375,
+  args: { tab: "shop" },
+  render: () => <Swiping from="shop" />,
+  play: holdSwipe("League"),
+};
+/** The same at 320 px, the other way: from Settings to Chests. */
+export const SwipeHeldPhone320: Story = {
+  ...PHONE_320,
+  args: { tab: "settings" },
+  render: () => <Swiping from="settings" />,
+  play: holdSwipe("Chests"),
+};
+/** At 375 px, the swipe running live: a pick in the bar swipes the page, the disc whole from start to end. */
+export const SwipePhone375: Story = { ...PHONE_375, args: { tab: "chests" }, render: () => <Swiping from="chests" /> };
