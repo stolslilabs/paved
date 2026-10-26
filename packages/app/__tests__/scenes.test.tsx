@@ -108,15 +108,16 @@ describe("Loading", () => {
 });
 
 describe("Home (#753): the village with its overlays", () => {
-  it("shows the village full screen with the right column, Play and Edit, and no tab bar", async () => {
+  it("shows the village full screen with the right column, Play and Edit from desktop", async () => {
     const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
     // The stage (the board, the editor) is its own chunk: it arrives after the overlays.
     expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ })).toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
     expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", "League"]);
+    // The overlays outside the bar (the bar's own are tested below).
+    const overlay = (name: string | RegExp) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
     for (const [name, handler] of [
       ["Missions, 3 waiting", on.onMissions],
       ["Chests, 2 waiting", on.onChests],
@@ -126,15 +127,43 @@ describe("Home (#753): the village with its overlays", () => {
       ["Settings", on.onSettings],
       [/^Play/, on.onPlay],
     ] as const) {
-      await userEvent.click(screen.getByRole("button", { name }));
+      await userEvent.click(overlay(name));
       expect(handler).toHaveBeenCalledTimes(1);
     }
     expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
   });
 
+  it("has the phone's bar below desktop (#763): Shop, Chests, Play, League, Settings, each reaching its page", async () => {
+    const onNavigate = vi.fn();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onNavigate={onNavigate} />));
+    // The bar is its own chunk on the home: a stand-in of its size holds its place until it comes.
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    // Below `desktop` only: from it the overlay's column, gear and Play stay (#762).
+    expect(nav.className).toContain("desktop:hidden");
+    const items = within(nav).getAllByRole("button");
+    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "League", "Settings"]);
+    // No item current on the home; the chests waiting on Chests.
+    expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
+    expect(within(within(nav).getByRole("button", { name: "Chests, 2 waiting" })).getByText("2")).toBeInTheDocument();
+    for (const item of items) await userEvent.click(item);
+    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "chests", "play", "league", "settings"]);
+  });
+
+  it("keeps Missions and Vault in the column below desktop, with no gear and no large Play; Edit and the dial above the bar (#763)", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+    const column = screen.getByRole("navigation", { name: "Village" });
+    const below = within(column).getAllByRole("button").filter((b) => !b.className.split(" ").includes("hidden"));
+    expect(below.map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault"]);
+    const outside = (name: string) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
+    for (const name of ["Settings", "Play"]) expect(outside(name).className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:inline-flex"]));
+    // Edit's row and the dial clear the bar's measured height below `desktop`.
+    expect(screen.getByRole("button", { name: "Edit village" }).parentElement!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
+    expect(document.querySelector("[data-dial-place]")!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
+  });
+
   it("draws Play as a hammer with no text and Edit as a pen, both large and named (#755)", () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
-    const play = screen.getByRole("button", { name: "Play" });
+    const play = screen.getAllByRole("button", { name: "Play" }).find((b) => !b.closest("nav[aria-label=Main]"))!;
     expect(play).toHaveTextContent("");
     expect(play.querySelector("[data-icon=hammer]")).not.toBeNull();
     expect(play.className).toMatch(/\bsize-16\b/);
@@ -185,7 +214,7 @@ describe("Home (#753): the village with its overlays", () => {
 
   it("paints the overlays while the village is on its way", () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.loading} />));
-    expect(screen.getByRole("button", { name: /^Play/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Play/ })).toHaveLength(2);
     expect(screen.queryByRole("img", { name: /^Village layout/ })).not.toBeInTheDocument();
   });
 
@@ -199,6 +228,8 @@ describe("Home (#753): the village with its overlays", () => {
     expect(screen.getByRole("complementary", { name: "Editor" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Village" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Play/ })).not.toBeInTheDocument();
+    // Edit mode has no bar (#763): the editor's panel takes the bottom.
+    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
     // Nothing changed: Back leaves edit mode at once.
     await userEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
     expect(onEditingChange).toHaveBeenLastCalledWith(false);

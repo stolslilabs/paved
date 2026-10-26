@@ -5,7 +5,7 @@ import { pvpKeys, useDefenceLog, usePvpStatus } from "../../data/pvp";
 import { useDataSources } from "../../data/sources";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
-import { useAppNavigate, useUpTo } from "../ref";
+import { useAppNavigate, useTabNavigate, useUpTo } from "../ref";
 
 /**
  * `/pvp/defence` (#647 PR 2): the attacks on the player's village, newest first, from the indexer's `pvp_attacks` (each with
@@ -15,6 +15,7 @@ import { useAppNavigate, useUpTo } from "../ref";
  */
 export default function Page() {
   const go = useAppNavigate();
+  const onNavigate = useTabNavigate();
   const [params] = useSearchParams();
   const onBack = useUpTo(params.get("from") === "home" ? "/" : "/pvp/league");
   const now = useNow();
@@ -53,6 +54,7 @@ export default function Page() {
       error={error?.message ?? null}
       errorDetail={error && me !== null ? errorDetail(error) : undefined}
       onBack={onBack}
+      onNavigate={onNavigate}
       onReplay={(row) => {
         const a = rows?.[row];
         if (a) go(`/pvp/replay/${a.attacker}/${a.id}`);

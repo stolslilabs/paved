@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
@@ -45,13 +45,15 @@ afterEach(() => {
 });
 
 describe("the active tab comes from the route's own entry", () => {
-  const TAB_LABEL = { home: "Home", quests: "Missions", play: "Play", vault: "Vault", settings: "Settings" } as const;
+  const TAB_LABEL = { home: "Home", quests: "Missions", vault: "Vault", shop: "Shop", chests: "Chests", play: "Play", league: "League", settings: "Settings" } as const;
 
   // The home has no tab bar (#753): its overlays replace it; the other tab pages keep theirs.
   it.each(PAGES.filter((p) => p.nav && p.path !== "").map((p) => [p.path, p] as const))("%s", async (_path, page) => {
     open(concrete(page.path));
     // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
-    await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
+    // A guest's league is its connect prompt, under the bar (#763).
+    if (page.path === "pvp/league") await screen.findByText("Connect to see your league.", undefined, { timeout: slow(5000) });
+    else await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
     const active = screen.getAllByRole("button", { current: "page" });
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual([TAB_LABEL[page.nav!]]);
   });
@@ -81,11 +83,33 @@ describe("the active tab comes from the route's own entry", () => {
     expect(screen.getByRole("button", { current: "page" })).toHaveAccessibleName("Vault");
   });
 
-  it("is not on the home (#753): the village's overlays replace it", async () => {
+  it("is on the home with no item current (#763), beside the village's overlays", async () => {
     open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
-    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(await screen.findByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { current: "page" })).toBeNull();
     expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
+  });
+
+  it("each item of the home's bar reaches its page and is current there (#763)", async () => {
+    for (const [name, path, current] of [
+      ["Shop", "/village/shop", "Shop"],
+      ["Chests", "/village/chests", "Chests"],
+      ["League", "/pvp/league", "League"],
+      ["Settings", "/settings", "Settings"],
+    ] as const) {
+      const router = open("/");
+      await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
+      await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: new RegExp(`^${name}`) }));
+      await waitFor(() => expect(router.state.location.pathname).toBe(path), { timeout: slow(5000) });
+      expect(await screen.findByRole("button", { current: "page" }, { timeout: slow(5000) })).toHaveAccessibleName(current);
+      cleanup();
+    }
+    const router = open("/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: "Play" }));
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) });
+    expect(router.state.location.pathname).toBe("/play");
   });
 
   it("changes with a tab press and moves the page; Home lands on the village", async () => {
