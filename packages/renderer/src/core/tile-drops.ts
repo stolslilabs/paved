@@ -35,6 +35,8 @@ export interface DropHost {
   tile(key: string): { container: THREE.Object3D; model: string | null } | undefined;
   /** The shared model of a type (its mesh in the loader's frame). */
   type(model: string): THREE.Object3D;
+  /** The voxels that fall for a model, from its grid: all of them, or fewer (the smoke's left out where the placed tile hides them). */
+  grid?(model: string, grid: VoxelGrid): VoxelGrid;
 }
 
 interface Active {
@@ -151,8 +153,9 @@ export class TileDrops {
     const typeMesh = tile.model ? this.typeMesh(tile.model) : null;
     const model = tile.container.children[0];
     const placed = model && meshOf(model);
-    if (!chunk || !typeMesh || !placed) return { status: "skipped", reason: "no-model" };
+    if (!chunk || !typeMesh || !placed || !tile.model) return { status: "skipped", reason: "no-model" };
     this.end(key);
+    grid = this.host.grid?.(tile.model, grid) ?? grid;
 
     const { container } = tile;
     container.updateMatrixWorld(true);
