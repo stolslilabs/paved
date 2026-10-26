@@ -198,7 +198,7 @@ function useSheetDrag(el: HTMLElement | null, active: boolean, close: () => void
   }, [el, active, close, reduced]);
 }
 
-/** `closeButton`: the panel's own close at its top right; off where the content's header draws it (the page panel, DESK-PANELS). */
+/** `closeButton`: the panel's own close at its top right; off for the page panel (DESK-PANELS), which has none (PAGES-SCROLL). */
 export function SheetContent({
   className,
   children,
