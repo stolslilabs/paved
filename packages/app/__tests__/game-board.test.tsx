@@ -68,6 +68,17 @@ describe("useGameBoard", () => {
     expect(drawn.board.at(-1)).toMatchObject({ basePath: RENDERER_ASSETS, gameId: 7, skins: SKINS, settings: canvas.board.renderer, tilePreview: canvas.board.tilePreview });
   });
 
+  it("holds summer's day with `summerDay` (the scout, #788): the cycle off whatever the Day and night setting, no season dial", () => {
+    const { result } = renderHook(() => useGameBoard({ side: "rival", summerDay: true, placement }));
+    const scene = result.current.scene({ tiles: [STARTER], bubble: null });
+    expect(scene.seasonWheel).toBeUndefined();
+    // The renderer's rule (#770): the cycle off is summer's day, its fixed lights, no night and no chimney smoke.
+    expect((scene.canvas as { props: BoardCanvasProps }).props.board.renderer.dayNight).toEqual({ enabled: false, freezeAt: null });
+    // Without it, the setting's default (on) runs the cycle, as the attack that follows does.
+    const own = renderHook(() => useGameBoard({ side: "rival", placement })).result.current.scene({ tiles: [STARTER], bubble: null });
+    expect((own.canvas as { props: BoardCanvasProps }).props.board.renderer.dayNight).toEqual({ enabled: true, freezeAt: null });
+  });
+
   it("chooses a slot through the placement it holds: the ghost and the bubble's rotations follow", () => {
     const { result } = renderHook(() => useGameBoard({ placement }));
     act(() => result.current.scene({ tiles: [STARTER], bubble: null }).onSlotClick?.(SLOT));

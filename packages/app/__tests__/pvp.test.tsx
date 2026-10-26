@@ -124,29 +124,47 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByText(/matchmaker did not answer/)).toBeInTheDocument();
   });
 
-  it("scout: the village's score, each star's points and crowns, the loss, Next's price", async () => {
+  it("scout: the village's score, each star's points, Next's price; the crowns at stake behind the info button", async () => {
     const onNext = vi.fn();
     const onAttack = vi.fn();
     render(wrap(<PvpScoutScene {...PVP_SCOUT.ready} onNext={onNext} onAttack={onAttack} />));
     expect(screen.getByText("5,831")).toBeInTheDocument();
     const stars = within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem");
-    expect(stars.map((s) => s.textContent)).toEqual(["4,082+10", "4,957+20", "6,415+30"]);
-    expect(screen.getByRole("img", { name: "-20 crowns" })).toBeInTheDocument();
+    expect(stars.map((s) => s.textContent)).toEqual(["4,082", "4,957", "6,415"]);
     expect(screen.getByRole("img", { name: /Board of 38 tiles in a territory of 38 cells/ })).toBeInTheDocument();
+    // v1 has no tile list: the deck chip only counts the tiles.
+    expect(document.querySelector("[data-deck]")).toHaveTextContent("38 tiles");
+    expect(screen.queryByRole("button", { name: /tile list/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "How an attack works" }));
+    const crowns = within(await screen.findByRole("list", { name: "Crowns at stake" })).getAllByRole("listitem");
+    expect(crowns.map((s) => s.textContent)).toEqual(["4,082 points+10", "4,957 points+20", "6,415 points+30", "No star\u221220"]);
+    expect(screen.getByRole("img", { name: "-20 crowns" })).toBeInTheDocument();
+    expect(screen.getByText("You play the defender's tiles, drawn at random, on their cells.")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await userEvent.click(screen.getByRole("button", { name: "Next village for 1 Cobbles" }));
     await userEvent.click(screen.getByRole("button", { name: /Attack/ }));
     expect(onNext).toHaveBeenCalled();
     expect(onAttack).toHaveBeenCalled();
   });
 
-  it("scout: warns that attacking drops the shield, and disables Next without the Cobbles", () => {
+  it("scout: a light overlay over the whole village; warns that attacking drops the shield, and disables Next without the Cobbles", async () => {
     const { container } = render(wrap(<PvpScoutScene {...PVP_SCOUT.shielded} />));
     expect(screen.getByText("Attacking drops your shield")).toBeInTheDocument();
-    // On a phone the board takes the space left above the card, in the same column: the card never covers it.
+    expect(screen.getByRole("timer", { name: "Shield 5:12:00" })).toBeInTheDocument();
+    // The chip sits in the header row, the bottom card keeps its height; a tap on it tells the rule.
+    expect(screen.getByRole("banner").querySelector("[data-shield]")).not.toBeNull();
+    // The board fills the scene at every width (#788); the cards float over it, at its top and bottom.
     const board = container.querySelector("[data-scout-board]")!;
+    expect(board.className).toMatch(/\babsolute inset-0\b/);
     const card = screen.getByRole("region", { name: "Attack" });
-    expect(board.parentElement).toBe(card.parentElement);
-    expect(card.className).not.toMatch(/(^|\s)absolute\b/);
+    expect(board.contains(card)).toBe(false);
+    expect(card.parentElement!.className).toMatch(/\bpointer-events-none absolute inset-0\b/);
+    expect(card.className).toMatch(/\bpointer-events-auto\b/);
+    // The rules' sentences went behind the info button.
+    expect(card).not.toHaveTextContent(/You play/);
+    await userEvent.click(screen.getByRole("button", { name: /Attacking drops your shield/ }));
+    expect(await screen.findByText("Attacking drops your shield.")).toBeInTheDocument();
     cleanup();
     render(wrap(<PvpScoutScene {...PVP_SCOUT.short} />));
     expect(screen.getByRole("button", { name: /not enough Cobbles/ })).toBeDisabled();
