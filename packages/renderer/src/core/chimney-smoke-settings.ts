@@ -1,5 +1,5 @@
 // No three here: the chimney smoke's settings, small and eager; the effect is a chunk of its own (`chimney-smoke.ts`, loaded by
-// `loadChimneySmoke`). CHIMNEY-SMOKE-1 (#770 PR 1): the study's knobs; nothing on the board reads them yet.
+// `GameScene.syncSmoke`). CHIMNEY-SMOKE-1 (#770 PR 1) made them the study's knobs; CHIMNEY-SMOKE-2 reads them as `RendererSettings.smoke`.
 import type { QualityTier } from "./look";
 import type { Season } from "./daynight-settings";
 
@@ -57,17 +57,24 @@ export interface SmokeSettings {
   custom: Partial<SmokeLook>;
   /** A change of season fades the smoke in or out over this (#770 item 5: about 2 s, never a pop). */
   fadeSeconds: number;
+  /** A tile just placed: its smoke fades in over this, its white voxels gone at once (#770 item 3: about 1 s). */
+  placeSeconds: number;
   /** The smoke's light at full night, a share of the day's (as the fog's: it takes the scene's light, not the hour). */
   night: number;
   /** Each season's smoke (owner, 2026-10-25: on in autumn, winter and spring, off in summer). */
   seasons: Record<Season, SmokeSeason>;
 }
 
+/**
+ * The smoke's own defaults: on, the look "puffs" (#770 open point 2's default: the owner chose no other on PR 1). A scene's
+ * `RendererSettings.smoke` is off until its owner turns it on; the chunk resolves it over these.
+ */
 export const DEFAULT_SMOKE_SETTINGS: SmokeSettings = {
   enabled: true,
   look: "puffs",
   custom: {},
   fadeSeconds: 2,
+  placeSeconds: 1,
   night: 0.35,
   seasons: {
     summer: { enabled: false, amount: 1 },
@@ -97,6 +104,7 @@ export function resolveSmokeSettings(input: SmokeSettingsInput = {}, base: Smoke
     look: input.look === "puffs" || input.look === "wisps" ? input.look : base.look,
     custom: { ...base.custom, ...input.custom },
     fadeSeconds: Math.max(0, finite(input.fadeSeconds, base.fadeSeconds)),
+    placeSeconds: Math.max(0, finite(input.placeSeconds, base.placeSeconds)),
     night: clamp01(finite(input.night, base.night)),
     seasons,
   };

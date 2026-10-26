@@ -8,6 +8,7 @@ import { DEFAULT_VOXEL_DROP_SETTINGS, resolveVoxelDropSettings, type VoxelDropSe
 import { DEFAULT_AMBIENT_SETTINGS, resolveAmbientSettings, type AmbientSettings, type AmbientSettingsInput } from "./ambient-settings";
 import { DEFAULT_FOG_SETTINGS, LANDSCAPE_FOG, resolveFogSettings, type FogSettings, type FogSettingsInput } from "./fog-of-war-settings";
 import { DEFAULT_WEATHER_SETTINGS, resolveWeatherSettings, type WeatherSettings, type WeatherSettingsInput } from "./weather-settings";
+import type { SmokeSettingsInput } from "./chimney-smoke-settings";
 import { DEFAULT_CLOSING_SETTINGS, resolveClosingSettings, type ClosingSettings, type ClosingSettingsInput } from "./closing-settings";
 import { DEFAULT_SQUARE_GRID_SETTINGS, resolveSquareGridSettings, type SquareGridSettings, type SquareGridSettingsInput } from "./square-grid";
 import {
@@ -98,6 +99,14 @@ export interface RendererSettings {
    */
   weather: WeatherSettings;
   /**
+   * The chimney smoke (CHIMNEY-SMOKE-2, #770, `chimney-smoke-settings.ts`): off by default in the renderer, so the tile views, the
+   * 3D stack and the build-time images keep the models' white smoke voxels; the app's board scenes turn it on (`BOARD_SMOKE`). On,
+   * it is an ambient effect: none on the Low tier, under reduced motion or with the ambient effects off (the white voxels shown);
+   * its season is the cycle's (summer's day with the cycle off: no smoke). Kept as given, `enabled` resolved: the smoke's chunk
+   * resolves the rest (`resolveSmokeSettings`), so its defaults and looks stay out of the board's first load.
+   */
+  smoke: SmokeSettingsInput & { enabled: boolean };
+  /**
    * The square grid (SQUARE-GRID, `square-grid.ts`): Eternum's hex grid on square cells, the lines in the landscape's ground, a
    * band on each playable slot (in the plates' place), the hover and the selected rings. Off by default in the renderer; the
    * app's board turns it on.
@@ -155,6 +164,8 @@ export interface RendererSettingsInput {
   fog?: FogSettingsInput;
   /** The weather: its fields over the defaults'. */
   weather?: WeatherSettingsInput;
+  /** The chimney smoke: its fields over the defaults'. */
+  smoke?: SmokeSettingsInput;
   /** The square grid: each group's fields over the defaults'. */
   squareGrid?: SquareGridSettingsInput;
   /** The closed structures' highlight: each group's fields over the defaults'. */
@@ -189,6 +200,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   ambient: DEFAULT_AMBIENT_SETTINGS,
   fog: resolveFogSettings({ ...LANDSCAPE_FOG, enabled: false }, DEFAULT_FOG_SETTINGS),
   weather: DEFAULT_WEATHER_SETTINGS,
+  smoke: { enabled: false },
   squareGrid: DEFAULT_SQUARE_GRID_SETTINGS,
   closing: DEFAULT_CLOSING_SETTINGS,
   transparent: false,
@@ -263,6 +275,7 @@ export function resolveRendererSettings(
     ambient: resolveAmbientSettings(input.ambient, base.ambient),
     fog: resolveFogSettings(input.fog, base.fog),
     weather: resolveWeatherSettings(input.weather, base.weather),
+    smoke: { ...base.smoke, ...input.smoke, enabled: typeof input.smoke?.enabled === "boolean" ? input.smoke.enabled : base.smoke.enabled },
     squareGrid: resolveSquareGridSettings(input.squareGrid, base.squareGrid),
     closing: resolveClosingSettings(input.closing, base.closing),
     transparent: input.transparent ?? base.transparent,

@@ -764,16 +764,22 @@ class Outline extends THREE.Mesh<LineSegmentsGeometry, OutlineMaterial> {
  */
 const OUTLINE_QUAD_INDEX = [0, 6, 1, 6, 7, 1];
 
+/** An outline's geometry from its segments (start xyz, end xyz): ordered for the screen-size cut, one four-vertex quad each. */
+export function outlineGeometry(segments: Float32Array): LineSegmentsGeometry {
+  const geometry = new LineSegmentsGeometry();
+  const { positions, order } = orderOutlineSegments(segments);
+  geometry.setPositions(positions);
+  geometry.setIndex(OUTLINE_QUAD_INDEX);
+  geometry.userData.segmentOrder = order;
+  return geometry;
+}
+
 /**
  * The outline object of one mesh: its crease edges (`buildEdgesGeometry`'s segments), collinear pieces merged
  * (`mergeCollinearSegments`), ordered for the screen-size cut (`orderOutlineSegments`), one four-vertex quad each.
  */
 export function createOutline(edges: THREE.BufferGeometry, material: OutlineMaterial): THREE.Mesh {
-  const geometry = new LineSegmentsGeometry();
-  const { positions, order } = orderOutlineSegments(mergeCollinearSegments(edges.getAttribute("position").array));
-  geometry.setPositions(positions);
-  geometry.setIndex(OUTLINE_QUAD_INDEX);
-  geometry.userData.segmentOrder = order;
+  const geometry = outlineGeometry(mergeCollinearSegments(edges.getAttribute("position").array));
   edges.dispose();
   const outline = new Outline(geometry, material);
   outline.renderOrder = OUTLINE_RENDER_ORDER;

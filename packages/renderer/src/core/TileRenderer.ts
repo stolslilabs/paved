@@ -24,6 +24,7 @@ import type { ClosingSettings } from "./closing-settings";
 // The windows' light (NIGHT-WINDOWS, #513) is its own chunk too: loaded only once the night lights are on.
 import type * as Windows from "./windows";
 import type * as Voxelizer from "./voxelizer";
+import type { SmokeFree, SmokeSource } from "./chimney-smoke";
 
 /** Runs `task` when the main thread is idle (`requestIdleCallback`), or on the next task where there is none. */
 function whenIdle(task: () => void): void {
@@ -359,7 +360,14 @@ export class TileRenderer {
       return entry && { container: entry.mesh, model: entry.model };
     },
     type: (model) => this.tileType(model),
+    // The smoke's voxels do not fall (#770 item 3) where the placed tile will hide them.
+    grid: (model, grid) => (this.smokeHidden ? (this.smokeFree.get(model)?.dropGrid(grid) ?? grid) : grid),
   });
+  /** The smoke-free twins of each model type (`setSmokeFree`, from the smoke's chunk), and each twin's geometry back to the loader's. */
+  private smokeFree = new Map<string, SmokeFree>();
+  private smokeFull = new Map<THREE.BufferGeometry, THREE.BufferGeometry>();
+  /** The placed tiles draw their types' twins (`setSmokeHidden`): the smoke is drawn, so its white voxels are hidden. */
+  private smokeHidden = false;
   /** The labels of each model geometry drawn (`labelFeatures`), owned here: an empty map until it is labelled. */
   private labelMaps: Map<THREE.BufferGeometry, LabelUniforms> = new Map();
   /** The label map of a geometry not labelled yet: one empty column (the sampler is always bound). */
@@ -476,6 +484,7 @@ export class TileRenderer {
           }
         }
 
+        if (!pending) this.applySmoke(mesh, model);
         this.place(mesh, tile);
         // The new mesh in, then the old one out: the cell is never empty, and no frame is drawn between the two
         this.tileGroup.add(mesh);
@@ -522,6 +531,59 @@ export class TileRenderer {
     // draws meanwhile (null), a variant or a base model, so it is never empty.
     if (id !== null) this.assets.want([id]);
     return id === null || id === key ? null : this.assets.has(key) ? key : null;
+  }
+
+  /**
+   * A model type's smoke-free twins (CHIMNEY-SMOKE-2, #770 item 2: `SmokeFree`, built by the smoke's chunk): while the smoke is
+   * drawn (`setSmokeHidden`), its placed tiles draw them, so its white smoke voxels, their outlines and their shadows are gone. The
+   * pending tile, the ghost and the confirm's overlay keep the loader's geometry: their white voxels stay. True when a tile changed.
+   */
+  setSmokeFree(model: string, free: SmokeFree): boolean {
+    if (this.smokeFree.get(model) === free) return false;
+    this.smokeFree.set(model, free);
+    for (const [full, twin] of free.geometries) this.smokeFull.set(twin, full);
+    let changed = false;
+    for (const entry of this.tileMeshes.values()) if (!entry.pending && entry.model === model && this.applySmoke(entry.mesh, model)) changed = true;
+    return changed;
+  }
+
+  /** The placed tiles draw their types' twins (true: the smoke is drawn) or the loader's geometry. True when a tile changed. */
+  setSmokeHidden(hidden: boolean): boolean {
+    if (hidden === this.smokeHidden) return false;
+    this.smokeHidden = hidden;
+    let changed = false;
+    for (const entry of this.tileMeshes.values()) if (!entry.pending && this.applySmoke(entry.mesh, entry.model)) changed = true;
+    return changed;
+  }
+
+  /** A placed tile's meshes (its faces, its outline, a faded tile's depth copy) on its type's twins or on the loader's; true when one changed. */
+  private applySmoke(tile: THREE.Object3D, model: string | null): boolean {
+    const free = model && this.smokeHidden ? this.smokeFree.get(model) : undefined;
+    if (!free && !this.smokeFull.size) return false;
+    let changed = false;
+    tile.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const full = this.smokeFull.get(child.geometry) ?? child.geometry;
+      const next = free?.geometries.get(full) ?? full;
+      if (next === child.geometry) return;
+      child.geometry = next;
+      changed = true;
+    });
+    return changed;
+  }
+
+  /**
+   * The placed tiles the smoke reads (`ChimneySmoke.setTiles`): each tile drawn on its model (not pending, not on its placeholder,
+   * not mid-drop: its smoke starts when it has landed), its model id, its type and its model's clone on the board.
+   */
+  smokeSources(): SmokeSource[] {
+    const sources: SmokeSource[] = [];
+    for (const [id, entry] of this.tileMeshes) {
+      const tile = entry.mesh.children[0];
+      if (entry.pending || !entry.model || !tile || this.drops.has(id)) continue;
+      sources.push({ key: entry.model, type: this.tileType(entry.model), tile, id });
+    }
+    return sources;
   }
 
   /**
@@ -1040,8 +1102,9 @@ export class TileRenderer {
       if (!cell || entry.pending) continue;
       entry.mesh.traverse((child) => {
         if (!(child instanceof THREE.Mesh)) return;
-        const volume = this.windowSpills.get(child.geometry);
-        const gridMatrix = this.labelMaps.get(child.geometry)?.uGridMatrix.value;
+        const geometry = this.smokeFull.get(child.geometry) ?? child.geometry;
+        const volume = this.windowSpills.get(geometry);
+        const gridMatrix = this.labelMaps.get(geometry)?.uGridMatrix.value;
         if (!volume || !gridMatrix) return;
         const { size, margin: own, data: spill } = volume.spill;
         toBoard.copy(boardInverse).multiply(child.matrixWorld).multiply(new THREE.Matrix4().copy(gridMatrix).invert());
@@ -1551,6 +1614,9 @@ export class TileRenderer {
 
   dispose(): void {
     this.drops.dispose();
+    // The twins are the smoke's (`ChimneySmoke.dispose`).
+    this.smokeFree.clear();
+    this.smokeFull.clear();
     for (const [, entry] of this.tileMeshes) {
       this.tileGroup.remove(entry.mesh);
     }

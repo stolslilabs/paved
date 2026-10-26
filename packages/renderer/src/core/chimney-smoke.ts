@@ -1,24 +1,26 @@
-// The chimney smoke (CHIMNEY-SMOKE-1, #770 PR 1): its own chunk, an ambient effect on the one ambient loop (`ambient-loop.ts`),
-// loaded by `loadChimneySmoke`. The study's: the stories load it and register it on `scene.ambient` themselves; the board does
-// not call it until the owner has judged the detection and the look (PR 2 wires it).
+// The chimney smoke (CHIMNEY-SMOKE-1 and -2, #770): its own chunk, an ambient effect on the one ambient loop (`ambient-loop.ts`).
+// `GameScene.syncSmoke` loads it the first time a board scene can draw it (`RendererSettings.smoke`, on in the app's boards only),
+// finds the chimneys of each model drawn and places their mouths (`syncSmokeTiles`); the tile renderer swaps the placed tiles to
+// their types' smoke-free twins (`SmokeFree`) while the smoke can be drawn.
 //
 // Everything that moves moves in its vertex shader, from the loop's time uniform: the CPU sets uniforms and counts, and places
 // the mouths once when the tiles change. All the puffs of a scene are one instanced draw; the mouths' dark caps are a second.
 import * as THREE from "three";
 import type { AmbientEffect } from "./ambient-loop";
 import { chimneyOptionsOf, findChimneys, mouthPoint, type CellBox, type Chimney } from "./chimneys";
-import { MAX_SMOKE_CHIMNEYS, smokeLookOf, type SmokeMode, type SmokeSettings } from "./chimney-smoke-settings";
+import { MAX_SMOKE_CHIMNEYS, resolveSmokeSettings, smokeLookOf, type SmokeMode, type SmokeSettings, type SmokeSettingsInput } from "./chimney-smoke-settings";
 import type { Season } from "./daynight-settings";
 import { sunAt } from "./daynight";
-import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
-import { isOutline, orderOutlineSegments } from "./outlines";
-import { voxelize, type VoxelGrid } from "./voxelizer";
+import { isOutline, outlineGeometry } from "./outlines";
+import { cellIndex, voxelize, type VoxelGrid } from "./voxelizer";
 
 /** A drawn tile, as the smoke reads it: its model id, its type's model (the loader's) and the tile's own clone on the board. */
 export interface SmokeSource {
   key: string;
   type: THREE.Object3D;
   tile: THREE.Object3D;
+  /** The tile's own key (`${game_id}-${id}`): a key not seen before is a tile just placed, whose smoke fades in (`placeSeconds`). */
+  id?: string;
 }
 
 /** The smoke now, for the stories' readout and the tests. */
@@ -33,7 +35,8 @@ export interface SmokeStats {
   puffs: number;
   /** The draws the smoke adds to a frame: the puffs' and the caps'. */
   drawCalls: number;
-  /** The smoke voxels' triangles hidden now (`SmokeVoxels`). */
+  /** Whether the placed tiles draw their types' smoke-free twins now (`hidesVoxels`), and the triangles each tile of the prepared types leaves out. */
+  voxelsHidden: boolean;
   hiddenTriangles: number;
 }
 
@@ -61,16 +64,32 @@ function meshOf(type: THREE.Object3D): { mesh: THREE.Mesh; toModel: THREE.Matrix
   return found;
 }
 
-/** How far past a smoke box a face's or a segment's centre may lie and still be the smoke's, in voxels. */
+/** How far past a smoke box a face's centre or an outline's piece may lie and still be the smoke's, in voxels. */
 const FACE_SLACK = 0.02;
 
-/** Whether a point of the model's frame (x, height, z) lies in (or on) one of the boxes, in grid cells. */
-function inBoxes(point: THREE.Vector3, grid: Pick<VoxelGrid, "origin" | "step">, boxes: readonly CellBox[]): boolean {
+/** A box of grid cells as its corners in the grid's frame (x, y, layer), widened by the slack. */
+const spanOf = (b: CellBox): [number, number, number, number, number, number] => [
+  b.x0 - FACE_SLACK,
+  b.y0 - FACE_SLACK,
+  b.layer0 - FACE_SLACK,
+  b.x1 + 1 + FACE_SLACK,
+  b.y1 + 1 + FACE_SLACK,
+  b.layer1 + 1 + FACE_SLACK,
+];
+
+/** A point of the model's frame (x, height, z) in grid cells (x, y, layer). */
+function gridPoint(point: THREE.Vector3, grid: Pick<VoxelGrid, "origin" | "step">): [number, number, number] {
   const [ox, oy, oz] = grid.origin;
-  const [gx, gy, gl] = [(point.x - ox) / grid.step, (point.z - oz) / grid.step, (point.y - oy) / grid.step];
-  return boxes.some(
-    (b) => gx >= b.x0 - FACE_SLACK && gx <= b.x1 + 1 + FACE_SLACK && gy >= b.y0 - FACE_SLACK && gy <= b.y1 + 1 + FACE_SLACK && gl >= b.layer0 - FACE_SLACK && gl <= b.layer1 + 1 + FACE_SLACK,
-  );
+  return [(point.x - ox) / grid.step, (point.z - oz) / grid.step, (point.y - oy) / grid.step];
+}
+
+/** Whether a point of the model's frame lies in (or on) one of the boxes. */
+function inBoxes(point: THREE.Vector3, grid: Pick<VoxelGrid, "origin" | "step">, boxes: readonly CellBox[]): boolean {
+  const p = gridPoint(point, grid);
+  return boxes.some((b) => {
+    const span = spanOf(b);
+    return p.every((v, k) => v >= span[k]! && v <= span[k + 3]!);
+  });
 }
 
 /**
@@ -97,108 +116,123 @@ export function smokeFreeIndex(geometry: THREE.BufferGeometry, toModel: THREE.Ma
   return { index, dropped };
 }
 
-/** An outline's segments (start xyz, end xyz) without those of the smoke voxels: the segments whose middle lies outside the boxes. */
+/** The parts of [0, 1] along a segment from `a` to `b` (grid cells) that lie inside the box `span` (the slab method), or null. */
+function clipInside(a: readonly number[], b: readonly number[], span: readonly number[]): [number, number] | null {
+  let [t0, t1] = [0, 1];
+  for (let k = 0; k < 3; k++) {
+    const [lo, hi, d] = [span[k]!, span[k + 3]!, b[k]! - a[k]!];
+    if (Math.abs(d) < 1e-9) {
+      if (a[k]! < lo || a[k]! > hi) return null;
+      continue;
+    }
+    let [u0, u1] = [(lo - a[k]!) / d, (hi - a[k]!) / d];
+    if (u0 > u1) [u0, u1] = [u1, u0];
+    t0 = Math.max(t0, u0);
+    t1 = Math.min(t1, u1);
+    if (t0 >= t1) return null;
+  }
+  return [t0, t1];
+}
+
+/**
+ * An outline's segments (start xyz, end xyz) without those of the smoke voxels: each segment with its pieces inside the smoke
+ * boxes cut out, so an edge that runs up a stack and on into its smoke (one collinear segment, `mergeCollinearSegments`) keeps
+ * the stack's part. `toModel` takes the segments to the grid's frame.
+ */
 export function smokeFreeSegments(segments: ArrayLike<number>, toModel: THREE.Matrix4, grid: Pick<VoxelGrid, "origin" | "step">, chimneys: readonly Chimney[]): Float32Array {
-  const boxes = chimneys.flatMap((c) => c.boxes);
+  const spans = chimneys.flatMap((c) => c.boxes).map(spanOf);
   const kept: number[] = [];
-  const middle = new THREE.Vector3();
+  const [start, end] = [new THREE.Vector3(), new THREE.Vector3()];
   for (let i = 0; i + 5 < segments.length; i += 6) {
-    middle.set((segments[i]! + segments[i + 3]!) / 2, (segments[i + 1]! + segments[i + 4]!) / 2, (segments[i + 2]! + segments[i + 5]!) / 2).applyMatrix4(toModel);
-    if (!inBoxes(middle, grid, boxes)) for (let k = 0; k < 6; k++) kept.push(segments[i + k]!);
+    start.set(segments[i]!, segments[i + 1]!, segments[i + 2]!);
+    end.set(segments[i + 3]!, segments[i + 4]!, segments[i + 5]!);
+    const [a, b] = [gridPoint(start.clone().applyMatrix4(toModel), grid), gridPoint(end.clone().applyMatrix4(toModel), grid)];
+    // The pieces of [0, 1] inside a box, merged, then what lies between them kept.
+    const cuts = spans
+      .map((span) => clipInside(a, b, span))
+      .filter((c): c is [number, number] => !!c)
+      .sort((x, y) => x[0] - y[0]);
+    let from = 0;
+    const keep = (t0: number, t1: number) => {
+      if (t1 - t0 < 1e-6) return;
+      for (const t of [t0, t1]) kept.push(...new THREE.Vector3().lerpVectors(start, end, t).toArray());
+    };
+    for (const [t0, t1] of cuts) {
+      keep(from, t0);
+      from = Math.max(from, t1);
+    }
+    keep(from, 1);
   }
   return Float32Array.from(kept);
 }
 
-/** One state of an outline geometry: its two segment attributes, its count and its order for the screen-size cut. */
-interface OutlineState {
-  start: THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
-  end: THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
-  count: number;
-  order: unknown;
-}
-
-const outlineState = (geometry: THREE.InstancedBufferGeometry): OutlineState => ({
-  start: geometry.getAttribute("instanceStart"),
-  end: geometry.getAttribute("instanceEnd"),
-  count: geometry.instanceCount,
-  order: geometry.userData.segmentOrder,
-});
-
-function applyOutline(geometry: THREE.InstancedBufferGeometry, state: OutlineState): void {
-  geometry.setAttribute("instanceStart", state.start);
-  geometry.setAttribute("instanceEnd", state.end);
-  geometry.instanceCount = state.count;
-  geometry.userData.segmentOrder = state.order;
-}
-
 /**
- * A model type's white smoke voxels, shown or hidden (#770, owner 2026-10-25: hidden where the real smoke is drawn, shown where it
- * cannot be). The study's stand-in for item 2: it swaps the type's index (the smoke's faces out) and its outline's segments, in
- * place, on the geometries the loader and the renderer share with every tile of the type, both states built once. PR 2 hides them
- * per tile in the tile shader instead, so the pending tile keeps them. The stack's top has no face under a puff that sat on it:
- * the caps (`ChimneySmoke`) close it while the voxels are hidden.
+ * A model type without its white smoke voxels (#770 item 2, owner 2026-10-25: hidden on the placed tiles where the real smoke is
+ * drawn, shown wherever it is not). Built once a type, in the smoke's chunk; the tile renderer swaps a placed tile's geometries
+ * for these twins (`TileRenderer.setSmokeFree`), and the pending tile, the ghost and every other view keep the loader's. No
+ * shader reads it: the shadow map, the outlines and the faces follow the swap.
  */
-export class SmokeVoxels {
-  private readonly full: THREE.BufferAttribute | null;
-  private readonly free: THREE.BufferAttribute;
-  private outlineFull: OutlineState | null = null;
-  private outlineFree: OutlineState | null = null;
-  private outlineGeometry: THREE.InstancedBufferGeometry | null = null;
-  private hidden = false;
-  /** The triangles the hidden state leaves out. */
+export interface SmokeFree {
+  /** The type's geometries to their twins: the faces' (the loader's attributes, its own index without the smoke's triangles) and the outline's (its own segments). */
+  readonly geometries: ReadonlyMap<THREE.BufferGeometry, THREE.BufferGeometry>;
+  /** The triangles the faces' twin leaves out. */
   readonly triangles: number;
+  /** A voxel grid of the model (the drop's, #512) without the smoke's voxels: what falls when a tile is placed. */
+  dropGrid(grid: VoxelGrid): VoxelGrid;
+}
 
-  constructor(
-    private readonly mesh: THREE.Mesh,
-    private readonly toModel: THREE.Matrix4,
-    private readonly grid: Pick<VoxelGrid, "origin" | "step">,
-    private readonly chimneys: readonly Chimney[],
-  ) {
-    const geometry = mesh.geometry as THREE.BufferGeometry;
-    this.full = geometry.getIndex();
-    const { index, dropped } = smokeFreeIndex(geometry, toModel, grid, chimneys);
-    const count = geometry.getAttribute("position").count;
-    this.free = new THREE.BufferAttribute(count > 65535 ? Uint32Array.from(index) : Uint16Array.from(index), 1);
-    this.triangles = dropped;
-  }
+/** The faces' twin: the loader's attributes, shared (no upload of their own), and an index without the smoke's triangles. */
+function freeFaces(geometry: THREE.BufferGeometry, index: number[]): THREE.BufferGeometry {
+  const free = new THREE.BufferGeometry();
+  free.name = `${geometry.name}#smoke-free`;
+  for (const [name, attribute] of Object.entries(geometry.attributes)) free.setAttribute(name, attribute);
+  free.setIndex(new THREE.BufferAttribute(geometry.getAttribute("position").count > 65535 ? Uint32Array.from(index) : Uint16Array.from(index), 1));
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  if (!geometry.boundingSphere) geometry.computeBoundingSphere();
+  free.boundingBox = geometry.boundingBox!.clone();
+  free.boundingSphere = geometry.boundingSphere!.clone();
+  return free;
+}
 
-  /** The outline the renderer gave the type (a child of its mesh, built when its first tile was drawn), once it is there. */
-  private outline(): THREE.InstancedBufferGeometry | null {
-    if (this.outlineGeometry) return this.outlineGeometry;
-    const child = this.mesh.children.find((c) => isOutline(c)) as THREE.Mesh | undefined;
-    const geometry = child?.geometry as THREE.InstancedBufferGeometry | undefined;
-    if (!geometry?.getAttribute("instanceStart")) return null;
-    this.outlineGeometry = geometry;
-    this.outlineFull = outlineState(geometry);
-    // The segments in the outline's order, as LineSegmentsGeometry keeps them (six floats a segment), without the smoke's.
-    const start = this.outlineFull.start as THREE.InterleavedBufferAttribute;
-    const segments = smokeFreeSegments(start.data.array as Float32Array, this.toModel, this.grid, this.chimneys);
-    const { positions, order } = orderOutlineSegments(segments);
-    const scratch = new LineSegmentsGeometry();
-    scratch.setPositions(positions);
-    this.outlineFree = { start: scratch.getAttribute("instanceStart"), end: scratch.getAttribute("instanceEnd"), count: scratch.instanceCount, order };
-    return geometry;
-  }
+/** A grid without the voxels at `cells` (x, y, layer): the same frame and size, fewer voxels. */
+export function withoutVoxels(grid: VoxelGrid, cells: ReadonlyArray<readonly [number, number, number]>): VoxelGrid {
+  const drop = new Set(cells.map(([x, y, l]) => cellIndex(grid, x, y, l)));
+  const keep: number[] = [];
+  for (let v = 0; v < grid.count; v++) if (!drop.has(cellIndex(grid, grid.cells[v * 3]!, grid.cells[v * 3 + 1]!, grid.cells[v * 3 + 2]!))) keep.push(v);
+  const occupied = grid.occupied.slice();
+  for (const i of drop) occupied[i] = 0;
+  const visible = Uint8Array.from(keep, (v) => grid.visible[v]!);
+  return {
+    ...grid,
+    count: keep.length,
+    cells: Uint8Array.from(keep.flatMap((v) => [grid.cells[v * 3]!, grid.cells[v * 3 + 1]!, grid.cells[v * 3 + 2]!])),
+    entry: Uint8Array.from(keep, (v) => grid.entry[v]!),
+    visible,
+    visibleCount: visible.reduce((sum, x) => sum + x, 0),
+    occupied,
+  };
+}
 
-  /** Hides (true) or shows the smoke voxels. The outline follows as soon as the renderer has built it (`sync` again after a draw). */
-  set(hidden: boolean): void {
-    const geometry = this.mesh.geometry as THREE.BufferGeometry;
-    if (hidden !== this.hidden) {
-      geometry.setIndex(hidden ? this.free : this.full);
-      this.hidden = hidden;
-    }
-    const outline = this.outline();
-    if (outline && this.outlineFull && this.outlineFree) applyOutline(outline, hidden ? this.outlineFree : this.outlineFull);
-  }
-
-  get isHidden(): boolean {
-    return this.hidden;
-  }
-
-  /** Back to the model as it was (the geometries are the loader's). */
-  restore(): void {
-    this.set(false);
-  }
+/** A type's twins, from its mesh, its outline (a child of the mesh, the tile renderer's) and its smoking chimneys. */
+function smokeFreeOf(mesh: THREE.Mesh, toModel: THREE.Matrix4, grid: VoxelGrid, smoking: readonly Chimney[]): SmokeFree {
+  const geometries = new Map<THREE.BufferGeometry, THREE.BufferGeometry>();
+  const faces = mesh.geometry as THREE.BufferGeometry;
+  const { index, dropped } = smokeFreeIndex(faces, toModel, grid, smoking);
+  geometries.set(faces, freeFaces(faces, index));
+  const outline = mesh.children.find((c) => isOutline(c)) as THREE.Mesh | undefined;
+  const start = (outline?.geometry as THREE.InstancedBufferGeometry | undefined)?.getAttribute("instanceStart") as THREE.InterleavedBufferAttribute | undefined;
+  if (outline && start) geometries.set(outline.geometry, outlineGeometry(smokeFreeSegments(start.data.array as Float32Array, toModel, grid, smoking)));
+  const cells = smoking.flatMap((c) => c.smoke);
+  const grids = new WeakMap<VoxelGrid, VoxelGrid>();
+  return {
+    geometries,
+    triangles: dropped,
+    dropGrid: (source) => {
+      let shown = grids.get(source);
+      if (!shown) grids.set(source, (shown = withoutVoxels(source, cells)));
+      return shown;
+    },
+  };
 }
 
 /** A unit square facing the camera, -0.5 to 0.5 on both axes. */
@@ -212,7 +246,9 @@ function quad(): THREE.InstancedBufferGeometry {
 const SMOKE_VERTEX = /* glsl */ `
 attribute vec4 aMouth;
 attribute vec3 aPuff;
+attribute float aBorn;
 uniform float uTime;
+uniform float uPlace;
 uniform float uLife;
 uniform float uRise;
 uniform vec2 uSize;
@@ -244,7 +280,9 @@ void main() {
   float angle = (aPuff.y * 6.2831853 + t * (aPuff.y - 0.5) * 2.0) / (uStretch * uStretch);
   vec2 corner = mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * position.xy;
   corner.y *= uStretch;
-  vFade = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.5, 1.0, t));
+  // A tile just placed: its chimneys' smoke fades in from its placement (aBorn, the loop's time then).
+  float placed = clamp((uTime - aBorn) / uPlace, 0.0, 1.0);
+  vFade = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.5, 1.0, t)) * placed;
   vAge = t;
   vSeed = aPuff.y;
   vUv = position.xy;
@@ -295,20 +333,24 @@ const CAP_COLOR = "#2b2724";
 interface Prepared {
   grid: VoxelGrid | null;
   chimneys: Chimney[];
-  toModel: THREE.Matrix4 | null;
-  /** The type's white smoke voxels, shown or hidden (none for a type with no smoking chimney). */
-  voxels: SmokeVoxels | null;
+  /** The type's smoke-free twins (none for a type with no smoking chimney). */
+  free: SmokeFree | null;
 }
+
+/** A tile's placement time for one that was on the board before the smoke saw it: long ago, so no fade. */
+const LONG_AGO = -1e6;
 
 /**
  * The smoke of a board's chimneys: one instanced draw of `puffs` billboards a chimney, rising from each mouth, growing, swaying
  * and fading out, bent by the wind; and one instanced draw of the mouths' dark caps. `time` is the ambient loop's uniform.
  *
- * `prepare(key, type)` finds a model type's chimneys, smoking and bare (its voxel grid, once a type); `setTiles` places the mouths
- * of the board's tiles in `frame` (the board's group, where `object` is added). The white smoke voxels are hidden while the smoke
- * can be drawn (the mode "moving", the smoke on), at every season, summer's too (owner, 2026-10-25: in summer neither smoke nor
- * white voxels), and shown again when it cannot (the Low tier, reduced motion, "Ambient effects" off: `SmokeVoxels`). The season comes from the cycle (`setCycle`), the wind from the cloud shadows' (`setWind`), the mode from the
- * settings and tiers (`smokeMode`). `dispose` frees the geometries and materials.
+ * `prepare(key, type)` finds a model type's chimneys, smoking and bare (its voxel grid, once a type), and builds its smoke-free
+ * twins (`freeOf`); `setTiles` places the mouths of the board's tiles in `frame` (the board's group, where `object` is added). The
+ * white smoke voxels are hidden while the smoke can be drawn (`hidesVoxels`: the mode "moving", the smoke on), at every season,
+ * summer's too (owner, 2026-10-25: in summer neither smoke nor white voxels), and shown again when it cannot (the Low tier,
+ * reduced motion, "Ambient effects" off): the caller swaps the placed tiles' geometries. The season comes from the cycle
+ * (`setCycle`), the wind from the cloud shadows' (`setWind`), the mode from the settings and tiers (`smokeMode`). `dispose` frees
+ * the geometries and materials, the twins included (the caller has put its tiles back on the loader's first).
  */
 export class ChimneySmoke implements AmbientEffect {
   readonly object = new THREE.Group();
@@ -316,6 +358,11 @@ export class ChimneySmoke implements AmbientEffect {
   private readonly caps: THREE.InstancedMesh<THREE.BoxGeometry, THREE.MeshLambertMaterial>;
   private readonly mouths: THREE.InstancedBufferAttribute;
   private readonly puffs: THREE.InstancedBufferAttribute;
+  private readonly births: THREE.InstancedBufferAttribute;
+  /** Each tile's placement time on the loop's clock (`SmokeSource.id`), for the fade of a tile just placed. */
+  private readonly born = new Map<string, number>();
+  /** Whether `setTiles` was given a tile yet: the tiles of that first call were on the board before the smoke (no fade). */
+  private sawTiles = false;
   private readonly uniforms;
   private readonly prepared = new Map<string, Prepared>();
   private settings: SmokeSettings;
@@ -330,17 +377,23 @@ export class ChimneySmoke implements AmbientEffect {
   private last: number | null = null;
   private disposed = false;
 
-  constructor(time: { value: number }, settings: SmokeSettings) {
-    this.settings = settings;
+  constructor(
+    private readonly time: { value: number },
+    settings: SmokeSettingsInput,
+  ) {
+    this.settings = resolveSmokeSettings(settings);
     this.object.name = "chimney-smoke";
     const geometry = quad();
     this.mouths = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SMOKE_CHIMNEYS * 32 * 4), 4);
     this.puffs = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SMOKE_CHIMNEYS * 32 * 3), 3);
     geometry.setAttribute("aMouth", this.mouths);
     geometry.setAttribute("aPuff", this.puffs);
+    this.births = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SMOKE_CHIMNEYS * 32), 1);
+    geometry.setAttribute("aBorn", this.births);
     geometry.instanceCount = 0;
     this.uniforms = {
       uTime: time,
+      uPlace: { value: 1 },
       uLife: { value: 5 },
       uRise: { value: 2.6 },
       uSize: { value: new THREE.Vector2(0.16, 0.6) },
@@ -385,8 +438,8 @@ export class ChimneySmoke implements AmbientEffect {
   }
 
   /**
-   * A model type's chimneys, found once a type (its voxel grid, read from the whole model: its smoke voxels shown), and the
-   * toggle of its smoke voxels. Its smoke voxels follow the mode at once.
+   * A model type's chimneys, found once a type (its voxel grid, read from the loader's geometry: its smoke voxels in), and its
+   * smoke-free twins (`freeOf`), built from its mesh and the outline the tile renderer gave it.
    */
   prepare(key: string, type: THREE.Object3D): readonly Chimney[] {
     let done = this.prepared.get(key);
@@ -395,22 +448,26 @@ export class ChimneySmoke implements AmbientEffect {
       const grid = found ? voxelize({ geometry: found.mesh.geometry, toModel: found.toModel }, { name: key }) : null;
       const chimneys = grid ? findChimneys(grid, chimneyOptionsOf(key)).chimneys : [];
       const smoking = chimneys.filter((c) => c.kind === "smoking");
-      const voxels = found && grid && smoking.length ? new SmokeVoxels(found.mesh, found.toModel, grid, smoking) : null;
-      done = { grid, chimneys, toModel: found?.toModel ?? null, voxels };
+      const free = found && grid && smoking.length ? smokeFreeOf(found.mesh, found.toModel, grid, smoking) : null;
+      done = { grid, chimneys, free };
       this.prepared.set(key, done);
-      this.applyVoxels();
     }
     return done.chimneys;
   }
 
-  /** The white voxels hidden while the smoke can be drawn, shown while it cannot. */
-  private voxelsHidden(): boolean {
-    return this.mode === "moving" && this.settings.enabled;
+  /** Whether `prepare` has read a model type. */
+  has(key: string): boolean {
+    return this.prepared.has(key);
   }
 
-  private applyVoxels(): void {
-    const hidden = this.voxelsHidden();
-    for (const done of this.prepared.values()) done.voxels?.set(hidden);
+  /** A prepared type's smoke-free twins, or null (a type with no smoking chimney, or not prepared). */
+  freeOf(key: string): SmokeFree | null {
+    return this.prepared.get(key)?.free ?? null;
+  }
+
+  /** The white voxels hidden on the placed tiles while the smoke can be drawn (every season), shown while it cannot. */
+  hidesVoxels(): boolean {
+    return this.mode === "moving" && this.settings.enabled;
   }
 
   /** The board's drawn tiles: the mouths of the prepared types (`prepare`), placed in `frame` (the group `object` is in). */
@@ -426,8 +483,16 @@ export class ChimneySmoke implements AmbientEffect {
     let instance = 0;
     this.capCount = 0;
     const perChimney = Math.min(32, Math.max(1, Math.round(smokeLookOf(this.settings).puffs)));
-    for (const { key, tile } of this.sources(sources)) {
+    // The tiles already on the board when the smoke first saw some: no fade. A tile seen later is one just placed.
+    const first = !this.sawTiles;
+    const seen = new Set<string>();
+    for (const { key, tile, id } of this.sources(sources)) {
       const done = this.prepared.get(key);
+      if (id !== undefined) {
+        seen.add(id);
+        if (!this.born.has(id)) this.born.set(id, first ? LONG_AGO : this.time.value);
+      }
+      const born = id === undefined ? LONG_AGO : this.born.get(id)!;
       if (!done?.grid || !done.chimneys.length) continue;
       tile.updateWorldMatrix(true, false);
       matrix.multiplyMatrices(toFrame, tile.matrixWorld);
@@ -442,6 +507,7 @@ export class ChimneySmoke implements AmbientEffect {
         for (let p = 0; p < perChimney; p++) {
           this.mouths.setXYZW(instance, point.x, point.y, point.z, width);
           this.puffs.setXYZ(instance, p / perChimney, next(), seed);
+          this.births.setX(instance, born);
           instance++;
         }
         if (c.kind !== "smoking") continue;
@@ -455,13 +521,14 @@ export class ChimneySmoke implements AmbientEffect {
         this.caps.setMatrixAt(this.capCount - 1, cap);
       }
     }
+    for (const id of [...this.born.keys()]) if (!seen.has(id)) this.born.delete(id);
+    if (seen.size) this.sawTiles = true;
     this.chimneyCount = chimney;
     this.mesh.geometry.instanceCount = instance;
     this.mouths.needsUpdate = true;
     this.puffs.needsUpdate = true;
+    this.births.needsUpdate = true;
     this.caps.count = this.capCount;
-    // The outlines the renderer built for the tiles just drawn: their smoke segments follow the voxels.
-    this.applyVoxels();
     this.caps.instanceMatrix.needsUpdate = true;
     this.apply();
   }
@@ -471,13 +538,14 @@ export class ChimneySmoke implements AmbientEffect {
     return sources.filter((s) => this.prepared.has(s.key));
   }
 
-  setSettings(settings: SmokeSettings): void {
+  /** The settings, a partial input over the defaults (`RendererSettings.smoke` is the input as given: resolved here, in the chunk). */
+  setSettings(input: SmokeSettingsInput): void {
     const puffs = smokeLookOf(this.settings).puffs;
+    const settings = resolveSmokeSettings(input);
     this.settings = settings;
     if (this.mode !== "moving") this.snap();
     // A new number of puffs a chimney needs the instances laid out again: the caller's `setTiles`.
     if (smokeLookOf(settings).puffs !== puffs) this.needsTiles = true;
-    this.applyVoxels();
     this.apply();
   }
 
@@ -489,7 +557,6 @@ export class ChimneySmoke implements AmbientEffect {
     if (mode === this.mode) return;
     this.mode = mode;
     this.snap();
-    this.applyVoxels();
     this.apply();
   }
 
@@ -553,6 +620,7 @@ export class ChimneySmoke implements AmbientEffect {
     const s = this.settings;
     const look = smokeLookOf(s);
     const u = this.uniforms;
+    u.uPlace.value = Math.max(1e-3, s.placeSeconds);
     u.uLife.value = Math.max(0.5, look.lifeSeconds);
     u.uRise.value = look.rise;
     u.uSize.value.set(look.sizeStart, look.sizeEnd);
@@ -568,7 +636,7 @@ export class ChimneySmoke implements AmbientEffect {
     u.uLight.value.setRGB(0.6 * s.night, 0.7 * s.night, 1 * s.night).lerp(new THREE.Color(1, 1, 1), this.daylight);
     this.mesh.visible = this.mode === "moving" && this.mesh.geometry.instanceCount > 0 && u.uOpacity.value > 0.001;
     // The caps close the stacks the hidden smoke left open: at every season, in every mode.
-    this.caps.visible = this.caps.count > 0 && this.voxelsHidden();
+    this.caps.visible = this.caps.count > 0 && this.hidesVoxels();
   }
 
   stats(): SmokeStats {
@@ -580,7 +648,8 @@ export class ChimneySmoke implements AmbientEffect {
       chimneys: this.chimneyCount,
       puffs: this.mesh.visible ? this.mesh.geometry.instanceCount : 0,
       drawCalls: (this.mesh.visible ? 1 : 0) + (this.caps.visible ? 1 : 0),
-      hiddenTriangles: [...this.prepared.values()].reduce((sum, p) => sum + (p.voxels?.isHidden ? p.voxels.triangles : 0), 0),
+      voxelsHidden: this.hidesVoxels(),
+      hiddenTriangles: this.hidesVoxels() ? [...this.prepared.values()].reduce((sum, p) => sum + (p.free?.triangles ?? 0), 0) : 0,
     };
   }
 
@@ -593,8 +662,9 @@ export class ChimneySmoke implements AmbientEffect {
     this.caps.material.dispose();
     this.caps.dispose();
     this.object.removeFromParent();
-    // The geometries are the loader's: the models go back as they were.
-    for (const done of this.prepared.values()) done.voxels?.restore();
+    // The twins (the faces' shares the loader's attributes: disposed with the scene, after its tiles went back to the loader's).
+    for (const done of this.prepared.values()) for (const twin of done.free?.geometries.values() ?? []) twin.dispose();
     this.prepared.clear();
+    this.born.clear();
   }
 }

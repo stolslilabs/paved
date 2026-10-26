@@ -49,6 +49,8 @@ import type * as Fog from "./fog-of-war";
 import { fogMode, type FogCell } from "./fog-of-war-settings";
 // The weather is its own chunk too: loaded only once it first shows (`syncWeather`).
 import type * as WeatherChunk from "./weather";
+// The chimney smoke too (CHIMNEY-SMOKE-2, #770): loaded the first time a board scene can draw it (`syncSmoke`).
+import type * as SmokeChunk from "./chimney-smoke";
 import { weatherCloudFactor, weatherMode, type WeatherMode } from "./weather-settings";
 import { DAY_PHASE_AT } from "./daynight-settings";
 
@@ -228,6 +230,10 @@ export class GameScene {
   private fogReveal: { cells: ReadonlyArray<FogCell>; origin: ReadonlyArray<FogCell> } | null = null;
   /** The weather (`weather.ts`, #607, #658), once its chunk is in; its load, started the first time it shows. */
   private weather: WeatherChunk.Weather | null = null;
+  /** The chimney smoke (`chimney-smoke.ts`, #770), once its chunk is in; its load; the placed tiles it last placed (`syncSmokeTiles`). */
+  private smoke: SmokeChunk.ChimneySmoke | null = null;
+  private smokeLoad: Promise<void> | null = null;
+  private smokeTiles = "";
   private weatherLoad: Promise<void> | null = null;
   /**
    * The square grid (SQUARE-GRID, `square-grid.ts`): the violet backdrop in the landscape's place and the highlight in the
@@ -403,6 +409,7 @@ export class GameScene {
       if (hover) this.requestRender();
       return;
     }
+    this.syncSmokeTiles();
     this.requestShadowUpdate();
     this.requestRender();
   }
@@ -565,6 +572,7 @@ export class GameScene {
       this.loadClouds();
     }
     this.syncWeather();
+    this.syncSmoke();
     this.requestRender();
   }
 
@@ -686,6 +694,89 @@ export class GameScene {
     return this.weather?.stats() ?? null;
   }
 
+  /**
+   * Whether the chimney smoke can be drawn (`RendererSettings.smoke`, an ambient effect): on with its setting, the ambient effects on,
+   * not on the Low tier and not under reduced motion (`ambientAllowed`). Off, the placed tiles keep their white voxels (#770).
+   */
+  private smokeModeNow(): SmokeChunk.SmokeStats["mode"] {
+    if (!this.renderer || !this.settings.smoke.enabled) return "off";
+    return ambientAllowed(this.settings.ambient, this.getQuality(), prefersReducedMotion()) ? "moving" : "off";
+  }
+
+  /**
+   * The chimney smoke (CHIMNEY-SMOKE-2, #770) in the scenes that turn it on (the app's boards): its chunk loads the first time it can
+   * be drawn, then it follows the settings, the clouds' wind, its mode and the cycle's season (`syncSmokeCycle`). While it can be
+   * drawn (every season: summer has neither smoke nor white voxels), the placed tiles draw their types' smoke-free twins; while it
+   * cannot, the loader's, white voxels and all.
+   */
+  private syncSmoke(): void {
+    const mode = this.smokeModeNow();
+    const smoke = this.smoke;
+    if (!smoke) {
+      if (mode !== "off") this.loadSmoke();
+      return;
+    }
+    smoke.setSettings(this.settings.smoke);
+    smoke.setWind(this.settings.ambient.clouds.windDirection, this.settings.ambient.clouds.windSpeed);
+    this.syncSmokeCycle();
+    smoke.setMode(mode);
+    if (this.tiles.setSmokeHidden(smoke.hidesVoxels())) this.requestShadowUpdate();
+    this.syncSmokeTiles(smoke.needsTiles);
+    smoke.needsTiles = false;
+    this.requestRender();
+  }
+
+  /** The cycle's season to the smoke, as the weather's (`syncWeatherCycle`); with the cycle on but not drawn yet, nothing (no fade from summer). */
+  private syncSmokeCycle(): void {
+    const point = this.getDayNight() ?? (this.settings.dayNight.enabled ? null : CYCLE_OFF_POINT);
+    if (point) this.smoke?.setCycle(point);
+  }
+
+  /**
+   * The placed tiles to the smoke, when they changed (a tile placed, a model in, a drop landed, a tile moved in place: its lift,
+   * size or cell, `TileRenderer.place`, which keeps its mesh): each new type's chimneys found and its twins handed to the tile
+   * renderer (once a type), then the mouths placed.
+   */
+  private syncSmokeTiles(force = false): void {
+    const smoke = this.smoke;
+    if (!smoke || this.disposed) return;
+    const sources = this.tiles.smokeSources();
+    const placed = (o: THREE.Object3D | null) => (o ? [...o.position.toArray(), ...o.quaternion.toArray(), ...o.scale.toArray()].join(",") : "");
+    const signature = sources.map((s) => `${s.id}:${s.tile.uuid}:${placed(s.tile.parent)}`).join("|");
+    if (!force && signature === this.smokeTiles) return;
+    this.smokeTiles = signature;
+    let swapped = false;
+    for (const source of sources) {
+      if (smoke.has(source.key)) continue;
+      smoke.prepare(source.key, source.type);
+      const free = smoke.freeOf(source.key);
+      if (free && this.tiles.setSmokeFree(source.key, free)) swapped = true;
+    }
+    smoke.setTiles(sources, this.tiles.getGroup());
+    if (swapped) this.requestShadowUpdate();
+    this.requestRender();
+  }
+
+  /** Loads the smoke's chunk once, in the board's group (it turns with the compass), on the ambient loop. */
+  private loadSmoke(): void {
+    this.smokeLoad ??= import("./chimney-smoke").then(
+      (module) => {
+        if (this.disposed) return;
+        const smoke = new module.ChimneySmoke(this.ambient.time, this.settings.smoke);
+        this.smoke = smoke;
+        this.tiles.getGroup().add(smoke.object);
+        this.ambient.register(smoke);
+        this.syncSmoke();
+      },
+      (error: unknown) => console.warn("[renderer] the chimney smoke did not load, the tiles keep their white voxels:", error),
+    );
+  }
+
+  /** The chimney smoke now (`ChimneySmoke.stats`), or null before its chunk is in: the stories' readout and the tests. */
+  getSmoke(): SmokeChunk.SmokeStats | null {
+    return this.smoke?.stats() ?? null;
+  }
+
   /** Loads the cloud shadows' chunk once and registers them on the loop (a failed load leaves the board as it is). */
   private loadClouds(): void {
     this.cloudsLoad ??= import("./cloud-shadows").then(
@@ -758,6 +849,7 @@ export class GameScene {
         this.syncCloudLight();
       }
       this.syncWeather();
+      this.syncSmoke();
       return;
     }
     if (!this.dayNight) {
@@ -876,6 +968,7 @@ export class GameScene {
     this.syncCloudLight();
     this.syncGridLight();
     this.syncWeatherCycle();
+    this.syncSmokeCycle();
     this.requestRender();
   }
 
@@ -998,6 +1091,7 @@ export class GameScene {
   updateTiles(tiles: TileRenderData[]): void {
     this.latestTiles = tiles.slice();
     this.tiles.updateTiles(tiles);
+    this.syncSmokeTiles();
     // The backdrop is in colour near the placed tiles.
     this.squareGrid.setTileCells(tiles.map((t) => ({ x: t.worldX, y: t.worldZ })));
     if (this.controls) {
@@ -1019,6 +1113,7 @@ export class GameScene {
     this.skins = skins;
     this.tiles.setSkins(skins);
     this.tiles.updateTiles(this.latestTiles);
+    this.syncSmokeTiles();
     this.requestShadowUpdate();
     this.requestRender();
   }
@@ -1060,6 +1155,11 @@ export class GameScene {
     if (result.status === "started" && !this.disposed) {
       this.requestShadowUpdate();
       this.requestRender();
+      // Its chimneys smoke once it has landed (`smokeSources` leaves a tile out mid-drop): none over the falling voxels.
+      if (this.smoke) {
+        this.syncSmokeTiles();
+        void result.finished.then(() => this.syncSmokeTiles());
+      }
     }
     return result;
   }
@@ -1176,6 +1276,7 @@ export class GameScene {
   setStrategyMode(on: boolean): void {
     this.tiles.setStrategyMode(on);
     this.tiles.updateTiles(this.latestTiles);
+    this.syncSmokeTiles();
     this.requestShadowUpdate();
     this.requestRender();
   }
@@ -1565,6 +1666,8 @@ export class GameScene {
       if (moved.shadow) {
         this.requestShadowUpdate();
         this.needsRender = true;
+        // A landed tile's chimneys start to smoke (`smokeSources` leaves a tile out mid-drop).
+        this.syncSmokeTiles();
       }
       // The ambient effects move on the one ambient loop, at its capped rate: a step that moves something draws a frame.
       if (this.ambient.tick(now)) this.needsRender = true;
@@ -1651,6 +1754,10 @@ export class GameScene {
     this.weather?.dispose();
     this.weather = null;
     this.weatherLoad = null;
+    // After the tiles: they are off the twins the smoke disposes.
+    this.smoke?.dispose();
+    this.smoke = null;
+    this.smokeLoad = null;
     this.scene.clear();
     this.latestTiles = [];
     this.cameraListeners.clear();
