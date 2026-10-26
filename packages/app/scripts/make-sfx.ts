@@ -87,6 +87,12 @@ export const SOUNDS: Record<string, { length: number; notes: Note[] }> = {
   wonder: { length: 0.8, notes: run([523, 659, 784, 1047], 0.11, 0.45, { gain: 0.3 }) },
   cobbles: { length: 0.4, notes: run([1320, 1760], 0.07, 0.3, { gain: 0.3 }) },
   gameover: { length: 0.95, notes: run([440, 392, 330, 262], 0.17, 0.4, { gain: 0.4, wave: "triangle" }) },
+  // The chest's opening (#784), one sound per beat: the shake (a rattle of the lid), the burst (a rising sweep and a shimmer),
+  // each tile out of the chest, the tile kept.
+  shake: { length: 0.3, notes: run([190, 160, 210], 0.08, 0.07, { gain: 0.4, wave: "triangle", noise: 0.03 }) },
+  burst: { length: 0.7, notes: [{ at: 0, hz: 220, hzEnd: 880, dur: 0.3, gain: 0.35, noise: 0.14 }, ...run([784, 1047, 1319, 1568], 0.06, 0.4, { gain: 0.22 }).map((n) => ({ ...n, at: n.at + 0.2 }))] },
+  flip: { length: 0.12, notes: [{ at: 0, hz: 700, hzEnd: 1100, dur: 0.1, gain: 0.3, wave: "triangle", noise: 0.02 }] },
+  keep: { length: 0.45, notes: run([523, 784, 1047], 0.08, 0.28, { gain: 0.35 }) },
 };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

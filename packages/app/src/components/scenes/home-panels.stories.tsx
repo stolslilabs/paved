@@ -81,7 +81,7 @@ const panel = (title: string, page: ReactNode, options: { top?: boolean } = {}):
 /** Missions (the Limited tab), with the Cobbles they earn in the header. */
 export const Missions: Story = panel("Missions", <QuestsScene {...QUESTS.today} onNavigate={fn()} onDayChange={fn()} onTab={fn()} onClaim={fn()} onClaimAll={fn()} />);
 /** The Chests: the slots, the chest to open, the Cobbles. */
-export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.waiting} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
+export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The day's tile shop, the Cobbles in the header. */
 export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onBuy={fn()} onGetCobbles={fn()} />);
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
