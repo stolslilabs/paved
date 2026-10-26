@@ -27,7 +27,7 @@ const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ def
 // The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
 const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 // The score's count after a save (#802, the balances' change): its own chunk, loaded by a save alone.
-const LazyScoreCount = lazy(() => import("../elements/amount-change").then((m) => ({ default: m.ScoreCount })));
+const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
 // The village's points (#758), computed with the engine: from the stage's chunk too.
 const LazyVillagePoints = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.VillagePoints })));
 
