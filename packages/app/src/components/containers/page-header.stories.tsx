@@ -6,7 +6,7 @@ import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "../scenes/viewports
 import type { BalancesState } from "./balances";
 import { BalancesProvider } from "./balances-context";
 import { MockMarkProvider } from "./mock-mark";
-import { PageHeader } from "./page-header";
+import { PageHeader } from "./top-bar";
 
 const READY: BalancesState = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 1_250_400_000_000_000_000n, cobbles: 240 };
 

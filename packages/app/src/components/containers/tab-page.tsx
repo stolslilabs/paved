@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
-import { PageHeader } from "./page-header";
+import { PageHeader } from "./top-bar";
 import { TabFrame } from "./tab-frame";
 
 export interface TabPageProps {

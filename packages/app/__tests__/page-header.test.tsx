@@ -5,9 +5,8 @@ import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { BalancesProvider } from "../src/components/containers/balances-context";
-import { PageHeader } from "../src/components/containers/page-header";
 import { TabPage } from "../src/components/containers/tab-page";
-import { TopBar } from "../src/components/containers/top-bar";
+import { PageHeader, TopBar } from "../src/components/containers/top-bar";
 
 // ONE-HEADER (#781, the owner's decisions of 2026-10-26): one header on every page but the game scenes. Back and the title at the
 // top left, no subtitle; the home's balances at the top right, in the header's row; nothing under it.
@@ -70,7 +69,7 @@ describe("the page header (#781)", () => {
 
   it("the pages carry no subtitle, and PageBalances is gone", () => {
     const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
-    for (const file of ["src/components/containers/tab-page.tsx", "src/components/containers/top-bar.tsx", "src/components/containers/page-header.tsx"]) {
+    for (const file of ["src/components/containers/tab-page.tsx", "src/components/containers/top-bar.tsx"]) {
       expect(read(file)).not.toMatch(/subtitle\?:|PageBalances/);
     }
     expect(read("src/components/containers/balances-context.tsx")).not.toMatch(/PageBalances|PanelBalances|page-balances/);
