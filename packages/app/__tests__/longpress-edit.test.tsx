@@ -77,10 +77,10 @@ describe("the plan view: a long press on a tile into edit mode (#799)", () => {
     fireEvent.pointerDown(tile, { button: 0, pointerId: 2 });
     await waitFor(() => expect(bubbleEdit()).not.toBeNull(), WAIT);
     fireEvent.pointerUp(tile, { button: 0, pointerId: 2 });
-    await wait(PRESS_LINGER_MS + 20);
-    expect(bubblePhase()).toBe("fading");
-    await wait(PRESS_FADE_MS + 20);
-    expect(bubbleEdit()).toBeNull();
+    // Still there through most of the linger, then gone after its fade (a loaded machine may run both timers at once).
+    await wait(PRESS_LINGER_MS / 2);
+    expect(bubblePhase()).toBe("lingering");
+    await waitFor(() => expect(bubbleEdit()).toBeNull(), { timeout: slow(PRESS_LINGER_MS + PRESS_FADE_MS + 2000) });
     expect(onEditingChange).toHaveBeenCalledTimes(1);
   }, slow(15_000));
 

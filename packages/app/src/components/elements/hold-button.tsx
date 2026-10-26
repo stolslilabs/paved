@@ -136,7 +136,7 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
 }
 
 /**
- * The hold's ring around a 44 px button's icon (`HoldButton`'s, and the press bubble's, #799): it fills clockwise from the top
+ * The hold's ring around a 44 px button's icon (`HoldButton`'s, and the press bubble's, issue 799): it fills clockwise from the top
  * over `holdMs` while held, stays full once done, and rewinds when let go early. The fill is the hold's progress, so it shows
  * under reduced motion too.
  */
