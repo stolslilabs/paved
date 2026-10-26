@@ -70,6 +70,8 @@ function useStartTab(active: Tab | null): Tab | null {
  * bar starts from the state the last one drew (`@starting-style`: the highlight on the old column, the old label unfolded),
  * and its transitions run in the page's swipe's duration and easing (`--tab-swipe-duration`, `--tab-swipe-ease`), live in the
  * view transition's new snapshot. None under reduced motion.
+ * SWIPE-DISC (#780): during a swipe the bar (`data-slot="app-nav"`) is a view transition of its own, painted above the page's
+ * (theme.css, TAB-SWIPE), so the Play disc stays whole over the moving page.
  * Play, the centre item (#623), has no label (`aria-label`) and stands out as the app's accent: a larger gold disc raised
  * above the bar. It opens the mode choice (`/play`).
  * PHONE-NAV (#763, the owner's decisions of 2026-10-25): the bar holds Shop, Chests, Play, League, Settings, and shows on the
@@ -89,6 +91,7 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
   return (
     <nav
       aria-label="Main"
+      data-slot="app-nav"
       className={cn(
         "fixed inset-x-0 bottom-0 z-20 flex items-center border-t border-border bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur desktop:hidden",
         className,
