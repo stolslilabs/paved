@@ -11,6 +11,8 @@ import { formatBps } from "../containers/split-bar";
 import type { Pack } from "../containers/cobble-types";
 import { BalanceNotice, ConnectButton, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "../containers/purchase-notices";
 import { TopBar } from "../containers/top-bar";
+import { useInPageRegion } from "../containers/page-region";
+import { cn } from "../../lib/utils";
 
 /** The Cobble packs (P-61, cobbles v1, part 2: `Setup.pack`, `buy_pack`). */
 export interface CobbleShop {
@@ -103,6 +105,8 @@ function BalancePlate({ cobbles, connected }: { cobbles: number; connected: bool
  * `buy_pack`), confirmed and pending as a game's purchase is; its USDC takes a game's split.
  */
 export function CobblesScene(props: CobblesSceneProps) {
+  // A full-screen flow fills the viewport; in a scrolling region (the side panel, #782) the page takes its content's height.
+  const inRegion = useInPageRegion();
   const { cobbles, balance, referrer, split, connected = true, onSelectPack, onBuyPack, onConnect } = props;
   // The selected pack among those shown: a pack without Cobbles or a price is never offered, so nothing divides by zero.
   const onSale = packsOnSale(cobbles.packs);
@@ -111,7 +115,7 @@ export function CobblesScene(props: CobblesSceneProps) {
   const { refusal, bought } = cobbles;
   const label = retryLabel(refusal);
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <div className={cn("flex flex-col bg-background text-foreground", !inRegion && "min-h-dvh")}>
       <TopBar
         title="Cobbles"
         onBack={props.onBack}

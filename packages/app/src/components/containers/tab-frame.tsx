@@ -4,6 +4,7 @@ import type { Tab } from "../../routes/pages";
 import { pageScrollHintRef } from "../../lib/page-scroll-hint";
 import { AppNav } from "./app-nav";
 import { usePagePanel } from "./page-panel-context";
+import { PageRegionProvider } from "./page-region";
 
 export interface TabFrameProps {
   tab: Tab;
@@ -21,6 +22,9 @@ export interface TabFrameProps {
  * the fades `AppNav` draws), not the `scroll-hint` mask of a `ScrollRegion`, and it keeps its offset per history entry
  * (`RegionScrollKeeper`). From `desktop` there is no bar (DESK-PANELS, #762): the page is in the home's side panel, whose body is
  * its scrolling region; the frame then draws its page alone.
+ * PAGES-SCROLL (#782): the page is drawn straight in the region, its header and its content as the region's children (no
+ * column of its own between them and the region), so the region is the one element that scrolls and its header sticks to its
+ * top; the page knows it is in a region (`PageRegionProvider`), and a flow's bar then leaves the document's hint alone.
  */
 export function TabFrame(props: TabFrameProps) {
   if (usePagePanel()) return <div className="relative flex flex-1 flex-col">{props.children}</div>;
@@ -49,7 +53,7 @@ function FullTabFrame({ tab, onNavigate, children }: TabFrameProps) {
     <div ref={frame} className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       <AppNav active={tab} onNavigate={onNavigate} />
       <div ref={regionRef} data-slot="page-scroll" className="mb-(--app-nav-h) min-h-0 flex-1 overflow-y-auto overscroll-contain desktop:mb-0">
-        {children}
+        <PageRegionProvider value>{children}</PageRegionProvider>
       </div>
       {useInRouterContext() && <RegionScrollKeeper region={region} />}
     </div>
