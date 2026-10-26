@@ -149,9 +149,10 @@ function grow(stock: readonly number[], target: number, side: number, next: () =
 
 /**
  * A random compact layout of `stock` (the player's whole stock by plan, the starter left out: the inventory plus the tiles placed
- * now) within `slots` (the starter included): as many tiles as fit, up to `slots - 1`, in a shape near a square. The same seed
- * and budget give the same layout on any machine whose tries end within the time (not `timedOut`); another seed, most likely
- * another layout.
+ * now) within `slots` (the starter included): as many tiles as fit, up to `slots - 1`, in a shape near a square. The step
+ * budget is the deterministic one: the same seed gives the same layout on any machine that finishes its steps; another seed, most
+ * likely another layout. A `timedOut` result is the one case where the same seed may differ: the 150 ms limit, checked between
+ * tries, cut a machine too slow for its steps, and the best found so far is returned.
  */
 export function randomLayout(stock: Inventory, slots: number, seed: number, budget: RandomLayoutBudget = {}): RandomLayout {
   const counts = BASE_PLAN_CODES.map((plan) => Math.max(0, Math.floor(stock[plan - 1] ?? 0)));
