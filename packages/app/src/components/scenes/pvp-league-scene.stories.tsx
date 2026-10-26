@@ -4,6 +4,7 @@ import { PVP_LEAGUE } from "../../mocks/pvp";
 import { PvpLeagueScene } from "./pvp-league-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
 import { inPanel } from "../../stories/in-panel";
+import { scrolledToEnd } from "../../stories/scrolled-to-end";
 
 /**
  * The league (#647): a carousel of the 23 leagues opening on the player's (#785), the details of the one in view, the season's
@@ -46,3 +47,7 @@ export const LegendPhone: Story = { ...Legend, ...PHONE_375 };
 export const LegendWide: Story = { ...Legend, ...WIDE_1440, decorators: [inPanel("League")] };
 /** Reduced motion: the arrows cut from league to league. */
 export const ReducedMotion: Story = { ...GoldPhone, parameters: { ...GoldPhone.parameters, reducedMotion: "always" } };
+/** PAGES-SCROLL (#782): at 375 px the page scrolls in its region to the last league, the header sticky above it. */
+export const GoldPhoneScrolled: Story = { ...GoldPhone, play: scrolledToEnd };
+/** PAGES-SCROLL (#782): at 1440 px the panel's body scrolls to the last league; no close button (a click outside or Escape). */
+export const GoldWideScrolled: Story = { ...GoldWide, play: scrolledToEnd };
