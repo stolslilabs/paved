@@ -161,14 +161,14 @@ describe("Home (#753): the village with its overlays", () => {
     expect(document.querySelector("[data-dial-place]")!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
   });
 
-  it("draws Play as a hammer with no text and Edit as a pen, both large and named (#755)", () => {
+  it("draws Play as the two swords with no text and Edit as a hammer, both large and named (#755, #807)", () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
     const play = screen.getAllByRole("button", { name: "Play" }).find((b) => !b.closest("nav[aria-label=Main]"))!;
     expect(play).toHaveTextContent("");
-    expect(play.querySelector("[data-icon=hammer]")).not.toBeNull();
+    expect(play.querySelector("[data-icon=swords]")).not.toBeNull();
     expect(play.className).toMatch(/\bsize-16\b/);
     const edit = screen.getByRole("button", { name: "Edit village" });
-    expect(edit.querySelector("[data-icon=pen]")).not.toBeNull();
+    expect(edit.querySelector("[data-icon=hammer]")).not.toBeNull();
     expect(edit.className).toMatch(/\bsize-14\b/);
     // The defence log is the league page's: no overlay button. League is labelled plainly, the badge shows which.
     expect(screen.queryByRole("button", { name: /^Defence/ })).toBeNull();
@@ -986,6 +986,13 @@ describe("Element feedback (EL)", () => {
     render(wrap(<AppNav active="home" />));
     expect(screen.getByRole("button", { name: "Chests" }).querySelector("[data-icon='gift']")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
+  });
+
+  it("draws the bar's Play as the two swords, with no text (#807)", () => {
+    render(wrap(<AppNav active="home" />));
+    const play = screen.getByRole("button", { name: "Play" });
+    expect(play.querySelector("[data-icon='swords']")).not.toBeNull();
+    expect(play.querySelector("[data-icon='hammer']")).toBeNull();
   });
 
   it("keeps a tab page's navigation out of its scrolling region, fixed to the viewport's bottom below desktop (#611)", () => {
