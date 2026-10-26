@@ -32,24 +32,14 @@ export function useAppNavigate() {
  * (the stories') has it too.
  * TAB-RETAP (#800, the owner's decision of 2026-10-26): the current tab picked again closes its page, up to the village by the
  * Back rule (`useUpTo`: no push, so a Back afterwards never reopens it), with no swipe. From a page under that tab (a sheet over
- * Settings) the first pick goes up to the tab's page, the next one to the village.
+ * Settings) the first pick goes up to its parent, the tab's page, the next one to the village.
  */
 export function useTabNavigate() {
   const go = useAppNavigate();
   const { pathname } = useLocation();
-  const page = pageAt(pathname);
-  const from = page?.nav ?? null;
-  const tabPage = TABS.find((t) => t.id === from)?.to ?? "/";
-  const upToTab = useUpTo(tabPage);
-  const upToVillage = useUpTo("/");
-  return useCallback(
-    (tab: Tab) => {
-      if (tab !== from || tab === "home") void go(TABS.find((t) => t.id === tab)?.to ?? "/", tabSwipe(from, tab));
-      else if (page && page !== pageAt(tabPage)) upToTab();
-      else upToVillage();
-    },
-    [go, from, page, tabPage, upToTab, upToVillage],
-  );
+  const from = pageAt(pathname)?.nav ?? null;
+  const up = useUpTo(parentOf(pathname));
+  return useCallback((tab: Tab) => (tab === from ? up() : go(TABS.find((t) => t.id === tab)?.to ?? "/", tabSwipe(from, tab))), [go, from, up]);
 }
 
 /** The route map's page at `pathname`, in table order (a static path before a parameter's). */
