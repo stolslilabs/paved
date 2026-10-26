@@ -6,7 +6,7 @@ import type { PressPhase } from "../../lib/use-press-action";
 import { HoldRing } from "../elements/hold-button";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { MARGIN_PX, bubbleLimits, bubbleSize, placeBubble } from "./tile-bubble";
+import { MARGIN_PX, OVERLAP_PX, bubbleLimits, bubbleSize, placeBubble } from "./tile-bubble";
 
 export interface PressBubbleProps {
   /** The button's accessible name: "Edit village". */
@@ -22,7 +22,8 @@ export interface PressBubbleProps {
   onDismiss: () => void;
   /**
    * The renderer's scene and the pressed tile's cell (the renderer's grid): the bubble follows the tile's top-right corner, as the
-   * tile's bubble does. Without a scene (the plan view) it stands where the caller puts it.
+   * tile's bubble does. Without a scene (the plan view) it stands still above its parent's top-right corner (the pressed cell's),
+   * overlapping it as on the scene.
    */
   scene?: GameScene | null;
   cell?: { x: number; y: number };
@@ -30,6 +31,8 @@ export interface PressBubbleProps {
 }
 
 const SIZE = bubbleSize(1);
+/** The plan view's place: above the parent's top-right corner, overlapping it by `OVERLAP_PX`. */
+const STILL = { position: "absolute", bottom: `calc(100% - ${OVERLAP_PX}px)`, left: `calc(100% - ${OVERLAP_PX}px)` } as const;
 
 /**
  * The press bubble (LONGPRESS-EDIT, #799): one button by the pressed tile, its ring the press's hold, which fills as the press goes
@@ -85,7 +88,7 @@ export function PressBubble({ label, icon, hold, phase, onTap, onDismiss, scene,
       data-input-surface
       data-press-bubble={phase}
       data-follows={scene ? "tile" : undefined}
-      style={scene ? { visibility: "hidden" } : undefined}
+      style={scene ? { visibility: "hidden" } : STILL}
       className={cn(
         "pointer-events-auto w-fit rounded-full border bg-card/95 p-1 shadow-lg backdrop-blur transition-opacity duration-200 motion-reduce:transition-none",
         scene && "absolute top-0 left-0 will-change-transform",

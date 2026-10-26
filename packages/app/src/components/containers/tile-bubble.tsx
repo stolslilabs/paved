@@ -23,7 +23,7 @@ export const BUTTON_PX = 44;
 const PAD_PX = 4;
 const GAP_PX = 4;
 /** The bubble overlaps the tile's corner by this much, so it reads as attached to it. */
-const OVERLAP_PX = 10;
+export const OVERLAP_PX = 10;
 /** The clearance kept from the box edge and from the HUD and the hand panel. */
 export const MARGIN_PX = 8;
 

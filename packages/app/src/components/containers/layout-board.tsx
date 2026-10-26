@@ -239,7 +239,6 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
                 phase={presses.shown.phase}
                 onTap={presses.act}
                 onDismiss={presses.dismiss}
-                className="absolute bottom-[calc(100%-10px)] left-[calc(100%-10px)]"
               />
             </Suspense>
           </div>
