@@ -4,7 +4,7 @@ import { TileRenderer, type LitTile } from "./TileRenderer";
 import type { ClosedStructure, ClosedStructuresOptions } from "./closed-structures";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
-import { frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
+import { frameFloorFor, frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
@@ -1460,7 +1460,7 @@ export class GameScene {
 
   /**
    * The frame of the board on this surface (CAMERA-FIT, #678, `computeCameraFit`): the tiles and their ring of free slots,
-   * at least `floorCells` square, in the screen less the HUD, never farther than `OPENING_DISTANCE` (nor the zoom limits).
+   * at least `floorCells` square and its margin (`FRAME_FLOORS` by width for `"auto"`), in the screen less the HUD, never farther than `OPENING_DISTANCE` (nor the zoom limits).
    * Null before `init`.
    */
   getCameraFit(): CameraFit | null {
@@ -1475,7 +1475,8 @@ export class GameScene {
       fov: this.camera.fov,
       zoom: this.camera.zoom,
       insets: fit.insets === "auto" ? frameInsetsFor(width) : fit.insets,
-      floorCells: fit.floorCells,
+      floorCells: fit.floorCells === "auto" ? frameFloorFor(width).cells : fit.floorCells,
+      marginCells: fit.marginCells === "auto" ? frameFloorFor(width).margin : fit.marginCells,
       ring: fit.ring,
       minDistance: min,
       maxDistance: Math.min(OPENING_DISTANCE, max),
