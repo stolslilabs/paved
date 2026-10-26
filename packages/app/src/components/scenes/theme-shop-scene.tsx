@@ -67,10 +67,10 @@ export function ThemeShopScene({ theme, renders, variants, skins, skinsStatus, b
     <TabPage
       tab="settings"
       title={option.name}
-      subtitle={option.tagline}
       onBack={onBack}
       onNavigate={onNavigate}
     >
+      <p className="text-sm text-muted-foreground">{option.tagline}</p>
       <div className="overflow-hidden rounded-xl border border-border">
         <ThemeCover theme={option.available ? code : 0} renders={renders} blurred={!option.available} alt={`${option.name}: a few of its tiles`} />
       </div>

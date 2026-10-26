@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
-import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { Score } from "../elements/score";
@@ -46,8 +45,6 @@ export interface VillageSceneProps {
   mode?: "own" | "visit";
   /** A visit: from the PvP scout (#647) or from a player's profile. */
   from?: "scout" | "profile";
-  /** The player's Cobbles (own village). */
-  cobbles?: number;
   /** A reward waiting (after a game): its sheet shows under the board. */
   reward?: RewardOffer | null;
   /** The plan's fog (#633's village variant), when the plan is drawn. */
@@ -139,7 +136,6 @@ function VillageView({
   refusal = null,
   refusalDetail,
   rewardError = null,
-  cobbles = 0,
   reward = null,
   fog = "village",
   renderBoard,
@@ -246,14 +242,6 @@ function VillageView({
       <TopBar
         title={title}
         onBack={onBack}
-        ownCobbles={own}
-        end={
-          own ? (
-            <span className="pr-2">
-              <Cobbles value={cobbles} />
-            </span>
-          ) : undefined
-        }
       />
       {/* The shared header's own margin sets where the content starts, as on every page (HEADER-HEIGHT, #676). */}
       <div className="flex min-h-0 flex-1 flex-col desktop:flex-row desktop:gap-4 desktop:p-4 desktop:pt-0">

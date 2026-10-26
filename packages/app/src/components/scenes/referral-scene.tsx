@@ -70,7 +70,8 @@ const plural = (count: number, one: string) => `${formatNumber(count)} ${count =
 export function ReferralScene(props: ReferralSceneProps) {
   const { link, split, earnings } = props;
   return (
-    <TabPage tab="settings" title="Referral" subtitle="Invite players, earn a share of their purchases" onBack={props.onBack} onNavigate={props.onNavigate}>
+    <TabPage tab="settings" title="Referral" onBack={props.onBack} onNavigate={props.onNavigate}>
+      <p className="text-sm text-muted-foreground">Invite players, earn a share of their purchases.</p>
       <div className="grid grid-cols-1 gap-4">
         <div className="flex flex-col gap-4">
           <section aria-label="Your link" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-card p-4">

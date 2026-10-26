@@ -9,7 +9,7 @@ import { VillageLayoutScene, type LayoutSaved, type VillageLayoutStatus } from "
 import type { VillageLayout } from "../../components/containers/layout-rules";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
-import { cobbleKeys, useCobbleAccount } from "../../data/cobbles";
+import { cobbleKeys } from "../../data/cobbles";
 import { useChests, useFreeVillage, useFreeVillageWrites } from "../../data/free-village";
 import { usePlayerStatus } from "../../data/indexer";
 import { addressKey, queryKeys } from "../../data/keys";
@@ -57,7 +57,6 @@ function Village({ player }: { player: string | null }) {
   const owner = own ? (wallet.username ?? (me ? shortAddress(me) : "")) : (profile.data?.player.name ?? (playerId ? shortAddress(playerId) : ""));
   const read = useFreeVillage(playerId);
   const chests = useChests(own ? playerId : null);
-  const account = useCobbleAccount(own ? playerId : null);
   const writes = useFreeVillageWrites(own ? playerId : null);
   const tileArt = useVillageArt(playerId);
   const [saved, setSaved] = useState<LayoutSaved | null>(null);
@@ -92,14 +91,12 @@ function Village({ player }: { player: string | null }) {
     );
   }
 
-  // The own village's Cobbles are part of its read: a balance not read yet, or whose read failed, is never shown as 0.
-  const balanceError = own ? account.error : null;
-  const failed = read.error ?? balanceError ?? null;
-  const waiting = data === undefined || (own && account.data === undefined);
+  const failed = read.error ?? null;
+  const waiting = data === undefined;
   const status: VillageLayoutStatus | null =
     own && me === null
       ? { kind: "guest" }
-      : failed && (waiting || balanceError)
+      : failed && waiting
         ? { kind: "error", message: failed.message, detail: errorDetail(failed) }
         : waiting
           ? { kind: "loading" }
@@ -134,7 +131,6 @@ function Village({ player }: { player: string | null }) {
         founded={data?.founded ?? true}
         founding={pending === "found"}
         inventory={inventory}
-        cobbles={account.data?.cobbles ?? 0}
         chests={(chests.data?.pending.length ?? 0) + (chests.data?.open ? 1 : 0)}
         saving={pending === "save"}
         saved={saved}
