@@ -55,7 +55,16 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     const { match } = await s.ledger.attackV2(s.me);
     const rival = mockRivalV2(match!.opponent)!;
     const card = screen.getByRole("region", { name: "Attack" });
-    expect(card.querySelector("[data-deck]")).toHaveTextContent(`${attackDeckSize(rival.slots)} tiles to play${rival.slots} slots, on an open board`);
+    expect(card.querySelector("[data-deck]")).toHaveTextContent(`${attackDeckSize(rival.slots)} tiles`);
+    // The deck chip opens the village's tile list (#788): the rival's tiles, then the extras unknown.
+    await userEvent.click(within(card).getByRole("button", { name: /the village's tile list$/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Deck" }, WAIT);
+    const extras = attackDeckSize(rival.slots) - rival.tiles.length;
+    expect(sheet).toHaveTextContent(`${attackDeckSize(rival.slots)} tiles left of ${attackDeckSize(rival.slots)}`);
+    expect(within(sheet).getByRole("heading", { name: `The village's tiles ${rival.tiles.length}` })).toBeInTheDocument();
+    expect(within(sheet).queryAllByRole("img", { name: "Unknown tile" })).toHaveLength(extras);
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Deck" })).toBeNull(), WAIT);
     const points = [80, 90, 100].map((p) => Math.floor((p * rival.score + 99) / 100).toLocaleString("en-US"));
     expect(within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem").map((li) => li.textContent?.split("+")[0])).toEqual(points);
 

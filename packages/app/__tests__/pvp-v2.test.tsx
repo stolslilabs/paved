@@ -1,4 +1,5 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -101,18 +102,32 @@ describe("PvP v2 scenes (#740)", () => {
     expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "2");
   });
 
-  it("scout: the village, its score, each star's points at 80 / 90 / 100 % and the deck the attack will have", () => {
+  it("scout: the village, its score, each star's points at 80 / 90 / 100 % and the deck the attack will have", async () => {
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.ready} />));
     expect(screen.getByText("Village score").nextSibling).toHaveTextContent("3,216");
     const stars = within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem");
-    expect(stars.map((s) => s.textContent)).toEqual(["2,573+10", "2,895+20", "3,216+30"]);
+    expect(stars.map((s) => s.textContent)).toEqual(["2,573", "2,895", "3,216"]);
     expect(screen.getByRole("img", { name: /^Board of 20 tiles$/ })).toBeInTheDocument();
     const region = screen.getByRole("region", { name: "Attack" });
-    expect(region.querySelector("[data-deck]")).toHaveTextContent("23 tiles to play20 slots, on an open board");
-    expect(region).toHaveTextContent("You play the village's 19 tiles and 4 from the base deck, shuffled. You see the tile in hand and the next two.");
+    expect(region.querySelector("[data-deck]")).toHaveTextContent("23 tiles");
+    // The rules, behind the info button (#788): the village's tiles and the extras, and the crowns at stake.
+    await userEvent.click(screen.getByRole("button", { name: "How an attack works" }));
+    expect(await screen.findByText("You play the village's 19 tiles and 4 extras, shuffled, on an open board. You see the tile in hand and the next two.")).toBeInTheDocument();
     cleanup();
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.small} />));
-    expect(screen.getByRole("region", { name: "Attack" }).querySelector("[data-deck]")).toHaveTextContent("11 tiles to play9 slots");
+    expect(screen.getByRole("region", { name: "Attack" }).querySelector("[data-deck]")).toHaveTextContent("11 tiles");
+  });
+
+  it("scout: the deck chip opens the village's tile list, its tiles by plan and the extras unknown (#788)", async () => {
+    render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.ready} />));
+    await userEvent.click(screen.getByRole("button", { name: "23 tiles: the village's tile list" }));
+    const sheet = await screen.findByRole("dialog", { name: "Deck" });
+    expect(sheet).toHaveTextContent("23 tiles left of 23");
+    expect(within(sheet).getByRole("heading", { name: "The village's tiles 19" })).toBeInTheDocument();
+    expect(within(sheet).getByTestId("deck-extras").querySelectorAll("li")).toHaveLength(4);
+    expect(within(sheet).getAllByRole("img", { name: "Unknown tile" })).toHaveLength(4);
+    // Nothing played yet: no card crossed out.
+    expect(sheet.querySelectorAll('[data-out="true"]')).toHaveLength(0);
   });
 });
 
