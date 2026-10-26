@@ -1,10 +1,9 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { TabPage } from "./tab-page";
-import { BIG_AMOUNT_18, LONG_LABEL, LONG_SENTENCE } from "../../mocks/stress";
-import { Amount } from "../elements/amount";
+import { LONG_LABEL } from "../../mocks/stress";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
-import { BalancesProvider, type HeaderBalances } from "./balances-context";
+import { BalancesProvider } from "./balances-context";
 import { inPanel } from "../../stories/in-panel";
 
 const meta = {
@@ -23,19 +22,9 @@ type Story = StoryObj<typeof meta>;
 /** A tab's own page (#760): Back at the top left, to the village (`onNavigate("home")`). */
 export const Default: Story = {};
 /** Reached from another page: Back before the title, to its parent. */
-export const WithBack: Story = { args: { title: "Theme", onBack: fn(), subtitle: "How the board looks" } };
-/** An action on the header's right. */
-export const WithEnd: Story = { args: { tab: "vault", title: "Vault", end: <span className="text-xs text-muted-foreground">Wallet</span> } };
-/** WRAP360: a long title and subtitle keep one line each, cut with an ellipsis (the whole text in `title`): the header keeps its height (HEADER-HEIGHT). */
-export const Stress: Story = {
-  args: {
-    tab: "vault",
-    title: LONG_LABEL,
-    subtitle: LONG_SENTENCE,
-    onBack: fn(),
-    end: <Amount value={BIG_AMOUNT_18} token="paved" className="text-sm" />,
-  },
-};
+export const WithBack: Story = { args: { title: "Theme", onBack: fn() } };
+/** WRAP360: a long title keeps one line, cut with an ellipsis (the whole text in `title`): the header keeps its height (HEADER-HEIGHT). */
+export const Stress: Story = { args: { tab: "vault", title: LONG_LABEL, onBack: fn() } };
 
 const CARDS = Array.from({ length: 12 }, (_, i) => (
   <div key={i} data-slot="card" className="flex h-24 shrink-0 items-center rounded-xl border border-border bg-card px-4 text-sm">
@@ -64,29 +53,29 @@ export const LongPage: Story = {
 export const ShortPage: Story = { parameters: PHONE, globals: { viewport: { value: "phone", isRotated: false } } };
 
 const READY = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } as const;
-const withBalances = (show: HeaderBalances): Decorator[] => [
+const withBalances: Decorator[] = [
   (Story) => (
-    <BalancesProvider value={{ state: READY, onAction: fn(), show }}>
+    <BalancesProvider value={{ state: READY, onAction: fn() }}>
       <Story />
     </BalancesProvider>
   ),
 ];
 
 /**
- * PAGE-HEADER (#760), at 375 px: a page where Cobbles move (Missions). The header stays one row, 56 px; the Cobbles sit in the
- * page, under it at the content's top right, and scroll with it.
+ * ONE-HEADER (#781), at 375 px: the home's Cobbles at the header's top right, in its one row; nothing under it, the content
+ * starts right under the header.
  */
-export const PhoneCobbles: Story = { ...PHONE_375, args: { tab: "quests", title: "Missions" }, decorators: withBalances({ phone: true, desktop: "all" }) };
-/** At 375 px, a page where none move (the Vault): no balance in the page, the same one-row header. */
-export const PhoneNoBalances: Story = { ...PHONE_375, args: { tab: "vault", title: "Vault" }, decorators: withBalances({ phone: false, desktop: "all" }) };
-/** At 320 px, the Cobbles and a long title: the title is cut with an ellipsis, the header keeps one row. */
+export const PhoneCobbles: Story = { ...PHONE_375, args: { tab: "quests", title: "Missions" }, decorators: withBalances };
+/** At 375 px, the Vault: the same header, the same Cobbles, as on every page. */
+export const PhoneVault: Story = { ...PHONE_375, args: { tab: "vault", title: "Vault" }, decorators: withBalances };
+/** At 320 px, the Cobbles and a long title: the title gives way first (an ellipsis), never Back nor the Cobbles. */
 export const Phone320Cobbles: Story = {
   ...PHONE_320,
-  args: { tab: "settings", title: "Themes and tiles of the season", subtitle: LONG_SENTENCE, onBack: fn() },
-  decorators: withBalances({ phone: true, desktop: "all" }),
+  args: { tab: "settings", title: "Themes and tiles of the season", onBack: fn() },
+  decorators: withBalances,
 };
 /** At 1440 px, in the home's side panel (#762): the phone's layout, no Back, the Cobbles and the panel's close in the header. */
-export const WideCobbles: Story = { ...WIDE_1440, args: { tab: "quests", title: "Missions" }, decorators: [inPanel("Missions"), ...withBalances({ phone: true, desktop: "all" })] };
+export const WideCobbles: Story = { ...WIDE_1440, args: { tab: "quests", title: "Missions" }, decorators: [inPanel("Missions"), ...withBalances] };
 /**
  * At 375 px, scrolled to the bottom: the header is sticky, so Back stays in view; the fade under it shows the page has more
  * above (none under reduced motion's toggle: the fade switches without a transition).
@@ -95,7 +84,7 @@ export const PhoneScrolled: Story = {
   parameters: PHONE,
   globals: { viewport: { value: "phone", isRotated: false } },
   args: { tab: "quests", title: "Missions", children: CARDS },
-  decorators: withBalances({ phone: true, desktop: "all" }),
+  decorators: withBalances,
   play: async ({ canvasElement }) => {
     const region = canvasElement.querySelector<HTMLElement>('[data-slot="page-scroll"]')!;
     region.scrollTop = region.scrollHeight;

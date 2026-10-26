@@ -34,34 +34,34 @@ import { WelcomeScene } from "../components/scenes/welcome-scene";
 import { HEADER_BALANCES } from "../routes/header-balances";
 import { PAGE_HEADER_STORIES } from "./page-headers";
 
-/**
- * The shell's avatar and balances (`ProfileHost`, `BalancesHost`), a connected player's, with the page's rule (#720,
- * `header-balances.ts`: the story's first route): the header each page draws in the app.
- */
-const withShell: Decorator = (Story, { id }) => (
-  <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
-    <BalancesProvider
-      value={{
-        state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 1_250_400_000_000_000_000n, cobbles: 240 },
-        onAction: fn(),
-        onConnect: fn(),
-        faucet: true,
-        show: HEADER_BALANCES[PAGE_HEADER_STORIES[id.replace("pages-headers--", "") as keyof typeof PAGE_HEADER_STORIES]?.[0] ?? ""],
-      }}
-    >
-      <Story />
-    </BalancesProvider>
-  </ProfileProvider>
-);
+/** The balances a connected player holds. */
+const BALANCES = {
+  state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 1_250_400_000_000_000_000n, cobbles: 240 },
+  onAction: fn(),
+  onConnect: fn(),
+  faucet: true,
+} as const;
 
 /**
- * HEADER-HEIGHT (#676): every page outside the game scenes, one story each (`page-headers.ts` lists the routes each covers), in
- * the shell's providers (the avatar, the balances by the page's rule, #720). Each page has one header at its top, `--header-h`
- * tall, one value per breakpoint (theme.css), one row at every width whatever balances the page shows (#760: below `desktop`
- * they sit in the page, under the header): the `TopBar`, a tab page's header below `desktop`, the navigation's header from `desktop` (where a
- * tab page's title row is the first row of its content). The content starts at the same height on every page of the same
- * header but the hero (Welcome); the home is a game scene since #753. `scripts/header-sweep.ts` measures both at 375 and 1440 px. Captures, Home, Vault and
- * Play side by side before and after: `captures/header-height/header-height-{375,1440}-{before,after}.webp`.
+ * The shell's avatar and balances (`ProfileHost`, `BalancesHost`), a connected player's: the home's balances on every page, none
+ * where the page's rule says none (#781, `header-balances.ts`: the story's first route): the header each page draws in the app.
+ */
+const withShell: Decorator = (Story, { id }) => {
+  const route = PAGE_HEADER_STORIES[id.replace("pages-headers--", "") as keyof typeof PAGE_HEADER_STORIES]?.[0];
+  const story = <Story />;
+  return (
+    <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
+      {route !== undefined && HEADER_BALANCES[route] === "none" ? story : <BalancesProvider value={BALANCES}>{story}</BalancesProvider>}
+    </ProfileProvider>
+  );
+};
+
+/**
+ * HEADER-HEIGHT (#676), ONE-HEADER (#781): every page outside the game scenes, one story each (`page-headers.ts` lists the
+ * routes each covers), in the shell's providers (the avatar, the home's balances). Each page has one header at its top
+ * (`PageHeader`), `--header-h` tall, one value per breakpoint (theme.css), one row at every width: Back and the title at the top
+ * left, the home's balances at the top right, nothing under it. The content starts at the same height on every page but the hero
+ * (Welcome); the home is a game scene since #753. `scripts/header-sweep.ts` measures both at 375 and 1440 px.
  */
 const meta = { title: "Pages/Headers", decorators: [withShell], parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;

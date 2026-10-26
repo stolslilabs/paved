@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { Score } from "../elements/score";
@@ -34,8 +33,6 @@ export interface VillageLayoutSceneProps {
   founded?: boolean;
   /** The founding on its way. */
   founding?: boolean;
-  /** The player's Cobbles (own village). */
-  cobbles?: number;
   /** The chests waiting to be opened (own village): a count on Chests. */
   chests?: number;
   /** The save on its way: the editor waits. */
@@ -120,7 +117,6 @@ function LayoutView({
   inventory = {},
   founded = true,
   founding = false,
-  cobbles = 0,
   chests = 0,
   saving = false,
   saved = null,
@@ -147,27 +143,12 @@ function LayoutView({
   const editor = useLayoutEditor({ village, inventory, own, saving, saved, initialEditing, initialDraft, initialHand, initialPending, initialLeaving, onBack, onSave: onSave && ((tiles) => onSave(tiles)), onDismissSaved, onDirtyChange });
   const { editing, slots, used, score, pending, open, back } = editor;
 
-  // An owner without a name is a short address: it stays whole on its line, the title wrapping before "village" only.
-  const title = own ? (
-    "My village"
-  ) : (
-    <>
-      <span className="whitespace-nowrap">{village.owner}&apos;s</span> village
-    </>
-  );
+  const title = own ? "My village" : `${village.owner}'s village`;
   return (
     <div className="flex min-h-dvh flex-col bg-background desktop:h-dvh desktop:overflow-hidden">
       <TopBar
         title={editing ? "Edit layout" : title}
         onBack={back}
-        ownCobbles={own}
-        end={
-          own ? (
-            <span className="pr-2">
-              <Cobbles value={cobbles} />
-            </span>
-          ) : undefined
-        }
       />
       <div className="flex min-h-0 flex-1 flex-col desktop:flex-row desktop:gap-4 desktop:p-4 desktop:pt-0">
         <div className="flex min-h-0 flex-1 flex-col desktop:overflow-hidden desktop:rounded-2xl desktop:border desktop:border-border">
