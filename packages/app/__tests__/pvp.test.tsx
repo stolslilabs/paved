@@ -260,7 +260,7 @@ describe("PvP scenes (#647)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} />));
     expect(screen.getByRole("progressbar", { name: "28 crowns to Silver I" })).toBeInTheDocument();
     expect(screen.getByText(/Ends in 4 d 3 h/)).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { current: true })).toHaveTextContent("Silver");
+    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Silver II");
     cleanup();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.unranked} />));
     expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
@@ -269,7 +269,7 @@ describe("PvP scenes (#647)", () => {
     render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.gold.season} now={PVP_LEAGUE.gold.now} />));
     expect(screen.queryByRole("heading", { name: "Unranked" })).toBeNull();
     expect(screen.getAllByText("Bronze III").length).toBeGreaterThan(0);
-    expect(screen.getByRole("listitem", { current: true })).toHaveTextContent("Bronze");
+    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Bronze III");
     // Held crowns under the floor start the bar empty, never below it.
     expect((screen.getByRole("progressbar").firstElementChild as HTMLElement).style.transform).toBe("translateX(-100%)");
   });
