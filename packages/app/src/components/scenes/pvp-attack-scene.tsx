@@ -2,6 +2,7 @@ import type { PvpCell, PvpPlayer } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { StarMeter } from "../elements/star-meter";
+import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
 
 /** A replay of an attack (the defence log's): the moves stepped through instead of a hand. */
@@ -36,6 +37,8 @@ export interface PvpAttackSceneProps extends AttackBoardProps {
   territory?: readonly PvpCell[] | null;
   /** The star marks in whole percent of the target: v1's 70 / 85 / 110 % when left out, v2's 80 / 90 / 100 % (#740). */
   starPercents?: readonly number[];
+  /** PvP v2's deck (#789, `attackDeckSheet`): the stack opens the deck sheet on it. None in v1. */
+  deck?: AttackDeckSheet | null;
   /** A replay: no hand, the replay's controls instead, the board read only. */
   replay?: PvpReplay | null;
 }
@@ -77,9 +80,10 @@ function ReplayBar({ replay }: { replay: PvpReplay }) {
  * attack, read only, the defence log's replay.
  *
  * PvP v2 (#740) is the same scene with no `territory` (an unbounded board from the starter), its marks at 80 / 90 / 100 %
- * (`starPercents`), the stack's next two tiles (`hand.coming`) and the attack's deck as the tiles left.
+ * (`starPercents`), the stack's next two tiles (`hand.coming`) and the attack's deck as the tiles left; the stack opens the
+ * attack's deck sheet (`deck`, #789).
  */
-export function PvpAttackScene({ defender, target, territory, starPercents, replay, ...board }: PvpAttackSceneProps) {
+export function PvpAttackScene({ defender, target, territory, starPercents, deck, replay, ...board }: PvpAttackSceneProps) {
   const title = replay ? `Replay: ${replay.attacker.name ?? "an attacker"}` : `Attack: ${defender.name ?? "a village"}`;
   return (
     <BoardScene
@@ -96,6 +100,7 @@ export function PvpAttackScene({ defender, target, territory, starPercents, repl
         ),
         replay: replay ? <ReplayBar replay={replay} /> : null,
         territory: territory ?? undefined,
+        deck: deck ?? undefined,
       }}
     />
   );
