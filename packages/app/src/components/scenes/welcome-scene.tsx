@@ -3,6 +3,7 @@ import { Icon } from "../ui/icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { BoardHero } from "../elements/board-hero";
 import { Wordmark } from "../elements/wordmark";
+import { PageHeader } from "../containers/top-bar";
 
 export interface WelcomeSceneProps {
   /** The controller's window is open. */
@@ -25,19 +26,15 @@ const POINTS: { icon: string; title: string; text: string }[] = [
 
 /**
  * The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. Its header is every
- * page's (PAGE-HEADER, #760): one row, sticky, Back at the top left to the village; no title, the card's heading is the page's.
- * No edge fade under it: the hero fits a phone's height, and the flows' hint would cost the first load a chunk.
+ * page's (`PageHeader`, ONE-HEADER #781): Back at the top left to the village, the title, the home's balances at the top right.
+ * No document fade under it (`document` off): the hero fits a phone's height.
  */
 export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTraining, onBack }: WelcomeSceneProps) {
   return (
     // Clipped sideways, not `overflow: hidden`: a scroll container would hold the sticky header in place of the document.
     <main className="relative flex min-h-dvh flex-col overflow-x-clip bg-background text-foreground">
       <BoardHero shade="veil" />
-      <header data-slot="page-header" className="page-header sticky top-0 z-30 flex items-center bg-background/95 px-2 backdrop-blur">
-        <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
-          <Icon name="chevron-left" />
-        </Button>
-      </header>
+      <PageHeader title="Welcome" onBack={onBack} />
 
       <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-end gap-8 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] desktop:max-w-4xl desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-16">
         <div className="flex flex-col items-center gap-6 desktop:flex-1 desktop:items-start">
@@ -59,7 +56,7 @@ export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTrai
 
         <div data-slot="card" className="flex flex-col gap-4 rounded-xl border border-border bg-card/95 p-5 shadow-xl backdrop-blur desktop:w-96">
           <div className="flex flex-col gap-1">
-            <h1 className="font-display text-xl font-semibold">Welcome to Paved</h1>
+            <h2 className="font-display text-xl font-semibold">Welcome to Paved</h2>
             <p className="text-sm text-muted-foreground">Connect to enter the daily Challenge, or try a game first: Training needs no wallet.</p>
           </div>
           <InlineError title="Could not connect" message={error} detail={errorDetail} />

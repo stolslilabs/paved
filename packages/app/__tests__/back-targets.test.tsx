@@ -134,7 +134,7 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     localStorage.clear();
     resetWelcomedForTests();
     const router = open("/welcome");
-    await screen.findByRole("heading", { level: 1, name: "Welcome to Paved" }, { timeout: slow(5000) });
+    await screen.findByRole("heading", { level: 2, name: "Welcome to Paved" }, { timeout: slow(5000) });
     expect(screen.getByRole("banner").querySelector("button")).toHaveAccessibleName("Back");
     await back();
     await waitFor(() => expect(at(router)).toBe("/"));
