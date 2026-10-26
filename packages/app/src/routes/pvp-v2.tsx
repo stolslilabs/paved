@@ -8,6 +8,7 @@ import { PvpScoutScene } from "../components/scenes/pvp-scout-scene";
 import { PvpSearchScene } from "../components/scenes/pvp-search-scene";
 import { NEXT_PRICE, stakesOf, type PvpPlayer, type PvpVillage } from "../lib/pvp-rules";
 import { ATTACK_STAR_PERCENTS } from "../lib/pvp-v2-rules";
+import { attackDeckSheet } from "../lib/attack-deck-sheet";
 import { useBoardSkins } from "../data/board-skins";
 import { useCobbleAccount } from "../data/cobbles";
 import { useAttackV2Writes, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
@@ -183,6 +184,12 @@ function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; ma
   const skins = useBoardSkins(attack.defender);
   const { run, last, tiles } = useMemo(() => boardOf(attack.moves), [attack.moves]);
   const hand = attack.view[0] ?? null;
+  // The deck sheet (#789): the defender's tiles and the extras, once their village is read.
+  const defenderTiles = rival.data?.tiles;
+  const deck = useMemo(
+    () => (defenderTiles ? attackDeckSheet({ defenderPlans: defenderTiles.map((t) => t.plan), size: attack.deck, moves: attack.moves, view: attack.view }) : null),
+    [defenderTiles, attack.deck, attack.moves, attack.view],
+  );
   const pending = writes.pending?.kind === "play";
   const legal = useAttackLegality(run, hand);
   // The rival's village in red (#772); the season wheel starts again with each attack.
@@ -237,6 +244,7 @@ function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; ma
       delta={last ? last.delta : null}
       lastScored={(last?.result.scored ?? []).map((s) => ({ category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points }))}
       remaining={Math.max(0, attack.deck - attack.moves.length)}
+      deck={deck}
       hand={{
         tile: hand !== null ? { plan: hand, orientation } : null,
         state: pending ? "pending" : writes.error ? "refused" : hand !== null ? "placing" : "empty",
