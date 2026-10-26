@@ -22,7 +22,8 @@ import { inPanel } from "../../stories/in-panel";
 const meta = {
   title: "Scenes/Village v2/Chests",
   component: VillageChestsScene,
-  parameters: { layout: "fullscreen" },
+  // The opening's sounds (#784), after a first tap in the canvas.
+  parameters: { layout: "fullscreen", sfx: 0.8 },
   args: { ...VILLAGE_CHESTS.waiting, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onNavigate: fn(), onPlay: fn(), onOpen: fn(), onTake: fn(), onDismissRefusal: fn(), onEditLayout: fn() },
 } satisfies Meta<typeof VillageChestsScene>;
 export default meta;
@@ -54,6 +55,8 @@ export const StoryChest: Story = { args: VILLAGE_CHESTS.story };
 export const Refused: Story = { args: VILLAGE_CHESTS.refused };
 /** The page, the modal closed: slot 1 opened (a grey, disabled chest), slot 2 won (silver, a tap opens it), slot 3 free. */
 export const Slots: Story = { args: VILLAGE_CHESTS.slots };
+/** The silver chest drawn, the modal closed before its choice: the slots wait, "keep one of its tiles before the next chest". */
+export const OpenPending: Story = { args: VILLAGE_CHESTS.openPending };
 /** The modal closed with 3 chests ready: the won slots in their ranks' colours, "Open your chests". */
 export const Closed: Story = { args: VILLAGE_CHESTS.closed };
 /** The page after the last choice: the tile kept, Edit layout. */

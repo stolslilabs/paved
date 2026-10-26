@@ -15,6 +15,7 @@ const GOLD = { chestId: 41, draw: { rank: "gold", plans: [PLAN.road, PLAN.wonder
 const meta = {
   title: "Containers/ChestModal",
   component: ChestModal,
+  parameters: { sfx: 0.8 },
   args: {
     open: true,
     chest: CHESTS[0]!,

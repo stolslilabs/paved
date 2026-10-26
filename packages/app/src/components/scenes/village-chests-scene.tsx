@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ChestRank } from "../elements/chest-badge";
+import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
 import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
@@ -159,7 +159,8 @@ export function VillageChestsScene({
                 ready={reset}
                 look={look}
                 onPlay={empty ? undefined : onPlay}
-                onOpenSlot={(i) => show(chests.find((c) => c.slot === i)?.id)}
+                // A chest drawn and not kept yet comes first: no other slot opens until its tile is chosen (said under the slots).
+                onOpenSlot={opened ? undefined : (i) => show(chests.find((c) => c.slot === i)?.id)}
               />
               <InlineError
                 title="Not done"
@@ -181,6 +182,11 @@ export function VillageChestsScene({
                     {taken.cobbles != null && <Cobbles value={taken.cobbles} sign="+" size="sm" />}
                   </span>
                 </Notice>
+              )}
+              {!modal && opened && (
+                <p role="status" className="text-center text-sm text-muted-foreground">
+                  Your {CHEST_NAME[opened.draw.rank].toLowerCase()} is open: keep one of its tiles before the next chest.
+                </p>
               )}
               {!modal && (waiting.length > 0 || opened) && (
                 <Button size="lg" onClick={() => show()} className="self-center">

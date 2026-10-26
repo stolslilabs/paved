@@ -154,6 +154,8 @@ export const VILLAGE_CHESTS = {
   refused: { chests: CHESTS, pvpToday: 2, ...day, refusal: "This chest was opened already. Nothing was taken." },
   /** The page, the modal closed: slot 1 opened (grey), slot 2 won (silver, a tap opens it), slot 3 free; "Open your chests". */
   slots: { ...page, chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day },
+  /** The silver chest drawn and the modal closed before its choice: no other slot opens until a tile is kept, as the page says. */
+  openPending: { ...page, chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } } },
   /** The modal closed with 3 chests ready: the two won slots in their ranks' colours. */
   closed: { ...page, chests: CHESTS, pvpToday: 2, ...day },
   /** The page after the last choice: the tile kept said, Edit layout. */

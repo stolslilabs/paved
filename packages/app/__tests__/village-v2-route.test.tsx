@@ -292,6 +292,13 @@ describe("/village/chests", () => {
     expect(within(await screen.findByRole("list", { name: "Chest tiles" }, WAIT)).getAllByRole("button")).toHaveLength(2);
     await waitFor(async () => expect((await s.ledger.chests(s.me)).open?.rank).toBe("silver"), WAIT);
     expect((await s.ledger.chests(s.me)).pending).toEqual(["bronze", "gold"]);
+    // Closed before the choice: slot 1's gold chest does not open (the silver one waits for its tile, as the page says).
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
+    expect(screen.queryByRole("button", { name: "Open the gold chest of slot 1" })).toBeNull();
+    expect(screen.getByText("Your silver chest is open: keep one of its tiles before the next chest.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Back to the open chest/ }));
+    expect(await screen.findByRole("dialog", { name: "Silver chest" }, WAIT)).toBeInTheDocument();
     // Kept, then Later: slot 2 is grey while slot 1 still waits, and slot 1's tap shows its gold chest, not the tile kept.
     await userEvent.click(within(screen.getByRole("list", { name: "Chest tiles" })).getAllByRole("button")[0]!);
     await userEvent.click(screen.getByRole("button", { name: /^Keep / }));

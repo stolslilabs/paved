@@ -78,6 +78,17 @@ describe("the chest modal (#784)", () => {
     expect(await screen.findByRole("dialog", { name: "Silver chest" })).toBeInTheDocument();
   });
 
+  it("while a drawn chest waits for its choice, opens no other slot and says why; Back to the open chest returns to it", async () => {
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.openPending} />));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Open the .* of slot/ })).toBeNull();
+    expect(screen.getByRole("listitem", { name: "Slot 1: won, gold chest" })).toHaveTextContent("Won");
+    expect(screen.getByText("Your silver chest is open: keep one of its tiles before the next chest.")).toHaveAttribute("role", "status");
+    await userEvent.click(screen.getByRole("button", { name: /Back to the open chest/ }));
+    const modal = await screen.findByRole("dialog", { name: "Silver chest" });
+    expect(modal).toHaveAttribute("data-phase", "reveal");
+  });
+
   it("stays closed for the visit once closed; a won slot or Open your chests brings it back", async () => {
     render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.waiting} />));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
