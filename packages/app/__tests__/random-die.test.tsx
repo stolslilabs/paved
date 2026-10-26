@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { layoutRefusal, randomLayout } from "@paved/game-core";
+import { layoutBreakdown, layoutRefusal, randomLayout, type LayoutTile } from "@paved/game-core";
 import { ROLL_FAILED } from "../src/components/containers/layout-editor";
 import { STARTER, checkLayout, draftOf, slotsFor, stockOf, trayOf } from "../src/components/containers/layout-rules";
 import VillageStage from "../src/components/containers/village-stage";
@@ -33,7 +33,7 @@ class FakeWorker implements WorkerLike {
   }
   /** The worker's answer to its last request, as the real one gives it. */
   answer() {
-    const data = answerRandomLayout(this.sent.at(-1)!, build);
+    const data = answerRandomLayout(this.sent.at(-1)!, build, layoutBreakdown);
     this.onmessage?.call(this as unknown as Worker, { data } as MessageEvent);
   }
   fail(message: string) {
@@ -51,15 +51,16 @@ describe("the die's runner", () => {
     expect(workerRunner(null)).toBeNull();
   });
 
-  it("sends the stock, the slots and the seed, and resolves with the worker's layout", async () => {
+  it("sends the stock, the slots and the seed, and resolves with the worker's layout and its points", async () => {
     const worker = new FakeWorker();
     const runner = workerRunner(() => worker)!;
     const built = runner.run(STOCK, 28, 5);
     expect(worker.sent).toEqual([{ id: 1, stock: STOCK, slots: 28, seed: 5 }]);
     worker.answer();
-    const tiles = await built;
+    const { tiles, points } = await built;
     expect(tiles).toEqual(build(STOCK, 28, 5).tiles);
     expect(layoutRefusal(tiles, { slots: 28, inventory: STOCK })).toBeNull();
+    expect(points).toEqual(layoutBreakdown(tiles));
   });
 
   it("cancels the build at work on a second press: the first worker ends, a fresh one builds", async () => {
@@ -73,13 +74,19 @@ describe("the die's runner", () => {
     const second = runner.run(STOCK, 28, 2);
     expect(workers[0]!.terminated).toBe(true);
     workers[1]!.answer();
-    await expect(second).resolves.toEqual(build(STOCK, 28, 2).tiles);
+    await expect(second).resolves.toMatchObject({ tiles: build(STOCK, 28, 2).tiles });
     expect(first).not.toHaveBeenCalled();
     // An idle worker is kept for the next press.
     void runner.run(STOCK, 28, 3);
     expect(workers).toHaveLength(2);
+    workers[1]!.answer();
+    // Done: cancel leaves the idle worker; dispose (the editor gone) ends it, and a later build starts a fresh one.
     runner.cancel();
+    expect(workers[1]!.terminated).toBe(false);
+    runner.dispose();
     expect(workers[1]!.terminated).toBe(true);
+    void runner.run(STOCK, 28, 4);
+    expect(workers).toHaveLength(3);
   });
 
   it("rejects when the worker fails or answers an error, and never builds on the main thread", async () => {
@@ -181,8 +188,8 @@ describe("the die in the editor", () => {
 
   it("never lets a late answer undo an edit made while it builds: Reset all, a tile placed", async () => {
     // A build whose answer comes when the test says, and whose cancel does not stop it (the review's delayed worker).
-    const late: ((tiles: ReturnType<typeof build>["tiles"]) => void)[] = [];
-    const randomizer = { run: () => new Promise<ReturnType<typeof build>["tiles"]>((resolve) => void late.push(resolve)), cancel: vi.fn() };
+    const late: ((built: { tiles: LayoutTile[] }) => void)[] = [];
+    const randomizer = { run: () => new Promise<{ tiles: LayoutTile[] }>((resolve) => void late.push(resolve)), cancel: vi.fn(), dispose: vi.fn() };
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} />));
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
     fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
@@ -190,7 +197,7 @@ describe("the die in the editor", () => {
     // The edit stopped the build: the die is idle, the worker told to stop.
     expect(randomizer.cancel).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Random village from your tiles" }).getAttribute("aria-busy")).toBeNull();
-    await act(async () => late[0]!(build(STOCK, 28, 1).tiles));
+    await act(async () => late[0]!({ tiles: build(STOCK, 28, 1).tiles }));
     expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
 
     // The same with a tile chosen and placed while it builds.
@@ -198,8 +205,27 @@ describe("the die in the editor", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /, \d+ left$/ })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: /^Place it at/ })[0]!);
     expect(screen.getAllByLabelText("2 of 28 slots used").length).toBeGreaterThan(0);
-    await act(async () => late[1]!(build(STOCK, 28, 2).tiles));
+    await act(async () => late[1]!({ tiles: build(STOCK, 28, 2).tiles }));
     expect(screen.getAllByLabelText("2 of 28 slots used").length).toBeGreaterThan(0);
+  });
+
+  it("ends its worker when the editor goes, a build done or not", async () => {
+    const randomizer = { ...mainThreadRandomizer(), dispose: vi.fn() };
+    const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} randomSeed={seedsOf(1)} />));
+    fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
+    await waitFor(() => expect(screen.getAllByLabelText("28 of 28 slots used").length).toBeGreaterThan(0));
+    expect(randomizer.dispose).not.toHaveBeenCalled();
+    unmount();
+    expect(randomizer.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the worker's points as they are: the live score is not rebuilt on the main thread", async () => {
+    // Points the engine would never give these tiles: shown, they can only be the worker's.
+    const points = { lines: [], other: 0, score: 12_345 };
+    const randomizer = { run: async () => ({ tiles: build(STOCK, 28, 1).tiles, points }), cancel: () => {}, dispose: () => {} };
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} />));
+    fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
+    expect(await screen.findByText("12,345")).toBeTruthy();
   });
 
   it("shows a message when the worker fails, the draft kept", async () => {

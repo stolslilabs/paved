@@ -174,11 +174,24 @@ export function canLift(tiles: readonly BoardTile[], id: number): boolean {
 }
 
 /**
+ * The points of drafts already known (the die's worker computes them with the layout, #803): the score and the points below
+ * read them as they are instead of rebuilding the layout on the engine, on the main thread. Keyed by the draft itself.
+ */
+const KNOWN_POINTS = new WeakMap<readonly BoardTile[], LayoutBreakdown>();
+
+/** Remembers `points` as `tiles`' (the very array the editor holds as its draft). */
+export function rememberPoints(tiles: readonly BoardTile[], points: LayoutBreakdown): void {
+  KNOWN_POINTS.set(tiles, points);
+}
+
+/**
  * A layout's score, game-core's (`layoutScore` of the v2 rules, #741): its tiles built in the canonical order, the starter left
  * out of the list, so the editor's live score is the one saved and attacked. A layout the rules refuse (a story's fake) falls
  * back to the engine's rebuild from the starter (`EngineGame.villageOf`).
  */
 export function layoutScore(tiles: readonly BoardTile[]): number {
+  const known = KNOWN_POINTS.get(tiles);
+  if (known) return known.score;
   try {
     return coreLayoutScore(tiles.filter((t) => !isStarter(t)));
   } catch {
@@ -191,6 +204,8 @@ export function layoutScore(tiles: readonly BoardTile[]): number {
  * adding up to `layoutScore` exactly. A layout the rules refuse (a story's fake) is read from the same rebuild as its score.
  */
 export function layoutPoints(tiles: readonly BoardTile[]): LayoutBreakdown {
+  const known = KNOWN_POINTS.get(tiles);
+  if (known) return known;
   try {
     return layoutBreakdown(tiles.filter((t) => !isStarter(t)));
   } catch {

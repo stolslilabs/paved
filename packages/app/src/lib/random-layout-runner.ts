@@ -1,5 +1,6 @@
-import type { LayoutTile } from "@paved/game-core";
-import type { RandomLayoutAnswer, RandomLayoutRequest } from "./random-layout-protocol";
+import type { RandomLayoutAnswer, RandomLayoutBuilt, RandomLayoutRequest } from "./random-layout-protocol";
+
+export type { RandomLayoutBuilt } from "./random-layout-protocol";
 
 // The editor's die (#803): a random compact village, built by game-core's `randomLayout` in a Web Worker so the screen never
 // waits on it. One build at a time: a new one, or `cancel`, terminates the worker at work (its answer never comes), and the
@@ -8,9 +9,11 @@ import type { RandomLayoutAnswer, RandomLayoutRequest } from "./random-layout-pr
 
 export interface RandomLayoutRunner {
   /** Builds a layout; a build at work is cancelled first. Rejects when the worker fails; never settles once cancelled. */
-  run(stock: readonly number[], slots: number, seed: number): Promise<LayoutTile[]>;
+  run(stock: readonly number[], slots: number, seed: number): Promise<RandomLayoutBuilt>;
   /** Stops the build at work, if any: its promise never settles. */
   cancel(): void;
+  /** Stops the build at work and ends the worker, idle or not (the editor gone); a later build starts a fresh one. */
+  dispose(): void;
 }
 
 /** What the runner needs of a worker (a test passes a fake). */
@@ -33,7 +36,7 @@ export function workerRunner(spawn: (() => WorkerLike) | null): RandomLayoutRunn
     run(stock, slots, seed) {
       cancel();
       const id = ++next;
-      return new Promise<LayoutTile[]>((resolve, reject) => {
+      return new Promise<RandomLayoutBuilt>((resolve, reject) => {
         let w: WorkerLike;
         try {
           w = worker ??= spawn();
@@ -46,7 +49,7 @@ export function workerRunner(spawn: (() => WorkerLike) | null): RandomLayoutRunn
           if (e.data.id !== id) return;
           busy = false;
           if ("error" in e.data) reject(new Error(e.data.error));
-          else resolve(e.data.tiles);
+          else resolve({ tiles: e.data.tiles, points: e.data.points });
         };
         w.onerror = (e) => {
           e.preventDefault?.();
@@ -60,6 +63,11 @@ export function workerRunner(spawn: (() => WorkerLike) | null): RandomLayoutRunn
       });
     },
     cancel,
+    dispose() {
+      worker?.terminate();
+      worker = null;
+      busy = false;
+    },
   };
 }
 

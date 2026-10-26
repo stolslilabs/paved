@@ -529,6 +529,25 @@
   }
 }
 
+/*
+ * A refused move on the plan view (#739): the tile that holds the village together shakes, as on the board (0, -5, 5, -4, 4, 0 px
+ * across in 0.4 s). CSS, so the plan view's tiles are plain buttons: a village of motion buttons costs a long task to mount (the
+ * die's new village, #803). None under reduced motion.
+ */
+@keyframes tile-shake {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -5px 0; }
+  40% { translate: 5px 0; }
+  60% { translate: -4px 0; }
+  80% { translate: 4px 0; }
+}
+@utility tile-shake {
+  animation: tile-shake 0.4s ease-in-out;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 /* The tile stack's slabs (`elements/tile-slab.tsx`): a tile's side, a stone rim over earth; the east sides darker.
    `--side-dir` is the way down the side, set by each side. */
 @utility slab-side {

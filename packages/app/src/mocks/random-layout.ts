@@ -20,11 +20,12 @@ export function mainThreadRandomizer(delayMs = 0): RandomLayoutRunner {
       return new Promise((resolve) => {
         timer = setTimeout(() => {
           timer = null;
-          resolve(randomLayout(stock, slots, seed, STILL).tiles);
+          resolve({ tiles: randomLayout(stock, slots, seed, STILL).tiles });
         }, delayMs);
       });
     },
     cancel,
+    dispose: cancel,
   };
 }
 
@@ -32,10 +33,10 @@ export function mainThreadRandomizer(delayMs = 0): RandomLayoutRunner {
 export const STILL = { now: () => 0 } as const;
 
 /** A build that never ends: the die stays busy (then "Still building…"). */
-export const PENDING_RANDOMIZER: RandomLayoutRunner = { run: () => new Promise(() => {}), cancel: () => {} };
+export const PENDING_RANDOMIZER: RandomLayoutRunner = { run: () => new Promise(() => {}), cancel: () => {}, dispose: () => {} };
 
 /** A worker that fails: the die's message, the draft kept. */
-export const FAILING_RANDOMIZER: RandomLayoutRunner = { run: () => Promise.reject(new Error("Worker: script error")), cancel: () => {} };
+export const FAILING_RANDOMIZER: RandomLayoutRunner = { run: () => Promise.reject(new Error("Worker: script error")), cancel: () => {}, dispose: () => {} };
 
 /** The seeds of the presses, in turn (the same village on each load of a story). */
 export function seedsOf(...seeds: number[]): () => number {

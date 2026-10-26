@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
@@ -14,7 +14,7 @@ import { Icon } from "../ui/icon";
 import type { BoardBubble } from "./board-viewport";
 import { InventoryTray } from "./inventory-tray";
 import type { LayoutBoardView, LayoutPending } from "./layout-board";
-import { STARTER, canLift, draftOf, fittingAt, layoutScore, legalSpots, placeTile, sameLayout, slotsFor, stockOf, trayOf, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
+import { STARTER, canLift, draftOf, fittingAt, layoutScore, legalSpots, placeTile, rememberPoints, sameLayout, slotsFor, stockOf, trayOf, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { TileBubble } from "./tile-bubble";
 
 // The v2 village's editor (#739), shared by the village page (`VillageLayoutScene`) and the home's edit mode (#753): its state
@@ -155,6 +155,8 @@ export function useLayoutEditor({
   const [rollError, setRollError] = useState<string | null>(null);
   const [rolls, setRolls] = useState(0);
   const press = useRef(0);
+  // A build at work, known at once (the busy state follows in a transition, so an edit made before it lands still cancels).
+  const building = useRef(false);
   const slowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A save that landed closes the editor on the new layout.
@@ -189,7 +191,7 @@ export function useLayoutEditor({
   }, [editing]);
   useEffect(() => () => {
     press.current += 1;
-    randomizer?.cancel();
+    randomizer?.dispose();
     if (slowTimer.current) clearTimeout(slowTimer.current);
   }, [randomizer]);
   const rollRef = useRef<() => void>(() => {});
@@ -206,18 +208,24 @@ export function useLayoutEditor({
   const used = editing ? draft.length : village.tiles.length;
   const full = used >= slots;
   const over = used > slots;
-  const tray = trayOf(inventory, village.tiles, draft);
+  // What the panel shows of the draft (the tray, the live score, the points): one render behind, in a commit of its own, so a
+  // change of the whole village (the die's, #803) is two short tasks, the board's then the panel's, never one long one.
+  const shown = useDeferredValue(draft);
+  const tray = useMemo(() => trayOf(inventory, village.tiles, shown), [inventory, village.tiles, shown]);
   const handPlan = hand?.from === "inventory" ? hand.plan : (held?.plan ?? null);
   // The legal cells of the plan in hand, or of the tile under the bubble without its own cell.
   const plates = useMemo(
     () => (editing && handPlan != null ? legalSpots(rest, handPlan).filter((s) => !held || s.x !== held.x || s.y !== held.y) : []),
     [editing, handPlan, rest, held],
   );
-  const score = useMemo(() => (editing ? layoutScore(draft) : village.score), [editing, draft, village.score]);
+  const score = useMemo(() => (editing ? layoutScore(shown) : village.score), [editing, shown, village.score]);
   const changed = !sameLayout(draft, village.tiles);
   const dirty = editing && changed;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
-  const pending: LayoutPending | null = editing && held ? { id: held.id, x: held.x, y: held.y, plan: held.plan, orientation: held.orientation } : null;
+  const pending: LayoutPending | null = useMemo(
+    () => (editing && held ? { id: held.id, x: held.x, y: held.y, plan: held.plan, orientation: held.orientation } : null),
+    [editing, held],
+  );
   const rotations = held ? fittingAt(rest, held.plan, held) : [];
 
   const open = () => {
@@ -301,6 +309,7 @@ export function useLayoutEditor({
     setHand(null);
   };
   const rollDone = () => {
+    building.current = false;
     if (slowTimer.current) clearTimeout(slowTimer.current);
     slowTimer.current = null;
     setRolling(null);
@@ -310,18 +319,27 @@ export function useLayoutEditor({
   const roll = () => {
     if (!randomizer || saving) return;
     const n = ++press.current;
+    building.current = true;
     if (slowTimer.current) clearTimeout(slowTimer.current);
-    setRolling(n);
-    setRolls(n);
-    setSlowRoll(false);
-    setRollError(null);
-    slowTimer.current = setTimeout(() => press.current === n && setSlowRoll(true), slowRollMs);
+    // The stage re-renders whole (the board included): a transition, cut into short tasks, so the press never holds a frame.
+    startTransition(() => {
+      setRolling(n);
+      setRolls(n);
+      setSlowRoll(false);
+      setRollError(null);
+    });
+    slowTimer.current = setTimeout(() => press.current === n && startTransition(() => setSlowRoll(true)), slowRollMs);
     randomizer.run(stockOf(inventory, village.tiles), slots, randomSeed()).then(
-      (tiles) => {
+      ({ tiles, points }) => {
         if (press.current !== n) return;
+        const next = draftOf(tiles);
+        // The worker's points: the live score and the points read them, no rebuild on the main thread.
+        if (points) rememberPoints(next, points);
+        building.current = false;
+        // The draft only: Save, Back (asking first) and Reset all take it as any edit. The board takes it first; the panel
+        // follows in its own commit (`shown`).
         rollDone();
-        // The draft only: Save, Back (asking first) and Reset all take it as any edit.
-        setDraft(draftOf(tiles));
+        setDraft(next);
         setHand(null);
       },
       () => {
@@ -336,7 +354,7 @@ export function useLayoutEditor({
    * a tile chosen, placed, lifted, turned or sent back, Save): the build's late answer would undo the edit.
    */
   const cancelRoll = () => {
-    if (rolling === null) return;
+    if (!building.current) return;
     press.current += 1;
     randomizer?.cancel();
     rollDone();
@@ -368,24 +386,46 @@ export function useLayoutEditor({
             ? "Every slot is used: tap a placed tile to move it, or send it back to free one."
             : "Choose a tile in the inventory, or tap a placed tile to move it.";
 
-  const bubble: BoardBubble | null = pending && {
-    cell: pending,
-    rotations: rotations.length,
-    orientation: pending.orientation,
-    busy: saving,
-    onRotate: rotate,
-    onClose: cancel,
-    onReturn: sendBack,
-    // Cancel shows for a lifted tile; an inventory tile's would do what Back to the inventory does (Escape does it for both).
-    cancelButton: hand?.from === "board" && hand.origin !== null,
-  };
-  const view: LayoutBoardView = { tiles, editing, plates, pending, shaking, onTile: lift, onPlate: choosePlate, onPending: letGo };
+  // The moves, the same functions across renders (each calls this render's): the board, the inventory and the bubble take them
+  // as props, so a change that leaves them as they were (the die pressed, the hint) does not draw them again.
+  const latest = useRef({ lift, choosePlate, letGo, choosePlan, rotate, cancel, sendBack });
+  latest.current = { lift, choosePlate, letGo, choosePlan, rotate, cancel, sendBack };
+  const [moves] = useState(() => ({
+    lift: (tile: BoardTile) => latest.current.lift(tile),
+    choosePlate: (spot: Spot) => latest.current.choosePlate(spot),
+    letGo: () => latest.current.letGo(),
+    choosePlan: (plan: number | null) => latest.current.choosePlan(plan),
+    rotate: () => latest.current.rotate(),
+    cancel: () => latest.current.cancel(),
+    sendBack: () => latest.current.sendBack(),
+  }));
+  const cancelButton = hand?.from === "board" && hand.origin !== null;
+  const bubble: BoardBubble | null = useMemo(
+    () =>
+      pending && {
+        cell: pending,
+        rotations: rotations.length,
+        orientation: pending.orientation,
+        busy: saving,
+        onRotate: moves.rotate,
+        onClose: moves.cancel,
+        onReturn: moves.sendBack,
+        // Cancel shows for a lifted tile; an inventory tile's would do what Back to the inventory does (Escape does it for both).
+        cancelButton,
+      },
+    [pending, rotations.length, saving, moves, cancelButton],
+  );
+  const view: LayoutBoardView = useMemo(
+    () => ({ tiles, editing, plates, pending, shaking, onTile: moves.lift, onPlate: moves.choosePlate, onPending: moves.letGo }),
+    [tiles, editing, plates, pending, shaking, moves],
+  );
 
   return {
     editing,
     slots,
     tiles,
     draft,
+    shown,
     hand,
     held,
     pending,
@@ -408,13 +448,13 @@ export function useLayoutEditor({
     open,
     close,
     back,
-    choosePlan,
-    choosePlate,
-    lift,
-    letGo,
-    rotate,
-    cancel,
-    sendBack,
+    choosePlan: moves.choosePlan,
+    choosePlate: moves.choosePlate,
+    lift: moves.lift,
+    letGo: moves.letGo,
+    rotate: moves.rotate,
+    cancel: moves.cancel,
+    sendBack: moves.sendBack,
     reset,
     save,
     canRoll: !!randomizer,

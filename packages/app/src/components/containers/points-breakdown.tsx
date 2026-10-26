@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { CategoryType, formatInteger, type LayoutBreakdown } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { formatPoints } from "../elements/score";
@@ -107,7 +108,7 @@ export interface PointsFoldProps extends PointsListProps {
 }
 
 /** Edit mode's fold (#758), above the inventory: the total, a tap unfolds the lines (folded on a phone, open from `desktop`). */
-export function PointsFold({ open, onOpenChange, className, ...list }: PointsFoldProps) {
+function PointsFoldBase({ open, onOpenChange, className, ...list }: PointsFoldProps) {
   return (
     <section aria-label="Village points" className={cn("flex min-h-0 flex-col gap-1", className)}>
       <button
@@ -129,3 +130,6 @@ export function PointsFold({ open, onOpenChange, className, ...list }: PointsFol
     </section>
   );
 }
+
+/** The editor's points, drawn again only when their props change (the board's changes leave them, #803). */
+export const PointsFold = memo(PointsFoldBase);
