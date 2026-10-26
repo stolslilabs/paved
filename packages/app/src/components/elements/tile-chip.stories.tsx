@@ -50,7 +50,7 @@ export const Sizes: Story = {
 /** An extra of a PvP attack's deck, not drawn yet (#789): the chip's frame on stone, a "?", at each size the sheet and the stack use. */
 export const Unknown: Story = {
   render: () => (
-    <div className="flex items-end gap-3">
+    <div className="flex flex-wrap items-end gap-3">
       {(["sm", "md", "lg", "xl"] as const).map((size) => (
         <UnknownTileChip key={size} size={size} />
       ))}
