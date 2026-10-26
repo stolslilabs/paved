@@ -115,38 +115,58 @@ export const VILLAGE_LAYOUT = {
 /** The next UTC day after the mocks' clock: the day's chests and the shop reset then. */
 export const TOMORROW = (Math.floor(MOCK_NOW / DAY) + 1) * DAY;
 
+/** Today's two PvP chests (slots 1 and 2) and a Story chest, which takes no slot. */
 export const CHESTS: readonly Chest[] = [
-  { id: 41, rank: "gold", source: "pvp", label: "3 stars against Rook of Ashford" },
-  { id: 40, rank: "silver", source: "pvp", label: "2 stars against Mira" },
+  { id: 41, rank: "gold", source: "pvp", label: "3 stars against Rook of Ashford", slot: 0 },
+  { id: 40, rank: "silver", source: "pvp", label: "2 stars against Mira", slot: 1 },
   { id: 39, rank: "bronze", source: "story", label: "The Old Road, level 2" },
 ];
 
-/** One fixture per state of the chests (`Scenes/Village v2/Chests`). */
+const GOLD_DRAW = { rank: "gold", plans: [P.road, P.wonder, P.cityEdge], cobbles: null } as const;
+const day = { resetsAt: TOMORROW, now: MOCK_NOW } as const;
+/** The page alone, the modal closed (#784): what the slots say. */
+const page = { initialModalOpen: false } as const;
+
+/**
+ * One fixture per state of the chests (`Scenes/Village v2/Chests`). With a chest ready the modal opens on arrival (#784): the
+ * chest shaking (`waiting`), its draw on its way, its tiles (`gold`, `silver`, `bronze`), the tile kept with Next chest or Done.
+ * The states of the page alone (`initialModalOpen: false`) say the slots: free, won in the rank's colour, opened and grey.
+ */
 export const VILLAGE_CHESTS = {
-  waiting: { chests: CHESTS, pvpToday: 2, pvpRanks: ["gold", "silver"], resetsAt: TOMORROW, now: MOCK_NOW },
-  free: { chests: CHESTS.slice(2), pvpToday: 0, resetsAt: TOMORROW, now: MOCK_NOW },
-  noRanks: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW },
-  opening: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opening: 41 },
-  gold: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 41, draw: { rank: "gold", plans: [P.road, P.wonder, P.cityEdge], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  goldChosen: {
-    chests: CHESTS,
-    pvpToday: 2,
-    resetsAt: TOMORROW,
-    now: MOCK_NOW,
-    opened: { chestId: 41, draw: { rank: "gold", plans: [P.road, P.wonder, P.cityEdge], cobbles: null } },
-    owned: ownedOf(LAYOUT_GROWING, INVENTORY),
-    initialChoice: 1,
-  },
-  silver: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  bronze: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 39, draw: { rank: "bronze", plans: [P.forestCity], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  cobbles: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 41, draw: { rank: "gold", plans: [P.road, P.wonder, P.cityEdge], cobbles: 50 } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  taking: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, initialChoice: 1, busy: true },
-  taken: { chests: CHESTS.slice(1), pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, taken: { plan: P.wonder, cobbles: 50 } },
-  capped: { chests: CHESTS.slice(2), pvpToday: 3, pvpRanks: ["gold", "silver", "bronze"], resetsAt: TOMORROW, now: MOCK_NOW },
-  lastMinute: { chests: CHESTS.slice(2), pvpToday: 3, pvpRanks: ["gold", "silver", "bronze"], resetsAt: TOMORROW, now: TOMORROW - 42 },
-  ready: { chests: CHESTS.slice(2), pvpToday: 0, ready: true, resetsAt: TOMORROW + DAY, now: TOMORROW + 3 },
-  empty: { chests: [], pvpToday: 0, resetsAt: TOMORROW, now: MOCK_NOW },
-  refused: { chests: CHESTS, pvpToday: 2, resetsAt: TOMORROW, now: MOCK_NOW, refusal: "This chest was opened already. Nothing was taken." },
+  /** Arrival with 3 chests ready: the gold one shakes at the centre of the modal, "Tap to open". */
+  waiting: { chests: CHESTS, pvpToday: 2, ...day },
+  /** Its draw on its way (the VRF): it shakes on, "Opening…". */
+  opening: { chests: CHESTS, pvpToday: 2, ...day, opening: 41 },
+  /** The lid burst: keep one of 3 tiles, each with its rarity and how many are held. */
+  gold: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: GOLD_DRAW }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
+  goldChosen: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: GOLD_DRAW }, owned: ownedOf(LAYOUT_GROWING, INVENTORY), initialChoice: 1 },
+  silver: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
+  bronze: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: 2, ...day, opened: { chestId: 39, draw: { rank: "bronze", plans: [P.forestCity], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
+  cobbles: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: { ...GOLD_DRAW, cobbles: 50 } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
+  taking: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, initialChoice: 1, busy: true },
+  /** The tile kept, two chests still waiting: Next chest, or Later. */
+  taken: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day, taken: { plan: P.wonder, cobbles: 50 } },
+  /** The last chest's tile kept: Done, Edit layout. */
+  takenLast: { chests: [], pvpToday: 2, pvpOpened: 2, ...day, taken: { plan: P.forestCity, cobbles: null } },
+  /** A Story chest, which takes no slot, through the same modal after the PvP ones. */
+  story: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: 2, ...day },
+  /** The chain refused: what happened, in the modal, until dismissed. */
+  refused: { chests: CHESTS, pvpToday: 2, ...day, refusal: "This chest was opened already. Nothing was taken." },
+  /** The page, the modal closed: slot 1 opened (grey), slot 2 won (silver, a tap opens it), slot 3 free; "Open your chests". */
+  slots: { ...page, chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day },
+  /** The modal closed with 3 chests ready: the two won slots in their ranks' colours. */
+  closed: { ...page, chests: CHESTS, pvpToday: 2, ...day },
+  /** The page after the last choice: the tile kept said, Edit layout. */
+  kept: { ...page, chests: [], pvpToday: 2, pvpOpened: 2, ...day, taken: { plan: P.wonder, cobbles: 50 } },
+  /** The day's 3 slots free: their outlines alone; a Story chest waits. */
+  free: { ...page, chests: CHESTS.slice(2), pvpToday: 0, ...day },
+  /** Two slots won, the read giving no ranks: each won slot shows a chest of no rank. */
+  noRanks: { ...page, chests: CHESTS.map(({ slot: _, ...c }) => c), pvpToday: 2, ...day },
+  /** Today's 3 slots are won and opened: the countdown takes the hero's centre, the slots under it. */
+  capped: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: 3, ...day },
+  lastMinute: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: 3, resetsAt: TOMORROW, now: TOMORROW - 42 },
+  ready: { ...page, chests: CHESTS.slice(2), pvpToday: 0, ready: true, resetsAt: TOMORROW + DAY, now: TOMORROW + 3 },
+  empty: { chests: [], pvpToday: 0, ...day },
   loading: { status: { kind: "loading" } },
   guest: { status: { kind: "guest" } },
 } satisfies Record<string, Data<VillageChestsSceneProps>>;

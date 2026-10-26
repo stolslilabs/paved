@@ -11,14 +11,18 @@ import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useTabNavigate, useUpTo } from "../ref";
 import { markChestsSeen } from "../chests-seen";
+import { chestSlots } from "../chest-slots";
 import { READY_S } from "../../components/containers/chest-slots";
 import { countsByPlan, refusalText, useVillageArt } from "../village-v2";
+
+const NO_CHESTS: readonly Chest[] = [];
 
 /**
  * `/village/chests` (#739, PvP v2 step 1): the chests won and not opened yet, by rank, from `useChests` (the mock ledger in step
  * 1, #741). They open in the order won: Open draws the oldest's tiles (bronze one, silver 2, gold 3) and the Cobbles it may hold;
  * the tile kept (`claimChest`) goes to the inventory. The day's PvP chests left, until the next UTC day: the slots' countdown
- * ticks with the clock, and a new day reached on the page says "Ready" for `READY_S` (#759). Seeing the page marks the day seen,
+ * ticks with the clock, and a new day reached on the page says "Ready" for `READY_S` (#759). A chest waiting opens in the scene's
+ * modal on arrival (#784), and each slot says whether its chest waits or was opened (`chestSlots`). Seeing the page marks the day seen,
  * which takes the free slots off the home's badge. A source that does not serve them (the chain before step 3) says so.
  */
 export default function Page() {
@@ -53,7 +57,8 @@ export default function Page() {
   const ready = resetAt !== null && now < resetAt + READY_S;
 
   const data = read.data;
-  const chests = useMemo<Chest[]>(() => (data ? data.pending.map((rank, i) => ({ id: i + 1, rank })) : []), [data]);
+  // Where each chest was won (#784): today's PvP chests fill the day's slots in the order won, the first ones opened already.
+  const slots = useMemo(() => (data ? chestSlots(data, day) : null), [data, day]);
   const failed = read.error;
   const status: SkinsStatus | null =
     me === null
@@ -71,9 +76,10 @@ export default function Page() {
   return (
     <VillageChestsScene
       status={status}
-      chests={chests}
+      chests={slots?.chests ?? NO_CHESTS}
       inOrder
       pvpToday={data?.pvpToday ?? 0}
+      pvpOpened={slots?.opened ?? 0}
       ready={ready}
       resetsAt={(day + 1) * DAY_S}
       now={now}

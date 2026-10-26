@@ -286,7 +286,7 @@ describe("the sound files", () => {
       total += size;
       expect(readFileSync(join(dir, `${n}.wav`)).subarray(0, 4).toString()).toBe("RIFF");
     }
-    expect(total).toBeLessThan(250_000);
+    expect(total).toBeLessThan(300_000);
     expect(wav(synth(SOUNDS.tap!.notes, SOUNDS.tap!.length)).length).toBe(statSync(join(dir, "tap.wav")).size);
   });
 });

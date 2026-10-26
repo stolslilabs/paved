@@ -31,10 +31,17 @@ export interface OpenChest {
   cobbles: number;
 }
 
+/** Where a chest was won (#784): a PvP slot of a UTC day (days from the epoch), or a Story level, which takes no slot. */
+export type ChestOrigin = { source: "pvp"; day: number } | { source: "story" };
+
 /** A player's chests: those waiting to be opened (oldest first), the one open, the PvP chests of the day and the cap. */
 export interface ChestsView {
   pending: ChestRank[];
+  /** Where each waiting chest was won, in `pending`'s order; unset (or an entry null) when the read does not say. */
+  origins?: (ChestOrigin | null)[];
   open: OpenChest | null;
+  /** Where the open chest was won; unset or null when the read does not say. */
+  openOrigin?: ChestOrigin | null;
   pvpToday: number;
   pvpCap: number;
 }

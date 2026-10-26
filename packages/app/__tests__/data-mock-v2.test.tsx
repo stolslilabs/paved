@@ -62,7 +62,7 @@ describe("PvP v2 on the mock", () => {
     const village = await dataOf({ get current() { return result.current.village; } });
     expect(village).toMatchObject({ founded: false, level: 1, slots: 9, tiles: [], score: 0 });
     expect(village!.inventory.every((n) => n === 0)).toBe(true);
-    expect(await dataOf({ get current() { return result.current.chests; } })).toEqual({ pending: [], open: null, pvpToday: 0, pvpCap: 3 });
+    expect(await dataOf({ get current() { return result.current.chests; } })).toEqual({ pending: [], origins: [], open: null, openOrigin: null, pvpToday: 0, pvpCap: 3 });
     const shop = await dataOf({ get current() { return result.current.shop; } });
     expect(shop!.offers).toHaveLength(3);
     expect(shop!.offers.every((o) => !o.bought)).toBe(true);
@@ -162,6 +162,9 @@ describe("PvP v2 on the mock", () => {
     await act(() => result.current.writes.reportStory({ campaign: 2, level: 1, stars: 3 }));
     await act(() => result.current.writes.reportStory({ campaign: 2, level: 12, stars: 3 }));
     await waitFor(() => expect(result.current.chests.data?.pending).toEqual(["gold", "gold", "gold", "bronze", "gold"]));
+    // Where each was won (#784): today's PvP slots, then Story, which takes none.
+    const today = Math.floor(Date.now() / 86_400_000);
+    expect(result.current.chests.data!.origins).toEqual([...Array(3).fill({ source: "pvp", day: today }), { source: "story" }, { source: "story" }]);
     expect(refusal(await result.current.writes.reportStory({ campaign: 2, level: 13, stars: 3 }).catch((e: unknown) => e))).toBe("no-level");
 
     // 4 attacks x 20 XP and 2 levels x 15: 110 XP, level 2, 10 slots
@@ -174,6 +177,7 @@ describe("PvP v2 on the mock", () => {
     await waitFor(() => expect(result.current.chests.data?.open?.plans).toHaveLength(3));
     const open = result.current.chests.data!.open!;
     expect(open.rank).toBe("gold");
+    expect(result.current.chests.data!.openOrigin).toEqual({ source: "pvp", day: today });
     expect(refusal(await result.current.writes.openChest().catch((e: unknown) => e))).toBe("chest-open");
     await act(() => result.current.writes.claimChest(2));
     await waitFor(() => expect(result.current.chests.data?.open).toBeNull());

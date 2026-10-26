@@ -32,7 +32,7 @@ const directions = (state: string) => ({ name: `chests-direction-${state}`, stor
 const shop = (state: string) => ({ name: `shop-${state}`, story: `scenes-village-v2-shop--${state}` });
 const CAPTURES = [
   ...["start", "growing", "editing", "holding", "placing", "lifted", "changed", "reset", "full", "leaving", "saved", "visit"].map(layout),
-  ...["waiting", "free", "no-ranks", "opening", "gold", "gold-chosen", "silver", "bronze", "cobbles-won", "taken", "capped", "last-minute", "ready", "empty"].map(chests),
+  ...["waiting", "opening", "gold", "gold-chosen", "silver", "bronze", "cobbles-won", "taken", "taken-last", "story-chest", "slots", "closed", "kept", "free", "no-ranks", "capped", "last-minute", "ready", "empty"].map(chests),
   // The Chests page's two directions (#759): the slots on pedestals, or a dial of the day.
   ...["pedestals-some-won", "pedestals-all-won", "pedestals-ready", "dial-some-won", "dial-all-won", "dial-ready"].map(directions),
   ...["today", "one-bought", "all-bought", "short"].map(shop),

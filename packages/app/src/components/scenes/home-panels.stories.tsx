@@ -85,7 +85,7 @@ const panel = (title: string, page: ReactNode, options: { show?: HeaderBalances;
 /** Missions (the Limited tab), with the Cobbles they earn in the header. */
 export const Missions: Story = panel("Missions", <QuestsScene {...QUESTS.today} onNavigate={fn()} onDayChange={fn()} onTab={fn()} onClaim={fn()} onClaimAll={fn()} />);
 /** The Chests: the slots, the chest to open, the Cobbles. */
-export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.waiting} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
+export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The day's tile shop, the Cobbles in the header. */
 export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onBuy={fn()} onGetCobbles={fn()} />);
 /** The Vault: no balance in the header (they are on the page). */
