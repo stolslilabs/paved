@@ -1,5 +1,5 @@
 import type { EngineGame } from "../engine/game";
-import type { CategoryType } from "../types/category";
+import { CategoryType } from "../types/category";
 import { layoutGame, type LayoutTile } from "./free-village";
 
 // A layout's points by structure (#758), apart from `free-village.ts` so that only the pages that list them carry it.
@@ -23,6 +23,11 @@ export interface LayoutLine {
   readonly size: number;
   /** Its areas on each of its tiles, by cell, in cell order. */
   readonly areas: readonly CellAreas[];
+  /**
+   * What the line lights on the board (#792): its `areas`, but a wonder's tile alone, not the 8 around it, which the line
+   * still counts. The lighter light the owner asked for (2026-10-26).
+   */
+  readonly lit: readonly CellAreas[];
 }
 
 /** A layout's points by structure: `lines`, the most points first, and `other`, the points no structure holds; they add up to `score`. */
@@ -54,11 +59,23 @@ export function breakdownOf(game: EngineGame): LayoutBreakdown {
       tiles: c.tiles,
       size: c.size,
       areas,
+      lit: c.category === CategoryType.Wonder ? wonderTile(areas) : areas,
     };
   });
   const sorted = lines.map((line, i) => ({ line, i })).sort((a, b) => b.line.points - a.line.points || a.i - b.i).map((x) => x.line);
   const listed = lines.reduce((sum, l) => sum + l.points, 0);
   return { lines: sorted, other: game.score - listed, score: game.score };
+}
+
+/**
+ * A wonder's own tile among its structure's (#792): the one whose 8 neighbours are all in it (the ring D-19 counts), so a
+ * wonder of the ring is never taken for it. All of them if none is (not a closed wonder: never from the engine).
+ */
+function wonderTile(areas: readonly CellAreas[]): readonly CellAreas[] {
+  const cells = new Set(areas.map((a) => `${a.x},${a.y}`));
+  const ring = [-1, 0, 1].flatMap((dx) => [-1, 0, 1].map((dy) => [dx, dy] as const)).filter(([dx, dy]) => dx !== 0 || dy !== 0);
+  const centre = areas.find((a) => ring.every(([dx, dy]) => cells.has(`${a.x + dx},${a.y + dy}`)));
+  return centre ? [centre] : areas;
 }
 
 /** A valid layout's points by structure (`breakdownOf` its canonical build): the lines add up to `layoutScore(tiles)`. */
