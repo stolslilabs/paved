@@ -6,8 +6,11 @@ import type { ClosedStructure, FogCell, GameScene, HoverState, RendererSettingsI
 import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
 import type { Hold } from "../../lib/use-hold";
+import { PRESS_SHOW_MS, usePressAction } from "../../lib/use-press-action";
 import { BoardCovered } from "./board-covered";
-import { LazyTileBubble } from "./lazy-tile-bubble";
+import { LazyPressBubble, LazyTileBubble, loadPressBubble } from "./lazy-tile-bubble";
+
+export { PRESS_SHOW_MS };
 
 /** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
 const CENTER = 2_147_483_647;
@@ -115,11 +118,25 @@ export interface BoardViewportProps {
   onCellHover?: (slot: { x: number; y: number } | null) => void;
   /** The tile placed and not yet sent: the bubble (Cancel, Discard, Rotate, Validate) follows its corner. Unset: none. */
   bubble?: BoardBubble | null;
+  /**
+   * A long press on a tile opens this action (LONGPRESS-EDIT, #799: the village's Edit in view), through a one-button bubble by
+   * the tile whose ring fills as the press goes on (`usePressAction`). Unset, or a tile bubble up: a press is a tap or a pan.
+   */
+  press?: BoardPress | null;
   /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
   onScene?: (scene: GameScene | null) => void;
   /** The renderer could not start (no WebGL, a model that does not load). */
   onError?: (error: unknown) => void;
   className?: string;
+}
+
+/** The action a long press on a tile opens (#799): its button's name and icon, and the action. */
+export interface BoardPress {
+  label: string;
+  icon: string;
+  onAct: () => void;
+  /** The hold's length, ms (`HOLD_MS` by default; the stories tune it). */
+  holdMs?: number;
 }
 
 /** The bubble on the placed tile (`TileBubble`): `cell` is the tile's, in the contracts' coordinates. */
@@ -189,9 +206,6 @@ export function useDropThenConfirm(scene: GameScene | null, tiles: TileRenderDat
   }, [green, holdMs]);
   return green;
 }
-
-/** How long a press on a free legal cell lasts, within the click threshold, before the tile shows there and its hold starts (#680). */
-export const PRESS_SHOW_MS = 150;
 
 /** Where a press may show the tile in hand (PRESS-PLACE, #680), in the renderer's grid. */
 export interface PressPlace {
@@ -352,7 +366,7 @@ export function toClosedStructures(closed: NonNullable<BoardViewportProps["close
   }));
 }
 
-export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, otherPlates = true, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, press, otherPlates = true, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
   const covered = useContext(BoardCovered);
@@ -384,7 +398,24 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
   const legal = useMemo(() => new Set((slots ?? []).map((s) => { const g = toGridSlot(s.x, s.y); return `${g.x},${g.y}`; })), [slots]);
   const pressPlace: PressPlace | null =
     onCellPress && !bubble?.busy ? { canShow: (gx, gy) => legal.has(`${gx},${gy}`), show: (gx, gy) => onCellPress(toChainSlot(gx, gy)) } : null;
-  const { onTilePress, holdRef: tileHold } = useTileHold(holdCell, pressPlace);
+  const { onTilePress: onHoldPress, holdRef: tileHold } = useTileHold(holdCell, pressPlace);
+  // A long press on a tile into the page's action (#799), while no tile bubble is up; its bubble's chunk asked for beforehand.
+  const pressing = !!press && !bubble;
+  const pressAction = usePressAction<{ x: number; y: number }>({ onAct: () => press?.onAct(), enabled: pressing, holdMs: press?.holdMs });
+  useEffect(() => {
+    if (pressing) void loadPressBubble().catch(() => {});
+  }, [pressing]);
+  const tileCells = useMemo(() => new Set(renderTiles.map((t) => `${t.worldX},${t.worldZ}`)), [renderTiles]);
+  const onTilePress: TilePressListener = (gx, gy, phase) => {
+    let shown = false;
+    if (phase === "down") {
+      if (pressing && tileCells.has(`${gx},${gy}`)) pressAction.down({ x: gx, y: gy });
+      else pressAction.dismiss();
+    } else if (phase === "released") shown = pressAction.release();
+    else pressAction.cancel();
+    const held = onHoldPress(gx, gy, phase);
+    return shown || held;
+  };
   // The tile placed and not yet validated: the drop's chunk and its model's voxels load now, so the drop at the confirm
   // begins in the call (`GameScene.prepareDropAt`).
   const prepareKey = hover?.placed ? `${hover.planIndex}:${hover.cell?.x}:${hover.cell?.y}` : null;
@@ -431,6 +462,20 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
             coach={bubble.coach}
             orientation={bubble.orientation}
             holdRef={tileHold}
+          />
+        </Suspense>
+      )}
+      {press && pressAction.shown && scene && (
+        <Suspense fallback={null}>
+          <LazyPressBubble
+            scene={scene}
+            cell={pressAction.shown.cell}
+            label={press.label}
+            icon={press.icon}
+            hold={pressAction.hold}
+            phase={pressAction.shown.phase}
+            onTap={pressAction.act}
+            onDismiss={pressAction.dismiss}
           />
         </Suspense>
       )}
