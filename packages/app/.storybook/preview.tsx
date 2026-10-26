@@ -11,6 +11,7 @@ import { board } from "../src/styles/tokens";
 import { provideManifest } from "@paved/renderer";
 import { APP_ASSETS, APP_MANIFEST } from "../src/mocks/assets";
 import { ProfileProvider, type ProfileValue } from "../src/components/containers/profile-context";
+import { AudioProvider } from "../src/components/containers/audio-provider";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
 document.documentElement.dataset.theme = "dark";
@@ -33,11 +34,30 @@ declare module "storybook/internal/csf" {
     reducedMotion?: "user" | "never" | "always";
     /** Who the menu screens' avatar shows (`ProfileProvider`, #624); none drawn when omitted. */
     profile?: ProfileValue;
+    /**
+     * The sound effects' volume, 0 to 1 (`AudioProvider`, no music): the story plays its sounds after a first tap in the canvas
+     * (the browser's autoplay rule), as the app does. Silent when omitted.
+     */
+    sfx?: number;
   }
 }
 
 /** A fresh client per story, seeded and never refetching: a story shows its fixtures, not a network. */
-function Providers({ fixtures, route, reducedMotion, profile, children }: { fixtures: QueryFixtures; route: string; reducedMotion: "user" | "never" | "always"; profile?: ProfileValue; children: React.ReactNode }) {
+function Providers({
+  fixtures,
+  route,
+  reducedMotion,
+  profile,
+  sfx,
+  children,
+}: {
+  fixtures: QueryFixtures;
+  route: string;
+  reducedMotion: "user" | "never" | "always";
+  profile?: ProfileValue;
+  sfx?: number;
+  children: React.ReactNode;
+}) {
   const [client] = useState(() => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, refetchOnWindowFocus: false } } });
     for (const [key, data] of fixtures) qc.setQueryData(key, data);
@@ -48,15 +68,27 @@ function Providers({ fixtures, route, reducedMotion, profile, children }: { fixt
       <MemoryRouter initialEntries={[route]}>
         {/* Sync `domMax` (layout animation included): stories use `m` and `motion` alike. */}
         <LazyMotion features={domMax}>
-          <MotionConfig reducedMotion={reducedMotion}>{profile ? <ProfileProvider value={profile}>{children}</ProfileProvider> : children}</MotionConfig>
+          <MotionConfig reducedMotion={reducedMotion}>
+            <WithSfx volume={sfx}>{profile ? <ProfileProvider value={profile}>{children}</ProfileProvider> : children}</WithSfx>
+          </MotionConfig>
         </LazyMotion>
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
+/** The sound effects for a story that asks for them (`parameters.sfx`), the music off and no playlist. */
+const NO_TRACKS: readonly string[] = [];
+function WithSfx({ volume, children }: { volume?: number; children: React.ReactNode }) {
+  return volume === undefined ? children : (
+    <AudioProvider musicVolume={0} sfxVolume={volume} tracks={NO_TRACKS}>
+      {children}
+    </AudioProvider>
+  );
+}
+
 const withProviders: Decorator = (Story, { parameters }) => (
-  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"} reducedMotion={parameters.reducedMotion ?? "user"} profile={parameters.profile}>
+  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"} reducedMotion={parameters.reducedMotion ?? "user"} profile={parameters.profile} sfx={parameters.sfx}>
     <Story />
   </Providers>
 );
