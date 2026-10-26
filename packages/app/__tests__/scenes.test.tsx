@@ -982,10 +982,10 @@ describe("Element feedback (EL)", () => {
     expect(screen.getByRole("timer", { name: "Closes in 9:00:00" })).toBeInTheDocument();
   });
 
-  it("draws the Vault tab with the piggy bank", () => {
+  it("draws the Chests tab with the gift, and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
     render(wrap(<AppNav active="home" />));
-    const vault = screen.getByRole("button", { name: "Vault" });
-    expect(vault.querySelector("[data-icon='piggy-bank']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Chests" }).querySelector("[data-icon='gift']")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
   });
 
   it("keeps a tab page's navigation out of its scrolling region, fixed to the viewport's bottom below desktop (#611)", () => {
@@ -998,7 +998,8 @@ describe("Element feedback (EL)", () => {
     expect(nav.parentElement).toBe(region.parentElement);
     expect(nav.parentElement!.className).toMatch(/\bh-dvh\b/);
     expect(nav.className).toMatch(/(^| )fixed inset-x-0 bottom-0 /);
-    expect(nav.className).toContain("desktop:relative");
+    // From `desktop` no bar: the page is in the home's side panel (#762).
+    expect(nav.className).toContain("desktop:hidden");
     // The region ends at the bar's top: its measured height.
     expect(region.className).toContain("mb-(--app-nav-h)");
   });

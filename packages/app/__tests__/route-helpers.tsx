@@ -1,5 +1,6 @@
 import { slow } from "../test-slow";
 import type { ReactNode } from "react";
+import type { RouteObject } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LazyMotion, domMax } from "motion/react";
 import { beforeAll } from "vitest";
@@ -13,6 +14,26 @@ import { HOLD_MS } from "../src/components/elements/hold-button";
  * `vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule)`.
  */
 export const boardStandInModule = { default: () => <h1>Board</h1> };
+
+/**
+ * The route of a page path in the route table, at any depth: the side panel's pages are the home's children (#762). The home
+ * (`""`) is its layout route (`id: "home"`), which draws it; its index child holds the welcome's loader.
+ */
+export function routeOf(routes: RouteObject[], path: string): RouteObject {
+  for (const route of routes) {
+    if (path === "" ? route.id === "home" : route.path === path) return route;
+    const found = route.children && routeOrNull(route.children, path);
+    if (found) return found;
+  }
+  throw new Error(`no route for "${path}"`);
+}
+const routeOrNull = (routes: RouteObject[], path: string): RouteObject | null => {
+  try {
+    return routeOf(routes, path);
+  } catch {
+    return null;
+  }
+};
 
 const PAGES = {
   board: () => import("../src/routes/pages/board"),

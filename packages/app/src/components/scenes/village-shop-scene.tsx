@@ -78,7 +78,7 @@ export function VillageShopScene({
 }: VillageShopSceneProps) {
   const short = offers.some((o) => !o.bought && o.price > cobbles);
   return (
-    <TabFrame tab="shop" onNavigate={onNavigate} desktop="none">
+    <TabFrame tab="shop" onNavigate={onNavigate}>
       <div className="flex min-h-full flex-col bg-background">
         <TopBar
           title="Tile shop"
@@ -90,7 +90,7 @@ export function VillageShopScene({
             </span>
           }
         />
-        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] desktop:max-w-4xl">
+        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {status ? (
             <SkinsStatusView
               status={status}
@@ -130,7 +130,7 @@ export function VillageShopScene({
                   }
                 />
               )}
-              <ul aria-label="Today's offers" className="flex flex-col gap-2 desktop:grid desktop:grid-cols-3 desktop:gap-4">
+              <ul aria-label="Today's offers" className="flex flex-col gap-2">
                 {offers.map((offer, i) => (
                   <OfferCard
                     key={`${offer.plan}-${i}`}
@@ -164,9 +164,9 @@ function OfferCard({ offer, held, cobbles, buying, busy, tileArt, onBuy }: { off
   return (
     <li
       data-bought={offer.bought || undefined}
-      className={cn("flex items-center gap-3 rounded-xl border border-border bg-card p-3 desktop:flex-col desktop:items-stretch desktop:p-4", offer.bought && "opacity-70")}
+      className={cn("flex items-center gap-3 rounded-xl border border-border bg-card p-3", offer.bought && "opacity-70")}
     >
-      <span className="block size-14 shrink-0 mobile:size-20 desktop:aspect-square desktop:size-auto desktop:w-full">
+      <span className="block size-14 shrink-0 mobile:size-20">
         <TileChip plan={offer.plan} art={tileArt} className="size-full rounded-[3px] border-0" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -179,7 +179,7 @@ function OfferCard({ offer, held, cobbles, buying, busy, tileArt, onBuy }: { off
         </span>
         <Cobbles value={offer.price} size="sm" />
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1 desktop:items-stretch">
+      <div className="flex shrink-0 flex-col items-end gap-1">
         {offer.bought ? (
           <span className="flex items-center gap-1 text-right text-xs text-success">
             <Icon name="circle-check" size="xs" /> Bought today

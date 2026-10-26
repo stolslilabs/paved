@@ -69,7 +69,7 @@ export function MyTilesScene({ renders, skins, skinsStatus, onPick, onSave, onDi
             guestTitle="Connect to choose your tiles"
             guestText="The skins you own are kept on your account."
             skeleton={
-              <ul className="grid grid-cols-1 gap-2 tablet:grid-cols-2 desktop:grid-cols-3">
+              <ul className="grid grid-cols-1 gap-2 tablet:grid-cols-2">
                 {Array.from({ length: 4 }, (_, i) => (
                   <Skeleton key={i} className="h-40 rounded-xl" />
                 ))}
@@ -106,7 +106,7 @@ export function MyTilesScene({ renders, skins, skinsStatus, onPick, onSave, onDi
             }
           />
           {choices.length > 0 && (
-            <ul aria-label="Tiles" className="grid grid-cols-1 gap-2 tablet:grid-cols-2 desktop:grid-cols-3">
+            <ul aria-label="Tiles" className="grid grid-cols-1 gap-2 tablet:grid-cols-2">
               {choices.map(({ plan, options }) => (
                 <TileSkinPicker
                   key={plan}
@@ -126,7 +126,7 @@ export function MyTilesScene({ renders, skins, skinsStatus, onPick, onSave, onDi
               <h2 id="default-only" className="text-sm font-semibold">
                 On Default <span className="font-normal text-muted-foreground">(no skin owned)</span>
               </h2>
-              <ul aria-label="Default only" className="grid grid-cols-4 gap-2 tablet:grid-cols-6 desktop:grid-cols-8">
+              <ul aria-label="Default only" className="grid grid-cols-4 gap-2 tablet:grid-cols-6">
                 {defaults.map(({ plan }) => (
                   <li key={plan} aria-label={tileName(plan)} className="flex flex-col items-center gap-1 rounded-lg border border-border bg-card p-1">
                     <span className="block aspect-square w-full overflow-hidden rounded-md bg-board">

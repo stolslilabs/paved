@@ -1,7 +1,8 @@
 import { lazy, type ComponentType } from "react";
 import { createBrowserRouter, createMemoryRouter, replace, type LoaderFunctionArgs, type RouteObject } from "react-router";
+import { HomeLayout } from "./home-layout";
 import { PAGE_LOADERS, type PageLoader } from "./page-loaders";
-import { PAGES } from "./pages";
+import { PAGES, type PageDef } from "./pages";
 import { withRef } from "./ref";
 import { RouteError } from "./RouteError";
 import { bootScreen, RootLayout } from "./Shell";
@@ -48,7 +49,16 @@ function challengeLoader({ request }: LoaderFunctionArgs) {
   return new URL(request.url).searchParams.get("tab") === "cobbles" ? to("/cobbles", request) : null;
 }
 
-const LOADERS: Record<string, RouteObject["loader"]> = { "": homeLoader, welcome: welcomeLoader, "play/challenge": challengeLoader };
+const LOADERS: Record<string, RouteObject["loader"]> = { welcome: welcomeLoader, "play/challenge": challengeLoader };
+
+/** A page's route: its entry in `handle` (its tab, its title), its lazy component, its own error boundary. */
+function pageRoute(page: PageDef): RouteObject {
+  const Page = pageComponent(page.path);
+  return { path: page.path, handle: { page }, loader: LOADERS[page.path], element: <Page />, errorElement: <RouteError /> };
+}
+
+const HOME = PAGES.find((page) => page.path === "")!;
+const Home = pageComponent(HOME.path);
 
 export const routes: RouteObject[] = [
   {
@@ -56,11 +66,15 @@ export const routes: RouteObject[] = [
     hydrateFallbackElement: bootScreen,
     errorElement: <RouteError />,
     children: [
-      ...PAGES.map((page): RouteObject => {
-        const Page = pageComponent(page.path);
-        const route = { handle: { page }, loader: LOADERS[page.path], element: <Page />, errorElement: <RouteError /> };
-        return page.path === "" ? { index: true, ...route } : { path: page.path, ...route };
-      }),
+      {
+        // The home's route (DESK-PANELS, #762): `/` and, as its children, the pages of the side panel (`PageDef.panel`), drawn over
+        // the home's village from `desktop` and as full pages below it (`HomeLayout`). The welcome's loader is the index's alone.
+        id: "home",
+        element: <HomeLayout home={<Home />} />,
+        errorElement: <RouteError />,
+        children: [{ index: true, handle: { page: HOME }, loader: homeLoader }, ...PAGES.filter((page) => page.panel).map(pageRoute)],
+      },
+      ...PAGES.filter((page) => page.path !== "" && !page.panel).map(pageRoute),
       { path: "game", loader: gameRedirect },
       { path: "quests/:day?", loader: ({ request, params }) => to(params.day ? `/missions/${params.day}` : "/missions", request) },
       { path: "achievements", loader: ({ request }) => to("/missions/lifetime", request) },

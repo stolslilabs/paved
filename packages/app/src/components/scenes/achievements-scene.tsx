@@ -85,7 +85,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
           action={<Button size="sm" variant="outline" onClick={props.onRetry}>Retry</Button>}
         />
       ) : achievements === null ? (
-        <div role="status" aria-label="Loading the lifetime missions" className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+        <div role="status" aria-label="Loading the lifetime missions" className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
@@ -129,7 +129,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
             </Notice>
           )}
           {rewards && <p className="text-xs text-muted-foreground">A lifetime mission gives as many Cobbles as its points, claimed once. On the Podium gives none in this version.</p>}
-          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
             {list.map((a) => (
               <ProgressCard
                 key={a.achievementId}

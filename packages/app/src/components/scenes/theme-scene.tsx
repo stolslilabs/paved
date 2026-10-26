@@ -99,7 +99,7 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
           <Icon name="chevron-right" size="sm" className="text-muted-foreground" />
         </button>
       )}
-      <section aria-label="Themes" aria-busy={skinsStatus?.kind === "loading" || undefined} className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-3">
+      <section aria-label="Themes" aria-busy={skinsStatus?.kind === "loading" || undefined} className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
         {THEMES.map((t) => {
           const code = THEME_CODES[t.id];
           const owned = !skins ? null : code === 0 ? PLANS : ownedCount(skins.owned[code] ?? 0);

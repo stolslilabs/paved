@@ -66,10 +66,10 @@ export function PvpLeagueScene({ crowns, best, season, now, unranked, attacks, l
   const left = season ? season.endsAt - now : 0;
   const ended = season !== null && left <= 0;
   return (
-    <TabFrame tab="league" onNavigate={onNavigate} desktop="none">
+    <TabFrame tab="league" onNavigate={onNavigate}>
       <div className="flex min-h-full flex-col bg-background text-foreground">
         <TopBar title="League" onBack={onBack} />
-        <main className="mx-auto grid w-full max-w-5xl flex-1 content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] desktop:grid-cols-[1fr_22rem]">
+        <main className="mx-auto grid w-full max-w-5xl flex-1 content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="flex flex-col gap-4">
             <section aria-label="Your league" className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-5 text-center">
               {outside ? (

@@ -79,7 +79,7 @@ export interface CobblesSceneProps {
 /** The Cobble balance as a game's currency plate: the stones as a coin, the count large. A guest's count is a dash. */
 function BalancePlate({ cobbles, connected }: { cobbles: number; connected: boolean }) {
   return (
-    <section aria-labelledby="cobble-balance-title" className="flex items-center gap-3 rounded-xl border border-primary/30 bg-card p-4 desktop:col-span-2">
+    <section aria-labelledby="cobble-balance-title" className="flex items-center gap-3 rounded-xl border border-primary/30 bg-card p-4">
       <TokenIcon kind="cobbles" size="xl" />
       <span className="flex min-w-0 flex-1 flex-col">
         <h2 id="cobble-balance-title" className="text-xs text-muted-foreground">
@@ -116,7 +116,7 @@ export function CobblesScene(props: CobblesSceneProps) {
         title="Cobbles"
         onBack={props.onBack}
       />
-      <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-8 tablet:max-w-2xl desktop:max-w-4xl desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
+      <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-8 tablet:max-w-2xl">
         <BalancePlate cobbles={cobbles.balance} connected={connected} />
         <section aria-labelledby="packs-title" className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">

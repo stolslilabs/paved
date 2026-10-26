@@ -7,7 +7,6 @@ import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
 import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-avatar";
 import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
-import { TabFrame } from "../src/components/containers/tab-frame";
 import { TabPage } from "../src/components/containers/tab-page";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
@@ -105,9 +104,19 @@ describe("ProfileSlot (#624)", () => {
   });
 
   it("the width crosses `desktop` while open: the focus goes to the avatar shown now, not the hidden one that opened it", async () => {
-    // The home's layout: its own avatar below `desktop`, the navigation's from it.
-    render(withProfile(value(PROFILE.connected), <TabFrame tab="home"><ProfileSlot className="desktop:hidden" /></TabFrame>));
-    const nav = within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Profile: bal7hazar" });
+    // Two avatars, one per width: the header's below `desktop`, another from it (as the navigation's header had, before #762).
+    render(
+      withProfile(
+        value(PROFILE.connected),
+        <>
+          <ProfileSlot className="desktop:hidden" />
+          <nav aria-label="Wide">
+            <ProfileSlot className="hidden desktop:block" />
+          </nav>
+        </>,
+      ),
+    );
+    const nav = within(screen.getByRole("navigation", { name: "Wide" })).getByRole("button", { name: "Profile: bal7hazar" });
     const header = screen.getAllByRole("button", { name: "Profile: bal7hazar" }).find((b) => b !== nav)!;
     const shown = (el: HTMLElement, on: boolean) => vi.spyOn(el, "getClientRects").mockReturnValue((on ? [new DOMRect(0, 0, 44, 44)] : []) as unknown as DOMRectList);
     // A phone: the header's avatar is shown, the navigation's hidden.
@@ -126,14 +135,12 @@ describe("ProfileSlot (#624)", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
-  it("a tab page has Back at its top left, not the avatar, which stays in the navigation (#760)", () => {
+  it("a tab page has Back at its top left, not the avatar, which is the home's (#760; no navigation header from desktop, #762)", () => {
     const { rerender } = render(withProfile(value(PROFILE.guest), <TabPage tab="vault" title="Vault">x</TabPage>));
-    const avatars = screen.getAllByRole("button", { name: "Profile: guest" });
-    expect(avatars).toHaveLength(1);
-    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Profile: guest" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: "Profile: guest" })).toHaveLength(0);
     expect(within(screen.getByRole("banner")).getByRole("button", { name: "Back" })).toBeInTheDocument();
     rerender(withProfile(value(PROFILE.guest), <TabPage tab="settings" title="Themes" onBack={() => {}}>x</TabPage>));
-    expect(screen.getAllByRole("button", { name: "Profile: guest" })).toHaveLength(1);
+    expect(screen.queryAllByRole("button", { name: "Profile: guest" })).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 

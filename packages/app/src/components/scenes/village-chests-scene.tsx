@@ -120,10 +120,10 @@ export function VillageChestsScene({
   const reset = ready || (resetsAt != null && now != null && now >= resetsAt);
   const empty = waiting.length === 0 && !opened;
   return (
-    <TabFrame tab="chests" onNavigate={onNavigate} desktop="none">
+    <TabFrame tab="chests" onNavigate={onNavigate}>
       <div className="flex min-h-full flex-col bg-background">
         <TopBar title="Chests" onBack={onBack} />
-        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] desktop:max-w-5xl">
+        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {status ? (
             <SkinsStatusView
               status={status}
@@ -140,7 +140,7 @@ export function VillageChestsScene({
               onRetry={onRetry}
             />
           ) : (
-            <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-2 desktop:items-start desktop:gap-6">
+            <div className="flex flex-col gap-4">
               <ChestSlots
                 won={pvpToday}
                 ranks={pvpRanks}
@@ -149,7 +149,7 @@ export function VillageChestsScene({
                 ready={reset}
                 look={look}
                 onPlay={empty ? undefined : onPlay}
-                className={cn(opened && "order-2 desktop:order-none")}
+                className={cn(opened && "order-2")}
               />
               <div className="flex flex-col gap-4">
                 <InlineError

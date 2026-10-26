@@ -64,7 +64,7 @@ export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "p
   );
 
   const slots = (
-    <ol aria-label="Today's PvP slots" className="grid grid-cols-3 gap-3 desktop:gap-6">
+    <ol aria-label="Today's PvP slots" className="grid grid-cols-3 gap-3">
       {Array.from({ length: PVP_CHESTS_A_DAY }, (_, i) => (
         <Slot key={i} index={i} won={i < taken} rank={ranks?.[i]} ready={ready} small={look === "dial" || (full && look === "pedestals")} reduced={reduced} />
       ))}
@@ -77,13 +77,13 @@ export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "p
       data-look={look}
       data-state={ready ? "ready" : full ? "full" : taken > 0 ? "some" : "free"}
       className={cn(
-        "relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl border bg-card px-4 py-5 text-center desktop:gap-6 desktop:px-8 desktop:py-8",
+        "relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl border bg-card px-4 py-5 text-center",
         ready ? "border-primary/60 bg-radial from-primary/20 to-card to-70%" : full ? "border-border bg-radial from-warning/10 to-card to-70%" : "border-border bg-radial from-glow to-card to-70%",
         className,
       )}
     >
       <header className="flex w-full items-center justify-between gap-2">
-        <h2 id="slots-title" className="font-display text-lg desktop:text-xl">
+        <h2 id="slots-title" className="font-display text-lg">
           Today's PvP chests
         </h2>
         <span aria-label={`${left} of ${PVP_CHESTS_A_DAY} left today`} className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", left > 0 ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground")}>
@@ -99,7 +99,7 @@ export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "p
           transition={{ type: "spring", stiffness: 400, damping: 18 }}
           className="flex flex-col items-center gap-1"
         >
-          <span className="flex items-center gap-2 font-display text-3xl text-primary desktop:text-4xl">
+          <span className="flex items-center gap-2 font-display text-3xl text-primary">
             <Icon name="sparkles" size="lg" /> Ready
           </span>
           <span className="text-sm text-muted-foreground">The slots are free again: 3 new chests to win today.</span>
@@ -113,7 +113,7 @@ export function ChestSlots({ won, ranks, resetsAt, now, ready = false, look = "p
         </>
       ) : full && !ready ? (
         <>
-          <div className="py-2 desktop:py-4">{countdown}</div>
+          <div className="py-2">{countdown}</div>
           {slots}
         </>
       ) : (
@@ -152,7 +152,7 @@ interface SlotProps {
 /** One slot: its chest on its pedestal once won, an empty pedestal while free. */
 function Slot({ index, won, rank, ready, small, reduced }: SlotProps) {
   const name = won ? `Slot ${index + 1}: won${rank ? `, ${CHEST_NAME[rank].toLowerCase()}` : ""}` : `Slot ${index + 1}: free${ready ? ", ready" : ""}`;
-  const box = small ? "size-16 desktop:size-20" : "size-24 desktop:size-28";
+  const box = small ? "size-16" : "size-24";
   return (
     <li aria-label={name} data-slot-state={won ? "won" : ready ? "ready" : "free"} className="flex flex-col items-center gap-1.5">
       <m.div
@@ -163,7 +163,7 @@ function Slot({ index, won, rank, ready, small, reduced }: SlotProps) {
       >
         {won ? (
           rank ? (
-            <ChestBadge rank={rank} size={small ? "md" : "lg"} className={cn(box, "[&_svg]:text-[2.5rem] desktop:[&_svg]:text-[3rem]")} />
+            <ChestBadge rank={rank} size={small ? "md" : "lg"} className={cn(box, "[&_svg]:text-[2.5rem]")} />
           ) : (
             <span aria-hidden className={cn("grid place-items-center rounded-2xl border-2 border-primary/60 bg-secondary text-primary", box)}>
               <Icon name="treasure-chest" size={small ? "xl" : "2xl"} />
@@ -188,7 +188,7 @@ function Slot({ index, won, rank, ready, small, reduced }: SlotProps) {
         )}
       </m.div>
       {/* The pedestal. */}
-      <span aria-hidden className={cn("h-2 rounded-[50%]", small ? "w-14" : "w-20 desktop:w-24", won ? "bg-muted-foreground/40" : ready ? "bg-primary/50" : "bg-secondary")} />
+      <span aria-hidden className={cn("h-2 rounded-[50%]", small ? "w-14" : "w-20", won ? "bg-muted-foreground/40" : ready ? "bg-primary/50" : "bg-secondary")} />
       <span aria-hidden className={cn("text-xs font-semibold", won ? "text-foreground" : ready ? "text-primary" : "text-muted-foreground")}>
         {won ? "Won" : ready ? "Ready" : "Free"}
       </span>
@@ -201,7 +201,7 @@ function Dial({ fraction, full, children }: { fraction: number; full: boolean; c
   const r = 46;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative grid size-56 place-items-center desktop:size-64">
+    <div className="relative grid size-56 place-items-center">
       <svg aria-hidden viewBox="0 0 100 100" className="absolute inset-0 size-full -rotate-90">
         <circle cx="50" cy="50" r={r} fill="none" strokeWidth="4" className="stroke-secondary" />
         <circle cx="50" cy="50" r={r} fill="none" strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - fraction)} className={full ? "stroke-warning" : "stroke-primary"} />

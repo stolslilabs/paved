@@ -72,7 +72,7 @@ export function VaultScene(props: VaultSceneProps) {
   if (status) {
     return (
       <TabPage tab="vault" title="Vault" subtitle={SUBTITLE} onNavigate={props.onNavigate}>
-        <div className="flex flex-col gap-4 desktop:max-w-xl">
+        <div className="flex flex-col gap-4">
           {status.kind === "guest" ? (
             <Notice title="Connect to use the Vault" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
               Your vPAVED, its worth and your PAVED are read for your account.
@@ -104,7 +104,7 @@ export function VaultScene(props: VaultSceneProps) {
   const nothing = none && balance === 0n;
   return (
     <TabPage tab="vault" title="Vault" subtitle={SUBTITLE} end={end} onNavigate={props.onNavigate}>
-      <div className="grid grid-cols-1 gap-4 desktop:grid-cols-[minmax(0,1fr)_22rem] desktop:items-start">
+      <div className="grid grid-cols-1 gap-4">
         <div className="flex flex-col gap-4">
           <section aria-label="Your position" data-slot="card" className="rounded-xl border border-primary/30 bg-card px-4 pt-4 pb-2">
             {none ? (

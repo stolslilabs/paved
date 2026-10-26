@@ -186,16 +186,16 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     }
   }, slow(60_000));
 
-  it("each overlay page's own Back (a tab page's Home) lands on the village", async () => {
+  it("each overlay page's own Back lands on the village", async () => {
     const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
-    for (const [name, path, back] of [
-      [/^Chests/, "/village/chests", "Back"],
-      ["Shop", "/village/shop", "Back"],
-      ["League", "/pvp/league", "Back"],
-      [/^Play/, "/play", "Back"],
-      [/^Missions/, "/missions", "Home"],
-      ["Vault", "/vault", "Home"],
-      ["Settings", "/settings", "Home"],
+    for (const [name, path] of [
+      [/^Chests/, "/village/chests"],
+      ["Shop", "/village/shop"],
+      ["League", "/pvp/league"],
+      [/^Play/, "/play"],
+      [/^Missions/, "/missions"],
+      ["Vault", "/vault"],
+      ["Settings", "/settings"],
     ] as const) {
       await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
       await waitFor(() => {
@@ -207,12 +207,8 @@ describe("/: the player's village is the home (#753), on the mock", () => {
         }
         expect(s.router.state.location.pathname).toBe(path);
       }, WAIT);
-      // The page's own way back: its header's Back (#760), or the desktop header's Home (the tab pages').
-      const way =
-        back === "Home"
-          ? await waitFor(() => within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Home" }), WAIT)
-          : await screen.findByRole("button", { name: "Back" }, WAIT);
-      await userEvent.click(way);
+      // The page's own way back: its header's Back (#760); there is no header navigation any more (#762).
+      await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
       await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
     }
   }, slow(90_000));

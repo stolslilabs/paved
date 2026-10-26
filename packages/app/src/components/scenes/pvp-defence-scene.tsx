@@ -78,7 +78,7 @@ function ShieldCard({ endsAt, now, unknown }: { endsAt: number | null | undefine
  */
 export function PvpDefenceScene({ attacks, shieldEndsAt, now, error, errorDetail, onBack, onNavigate, onReplay, onRetry, shieldUnknown }: PvpDefenceSceneProps) {
   return (
-    <TabFrame tab="league" onNavigate={onNavigate} desktop="none">
+    <TabFrame tab="league" onNavigate={onNavigate}>
       <div className="flex min-h-full flex-col bg-background text-foreground">
         <TopBar title="Defence log" onBack={onBack} />
         <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
