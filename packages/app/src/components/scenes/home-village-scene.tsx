@@ -122,7 +122,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
  * the safe areas. In view: the player's badge at the top left (#787: the avatar in its league's border, the name, the XP bar, the league
  * badge and the crowns), the village score under it (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
- * (a hammer, no text), large, at the bottom right with Edit (a pen) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
+ * (the two swords, no text, #807), large, at the bottom right with Edit (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
  * too, through a bubble by the tile with Edit and the hold's ring (LONGPRESS-EDIT, #799, the stage's `onEdit`).
@@ -397,13 +397,13 @@ function ViewOverlays({
         ) : (
           editable && (
             <Button size="icon" variant="outline" onClick={onEdit} aria-label="Edit village" className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
-              <Icon name="pen" size="lg" />
+              <Icon name="hammer" size="lg" />
             </Button>
           )
         )}
-        {/* Play, the main action (#755): a hammer, no text, gold and large, from `desktop`; below it the bar's centre disc (#763). */}
+        {/* Play, the main action (#755, #807): the two swords, no text, gold and large, from `desktop`; below it the bar's centre disc (#763). */}
         <Button size="icon" onClick={props.onPlay} aria-label="Play" className="hidden size-16 rounded-2xl shadow-lg tablet:size-18 desktop:inline-flex">
-          <Icon name="hammer" size="xl" />
+          <Icon name="swords" size="xl" />
         </Button>
       </div>
       {points && village && (
