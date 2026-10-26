@@ -105,7 +105,7 @@ export function ChestModal({
         className="flex max-h-[85dvh] flex-col overflow-hidden sm:max-w-sm bg-popover p-0 text-center"
       >
         {/* A short phone: the modal's body scrolls, its light kept inside it. */}
-        <ScrollRegion className="flex min-h-0 flex-col gap-4 overflow-x-hidden px-4 pt-6 pb-5">
+        <ScrollRegion className="flex min-h-0 flex-col gap-4 px-4 pt-6 pb-5">
           {phase === "reveal" && opened ? (
             <Reveal key={opened.chestId} opened={opened} busy={busy} owned={owned} tileArt={tileArt} initialChoice={initialChoice} held={held} onTake={onTake} />
           ) : phase === "taken" && taken ? (
