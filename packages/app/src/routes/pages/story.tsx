@@ -11,7 +11,8 @@ import { useAppNavigate, useUpTo } from "../ref";
  * `/story` (#546, #592): the campaigns as cards and the levels of the chosen one, with the stars and locks of this device's
  * progress. The chosen campaign is the address's `?campaign=` (replaced, not pushed), so Back from a level lands on it; a
  * campaign opened since the last visit is chosen instead, so its card is in view while it plays its unlock, once. Back goes
- * to the modes (`/play`), whatever route the player came from: never into the level just played (#614).
+ * to the modes (`/play`), whatever route the player came from: never into the level just played (#614). A sheet over the modes
+ * (BACK-RULE #783, `PageDef.sheet`): its close is that Back.
  */
 export default function Page() {
   const go = useAppNavigate();

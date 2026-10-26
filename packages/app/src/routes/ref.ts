@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { matchPath, useLocation, useNavigate, type NavigateOptions } from "react-router";
-import { useCanGoBack } from "./history";
-import { PAGES, TABS, type Tab } from "./pages";
+import { stepsBackTo, useTrackedHistory } from "./history";
+import { PAGES, TABS, type PageDef, type Tab } from "./pages";
 import { tabSwipe } from "./tab-swipe";
 
 /** The query key of the referral link (section 6.2): kept across every link and redirect of the app. */
@@ -38,7 +38,7 @@ export function useTabNavigate() {
 }
 
 /** The route map's page at `pathname`, in table order (a static path before a parameter's). */
-const pageAt = (pathname: string) => PAGES.find((p) => matchPath({ path: `/${p.path}`, end: true }, pathname));
+export const pageAt = (pathname: string): PageDef | undefined => PAGES.find((p) => matchPath({ path: `/${p.path}`, end: true }, pathname));
 
 /**
  * The parent in the route map of the page at `pathname` (`PageDef.parent`), the home without one. Read from the location, not
@@ -48,25 +48,43 @@ export function parentOf(pathname: string): string {
   return pageAt(pathname)?.parent ?? "/";
 }
 
+/** A full-screen flow (a game, a visit, the welcome, a purchase): neither a tab's page nor the side panel's. */
+const isFlow = (page: PageDef): boolean => page.nav === null && !page.panel;
+
 /**
- * Back (a scene's `onBack`): the previous in-app entry, or the page's parent in the route map when there is none (a deep link,
- * an old link, a reload; `PageDef.parent`, #760), the home for a page without one. Only for a page whose previous entry can
- * never be a game: a page reached after a game goes up with `useUpTo` instead.
+ * Back (a scene's `onBack`, BACK-RULE #783): up to the page's parent in the route map (`PageDef.parent`), the village for a page
+ * without one, by the one rule of `useUpTo`. A full-screen flow opened from a page (Training from Play, a visit from the League)
+ * goes back to that page, the entry just before it: never a flow's or a game's, so no Back lands in a game. So repeated Back
+ * reaches the village and never cycles: the page it goes back to goes up by the rule, the flow is ahead of it.
  */
 export function useBack() {
+  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const go = useAppNavigate();
-  const canGoBack = useCanGoBack();
-  const parent = parentOf(useLocation().pathname);
-  return useCallback(() => (canGoBack() ? navigate(-1) : go(parent, { replace: true })), [canGoBack, go, navigate, parent]);
+  const history = useTrackedHistory();
+  const up = useUpTo(parentOf(pathname));
+  return useCallback(() => {
+    const page = pageAt(pathname);
+    const h = history.current;
+    const opener = h && h.at > 0 ? pageAt(h.entries[h.at - 1]!.path.split(/[?#]/)[0]!) : undefined;
+    if (page && isFlow(page) && opener && !isFlow(opener)) navigate(-1);
+    else up();
+  }, [pathname, navigate, history, up]);
 }
 
 /**
- * Back up the information hierarchy (#614): always the page's parent route, whatever route the player came from. A page that
- * can be reached after a game (a level list, the modes, a game's end) uses it, so its Back never lands in a game, as the
- * browser history would when it holds the board's entry.
+ * The one Back rule (BACK-RULE #783, the owner's decisions of 2026-10-26: Back never cycles, it goes up toward the village and
+ * ends there). Up to `target`, never by a push: back through the history to the nearest earlier entry that shows `target` when
+ * this session knows one (the history after it, a game's entry included, is skipped, never shown), else in place of the current
+ * entry (a link, a reload, a page reached by a tab or a flow). A page never pushes its parent, so its parent's Back never finds
+ * it again. Full-screen flows (an attack, a result, a replay, a game's end) go up to the page they were opened from the same way.
  */
-export function useUpTo(parent: string) {
+export function useUpTo(target: string) {
+  const navigate = useNavigate();
   const go = useAppNavigate();
-  return useCallback(() => go(parent), [go, parent]);
+  const history = useTrackedHistory();
+  return useCallback(() => {
+    const steps = history.current && stepsBackTo(history.current, target);
+    if (steps) navigate(steps);
+    else go(target, { replace: true });
+  }, [history, target, navigate, go]);
 }

@@ -45,6 +45,17 @@ describe("the header's balances by page (#720, #781)", () => {
     const router = createTestRouter(concrete(path), (routes) => {
       const route = routeOf(routes, path);
       route.element = <TopBar title="Stand-in" />;
+      // A page under its sheets (BACK-RULE #783) is drawn by their route, which holds it: the stand-in goes there.
+      const holder = (rs: typeof routes): (typeof routes)[number] | undefined => {
+        for (const r of rs) {
+          if (route.path && !r.path && r.children?.[0] === route) return r;
+          const found = r.children && holder(r.children);
+          if (found) return found;
+        }
+        return undefined;
+      };
+      const sheets = holder(routes);
+      if (sheets) sheets.element = route.element;
       route.loader = undefined;
       // The home's welcome loader is its index's (#762).
       if (path === "") route.children![0]!.loader = undefined;

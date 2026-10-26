@@ -12,7 +12,7 @@ import { queryKeys } from "../../data/keys";
 import { firstQuestDay, useIndexerNow } from "../../data/quests";
 import { DAY_S, weekOfDay } from "../../lib/quest-window";
 import { useAccount } from "../../wallet/wallet";
-import { useAppNavigate, useTabNavigate } from "../ref";
+import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 
 /** `/missions/:day?` with a day number; anything else is today. */
 const dayParam = (raw: string | undefined): number | null => (raw !== undefined && /^\d{1,12}$/.test(raw) ? Number(raw) : null);
@@ -29,6 +29,7 @@ export default function Page() {
   const params = useParams();
   const go = useAppNavigate();
   const onNavigate = useTabNavigate();
+  const onBack = useBack();
   useAccount();
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
@@ -81,7 +82,7 @@ export default function Page() {
 
   if (today === null || day === null) {
     // The clock first: without it there is no day to show. Its failure is the page's error.
-    return <QuestsScene day={0} today={0} firstDay={0} quests={null} connected={playerId !== null} now={0} error={clock.error?.message ?? null} errorDetail={clock.error ? errorDetail(clock.error) : undefined} onNavigate={onNavigate} onRetry={retry} />;
+    return <QuestsScene day={0} today={0} firstDay={0} quests={null} connected={playerId !== null} now={0} error={clock.error?.message ?? null} errorDetail={clock.error ? errorDetail(clock.error) : undefined} onBack={onBack} onNavigate={onNavigate} onRetry={retry} />;
   }
 
   return (
@@ -97,13 +98,14 @@ export default function Page() {
       now={clock.now!}
       rewards={rewards.data ? { ...rewards.data, claiming: claims.claiming } : null}
       canClaim={claims.claimer !== null}
-      onDayChange={(d) => go(d === today ? "/missions" : `/missions/${d}`)}
+      onDayChange={(d) => go(d === today ? "/missions" : `/missions/${d}`, { replace: true })}
       onClaim={claimQuest}
       onClaimAll={claimAll}
       onClaimCredit={claimCredit}
-      onTab={(tab) => go(tab === "achievements" ? "/missions/lifetime" : "/missions")}
+      onTab={(tab) => go(tab === "achievements" ? "/missions/lifetime" : "/missions", { replace: true })}
       onConnect={() => go("/welcome")}
       onRetry={retry}
+      onBack={onBack}
       onNavigate={onNavigate}
     />
   );

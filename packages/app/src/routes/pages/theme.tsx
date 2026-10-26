@@ -59,8 +59,8 @@ export default function Page() {
       refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
       onDismissRefusal={writes.reset}
       onUse={use}
-      onOpen={(theme) => go(`/settings/theme/${theme}`)}
-      onMyTiles={() => go("/settings/tiles")}
+      onOpen={(theme) => go(`/settings/theme/${theme}`, { replace: true })}
+      onMyTiles={() => go("/settings/tiles", { replace: true })}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });

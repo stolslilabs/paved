@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { createBrowserRouter, createMemoryRouter } from "react-router";
 import { App } from "../src/App";
-import { earlierEntryExists } from "../src/routes/history";
+import { nextHistory, stepsBackTo } from "../src/routes/history";
 import { routes } from "../src/routes/router";
 import { BAR_TABS, PAGES } from "../src/routes/pages";
 import { withRef } from "../src/routes/ref";
@@ -55,19 +55,20 @@ describe("the active tab comes from the route's own entry", () => {
     if (page.path === "pvp/league") await screen.findByText("Connect to see your league.", undefined, { timeout: slow(5000) });
     else await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
     // The bar's own tabs are current on their pages; Missions and the Vault are the home's overlay's, no item current (#763).
-    const active = screen.queryAllByRole("button", { current: "page" });
+    // A sheet's page (BACK-RULE #783) is over Settings, whose bar is hidden from assistive technology while it is open.
+    const active = screen.queryAllByRole("button", { current: "page", hidden: page.sheet === true });
     expect(active.map((b) => b.getAttribute("aria-label"))).toEqual(BAR_TABS.includes(page.nav!) ? [TAB_LABEL[page.nav!]] : []);
   });
 
-  it("holds for the nested routes: /settings/theme and /referral are Settings, /pvp/defence is League", async () => {
+  it("holds for the sheets over a page: /settings/theme and /referral are Settings", async () => {
     for (const [path, tab] of [
       ["/settings/theme", "Settings"],
       ["/referral", "Settings"],
-      ["/pvp/defence", "League"],
     ] as const) {
       const { unmount } = render(<App router={createTestRouter(path)} />);
-      await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
-      expect(await screen.findByRole("button", { current: "page" })).toHaveAccessibleName(tab);
+      // Settings and its bar under the sheet, hidden from assistive technology while the sheet is open (no accessible name then).
+      await waitFor(() => expect(document.querySelector('nav[aria-label="Main"]')).not.toBeNull(), { timeout: slow(5000) });
+      expect((await screen.findByRole("button", { current: "page", hidden: true })).getAttribute("aria-label")).toBe(tab);
       unmount();
     }
   });
@@ -343,13 +344,21 @@ describe("Back", () => {
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
   });
 
-  it("goes to the previous in-app entry when there is one", async () => {
-    const router = open("/vault");
+  it("a game opened from a page goes back to it, and that page's Back up to the village (BACK-RULE #783)", async () => {
+    const router = open("/");
+    await screen.findByRole("heading", { level: 1, name: "Home" });
+    await act(() => router.navigate("/vault"));
     await screen.findByRole("heading", { level: 1, name: "Vault" });
     await act(() => router.navigate("/game/7"));
     await waitFor(() => expect(router.state.location.pathname).toBe("/game/7"));
     await userEvent.click(await screen.findByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/vault"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(async () => {
+      if (router.state.location.pathname === "/vault") await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      expect(router.state.location.pathname).toBe("/");
+    });
+    expect(router.state.historyAction).toBe("POP");
   });
 });
 
@@ -377,31 +386,38 @@ describe("?ref= on the error and not-found pages", () => {
   });
 });
 
-describe("Back after a reload (the browser history's index)", () => {
-  it("decides from idx when there is one, from the tracked entries otherwise", () => {
-    expect(earlierEntryExists(0, ["a", "b"])).toBe(false);
-    expect(earlierEntryExists(1, ["a"])).toBe(true);
-    expect(earlierEntryExists(undefined, ["a"])).toBe(false);
-    expect(earlierEntryExists(undefined, ["a", "b"])).toBe(true);
-    expect(earlierEntryExists(null, ["a", "b"])).toBe(true);
+describe("Back after a reload (the tracked entries, BACK-RULE #783)", () => {
+
+  it("tracks the entries as the browser keeps them, and finds the nearest earlier entry of a page", () => {
+    const e = (key: string, path: string) => ({ key, path });
+    let h = nextHistory(null, e("a", "/"), "POP");
+    h = nextHistory(h, e("b", "/pvp/league"), "PUSH");
+    h = nextHistory(h, e("c", "/pvp"), "PUSH");
+    h = nextHistory(h, e("d", "/pvp/result/1"), "REPLACE");
+    expect(h.entries.map((x) => x.path)).toEqual(["/", "/pvp/league", "/pvp/result/1"]);
+    // Up from the result: one entry back is the league, two the village; a page the history does not hold is none.
+    expect(stepsBackTo(h, "/pvp/league")).toBe(-1);
+    expect(stepsBackTo(h, "/")).toBe(-2);
+    expect(stepsBackTo(h, "/settings")).toBeNull();
+    // The current entry never counts, and the referral's `?ref=` is not part of a page.
+    expect(stepsBackTo({ entries: [e("a", "/?ref=0x1"), e("b", "/vault?ref=0x1")], at: 1 }, "/")).toBe(-1);
+    expect(stepsBackTo({ entries: [e("a", "/vault")], at: 0 }, "/vault")).toBeNull();
+    // A pop to a known entry keeps the ones after it (a Forward comes back to them); a push then drops them.
+    const back = nextHistory(h, e("b", "/pvp/league"), "POP");
+    expect(back).toEqual({ entries: h.entries, at: 1 });
+    expect(stepsBackTo(back, "/pvp/result/1")).toBeNull();
+    expect(nextHistory(back, e("f", "/vault"), "PUSH").entries.map((x) => x.key)).toEqual(["a", "b", "f"]);
+    // A pop to an unknown entry (a reload came between) knows nothing around it.
+    expect(nextHistory(h, e("z", "/vault"), "POP")).toEqual({ entries: [e("z", "/vault")], at: 0 });
   });
 
-  it("a page opened by a reload at idx > 0 goes back in the history, not Home", async () => {
-    window.history.replaceState({ usr: null, key: "k1", idx: 1 }, "", "/play/challenge");
-    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
-    const router = createBrowserRouter(routes);
-    render(<App router={router} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
-    expect(go).toHaveBeenCalledWith(-1);
-    router.dispose();
-  });
-
-  it("a page opened at idx 0 goes Home", async () => {
+  it("a page opened by a link or a reload goes up to its parent in place of its entry", async () => {
     window.history.replaceState({ usr: null, key: "k0", idx: 0 }, "", "/play/challenge");
     const router = createBrowserRouter(routes);
     render(<App router={router} />);
     await userEvent.click(await screen.findByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
+    expect(router.state.historyAction).toBe("REPLACE");
     router.dispose();
   });
 

@@ -9,8 +9,8 @@ export interface TabPageProps {
   tab: Tab;
   title: string;
   /**
-   * Back, at the top left (#760): the page's parent (a theme and the referral go back to Settings). Omitted, Back leads to the
-   * home, the village (`onNavigate("home")`): Missions, Vault and Settings.
+   * Back, at the top left (#760): up to the page's parent, the village (BACK-RULE #783, `useBack`). Omitted, the bar's Home
+   * (`onNavigate("home")`). A sheet over a page (`PageSheet`) shows its close instead.
    */
   onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
@@ -24,7 +24,7 @@ const COLUMN = "mx-auto w-full max-w-md px-4 tablet:max-w-2xl";
 /**
  * A page of the tabs (section 6.2), in the frame of the tab pages (`TabFrame`): the bottom bar below `desktop` (direction D,
  * #537); the content in one column that widens with the viewport up to `desktop`. Its header is every page's (`PageHeader`,
- * ONE-HEADER #781): Back at the top left (to the home on a tab's own page, to the parent on a page reached from another), the
+ * ONE-HEADER #781): Back at the top left (up to the village), the
  * title, the home's balances at the top right; sticky at the top of the page's scrolling region. The content starts right under it.
  * DESK-PANELS (#762): from `desktop` the page is in the home's side panel, laid out as on a phone.
  */

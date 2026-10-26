@@ -105,6 +105,8 @@ describe("/: a cold arrival under the fog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Draw village" }));
     await waitFor(() => expect(fog()).toBeNull(), { timeout: slow(FOG_CLEAR_MS + 2000) });
     await act(() => router.navigate("/settings"));
+    // The page drawn, the home gone (Settings and its sheets' layout are their own chunks, BACK-RULE #783), then Back.
+    await screen.findByRole("heading", { level: 1, name: "Settings" }, WAIT);
     await act(() => router.navigate(-1));
     await screen.findByTestId("home-canvas", {}, WAIT);
     expect(fog()).toHaveAttribute("data-arrival", "fade");

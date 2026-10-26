@@ -7,7 +7,7 @@ import { useDataSources } from "../../data/sources";
 import { exactUnits, useVaultDelegate, useVaultPreview, useVaultWrites } from "../../data/vault";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
-import { useAppNavigate, useTabNavigate } from "../ref";
+import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 
 /**
  * `/vault` (P10): the connected player's vPAVED on the Vault as it is on main, an OpenZeppelin ERC4626 over PAVED. The
@@ -22,6 +22,7 @@ import { useAppNavigate, useTabNavigate } from "../ref";
 export default function Page() {
   const go = useAppNavigate();
   const onNavigate = useTabNavigate();
+  const onBack = useBack();
   const wallet = useAccount();
   useConnectError(wallet.error);
   const { signer = null } = useDataSources();
@@ -98,6 +99,7 @@ export default function Page() {
         void balance.refetch();
       }}
       onPlay={() => go("/play")}
+      onBack={onBack}
       onNavigate={onNavigate}
     />
   );

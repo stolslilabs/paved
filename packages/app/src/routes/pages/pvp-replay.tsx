@@ -28,7 +28,8 @@ const ORIENTATIONS = Object.values(OrientationType);
 /**
  * `/pvp/replay/:attacker/:id` (#647 PR 2): attack `id` of `attacker` stepped through, move by move: its moves from
  * `Arena.moves` replayed on game-core's engine on the defender's board (the snapshot's parcels for the attacker's last attack,
- * `Arena.attack`; the territory now for an older one, which holds every cell it had), its target from the indexer's row.
+ * `Arena.attack`; the territory now for an older one, which holds every cell it had), its target from the indexer's row. A
+ * full-screen flow opened from the league's defence log (or a result): Back goes up to the league (BACK-RULE #783).
  */
 export default function Page() {
   const { attacker, id } = useParams();
@@ -37,7 +38,7 @@ export default function Page() {
 }
 
 function Replay({ attacker, id }: { attacker: string; id: number }) {
-  const onBack = useUpTo("/pvp/defence");
+  const onBack = useUpTo("/pvp/league");
   const status = usePvpStatus(attacker);
   const settled = usePvpSettled(attacker, id);
   const last = status.data?.attack.id === id ? status.data.attack : null;
