@@ -15,7 +15,7 @@ import { preloadPages } from "./route-helpers";
 // lifetime missions a tab of Missions, the defence log a section of the League), and Back never cycles: it goes up toward the
 // village and ends there, in two steps at most from any page.
 
-preloadPages("home", "quests", "achievements", "settings", "theme", "theme-shop", "my-tiles", "credits", "referral");
+preloadPages("home", "quests", "achievements", "settings", "theme", "theme-shop", "my-tiles", "credits", "referral", "play", "story", "board", "cobbles");
 
 const WAIT = { timeout: slow(5000) };
 
@@ -32,9 +32,9 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-function open(path: string) {
+function open(path: string, wallet = fakeWallet()) {
   const router = createTestRouter(path);
-  render(<App router={router} sources={fakeSources().sources} connector={fakeWallet().load} />);
+  render(<App router={router} sources={fakeSources().sources} connector={wallet.load} />);
   return router;
 }
 
@@ -52,7 +52,7 @@ describe("the route map", () => {
       expect(parent?.parent, page.path).toBeUndefined();
       if (page.panel) expect(page.sheet, page.path).toBe(true);
     }
-    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits"]);
+    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits"]);
     expect(PAGES.some((p) => p.path === "pvp/defence")).toBe(false);
   });
 });
@@ -127,5 +127,62 @@ describe("the lifetime missions are a tab of Missions", { timeout: slow(30_000) 
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     // Back through the history to the village's own entry: the missions are after it, never before it.
     expect(router.state.historyAction).toBe("POP");
+  });
+});
+
+describe("Play's modes (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
+  it("Story's campaigns open in a sheet over Play; its close goes back to Play, whose Back is the village", async () => {
+    const router = open("/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+    await router.navigate("/play");
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, WAIT);
+    await userEvent.click(await screen.findByText("Learn the rules level by level, then earn three stars on fixed decks.", {}, WAIT));
+    const dialog = await sheet("Story");
+    expect(router.state.location.pathname).toBe("/story");
+    expect(screen.getByRole("heading", { level: 1, name: "Choose a mode", hidden: true })).toBeInTheDocument();
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Close" }, WAIT));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
+    await waitFor(async () => {
+      if (router.state.location.pathname === "/play") await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      expect(router.state.location.pathname).toBe("/");
+    }, WAIT);
+  });
+
+  it("Training opened from Play goes back to Play, the page it was opened from", async () => {
+    const router = open("/play");
+    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, WAIT);
+    await userEvent.click(screen.getByRole("button", { name: /Training/ }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
+    expect(router.state.historyAction).toBe("POP");
+    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, WAIT)).toBeInTheDocument();
+  });
+
+  it("Training opened by a link goes up to the village", async () => {
+    const router = open("/training");
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  });
+});
+
+describe("the Cobble packs open in place over a page (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
+  it("the header's Cobbles on Missions open the packs in a sheet: the URL stays, the close leaves Missions as it was", async () => {
+    const router = open("/missions", fakeWallet({ restored: true }));
+    await screen.findByRole("heading", { level: 1, name: "Missions" }, WAIT);
+    const plate = (await screen.findAllByRole("button", { name: /Cobbles: Buy packs/ }, WAIT))[0]!;
+    await userEvent.click(plate);
+    await sheet("Cobbles");
+    expect(router.state.location.pathname).toBe("/missions");
+    // The packs' header may still swap its nodes as they load: the close is pressed again until the sheet goes.
+    await waitFor(async () => {
+      const open = screen.queryByRole("dialog", { name: "Cobbles" });
+      if (open) await userEvent.click(within(open).getByRole("button", { name: "Close" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    }, WAIT);
+    expect(router.state.location.pathname).toBe("/missions");
+    expect(screen.getByRole("heading", { level: 1, name: "Missions" })).toBeInTheDocument();
   });
 });

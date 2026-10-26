@@ -3069,12 +3069,15 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
   the same kind: what a page shows beyond itself it shows in place. Settings' pages (the themes, a theme, My tiles, the
   credits, the referral) are sheets over Settings (`PageDef.sheet`, `routes/page-sheets.tsx`; from the bottom on a phone,
   from the right from `desktop`, over the side panel), their URLs kept so a link opens them over Settings; a move from one
-  to another replaces its entry. The lifetime missions are a tab of Missions (the switch replaces the entry); the defence
+  to another replaces its entry. Story's campaigns are a sheet over Play's modes (`/story`). The Cobble packs open in place,
+  in a sheet over the page that asks for them (`routes/cobbles-sheet.tsx`: a theme's or the tile shop's Get Cobbles, the
+  avatar's, the header's Cobbles off the village), with no entry pushed. The lifetime missions are a tab of Missions (the switch replaces the entry); the defence
   log is a section of the League (`/pvp/defence` redirects there). The full-screen flows (a game, an attack, a result, a
-  replay) are not pages in this sense. One Back rule (`useUpTo` in `routes/ref.ts`): Back goes up to the page's parent
+  replay) are not pages in this sense; a flow opened from a page (Training from Play, a visit from the League) goes back
+  to it, the entry just before it, never to a flow's or a game's. One Back rule (`useUpTo` in `routes/ref.ts`): Back goes up to the page's parent
   (`PageDef.parent`, the village without one; only a sheet or a flow names one, so two steps at most), back through the
-  history to the nearest earlier entry of that parent when the session knows one (`routes/history.tsx`, kept in
-  `sessionStorage` across a reload), else in place of the current entry; never a push, so a parent's Back never finds its
+  history to the nearest earlier entry of that parent when the session knows one (`routes/history.tsx`; a reload starts
+  again from its own entry), else in place of the current entry; never a push, so a parent's Back never finds its
   child again. The browser's own back button still walks the history.
 
 ### 6.3 What maps to what

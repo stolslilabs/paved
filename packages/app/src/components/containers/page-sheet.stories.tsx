@@ -3,11 +3,16 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { titleOf } from "../../lib/music/track-info";
 import { TRACKS } from "../../lib/music/tracks";
-import { MY_TILES, REFERRAL, SETTINGS, THEME, THEME_SHOP } from "../../mocks/scenes";
+import { CAMPAIGNS, EMPTY_PROGRESS } from "@paved/game-core";
+import { appRenders } from "../../mocks/assets";
+import { COBBLES, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, THEME_SHOP } from "../../mocks/scenes";
+import { CobblesScene } from "../scenes/cobbles-scene";
 import { CreditsScene } from "../scenes/credits-scene";
 import { MyTilesScene } from "../scenes/my-tiles-scene";
+import { PlayScene } from "../scenes/play-scene";
 import { ReferralScene } from "../scenes/referral-scene";
 import { SettingsScene } from "../scenes/settings-scene";
+import { StoryScene } from "../scenes/story-scene";
 import { ThemeScene } from "../scenes/theme-scene";
 import { ThemeShopScene } from "../scenes/theme-shop-scene";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
@@ -21,7 +26,8 @@ const READY = { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_
  * BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page. Settings' pages (the themes, a theme, My
  * tiles, the credits, the referral) are this sheet over Settings: from the bottom on a phone (a drag down closes it), from the
  * right from `desktop`, over Settings' side panel. Its header has the title, the Cobbles and the close, never Back: the close goes
- * up to Settings. On the mock.
+ * up to Settings. Story's campaigns are the same sheet over Play's modes, and the Cobble packs open in it over the page that asks
+ * for them (a theme's Get Cobbles, the tile shop's, the avatar's, the header's Cobbles off the village). On the mock.
  */
 const meta = {
   title: "Containers/PageSheet",
@@ -32,27 +38,29 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Settings under the sheet: a full page on a phone, the side panel from `desktop`. */
-function OverSettings({ panel, children }: { panel: boolean; children: ReactNode }) {
-  const settings = <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} onBack={fn()} />;
+const SETTINGS_PAGE = <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} onBack={fn()} />;
+const PLAY_PAGE = <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onTraining={fn()} onStory={fn()} onAttack={fn()} />;
+
+/** The page under the sheet (Settings by default): a full page on a phone, the side panel from `desktop`. */
+function OverSettings({ panel, under = SETTINGS_PAGE, title = "Settings", children }: { panel: boolean; under?: ReactNode; title?: string; children: ReactNode }) {
   return (
     <BalancesProvider value={{ state: READY, onAction: fn() }}>
       {panel ? (
-        <PagePanel open title="Settings" onClose={fn()}>
-          {settings}
+        <PagePanel open title={title} onClose={fn()}>
+          {under}
         </PagePanel>
       ) : (
-        settings
+        under
       )}
       {children}
     </BalancesProvider>
   );
 }
 
-const sheet = (title: string, page: ReactNode, wide = false): Story => ({
+const sheet = (title: string, page: ReactNode, wide = false, under?: { page: ReactNode; title: string }): Story => ({
   args: { title, side: wide ? "right" : "bottom" },
   render: (args) => (
-    <OverSettings panel={wide}>
+    <OverSettings panel={wide} under={under?.page} title={under?.title}>
       <PageSheet {...args}>{page}</PageSheet>
     </OverSettings>
   ),
@@ -78,5 +86,14 @@ export const ThemeWide: Story = sheet("Theme", shop, true);
 export const MyTilesWide: Story = sheet("My tiles", tiles, true);
 export const CreditsWide: Story = sheet("Credits", credits, true);
 export const ReferralWide: Story = sheet("Referral", referral, true);
+const story = <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} onCampaign={fn()} onLevel={fn()} />;
+const packs = <CobblesScene {...COBBLES.packs} onBack={fn()} onSelectPack={fn()} onBuyPack={fn()} />;
+const overPlay = { page: PLAY_PAGE, title: "Play" };
+/** Story's campaigns over Play's modes: the close goes back to Play; a level opens full screen. */
+export const StoryPhone: Story = sheet("Story", story, false, overPlay);
+export const StoryWide: Story = sheet("Story", story, true, overPlay);
+/** The Cobble packs in place over the page that asked for them (here Settings, from the header's Cobbles): no page is opened. */
+export const CobblesPhone: Story = sheet("Cobbles", packs);
+export const CobblesWide: Story = sheet("Cobbles", packs, true);
 /** Reduced motion: the sheet appears without sliding. */
 export const ReducedMotion: Story = { ...ThemesPhone, parameters: { ...ThemesPhone.parameters, reducedMotion: "always" } };

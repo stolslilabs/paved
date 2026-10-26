@@ -66,6 +66,7 @@ describe("the route map (#762)", () => {
       "village/chests",
       "village/shop",
       "pvp/league",
+      "story",
       "missions/lifetime",
       "missions/:day?",
       "vault",
@@ -76,8 +77,8 @@ describe("the route map (#762)", () => {
       "settings/credits",
       "settings",
     ]);
-    // No page opens another (BACK-RULE #783): only Settings' sheets name a parent, and it is Settings.
-    expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && p.parent === "/settings")).toBe(true);
+    // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
+    expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
   });
 });
 

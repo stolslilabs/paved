@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useLocation, useNavigationType } from "react-router";
 
 /** One entry of the history this session walked: its router key and the path it shows. */
@@ -6,9 +6,6 @@ export interface TrackedEntry {
   key: string;
   path: string;
 }
-
-/** Where the tracked entries are kept across a reload of the same entry (the browser keeps its history, not ours). */
-const STORE = "paved:history";
 
 /**
  * The entries this session walked, as the browser keeps them: `at` is the current one's. A push drops the entries after `at` and
@@ -41,40 +38,15 @@ export function stepsBackTo({ entries, at }: TrackedHistory, path: string): numb
   return null;
 }
 
-function withoutRef(path: string): string {
-  const at = path.indexOf("?");
-  if (at < 0) return path;
-  const params = new URLSearchParams(path.slice(at));
-  params.delete("ref");
-  const rest = params.toString();
-  return rest ? `${path.slice(0, at)}?${rest}` : path.slice(0, at);
-}
-
-function stored(key: string): TrackedHistory | null {
-  // A memory history's first entry is "default", every one alike: never one to restore.
-  if (key === "default") return null;
-  try {
-    const history = JSON.parse(sessionStorage.getItem(STORE) ?? "null") as TrackedHistory | null;
-    return history && Array.isArray(history.entries) && history.entries[history.at]?.key === key ? history : null;
-  } catch {
-    return null;
-  }
-}
-
-function store(history: TrackedHistory) {
-  try {
-    sessionStorage.setItem(STORE, JSON.stringify(history));
-  } catch {
-    // Storage off: a reload forgets the entries before it, and Back goes up by replacing.
-  }
-}
+/** `path` without the referral's `?ref=`, which `withRef` puts last on every link. */
+const withoutRef = (path: string): string => path.replace(/[?&]ref=[^&#]*$/, "");
 
 /** The history this session has walked; `null` before its first entry (a plain router, the stories'). */
 const History = createContext<{ current: TrackedHistory | null }>({ current: null });
 
 /**
- * Keeps the entries from the location changes, for Back (`useUpTo`): which earlier entry shows the page Back goes up to. Kept in
- * `sessionStorage`, so a reload of the same entry still knows the ones before it.
+ * Keeps the entries from the location changes, for Back (`useUpTo`): which earlier entry shows the page Back goes up to. A reload
+ * starts again from its own entry: Back then goes up in place of it.
  */
 export function HistoryTracker({ children }: { children: ReactNode }) {
   const { key, pathname, search } = useLocation();
@@ -82,14 +54,12 @@ export function HistoryTracker({ children }: { children: ReactNode }) {
   const history = useRef<TrackedHistory | null>(null);
   useLayoutEffect(() => {
     const entry = { key, path: pathname + search };
-    history.current = history.current === null ? (stored(key) ?? nextHistory(null, entry, type)) : nextHistory(history.current, entry, type);
-    store(history.current);
+    history.current = nextHistory(history.current, entry, type);
   }, [key, pathname, search, type]);
   return <History.Provider value={history}>{children}</History.Provider>;
 }
 
-/** Read when Back is pressed: the step back to the nearest earlier entry showing `path`, or `null`. */
-export function useStepsBackTo(): (path: string) => number | null {
-  const history = useContext(History);
-  return useCallback((path) => (history.current ? stepsBackTo(history.current, path) : null), [history]);
+/** The history this session has walked, read when Back is pressed (`useUpTo`, `useBack`); `null` before its first entry. */
+export function useTrackedHistory(): { current: TrackedHistory | null } {
+  return useContext(History);
 }

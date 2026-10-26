@@ -34,6 +34,8 @@ function open(path: string, store = memoryStore()) {
 
 const at = (router: ReturnType<typeof createTestRouter>) => `${router.state.location.pathname}${router.state.location.search}`;
 const back = () => userEvent.click(screen.getByRole("button", { name: "Back" }));
+/** The close of the sheet over a page (BACK-RULE #783): Story's campaigns are a sheet over Play. */
+const close = async (sheet: string) => userEvent.click(within(await screen.findByRole("dialog", { name: sheet }, { timeout: slow(5000) })).getByRole("button", { name: "Close" }));
 
 /** Discards every tile of Tutorial level 1 (its deck presented already): the level's end. */
 async function finishLevelOne() {
@@ -55,8 +57,9 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await userEvent.click(within(end).getByRole("button", { name: "Levels" }));
     // The campaign's list, in place of the finished level's entry.
     await waitFor(() => expect(at(router)).toBe("/story?campaign=1"));
-    await back();
+    await close("Story");
     await waitFor(() => expect(at(router)).toBe("/play"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Story" })).toBeNull(), { timeout: slow(5000) });
     expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
 
     // Back went back through the history to Play's own entry (BACK-RULE #783): the level and the lists after it are skipped,
@@ -70,10 +73,10 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     });
   });
 
-  it("the level list's Back is the Play page whatever route opened it", async () => {
+  it("the level list's close is the Play page whatever route opened it", async () => {
     const router = open("/story?campaign=1");
     await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
-    await back();
+    await close("Story");
     await waitFor(() => expect(at(router)).toBe("/play"));
   });
 

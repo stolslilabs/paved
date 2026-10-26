@@ -56,7 +56,8 @@ export const PAGES: readonly PageDef[] = [
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
   { path: "pvp/league", title: "League", nav: "league", panel: true },
   { path: "training", title: "Training", nav: null },
-  { path: "story", title: "Story", nav: null },
+  // Story's campaigns, a sheet over Play's mode choice (BACK-RULE #783); a level is a full-screen flow.
+  { path: "story", title: "Story", nav: null, parent: "/play", sheet: true, panel: true },
   { path: "story/:campaign/:level", title: "Story", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },

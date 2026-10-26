@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { matchPath, useLocation, useNavigate, type NavigateOptions } from "react-router";
-import { useStepsBackTo } from "./history";
+import { stepsBackTo, useTrackedHistory } from "./history";
 import { PAGES, TABS, type PageDef, type Tab } from "./pages";
 import { tabSwipe } from "./tab-swipe";
 
@@ -48,12 +48,27 @@ export function parentOf(pathname: string): string {
   return pageAt(pathname)?.parent ?? "/";
 }
 
+/** A full-screen flow (a game, a visit, the welcome, a purchase): neither a tab's page nor the side panel's. */
+const isFlow = (page: PageDef): boolean => page.nav === null && !page.panel;
+
 /**
  * Back (a scene's `onBack`, BACK-RULE #783): up to the page's parent in the route map (`PageDef.parent`), the village for a page
- * without one, by the one rule of `useUpTo`. So repeated Back reaches the village and never cycles.
+ * without one, by the one rule of `useUpTo`. A full-screen flow opened from a page (Training from Play, a visit from the League)
+ * goes back to that page, the entry just before it: never a flow's or a game's, so no Back lands in a game. So repeated Back
+ * reaches the village and never cycles: the page it goes back to goes up by the rule, the flow is ahead of it.
  */
 export function useBack() {
-  return useUpTo(parentOf(useLocation().pathname));
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const history = useTrackedHistory();
+  const up = useUpTo(parentOf(pathname));
+  return useCallback(() => {
+    const page = pageAt(pathname);
+    const h = history.current;
+    const opener = h && h.at > 0 ? pageAt(h.entries[h.at - 1]!.path.split(/[?#]/)[0]!) : undefined;
+    if (page && isFlow(page) && opener && !isFlow(opener)) navigate(-1);
+    else up();
+  }, [pathname, navigate, history, up]);
 }
 
 /**
@@ -66,10 +81,10 @@ export function useBack() {
 export function useUpTo(target: string) {
   const navigate = useNavigate();
   const go = useAppNavigate();
-  const stepsBackTo = useStepsBackTo();
+  const history = useTrackedHistory();
   return useCallback(() => {
-    const steps = stepsBackTo(target);
-    if (steps !== null) navigate(steps);
+    const steps = history.current && stepsBackTo(history.current, target);
+    if (steps) navigate(steps);
     else go(target, { replace: true });
-  }, [stepsBackTo, target, navigate, go]);
+  }, [history, target, navigate, go]);
 }

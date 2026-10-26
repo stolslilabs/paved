@@ -1,7 +1,6 @@
 import { lazy, type ComponentType } from "react";
 import { createBrowserRouter, createMemoryRouter, replace, type LoaderFunctionArgs, type RouteObject } from "react-router";
 import { HomeLayout } from "./home-layout";
-import { PageWithSheets } from "./page-sheets";
 import { PAGE_LOADERS, type PageLoader } from "./page-loaders";
 import { PAGES, type PageDef } from "./pages";
 import { withRef } from "./ref";
@@ -20,6 +19,8 @@ const pageComponent = (path: string): ComponentType => {
   return lazies.get(load)!;
 };
 const NotFound = lazy(() => import("./pages/not-found"));
+/** A page and its sheets (BACK-RULE #783): its own chunk, as the pages. */
+const PageWithSheets = lazy(() => import("./page-sheets"));
 
 /** A redirect that keeps the request's `?ref=`. It replaces the entry, so Back never lands on the old link. */
 function to(path: string, request: Request) {

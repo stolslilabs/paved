@@ -344,7 +344,7 @@ describe("Back", () => {
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
   });
 
-  it("goes up to the village, back to its entry when there is one, never to the page before (BACK-RULE #783)", async () => {
+  it("a game opened from a page goes back to it, and that page's Back up to the village (BACK-RULE #783)", async () => {
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" });
     await act(() => router.navigate("/vault"));
@@ -352,7 +352,12 @@ describe("Back", () => {
     await act(() => router.navigate("/game/7"));
     await waitFor(() => expect(router.state.location.pathname).toBe("/game/7"));
     await userEvent.click(await screen.findByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/vault"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(async () => {
+      if (router.state.location.pathname === "/vault") await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      expect(router.state.location.pathname).toBe("/");
+    });
     expect(router.state.historyAction).toBe("POP");
   });
 });
@@ -382,7 +387,6 @@ describe("?ref= on the error and not-found pages", () => {
 });
 
 describe("Back after a reload (the tracked entries, BACK-RULE #783)", () => {
-  beforeEach(() => sessionStorage.clear());
 
   it("tracks the entries as the browser keeps them, and finds the nearest earlier entry of a page", () => {
     const e = (key: string, path: string) => ({ key, path });
@@ -407,18 +411,7 @@ describe("Back after a reload (the tracked entries, BACK-RULE #783)", () => {
     expect(nextHistory(h, e("z", "/vault"), "POP")).toEqual({ entries: [e("z", "/vault")], at: 0 });
   });
 
-  it("a page opened by a reload goes back to its parent's entry when the session knows it", async () => {
-    sessionStorage.setItem("paved:history", JSON.stringify({ entries: [{ key: "k0", path: "/play" }, { key: "k1", path: "/play/challenge" }], at: 1 }));
-    window.history.replaceState({ usr: null, key: "k1", idx: 1 }, "", "/play/challenge");
-    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
-    const router = createBrowserRouter(routes);
-    render(<App router={router} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
-    expect(go).toHaveBeenCalledWith(-1);
-    router.dispose();
-  });
-
-  it("a page opened by a link goes up to its parent in place of its entry", async () => {
+  it("a page opened by a link or a reload goes up to its parent in place of its entry", async () => {
     window.history.replaceState({ usr: null, key: "k0", idx: 0 }, "", "/play/challenge");
     const router = createBrowserRouter(routes);
     render(<App router={router} />);
