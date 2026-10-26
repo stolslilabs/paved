@@ -60,6 +60,8 @@ export interface AttackV2State {
 
 export interface AttackV2Views {
   attackV2(attacker: string): Promise<AttackV2State>;
+  /** The attacker's attack `id`, open or ended (its result's page, #790); null when they have none of that id. */
+  attackV2Of(attacker: string, id: number): Promise<AttackV2 | null>;
 }
 
 export interface AttackV2Writes {
@@ -74,7 +76,7 @@ export interface AttackV2Writes {
 
 export function attackV2Views(views: GameViews): AttackV2Views | null {
   const v = views as GameViews & Partial<AttackV2Views>;
-  return typeof v.attackV2 === "function" ? (v as AttackV2Views) : null;
+  return typeof v.attackV2 === "function" && typeof v.attackV2Of === "function" ? (v as AttackV2Views) : null;
 }
 
 export function attackV2Signer(sources: Pick<DataSources, "signer">): AttackV2Writes | null {
@@ -106,6 +108,22 @@ export function useAttackV2(attacker: string | null): { data: AttackV2State | nu
   });
   if (attacker === null || v2 === null) return { data: null, isPending: false, error: null };
   return { data: query.data, isPending: query.isPending && !query.error, error: query.error };
+}
+
+/**
+ * The attacker's attack `id` (#790: a result's link stays good after the next attack). Null where v2 is not served, or where
+ * the attacker has no v2 attack of that id (an id of v1's); undefined while it is read.
+ */
+export function useAttackV2Of(attacker: string | null, id: number): { data: AttackV2 | null | undefined; error: Error | null } {
+  const { views } = useDataSources();
+  const v2 = attackV2Views(views);
+  const query = useQuery({
+    queryKey: queryKeys.chain.v2.attackOf(attacker ?? "0x0", id),
+    queryFn: () => orNone(() => v2!.attackV2Of(attacker!, id)),
+    enabled: attacker !== null && v2 !== null,
+  });
+  if (attacker === null || v2 === null) return { data: null, error: null };
+  return { data: query.data, error: query.error };
 }
 
 export type AttackV2Write = { kind: "search" } | { kind: "next" } | { kind: "start" } | { kind: "play"; move: QueuedMove } | { kind: "surrender" };
