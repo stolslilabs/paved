@@ -160,7 +160,7 @@ export const WaitingWide: Story = { ...Waiting, ...WIDE_1440, decorators: [inPan
 export const InteractivePhone: Story = { ...Interactive, ...PHONE_375 };
 export const InteractiveWide: Story = { ...Interactive, ...WIDE_1440, decorators: [inPanel("Chests")] };
 export const SlotsPhone: Story = { ...Slots, ...PHONE_375 };
-/** PAGES-SCROLL (#782): at 375 px the page scrolls in its region to its last chest, the header sticky above it. */
-export const WaitingPhoneScrolled: Story = { ...WaitingPhone, play: scrolledToEnd };
-/** PAGES-SCROLL (#782): at 1440 px the panel's body scrolls to the last chest; no close button (a click outside or Escape). */
-export const WaitingWideScrolled: Story = { ...WaitingWide, play: scrolledToEnd };
+/** PAGES-SCROLL (#782): at 375 px, the page with its modal closed (a tile kept) scrolled in its region to its end, the header sticky above it. */
+export const KeptPhoneScrolled: Story = { ...Kept, ...PHONE_375, play: scrolledToEnd };
+/** PAGES-SCROLL (#782): at 1440 px the panel's body scrolled to the page's end; no close button (a click outside or Escape). */
+export const KeptWideScrolled: Story = { ...Kept, ...WIDE_1440, decorators: [inPanel("Chests")], play: scrolledToEnd };
