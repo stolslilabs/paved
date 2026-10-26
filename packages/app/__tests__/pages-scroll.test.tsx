@@ -21,7 +21,7 @@ import { VillageChestsScene } from "../src/components/scenes/village-chests-scen
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { PVP_DEFENCE, PVP_LEAGUE } from "../src/mocks/pvp";
 import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
-import { CHESTS, VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
+import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
 import { titleOf } from "../src/lib/music/track-info";
 import { TRACKS } from "../src/lib/music/tracks";
 
@@ -35,11 +35,9 @@ import { TRACKS } from "../src/lib/music/tracks";
  * `e2e/pages-scroll.e2e.ts` (`bun run e2e -- pages-scroll`).
  */
 const no = () => vi.fn();
-/** A dozen chests waiting: the Chests page's list runs below the fold (#782's report). */
-const CHEST_LIST = Array.from({ length: 12 }, (_, i) => ({ ...CHESTS[i % CHESTS.length]!, id: 100 + i }));
 const PAGES: readonly [string, ReactNode][] = [
   ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onNavigate={no()} onBuy={no()} onGetCobbles={no()} />],
-  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.waiting} chests={CHEST_LIST} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
+  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
   ["League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={no()} onNavigate={no()} onAttack={no()} onDefence={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
   ["Missions", <QuestsScene {...QUESTS.today} onNavigate={no()} onDayChange={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
@@ -142,7 +140,7 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
       expect(el.className).not.toMatch(/(^|\s)(overflow-(y-)?(auto|scroll|hidden|clip)|h-dvh|h-screen|h-full)(\s|$)/);
   });
 
-  it("the League and the Chests draw their content in the region: the leagues' carousel and season, every waiting chest", () => {
+  it("the League and the Chests draw their content in the region: the leagues' carousel and season, the day's slots", () => {
     const { unmount } = draw(PAGES[2]![1], false, "League");
     const region = document.querySelector("[data-slot=page-scroll]")!;
     // The carousel of the 23 leagues (#785), then the season and the actions, all under the sticky header.
@@ -152,8 +150,9 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(region).toContainElement(screen.getByRole("button", { name: /Defence log/ }));
     unmount();
     draw(PAGES[1]![1], false, "Chests");
-    const waiting = screen.getByRole("region", { name: /Waiting/ });
-    expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(waiting);
-    expect(waiting.querySelectorAll("li")).toHaveLength(12);
+    // The page with the chest modal closed (#784): the day's three slots, under the sticky header.
+    const slots = screen.getByRole("list", { name: "Today's PvP slots" });
+    expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(slots);
+    expect(slots.querySelectorAll(":scope > li")).toHaveLength(3);
   });
 });

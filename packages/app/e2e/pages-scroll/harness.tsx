@@ -1,7 +1,7 @@
 /**
  * PAGES-SCROLL (#782): the harness of `pages-scroll.e2e.ts`, served by the Vite dev server (never built). `?page=<id>` draws one
  * page's scene with content taller than a 375 x 812 phone and than the 1440 x 900 side panel (the mocks' content, its lists
- * made long: a dozen chests waiting, a long defence log, more offers, more missions; the referral's widest text), as the app draws it: in the tab frame
+ * made long: a long defence log, more offers, more missions; the referral's widest text), as the app draws it: in the tab frame
  * below `desktop`, or `&panel=1` in the home's side panel.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -32,7 +32,7 @@ import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_DEFENCE, PVP_LEAGUE } from "../../src/mocks/pvp";
 import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../../src/mocks/scenes";
-import { CHESTS, VILLAGE_CHESTS, VILLAGE_SHOP } from "../../src/mocks/village-v2";
+import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../../src/mocks/village-v2";
 
 const no = () => {};
 /** `list` made `n` long, each copy with its own `key` number. */
@@ -43,7 +43,6 @@ function long<T>(list: readonly T[], n: number, key?: keyof T): T[] {
   });
 }
 
-const chests = long(CHESTS, 12, "id");
 const quests = QUESTS.today.quests;
 
 /**
@@ -52,7 +51,7 @@ const quests = QUESTS.today.quests;
  */
 export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true }> = {
   shop: { title: "Tile shop", page: <VillageShopScene {...VILLAGE_SHOP.today} offers={long(VILLAGE_SHOP.today.offers, 9)} onBack={no} onNavigate={no} onBuy={no} onGetCobbles={no} /> },
-  chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.waiting} chests={chests} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
+  chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.kept} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
   league: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} best={PVP_LEAGUE.lastDay.crowns + 400} attacks={2} onBack={no} onNavigate={no} onAttack={no} onDefence={no} /> },
   settings: { title: "Settings", page: <SettingsScene {...SETTINGS.connected} onNavigate={no} onChange={no} /> },
   missions: { title: "Missions", page: <QuestsScene {...QUESTS.today} quests={{ ...quests, quests: long(quests.quests, 9, "questId") }} onNavigate={no} onDayChange={no} onTab={no} onClaim={no} onClaimAll={no} /> },

@@ -700,7 +700,9 @@ export class MockLedger {
     const open = v2.chests.open;
     return {
       pending: v2.chests.pending.map((c) => c.rank),
+      origins: v2.chests.pending.map((c) => c.origin ?? null),
       open: open ? { rank: open.rank, plans: [...open.plans], cobbles: open.cobbles } : null,
+      openOrigin: open?.origin ?? null,
       pvpToday: v2.pvpChests[dayOf(this.now())] ?? 0,
       pvpCap: PVP_CHESTS_PER_DAY,
     };
@@ -844,7 +846,7 @@ export class MockLedger {
       surrenderAttack: () => this.surrenderAttack(account),
       foundFreeVillage: () => this.foundFreeVillage(account),
       saveLayout: (tiles) => this.saveLayout(account, tiles),
-      openChest: () => this.openChest(account),
+      openChest: (index) => this.openChest(account, index),
       claimChest: (slot) => this.claimChest(account, slot),
       buyTile: (request) => this.buyTile(account, request),
       reportStory: (report) => this.reportStory(account, report),
@@ -1202,16 +1204,19 @@ export class MockLedger {
     });
   }
 
-  /** Opens the oldest chest waiting (`drawChest`, a Poseidon for the VRF): its tiles shown, its Cobbles credited when they drop. */
-  async openChest(account: string): Promise<WriteResult> {
+  /**
+   * Opens a chest waiting (`drawChest`, a Poseidon for the VRF): the one at `index` in the pending list, the player's pick (#784),
+   * the oldest when unset. Its tiles shown, its Cobbles credited when they drop.
+   */
+  async openChest(account: string, index = 0): Promise<WriteResult> {
     await sleep(this.latency);
     return this.writeV2(account, (p, v2, hash) => {
       if (v2.chests.open) throw new V2RefusedError("chest-open", hash);
-      const chest = v2.chests.pending.shift();
+      const chest = Number.isInteger(index) && index >= 0 ? v2.chests.pending.splice(index, 1)[0] : undefined;
       if (!chest) throw new V2RefusedError("no-chest", hash);
       const draw = drawChest(chest.rank, chest.league, poseidon(CHEST_DRAW, BigInt(account), BigInt(v2.chests.opened)));
       v2.chests.opened += 1;
-      v2.chests.open = { rank: draw.rank, plans: [...draw.plans], cobbles: draw.cobbles };
+      v2.chests.open = { rank: draw.rank, plans: [...draw.plans], cobbles: draw.cobbles, ...(chest.origin ? { origin: chest.origin } : {}) };
       p.cobbles += draw.cobbles;
       return [this.event("ChestOpened", { playerId: account, rank: draw.rank, plans: draw.plans.join(","), cobbles: draw.cobbles, balance: p.cobbles })];
     });
@@ -1268,7 +1273,7 @@ export class MockLedger {
       const xp = addXp(v2.xp, storyXp(best, stars));
       v2.xp = xp.xp;
       const chest = storyChestRank(level, levels, best, stars);
-      if (chest) v2.chests.pending.push({ rank: chest, league: this.leagueOf(p) });
+      if (chest) v2.chests.pending.push({ rank: chest, league: this.leagueOf(p), origin: { source: "story" } });
       v2.story[key] = Math.max(best, stars);
       return [this.event("StoryReported", { playerId: account, campaign, level, stars, xp: xp.gained, chest: chest ?? "" })];
     });
@@ -1616,7 +1621,7 @@ export class MockLedger {
     const rank = pvpChestRank(stars);
     const granted = rank !== null && pvpChestGranted(v2.pvpChests[today] ?? 0);
     if (granted) {
-      v2.chests.pending.push({ rank, league: this.leagueOf(p) });
+      v2.chests.pending.push({ rank, league: this.leagueOf(p), origin: { source: "pvp", day: today, slot: v2.pvpChests[today] ?? 0 } });
       v2.pvpChests = { [today]: (v2.pvpChests[today] ?? 0) + 1 };
     }
     Object.assign(a, { status: surrendered ? "surrendered" : "finished", score, stars, xp: xp.gained, chest: granted ? rank : null, gained, lost, finishedAt: Math.floor(this.now()) });

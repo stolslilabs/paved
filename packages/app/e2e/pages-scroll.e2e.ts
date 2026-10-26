@@ -13,7 +13,7 @@ import { join } from "node:path";
  *   bunx playwright-core install chromium-headless-shell   (once)
  *   bun run e2e -- pages-scroll   [PAVED_E2E_SHOTS=<folder>: the League and the Chests at 375 px, scrolled to their end]
  *
- * - Each page's scene, with content taller than the screen (`pages-scroll/harness.tsx`: a dozen chests waiting, a long defence
+ * - Each page's scene, with content taller than the screen (`pages-scroll/harness.tsx`: a long defence
  *   log, ...), at 375 x 812 in the tab frame (a phone: touch, dragged by a finger) and at 1440 x 900 in the home's side panel
  *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Play and Cobbles are full-screen
  *   flows below `desktop`: there the document is what scrolls (`FLOWS`), under their sticky top bar. Per page and width: its
@@ -60,6 +60,8 @@ const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: nu
   // The league's carousel (#785), its season and its actions: one card each, shorter than a phone since the ladder left.
   league: { phone: 548, desktop: 560 },
   referral: { phone: 667, desktop: 667 },
+  // The Chests page with its modal closed (#784): the day's slots and the tile kept, no list since the modal took the chests.
+  chests: { phone: 548, desktop: 560 },
   // The mode choice's five rows and the Cobbles' packs, of fixed length too: an iPhone SE's view under Safari's bars (548 px),
   // a 560 px browser window.
   play: { phone: 548, desktop: 560 },
