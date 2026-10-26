@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SMOKE_LOOKS, smokeLookOf } from "@paved/renderer";
+import { NO_SMOKE_VARIATION, SMOKE_LOOKS, smokeLookOf } from "@paved/renderer";
 import meta from "../src/stories/renderer/chimney-smoke.stories";
+import tune from "../src/stories/renderer/chimney-smoke-tune.stories";
 import { smokeInput, type ChimneySmokeBoardProps } from "../src/stories/renderer/chimney-smoke-board";
+import { SMOKE_TUNE_START, todayProps } from "../src/stories/renderer/chimney-smoke-compare";
 
 const ARGS = meta.args as ChimneySmokeBoardProps;
 
@@ -14,5 +16,28 @@ describe("the chimney smoke study's look", () => {
   it("keeps a knob that was moved over either look", () => {
     expect(smokeLookOf(smokeInput({ ...ARGS, look: "wisps", opacity: 0.2 }))).toEqual({ ...SMOKE_LOOKS.wisps, opacity: 0.2 });
     expect(smokeLookOf(smokeInput({ ...ARGS, look: "puffs", puffs: 4 }))).toEqual({ ...SMOKE_LOOKS.puffs, puffs: 4 });
+  });
+});
+
+describe("the chimney smoke to tune (#801)", () => {
+  const TUNE = tune.args as ChimneySmokeBoardProps;
+
+  it("starts the knobs from the issue's proposal: slower, subtler, each chimney its own plume", () => {
+    const look = smokeLookOf(smokeInput(TUNE));
+    expect(look).toMatchObject({ lifeSeconds: 8, opacity: 0.4, roll: SMOKE_LOOKS.puffs.roll / 2, swaySpeed: 0.5 });
+    expect(look.sizeEnd).toBeLessThan(SMOKE_LOOKS.puffs.sizeEnd);
+    expect(look.rise / look.lifeSeconds).toBeLessThan(SMOKE_LOOKS.puffs.rise / SMOKE_LOOKS.puffs.lifeSeconds);
+    expect(look.variation).toEqual({ direction: 35, drift: 0.5, shape: 0.5, tone: 0.12, puffTone: 0.04, opacity: 0.2, pace: 0.25 });
+    expect(TUNE).toMatchObject(SMOKE_TUNE_START);
+  });
+
+  it("takes each variation knob alone over the look's", () => {
+    expect(smokeLookOf(smokeInput({ ...ARGS, varyTone: 0.2 })).variation).toEqual({ ...NO_SMOKE_VARIATION, tone: 0.2 });
+  });
+
+  it("draws today's smoke on the comparison's left side, whatever the knobs, with the scene's own controls", () => {
+    const left = todayProps({ ...TUNE, season: "winter", time: "night" });
+    expect(smokeLookOf(smokeInput(left))).toEqual(SMOKE_LOOKS.puffs);
+    expect(left).toMatchObject({ season: "winter", time: "night", layout: TUNE.layout, windSpeed: TUNE.windSpeed });
   });
 });

@@ -8,7 +8,20 @@
 import * as THREE from "three";
 import type { AmbientEffect } from "./ambient-loop";
 import { chimneyOptionsOf, findChimneys, mouthPoint, type CellBox, type Chimney } from "./chimneys";
-import { MAX_SMOKE_CHIMNEYS, resolveSmokeSettings, smokeLookOf, type SmokeMode, type SmokeSettings, type SmokeSettingsInput } from "./chimney-smoke-settings";
+import {
+  MAX_SMOKE_CHIMNEYS,
+  MAX_SMOKE_PUFFS,
+  plumeOf,
+  plumeSeed,
+  puffsPerChimney,
+  resolveSmokeSettings,
+  seededRandom,
+  smokeLookOf,
+  type SmokeLook,
+  type SmokeMode,
+  type SmokeSettings,
+  type SmokeSettingsInput,
+} from "./chimney-smoke-settings";
 import type { Season } from "./daynight-settings";
 import { sunAt } from "./daynight";
 import { isOutline, outlineGeometry } from "./outlines";
@@ -38,18 +51,6 @@ export interface SmokeStats {
   /** Whether the placed tiles draw their types' smoke-free twins now (`hidesVoxels`), and the triangles each tile of the prepared types leaves out. */
   voxelsHidden: boolean;
   hiddenTriangles: number;
-}
-
-/** A small seeded generator (mulberry32): the same puffs on every device and every load. */
-function random(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /** A type's one textured mesh (its outline is a child, never first) and the matrix from it to the type's root. */
@@ -247,6 +248,10 @@ const SMOKE_VERTEX = /* glsl */ `
 attribute vec4 aMouth;
 attribute vec3 aPuff;
 attribute float aBorn;
+// The chimney's plume (#801, plumeOf): its lean off the wind (radians), its drift's factor, its tone, its opacity's factor;
+// its stretch's, billow's and swirl's factors, and its pace.
+attribute vec4 aPlume;
+attribute vec4 aShape;
 uniform float uTime;
 uniform float uPlace;
 uniform float uLife;
@@ -256,35 +261,49 @@ uniform float uSwirl;
 uniform float uStretch;
 uniform vec2 uWind;
 uniform float uAmount;
+uniform float uSwaySpeed;
+uniform float uPuffTone;
 varying vec2 vUv;
 varying float vFade;
 varying float vAge;
 varying float vSeed;
+varying float vBillow;
+varying float vTone;
 void main() {
+  // A puff beyond its chimney's count (a plume of fewer puffs than the draw's room for each): no area, no fragment.
+  if (aPuff.x < 0.0) {
+    gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+    return;
+  }
   // A puff's age, 0 at the mouth to 1 gone: each chimney at its own pace, its puffs spread along the cycle.
-  float pace = 0.85 + 0.3 * aPuff.z;
-  float t = fract(uTime / (uLife * pace) + aPuff.x + 0.37 * aPuff.z);
+  float t = fract(uTime / (uLife * aShape.w) + aPuff.x + 0.37 * aPuff.z);
   // Fast out of the mouth, slower as it cools.
   float lift = 1.0 - pow(1.0 - t, 1.7);
   vec3 at = (modelMatrix * vec4(aMouth.xyz, 1.0)).xyz;
   at.y += uRise * lift;
-  float sway = uSwirl * t;
-  at.x += uWind.x * t * t + sway * sin(uTime * 0.8 + aPuff.y * 6.2831853 + t * 5.0);
-  at.z += uWind.y * t * t + sway * cos(uTime * 0.6 + aPuff.y * 4.0 + t * 4.0);
+  float sway = uSwirl * aShape.z * t;
+  // The plume's own wind: the scene's, turned by its lean and scaled by its drift.
+  vec2 wind = mat2(cos(aPlume.x), sin(aPlume.x), -sin(aPlume.x), cos(aPlume.x)) * uWind * aPlume.y;
+  at.x += wind.x * t * t + sway * sin(uTime * 0.8 * uSwaySpeed + aPuff.y * 6.2831853 + t * 5.0);
+  at.z += wind.y * t * t + sway * cos(uTime * 0.6 * uSwaySpeed + aPuff.y * 4.0 + t * 4.0);
   // A 2 x 2 chimney sends wider puffs; the season's amount thickens them a little.
   float mouth = clamp(aMouth.w / 0.075, 1.0, 1.6);
   float size = mix(uSize.x, uSize.y, sqrt(t)) * (0.8 + 0.4 * aPuff.y) * mouth * mix(0.85, 1.15, clamp(uAmount - 0.5, 0.0, 1.0));
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   // Turned in its plane (less for a stretched wisp, which stays upright), then stretched upward.
-  float angle = (aPuff.y * 6.2831853 + t * (aPuff.y - 0.5) * 2.0) / (uStretch * uStretch);
+  float stretch = max(0.25, uStretch * aShape.x);
+  float angle = (aPuff.y * 6.2831853 + t * (aPuff.y - 0.5) * 2.0) / (stretch * stretch);
   vec2 corner = mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * position.xy;
-  corner.y *= uStretch;
+  corner.y *= stretch;
   // A tile just placed: its chimneys' smoke fades in from its placement (aBorn, the loop's time then).
   float placed = clamp((uTime - aBorn) / uPlace, 0.0, 1.0);
-  vFade = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.5, 1.0, t)) * placed;
+  vFade = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.5, 1.0, t)) * placed * aPlume.w;
   vAge = t;
   vSeed = aPuff.y;
+  vBillow = aShape.y;
+  // The plume's tone, and the puff's own over it (from its seed, not its size's).
+  vTone = clamp(aPlume.z + uPuffTone * (fract(aPuff.y * 7.31) * 2.0 - 1.0), -1.0, 1.0);
   vUv = position.xy;
   vec3 world = at + (right * corner.x + up * corner.y) * size;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
@@ -298,10 +317,13 @@ uniform vec3 uShade;
 uniform vec3 uLight;
 uniform float uOpacity;
 uniform float uBillow;
+uniform float uRoll;
 varying vec2 vUv;
 varying float vFade;
 varying float vAge;
 varying float vSeed;
+varying float vBillow;
+varying float vTone;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
   vec2 i = floor(p);
@@ -312,12 +334,14 @@ float noise(vec2 p) {
 float fbm(vec2 p) { return 0.55 * noise(p) + 0.3 * noise(p * 2.03 + 7.1) + 0.15 * noise(p * 4.01 + 3.7); }
 void main() {
   // A soft round, its edge torn by a noise that rolls upward (no texture: generated here, self-hosted by construction).
-  float n = fbm(vUv * 3.0 + vec2(vSeed * 17.0, vSeed * 9.0 - uTime * 0.25));
-  float d = length(vUv) * 2.0 + (n - 0.5) * uBillow;
+  float n = fbm(vUv * 3.0 + vec2(vSeed * 17.0, vSeed * 9.0 - uTime * uRoll));
+  float d = length(vUv) * 2.0 + (n - 0.5) * uBillow * vBillow;
   float a = smoothstep(1.0, 0.35, d);
   // Lit from above: the puff's top in the colour, its underside in the shade.
   float lit = clamp(0.55 + vUv.y * 0.9 + (n - 0.5) * 0.4, 0.0, 1.0);
-  vec3 color = mix(uShade, uColor, lit) * uLight;
+  vec3 color = mix(uShade, uColor, lit);
+  // Whiter toward white, darker toward black (#801: a little of either).
+  color = (vTone > 0.0 ? mix(color, vec3(1.0), vTone) : color * (1.0 + vTone)) * uLight;
   float alpha = a * vFade * uOpacity * mix(1.0, 0.55, vAge);
   if (alpha < 0.004) discard;
   gl_FragColor = vec4(color, alpha);
@@ -336,6 +360,9 @@ interface Prepared {
   /** The type's smoke-free twins (none for a type with no smoking chimney). */
   free: SmokeFree | null;
 }
+
+/** What of a look `setTiles` writes into the instances (the rest are uniforms): its puffs and its variation. */
+const layoutOf = (look: SmokeLook): string => JSON.stringify([look.puffs, look.variation]);
 
 /** A tile's placement time for one that was on the board before the smoke saw it: long ago, so no fade. */
 const LONG_AGO = -1e6;
@@ -359,6 +386,9 @@ export class ChimneySmoke implements AmbientEffect {
   private readonly mouths: THREE.InstancedBufferAttribute;
   private readonly puffs: THREE.InstancedBufferAttribute;
   private readonly births: THREE.InstancedBufferAttribute;
+  /** Each puff's chimney's plume (#801, `plumeOf`): its lean, drift, tone and opacity; its stretch, billow, swirl and pace. */
+  private readonly plumes: THREE.InstancedBufferAttribute;
+  private readonly shapes: THREE.InstancedBufferAttribute;
   /** Each tile's placement time on the loop's clock (`SmokeSource.id`), for the fade of a tile just placed. */
   private readonly born = new Map<string, number>();
   /** Whether `setTiles` was given a tile yet: the tiles of that first call were on the board before the smoke (no fade). */
@@ -384,12 +414,17 @@ export class ChimneySmoke implements AmbientEffect {
     this.settings = resolveSmokeSettings(settings);
     this.object.name = "chimney-smoke";
     const geometry = quad();
-    this.mouths = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SMOKE_CHIMNEYS * 32 * 4), 4);
-    this.puffs = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SMOKE_CHIMNEYS * 32 * 3), 3);
+    const room = MAX_SMOKE_CHIMNEYS * MAX_SMOKE_PUFFS;
+    this.mouths = new THREE.InstancedBufferAttribute(new Float32Array(room * 4), 4);
+    this.puffs = new THREE.InstancedBufferAttribute(new Float32Array(room * 3), 3);
     geometry.setAttribute("aMouth", this.mouths);
     geometry.setAttribute("aPuff", this.puffs);
-    this.births = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SMOKE_CHIMNEYS * 32), 1);
+    this.births = new THREE.InstancedBufferAttribute(new Float32Array(room), 1);
     geometry.setAttribute("aBorn", this.births);
+    this.plumes = new THREE.InstancedBufferAttribute(new Float32Array(room * 4), 4);
+    this.shapes = new THREE.InstancedBufferAttribute(new Float32Array(room * 4), 4);
+    geometry.setAttribute("aPlume", this.plumes);
+    geometry.setAttribute("aShape", this.shapes);
     geometry.instanceCount = 0;
     this.uniforms = {
       uTime: time,
@@ -406,6 +441,9 @@ export class ChimneySmoke implements AmbientEffect {
       uLight: { value: new THREE.Color(1, 1, 1) },
       uOpacity: { value: 0 },
       uBillow: { value: 0.35 },
+      uRoll: { value: 0.25 },
+      uSwaySpeed: { value: 1 },
+      uPuffTone: { value: 0 },
     };
     const material = new THREE.ShaderMaterial({
       name: "chimney-smoke",
@@ -475,14 +513,15 @@ export class ChimneySmoke implements AmbientEffect {
     if (this.disposed) return;
     frame.updateMatrixWorld(true);
     const toFrame = frame.matrixWorld.clone().invert();
-    const next = random(770);
+    const next = seededRandom(770);
     const point = new THREE.Vector3();
     const matrix = new THREE.Matrix4();
     const cap = new THREE.Matrix4();
     let chimney = 0;
     let instance = 0;
     this.capCount = 0;
-    const perChimney = Math.min(32, Math.max(1, Math.round(smokeLookOf(this.settings).puffs)));
+    const look = smokeLookOf(this.settings);
+    const perChimney = puffsPerChimney(look);
     // The tiles already on the board when the smoke first saw some: no fade. A tile seen later is one just placed.
     const first = !this.sawTiles;
     const seen = new Set<string>();
@@ -503,11 +542,17 @@ export class ChimneySmoke implements AmbientEffect {
         point.fromArray(mouthPoint(done.grid, c)).applyMatrix4(matrix);
         const width = Math.max(c.mouth.width, c.mouth.depth) * step * tileScale;
         const seed = next();
+        // Its own plume (#801), seeded by its mouth's place on the board; its pace (#770's) by the board's order.
+        const plume = plumeOf(plumeSeed(point.x, point.y, point.z), look);
+        const pace = 1 + look.variation.pace * (2 * seed - 1);
         chimney++;
         for (let p = 0; p < perChimney; p++) {
           this.mouths.setXYZW(instance, point.x, point.y, point.z, width);
-          this.puffs.setXYZ(instance, p / perChimney, next(), seed);
+          // Its puffs spread along the cycle; those beyond its count drawn as nothing (a phase below 0).
+          this.puffs.setXYZ(instance, p < plume.puffs ? p / plume.puffs : -1, next(), seed);
           this.births.setX(instance, born);
+          this.plumes.setXYZW(instance, plume.lean, plume.drift, plume.tone, plume.opacity);
+          this.shapes.setXYZW(instance, plume.stretch, plume.billow, plume.swirl, pace);
           instance++;
         }
         if (c.kind !== "smoking") continue;
@@ -528,6 +573,8 @@ export class ChimneySmoke implements AmbientEffect {
     this.mouths.needsUpdate = true;
     this.puffs.needsUpdate = true;
     this.births.needsUpdate = true;
+    this.plumes.needsUpdate = true;
+    this.shapes.needsUpdate = true;
     this.caps.count = this.capCount;
     this.caps.instanceMatrix.needsUpdate = true;
     this.apply();
@@ -540,16 +587,16 @@ export class ChimneySmoke implements AmbientEffect {
 
   /** The settings, a partial input over the defaults (`RendererSettings.smoke` is the input as given: resolved here, in the chunk). */
   setSettings(input: SmokeSettingsInput): void {
-    const puffs = smokeLookOf(this.settings).puffs;
+    const layout = layoutOf(smokeLookOf(this.settings));
     const settings = resolveSmokeSettings(input);
     this.settings = settings;
     if (this.mode !== "moving") this.snap();
-    // A new number of puffs a chimney needs the instances laid out again: the caller's `setTiles`.
-    if (smokeLookOf(settings).puffs !== puffs) this.needsTiles = true;
+    // A new number of puffs a chimney, or a new variation, needs the instances laid out again: the caller's `setTiles`.
+    if (layoutOf(smokeLookOf(settings)) !== layout) this.needsTiles = true;
     this.apply();
   }
 
-  /** True after a change of the puffs a chimney: `setTiles` lays the instances out again. */
+  /** True after a change of the puffs a chimney or of the variation: `setTiles` lays the instances out again. */
   needsTiles = false;
 
   /** Off or moving (`smokeMode`). A change of mode shows the smoke at once, with no fade. */
@@ -627,6 +674,9 @@ export class ChimneySmoke implements AmbientEffect {
     u.uSwirl.value = look.swirl;
     u.uStretch.value = Math.max(0.25, look.stretch);
     u.uBillow.value = look.billow;
+    u.uRoll.value = look.roll;
+    u.uSwaySpeed.value = look.swaySpeed;
+    u.uPuffTone.value = look.variation.puffTone;
     u.uWind.value.set(this.wind[0] * look.drift * look.lifeSeconds, this.wind[1] * look.drift * look.lifeSeconds);
     u.uAmount.value = this.amount;
     u.uColor.value.set(look.color);

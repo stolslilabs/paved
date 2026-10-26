@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
-import { DEFAULT_SMOKE_SETTINGS, SMOKE_LOOKS, resolveSmokeSettings, smokeLookOf, smokeMode } from "../src/core/chimney-smoke-settings";
+import { DEFAULT_SMOKE_SETTINGS, NO_SMOKE_VARIATION, SMOKE_LOOKS, plumeOf, plumeSeed, puffsPerChimney, resolveSmokeSettings, smokeLookOf, smokeMode } from "../src/core/chimney-smoke-settings";
 import { ChimneySmoke, smokeFreeIndex, smokeFreeSegments, withoutVoxels } from "../src/core/chimney-smoke";
 import { chimneyOptionsOf, findChimneys } from "../src/core/chimneys";
 import { voxelize } from "../src/core/voxelizer";
@@ -35,6 +35,56 @@ describe("the smoke's settings", () => {
     expect(s.seasons.winter).toEqual(DEFAULT_SMOKE_SETTINGS.seasons.winter);
     expect(s.fadeSeconds).toBe(0);
     expect(smokeLookOf(s)).toEqual({ ...SMOKE_LOOKS.wisps, opacity: 0.3 });
+  });
+
+  it("keeps #770's look by default: no variation but the pace, today's roll and sway (#801 PR 1: the owner tunes before a default moves)", () => {
+    for (const look of Object.values(SMOKE_LOOKS)) {
+      expect(look.variation).toEqual(NO_SMOKE_VARIATION);
+      expect([look.roll, look.swaySpeed]).toEqual([0.25, 1]);
+    }
+    expect(NO_SMOKE_VARIATION).toEqual({ direction: 0, drift: 0, shape: 0, tone: 0, puffTone: 0, opacity: 0, pace: 0.15 });
+    expect(smokeLookOf(DEFAULT_SMOKE_SETTINGS)).toEqual(SMOKE_LOOKS.puffs);
+  });
+
+  it("takes a variation's knobs one by one over the look's", () => {
+    const s = resolveSmokeSettings({ custom: { variation: { tone: 0.12 } } });
+    expect(smokeLookOf(s).variation).toEqual({ ...NO_SMOKE_VARIATION, tone: 0.12 });
+    const over = resolveSmokeSettings({ custom: { variation: { direction: 35 } } }, s);
+    expect(smokeLookOf(over).variation).toEqual({ ...NO_SMOKE_VARIATION, tone: 0.12, direction: 35 });
+  });
+
+  it("gives every chimney the look as it is with no variation (#801: at 0 every chimney is alike)", () => {
+    for (const seed of [0, 1, 770, plumeSeed(1.2, 2.4, -3.3)]) {
+      expect(plumeOf(seed, SMOKE_LOOKS.puffs)).toEqual({ lean: 0, drift: 1, stretch: 1, billow: 1, swirl: 1, opacity: 1, tone: 0, puffs: SMOKE_LOOKS.puffs.puffs });
+    }
+    expect(puffsPerChimney(SMOKE_LOOKS.puffs)).toBe(SMOKE_LOOKS.puffs.puffs);
+  });
+
+  it("varies each chimney's plume within its ranges, the same for the same place, apart for two places", () => {
+    const variation = { direction: 35, drift: 0.6, shape: 0.4, tone: 0.12, puffTone: 0.04, opacity: 0.2, pace: 0.25 };
+    const look = { ...SMOKE_LOOKS.puffs, variation };
+    const most = puffsPerChimney(look);
+    expect(most).toBe(Math.round(SMOKE_LOOKS.puffs.puffs * 1.4));
+    const plumes = Array.from({ length: 200 }, (_, i) => plumeOf(plumeSeed(i * 3, 0.6, -i * 1.5), look));
+    for (const p of plumes) {
+      expect(Math.abs(p.lean)).toBeLessThanOrEqual((35 * Math.PI) / 180);
+      expect(p.drift).toBeGreaterThanOrEqual(0.4);
+      expect(p.drift).toBeLessThanOrEqual(1.6);
+      for (const f of [p.stretch, p.billow, p.swirl]) expect(Math.abs(f - 1)).toBeLessThanOrEqual(0.4);
+      expect(Math.abs(p.tone)).toBeLessThanOrEqual(0.12);
+      expect(Math.abs(p.opacity - 1)).toBeLessThanOrEqual(0.2);
+      expect(p.puffs).toBeGreaterThanOrEqual(Math.round(SMOKE_LOOKS.puffs.puffs * 0.6));
+      expect(p.puffs).toBeLessThanOrEqual(most);
+    }
+    // Spread over the ranges, both ways.
+    expect(Math.min(...plumes.map((p) => p.lean))).toBeLessThan(-0.4);
+    expect(Math.max(...plumes.map((p) => p.lean))).toBeGreaterThan(0.4);
+    expect(Math.min(...plumes.map((p) => p.tone))).toBeLessThan(-0.08);
+    expect(Math.max(...plumes.map((p) => p.tone))).toBeGreaterThan(0.08);
+    // The same place, the same plume (every device, every load); two neighbouring chimneys apart.
+    expect(plumeOf(plumeSeed(3, 0.6, -1.5), look)).toEqual(plumes[1]);
+    expect(plumeSeed(3.001, 0.6, -1.5)).toBe(plumeSeed(3, 0.6, -1.5));
+    expect(plumeOf(plumeSeed(3.075, 0.6, -1.5), look)).not.toEqual(plumes[1]);
   });
 
   it("draws no smoke under the Low tier, under reduced motion or with the ambient effects off", () => {
@@ -134,6 +184,38 @@ describe("the chimney smoke", () => {
     const caps = smoke.object.getObjectByName("chimney-caps") as THREE.InstancedMesh;
     const capMaterial = caps.material as THREE.Material;
     expect(capMaterial.transparent || capMaterial.side === THREE.DoubleSide).toBe(false);
+    smoke.dispose();
+  });
+
+  it("varies each chimney's plume in the same one draw, and lays the instances out again for a new variation (#801)", async () => {
+    const { type, frame, tile } = await typeOf("rfffrfffr");
+    const smoke = new ChimneySmoke({ value: 0 }, DEFAULT_SMOKE_SETTINGS);
+    smoke.prepare("rfffrfffr", type);
+    smoke.setCycle({ season: "autumn", position: 0.3 });
+    smoke.setTiles([{ key: "rfffrfffr", type, tile }], frame);
+    const puffs = smoke.object.getObjectByName("chimney-smoke-puffs") as THREE.Mesh<THREE.InstancedBufferGeometry>;
+    const attribute = (name: string) => puffs.geometry.getAttribute(name) as THREE.InstancedBufferAttribute;
+    const n = SMOKE_LOOKS.puffs.puffs;
+    // No variation: every chimney's plume the look's, its puffs spread along the cycle as #770's.
+    expect([attribute("aPlume").getX(0), attribute("aPlume").getY(0), attribute("aPlume").getZ(0), attribute("aPlume").getW(0)]).toEqual([0, 1, 0, 1]);
+    expect(Array.from({ length: n }, (_, p) => attribute("aPuff").getX(p))).toEqual(Array.from({ length: n }, (_, p) => Math.fround(p / n)));
+
+    const variation = { direction: 35, drift: 0.6, shape: 0.5, tone: 0.12, opacity: 0.2 };
+    smoke.setSettings({ custom: { variation } });
+    expect(smoke.needsTiles).toBe(true);
+    smoke.setTiles([{ key: "rfffrfffr", type, tile }], frame);
+    const look = smokeLookOf(resolveSmokeSettings({ custom: { variation } }));
+    const room = puffsPerChimney(look);
+    expect(smoke.stats()).toMatchObject({ chimneys: 2, puffs: 2 * room, drawCalls: 2 });
+    // Each chimney's lean and tone apart; the puffs past its own count drawn as nothing.
+    const [a, b] = [0, room].map((i) => [attribute("aPlume").getX(i), attribute("aPlume").getZ(i)]);
+    expect(a).not.toEqual(b);
+    for (const first of [0, room]) {
+      const phases = Array.from({ length: room }, (_, p) => attribute("aPuff").getX(first + p));
+      const drawn = phases.filter((x) => x >= 0).length;
+      expect(drawn).toBeGreaterThanOrEqual(1);
+      expect(phases.slice(drawn).every((x) => x === -1)).toBe(true);
+    }
     smoke.dispose();
   });
 
