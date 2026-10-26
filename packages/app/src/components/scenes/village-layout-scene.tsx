@@ -11,7 +11,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { LayoutBoard } from "../containers/layout-board";
-import { LayoutEditorPanel, LeaveEditDialog, ResetAllHold, useLayoutEditor, type LayoutSaved } from "../containers/layout-editor";
+import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
@@ -21,7 +21,7 @@ export type VillageLayoutStatus = SkinsStatus;
 
 export type { LayoutHand, LayoutSaved } from "../containers/layout-editor";
 
-export interface VillageLayoutSceneProps {
+export interface VillageLayoutSceneProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village; omitted, `status` says why. */
   village?: VillageLayout;
   status?: VillageLayoutStatus | null;
@@ -138,9 +138,10 @@ function LayoutView({
   onDismissRefusal,
   onOpenChests,
   onOpenShop,
+  ...die
 }: Omit<VillageLayoutSceneProps, "village" | "status" | "onConnect" | "onRetry"> & { village: VillageLayout }) {
   const own = mode === "own";
-  const editor = useLayoutEditor({ village, inventory, own, saving, saved, initialEditing, initialDraft, initialHand, initialPending, initialLeaving, onBack, onSave: onSave && ((tiles) => onSave(tiles)), onDismissSaved, onDirtyChange });
+  const editor = useLayoutEditor({ village, inventory, own, saving, saved, initialEditing, initialDraft, initialHand, initialPending, initialLeaving, onBack, onSave: onSave && ((tiles) => onSave(tiles)), onDismissSaved, onDirtyChange, ...die });
   const { editing, slots, used, score, pending, open, back } = editor;
 
   const title = own ? "My village" : `${village.owner}'s village`;
@@ -176,6 +177,7 @@ function LayoutView({
                   {used} / {slots}
                 </span>
               </Badge>
+              {editing && <RandomDie editor={editor} />}
               {editing && <ResetAllHold editor={editor} holdMs={holdMs} />}
             </div>
           </div>

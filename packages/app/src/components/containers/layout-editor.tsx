@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
+import { useReducedMotionConfig } from "motion/react";
+import * as m from "motion/react-m";
+import { browserRandomLayoutRunner, freshSeed, type RandomLayoutRunner } from "../../lib/random-layout-runner";
 import { cn } from "../../lib/utils";
 import { HoldButton } from "../elements/hold-button";
+import { InlineError } from "../elements/inline-error";
 import { type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
 import { Button } from "../ui/button";
@@ -10,7 +14,7 @@ import { Icon } from "../ui/icon";
 import type { BoardBubble } from "./board-viewport";
 import { InventoryTray } from "./inventory-tray";
 import type { LayoutBoardView, LayoutPending } from "./layout-board";
-import { STARTER, canLift, fittingAt, layoutScore, legalSpots, placeTile, sameLayout, slotsFor, trayOf, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
+import { STARTER, canLift, draftOf, fittingAt, layoutScore, legalSpots, placeTile, sameLayout, slotsFor, stockOf, trayOf, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { TileBubble } from "./tile-bubble";
 
 // The v2 village's editor (#739), shared by the village page (`VillageLayoutScene`) and the home's edit mode (#753): its state
@@ -61,6 +65,17 @@ export interface LayoutEditorOptions {
   onDismissSaved?: () => void;
   /** The editor holds changes not saved (true), or none (false). */
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * The die's builder (#803): the browser's Web Worker when unset; null hides the die (no Web Workers). The stories and tests
+   * pass their own.
+   */
+  randomizer?: RandomLayoutRunner | null;
+  /** The seed of each press of the die: a new one each time when unset. */
+  randomSeed?: () => number;
+  /** How long the die builds before it says "Still building…" with a cancel, ms (default 1 s). */
+  slowRollMs?: number;
+  /** Where the stories start: the die pressed as the editor opens. */
+  initialRolling?: boolean;
 }
 
 /** The orientation the tile takes on `spot`: the one it has if it fits there, else the first that does. */
@@ -82,6 +97,10 @@ function startOf(tiles: readonly BoardTile[], hand: LayoutEditorOptions["initial
 
 /** How long a refused tile shakes, ms. */
 const SHAKE_MS = 1_600;
+/** How long the die builds before it says so, with a cancel, ms. */
+const SLOW_ROLL_MS = 1_000;
+/** What the die says when its worker failed. */
+export const ROLL_FAILED = "The die could not build a village. Try again.";
 
 /**
  * The editor's state and moves. Placing works as on the boards, with no validation (#756, the owner's decisions): a card of the
@@ -109,6 +128,10 @@ export function useLayoutEditor({
   onSave,
   onDismissSaved,
   onDirtyChange,
+  randomizer: givenRandomizer,
+  randomSeed = freshSeed,
+  slowRollMs = SLOW_ROLL_MS,
+  initialRolling = false,
 }: LayoutEditorOptions) {
   const slots = slotsFor(village.level);
   const [start] = useState(() => startOf(initialDraft ?? village.tiles, initialHand, initialPending));
@@ -124,6 +147,15 @@ export function useLayoutEditor({
   const [leaving, setLeaving] = useState(initialLeaving);
   const shake = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (shake.current && clearTimeout(shake.current)), []);
+  // The die (#803): its builder (made once), the press at work (its number, null when none), whether it is slow, a failure.
+  const [ownRandomizer] = useState(() => (givenRandomizer === undefined ? browserRandomLayoutRunner() : null));
+  const randomizer = givenRandomizer === undefined ? ownRandomizer : givenRandomizer;
+  const [rolling, setRolling] = useState<number | null>(null);
+  const [slowRoll, setSlowRoll] = useState(false);
+  const [rollError, setRollError] = useState<string | null>(null);
+  const [rolls, setRolls] = useState(0);
+  const press = useRef(0);
+  const slowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A save that landed closes the editor on the new layout.
   const closeOnSave = useRef(setEditing);
@@ -149,6 +181,23 @@ export function useLayoutEditor({
     if (before === village.tiles || !editing) return;
     setDraft((d) => (sameLayout(d, before) ? village.tiles : d));
   }, [village.tiles, editing]);
+  // The editor closed or gone: the die's build at work stops.
+  useEffect(() => {
+    if (editing) return;
+    cancelRollRef.current();
+    setRollError(null);
+  }, [editing]);
+  useEffect(() => () => {
+    press.current += 1;
+    randomizer?.cancel();
+    if (slowTimer.current) clearTimeout(slowTimer.current);
+  }, [randomizer]);
+  const rollRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (initialRolling && editing) rollRef.current();
+    // The stories' start only, once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // The tile under the bubble, placed; the layout without it (where it may move).
   const held = (hand?.from === "board" && draft.find((t) => t.id === hand.id)) || null;
@@ -244,6 +293,47 @@ export function useLayoutEditor({
     setDraft([{ ...STARTER }]);
     setHand(null);
   };
+  const rollDone = () => {
+    if (slowTimer.current) clearTimeout(slowTimer.current);
+    slowTimer.current = null;
+    setRolling(null);
+    setSlowRoll(false);
+  };
+  /** The die pressed: a new village from the whole stock, built off the main thread; a press at work is cancelled first. */
+  const roll = () => {
+    if (!randomizer || saving) return;
+    const n = ++press.current;
+    if (slowTimer.current) clearTimeout(slowTimer.current);
+    setRolling(n);
+    setRolls(n);
+    setSlowRoll(false);
+    setRollError(null);
+    slowTimer.current = setTimeout(() => press.current === n && setSlowRoll(true), slowRollMs);
+    randomizer.run(stockOf(inventory, village.tiles), slots, randomSeed()).then(
+      (tiles) => {
+        if (press.current !== n) return;
+        rollDone();
+        // The draft only: Save, Back (asking first) and Reset all take it as any edit.
+        setDraft(draftOf(tiles));
+        setHand(null);
+      },
+      () => {
+        if (press.current !== n) return;
+        rollDone();
+        setRollError(ROLL_FAILED);
+      },
+    );
+  };
+  /** The build at work stopped: the draft stays as it was. */
+  const cancelRoll = () => {
+    if (rolling === null) return;
+    press.current += 1;
+    randomizer?.cancel();
+    rollDone();
+  };
+  const cancelRollRef = useRef(cancelRoll);
+  cancelRollRef.current = cancelRoll;
+  rollRef.current = roll;
   const save = () => {
     if (over) return;
     setHand(null);
@@ -251,7 +341,11 @@ export function useLayoutEditor({
   };
 
   const hint =
-    shaking != null
+    rolling !== null
+      ? slowRoll
+        ? "Still building a village from your tiles…"
+        : "Building a village from your tiles…"
+      : shaking != null
       ? "This tile holds the village together: take the outer tiles first."
       : held
         ? `Tap a lit cell to move ${tileName(held.plan)}, or tap it to let it go.`
@@ -312,6 +406,14 @@ export function useLayoutEditor({
     sendBack,
     reset,
     save,
+    canRoll: !!randomizer,
+    rolling: rolling !== null,
+    rolls,
+    slowRoll,
+    rollError,
+    roll,
+    cancelRoll,
+    dismissRollError: () => setRollError(null),
   };
 }
 
@@ -338,6 +440,53 @@ export function ResetAllHold({ editor, holdMs, className }: { editor: LayoutEdit
 }
 
 /**
+ * The die (#803), beside Reset all: a press builds a random compact village from every tile the player holds, off the main
+ * thread, and puts it in the draft (never saved by itself); each press another. It spins once per press, and on while it
+ * builds (not under reduced motion); past a second it says "Still building…" with a cancel, under it. Hidden where Web Workers
+ * are missing.
+ */
+export function RandomDie({ editor, className }: { editor: LayoutEditor; className?: string }) {
+  const still = useReducedMotionConfig() ?? false;
+  if (!editor.canRoll) return null;
+  return (
+    <div className={cn("relative shrink-0", className)}>
+      <Button
+        size="icon"
+        variant="secondary"
+        onClick={editor.roll}
+        disabled={editor.saving}
+        aria-busy={editor.rolling || undefined}
+        aria-label={editor.rolling ? "Building a random village: press for another" : "Random village from your tiles"}
+        title="Random village"
+        className="size-11 rounded-full"
+      >
+        <m.span
+          key={editor.rolls}
+          data-rolling={editor.rolling || undefined}
+          className="inline-flex"
+          initial={{ rotate: 0 }}
+          animate={{ rotate: editor.rolls > 0 && !still ? 360 : 0 }}
+          transition={editor.rolling ? { duration: 0.6, ease: "linear", repeat: Infinity } : { duration: 0.5, ease: "easeOut" }}
+        >
+          <Icon name="dice" size="md" />
+        </m.span>
+      </Button>
+      {editor.slowRoll && (
+        <div
+          role="status"
+          className="absolute top-full right-0 z-10 mt-2 flex items-center gap-1 rounded-lg border border-border bg-card/95 py-1 pr-1 pl-3 text-xs whitespace-nowrap shadow-lg backdrop-blur"
+        >
+          Still building…
+          <Button size="sm" variant="ghost" onClick={editor.cancelRoll}>
+            Cancel
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * The editor's tools: the hint, the inventory's carousel and Save. `bubble="panel"` (the plan view) also stands the bubble of
  * the tile in hand above them, still; `"scene"`: the 3D scene draws it by the tile (`BoardViewport`).
  */
@@ -358,6 +507,15 @@ export function LayoutEditorPanel({ editor, tileArt, bubble = "panel", className
           cancelButton={still.cancelButton}
         />
       )}
+      <InlineError
+        title="No random village"
+        message={editor.rollError}
+        action={
+          <Button size="sm" variant="ghost" onClick={editor.dismissRollError}>
+            Dismiss
+          </Button>
+        }
+      />
       <p role="status" aria-live="polite" className={cn("px-1 text-xs", editor.shaking != null ? "text-warning" : "text-muted-foreground")}>
         {editor.hint}
       </p>

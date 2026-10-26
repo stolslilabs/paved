@@ -10,11 +10,11 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { LayoutBoard, type LayoutBoardView } from "./layout-board";
-import { LayoutEditorPanel, LeaveEditDialog, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutSaved } from "./layout-editor";
+import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "./layout-editor";
 import { layoutPoints, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { PointsFold, PointsPanel, type PointsPanelProps } from "./points-breakdown";
 
-export interface VillageStageProps {
+export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown; undefined: not read yet (a placeholder sky). */
   village?: VillageLayout;
   /** The player's own village, founded: the editor can open. */
@@ -85,6 +85,10 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     onSave: props.onSave,
     onDismissSaved: props.onDismissSaved,
     onDirtyChange: props.onDirtyChange,
+    randomizer: props.randomizer,
+    randomSeed: props.randomSeed,
+    slowRollMs: props.slowRollMs,
+    initialRolling: props.initialRolling,
   });
   const { editing } = editor;
   const [drawn, setDrawn] = useState(false);
@@ -206,7 +210,7 @@ export function VillagePoints({ tiles, place, ...panel }: Omit<PointsPanelProps,
 
 /**
  * Edit mode's bar over the scene: Back (out of edit mode, asking first with changes: it is the way to drop a draft), the live
- * score against the saved one (a tap unfolds the points, #758), the slots, and Reset all held beside them (#756).
+ * score against the saved one (a tap unfolds the points, #758), the slots, and the die (#803) and Reset all held beside them (#756).
  */
 function EditBar({ editor, village, holdMs, onPoints }: { editor: LayoutEditor; village: VillageLayout; holdMs?: number; onPoints: () => void }) {
   return (
@@ -238,6 +242,7 @@ function EditBar({ editor, village, holdMs, onPoints }: { editor: LayoutEditor; 
             {editor.used} / {editor.slots}
           </span>
         </Badge>
+        <RandomDie editor={editor} />
         <ResetAllHold editor={editor} holdMs={holdMs} />
       </header>
     </div>

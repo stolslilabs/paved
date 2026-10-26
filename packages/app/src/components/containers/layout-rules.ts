@@ -1,5 +1,5 @@
 import type { BoardTile } from "@paved/chain";
-import { EngineGame, breakdownOf, layoutBreakdown, layoutScore as coreLayoutScore, type LayoutBreakdown } from "@paved/game-core";
+import { EngineGame, breakdownOf, layoutBreakdown, layoutScore as coreLayoutScore, type LayoutBreakdown, type LayoutTile } from "@paved/game-core";
 import { planCode } from "../elements/tile-chip";
 import { STARTER, isStarter } from "./layout-starter";
 
@@ -215,6 +215,18 @@ export function trayOf(inventory: Inventory, saved: readonly BoardTile[], draft:
   for (const t of draft) if (!isStarter(t)) out[t.plan] = (out[t.plan] ?? 0) - 1;
   return out;
 }
+
+/** The whole stock the die builds from, by plan (`stock[plan - 1]`): the inventory and the saved layout's tiles, the starter aside. */
+export function stockOf(inventory: Inventory, saved: readonly BoardTile[]): number[] {
+  const tray = trayOf(inventory, saved, [STARTER]);
+  return Array.from({ length: 19 }, (_, i) => Math.max(0, tray[i + 1] ?? 0));
+}
+
+/** The die's layout as a draft: the starter, then its tiles, numbered from 2. */
+export const draftOf = (tiles: readonly LayoutTile[]): BoardTile[] => [
+  { ...STARTER },
+  ...tiles.map((t, i) => ({ id: STARTER.id + 1 + i, plan: t.plan, orientation: t.orientation, x: t.x, y: t.y })),
+];
 
 /** The draft with `plan` placed at `cell` (a free cell), its id the next one. */
 export function placeTile(tiles: readonly BoardTile[], plan: number, orientation: number, cell: Cell): BoardTile[] {
