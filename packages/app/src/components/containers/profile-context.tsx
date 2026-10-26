@@ -1,4 +1,4 @@
-import { createContext, lazy, Suspense, useCallback, useContext, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { formatPoints } from "../elements/score";
@@ -27,18 +27,41 @@ function shownAvatar(opener: HTMLElement | null): HTMLElement | null {
   return [...document.querySelectorAll<HTMLElement>("[data-slot=profile-avatar]")].find(shown) ?? opener;
 }
 
-const label = (state: ProfileState, progress: ProfileValue["progress"]) =>
+/** Who the avatar draws: the connected player, else null (a guest's silhouette, or the loading placeholder). */
+export const avatarPlayer = (state: ProfileState) => (state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null);
+
+/** The name a header shows: the player's, their short address without one, "Guest", or nothing while the wallet looks. */
+export const profileName = (state: ProfileState) =>
+  state.status === "connected" ? (state.data.player.name ?? shortAddress(state.data.player.playerId)) : state.status === "guest" ? "Guest" : "";
+
+/** The avatar's accessible name: "Profile: bal7hazar, level 3". */
+export const profileLabel = (state: ProfileState, progress: ProfileValue["progress"]) =>
   state.status === "connected"
     ? `Profile: ${state.data.player.name ?? shortAddress(state.data.player.playerId)}${progress ? `, level ${formatPoints(progress.level)}` : ""}`
     : state.status === "guest"
       ? "Profile: guest"
       : "Profile";
 
-/**
- * The player's avatar where a menu screen puts it (#624): the top left of the page's header below `desktop`, the left of the
- * navigation's header from it (each hidden at the other size by its `className`). A tap opens the profile sheet.
- */
-export function ProfileSlot({ withName = false, className }: { /** The name on a plate beside the avatar (the home's top left, #753). */ withName?: boolean; className?: string }) {
+/** The avatar's control and the sheet it opens: what `ProfileSlot` and the home's `PlayerBadge` (#787) share. */
+export interface ProfileOpener {
+  /** The shell's profile; null (stories, tests without it): nothing is drawn. */
+  value: ProfileValue | null;
+  /** Spread on the button that opens the sheet: its ref, its slot, the sheet's chunk fetched as the pointer nears, the tap. */
+  trigger: {
+    ref: RefObject<HTMLButtonElement | null>;
+    type: "button";
+    "data-slot": "profile-avatar";
+    "aria-haspopup": "dialog";
+    onPointerEnter: () => void;
+    onFocus: () => void;
+    onClick: () => void;
+  };
+  /** The sheet, once first opened (render it beside the button). */
+  sheet: ReactNode;
+}
+
+/** The profile sheet behind a button of the caller's (#624): the focus back on that button as it closes. */
+export function useProfileOpener(): ProfileOpener {
   const value = useContext(ProfileContext);
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -49,65 +72,69 @@ export function ProfileSlot({ withName = false, className }: { /** The name on a
     setOpen(next);
     if (!next) requestAnimationFrame(() => shownAvatar(opener.current)?.focus());
   }, []);
+  const trigger: ProfileOpener["trigger"] = {
+    ref: opener,
+    type: "button",
+    "data-slot": "profile-avatar",
+    "aria-haspopup": "dialog",
+    onPointerEnter: () => void loadSheet(),
+    onFocus: () => void loadSheet(),
+    onClick: () => {
+      setOpened(true);
+      setOpen(true);
+    },
+  };
+  const sheet = value && opened && (
+    <Suspense fallback={null}>
+      <ProfileSheet
+        {...value}
+        open={open}
+        onOpenChange={change}
+        returnFocus={returnFocus}
+        onDisconnect={() => {
+          change(false);
+          value.onDisconnect?.();
+        }}
+        onEditAvatar={
+          value.onEditAvatar &&
+          (() => {
+            setOpen(false);
+            value.onEditAvatar?.();
+          })
+        }
+        onOpenLeague={
+          value.onOpenLeague &&
+          (() => {
+            setOpen(false);
+            value.onOpenLeague?.();
+          })
+        }
+      />
+    </Suspense>
+  );
+  return { value, trigger, sheet };
+}
+
+/**
+ * The player's avatar alone, in its XP ring (#624, #625); a tap opens the profile sheet. The home's top left is `PlayerBadge`'s
+ * (#787), which adds the name, the league and the XP bar.
+ */
+export function ProfileSlot({ className }: { className?: string }) {
+  const { value, trigger, sheet } = useProfileOpener();
   if (!value) return null;
   const { state, progress, look } = value;
   return (
     <>
-      <button
-        ref={opener}
-        type="button"
-        data-slot="profile-avatar"
-        aria-label={label(state, progress)}
-        aria-haspopup="dialog"
-        onPointerEnter={() => void loadSheet()}
-        onFocus={() => void loadSheet()}
-        onClick={() => {
-          setOpened(true);
-          setOpen(true);
-        }}
-        className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", withName && "flex items-center gap-2 pr-3", className)}
-      >
-        <PlayerAvatar player={state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null} loading={state.status === "loading"} look={look}>
+      <button {...trigger} aria-label={profileLabel(state, progress)} className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}>
+        <PlayerAvatar player={avatarPlayer(state)} loading={state.status === "loading"} look={look}>
           {state.status === "connected" && (
             <Suspense fallback={null}>
               <XpRing progress={progress} />
             </Suspense>
           )}
         </PlayerAvatar>
-        {withName && (
-          <span aria-hidden className="max-w-36 truncate rounded-md bg-background/70 px-2 py-0.5 text-sm font-semibold backdrop-blur">
-            {state.status === "connected" ? (state.data.player.name ?? shortAddress(state.data.player.playerId)) : state.status === "guest" ? "Guest" : ""}
-          </span>
-        )}
       </button>
-      {opened && (
-        <Suspense fallback={null}>
-          <ProfileSheet
-            {...value}
-            open={open}
-            onOpenChange={change}
-            returnFocus={returnFocus}
-            onDisconnect={() => {
-              change(false);
-              value.onDisconnect?.();
-            }}
-            onEditAvatar={
-              value.onEditAvatar &&
-              (() => {
-                setOpen(false);
-                value.onEditAvatar?.();
-              })
-            }
-            onOpenLeague={
-              value.onOpenLeague &&
-              (() => {
-                setOpen(false);
-                value.onOpenLeague?.();
-              })
-            }
-          />
-        </Suspense>
-      )}
+      {sheet}
     </>
   );
 }

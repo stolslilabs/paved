@@ -68,8 +68,8 @@ describe("/ (#753): the village home on its data", () => {
     await screen.findByRole("button", { name: resume }, { timeout: slow(5000) });
     // One avatar: the home has no navigation rail.
     const avatar = screen.getByRole("button", { name: /^Profile: / });
-    // The XP ring's seam (#625): level 1 and 0 XP for everyone until the contracts define XP.
-    expect(avatar).toHaveAccessibleName(/, level 1$/);
+    // The XP bar's seam (#625, #787): level 1 and 0 XP for everyone until the contracts define XP, and the XP left.
+    expect(avatar).toHaveAccessibleName(/, level 1, 100 XP to level 2$/);
     await userEvent.click(avatar);
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("0 / 100 XP")).toBeInTheDocument();
