@@ -17,7 +17,7 @@ import { VillageChestsScene } from "../src/components/scenes/village-chests-scen
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { PVP_DEFENCE, PVP_LEAGUE } from "../src/mocks/pvp";
 import { ACHIEVEMENTS, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
-import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
+import { CHESTS, VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
 import { titleOf } from "../src/lib/music/track-info";
 import { TRACKS } from "../src/lib/music/tracks";
 
@@ -25,15 +25,17 @@ import { TRACKS } from "../src/lib/music/tracks";
  * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, Missions, the Vault and the second-level pages
  * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body). The page is drawn
  * straight in that region: its sticky header and its content are the region's own (no column of its own between them and the
- * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing
- * out: the page's height against a 375 or 1440 px viewport is measured in a browser (`scripts/pages-scroll.ts`); here the mock
- * gives each page more than a screen of content (the leagues' ladder, a chest list, the settings' rows) and the test reads the
- * structure that lets it scroll.
+ * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing out, so this test
+ * reads the structure that lets a page scroll, not its overflow: the overflow itself (content taller than a 375 x 812 phone and
+ * than the 1440 x 900 panel, scrolled to its last element by a finger and by the wheel) is measured in a real browser by
+ * `e2e/pages-scroll.e2e.ts` (`bun run e2e -- pages-scroll`).
  */
 const no = () => vi.fn();
+/** A dozen chests waiting: the Chests page's list runs below the fold (#782's report). */
+const CHEST_LIST = Array.from({ length: 12 }, (_, i) => ({ ...CHESTS[i % CHESTS.length]!, id: 100 + i }));
 const PAGES: readonly [string, ReactNode][] = [
   ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onNavigate={no()} onBuy={no()} onGetCobbles={no()} />],
-  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.waiting} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
+  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.waiting} chests={CHEST_LIST} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
   ["League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={no()} onNavigate={no()} onAttack={no()} onDefence={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
   ["Missions", <QuestsScene {...QUESTS.today} onNavigate={no()} onDayChange={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
@@ -107,8 +109,15 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });
 
-  it("the League and the Chests carry more than a screen of content: every league, every waiting chest", () => {
-    draw(PAGES[2]![1], false, "League");
-    expect(screen.getByRole("list").querySelectorAll("li").length).toBeGreaterThanOrEqual(8);
+  it("the League and the Chests draw their whole lists in the region: every league, every waiting chest", () => {
+    const { unmount } = draw(PAGES[2]![1], false, "League");
+    const region = document.querySelector("[data-slot=page-scroll]")!;
+    expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
+    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("li").length).toBeGreaterThanOrEqual(8);
+    unmount();
+    draw(PAGES[1]![1], false, "Chests");
+    const waiting = screen.getByRole("region", { name: /Waiting/ });
+    expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(waiting);
+    expect(waiting.querySelectorAll("li")).toHaveLength(12);
   });
 });
