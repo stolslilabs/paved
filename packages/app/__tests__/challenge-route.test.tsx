@@ -176,7 +176,8 @@ describe("/game/:gameId (P5)", () => {
     expect(await screen.findByText("The board may be out of date")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(screen.queryByText("The board may be out of date")).not.toBeInTheDocument());
-    expect(screen.getByText("Board resynced")).toBeInTheDocument();
+    // The toast follows the re-read: an effect fires it, and the toaster paints it a tick later.
+    expect(await screen.findByText("Board resynced", {}, { timeout: slow(5000) })).toBeInTheDocument();
   });
 
   it("a game id that is not digits is not a game", async () => {
