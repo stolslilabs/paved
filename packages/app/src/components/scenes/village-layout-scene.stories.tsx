@@ -66,8 +66,14 @@ export const FullLongPhone: Story = { ...PHONE_375, args: { ...VILLAGE_LAYOUT.fu
 export const Leaving: Story = { args: VILLAGE_LAYOUT.leaving };
 /** The save on its way. */
 export const Saving: Story = { args: VILLAGE_LAYOUT.saving };
-/** The save landed: the new score and what it gained. */
+/** The save landed (#802): no notice; the score counts up to the new one, green, a "+N" rising. */
 export const Saved: Story = { args: VILLAGE_LAYOUT.saved };
+/** A save that lowered the score: it counts down, a "−N" dropping. */
+export const SavedLower: Story = { args: VILLAGE_LAYOUT.savedLower };
+/** A save that left the score as it was: nothing plays. */
+export const SavedSame: Story = { args: VILLAGE_LAYOUT.savedSame };
+/** Reduced motion: the new score at once, with a brief colour flash; nothing moves. */
+export const SavedReducedMotion: Story = { args: VILLAGE_LAYOUT.saved, parameters: { reducedMotion: "always" } };
 /** The chain refused the save: what happened, the draft kept. */
 export const Refused: Story = { args: VILLAGE_LAYOUT.refused };
 /** A new account's editor: no tile off the board yet. */
@@ -105,5 +111,5 @@ function Playground(props: VillageLayoutSceneProps) {
   return <VillageLayoutScene {...props} village={village} inventory={inventory} saving={saving} saved={saved} onSave={save} onDismissSaved={() => setSaved(null)} />;
 }
 
-/** Play it: Edit, choose a tile, tap a lit cell, tap another to move it; lift a tile to move it or send it back; Save to see the new score. */
+/** Play it: Edit, choose a tile, tap a lit cell, tap another to move it; lift a tile to move it or send it back; Save, and the score counts to the new one. */
 export const Interactive: Story = { args: { ...VILLAGE_LAYOUT.growing, holdMs: 300 }, render: (args) => <Playground {...args} /> };

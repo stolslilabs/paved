@@ -4,7 +4,6 @@ import { formatInteger } from "@paved/game-core";
 import { useSidePanel } from "../../lib/side-panel";
 import { useTapOutside } from "../../lib/use-tap-outside";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
-import { Notice } from "../elements/notice";
 import { type TileArt } from "../elements/tile-chip";
 import { VillageFog, type VillageArrival } from "../elements/village-fog";
 import { Badge } from "../ui/badge";
@@ -142,24 +141,6 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
         {/* Over the canvas and under the editor's bar: the box alone, never the overlays nor the editor's panel. */}
         {props.arrival && props.renderCanvas && <VillageFog arrival={props.arrival} cleared={drawn} />}
         {editing && village && <EditBar editor={editor} village={village} holdMs={props.holdMs} onPoints={() => setPointsOpen(true)} />}
-        {!editing && props.saved && (
-          <div className="pointer-events-none absolute inset-x-2 top-[calc(max(0.5rem,env(safe-area-inset-top))+4.5rem)] flex justify-center">
-            <Notice
-              icon="circle-check"
-              title="Layout saved"
-              className="pointer-events-auto w-full max-w-sm bg-card/95 backdrop-blur"
-              action={
-                props.onDismissSaved && (
-                  <Button size="icon" variant="ghost" onClick={props.onDismissSaved} aria-label="Dismiss">
-                    <Icon name="xmark" size="sm" />
-                  </Button>
-                )
-              }
-            >
-              Your village scores <span className="numeric font-semibold">{formatInteger(props.saved.score)}</span>: attackers play against it now.
-            </Notice>
-          </div>
-        )}
       </div>
       {editing && (
         <aside

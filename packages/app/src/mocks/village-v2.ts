@@ -110,6 +110,10 @@ export const VILLAGE_LAYOUT = {
   leaving: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, initialLeaving: true },
   saving: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, saving: true },
   saved: { village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, inventory: { ...INVENTORY, [P.road]: 3, [P.forestCity]: 1, [P.roadBend]: 1 }, chests: 2, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
+  /** A save that lowered the score (#802): it counts down to it, a "−N" drops. */
+  savedLower: { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, saved: { score: LAYOUT_GROWING.score, previous: fakeScore(DRAFT_VALID) } },
+  /** A save that left the score as it was (#802): nothing plays. */
+  savedSame: { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, saved: { score: LAYOUT_GROWING.score, previous: LAYOUT_GROWING.score } },
   refused: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, refusal: "The layout changed on another device: read it again. Nothing was saved." },
   emptyInventory: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, initialEditing: true },
   loading: { status: { kind: "loading" } },
@@ -227,8 +231,12 @@ export const HOME_VILLAGE = {
   loading: { now: MOCK_NOW },
   /** The village's read failed: Retry. */
   error: { now: MOCK_NOW, error: { message: "Village: the node did not answer" } },
-  /** The save landed: the new score over the village. */
+  /** The save landed, back in view (#802): the score chip counts up to the new score, green, a "+N" rising, the house popping. */
   saved: { ...home, village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
+  /** A save that lowered the score: the chip counts down, a "−N" dropping. */
+  savedLower: { ...home, saved: { score: LAYOUT_GROWING.score, previous: fakeScore(DRAFT_VALID) } },
+  /** A save that left the score as it was: nothing plays. */
+  savedSame: { ...home, saved: { score: LAYOUT_GROWING.score, previous: LAYOUT_GROWING.score } },
   /** The score chip tapped (#758): the points by structure, the most points first, its first line lit on the scene. */
   points: { ...home, initialPointsOpen: true, initialLit: HOME_POINTS.lines[0]!.key },
   /** Edit mode: the editor's bar (Reset all beside the slots), the inventory and Save, in the same scene. */

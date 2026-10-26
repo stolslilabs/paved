@@ -2,6 +2,7 @@ import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { formatInteger } from "@paved/game-core";
 import { cva, type VariantProps } from "class-variance-authority";
+import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import type { IconSize } from "../ui/icon";
 import { ValueRow } from "./value-row";
@@ -39,6 +40,8 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
    * the season wheel and the deck. Unset or null: none.
    */
   preview?: number | null;
+  /** Drawn in place of the figure (the village page's count after a save, issue 802, from its own chunk). */
+  figure?: ReactNode;
   className?: string;
 }
 
@@ -46,7 +49,7 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
  * A score: the font token `mono` with tabular figures, so a counting score never shifts its neighbours. The last move's
  * points ride on the label's line, so a narrow header keeps its width.
  */
-export function Score({ value, label, icon, iconClassName, delta, preview, size, tone, className }: ScoreProps) {
+export function Score({ value, label, icon, iconClassName, delta, preview, figure, size, tone, className }: ScoreProps) {
   const gain = (
     <AnimatePresence>
       {delta ? (
@@ -78,7 +81,9 @@ export function Score({ value, label, icon, iconClassName, delta, preview, size,
         </span>
       )}
       <ValueRow icon={icon} iconSize={ICON_SIZE[size ?? "md"]} iconClassName={cn("text-primary", iconClassName)}>
-        <span className={scoreVariants({ size, tone })} data-testid="score-value">{formatPoints(value)}</span>
+        <span className={scoreVariants({ size, tone })} data-testid="score-value">
+          {figure ?? formatPoints(value)}
+        </span>
         {!label && (previewed ?? gain)}
       </ValueRow>
     </div>
