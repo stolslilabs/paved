@@ -83,12 +83,6 @@ export function VillageShopScene({
         <TopBar
           title="Tile shop"
           onBack={onBack}
-          ownCobbles
-          end={
-            <span className="pr-2">
-              <Cobbles value={cobbles} />
-            </span>
-          }
         />
         <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {status ? (

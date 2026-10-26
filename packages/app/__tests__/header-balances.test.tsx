@@ -7,18 +7,18 @@ import { App } from "../src/App";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { TopBar } from "../src/components/containers/top-bar";
 import { VillageScene } from "../src/components/scenes/village-scene";
+import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { VILLAGE } from "../src/mocks/village";
+import { VILLAGE_SHOP } from "../src/mocks/village-v2";
 import { HEADER_BALANCES } from "../src/routes/header-balances";
 import { PAGES } from "../src/routes/pages";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 
-// HEADER-BALANCES (#720): the owner's table, by route and width. Below `desktop` the Cobbles only where they move; from
-// `desktop` every balance outside the game scenes; none in the game scenes; the Cobbles never twice.
-const PHONE_COBBLES = ["", "cobbles", "missions/lifetime", "missions/:day?", "avatar", "settings/theme", "settings/theme/:theme", "village/:player", "village/chests", "village/shop"];
-/** The game scenes: the boards and the ends of a game. */
-// The PvP attack's flow, its result and a replay (#647) show none either, as the owner's table says (`header-balances.ts`).
+// HEADER-BALANCES (#720), revised by ONE-HEADER (#781): the home's balances on every page, in its format and in the header's
+// row (the Cobbles' pill below `desktop`, every balance's rail from it), nothing under the header; none in the game scenes.
+/** The game scenes: the boards, the ends of a game, the PvP attack's flow, its result and a replay (#647). */
 const GAME_SCENES = ["game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id"];
 
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:theme/g, "forest").replace(/:player/g, "0x1").replace(/:(\w+)/g, "1");
@@ -29,26 +29,18 @@ beforeEach(() => {
   markWelcomed();
 });
 
-describe("the header's balances by page (#720)", () => {
+describe("the header's balances by page (#720, #781)", () => {
   it("the rule names every route of the route map, in one table", () => {
     expect(Object.keys(HEADER_BALANCES).sort()).toEqual(PAGES.map((p) => p.path).sort());
   });
 
-  it("on a phone, the Cobbles only on Home and where Cobbles are bought, earned or spent", () => {
-    const phone = Object.entries(HEADER_BALANCES).filter(([, rule]) => rule.phone).map(([path]) => path);
-    expect(phone.sort()).toEqual([...PHONE_COBBLES].sort());
+  it("the home's balances on every page but the game scenes, which show none", () => {
+    for (const [path, rule] of Object.entries(HEADER_BALANCES)) expect([path, rule]).toEqual([path, GAME_SCENES.includes(path) ? "none" : "home"]);
   });
 
-  it("from desktop, every balance outside the game scenes, none in them; never the Cobbles twice", () => {
-    for (const [path, rule] of Object.entries(HEADER_BALANCES)) {
-      const expected = GAME_SCENES.includes(path) ? "none" : "all";
-      expect([path, rule.desktop]).toEqual([path, expected]);
-    }
-  });
-
-  // The shell's wiring, each route's page a stand-in top bar: the Cobbles (below `desktop`) under the bar where the rule shows
-  // them, the bar one row at every width; the rail (from `desktop`) outside the game scenes. jsdom applies no media query: each part is told by
-  // the width its class keeps it to.
+  // The shell's wiring, each route's page a stand-in top bar: the home's pill (below `desktop`) and rail (from `desktop`) both
+  // in the bar's row outside the game scenes, nothing under it. jsdom applies no media query: each part is told by the width its
+  // class keeps it to.
   it.each(PAGES.map((p) => [p.path || "/", p.path] as const))("%s", async (_, path) => {
     const router = createTestRouter(concrete(path), (routes) => {
       const route = routeOf(routes, path);
@@ -58,56 +50,38 @@ describe("the header's balances by page (#720)", () => {
       if (path === "") route.children![0]!.loader = undefined;
       return routes;
     });
-    render(<App router={router} sources={fakeSources().sources} />);
+    const { container } = render(<App router={router} sources={fakeSources().sources} />);
     const bar = (await screen.findByRole("heading", { level: 1, name: "Stand-in" }, { timeout: slow(5000) })).closest("header")!;
-    const rule = HEADER_BALANCES[path]!;
-    const regions = rule.phone || rule.desktop !== "none" ? await screen.findAllByRole("region", { name: "Balances" }) : screen.queryAllByRole("region", { name: "Balances" });
-    const phone = regions.filter((r) => r.parentElement!.className.includes("desktop:hidden"));
-    const desktop = regions.filter((r) => r.className.includes("hidden desktop:flex"));
-    expect(phone).toHaveLength(rule.phone ? 1 : 0);
-    expect(desktop).toHaveLength(rule.desktop === "none" ? 0 : 1);
     expect(bar).toHaveClass("page-header");
-    // One row below `desktop` (#760): the phone's Cobbles in the page, right after the bar, never in it; the rail in it.
-    for (const region of phone) {
-      expect(bar).not.toContainElement(region);
-      expect(bar.nextElementSibling).toBe(region.parentElement);
-    }
-    for (const region of desktop) expect(bar).toContainElement(region);
+    const none = HEADER_BALANCES[path] === "none";
+    const regions = none ? screen.queryAllByRole("region", { name: "Balances" }) : await screen.findAllByRole("region", { name: "Balances" });
+    expect(regions.map((r) => r.className.match(/(hidden desktop:flex|desktop:hidden)/)?.[1])).toEqual(none ? [] : ["desktop:hidden", "hidden desktop:flex"]);
+    for (const region of regions) expect(bar).toContainElement(region);
+    // `PageBalances` and its strip are gone (#781): nothing between the bar and the page's content.
+    expect(container.querySelector('[data-slot="page-balances"]')).toBeNull();
   });
 });
 
-describe("the village's Cobbles, never twice (#720)", () => {
+describe("the Cobbles, the home's on every page (#781)", () => {
   const READY = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } as const;
-  const village = (props: Parameters<typeof VillageScene>[0]) =>
+  const withBalances = (page: React.ReactNode) =>
     render(
       <LazyMotion features={domMax}>
-        <BalancesProvider value={{ state: READY, show: HEADER_BALANCES["village/:player"] }}>
-          <VillageScene {...props} onBack={() => {}} />
-        </BalancesProvider>
+        <BalancesProvider value={{ state: READY }}>{page}</BalancesProvider>
       </LazyMotion>,
     );
 
-  it("the own village draws its plate, and its bar leaves the Cobbles out at every width", async () => {
-    village(VILLAGE.growing);
-    const bar = screen.getByRole("heading", { level: 1, name: "My village" }).closest("header")!;
-    expect(within(bar).getByRole("img", { name: "640 Cobbles" })).toBeInTheDocument();
-    const regions = await within(bar).findAllByRole("region", { name: "Balances" });
-    // The rail alone (from `desktop`), with every balance but the Cobbles; none under the bar below it.
-    expect(regions).toHaveLength(1);
-    expect(regions[0]).toHaveClass("desktop:flex");
-    expect(within(regions[0]!).getByRole("button", { name: "142.35 PAVED: Vault" })).toBeInTheDocument();
-    expect(within(regions[0]!).queryByRole("button", { name: /Cobbles/ })).toBeNull();
-    expect(screen.getAllByRole("region", { name: "Balances" })).toHaveLength(1);
-  });
-
-  it("a visit to another's village keeps the header's Cobbles and Buy packs, on a phone and from desktop", async () => {
-    village(VILLAGE.visitProfile);
+  it.each([
+    ["the own village", () => <VillageScene {...VILLAGE.growing} onBack={() => {}} />],
+    ["a visit to another's village", () => <VillageScene {...VILLAGE.visitProfile} onBack={() => {}} />],
+    ["the tile shop", () => <VillageShopScene {...VILLAGE_SHOP.today} onBack={() => {}} />],
+  ])("%s: no plate of its own, the header's Cobbles and Buy packs, on a phone and from desktop", async (_, page) => {
+    withBalances(page());
     const bar = screen.getAllByRole("heading", { level: 1 })[0]!.closest("header")!;
     expect(within(bar).queryByRole("img", { name: /Cobbles/ })).toBeNull();
-    // The rail in the bar (from `desktop`), the pill under it (below `desktop`, #760).
-    const regions = await screen.findAllByRole("region", { name: "Balances" });
+    const regions = await within(bar).findAllByRole("region", { name: "Balances" });
     expect(regions).toHaveLength(2);
-    expect(regions.filter((r) => bar.contains(r))).toHaveLength(1);
+    expect(screen.getAllByRole("region", { name: "Balances" })).toHaveLength(2);
     for (const region of regions) expect(await within(region).findByRole("button", { name: "240 Cobbles: Buy packs" })).toBeInTheDocument();
   });
 });

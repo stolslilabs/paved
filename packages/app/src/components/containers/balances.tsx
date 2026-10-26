@@ -29,13 +29,11 @@ export type BalanceKind = "usdc" | "paved" | "vpaved" | "cobbles";
 
 export interface BalancesProps {
   /**
-   * `pill`: the Cobbles' plate alone (a page's header below `desktop`, where Cobbles move: #720). `rail`: every balance in a
-   * row, each a tap to its place (the navigation's header from `desktop`, a flow's top bar). Each layout shows at every width:
+   * `pill`: the Cobbles' plate alone (the home's and every page's header below `desktop`, #781). `rail`: every balance in a
+   * row, each a tap to its place (the same from `desktop`). Each layout shows at every width:
    * the slot hides it where the other one stands.
    */
   layout: "pill" | "rail";
-  /** `rail`: the Cobbles left out, where the page draws its own plate (the village: the Cobbles never show twice, #720). */
-  noCobbles?: boolean;
   state: BalancesState;
   onAction?: (kind: BalanceKind) => void;
   onConnect?: () => void;
@@ -60,8 +58,8 @@ function amountOf(state: Ready, kind: BalanceKind): bigint | null | undefined {
   return typeof value === "number" ? BigInt(value) : value;
 }
 
-/** The balances a player sees: vPAVED only while it shows (`useVpavedPlate`), the Cobbles unless the page has its own. */
-const shownKinds = (vpaved: boolean, noCobbles?: boolean) => ORDER.filter((kind) => (kind !== "vpaved" || vpaved) && (kind !== "cobbles" || !noCobbles));
+/** The balances a player sees: vPAVED only while it shows (`useVpavedPlate`). */
+const shownKinds = (vpaved: boolean) => ORDER.filter((kind) => kind !== "vpaved" || vpaved);
 
 /** How long a vPAVED plate stays once its balance falls to zero: its count down and its "−N" play out first. */
 const VPAVED_LEAVE_MS = 2400;
@@ -163,7 +161,7 @@ const PLATE_HOLD = <Skeleton className="h-8 w-20 rounded-full" />;
  * Vault shows PAVED and vPAVED in its content). `rail`: every balance in a row. Disconnected: Connect; loading: skeleton
  * plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
  */
-export function Balances({ layout, state, onAction, onConnect, faucet, minting, noCobbles, className }: BalancesProps) {
+export function Balances({ layout, state, onAction, onConnect, faucet, minting, className }: BalancesProps) {
   const vpaved = useVpavedPlate(state.status === "ready" ? state.vpaved : undefined);
   if (layout === "rail") {
     const fromOf = (kind: BalanceKind) => (kind === "vpaved" ? vpaved.from : undefined);
@@ -180,7 +178,7 @@ export function Balances({ layout, state, onAction, onConnect, faucet, minting, 
             {PLATE_HOLD}
           </>
         ) : (
-          shownKinds(vpaved.shown, noCobbles).map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} onAction={onAction} faucet={faucet} minting={minting} />)
+          shownKinds(vpaved.shown).map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} onAction={onAction} faucet={faucet} minting={minting} />)
         )}
       </section>
     );

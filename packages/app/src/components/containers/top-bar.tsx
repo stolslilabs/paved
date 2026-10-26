@@ -1,132 +1,79 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect } from "react";
 import { cn } from "../../lib/utils";
+import { documentScrollStartHint } from "../../lib/document-scroll-hint";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { documentScrollStartHint } from "../../lib/document-scroll-hint";
-import { BalancesSlot, PageBalances, PanelBalances } from "./balances-context";
-import { MockMark, useMockMarked } from "./mock-mark";
+import { BalancesSlot } from "./balances-context";
+import { MockMarkSlot } from "./mock-mark";
 import { usePagePanel } from "./page-panel-context";
 import { PanelClose } from "./panel-close";
 
-export interface TopBarProps {
-  title?: ReactNode;
+export interface PageHeaderProps {
+  title: string;
   /** Shows the Back button; none when omitted. */
   onBack?: () => void;
-  /** The right side: a balance, a settings button. */
-  end?: ReactNode;
-  /**
-   * The player's balances (#620), on by default, as the page's rule says (#720, `routes/header-balances.ts`): the Cobbles in the
-   * page under the bar, at its top right, below `desktop` (#760); the bar's right side from it.
-   */
+  /** The player's balances, on by default; off where a page shows none (an error, the end of an attack). */
   balances?: boolean;
-  /**
-   * The page draws the player's Cobbles itself (the own village, in `end`): the bar leaves them out at every width, so they
-   * never show twice (#720); below `desktop` none then sit under the bar.
-   */
-  ownCobbles?: boolean;
+  /** The page scrolls as one document (a flow's), so its header draws the fade of the document's top (`documentScrollStartHint`). */
+  document?: boolean;
   className?: string;
 }
 
-/** The least width the title keeps before the bar stops centring it: under it, a title breaks a letter a line. */
-const TITLE_MIN_PX = 96;
-
 /**
- * The width of the bar's two side columns (`--side`): both as wide as the wider side, so the title sits at the bar's centre
- * (#622). When two such sides would leave the title less than `TITLE_MIN_PX` of `room` (the bar's width inside its padding and
- * gaps: a bar in a card, a wide `end` beside the balances), `auto`: each side takes its own width and the title the rest, off
- * centre rather than a letter a line.
+ * ONE-HEADER (#781, the owner's decisions of 2026-10-26): every page's header but the game scenes', the tab pages' (`TabPage`) and
+ * the flows' (`TopBar`). One row at every width, every page's header height (`page-header`, #676), sticky at the top of the page's
+ * scrolling region on the navigation's backdrop, a fade under it while the region has more above (`page-less`).
+ * - At the top left, Back (`chevron-left`) and the title in the Vault's format: the display font, one line, cut with an ellipsis,
+ *   its whole text in the tooltip (the heading's accessible name keeps it whole). No subtitle.
+ * - At the top right, the home's balances in the home's format (`home-village-scene.tsx`): the Cobbles' `pill` below `desktop`, the
+ *   `rail` from it, the same on every page, in the header's row; nothing under the header, so the content starts right under it.
+ * - At 320 px the title gives way first (`min-w-0`), never Back nor the balances (`shrink-0`).
+ * - In the home's side panel from `desktop` (DESK-PANELS, #762) the page is laid out as on a phone (`data-page-panel`, theme.css): the
+ *   `pill`, then the panel's close (`PanelClose`); a page of the overlay itself has no Back (the close leads to the village).
+ * One module with `TopBar`: the route's error page (`RouteError`) carries it in the entry, and the tab pages share it from there;
+ * in a module of its own the bundler split it and the balances' slot into two chunks of the first load (`bundle-budget.json`).
  */
-export function sideWidth(left: number, right: number, room: number): string {
-  const side = Math.max(48, left, right);
-  return 2 * side + TITLE_MIN_PX <= room ? `${side}px` : "auto";
-}
-
-const px = (value: string) => Number.parseFloat(value) || 0;
-
-/**
- * The top bar of a full-screen flow (section 6.2): Back, the title centred, an action on the right; direction D (#537) closes it
- * with a hairline. The space under that line is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
- * flush, so every such page has the same gap. PAGE-HEADER (#760): one row at every width, every page's header height
- * (`page-header`, #676), and sticky at the top of the flow's column (its document scrolls), with the navigation's backdrop, so
- * Back stays in reach at the page's bottom; a fade under it shows the page has more above (`page-less`). The balances (#620)
- * show as on the tab pages, where the shell provides them: from `desktop` before `end`; below it in the page, under the bar at
- * its top right (`PageBalances`), so the bar never takes a second row. A title takes one line, cut with an ellipsis (its whole text in `title`).
- * A bar too narrow to centre its title between two such sides keeps the title readable instead (`sideWidth`).
- * DESK-PANELS (#762): in the home's side panel from `desktop`, the bar is the panel's header, laid out as on a phone: it ends with
- * the panel's close (`PanelClose`), after the Cobbles where the page's rule shows them (`PanelBalances`, none under it); a page of
- * the overlay itself has no Back (the close leads to the village), a page reached from another keeps it. The panel's body
- * scrolls, not the document.
- */
-export function TopBar({ title, onBack, end, balances = true, ownCobbles = false, className }: TopBarProps) {
-  const marked = useMockMarked();
+export function PageHeader({ title, onBack, balances = true, document = false, className }: PageHeaderProps) {
   const panel = usePagePanel();
-  const bar = useRef<HTMLElement>(null);
-  const label = useRef<HTMLSpanElement>(null);
-  // A title cut on its line keeps its whole text in `title` (a string as is, a composed title by its text).
-  useLayoutEffect(() => {
-    const el = label.current!;
-    el.title = el.querySelector("h1")!.textContent ?? "";
-  });
-  // The title centred in the bar (#622): both sides as wide as the wider one, whatever `end` holds, while the bar has the room.
-  useLayoutEffect(() => {
-    const el = bar.current!;
-    const sides = [el.children[0]!.firstElementChild!, el.children[2]!.firstElementChild!] as HTMLElement[];
-    const sync = () => {
-      const style = getComputedStyle(el);
-      const room = el.clientWidth - px(style.paddingLeft) - px(style.paddingRight) - 2 * px(style.columnGap);
-      el.style.setProperty("--side", sideWidth(sides[0]!.offsetWidth, sides[1]!.offsetWidth, room));
-    };
-    sync();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(sync);
-    [el, ...sides].forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
-  }, []);
   // In a panel its body is the region whose hint shows (`page-panel.tsx`); the document does not scroll.
-  const inPanel = panel !== null;
-  useEffect(() => (inPanel ? undefined : documentScrollStartHint()), [inPanel]);
+  const documentHint = document && panel === null;
+  useEffect(() => (documentHint ? documentScrollStartHint() : undefined), [documentHint]);
   return (
-    <>
-    <header
-      ref={bar}
-      data-slot="page-header"
-      className={cn(
-        "page-header sticky top-0 z-30 grid grid-cols-[var(--side,3rem)_minmax(0,1fr)_var(--side,3rem)] items-center gap-x-1 mb-4 border-b border-border bg-background/95 px-2 backdrop-blur",
-        className,
-      )}
-    >
-      <span className="flex">
-        <span className="flex w-max shrink-0">
-          {onBack && !panel?.top && (
-            <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack}>
-              <Icon name="chevron-left" />
-            </Button>
-          )}
-        </span>
-      </span>
-      {/*
-        The mark on the title's line, after its last word when the title wraps (#622). It takes no width in the line (its
-        negative margin); the title's box keeps its room on both sides instead, so the title stays at the centre.
-      */}
-      <span ref={label} className={cn("line-clamp-1 text-center", marked && "px-12")}>
-        <h1 className="inline text-lg leading-tight font-semibold wrap-anywhere">{title}</h1>
-        {marked && (
-          <span className="-mr-12 ml-1 inline-flex w-11 align-[0.125rem]">
-            <MockMark className="w-full px-0" />
-          </span>
+    <header data-slot="page-header" className={cn("page-header sticky top-0 z-30 bg-background/95 backdrop-blur", className)}>
+      <div className="flex h-full items-center gap-2 pr-3 pl-2">
+        {onBack && !panel?.top && (
+          <Button variant="ghost" size="icon" aria-label="Back" onClick={onBack} className="shrink-0">
+            <Icon name="chevron-left" />
+          </Button>
         )}
-      </span>
-      <span className="flex justify-end">
-        <span className="flex w-max shrink-0 items-center justify-end gap-2">
-          {balances && !panel && <BalancesSlot layout="rail" noCobbles={ownCobbles} className="hidden desktop:flex" />}
-          {end}
-          {balances && <PanelBalances noCobbles={ownCobbles} />}
-          <PanelClose />
+        {/* Cut sideways only (`overflow-x: clip`): the display font's glyphs stand taller than its line. The mark on the title's line, after it (#622). */}
+        <span data-slot="page-title" title={title} className={cn("min-w-0 flex-1 overflow-x-clip text-ellipsis whitespace-nowrap", !(onBack && !panel?.top) && "pl-2")}>
+          <h1 className="inline font-display text-3xl font-semibold tracking-wide">{title}</h1>
+          <MockMarkSlot className="ml-2 align-[0.375rem]" />
         </span>
-      </span>
+        <div data-slot="page-header-end" className="flex shrink-0 items-center gap-2">
+          {balances && (
+            <>
+              <BalancesSlot layout="pill" className="desktop:hidden" />
+              <BalancesSlot layout="rail" className="hidden desktop:flex" />
+            </>
+          )}
+          <PanelClose className="-mr-1" />
+        </div>
+      </div>
       <span aria-hidden data-slot="page-top-hint" className="pointer-events-none absolute inset-x-0 top-full h-6 bg-linear-to-t to-background opacity-0 transition-opacity motion-reduce:transition-none page-less:opacity-100" />
     </header>
-    {balances && <PageBalances noCobbles={ownCobbles} className="mx-auto mb-2 w-full max-w-md px-4 tablet:max-w-2xl" />}
-    </>
   );
+}
+
+export type TopBarProps = Omit<PageHeaderProps, "document">;
+
+/**
+ * The top bar of a full-screen flow (section 6.2): the one page header (`PageHeader`, ONE-HEADER #781) at the top of a page that
+ * scrolls as one document. The space under it is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
+ * flush, so every such page has the same gap as a tab page's (`TabPage`). In the home's side panel from `desktop` (DESK-PANELS,
+ * #762) the panel's body scrolls, not the document.
+ */
+export function TopBar({ className, ...props }: TopBarProps) {
+  return <PageHeader {...props} document className={cn("mb-4", className)} />;
 }
