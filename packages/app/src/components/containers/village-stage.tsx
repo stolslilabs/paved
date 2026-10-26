@@ -22,6 +22,11 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
   /** The editor open (the page's URL); a change asks `onEditingChange`. */
   editing: boolean;
   onEditingChange?: (editing: boolean) => void;
+  /**
+   * In view, a long press on a tile opens edit mode by this path, the Edit button's (#799): the press's bubble, Edit and its
+   * ring, by the tile. Unset (a visit, a guest's or a read-only village): a press does nothing.
+   */
+  onEdit?: () => void;
   inventory?: Inventory;
   saving?: boolean;
   saved?: LayoutSaved | null;
@@ -65,6 +70,9 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
  * stands it still in the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the board, the engine) arrives.
  */
 const NONE: VillageLayout = { owner: "", level: 1, tiles: [], score: 0 };
+
+/** The Edit of the press bubble (#799): the hammer, as the home's Edit since #807. */
+const EDIT_ICON = "hammer";
 
 /** The editor's points open from this width (`--breakpoint-desktop`), folded under it. */
 const DESKTOP_QUERY = "(min-width: 64rem)";
@@ -118,7 +126,9 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     // Leaving the list turns the light off.
     if (!next) setEditLit(null);
   };
-  const view: LayoutBoardView = { ...editor.view, bubble: scene ? editor.bubble : null, lit: litLine?.areas ?? null };
+  const onEdit = props.onEdit;
+  const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", icon: EDIT_ICON, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
+  const view: LayoutBoardView = { ...editor.view, bubble: scene ? editor.bubble : null, lit: litLine?.areas ?? null, press };
   return (
     <>
       {/* The scene's box: the whole screen in view, what the editor's panel leaves in edit mode. Its place in the tree never changes, so the canvas stays up across the modes. */}

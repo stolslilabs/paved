@@ -1,14 +1,16 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import * as m from "motion/react-m";
 import type { BoardTile } from "@paved/chain";
 import type { CellAreas } from "@paved/game-core";
 import { cn } from "../../lib/utils";
+import { usePressAction } from "../../lib/use-press-action";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { FogVeil, cellName } from "./village-board";
-import type { BoardBubble } from "./board-viewport";
+import type { BoardBubble, BoardPress } from "./board-viewport";
+import { LazyPressBubble, loadPressBubble } from "./lazy-tile-bubble";
 import { SIDES, cellKey, isStarter, type Cell, type Spot } from "./layout-rules";
 
 /** The tile under the editor's bubble (#756), placed on its cell: drawn ringed, apart from the layout. */
@@ -41,6 +43,11 @@ export interface LayoutBoardProps {
    * (the home, #753). Off: every cell keeps the floor, and a plan wider than the box scrolls.
    */
   fit?: boolean;
+  /**
+   * In view, a long press on a tile (the starter included) opens this action (#799: the village's Edit), through a one-button
+   * bubble standing by the tile, its ring filling as the press goes on, as on the 3D scene. Unset: the plan is inert in view.
+   */
+  press?: BoardPress | null;
   /** A placed tile chosen (never the starter): lift it into the hand. */
   onTile?: (tile: BoardTile) => void;
   /** A plate chosen: the tile in hand goes there. */
@@ -55,13 +62,16 @@ export interface LayoutBoardProps {
  * bubble the 3D scene stands by the tile (#756; the plan view's stands still in the editor's panel).
  */
 export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing" | "plates" | "pending" | "shaking">> &
-  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending" | "lit"> & { bubble?: BoardBubble | null };
+  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending" | "lit" | "press"> & { bubble?: BoardBubble | null };
 
 /** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */
 const MIN_CELL = 46;
 
 /** The empty rings around the tiles: room for the plates while editing, the fog's roll-off in the view. */
 const RINGS = 2;
+
+/** How far a press may move and stay a press, px (the renderer's click threshold): past it, it is a pan or a scroll. */
+const PRESS_SLOP_PX = 5;
 
 /** A shake, as a refused move on the board. */
 const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
@@ -72,7 +82,7 @@ const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
  * (plates, `data-cell`), a tap places it on one (ringed, under the bubble, #756), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, onTile, onPlate, onPending, className }: LayoutBoardProps) {
+export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onPlate, onPending, className }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is.
   const extent = tiles.length;
@@ -82,6 +92,8 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
     el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
     el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
   }, [extent, editing]);
+
+  const presses = usePlanPress(press, editing);
 
   const byCell = new Map(tiles.map((t) => [cellKey(t), t]));
   const plateAt = new Map(plates.map((p) => [cellKey(p), p]));
@@ -203,9 +215,9 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
     <ScrollRegion orientation="both" className={cn("grid size-full bg-board p-4", className)} style={{ placeItems: "safe center" }}>
       <div
         ref={grid}
-        role={editing ? "group" : "img"}
+        role={editing || presses.shown ? "group" : "img"}
         aria-label={`Village layout of ${tiles.length} ${tiles.length === 1 ? "tile" : "tiles"}`}
-        className="relative grid shrink-0 gap-0.5"
+        className={cn("relative grid shrink-0 gap-0.5", press && !editing && "select-none [-webkit-touch-callout:none]")}
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
@@ -213,10 +225,69 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
           // Every cell keeps the 44 px touch floor: past what the screen holds, the board scrolls.
           width: fit ? "min(100%, 70dvh)" : `max(${cols * MIN_CELL}px, min(100%, 70dvh))`,
         }}
+        {...presses.handlers}
       >
         {cells}
+        {press && presses.shown && (
+          // Standing still by the pressed tile, above its top-right corner.
+          <div style={at(presses.shown.cell)} className="pointer-events-none relative z-30 min-h-0 min-w-0">
+            <Suspense fallback={null}>
+              <LazyPressBubble
+                label={press.label}
+                icon={press.icon}
+                hold={presses.hold}
+                phase={presses.shown.phase}
+                onTap={presses.act}
+                onDismiss={presses.dismiss}
+              />
+            </Suspense>
+          </div>
+        )}
         {!editing && <FogVeil clear={clear} minX={minX} maxY={maxY} cols={cols} rows={rows} />}
       </div>
     </ScrollRegion>
   );
+}
+
+/**
+ * The plan view's presses in view (#799), from its pointer events: a press down on a tile's cell (`data-cell`, the starter
+ * included) is the press's `down`; a move past `PRESS_SLOP_PX`, a second pointer, the pointer leaving or a browser cancel drops
+ * it; the let go releases it. The press's hold (`usePressAction`) does the rest. Off in edit mode, or without an action.
+ */
+function usePlanPress(press: BoardPress | null, editing: boolean) {
+  const enabled = !!press && !editing;
+  const action = usePressAction<Cell>({ onAct: () => press?.onAct(), enabled, holdMs: press?.holdMs });
+  useEffect(() => {
+    if (enabled) void loadPressBubble().catch(() => {});
+  }, [enabled]);
+  const down = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const end = (how: "release" | "cancel") => {
+    if (!down.current) return;
+    down.current = null;
+    if (how === "release") action.release();
+    else action.cancel();
+  };
+  const handlers = enabled
+    ? {
+        onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+          if (down.current && down.current.pointerId !== e.pointerId) return end("cancel");
+          if (e.button > 0) return;
+          const cell = (e.target as HTMLElement).closest<HTMLElement>("[data-kind=tile], [data-kind=starter]")?.dataset.cell;
+          if (!cell) return;
+          const [x, y] = cell.split(",").map(Number);
+          down.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+          action.down({ x: x!, y: y! });
+        },
+        onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
+          const d = down.current;
+          if (d && d.pointerId === e.pointerId && Math.hypot(e.clientX - d.x, e.clientY - d.y) > PRESS_SLOP_PX) end("cancel");
+        },
+        onPointerUp: (e: PointerEvent<HTMLDivElement>) => down.current?.pointerId === e.pointerId && end("release"),
+        onPointerCancel: () => end("cancel"),
+        onPointerLeave: () => end("cancel"),
+        // A long press on a tile shows the bubble: no context menu comes with it (nor a text selection, a loupe or an iOS callout).
+        onContextMenu: (e: MouseEvent<HTMLDivElement>) => e.preventDefault(),
+      }
+    : {};
+  return { ...action, handlers };
 }

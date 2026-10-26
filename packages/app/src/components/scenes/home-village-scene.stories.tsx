@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { BoardTile } from "@paved/chain";
-import { fireEvent, fn, within } from "storybook/test";
+import { expect, fireEvent, fn, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAYER_STATUS } from "../../mocks/scenes";
@@ -247,3 +247,59 @@ function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene
 export const Interactive: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} /> };
 /** The same on the 3D scene at 375 px: place a tile, move it, send it back, the bubble following it (the GIF of #756 plays this one). */
 export const InteractiveScene: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} scene />, ...PHONE_375 };
+
+/**
+ * LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows a bubble by the tile with Edit (the
+ * hammer, as the home's Edit since #807) and its ring, which fills as the press goes on; at its end, edit mode opens as from the
+ * Edit button. Let go early, the ring rewinds and Edit stays tappable about 3 s, then fades. On the plan view the bubble stands
+ * by the tile; on the scene it follows it. A guest's, a read-only village and a visit show none (`Guest`).
+ */
+const pressPlan = async (canvasElement: HTMLElement, letGo = false) => {
+  const plan = await within(canvasElement).findByRole("img", { name: /^Village layout/ });
+  const tile = plan.querySelector<HTMLElement>("[data-kind=starter]")!;
+  fireEvent.pointerDown(tile, { button: 0, pointerId: 1 });
+  if (!letGo) return;
+  await waitFor(() => expect(canvasElement.querySelector("[data-press-bubble]")).not.toBeNull());
+  fireEvent.pointerUp(tile, { button: 0, pointerId: 1 });
+};
+/**
+ * A press on the scene, at the middle of the village's frame (a tile of the framed village), as the renderer's surface takes
+ * it; again until the bubble shows (the scene starting, its models loading).
+ */
+const pressScene = async (canvasElement: HTMLElement, letGo = false) => {
+  const el = await waitFor(
+    () => {
+      const canvas = canvasElement.querySelector("canvas");
+      if (!canvas) throw new Error("no canvas yet");
+      return canvas;
+    },
+    { timeout: 15_000 },
+  );
+  const box = el.getBoundingClientRect();
+  const at = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2, pointerId: 1, button: 0, isPrimary: true, bubbles: true };
+  for (let i = 0; i < 40 && !canvasElement.querySelector("[data-press-bubble]"); i++) {
+    el.dispatchEvent(new PointerEvent("pointerdown", at));
+    await new Promise((r) => setTimeout(r, 400));
+    if (!canvasElement.querySelector("[data-press-bubble]")) el.dispatchEvent(new PointerEvent("pointercancel", at));
+  }
+  if (letGo) el.dispatchEvent(new PointerEvent("pointerup", at));
+};
+
+/** The press held on the starter: Edit by it, its ring filling (a 6 s hold here, so it can be looked at). */
+export const PressHolding: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement) };
+/** Let go early: the ring rewinds, Edit stays tappable about 3 s, then fades. */
+export const PressLetGo: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement, true) };
+/** Held to its end (`HOLD_MS`): edit mode opens, as from the Edit button. */
+export const PressIntoEdit: Story = { args: { ...HOME_VILLAGE.view, holdMs: 800 }, render: (args) => <Playground {...args} />, play: ({ canvasElement }) => pressPlan(canvasElement) };
+/** The same on the scene at 375 px (touch) and 1440 px (mouse): the bubble by the pressed tile, following it. */
+export const ScenePressPhone: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, render: (args) => <InScene {...args} />, play: ({ canvasElement }) => pressScene(canvasElement), ...PHONE_375 };
+export const ScenePressWide: Story = { ...ScenePressPhone, ...WIDE_1440 };
+/** Let go early on the scene: Edit lingers by the tile, then fades. */
+export const ScenePressLetGoPhone: Story = { ...ScenePressPhone, play: ({ canvasElement }) => pressScene(canvasElement, true) };
+/** A long press into edit mode on the scene at 375 px (the GIF of #799 plays this one). */
+export const ScenePressIntoEditPhone: Story = {
+  args: { ...HOME_VILLAGE.view, holdMs: 800 },
+  render: (args) => <Playground {...args} scene />,
+  play: ({ canvasElement }) => pressScene(canvasElement),
+  ...PHONE_375,
+};

@@ -117,7 +117,8 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
  * (a hammer, no text), large, at the bottom right with Edit (a pen) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
- * Save, the bubble by the tile in hand (#756); Back with changes asks first.
+ * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
+ * too, through a bubble by the tile with Edit and the hold's ring (LONGPRESS-EDIT, #799, the stage's `onEdit`).
  * PHONE-NAV (#763, the owner's decisions of 2026-10-25): below `desktop` the view has the app's bottom bar again (Shop, Chests
  * with its count, Play, League, Settings; no item current), so the right column keeps Missions and Vault, and the gear and the
  * large Play go (the bar's Settings and centre disc); Edit and the season dial sit above the bar (its measured `--app-nav-h`).
@@ -139,11 +140,17 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     setLit(null);
   };
   const showPoints = pointsOpen && !editing && !!village;
+  const edit = () => {
+    closePoints();
+    props.onDismissSaved?.();
+    props.onEditingChange?.(true);
+  };
   const stage: VillageStageProps = {
     village,
     editable,
     editing,
     onEditingChange: props.onEditingChange,
+    onEdit: editable && !editing ? edit : undefined,
     inventory: props.inventory,
     saving: props.saving,
     saved: props.saved,
@@ -168,11 +175,6 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     randomSeed: props.randomSeed,
     slowRollMs: props.slowRollMs,
     initialRolling: props.initialRolling,
-  };
-  const edit = () => {
-    closePoints();
-    props.onDismissSaved?.();
-    props.onEditingChange?.(true);
   };
   return (
     // A game scene's frame, clipped as the boards' (the dial's ring included). In edit mode it clips vertically only: across, the
