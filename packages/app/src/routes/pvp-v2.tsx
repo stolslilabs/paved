@@ -10,6 +10,7 @@ import { ATTACK_STAR_PERCENTS } from "../lib/pvp-v2-rules";
 import { attackDeckSheet } from "../lib/attack-deck-sheet";
 import { useBoardSkins } from "../data/board-skins";
 import { useCobbleAccount } from "../data/cobbles";
+import { layoutBoard } from "../data/matches";
 import { useAttackV2Writes, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
 import { V2RefusedError, useFreeVillage, useFreeVillageWrites } from "../data/free-village";
 import { usePvpStatus } from "../data/pvp";
@@ -52,10 +53,6 @@ export function v2ErrorText(error: Error | null): string | null {
   }
 }
 
-/** A village's layout on the board: the starter, then its tiles, in the board's coordinates. */
-export function layoutBoard(tiles: readonly LayoutTile[]): BoardTile[] {
-  return [STARTER_TILE, ...tiles].map((t, i) => ({ id: i + 1, plan: t.plan, orientation: t.orientation, x: CENTER + t.x, y: CENTER + t.y }));
-}
 
 /** An attack's moves on the engine: the board before the last move, then the last one applied (its points and closings). */
 function boardOf(moves: readonly AttackMoveV2[]) {

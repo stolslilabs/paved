@@ -1,10 +1,13 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { TabFrame } from "../../components/containers/tab-frame";
-import type { DefenceEntry } from "../../components/containers/defence-log";
+import type { MatchCardData } from "../../components/containers/match-list";
 import { PvpLeagueScene, type PvpLeagueSceneProps } from "../../components/scenes/pvp-league-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
-import { pvpKeys, useDefenceLog, usePvpStatus, useSeasonSpan } from "../../data/pvp";
+import type { PvpPlayer } from "../../lib/pvp-rules";
+import { addressKey, queryKeys } from "../../data/keys";
+import { layoutBoard, useMatchesV2 } from "../../data/matches";
+import { pvpKeys, useAttackLog, useDefenceLog, usePvpStatus, useSeasonSpan } from "../../data/pvp";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
@@ -13,10 +16,9 @@ import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 
 /**
  * `/pvp/league` (#647 PR 2): the player's crowns, league and season from `Matchmaker.league` (#644), the season's end from
- * `season_start(season + 1)`; Attack opens the flow (`/pvp`). The defence log is a section of the page (BACK-RULE #783: no page
- * opens another page; it was `/pvp/defence`, whose old link lands here): the attacks on the village, newest first, from the
- * indexer's `pvp_attacks` (each with its stars against the village's score then, the crowns it cost or won, and its replay,
- * `/pvp/replay/:attacker/:id`, whose Back comes up here), and the village's shield from `Matchmaker.shield`.
+ * `season_start(season + 1)`; Attack opens the flow (`/pvp`). The latest attacks and defences are cards in the page (#786, in
+ * place of the defence log; its old link, `/pvp/defence`, lands here), each opening its match (`/pvp/match/:id`, v2) or its
+ * replay (`/pvp/replay/:attacker/:id`, v1), whose Back comes up here, with the village's shield from `Matchmaker.shield`.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -28,7 +30,7 @@ export default function Page() {
   const status = usePvpStatus(me);
   const league = status.data?.league ?? null;
   const span = useSeasonSpan(league?.season ?? null);
-  const defences = useDefences(me);
+  const matches = useMatches(me);
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
   // Its waits and refusals in the League tab's frame too (#763): the bar stays while the league is read. In the side panel from
   // `desktop` (#762) a click outside it or Escape closes it (#782).
@@ -58,48 +60,87 @@ export default function Page() {
       onBack={onBack}
       onNavigate={onNavigate}
       onAttack={() => go("/pvp")}
-      {...defences}
+      {...matches}
     />
   );
 }
 
-/** The defence log's section of the league: its rows, the shield, and their replay and retry. */
-function useDefences(me: string | null): Pick<PvpLeagueSceneProps, "defences" | "onReplay" | "onRetryDefences"> {
+/** A match card's player: its address, and its name and level where known. */
+const playerOf = (address: string, name: string | null = null, level = 0): PvpPlayer => ({ name, address, level, crowns: 0 });
+
+/**
+ * The league's matches (#786): the latest attacks and defences as cards, with the shield. Where the sources serve PvP v2's matches
+ * (the mock; the chain from step 3), each with its snapshot, opening its match (`/pvp/match/:id`). Else v1's indexer rows, the
+ * attacks on the village and those the player made mixed, with no snapshot (no village behind the card), opening their replay.
+ */
+function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "onOpenMatch" | "onRetryMatches"> {
   const go = useAppNavigate();
   const client = useQueryClient();
-  const log = useDefenceLog(me);
+  const v2 = useMatchesV2(me);
+  const v1 = v2.data === null;
+  const defences = useDefenceLog(v1 ? me : null);
+  const attacks = useAttackLog(v1 ? me : null);
   const status = usePvpStatus(me);
-  const rows = log.data ?? null;
-  // The scene names an attack by one number: its row here.
-  const attacks: DefenceEntry[] | null = rows
-    ? rows.map((a, i) => ({
-        id: i,
-        attacker: { name: null, address: a.attacker, level: 0, crowns: 0 },
+  const shield = status.data?.shield;
+  const shown = useMemo<{ cards: MatchCardData[]; paths: Map<string, string> } | null>(() => {
+    if (v2.data) {
+      const cards = v2.data.map(
+        (m): MatchCardData => ({
+          id: m.id,
+          side: m.side,
+          rival: playerOf(m.rival.address, m.rival.name, m.rival.level),
+          village: layoutBoard(m.village),
+          stars: m.stars,
+          crowns: m.crowns,
+          score: m.score,
+          target: m.target,
+          ...(m.side === "attack" ? { xp: m.xp, chest: m.chest } : {}),
+          surrendered: m.surrendered,
+          at: m.finishedAt,
+        }),
+      );
+      return { cards, paths: new Map(cards.map((c) => [c.id, `/pvp/match/${c.id}`])) };
+    }
+    if (!v1 || !defences.data || !attacks.data) return null;
+    const rows = [...attacks.data.map((a) => ({ a, side: "attack" as const })), ...defences.data.map((a) => ({ a, side: "defence" as const }))].sort((x, y) => y.a.finishedAt - x.a.finishedAt);
+    const paths = new Map<string, string>();
+    const cards = rows.map(({ a, side }): MatchCardData => {
+      const id = `${side === "attack" ? "a" : "d"}${a.id}-${addressKey(side === "attack" ? a.defender : a.attacker)}`;
+      paths.set(id, `/pvp/replay/${a.attacker}/${a.id}`);
+      return {
+        id,
+        side,
+        rival: playerOf(side === "attack" ? a.defender : a.attacker),
+        village: null,
         stars: a.stars,
+        // An attack's own crowns; a defence's are the attacker's, turned: lost what it gained, or won its 0-star cost.
+        crowns: side === "attack" ? a.gained - a.lost : a.stars > 0 ? -a.gained : a.lost,
         score: a.score,
         target: a.target,
-        // The defender lost what the attacker gained; a defence held won the attacker's 0-star cost.
-        crowns: a.stars > 0 ? -a.gained : a.lost,
+        surrendered: a.surrendered,
         at: a.finishedAt,
-        replay: true,
-      }))
-    : null;
-  const shield = status.data?.shield;
-  const error = log.error;
+      };
+    });
+    return { cards, paths };
+  }, [v2.data, v1, defences.data, attacks.data]);
+  const error = v2.error ?? (v1 ? (defences.error ?? attacks.error) : null);
   return {
-    defences: {
-      attacks,
+    matches: {
+      matches: shown?.cards ?? null,
       shieldEndsAt: shield?.up ? shield.until : null,
       shieldUnknown: status.data == null,
       error: error?.message ?? null,
       errorDetail: error ? errorDetail(error) : undefined,
     },
-    onReplay: (row) => {
-      const a = rows?.[row];
-      if (a) go(`/pvp/replay/${a.attacker}/${a.id}`);
+    onOpenMatch: (id) => {
+      const path = shown?.paths.get(id);
+      if (path) go(path);
     },
-    onRetryDefences: () => {
-      if (me) void client.invalidateQueries({ queryKey: pvpKeys.attacks(me, "defender") });
+    onRetryMatches: () => {
+      if (!me) return;
+      void client.invalidateQueries({ queryKey: queryKeys.chain.v2.matches(me) });
+      void client.invalidateQueries({ queryKey: pvpKeys.attacks(me, "defender") });
+      void client.invalidateQueries({ queryKey: pvpKeys.attacks(me, "attacker") });
     },
   };
 }

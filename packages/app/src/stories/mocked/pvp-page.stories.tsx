@@ -17,6 +17,7 @@ import { PLAYER_ID } from "../../mocks/players";
 import { PHONE_375, WIDE_1440 } from "../../components/scenes/viewports";
 import PvpPage from "../../routes/pages/pvp";
 import PvpLeaguePage from "../../routes/pages/pvp-league";
+import PvpMatchPage from "../../routes/pages/pvp-match";
 import PvpReplayPage from "../../routes/pages/pvp-replay";
 import PvpResultPage from "../../routes/pages/pvp-result";
 import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
@@ -153,6 +154,7 @@ function PvpPages(setup: Setup) {
               <Route path="/pvp/result/:id" element={<PvpResultPage />} />
               <Route path="/pvp/replay/:attacker/:id" element={<PvpReplayPage />} />
               <Route path="/pvp/league" element={<PvpLeaguePage />} />
+              <Route path="/pvp/match/:id" element={<PvpMatchPage />} />
             </Routes>
             <Toaster />
           </LazyMotion>
@@ -191,6 +193,21 @@ const LAST_MOVE: Setup = {
 const RESULT: Setup = { pvp: { crowns: 380, draws: 0, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 2, peak: 0 }, prepare: async (ledger) => (await attack(ledger), await play(ledger)) };
 const LEAGUE: Setup = { pvp: { crowns: 1172, draws: 9, match: null, attacks: [], shieldUntil: 0, season: 1, seasonAttacks: 3, peak: 7 } };
 const REPLAY: Setup = RESULT;
+/**
+ * Two v2 attacks played to their end, each answered by the rival at the next search (#786): the mock's rivals live on no
+ * device, so the rival attacked last attacks the player's village then. The list: d2, a2, d1, a1, newest first.
+ */
+const MATCHES: Setup = {
+  pvp: LEAGUE.pvp,
+  prepare: async (ledger) => {
+    await searchV2(ledger);
+    for (let i = 0; i < 2; i++) {
+      await ledger.writesFor(PLAYER_ID).startAttackV2();
+      await playV2(ledger, Infinity);
+      await ledger.writesFor(PLAYER_ID).drawOpponentV2("search");
+    }
+  },
+};
 
 /** The search's waiting screen: the matchmaker's draw on its way (its receipt 12 s off), under the clouds; then the village found. */
 export const Search: Story = { parameters: { route: "/pvp" }, render: () => <PvpPages {...SEARCH} /> };
@@ -209,9 +226,21 @@ export const Result: Story = { parameters: { route: "/pvp/result/1" }, render: (
 /** The attack replayed move by move. */
 export const Replay: Story = { parameters: { route: `/pvp/replay/${ME}/1` }, render: () => <PvpPages {...REPLAY} /> };
 /**
- * The league: Silver II, the way to Silver I, the season's end and its reward after five attacks, and under Attack the defence
- * log in place (BACK-RULE #783), of a village no rival of the mock attacks.
+ * The league: Silver II, the way to Silver I, the season's end and its reward after five attacks, and under Attack the latest
+ * attacks and defences (#786): none yet on this device.
  */
 export const League: Story = { parameters: { route: "/pvp/league" }, render: () => <PvpPages {...LEAGUE} /> };
 export const LeaguePhone: Story = { ...League, ...PHONE_375 };
 export const LeagueWide: Story = { ...League, ...WIDE_1440 };
+/** The league's latest attacks and defences as cards (#786), each with the attacked village behind; a tap opens its match. */
+export const LeagueMatches: Story = { parameters: { route: "/pvp/league" }, render: () => <PvpPages {...MATCHES} /> };
+export const LeagueMatchesPhone: Story = { ...LeagueMatches, ...PHONE_375 };
+export const LeagueMatchesWide: Story = { ...LeagueMatches, ...WIDE_1440 };
+/** The player's attack's match (#786): the rival's village from the snapshot; the switch and a flick show the build. */
+export const MatchAttack: Story = { parameters: { route: "/pvp/match/a1" }, render: () => <PvpPages {...MATCHES} /> };
+export const MatchAttackPhone: Story = { ...MatchAttack, ...PHONE_375 };
+export const MatchAttackWide: Story = { ...MatchAttack, ...WIDE_1440 };
+/** A rival's attack on the player's village: the village as it was then, and the rival's build. */
+export const MatchDefence: Story = { parameters: { route: "/pvp/match/d1" }, render: () => <PvpPages {...MATCHES} /> };
+export const MatchDefencePhone: Story = { ...MatchDefence, ...PHONE_375 };
+export const MatchDefenceWide: Story = { ...MatchDefence, ...WIDE_1440 };

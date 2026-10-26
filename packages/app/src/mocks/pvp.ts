@@ -6,7 +6,7 @@ import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE, crownsFor, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { PvpEndSceneProps } from "../components/scenes/pvp-end-scene";
-import type { DefenceEntry, DefenceLogProps } from "../components/containers/defence-log";
+import type { MatchCardData, MatchListProps } from "../components/containers/match-list";
 import type { PvpLeagueSceneProps } from "../components/scenes/pvp-league-scene";
 import type { PvpResultSceneProps } from "../components/scenes/pvp-result-scene";
 import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
@@ -18,7 +18,7 @@ import { REWARD, VILLAGE_GROWING } from "./village";
 
 /**
  * The PvP flow's fakes (#647), nothing wired: the players, the villages and the attacks (played on the engine,
- * `pvp-attack.ts`), the crowns at stake, the defence log, the league. Shared with the village screen (#646) through
+ * `pvp-attack.ts`), the crowns at stake, the matches, the league. Shared with the village screen (#646) through
  * `PvpVillage`: its own fakes draw a village with `VillageBoard`, these with the game's board.
  */
 
@@ -28,7 +28,7 @@ export const ME: PvpPlayer = { name: PLAYER.name, address: PLAYER_ID, level: 6, 
 /** The defender drawn by the search. */
 export const RIVAL: PvpPlayer = { name: "Rook of Ashford", address: "0x04b7e2a19c3d5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e1a", level: 7, crowns: 1_212 };
 
-/** Other players, the attackers of the defence log. */
+/** Other players, the attackers of the matches' defences. */
 const ATTACKERS: PvpPlayer[] = [
   { name: "millstone_mara", address: "0x01c2", level: 5, crowns: 1_150 },
   { name: "Vael", address: "0x02d3", level: 8, crowns: 1_260 },
@@ -42,7 +42,7 @@ export const STAKES: CrownStakes = stakesOf(30, 20);
 
 /** The rival's village: 38 tiles on 38 cells, 5,831 points. */
 export const RIVAL_VILLAGE = buildVillage(23);
-/** The player's own village, the defence log's: 6,124 points. */
+/** The player's own village, the defences': 6,124 points. */
 export const MY_VILLAGE = buildVillage(42);
 
 /** The attack played in the stories: 90 % of the village, two stars. */
@@ -57,7 +57,7 @@ export const ATTACK_SCORES = {
   mine: { 1: 4_553, 2: 1_768, 3: 6_143, 8: 5_558, 10: 6_384 },
 } as const;
 
-/** The defence log's replay: the attack of seed 3 on the player's village (100 %, two stars). */
+/** A defence's replay: the attack of seed 3 on the player's village (100 %, two stars). */
 export const REPLAY_STEPS = playAttack(MY_VILLAGE, 3);
 
 /** A scene's data without its callbacks. */
@@ -218,44 +218,69 @@ export const PVP_RESULT = {
   error: result(ATTACK_SCORES.rival[3], { error: "The result is not recorded yet: the network did not answer.", errorDetail: { code: "RpcError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 52) } }),
 } satisfies Record<string, Data<PvpResultSceneProps>>;
 
-// Defence log
+// Matches (#786): the latest attacks and defences, in place of the defence log
 
-const defence = (i: number, seed: keyof typeof ATTACK_SCORES.mine, at: number): DefenceEntry => {
+/** A defence: an attacker's attack of `seed` on the player's village (its snapshot, `MY_VILLAGE`). */
+const defence = (i: number, seed: keyof typeof ATTACK_SCORES.mine, at: number): MatchCardData => {
   const score = ATTACK_SCORES.mine[seed];
   const stars = starsFor(score, MY_VILLAGE.score);
   // What the attacker wins the defender loses; a defence held (no star) wins the defender a few crowns.
-  return { id: 40 + i, attacker: ATTACKERS[i]!, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at, replay: true };
+  return { id: `d${40 + i}`, side: "defence", rival: ATTACKERS[i]!, village: MY_VILLAGE.tiles, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at };
 };
 
-/** Newest first: the latest attack 2 h 48 ago, which put the shield up. */
-export const DEFENCE_LOG: DefenceEntry[] = [
+/** An attack of the player's, of `seed`, on the rival's village (its snapshot, `RIVAL_VILLAGE`): its rewards too. */
+const attackMade = (id: number, seed: keyof typeof ATTACK_SCORES.rival, at: number, extra: Partial<MatchCardData> = {}): MatchCardData => {
+  const score = ATTACK_SCORES.rival[seed];
+  const stars = starsFor(score, RIVAL_VILLAGE.score);
+  const chest = ([null, "bronze", "silver", "gold"] as const)[stars]!;
+  return { id: `a${id}`, side: "attack", rival: RIVAL, village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra };
+};
+
+/** Newest first, attacks and defences mixed: the latest attack on the village 2 h 48 ago, which put the shield up. */
+export const MATCHES: MatchCardData[] = [
+  attackMade(12, 3, MOCK_NOW - 40 * 60),
   defence(1, 3, MOCK_NOW - 2 * HOUR - 48 * 60),
+  attackMade(11, 10, MOCK_NOW - 5 * HOUR, { rival: ATTACKERS[3]! }),
   defence(0, 1, MOCK_NOW - 14 * HOUR),
-  { ...defence(2, 2, MOCK_NOW - DAY - 3 * HOUR), replay: false },
+  attackMade(10, 5, MOCK_NOW - 20 * HOUR, { rival: ATTACKERS[2]! }),
+  attackMade(9, 2, MOCK_NOW - DAY - HOUR, { rival: ATTACKERS[4]!, chest: null }),
+  defence(2, 2, MOCK_NOW - DAY - 3 * HOUR),
   defence(3, 8, MOCK_NOW - 2 * DAY),
+  attackMade(8, 5, MOCK_NOW - 2 * DAY - 4 * HOUR, { rival: ATTACKERS[1]!, surrendered: true, score: 1_204, stars: 0, crowns: -STAKES.loss, xp: 0, chest: null }),
   defence(4, 10, MOCK_NOW - 3 * DAY - 5 * HOUR),
 ];
 
-/** The League page's defence log (BACK-RULE #783: a section of the page, no longer a page), on the page's clock. */
-export const PVP_DEFENCE = {
-  shielded: { attacks: DEFENCE_LOG, shieldEndsAt: DEFENCE_LOG[0]!.at + 8 * HOUR },
-  open: { attacks: DEFENCE_LOG.slice(1), shieldEndsAt: null },
-  empty: { attacks: [] },
-  loading: { attacks: null },
-  error: { attacks: null, error: "The defence log could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
-} satisfies Record<string, Data<Omit<DefenceLogProps, "now">>>;
+/** 26 matches: "Show more" past the first 20 (open point 3). */
+const MANY: MatchCardData[] = Array.from({ length: 26 }, (_, i) => {
+  const m = MATCHES[i % MATCHES.length]!;
+  return { ...m, id: `${m.id}-${i}`, at: MOCK_NOW - (i + 1) * 3 * HOUR };
+});
+
+/** The League page's matches (a section of the page, BACK-RULE #783), on the page's clock. */
+export const PVP_MATCHES = {
+  shielded: { matches: MATCHES, shieldEndsAt: MATCHES[1]!.at + 8 * HOUR },
+  open: { matches: MATCHES, shieldEndsAt: null },
+  many: { matches: MANY, shieldEndsAt: null },
+  /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards known. */
+  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, ...m }) => ({ ...m, village: null })), shieldEndsAt: null },
+  empty: { matches: [] },
+  loading: { matches: null },
+  error: { matches: null, error: "The matches could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
+} satisfies Record<string, Data<Omit<MatchListProps, "now">>>;
 
 // League
 
 const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 
 export const PVP_LEAGUE = {
-  gold: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.shielded },
-  // The defence log's states, a section of the page (BACK-RULE #783).
-  defencesOpen: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.open },
-  defencesEmpty: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.empty },
-  defencesLoading: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.loading },
-  defencesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, defences: PVP_DEFENCE.error },
+  gold: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.shielded },
+  // The matches' states (#786), a section of the page (BACK-RULE #783).
+  matchesOpen: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.open },
+  matchesMany: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
+  matchesNoSnapshot: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.noSnapshot },
+  matchesEmpty: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.empty },
+  matchesLoading: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.loading },
+  matchesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
   // The carousel on a league above the player's (Gold II) and one below (Bronze II): the "Back to my league" chip.
   higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },
