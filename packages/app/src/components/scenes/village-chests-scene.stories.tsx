@@ -92,7 +92,7 @@ function useTicking(start: number, resetsAt: number) {
 function Playground(props: VillageChestsSceneProps) {
   const clock = useTicking(props.now ?? TOMORROW - 3600, props.resetsAt ?? TOMORROW);
   const [chests, setChests] = useState(CHESTS);
-  const [pvpOpened, setPvpOpened] = useState(0);
+  const [pvpOpened, setPvpOpened] = useState<number[]>([]);
   const [opening, setOpening] = useState<number | null>(null);
   const [opened, setOpened] = useState<{ chestId: number; draw: ChestDraw } | null>(null);
   const [taken, setTaken] = useState<ChestTaken | null>(null);
@@ -109,7 +109,8 @@ function Playground(props: VillageChestsSceneProps) {
     if (!opened) return;
     setTaken({ plan: opened.draw.plans[index]!, cobbles: opened.draw.cobbles });
     setOpened(null);
-    if (chests.find((c) => c.id === id)?.slot != null) setPvpOpened((n) => n + 1);
+    const slot = chests.find((c) => c.id === id)?.slot;
+    if (slot != null) setPvpOpened((s) => [...s, slot]);
     setChests((c) => c.filter((x) => x.id !== id));
   };
   return (

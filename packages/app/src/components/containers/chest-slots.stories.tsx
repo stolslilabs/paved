@@ -18,8 +18,8 @@ export const Free: Story = {};
 /** Two won, in their ranks' colours. */
 export const Won: Story = { args: { won: 2, ranks: ["gold", "silver"] } };
 /** One opened (grey, disabled), one won, one free. */
-export const Mixed: Story = { args: { won: 2, opened: 1, ranks: [undefined, "silver"] } };
+export const Mixed: Story = { args: { won: 2, opened: [0], ranks: [undefined, "silver"] } };
 /** The three opened: grey, the countdown at the centre. */
-export const AllOpened: Story = { args: { won: 3, opened: 3 } };
+export const AllOpened: Story = { args: { won: 3, opened: [0, 1, 2] } };
 /** Won with no rank given by the read. */
 export const NoRank: Story = { args: { won: 2 } };

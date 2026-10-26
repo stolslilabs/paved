@@ -22,12 +22,12 @@ export interface VillageChestsSceneProps {
   /** Why the chests are not shown: a guest, the reads on their way, a failed read. */
   status?: SkinsStatus | null;
   chests?: readonly Chest[];
-  /** The chests open in the order won (the rules', #741): the modal shows the first waiting. Otherwise PvP first, then Story. */
+  /** The chests open only in the order won: the modal shows the first waiting. Otherwise (the default, #784) PvP first, then Story, or the slot tapped. */
   inOrder?: boolean;
   /** The PvP chests won today (at most 3 a day, #732): the slots filled. */
   pvpToday?: number;
-  /** Of those, the ones opened already (#784): the first won. Their slots show a grey, disabled chest. */
-  pvpOpened?: number;
+  /** Of those, the slots whose chest was opened already (#784), by index: they show a grey, disabled chest. */
+  pvpOpened?: readonly number[];
   /** Their ranks by slot, when the read gives them; unset, a slot takes the rank of the chest that names it (`Chest.slot`). */
   pvpRanks?: readonly (ChestRank | undefined)[];
   /** The slots just came back (the reset reached while on the page): "Ready" for a short while. Also when `now` reaches `resetsAt`. */
@@ -80,7 +80,7 @@ export function VillageChestsScene({
   chests = [],
   inOrder = false,
   pvpToday = 0,
-  pvpOpened = 0,
+  pvpOpened,
   pvpRanks,
   ready = false,
   look = "pedestals",
@@ -227,7 +227,11 @@ export function VillageChestsScene({
         initialChoice={initialChoice}
         onOpen={onOpen}
         onTake={onTake}
-        onNext={() => setPassed(taken)}
+        onNext={() => {
+          setPassed(taken);
+          // The ids are the read's places, which move once a chest is opened: the next is the queue's first again.
+          setPicked(null);
+        }}
         onEditLayout={onEditLayout}
         onDismissRefusal={onDismissRefusal}
       />

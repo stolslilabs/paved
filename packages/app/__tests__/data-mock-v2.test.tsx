@@ -164,26 +164,38 @@ describe("PvP v2 on the mock", () => {
     await waitFor(() => expect(result.current.chests.data?.pending).toEqual(["gold", "gold", "gold", "bronze", "gold"]));
     // Where each was won (#784): today's PvP slots, then Story, which takes none.
     const today = Math.floor(Date.now() / 86_400_000);
-    expect(result.current.chests.data!.origins).toEqual([...Array(3).fill({ source: "pvp", day: today }), { source: "story" }, { source: "story" }]);
+    const pvp = (slot: number) => ({ source: "pvp", day: today, slot });
+    expect(result.current.chests.data!.origins).toEqual([pvp(0), pvp(1), pvp(2), { source: "story" }, { source: "story" }]);
     expect(refusal(await result.current.writes.reportStory({ campaign: 2, level: 13, stars: 3 }).catch((e: unknown) => e))).toBe("no-level");
 
     // 4 attacks x 20 XP and 2 levels x 15: 110 XP, level 2, 10 slots
     await waitFor(() => expect(result.current.progress.data).toEqual({ level: 2, xp: 10, xpForNext: 200, total: 110 }));
     await waitFor(() => expect(result.current.village.data).toMatchObject({ level: 2, slots: 10 }));
 
-    // A gold chest: 3 tiles, one taken into the inventory
+    // The chest picked (#784): the Story bronze one, fourth in the list, before the older ones; one past the list is refused.
     expect(refusal(await result.current.writes.claimChest(0).catch((e: unknown) => e))).toBe("no-open-chest");
+    expect(refusal(await result.current.writes.openChest(5).catch((e: unknown) => e))).toBe("no-chest");
+    await act(() => result.current.writes.openChest(3));
+    await waitFor(() => expect(result.current.chests.data?.open?.plans).toHaveLength(1));
+    expect(result.current.chests.data!.open!.rank).toBe("bronze");
+    expect(result.current.chests.data!.openOrigin).toEqual({ source: "story" });
+    expect(result.current.chests.data!.pending).toEqual(["gold", "gold", "gold", "gold"]);
+    const bronze = result.current.chests.data!.open!;
+    await act(() => result.current.writes.claimChest(0));
+    await waitFor(() => expect(result.current.chests.data?.open).toBeNull());
+
+    // A gold chest, the oldest when none is picked: 3 tiles, one taken into the inventory
     await act(() => result.current.writes.openChest());
     await waitFor(() => expect(result.current.chests.data?.open?.plans).toHaveLength(3));
     const open = result.current.chests.data!.open!;
     expect(open.rank).toBe("gold");
-    expect(result.current.chests.data!.openOrigin).toEqual({ source: "pvp", day: today });
+    expect(result.current.chests.data!.openOrigin).toEqual({ source: "pvp", day: today, slot: 0 });
     expect(refusal(await result.current.writes.openChest().catch((e: unknown) => e))).toBe("chest-open");
     await act(() => result.current.writes.claimChest(2));
     await waitFor(() => expect(result.current.chests.data?.open).toBeNull());
-    expect(result.current.chests.data!.pending).toHaveLength(4);
-    await waitFor(() => expect(result.current.village.data?.free[open.plans[2]! - 1]).toBe(1));
-    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(open.cobbles));
+    expect(result.current.chests.data!.pending).toHaveLength(3);
+    await waitFor(() => expect(result.current.village.data?.free[open.plans[2]! - 1]).toBe(open.plans[2] === bronze.plans[0] ? 2 : 1));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(bronze.cobbles + open.cobbles));
   });
 
   it("pays bonus Cobbles for every quest of a day, and buys from the shop once per offer and day", async () => {

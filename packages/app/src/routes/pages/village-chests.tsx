@@ -19,8 +19,8 @@ const NO_CHESTS: readonly Chest[] = [];
 
 /**
  * `/village/chests` (#739, PvP v2 step 1): the chests won and not opened yet, by rank, from `useChests` (the mock ledger in step
- * 1, #741). They open in the order won: Open draws the oldest's tiles (bronze one, silver 2, gold 3) and the Cobbles it may hold;
- * the tile kept (`claimChest`) goes to the inventory. The day's PvP chests left, until the next UTC day: the slots' countdown
+ * 1, #741). Open draws the chest picked (#784: the PvP ones first, then Story, or the slot tapped): its tiles (bronze one,
+ * silver 2, gold 3) and the Cobbles it may hold; the tile kept (`claimChest`) goes to the inventory. The day's PvP chests left, until the next UTC day: the slots' countdown
  * ticks with the clock, and a new day reached on the page says "Ready" for `READY_S` (#759). A chest waiting opens in the scene's
  * modal on arrival (#784), and each slot says whether its chest waits or was opened (`chestSlots`). Seeing the page marks the day seen,
  * which takes the free slots off the home's badge. A source that does not serve them (the chain before step 3) says so.
@@ -77,14 +77,13 @@ export default function Page() {
     <VillageChestsScene
       status={status}
       chests={slots?.chests ?? NO_CHESTS}
-      inOrder
       pvpToday={data?.pvpToday ?? 0}
-      pvpOpened={slots?.opened ?? 0}
+      pvpOpened={slots?.opened}
       ready={ready}
       resetsAt={(day + 1) * DAY_S}
       now={now}
       opened={open ? { chestId: -1 - opens, draw: { rank: open.rank, plans: open.plans, cobbles: open.cobbles > 0 ? open.cobbles : null } } : null}
-      opening={pending?.kind === "open" ? 1 : null}
+      opening={pending?.kind === "open" ? (pending.index ?? 0) + 1 : null}
       taken={taken}
       busy={pending !== undefined}
       refusal={writes.error ? refusalText(writes.error) : null}
@@ -96,11 +95,12 @@ export default function Page() {
       onPlay={() => go("/play")}
       onConnect={() => void wallet.connect()}
       onRetry={() => void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all })}
-      onOpen={() => {
+      onOpen={(chestId) => {
         if (pending) return;
         writes.reset();
         setTaken(null);
-        writes.openChest().then(
+        // The chest picked (#784): a chest's id is its place in the read's pending list, plus one.
+        writes.openChest(chestId - 1).then(
           () => setOpens((n) => n + 1),
           () => undefined,
         );

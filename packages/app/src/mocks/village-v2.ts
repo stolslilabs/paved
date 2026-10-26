@@ -140,31 +140,31 @@ export const VILLAGE_CHESTS = {
   /** The lid burst: keep one of 3 tiles, each with its rarity and how many are held. */
   gold: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: GOLD_DRAW }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
   goldChosen: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: GOLD_DRAW }, owned: ownedOf(LAYOUT_GROWING, INVENTORY), initialChoice: 1 },
-  silver: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  bronze: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: 2, ...day, opened: { chestId: 39, draw: { rank: "bronze", plans: [P.forestCity], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
+  silver: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
+  bronze: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: [0, 1], ...day, opened: { chestId: 39, draw: { rank: "bronze", plans: [P.forestCity], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
   cobbles: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: { ...GOLD_DRAW, cobbles: 50 } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  taking: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, initialChoice: 1, busy: true },
+  taking: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day, opened: { chestId: 40, draw: { rank: "silver", plans: [P.roadCross, P.stopRoads], cobbles: null } }, initialChoice: 1, busy: true },
   /** The tile kept, two chests still waiting: Next chest, or Later. */
-  taken: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day, taken: { plan: P.wonder, cobbles: 50 } },
+  taken: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day, taken: { plan: P.wonder, cobbles: 50 } },
   /** The last chest's tile kept: Done, Edit layout. */
-  takenLast: { chests: [], pvpToday: 2, pvpOpened: 2, ...day, taken: { plan: P.forestCity, cobbles: null } },
+  takenLast: { chests: [], pvpToday: 2, pvpOpened: [0, 1], ...day, taken: { plan: P.forestCity, cobbles: null } },
   /** A Story chest, which takes no slot, through the same modal after the PvP ones. */
-  story: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: 2, ...day },
+  story: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: [0, 1], ...day },
   /** The chain refused: what happened, in the modal, until dismissed. */
   refused: { chests: CHESTS, pvpToday: 2, ...day, refusal: "This chest was opened already. Nothing was taken." },
   /** The page, the modal closed: slot 1 opened (grey), slot 2 won (silver, a tap opens it), slot 3 free; "Open your chests". */
-  slots: { ...page, chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: 1, ...day },
+  slots: { ...page, chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day },
   /** The modal closed with 3 chests ready: the two won slots in their ranks' colours. */
   closed: { ...page, chests: CHESTS, pvpToday: 2, ...day },
   /** The page after the last choice: the tile kept said, Edit layout. */
-  kept: { ...page, chests: [], pvpToday: 2, pvpOpened: 2, ...day, taken: { plan: P.wonder, cobbles: 50 } },
+  kept: { ...page, chests: [], pvpToday: 2, pvpOpened: [0, 1], ...day, taken: { plan: P.wonder, cobbles: 50 } },
   /** The day's 3 slots free: their outlines alone; a Story chest waits. */
   free: { ...page, chests: CHESTS.slice(2), pvpToday: 0, ...day },
   /** Two slots won, the read giving no ranks: each won slot shows a chest of no rank. */
   noRanks: { ...page, chests: CHESTS.map(({ slot: _, ...c }) => c), pvpToday: 2, ...day },
   /** Today's 3 slots are won and opened: the countdown takes the hero's centre, the slots under it. */
-  capped: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: 3, ...day },
-  lastMinute: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: 3, resetsAt: TOMORROW, now: TOMORROW - 42 },
+  capped: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: [0, 1, 2], ...day },
+  lastMinute: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: [0, 1, 2], resetsAt: TOMORROW, now: TOMORROW - 42 },
   ready: { ...page, chests: CHESTS.slice(2), pvpToday: 0, ready: true, resetsAt: TOMORROW + DAY, now: TOMORROW + 3 },
   empty: { chests: [], pvpToday: 0, ...day },
   loading: { status: { kind: "loading" } },

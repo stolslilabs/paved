@@ -77,7 +77,7 @@ function player({ founded, level, cobbles, chests }: Seed) {
       inventory: founded ? inventoryOf([...layout.map((t) => t.plan), ...EXTRAS]) : freshV2().inventory,
       layout: founded ? layout : null,
       // The first two won today in PvP (they fill two of the day's slots, #784), the third in Story (no slot).
-      chests: { pending: chests.map((rank, i) => ({ rank, league: 2, origin: i < 2 ? { source: "pvp" as const, day: today } : { source: "story" as const } })), open: null, opened: 0 },
+      chests: { pending: chests.map((rank, i) => ({ rank, league: 2, origin: i < 2 ? { source: "pvp" as const, day: today, slot: i } : { source: "story" as const } })), open: null, opened: 0 },
       pvpChests: { [today]: Math.min(2, chests.length) },
     },
   };

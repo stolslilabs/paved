@@ -129,13 +129,20 @@ describe("the slots' three states (#784)", () => {
 
 describe("chestSlots (#784)", () => {
   const DAY = 20_000;
-  const pvp = { source: "pvp" as const, day: DAY };
+  const pvp = (slot?: number) => ({ source: "pvp" as const, day: DAY, ...(slot === undefined ? {} : { slot }) });
   const story = { source: "story" as const };
+  const view = (pending: ("bronze" | "silver" | "gold")[], origins: (ReturnType<typeof pvp> | typeof story | null)[] | undefined, pvpToday: number) => ({
+    pending,
+    ...(origins ? { origins } : {}),
+    open: null,
+    openOrigin: null,
+    pvpToday,
+    pvpCap: 3,
+  });
 
-  it("puts today's PvP chests in the day's slots after those opened, a Story chest in none", () => {
-    const view = { pending: ["silver", "bronze", "gold"] as const, origins: [pvp, story, { source: "pvp" as const, day: DAY - 1 }], open: null, openOrigin: null, pvpToday: 2, pvpCap: 3 };
-    expect(chestSlots({ ...view, pending: [...view.pending] }, DAY)).toEqual({
-      opened: 1,
+  it("puts today's PvP chests in the slots they fill, a Story chest in none, and calls the others opened", () => {
+    expect(chestSlots(view(["silver", "bronze", "gold"], [pvp(1), story, { source: "pvp", day: DAY - 1, slot: 0 }], 2), DAY)).toEqual({
+      opened: [0],
       chests: [
         { id: 1, rank: "silver", source: "pvp", slot: 1 },
         { id: 2, rank: "bronze", source: "story" },
@@ -144,9 +151,22 @@ describe("chestSlots (#784)", () => {
     });
   });
 
-  it("counts the open chest as not opened yet, and a read with no origins as none opened", () => {
+  it("keeps each slot its own when the chests are opened out of order", () => {
+    // Slot 2 (silver) opened first: slot 1's gold still waits, and only slot 2 is grey.
+    expect(chestSlots(view(["gold"], [pvp(0)], 2), DAY)).toEqual({ opened: [1], chests: [{ id: 1, rank: "gold", source: "pvp", slot: 0 }] });
+  });
+
+  it("counts the open chest as not opened yet", () => {
     const open = { rank: "gold" as const, plans: [1, 2, 3], cobbles: 0 };
-    expect(chestSlots({ pending: ["silver"], origins: [pvp], open, openOrigin: pvp, pvpToday: 3, pvpCap: 3 }, DAY)).toEqual({ opened: 1, chests: [{ id: 1, rank: "silver", source: "pvp", slot: 2 }] });
-    expect(chestSlots({ pending: ["silver"], open: null, pvpToday: 2, pvpCap: 3 }, DAY)).toEqual({ opened: 0, chests: [{ id: 1, rank: "silver" }] });
+    expect(chestSlots({ ...view(["silver"], [pvp(2)], 3), open, openOrigin: pvp(1) }, DAY)).toEqual({ opened: [0], chests: [{ id: 1, rank: "silver", source: "pvp", slot: 2 }] });
+  });
+
+  it("never shows a chest waiting as opened when a save from before the origins cannot place it", () => {
+    // Two PvP chests won today in an older save: no origins at all, or null ones.
+    expect(chestSlots(view(["silver", "gold"], [null, null], 2), DAY)).toEqual({ opened: [], chests: [{ id: 1, rank: "silver" }, { id: 2, rank: "gold" }] });
+    expect(chestSlots(view(["silver", "gold"], undefined, 2), DAY).opened).toEqual([]);
+    // One placed, one not: any slot may be the unplaced one's.
+    expect(chestSlots(view(["silver", "gold"], [pvp(1), null], 2), DAY).opened).toEqual([]);
+    expect(chestSlots(view(["silver"], [pvp()], 2), DAY).opened).toEqual([]);
   });
 });

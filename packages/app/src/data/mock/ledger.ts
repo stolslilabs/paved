@@ -839,7 +839,7 @@ export class MockLedger {
       surrenderAttack: () => this.surrenderAttack(account),
       foundFreeVillage: () => this.foundFreeVillage(account),
       saveLayout: (tiles) => this.saveLayout(account, tiles),
-      openChest: () => this.openChest(account),
+      openChest: (index) => this.openChest(account, index),
       claimChest: (slot) => this.claimChest(account, slot),
       buyTile: (request) => this.buyTile(account, request),
       reportStory: (report) => this.reportStory(account, report),
@@ -1197,12 +1197,15 @@ export class MockLedger {
     });
   }
 
-  /** Opens the oldest chest waiting (`drawChest`, a Poseidon for the VRF): its tiles shown, its Cobbles credited when they drop. */
-  async openChest(account: string): Promise<WriteResult> {
+  /**
+   * Opens a chest waiting (`drawChest`, a Poseidon for the VRF): the one at `index` in the pending list, the player's pick (#784),
+   * the oldest when unset. Its tiles shown, its Cobbles credited when they drop.
+   */
+  async openChest(account: string, index = 0): Promise<WriteResult> {
     await sleep(this.latency);
     return this.writeV2(account, (p, v2, hash) => {
       if (v2.chests.open) throw new V2RefusedError("chest-open", hash);
-      const chest = v2.chests.pending.shift();
+      const chest = Number.isInteger(index) && index >= 0 ? v2.chests.pending.splice(index, 1)[0] : undefined;
       if (!chest) throw new V2RefusedError("no-chest", hash);
       const draw = drawChest(chest.rank, chest.league, poseidon(CHEST_DRAW, BigInt(account), BigInt(v2.chests.opened)));
       v2.chests.opened += 1;
@@ -1611,7 +1614,7 @@ export class MockLedger {
     const rank = pvpChestRank(stars);
     const granted = rank !== null && pvpChestGranted(v2.pvpChests[today] ?? 0);
     if (granted) {
-      v2.chests.pending.push({ rank, league: this.leagueOf(p), origin: { source: "pvp", day: today } });
+      v2.chests.pending.push({ rank, league: this.leagueOf(p), origin: { source: "pvp", day: today, slot: v2.pvpChests[today] ?? 0 } });
       v2.pvpChests = { [today]: (v2.pvpChests[today] ?? 0) + 1 };
     }
     Object.assign(a, { status: surrendered ? "surrendered" : "finished", score, stars, xp: xp.gained, chest: granted ? rank : null, gained, lost, finishedAt: Math.floor(this.now()) });

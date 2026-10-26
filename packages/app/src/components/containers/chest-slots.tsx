@@ -10,6 +10,7 @@ import { PVP_CHESTS_A_DAY } from "./layout-rules";
 
 /** A UTC day: the dial's turn. */
 const DAY = 86_400;
+const NONE: readonly number[] = [];
 /** The countdown's last minute: it pulses. */
 export const LAST_MINUTE_S = 60;
 /** How long the slots say "Ready" once the reset is reached on the page. */
@@ -25,8 +26,8 @@ export type ChestSlotsLook = "pedestals" | "dial";
 export interface ChestSlotsProps {
   /** The PvP chests won today (at most 3, #732). */
   won: number;
-  /** Of those, the ones opened already (#784): the first won, as chests open in the order won. They show grey and disabled. */
-  opened?: number;
+  /** Of those, the slots whose chest was opened already (#784), by index: they show a grey, disabled chest. */
+  opened?: readonly number[];
   /** Their ranks by slot, when the read gives them: a won slot then shows its chest in its rank's colour; unset, a chest of no rank. */
   ranks?: readonly (ChestRank | undefined)[];
   /** Seconds since the epoch: the next UTC day, when the slots are free again. */
@@ -49,10 +50,9 @@ export interface ChestSlotsProps {
  * ticks under them, at the centre once the three are won, and pulses in its last minute. At the reset a short "Ready" lights
  * the slots again. Under reduced motion every frame is still.
  */
-export function ChestSlots({ won, opened = 0, ranks, resetsAt, now, ready = false, look = "pedestals", onPlay, onOpenSlot, className }: ChestSlotsProps) {
+export function ChestSlots({ won, opened = NONE, ranks, resetsAt, now, ready = false, look = "pedestals", onPlay, onOpenSlot, className }: ChestSlotsProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const taken = ready ? 0 : Math.min(PVP_CHESTS_A_DAY, Math.max(0, won));
-  const spent = Math.min(taken, Math.max(0, opened));
   const left = PVP_CHESTS_A_DAY - taken;
   const full = left === 0;
   const timed = resetsAt != null && now != null;
@@ -75,7 +75,7 @@ export function ChestSlots({ won, opened = 0, ranks, resetsAt, now, ready = fals
         <Slot
           key={i}
           index={i}
-          state={i < spent ? "opened" : i < taken ? "won" : "free"}
+          state={i >= taken ? "free" : opened.includes(i) ? "opened" : "won"}
           rank={ranks?.[i]}
           ready={ready}
           small={look === "dial" || (full && look === "pedestals")}
