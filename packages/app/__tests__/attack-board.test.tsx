@@ -122,6 +122,8 @@ describe("/pvp on the board module", { timeout: slow(30_000) }, () => {
     expect(last()).toMatchObject({ basePath: RENDERER_ASSETS });
     expect(last().slots).toBeUndefined();
     expect(backdropOf(last())).toMatchObject(RIVAL_BACKDROP);
+    // On summer's day whatever the season wheel says (#788): the cycle off, so no night and no smoke.
+    expect(last().settings?.dayNight).toEqual({ enabled: false, freezeAt: null });
   });
 
   it("plays the attack as a Training game: the 3D board, the red void, a slot chosen, the bubble's hold, the green flash", async () => {
@@ -138,6 +140,8 @@ describe("/pvp on the board module", { timeout: slow(30_000) }, () => {
     await waitFor(() => expect(last().slots?.length).toBeGreaterThan(0), WAIT);
     expect(backdropOf(last())).toMatchObject(RIVAL_BACKDROP);
     expect(last().settings?.fog).toMatchObject(RIVAL_FOG);
+    // The attack keeps the boards' season (#788): the cycle as the setting runs it.
+    expect(last().settings?.dayNight).toEqual({ enabled: true, freezeAt: null });
     expect(last().bubble).toBeNull();
     // A tap on a lit cell places the tile there: the ghost and the bubble go to the canvas, as on Training's board.
     const slot = last().slots!.find((c) => c.fits) ?? last().slots![0]!;

@@ -14,7 +14,7 @@ import { useAttackV2Writes, type AttackMoveV2, type AttackV2, type AttackV2State
 import { V2RefusedError, useFreeVillage, useFreeVillageWrites } from "../data/free-village";
 import { usePvpStatus } from "../data/pvp";
 import { errorDetail } from "./error-detail";
-import { fromBoard, useAttackLegality, useScoutCanvas } from "./attack-board";
+import { fromBoard, useAttackLegality, useScoutBoard } from "./attack-board";
 import { useGameBoard } from "./game-board";
 import { useNow } from "./now";
 import { useAppNavigate } from "./ref";
@@ -131,7 +131,10 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
   const account = useCobbleAccount(me);
   const status = usePvpStatus(me);
   const tiles = useMemo(() => (rival.data ? layoutBoard(rival.data.tiles) : []), [rival.data]);
-  const canvas = useScoutCanvas(match.opponent, tiles);
+  const board = useScoutBoard(match.opponent, tiles);
+  // The village's tile list (#788): the attack's deck sheet before its first tile, the defender's tiles and the extras.
+  const rivalTiles = rival.data?.tiles;
+  const deckSheet = useMemo(() => (rivalTiles ? attackDeckSheet({ defenderPlans: rivalTiles.map((t) => t.plan), size: match.deck, moves: [], view: [] }) : null), [rivalTiles, match.deck]);
   const send = (write: () => Promise<WriteResult>) => {
     if (writes.pending) return;
     writes.reset();
@@ -148,9 +151,10 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
     <PvpScoutScene
       defender={playerOf(match)}
       village={village}
-      canvas={canvas}
+      {...board}
       stakes={stakesOf(match.offer, match.cost)}
       deck={{ slots: match.slots, size: match.deck, placed: rival.data.tiles.length }}
+      deckSheet={deckSheet}
       starPercents={ATTACK_STAR_PERCENTS}
       next={{ price: NEXT_PRICE, balance: account.data?.cobbles ?? 0 }}
       shieldEndsAt={shield?.up ? shield.until : null}
