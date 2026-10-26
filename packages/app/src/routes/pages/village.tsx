@@ -25,6 +25,8 @@ const ADDRESS = /^0x[0-9a-f]{1,64}$/i;
 
 /** The v1 village, its own chunk: only for a source that does not serve PvP v2's village yet (the chain before step 3). */
 const VillageV1 = lazy(() => import("./village-v1"));
+/** A visit's 3D board in a rival's red void (#772), its own chunk: loaded on a visit only. */
+const VillageVisitBoard = lazy(() => import("../village-visit-board"));
 
 /**
  * `/village` and `/village/:player` (#739, PvP v2 step 1): the player's own village, or anyone's, read-only. The free layout,
@@ -139,6 +141,15 @@ function Village({ player }: { player: string | null }) {
         refusal={writes.error ? refusalText(writes.error) : null}
         refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
         tileArt={tileArt}
+        board3d={
+          !own && playerId !== null && village
+            ? (plan) => (
+                <Suspense fallback={plan}>
+                  <VillageVisitBoard player={playerId} tiles={village.tiles} plan={plan} />
+                </Suspense>
+              )
+            : undefined
+        }
         onBack={onBack}
         onConnect={() => void wallet.connect()}
         onRetry={() => {
