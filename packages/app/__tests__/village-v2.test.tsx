@@ -263,8 +263,9 @@ describe("the v2 village scene (#739)", () => {
     expect(onSave).toHaveBeenCalledWith(VILLAGE_LAYOUT.changed.initialDraft);
     unmount();
     const { unmount: saved } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.saved} />));
-    expect(screen.getByText("Layout saved")).toBeInTheDocument();
-    expect(screen.getByText(/\+1,122/)).toBeInTheDocument();
+    // No notice (#802): the score counts to the new one, its gain floating off it.
+    expect(screen.queryByText("Layout saved")).toBeNull();
+    expect(await screen.findByText("+1,122")).toBeInTheDocument();
     saved();
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.leaving} />));
     const dialog = screen.getByRole("dialog", { name: "Leave without saving?" });
