@@ -129,8 +129,9 @@ function Swiping({ from }: { from: Tab }) {
 
 /**
  * Holds a swipe mid-way: picks `to` in the bar, then pauses the view transition's animations at a quarter of the swipe's
- * duration (`--tab-swipe-duration`; its easing has the pages about half way there), so the frame stays on screen. Nothing
- * held in a browser without view transitions.
+ * duration (`--tab-swipe-duration`, read from each animation's own timing, in milliseconds, whatever unit the CSS computes
+ * it in; the easing has the pages about half way there), so the frame stays on screen. Nothing held in a browser without view
+ * transitions.
  */
 const holdSwipe =
   (to: string) =>
@@ -139,12 +140,12 @@ const holdSwipe =
     const nav = canvasElement.querySelector<HTMLElement>('[data-slot="app-nav"]')!;
     const pick = [...nav.querySelectorAll("button")].find((b) => b.getAttribute("aria-label")?.startsWith(to))!;
     pick.click();
-    const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tab-swipe-duration")) || 320;
     await new Promise(requestAnimationFrame);
     await new Promise(requestAnimationFrame);
     for (const animation of document.getAnimations()) {
-      const target = (animation.effect as KeyframeEffect | null)?.pseudoElement;
-      if (!target?.startsWith("::view-transition")) continue;
+      const effect = animation.effect as KeyframeEffect | null;
+      if (!effect?.pseudoElement?.startsWith("::view-transition")) continue;
+      const ms = Number(effect.getComputedTiming().duration) || 320;
       animation.pause();
       animation.currentTime = ms / 4;
     }
