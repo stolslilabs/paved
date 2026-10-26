@@ -153,6 +153,7 @@ export default function Page() {
         guest={me === null}
         readOnly={readOnly}
         editing={editing}
+        covered={location.pathname !== "/"}
         onEditingChange={onEditingChange}
         founded={data?.founded ?? true}
         founding={pending === "found"}
