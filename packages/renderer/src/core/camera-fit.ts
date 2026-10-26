@@ -1,6 +1,6 @@
 import { CLOSEST_DISTANCE, OPENING_DISTANCE, PLAY_DEFAULT_POLAR_ANGLE } from "./CameraController";
 import { TILE_SIZE } from "./types";
-import { DEFAULT_CAMERA_FIT_SETTINGS, frameInsetsFor, type CameraFit, type CameraFitInput, type CameraFitLimit } from "./camera-fit-settings";
+import { DEFAULT_CAMERA_FIT_SETTINGS, frameFloorFor, frameInsetsFor, type CameraFit, type CameraFitInput, type CameraFitLimit } from "./camera-fit-settings";
 
 // The settings and types, for the tests and whoever loads this chunk.
 export * from "./camera-fit-settings";
@@ -43,16 +43,18 @@ export function computeCameraFit(input: CameraFitInput): CameraFit {
     zoom = 5,
     polar = PLAY_DEFAULT_POLAR_ANGLE,
     insets = frameInsetsFor(width),
-    floorCells = DEFAULT_CAMERA_FIT_SETTINGS.floorCells,
+    floorCells = frameFloorFor(width).cells,
+    marginCells = frameFloorFor(width).margin,
     ring = DEFAULT_CAMERA_FIT_SETTINGS.ring,
     minDistance = CLOSEST_DISTANCE,
     maxDistance = OPENING_DISTANCE,
   } = input;
 
-  // The area, in world units: the tiles' cells and their ring, to the cells' outer edges, widened to the floor.
+  // The area, in world units: the tiles' cells and their ring, to the cells' outer edges, widened to the floor and its
+  // margin (a board past the floor takes no margin).
   const c = cells ?? { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
   const half = TILE_SIZE / 2;
-  const floor = Math.max(floorCells, 0) * TILE_SIZE;
+  const floor = (Math.max(floorCells, 0) + 2 * Math.max(marginCells, 0)) * TILE_SIZE;
   const extent = (lo: number, hi: number): [number, number] => {
     const min = (lo - ring) * TILE_SIZE - half;
     const max = (hi + ring) * TILE_SIZE + half;

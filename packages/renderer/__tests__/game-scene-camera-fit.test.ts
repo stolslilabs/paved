@@ -215,6 +215,22 @@ describe("GameScene camera fit (CAMERA-FIT, #678)", () => {
     expect(off.view().target.toArray()).toEqual([0, 0, 0]);
   });
 
+  it("opens a phone on the phone's floor and margin, re-centres on it, and keeps the five cells from the tablet breakpoint (#791)", async () => {
+    const h = harness();
+    h.scene.updateTiles([tile(0, 0)]);
+    await h.scene.init({ surface: h.surface, shadows: false });
+    const fit = computeCameraFit({ cells: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, width: 375, height: 812, floorCells: 3, marginCells: 1 / 3 });
+    expectFrame(h.view(), fit);
+    expect(h.scene.getCameraFit()!.area.maxX).toBeCloseTo(5.5, 9);
+    h.drag();
+    h.scene.recenter();
+    expectFrame(h.view(), fit);
+    const wide = harness({ width: 640, height: 900 });
+    wide.scene.updateTiles([tile(0, 0)]);
+    await wide.scene.init({ surface: wide.surface, shadows: false });
+    expectFrame(wide.view(), computeCameraFit({ cells: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, width: 640, height: 900, floorCells: 5, marginCells: 0 }));
+  });
+
   it("keeps the outlines' opening tile size S at the reference distance, whatever the frame", async () => {
     const h = harness();
     h.scene.updateTiles([tile(0, 0)]);
