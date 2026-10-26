@@ -26,6 +26,8 @@ const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ default: m.AppNav })));
 // The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
 const LazyVillageStage = lazy(() => import("../containers/village-stage"));
+// The score's count after a save (#802, the balances' change): its own chunk, loaded by a save alone.
+const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
 // The village's points (#758), computed with the engine: from the stage's chunk too.
 const LazyVillagePoints = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.VillagePoints })));
 
@@ -47,7 +49,10 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   /** False: the starter alone, and Found (its starter layout comes with it). */
   founded?: boolean;
   founding?: boolean;
-  /** The save on its way; the last save landed (the new score, until dismissed); the save's refusal. */
+  /**
+   * The save on its way; the last save landed (its score and the one before, until edit mode opens again): back in view, the
+   * score chip counts to it once (#802), and a polite message says it; the save's refusal.
+   */
   saving?: boolean;
   saved?: LayoutSaved | null;
   refusal?: string | null;
@@ -178,6 +183,10 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     // inventory's carousel clips its own track (its window), and the scene's box clips the canvas.
     <div className={cn("relative flex h-dvh min-h-[32rem] flex-col bg-board text-foreground desktop:flex-row", editing ? "overflow-x-visible overflow-y-clip" : "overflow-hidden")}>
       <h1 className="sr-only">Home</h1>
+      {/* The save's word for assistive technology (#802), once edit mode has closed: the region stays, so the change is read. */}
+      <p role="status" className="sr-only">
+        {props.saved && !editing ? `Village saved: score ${formatInteger(props.saved.score)}` : ""}
+      </p>
       {/* The village's stage, its own chunk (the editor, the board, the engine): a placeholder sky until it is in. */}
       <Suspense fallback={SKY}>{renderStage ? renderStage(stage) : <LazyVillageStage {...stage} />}</Suspense>
       {!editing && (
@@ -242,6 +251,15 @@ function HomeBar({ children }: { children: ReactNode }) {
   );
 }
 
+const CHIP_ICON = <Icon name="house-chimney" size="xs" className="text-primary" />;
+/** The score chip's figure, still. */
+const chipFigure = (score: number) => (
+  <>
+    {CHIP_ICON}
+    <span className="numeric font-semibold">{formatInteger(score)}</span>
+  </>
+);
+
 /** The view's points panel open: the line lit, and its taps. */
 interface PointsState {
   selected: string | null;
@@ -259,6 +277,8 @@ function ViewOverlays({
   ...props
 }: HomeVillageSceneProps & { editable: boolean; onEdit: () => void; points: PointsState | null; onPoints: () => void }) {
   const { activeGame, now, guest, founded = true } = props;
+  // The score just saved, until the village's read has it too.
+  const shown = props.saved?.score ?? village?.score ?? 0;
   return (
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
@@ -272,7 +292,7 @@ function ViewOverlays({
               <button
                 type="button"
                 onClick={onPoints}
-                aria-label={`Village score ${formatInteger(village.score)}: ${points ? "hide" : "show"} the points`}
+                aria-label={`Village score ${formatInteger(shown)}: ${points ? "hide" : "show"} the points`}
                 aria-expanded={!!points}
                 aria-controls={points ? "village-points" : undefined}
                 className={cn(
@@ -280,8 +300,14 @@ function ViewOverlays({
                   points && "ring-1 ring-primary",
                 )}
               >
-                <Icon name="house-chimney" size="xs" className="text-primary" />
-                <span className="numeric font-semibold">{formatInteger(village.score)}</span>
+                {props.saved ? (
+                  // Back in view after a save (#802), the score counts from the one before, the balances' way: once, as it mounts.
+                  <Suspense fallback={chipFigure(props.saved.previous)}>
+                    <LazyScoreCount value={shown} from={props.saved.previous} icon={CHIP_ICON} className="font-semibold" />
+                  </Suspense>
+                ) : (
+                  chipFigure(shown)
+                )}
               </button>
             )}
             {/* The points (#758) under the chip from `tablet`; on a phone, a bottom panel over Play (the panel picks its place). */}

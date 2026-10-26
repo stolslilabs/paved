@@ -83,8 +83,20 @@ export const Guest: Story = { args: HOME_VILLAGE.guest };
 export const Loading: Story = { args: HOME_VILLAGE.loading };
 /** The village's read failed: Retry. */
 export const ReadFailed: Story = { args: HOME_VILLAGE.error };
-/** The save landed: the new score over the village. */
-export const Saved: Story = { args: HOME_VILLAGE.saved };
+/**
+ * The save landed, back in view (#802): no notice; the score chip under the badge counts up to the new score, green, a "+N"
+ * rising off it and the house popping, once.
+ */
+export const Saved: Story = { args: HOME_VILLAGE.saved, parameters: { reducedMotion: "never" } };
+/** A save that lowered the score: the chip counts down, a "−N" dropping. */
+export const SavedLower: Story = { args: HOME_VILLAGE.savedLower, parameters: { reducedMotion: "never" } };
+/** A save that left the score as it was: nothing plays. */
+export const SavedSame: Story = { args: HOME_VILLAGE.savedSame };
+/** Reduced motion: the new score at once, with a brief colour flash; nothing moves. */
+export const SavedReducedMotion: Story = { args: HOME_VILLAGE.saved, parameters: { reducedMotion: "always" } };
+/** The save at 375 px and 1440 px: the chip in view, nothing over it. */
+export const SavedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.saved, parameters: { ...PHONE_375.parameters, reducedMotion: "never" } };
+export const SavedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.saved, parameters: { reducedMotion: "never" } };
 /** The score chip tapped (#758): the points by structure, a line lit (on the plan view, its tiles ringed, the rest dimmed). */
 export const Points: Story = { args: HOME_VILLAGE.points };
 /** Edit mode: the editor's bar (Back, the score, the slots, Reset all), the inventory and Save. */
@@ -243,7 +255,7 @@ function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene
   );
 }
 
-/** Edit, place, save or leave: the modes switch in the same scene (the GIF of #753 plays this one). */
+/** Edit, place, save or leave: the modes switch in the same scene (the GIF of #753 plays this one); a save counts the chip to its score (#802). */
 export const Interactive: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} /> };
 /** The same on the 3D scene at 375 px: place a tile, move it, send it back, the bubble following it (the GIF of #756 plays this one). */
 export const InteractiveScene: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} scene />, ...PHONE_375 };

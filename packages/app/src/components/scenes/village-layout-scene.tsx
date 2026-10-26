@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
@@ -15,6 +15,9 @@ import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutE
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
+
+// The score's count after a save (issue 802, the balances' change): its own chunk, loaded by a save alone.
+const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
 
 /** Why the village is not shown: a guest (Connect), the reads on their way, a failed read (Retry). */
 export type VillageLayoutStatus = SkinsStatus;
@@ -37,7 +40,7 @@ export interface VillageLayoutSceneProps extends Pick<LayoutEditorOptions, "rand
   chests?: number;
   /** The save on its way: the editor waits. */
   saving?: boolean;
-  /** The last save landed: the new score, until dismissed. The editor closes. */
+  /** The last save landed: the editor closes, and back in view the score counts to the new one (#802), until edit mode opens again. */
   saved?: LayoutSaved | null;
   /** The save's refusal, until dismissed. */
   refusal?: string | null;
@@ -144,9 +147,16 @@ function LayoutView({
   const editor = useLayoutEditor({ village, inventory, own, saving, saved, initialEditing, initialDraft, initialHand, initialPending, initialLeaving, onBack, onSave: onSave && ((tiles) => onSave(tiles)), onDismissSaved, onDirtyChange, ...die });
   const { editing, slots, used, score, pending, open, back } = editor;
 
+  // The save that landed, edit mode closed: the score just saved, until the village's read has it too.
+  const after = own && !editing ? saved : null;
+  const shown = after?.score ?? score;
   const title = own ? "My village" : `${village.owner}'s village`;
   return (
     <div className="flex min-h-dvh flex-col bg-background desktop:h-dvh desktop:overflow-hidden">
+      {/* The save's word for assistive technology (#802): the region stays, so the change is read once. */}
+      <p role="status" className="sr-only">
+        {after ? `Village saved: score ${formatInteger(after.score)}` : ""}
+      </p>
       <TopBar
         title={editing ? "Edit layout" : title}
         onBack={back}
@@ -155,7 +165,19 @@ function LayoutView({
         <div className="flex min-h-0 flex-1 flex-col desktop:overflow-hidden desktop:rounded-2xl desktop:border desktop:border-border">
           <div className="flex items-end justify-between gap-3 border-b border-border px-4 pb-2 desktop:pt-2">
             <div className="flex shrink-0 items-end gap-3">
-              <Score value={score} label={editing ? "Layout score" : "Village score"} size="sm" />
+              {/* Back in view after a save (#802), the score counts from the one before, once. */}
+              <Score
+                value={shown}
+                label={editing ? "Layout score" : "Village score"}
+                size="sm"
+                figure={
+                  after && (
+                    <Suspense fallback={formatInteger(after.previous)}>
+                      <LazyScoreCount value={shown} from={after.previous} />
+                    </Suspense>
+                  )
+                }
+              />
               {editing && score !== village.score && (
                 <span className="pb-0.5 text-xs text-muted-foreground">
                   saved <span className="numeric">{formatInteger(village.score)}</span>
@@ -201,21 +223,6 @@ function LayoutView({
             // desktop it fills its card.
             className={cn("flex-none desktop:min-h-0 desktop:flex-1", editing ? "h-[max(14rem,calc(100dvh-30rem))]" : "h-[max(14rem,calc(100dvh-14rem))]", "desktop:h-auto")}
           />
-          )}
-          {own && saved && !editing && (
-            <div className="border-t border-border px-4 py-2">
-              <Notice icon="circle-check" title="Layout saved">
-                Your village scores <span className="numeric font-semibold">{formatInteger(saved.score)}</span>
-                {saved.score !== saved.previous && (
-                  <span className={cn("numeric", saved.score > saved.previous ? "text-success" : "text-muted-foreground")}>
-                    {" "}
-                    ({saved.score > saved.previous ? "+" : "−"}
-                    {formatInteger(Math.abs(saved.score - saved.previous))})
-                  </span>
-                )}
-                : attackers play against it now.
-              </Notice>
-            </div>
           )}
           {own && refusal && (
             <div className="border-t border-border px-4 py-2">
