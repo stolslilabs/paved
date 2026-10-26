@@ -6,7 +6,7 @@ import { Icon } from "../ui/icon";
 import { BalancesSlot } from "./balances-context";
 import { MockMarkSlot } from "./mock-mark";
 import { usePagePanel } from "./page-panel-context";
-import { PanelClose } from "./panel-close";
+import { useInPageRegion } from "./page-region";
 
 export interface PageHeaderProps {
   title: string;
@@ -29,14 +29,15 @@ export interface PageHeaderProps {
  *   `rail` from it, the same on every page, in the header's row; nothing under the header, so the content starts right under it.
  * - At 320 px the title gives way first (`min-w-0`), never Back nor the balances (`shrink-0`).
  * - In the home's side panel from `desktop` (DESK-PANELS, #762) the page is laid out as on a phone (`data-page-panel`, theme.css): the
- *   `pill`, then the panel's close (`PanelClose`); a page of the overlay itself has no Back (the close leads to the village).
+ *   `pill`; a page of the overlay itself has no Back (a click outside the panel or Escape leads to the village; no close button,
+ *   #782).
  * One module with `TopBar`: the route's error page (`RouteError`) carries it in the entry, and the tab pages share it from there;
  * in a module of its own the bundler split it and the balances' slot into two chunks of the first load (`bundle-budget.json`).
  */
 export function PageHeader({ title, onBack, balances = true, document = false, className }: PageHeaderProps) {
   const panel = usePagePanel();
-  // In a panel its body is the region whose hint shows (`page-panel.tsx`); the document does not scroll.
-  const documentHint = document && panel === null;
+  // In a region (a tab page's frame, the panel's body, #782) the region's hint shows (`pageScrollHintRef`); the document does not scroll.
+  const documentHint = document && !useInPageRegion();
   useEffect(() => (documentHint ? documentScrollStartHint() : undefined), [documentHint]);
   return (
     <header data-slot="page-header" className={cn("page-header sticky top-0 z-30 bg-background/95 backdrop-blur", className)}>
@@ -58,7 +59,6 @@ export function PageHeader({ title, onBack, balances = true, document = false, c
               <BalancesSlot layout="rail" className="hidden desktop:flex" />
             </>
           )}
-          <PanelClose className="-mr-1" />
         </div>
       </div>
       <span aria-hidden data-slot="page-top-hint" className="pointer-events-none absolute inset-x-0 top-full h-6 bg-linear-to-t to-background opacity-0 transition-opacity motion-reduce:transition-none page-less:opacity-100" />
@@ -71,8 +71,8 @@ export type TopBarProps = Omit<PageHeaderProps, "document">;
 /**
  * The top bar of a full-screen flow (section 6.2): the one page header (`PageHeader`, ONE-HEADER #781) at the top of a page that
  * scrolls as one document. The space under it is the bar's own (`mb-4`, the pages' side padding, #622): the page below starts
- * flush, so every such page has the same gap as a tab page's (`TabPage`). In the home's side panel from `desktop` (DESK-PANELS,
- * #762) the panel's body scrolls, not the document.
+ * flush, so every such page has the same gap as a tab page's (`TabPage`). In a page's scrolling region (a tab page's
+ * `TabFrame`, the home's side panel from `desktop`, DESK-PANELS #762, PAGES-SCROLL #782) the region scrolls, not the document.
  */
 export function TopBar({ className, ...props }: TopBarProps) {
   return <PageHeader {...props} document className={cn("mb-4", className)} />;

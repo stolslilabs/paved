@@ -18,6 +18,8 @@ import { errorDetail } from "../error-detail";
 import { heldRefusal, newRefusal, quoteProblem, withDetail } from "../purchase-refusal";
 import { useNow } from "../now";
 import { useBack } from "../ref";
+import { useInPageRegion } from "../../components/containers/page-region";
+import { cn } from "../../lib/utils";
 
 /**
  * `/cobbles` (#621): the Cobble packs, a page of their own (they left the Challenge's purchase, whose old `?tab=cobbles`
@@ -128,8 +130,10 @@ export default function Page() {
  * deployed, a failed read), with Retry. The top bar keeps Back, as on every full-screen flow.
  */
 function CobblesStatus({ error, detail, onBack, onRetry }: { error: string | null; detail?: ErrorDetail; onBack: () => void; onRetry?: () => void }) {
+  // A full-screen flow fills the viewport; in a scrolling region (the side panel, #782) the page takes its content's height.
+  const inRegion = useInPageRegion();
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <div className={cn("flex flex-col bg-background text-foreground", !inRegion && "min-h-dvh")}>
       <TopBar title="Cobbles" onBack={onBack} />
       <main aria-busy={error === null} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 tablet:max-w-2xl">
         {error === null ? (
