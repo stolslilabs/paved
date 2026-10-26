@@ -115,8 +115,12 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     await s.router.navigate(-1);
     await waitFor(() => expect(s.router.state.location.search).toBe(""));
     expect(s.router.state.location.pathname).toBe("/");
-    expect(await screen.findByRole("navigation", { name: "Village" }, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
+    // Queried again until both hold: the view's overlays can remount as the editor leaves, so a node found once may be gone
+    // by the assertion (CI, a flake on main too).
+    await waitFor(() => {
+      expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
+    }, WAIT);
   }, slow(30_000));
 
   it("opened on /?edit, the editor's Back drops the mode in place", async () => {
