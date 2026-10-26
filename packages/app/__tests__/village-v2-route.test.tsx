@@ -110,7 +110,9 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     expect(screen.getByRole("button", { name: `Score ${draft.score.toLocaleString("en-US")}: show the points` })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
-    expect(await screen.findByText("Layout saved", {}, WAIT)).toBeInTheDocument();
+    // No notice (#802): the polite message, and the score chip on the new score.
+    expect(await screen.findByText(`Village saved: score ${draft.score.toLocaleString("en-US")}`, {}, WAIT)).toBeInTheDocument();
+    expect(screen.queryByText("Layout saved")).toBeNull();
     // The save closes edit mode: the entry Edit pushed goes, the view's overlays come back.
     await waitFor(() => expect(s.router.state.location.search).toBe(""));
     expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
