@@ -5,7 +5,7 @@ import type { BoardBubble, BoardViewportProps } from "../components/containers/b
 import { StackView, canDrawStack } from "../components/containers/stack-view";
 import { hasWebGL } from "../components/containers/tile-view";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
-import { useBoardSettings } from "../data/board-settings";
+import { useBoardSettings, type BoardSide } from "../data/board-settings";
 import { usePlacement, type Slot } from "../data/placement";
 import { RENDERER_ASSETS } from "../data/renderer-manifest";
 import { useTileArt } from "../data/tile-art";
@@ -23,6 +23,9 @@ export interface GameBoardPlacement {
   /** Changes with a new tile in hand (or a new game): the slot and rotation chosen go. */
   resetKey: unknown;
 }
+
+/** A board that places nothing (a replay, the scout): no tile in hand, no plate. */
+export const READ_ONLY_PLACEMENT: GameBoardPlacement = { plan: null, slotsAt: () => [], orientationsAt: () => [], version: null, resetKey: null };
 
 /** What the board draws, from the session, once the page has its bubble. */
 export interface GameBoardInput {
@@ -46,9 +49,12 @@ export type GameBoardSceneProps = Pick<
  * (`usePlacement`: the plates, the ghost, the hold to confirm). `resetKey` starts the season wheel again (a new game, a
  * restarted level). The page builds its bubble from `placement`, then spreads `scene(...)` into `BoardScene`. The 3D board is
  * the module's canvas (`board-canvas.tsx`), the village's too; no route draws `BoardViewport` or `StackView` itself.
+ *
+ * `side` is whose board it is: `own` (the default) keeps the green void, `rival` (an attack, its scout, the replay of an attack
+ * on another village) gives it red tones (#772). A read-only board (a replay, the scout) gives `plan: null`: no plate, no ghost.
  */
-export function useGameBoard({ skins, resetKey, placement: input }: { skins?: TileSkins; resetKey?: unknown; placement: GameBoardPlacement }) {
-  const settings = useBoardSettings(resetKey);
+export function useGameBoard({ skins, resetKey, side = "own", placement: input }: { skins?: TileSkins; resetKey?: unknown; side?: BoardSide; placement: GameBoardPlacement }) {
+  const settings = useBoardSettings(resetKey, side);
   // The 3D board, unless this browser has no WebGL or the renderer cannot start (its models not served): the plan view.
   const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
   // The hand's tile chip draws the 256 px copy the manifest lists (the plan's areas until it is read).

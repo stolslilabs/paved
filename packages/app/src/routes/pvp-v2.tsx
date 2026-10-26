@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { BoardTile, WriteResult } from "@paved/chain";
-import { AttackRun, CENTER, CategoryType, OrientationType, PlanType, STARTER_TILE, type LayoutTile } from "@paved/game-core";
-import { deckArt } from "../components/containers/deck-sheet";
+import { AttackRun, CENTER, CategoryType, DISCARD_POINTS, OrientationType, PlanType, STARTER_TILE, type LayoutTile } from "@paved/game-core";
+import type { BoardGhost } from "../components/containers/board-viewport";
 import { PvpAttackScene } from "../components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../components/scenes/pvp-scout-scene";
 import { PvpSearchScene } from "../components/scenes/pvp-search-scene";
@@ -13,10 +13,9 @@ import { useCobbleAccount } from "../data/cobbles";
 import { useAttackV2Writes, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
 import { V2RefusedError, useFreeVillage, useFreeVillageWrites } from "../data/free-village";
 import { usePvpStatus } from "../data/pvp";
-import { RENDERER_ASSETS } from "../data/renderer-manifest";
-import { useTileArt } from "../data/tile-art";
-import { useTileRenders } from "../data/tile-renders";
 import { errorDetail } from "./error-detail";
+import { fromBoard, useAttackLegality, useScoutCanvas } from "./attack-board";
+import { useGameBoard } from "./game-board";
 import { useNow } from "./now";
 import { useAppNavigate } from "./ref";
 
@@ -131,6 +130,8 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
   const rival = useFreeVillage(match.opponent);
   const account = useCobbleAccount(me);
   const status = usePvpStatus(me);
+  const tiles = useMemo(() => (rival.data ? layoutBoard(rival.data.tiles) : []), [rival.data]);
+  const canvas = useScoutCanvas(match.opponent, tiles);
   const send = (write: () => Promise<WriteResult>) => {
     if (writes.pending) return;
     writes.reset();
@@ -140,7 +141,6 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
     const message = rival.data === null ? "This village cannot be read on this network." : rival.error?.message;
     return <PvpSearchScene state={message ? "error" : "searching"} player={playerOf(match)} error={message} onCancel={onBack} />;
   }
-  const tiles = layoutBoard(rival.data.tiles);
   const village: PvpVillage = { cells: tiles.map(({ x, y }) => ({ x, y })), tiles, score: match.target };
   const shield = status.data?.shield;
   const shielded = writes.error instanceof V2RefusedError && writes.error.reason === "opponent-shielded";
@@ -148,6 +148,7 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
     <PvpScoutScene
       defender={playerOf(match)}
       village={village}
+      canvas={canvas}
       stakes={stakesOf(match.offer, match.cost)}
       deck={{ slots: match.slots, size: match.deck, placed: rival.data.tiles.length }}
       starPercents={ATTACK_STAR_PERCENTS}
@@ -166,13 +167,6 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
   );
 }
 
-/** A cell chosen for the tile in hand: where, and which of its fitting orientations. */
-interface Chosen {
-  cell: { x: number; y: number };
-  orientations: number[];
-  turn: number;
-}
-
 /** What an attack's end tells: its stars, crowns, XP and chest. */
 function endText(fields: Record<string, unknown>): { title: string; description: string } {
   const stars = Number(fields.stars ?? 0);
@@ -182,23 +176,27 @@ function endText(fields: Record<string, unknown>): { title: string; description:
   return { title: `${stars} ${stars === 1 ? "star" : "stars"}`, description: parts.join(", ") };
 }
 
-/** The open attack: the deck played on an unbounded board, a cell chosen and turned, each move a write; the last one ends it. */
+/** The open attack: the deck played on an unbounded board, as a Training game places (`usePlacement`), each move a write; the last one ends it. */
 function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; match: MatchV2 | null; writes: Writes; ended: { current: boolean }; onBack: () => void }) {
   const go = useAppNavigate();
-  const [chosen, setChosen] = useState<Chosen | null>(null);
   const rival = useFreeVillage(attack.defender);
   const skins = useBoardSkins(attack.defender);
-  const tileArt = deckArt(useTileRenders(RENDERER_ASSETS), skins, useTileArt(RENDERER_ASSETS));
   const { run, last, tiles } = useMemo(() => boardOf(attack.moves), [attack.moves]);
   const hand = attack.view[0] ?? null;
-  const slots = hand !== null ? run.slots(hand).map((c) => ({ x: CENTER + c.x, y: CENTER + c.y })) : [];
   const pending = writes.pending?.kind === "play";
-  const play = (move: Parameters<Writes["play"]>[0]) => {
+  const legal = useAttackLegality(run, hand);
+  // The rival's village in red (#772); the season wheel starts again with each attack.
+  const { placement, scene } = useGameBoard({ skins, side: "rival", resetKey: attack.id, placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: attack.moves.length } });
+  const { orientation, move } = placement;
+  const preview = move && hand !== null ? run.preview(hand, move.orientation, fromBoard(move)) : null;
+  const play = (next: Parameters<Writes["play"]>[0], ghost: BoardGhost | null = null) => {
     if (writes.pending) return;
     writes.reset();
-    writes.play(move).then(
+    writes.play(next).then(
       (receipt) => {
-        setChosen(null);
+        if (ghost) placement.accepted(ghost);
+        else placement.clear();
+        placement.setOrientation(1);
         const finished = receipt.events.find((e) => e.name === "AttackFinished");
         if (!finished) return;
         ended.current = true;
@@ -209,16 +207,33 @@ function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; ma
       () => undefined,
     );
   };
-  const orientation = chosen ? chosen.orientations[chosen.turn % chosen.orientations.length]! : 1;
-  const preview = chosen && hand !== null ? run.preview(hand, orientation, chosen.cell) : null;
+  const discard = () => play({ discard: true });
+  const confirm = () => {
+    if (!placement.canConfirm || !move) return;
+    play({ discard: false, orientation: move.orientation, cell: fromBoard(move) }, placement.ghost);
+  };
   const defender: PvpPlayer = match && match.opponent === attack.defender ? playerOf(match) : { name: null, address: attack.defender, level: rival.data?.level ?? 0, crowns: 0 };
+  const score = run.score;
+  const bubble = placement.chosen
+    ? {
+        cell: placement.chosen,
+        rotations: placement.rotations.length,
+        orientation,
+        onRotate: placement.rotate,
+        onClose: placement.clear,
+        onDiscard: discard,
+        discardCost: Math.min(score, DISCARD_POINTS),
+        onConfirm: confirm,
+        canConfirm: placement.canConfirm && preview !== null && !pending,
+        busy: pending,
+      }
+    : null;
   return (
     <PvpAttackScene
       defender={defender}
       target={attack.target}
       starPercents={ATTACK_STAR_PERCENTS}
-      tiles={tiles}
-      score={run.score}
+      score={score}
       delta={last ? last.delta : null}
       lastScored={(last?.result.scored ?? []).map((s) => ({ category: CATEGORIES.indexOf(s.category), size: s.size, points: s.points }))}
       remaining={Math.max(0, attack.deck - attack.moves.length)}
@@ -226,43 +241,18 @@ function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; ma
         tile: hand !== null ? { plan: hand, orientation } : null,
         state: pending ? "pending" : writes.error ? "refused" : hand !== null ? "placing" : "empty",
         coming: attack.view.slice(1).map((plan) => ({ plan })),
-        slotChosen: chosen !== null,
-        fitsNowhere: hand !== null && slots.length === 0,
+        slotChosen: placement.canConfirm && preview !== null,
+        cellChosen: placement.chosen !== null,
+        fitsNowhere: hand !== null && legal.empty,
         preview,
         error: v2ErrorText(writes.error),
         errorDetail: writes.error ? errorDetail(writes.error) : undefined,
       }}
-      slots={slots}
-      ghost={chosen && hand !== null ? { x: CENTER + chosen.cell.x, y: CENTER + chosen.cell.y, plan: hand, orientation, placed: true, fits: true } : null}
-      bubble={
-        chosen && hand !== null
-          ? {
-              cell: { x: CENTER + chosen.cell.x, y: CENTER + chosen.cell.y },
-              rotations: chosen.orientations.length,
-              orientation,
-              onRotate: () => setChosen({ ...chosen, turn: chosen.turn + 1 }),
-              onClose: () => setChosen(null),
-              onDiscard: () => play({ discard: true }),
-              onConfirm: () => play({ discard: false, orientation, cell: chosen.cell }),
-              canConfirm: !pending,
-              busy: pending,
-            }
-          : null
-      }
-      tileArt={tileArt}
-      skins={skins}
+      {...scene({ tiles, bubble })}
       // The pile draws from the defender's tiles (the deck holds them all), the three known ones until they are read.
       pilePlans={rival.data && rival.data.tiles.length > 0 ? rival.data.tiles.map((t) => t.plan) : attack.view}
       onBack={onBack}
-      onSlotClick={(slot) => {
-        if (hand === null || pending) return;
-        const cell = { x: slot.x - CENTER, y: slot.y - CENTER };
-        const orientations = run.orientations(hand, cell);
-        if (orientations.length === 0) return;
-        writes.reset();
-        setChosen({ cell, orientations, turn: 0 });
-      }}
-      onDiscard={() => play({ discard: true })}
+      onDiscard={discard}
     />
   );
 }

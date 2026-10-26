@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Attack } from "@paved/chain";
+import { sameAddress, type Attack } from "@paved/chain";
 import { AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
 import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
+import { useBoardSkins } from "../../data/board-skins";
 import { usePlayerStatus } from "../../data/indexer";
+import { useDataSources } from "../../data/sources";
 import { ATTACK_FINISHED, moveCodes, pvpKeys, usePvpAttack, usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
 import { errorDetail } from "../error-detail";
 import { useUpTo } from "../ref";
+import { READ_ONLY_PLACEMENT, useGameBoard } from "../game-board";
 import NotFound from "./not-found";
 
 /** An address in a path: `0x` and 1 to 64 hex digits. */
@@ -69,6 +72,17 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
     return { run, last };
   }, [read.data, move]);
 
+  const tiles = useMemo(
+    () => step?.run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y })) ?? [],
+    [step],
+  );
+  // The 3D board of every game, read only (#772): green on a replay of an attack on the viewer's own village (the defence log's),
+  // red on someone else's (open point 5). The defender's skins, as the attack drew them.
+  const me = useDataSources().signer?.address ?? null;
+  const own = me !== null && attack !== null && sameAddress(attack.defender, me);
+  const skins = useBoardSkins(attack?.defender ?? null);
+  const { scene } = useGameBoard({ skins, side: own ? "own" : "rival", resetKey: id, placement: READ_ONLY_PLACEMENT });
+
   const client = useQueryClient();
   /** Reads the attack's metadata, its moves and the attacker's state again. */
   const retry = () => {
@@ -86,13 +100,12 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
     const missing = read.data === null || unrecorded ? "This attack cannot be replayed: it is not recorded on this network." : (error?.message ?? null);
     return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} onRetry={error || unrecorded ? retry : undefined} />;
   }
-  const tiles = step.run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y }));
   return (
     <PvpAttackScene
       defender={defender}
       target={attack.target}
       territory={read.data.territory}
-      tiles={tiles}
+      {...scene({ tiles, bubble: null })}
       score={step.run.score}
       delta={step.last?.delta ?? null}
       lastScored={[]}
