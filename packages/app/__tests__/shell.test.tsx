@@ -235,6 +235,9 @@ describe("a page that throws", () => {
   });
 });
 
+/** The welcome card's Connect: the header's balances (#781) carry a guest's Connect too, the home's. */
+const welcomeConnect = () => within(screen.getByRole("heading", { name: "Welcome to Paved" }).closest<HTMLElement>('[data-slot="card"]')!).getByRole("button", { name: /Connect/ });
+
 describe("the welcome", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -245,7 +248,7 @@ describe("the welcome", () => {
     const router = open("/");
     await screen.findByRole("heading", { name: "Welcome to Paved" });
     expect(router.state.location.pathname).toBe("/welcome");
-    await userEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    await userEvent.click(welcomeConnect());
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(localStorage.getItem("welcomed")).toBe("1");
     expect(router.state.location.pathname).toBe("/");
@@ -254,7 +257,7 @@ describe("the welcome", () => {
   it("a refused connect stays on the welcome with its reason, the visit not marked", async () => {
     const router = open("/", fakeWallet({ refuse: "closed by the player" }));
     await screen.findByRole("heading", { name: "Welcome to Paved" });
-    await userEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    await userEvent.click(welcomeConnect());
     expect(await screen.findByText(/closed by the player/, { selector: "[data-slot=card] *" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/welcome");
     expect(hasWelcomed()).toBe(false);
@@ -287,7 +290,7 @@ describe("the welcome", () => {
     expect(hasWelcomed()).toBe(false);
     const router = open("/");
     await screen.findByRole("heading", { name: "Welcome to Paved" });
-    await userEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    await userEvent.click(welcomeConnect());
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/");
   });

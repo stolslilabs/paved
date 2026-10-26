@@ -7,6 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { TabPage } from "../src/components/containers/tab-page";
 import { PageHeader, TopBar } from "../src/components/containers/top-bar";
+import { HEADER_BALANCES } from "../src/routes/header-balances";
+import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
+import * as PAGE_STORIES from "../src/stories/page-headers.stories";
+import { slow } from "../test-slow";
+
+/** A story's id after `pages-headers--`, from its export's name, as Storybook makes it (`StoryCampaigns`: `story-campaigns`). */
+const idOf = (exportName: string) => exportName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
 // ONE-HEADER (#781, the owner's decisions of 2026-10-26): one header on every page but the game scenes. Back and the title at the
 // top left, no subtitle; the home's balances at the top right, in the header's row; nothing under it.
@@ -73,5 +80,22 @@ describe("the page header (#781)", () => {
       expect(read(file)).not.toMatch(/subtitle\?:|PageBalances/);
     }
     expect(read("src/components/containers/balances-context.tsx")).not.toMatch(/PageBalances|PanelBalances|page-balances/);
+  });
+});
+
+// Every page's real scene, as `Pages/Headers` draws it (not a stand-in bar): the one header, its title, and the home's balances
+// where the page's rule has them. Welcome included: a first visit is a page like any other (#781).
+describe("every page's scene draws the one header (#781)", () => {
+  const stories = Object.entries(PAGE_STORIES).filter(([name]) => name !== "default") as [string, { render?: (...a: never[]) => unknown }][];
+  it.each(Object.entries(PAGE_HEADER_STORIES).map(([id, routes]) => [id, routes[0]] as const))("%s", async (id, route) => {
+    const story = stories.find(([name]) => idOf(name) === id)?.[1];
+    expect(story?.render, id).toBeDefined();
+    const page = story!.render!({} as never, {} as never) as ReactNode;
+    const { container } = HEADER_BALANCES[route] === "none" ? render(<LazyMotion features={domMax}>{page}</LazyMotion>) : withBalances(page);
+    const header = container.querySelector<HTMLElement>('[data-slot="page-header"]')!;
+    expect(header).not.toBeNull();
+    expect(within(header).getByRole("heading", { level: 1 }).textContent).not.toBe("");
+    if (HEADER_BALANCES[route] === "none") expect(within(header).queryAllByRole("region", { name: "Balances" })).toHaveLength(0);
+    else expect(await within(header).findAllByRole("region", { name: "Balances" }, { timeout: slow(5000) })).toHaveLength(2);
   });
 });
