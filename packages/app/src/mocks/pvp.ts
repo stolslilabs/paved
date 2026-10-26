@@ -251,7 +251,10 @@ const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 export const PVP_LEAGUE = {
   gold: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
-  legend: { crowns: 2_655, season: SEASON, now: MOCK_NOW },
+  // The carousel on a league above the player's (Gold II) and one below (Bronze II): the "Back to my league" chip.
+  higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },
+  lower: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 2 },
+  legend: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
   unranked: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
   ended: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW - 2 * HOUR }, now: MOCK_NOW },
 } satisfies Record<string, Data<PvpLeagueSceneProps>>;
