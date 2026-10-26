@@ -84,7 +84,7 @@ export const Credits: Story = { render: () => <CreditsScene tracks={TRACKS.map(t
 export const Cobbles: Story = { render: () => <CobblesScene {...COBBLES.packs} onBack={fn()} /> };
 export const Avatar: Story = { render: () => <AvatarCreatorScene {...AVATAR_CREATOR.saved} onBack={fn()} /> };
 export const Village: Story = { render: () => <VillageLayoutScene {...VILLAGE_LAYOUT.growing} onBack={fn()} /> };
-export const VillageChests: Story = { render: () => <VillageChestsScene {...VILLAGE_CHESTS.waiting} onBack={fn()} /> };
+export const VillageChests: Story = { render: () => <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={fn()} /> };
 export const VillageShop: Story = { render: () => <VillageShopScene {...VILLAGE_SHOP.today} onBack={fn()} /> };
 export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.twoStars} /> };
 export const PvpDefence: Story = { render: () => <PvpDefenceScene {...PVP_DEFENCE.shielded} onBack={fn()} /> };

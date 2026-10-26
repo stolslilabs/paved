@@ -14,14 +14,14 @@ const meta = {
   title: "Scenes/Village v2/Chests directions",
   component: VillageChestsScene,
   parameters: { layout: "fullscreen" },
-  args: { ...VILLAGE_CHESTS.waiting, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onPlay: fn(), onOpen: fn() },
+  args: { ...VILLAGE_CHESTS.closed, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onPlay: fn(), onOpen: fn() },
 } satisfies Meta<typeof VillageChestsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const PedestalsSomeWon: Story = { args: { ...VILLAGE_CHESTS.waiting, look: "pedestals" } };
+export const PedestalsSomeWon: Story = { args: { ...VILLAGE_CHESTS.closed, look: "pedestals" } };
 export const PedestalsAllWon: Story = { args: { ...VILLAGE_CHESTS.capped, look: "pedestals" } };
 export const PedestalsReady: Story = { args: { ...VILLAGE_CHESTS.ready, look: "pedestals" } };
-export const DialSomeWon: Story = { args: { ...VILLAGE_CHESTS.waiting, look: "dial" } };
+export const DialSomeWon: Story = { args: { ...VILLAGE_CHESTS.closed, look: "dial" } };
 export const DialAllWon: Story = { args: { ...VILLAGE_CHESTS.capped, look: "dial" } };
 export const DialReady: Story = { args: { ...VILLAGE_CHESTS.ready, look: "dial" } };
