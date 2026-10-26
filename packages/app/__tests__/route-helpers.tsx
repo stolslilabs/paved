@@ -33,6 +33,9 @@ const PAGES = {
   "my-tiles": () => import("../src/routes/pages/my-tiles"),
   credits: () => import("../src/routes/pages/credits"),
   welcome: () => import("../src/routes/pages/welcome"),
+  "village-shop": () => import("../src/routes/pages/village-shop"),
+  "village-chests": () => import("../src/routes/pages/village-chests"),
+  "pvp-league": () => import("../src/routes/pages/pvp-league"),
 };
 
 /**

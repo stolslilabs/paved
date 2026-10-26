@@ -58,7 +58,8 @@ describe("/ (#753): the village home on its data", () => {
     await userEvent.click(chip);
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_PLAYING.id}`));
     await router.navigate(-1);
-    await userEvent.click(await screen.findByRole("button", { name: /^Play/ }, { timeout: slow(5000) }));
+    // The phone's bar's Play (#763), the centre disc.
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Play" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
   });
 

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
@@ -46,18 +46,24 @@ afterEach(() => {
 });
 
 describe("tabSwipeWay", () => {
-  it("follows the bar's order", () => {
-    expect(tabSwipeWay("home", "quests")).toBe("next");
-    expect(tabSwipeWay("home", "settings")).toBe("next");
-    expect(tabSwipeWay("vault", "quests")).toBe("prev");
-    expect(tabSwipeWay("settings", "home")).toBe("prev");
+  it("follows the bar's order (#763): Shop, Chests, Play, League, Settings", () => {
+    expect(tabSwipeWay("shop", "chests")).toBe("next");
+    expect(tabSwipeWay("chests", "league")).toBe("next");
+    expect(tabSwipeWay("shop", "settings")).toBe("next");
+    expect(tabSwipeWay("league", "chests")).toBe("prev");
+    expect(tabSwipeWay("settings", "shop")).toBe("prev");
   });
 
-  it("is none for Play, within one tab, and from a page of no tab", () => {
-    expect(tabSwipeWay("home", "play")).toBeNull();
-    expect(tabSwipeWay("play", "vault")).toBeNull();
+  it("is none for Play, within one tab, from a page of no tab, and from or to a tab not in the bar", () => {
+    expect(tabSwipeWay("shop", "play")).toBeNull();
+    expect(tabSwipeWay("play", "league")).toBeNull();
     expect(tabSwipeWay("settings", "settings")).toBeNull();
-    expect(tabSwipeWay(null, "home")).toBeNull();
+    expect(tabSwipeWay(null, "shop")).toBeNull();
+    // The home, Missions and the Vault are the overlay's, not the bar's: no item is current there, so no way.
+    expect(tabSwipeWay("home", "chests")).toBeNull();
+    expect(tabSwipeWay("vault", "settings")).toBeNull();
+    expect(tabSwipeWay("league", "home")).toBeNull();
+    expect(tabSwipeWay("vault", "quests")).toBeNull();
   });
 });
 
@@ -65,9 +71,9 @@ describe("tabSwipe", () => {
   it("below desktop, marks <html> with the way and asks for a view transition", () => {
     media();
     viewTransitions();
-    expect(tabSwipe("home", "vault")).toEqual({ viewTransition: true });
+    expect(tabSwipe("shop", "league")).toEqual({ viewTransition: true });
     expect(html.getAttribute(TAB_SWIPE_MARK)).toBe("next");
-    expect(tabSwipe("vault", "home")).toEqual({ viewTransition: true });
+    expect(tabSwipe("league", "shop")).toEqual({ viewTransition: true });
     expect(html.getAttribute(TAB_SWIPE_MARK)).toBe("prev");
   });
 
@@ -77,21 +83,22 @@ describe("tabSwipe", () => {
     ["without document.startViewTransition", () => media()],
   ])("changes the page at once %s", (_name, setUp) => {
     setUp();
-    expect(tabSwipe("home", "vault")).toBeUndefined();
+    expect(tabSwipe("shop", "league")).toBeUndefined();
     expect(html.hasAttribute(TAB_SWIPE_MARK)).toBe(false);
   });
 
   it("changes the page at once for Play and within one tab", () => {
     media();
     viewTransitions();
-    expect(tabSwipe("home", "play")).toBeUndefined();
+    expect(tabSwipe("shop", "play")).toBeUndefined();
     expect(tabSwipe("settings", "settings")).toBeUndefined();
+    expect(tabSwipe("home", "chests")).toBeUndefined();
     expect(html.hasAttribute(TAB_SWIPE_MARK)).toBe(false);
   });
 });
 
 describe("a pick in the bar", () => {
-  preloadPages("home", "quests", "vault");
+  preloadPages("home", "quests", "vault", "settings", "village-shop", "village-chests");
   beforeEach(() => {
     localStorage.clear();
     resetWelcomedForTests();
@@ -111,14 +118,25 @@ describe("a pick in the bar", () => {
   it("below desktop, swipes the page with the mark on, and the mark is gone after", async () => {
     media();
     const { start, marks } = viewTransitions();
-    const router = open("/vault");
-    await screen.findByRole("heading", { level: 1, name: "Vault" });
-    await userEvent.click(screen.getByRole("button", { name: "Missions" }));
-    await screen.findByRole("heading", { level: 1, name: "Missions" });
-    expect(router.state.location.pathname).toBe("/missions");
+    const router = open("/settings");
+    await screen.findByRole("heading", { level: 1, name: "Settings" });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Shop" }));
+    await screen.findByRole("heading", { level: 1, name: "Tile shop" });
+    expect(router.state.location.pathname).toBe("/village/shop");
     expect(start).toHaveBeenCalledTimes(1);
     expect(marks).toEqual(["prev"]);
     await waitFor(() => expect(html.hasAttribute(TAB_SWIPE_MARK)).toBe(false));
+  });
+
+  it("does not swipe from a page of no item of the bar (the Vault, #763)", async () => {
+    media();
+    const { start } = viewTransitions();
+    const router = open("/vault");
+    await screen.findByRole("heading", { level: 1, name: "Vault" });
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Chests" }));
+    await screen.findByRole("heading", { level: 1, name: "Chests" });
+    expect(router.state.location.pathname).toBe("/village/chests");
+    expect(start).not.toHaveBeenCalled();
   });
 
   it("from desktop, changes the page with no transition", async () => {
@@ -143,47 +161,79 @@ describe("the bar", () => {
   });
 
   it("unfolds only the current item's label, and puts the highlight on its column", () => {
-    render(<AppNav active="vault" />);
-    expect(["Home", "Missions", "Vault", "Settings"].filter((name) => label(name).hasAttribute("data-open"))).toEqual(["Vault"]);
-    expect(label("Vault").className).toContain("grid-rows-[1fr]");
-    expect(label("Home").className).toContain("grid-rows-[0fr]");
+    render(<AppNav active="league" />);
+    expect(["Shop", "Chests", "League", "Settings"].filter((name) => label(name).hasAttribute("data-open"))).toEqual(["League"]);
+    expect(label("League").className).toContain("grid-rows-[1fr]");
+    expect(label("Shop").className).toContain("grid-rows-[0fr]");
     expect(highlight().dataset.column).toBe("3");
     expect(highlight().style.getPropertyValue("--nav-col")).toBe("3");
+    expect(highlight().className).not.toContain("opacity-0");
     // A first bar starts still: no starting style of another tab.
     expect(highlight().style.getPropertyValue("--nav-from")).toBe("3");
-    expect(label("Vault").className).not.toContain("starting:");
+    expect(label("League").className).not.toContain("starting:");
   });
 
-  it("has no highlight on Play", () => {
-    render(<AppNav active="play" />);
+  it("has no highlight on Play, nor where no item of the bar is current (the home, the Vault, #763)", () => {
+    const { unmount } = render(<AppNav active="play" />);
+    expect(highlight().className).toContain("opacity-0");
+    unmount();
+    const home = render(<AppNav active={null} desktop="none" />);
+    expect(highlight().className).toContain("opacity-0");
+    expect(screen.queryByRole("button", { current: "page" })).toBeNull();
+    home.unmount();
+    render(<AppNav active="vault" />);
     expect(highlight().className).toContain("opacity-0");
   });
 
   it("starts a new bar from the state the last one drew", () => {
     // A tab change: one bar unmounts as the next mounts, in the same commit.
-    const { rerender } = render(<AppNav key="home" active="home" />);
+    const { rerender } = render(<AppNav key="shop" active="shop" />);
     rerender(<AppNav key="settings" active="settings" />);
     expect(highlight().style.getPropertyValue("--nav-col")).toBe("4");
     expect(highlight().style.getPropertyValue("--nav-from")).toBe("0");
-    expect(label("Home").className).toContain("max-desktop:starting:grid-rows-[1fr]");
+    expect(label("Shop").className).toContain("max-desktop:starting:grid-rows-[1fr]");
     expect(label("Settings").className).toContain("max-desktop:starting:grid-rows-[0fr]");
     expect(label("Settings")).toHaveAttribute("data-open");
-    expect(label("Home")).not.toHaveAttribute("data-open");
+    expect(label("Shop")).not.toHaveAttribute("data-open");
+  });
+
+  it("fades the highlight in on its column when the last bar had no item current (the home's)", () => {
+    const { rerender } = render(<AppNav key="home" active={null} desktop="none" />);
+    rerender(<AppNav key="chests" active="chests" />);
+    expect(highlight().style.getPropertyValue("--nav-col")).toBe("1");
+    expect(highlight().className).toContain("max-desktop:starting:opacity-0");
+    expect(highlight().className).not.toMatch(/(^| )opacity-0/);
   });
 
   it("starts still once no bar was left on screen (a flow came between)", async () => {
-    const { unmount } = render(<AppNav active="home" />);
+    const { unmount } = render(<AppNav active="shop" />);
     unmount();
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-    render(<AppNav active="vault" />);
+    render(<AppNav active="league" />);
     expect(highlight().style.getPropertyValue("--nav-from")).toBe("3");
   });
 
   it("moves by its transitions when it stays mounted", () => {
-    const { rerender } = render(<AppNav active="home" />);
-    rerender(<AppNav active="quests" />);
+    const { rerender } = render(<AppNav active="shop" />);
+    rerender(<AppNav active="chests" />);
     expect(highlight().style.getPropertyValue("--nav-col")).toBe("1");
-    expect(label("Missions")).toHaveAttribute("data-open");
-    expect(label("Home")).not.toHaveAttribute("data-open");
+    expect(label("Chests")).toHaveAttribute("data-open");
+    expect(label("Shop")).not.toHaveAttribute("data-open");
+  });
+
+  it("holds Shop, Chests, Play, League, Settings in that order below desktop, and the header's items from it (#763)", () => {
+    render(<AppNav active="shop" />);
+    // An item's widths are on its button, or on Play's slot around its disc.
+    const classes = (b: HTMLElement) => (b.getAttribute("aria-label") === "Play" ? b.parentElement! : b).className.split(" ");
+    const names = (keep: (b: HTMLElement) => boolean) => screen.getAllByRole("button").filter(keep).map((b) => b.getAttribute("aria-label"));
+    expect(names((b) => !classes(b).includes("max-desktop:hidden"))).toEqual(["Shop", "Chests", "Play", "League", "Settings"]);
+    expect(names((b) => !classes(b).includes("desktop:hidden"))).toEqual(["Home", "Missions", "Vault", "Settings"]);
+  });
+
+  it("on the home, shows the bar's items alone, the chests waiting on Chests, and nothing from desktop", () => {
+    render(<AppNav active={null} desktop="none" badges={{ chests: 2 }} />);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "League", "Settings"]);
+    expect(screen.getByRole("navigation", { name: "Main" }).className).toContain("desktop:hidden");
+    expect(document.querySelector('[data-slot="app-nav-badge"]')).toHaveTextContent("2");
   });
 });

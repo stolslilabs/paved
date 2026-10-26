@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { useLocation, useViewTransitionState, type NavigateOptions } from "react-router";
-import { TABS, type Tab } from "./pages";
+import { BAR_TABS, type Tab } from "./pages";
 
 /**
  * TAB-SWIPE (#726): below `desktop`, a pick in the bar moves the page sideways, from one tab's page to the next, through a view
- * transition of the page's region only (theme.css, TAB-SWIPE). The way follows the bar's order, as the mark `data-tab-swipe` on
- * `<html>` says: `next` for a tab to the right, `prev` to the left.
+ * transition of the page's region only (theme.css, TAB-SWIPE). The way follows the bar's order (`BAR_TABS`, #763), as the mark
+ * `data-tab-swipe` on `<html>` says: `next` for a tab to the right, `prev` to the left.
  */
 export type TabSwipeWay = "next" | "prev";
 
@@ -18,12 +18,15 @@ const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 /**
  * The way from the page of `from` to that of `to`, or `null` when the move does not swipe: from a page of no tab, to Play (a
- * full-screen flow), or within one tab (Settings from its Themes).
+ * full-screen flow), within one tab (Settings from its Themes), or from or to a tab not in the bar (the home, Missions, the
+ * Vault, #763: no item of the bar is current there, so the bar shows no way).
  */
 export function tabSwipeWay(from: Tab | null, to: Tab): TabSwipeWay | null {
   if (from === null || from === to || from === "play" || to === "play") return null;
-  const at = (tab: Tab) => TABS.findIndex((t) => t.id === tab);
-  return at(to) > at(from) ? "next" : "prev";
+  const a = BAR_TABS.indexOf(from);
+  const b = BAR_TABS.indexOf(to);
+  if (a < 0 || b < 0) return null;
+  return b > a ? "next" : "prev";
 }
 
 const matches = (query: string) => typeof window.matchMedia === "function" && window.matchMedia(query).matches;
