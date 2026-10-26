@@ -272,7 +272,8 @@ function ViewOverlays({
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-1">
-            <ProfileSlot withName />
+            {/* The profile sheet opens over the scene: the points close under it (#792), whether it was tapped or keyed open. */}
+            <ProfileSlot withName onOpen={points?.onClose} />
             {/* By the avatar (#755): the village score, and the crowns and their league, a tap to the league (Unranked before PvP). */}
             <div className="ml-1 flex flex-wrap items-center gap-1.5">
               {village && (

@@ -38,7 +38,17 @@ const label = (state: ProfileState, progress: ProfileValue["progress"]) =>
  * The player's avatar where a menu screen puts it (#624): the top left of the page's header below `desktop`, the left of the
  * navigation's header from it (each hidden at the other size by its `className`). A tap opens the profile sheet.
  */
-export function ProfileSlot({ withName = false, className }: { /** The name on a plate beside the avatar (the home's top left, #753). */ withName?: boolean; className?: string }) {
+export function ProfileSlot({
+  withName = false,
+  onOpen,
+  className,
+}: {
+  /** The name on a plate beside the avatar (the home's top left, #753). */
+  withName?: boolean;
+  /** The sheet opening, by any way (a tap, a key): what it covers closes (the home's points, #792). */
+  onOpen?: () => void;
+  className?: string;
+}) {
   const value = useContext(ProfileContext);
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -62,6 +72,7 @@ export function ProfileSlot({ withName = false, className }: { /** The name on a
         onPointerEnter={() => void loadSheet()}
         onFocus={() => void loadSheet()}
         onClick={() => {
+          onOpen?.();
           setOpened(true);
           setOpen(true);
         }}

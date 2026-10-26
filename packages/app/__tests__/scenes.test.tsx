@@ -18,6 +18,7 @@ import { planCode } from "../src/components/elements/tile-chip";
 import { TileView } from "../src/components/containers/tile-view";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import { ProfileProvider } from "../src/components/containers/profile-context";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { LoadingScene } from "../src/components/scenes/loading-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
@@ -30,7 +31,8 @@ import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
-import { BOARD, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
+import { BOARD, LOADING, OVER, PLAY, PLAYER_STATUS, PURCHASE, WELCOME } from "../src/mocks/scenes";
+import { PROGRESS } from "../src/mocks/players";
 import { DRAFT_VALID, HOME_POINTS, HOME_VILLAGE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_RIVAL, LAYOUT_START, WONDER_POINTS } from "../src/mocks/village-v2";
 import { canLift, layoutPoints, layoutScore, legalSpots } from "../src/components/containers/layout-rules";
 import { PLAN } from "../src/mocks/village";
@@ -402,6 +404,26 @@ describe("Home's points by structure (#758)", () => {
     rerender(wrap(<HomeVillageScene {...props} editing={false} />));
     expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
     expect(last().lit).toBeNull();
+  });
+
+  it("closes under the profile sheet opened with the keyboard, and stays closed when it goes (#792)", async () => {
+    const { renderCanvas, last } = canvas();
+    render(
+      wrap(
+        <ProfileProvider value={{ state: { status: "connected", data: PLAYER_STATUS }, progress: PROGRESS.start, onDisconnect: vi.fn(), onCopy: vi.fn(async () => {}) }}>
+          <HomeVillageScene {...HOME_VILLAGE.points} renderCanvas={renderCanvas} />
+        </ProfileProvider>,
+      ),
+    );
+    await screen.findByRole("region", { name: "Village points" }, { timeout: slow(5000) });
+    screen.getByRole("button", { name: /^Profile/ }).focus();
+    await userEvent.keyboard("{Enter}");
+    const sheet = await screen.findByRole("dialog", {}, { timeout: slow(5000) });
+    expect(screen.queryByRole("region", { name: "Village points", hidden: true })).toBeNull();
+    expect(last().lit).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(sheet).not.toBeInTheDocument(), { timeout: slow(5000) });
+    expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
   });
 
   it("lights a Wonder's tile alone, its line still counting the whole structure (#792)", async () => {
