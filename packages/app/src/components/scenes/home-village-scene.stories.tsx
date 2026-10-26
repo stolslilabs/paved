@@ -162,14 +162,14 @@ export const SceneEditingPointsLifted: Story = { args: HOME_VILLAGE.editingPoint
 export const ScenePointsWonder: Story = { args: HOME_VILLAGE.pointsWonder, render: (args) => <InScene {...args} /> };
 
 /**
- * A press on the scene, away from the overlays (its middle, a little low): a tap (`by` 0), or a drag of `by` px across, as a
+ * A press on the scene, away from the overlays (its middle, a little high: clear of the bottom panel on a phone): a tap (`by` 0), or a drag of `by` px across, as a
  * finger panning the village.
  */
 async function pressScene(canvasElement: HTMLElement, by: number) {
   await within(canvasElement).findByRole("region", { name: "Village points" }, { timeout: 10_000 });
   const box = canvasElement.getBoundingClientRect();
   const x = box.left + box.width / 2;
-  const y = box.top + box.height * 0.55;
+  const y = box.top + box.height * 0.35;
   const target = document.elementFromPoint(x, y) ?? canvasElement;
   const at = (dx: number) => ({ pointerId: 7, pointerType: "touch", isPrimary: true, button: 0, clientX: x + dx, clientY: y });
   fireEvent.pointerDown(target, at(0));
