@@ -14,6 +14,8 @@ const ARGS: ChimneySmokeBoardProps = {
   forest: true,
   season: "autumn",
   fadeTo: null,
+  fadeThen: null,
+  place: false,
   time: "day",
   view: "game",
   look: "puffs",
@@ -28,7 +30,7 @@ const ARGS: ChimneySmokeBoardProps = {
 };
 
 /**
- * The chimney smoke (CHIMNEY-SMOKE-1, #770 PR 1): a study for the owner to choose the look before the board draws it (PR 2). Soft
+ * The chimney smoke (CHIMNEY-SMOKE-1 and -2, #770), as every board draws it now (the scene's own, `RendererSettings.smoke`). Soft
  * billboards rise from each chimney's mouth, smoking or bare, grow and fade out about a tile above it, bent by the cloud shadows'
  * wind; all the puffs of the scene are one instanced draw, moved in the vertex shader from the ambient loop's time (the CPU sets
  * uniforms and counts); their noise is generated in the shader (nothing fetched). The smoke takes the scene's light (dimmer and
@@ -50,6 +52,8 @@ const meta = {
     forest: { control: "boolean", description: "Every plan on its Forest variants (most of the smoking chimneys), or the base models", ...category("Scene") },
     season: { control: "inline-radio", options: SEASONS, description: "The wheel's season, held", ...category("Scene") },
     fadeTo: { control: "inline-radio", options: [null, ...SEASONS], description: "Two seconds after the board is up, the wheel turns to this season: the fade", ...category("Scene") },
+    fadeThen: { control: "inline-radio", options: [null, ...SEASONS], description: "Four seconds after that, the wheel turns again, to this season", ...category("Scene") },
+    place: { control: "boolean", description: "The tile layout: the tile starts in hand (pending, its white voxels), then is placed and dropped", ...category("Scene") },
     time: { control: "inline-radio", options: ["day", "night"], description: "The season's day, or its night (the smoke takes the light, not the hour)", ...category("Scene") },
     view: { control: "inline-radio", options: ["game", "phone-play", "close"], description: "The game's opening camera, a phone's play distance, or close", ...category("Scene") },
     look: { control: "inline-radio", options: ["puffs", "wisps"], description: "The look: every knob below takes its value, unless that knob was moved", ...category("Look") },
@@ -120,3 +124,11 @@ export const WinterNight: Story = { args: { season: "winter", time: "night" } };
 export const LowTier: Story = { args: { season: "winter", quality: "low" } };
 /** Reduced motion: no smoke, the white voxels shown. */
 export const ReducedMotion: Story = { args: { season: "winter", reducedMotion: true } };
+
+/**
+ * A tile placed in winter (#770 item 3): in hand (pending), it keeps its white voxels; two seconds in it is placed and drops, the
+ * smoke's voxels left out of the drop, and once it has landed its smoke fades in over a second, the mouths capped dark.
+ */
+export const PlaceWinter: Story = { args: { ...tile, forest: false, season: "winter", place: true } };
+/** The seasons on the board: autumn, winter two seconds in (thicker), then summer four seconds later (the smoke fades out, no white voxels). */
+export const AutumnWinterSummer: Story = { args: { season: "autumn", fadeTo: "winter", fadeThen: "summer" } };

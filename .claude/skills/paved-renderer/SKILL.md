@@ -41,6 +41,16 @@ with `docs/`, `scripts/` or `packages/`.
   brightness (no glare, shimmer or shafts: the owner removed every glow, 2026-10-20). The snow on the tops is a term of the tile
   shader (`core/snow-shader.ts`, `TileRenderer.snowUniforms`): a veil (`winter.veil`) in rounded patches from a noise read at the
   fragment's place, never per voxel or cell. `GameScene.getWeather()` gives its stats (`Renderer/Weather` stories, the bench).
+- The **chimney smoke** (#770: CHIMNEY-SMOKE-1 the detection `core/chimneys.ts` and the study, CHIMNEY-SMOKE-2 the wiring;
+  `core/chimney-smoke.ts`, settings in `core/chimney-smoke-settings.ts`, `RendererSettings.smoke`) is off in the renderer by default
+  and on in the app's boards (`BOARD_SMOKE`), so the tile views, the 3D stack and the build-time images keep the models' white smoke
+  voxels. `GameScene.syncSmoke` loads its chunk (the detection inside it: never re-export `chimneys.ts` from the barrel, or the board's
+  eager chunk shares its group) the first time it can be drawn (`ambientAllowed`); `syncSmokeTiles` finds each drawn type's chimneys
+  once and places the mouths of `TileRenderer.smokeSources()` (placed tiles, not pending, not mid-drop). While it can be drawn, every
+  season (summer: neither smoke nor white voxels), the placed tiles draw their types' smoke-free twins (`setSmokeFree`,
+  `setSmokeHidden`: a geometry swap per tile, no shader term; the outlines and the shadows follow; the drop leaves the smoke's voxels
+  out). One instanced draw of puffs, one of the mouths' caps; a season's change fades over `fadeSeconds`, a tile just placed over
+  `placeSeconds`. `GameScene.getSmoke()` gives its stats.
 - The **fog of war** (FOG-STUDY #633, wired by FOG-EVERYWHERE #648: `core/fog-of-war.ts`, reveal logic and settings in
   `core/fog-of-war-settings.ts`, `RendererSettings.fog`) is on every board the app draws: `GameScene.setFogReveal` (from
   `GameCanvas`'s `fogReveal`, set by `BoardViewport`: the tiles and their free slots, or `fogOwned`'s owned cells and their

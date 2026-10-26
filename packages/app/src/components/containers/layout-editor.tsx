@@ -345,7 +345,7 @@ export function LayoutEditorPanel({ editor, tileArt, bubble = "panel", className
   const { hand, saving } = editor;
   const still = bubble === "panel" ? editor.bubble : null;
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div className={cn("flex flex-col gap-3 desktop:min-h-0 desktop:flex-1", className)}>
       {still && (
         <TileBubble
           rotations={still.rotations}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { chimneyOptionsOf, findChimneys, voxelize, type AssetLoader, type ChimneyReject, type FoundChimneys, type VoxelGrid } from "@paved/renderer";
+import { loadChimneys, voxelize, type AssetLoader, type ChimneyReject, type FoundChimneys, type VoxelGrid } from "@paved/renderer";
 import { drawIso, paletteRgb, type IsoBox } from "./night-windows-iso";
 import { forestIds, modelId, useLoader, type TileSkin } from "./night-windows-tile";
 import { VOXELIZER_PLANS, loadedOf } from "./voxelizer-readout";
@@ -33,13 +33,16 @@ interface Detected {
 /** A model's short name: a plan key, or a variant's file name without its hash. */
 export const shortName = (id: string) => id.slice(id.lastIndexOf("/") + 1).replace(/\.[0-9a-f]{10}\.glb$/, "");
 
-function detect(loader: AssetLoader, id: string): Detected | null {
+/** The detection's chunk (`loadChimneys`), loaded once. */
+type ChimneysChunk = Awaited<ReturnType<typeof loadChimneys>>;
+
+function detect(chunk: ChimneysChunk, loader: AssetLoader, id: string): Detected | null {
   const { source, palette } = loadedOf(loader, id);
   const began = performance.now();
   const grid = voxelize(source, { name: id });
   const voxelMs = performance.now() - began;
   if (!grid) return null;
-  return { id, grid, found: findChimneys(grid, chimneyOptionsOf(id)), colors: paletteRgb(palette), voxelMs };
+  return { id, grid, found: chunk.findChimneys(grid, chunk.chimneyOptionsOf(id)), colors: paletteRgb(palette), voxelMs };
 }
 
 /** Loads the models (a Forest variant on demand) and detects their chimneys, in order; null while they come. */
@@ -52,6 +55,7 @@ function useDetected(loader: AssetLoader | null, ids: readonly string[]): Detect
     setOut(null);
     void (async () => {
       const rows: Detected[] = [];
+      const chunk = await loadChimneys();
       for (const id of key.split(",")) {
         if (!loader.has(id)) {
           await new Promise<void>((resolve) => {
@@ -60,7 +64,7 @@ function useDetected(loader: AssetLoader | null, ids: readonly string[]): Detect
           });
           loader.onLoaded(null);
         }
-        const row = detect(loader, id);
+        const row = detect(chunk, loader, id);
         if (row) rows.push(row);
       }
       if (alive) setOut(rows);

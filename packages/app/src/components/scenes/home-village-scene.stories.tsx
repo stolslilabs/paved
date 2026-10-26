@@ -6,7 +6,7 @@ import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAYER_STATUS } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
-import { HOME_VILLAGE } from "../../mocks/village-v2";
+import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import type { LayoutSaved } from "../containers/layout-editor";
 import type { VillageLayout } from "../containers/layout-rules";
@@ -114,6 +114,13 @@ export const Changed: Story = { args: HOME_VILLAGE.changed };
 export const Leaving: Story = { args: HOME_VILLAGE.leaving };
 /** The chain refused the save: what happened, above the editor, the draft kept. */
 export const Refused: Story = { args: HOME_VILLAGE.refused };
+
+/** Edit mode with a long inventory at 1440 px (#757): the grid wraps in the editor's column and scrolls, Save stays at its foot. */
+export const EditingLongWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.editing, inventory: INVENTORY_LONG } };
+/** The same with every slot used: the grid greyed. */
+export const EditingFullWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.editing, village: LAYOUT_FULL, inventory: INVENTORY_LONG } };
+/** Every slot used at 375 px: the carousel greyed, every visible card waiting, and it still drags and swipes. */
+export const EditingFullPhone: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.editing, village: LAYOUT_FULL, inventory: INVENTORY_LONG } };
 
 /** The village on the board's canvas as the board module draws it (`home-canvas.tsx`), on Storybook's assets. */
 function StoryVillageCanvas({ view, board, onReady }: { view: LayoutBoardView; board: ReturnType<typeof useBoardSettings>; onReady?: () => void }) {
