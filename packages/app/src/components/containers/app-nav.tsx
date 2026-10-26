@@ -6,13 +6,13 @@ import { Icon } from "../ui/icon";
 /**
  * The phone's bar, left to right (the route map's `BAR_TABS`, #763: Shop, Chests, Play, League, Settings), with icons. Its own
  * list, not the route map's: the bar's chunk stays apart from the route map's (the home loads it lazily). Play (#623) is the main
- * action, in the bar's centre: icon only, a gold disc (#668). From `desktop` there is no bar, nor header (DESK-PANELS, #762): the
+ * action, in the bar's centre: icon only (the two swords, #807), a gold disc (#668). From `desktop` there is no bar, nor header (DESK-PANELS, #762): the
  * navigation is the home's overlay.
  */
 export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
   { id: "shop", label: "Shop", icon: "store" },
   { id: "chests", label: "Chests", icon: "gift" },
-  { id: "play", label: "Play", icon: "hammer" },
+  { id: "play", label: "Play", icon: "swords" },
   { id: "league", label: "League", icon: "trophy" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];
