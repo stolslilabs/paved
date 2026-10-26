@@ -10,7 +10,7 @@ import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { starsFor } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
-import { useAttackV2 } from "../../data/free-attack";
+import { useAttackV2Of } from "../../data/free-attack";
 import { usePlayerStatus } from "../../data/indexer";
 import { pvpKeys, usePvpPlayer, usePvpSettled, usePvpStatus } from "../../data/pvp";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
@@ -43,15 +43,15 @@ export default function Page() {
 }
 
 /**
- * v2's end (#790) where the sources serve `attackV2` (the mock; the chain from step 3) and `id` is the player's last v2 attack,
- * else v1's result; the choice waits for the read.
+ * v2's end (#790) where the sources serve v2 (the mock; the chain from step 3) and the player has a v2 attack `id` (read by its
+ * id, so a result's link stays good after the next attack), else v1's result; the choice waits for the read.
  */
 function Pick({ id }: { id: number }) {
   const wallet = useAccount();
   const onBack = useUpTo("/pvp/league");
   const me = useDataSources().signer?.address ?? null;
-  const v2 = useAttackV2(me);
-  if (me === null || v2.data === null || (v2.data && v2.data.attack?.id !== id)) return <Result id={id} />;
+  const v2 = useAttackV2Of(me, id);
+  if (me === null || v2.data === null) return <Result id={id} />;
   const self = { name: wallet.username ?? null, address: me, level: 0, crowns: 0 };
   if (!v2.data) {
     if (v2.error) return <PvpSearchScene state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
@@ -59,7 +59,7 @@ function Pick({ id }: { id: number }) {
   }
   return (
     <Suspense fallback={<PvpSearchScene state="searching" player={self} onCancel={onBack} />}>
-      <PvpV2End me={me} attack={v2.data.attack!} self={self} />
+      <PvpV2End me={me} attack={v2.data} self={self} />
     </Suspense>
   );
 }

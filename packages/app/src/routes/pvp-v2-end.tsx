@@ -16,9 +16,10 @@ import { useBoardSettings } from "../data/settings";
 import { useNow } from "./now";
 import { useAppNavigate, useUpTo } from "./ref";
 
-// `/pvp/result/:id` on PvP v2 (#790), its own chunk: the end screen of the attacker's last attack, read from `attackV2` (the
-// mock's record, #741; an older id is v1's result), so a reload or a link shows it again. The attack's last move goes here
-// with `replace` (`pvp-v2.tsx`), and Back goes up to the league: never into the finished attack.
+// `/pvp/result/:id` on PvP v2 (#790), its own chunk: the end screen of the attacker's attack `id`, read by its id (`attackV2Of`,
+// the mock's record, #741; an id with no v2 attack is v1's result), so a reload or a link shows it again, after later attacks
+// too. The attack's last move goes here with `replace` (`pvp-v2.tsx`), and Back goes up to the league: never into the finished
+// attack.
 
 const PLANS = Object.values(PlanType);
 const ORIENTATIONS = Object.values(OrientationType);
@@ -55,7 +56,7 @@ export function endXp(xp: number, gained: number): PvpEndXp {
 
 export interface PvpV2EndProps {
   me: string;
-  /** The player's last v2 attack, the one of the route's id. */
+  /** The player's v2 attack of the route's id. */
   attack: AttackV2;
   /** The attacker as the waiting screens show them. */
   self: PvpPlayer;

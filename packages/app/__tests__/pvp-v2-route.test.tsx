@@ -112,4 +112,19 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     await userEvent.click(screen.getByRole("button", { name: /League/ }));
     expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
   });
+
+  it("keeps a result's link good after the next attack starts: the attack of that id, not the last", async () => {
+    const s = await open("/pvp/result/1", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      await writes.drawOpponentV2("search");
+      await writes.startAttackV2();
+      await writes.surrenderAttackV2();
+      await writes.drawOpponentV2("search");
+      await writes.startAttackV2();
+    });
+    expect((await s.ledger.attackV2(s.me)).attack).toMatchObject({ id: 2, status: "open" });
+    expect(await screen.findByRole("heading", { name: "Surrendered" }, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Attack over" })).toBeInTheDocument();
+  });
 });
