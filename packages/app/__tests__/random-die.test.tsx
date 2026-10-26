@@ -33,7 +33,7 @@ class FakeWorker implements WorkerLike {
   }
   /** The worker's answer to its last request, as the real one gives it. */
   answer() {
-    const data = answerRandomLayout(this.sent.at(-1)!, randomLayout);
+    const data = answerRandomLayout(this.sent.at(-1)!, build);
     this.onmessage?.call(this as unknown as Worker, { data } as MessageEvent);
   }
   fail(message: string) {
@@ -42,6 +42,9 @@ class FakeWorker implements WorkerLike {
 }
 
 const STOCK = stockOf(INVENTORY, LAYOUT_GROWING.tiles);
+/** The generator bounded by its tries only, so a seed gives one village however loaded the machine. */
+const UNBOUNDED = { ms: Number.POSITIVE_INFINITY };
+const build = (stock: readonly number[], slots: number, seed: number) => randomLayout(stock, slots, seed, UNBOUNDED);
 
 describe("the die's runner", () => {
   it("is missing where Web Workers are (the die is hidden)", () => {
@@ -57,7 +60,7 @@ describe("the die's runner", () => {
     expect(worker.sent).toEqual([{ id: 1, stock: STOCK, slots: 28, seed: 5 }]);
     worker.answer();
     const tiles = await built;
-    expect(tiles).toEqual(randomLayout(STOCK, 28, 5).tiles);
+    expect(tiles).toEqual(build(STOCK, 28, 5).tiles);
     expect(layoutRefusal(tiles, { slots: 28, inventory: STOCK })).toBeNull();
   });
 
@@ -72,7 +75,7 @@ describe("the die's runner", () => {
     const second = runner.run(STOCK, 28, 2);
     expect(workers[0]!.terminated).toBe(true);
     workers[1]!.answer();
-    await expect(second).resolves.toEqual(randomLayout(STOCK, 28, 2).tiles);
+    await expect(second).resolves.toEqual(build(STOCK, 28, 2).tiles);
     expect(first).not.toHaveBeenCalled();
     // An idle worker is kept for the next press.
     void runner.run(STOCK, 28, 3);
@@ -109,7 +112,7 @@ describe("the die's rules", () => {
     expect(stock).toHaveLength(19);
     expect(stock.reduce((s, n) => s + n, 0)).toBe(Object.values(INVENTORY).reduce((s, n) => s + n, 0) + LAYOUT_GROWING.tiles.length - 1);
     // Every tile of the stock in the draft leaves the tray at 0.
-    expect(Object.values(trayOf(INVENTORY, LAYOUT_GROWING.tiles, draftOf(randomLayout(stock, 99, 1).tiles))).every((n) => n === 0)).toBe(true);
+    expect(Object.values(trayOf(INVENTORY, LAYOUT_GROWING.tiles, draftOf(build(stock, 99, 1).tiles))).every((n) => n === 0)).toBe(true);
   });
 
   it("gives drafts the editor takes: the starter first, valid, within the slots", () => {
@@ -138,9 +141,9 @@ describe("the die in the editor", () => {
     render(wrap(<VillageLayoutScene village={LAYOUT_START} inventory={INVENTORY} mode="own" initialEditing randomizer={mainThreadRandomizer()} randomSeed={seedsOf(1, 2)} onSave={onSave} onBack={onBack} />));
     const die = screen.getByRole("button", { name: "Random village from your tiles" });
     fireEvent.click(die);
-    await waitFor(() => expect(screen.getByLabelText("9 of 9 slots used")).toBeTruthy());
-    const first = screen.getByRole("button", { name: /^Save/ });
-    expect(first).toBeEnabled();
+    // The saved village is 9 / 9 already: the die's village is another layout of the same 8 tiles, which Save takes.
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled());
+    expect(screen.getByLabelText("9 of 9 slots used")).toBeTruthy();
     expect(onSave).not.toHaveBeenCalled();
     const tilesShown = () => screen.getAllByRole("button", { name: /: lift it$/ }).map((el) => el.getAttribute("aria-label")).join();
     const before = tilesShown();
