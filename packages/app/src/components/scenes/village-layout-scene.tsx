@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
@@ -45,6 +46,11 @@ export interface VillageLayoutSceneProps {
   refusal?: string | null;
   refusalDetail?: ErrorDetail;
   tileArt?: TileArt;
+  /**
+   * A visit's 3D board (#772, open point 5): the board module's, read only, in a rival's red void. Given the plan view
+   * (`LayoutBoard`), which it draws where the 3D board cannot (no WebGL, the renderer failed). Unset: the plan view.
+   */
+  board3d?: (plan: ReactNode) => ReactNode;
   /** The hold's length on Reset all, ms (the stories and tests tune it). */
   holdMs?: number;
   /** Where the stories start: the editor open on this draft (the saved layout when unset), a tile in hand, set on a cell, the leave dialog. */
@@ -121,6 +127,7 @@ function LayoutView({
   refusal = null,
   refusalDetail,
   tileArt,
+  board3d,
   holdMs,
   initialEditing = false,
   initialDraft,
@@ -191,6 +198,12 @@ function LayoutView({
               {editing && <ResetAllHold editor={editor} holdMs={holdMs} />}
             </div>
           </div>
+          {!own && board3d ? (
+            // The visit's board in the plan view's place and size; the plan view inside it fills it where the 3D board cannot draw.
+            <div data-visit-board className={cn("relative overflow-hidden flex-none desktop:min-h-0 desktop:flex-1", "h-[max(14rem,calc(100dvh-14rem))]", "desktop:h-auto")}>
+              {board3d(<LayoutBoard tiles={editor.tiles} tileArt={tileArt} className="absolute inset-0 h-full" />)}
+            </div>
+          ) : (
           <LayoutBoard
             tiles={editor.tiles}
             editing={editing}
@@ -205,6 +218,7 @@ function LayoutView({
             // desktop it fills its card.
             className={cn("flex-none desktop:min-h-0 desktop:flex-1", editing ? "h-[max(14rem,calc(100dvh-30rem))]" : "h-[max(14rem,calc(100dvh-14rem))]", "desktop:h-auto")}
           />
+          )}
           {own && saved && !editing && (
             <div className="border-t border-border px-4 py-2">
               <Notice icon="circle-check" title="Layout saved">

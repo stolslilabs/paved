@@ -26,7 +26,7 @@ export function useAttackLegality(run: AttackRun | null, plan: number | null) {
 }
 
 /**
- * The scout's board (#772): the rival's village on the 3D board of every game, read only, in the defender's skins and the
+ * The scout's board, and a visit's (#772): a rival's village on the 3D board of every game, read only, in its owner's skins and the
  * rival's red void; undefined where the plan view draws it (no WebGL, the renderer failed).
  */
 export function useScoutCanvas(defender: string | null, tiles: BoardTile[]) {

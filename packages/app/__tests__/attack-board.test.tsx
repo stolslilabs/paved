@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AttackRun, CENTER } from "@paved/game-core";
@@ -9,6 +9,7 @@ import type { GameSigner } from "../src/data";
 import { BOARD_FOG } from "../src/data/settings";
 import { RIVAL_BACKDROP, RIVAL_FOG, sideSettings } from "../src/data/board-side";
 import { RENDERER_ASSETS } from "../src/data/renderer-manifest";
+import { mockRivalV2 } from "../src/data/mock/v2";
 import { queryClient } from "../src/lib/query-client";
 import { useAttackLegality } from "../src/routes/attack-board";
 import { createTestRouter } from "../src/routes/router";
@@ -86,7 +87,14 @@ async function open(path: string, prepare?: (s: ReturnType<typeof mockImplementa
 
 preloadPages("home");
 beforeAll(async () => {
-  await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pvp-v2"), import("../src/routes/pages/pvp-result"), import("../src/routes/pages/pvp-replay")]);
+  await Promise.all([
+    import("../src/routes/pages/pvp"),
+    import("../src/routes/pvp-v2"),
+    import("../src/routes/pages/pvp-result"),
+    import("../src/routes/pages/pvp-replay"),
+    import("../src/routes/pages/village"),
+    import("../src/routes/village-visit-board"),
+  ]);
 }, slow(60_000));
 beforeEach(() => {
   drawn.board.length = 0;
@@ -174,5 +182,44 @@ describe("/pvp/replay on the board module", { timeout: slow(30_000) }, () => {
     expect(backdropOf(last())).toMatchObject(RIVAL_BACKDROP);
     await userEvent.click(within(bar).getByRole("button", { name: "Next move" }));
     expect(within(bar).getByText(/^1\//)).toBeInTheDocument();
+  });
+});
+
+describe("/village/:player on the board module (open point 5)", { timeout: slow(30_000) }, () => {
+  it("visits another player's village on the 3D board, read only, in the red void", async () => {
+    const s = await open("/pvp", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      await writes.drawOpponentV2("search");
+    });
+    // The scout's rival: a village of the mock's, visited.
+    expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
+    const { match } = await s.ledger.attackV2(s.me);
+    const rival = mockRivalV2(match!.opponent)!;
+    cleanup();
+    drawn.board.length = 0;
+    await open(`/village/${match!.opponent}`);
+    expect(await screen.findByText(/Read-only/, {}, WAIT)).toBeInTheDocument();
+    await waitFor(() => expect(last().tiles).toHaveLength(rival.tiles.length + 1), WAIT);
+    expect(screen.getByTestId("board-3d").closest("[data-visit-board]")).not.toBeNull();
+    expect(last().slots).toBeUndefined();
+    expect(backdropOf(last())).toMatchObject(RIVAL_BACKDROP);
+    expect(last().settings?.fog).toMatchObject(RIVAL_FOG);
+    // The layout's cells on the board's: the starter at the contracts' centre.
+    expect(last().tiles[0]).toMatchObject({ x: CENTER, y: CENTER });
+  });
+
+  it("keeps the player's own village off the rival's board", async () => {
+    // A visit to one's own address is the own village (its editor, no rival's board).
+    const own = mockImplementation();
+    const me = own.sources.signer!.address;
+    await own.ledger.writesFor(me).foundFreeVillage();
+    const wallet = fakeWallet({ address: me, restored: true });
+    wallet.connector.signer = () => own.sources.signer as GameSigner;
+    render(<App router={createTestRouter(`/village/${me}`)} sources={own.sources} connector={wallet.load} />);
+    expect(await screen.findByLabelText(/^Level \d+$/, {}, WAIT)).toBeInTheDocument();
+    expect(screen.queryByText(/Read-only/)).toBeNull();
+    expect(document.querySelector("[data-visit-board]")).toBeNull();
+    expect(drawn.board.every((b) => !backdropOf(b) || backdropOf(b)!.ground !== RIVAL_BACKDROP.ground)).toBe(true);
   });
 });

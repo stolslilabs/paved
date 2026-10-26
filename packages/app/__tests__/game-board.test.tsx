@@ -170,5 +170,7 @@ describe("the routes", () => {
     // The attacks, the replay and the scout (#772 PR 2): the module's board, on the rival's side for someone else's village.
     for (const f of ["src/routes/pvp-v2.tsx", "src/routes/pages/pvp.tsx", "src/routes/pages/pvp-replay.tsx", "src/routes/attack-board.ts"]) expect(read(f)).toMatch(/\buseGameBoard\(/);
     expect(read("src/routes/attack-board.ts")).toMatch(/side: "rival"/);
+    // A visit to another player's village (open point 5): the scout's board, red.
+    expect(read("src/routes/village-visit-board.tsx")).toMatch(/\buseScoutCanvas\(/);
   });
 });
