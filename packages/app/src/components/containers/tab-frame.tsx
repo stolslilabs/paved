@@ -2,11 +2,13 @@ import { useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject } 
 import { useInRouterContext, useLocation, useNavigationType } from "react-router";
 import type { Tab } from "../../routes/pages";
 import { pageScrollHintRef } from "../../lib/page-scroll-hint";
-import { AppNav } from "./app-nav";
+import { AppNav, type AppNavProps } from "./app-nav";
 
 export interface TabFrameProps {
   tab: Tab;
   onNavigate?: (tab: Tab) => void;
+  /** The navigation from `desktop` (`AppNav`): the tab pages' header, or none (a page of the phone's bar only, #763). */
+  desktop?: AppNavProps["desktop"];
   children: ReactNode;
 }
 
@@ -20,7 +22,7 @@ export interface TabFrameProps {
  * the fades `AppNav` draws), not the `scroll-hint` mask of a `ScrollRegion`, and it keeps its offset per history entry
  * (`RegionScrollKeeper`).
  */
-export function TabFrame({ tab, onNavigate, children }: TabFrameProps) {
+export function TabFrame({ tab, onNavigate, desktop, children }: TabFrameProps) {
   const frame = useRef<HTMLDivElement>(null);
   const region = useRef<HTMLDivElement | null>(null);
   const regionRef = useCallback((el: HTMLDivElement | null) => {
@@ -40,7 +42,7 @@ export function TabFrame({ tab, onNavigate, children }: TabFrameProps) {
   }, []);
   return (
     <div ref={frame} className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      <AppNav active={tab} onNavigate={onNavigate} />
+      <AppNav active={tab} onNavigate={onNavigate} desktop={desktop} />
       <div ref={regionRef} data-slot="page-scroll" className="mb-(--app-nav-h) min-h-0 flex-1 overflow-y-auto overscroll-contain desktop:mb-0">
         {children}
       </div>

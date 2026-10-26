@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
@@ -94,7 +94,8 @@ describe("/: a cold arrival under the fog", () => {
   it("keeps the overlays usable while the village loads", async () => {
     const router = await open();
     expect(fog()).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    // The phone's bar's Settings (#763; from `desktop` the overlay's gear).
+    fireEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, WAIT)).getByRole("button", { name: "Settings" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"), WAIT);
   }, slow(30_000));
 

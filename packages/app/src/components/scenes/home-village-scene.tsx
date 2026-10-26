@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, type ReactNode } from "react";
+import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
@@ -20,9 +20,13 @@ import type { LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import type { VillageStageProps } from "../containers/village-stage";
 import { ProfileSlot } from "../containers/profile-context";
+import type { Tab } from "../../routes/pages";
 
 // The season wheel (#547) in its own chunk, as on the boards: its slot keeps its size meanwhile.
 const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
+// The app's bar (#763) in its own chunk, shared with the tab pages: the home's first load stays as it was; a stand-in of its size
+// holds its place meanwhile.
+const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ default: m.AppNav })));
 // The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
 const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 // The village's points (#758), computed with the engine: from the stage's chunk too.
@@ -61,7 +65,7 @@ export interface HomeVillageSceneProps {
   /** Where the stories start: the view's points open (#758), a line lit (its structure's key); in edit mode, the editor's points unfolded. */
   initialPointsOpen?: boolean;
   initialLit?: string | null;
-  /** Chests waiting, missions to claim: the badges of the right column. */
+  /** Chests waiting, missions to claim: the badges of the right column (and of the phone's bar, Chests). */
   chests?: number;
   missions?: number;
   /** The viewer's Challenge game still running: the Resume chip. */
@@ -95,6 +99,8 @@ export interface HomeVillageSceneProps {
   onVault?: () => void;
   onLeague?: () => void;
   onSettings?: () => void;
+  /** A pick in the phone's bar (#763): Shop, Chests, Play, League or Settings, as the overlay's buttons lead. */
+  onNavigate?: (tab: Tab) => void;
   onResume?: (gameId: number) => void;
   onRetry?: () => void;
   onFound?: () => void;
@@ -111,7 +117,12 @@ export interface HomeVillageSceneProps {
  * (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
  * (a hammer, no text), large, at the bottom right with Edit (a pen) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
- * Save, the bubble by the tile in hand (#756); Back with changes asks first. No tab bar: the overlays replace it.
+ * Save, the bubble by the tile in hand (#756); Back with changes asks first.
+ * PHONE-NAV (#763, the owner's decisions of 2026-10-25): below `desktop` the view has the app's bottom bar again (Shop, Chests
+ * with its count, Play, League, Settings; no item current), so the right column keeps Missions and Vault, and the gear and the
+ * large Play go (the bar's Settings and centre disc); Edit and the season dial sit above the bar (its measured `--app-nav-h`).
+ * Edit mode has no bar: the editor's panel takes the bottom. From `desktop` none of this applies: no bar, the column of five,
+ * the gear and Play (#762 reworks it).
  */
 export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProps) {
   const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
@@ -196,6 +207,35 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
 /** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
 const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
 
+/** The right column's buttons whose place is the bar below `desktop` (#763). */
+const BAR_ONLY_BELOW_DESKTOP = "hidden desktop:flex";
+/** The bottom overlays' place: 8 px above the bar below `desktop` (its height, measured before the first paint), the scene's foot from it. */
+const ABOVE_BAR = "bottom-[calc(var(--app-nav-h)+0.5rem)] desktop:bottom-4";
+
+/**
+ * The home's bar below `desktop` (#763), fixed at the viewport's bottom, its height on the scene (`--app-nav-h`) for the bottom
+ * overlays. While the bar's chunk loads, a stand-in of its box (`AppNav`'s sizes below `desktop`) holds its place, so nothing
+ * above it moves when it comes.
+ */
+function HomeBar({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current!;
+    const measure = () => el.parentElement!.style.setProperty("--app-nav-h", `${el.offsetHeight}px`);
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(el);
+    return () => resize.disconnect();
+  }, []);
+  // The bar's box: its items' height, its padding and its top border; empty, so nothing for assistive technology.
+  const standIn = <div className="box-content h-11 border-t bg-background/95 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] mobile:h-13" />;
+  return (
+    <div ref={ref} className="fixed inset-x-0 bottom-0 z-20 desktop:hidden">
+      <Suspense fallback={standIn}>{children}</Suspense>
+    </div>
+  );
+}
+
 /** The view's points panel open: the line lit, and its taps. */
 interface PointsState {
   selected: string | null;
@@ -261,7 +301,8 @@ function ViewOverlays({
           <div className="pointer-events-auto flex shrink-0 items-center gap-2">
             <BalancesSlot layout="pill" className="desktop:hidden" />
             <BalancesSlot layout="rail" className="hidden desktop:flex" />
-            <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="rounded-full bg-card/90 backdrop-blur">
+            {/* Below `desktop` Settings is the bar's (#763). */}
+            <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <Icon name="gear" size="md" />
             </Button>
           </div>
@@ -301,22 +342,23 @@ function ViewOverlays({
       {/* The right column, under the top row and over Play. */}
       <nav aria-label="Village" className="absolute top-[calc(max(0.5rem,env(safe-area-inset-top))+5.5rem)] right-1 flex flex-col items-center gap-1.5 tablet:right-3 tablet:gap-2.5">
         <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
-        <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} />
-        <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
+        {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
+        <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
+        <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
         <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
         {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
-        <OverlayButton icon="trophy" label="League" onClick={props.onLeague} />
+        <OverlayButton icon="trophy" label="League" onClick={props.onLeague} className={BAR_ONLY_BELOW_DESKTOP} />
       </nav>
 
       {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
       {props.seasonWheel && (
-        <div data-dial-place className="absolute bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 tablet:bottom-4 tablet:left-4">
+        <div data-dial-place className={cn("absolute left-2 tablet:left-4", ABOVE_BAR)}>
           <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
             <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
           </Suspense>
         </div>
       )}
-      <div className={cn("absolute right-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex items-end gap-2 tablet:right-4 tablet:bottom-4", props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div className={cn("absolute right-2 flex items-end gap-2 tablet:right-4", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {village && !guest && !props.readOnly && !founded ? (
           <Button size="lg" variant="outline" className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
             <Icon name="house" size="sm" /> Found
@@ -328,16 +370,24 @@ function ViewOverlays({
             </Button>
           )
         )}
-        {/* Play, the main action (#755): a hammer, no text, gold and large; the tab bar's Play disc takes the same icon. */}
-        <Button size="icon" onClick={props.onPlay} aria-label="Play" className="size-16 rounded-2xl shadow-lg tablet:size-18">
+        {/* Play, the main action (#755): a hammer, no text, gold and large, from `desktop`; below it the bar's centre disc (#763). */}
+        <Button size="icon" onClick={props.onPlay} aria-label="Play" className="hidden size-16 rounded-2xl shadow-lg tablet:size-18 desktop:inline-flex">
           <Icon name="hammer" size="xl" />
         </Button>
       </div>
       {points && village && (
-        <Suspense fallback={null}>
-          <LazyVillagePoints place="bottom" tiles={village.tiles} {...points} />
-        </Suspense>
+        // Anchored at the bar's top (#763): the panel, at its anchor's foot, opens above the bar, not under it.
+        <div className="absolute inset-x-0 bottom-(--app-nav-h) z-20 h-0">
+          <Suspense fallback={null}>
+            <LazyVillagePoints place="bottom" tiles={village.tiles} {...points} />
+          </Suspense>
+        </div>
       )}
+
+      {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
+      <HomeBar>
+        <LazyAppNav active={null} desktop="none" badges={{ chests: props.chests }} onNavigate={props.onNavigate} className="relative" />
+      </HomeBar>
     </>
   );
 }

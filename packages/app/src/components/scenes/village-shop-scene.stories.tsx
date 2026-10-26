@@ -4,6 +4,7 @@ import { fn } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { SHOP_TODAY, VILLAGE_SHOP } from "../../mocks/village-v2";
 import { VillageShopScene, type VillageShopSceneProps } from "./village-shop-scene";
+import { PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The daily tile shop (#739, part of #732) on fakes: the day's 3 offers with their rarity and price, each bought once a day,
@@ -13,7 +14,7 @@ const meta = {
   title: "Scenes/Village v2/Shop",
   component: VillageShopScene,
   parameters: { layout: "fullscreen" },
-  args: { ...VILLAGE_SHOP.today, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onBuy: fn(), onGetCobbles: fn(), onDismissRefusal: fn() },
+  args: { ...VILLAGE_SHOP.today, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onNavigate: fn(), onBuy: fn(), onGetCobbles: fn(), onDismissRefusal: fn() },
 } satisfies Meta<typeof VillageShopScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -50,3 +51,7 @@ function Playground(props: VillageShopSceneProps) {
 }
 
 export const Interactive: Story = { render: (args) => <Playground {...args} /> };
+
+/** In the phone's bar (#763): the Shop current at 375 px; from 1440 px the page's top bar alone, as before (#762). */
+export const TodayPhone: Story = { ...Today, ...PHONE_375 };
+export const TodayWide: Story = { ...Today, ...WIDE_1440 };
