@@ -130,95 +130,93 @@ export function VillageChestsScene({
   };
   return (
     <TabFrame tab="chests" onNavigate={onNavigate}>
-      <div className="flex min-h-full flex-col bg-background">
-        <TopBar title="Chests" onBack={onBack} />
-        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {status ? (
-            <SkinsStatusView
-              status={status}
-              guestTitle="Connect to open your chests"
-              guestText="Chests come with your stars: in PvP 1 star gives a bronze chest, 2 a silver one, 3 a gold one."
-              errorTitle="The chests could not be read"
-              skeleton={
-                <div className="flex flex-col gap-3">
-                  <Skeleton className="h-80 w-full rounded-2xl" />
-                  <Skeleton className="h-40 w-full rounded-2xl" />
-                </div>
-              }
-              onConnect={onConnect}
-              onRetry={onRetry}
+      <TopBar title="Chests" onBack={onBack} />
+      <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {status ? (
+          <SkinsStatusView
+            status={status}
+            guestTitle="Connect to open your chests"
+            guestText="Chests come with your stars: in PvP 1 star gives a bronze chest, 2 a silver one, 3 a gold one."
+            errorTitle="The chests could not be read"
+            skeleton={
+              <div className="flex flex-col gap-3">
+                <Skeleton className="h-80 w-full rounded-2xl" />
+                <Skeleton className="h-40 w-full rounded-2xl" />
+              </div>
+            }
+            onConnect={onConnect}
+            onRetry={onRetry}
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <ChestSlots
+              won={pvpToday}
+              opened={pvpOpened}
+              ranks={ranks}
+              resetsAt={reset && !ready ? undefined : resetsAt}
+              now={now}
+              ready={reset}
+              look={look}
+              onPlay={empty ? undefined : onPlay}
+              // A chest drawn and not kept yet comes first: no other slot opens until its tile is chosen (said under the slots).
+              onOpenSlot={opened ? undefined : (i) => show(chests.find((c) => c.slot === i)?.id)}
             />
-          ) : (
-            <div className="flex flex-col gap-4">
-              <ChestSlots
-                won={pvpToday}
-                opened={pvpOpened}
-                ranks={ranks}
-                resetsAt={reset && !ready ? undefined : resetsAt}
-                now={now}
-                ready={reset}
-                look={look}
-                onPlay={empty ? undefined : onPlay}
-                // A chest drawn and not kept yet comes first: no other slot opens until its tile is chosen (said under the slots).
-                onOpenSlot={opened ? undefined : (i) => show(chests.find((c) => c.slot === i)?.id)}
-              />
-              <InlineError
-                title="Not done"
-                message={modal ? null : refusal}
-                detail={refusalDetail}
-                action={
-                  onDismissRefusal && (
-                    <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
-                      Dismiss
-                    </Button>
-                  )
-                }
-              />
-              {taken && !opened && !modal && (
-                <Notice icon="circle-check" title="Added to your inventory" action={onEditLayout && <Button size="sm" variant="outline" onClick={onEditLayout}>Edit layout</Button>}>
-                  <span className="inline-flex flex-wrap items-center gap-2">
-                    <TileChip plan={taken.plan} art={tileArt} size="sm" className="border-0" />
-                    {tileName(taken.plan)}
-                    {taken.cobbles != null && <Cobbles value={taken.cobbles} sign="+" size="sm" />}
-                  </span>
-                </Notice>
-              )}
-              {!modal && opened && (
-                <p role="status" className="text-center text-sm text-muted-foreground">
-                  Your {CHEST_NAME[opened.draw.rank].toLowerCase()} is open: keep one of its tiles before the next chest.
+            <InlineError
+              title="Not done"
+              message={modal ? null : refusal}
+              detail={refusalDetail}
+              action={
+                onDismissRefusal && (
+                  <Button size="sm" variant="ghost" onClick={onDismissRefusal}>
+                    Dismiss
+                  </Button>
+                )
+              }
+            />
+            {taken && !opened && !modal && (
+              <Notice icon="circle-check" title="Added to your inventory" action={onEditLayout && <Button size="sm" variant="outline" onClick={onEditLayout}>Edit layout</Button>}>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <TileChip plan={taken.plan} art={tileArt} size="sm" className="border-0" />
+                  {tileName(taken.plan)}
+                  {taken.cobbles != null && <Cobbles value={taken.cobbles} sign="+" size="sm" />}
+                </span>
+              </Notice>
+            )}
+            {!modal && opened && (
+              <p role="status" className="text-center text-sm text-muted-foreground">
+                Your {CHEST_NAME[opened.draw.rank].toLowerCase()} is open: keep one of its tiles before the next chest.
+              </p>
+            )}
+            {!modal && (waiting.length > 0 || opened) && (
+              <Button size="lg" onClick={() => show()} className="self-center">
+                <Icon name="treasure-chest" size="sm" /> {opened ? "Back to the open chest" : "Open your chests"}
+                {!opened && (
+                  <>
+                    {" · "}
+                    <span className="numeric">{waiting.length}</span>
+                  </>
+                )}
+              </Button>
+            )}
+            {empty && (
+              <section aria-labelledby="none-title" className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border px-4 py-6 text-center">
+                <Icon name="treasure-chest" size="2xl" className="text-muted-foreground/50" />
+                <h2 id="none-title" className="font-display text-lg">
+                  No chest waiting
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Win stars to fill a slot: in PvP, 1 star gives a bronze chest, 2 a silver one, 3 a gold one; in Story, 3 stars on a level the first time.
                 </p>
-              )}
-              {!modal && (waiting.length > 0 || opened) && (
-                <Button size="lg" onClick={() => show()} className="self-center">
-                  <Icon name="treasure-chest" size="sm" /> {opened ? "Back to the open chest" : "Open your chests"}
-                  {!opened && (
-                    <>
-                      {" · "}
-                      <span className="numeric">{waiting.length}</span>
-                    </>
-                  )}
-                </Button>
-              )}
-              {empty && (
-                <section aria-labelledby="none-title" className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border px-4 py-6 text-center">
-                  <Icon name="treasure-chest" size="2xl" className="text-muted-foreground/50" />
-                  <h2 id="none-title" className="font-display text-lg">
-                    No chest waiting
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Win stars to fill a slot: in PvP, 1 star gives a bronze chest, 2 a silver one, 3 a gold one; in Story, 3 stars on a level the first time.
-                  </p>
-                  {onPlay && (
-                    <Button onClick={onPlay}>
-                      <Icon name="swords" size="sm" /> Choose a mode
-                    </Button>
-                  )}
-                </section>
-              )}
-            </div>
-          )}
-        </main>
-      </div>
+                {onPlay && (
+                  <Button onClick={onPlay}>
+                    <Icon name="swords" size="sm" /> Choose a mode
+                  </Button>
+                )}
+              </section>
+            )}
+          </div>
+        )}
+      </main>
       <ChestModal
         open={modal}
         onClose={() => {
