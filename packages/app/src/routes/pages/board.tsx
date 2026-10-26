@@ -2,13 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 import { DISCARD_POINTS, MAX_UNCONFIRMED, type PredictedState } from "@paved/game-core";
-import { BoardViewport } from "../../components/containers/board-viewport";
-import { hasWebGL } from "../../components/containers/tile-view";
-import { StackView, canDrawStack } from "../../components/containers/stack-view";
-import { useTileArt } from "../../data/tile-art";
-import { useTileRenders } from "../../data/tile-renders";
-import { RENDERER_ASSETS, manifestBody } from "../../data/renderer-manifest";
-import { provideManifest } from "@paved/renderer";
 import type { HandState } from "../../components/containers/tile-stack";
 import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
@@ -16,7 +9,6 @@ import { Button } from "../../components/ui/button";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
-import { useBoardSettings } from "../../data/board-settings";
 import { challengeQueue, useChallengeSession } from "../../data/challenge";
 import { useChallengeCurve } from "../../data/reward-curve";
 import { remainingOf, useTrainingSession } from "../../data/training";
@@ -27,14 +19,8 @@ import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useBack } from "../ref";
 import { useAfterGameOver } from "../game-over";
-import { usePlacement, type Slot } from "../../data/placement";
-
-/**
- * The renderer reads the manifest the route asked for with this code (`data/renderer-manifest.ts`), not one of its own. If
- * a model does not load, or the browser has no WebGL, the board falls back to the plan view, which plays the same game.
- */
-provideManifest(RENDERER_ASSETS, manifestBody(RENDERER_ASSETS));
-
+import type { Slot } from "../../data/placement";
+import { useGameBoard } from "../game-board";
 
 /** `/training` (P3) and `/game/:gameId` (P5); Story levels have their own page (`story-board.tsx`). */
 export default function Page() {
@@ -53,22 +39,17 @@ function TrainingBoard() {
   const { game, snapshot, board, restart } = useTrainingSession();
   // The connected player's skins; a guest's board draws the base models.
   const skins = useBoardSkins(useDataSources().signer?.address ?? null);
-  const boardSettings = useBoardSettings(game);
   const go = useAppNavigate();
   const onBack = useBack();
-  // The 3D board, unless this browser has no WebGL or the renderer cannot start (its models not served): the plan view.
-  const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
-  // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
-  const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
-  const renders = useTileRenders(RENDERER_ASSETS);
 
   const hand = board.hand;
   const slotsAt = useCallback((o: number) => game.slots(o), [game]);
   const orientationsAt = useCallback((cell: Slot) => game.orientationsAt(cell), [game]);
   // The slots of every rotation, the slot chosen, the ghost (SLOTS). Another game (another tab's save followed, a new
   // game): the slot and orientation chosen for the old hand go. `snapshot` changes with every move.
-  const placement = usePlacement({ plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game, confirmMs: boardSettings.renderer?.placement?.motion?.confirmMs });
-  const { orientation, move, ghost, slots } = placement;
+  // The season wheel starts again with a new game.
+  const { placement, scene } = useGameBoard({ skins, resetKey: game, placement: { plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game } });
+  const { orientation, move, slots } = placement;
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
   const handErrorDetail = useErrorDetail(snapshot.state.writeError);
 
@@ -116,7 +97,6 @@ function TrainingBoard() {
   return (
     <BoardScene
       mode="training"
-      tiles={board.tiles}
       score={board.score}
       delta={snapshot.delta}
       remaining={board.remaining}
@@ -135,39 +115,7 @@ function TrainingBoard() {
         errorDetail: handErrorDetail,
       }}
       lastScored={board.lastScored}
-      tileArt={tileArt}
-      tileRenders={renders}
-      skins={skins}
-      renderHandStack={view === "3d" && canDrawStack() ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
-      slots={slots}
-      ghost={ghost}
-      confirmed={placement.confirmed}
-      bubble={bubble}
-      onSlotClick={placement.choose}
-      placementHighlight={boardSettings.placementHighlight}
-      seasonWheel={boardSettings.wheel}
-      canvas={
-        view === "3d" ? (
-          <BoardViewport
-            settings={boardSettings.renderer}
-            onScene={boardSettings.onScene}
-            tilePreview={boardSettings.tilePreview}
-            placementHighlight={boardSettings.placementHighlight}
-            skins={skins}
-            tiles={board.tiles}
-            closed={board.closed}
-            basePath={RENDERER_ASSETS}
-            slots={slots}
-            ghost={ghost}
-            confirmed={placement.confirmed}
-            bubble={bubble}
-            onCellClick={placement.choose}
-            onCellPress={placement.choose}
-            onCellHover={placement.setHovered}
-            onError={() => setView("plan")}
-          />
-        ) : undefined
-      }
+      {...scene({ tiles: board.tiles, closed: board.closed, bubble })}
       onBack={onBack}
       onDiscard={discard}
       onRestart={() => {
@@ -208,14 +156,9 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const curve = useChallengeCurve(gameId);
   // The game's player's skins, for whoever views the game; the base models until the game and the read answer.
   const skins = useBoardSkins(state?.game?.playerId ?? null);
-  const boardSettings = useBoardSettings();
   const go = useAppNavigate();
   const onBack = useBack();
   const now = useNow();
-  const [view, setView] = useState<"3d" | "plan">(() => (hasWebGL() ? "3d" : "plan"));
-  // The hand\'s tile chip draws the 256 px copy the manifest lists (the plan\'s areas until it is read).
-  const tileArt = useTileArt(view === "3d" ? RENDERER_ASSETS : undefined);
-  const renders = useTileRenders(RENDERER_ASSETS);
 
   const ready = state?.status === "ready" ? state : null;
   const hand = ready?.hand ?? null;
@@ -228,15 +171,8 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const orientationsAt = useCallback((cell: Slot) => (session ? session.orientationsAt(cell) : []), [session]);
   // The slots of every rotation, the slot chosen, the ghost (SLOTS); a viewer who cannot play gets none. A new tile in
   // hand (a move predicted, a resync): the slot chosen for the last one goes. `state` changes with every move.
-  const placement = usePlacement({
-    plan: playable && hand ? hand.plan : null,
-    slotsAt,
-    orientationsAt,
-    version: state,
-    resetKey: tileId,
-    confirmMs: boardSettings.renderer?.placement?.motion?.confirmMs,
-  });
-  const { orientation, move, ghost, slots } = placement;
+  const { placement, scene } = useGameBoard({ skins, placement: { plan: playable && hand ? hand.plan : null, slotsAt, orientationsAt, version: state, resetKey: tileId } });
+  const { orientation, move, slots } = placement;
   const preview = useMemo(() => (session && move ? session.preview(move) : null), [session, state, move]);
 
   const resynced = ready?.resynced ?? 0;
@@ -351,7 +287,6 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
     <BoardScene
       mode="challenge"
       gameId={gameId}
-      tiles={state.tiles}
       score={game?.score ?? 0}
       delta={state.delta}
       remaining={game ? remainingOf(game) : 0}
@@ -374,43 +309,10 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
         errorDetail: handErrorDetail,
       }}
       lastScored={state.lastScored}
-      tileArt={tileArt}
-      tileRenders={renders}
-      skins={skins}
-      renderHandStack={view === "3d" && canDrawStack() ? (v) => <StackView {...v} basePath={RENDERER_ASSETS} skins={skins} /> : undefined}
-      slots={slots}
-      ghost={ghost}
-      confirmed={placement.confirmed}
-      bubble={bubble}
-      onSlotClick={placement.choose}
+      {...scene({ tiles: state.tiles, closed: state.closed, gameId, bubble })}
       readOnly={!playable}
       notices={notices}
       promptSurrender={playable && expired}
-      placementHighlight={boardSettings.placementHighlight}
-      seasonWheel={boardSettings.wheel}
-      canvas={
-        view === "3d" ? (
-          <BoardViewport
-            settings={boardSettings.renderer}
-            onScene={boardSettings.onScene}
-            tilePreview={boardSettings.tilePreview}
-            placementHighlight={boardSettings.placementHighlight}
-            skins={skins}
-            tiles={state.tiles}
-            closed={state.closed}
-            gameId={gameId}
-            basePath={RENDERER_ASSETS}
-            slots={slots}
-            ghost={ghost}
-            confirmed={placement.confirmed}
-            bubble={bubble}
-            onCellClick={placement.choose}
-            onCellPress={placement.choose}
-            onCellHover={placement.setHovered}
-            onError={() => setView("plan")}
-          />
-        ) : undefined
-      }
       onBack={onBack}
       onDiscard={discard}
       onSurrender={surrender}

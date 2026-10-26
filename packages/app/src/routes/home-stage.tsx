@@ -4,7 +4,6 @@ import type { GameScene, RendererSettingsInput } from "@paved/renderer";
 import VillageStage, { type VillageStageProps } from "../components/containers/village-stage";
 import { useBoardSkins } from "../data/board-skins";
 import type { FreeVillageHeld } from "../data/free-village-base";
-import { RENDERER_ASSETS } from "../data/renderer-manifest";
 import { useDeviceSettings } from "../data/settings";
 import { hasWebGL } from "../lib/webgl";
 import { villageArrival, markVillageDrawn } from "./village-arrival";
@@ -51,7 +50,6 @@ export default function HomeStage({ playerId, held, settings, onScene, ...stage 
               <Suspense fallback={null}>
                 <HomeCanvas
                   view={v}
-                  basePath={RENDERER_ASSETS}
                   skins={skins}
                   settings={settings}
                   onScene={onScene}
