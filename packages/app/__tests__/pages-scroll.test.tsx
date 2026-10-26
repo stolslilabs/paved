@@ -4,6 +4,10 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import PagePanel from "../src/components/containers/page-panel";
+import { CobblesScene } from "../src/components/scenes/cobbles-scene";
+import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
+import { PlayScene } from "../src/components/scenes/play-scene";
+import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { CreditsScene } from "../src/components/scenes/credits-scene";
 import { PvpDefenceScene } from "../src/components/scenes/pvp-defence-scene";
@@ -16,7 +20,7 @@ import { VaultScene } from "../src/components/scenes/vault-scene";
 import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { PVP_DEFENCE, PVP_LEAGUE } from "../src/mocks/pvp";
-import { ACHIEVEMENTS, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
+import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
 import { CHESTS, VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
 import { titleOf } from "../src/lib/music/track-info";
 import { TRACKS } from "../src/lib/music/tracks";
@@ -43,8 +47,19 @@ const PAGES: readonly [string, ReactNode][] = [
   ["Vault", <VaultScene {...VAULT.position} onNavigate={no()} />],
   ["Defence log", <PvpDefenceScene {...PVP_DEFENCE.shielded} onBack={no()} onNavigate={no()} onReplay={no()} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onNavigate={no()} onUse={no()} onOpen={no()} />],
+  ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} onNavigate={no()} />],
+  ["My tiles", <MyTilesScene {...MY_TILES.owned} onBack={no()} onNavigate={no()} />],
   ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} onNavigate={no()} />],
   ["Credits", <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no()} onNavigate={no()} />],
+];
+
+/**
+ * The full-screen flows below `desktop` (Play, Cobbles): no tab frame, the document scrolls under their sticky top bar; from
+ * `desktop` pages of the side panel, in its body as every other.
+ */
+const FLOWS: readonly [string, ReactNode][] = [
+  ["Choose a mode", <PlayScene {...PLAY.connected} onBack={no()} onChallenge={no()} onTraining={no()} onStory={no()} onAttack={no()} />],
+  ["Cobbles", <CobblesScene {...COBBLES.referred} onBack={no()} onSelectPack={no()} onBuyPack={no()} />],
 ];
 
 const BALANCES = { state: { status: "ready", usdc: 0n, paved: 0n, cobbles: 640 }, faucet: false, show: { phone: true, desktop: "all" } } as const;
@@ -107,6 +122,24 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(screen.getByRole("dialog", { name: title })).toContainElement(region);
     // The phone's bar is not drawn in the panel.
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+  });
+
+  it.each(FLOWS)("%s from desktop: the side panel's body, the flow's full-screen height dropped", (title, page) => {
+    draw(page, true, title);
+    expectOneRegion(title);
+    expect(screen.getByRole("dialog", { name: title })).toContainElement(document.querySelector<HTMLElement>("[data-slot=page-scroll]"));
+  });
+
+  it.each(FLOWS)("%s below desktop: a flow, the document scrolls under its sticky bar (no region, no clipping column)", (title, page) => {
+    draw(page, false, title);
+    expect(document.querySelector("[data-slot=page-scroll]")).toBeNull();
+    const header = screen.getByRole("heading", { level: 1, name: title }).closest<HTMLElement>("[data-slot=page-header]")!;
+    expect(header.className).toMatch(/(^|\s)sticky(\s|$)/);
+    // Its column fills the viewport at least (`min-h-dvh`) and never clips or scrolls: the document does.
+    const column = header.parentElement!;
+    expect(column.className).toMatch(/(^|\s)min-h-dvh(\s|$)/);
+    for (let el: HTMLElement | null = column; el && el !== document.body; el = el.parentElement)
+      expect(el.className).not.toMatch(/(^|\s)(overflow-(y-)?(auto|scroll|hidden|clip)|h-dvh|h-screen|h-full)(\s|$)/);
   });
 
   it("the League and the Chests draw their whole lists in the region: every league, every waiting chest", () => {

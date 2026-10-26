@@ -15,9 +15,10 @@ import { join } from "node:path";
  *
  * - Each page's scene, with content taller than the screen (`pages-scroll/harness.tsx`: a dozen chests waiting, a long defence
  *   log, ...), at 375 x 812 in the tab frame (a phone: touch, dragged by a finger) and at 1440 x 900 in the home's side panel
- *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Per page and width: its content is taller than its region, the region is the one element that scrolls, it
- *   reaches the page's last element, and the header stays at the region's top. A page whose content fits fails: the pass
- *   would prove nothing.
+ *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Play and Cobbles are full-screen
+ *   flows below `desktop`: there the document is what scrolls (`FLOWS`), under their sticky top bar. Per page and width: its
+ *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
+ *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
  *
@@ -25,7 +26,7 @@ import { join } from "node:path";
  * prints its line (page, width, figures): the pass's list of the PR.
  */
 
-const PAGES = ["shop", "chests", "league", "settings", "missions", "lifetime", "vault", "defence", "themes", "tiles", "referral", "credits"] as const;
+const PAGES = ["shop", "chests", "league", "settings", "missions", "lifetime", "vault", "defence", "themes", "theme", "tiles", "referral", "credits", "play", "cobbles"] as const;
 const TITLES: Record<(typeof PAGES)[number], string> = {
   shop: "Tile shop",
   chests: "Chests",
@@ -39,7 +40,16 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
   tiles: "My tiles",
   referral: "Referral",
   credits: "Credits",
+  theme: "Forest",
+  play: "Choose a mode",
+  cobbles: "Cobbles",
 };
+
+/**
+ * The full-screen flows below `desktop` (Play, Cobbles: no tab frame, the document scrolls, under their sticky top bar); in the
+ * side panel from `desktop` they scroll in its body as every other page.
+ */
+const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play", "cobbles"]);
 
 /**
  * The pages whose content has a fixed length (no list to grow: the leagues' ladder, the referral's link and earnings), shorter
@@ -49,6 +59,10 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
 const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: number }>> = {
   league: { phone: 812, desktop: 720 },
   referral: { phone: 667, desktop: 667 },
+  // The mode choice's five rows and the Cobbles' packs, of fixed length too: an iPhone SE's view under Safari's bars (548 px),
+  // a 560 px browser window.
+  play: { phone: 548, desktop: 560 },
+  cobbles: { phone: 548, desktop: 560 },
 };
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -102,7 +116,9 @@ interface Measure {
 /** The region's figures; the page's last element and its header against the region's box; every vertical scroller of the page. */
 function measure(region: Locator): Promise<Measure> {
   return region.evaluate((el: HTMLElement) => {
-    const box = el.getBoundingClientRect();
+    // The document (a flow's): its box is the viewport.
+    const doc = el === document.scrollingElement;
+    const box = doc ? { top: 0, bottom: innerHeight } : el.getBoundingClientRect();
     const header = el.querySelector("[data-slot=page-header]")?.getBoundingClientRect();
     let last: Element | null = el.querySelector("main");
     while (last?.lastElementChild) last = last.lastElementChild;
@@ -113,7 +129,7 @@ function measure(region: Locator): Promise<Measure> {
     return {
       scrollTop: Math.round(el.scrollTop),
       scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight,
+      clientHeight: doc ? innerHeight : el.clientHeight,
       scrollers,
       lastInView: !!end && end.bottom <= box.bottom + 1 && end.top >= box.top - 1,
       headerAtTop: !!header && Math.abs(header.top - box.top) < 1,
@@ -128,7 +144,10 @@ async function scrollPage(page: Page, id: (typeof PAGES)[number], panel: boolean
   await scope.getByRole("heading", { level: 1, name: TITLES[id] }).waitFor({ timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
   await pause(400);
-  const region = scope.locator("[data-slot=page-scroll]");
+  const flow = !panel && FLOWS.has(id);
+  // A flow has no region: the document scrolls, and it must hold none.
+  if (flow) expect(await page.locator("[data-slot=page-scroll]").count()).toBe(0);
+  const region = flow ? page.locator("html") : scope.locator("[data-slot=page-scroll]");
   const before = await measure(region);
   for (let i = 0; i < 20; i++) {
     const m = await measure(region);
@@ -138,12 +157,13 @@ async function scrollPage(page: Page, id: (typeof PAGES)[number], panel: boolean
   return { before, after: await measure(region) };
 }
 
-function expectScrolled(label: string, { before, after }: { before: Measure; after: Measure }) {
+function expectScrolled(label: string, { before, after }: { before: Measure; after: Measure }, flow = false) {
   const overflow = before.scrollHeight - before.clientHeight;
   console.log(`${label}: content ${before.scrollHeight} px in a ${before.clientHeight} px region, scrolled ${after.scrollTop} of ${overflow} px, last element ${after.lastInView ? "in view" : "NOT in view"}, header ${after.headerAtTop ? "sticky" : "NOT at the top"}, scrollers [${before.scrollers.join(", ")}]`);
   // The content is taller than the screen's region: otherwise the pass proves nothing.
   expect(overflow, `${label}: the content must be taller than its region`).toBeGreaterThan(40);
-  expect(before.scrollers, `${label}: the region is the one element that scrolls`).toEqual(["page-scroll"]);
+  // A flow's document scrolls, no element in it; a page's region is the one element that scrolls.
+  expect(before.scrollers, `${label}: the region is the one element that scrolls`).toEqual(flow ? [] : ["page-scroll"]);
   expect(after.scrollTop + after.clientHeight).toBeGreaterThanOrEqual(after.scrollHeight - 1);
   expect(after.lastInView, `${label}: the last element is in view at the end`).toBe(true);
   expect(after.headerAtTop, `${label}: the header stays at the top`).toBe(true);
@@ -164,7 +184,7 @@ describe("at 375 x 812, every page scrolls in the tab frame to its last element 
     const height = SHORT[id]?.phone ?? 812;
     await page.setViewportSize({ width: 375, height });
     const result = await scrollPage(page, id, false, () => drag(cdp, 187, height - 200, 150));
-    expectScrolled(`375 x ${height} ${id}`, result);
+    expectScrolled(`375 x ${height} ${id}${FLOWS.has(id) ? " (flow, the document)" : ""}`, result, FLOWS.has(id));
     if (shots && (id === "league" || id === "chests")) await page.screenshot({ path: join(shots, `375-${id}.png`) });
   });
 });

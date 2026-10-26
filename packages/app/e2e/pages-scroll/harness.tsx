@@ -13,6 +13,9 @@ import "../../src/styles/fonts.css";
 import "../../src/styles/theme.css";
 import { BalancesProvider } from "../../src/components/containers/balances-context";
 import PagePanel from "../../src/components/containers/page-panel";
+import { CobblesScene } from "../../src/components/scenes/cobbles-scene";
+import { PlayScene } from "../../src/components/scenes/play-scene";
+import { ThemeShopScene } from "../../src/components/scenes/theme-shop-scene";
 import { AchievementsScene } from "../../src/components/scenes/achievements-scene";
 import { CreditsScene } from "../../src/components/scenes/credits-scene";
 import { MyTilesScene } from "../../src/components/scenes/my-tiles-scene";
@@ -28,7 +31,7 @@ import { VillageShopScene } from "../../src/components/scenes/village-shop-scene
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_DEFENCE, PVP_LEAGUE } from "../../src/mocks/pvp";
-import { ACHIEVEMENTS, MY_TILES, QUESTS, REFERRAL, SETTINGS, THEME, VAULT } from "../../src/mocks/scenes";
+import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../../src/mocks/scenes";
 import { CHESTS, VILLAGE_CHESTS, VILLAGE_SHOP } from "../../src/mocks/village-v2";
 
 const no = () => {};
@@ -43,8 +46,11 @@ function long<T>(list: readonly T[], n: number, key?: keyof T): T[] {
 const chests = long(CHESTS, 12, "id");
 const quests = QUESTS.today.quests;
 
-/** The pages of the pass, by id: the title its header shows, its scene with long content. */
-export const PAGES: Record<string, { title: string; page: ReactNode }> = {
+/**
+ * The pages of the pass, by id: the title its header shows, its scene with long content. `flow`: a full-screen flow below
+ * `desktop` (Play, Cobbles: no tab frame, the document scrolls), a page of the side panel from it.
+ */
+export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true }> = {
   shop: { title: "Tile shop", page: <VillageShopScene {...VILLAGE_SHOP.today} offers={long(VILLAGE_SHOP.today.offers, 9)} onBack={no} onNavigate={no} onBuy={no} onGetCobbles={no} /> },
   chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.waiting} chests={chests} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
   league: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} best={PVP_LEAGUE.lastDay.crowns + 400} attacks={2} onBack={no} onNavigate={no} onAttack={no} onDefence={no} /> },
@@ -56,6 +62,9 @@ export const PAGES: Record<string, { title: string; page: ReactNode }> = {
   themes: { title: "Themes", page: <ThemeScene {...THEME.mixed} onBack={no} onNavigate={no} onUse={no} onOpen={no} /> },
   tiles: { title: "My tiles", page: <MyTilesScene {...MY_TILES.owned} onBack={no} onNavigate={no} /> },
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },
+  theme: { title: "Forest", page: <ThemeShopScene {...THEME_SHOP.forest} onBuy={no} onBuyCobbles={no} onMyTiles={no} onBack={no} onNavigate={no} /> },
+  play: { title: "Choose a mode", flow: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
+  cobbles: { title: "Cobbles", flow: true, page: <CobblesScene {...COBBLES.referred} onBack={no} onSelectPack={no} onBuyPack={no} /> },
   credits: { title: "Credits", page: <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no} onNavigate={no} /> },
 };
 
