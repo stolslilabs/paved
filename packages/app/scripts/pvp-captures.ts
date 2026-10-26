@@ -32,7 +32,7 @@ const CAPTURES = [
   { name: "page-scout", story: "pages-pvp--scout", ready: "Village score" },
   { name: "page-attack", story: "pages-pvp--attack", ready: "Attack:" },
   { name: "page-result", story: "pages-pvp--result", ready: "Village reward" },
-  { name: "page-league", story: "pages-pvp--league", ready: "Leagues" },
+  { name: "page-league", story: "pages-pvp--league", ready: "of 23" },
 ];
 
 /** A PNG encoded as WebP by the browser (a blank page's canvas). */
