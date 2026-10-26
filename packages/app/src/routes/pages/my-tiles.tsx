@@ -74,7 +74,7 @@ export default function Page() {
         setChanges({});
       }}
       onDismissRefusal={writes.reset}
-      onOpenShop={(theme) => go(`/settings/theme/${theme}`)}
+      onOpenShop={(theme) => go(`/settings/theme/${theme}`, { replace: true })}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });

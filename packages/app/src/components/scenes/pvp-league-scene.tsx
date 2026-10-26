@@ -9,6 +9,7 @@ import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
 import { Crowns } from "../elements/crowns";
 import { LeagueCrest } from "../elements/league-crest";
+import { DefenceLog, type DefenceLogProps } from "../containers/defence-log";
 import { LeagueCarousel } from "../containers/league-carousel";
 import { TabFrame } from "../containers/tab-frame";
 import { TopBar } from "../containers/top-bar";
@@ -45,8 +46,12 @@ export interface PvpLeagueSceneProps {
   onNavigate?: (tab: Tab) => void;
   /** To the search. */
   onAttack?: () => void;
-  /** To the defence log. */
-  onDefence?: () => void;
+  /** The defence log, a section of the page (BACK-RULE #783: no page opens another page); none when omitted. */
+  defences?: Omit<DefenceLogProps, "now" | "onReplay" | "onRetry">;
+  /** A defence's replay (a full-screen flow): its Back comes up to this page. */
+  onReplay?: (id: number) => void;
+  /** The defence log's read again, after its failure. */
+  onRetryDefences?: () => void;
 }
 
 /** The attacks a village settles in a season to earn its reward (`MIN_SEASON_ATTACKS`). */
@@ -58,9 +63,10 @@ const LAST_DAY_S = 86_400;
 /**
  * The league (#647): a carousel of the 23 leagues opening on the player's (#785), the details of the league in view (its floor,
  * the crowns still missing, its season Cobbles and first-time bonus; for the player's own, the way to the next), then the
- * season's end and what it gives (#644's rewards).
+ * season's end and what it gives (#644's rewards), Attack, and the defence log in place (BACK-RULE #783).
  */
-export function PvpLeagueScene({ crowns, best, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onAttack, onDefence }: PvpLeagueSceneProps) {
+export function PvpLeagueScene(props: PvpLeagueSceneProps) {
+  const { crowns, best, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onAttack, defences, onReplay, onRetryDefences } = props;
   const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
   // Below Bronze III (400 crowns) a village is Unranked on chain, as one that never attacked.
   const outside = unranked || league.id === "unranked";
@@ -114,16 +120,12 @@ export function PvpLeagueScene({ crowns, best, season, now, unranked, attacks, l
               </section>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button size="lg" onClick={onAttack}>
-                <Icon name="swords" size="sm" />
-                Attack
-              </Button>
-              <Button size="lg" variant="secondary" onClick={onDefence}>
-                <Icon name="shield-halved" size="sm" />
-                Defence log
-              </Button>
-            </div>
+            <Button size="lg" onClick={onAttack}>
+              <Icon name="swords" size="sm" />
+              Attack
+            </Button>
+
+            {defences && <DefenceLog {...defences} now={now} onReplay={onReplay} onRetry={onRetryDefences} />}
           </div>
 
         </main>

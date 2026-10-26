@@ -10,7 +10,6 @@ import { LEAGUES, STAR_MARKS, STAR_PERCENTS, crownsFor, leagueOf, nextLeague, st
 import { StarMeter } from "../src/components/elements/star-meter";
 import type { StackFrame } from "../src/components/containers/tile-stack";
 import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
-import { PvpDefenceScene } from "../src/components/scenes/pvp-defence-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { PvpResultScene } from "../src/components/scenes/pvp-result-scene";
 import { PvpScoutScene } from "../src/components/scenes/pvp-scout-scene";
@@ -20,7 +19,6 @@ import {
   ATTACK_STEPS,
   MY_VILLAGE,
   PVP_ATTACK,
-  PVP_DEFENCE,
   PVP_LEAGUE,
   PVP_REPLAY,
   PVP_RESULT,
@@ -242,16 +240,18 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("button", { name: /Choose/ })).toBeNull();
   });
 
-  it("defence log: the shield's timer, the attacks and their replays", async () => {
+  it("league's defence log (BACK-RULE #783, a section of the page): the shield's timer, the attacks and their replays", async () => {
     const onReplay = vi.fn();
-    render(wrap(<PvpDefenceScene {...PVP_DEFENCE.shielded} onReplay={onReplay} />));
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} onReplay={onReplay} />));
+    expect(screen.getByRole("heading", { level: 2, name: "Defences" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Defence log" })).toBeNull();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
     expect(screen.getByRole("timer")).toHaveAccessibleName("Shield ends in 5:12:00");
     expect(within(screen.getByRole("list", { name: "Attacks" })).getAllByRole("listitem")).toHaveLength(5);
     await userEvent.click(screen.getByRole("button", { name: "Replay the attack of Vael" }));
     expect(onReplay).toHaveBeenCalledWith(41);
     cleanup();
-    render(wrap(<PvpDefenceScene {...PVP_DEFENCE.empty} />));
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.defencesEmpty} />));
     expect(screen.getByText("No attack on your village yet.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "off");
   });
@@ -283,7 +283,6 @@ describe("PvP stories", () => {
     ["pvp-search-scene.stories.tsx", PVP_SEARCH],
     ["pvp-scout-scene.stories.tsx", PVP_SCOUT],
     ["pvp-result-scene.stories.tsx", PVP_RESULT],
-    ["pvp-defence-scene.stories.tsx", PVP_DEFENCE],
     ["pvp-league-scene.stories.tsx", PVP_LEAGUE],
   ])("%s has a story per state", (file, fixtures) => {
     const text = readFileSync(join(scenes, file), "utf8");

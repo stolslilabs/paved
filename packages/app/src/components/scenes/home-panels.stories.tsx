@@ -2,17 +2,17 @@ import type { ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn, userEvent, within } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
-import { PVP_DEFENCE, PVP_LEAGUE } from "../../mocks/pvp";
+import { PVP_LEAGUE } from "../../mocks/pvp";
 import { COBBLES, PLAY, PLAYER_STATUS, QUESTS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { HOME_VILLAGE, VILLAGE_CHESTS, VILLAGE_SHOP } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import PagePanel from "../containers/page-panel";
+import PageSheet from "../containers/page-sheet";
 import { ProfileProvider } from "../containers/profile-context";
 import { CobblesScene } from "./cobbles-scene";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { PlayScene } from "./play-scene";
-import { PvpDefenceScene } from "./pvp-defence-scene";
 import { PvpLeagueScene } from "./pvp-league-scene";
 import { QuestsScene } from "./quests-scene";
 import { SettingsScene } from "./settings-scene";
@@ -29,8 +29,8 @@ const tileArt = originalTileArt(SOURCE_ASSETS);
  * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the overlay's pages open in a side panel on the right,
  * over the village (dimmed; a click on it, Escape or the `xmark` closes), laid out as on a phone. One story per page of the
  * overlay at 1440 px (the Viewport toolbar can switch it; below `desktop` the app draws these pages full screen instead); the
- * home's Cobbles in every panel's header (ONE-HEADER, #781); Themes and the defence log, reached from another page,
- * keep Back. The profile opens on the left. The village is the plan view (the `Scene` stories of `Scenes/Home` have the 3D).
+ * home's Cobbles in every panel's header (ONE-HEADER, #781). No page opens another (BACK-RULE, #783): the defence log is a
+ * section of the League, and the themes are a sheet over Settings' panel. The profile opens on the left. The village is the plan view (the `Scene` stories of `Scenes/Home` have the 3D).
  */
 const meta = {
   title: "Scenes/Home/Panels",
@@ -86,14 +86,20 @@ export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHE
 export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onBuy={fn()} onGetCobbles={fn()} />);
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
 export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} onNavigate={fn()} />);
-/** The League, its defence log a tap away. */
-export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={fn()} onNavigate={fn()} onAttack={fn()} onDefence={fn()} />);
-/** The defence log, reached from the League: Back to it, in the same panel. */
-export const DefenceLog: Story = panel("Defence log", <PvpDefenceScene {...PVP_DEFENCE.shielded} onBack={fn()} onNavigate={fn()} onReplay={fn()} />, { top: false });
+/** The League, its defence log in place under Attack (BACK-RULE, #783). */
+export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={fn()} onNavigate={fn()} onAttack={fn()} onReplay={fn()} />);
 /** Settings, from the gear. */
 export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} />);
-/** The themes, reached from Settings: Back to it, the Cobbles they cost in the header. */
-export const Themes: Story = panel("Themes", <ThemeScene {...THEME.mixed} onBack={fn()} onNavigate={fn()} onUse={fn()} onOpen={fn()} />, { top: false });
+/** The themes, from Settings: a sheet over its panel (BACK-RULE, #783), its close up to Settings, the Cobbles they cost in its header. */
+export const Themes: Story = panel(
+  "Settings",
+  <>
+    <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} />
+    <PageSheet open title="Themes" side="right" onClose={fn()}>
+      <ThemeScene {...THEME.mixed} onBack={fn()} onNavigate={fn()} onUse={fn()} onOpen={fn()} />
+    </PageSheet>
+  </>,
+);
 /** Play's mode choice (the games themselves open full screen). */
 export const Play: Story = panel("Play", <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onTraining={fn()} onStory={fn()} onAttack={fn()} />);
 /** The Cobble packs, from the balances. */

@@ -45,6 +45,8 @@ export interface AchievementsSceneProps {
   onClaimAll?: () => void;
   onConnect?: () => void;
   onRetry?: () => void;
+  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  onBack?: () => void;
   onNavigate?: (tab: Tab) => void;
 }
 
@@ -70,7 +72,7 @@ export function AchievementsScene(props: AchievementsSceneProps) {
   const claimable = list.map((a) => ({ a, r: rewardOf(a) })).filter(({ a, r }) => a.completed && r && !r.claimed);
   const claimableCobbles = claimable.reduce((sum, { r }) => sum + r!.cobbles, 0);
   return (
-    <TabPage tab="quests" title="Missions" onNavigate={props.onNavigate}>
+    <TabPage tab="quests" title="Missions" onBack={props.onBack} onNavigate={props.onNavigate}>
       <QuestsTabs active="achievements" onSelect={props.onTab} />
 
       {!connected ? (

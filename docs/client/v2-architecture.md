@@ -3065,6 +3065,17 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
   and a tab page's title row below it) and where the content starts.
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
+- **No pages in pages; Back never cycles (BACK-RULE #783, owner decisions of 2026-10-26).** No page opens another page of
+  the same kind: what a page shows beyond itself it shows in place. Settings' pages (the themes, a theme, My tiles, the
+  credits, the referral) are sheets over Settings (`PageDef.sheet`, `routes/page-sheets.tsx`; from the bottom on a phone,
+  from the right from `desktop`, over the side panel), their URLs kept so a link opens them over Settings; a move from one
+  to another replaces its entry. The lifetime missions are a tab of Missions (the switch replaces the entry); the defence
+  log is a section of the League (`/pvp/defence` redirects there). The full-screen flows (a game, an attack, a result, a
+  replay) are not pages in this sense. One Back rule (`useUpTo` in `routes/ref.ts`): Back goes up to the page's parent
+  (`PageDef.parent`, the village without one; only a sheet or a flow names one, so two steps at most), back through the
+  history to the nearest earlier entry of that parent when the session knows one (`routes/history.tsx`, kept in
+  `sessionStorage` across a reload), else in place of the current entry; never a push, so a parent's Back never finds its
+  child again. The browser's own back button still walks the history.
 
 ### 6.3 What maps to what
 

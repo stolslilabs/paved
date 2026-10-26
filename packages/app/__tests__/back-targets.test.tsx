@@ -59,24 +59,9 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await waitFor(() => expect(at(router)).toBe("/play"));
     expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
 
-    // The system Back walks the history, which no longer holds the level: the list, then the list before it.
-    await router.navigate(-1);
-    await waitFor(() => expect(at(router)).toBe("/story?campaign=1"));
-    await router.navigate(-1);
-    await waitFor(() => expect(at(router)).toBe("/story"));
-    // The screen follows the location later (the router's updates are transitions): wait for each page to be drawn, or the
-    // Play page seen below could be the one from before these steps, and the click hit the list's Back, which opens Play.
-    await screen.findByRole("heading", { level: 1, name: "Story" }, { timeout: slow(5000) });
-    await router.navigate(-1);
-    await waitFor(() => expect(at(router)).toBe("/play"));
-    await waitFor(
-      () => {
-        expect(screen.queryByRole("heading", { level: 1, name: "Story" })).toBeNull();
-        expect(screen.getByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
-      },
-      { timeout: slow(5000) },
-    );
-
+    // Back went back through the history to Play's own entry (BACK-RULE #783): the level and the lists after it are skipped,
+    // never shown, and nothing before Play is the village, so its Back goes up in place.
+    expect(router.state.historyAction).toBe("POP");
     // The page may still swap its Back for a new node right after the pop: a click on the old one reaches no handler (seen
     // about one run in two on a loaded machine), so the press is tried again until the page goes Home.
     await waitFor(async () => {
@@ -116,11 +101,9 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
   // Opened directly (a link, a reload): no earlier in-app entry, so Back is the page's parent in the route map.
   it.each([
     ["/missions", "Missions", "/"],
+    ["/missions/lifetime", "Missions", "/"],
     ["/vault", "Vault", "/"],
     ["/settings", "Settings", "/"],
-    ["/settings/credits", "Credits", "/settings"],
-    ["/referral", "Referral", "/settings"],
-    ["/settings/theme", "Themes", "/settings"],
   ])("%s opened directly: Back lands on %s's parent", async (path, title, parent) => {
     const router = open(path);
     const heading = await screen.findByRole("heading", { level: 1, name: title }, { timeout: slow(5000) });

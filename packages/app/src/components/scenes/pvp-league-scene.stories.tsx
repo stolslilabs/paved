@@ -7,13 +7,13 @@ import { inPanel } from "../../stories/in-panel";
 
 /**
  * The league (#647): a carousel of the 23 leagues opening on the player's (#785), the details of the one in view, the season's
- * end and its rewards. The arrows, a swipe and the arrow keys move it; reduced motion cuts instead of sliding. On fakes.
+ * end and its rewards, Attack, and the defence log in place (BACK-RULE #783: it is no longer a page). The arrows, a swipe and the arrow keys move it; reduced motion cuts instead of sliding. On fakes.
  */
 const meta = {
   title: "Scenes/PvP/League",
   component: PvpLeagueScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_LEAGUE.gold, onBack: fn(), onNavigate: fn(), onAttack: fn(), onDefence: fn() },
+  args: { ...PVP_LEAGUE.gold, onBack: fn(), onNavigate: fn(), onAttack: fn(), onReplay: fn(), onRetryDefences: fn() },
 } satisfies Meta<typeof PvpLeagueScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -32,6 +32,14 @@ export const Legend: Story = { args: PVP_LEAGUE.legend };
 export const Unranked: Story = { args: PVP_LEAGUE.unranked };
 /** The season has ended: its rewards on their way. */
 export const Ended: Story = { args: PVP_LEAGUE.ended };
+/** The defence log with no shield: the village can be attacked. */
+export const DefencesOpen: Story = { args: PVP_LEAGUE.defencesOpen };
+/** No attack on the village yet. */
+export const DefencesEmpty: Story = { args: PVP_LEAGUE.defencesEmpty };
+/** The defence log on its way. */
+export const DefencesLoading: Story = { args: PVP_LEAGUE.defencesLoading };
+/** The defence log's read failed: Try again in place. */
+export const DefencesFailed: Story = { args: PVP_LEAGUE.defencesFailed };
 
 /** In the phone's bar (#763): the League current at 375 px; from 1440 px in the home's side panel, laid out as on a phone (#762). */
 export const GoldPhone: Story = { ...Gold, ...PHONE_375 };
@@ -43,6 +51,8 @@ export const LowerWide: Story = { ...Lower, ...WIDE_1440, decorators: [inPanel("
 export const UnrankedPhone: Story = { ...Unranked, ...PHONE_375 };
 export const UnrankedWide: Story = { ...Unranked, ...WIDE_1440, decorators: [inPanel("League")] };
 export const LegendPhone: Story = { ...Legend, ...PHONE_375 };
+export const DefencesOpenPhone: Story = { ...DefencesOpen, ...PHONE_375 };
+export const DefencesOpenWide: Story = { ...DefencesOpen, ...WIDE_1440, decorators: [inPanel("League")] };
 export const LegendWide: Story = { ...Legend, ...WIDE_1440, decorators: [inPanel("League")] };
 /** Reduced motion: the arrows cut from league to league. */
 export const ReducedMotion: Story = { ...GoldPhone, parameters: { ...GoldPhone.parameters, reducedMotion: "always" } };

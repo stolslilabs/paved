@@ -1,0 +1,82 @@
+import type { ReactNode } from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { fn } from "storybook/test";
+import { titleOf } from "../../lib/music/track-info";
+import { TRACKS } from "../../lib/music/tracks";
+import { MY_TILES, REFERRAL, SETTINGS, THEME, THEME_SHOP } from "../../mocks/scenes";
+import { CreditsScene } from "../scenes/credits-scene";
+import { MyTilesScene } from "../scenes/my-tiles-scene";
+import { ReferralScene } from "../scenes/referral-scene";
+import { SettingsScene } from "../scenes/settings-scene";
+import { ThemeScene } from "../scenes/theme-scene";
+import { ThemeShopScene } from "../scenes/theme-shop-scene";
+import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
+import { BalancesProvider } from "./balances-context";
+import PagePanel from "./page-panel";
+import PageSheet from "./page-sheet";
+
+const READY = { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 } as const;
+
+/**
+ * BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page. Settings' pages (the themes, a theme, My
+ * tiles, the credits, the referral) are this sheet over Settings: from the bottom on a phone (a drag down closes it), from the
+ * right from `desktop`, over Settings' side panel. Its header has the title, the Cobbles and the close, never Back: the close goes
+ * up to Settings. On the mock.
+ */
+const meta = {
+  title: "Containers/PageSheet",
+  component: PageSheet,
+  parameters: { layout: "fullscreen" },
+  args: { open: true, title: "Themes", side: "bottom", onClose: fn(), children: null },
+} satisfies Meta<typeof PageSheet>;
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** Settings under the sheet: a full page on a phone, the side panel from `desktop`. */
+function OverSettings({ panel, children }: { panel: boolean; children: ReactNode }) {
+  const settings = <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} onBack={fn()} />;
+  return (
+    <BalancesProvider value={{ state: READY, onAction: fn() }}>
+      {panel ? (
+        <PagePanel open title="Settings" onClose={fn()}>
+          {settings}
+        </PagePanel>
+      ) : (
+        settings
+      )}
+      {children}
+    </BalancesProvider>
+  );
+}
+
+const sheet = (title: string, page: ReactNode, wide = false): Story => ({
+  args: { title, side: wide ? "right" : "bottom" },
+  render: (args) => (
+    <OverSettings panel={wide}>
+      <PageSheet {...args}>{page}</PageSheet>
+    </OverSettings>
+  ),
+  ...(wide ? WIDE_1440 : PHONE_375),
+});
+
+const themes = <ThemeScene {...THEME.mixed} onBack={fn()} onNavigate={fn()} onUse={fn()} onOpen={fn()} onMyTiles={fn()} />;
+const shop = <ThemeShopScene {...THEME_SHOP.forest} onBack={fn()} onNavigate={fn()} onBuy={fn()} onBuyCobbles={fn()} onMyTiles={fn()} />;
+const tiles = <MyTilesScene {...MY_TILES.owned} onBack={fn()} onNavigate={fn()} onPick={fn()} onSave={fn()} onDiscard={fn()} onOpenShop={fn()} />;
+const credits = <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} onNavigate={fn()} />;
+const referral = <ReferralScene {...REFERRAL.earned} onBack={fn()} onNavigate={fn()} onCopy={fn()} />;
+
+/** The themes over Settings at 375 px: the sheet from the bottom, its grab bar, Settings dimmed behind it. */
+export const ThemesPhone: Story = sheet("Themes", themes);
+/** A theme's shop, opened from the themes in the same sheet (its entry replaced): the close still goes to Settings. */
+export const ThemePhone: Story = sheet("Theme", shop);
+export const MyTilesPhone: Story = sheet("My tiles", tiles);
+export const CreditsPhone: Story = sheet("Credits", credits);
+export const ReferralPhone: Story = sheet("Referral", referral);
+/** At 1440 px: the sheet from the right, over Settings' side panel and the village. */
+export const ThemesWide: Story = sheet("Themes", themes, true);
+export const ThemeWide: Story = sheet("Theme", shop, true);
+export const MyTilesWide: Story = sheet("My tiles", tiles, true);
+export const CreditsWide: Story = sheet("Credits", credits, true);
+export const ReferralWide: Story = sheet("Referral", referral, true);
+/** Reduced motion: the sheet appears without sliding. */
+export const ReducedMotion: Story = { ...ThemesPhone, parameters: { ...ThemesPhone.parameters, reducedMotion: "always" } };

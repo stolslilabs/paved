@@ -50,7 +50,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   pvp: pvp,
   "pvp/result/:id": () => import("./pages/pvp-result"),
   "pvp/replay/:attacker/:id": () => import("./pages/pvp-replay"),
-  "pvp/defence": () => import("./pages/pvp-defence"),
   "pvp/league": () => import("./pages/pvp-league"),
   "game/:gameId": board,
   training: board,

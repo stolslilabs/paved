@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -65,7 +65,6 @@ describe("the route map (#762)", () => {
       "cobbles",
       "village/chests",
       "village/shop",
-      "pvp/defence",
       "pvp/league",
       "missions/lifetime",
       "missions/:day?",
@@ -77,8 +76,8 @@ describe("the route map (#762)", () => {
       "settings/credits",
       "settings",
     ]);
-    // A page reached from another names its parent: its panel keeps Back to it.
-    expect(PAGES.find((p) => p.path === "pvp/defence")?.parent).toBe("/pvp/league");
+    // No page opens another (BACK-RULE #783): only Settings' sheets name a parent, and it is Settings.
+    expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && p.parent === "/settings")).toBe(true);
   });
 });
 
@@ -158,39 +157,47 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
   });
 
-  it("a second-level page opens in the same panel, with Back to its parent; the close walks back past both", async () => {
+  it("the themes open in a sheet over Settings' panel (BACK-RULE #783): its close goes back to Settings, the panel's to the village", async () => {
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav"))!);
     await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) })));
     const themes = await panel("Themes");
     expect(router.state.location.pathname).toBe("/settings/theme");
-    await userEvent.click(await within(themes).findByRole("button", { name: "Back" }, { timeout: slow(5000) }));
-    await panel("Settings");
-    expect(router.state.location.pathname).toBe("/settings");
-    await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) })));
-    await userEvent.click((await within(await panel("Themes")).findByRole("button", { name: "Close" }, { timeout: slow(5000) })));
+    // Settings stays in its panel under the sheet; the sheet has its close, no Back.
+    expect(screen.getByRole("dialog", { name: "Settings", hidden: true })).toBeInTheDocument();
+    expect(within(themes).queryByRole("button", { name: "Back" })).toBeNull();
+    await userEvent.click(await within(themes).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Themes" })).toBeNull(), { timeout: slow(5000) });
+    await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: "Close" }, { timeout: slow(5000) })));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
   });
 
-  it("a panel reopened by Forward closes back to the home's entry too: Back then never reopens it", async () => {
+  it("a sheet reopened by Forward closes back to Settings, and the panel to the home's entry: Back then never reopens it", async () => {
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav"))!);
     await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) }));
-    await userEvent.click(await within(await panel("Themes")).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    await panel("Themes");
+    await act(() => router.navigate(-2));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-    // Forward, Forward: Settings, then Themes, in the panel again.
-    await router.navigate(1);
+    // Forward, Forward: Settings, then the themes over it, again.
+    await act(() => router.navigate(1));
     await panel("Settings");
-    await router.navigate(1);
+    await act(() => router.navigate(1));
     expect(router.state.location.pathname).toBe("/settings/theme");
     await userEvent.click(await within(await panel("Themes")).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Themes" })).toBeNull(), { timeout: slow(5000) });
+    await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: "Close" }, { timeout: slow(5000) }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
     // The entries before are the home's alone: nothing of the panel's is behind it.
-    await router.navigate(-1);
+    await act(() => router.navigate(-1));
     expect(router.state.location.pathname).not.toMatch(/^\/settings/);
   });
 });

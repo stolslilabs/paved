@@ -52,7 +52,7 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       () =>
         toast.success("Tile bought", {
           description: "Use the theme on Themes, or choose it in My tiles.",
-          action: { label: "My tiles", onClick: () => go("/settings/tiles") },
+          action: { label: "My tiles", onClick: () => go("/settings/tiles", { replace: true }) },
         }),
       () => undefined,
     );
@@ -71,7 +71,7 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
       onDismissRefusal={writes.reset}
       onBuy={buy}
       onBuyCobbles={() => go("/cobbles")}
-      onMyTiles={() => go("/settings/tiles")}
+      onMyTiles={() => go("/settings/tiles", { replace: true })}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { matchPath, useLocation, useNavigate, type NavigateOptions } from "react-router";
-import { useCanGoBack } from "./history";
-import { PAGES, TABS, type Tab } from "./pages";
+import { useStepsBackTo } from "./history";
+import { PAGES, TABS, type PageDef, type Tab } from "./pages";
 import { tabSwipe } from "./tab-swipe";
 
 /** The query key of the referral link (section 6.2): kept across every link and redirect of the app. */
@@ -38,7 +38,7 @@ export function useTabNavigate() {
 }
 
 /** The route map's page at `pathname`, in table order (a static path before a parameter's). */
-const pageAt = (pathname: string) => PAGES.find((p) => matchPath({ path: `/${p.path}`, end: true }, pathname));
+export const pageAt = (pathname: string): PageDef | undefined => PAGES.find((p) => matchPath({ path: `/${p.path}`, end: true }, pathname));
 
 /**
  * The parent in the route map of the page at `pathname` (`PageDef.parent`), the home without one. Read from the location, not
@@ -49,24 +49,27 @@ export function parentOf(pathname: string): string {
 }
 
 /**
- * Back (a scene's `onBack`): the previous in-app entry, or the page's parent in the route map when there is none (a deep link,
- * an old link, a reload; `PageDef.parent`, #760), the home for a page without one. Only for a page whose previous entry can
- * never be a game: a page reached after a game goes up with `useUpTo` instead.
+ * Back (a scene's `onBack`, BACK-RULE #783): up to the page's parent in the route map (`PageDef.parent`), the village for a page
+ * without one, by the one rule of `useUpTo`. So repeated Back reaches the village and never cycles.
  */
 export function useBack() {
-  const navigate = useNavigate();
-  const go = useAppNavigate();
-  const canGoBack = useCanGoBack();
-  const parent = parentOf(useLocation().pathname);
-  return useCallback(() => (canGoBack() ? navigate(-1) : go(parent, { replace: true })), [canGoBack, go, navigate, parent]);
+  return useUpTo(parentOf(useLocation().pathname));
 }
 
 /**
- * Back up the information hierarchy (#614): always the page's parent route, whatever route the player came from. A page that
- * can be reached after a game (a level list, the modes, a game's end) uses it, so its Back never lands in a game, as the
- * browser history would when it holds the board's entry.
+ * The one Back rule (BACK-RULE #783, the owner's decisions of 2026-10-26: Back never cycles, it goes up toward the village and
+ * ends there). Up to `target`, never by a push: back through the history to the nearest earlier entry that shows `target` when
+ * this session knows one (the history after it, a game's entry included, is skipped, never shown), else in place of the current
+ * entry (a link, a reload, a page reached by a tab or a flow). A page never pushes its parent, so its parent's Back never finds
+ * it again. Full-screen flows (an attack, a result, a replay, a game's end) go up to the page they were opened from the same way.
  */
-export function useUpTo(parent: string) {
+export function useUpTo(target: string) {
+  const navigate = useNavigate();
   const go = useAppNavigate();
-  return useCallback(() => go(parent), [go, parent]);
+  const stepsBackTo = useStepsBackTo();
+  return useCallback(() => {
+    const steps = stepsBackTo(target);
+    if (steps !== null) navigate(steps);
+    else go(target, { replace: true });
+  }, [stepsBackTo, target, navigate, go]);
 }
