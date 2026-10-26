@@ -106,21 +106,15 @@ describe("/village/<own address>: the own village", () => {
     await waitFor(() => expect(screen.queryByText("Not done")).toBeNull());
   });
 
-  it("a failed read of the Cobbles is never shown as 0: the error and Retry, then the village with its balance", async () => {
+  // ONE-HEADER (#781): the village draws no Cobbles plate of its own, the header's balances (the home's) show them, so the page
+  // does not wait on nor fail with the Cobbles' read.
+  it("the village shows whatever the Cobbles' read does, with no plate of its own", async () => {
     const c = chain(85, 0);
     await c.writer.foundVillage();
-    const account = c.views.account.bind(c.views);
-    let fail = true;
-    c.views.account = (player: string) => (fail ? Promise.reject(new Error("account RPC unavailable")) : account(player));
+    c.views.account = () => Promise.reject(new Error("account RPC unavailable"));
     open(c, OWN);
-    // The error can show twice (the page and its retry state) while the read settles: at least one is the assertion.
-    expect((await screen.findAllByText("account RPC unavailable", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
-    expect(screen.queryByLabelText(/^Village of 9 cells/)).toBeNull();
-    expect(screen.queryByRole("img", { name: "0 Cobbles" })).toBeNull();
-    fail = false;
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByLabelText(/^Village of 9 cells/, {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "85 Cobbles" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /^\d+ Cobbles$/ })).toBeNull();
   });
 
   it("Retry reads the owner's level again after it failed, and the village shows", async () => {

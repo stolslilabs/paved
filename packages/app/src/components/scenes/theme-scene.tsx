@@ -66,7 +66,8 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
   const activeSkins = skins ? skins.active.filter((t) => t !== 0).length : 0;
   const confirmName = confirm ? THEMES.find((t) => t.id === confirm.theme)!.name : "";
   return (
-    <TabPage tab="settings" title="Themes" subtitle="How your tiles look on the board" onBack={onBack} onNavigate={onNavigate}>
+    <TabPage tab="settings" title="Themes" onBack={onBack} onNavigate={onNavigate}>
+      <p className="text-sm text-muted-foreground">How your tiles look on the board.</p>
       {!skins && skinsStatus && skinsStatus.kind !== "loading" && (
         <SkinsStatusView status={skinsStatus} guestTitle="Connect to use themes" guestText="Themes are tiles bought with the Cobbles of your account, and kept on it." onConnect={onConnect} onRetry={onRetry} />
       )}

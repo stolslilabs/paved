@@ -69,7 +69,6 @@ export const VisitScout: Story = { args: VILLAGE.visitScout };
 /** The fakes played: place the reward's tile, a new reward after each; take Cobbles. */
 function Playground(props: VillageSceneProps) {
   const [village, setVillage] = useState<Village>(VILLAGE_START);
-  const [cobbles, setCobbles] = useState(400);
   const [round, setRound] = useState(0);
   const offers: RewardOffer[] = [REWARD, { plans: [18, 9, 8], cobbles: 5 }, { plans: [13, 10, 17], cobbles: 5 }, { plans: [7, 12, 2], cobbles: 5 }];
   const [reward, setReward] = useState<RewardOffer | null>(REWARD);
@@ -81,7 +80,6 @@ function Playground(props: VillageSceneProps) {
     <VillageScene
       {...props}
       village={village}
-      cobbles={cobbles}
       reward={reward}
       onPlace={(p) => {
         props.onPlace?.(p);
@@ -92,7 +90,6 @@ function Playground(props: VillageSceneProps) {
         next();
       }}
       onTakeCobbles={() => {
-        setCobbles((c) => c + (reward?.cobbles ?? 0));
         setReward(null);
         props.onTakeCobbles?.();
       }}
