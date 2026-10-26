@@ -733,14 +733,16 @@ export class GameScene {
   }
 
   /**
-   * The placed tiles to the smoke, when they changed (a tile placed, a model in, a drop landed): each new type's chimneys found
-   * and its twins handed to the tile renderer (once a type), then the mouths placed.
+   * The placed tiles to the smoke, when they changed (a tile placed, a model in, a drop landed, a tile moved in place: its lift,
+   * size or cell, `TileRenderer.place`, which keeps its mesh): each new type's chimneys found and its twins handed to the tile
+   * renderer (once a type), then the mouths placed.
    */
   private syncSmokeTiles(force = false): void {
     const smoke = this.smoke;
     if (!smoke || this.disposed) return;
     const sources = this.tiles.smokeSources();
-    const signature = sources.map((s) => `${s.id}:${s.tile.uuid}`).join("|");
+    const placed = (o: THREE.Object3D | null) => (o ? [...o.position.toArray(), ...o.quaternion.toArray(), ...o.scale.toArray()].join(",") : "");
+    const signature = sources.map((s) => `${s.id}:${s.tile.uuid}:${placed(s.tile.parent)}`).join("|");
     if (!force && signature === this.smokeTiles) return;
     this.smokeTiles = signature;
     let swapped = false;

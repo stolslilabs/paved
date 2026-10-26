@@ -306,6 +306,24 @@ describe("GameScene: the chimney smoke (#770 PR 2) in the boards", () => {
     scene.dispose();
   });
 
+  it("moves a tile's smoke and caps with it when the tile moves in place (its lift, size or cell: the same mesh)", async () => {
+    const { scene, tiles } = await createScene(held(WINTER));
+    await (scene as any).dayNightLoad;
+    await vi.waitFor(() => expect(scene.getSmoke()?.chimneys).toBe(4), CHUNK_WAIT);
+    const object = (scene as any).smoke.object as THREE.Group;
+    const mouths = (object.getObjectByName("chimney-smoke-puffs") as THREE.Mesh<THREE.InstancedBufferGeometry>).geometry.getAttribute("aMouth");
+    const caps = object.getObjectByName("chimney-caps") as THREE.InstancedMesh;
+    const capAt = () => new THREE.Vector3().setFromMatrixPosition(caps.instanceMatrix.array.length ? new THREE.Matrix4().fromArray(caps.instanceMatrix.array, 0) : new THREE.Matrix4());
+    const [x, capX] = [mouths.getX(0), capAt().x];
+    // The first tile's container moved 45 units along x, as `TileRenderer.place` does for a new cell: the same mesh, the same id.
+    const container = tiles.smokeSources()[0]!.tile.parent!;
+    container.position.x += 45;
+    scene.updateTiles([]);
+    expect(mouths.getX(0)).toBeCloseTo(x + 45, 4);
+    expect(capAt().x).toBeCloseTo(capX + 45, 4);
+    scene.dispose();
+  });
+
   it("takes summer's day with the cycle off: no smoke (#770, open point 1)", async () => {
     const { scene } = await createScene(held(WINTER, { dayNight: { enabled: false } }));
     await vi.waitFor(() => expect(scene.getSmoke()).not.toBeNull(), CHUNK_WAIT);
