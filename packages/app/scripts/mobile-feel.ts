@@ -122,6 +122,9 @@ async function main(): Promise<void> {
     // Back to an entry left at the top returns to the top: Settings left at 0, the Shop picked in the bar, then Back.
     await nav.getByRole("button", { name: "Shop" }).click();
     await page.waitForURL(/village\/shop/);
+    // The Shop drawn first: the URL changes before the page does, and a scroll of Settings' region then would be its offset.
+    await page.getByRole("heading", { level: 1, name: "Tile shop" }).waitFor();
+    await page.waitForTimeout(300);
     await region.evaluate((el) => (el.scrollTop = 500));
     await page.waitForTimeout(300);
     await page.goBack();
