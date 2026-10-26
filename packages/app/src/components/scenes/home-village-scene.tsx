@@ -3,10 +3,7 @@ import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
 import { cn } from "../../lib/utils";
-import { leagueOf } from "../../lib/pvp-rules";
 import { Countdown } from "../elements/countdown";
-import { Crowns } from "../elements/crowns";
-import { LeagueCrest } from "../elements/league-crest";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { formatPoints } from "../elements/score";
 import { type TileArt } from "../elements/tile-chip";
@@ -19,7 +16,7 @@ import type { LayoutBoardView } from "../containers/layout-board";
 import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import type { VillageStageProps } from "../containers/village-stage";
-import { ProfileSlot } from "../containers/profile-context";
+import { PlayerBadge } from "../containers/player-badge";
 import type { Tab } from "../../routes/pages";
 
 // The season wheel (#547) in its own chunk, as on the boards: its slot keeps its size meanwhile.
@@ -71,7 +68,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   /** The viewer's Challenge game still running: the Resume chip. */
   activeGame?: GameView | null;
   /**
-   * The player's PvP standing (`Matchmaker.league`): the crowns and their league by the avatar, a tap to the league page (the
+   * The player's PvP standing (`Matchmaker.league`): the crowns and their league in `PlayerBadge` (#787), a tap to the league page (the
    * home's only way there, #755). None (no PvP played yet, or not read): Unranked with 0 crowns.
    */
   league?: { crowns: number } | null;
@@ -113,8 +110,8 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
 /**
  * Home (`/`, #753): the player's village full screen, a game scene like the boards (the renderer, its camera framed for the
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
- * the safe areas. In view: the avatar, its level ring and name at the top left, the village score and the league badge under it
- * (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
+ * the safe areas. In view: the player's badge at the top left (#787: the avatar in its league's border, the name, the XP bar, the league
+ * badge and the crowns), the village score under it (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
  * (a hammer, no text), large, at the bottom right with Edit (a pen) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
@@ -262,44 +259,31 @@ function ViewOverlays({
   ...props
 }: HomeVillageSceneProps & { editable: boolean; onEdit: () => void; points: PointsState | null; onPoints: () => void }) {
   const { activeGame, now, guest, founded = true } = props;
-  const crowns = props.league?.crowns ?? 0;
-  const standing = leagueOf(crowns);
   return (
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-1">
-            <ProfileSlot withName />
-            {/* By the avatar (#755): the village score, and the crowns and their league, a tap to the league (Unranked before PvP). */}
-            <div className="ml-1 flex flex-wrap items-center gap-1.5">
-              {village && (
-                // The village score; a tap opens its points by structure (#758).
-                <button
-                  type="button"
-                  onClick={onPoints}
-                  aria-label={`Village score ${formatInteger(village.score)}: ${points ? "hide" : "show"} the points`}
-                  aria-expanded={!!points}
-                  aria-controls={points ? "village-points" : undefined}
-                  className={cn(
-                    "state-layer flex min-h-7 items-center gap-1.5 rounded-md bg-background/70 px-2 py-0.5 text-xs backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    points && "ring-1 ring-primary",
-                  )}
-                >
-                  <Icon name="house-chimney" size="xs" className="text-primary" />
-                  <span className="numeric font-semibold">{formatInteger(village.score)}</span>
-                </button>
-              )}
+            {/* The profile and the league as one (#787): the avatar in its league's border, the name, the XP bar, the badge and the crowns. */}
+            <PlayerBadge crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+            {village && (
+              // Under it (#755), the village score; a tap opens its points by structure (#758).
               <button
                 type="button"
-                onClick={props.onLeague}
-                aria-label={`League: ${standing.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
-                className="state-layer flex items-center gap-2 rounded-full border border-border bg-card/90 px-2.5 py-1 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={onPoints}
+                aria-label={`Village score ${formatInteger(village.score)}: ${points ? "hide" : "show"} the points`}
+                aria-expanded={!!points}
+                aria-controls={points ? "village-points" : undefined}
+                className={cn(
+                  "state-layer ml-1 flex min-h-7 items-center gap-1.5 rounded-md bg-background/70 px-2 py-0.5 text-xs backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  points && "ring-1 ring-primary",
+                )}
               >
-                <LeagueCrest league={standing} size="sm" />
-                <Crowns value={crowns} size="sm" />
+                <Icon name="house-chimney" size="xs" className="text-primary" />
+                <span className="numeric font-semibold">{formatInteger(village.score)}</span>
               </button>
-            </div>
+            )}
             {/* The points (#758) under the chip from `tablet`; on a phone, a bottom panel over Play (the panel picks its place). */}
             {points && village && (
               <Suspense fallback={null}>
