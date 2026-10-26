@@ -167,6 +167,8 @@ export const ScenePointsWonder: Story = { args: HOME_VILLAGE.pointsWonder, rende
  */
 async function pressScene(canvasElement: HTMLElement, by: number) {
   await within(canvasElement).findByRole("region", { name: "Village points" }, { timeout: 10_000 });
+  // The panel's listeners attach after its first paint: a press as it appears would beat them, as no finger can.
+  await new Promise((done) => setTimeout(done, 500));
   const box = canvasElement.getBoundingClientRect();
   const x = box.left + box.width / 2;
   const y = box.top + box.height * 0.35;
