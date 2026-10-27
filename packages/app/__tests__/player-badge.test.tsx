@@ -90,13 +90,13 @@ describe("PlayerBadge (#787)", () => {
     expect(screen.getByRole("button", { name: "Profile: bal7hazar, level 20, max level" })).toHaveTextContent("Max level");
   });
 
-  it("frames the avatar in its league's colour: Unranked grey, a group's crest colour, Legend", () => {
+  it("frames the avatar in its league's colour: Wanderer grey, a group's crest colour, Sovereign", () => {
     const { container, rerender } = render(badge(value(), 0));
-    expect(border(container)).toHaveClass("border-league-unranked");
+    expect(border(container)).toHaveClass("border-league-wanderer");
     rerender(badge(value(), 1_240));
     expect(border(container)).toHaveClass(`border-league-${leagueOf(1_240).id}`);
     rerender(badge(value(), 5_320));
-    expect(border(container)).toHaveClass("border-league-legend");
+    expect(border(container)).toHaveClass("border-league-sovereign");
   });
 
   it("a promotion pulses the border in its new colour; none under reduced motion, nor on a drop", async () => {

@@ -19,7 +19,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const TwoStars: Story = { args: PVP_RESULT.twoStars };
-/** Past 110 %: three stars, and a promotion to Crystal. */
+/** Past 110 %: three stars, and a promotion to Knight. */
 export const ThreeStarsPromoted: Story = { args: PVP_RESULT.threeStarsPromoted };
 /** One star; the day's rewards already taken (the daily cap). */
 export const OneStarCapped: Story = { args: PVP_RESULT.oneStarCapped };
@@ -58,7 +58,7 @@ export const RewardLoading: Story = { args: PVP_RESULT.rewardLoading };
 /** The reward's read failed: the error and Try again, never "Today's rewards are all taken". */
 export const RewardError: Story = { args: { ...PVP_RESULT.rewardError, onRetryReward: fn() } };
 export const Defeat: Story = { args: PVP_RESULT.defeat };
-/** A defeat that drops the attacker to Silver. */
+/** A defeat that drops the attacker to Yeoman. */
 export const DefeatDropped: Story = { args: PVP_RESULT.defeatDropped };
 /** The result on its way to the chain. */
 export const Pending: Story = { args: PVP_RESULT.pending };

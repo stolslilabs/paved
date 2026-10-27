@@ -15,23 +15,23 @@ const meta = {
   title: "Scenes/PvP/League",
   component: PvpLeagueScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_LEAGUE.gold, onBack: fn(), onNavigate: fn(), onAttack: fn(), onOpenMatch: fn(), onRetryMatches: fn() },
+  args: { ...PVP_LEAGUE.yeoman, onBack: fn(), onNavigate: fn(), onAttack: fn(), onOpenMatch: fn(), onRetryMatches: fn() },
 } satisfies Meta<typeof PvpLeagueScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The player's league, Silver II, 28 crowns from Silver I; the season ends in 4 days. */
-export const Gold: Story = { args: PVP_LEAGUE.gold };
-/** The carousel on a higher league (Gold II): its floor, the crowns to go, its rewards; "Back to my league". */
+/** The player's league, Yeoman II, 28 crowns from Yeoman I; the season ends in 4 days. */
+export const Yeoman: Story = { args: PVP_LEAGUE.yeoman };
+/** The carousel on a higher league (Squire II): its floor, the crowns to go, its rewards; "Back to my league". */
 export const Higher: Story = { args: PVP_LEAGUE.higher };
-/** The carousel on a lower league (Bronze II): reached. */
+/** The carousel on a lower league (Peasant II): reached. */
 export const Lower: Story = { args: PVP_LEAGUE.lower };
 /** The season's last day: its timer. */
 export const LastDay: Story = { args: PVP_LEAGUE.lastDay };
 /** The top league: the next arrow stops there. */
-export const Legend: Story = { args: PVP_LEAGUE.legend };
-/** No attack yet: Unranked, the first view; the previous arrow stops there. */
-export const Unranked: Story = { args: PVP_LEAGUE.unranked };
+export const Sovereign: Story = { args: PVP_LEAGUE.sovereign };
+/** No attack yet: Wanderer, the first view; the previous arrow stops there. */
+export const Wanderer: Story = { args: PVP_LEAGUE.wanderer };
 /** The season has ended: its rewards on their way. */
 export const Ended: Story = { args: PVP_LEAGUE.ended };
 /** The matches with no shield: the village can be attacked. Attacks and defences mixed, newest first. */
@@ -48,23 +48,23 @@ export const MatchesLoading: Story = { args: PVP_LEAGUE.matchesLoading };
 export const MatchesFailed: Story = { args: PVP_LEAGUE.matchesFailed };
 
 /** In the phone's bar (#763): the League current at 375 px; from 1440 px in the home's side panel, laid out as on a phone (#762). */
-export const GoldPhone: Story = { ...Gold, ...PHONE_375 };
-export const GoldWide: Story = { ...Gold, ...WIDE_1440, decorators: [inPanel("League")] };
+export const YeomanPhone: Story = { ...Yeoman, ...PHONE_375 };
+export const YeomanWide: Story = { ...Yeoman, ...WIDE_1440, decorators: [inPanel("League")] };
 export const HigherPhone: Story = { ...Higher, ...PHONE_375 };
 export const HigherWide: Story = { ...Higher, ...WIDE_1440, decorators: [inPanel("League")] };
 export const LowerPhone: Story = { ...Lower, ...PHONE_375 };
 export const LowerWide: Story = { ...Lower, ...WIDE_1440, decorators: [inPanel("League")] };
-export const UnrankedPhone: Story = { ...Unranked, ...PHONE_375 };
-export const UnrankedWide: Story = { ...Unranked, ...WIDE_1440, decorators: [inPanel("League")] };
-export const LegendPhone: Story = { ...Legend, ...PHONE_375 };
+export const WandererPhone: Story = { ...Wanderer, ...PHONE_375 };
+export const WandererWide: Story = { ...Wanderer, ...WIDE_1440, decorators: [inPanel("League")] };
+export const SovereignPhone: Story = { ...Sovereign, ...PHONE_375 };
 export const MatchesOpenPhone: Story = { ...MatchesOpen, ...PHONE_375 };
 export const MatchesOpenWide: Story = { ...MatchesOpen, ...WIDE_1440, decorators: [inPanel("League")] };
 export const MatchesManyPhone: Story = { ...MatchesMany, ...PHONE_375 };
 export const MatchesNoSnapshotPhone: Story = { ...MatchesNoSnapshot, ...PHONE_375 };
-export const LegendWide: Story = { ...Legend, ...WIDE_1440, decorators: [inPanel("League")] };
+export const SovereignWide: Story = { ...Sovereign, ...WIDE_1440, decorators: [inPanel("League")] };
 /** Reduced motion: the arrows cut from league to league. */
-export const ReducedMotion: Story = { ...GoldPhone, parameters: { ...GoldPhone.parameters, reducedMotion: "always" } };
+export const ReducedMotion: Story = { ...YeomanPhone, parameters: { ...YeomanPhone.parameters, reducedMotion: "always" } };
 /** PAGES-SCROLL (#782): at 375 px the page scrolls in its region to the last league, the header sticky above it. */
-export const GoldPhoneScrolled: Story = { ...GoldPhone, play: scrolledToEnd };
+export const YeomanPhoneScrolled: Story = { ...YeomanPhone, play: scrolledToEnd };
 /** PAGES-SCROLL (#782): at 1440 px the panel's body scrolls to the last league; no close button (a click outside or Escape). */
-export const GoldWideScrolled: Story = { ...GoldWide, play: scrolledToEnd };
+export const YeomanWideScrolled: Story = { ...YeomanWide, play: scrolledToEnd };
