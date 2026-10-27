@@ -19,7 +19,7 @@ vi.mock("../src/routes/page-loaders", () => {
       "game/:gameId": board,
       training: board,
       "story/:campaign/:level": board,
-      "missions/:day?": loader("quests"),
+      missions: loader("missions"),
       vault: loader("vault"),
       settings: loader("settings"),
       "village/shop": loader("shop"),
@@ -72,8 +72,8 @@ describe("prefetchRoute", () => {
   it("fetches the chunk of the page a path shows, with its query and params", () => {
     expect(prefetchRoute("/play/challenge?ref=0x1")).toBe(true);
     expect(prefetchRoute("/game/12")).toBe(true);
-    expect(prefetchRoute("/missions/20000")).toBe(true);
-    expect(loads).toEqual(["purchase", "board", "quests"]);
+    expect(prefetchRoute("/missions")).toBe(true);
+    expect(loads).toEqual(["purchase", "board", "missions"]);
   });
 
   it("fetches a chunk once: the three boards share one", () => {

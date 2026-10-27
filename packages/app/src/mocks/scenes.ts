@@ -7,8 +7,7 @@ import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { AvatarCreator, AvatarCreatorSceneProps } from "../components/scenes/avatar-creator-scene";
 import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
-import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
-import type { QuestsSceneProps } from "../components/scenes/quests-scene";
+import type { MissionsSceneProps } from "../components/scenes/missions-scene";
 import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
 import type { OwnedSkins, ThemeSceneProps } from "../components/scenes/theme-scene";
@@ -22,7 +21,7 @@ import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
 import { CURVE_PLAYING, GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_ALL_DONE, QUESTS_FROM, QUESTS_IDLE, QUESTS_NONE, QUESTS_TODAY, QUESTS_WEEK_DONE, QUESTS_WEEKLY_DONE, GAME_MISSIONS } from "./quests";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, QUESTS_WEEK_DONE, GAME_MISSIONS } from "./quests";
 import { DEFAULT_AVATAR as DEFAULT_AVATAR_LOOK } from "@paved/renderer";
 import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
@@ -356,62 +355,51 @@ export const MY_TILES = {
   error: { ...tilesBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
 } satisfies Record<string, Data<MyTilesSceneProps>>;
 
-// Quests and achievements
+// Missions (#832): one page, today only, Cobbles only
 
-const questsBase = { today: TODAY, firstDay: QUESTS_FROM, connected: true, now: MOCK_NOW };
+const missionsBase = { connected: true, now: MOCK_NOW, quests: QUESTS_TODAY, achievements: ACHIEVEMENTS_MIXED };
 const questRewards = { cobbles: QUEST_COBBLES, day: NOTHING_CLAIMED, week: NOTHING_CLAIMED, balance: ACCOUNT.gems, credits: 0 };
-
-export const QUESTS = {
-  today: { ...questsBase, day: TODAY, quests: QUESTS_TODAY },
-  allDone: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE },
-  idle: { ...questsBase, day: QUESTS_IDLE.day, quests: QUESTS_IDLE },
-  none: { ...questsBase, firstDay: QUESTS_NONE.day, day: QUESTS_NONE.day, quests: QUESTS_NONE },
-  weeklyDone: { ...questsBase, day: TODAY, quests: QUESTS_WEEKLY_DONE },
-  // 4 minutes before 00:00 UTC: the Daily countdown turns amber (the Weekly one has about a day).
-  endingSoon: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, now: (TODAY + 1) * DAY - 4 * 60 },
-  guest: { ...questsBase, day: TODAY, quests: null, connected: false },
-  loading: { ...questsBase, day: TODAY, quests: null },
-  error: { ...questsBase, day: TODAY, quests: null, error: "The indexer did not answer (HTTP 503)." },
-  /** P-61: today with Cobbles: Daily Run done and its 5 Cobbles to claim; the others show what they give. */
-  cobblesToday: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, rewards: questRewards },
-  /** Daily Run's Cobbles claimed. */
-  cobblesClaimed: { ...questsBase, day: TODAY, quests: QUESTS_TODAY, rewards: { ...questRewards, balance: ACCOUNT.gems + 5, day: { ...NOTHING_CLAIMED, claimed: bits(1) } } },
-  /** Yesterday, closed but still claimable: the four dailies' 20 Cobbles (Claim all) and the day's free game. */
-  cobblesPastDay: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE, rewards: questRewards },
-  /** Claim all on its way. */
-  cobblesClaiming: { ...questsBase, day: QUESTS_ALL_DONE.day, quests: QUESTS_ALL_DONE, rewards: { ...questRewards, claiming: "all" } },
-  /** Everything of yesterday claimed: one free game to play. */
-  cobblesFreeGame: {
-    ...questsBase,
-    day: QUESTS_ALL_DONE.day,
-    quests: QUESTS_ALL_DONE,
-    rewards: { ...questRewards, balance: ACCOUNT.gems + 20, credits: 1, day: { claimed: bits(1, 5, 8, 11), credit: true } },
-  },
-  /** The three weeklies done: their 45 Cobbles and the week's free game to claim. */
-  cobblesWeekDone: { ...questsBase, day: TODAY, quests: QUESTS_WEEK_DONE, rewards: { ...questRewards, day: { ...NOTHING_CLAIMED, claimed: bits(1) } } },
-} satisfies Record<string, Data<QuestsSceneProps>>;
-
 const achievementRewards = { cobbles: ACHIEVEMENT_COBBLES, claimed: ACCOUNT.achievementsClaimed, balance: ACCOUNT.gems };
+const rewarded = { ...missionsBase, questRewards, achievementRewards };
+/** A period with every quest's Cobbles and its bonus claimed. */
+const allClaimed = { claimed: bits(...QUEST_COBBLES.map((q) => q.questId)), credit: true };
 
-export const ACHIEVEMENTS = {
-  mixed: { achievements: ACHIEVEMENTS_MIXED, connected: true },
-  newPlayer: { achievements: ACHIEVEMENTS_NEW, connected: true },
-  all: { achievements: ACHIEVEMENTS_ALL, connected: true },
-  guest: { achievements: null, connected: false },
-  loading: { achievements: null, connected: true },
-  /** The indexer did not answer: the error with Retry, and its detail to copy (P-67). */
-  failed: { achievements: null, connected: true, error: "The indexer did not answer (HTTP 503).", errorDetail: READ_ERROR_DETAIL },
-  /** P-61: each achievement's Cobbles (its points); First Stone and Settler I claimed, Settler II and Grand Builder to claim. */
-  cobbles: { achievements: ACHIEVEMENTS_MIXED, connected: true, rewards: achievementRewards },
-  /** Claim all on its way. */
-  cobblesClaiming: { achievements: ACHIEVEMENTS_MIXED, connected: true, rewards: { ...achievementRewards, claiming: "all" } },
-  /** Every one earned and claimed: 580 Cobbles; On the Podium gives none. */
-  cobblesAllClaimed: {
+export const MISSIONS = {
+  /** Today with Cobbles: the first mission not done (Public Works) selected; Daily Run's 5 Cobbles glow in its tile. */
+  daily: rewarded,
+  /** A lifetime mission selected (Settler III, 21 of 50). */
+  lifetime: { ...rewarded, initialSelected: "achievement:4" },
+  /** Daily Run selected: done, its 5 Cobbles to claim from the card. */
+  claim: { ...rewarded, initialSelected: "quest:1" },
+  /** Daily Run's claim on its way. */
+  claiming: { ...rewarded, initialSelected: "quest:1", claiming: "quest:1" },
+  /** The three weeklies done: their Cobbles and the week's bonus to claim, the bonus selected. */
+  weekBonus: { ...rewarded, quests: QUESTS_WEEK_DONE, questRewards: { ...questRewards, day: { ...NOTHING_CLAIMED, claimed: bits(1) } }, initialSelected: "bonus:weekly" },
+  /** Everything done and claimed, the two bonuses too: the first mission is selected. */
+  allDone: {
+    ...rewarded,
+    quests: QUESTS_TODAY_ALL_DONE,
     achievements: ACHIEVEMENTS_ALL,
-    connected: true,
-    rewards: { ...achievementRewards, balance: 580, claimed: bits(...ACHIEVEMENT_COBBLES.map((a) => a.achievementId)) },
+    questRewards: { ...questRewards, balance: ACCOUNT.gems + 200, day: allClaimed, week: allClaimed },
+    achievementRewards: { ...achievementRewards, balance: 580, claimed: bits(...ACHIEVEMENT_COBBLES.map((a) => a.achievementId)) },
   },
-} satisfies Record<string, Data<AchievementsSceneProps>>;
+  /** A new player: nothing counted, the lifetime missions locked. */
+  newPlayer: { ...rewarded, quests: QUESTS_TODAY_FRESH, achievements: ACHIEVEMENTS_NEW },
+  /** Four minutes before 00:00 UTC: the Daily countdown is amber. */
+  endingSoon: { ...rewarded, now: (TODAY + 1) * DAY - 4 * 60 },
+  /** No limited mission live today. */
+  noQuest: { ...rewarded, quests: { ...QUESTS_NONE, day: TODAY } },
+  /** Before Cobbles (or the ledger unreadable): the missions without rewards. */
+  noRewards: { ...missionsBase, rewardsUnavailable: "Not available on this network yet." },
+  /** P9: the player is known but cannot sign yet (P6): the rewards show, the claim asks to connect. */
+  readOnly: { ...rewarded, initialSelected: "quest:1", canClaim: false },
+  /** No wallet: Connect. */
+  guest: { ...missionsBase, quests: null, achievements: null, connected: false },
+  /** The missions on their way. */
+  loading: { ...missionsBase, quests: null, achievements: null },
+  /** The indexer did not answer: the error with Retry, and its detail to copy (P-67). */
+  failed: { ...missionsBase, quests: null, achievements: null, error: "The indexer did not answer (HTTP 503).", errorDetail: READ_ERROR_DETAIL },
+} satisfies Record<string, Data<MissionsSceneProps>>;
 
 // Referral
 

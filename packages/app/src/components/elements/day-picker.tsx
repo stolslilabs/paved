@@ -22,7 +22,7 @@ export interface DayPickerProps {
   className?: string;
 }
 
-/** The day picker of the leaderboard and the quests (`/leaderboard/:day?`, `/missions/:day?`): one UTC day back or forward. */
+/** A day picker: one UTC day back or forward (the leaderboard's and the quests' before #832, which shows today only). */
 export function DayPicker({ day, today, first, onChange, className }: DayPickerProps) {
   const isToday = day === today;
   return (

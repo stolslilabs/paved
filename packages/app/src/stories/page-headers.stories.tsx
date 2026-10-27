@@ -5,8 +5,7 @@ import { titleOf } from "../lib/music/track-info";
 import { TRACKS } from "../lib/music/tracks";
 import { appRenders } from "../mocks/assets";
 import { PROGRESS } from "../mocks/players";
-import { ACHIEVEMENTS, AVATAR_CREATOR, COBBLES, MY_TILES, PLAY, PROFILE, PURCHASE, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
-import { AchievementsScene } from "../components/scenes/achievements-scene";
+import { AVATAR_CREATOR, COBBLES, MISSIONS, MY_TILES, PLAY, PROFILE, PURCHASE, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
 import { BalancesProvider } from "../components/containers/balances-context";
 import { ProfileProvider } from "../components/containers/profile-context";
 import { AvatarCreatorScene } from "../components/scenes/avatar-creator-scene";
@@ -22,7 +21,7 @@ import { CreditsScene } from "../components/scenes/credits-scene";
 import { MyTilesScene } from "../components/scenes/my-tiles-scene";
 import { PlayScene } from "../components/scenes/play-scene";
 import { PurchaseScene } from "../components/scenes/purchase-scene";
-import { QuestsScene } from "../components/scenes/quests-scene";
+import { MissionsScene } from "../components/scenes/missions-scene";
 import { ReferralScene } from "../components/scenes/referral-scene";
 import { SettingsScene } from "../components/scenes/settings-scene";
 import { StoryScene } from "../components/scenes/story-scene";
@@ -67,8 +66,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Play: Story = { render: () => <PlayScene {...PLAY.connected} onBack={fn()} /> };
-export const Missions: Story = { render: () => <QuestsScene {...QUESTS.today} /> };
-export const MissionsLifetime: Story = { render: () => <AchievementsScene {...ACHIEVEMENTS.mixed} /> };
+export const Missions: Story = { render: () => <MissionsScene {...MISSIONS.daily} /> };
 export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> };
 export const Settings: Story = { render: () => <SettingsScene {...SETTINGS.connected} /> };
 export const StoryCampaigns: Story = {

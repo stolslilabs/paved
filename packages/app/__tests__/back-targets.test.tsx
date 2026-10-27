@@ -12,7 +12,7 @@ import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { discardTile, preloadPages } from "./route-helpers";
 
-preloadPages("home", "play", "story", "story-board", "quests", "vault", "settings", "credits", "referral", "theme", "welcome");
+preloadPages("home", "play", "story", "story-board", "missions", "vault", "settings", "credits", "referral", "theme", "welcome");
 
 beforeEach(() => {
   localStorage.clear();

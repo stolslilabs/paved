@@ -8,18 +8,17 @@ import { describe, expect, it, vi } from "vitest";
 import { Cobbles, formatCobbles } from "../src/components/elements/cobbles";
 import { CobblePacks, formatUsd } from "../src/components/containers/cobble-packs";
 import { PLANS, applySkinChanges, chooseTheme, isClaimed, packDiscount, pickSkin, referencePrice, themeInUse, themeSet } from "../src/components/containers/cobble-types";
-import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { CobblesScene } from "../src/components/scenes/cobbles-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
-import { QuestsScene } from "../src/components/scenes/quests-scene";
+import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { QUEST_DEFINITIONS } from "../src/mocks/quests";
-import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, PURCHASE, QUESTS, THEME_SHOP } from "../src/mocks/scenes";
+import { COBBLES, MISSIONS, MY_TILES, PLAY, PURCHASE, THEME_SHOP } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -306,78 +305,63 @@ describe("My tiles", () => {
   });
 });
 
-describe("Quests: Cobbles and free games", () => {
-  it("shows each quest's cobbles, and the claimable one with Claim", async () => {
-    const onClaim = vi.fn();
-    render(wrap(<QuestsScene {...QUESTS.cobblesToday} onClaim={onClaim} />));
-    expect(within(screen.getByRole("article", { name: "Strong Day" })).getByRole("img", { name: "+10 Cobbles" })).toBeInTheDocument();
-    expect(within(screen.getByRole("article", { name: "Strong Day" })).queryByRole("button")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
-    expect(onClaim).toHaveBeenCalledWith(1);
-    expect(screen.getByRole("region", { name: "Free games" })).toHaveTextContent("1 of 4 daily missions done");
-    expect(screen.getByRole("button", { name: "Claim the daily free game" })).toBeDisabled();
+describe("Missions: Cobbles only (#832)", () => {
+  const card = () => within(screen.getByRole("region", { name: "Selected mission" }));
+  const select = (name: RegExp) => userEvent.click(screen.getByRole("button", { name }));
+
+  it("shows each mission's Cobbles under its icon, and claims a quest from its card", async () => {
+    const onClaimQuest = vi.fn();
+    render(wrap(<MissionsScene {...MISSIONS.daily} onClaimQuest={onClaimQuest} />));
+    expect(within(screen.getByRole("button", { name: /^Strong Day/ })).getByRole("img", { name: "+10 Cobbles" })).toBeInTheDocument();
+    // A mission not done: its card has no Claim, a short line instead.
+    await select(/^Strong Day/);
+    expect(card().queryByRole("button")).not.toBeInTheDocument();
+    expect(card().getByText(/Play today to finish it/)).toBeInTheDocument();
+    await select(/^Daily Run/);
+    await userEvent.click(card().getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
+    expect(onClaimQuest).toHaveBeenCalledWith(1);
   });
 
-  it("marks a claimed quest", () => {
-    render(wrap(<QuestsScene {...QUESTS.cobblesClaimed} />));
-    expect(within(screen.getByRole("article", { name: "Daily Run" })).getByText("Cobbles claimed")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Claim all/ })).not.toBeInTheDocument();
+  it("claims an achievement and a period's bonus from the card; On the Podium gives none", async () => {
+    const onClaimAchievement = vi.fn();
+    const onClaimBonus = vi.fn();
+    render(wrap(<MissionsScene {...MISSIONS.weekBonus} onClaimAchievement={onClaimAchievement} onClaimBonus={onClaimBonus} />));
+    await userEvent.click(card().getByRole("button", { name: "Claim 60 Cobbles: Weekly bonus" }));
+    expect(onClaimBonus).toHaveBeenCalledWith("weekly");
+    await select(/^Settler II:/);
+    await userEvent.click(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" }));
+    expect(onClaimAchievement).toHaveBeenCalledWith(3);
+    await select(/^First Stone/);
+    expect(card().getByText("Cobbles claimed")).toBeInTheDocument();
+    expect(within(screen.getByRole("button", { name: /^On the Podium/ })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
   });
 
-  it("keeps a past day claimable: Claim all and the day's free game", async () => {
-    const onClaimAll = vi.fn();
-    const onClaimCredit = vi.fn();
-    render(wrap(<QuestsScene {...QUESTS.cobblesPastDay} onClaimAll={onClaimAll} onClaimCredit={onClaimCredit} />));
-    expect(screen.getByText("Closed day")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Claim all/ }));
-    expect(onClaimAll).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: /^Claim all/ })).toHaveTextContent("+20");
-    await userEvent.click(screen.getByRole("button", { name: "Claim the daily free game" }));
-    expect(onClaimCredit).toHaveBeenCalledWith("daily");
+  it("shows a claim on its way, the others waiting", async () => {
+    render(wrap(<MissionsScene {...MISSIONS.claiming} />));
+    expect(card().getByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).toHaveAttribute("aria-busy", "true");
+    await select(/^Settler II:/);
+    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" })).toBeDisabled();
   });
 
-  it("shows Claim all on its way, the other claims waiting", () => {
-    render(wrap(<QuestsScene {...QUESTS.cobblesClaiming} />));
-    expect(screen.getByRole("button", { name: /Claiming/ })).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("button", { name: "Claim the daily free game" })).toBeDisabled();
-  });
-
-  it("counts the free games and offers Play free", async () => {
-    const onPlayFree = vi.fn();
-    render(wrap(<QuestsScene {...QUESTS.cobblesFreeGame} onPlayFree={onPlayFree} />));
-    expect(screen.getByLabelText("1 free game left")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Claimed" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Play free" }));
-    expect(onPlayFree).toHaveBeenCalledOnce();
-  });
-
-  it("offers the week's free game once its three are done", () => {
-    render(wrap(<QuestsScene {...QUESTS.cobblesWeekDone} />));
-    expect(screen.getByRole("button", { name: "Claim the weekly free game" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /^Claim all/ })).toHaveTextContent("+45");
-  });
-});
-
-describe("Achievements: Cobbles", () => {
-  it("shows each one's cobbles, claimed and claimable, and none for On the Podium", async () => {
-    const onClaim = vi.fn();
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.cobbles} onClaim={onClaim} />));
-    expect(within(screen.getByRole("article", { name: "First Stone" })).getByText("Cobbles claimed")).toBeInTheDocument();
-    expect(within(screen.getByRole("article", { name: "On the Podium" })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Claim 20 Cobbles: Settler II/ }));
-    expect(onClaim).toHaveBeenCalledWith(3);
-    expect(screen.getByRole("button", { name: /^Claim all/ })).toHaveTextContent("+40");
-  });
-
-  it("shows Claim all on its way", () => {
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.cobblesClaiming} />));
-    expect(screen.getAllByRole("button", { name: /Claiming|Claim/ }).some((b) => b.getAttribute("aria-busy") === "true")).toBe(true);
-  });
-
-  it("has nothing left to claim when all are claimed", () => {
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.cobblesAllClaimed} />));
+  it("has nothing left to claim when all are claimed, the bonuses too", () => {
+    render(wrap(<MissionsScene {...MISSIONS.allDone} />));
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Cobbles claimed")).toHaveLength(15);
+    expect(screen.queryAllByRole("button", { name: /Cobbles to claim$/ })).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Daily bonus: Done" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Weekly bonus: Done" })).toBeInTheDocument();
+  });
+
+  it("read only: the card says Connect to claim", () => {
+    render(wrap(<MissionsScene {...MISSIONS.readOnly} />));
+    expect(card().getByText("Connect to claim")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
+  });
+
+  it("without the ledger: the missions without Cobbles, and why", () => {
+    render(wrap(<MissionsScene {...MISSIONS.noRewards} />));
+    expect(screen.getByText("Rewards unavailable")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /bonus/ })).not.toBeInTheDocument();
   });
 });
 

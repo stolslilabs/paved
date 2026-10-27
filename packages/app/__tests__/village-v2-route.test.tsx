@@ -40,7 +40,7 @@ function editPlayer(store: ReturnType<typeof mockImplementation>["store"], chang
   store.setItem(MOCK_KEY, JSON.stringify(state));
 }
 
-preloadPages("home", "quests", "vault", "settings", "play");
+preloadPages("home", "missions", "vault", "settings", "play");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/village-shop")]);
 }, slow(60_000));

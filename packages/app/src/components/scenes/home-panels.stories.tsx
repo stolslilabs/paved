@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn, userEvent, within } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PVP_LEAGUE } from "../../mocks/pvp";
-import { COBBLES, PLAY, PLAYER_STATUS, QUESTS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
+import { COBBLES, MISSIONS, PLAY, PLAYER_STATUS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { HOME_VILLAGE, VILLAGE_CHESTS, VILLAGE_SHOP } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
@@ -14,7 +14,7 @@ import { CobblesScene } from "./cobbles-scene";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { PlayScene } from "./play-scene";
 import { PvpLeagueScene } from "./pvp-league-scene";
-import { QuestsScene } from "./quests-scene";
+import { MissionsScene } from "./missions-scene";
 import { SettingsScene } from "./settings-scene";
 import { ThemeScene } from "./theme-scene";
 import { VaultScene } from "./vault-scene";
@@ -78,8 +78,8 @@ const panel = (title: string, page: ReactNode, options: { top?: boolean } = {}):
   ),
 });
 
-/** Missions (the Limited tab), with the Cobbles they earn in the header. */
-export const Missions: Story = panel("Missions", <QuestsScene {...QUESTS.today} onNavigate={fn()} onDayChange={fn()} onTab={fn()} onClaim={fn()} onClaimAll={fn()} />);
+/** Missions (#832): the selected mission's card, the Limited and the Lifetime icons, the Cobbles they earn in the header. */
+export const Missions: Story = panel("Missions", <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} onClaimBonus={fn()} />);
 /** The Chests: the slots, the chest to open, the Cobbles. */
 export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The day's tile shop, the Cobbles in the header. */
@@ -116,5 +116,5 @@ export const Profile: Story = {
 /** Below `desktop` the same page is a full page with the phone's bar (#763), not a panel: Missions at 375 px, for comparison. */
 export const MissionsPhone: Story = {
   ...PHONE_375,
-  render: () => <QuestsScene {...QUESTS.today} onNavigate={fn()} onDayChange={fn()} onTab={fn()} onClaim={fn()} onClaimAll={fn()} />,
+  render: () => <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} onClaimBonus={fn()} />,
 };
