@@ -22,7 +22,7 @@ import { REWARD, VILLAGE_GROWING } from "./village";
  * `PvpVillage`: its own fakes draw a village with `VillageBoard`, these with the game's board.
  */
 
-/** The attacker: Silver II, 28 crowns short of Silver I (two stars keep them in Silver II, three take them up). */
+/** The attacker: Yeoman II, 28 crowns short of Yeoman I (two stars keep them in Yeoman II, three take them up). */
 export const ME: PvpPlayer = { name: PLAYER.name, address: PLAYER_ID, level: 6, crowns: 1_172 };
 
 /** The defender drawn by the search. */
@@ -199,7 +199,7 @@ function result(score: number, extra: Partial<Data<PvpResultSceneProps>> = {}): 
 
 export const PVP_RESULT = {
   twoStars: result(ATTACK_SCORES.rival[3]),
-  /** Three stars, and the crowns carry the attacker into Silver I. */
+  /** Three stars, and the crowns carry the attacker into Yeoman I. */
   threeStarsPromoted: result(ATTACK_SCORES.rival[10]),
   /** One star, the day's rewards already taken. */
   oneStarCapped: result(ATTACK_SCORES.rival[2], { reward: { state: "capped", resetsAt: MOCK_NOW + 7 * HOUR + 40 * 60 } }),
@@ -212,7 +212,7 @@ export const PVP_RESULT = {
   /** The reward's read failed: said, with Try again, never a capped day. */
   rewardError: result(ATTACK_SCORES.rival[3], { reward: { state: "error", message: "Your reward could not be read: the network did not answer.", detail: { code: "RpcError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 52) } } }),
   defeat: result(ATTACK_SCORES.rival[5]),
-  /** A defeat that drops the attacker out of Silver II. */
+  /** A defeat that drops the attacker out of Yeoman II. */
   defeatDropped: { ...result(ATTACK_SCORES.rival[5]), crownsAfter: 990 },
   pending: result(ATTACK_SCORES.rival[3], { pending: true }),
   error: result(ATTACK_SCORES.rival[3], { error: "The result is not recorded yet: the network did not answer.", errorDetail: { code: "RpcError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 52) } }),
@@ -273,7 +273,7 @@ export const PVP_MATCHES = {
 const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 
 export const PVP_LEAGUE = {
-  gold: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.shielded },
+  yeoman: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.shielded },
   // The matches' states (#786), a section of the page (BACK-RULE #783).
   matchesOpen: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.open },
   matchesMany: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
@@ -282,11 +282,11 @@ export const PVP_LEAGUE = {
   matchesLoading: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.loading },
   matchesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
-  // The carousel on a league above the player's (Gold II) and one below (Bronze II): the "Back to my league" chip.
+  // The carousel on a league above the player's (Squire II) and one below (Peasant II): the "Back to my league" chip.
   higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },
   lower: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 2 },
-  legend: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
-  unranked: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
+  sovereign: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
+  wanderer: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
   ended: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW - 2 * HOUR }, now: MOCK_NOW },
 } satisfies Record<string, Data<PvpLeagueSceneProps>>;
 
@@ -338,11 +338,11 @@ export const PVP_END = {
   zeroStars: end(0, 72, -STAKES.loss),
   /** 80 %: a bronze chest. */
   oneStar: end(1, 84, STAKES.win[0]),
-  /** 95 %: a silver chest, still in Silver II. */
+  /** 95 %: a silver chest, still in Yeoman II. */
   twoStars: end(2, 95, STAKES.win[1]),
-  /** Past the village's score: a gold chest, and the crowns carry the attacker into Silver I. */
+  /** Past the village's score: a gold chest, and the crowns carry the attacker into Yeoman I. */
   threeStars: end(3, 104, STAKES.win[2]),
-  /** A defeat that drops the attacker out of Silver II. */
+  /** A defeat that drops the attacker out of Yeoman II. */
   dropped: { ...end(0, 64, -STAKES.loss), crownsAfter: 990 },
   /** Stars won, but the day's 3 PvP chest slots are full: the chest grey and disabled, with the wait. */
   chestCapped: end(2, 92, STAKES.win[1], { chest: { state: "capped", rank: "silver", resetsAt: CAPPED_AT } }),

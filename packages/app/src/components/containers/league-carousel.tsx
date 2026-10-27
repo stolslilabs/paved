@@ -9,7 +9,7 @@ import { Icon } from "../ui/icon";
 import { crestClass } from "../elements/league-crest";
 
 export interface LeagueCarouselProps {
-  /** The league in view, `LEAGUES`' index (0 Unranked to 22 Legend). */
+  /** The league in view, `LEAGUES`' index (0 Wanderer to 22 Sovereign). */
   selected: number;
   onSelect: (index: number) => void;
   /** The player's league, marked "You". */
@@ -18,7 +18,7 @@ export interface LeagueCarouselProps {
 }
 
 /**
- * The leagues one per view (#785), Unranked to Legend: the arrows, a swipe and the arrow keys move through them, and stop at
+ * The leagues one per view (#785), Wanderer to Sovereign: the arrows, a swipe and the arrow keys move through them, and stop at
  * both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
  * league in view is in the accessibility tree.
  */

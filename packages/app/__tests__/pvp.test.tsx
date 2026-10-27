@@ -67,11 +67,11 @@ describe("PvP rules (#647)", () => {
   });
 
   it("puts every crown count in one league, the last open-ended", () => {
-    expect(leagueOf(0).id).toBe("unranked");
-    expect(leagueOf(400).name).toBe("Bronze III");
-    expect(leagueOf(1_199).name).toBe("Silver II");
-    expect(leagueOf(1_200).name).toBe("Silver I");
-    expect(leagueOf(99_999).id).toBe("legend");
+    expect(leagueOf(0).id).toBe("wanderer");
+    expect(leagueOf(400).name).toBe("Peasant III");
+    expect(leagueOf(1_199).name).toBe("Yeoman II");
+    expect(leagueOf(1_200).name).toBe("Yeoman I");
+    expect(leagueOf(99_999).id).toBe("sovereign");
     expect(nextLeague(LEAGUES.at(-1)!)).toBeNull();
   });
 });
@@ -266,7 +266,7 @@ describe("PvP scenes (#647)", () => {
 
   it("league's matches (#786, in place of the defence log): the shield, attacks and defences as cards, newest first, each opening its match", async () => {
     const onOpenMatch = vi.fn();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} onOpenMatch={onOpenMatch} />));
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} onOpenMatch={onOpenMatch} />));
     expect(screen.getByRole("heading", { level: 2, name: "Attacks and defences" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Defence log" })).toBeNull();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
@@ -309,19 +309,19 @@ describe("PvP scenes (#647)", () => {
   });
 
   it("league: crowns, the way to the next league, the season's end", () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} />));
-    expect(screen.getByRole("progressbar", { name: "28 crowns to Silver I" })).toBeInTheDocument();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} />));
+    expect(screen.getByRole("progressbar", { name: "28 crowns to Yeoman I" })).toBeInTheDocument();
     expect(screen.getByText(/Ends in 4 d 3 h/)).toBeInTheDocument();
-    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Silver II");
+    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Yeoman II");
     cleanup();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.unranked} />));
-    expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wanderer} />));
+    expect(screen.getByRole("heading", { name: "Wanderer" })).toBeInTheDocument();
     cleanup();
-    // An open attack holds 20 crowns: the chain says Bronze III (the whole count, 400) while showing 380.
-    render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.gold.season} now={PVP_LEAGUE.gold.now} />));
-    expect(screen.queryByRole("heading", { name: "Unranked" })).toBeNull();
-    expect(screen.getAllByText("Bronze III").length).toBeGreaterThan(0);
-    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Bronze III");
+    // An open attack holds 20 crowns: the chain says Peasant III (the whole count, 400) while showing 380.
+    render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.yeoman.season} now={PVP_LEAGUE.yeoman.now} />));
+    expect(screen.queryByRole("heading", { name: "Wanderer" })).toBeNull();
+    expect(screen.getAllByText("Peasant III").length).toBeGreaterThan(0);
+    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Peasant III");
     // Held crowns under the floor start the bar empty, never below it.
     expect((screen.getByRole("progressbar").firstElementChild as HTMLElement).style.transform).toBe("translateX(-100%)");
   });

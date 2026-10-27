@@ -94,7 +94,7 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
   it("from the league, searches a village, scouts it, opens the attack and places a tile", async () => {
     const s = await open("/pvp/league");
     expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Wanderer" })).toBeInTheDocument();
     // The search draws as the page opens: the village found (held `FOUND_MS`, 1.2 s), then its scout. The wait starts before
     // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks; it is checked the
     // moment it is found, as the click may still be on its way past the 1.2 s the heading stays.

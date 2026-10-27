@@ -778,7 +778,7 @@ measured the same way.
 | `Setup` | 19,604 | 43,431 | 21,119 | 47,384 | +3,953 | 57.8 % |
 
 - `Matchmaker` embeds the two new components (`SeasonableComponent`, `LeagueableComponent`), the league table, the
-  rolls, the credits and the views `league`, `season_clock`, `current_season`, `league_record`, and the pool capped at Legend
+  rolls, the credits and the views `league`, `season_clock`, `current_season`, `league_record`, and the pool capped at Sovereign
   (`pool_crowns`, after review), and the calendar: the table of the 200 equinoxes and solstices of 2026 to 2075 and its
   search (about 1,300 felts): 40,484 CASM felts under the P-44 cap (73,728).
 - `Setup` gains `ISetupLeague` (`credit_league`, `report_pvp`, `pvp_progress`) and the PvP ledger's claim: 26,344 under

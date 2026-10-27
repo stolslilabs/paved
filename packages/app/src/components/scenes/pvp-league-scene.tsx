@@ -32,7 +32,7 @@ export interface PvpLeagueSceneProps {
   /** The player has never attacked: no league until the first attack. */
   unranked?: boolean;
   /**
-   * The league on chain (`Matchmaker.league(v).league`, 0 Unranked to 22 Legend), when known. It is the league of the whole
+   * The league on chain (`Matchmaker.league(v).league`, 0 Wanderer to 22 Sovereign), when known. It is the league of the whole
    * count, an open attack's hold included, while `crowns` is shown less the hold: so it is not recomputed from `crowns`.
    * Left out, the league of `crowns`.
    */
@@ -72,8 +72,8 @@ const LAST_DAY_S = 86_400;
 export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   const { crowns, best, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onAttack, matches, onOpenMatch, onRetryMatches } = props;
   const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
-  // Below Bronze III (400 crowns) a village is Unranked on chain, as one that never attacked.
-  const outside = unranked || league.id === "unranked";
+  // Below Peasant III (400 crowns) a village is a Wanderer on chain, as one that never attacked.
+  const outside = unranked || league.id === "wanderer";
   const mine = outside ? LEAGUES[0]! : league;
   const [selected, setSelected] = useState(opensOn ?? mine.index);
   const left = season ? season.endsAt - now : 0;
@@ -151,12 +151,12 @@ function LeagueDetails({ league, mine, crowns, best, unranked }: LeagueDetailsPr
   const next = nextLeague(league);
   // Held crowns can show the count under the league's floor (its league is the whole count's): the bar starts empty then.
   const progress = next ? Math.max(0, Math.min(100, ((crowns - league.from) / (next.from - league.from)) * 100)) : 100;
-  const bronze = LEAGUE_LADDER[0]!;
+  const first = LEAGUE_LADDER[0]!;
   return (
     <div aria-label={`${league.name} details`} role="group" className="flex flex-col items-center gap-3 px-2 text-center">
       {own && league.index === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {unranked ? "Attack a village to enter the leagues." : `${formatInteger(bronze.from - crowns)} crowns to Bronze.`} Every star wins crowns.
+          {unranked ? "Attack a village to enter the leagues." : `${formatInteger(first.from - crowns)} crowns to ${first.name}.`} Every star wins crowns.
         </p>
       ) : own ? (
         <>
@@ -178,7 +178,7 @@ function LeagueDetails({ league, mine, crowns, best, unranked }: LeagueDetailsPr
           )}
         </>
       ) : league.index === 0 ? (
-        <p className="text-sm text-muted-foreground">Every village under {formatInteger(bronze.from)} crowns, and every one that never attacked.</p>
+        <p className="text-sm text-muted-foreground">Every village under {formatInteger(first.from)} crowns, and every one that never attacked.</p>
       ) : null}
       {league.index > 0 && (
         <dl className="grid w-full grid-cols-2 gap-2 text-left">
