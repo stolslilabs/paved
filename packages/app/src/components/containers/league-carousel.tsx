@@ -1,28 +1,29 @@
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
-import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { LEAGUES, type League } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "../ui/carousel";
+import { CarouselDots } from "../ui/carousel-dots";
 import { Icon } from "../ui/icon";
-import { crestClass } from "../elements/league-crest";
 
 export interface LeagueCarouselProps {
   /** The league in view, `LEAGUES`' index (0 Wanderer to 22 Sovereign). */
   selected: number;
   onSelect: (index: number) => void;
-  /** The player's league, marked "You". */
+  /** The player's league (`aria-current`). */
   mine: number;
+  /** A league's card (`LeagueCard`), the same height for every league (#833). */
+  children: (league: League, current: boolean) => ReactNode;
   className?: string;
 }
 
 /**
- * The leagues one per view (#785), Wanderer to Sovereign: the arrows, a swipe and the arrow keys move through them, and stop at
- * both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
+ * The leagues one per view (#785), Wanderer to Sovereign: the arrows, a swipe, the arrow keys and the dots under it (#833, one
+ * per league, the current one widened, a tap jumps there) move through them, and stop at both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
  * league in view is in the accessibility tree.
  */
-export function LeagueCarousel({ selected, onSelect, mine, className }: LeagueCarouselProps) {
+export function LeagueCarousel({ selected, onSelect, mine, children, className }: LeagueCarouselProps) {
   const [api, setApi] = useState<CarouselApi>();
   const reduced = useReducedMotionConfig();
   const last = LEAGUES.length - 1;
@@ -38,7 +39,7 @@ export function LeagueCarousel({ selected, onSelect, mine, className }: LeagueCa
     };
   }, [api, onSelect]);
 
-  // An arrow, a key or "Back to my league": Embla glides there, or cuts under reduced motion.
+  // An arrow, a key, a dot or the card's back icon: Embla glides there, or cuts under reduced motion.
   useEffect(() => {
     if (api && api.selectedScrollSnap() !== selected) api.scrollTo(selected, Boolean(reduced));
   }, [api, selected, reduced]);
@@ -51,7 +52,6 @@ export function LeagueCarousel({ selected, onSelect, mine, className }: LeagueCa
     step(event.key === "ArrowLeft" ? -1 : 1);
   };
 
-  const league = LEAGUES[selected]!;
   return (
     <div className={cn("flex w-full min-w-0 flex-col items-center gap-2", className)}>
       <div className="flex w-full items-center gap-2">
@@ -68,7 +68,16 @@ export function LeagueCarousel({ selected, onSelect, mine, className }: LeagueCa
         >
           <CarouselContent>
             {LEAGUES.map((l) => (
-              <LeagueSlide key={l.index} league={l} mine={l.index === mine} current={l.index === selected} />
+              <CarouselItem
+                key={l.index}
+                aria-label={l.name}
+                aria-current={l.index === mine ? "true" : undefined}
+                aria-hidden={l.index === selected ? undefined : true}
+                inert={l.index !== selected}
+                data-league={l.index}
+              >
+                {children(l, l.index === selected)}
+              </CarouselItem>
             ))}
           </CarouselContent>
         </Carousel>
@@ -76,26 +85,10 @@ export function LeagueCarousel({ selected, onSelect, mine, className }: LeagueCa
           <Icon name="chevron-right" size="md" />
         </Button>
       </div>
-      <p aria-live="polite" data-testid="league-position" className="text-xs text-muted-foreground">
-        {league.name} · <span className="numeric">{formatInteger(selected + 1)}</span> of <span className="numeric">{formatInteger(LEAGUES.length)}</span>
+      <p aria-live="polite" className="sr-only">
+        {LEAGUES[selected]!.name}
       </p>
-      {selected !== mine && (
-        <Button variant="secondary" size="sm" className="rounded-full" onClick={() => onSelect(mine)}>
-          Back to my league
-        </Button>
-      )}
+      <CarouselDots aria-label="Go to a league" count={LEAGUES.length} current={selected} onSelect={onSelect} label={(i) => `Go to ${LEAGUES[i]!.name}`} />
     </div>
-  );
-}
-
-function LeagueSlide({ league, mine, current }: { league: League; mine: boolean; current: boolean }) {
-  return (
-    <CarouselItem aria-label={league.name} aria-current={mine ? "true" : undefined} aria-hidden={current ? undefined : true} inert={!current} data-league={league.index}>
-      <div className="flex flex-col items-center gap-2 py-3 text-center">
-        <Icon name="shield-halved" size="2xl" className={crestClass(league.id)} />
-        <h2 className="font-display text-2xl">{league.name}</h2>
-        <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", mine ? "bg-primary/15 text-primary" : "invisible")}>You</span>
-      </div>
-    </CarouselItem>
   );
 }

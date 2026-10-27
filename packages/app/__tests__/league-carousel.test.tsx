@@ -1,10 +1,13 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LEAGUES } from "../src/lib/pvp-rules";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
+import { dotsWindow } from "../src/components/ui/carousel-dots";
+import { BONUS_BURST_MS } from "../src/components/elements/league-bonus";
+import { crownRange } from "../src/components/containers/league-card";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
 
 const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
@@ -15,68 +18,169 @@ const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
 const carousel = () => screen.getByRole("region", { name: "Leagues" });
 /** The slide in view: the others are out of the accessibility tree. */
 const inView = () => within(carousel()).getByRole("group");
-const position = () => screen.getByTestId("league-position");
-const reach = (league: string) => within(screen.getByRole("group", { name: `${league} details` })).getByTestId("league-reach");
+const dots = () => within(screen.getByRole("group", { name: "Go to a league" })).getAllByRole("button");
+const current = () => dots().find((d) => d.getAttribute("aria-current") === "true");
+const reach = () => within(inView()).getByTestId("league-reach");
+const bonus = () => within(inView()).getByLabelText(/^First-time bonus/);
 
 afterEach(cleanup);
 
-describe("League carousel (#785)", () => {
-  it("opens on the player's league, marked You, with its position; the list of every league is gone", () => {
+describe("League carousel (#785, #833)", () => {
+  it("opens on the player's league with the way to the next; the dots in place of the position; no Attack, no back icon", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} />));
     expect(inView()).toHaveAccessibleName("Yeoman II");
     expect(inView()).toHaveAttribute("aria-current", "true");
-    expect(within(inView()).getByText("You")).toBeInTheDocument();
-    expect(position()).toHaveTextContent("Yeoman II · 6 of 23");
     expect(carousel().querySelectorAll("[data-slot='carousel-item']")).toHaveLength(LEAGUES.length);
+    // Under the title: the range of crowns and the season's Cobbles.
+    expect(within(inView()).getByRole("img", { name: "1,000 to 1,199 crowns" })).toBeInTheDocument();
+    expect(within(inView()).getByRole("img", { name: "+20 Cobbles" })).toBeInTheDocument();
+    expect(within(inView()).getByRole("progressbar", { name: "28 crowns to Yeoman I" })).toBeInTheDocument();
+    // One dot per league, the current one marked; no "N of 23".
+    expect(dots()).toHaveLength(LEAGUES.length);
+    expect(current()).toHaveAccessibleName("Go to Yeoman II");
+    expect(screen.queryByText(/of 23/)).toBeNull();
+    expect(screen.queryByTestId("league-position")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Back to my league" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Attack/ })).toBeNull();
+    // The player's crowns, the same under every league.
+    expect(screen.getByTestId("league-player")).toHaveTextContent(/Your crowns.*Season best/);
     // The list of the latest matches is the page's own (#786); no other list.
     expect(screen.queryAllByRole("list").map((l) => l.getAttribute("aria-label"))).toEqual(["Matches"]);
-    expect(screen.queryByRole("button", { name: "Back to my league" })).toBeNull();
-    // The player's own: the way to the next league, as before.
-    expect(screen.getByRole("progressbar", { name: "28 crowns to Yeoman I" })).toBeInTheDocument();
+  });
+
+  it("every league's card has the same content rows: the title, the range, the season reward, the standing line", () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} />));
+    const cards = carousel().querySelectorAll<HTMLElement>("[data-slot='league-card']");
+    expect(cards).toHaveLength(LEAGUES.length);
+    // One fixed height for all, Wanderer included.
+    expect(new Set([...cards].map((c) => [...c.classList].filter((k) => /^h-/.test(k)).join()))).toEqual(new Set(["h-56"]));
+    for (const card of cards) expect(card.children).toHaveLength(6);
+    expect(crownRange(LEAGUES[0]!).text).toBe("0 – 399");
+    expect(crownRange(LEAGUES[22]!).text).toBe("5,000+");
   });
 
   for (const reduced of ["never", "always"] as const) {
-    it(`the arrows and the keys move through the leagues, the details follow (reduced motion ${reduced})`, async () => {
+    it(`the arrows, the keys and the dots move through the leagues (reduced motion ${reduced})`, async () => {
       render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} />, reduced));
       const user = userEvent.setup();
       await user.click(screen.getByRole("button", { name: "Next league" }));
       expect(inView()).toHaveAccessibleName("Yeoman I");
       expect(inView()).not.toHaveAttribute("aria-current");
-      expect(within(screen.getByRole("group", { name: "Yeoman I details" })).getByRole("img", { name: "1,200 crowns" })).toBeInTheDocument();
-      expect(reach("Yeoman I")).toHaveTextContent("28 to go");
+      expect(reach()).toHaveTextContent("28 crowns to go");
       expect(screen.queryByRole("progressbar")).toBeNull();
-      expect(position()).toHaveTextContent("Yeoman I · 7 of 23");
+      expect(current()).toHaveAccessibleName("Go to Yeoman I");
 
       await user.click(screen.getByRole("button", { name: "Previous league" }));
       await user.click(screen.getByRole("button", { name: "Previous league" }));
       expect(inView()).toHaveAccessibleName("Yeoman III");
-      expect(reach("Yeoman III")).toHaveTextContent("Reached");
+      expect(reach()).toHaveTextContent("Reached");
 
       carousel().focus();
       await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}");
       expect(inView()).toHaveAccessibleName("Squire III");
       await user.keyboard("{ArrowLeft}");
       expect(inView()).toHaveAccessibleName("Yeoman I");
+
+      await user.click(screen.getByRole("button", { name: "Go to Knight II" }));
+      expect(inView()).toHaveAccessibleName("Knight II");
+      expect(current()).toHaveAccessibleName("Go to Knight II");
     });
   }
 
-  it("a higher league shows its floor, the crowns to go, its rewards; Back to my league returns", async () => {
+  it("the back icon shows away from the player's league and returns to it", async () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.higher} />));
     expect(inView()).toHaveAccessibleName("Squire II");
-    expect(reach("Squire II")).toHaveTextContent("428 to go");
-    const details = screen.getByRole("group", { name: "Squire II details" });
-    expect(details).toHaveTextContent(/Season reward\+35/);
-    expect(details).toHaveTextContent(/First time bonus\+15/);
-    await userEvent.click(screen.getByRole("button", { name: "Back to my league" }));
+    expect(reach()).toHaveTextContent("428 crowns to go");
+    await userEvent.click(within(inView()).getByRole("button", { name: "Back to my league" }));
     expect(inView()).toHaveAccessibleName("Yeoman II");
     expect(screen.queryByRole("button", { name: "Back to my league" })).toBeNull();
+  });
+
+  it("the first-time bonus: had up to the season's best league, out of reach above", async () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} />));
+    // The season's best, 1,240, is in Yeoman I: its bonus was had too.
+    expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: had this season");
+    await userEvent.click(screen.getByRole("button", { name: "Go to Yeoman I" }));
+    expect(bonus()).toHaveAttribute("data-bonus", "had");
+    await userEvent.click(screen.getByRole("button", { name: "Go to Squire III" }));
+    expect(bonus()).toHaveAccessibleName("First-time bonus, +15 Cobbles: reach Squire III to earn it");
+    expect(bonus()).toHaveAttribute("data-bonus", "locked");
+    await userEvent.click(screen.getByRole("button", { name: "Go to Wanderer" }));
+    expect(within(inView()).queryByLabelText(/^First-time bonus/)).toBeNull();
+    expect(within(inView()).getByText("No season reward")).toBeInTheDocument();
+  });
+
+  it("a drop to Wanderer keeps the season's bonuses had up to the season's best", async () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.demoted} />));
+    expect(screen.getByTestId("league-player")).toHaveTextContent(/Your crowns.*200.*Season best.*1,240/);
+    expect(inView()).toHaveAccessibleName("Yeoman II");
+    expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: had this season");
+    await userEvent.click(screen.getByRole("button", { name: "Go to Yeoman I" }));
+    expect(bonus()).toHaveAttribute("data-bonus", "had");
+    await userEvent.click(screen.getByRole("button", { name: "Go to Squire III" }));
+    expect(bonus()).toHaveAttribute("data-bonus", "locked");
+    // The back icon returns to the player's league, Wanderer.
+    await userEvent.click(within(inView()).getByRole("button", { name: "Back to my league" }));
+    expect(inView()).toHaveAccessibleName("Wanderer");
+  });
+
+  for (const reduced of ["never", "always"] as const) {
+    it(`a bonus to celebrate: a tap plays its moment and marks it seen, then it is had (reduced motion ${reduced})`, async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const onBonusSeen = vi.fn();
+        render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bonusReady} onBonusSeen={onBonusSeen} />, reduced));
+        expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: earned, tap to celebrate");
+        await userEvent.click(bonus());
+        expect(within(inView()).getByRole("status")).toHaveTextContent("+10");
+        // Seen at the tap: the moment plays once, whatever comes next.
+        expect(onBonusSeen).toHaveBeenCalledExactlyOnceWith(5);
+        expect(bonus()).toHaveAttribute("data-bonus", "had");
+        await act(async () => {
+          vi.advanceTimersByTime(BONUS_BURST_MS + 10);
+        });
+        expect(within(inView()).queryByRole("status")).toBeNull();
+        expect(bonus()).toHaveAttribute("data-bonus", "had");
+        expect(onBonusSeen).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  }
+
+  it("leaving the league during the moment ends it; a return never replays it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const onBonusSeen = vi.fn();
+      render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bonusReady} onBonusSeen={onBonusSeen} />));
+      await userEvent.click(bonus());
+      expect(within(inView()).getByRole("status")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Next league" }));
+      expect(inView()).toHaveAccessibleName("Yeoman I");
+      await act(async () => {
+        vi.advanceTimersByTime(BONUS_BURST_MS + 300);
+      });
+      await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
+      expect(inView()).toHaveAccessibleName("Yeoman II");
+      expect(document.querySelector("[data-slot=bonus-burst]")).toBeNull();
+      expect(bonus()).toHaveAttribute("data-bonus", "had");
+      // Back at once, before the moment's end, the same.
+      await userEvent.click(screen.getByRole("button", { name: "Next league" }));
+      await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
+      expect(document.querySelector("[data-slot=bonus-burst]")).toBeNull();
+      expect(onBonusSeen).toHaveBeenCalledExactlyOnceWith(5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("stops at Wanderer and at Sovereign", async () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wanderer} />));
     expect(inView()).toHaveAccessibleName("Wanderer");
     expect(screen.getByRole("heading", { name: "Wanderer" })).toBeInTheDocument();
-    expect(screen.getByText(/Attack a village to enter the leagues/)).toBeInTheDocument();
+    // Unranked's longer text is under the carousel, out of the card.
+    expect(screen.getByTestId("league-player")).toHaveTextContent(/Attack a village to enter the leagues/);
+    expect(within(inView()).getByRole("progressbar", { name: "400 crowns to Peasant III" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous league" })).toBeDisabled();
     carousel().focus();
     await userEvent.keyboard("{ArrowLeft}");
@@ -85,14 +189,22 @@ describe("League carousel (#785)", () => {
 
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.sovereign} />));
     expect(inView()).toHaveAccessibleName("Sovereign");
-    expect(position()).toHaveTextContent("Sovereign · 23 of 23");
-    expect(screen.getByText("The top league.")).toBeInTheDocument();
+    expect(current()).toHaveAccessibleName("Go to Sovereign");
+    expect(within(inView()).getByText("The top league.")).toBeInTheDocument();
+    expect(within(inView()).getByRole("img", { name: "5,000 crowns and more" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next league" })).toBeDisabled();
     carousel().focus();
     await userEvent.keyboard("{ArrowRight}");
     expect(inView()).toHaveAccessibleName("Sovereign");
     await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
     expect(inView()).toHaveAccessibleName("Duke I");
-    expect(reach("Duke I")).toHaveTextContent("Reached");
+    expect(reach()).toHaveTextContent("Reached");
+  });
+
+  it("the dots' window holds inside the row (open point 2)", () => {
+    expect(dotsWindow(23, 0, 23)).toBe(0);
+    expect(dotsWindow(23, 0, 9)).toBe(0);
+    expect(dotsWindow(23, 11, 9)).toBe(7);
+    expect(dotsWindow(23, 22, 9)).toBe(14);
   });
 });
