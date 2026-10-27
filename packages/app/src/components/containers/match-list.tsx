@@ -8,11 +8,11 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { ChestBadge, CHEST_NAME, type ChestRank } from "../elements/chest-badge";
-import { Countdown } from "../elements/countdown";
 import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
+import { formatHoursMinutes, shieldDuration, shieldEnd, shieldLabel } from "../elements/shield-time";
 import { StarRow } from "../elements/star-row";
 import { BoardMap } from "./board-map";
 
@@ -56,7 +56,7 @@ export interface MatchListProps {
 /** The matches shown at first, and the more each "Show more" adds (#786, open point 3). */
 export const MATCHES_PAGE = 20;
 
-/** The shield's card: its timer while it lasts, else the village is open to attacks. */
+/** The shield's card: its end and its time left in `HH:MM` while it lasts (#806, the home chip's), else the village is open to attacks. */
 function ShieldCard({ endsAt, now, unknown }: { endsAt: number | null | undefined; now: number; unknown?: boolean }) {
   const on = !unknown && endsAt != null && endsAt > now;
   if (unknown) {
@@ -75,9 +75,21 @@ function ShieldCard({ endsAt, now, unknown }: { endsAt: number | null | undefine
       <Icon name="shield-halved" size="xl" className={on ? "text-info" : "text-muted-foreground"} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="font-semibold">{on ? "Your village is shielded" : "No shield"}</span>
-        <span className="text-xs text-muted-foreground">{on ? "No one can attack it until the shield ends. Attacking drops it." : "Your village can be attacked. An attack shields it for 8 hours."}</span>
+        <span className="text-xs text-muted-foreground">
+          {on ? (
+            <>
+              No one can attack it until <span className="numeric">{shieldEnd(endsAt!)}</span>. Attacking drops it.
+            </>
+          ) : (
+            "Your village can be attacked. An attack shields it for 8 hours."
+          )}
+        </span>
       </div>
-      {on && <Countdown expiresAt={endsAt!} now={now} label="Shield ends in" hideLabel className="text-sm text-foreground" />}
+      {on && (
+        <time role="timer" aria-label={shieldLabel(endsAt!, now)} dateTime={shieldDuration(endsAt!, now)} className="numeric text-sm font-semibold whitespace-nowrap">
+          {formatHoursMinutes(endsAt! - now)}
+        </time>
+      )}
     </section>
   );
 }
