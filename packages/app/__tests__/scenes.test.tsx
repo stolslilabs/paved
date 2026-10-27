@@ -226,7 +226,8 @@ describe("Home (#753): the village with its overlays", () => {
     await userEvent.click(screen.getByRole("button", { name: "Edit village" }));
     expect(onEditingChange).toHaveBeenCalledWith(true);
     rerender(wrap(<HomeVillageScene {...HOME_VILLAGE.view} editing onEditingChange={onEditingChange} />));
-    expect(screen.getByText("Edit village")).toBeInTheDocument();
+    // The bar's title: "Edit village", its second word shown from `tablet` (#803).
+    expect(screen.getByText((_, el) => el?.tagName === "SPAN" && el.classList.contains("font-display") && el.textContent === "Edit village")).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Editor" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Village" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Play/ })).not.toBeInTheDocument();

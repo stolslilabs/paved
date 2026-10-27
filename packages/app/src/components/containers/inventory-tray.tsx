@@ -1,10 +1,32 @@
+import { memo } from "react";
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { RarityBadge, rarityOf } from "../elements/rarity-badge";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
-import { Carousel, CarouselContent, CarouselItem } from "../ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "../ui/carousel";
 import { ScrollRegion } from "../ui/scroll-region";
+
+/** The carousel's re-measures pending, one per carousel. */
+const remeasuring = new WeakSet<NonNullable<CarouselApi>>();
+
+/**
+ * The cards reordered or changed (their counts sort them): Embla measures again, in a task of its own rather than inside the
+ * commit that moved them, so a change of the whole village (the die's, #803) never holds a frame with it.
+ */
+function remeasureLater(api: NonNullable<CarouselApi>): boolean {
+  if (!remeasuring.has(api)) {
+    remeasuring.add(api);
+    setTimeout(() => {
+      remeasuring.delete(api);
+      api.reInit();
+    }, 0);
+  }
+  return false;
+}
+
+/** Stable (Embla re-reads options that change): start-aligned, free drag, trimmed snaps. */
+const CAROUSEL_OPTS = { align: "start", dragFree: true, containScroll: "trimSnaps", watchSlides: remeasureLater } as const;
 
 /** The editor's panel is a column on the right from this width (`--breakpoint-desktop`): the inventory wraps there (#757). */
 const DESKTOP_QUERY = "(min-width: 64rem)";
@@ -30,7 +52,7 @@ export interface InventoryTrayProps {
  * the tile stack sits on the board: swiped on a phone, dragged with the mouse. From `desktop` (#757), a wrapping grid that fills
  * the editor's column and scrolls, the panel's buttons staying in view under it. Greyed when every slot is used, in both.
  */
-export function InventoryTray({ tray, held = null, full = false, busy = false, tileArt, onSelect, className }: InventoryTrayProps) {
+function InventoryTrayBase({ tray, held = null, full = false, busy = false, tileArt, onSelect, className }: InventoryTrayProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);
   const plans = Object.entries(tray)
     .map(([plan, count]) => ({ plan: Number(plan), count }))
@@ -62,7 +84,7 @@ export function InventoryTray({ tray, held = null, full = false, busy = false, t
           </ul>
         </ScrollRegion>
       ) : (
-        <Carousel aria-label="Inventory tiles" data-layout="carousel" opts={{ align: "start", dragFree: true, containScroll: "trimSnaps" }} className={cn(full && "opacity-50 grayscale")}>
+        <Carousel aria-label="Inventory tiles" data-layout="carousel" opts={CAROUSEL_OPTS} className={cn(full && "opacity-50 grayscale")}>
           <CarouselContent className="-ml-2">
             {plans.map((p) => (
               <CarouselItem key={p.plan} className="basis-[5.25rem] pl-2">
@@ -107,3 +129,6 @@ function InventoryCard({ plan, count, chosen, disabled, tileArt, onSelect }: { p
     </button>
   );
 }
+
+/** The inventory, drawn again only when its props change (the board's changes leave it, #803). */
+export const InventoryTray = memo(InventoryTrayBase);

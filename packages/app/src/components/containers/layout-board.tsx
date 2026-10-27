@@ -1,5 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useRef, type MouseEvent, type PointerEvent, type ReactNode } from "react";
-import * as m from "motion/react-m";
+import { Suspense, memo, useEffect, useLayoutEffect, useRef, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import type { CellAreas } from "@paved/game-core";
 import { cn } from "../../lib/utils";
@@ -73,8 +72,6 @@ const RINGS = 2;
 /** How far a press may move and stay a press, px (the renderer's click threshold): past it, it is a pan or a scroll. */
 const PRESS_SLOP_PX = 5;
 
-/** A shake, as a refused move on the board. */
-const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
 
 /**
  * The v2 village from above (#739): a free layout of tiles, no territory. In the view, the tiles under the fog, which lifts
@@ -82,15 +79,32 @@ const SHAKE = { x: [0, -5, 5, -4, 4, 0] };
  * (plates, `data-cell`), a tap places it on one (ringed, under the bubble, #756), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-export function LayoutBoard({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onPlate, onPending, className }: LayoutBoardProps) {
+function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onPlate, onPending, className }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
-  // A board wider than the screen opens on its middle, where the village is.
+  // A board wider than the screen opens on its middle, where the village is: before its first paint, then after each paint
+  // that changed its size, where the layout is read already (read in the commit, it forced one: a long task for a whole new
+  // village, the die's, #803).
   const extent = tiles.length;
-  useLayoutEffect(() => {
+  const centred = useRef(false);
+  const centre = () => {
     const el = grid.current?.parentElement;
     if (!el) return;
     el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
     el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+  };
+  useLayoutEffect(() => {
+    if (centred.current) return;
+    centred.current = true;
+    centre();
+  }, []);
+  useEffect(() => {
+    // A task posted from the next frame runs once that frame is drawn: its layout is clean, the read costs nothing.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => (timer = setTimeout(centre, 0)));
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
   }, [extent, editing]);
 
   const presses = usePlanPress(press, editing);
@@ -138,7 +152,7 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
         );
         cells.push(
           editing && !starter ? (
-            <m.button
+            <button
               key={key}
               type="button"
               data-cell={key}
@@ -147,13 +161,11 @@ export function LayoutBoard({ tiles, editing = false, plates = [], pending = nul
               data-lit={litCells?.has(key) || undefined}
               aria-label={`${tileName(tile.plan)} at ${cellName(c)}: lift it`}
               onClick={() => onTile?.(tile)}
-              animate={shaking === tile.id ? SHAKE : { x: 0 }}
-              transition={{ duration: 0.4 }}
               style={at(c)}
-              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring", litClass(key), shaking === tile.id && "ring-2 ring-warning")}
+              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring", litClass(key), shaking === tile.id && "tile-shake ring-2 ring-warning")}
             >
               {chip}
-            </m.button>
+            </button>
           ) : (
             <span
               key={key}
@@ -291,3 +303,6 @@ function usePlanPress(press: BoardPress | null, editing: boolean) {
     : {};
   return { ...action, handlers };
 }
+
+/** The board, drawn again only when its props change: the editor's other changes (the die pressed, the hint, the panel) leave it. */
+export const LayoutBoard = memo(LayoutBoardBase);

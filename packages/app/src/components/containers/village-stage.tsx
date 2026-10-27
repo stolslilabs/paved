@@ -10,11 +10,11 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { LayoutBoard, type LayoutBoardView } from "./layout-board";
-import { LayoutEditorPanel, LeaveEditDialog, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutSaved } from "./layout-editor";
+import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "./layout-editor";
 import { layoutPoints, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { PointsFold, PointsPanel, type PointsPanelProps } from "./points-breakdown";
 
-export interface VillageStageProps {
+export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown; undefined: not read yet (a placeholder sky). */
   village?: VillageLayout;
   /** The player's own village, founded: the editor can open. */
@@ -93,13 +93,17 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     onSave: props.onSave,
     onDismissSaved: props.onDismissSaved,
     onDirtyChange: props.onDirtyChange,
+    randomizer: props.randomizer,
+    randomSeed: props.randomSeed,
+    slowRollMs: props.slowRollMs,
+    initialRolling: props.initialRolling,
   });
   const { editing } = editor;
   const [drawn, setDrawn] = useState(false);
   const onDrawn = useCallback(() => setDrawn(true), []);
   const scene = !!props.renderCanvas;
   // The points by structure (#758): the saved layout's in view, the draft's live in edit mode, the tile under the bubble included.
-  const points = useMemo(() => layoutPoints(editing ? editor.draft : (village ?? NONE).tiles), [editing, editor.draft, village]);
+  const points = useMemo(() => layoutPoints(editing ? editor.shown : (village ?? NONE).tiles), [editing, editor.shown, village]);
   const [editLit, setEditLit] = useState<string | null>(props.initialLit ?? null);
   const [pointsOpen, setPointsOpen] = useState<boolean | null>(props.initialPointsOpen ?? null);
   const wide = useSidePanel(DESKTOP_QUERY);
@@ -117,14 +121,16 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     if (editing && editLit !== null && !points.lines.some((l) => l.key === editLit)) setEditLit(null);
   }, [editing, editLit, points]);
   const open = pointsOpen ?? wide;
-  const foldPoints = (next: boolean) => {
+  const foldPoints = useCallback((next: boolean) => {
     setPointsOpen(next);
     // Leaving the list turns the light off.
     if (!next) setEditLit(null);
-  };
+  }, []);
   const onEdit = props.onEdit;
   const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", icon: EDIT_ICON, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
-  const view: LayoutBoardView = { ...editor.view, bubble: scene ? editor.bubble : null, lit: litLine?.lit ?? null, press };
+  const lit = litLine?.lit ?? null;
+  const bubble = scene ? editor.bubble : null;
+  const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press }), [editor.view, bubble, lit, press]);
   return (
     <>
       {/* The scene's box: the whole screen in view, what the editor's panel leaves in edit mode. Its place in the tree never changes, so the canvas stays up across the modes. */}
@@ -210,7 +216,7 @@ export function VillagePoints({ tiles, place, ...panel }: Omit<PointsPanelProps,
 
 /**
  * Edit mode's bar over the scene: Back (out of edit mode, asking first with changes: it is the way to drop a draft), the live
- * score against the saved one (a tap unfolds the points, #758), the slots, and Reset all held beside them (#756).
+ * score against the saved one (a tap unfolds the points, #758), the slots, and the die (#803) and Reset all held beside them (#756).
  */
 function EditBar({ editor, village, holdMs, onPoints }: { editor: LayoutEditor; village: VillageLayout; holdMs?: number; onPoints: () => void }) {
   return (
@@ -220,7 +226,10 @@ function EditBar({ editor, village, holdMs, onPoints }: { editor: LayoutEditor; 
           <Icon name="chevron-left" size="md" />
         </Button>
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-display text-lg leading-tight">Edit village</span>
+          {/* On a phone the die and Reset all leave the title "Edit" (#803); "Edit village" from `tablet`. */}
+          <span className="truncate font-display text-lg leading-tight">
+            Edit<span className="hidden tablet:inline"> village</span>
+          </span>
           <button
             type="button"
             onClick={onPoints}
@@ -237,11 +246,14 @@ function EditBar({ editor, village, holdMs, onPoints }: { editor: LayoutEditor; 
           </button>
         </div>
         <Badge variant="secondary" aria-label={`${editor.used} of ${editor.slots} slots used`}>
-          <Icon name="table-cells-large" size="xs" />
+          <span className="hidden tablet:contents">
+            <Icon name="table-cells-large" size="xs" />
+          </span>
           <span className="numeric">
             {editor.used} / {editor.slots}
           </span>
         </Badge>
+        <RandomDie editor={editor} />
         <ResetAllHold editor={editor} holdMs={holdMs} />
       </header>
     </div>

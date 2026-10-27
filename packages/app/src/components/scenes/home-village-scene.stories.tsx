@@ -129,6 +129,23 @@ export const Leaving: Story = { args: HOME_VILLAGE.leaving };
 /** The chain refused the save: what happened, above the editor, the draft kept. */
 export const Refused: Story = { args: HOME_VILLAGE.refused };
 
+/** The die (#803) beside Reset all, on the browser's Web Worker: each press builds another compact village into the draft. */
+export const Die: Story = { args: HOME_VILLAGE.editing };
+/** The die pressed: busy, spinning (not under reduced motion), the hint saying it builds. */
+export const DieBusy: Story = { args: HOME_VILLAGE.dieBusy };
+/** The same under reduced motion: no spin. */
+export const DieBusyReducedMotion: Story = { args: HOME_VILLAGE.dieBusy, parameters: { reducedMotion: "always" } };
+/** Past a second: "Still building…" with a cancel, under the die. */
+export const DieStillBuilding: Story = { args: HOME_VILLAGE.dieSlow };
+/** The die's worker failed: its message, the draft kept. */
+export const DieFailed: Story = { args: HOME_VILLAGE.dieFailed };
+/** The die's village on a new player's small stock, at 375 px: the 8 tiles near a 3 x 3. Press again for another. */
+export const DieSmallStock: Story = { ...PHONE_375, args: HOME_VILLAGE.dieSmall };
+/** The die's village on a large stock at 375 px: every one of the 28 slots used. */
+export const DieLargeStock: Story = { ...PHONE_375, args: HOME_VILLAGE.dieLarge };
+/** The same at 1440 px. */
+export const DieLargeStockWide: Story = { ...WIDE_1440, args: HOME_VILLAGE.dieLarge };
+
 /** Edit mode with a long inventory at 1440 px (#757): the grid wraps in the editor's column and scrolls, Save stays at its foot. */
 export const EditingLongWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.editing, inventory: INVENTORY_LONG } };
 /** The same with every slot used: the grid greyed. */
