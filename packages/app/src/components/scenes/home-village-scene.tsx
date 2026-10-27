@@ -13,7 +13,7 @@ import { Icon } from "../ui/icon";
 import { BalancesSlot } from "../containers/balances-context";
 import { OverlayButton } from "../containers/home-overlays";
 import type { LayoutBoardView } from "../containers/layout-board";
-import type { LayoutSaved } from "../containers/layout-editor";
+import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import type { VillageStageProps } from "../containers/village-stage";
 import { PlayerBadge } from "../containers/player-badge";
@@ -31,7 +31,7 @@ const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => 
 // The village's points (#758), computed with the engine: from the stage's chunk too.
 const LazyVillagePoints = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.VillagePoints })));
 
-export interface HomeVillageSceneProps {
+export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
   village?: VillageLayout;
   /** The own village's read failed: Retry. */
@@ -181,6 +181,10 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     onDirtyChange: props.onDirtyChange,
     onDismissSaved: props.onDismissSaved,
     onDismissRefusal: props.onDismissRefusal,
+    randomizer: props.randomizer,
+    randomSeed: props.randomSeed,
+    slowRollMs: props.slowRollMs,
+    initialRolling: props.initialRolling,
   };
   return (
     // A game scene's frame, clipped as the boards' (the dial's ring included). In edit mode it clips vertically only: across, the

@@ -5,8 +5,10 @@ import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/vill
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import { deckCount, rarityOf, type Rarity } from "../components/elements/rarity-badge";
-import { STARTER, canLift, countPlans, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
+import { STARTER, canLift, countPlans, draftOf, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, slotsFor, stockOf, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, MOCK_NOW } from "./clock";
+import { randomLayout } from "@paved/game-core";
+import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, STILL, mainThreadRandomizer, seedsOf } from "./random-layout";
 import { GAME_PLAYING } from "./games";
 import { PLAYER } from "./players";
 import { PLAN } from "./village";
@@ -71,6 +73,9 @@ export const INVENTORY_LONG: Inventory = Object.fromEntries(
     .filter((plan) => deckCount(plan) > 0)
     .map((plan) => [plan, 1 + (plan % 4)]),
 );
+
+/** The die's villages (#803) on the home's stock (level 20, 28 slots), seeds 1, 2 and 3: three versions of one stock. */
+export const DIE_VILLAGES = [1, 2, 3].map((seed) => draftOf(randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), slotsFor(LAYOUT_GROWING.level), seed, STILL).tiles));
 
 /** How many of each plan a player holds: the layout's and the inventory's. */
 export function ownedOf(village: VillageLayout, inventory: Inventory): Record<number, number> {
@@ -261,4 +266,14 @@ export const HOME_VILLAGE = {
   leaving: { ...home, editing: true, initialDraft: DRAFT_VALID, initialLeaving: true },
   /** The chain refused the save: what happened, the draft kept. */
   refused: { ...home, editing: true, initialDraft: DRAFT_VALID, refusal: "The layout changed on another device: read it again. Nothing was saved." },
+  /** The die pressed (#803): busy, its spin, the hint saying it builds; the draft as it was. */
+  dieBusy: { ...home, editing: true, randomizer: PENDING_RANDOMIZER, initialRolling: true },
+  /** The die past a second: "Still building…" with a cancel under it. */
+  dieSlow: { ...home, editing: true, randomizer: PENDING_RANDOMIZER, initialRolling: true, slowRollMs: 0 },
+  /** The die's worker failed: its message above the hint, the draft kept, never a build on the main thread. */
+  dieFailed: { ...home, editing: true, randomizer: FAILING_RANDOMIZER, initialRolling: true },
+  /** The die on a new player's small stock (level 1, 9 slots, 8 tiles): every tile in a 3 x 3. */
+  dieSmall: { ...home, village: LAYOUT_START, inventory: INVENTORY_EMPTY, editing: true, randomizer: mainThreadRandomizer(), randomSeed: seedsOf(1, 2, 3), initialRolling: true },
+  /** The die on a large stock (level 20, 28 slots, 36 tiles): every slot used, near a 6 x 5. */
+  dieLarge: { ...home, editing: true, randomizer: mainThreadRandomizer(), randomSeed: seedsOf(7, 8, 9), initialRolling: true },
 } satisfies Record<string, Data<HomeVillageSceneProps>>;
