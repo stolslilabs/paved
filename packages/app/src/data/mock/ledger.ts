@@ -82,8 +82,12 @@ import {
   dayOf,
   drawChest,
   inventoryOf,
+  activateSlotRefusal,
+  buySlotRefusal,
   layoutRefusal,
   layoutScore,
+  layoutSlotOpen,
+  layoutSlotPrice,
   levelStatus,
   offerPlans,
   parcelLevel,
@@ -101,13 +105,18 @@ import {
   storyXp,
   villageGame,
   villageRefusal,
+  saveSlotRefusal,
+  withSlotActive,
+  withSlotBought,
+  withSlotSaved,
   type KeyValueStore,
   type LayoutTile,
   type QueuedMove,
 } from "@paved/game-core";
 import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
-import { freshV2, mockRivalV2, mockRivalsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
+import { freshV2, mockRivalV2, mockRivalsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
+import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
 import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../free-attack";
 import type { MatchRecord, MatchRecordViews } from "../matches";
@@ -179,6 +188,7 @@ export interface MockedReads
     VillageViews,
     PvpViews,
     FreeVillageViews,
+    LayoutSlotViews,
     AttackV2Views,
     MatchRecordViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
@@ -192,7 +202,7 @@ export type PackReceipt = WriteResult & { bought: PackBought };
  * Every write the deployed classes lack, for the connected account: the writer's (`PavedWriter`) claims and skin writes, the
  * pack buyer's `buy` and the Vault's writes (`EconomyWriter`), with the same requests, receipts and typed refusals.
  */
-export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "setSkins">, FreeVillageWrites, AttackV2Writes {
+export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes {
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
@@ -691,6 +701,28 @@ export class MockLedger {
     return { founded: v2.layout !== null, xp, level, slots, tiles: tiles.map((t) => ({ ...t })), score: layoutScore(tiles) };
   }
 
+  /** The saved layouts' slots (#804): each one's layout, score and whether it still fits; not founded, the free slot empty. */
+  async layoutSlots(playerId: string): Promise<LayoutSlotsView> {
+    this.sync();
+    const v2 = this.peek(playerId).v2 ?? freshV2();
+    const slots = v2.layout ? slotsOfV2({ ...v2, layout: v2.layout }) : null;
+    const limits = { slots: levelStatus(v2.xp).slots, inventory: v2.inventory };
+    return {
+      active: slots?.active ?? 0,
+      slots: [0, 1, 2].map((slot) => {
+        const tiles = slots?.layouts[slot] ?? null;
+        return {
+          slot,
+          open: slots ? layoutSlotOpen(slots, slot) : slot === 0,
+          price: layoutSlotPrice(slot)!,
+          tiles: tiles ? tiles.map((t) => ({ ...t })) : null,
+          score: tiles ? layoutScore(tiles) : 0,
+          fits: tiles !== null && layoutRefusal(tiles, limits) === null,
+        };
+      }),
+    };
+  }
+
   async inventory(playerId: string): Promise<number[]> {
     const rival = mockRivalV2(playerId);
     if (rival) return inventoryOf(rival.tiles.map((t) => t.plan));
@@ -898,6 +930,9 @@ export class MockLedger {
       surrenderAttack: () => this.surrenderAttack(account),
       foundFreeVillage: () => this.foundFreeVillage(account),
       saveLayout: (tiles) => this.saveLayout(account, tiles),
+      saveLayoutTo: (slot, tiles) => this.saveLayoutTo(account, slot, tiles),
+      activateLayout: (slot) => this.activateLayout(account, slot),
+      buyLayoutSlot: (request) => this.buyLayoutSlot(account, request),
       openChest: (index) => this.openChest(account, index),
       claimChest: (slot) => this.claimChest(account, slot),
       buyTile: (request) => this.buyTile(account, request),
@@ -1251,8 +1286,53 @@ export class MockLedger {
       const layout = tiles.map((t) => ({ plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }));
       const refused = layoutRefusal(layout, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
       if (refused) throw new V2RefusedError(refused, hash);
-      v2.layout = layout;
+      const slots = slotsOfV2({ ...v2, layout: v2.layout });
+      storeSlotsV2(v2, withSlotSaved(slots, slots.active, layout));
       return [this.event("LayoutSaved", { playerId: account, tiles: layout.length, score: layoutScore(layout) })];
+    });
+  }
+
+  /** Saves a layout into an open slot (#804), checked as `saveLayout` checks it: into the active one, the village changes. */
+  async saveLayoutTo(account: string, slot: number, tiles: readonly LayoutTile[]): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.writeV2(account, (_p, v2, hash) => {
+      if (!v2.layout) throw new V2RefusedError("no-village", hash);
+      const layout = tiles.map((t) => ({ plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }));
+      const slots = slotsOfV2({ ...v2, layout: v2.layout });
+      const refused = saveSlotRefusal(slots, slot, layout, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
+      if (refused) throw new V2RefusedError(refused, hash);
+      storeSlotsV2(v2, withSlotSaved(slots, slot, layout));
+      return [this.event("LayoutSlotSaved", { playerId: account, slot, active: slot === slots.active, tiles: layout.length, score: layoutScore(layout) })];
+    });
+  }
+
+  /** Makes a saved slot's layout the village (#804): the one attackers face, checked against the stock and the slots. */
+  async activateLayout(account: string, slot: number): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.writeV2(account, (_p, v2, hash) => {
+      if (!v2.layout) throw new V2RefusedError("no-village", hash);
+      const slots = slotsOfV2({ ...v2, layout: v2.layout });
+      const refused = activateSlotRefusal(slots, slot, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
+      if (refused) throw new V2RefusedError(refused, hash);
+      storeSlotsV2(v2, withSlotActive(slots, slot));
+      return [this.event("LayoutActivated", { playerId: account, slot, score: layoutScore(v2.layout) })];
+    });
+  }
+
+  /** Buys a locked layout slot (#804) at the price the page showed, in Cobbles: it opens empty. */
+  async buyLayoutSlot(account: string, { slot, confirmedPrice }: BuyLayoutSlotRequest): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.writeV2(account, (p, v2, hash) => {
+      if (!v2.layout) throw new V2RefusedError("no-village", hash);
+      const slots = slotsOfV2({ ...v2, layout: v2.layout });
+      const refused = buySlotRefusal(slots, slot, confirmedPrice, p.cobbles);
+      if (refused) throw new V2RefusedError(refused, hash);
+      p.cobbles -= confirmedPrice;
+      storeSlotsV2(v2, withSlotBought(slots, slot));
+      return [
+        this.event("CobblesSpent", { playerId: account, spender: this.options.seller, reason: "LAYOUT_SLOT", cobbles: confirmedPrice, balance: p.cobbles }),
+        this.event("LayoutSlotBought", { playerId: account, slot, price: confirmedPrice }),
+      ];
     });
   }
 
