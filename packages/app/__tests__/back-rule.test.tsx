@@ -12,10 +12,10 @@ import { fakeWallet } from "./wallet-fakes";
 import { preloadPages } from "./route-helpers";
 
 // BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page (Settings' pages are sheets over it, the
-// lifetime missions a tab of Missions, the defence log a section of the League), and Back never cycles: it goes up toward the
+// lifetime missions on the Missions page (#832), the defence log a section of the League), and Back never cycles: it goes up toward the
 // village and ends there, in two steps at most from any page.
 
-preloadPages("home", "quests", "achievements", "settings", "theme", "theme-shop", "my-tiles", "credits", "referral", "play", "story", "board", "cobbles");
+preloadPages("home", "missions", "settings", "theme", "theme-shop", "my-tiles", "credits", "referral", "play", "story", "board", "cobbles");
 
 const WAIT = { timeout: slow(5000) };
 
@@ -108,23 +108,27 @@ describe("Settings' pages are sheets over it", { timeout: slow(30_000) }, () => 
   });
 });
 
-describe("the lifetime missions are a tab of Missions", { timeout: slow(30_000) }, () => {
-  it("switching tabs replaces the entry: Back from either reaches the village, never the other tab", async () => {
+describe("the lifetime missions are on the Missions page (#832)", { timeout: slow(30_000) }, () => {
+  it("the old Lifetime tab's link lands on /missions, and Back from it reaches the village", async () => {
+    const router = open("/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+    await router.navigate("/missions/lifetime");
+    await screen.findByRole("heading", { level: 1, name: "Missions" }, WAIT);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/missions"));
+    expect(screen.queryByRole("tab")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    // The redirect replaced the entry, as a link from outside does: Back goes up to the village in place, never past it.
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("Missions opened from the village: Back goes back through the history to the village's own entry", async () => {
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
     await router.navigate("/missions");
     await screen.findByRole("heading", { level: 1, name: "Missions" }, WAIT);
-    await userEvent.click(await screen.findByRole("tab", { name: /Lifetime/ }, WAIT));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/missions/lifetime"));
-    expect(router.state.historyAction).toBe("REPLACE");
-    // The tab bar is the new page's once it is drawn: pressed again until the switch lands.
-    await waitFor(async () => {
-      if (router.state.location.pathname === "/missions/lifetime") await userEvent.click(screen.getByRole("tab", { name: /Limited/ }));
-      expect(router.state.location.pathname).toBe("/missions");
-    }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-    // Back through the history to the village's own entry: the missions are after it, never before it.
     expect(router.state.historyAction).toBe("POP");
   });
 });

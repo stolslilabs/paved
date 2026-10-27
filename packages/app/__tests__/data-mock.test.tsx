@@ -153,10 +153,10 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     const rewards = await dataOf({ get current() { return result.current.rewards; } });
     expect(rewards!.cobbles.find((q) => q.questId === 1)).toEqual({ questId: 1, cobbles: 5, kind: "daily" });
     expect(rewards!.balance).toBe(0);
-    await act(() => result.current.claims.claim(1, [{ kind: "quest", questId: 1, period: TODAY }]));
+    await act(() => result.current.claims.claim("quest:1", [{ kind: "quest", questId: 1, period: TODAY }]));
     await waitFor(() => expect(result.current.rewards.data?.balance).toBe(5));
     expect(result.current.rewards.data!.day.claimed & (1n << 1n)).toBe(1n << 1n);
-    const again = await result.current.claims.claim(1, [{ kind: "quest", questId: 1, period: TODAY }]).catch((e: unknown) => e);
+    const again = await result.current.claims.claim("quest:1", [{ kind: "quest", questId: 1, period: TODAY }]).catch((e: unknown) => e);
     expect(again).toBeInstanceOf(ClaimRefusedError);
     expect((again as ClaimRefusedError).reason).toBe("claimed");
   });
@@ -165,7 +165,7 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     const sources = make();
     const { result } = renderData(() => ({ rewards: useAchievementRewards(PLAYER), claims: useClaims(PLAYER) }), sources);
     await waitFor(() => expect(result.current.rewards.data).toBeTruthy());
-    await act(() => result.current.claims.claim(2, [{ kind: "achievement", achievementId: 2 }]));
+    await act(() => result.current.claims.claim("achievement:2", [{ kind: "achievement", achievementId: 2 }]));
     await waitFor(() => expect(result.current.rewards.data?.balance).toBe(10));
     expect(result.current.rewards.data!.claimed & (1n << 2n)).toBe(1n << 2n);
   });

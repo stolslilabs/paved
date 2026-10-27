@@ -6,7 +6,7 @@
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router";
 import "../../src/styles/fonts.css";
@@ -16,11 +16,10 @@ import PagePanel from "../../src/components/containers/page-panel";
 import { CobblesScene } from "../../src/components/scenes/cobbles-scene";
 import { PlayScene } from "../../src/components/scenes/play-scene";
 import { ThemeShopScene } from "../../src/components/scenes/theme-shop-scene";
-import { AchievementsScene } from "../../src/components/scenes/achievements-scene";
 import { CreditsScene } from "../../src/components/scenes/credits-scene";
 import { MyTilesScene } from "../../src/components/scenes/my-tiles-scene";
 import { PvpLeagueScene } from "../../src/components/scenes/pvp-league-scene";
-import { QuestsScene } from "../../src/components/scenes/quests-scene";
+import { MissionsScene } from "../../src/components/scenes/missions-scene";
 import { ReferralScene } from "../../src/components/scenes/referral-scene";
 import { SettingsScene } from "../../src/components/scenes/settings-scene";
 import { ThemeScene } from "../../src/components/scenes/theme-scene";
@@ -30,7 +29,7 @@ import { VillageShopScene } from "../../src/components/scenes/village-shop-scene
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
-import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../../src/mocks/scenes";
+import { COBBLES, MISSIONS, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../../src/mocks/scenes";
 import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../../src/mocks/village-v2";
 
 const no = () => {};
@@ -42,7 +41,30 @@ function long<T>(list: readonly T[], n: number, key?: keyof T): T[] {
   });
 }
 
-const quests = QUESTS.today.quests;
+const achievements = MISSIONS.daily.achievements;
+
+/**
+ * Missions as its route draws it (#832): its clock ticks every second (`useIndexerNow`), so the whole page draws again each second
+ * while the finger drags; the lifetime icons made long.
+ */
+function TickingMissions() {
+  const [now, setNow] = useState(MISSIONS.daily.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <MissionsScene
+      {...MISSIONS.daily}
+      now={now}
+      achievements={{ ...achievements, achievements: long(achievements.achievements, 40, "achievementId") }}
+      onNavigate={no}
+      onClaimQuest={no}
+      onClaimAchievement={no}
+      onClaimBonus={no}
+    />
+  );
+}
 
 /**
  * The pages of the pass, by id: the title its header shows, its scene with long content. `flow`: a full-screen flow below
@@ -53,8 +75,7 @@ export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true
   chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.kept} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
   league: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} best={PVP_LEAGUE.lastDay.crowns + 400} attacks={2} onBack={no} onNavigate={no} onOpenMatch={no} /> },
   settings: { title: "Settings", page: <SettingsScene {...SETTINGS.connected} onNavigate={no} onChange={no} /> },
-  missions: { title: "Missions", page: <QuestsScene {...QUESTS.today} quests={{ ...quests, quests: long(quests.quests, 9, "questId") }} onNavigate={no} onDayChange={no} onTab={no} onClaim={no} onClaimAll={no} /> },
-  lifetime: { title: "Missions", page: <AchievementsScene {...ACHIEVEMENTS.mixed} onNavigate={no} onTab={no} onClaim={no} onClaimAll={no} /> },
+  missions: { title: "Missions", page: <TickingMissions /> },
   vault: { title: "Vault", page: <VaultScene {...VAULT.stress} onNavigate={no} /> },
   // The League with a long list of attacks and defences (#786, in place of the defence log): 20 cards and Show more.
   defence: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.yeoman} matches={{ ...PVP_MATCHES.shielded, matches: PVP_MATCHES.many.matches }} onBack={no} onNavigate={no} onOpenMatch={no} /> },

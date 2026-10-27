@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -8,10 +8,9 @@ import { CobblesScene } from "../src/components/scenes/cobbles-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
-import { AchievementsScene } from "../src/components/scenes/achievements-scene";
 import { CreditsScene } from "../src/components/scenes/credits-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
-import { QuestsScene } from "../src/components/scenes/quests-scene";
+import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ReferralScene } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
@@ -19,7 +18,7 @@ import { VaultScene } from "../src/components/scenes/vault-scene";
 import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
-import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
+import { COBBLES, MISSIONS, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
 import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
 import { titleOf } from "../src/lib/music/track-info";
 import { TRACKS } from "../src/lib/music/tracks";
@@ -39,8 +38,7 @@ const PAGES: readonly [string, ReactNode][] = [
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
   ["League", <PvpLeagueScene {...PVP_LEAGUE.yeoman} onBack={no()} onNavigate={no()} onOpenMatch={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
-  ["Missions", <QuestsScene {...QUESTS.today} onNavigate={no()} onDayChange={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
-  ["Missions", <AchievementsScene {...ACHIEVEMENTS.mixed} onNavigate={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
+  ["Missions", <MissionsScene {...MISSIONS.daily} onNavigate={no()} onClaimQuest={no()} onClaimAchievement={no()} onClaimBonus={no()} />],
   ["Vault", <VaultScene {...VAULT.position} onNavigate={no()} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onNavigate={no()} onUse={no()} onOpen={no()} />],
   ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} onNavigate={no()} />],
@@ -154,5 +152,21 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     const slots = screen.getByRole("list", { name: "Today's PvP slots" });
     expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(slots);
     expect(slots.querySelectorAll(":scope > li")).toHaveLength(3);
+  });
+
+  it("Missions (#832) draws its card and its two sections of icons in the region, to its last icon; no part of it takes the finger", () => {
+    draw(PAGES.find(([title]) => title === "Missions")![1], false, "Missions");
+    const region = document.querySelector<HTMLElement>("[data-slot=page-scroll]")!;
+    expect(region).toContainElement(screen.getByRole("region", { name: "Selected mission" }));
+    expect(region).toContainElement(screen.getByRole("region", { name: "Limited" }));
+    const lifetime = screen.getByRole("region", { name: /^Lifetime/ });
+    const icons = within(lifetime).getAllByRole("button");
+    expect(icons).toHaveLength(16);
+    expect(region).toContainElement(icons.at(-1)!);
+    // A vertical drag that starts on a card or an icon scrolls the region: nothing of the page sets its own touch action, and no
+    // fixed height or clip stands between an icon and the region.
+    const touchy = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)touch-(none|pan-x|pinch-zoom)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(touchy).toEqual([]);
+    for (let el: HTMLElement | null = icons.at(-1)!; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 });
