@@ -145,7 +145,7 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
     expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
     // The latest attacks and defences (#786), a section of the page, in the same region.
-    expect(region).toContainElement(screen.getByRole("heading", { level: 2, name: "Attacks and defences" }));
+    expect(region).toContainElement(screen.getByRole("heading", { level: 2, name: "Battle logs" }));
     unmount();
     draw(PAGES[1]![1], false, "Chests");
     // The page with the chest modal closed (#784): the day's three slots, under the sticky header.

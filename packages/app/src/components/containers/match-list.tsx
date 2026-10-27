@@ -1,20 +1,21 @@
 import { useState } from "react";
 import type { BoardTile } from "@paved/chain";
-import { formatInteger, formatRelative } from "@paved/game-core";
+import { formatAgo, formatInteger } from "@paved/game-core";
+import battleAttack from "../../assets/renders/battle-attack.webp";
+import battleDefence from "../../assets/renders/battle-defence.webp";
 import { cn } from "../../lib/utils";
 import type { PvpPlayer } from "../../lib/pvp-rules";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
-import { ChestBadge, CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
 import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { formatHoursMinutes, shieldDuration, shieldEnd, shieldLabel } from "../elements/shield-time";
 import { StarRow } from "../elements/star-row";
-import { BoardMap } from "./board-map";
 
 /** One match on the League page (#786): an attack the player made, or one on their village. */
 export interface MatchCardData {
@@ -23,13 +24,13 @@ export interface MatchCardData {
   side: "attack" | "defence";
   /** The other player: the defender of an attack, the attacker of a defence. */
   rival: PvpPlayer;
-  /** The attacked village at the attack's start (the snapshot), in the board's coordinates; null where none is kept (v1). */
+  /** The attacked village at the attack's start (the snapshot), in the board's coordinates; null where none is kept (v1). The match page draws it; the card shows its side's illustration (#834). */
   village: readonly BoardTile[] | null;
   stars: number;
   /** The player's crowns from it: won (positive) or lost (negative). */
   crowns: number;
   score: number;
-  /** The attacked village's score then: the target. */
+  /** The attacked village's score then: the target (the match page's; the card shows the score alone, #834). */
   target: number;
   /** An attack's XP and chest (null: none); not known (v1) or a defence's: left out. */
   xp?: number;
@@ -101,67 +102,95 @@ function cardName(m: MatchCardData): string {
   return `${what}: ${m.stars} of 3 stars`;
 }
 
+/** The card's background (#834): one illustration for every attack, another for every defence, the game's own voxel renders. */
+const ART: Record<MatchCardData["side"], string> = { attack: battleAttack, defence: battleDefence };
+
+/** A chest's own colour, its rank's medal (the name says the rank too). */
+const CHEST_TONE: Record<ChestRank, string> = { gold: "text-medal-1", silver: "text-medal-2", bronze: "text-medal-3" };
+
+/** Lost crowns turn the card's illustration grey (#834); a win or a draw (0) keeps its colour (open point 2). */
+const matchLost = (m: Pick<MatchCardData, "crowns">): boolean => m.crowns < 0;
+
 /**
- * One match as a card (#786): the attacked village's plan view behind (the snapshot's `BoardMap`, no WebGL per card), dimmed under
- * the text; the other player's avatar and name, Attack or Defence and when; the stars and the crowns won (green) or lost; an
- * attack's rewards, its XP and chest. The whole card opens the match.
+ * One match as a card (#786, reshaped by #834): the side's illustration behind, in colour when crowns were won and in grayscale
+ * when they were lost, under a veil for the text; a stripe and a badge for Attack or Defence. The figures sit in the corners:
+ * the other player's avatar and name top left, the crowns top right, an attack's XP bottom left and its chest bottom right; the
+ * stars, the score and how long ago in the middle. One height for every card (open point 3). The whole card opens the match.
  */
 export function MatchCard({ match: m, now, onOpen }: { match: MatchCardData; now: number; onOpen?: (id: string) => void }) {
   const attack = m.side === "attack";
+  const lost = matchLost(m);
+  const rewards = attack && m.xp !== undefined;
   return (
     <button
       type="button"
       data-side={m.side}
+      data-lost={lost}
       aria-label={cardName(m)}
       onClick={() => onOpen?.(m.id)}
-      className="state-layer relative flex w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="state-layer relative flex h-36 w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {m.village && m.village.length > 0 && (
-        // The village larger than the card, its middle in view (the card crops it), faded toward the text.
-        <div aria-hidden inert className="pointer-events-none absolute top-1/2 right-0 h-[260%] w-3/4 -translate-y-1/2 opacity-40 [mask-image:linear-gradient(to_right,transparent,black_55%)]">
-          <BoardMap tiles={[...m.village]} fit className="bg-transparent p-0" />
-        </div>
-      )}
+      <img
+        data-slot="match-art"
+        src={ART[m.side]}
+        alt=""
+        width={800}
+        height={225}
+        draggable={false}
+        decoding="async"
+        loading="lazy"
+        className={cn("pointer-events-none absolute inset-0 size-full object-cover", lost && "grayscale")}
+      />
+      <span aria-hidden className="pointer-events-none absolute inset-0 bg-background/60" />
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", attack ? "bg-info" : "bg-warning")} />
-      <div className="relative flex min-w-0 flex-1 items-center gap-3 py-3 pr-3 pl-4">
-        <PlayerAvatar player={m.rival} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="relative flex min-w-0 flex-1 flex-col py-2.5 pr-3 pl-4 [text-shadow:0_1px_2px_var(--background)]">
+        <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Badge variant={attack ? "info" : "warning"} className="shrink-0">
-              <Icon name={attack ? "swords" : "shield-halved"} size="xs" />
-              {attack ? "Attack" : "Defence"}
-            </Badge>
-            <PlayerName name={m.rival.name} address={m.rival.address} className="min-w-0 truncate font-semibold" />
+            <PlayerAvatar player={m.rival} look={m.rival.look} />
+            <div className="flex min-w-0 flex-col items-start gap-0.5">
+              <PlayerName name={m.rival.name} address={m.rival.address} className="max-w-full min-w-0 truncate font-semibold" />
+              <Badge variant={attack ? "info" : "warning"} className="[text-shadow:none]">
+                <Icon name={attack ? "swords" : "shield-halved"} size="xs" />
+                {attack ? "Attack" : "Defence"}
+              </Badge>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <StarRow stars={m.stars} size="xs" className="shrink-0" />
-            <span className="numeric">
-              {formatInteger(m.score)} / {formatInteger(m.target)}
+          <Crowns value={m.crowns} signed className="shrink-0 pt-1" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-wrap content-center items-center gap-x-2 gap-y-0.5 text-xs">
+          <StarRow stars={m.stars} size="xs" className="shrink-0" />
+          <span className="numeric font-semibold" data-testid="match-score">
+            {formatInteger(m.score)}
+          </span>
+          <span className="text-muted-foreground">
+            {m.surrendered ? "Surrendered · " : ""}
+            <time dateTime={new Date(m.at * 1000).toISOString()}>{formatAgo(m.at - now)}</time>
+          </span>
+        </div>
+        {rewards ? (
+          <div className="flex min-w-0 items-end justify-between gap-3">
+            <span className="numeric text-sm font-semibold text-primary" data-testid="match-xp">
+              +{formatInteger(m.xp!)} XP
             </span>
-            <span>{m.surrendered ? "Surrendered · " : ""}{formatRelative(m.at - now)}</span>
-          </div>
-          {attack && m.xp !== undefined && (
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs" data-testid="match-rewards">
-              <span className="numeric font-semibold text-primary">+{formatInteger(m.xp)} XP</span>
+            <span className="flex items-center gap-1.5 text-xs" data-testid="match-rewards">
               {m.chest ? (
-                <span className="flex items-center gap-1">
-                  <ChestBadge rank={m.chest} size="sm" className="size-6 rounded-md border" />
+                <>
                   <span className="text-muted-foreground">{CHEST_NAME[m.chest]}</span>
-                </span>
+                  <Icon name="treasure-chest" variant="solid" size="lg" label={CHEST_NAME[m.chest]} className={CHEST_TONE[m.chest]} />
+                </>
               ) : (
                 <span className="text-muted-foreground">No chest</span>
               )}
-            </div>
-          )}
-        </div>
-        <Crowns value={m.crowns} signed className="shrink-0" />
+            </span>
+          </div>
+        ) : null}
       </div>
     </button>
   );
 }
 
 /**
- * The League page's matches (#786, in place of #647's defence log, revised by #783 then here): the shield's timer, then the latest
+ * The League page's battle logs (#786, in place of #647's defence log, revised by #783, titled by #834): the shield's timer, then the latest
  * attacks and defences mixed, newest first, as cards one under the other, 20 at first and 20 more with each "Show more".
  */
 export function MatchList({ matches, shieldEndsAt, shieldUnknown, now, error, errorDetail, onOpen, onRetry }: MatchListProps) {
@@ -169,7 +198,7 @@ export function MatchList({ matches, shieldEndsAt, shieldUnknown, now, error, er
   return (
     <section aria-labelledby="matches" className="flex flex-col gap-3">
       <h2 id="matches" className="font-semibold">
-        Attacks and defences
+        Battle logs
       </h2>
       <ShieldCard endsAt={shieldEndsAt} now={now} unknown={shieldUnknown} />
       <InlineError
@@ -187,7 +216,7 @@ export function MatchList({ matches, shieldEndsAt, shieldUnknown, now, error, er
       {matches === null && !error && (
         <div aria-busy className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
         </div>
       )}

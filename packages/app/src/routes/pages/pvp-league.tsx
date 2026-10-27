@@ -63,8 +63,8 @@ export default function Page() {
   );
 }
 
-/** A match card's player: its address, and its name and level where known. */
-const playerOf = (address: string, name: string | null = null, level = 0): PvpPlayer => ({ name, address, level, crowns: 0 });
+/** A match card's player: its address, and its name, level and avatar (a decimal look) where known. */
+const playerOf = (address: string, name: string | null = null, level = 0, look: string | null = null): PvpPlayer => ({ name, address, level, crowns: 0, look: look ? BigInt(look) : null });
 
 /**
  * The league's matches (#786): the latest attacks and defences as cards, with the shield. Where the sources serve PvP v2's matches
@@ -86,7 +86,7 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
         (m): MatchCardData => ({
           id: m.id,
           side: m.side,
-          rival: playerOf(m.rival.address, m.rival.name, m.rival.level),
+          rival: playerOf(m.rival.address, m.rival.name, m.rival.level, m.rival.look),
           village: layoutBoard(m.village),
           stars: m.stars,
           crowns: m.crowns,
