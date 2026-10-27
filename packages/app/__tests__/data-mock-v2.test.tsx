@@ -210,7 +210,7 @@ describe("PvP v2 on the mock", () => {
     const { sources } = mockImplementation();
     const { result } = renderData(useLoop, sources);
     await waitFor(() => expect(result.current.quests.data).toBeTruthy());
-    await act(() => result.current.claims.claim("daily", [{ kind: "credit", credit: "daily", period: TODAY }]));
+    await act(() => result.current.claims.claim("bonus:daily", [{ kind: "credit", credit: "daily", period: TODAY }]));
     await waitFor(() => expect(result.current.account.data?.cobbles).toBe(20));
     expect(result.current.account.data!.credits).toBe(0);
     // A pack's 50 Cobbles: enough for any offer

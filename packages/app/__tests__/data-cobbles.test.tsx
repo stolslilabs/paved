@@ -205,9 +205,9 @@ describe("useClaims", () => {
     claimer.gate = new Promise((r) => (release = r));
     let sent!: Promise<unknown>;
     act(() => {
-      sent = result.current.claims.claim(1, [{ kind: "quest", questId: 1, period: TODAY }]);
+      sent = result.current.claims.claim("quest:1", [{ kind: "quest", questId: 1, period: TODAY }]);
     });
-    await waitFor(() => expect(result.current.claims.claiming).toBe(1));
+    await waitFor(() => expect(result.current.claims.claiming).toBe("quest:1"));
     // Before the receipt the cache still says unclaimed.
     expect(client.getQueryData(cobbleKeys.account(FIXTURE_ADA))).toMatchObject({ cobbles: 240 });
     release();

@@ -45,7 +45,7 @@ const clickOutside = async () => userEvent.click(document.querySelector<HTMLElem
 /** The home's village stays mounted under the panel (hidden behind the modal). */
 const village = () => screen.getByRole("navigation", { name: "Village", hidden: true });
 
-preloadPages("home", "quests", "vault", "settings", "theme", "play");
+preloadPages("home", "missions", "vault", "settings", "theme", "play");
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
@@ -69,8 +69,7 @@ describe("the route map (#762)", () => {
       "village/shop",
       "pvp/league",
       "story",
-      "missions/lifetime",
-      "missions/:day?",
+      "missions",
       "vault",
       "referral",
       "settings/theme",

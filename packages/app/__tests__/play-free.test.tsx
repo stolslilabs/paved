@@ -15,7 +15,7 @@ import { fakeSources } from "./data-fakes";
 import { errorToastTexts, preloadPages } from "./route-helpers";
 import { FakeFreeSpawner, freeWallet } from "./free-fakes";
 
-// "Play free" on /play (the home's village has none, #753), and the earlier wallet session on /missions and /missions/lifetime (PLAYFREE), on the fakes.
+// "Play free" on /play (the home's village has none, #753), and the earlier wallet session on /missions (PLAYFREE), on the fakes.
 
 const NEW_GAME = GAME_PLAYING.id + 1;
 const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
@@ -41,7 +41,7 @@ const freeCard = (name: string) => screen.queryByRole("button", { name: new RegE
 // The board a route opens is not under test here (this file asserts the route it opens; `challenge-route.test.tsx` runs the board):
 // a stand-in keeps the renderer and three out of its first test.
 vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule);
-preloadPages("home", "play", "quests", "achievements");
+preloadPages("home", "play", "missions");
 
 beforeEach(() => {
   localStorage.clear();
@@ -155,7 +155,7 @@ describe("Play free on /play", () => {
   });
 });
 
-describe("the earlier wallet session on /missions and /missions/lifetime", () => {
+describe("the earlier wallet session on /missions", () => {
   /** The fixture's Ada has done quest 1 today; her ledger holds it, and the wallet signs with a claimer. */
   function openClaims(path: string, options: { guest?: boolean } = {}) {
     const f = fakeSources();
@@ -174,6 +174,7 @@ describe("the earlier wallet session on /missions and /missions/lifetime", () =>
 
   it("/missions: a session approved earlier comes back with no visit to Home, and the claim goes through", async () => {
     const { wallet, claimer } = openClaims("/missions");
+    await userEvent.click(await screen.findByRole("button", { name: /^Daily Run: / }, { timeout: slow(5000) }));
     expect(await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) })).toBeEnabled();
     expect(wallet.calls).toContain("probe");
     expect(screen.queryByText("Connect to see your missions")).toBeNull();
@@ -188,7 +189,7 @@ describe("the earlier wallet session on /missions and /missions/lifetime", () =>
     await waitFor(() => expect(wallet.calls.filter((c) => c === "probe")).toHaveLength(1));
   });
 
-  it("/missions/lifetime: the same session is found there", async () => {
+  it("/missions/lifetime, now /missions (#832): the same session is found there", async () => {
     const { wallet } = openClaims("/missions/lifetime");
     expect((await screen.findAllByRole("button", { name: "240 Cobbles: Buy packs" }, { timeout: slow(10000) })).length).toBeGreaterThan(0);
     expect(wallet.calls).toContain("probe");

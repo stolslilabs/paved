@@ -1,8 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { CobbleAccount, CobbleClaim, CobbleViews, DecodedEvent, Definitions, GameViews, PavedWriter, PeriodProgress, WriteResult } from "@paved/chain";
 import type { AchievementCobbles, PeriodClaims, QuestCobbles } from "../components/containers/cobble-types";
-import type { AchievementRewardsData } from "../components/scenes/achievements-scene";
-import type { QuestRewardsData } from "../components/scenes/quests-scene";
+import type { AchievementRewardsData, MissionKey, QuestRewardsData } from "../components/scenes/missions-scene";
 import { questPeriod, weekOfDay } from "../lib/quest-window";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources, type DataSources } from "./sources";
@@ -182,8 +181,8 @@ export function applyClaimEvents(client: QueryClient, playerId: string, events: 
   }
 }
 
-/** What a claim is for, as the scenes show it on its way: a quest or an achievement id, all of them, a free game. */
-export type ClaimTarget = number | "all" | "daily" | "weekly";
+/** What a claim is for, as the Missions page shows it on its way (#832): a quest, an achievement, or a period's bonus. */
+export type ClaimTarget = MissionKey;
 
 /**
  * The claims of the connected account: `claim(target, claims)` sends them in one transaction (a multicall when several),

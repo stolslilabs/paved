@@ -110,6 +110,16 @@ export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5 }, { ...DO
 /** The same day with all three weeklies done: the week's free game can be claimed. */
 export const QUESTS_WEEK_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5, 15: 30, 16: 20_000 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR, 15: MOCK_NOW - 4 * HOUR, 16: MOCK_NOW - HOUR });
 
+/** The same day for a player who has not played yet (#832, a new player): every count at 0. */
+export const QUESTS_TODAY_FRESH = day(TODAY, {});
+
+/** The same day with every daily and weekly done (#832, everything done): the four dailies and the three weeklies at their totals. */
+export const QUESTS_TODAY_ALL_DONE = day(
+  TODAY,
+  { 1: 1, 6: 8, 9: 3, 12: 5_000, 14: 5, 15: 30, 16: 20_000 },
+  { ...DONE_TODAY, 6: MOCK_NOW - 2 * HOUR, 9: MOCK_NOW - 90 * 60, 12: MOCK_NOW - HOUR, 14: MOCK_NOW - 5 * HOUR, 15: MOCK_NOW - 4 * HOUR, 16: MOCK_NOW - HOUR },
+);
+
 /**
  * Yesterday, closed (day 20,739, offset 0: the rotation is 5, 8 and 11): the four dailies done. The weeklies are at or below
  * today's counts (a week's progress only grows inside its interval), so this day and `QUESTS_TODAY` never contradict each other.

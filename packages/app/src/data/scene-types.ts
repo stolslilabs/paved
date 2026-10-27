@@ -1,13 +1,12 @@
 // Compile-time checks, no runtime code: each hook's data is exactly the type its scene's prop takes (`tsc -b` fails
 // otherwise). The hooks' tests (`__tests__/data-*.test.tsx`) check the values on `@paved/chain`'s fakes.
-import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
 import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import type { ProfileSheetProps } from "../components/containers/profile-sheet";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
-import type { QuestsSceneProps } from "../components/scenes/quests-scene";
+import type { MissionsSceneProps } from "../components/scenes/missions-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import type { AvatarCreator } from "../components/scenes/avatar-creator-scene";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
@@ -49,8 +48,8 @@ export type SceneTypes = [
   Expect<Equal<training.SessionBoard["lastScored"], BoardSceneProps["lastScored"]>>,
   Expect<Equal<Data<typeof chain.useGame>, OverSceneProps["game"]>>,
   // quests and achievements
-  Expect<Equal<Data<typeof indexer.usePlayerQuests>, NonNullable<QuestsSceneProps["quests"]>>>,
-  Expect<Equal<Data<typeof indexer.usePlayerAchievements>, NonNullable<AchievementsSceneProps["achievements"]>>>,
+  Expect<Equal<Data<typeof indexer.usePlayerQuests>, NonNullable<MissionsSceneProps["quests"]>>>,
+  Expect<Equal<Data<typeof indexer.usePlayerAchievements>, NonNullable<MissionsSceneProps["achievements"]>>>,
   ...import("./rewards").RewardSceneTypes,
   // the avatar (#626 PR 2): the creator's offers, and the menus' saved avatar (null: the default one)
   Expect<Equal<ReturnType<typeof avatarOffers.avatarOffers>, AvatarCreator["offers"]>>,

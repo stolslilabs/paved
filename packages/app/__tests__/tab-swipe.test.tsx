@@ -100,7 +100,7 @@ describe("tabSwipe", () => {
 });
 
 describe("a pick in the bar", () => {
-  preloadPages("home", "quests", "vault", "settings", "village-shop", "village-chests");
+  preloadPages("home", "missions", "vault", "settings", "village-shop", "village-chests");
   beforeEach(() => {
     localStorage.clear();
     resetWelcomedForTests();

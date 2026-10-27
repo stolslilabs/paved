@@ -10,8 +10,7 @@ import { formatPoints } from "../src/components/elements/score";
 import { formatBps } from "../src/components/containers/split-bar";
 import { parseUnits } from "../src/components/containers/vault-form";
 import { vaultRate } from "../src/components/containers/vault-position";
-import { AchievementsScene } from "../src/components/scenes/achievements-scene";
-import { QuestsScene } from "../src/components/scenes/quests-scene";
+import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ReferralScene } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
@@ -19,7 +18,7 @@ import { VaultScene } from "../src/components/scenes/vault-scene";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
 import { REFERRAL_LINK } from "../src/mocks/referral";
-import { ACHIEVEMENTS, MY_TILES, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
+import { MISSIONS, MY_TILES, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
@@ -308,109 +307,102 @@ describe("Theme", () => {
   });
 });
 
-describe("Quests", () => {
-  it("shows the day's rotating dailies and the weeklies with their progress in two sections, each with its countdown, and the Achievements tab", async () => {
-    const onTab = vi.fn();
-    render(wrap(<QuestsScene {...QUESTS.today} onTab={onTab} />));
-    const list = within(screen.getByRole("main"));
-    const daily = within(list.getByRole("region", { name: /^Daily/ }));
-    const weekly = within(list.getByRole("region", { name: /^Weekly/ }));
-    // A card per mission, as before #601; in each section the open missions first, the completed ones last.
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Public Works", "Deep Woods", "Strong Day", "Daily Run"]);
-    expect(weekly.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Weekly Forester", "Weekly Builder", "Weekly Points"]);
-    expect(daily.getByText("1/4")).toBeInTheDocument();
-    expect(weekly.getByText("0/3")).toBeInTheDocument();
-    expect(list.getByRole("article", { name: "Daily Run" })).toHaveAttribute("data-state", "complete");
-    expect(list.getByRole("article", { name: "Public Works" })).toHaveAttribute("data-state", "progress");
-    for (const name of ["Master Builder", "Into the Woods", "Point Chaser"]) expect(list.queryByRole("article", { name })).not.toBeInTheDocument(); // v1's: not defined
-    // Day 20,740 is offset 1 of the 3-day rotation, so Daily Run and one quest of each family are live: Public Works, Deep Woods, Strong Day.
-    expect(list.queryByRole("article", { name: "Small Works" })).not.toBeInTheDocument();
-    expect(list.queryByRole("article", { name: "Great Works" })).not.toBeInTheDocument();
-    expect(list.getByRole("progressbar", { name: "points: 2,710 of 5,000" })).toBeInTheDocument();
-    // The section's countdown: 00:00 UTC is 9 hours after the mocks' 15:00; the week ends on Monday 2026-10-19 00:00 UTC, 105 hours on.
-    expect(daily.getByRole("timer", { name: "Daily missions end in 9:00:00" })).toBeInTheDocument();
-    expect(weekly.getByRole("timer", { name: "Weekly missions end in 105:00:00" })).toBeInTheDocument();
-    // Every mission of a section ends with it: no countdown of its own.
-    expect(daily.getAllByRole("timer")).toHaveLength(1);
-    expect(weekly.getAllByRole("timer")).toHaveLength(1);
-    expect(screen.getByRole("tab", { name: "Limited" })).toHaveAttribute("aria-selected", "true");
-    await userEvent.click(screen.getByRole("tab", { name: "Lifetime" }));
-    expect(onTab).toHaveBeenCalledWith("achievements");
-  });
+describe("Missions (#832)", () => {
+  const card = () => within(screen.getByRole("region", { name: "Selected mission" }));
+  const limited = () => within(screen.getByRole("region", { name: "Limited" }));
+  const lifetime = () => within(screen.getByRole("region", { name: /^Lifetime/ }));
+  const names = (region: ReturnType<typeof within>) => region.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
 
-  it("shows another day's rotation, and a closed day without a countdown", () => {
-    render(wrap(<QuestsScene {...QUESTS.allDone} />));
-    const daily = within(screen.getByRole("region", { name: /^Daily/ }));
-    expect(daily.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Daily Run", "Small Works", "Woodland Walk", "Warm-Up Score"]);
-    expect(daily.getAllByText("Complete")).toHaveLength(4);
-    expect(screen.getByText("Closed day")).toBeInTheDocument();
-    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next day" })).toBeEnabled();
-  });
-
-  it("shows a weekly complete, and the daily countdown in its last minutes as a warning", () => {
-    const { unmount } = render(wrap(<QuestsScene {...QUESTS.weeklyDone} />));
-    expect(screen.getByRole("article", { name: "Weekly Forester" })).toHaveAttribute("data-state", "complete");
-    unmount();
-    render(wrap(<QuestsScene {...QUESTS.endingSoon} />));
-    expect(screen.getByRole("timer", { name: "Daily missions end in 0:04:00" })).toHaveAttribute("data-state", "warning");
-  });
-
-  it("shows a day not played at zero, and a day with no quest", () => {
-    const { unmount } = render(wrap(<QuestsScene {...QUESTS.idle} />));
-    expect(screen.getAllByText("To do")).toHaveLength(7); // four dailies and the three weeklies
-    unmount();
-    render(wrap(<QuestsScene {...QUESTS.none} />));
-    expect(screen.getByText("No mission this day")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Previous day" })).toBeDisabled();
-  });
-
-  it("asks a guest to connect, loads, and fails with a retry", async () => {
-    const onRetry = vi.fn();
-    const { unmount } = render(wrap(<QuestsScene {...QUESTS.guest} />));
-    expect(screen.getByRole("status")).toHaveTextContent("Connect to see your missions");
-    unmount();
-    const loading = render(wrap(<QuestsScene {...QUESTS.loading} />));
-    expect(screen.getByRole("status", { name: "Loading the missions" })).toBeInTheDocument();
-    loading.unmount();
-    render(wrap(<QuestsScene {...QUESTS.error} onRetry={onRetry} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not load the missions");
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(onRetry).toHaveBeenCalled();
-  });
-});
-
-describe("Achievements", () => {
-  it("shows earned, in progress and locked, earned first, and the points", () => {
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.mixed} />));
-    const cards = screen.getAllByRole("article");
-    expect(cards.map((c) => c.getAttribute("data-state"))).toEqual(["complete", "complete", "complete", "complete", ...Array(6).fill("progress"), ...Array(6).fill("none")]);
-    expect(screen.getAllByText("Earned")).toHaveLength(4);
-    expect(screen.getAllByText("Locked")).toHaveLength(6);
-    expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("4 of 16 earned");
-    expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent("60 / 630 pts");
-    // v2a's higher tiers are named, not shown as "Mission #<id>".
-    expect(screen.getByRole("article", { name: "Settler V" })).toBeInTheDocument();
-    expect(screen.queryByText(/Mission #/)).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Lifetime" })).toHaveAttribute("aria-selected", "true");
+  it("shows the selected mission's card, then the Limited icons (Daily, Weekly, each with its countdown and its bonus), then the Lifetime ones", () => {
+    render(wrap(<MissionsScene {...MISSIONS.daily} />));
+    const main = screen.getByRole("main");
+    const order = [...main.querySelectorAll("section[aria-label], section[aria-labelledby]")].filter((el) => el.parentElement === main).map((el) => el.getAttribute("aria-label") ?? el.getAttribute("aria-labelledby"));
+    expect(order).toEqual(["Selected mission", "missions-limited", "missions-lifetime"]);
+    const daily = within(limited().getByRole("region", { name: /^Daily/ }));
+    const weekly = within(limited().getByRole("region", { name: /^Weekly/ }));
+    // Today's rotation (offset 1): Daily Run, Public Works, Deep Woods, Strong Day, then the day's bonus as the last, small tile.
+    expect(names(daily)).toEqual(["Daily Run: Cobbles to claim", "Public Works: In progress", "Deep Woods: In progress", "Strong Day: In progress", "Daily bonus: In progress"]);
+    expect(names(weekly)).toEqual(["Weekly Forester: In progress", "Weekly Builder: In progress", "Weekly Points: In progress", "Weekly bonus: To do"]);
+    expect(daily.getByRole("timer", { name: "Daily missions reset in 9:00:00" })).toBeInTheDocument();
+    expect(weekly.getByRole("timer", { name: "Weekly missions reset in 105:00:00" })).toBeInTheDocument();
+    // The claimable one glows; its Cobbles are under its icon.
+    expect(daily.getByRole("button", { name: "Daily Run: Cobbles to claim" })).toHaveAttribute("data-state", "claimable");
+    expect(within(daily.getByRole("button", { name: /^Public Works/ })).getByRole("img", { name: "+10 Cobbles" })).toBeInTheDocument();
+    expect(names(lifetime())).toHaveLength(16);
+    expect(lifetime().getByRole("heading", { level: 2 })).toHaveTextContent("Lifetime4/16");
+    // Today only, Cobbles only: no day picker, no free game, no tabs.
+    expect(screen.queryByRole("button", { name: "Previous day" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/free game/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
     // Missions are the home's overlay's, not the bar's (#763): no item current.
     expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("button", { current: "page" })).toBeNull();
   });
 
-  it.each([
-    ["newPlayer", "0 of 16 earned"],
-    ["all", "16 of 16 earned"],
-  ] as const)("tells the %s state", (state, text) => {
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS[state]} />));
-    expect(screen.getByRole("region", { name: "Summary" })).toHaveTextContent(text);
+  it("selects the first mission not done on arrival: Daily, then Weekly, then Lifetime", () => {
+    const { unmount } = render(wrap(<MissionsScene {...MISSIONS.daily} />));
+    // Daily Run is done: Public Works is the first not done.
+    expect(card().getByRole("article")).toHaveAccessibleName("Public Works");
+    expect(card().getByRole("article")).toHaveTextContent("Daily");
+    expect(card().getByRole("progressbar", { name: "roads and cities scored: 4 of 8" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Public Works: In progress" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
+    unmount();
+    // With everything done, the first one.
+    render(wrap(<MissionsScene {...MISSIONS.allDone} />));
+    expect(card().getByRole("article")).toHaveAccessibleName("Daily Run");
+    expect(card().getByText("Cobbles claimed")).toBeInTheDocument();
   });
 
-  it("asks a guest to connect, and loads", () => {
-    const { unmount } = render(wrap(<AchievementsScene {...ACHIEVEMENTS.guest} />));
+  it("a tap on an icon updates the card, and rings that icon alone", async () => {
+    render(wrap(<MissionsScene {...MISSIONS.daily} />));
+    await userEvent.click(screen.getByRole("button", { name: /^Settler III/ }));
+    expect(card().getByRole("article")).toHaveAccessibleName("Settler III");
+    expect(card().getByRole("article")).toHaveTextContent("Lifetime");
+    expect(screen.getByRole("button", { name: /^Settler III/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^Public Works/ })).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(screen.getByRole("button", { name: /^Weekly Builder/ }));
+    expect(card().getByRole("article")).toHaveAccessibleName("Weekly Builder");
+    expect(card().getByText(/resets on Monday/)).toBeInTheDocument();
+  });
+
+  it("opens on the mission asked for: a lifetime one, a claim, the week's bonus", () => {
+    const { unmount } = render(wrap(<MissionsScene {...MISSIONS.lifetime} />));
+    expect(card().getByRole("article")).toHaveAccessibleName("Settler III");
+    unmount();
+    const claim = render(wrap(<MissionsScene {...MISSIONS.claim} />));
+    expect(card().getByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).toBeEnabled();
+    claim.unmount();
+    render(wrap(<MissionsScene {...MISSIONS.weekBonus} />));
+    expect(card().getByRole("article")).toHaveAccessibleName("Weekly bonus");
+    expect(card().getByRole("button", { name: "Claim 60 Cobbles: Weekly bonus" })).toBeEnabled();
+  });
+
+  it("shows the Daily countdown in its last minutes as a warning, a new player's locked missions, and a day with no limited mission", () => {
+    const { unmount } = render(wrap(<MissionsScene {...MISSIONS.endingSoon} />));
+    expect(screen.getByRole("timer", { name: "Daily missions reset in 0:04:00" })).toHaveAttribute("data-state", "warning");
+    unmount();
+    const fresh = render(wrap(<MissionsScene {...MISSIONS.newPlayer} />));
+    expect(names(lifetime()).every((n) => n?.endsWith(": Locked"))).toBe(true);
+    expect(card().getByRole("article")).toHaveAccessibleName("Daily Run");
+    fresh.unmount();
+    render(wrap(<MissionsScene {...MISSIONS.noQuest} />));
+    expect(screen.getByText("No limited mission live today.")).toBeInTheDocument();
+    // The first lifetime mission not done is selected then.
+    expect(card().getByRole("article")).toHaveAccessibleName("Settler III");
+  });
+
+  it("asks a guest to connect, loads, and fails with a retry", async () => {
+    const onRetry = vi.fn();
+    const { unmount } = render(wrap(<MissionsScene {...MISSIONS.guest} />));
     expect(screen.getByRole("status")).toHaveTextContent("Connect to see your missions");
     unmount();
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.loading} />));
-    expect(screen.getByRole("status", { name: "Loading the lifetime missions" })).toBeInTheDocument();
+    const loading = render(wrap(<MissionsScene {...MISSIONS.loading} />));
+    expect(screen.getByRole("status", { name: "Loading the missions" })).toBeInTheDocument();
+    loading.unmount();
+    render(wrap(<MissionsScene {...MISSIONS.failed} onRetry={onRetry} />));
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not load the missions");
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalled();
   });
 });
 
@@ -481,8 +473,8 @@ describe("Referral", () => {
 });
 
 describe("SC2 stories", () => {
-  const fixtures = { vault: VAULT, settings: SETTINGS, theme: THEME, "theme-shop": THEME_SHOP, "my-tiles": MY_TILES, quests: QUESTS, achievements: ACHIEVEMENTS, referral: REFERRAL };
-  const names = { vault: "VAULT", settings: "SETTINGS", theme: "THEME", "theme-shop": "THEME_SHOP", "my-tiles": "MY_TILES", quests: "QUESTS", achievements: "ACHIEVEMENTS", referral: "REFERRAL" } as const;
+  const fixtures = { vault: VAULT, settings: SETTINGS, theme: THEME, "theme-shop": THEME_SHOP, "my-tiles": MY_TILES, missions: MISSIONS, referral: REFERRAL };
+  const names = { vault: "VAULT", settings: "SETTINGS", theme: "THEME", "theme-shop": "THEME_SHOP", "my-tiles": "MY_TILES", missions: "MISSIONS", referral: "REFERRAL" } as const;
 
   // One story per state (the owner, through the PM, 2026-10-14): the viewport is the toolbar's global (VP), never a story each.
   it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s in one story, at no fixed viewport", (scene) => {
