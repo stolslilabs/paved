@@ -69,7 +69,7 @@ export default function HomePanelHost() {
   // A sheet (BACK-RULE #783) is drawn over its page, which the panel shows: the panel takes that page's title.
   const under = current.page.sheet ? (pageAt(current.page.parent!) ?? current.page) : current.page;
   return (
-    <PagePanel open={!onHome} title={under.title} top={!under.parent} onClose={onClose}>
+    <PagePanel open={!onHome} title={under.title} top={!under.parent} side={under.panelSide} onClose={onClose}>
       {/* The page's own code may still be on its way: the panel holds its place, the village stays. */}
       <Suspense fallback={null}>{current.outlet}</Suspense>
     </PagePanel>

@@ -154,7 +154,7 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByText("Attacking drops your shield")).toBeInTheDocument();
     expect(screen.getByRole("timer", { name: "Shield 5:12:00" })).toBeInTheDocument();
     // Above Attack, one line says it, with the shield's time left (#806, open point 1).
-    expect(screen.getByRole("region", { name: "Attack" }).querySelector("[data-shield-warning]")).toHaveTextContent("Attacking drops your shield, 05:12 left");
+    expect(screen.getByRole("region", { name: "Attack" }).querySelector("[data-shield-warning]")).toHaveTextContent("Attacking drops your shield, 05h12m left");
     // The chip sits in the header row, the bottom card keeps its height; a tap on it tells the rule.
     expect(screen.getByRole("banner").querySelector("[data-shield]")).not.toBeNull();
     // The board fills the scene at every width (#788); the cards float over it, at its top and bottom.
@@ -271,7 +271,7 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("button", { name: "Defence log" })).toBeNull();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
     expect(screen.getByRole("timer")).toHaveAccessibleName("Shielded, 5 hours 12 minutes left");
-    expect(screen.getByRole("timer")).toHaveTextContent("05:12");
+    expect(screen.getByRole("timer")).toHaveTextContent("05h12m");
     const cards = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
     expect(cards).toHaveLength(MATCHES.length);
     // Attacks and defences mixed, newest first, each told apart.

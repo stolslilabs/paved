@@ -10,6 +10,8 @@ export interface PagePanelProps {
   title: string;
   /** A page of the overlay itself, no Back in its header (`PagePanelValue.top`). */
   top?: boolean;
+  /** The side it opens from (`PageDef.panelSide`): the right, or the left for the League (#829). */
+  side?: "right" | "left";
   /** The close: Escape, a click or a tap on the village (#782: no close button). */
   onClose: () => void;
   children: ReactNode;
@@ -17,7 +19,7 @@ export interface PagePanelProps {
 
 /**
  * The side panel of the overlay's pages from `desktop` (DESK-PANELS, #762, the owner's decisions of 2026-10-25): the page in a
- * panel 28 rem wide on the right (the phone's column, `max-w-md`, and its padding), over the home's village, which stays mounted
+ * panel 28 rem wide on the right (the League's on the left, #829; the phone's column, `max-w-md`, and its padding), over the home's village, which stays mounted
  * and dimmed behind it. The page is laid out as on a phone: inside the panel the `tablet`, `desktop` and `wide` variants do not
  * apply (`data-page-panel`, theme.css), so each page has one layout. The panel's body is the page's scrolling region (its sticky
  * header, its edge hints), and the page's header carries, where the page's rule shows them, the Cobbles (`header-balances.ts`).
@@ -26,7 +28,7 @@ export interface PagePanelProps {
  * back to the overlay's button that opened it. Its title stays its accessible name. The slide is the Sheet's (Motion), still under reduced motion. Its own chunk: the home's first
  * load does not carry the dialog.
  */
-export default function PagePanel({ open, title, top = true, onClose, children }: PagePanelProps) {
+export default function PagePanel({ open, title, top = true, side = "right", onClose, children }: PagePanelProps) {
   const value = useMemo(() => ({ top }), [top]);
   // The panel opens with the route, not from a dialog trigger: the element that had the focus as it opened (the overlay's
   // button) takes it back on its close. A layout effect, before the dialog moves the focus into the panel.
@@ -43,7 +45,7 @@ export default function PagePanel({ open, title, top = true, onClose, children }
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent
-        side="right"
+        side={side}
         closeButton={false}
         aria-describedby={undefined}
         data-page-panel=""

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
@@ -8,7 +8,6 @@ import { ProfileProvider, type ProfileValue } from "../src/components/containers
 import { XpBar } from "../src/components/elements/xp-bar";
 import { isMaxLevel, levelLabel, xpLeftText } from "../src/components/elements/xp-level";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
-import { leagueOf } from "../src/lib/pvp-rules";
 import { PROGRESS } from "../src/mocks/players";
 import { PROFILE } from "../src/mocks/scenes";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
@@ -26,9 +25,7 @@ const value = (over: Partial<ProfileValue> = {}): ProfileValue => ({
   onCopy: vi.fn(async () => {}),
   ...over,
 });
-const badge = (v: ProfileValue | null, crowns: number, onLeague = vi.fn(), reduced: "never" | "always" = "never") =>
-  wrap(v ? <ProfileProvider value={v}><PlayerBadge crowns={crowns} onLeague={onLeague} /></ProfileProvider> : <PlayerBadge crowns={crowns} onLeague={onLeague} />, reduced);
-const border = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-slot=league-border]")!;
+const badge = (v: ProfileValue | null) => wrap(v ? <ProfileProvider value={v}><PlayerBadge /></ProfileProvider> : <PlayerBadge />);
 
 describe("the XP left (#787)", () => {
   it("says the XP to the next level, or Max level at the cap (20, #734)", () => {
@@ -75,69 +72,43 @@ describe("XpBar (#787)", () => {
   });
 });
 
-describe("PlayerBadge (#787)", () => {
-  it("names the level, the XP left, the league and the crowns", () => {
-    render(badge(value(), 1_240));
+describe("PlayerBadge (#787, the league out of it since #829)", () => {
+  it("names the level and the XP left; no league, crowns nor league border", () => {
+    const { container } = render(badge(value()));
     const profile = screen.getByRole("button", { name: "Profile: bal7hazar, level 3, 180 XP to level 4" });
     expect(profile).toHaveTextContent("bal7hazar");
     expect(profile).toHaveTextContent("Lv 3");
     expect(profile).toHaveTextContent("180 XP to Lv 4");
-    expect(screen.getByRole("button", { name: `League: ${leagueOf(1_240).name}, 1,240 crowns` })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^League/ })).toBeNull();
+    expect(container.querySelector("[data-slot=league-border]")).toBeNull();
   });
 
   it("at the cap, Max level in the name and under the bar", () => {
-    render(badge(value({ progress: PROGRESS.maxLevel }), 0));
+    render(badge(value({ progress: PROGRESS.maxLevel })));
     expect(screen.getByRole("button", { name: "Profile: bal7hazar, level 20, max level" })).toHaveTextContent("Max level");
   });
 
-  it("frames the avatar in its league's colour: Wanderer grey, a group's crest colour, Sovereign", () => {
-    const { container, rerender } = render(badge(value(), 0));
-    expect(border(container)).toHaveClass("border-league-wanderer");
-    rerender(badge(value(), 1_240));
-    expect(border(container)).toHaveClass(`border-league-${leagueOf(1_240).id}`);
-    rerender(badge(value(), 5_320));
-    expect(border(container)).toHaveClass("border-league-sovereign");
-  });
-
-  it("a promotion pulses the border in its new colour; none under reduced motion, nor on a drop", async () => {
-    const { container, rerender } = render(badge(value(), 1_240));
-    expect(container.querySelector("[data-slot=league-promotion]")).toBeNull();
-    rerender(badge(value(), 1_400));
-    await waitFor(() => expect(container.querySelector("[data-slot=league-promotion]")).not.toBeNull());
-    expect(border(container)).toHaveClass("transition-colors");
-
-    const reduced = render(badge(value(), 1_240, vi.fn(), "always"));
-    reduced.rerender(badge(value(), 1_400, vi.fn(), "always"));
-    await act(async () => {});
-    expect(reduced.container.querySelector("[data-slot=league-promotion]")).toBeNull();
-    expect(border(reduced.container)).not.toHaveClass("transition-colors");
-  });
-
-  it("the avatar opens the profile sheet; the badge and the crowns the League page", async () => {
-    const onLeague = vi.fn();
-    render(badge(value(), 1_240, onLeague));
-    await userEvent.click(screen.getByRole("button", { name: /^League: / }));
-    expect(onLeague).toHaveBeenCalledOnce();
-    expect(screen.queryByRole("dialog")).toBeNull();
+  it("the avatar opens the profile sheet", async () => {
+    render(badge(value()));
     await userEvent.click(screen.getByRole("button", { name: /^Profile: bal7hazar/ }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
-  it("a guest: the silhouette and Guest, no XP bar; without the shell's profile, the league alone", () => {
-    const { container, rerender } = render(badge(value({ state: PROFILE.guest, progress: undefined }), 0));
+  it("a guest: the silhouette and Guest, no XP bar; without the shell's profile, nothing", () => {
+    const { container, rerender } = render(badge(value({ state: PROFILE.guest, progress: undefined })));
     expect(screen.getByRole("button", { name: "Profile: guest" })).toHaveTextContent("Guest");
     expect(container.querySelector("[data-slot=xp-bar]")).toBeNull();
-    rerender(badge(null, 0));
-    expect(screen.queryByRole("button", { name: /^Profile/ })).toBeNull();
-    expect(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` })).toBeInTheDocument();
+    rerender(badge(null));
+    expect(container.querySelector("[data-slot=player-badge]")).toBeNull();
   });
 
-  it("is the home's top left, with the village score under it; no XP ring there", () => {
+  it("is the home's top left; under it the League control, then the village score (#829); no XP ring there", () => {
     const { container } = render(wrap(<ProfileProvider value={value()}><HomeVillageScene {...HOME_VILLAGE.view} /></ProfileProvider>));
     const corner = container.querySelector<HTMLElement>("[data-slot=player-badge]")!;
     expect(within(corner).getByRole("button", { name: /^Profile: bal7hazar, level 3/ })).toBeInTheDocument();
-    expect(within(corner).getByRole("button", { name: /^League: / })).toBeInTheDocument();
-    expect(corner.nextElementSibling).toHaveAccessibleName(/^Village score /);
+    const league = corner.nextElementSibling as HTMLElement;
+    expect(league).toHaveAccessibleName(/^League: /);
+    expect(league.nextElementSibling).toHaveAccessibleName(/^Village score /);
     expect(container.querySelector("[data-slot=xp-ring]")).toBeNull();
   });
 });
