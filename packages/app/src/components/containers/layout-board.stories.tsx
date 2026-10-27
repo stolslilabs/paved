@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAN } from "../../mocks/village";
-import { KEY_TILE, LAYOUT_GROWING, LAYOUT_START } from "../../mocks/village-v2";
+import { DIE_VILLAGES, KEY_TILE, LAYOUT_GROWING, LAYOUT_START } from "../../mocks/village-v2";
 import { LayoutBoard } from "./layout-board";
 import { legalSpots } from "./layout-rules";
 
@@ -34,3 +34,18 @@ export const Plates: Story = { args: { editing: true, plates: roads } };
 export const Pending: Story = { args: { editing: true, plates: roads, pending: { ...roads[0]!, plan: PLAN.road, orientation: roads[0]!.orientations[0]! } } };
 /** A tile that holds the village together, tapped: it shakes instead of lifting. */
 export const Shaking: Story = { args: { editing: true, shaking: KEY_TILE.id } };
+/** The die's villages (#803): three seeds on the same stock, side by side (stacked on a phone), each a compact 28 tiles. */
+export const DieSeeds: Story = {
+  render: (args) => (
+    <div className="grid h-full grid-cols-1 gap-2 p-2 tablet:grid-cols-3">
+      {DIE_VILLAGES.map((tiles, i) => (
+        <div key={i} className="relative min-h-64 overflow-hidden rounded-xl border border-border">
+          <LayoutBoard {...args} tiles={tiles} fit className="absolute inset-0" />
+          <span className="absolute top-2 left-2 rounded-md bg-card/90 px-2 py-0.5 text-xs">
+            Seed <span className="numeric">{i + 1}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  ),
+};

@@ -73,9 +73,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^(scenes-village-v2-layout|containers-inventorytray)--/, kind: "overflow", element: 'div "×', why: "carousel track" },
   // The home's edit mode (#753) is the v2 village's editor in the home's scene: its plan keeps the touch floor and scrolls both
   // ways, its inventory is the same carousel. The home's view fits its plan to the screen: no scroller there.
-  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit)/, kind: "scroll", element: "div[scroll-region]", why: "v2 village scroller" },
-  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit)/, kind: "overflow", element: 'div "×', why: "carousel track" },
+  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die)/, kind: "scroll", element: "div[scroll-region]", why: "v2 village scroller" },
+  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die)/, kind: "overflow", element: 'div "×', why: "carousel track" },
   // The League page's carousel of the 23 leagues (#785), one per view: its window clips its track, by design.
   { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "overflow", element: 'div "UnrankedYou', why: "carousel track" },
