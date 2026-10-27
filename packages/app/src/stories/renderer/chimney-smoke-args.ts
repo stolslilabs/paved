@@ -1,4 +1,4 @@
-// The chimney smoke stories' controls (#770, #801), shared by "Renderer/Chimney smoke" and "Renderer/Chimney smoke tune".
+// The chimney smoke stories' controls (#770, #801), "Renderer/Chimney smoke".
 import { DEFAULT_CLOUD_SHADOWS, DEFAULT_SMOKE_SETTINGS, NO_SMOKE_VARIATION, QUALITY_TIERS, SEASONS, SMOKE_LOOKS, SMOKE_VARIATION, type SmokeLook, type SmokeVariation } from "@paved/renderer";
 import type { ArgTypes } from "@storybook/react-vite";
 import { SMOKE_PLANS, type ChimneySmokeBoardProps } from "./chimney-smoke-board";

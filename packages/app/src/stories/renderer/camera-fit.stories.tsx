@@ -13,7 +13,7 @@ import { CameraFitBoard, FIT_BOARDS, FIT_VIEWPORTS, type CameraFitBoardProps } f
  *
  * On a phone (under 640 px) a game opens closer (V2-PHONE-ZOOM, #791): three cells across, the starter and one cell on each
  * side, and a third of a cell beyond each (N 3 + 0.67); from 640 px the five cells of #678. A board past the floor is
- * framed as its tiles and their ring, with no margin. The Phone opening stories set it beside the five cells of before.
+ * framed as its tiles and their ring, with no margin.
  *
  * The readout gives the distance, what binds it (the frame's width, its height, or the ceiling), the tile's size against
  * S (the outlines' reference, the tile at 240) and the outlines' opacity: they fade in fully from 1.5 S, so the closer
@@ -66,9 +66,6 @@ export const PhoneStart: Story = { args: { board: "1 tile" } };
 /** A phone, the bench's 38 tiles: too wide for the screen, so it opens at the ceiling, 240. */
 export const Phone38: Story = { args: { board: "38 tiles" } };
 
-/** Today's opening on a phone, to compare: 240 over the starter, whatever the board. */
-export const PhoneToday: Story = { args: { enabled: false } };
-
 /** A large phone (390 x 844). */
 export const LargePhone: Story = { args: { viewport: "390x844" } };
 
@@ -78,29 +75,3 @@ export const LargePhone: Story = { args: { viewport: "390x844" } };
  * one, and the wrap sweep that opens every story stays within its time.
  */
 export const Desktop: Story = { args: { viewport: "1440x900" } };
-
-/** Before and now side by side: the five cells of #678 (no margin), and the phone's three cells and their margin (#791). */
-function PhoneOpening(args: CameraFitBoardProps) {
-  return (
-    <div style={{ display: "flex", gap: 8, overflowX: "auto", background: "var(--background)" }}>
-      <CameraFitBoard {...args} floorCells={5} marginCells={0} />
-      <CameraFitBoard {...args} floorCells="auto" marginCells="auto" />
-    </div>
-  );
-}
-
-/** A game's opening at 375 x 812: before (5 cells, left) and now (3 cells and a margin, right). */
-export const PhoneOpeningGame: Story = { args: { board: "1 tile" }, render: PhoneOpening };
-
-/** An attack's opening (its starter alone) at 375 x 812, before and now. */
-export const PhoneOpeningAttack: Story = { args: { board: "attack start" }, render: PhoneOpening };
-
-/**
- * A small village's opening (the starter and 2 tiles) at 375 x 812, before and now: 4 cells across with its ring, past the
- * phone's floor, so it is framed as its tiles and their ring, no margin. A larger village (the 9 tiles of a new layout are 7
- * cells across) is framed whole, as before.
- */
-export const PhoneOpeningVillage: Story = { args: { board: "small village" }, render: PhoneOpening };
-
-/** A game's opening on a large phone (390 x 844), before and now. */
-export const PhoneOpeningLargePhone: Story = { args: { board: "1 tile", viewport: "390x844" }, render: PhoneOpening };

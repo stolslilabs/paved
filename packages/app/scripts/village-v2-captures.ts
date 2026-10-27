@@ -1,6 +1,6 @@
 /**
  * V2-VILLAGE-UI (#739): the v2 village's captures at 375 x 812 and 1440 x 900 (DPR 2), from the stories `Scenes/Village v2`
- * (the layout and its editor, the chests and their two directions of #759, the daily shop, on fakes) and `Pages/Village` (the pages on the mock ledger), for the
+ * (the layout and its editor, the chests, the daily shop, on fakes) and `Pages/Village` (the pages on the mock ledger), for the
  * pull request.
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up, or a static build served)
@@ -28,13 +28,10 @@ const SIZES = [
 ];
 const layout = (state: string) => ({ name: `layout-${state}`, story: `scenes-village-v2-layout--${state}` });
 const chests = (state: string) => ({ name: `chests-${state}`, story: `scenes-village-v2-chests--${state}` });
-const directions = (state: string) => ({ name: `chests-direction-${state}`, story: `scenes-village-v2-chests-directions--${state}` });
 const shop = (state: string) => ({ name: `shop-${state}`, story: `scenes-village-v2-shop--${state}` });
 const CAPTURES = [
   ...["start", "growing", "editing", "holding", "placing", "lifted", "changed", "reset", "full", "leaving", "saved", "visit"].map(layout),
   ...["waiting", "opening", "gold", "gold-chosen", "silver", "bronze", "cobbles-won", "taken", "taken-last", "story-chest", "slots", "open-pending", "closed", "kept", "free", "no-ranks", "capped", "last-minute", "ready", "empty"].map(chests),
-  // The Chests page's two directions (#759): the slots on pedestals, or a dial of the day.
-  ...["pedestals-some-won", "pedestals-all-won", "pedestals-ready", "dial-some-won", "dial-all-won", "dial-ready"].map(directions),
   ...["today", "one-bought", "all-bought", "short"].map(shop),
   // The pages as the app wires them, on the mock ledger (#739): `Pages/Village`.
   ...["board", "fresh", "chests", "shop", "visit"].map((state) => ({ name: `page-${state}`, story: `pages-village--${state}` })),

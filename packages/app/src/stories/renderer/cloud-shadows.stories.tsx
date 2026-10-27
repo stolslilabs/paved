@@ -7,8 +7,7 @@ const d = DEFAULT_CLOUD_SHADOWS;
 /**
  * The cloud shadows (CLOUD-SHADOWS, #573): clouds pass in front of the sun, continuously, and cast light shadows on the board.
  * Subtle, the owner's word: a soft shade of a fifth of the sun's direct light drifts across the tiles, never the sky's or the
- * ambient light. No cloud is drawn between the camera and the board (it would hide it): "Wisps" shows faint ones at the
- * steepest tilt, for the owner to judge.
+ * ambient light. No cloud is drawn between the camera and the board (it would hide it); the "wisps" control draws faint ones.
  *
  * The clouds are a term of the light in the tile shader, from a small noise map made once: no shadow-map pass, no extra draw
  * (the wisps add one). They drift on the one ambient loop (capped at 30 steps a second; a frame is drawn once they moved a
@@ -70,14 +69,8 @@ export const Board: Story = {};
 /** The cycle running (ten times as fast): the clouds follow the sun, and go with it at night. */
 export const WithCycle: Story = { args: { cycle: "running" } };
 
-/** Held at night with the moon's share at 0.5: the proposal's alternative, faint clouds on the moon's light. */
-export const NightOnTheMoon: Story = { args: { cycle: "night", moon: 0.5 } };
-
 /** Held at an autumn noon: the season's coverage (x1.2). */
 export const Autumn: Story = { args: { cycle: "day", season: "autumn" } };
-
-/** Faint wisps between the camera and the board, at the former steepest tilt: for the owner to judge (none by default). */
-export const Wisps: Story = { args: { wisps: 0.06, tilt: STEEPEST_TILT } };
 
 /** Stronger and faster, to see the shapes and the motion (not a proposal). */
 export const Exaggerated: Story = { args: { darkness: 0.5, windSpeed: 3 } };
