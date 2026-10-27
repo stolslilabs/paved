@@ -24,7 +24,7 @@ export const ReadyReduced: Story = { args: { state: "ready" }, parameters: { red
 export const Moment: Story = {
   args: { state: "ready" },
   render: () => (
-    <div className="relative h-56 w-72 rounded-lg bg-card">
+    <div className="relative rounded-lg bg-card" style={{ width: "18rem", height: "14rem" }}>
       <BonusBurst value={10} held />
     </div>
   ),

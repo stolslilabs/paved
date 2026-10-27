@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
-import { Icon } from "../ui/icon";
 import { Cobbles, formatCobbles } from "./cobbles";
 import { TokenIcon } from "./token-icon";
 
@@ -31,8 +30,8 @@ const NAME: Record<LeagueBonusState, (league: string) => string> = {
 };
 
 /**
- * The first-time bonus's icon at a league card's top right (issue 833): a gift crossed out once had, grey while out of reach, in the
- * primary colour with a glow when it is to be celebrated. Its Cobbles are in its accessible name.
+ * The first-time bonus's icon at a league card's top right (issue 833): the Cobbles' stones struck through once had, greyed out while
+ * out of reach, ringed in the primary colour with a glow when it is to be celebrated. Its Cobbles are in its accessible name.
  */
 export function LeagueBonus({ state, value, league, onCelebrate, className }: LeagueBonusProps) {
   const reduced = useReducedMotionConfig() ?? false;
@@ -45,7 +44,8 @@ export function LeagueBonus({ state, value, league, onCelebrate, className }: Le
         aria-label={name}
         data-bonus={state}
         onClick={onCelebrate}
-        className={cn(box, "touch-manipulation bg-primary text-primary-foreground shadow-[0_0_14px_var(--primary)] outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+        style={{ boxShadow: "0 0 14px var(--primary)" }}
+        className={cn(box, "touch-manipulation border-2 border-primary bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
       >
         {!reduced && (
           <m.span
@@ -55,13 +55,14 @@ export function LeagueBonus({ state, value, league, onCelebrate, className }: Le
             transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
           />
         )}
-        <Icon name="gift" size="sm" />
+        <TokenIcon kind="cobbles" size="sm" />
       </button>
     );
+  // Had: the stones dimmed and struck through; not reached: greyed out.
   return (
-    <span role="img" aria-label={name} data-bonus={state} className={cn(box, "bg-muted/50", state === "had" ? "text-muted-foreground" : "text-muted-foreground/50", className)}>
-      <Icon name="gift" size="sm" />
-      {state === "had" && <span aria-hidden className="absolute h-0.5 w-7 rotate-45 rounded-full bg-muted-foreground shadow-[0_0_0_2px_var(--card)]" />}
+    <span role="img" aria-label={name} data-bonus={state} style={state === "locked" ? { filter: "grayscale(1)" } : undefined} className={cn(box, "bg-muted", className)}>
+      <TokenIcon kind="cobbles" size="sm" className={state === "had" ? "opacity-60" : "opacity-40"} />
+      {state === "had" && <span aria-hidden className="absolute h-0.5 rounded-full bg-muted-foreground" style={{ width: "1.75rem", transform: "rotate(45deg)", boxShadow: "0 0 0 2px var(--muted)" }} />}
     </span>
   );
 }
@@ -101,7 +102,7 @@ export function BonusBurst({ value, onDone, held = false, className }: BonusBurs
       animate={{ opacity: held ? 1 : [1, 1, 0] }}
       transition={{ duration: BONUS_BURST_MS / 1000, times: [0, 0.75, 1] }}
     >
-      <span aria-hidden className="absolute size-44 rounded-full bg-[radial-gradient(closest-side,var(--primary),transparent_70%)] opacity-40" />
+      <span aria-hidden className="absolute size-44 rounded-full opacity-40" style={{ backgroundImage: "radial-gradient(closest-side, var(--primary), transparent 70%)" }} />
       {!reduced &&
         STONES.map((angle) => {
           const rad = (angle * Math.PI) / 180;
@@ -120,7 +121,7 @@ export function BonusBurst({ value, onDone, held = false, className }: BonusBurs
         })}
       <m.span
         role="status"
-        className="relative rounded-full bg-card/90 px-3 py-1"
+        className="relative rounded-full bg-card px-3 py-1"
         initial={still ? false : { scale: 0.4, y: 12 }}
         animate={{ scale: 1, y: still ? 0 : -6 }}
         transition={{ type: "spring", stiffness: 380, damping: 16 }}

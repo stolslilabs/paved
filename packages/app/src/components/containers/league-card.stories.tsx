@@ -40,7 +40,7 @@ export const Celebrating: Story = { args: { bonus: "ready", celebrating: true } 
 export const AllLeagues: Story = {
   decorators: [(Story) => <Story />],
   render: (args) => (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">
+    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" }}>
       {LEAGUES.map((league) => (
         <LeagueCard key={league.index} {...args} league={league} bonus={league.index > 6 ? "locked" : league.index === 5 ? "ready" : "had"} />
       ))}

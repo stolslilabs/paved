@@ -28,7 +28,7 @@ export function dotsWindow(count: number, current: number, size: number): number
 export function CarouselDots({ count, current, onSelect, label, window: size = count, className, ...props }: CarouselDotsProps) {
   const from = dotsWindow(count, current, size);
   const indexes = Array.from({ length: Math.min(size, count) }, (_, i) => from + i);
-  const dot = (index: number) => cn("block h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none", index === current ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40");
+  const dot = (index: number) => cn("block h-1.5 rounded-full transition-all", index === current ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40");
   if (!onSelect)
     return (
       <div aria-hidden data-slot="carousel-dots" className={cn("flex justify-center gap-1", className)} {...props}>

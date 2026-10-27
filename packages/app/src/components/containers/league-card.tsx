@@ -48,7 +48,7 @@ export function LeagueCard({ league, mine, crowns, bonus, celebrating, onCelebra
             type="button"
             aria-label="Back to my league"
             onClick={onBack}
-            className="grid size-9 touch-manipulation place-items-center rounded-full bg-muted/50 text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+            className="grid size-9 touch-manipulation place-items-center rounded-full bg-muted text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Icon name="arrow-left" size="sm" />
           </button>
@@ -103,7 +103,7 @@ function Standing({ league, mine, crowns }: { league: League; mine: League; crow
   const missing = formatInteger(Math.max(0, next.from - crowns));
   return (
     <>
-      <Progress value={progress} aria-label={`${missing} crowns to ${next.name}`} className="h-1.5 w-full max-w-48" />
+      <Progress value={progress} aria-label={`${missing} crowns to ${next.name}`} className="h-1.5 w-full" style={{ maxWidth: "12rem" }} />
       <span className="flex items-center gap-1 whitespace-nowrap">
         <span className="numeric font-semibold text-foreground">{missing}</span> to <LeagueCrest league={next} size="sm" />
       </span>
