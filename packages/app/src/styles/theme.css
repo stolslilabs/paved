@@ -320,6 +320,32 @@
   --pile-gap: var(--color-amber-950);
 }
 
+/* 3f. The game icons (issue 844, `elements/game-icon.tsx`), in the spirit of Supercell's: one base per tone, from which the icon
+   mixes its lit top (with `--game-light`), its shaded foot and its thick outline of the same hue, darker (with `--game-ink`).
+   One shadow under every icon, one white light on their upper parts. */
+:root {
+  --game-gold: var(--color-gold-300);
+  --game-steel: var(--color-charcoal-200);
+  --game-red: var(--color-ember-400);
+  --game-blue: var(--color-river-400);
+  --game-green: var(--color-meadow-500);
+  --game-wood: var(--color-amber-500);
+  --game-stone: var(--color-charcoal-400);
+  --game-paper: var(--color-gold-100);
+  --game-rose: var(--color-ember-200);
+  --game-light: var(--color-charcoal-50);
+  --game-ink: var(--color-charcoal-950);
+  --game-shadow: rgb(0 0 0 / 0.45);
+  --game-shine: rgb(255 255 255 / 0.55);
+}
+
+/* The plates' "+" (#845): a green relief button, as the balances' in Clash of Clans. */
+@theme inline {
+  --color-game-green: var(--game-green);
+  --color-game-green-lo: color-mix(in oklab, var(--game-green) 72%, var(--game-ink));
+  --color-game-green-edge: color-mix(in oklab, var(--game-green) 20%, var(--game-ink));
+}
+
 @theme inline {
   --color-slab-edge: var(--slab-edge);
   --color-slab-shadow: var(--slab-shadow);

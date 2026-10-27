@@ -154,7 +154,9 @@ describe("the plates (#828)", () => {
     const pluses = [...container.querySelectorAll("[data-slot=resource-plus]")];
     expect(pluses.length).toBeGreaterThan(0);
     for (const plus of pluses) {
-      expect(plus.querySelector("[data-icon=plus]")).not.toBeNull();
+      // A light game icon on a green relief button (#844).
+      expect(plus.querySelector("[data-slot=game-icon][data-icon=plus]")).not.toBeNull();
+      expect(plus.className).toContain("border-game-green-edge");
       expect(plus).toHaveTextContent("");
     }
   });

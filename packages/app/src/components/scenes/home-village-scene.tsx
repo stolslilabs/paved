@@ -4,6 +4,7 @@ import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
 import { cn } from "../../lib/utils";
 import { Countdown } from "../elements/countdown";
+import { GameIcon } from "../elements/game-icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { formatPoints } from "../elements/score";
 import { type TileArt } from "../elements/tile-chip";
@@ -356,7 +357,7 @@ function ViewOverlays({
           <div ref={balancesRef} className="pointer-events-auto absolute top-0 right-0 flex items-start gap-2">
             {/* Below `desktop` Settings is the bar's (#763); from it, beside the stack's first plate. */}
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
-              <Icon name="gear" size="md" />
+              <GameIcon name="gear" size="md" />
             </Button>
             <BalancesSlot layout="pill" className="desktop:hidden" />
             <BalancesSlot layout="rail" direction="column" className="hidden desktop:flex" />
@@ -406,18 +407,18 @@ function ViewOverlays({
       <div className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {village && !guest && !props.readOnly && !founded ? (
           <Button size="lg" variant="outline" className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
-            <Icon name="house" size="sm" /> Found
+            <GameIcon name="house" size="sm" /> Found
           </Button>
         ) : (
           editable && (
             <Button size="icon" variant="outline" onClick={onEdit} aria-label="Edit village" className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
-              <Icon name="hammer" size="lg" />
+              <GameIcon name="hammer" size="lg" />
             </Button>
           )
         )}
         {/* Play, the main action (#755, #807): the two swords, no text, gold and large, from `desktop`; below it the bar's centre disc (#763). */}
         <Button size="icon" onClick={props.onPlay} aria-label="Play" className="hidden size-16 rounded-2xl shadow-lg tablet:size-18 desktop:inline-flex">
-          <Icon name="swords" size="xl" />
+          <GameIcon name="swords" size="xl" />
         </Button>
       </div>
       {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
