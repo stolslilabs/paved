@@ -131,7 +131,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
 /**
  * Home (`/`, #753): the player's village full screen, a game scene like the boards (the renderer, its camera framed for the
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
- * the safe areas. In view: at the top left the profile (#787: the avatar, the name, the XP bar), under it the League control (#829:
+ * the safe areas. In view: at the top left the profile (#787, #830: the avatar in the level's arc and line, "Lv i", the name), under it the League control (#829:
  * the League button, the crowns on a plate closed by the league's crest), the shield's mirrored plate while shielded, then the
  * village score (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
  * (the two swords, no text, #807), large, at the bottom right with Edit (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
@@ -354,7 +354,7 @@ function ViewOverlays({
           <div
             className={cn(
               "pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]",
-              // The profile's line gives way to the balances beside it (`--balances-w`): its name and XP bar narrow, never under a wide plate.
+              // The profile's line gives way to the balances beside it (`--balances-w`): its name column and the level's line narrow, never under a wide plate.
               "[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-1.5rem-var(--balances-w,0px))] tablet:[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-2.5rem-var(--balances-w,0px))]",
             )}
             onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge],[data-slot=league-control],[data-slot=shield-plate]") && points?.onClose()}

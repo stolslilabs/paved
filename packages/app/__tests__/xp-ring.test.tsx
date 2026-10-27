@@ -1,4 +1,4 @@
-import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -125,12 +125,42 @@ describe("the ring around the avatar (#625)", () => {
     expect(container.querySelector("[data-slot=xp-ring]")).toBeNull();
   });
 
-  it("the sheet shows the level and 0 / N XP around the larger avatar", async () => {
+  /** The sheet's XP figures (#830), term by term. */
+  const xpLines = (level: HTMLElement) =>
+    Array.from(level.querySelectorAll("[data-slot=xp-line]"), (line) => [line.querySelector("dt")!.textContent, line.querySelector("dd")!.textContent]);
+
+  it("the sheet shows the level, the XP made, the XP left and the whole XP around the larger avatar (#830)", async () => {
     render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={FIRST_LEVEL} />));
     const sheet = await screen.findByRole("dialog");
     const level = sheet.querySelector<HTMLElement>("[data-slot=player-level]")!;
     expect(level).toHaveTextContent("Level 1");
-    expect(within(level).getByText("0 / 100 XP")).toBeInTheDocument();
+    expect(xpLines(level)).toEqual([
+      ["XP made", "0"],
+      ["To level 2", "100"],
+      ["Total XP", "0"],
+    ]);
     expect(sheet.querySelector("[data-slot=xp-ring]")).not.toBeNull();
+  });
+
+  it("the sheet's XP part way, without the whole XP when the source does not know it, and at the cap", async () => {
+    const { rerender } = render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.partWay} />));
+    const level = () => screen.getByRole("dialog").querySelector<HTMLElement>("[data-slot=player-level]")!;
+    await screen.findByRole("dialog");
+    expect(xpLines(level())).toEqual([
+      ["XP made", "120"],
+      ["To level 4", "180"],
+      ["Total XP", "420"],
+    ]);
+    rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.nearlyFull} />));
+    expect(xpLines(level())).toEqual([
+      ["XP made", "470"],
+      ["To level 8", "30"],
+    ]);
+    rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.maxLevel} />));
+    expect(level()).toHaveTextContent("Level 20");
+    expect(xpLines(level())).toEqual([
+      ["XP made", "0"],
+      ["XP left", "Max level"],
+    ]);
   });
 });

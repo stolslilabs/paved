@@ -8,6 +8,7 @@ import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 import { ShortAddress } from "../elements/short-address";
+import { isMaxLevel, xpLeft } from "../elements/xp-level";
 import { XpRing, type PlayerProgress } from "../elements/xp-ring";
 
 /** The connected player as the indexer gives them: the profile and their Challenge figures. */
@@ -39,13 +40,23 @@ export interface ProfileSheetProps {
   returnFocus?: () => HTMLElement | null;
 }
 
+/** One of the level's XP figures on the sheet (#830). */
+function XpLine({ term, value }: { term: string; value: string }) {
+  return (
+    <div data-slot="xp-line" className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-xs text-muted-foreground">{term}</dt>
+      <dd className="numeric text-sm font-semibold wrap-anywhere">{value}</dd>
+    </div>
+  );
+}
+
 /** The side panel from `desktop`, where the avatar sits at the left of the navigation's header; the bottom sheet under it. */
 const DESKTOP_QUERY = "(min-width: 64rem)";
 
 /**
  * What a tap on the avatar opens (#624): a bottom sheet on a phone, a panel from the left from `desktop`. The avatar larger,
  * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (the
- * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625).
+ * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625), the XP made in it, the XP left and the whole XP (#830).
  */
 export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, onOpenLeague, returnFocus }: ProfileSheetProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);
@@ -92,11 +103,16 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
                 {copied ? "Copied" : "Copy"}
               </Button>
             </div>
-            <div data-slot="player-level" className="flex items-baseline justify-between gap-3 rounded-lg border border-border bg-card p-3">
+            <div data-slot="player-level" className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
               <span className="text-sm font-semibold">
                 Level <span className="numeric">{progress ? formatPoints(progress.level) : "–"}</span>
               </span>
-              <span className="numeric text-sm text-muted-foreground wrap-anywhere">{progress ? `${formatPoints(progress.xp)} / ${formatPoints(progress.xpForNext)} XP` : "– XP"}</span>
+              {/* The XP made in the level, the XP left to the next, and the whole XP when the source knows it (#830): not on the home. */}
+              <dl className="grid grid-cols-3 gap-2">
+                <XpLine term="XP made" value={progress ? formatPoints(progress.xp) : "–"} />
+                <XpLine term={progress && !isMaxLevel(progress) ? `To level ${formatPoints(progress.level + 1)}` : "XP left"} value={progress ? (isMaxLevel(progress) ? "Max level" : formatPoints(xpLeft(progress))) : "–"} />
+                {progress?.total !== undefined && <XpLine term="Total XP" value={formatPoints(progress.total)} />}
+              </dl>
             </div>
             <dl className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3">
