@@ -30,6 +30,10 @@ const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
 // The village's points (#758), computed with the engine: from the stage's chunk too.
 const LazyVillagePoints = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.VillagePoints })));
+// The League control (#829) and its plate in their own chunk: a stand-in of its height holds its place meanwhile (FIRST-LOAD).
+const LazyLeagueControl = lazy(() => import("../containers/league-control").then((m) => ({ default: m.LeagueControl })));
+// The shield's plate and its popover (#806, #829): their own chunk, loaded only while the village is shielded (FIRST-LOAD).
+const LazyShieldPlate = lazy(() => import("../elements/shield-plate").then((m) => ({ default: m.ShieldPlate })));
 
 export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
@@ -78,13 +82,14 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   /** The viewer's Challenge game still running: the Resume chip. */
   activeGame?: GameView | null;
   /**
-   * The player's PvP standing (`Matchmaker.league`): the crowns and their league in `PlayerBadge` (#787), a tap to the league page (the
-   * home's only way there, #755). None (no PvP played yet, or not read): Wanderer with 0 crowns.
+   * The player's PvP standing (`Matchmaker.league`): the crowns and their league's crest in the League control under the profile
+   * (#829), a tap to the League page (the home's only way there, #755). None (no PvP played yet, or not read): Wanderer with 0 crowns.
    */
   league?: { crowns: number } | null;
   /**
    * The village's shield's end (`Matchmaker.shield`: `until` while `up`, seconds since the epoch), the League page's read: the
-   * shield's chip and its `HH:MM` beside the crowns while it lasts (#806). Null without a shield, for a guest or while not read.
+   * shield's mirrored plate and its `HHhMMm` under the League control while it lasts (#806, #829). Null without a shield, for a
+   * guest or while not read.
    */
   shieldEndsAt?: number | null;
   /** `Challenge.spawn_paused`: the notice. */
@@ -126,8 +131,9 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
 /**
  * Home (`/`, #753): the player's village full screen, a game scene like the boards (the renderer, its camera framed for the
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
- * the safe areas. In view: the player's badge at the top left (#787: the avatar in its league's border, the name, the XP bar, the league
- * badge and the crowns), the village score under it (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
+ * the safe areas. In view: at the top left the profile (#787: the avatar, the name, the XP bar), under it the League control (#829:
+ * the League button, the crowns on a plate closed by the league's crest), the shield's mirrored plate while shielded, then the
+ * village score (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
  * (the two swords, no text, #807), large, at the bottom right with Edit (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
@@ -232,6 +238,9 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     </div>
   );
 }
+
+/** The League control's box while its chunk arrives (its 44 px touch height at every width): nothing under it moves when it comes. */
+const LEAGUE_STAND_IN = <span aria-hidden className="block h-11" />;
 
 /** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
 const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
@@ -341,17 +350,25 @@ function ViewOverlays({
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <div className="relative flex items-start justify-between gap-2">
-          {/* The badge's profile and league each open a sheet or a page over the scene, tapped or keyed: the points close under it (#792). */}
+          {/* The profile, the League control and the shield each open a sheet or a page over the scene, tapped or keyed: the points close under it (#792). */}
           <div
             className={cn(
               "pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]",
               // The profile's line gives way to the balances beside it (`--balances-w`): its name and XP bar narrow, never under a wide plate.
               "[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-1.5rem-var(--balances-w,0px))] tablet:[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-2.5rem-var(--balances-w,0px))]",
             )}
-            onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge]") && points?.onClose()}
+            onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge],[data-slot=league-control],[data-slot=shield-plate]") && points?.onClose()}
           >
-            {/* The profile and the league as one (#787): the avatar in its league's border, the name, the XP bar, the badge and the crowns. */}
-            <PlayerBadge crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} shieldEndsAt={props.shieldEndsAt} now={now} />
+            {/* The profile (#787), then under it (#829) the League control (the crowns and the crest, no name) and the shield's plate. */}
+            <PlayerBadge />
+            <Suspense fallback={LEAGUE_STAND_IN}>
+              <LazyLeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+            </Suspense>
+            {props.shieldEndsAt != null && props.shieldEndsAt > now && (
+              <Suspense fallback={null}>
+                <LazyShieldPlate endsAt={props.shieldEndsAt} now={now} />
+              </Suspense>
+            )}
             {village && (
               // Under it (#755), the village score; a tap opens its points by structure (#758).
               <button
@@ -384,7 +401,7 @@ function ViewOverlays({
           </div>
           {/*
             The balances one under the other at the top right (#828), the same set as each width's header (#781). Out of the row's
-            flow: only the profile's line stands beside them (the league's line under it passes below the plate), so at 320 px the
+            flow: only the profile's line stands beside them (the League control under it passes below the plate), so at 320 px the
             badge keeps its whole width; the left column stops short of the right column (the chips' clearance) and wraps.
           */}
           <div ref={balancesRef} className="pointer-events-auto absolute top-0 right-0 flex items-start gap-2">

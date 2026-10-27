@@ -235,7 +235,9 @@ describe("the app's side panel at 1440 x 900: no close button, a click outside o
     const dialog = page.getByRole("dialog", { name: "League" });
     await dialog.waitFor();
     expect(await dialog.getByRole("button", { name: "Close" }).count()).toBe(0);
-    await page.mouse.click(200, 450);
+    // Outside the panel: the League's opens on the left since #829 (28 rem wide), so the click lands on the
+    // sky right of the board (a click on the board would take the focus once the panel is gone).
+    await page.mouse.click(1200, 700);
     await dialog.waitFor({ state: "detached", timeout: 5000 });
     expect(new URL(page.url()).pathname).toBe("/");
     await expect.poll(() => overlay("League").evaluate((el) => el === document.activeElement)).toBe(true);

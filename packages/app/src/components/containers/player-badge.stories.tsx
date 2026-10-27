@@ -1,8 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
-import { expect, fn, screen, userEvent, within } from "storybook/test";
-import { LEAGUE_FLOORS } from "../../lib/pvp-rules";
-import { HOUR, MOCK_NOW } from "../../mocks/clock";
+import { fn } from "storybook/test";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { PROGRESS } from "../../mocks/players";
 import { PROFILE } from "../../mocks/scenes";
@@ -29,10 +27,10 @@ function Corner({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Plays a sequence of readings on a loop, one every `everyMs`: the mock's XP and crowns do not move by themselves, so the stories
- * move them. Its own `ProfileProvider`, since the progress changes over time (the preview's `parameters.profile` is fixed).
+ * Plays a sequence of readings on a loop, one every `everyMs`: the mock's XP does not move by itself, so the stories
+ * move it. Its own `ProfileProvider`, since the progress changes over time (the preview's `parameters.profile` is fixed).
  */
-function Playing({ steps, everyMs = 2_000 }: { steps: { progress: PlayerProgress; crowns: number }[]; everyMs?: number }) {
+function Playing({ steps, everyMs = 2_000 }: { steps: { progress: PlayerProgress }[]; everyMs?: number }) {
   const [i, setI] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setI((n) => (n + 1) % steps.length), everyMs);
@@ -42,33 +40,29 @@ function Playing({ steps, everyMs = 2_000 }: { steps: { progress: PlayerProgress
   return (
     <ProfileProvider value={value(PROFILE.connected, step.progress)}>
       <Corner>
-        <PlayerBadge crowns={step.crowns} onLeague={fn()} />
+        <PlayerBadge />
       </Corner>
     </ProfileProvider>
   );
 }
 
-const SILVER = 1_240;
 /** Gains in one level, then back to the start (a drop is shown at once). */
-const GAINS = [20, 70, 120, 165].map((xp) => ({ progress: { level: 2, xp, xpForNext: 200 }, crowns: SILVER }));
+const GAINS = [20, 70, 120, 165].map((xp) => ({ progress: { level: 2, xp, xpForNext: 200 } }));
 /** Nearly full, then over the threshold, again and again: the level climbs. */
 const LEVEL_UPS = Array.from({ length: 6 }, (_, k) => {
   const level = 2 + Math.floor(k / 2);
-  return { progress: k % 2 === 0 ? { level, xp: 160, xpForNext: 200 } : { level: level + 1, xp: 30, xpForNext: 200 }, crowns: SILVER };
+  return { progress: k % 2 === 0 ? { level, xp: 160, xpForNext: 200 } : { level: level + 1, xp: 30, xpForNext: 200 } };
 });
-/** Wanderer, then each group's floor up to Sovereign: the border turns to each new colour with a pulse. */
-const PROMOTIONS = [0, ...[0, 3, 6, 9, 12, 15, 18, 21].map((i) => LEAGUE_FLOORS[i]!)].map((crowns) => ({ progress: PROGRESS.partWay, crowns }));
 
 /**
- * The profile and the league as one (#787), the home's top left: the avatar in its league's border, the name and the XP bar
- * (the level and the XP left), the league's badge and the crowns under the bar. The avatar opens the profile sheet, the badge
- * the League page. One story per state; the widths (320, 375, 1440 px) are the home's `BarPhone320`, `ScenePhone` and
- * `SceneWide`, or Storybook's Viewport toolbar here.
+ * The profile at the home's top left (#787): the avatar, the name and the XP bar (the level and the XP left); it opens the profile
+ * sheet. The league, its crowns and the shield left it for the League control and the shield's plate under it (#829,
+ * `Containers/LeagueControl`, `Elements/ShieldPlate`). One story per state; the widths (320, 375, 1440 px) are the home's
+ * `LeftColumn*` stories, or Storybook's Viewport toolbar here.
  */
 const meta = {
   title: "Containers/PlayerBadge",
   component: PlayerBadge,
-  args: { crowns: SILVER, onLeague: fn(), now: MOCK_NOW },
   render: (args) => (
     <Corner>
       <PlayerBadge {...args} />
@@ -78,49 +72,27 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Before PvP: 0 crowns, Wanderer, the border a neutral grey; level 1 with no XP. */
-export const Wanderer: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.connected, PROGRESS.start) };
-/** A mid league (Yeoman I, 1,240 crowns): the border in its crest's colour, part way through level 3. */
-export const MidLeague: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay) };
-/** The top league: Sovereign's border, level 7 nearly full. */
-export const Sovereign: Story = { args: { crowns: 5_320 }, parameters: profile(PROFILE.connected, PROGRESS.nearlyFull) };
+/** A new player: level 1 with no XP. */
+export const Start: Story = { parameters: profile(PROFILE.connected, PROGRESS.start) };
+/** Part way through level 3. */
+export const PartWay: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay) };
+/** Level 7 nearly full. */
+export const NearlyFull: Story = { parameters: profile(PROFILE.connected, PROGRESS.nearlyFull) };
 /** The level cap (20, #734): the bar full, "Max level" in place of the XP left. */
-export const MaxLevel: Story = { args: { crowns: 3_050 }, parameters: profile(PROFILE.connected, PROGRESS.maxLevel) };
-/** The avatar the player saved (#626), in its league's border. */
+export const MaxLevel: Story = { parameters: profile(PROFILE.connected, PROGRESS.maxLevel) };
+/** The avatar the player saved (#626). */
 export const SavedAvatar: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay, SAVED_LOOK) };
 /** The XP still read: the empty track, no level. */
 export const ReadingXp: Story = { parameters: profile(PROFILE.connected, undefined) };
-/** WRAP360: a four-digit level and XP in the thousands, a five-digit crown count. */
-export const Stress: Story = { args: { crowns: 12_345 }, parameters: profile(PROFILE.connected, PROGRESS.stress) };
-/** No wallet: the silhouette, "Guest", no XP bar; Wanderer. */
-export const Guest: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.guest) };
+/** WRAP360: a four-digit level and XP in the thousands. */
+export const Stress: Story = { parameters: profile(PROFILE.connected, PROGRESS.stress) };
+/** No wallet: the silhouette, "Guest", no XP bar. */
+export const Guest: Story = { parameters: profile(PROFILE.guest) };
 /** The wallet still looking for a session: the avatar's placeholder. */
-export const Loading: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.loading) };
-/** Shielded (#806): the shield's chip and its HH:MM beside the crowns, 07:42 left; a tap opens until when, and the rule. */
-export const Shielded: Story = { args: { shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
-/** The shield's popover open: until when, no one can attack, attacking drops it. */
-export const ShieldOpen: Story = {
-  args: { shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 },
-  parameters: profile(PROFILE.connected, PROGRESS.partWay),
-  play: async ({ canvasElement }) => {
-    await userEvent.click(await within(canvasElement).findByRole("button", { name: "Shielded, 7 hours 42 minutes left" }));
-    await expect(await screen.findByRole("dialog", { name: "Shield" })).toHaveTextContent("Attacking drops your shield.");
-  },
-};
-/** Under an hour left: 00:42. */
-export const ShieldUnderAnHour: Story = { args: { shieldEndsAt: MOCK_NOW + 42 * 60 - 20 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
-/** The last minute: 00:01, never 00:00 while it is up. */
-export const ShieldLastMinute: Story = { args: { shieldEndsAt: MOCK_NOW + 25 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
-/** The shield ended (or none): no chip. */
-export const Unshielded: Story = { args: { shieldEndsAt: MOCK_NOW - 1 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
-/** The longest names and figures, shielded: the chip stays on the crowns' line. */
-export const ShieldedStress: Story = { args: { crowns: 12_345, shieldEndsAt: MOCK_NOW + 8 * HOUR }, parameters: profile(PROFILE.connected, PROGRESS.stress) };
+export const Loading: Story = { parameters: profile(PROFILE.loading) };
 /** XP gained: the bar fills to its new share, a "+N XP" rises over its end. */
 export const Gain: Story = { render: () => <Playing steps={GAINS} />, parameters: { reducedMotion: "never" } };
 /** Level up: the bar completes, flashes and resets, the level turns over to the next number. */
 export const LevelUp: Story = { render: () => <Playing steps={LEVEL_UPS} everyMs={2_400} />, parameters: { reducedMotion: "never" } };
-/** A promotion: the border turns to the new league's colour with a pulse, each group in turn. */
-export const Promotion: Story = { render: () => <Playing steps={PROMOTIONS} everyMs={1_600} />, parameters: { reducedMotion: "never" } };
-/** Reduced motion: the values change at once with a brief flash, the border changes colour at once, nothing moves. */
+/** Reduced motion: the values change at once with a brief flash, nothing moves. */
 export const LevelUpReducedMotion: Story = { render: () => <Playing steps={LEVEL_UPS} everyMs={2_400} />, parameters: { reducedMotion: "always" } };
-export const PromotionReducedMotion: Story = { render: () => <Playing steps={PROMOTIONS} everyMs={1_600} />, parameters: { reducedMotion: "always" } };

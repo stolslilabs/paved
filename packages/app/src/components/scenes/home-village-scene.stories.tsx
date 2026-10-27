@@ -95,18 +95,30 @@ export const ShortDesktop: Story = {
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */
 export const Paused: Story = { args: HOME_VILLAGE.paused };
-/** A new player: the starter village, level 1, the league badge Wanderer with 0 crowns (#755). */
+/** A new player: the starter village, level 1, the League control unranked (Wanderer's crest, 0 crowns, #755, #829). */
 export const Start: Story = { args: HOME_VILLAGE.start };
-/** The village shielded (#806): the shield's chip and its HH:MM beside the badge and the crowns, 07:42 left; a tap tells until when. */
+/** The village shielded (#806, #829): the shield's mirrored plate under the League control, 07h42m left; a tap tells until when. */
 export const Shielded: Story = { args: HOME_VILLAGE.shielded };
-/** Under an hour left: 00:42. */
+/** Under an hour left: 00h42m. */
 export const ShieldUnderAnHour: Story = { args: HOME_VILLAGE.shieldUnderAnHour };
-/** The shield's last minute: 00:01, never 00:00 while it is up; the chip leaves at the end. */
+/** The shield's last minute: 00h01m, never 00h00m while it is up; the plate leaves at the end. */
 export const ShieldLastMinute: Story = { args: HOME_VILLAGE.shieldLastMinute };
-/** The shielded home at 320, 375 and 1440 px: the chip beside the crowns, nothing clipped. */
+/**
+ * The left column (#829, the owner's decisions of 2026-10-27): the profile, under it the League control (the League button, the
+ * crowns on the plate, the league's crest closing it, no name), the shield's mirrored plate while shielded, then the village score.
+ * Unranked, a mid league and shielded, at 320, 375 and 1440 px: nothing under the balances or the right column.
+ */
+export const LeftColumnUnrankedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.start };
+export const LeftColumnUnrankedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.start };
+export const LeftColumnUnrankedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.start };
+export const LeftColumnMidLeaguePhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view };
+export const LeftColumnMidLeaguePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view };
+export const LeftColumnMidLeagueWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view };
 export const ShieldedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.shielded };
 export const ShieldedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.shielded };
 export const ShieldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.shielded };
+/** The widest left column at 320 px: a five-digit crown count, shielded, beside the widest balances. */
+export const LeftColumnStressPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.leagueStress, decorators: [WIDE_BALANCES] };
 
 /**
  * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the swords at the centre of Play, under a centre guide (two red lines

@@ -177,20 +177,23 @@ describe("Home (#753): the village with its overlays", () => {
     expect(screen.queryByRole("button", { name: /^League,/ })).toBeNull();
   });
 
-  it("shows the crowns and the league by the avatar; a tap opens the league", async () => {
+  it("shows the League control under the profile: the crowns and the crest, no league name; a tap opens the league (#829)", async () => {
     const onLeague = vi.fn();
     const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onLeague={onLeague} />));
     const name = leagueOf(1_240).name;
-    const standing = screen.getByRole("button", { name: `League: ${name}, 1,240 crowns` });
-    expect(within(standing).getByText(name)).toBeInTheDocument();
-    expect(within(standing).getByRole("img", { name: "1,240 crowns" })).toBeInTheDocument();
+    const standing = await screen.findByRole("button", { name: `League: ${name}, 1,240 crowns` });
+    // The crowns at the plate's centre, the crest closing it in its group's colour; the name only in the accessible name.
+    expect(standing).toHaveTextContent(/^1,240$/);
+    expect(standing).toHaveAttribute("data-league", leagueOf(1_240).id);
+    expect(standing.querySelector("[data-icon=trophy]")).not.toBeNull();
+    expect(standing.querySelector("[data-icon=shield-halved]")).toHaveClass(`text-league-${leagueOf(1_240).id}`);
     await userEvent.click(standing);
     expect(onLeague).toHaveBeenCalledTimes(1);
     unmount();
     // Before any PvP: Wanderer with 0 crowns, still the way to the league.
     // Merged over the view's fixture, as the Start story's args are: its own `league: null` wins.
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.start} onLeague={onLeague} />));
-    await userEvent.click(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
+    await userEvent.click(await screen.findByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
     expect(onLeague).toHaveBeenCalledTimes(2);
   });
 

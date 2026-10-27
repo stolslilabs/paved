@@ -96,22 +96,32 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
   });
 
   it.each([
-    ["Missions", "/missions", "Missions"],
-    ["Chests", "/village/chests", "Chests"],
-    ["Shop", "/village/shop", "Tile shop"],
-    ["Vault", "/vault", "Vault"],
-    ["League", "/pvp/league", "League"],
-  ] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, path, title) => {
+    ["Missions", "/missions", "Missions", "right"],
+    ["Chests", "/village/chests", "Chests", "right"],
+    ["Shop", "/village/shop", "Tile shop", "right"],
+    ["Vault", "/vault", "Vault", "right"],
+    // The League's from the left (#829), as its control is on the home's left.
+    ["League", "/pvp/league", "League", "left"],
+  ] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, path, title, side) => {
     const router = open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(within(column).getByRole("button", { name: new RegExp(`^${button}`) }));
     const dialog = await panel(title);
     expect(router.state.location.pathname).toBe(path);
+    expect(dialog).toHaveAttribute("data-side", side);
     expect(village()).toBeInTheDocument();
     // A page of the overlay itself: no Back, and no close button (#782): a click outside or Escape closes it.
     await waitFor(() => expect(dialog.querySelector("[data-slot=page-scroll]")?.childElementCount).toBeGreaterThan(0), { timeout: slow(5000) });
     expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
     expect(within(dialog).queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  it("the League control under the profile opens the League's panel from the left (#829)", async () => {
+    const router = open("/");
+    await userEvent.click(await screen.findByRole("button", { name: /^League: / }, { timeout: slow(5000) }));
+    const dialog = await panel("League");
+    expect(router.state.location.pathname).toBe("/pvp/league");
+    expect(dialog).toHaveAttribute("data-side", "left");
   });
 
   it("the gear opens Settings in the panel, and Play its mode choice", async () => {
