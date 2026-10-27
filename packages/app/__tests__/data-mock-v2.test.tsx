@@ -6,6 +6,7 @@ import { useClaims, useCobbleAccount, useQuestRewards } from "../src/data";
 import { useBuyPack } from "../src/data/purchase";
 import { useAttackV2, useAttackV2Writes, attackV2Board } from "../src/data/free-attack";
 import { V2RefusedError, useChests, useFreeVillage, useFreeVillageWrites, useShop } from "../src/data/free-village";
+import { useLayoutSlotWrites, useLayoutSlots } from "../src/data/layout-slots";
 import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
 import { RIVAL_SEEDS } from "../src/data/mock/rivals";
 import { mockRivalsV2 } from "../src/data/mock/v2";
@@ -46,6 +47,13 @@ function rig(store: { data: Map<string, string> }, deck: number[], target: numbe
   const state = JSON.parse(store.data.get(MOCK_KEY)!);
   const player = Object.values(state.players as Record<string, { v2: { attacks: { deck: number[]; target: number }[] } }>)[0]!;
   Object.assign(player.v2.attacks.at(-1)!, { deck, target });
+  store.data.set(MOCK_KEY, JSON.stringify(state));
+}
+
+/** The player's Cobbles, rewritten in the stored state, as a test gives them. */
+function credit(store: { data: Map<string, string> }, cobbles: number) {
+  const state = JSON.parse(store.data.get(MOCK_KEY)!);
+  Object.values(state.players as Record<string, { cobbles: number }>)[0]!.cobbles = cobbles;
   store.data.set(MOCK_KEY, JSON.stringify(state));
 }
 
@@ -221,6 +229,64 @@ describe("PvP v2 on the mock", () => {
     expect(refusal(await result.current.writes.buy({ day: shop!.day, slot: offer.slot, confirmedPrice: offer.price }).catch((e: unknown) => e))).toBe("bought");
   });
 
+  it("keeps saved layouts in 3 slots (#804): the free one active, the others bought once with Cobbles; the active one is the village", async () => {
+    const { sources, store, ledger } = mockImplementation();
+    const { result } = renderData(() => ({ ...useLoop(), slots: useLayoutSlots(PLAYER), slotWrites: useLayoutSlotWrites(PLAYER) }), sources);
+    await act(() => result.current.writes.found());
+    await waitFor(() => expect(result.current.slots.data?.slots[0]?.tiles).toHaveLength(8));
+    const village = result.current.village.data!;
+    const starter = village.tiles;
+    expect(result.current.slots.data).toMatchObject({ active: 0, slots: [{ open: true, price: 0, score: village.score, fits: true }, { open: false, price: 100, tiles: null }, { open: false, price: 250, tiles: null }] });
+
+    // A locked slot takes no layout; a purchase at the price shown, with the Cobbles held, opens it empty, once
+    const draft = new VillageDraft({ slots: village.slots, inventory: village.inventory }, starter);
+    const outer = draft.tiles.find((t) => draft.liftRefusal(t.x, t.y) === null)!;
+    draft.lift(outer.x, outer.y);
+    expect(refusal(await result.current.slotWrites.saveTo(1, draft.tiles).catch((e: unknown) => e))).toBe("slot-locked");
+    expect(refusal(await result.current.slotWrites.buy({ slot: 1, confirmedPrice: 100 }).catch((e: unknown) => e))).toBe("not-enough-cobbles");
+    credit(store, 300);
+    expect(refusal(await result.current.slotWrites.buy({ slot: 1, confirmedPrice: 50 }).catch((e: unknown) => e))).toBe("price-changed");
+    await act(() => result.current.slotWrites.buy({ slot: 1, confirmedPrice: 100 }));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(200));
+    expect(refusal(await result.current.slotWrites.buy({ slot: 1, confirmedPrice: 100 }).catch((e: unknown) => e))).toBe("slot-open");
+    await waitFor(() => expect(result.current.slots.data?.slots[1]).toMatchObject({ open: true, tiles: null }));
+    expect(refusal(await result.current.slotWrites.activate(1).catch((e: unknown) => e))).toBe("slot-empty");
+
+    // A save into another slot leaves the village as it was
+    await act(() => result.current.slotWrites.saveTo(1, draft.tiles));
+    await waitFor(() => expect(result.current.slots.data?.slots[1]?.tiles).toHaveLength(7));
+    expect(result.current.village.data!.tiles).toEqual(starter);
+    expect(result.current.slots.data!.slots[1]!.score).toBe(draft.score);
+
+    // Made active, it is the village (the one attackers face); the free slot back again, then a Save writes the active slot
+    await act(() => result.current.slotWrites.activate(1));
+    await waitFor(() => expect(result.current.village.data?.tiles).toHaveLength(7));
+    expect(result.current.village.data!.score).toBe(draft.score);
+    expect(result.current.slots.data!.active).toBe(1);
+    await act(() => result.current.slotWrites.activate(0));
+    await waitFor(() => expect(result.current.village.data?.tiles).toEqual(starter));
+    await act(() => result.current.writes.save(draft.tiles));
+    await waitFor(() => expect(result.current.slots.data?.slots[0]?.tiles).toHaveLength(7));
+    expect(result.current.account.data!.cobbles).toBe(200);
+
+    // A Save sent while an activation is on its way lands in the slot the editor showed active, never the one made active
+    const backup = result.current.slots.data!.slots[1]!.tiles!;
+    await act(async () => {
+      await Promise.all([result.current.slotWrites.activate(1), result.current.writes.save(STARTER_LAYOUTS[0]!.slice(0, 0), 0)]);
+    });
+    await waitFor(() => expect(result.current.slots.data?.active).toBe(1));
+    expect(result.current.slots.data!.slots[1]!.tiles).toEqual(backup);
+    expect(result.current.slots.data!.slots[0]!.tiles).toEqual([]);
+    expect(result.current.village.data!.tiles).toEqual(backup);
+    await act(() => result.current.slotWrites.activate(0));
+
+    // Kept on the device
+    const again = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+    expect((await again.layoutSlots(PLAYER)).slots.map((s) => s.open)).toEqual([true, true, false]);
+    expect((await ledger.layoutSlots(PLAYER)).active).toBe(0);
+    expect((await ledger.freeVillage(PLAYER)).tiles).toEqual([]);
+  });
+
   it("keeps its state on the device: a new ledger on the same store reads the village", async () => {
     const first = mockImplementation();
     const { result } = renderData(() => useFreeVillageWrites(PLAYER), first.sources);
@@ -236,6 +302,9 @@ describe("PvP v2 on the mock", () => {
     expect(result.current.chests.data).toBeNull();
     expect(result.current.attack.data).toBeNull();
     expect(result.current.writes.signer).toBeNull();
+    const slots = renderData(() => ({ read: useLayoutSlots(PLAYER), writes: useLayoutSlotWrites(PLAYER) }), sources).result;
+    expect(slots.current.read).toEqual({ data: null, isPending: false, error: null });
+    expect(slots.current.writes.signer).toBeNull();
   });
 });
 
