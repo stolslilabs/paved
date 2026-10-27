@@ -100,7 +100,7 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
 
   it("under reduced motion the card is open at once: nothing to sequence", () => {
     render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progressOpeningTheSecond()} campaignId={2} justUnlocked={[2]} />, "always"));
-    const card = screen.getByRole("button", { name: /Open Country/ });
+    const card = screen.getByRole("button", { name: /^Open Country/ });
     expect(card).toHaveAttribute("data-status", "open");
     expect(card).not.toHaveAttribute("data-unlock");
   });
@@ -111,7 +111,7 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
       render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progressOpeningTheSecond()} campaignId={2} />, reduced));
       await waitFor(() => expect(embla.api).toBeDefined(), { timeout: slow(5000) });
       const scrollTo = vi.spyOn(embla.api!, "scrollTo");
-      fireEvent.click(screen.getByRole("button", { name: /Tutorial/ }));
+      fireEvent.click(screen.getByRole("button", { name: /^Tutorial/ }));
       expect(scrollTo).toHaveBeenCalledWith(0, reduced === "always");
     });
 
