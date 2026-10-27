@@ -16,8 +16,11 @@ export interface MatchRecord {
   /** `a<id>`: the player's attack `id`; `d<id>`: the attack `id` on their village. The match page's path (`/pvp/match/:id`). */
   id: string;
   side: "attack" | "defence";
-  /** The other player: the defender of an attack, the attacker of a defence. */
-  rival: { address: string; name: string | null; level: number };
+  /**
+   * The other player: the defender of an attack, the attacker of a defence. `look`: their avatar where the sources know it
+   * (AVATAR-LOOK's value as a decimal string, as the avatar's reads keep it in the cache; the mock's rivals, #834).
+   */
+  rival: { address: string; name: string | null; level: number; look?: string | null };
   /** The attacked village at the attack's start, the starter left out: the snapshot. */
   village: LayoutTile[];
   /** The snapshot's score: 100 % of it is 3 stars. */
