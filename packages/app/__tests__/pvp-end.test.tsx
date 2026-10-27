@@ -64,12 +64,12 @@ describe("PvpEndScene (#790)", () => {
 
   it("a promotion said in words", () => {
     show(PVP_END.threeStars);
-    expect(screen.getByRole("region", { name: "Crowns" })).toHaveTextContent(/Promoted to.*Silver I/);
+    expect(screen.getByRole("region", { name: "Crowns" })).toHaveTextContent(/Promoted to.*Yeoman I/);
   });
 
   it("a drop said in words", () => {
     show(PVP_END.dropped);
-    expect(screen.getByRole("region", { name: "Crowns" })).toHaveTextContent(/Dropped to.*Silver III/);
+    expect(screen.getByRole("region", { name: "Crowns" })).toHaveTextContent(/Dropped to.*Yeoman III/);
   });
 
   it("the XP gained, the level bar and a level up", () => {
