@@ -110,7 +110,8 @@ describe("PlayerBadge (#787, the league out of it since #829)", () => {
     expect(within(corner).getByRole("button", { name: /^Profile: bal7hazar, level 3/ })).toBeInTheDocument();
     const league = corner.nextElementSibling as HTMLElement;
     expect(league).toHaveAccessibleName(/^League: /);
-    expect(league.nextElementSibling).toHaveAccessibleName(/^Village score /);
+    expect(league.nextElementSibling).toHaveAttribute("data-slot", "village-score");
+    expect(within(league.nextElementSibling as HTMLElement).getByRole("button")).toHaveAccessibleName(/^Village score /);
     expect(container.querySelector("[data-slot=xp-ring]")).toBeNull();
   });
 });

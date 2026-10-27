@@ -19,6 +19,7 @@ import {
   XP_CAP,
   addXp,
   breakdownOf,
+  byCategory,
   attackDeck,
   attackDeckSize,
   attackExtras,
@@ -216,6 +217,21 @@ describe("a layout's points by structure", () => {
     const game = layoutGame(STARTER);
     const { lines, other } = breakdownOf(game);
     expect(lines.reduce((sum, l) => sum + l.points, 0) + other).toBe(game.score);
+  });
+
+  it("sums the lines by kind (#831): the four kinds, adding up to the score, the most points first, the fixed order on a tie", () => {
+    for (const layout of STARTER_LAYOUTS) {
+      const breakdown = layoutBreakdown(layout);
+      const sums = byCategory(breakdown);
+      expect(sums.map((s) => s.category).sort()).toEqual([CategoryType.City, CategoryType.Forest, CategoryType.Road, CategoryType.Wonder]);
+      expect(sums.reduce((sum, s) => sum + s.points, 0) + breakdown.other).toBe(breakdown.score);
+      for (let i = 1; i < sums.length; i++) expect(sums[i - 1]!.points).toBeGreaterThanOrEqual(sums[i]!.points);
+      for (const { category, points } of sums) {
+        expect(points).toBe(breakdown.lines.filter((l) => l.category === category).reduce((sum, l) => sum + l.points, 0));
+      }
+    }
+    // No structure: every kind at 0, in the fixed order.
+    expect(byCategory({ lines: [] })).toEqual([CategoryType.Road, CategoryType.City, CategoryType.Forest, CategoryType.Wonder].map((category) => ({ category, points: 0 })));
   });
 });
 

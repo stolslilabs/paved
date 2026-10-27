@@ -90,7 +90,7 @@ describe("the home with the shield (#806, #829)", () => {
     // The League control's own chunk too (#829).
     const league = await screen.findByRole("button", { name: /^League: / });
     expect(league.nextElementSibling).toBe(plate);
-    expect(plate.nextElementSibling).toHaveAccessibleName(/^Village score /);
+    expect(plate.nextElementSibling).toHaveAttribute("data-slot", "village-score");
     expect(container.querySelector("[data-slot=player-badge]")!.contains(plate)).toBe(false);
   });
 

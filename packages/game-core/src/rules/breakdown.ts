@@ -82,3 +82,22 @@ function wonderTile(areas: readonly CellAreas[]): readonly CellAreas[] {
 export function layoutBreakdown(tiles: readonly LayoutTile[]): LayoutBreakdown {
   return breakdownOf(layoutGame(tiles));
 }
+
+/** The four kinds of structure a village scores, in their fixed order (the tie-break of `byCategory`). */
+export const SCORED_CATEGORIES = [CategoryType.Road, CategoryType.City, CategoryType.Forest, CategoryType.Wonder] as const;
+
+/** A kind's sum (#831): its structures' points added up. */
+export interface CategorySum {
+  readonly category: (typeof SCORED_CATEGORIES)[number];
+  readonly points: number;
+}
+
+/**
+ * A breakdown's points by kind of structure (#831): the four kinds, each its lines added up (0 with none), the most points
+ * first, the fixed order (roads, cities, forests, wonders) on a tie. With the breakdown's `other` they add up to its score.
+ */
+export function byCategory({ lines }: Pick<LayoutBreakdown, "lines">): CategorySum[] {
+  const sums = new Map<CategoryType, number>(SCORED_CATEGORIES.map((c) => [c, 0]));
+  for (const line of lines) if (sums.has(line.category)) sums.set(line.category, sums.get(line.category)! + line.points);
+  return SCORED_CATEGORIES.map((category) => ({ category, points: sums.get(category)! })).sort((a, b) => b.points - a.points);
+}
