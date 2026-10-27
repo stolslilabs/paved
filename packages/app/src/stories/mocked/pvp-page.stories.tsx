@@ -232,7 +232,7 @@ export const Replay: Story = { parameters: { route: `/pvp/replay/${ME}/1` }, ren
 export const League: Story = { parameters: { route: "/pvp/league" }, render: () => <PvpPages {...LEAGUE} /> };
 export const LeaguePhone: Story = { ...League, ...PHONE_375 };
 export const LeagueWide: Story = { ...League, ...WIDE_1440 };
-/** The league's latest attacks and defences as cards (#786), each with the attacked village behind; a tap opens its match. */
+/** The league's latest attacks and defences as cards (#786), each on its side's illustration (#834); a tap opens its match. */
 export const LeagueMatches: Story = { parameters: { route: "/pvp/league" }, render: () => <PvpPages {...MATCHES} /> };
 export const LeagueMatchesPhone: Story = { ...LeagueMatches, ...PHONE_375 };
 export const LeagueMatchesWide: Story = { ...LeagueMatches, ...WIDE_1440 };

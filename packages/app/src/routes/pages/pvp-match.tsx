@@ -88,11 +88,13 @@ function Match({ id }: { id: string }) {
       />
     );
   }
-  const attacker = side === "attack" ? self : { ...match.rival, crowns: 0 };
+  // The record keeps a look as a decimal string (#834); the screens' player takes it as a value.
+  const rival = { ...match.rival, crowns: 0, look: match.rival.look ? BigInt(match.rival.look) : null };
+  const attacker = side === "attack" ? self : rival;
   return (
     <PvpMatchScene
       side={side}
-      rival={{ ...match.rival, crowns: 0 }}
+      rival={rival}
       view={view}
       onView={setView}
       target={match.target}

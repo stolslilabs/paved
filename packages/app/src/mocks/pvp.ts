@@ -15,6 +15,7 @@ import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER, PLAYER_ID } from "./players";
 import { buildVillage, playAttack, type AttackStep } from "./pvp-attack";
 import { REWARD, VILLAGE_GROWING } from "./village";
+import { generatedLook } from "./avatar";
 
 /**
  * The PvP flow's fakes (#647), nothing wired: the players, the villages and the attacks (played on the engine,
@@ -220,12 +221,15 @@ export const PVP_RESULT = {
 
 // Matches (#786): the latest attacks and defences, in place of the defence log
 
+/** A match's rival with a face (#834): the mock's players saved no avatar, so each shows one seeded by its address. */
+const faced = (player: PvpPlayer): PvpPlayer => ({ ...player, look: generatedLook(player.address) });
+
 /** A defence: an attacker's attack of `seed` on the player's village (its snapshot, `MY_VILLAGE`). */
 const defence = (i: number, seed: keyof typeof ATTACK_SCORES.mine, at: number): MatchCardData => {
   const score = ATTACK_SCORES.mine[seed];
   const stars = starsFor(score, MY_VILLAGE.score);
   // What the attacker wins the defender loses; a defence held (no star) wins the defender a few crowns.
-  return { id: `d${40 + i}`, side: "defence", rival: ATTACKERS[i]!, village: MY_VILLAGE.tiles, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at };
+  return { id: `d${40 + i}`, side: "defence", rival: faced(ATTACKERS[i]!), village: MY_VILLAGE.tiles, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at };
 };
 
 /** An attack of the player's, of `seed`, on the rival's village (its snapshot, `RIVAL_VILLAGE`): its rewards too. */
@@ -233,7 +237,7 @@ const attackMade = (id: number, seed: keyof typeof ATTACK_SCORES.rival, at: numb
   const score = ATTACK_SCORES.rival[seed];
   const stars = starsFor(score, RIVAL_VILLAGE.score);
   const chest = ([null, "bronze", "silver", "gold"] as const)[stars]!;
-  return { id: `a${id}`, side: "attack", rival: RIVAL, village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra };
+  return { id: `a${id}`, side: "attack", village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra, rival: faced(extra.rival ?? RIVAL) };
 };
 
 /** Newest first, attacks and defences mixed: the latest attack on the village 2 h 48 ago, which put the shield up. */
@@ -249,6 +253,23 @@ export const MATCHES: MatchCardData[] = [
   attackMade(8, 5, MOCK_NOW - 2 * DAY - 4 * HOUR, { rival: ATTACKERS[1]!, surrendered: true, score: 1_204, stars: 0, crowns: -STAKES.loss, xp: 0, chest: null }),
   defence(4, 10, MOCK_NOW - 3 * DAY - 5 * HOUR),
 ];
+
+/** One card per state (#834): its illustration in colour or grayscale, its corners. */
+export const MATCH_CARDS = {
+  /** Two stars on the rival: crowns won, XP and a silver chest. */
+  attackWon: MATCHES[0]!,
+  /** No star: crowns lost, the illustration grey, no chest. */
+  attackLost: MATCHES[4]!,
+  /** The attack on the village held (no star): a few crowns won. */
+  defenceWon: MATCHES[6]!,
+  /** The attacker took stars: crowns lost. */
+  defenceLost: MATCHES[1]!,
+  surrender: MATCHES[8]!,
+  /** Three stars: a gold chest. */
+  chest: MATCHES[2]!,
+  /** A star, but no chest (the day's chests taken). */
+  noChest: MATCHES[5]!,
+} satisfies Record<string, MatchCardData>;
 
 /** 26 matches: "Show more" past the first 20 (open point 3). */
 const MANY: MatchCardData[] = Array.from({ length: 26 }, (_, i) => {
