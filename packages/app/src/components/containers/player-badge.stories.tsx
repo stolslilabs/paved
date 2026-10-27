@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
-import { fn } from "storybook/test";
+import { expect, fn, screen, userEvent, within } from "storybook/test";
 import { LEAGUE_FLOORS } from "../../lib/pvp-rules";
+import { HOUR, MOCK_NOW } from "../../mocks/clock";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { PROGRESS } from "../../mocks/players";
 import { PROFILE } from "../../mocks/scenes";
@@ -67,7 +68,7 @@ const PROMOTIONS = [0, ...[0, 3, 6, 9, 12, 15, 18, 21].map((i) => LEAGUE_FLOORS[
 const meta = {
   title: "Containers/PlayerBadge",
   component: PlayerBadge,
-  args: { crowns: SILVER, onLeague: fn() },
+  args: { crowns: SILVER, onLeague: fn(), now: MOCK_NOW },
   render: (args) => (
     <Corner>
       <PlayerBadge {...args} />
@@ -95,6 +96,25 @@ export const Stress: Story = { args: { crowns: 12_345 }, parameters: profile(PRO
 export const Guest: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.guest) };
 /** The wallet still looking for a session: the avatar's placeholder. */
 export const Loading: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.loading) };
+/** Shielded (#806): the shield's chip and its HH:MM beside the crowns, 07:42 left; a tap opens until when, and the rule. */
+export const Shielded: Story = { args: { shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
+/** The shield's popover open: until when, no one can attack, attacking drops it. */
+export const ShieldOpen: Story = {
+  args: { shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 },
+  parameters: profile(PROFILE.connected, PROGRESS.partWay),
+  play: async ({ canvasElement }) => {
+    await userEvent.click(await within(canvasElement).findByRole("button", { name: "Shielded, 7 hours 42 minutes left" }));
+    await expect(await screen.findByRole("dialog", { name: "Shield" })).toHaveTextContent("Attacking drops your shield.");
+  },
+};
+/** Under an hour left: 00:42. */
+export const ShieldUnderAnHour: Story = { args: { shieldEndsAt: MOCK_NOW + 42 * 60 - 20 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
+/** The last minute: 00:01, never 00:00 while it is up. */
+export const ShieldLastMinute: Story = { args: { shieldEndsAt: MOCK_NOW + 25 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
+/** The shield ended (or none): no chip. */
+export const Unshielded: Story = { args: { shieldEndsAt: MOCK_NOW - 1 }, parameters: profile(PROFILE.connected, PROGRESS.partWay) };
+/** The longest names and figures, shielded: the chip stays on the crowns' line. */
+export const ShieldedStress: Story = { args: { crowns: 12_345, shieldEndsAt: MOCK_NOW + 8 * HOUR }, parameters: profile(PROFILE.connected, PROGRESS.stress) };
 /** XP gained: the bar fills to its new share, a "+N XP" rises over its end. */
 export const Gain: Story = { render: () => <Playing steps={GAINS} />, parameters: { reducedMotion: "never" } };
 /** Level up: the bar completes, flashes and resets, the level turns over to the next number. */

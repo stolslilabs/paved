@@ -12,7 +12,7 @@ import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
 import { useChests, useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
 import { queryKeys } from "../../data/keys";
-import { usePvpLeague } from "../../data/pvp-league";
+import { usePvpLeague, usePvpShield } from "../../data/pvp-league";
 import { useMissionsReady } from "../../data/quests";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
@@ -75,6 +75,7 @@ export default function Page() {
   const paused = useSpawnPaused();
   const missions = useMissionsReady(me);
   const league = usePvpLeague(me).data;
+  const shield = usePvpShield(me).data;
   const board = useBoardSettings();
   const [saved, setSaved] = useState<LayoutSaved | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -175,6 +176,7 @@ export default function Page() {
         }
         missions={missions}
         league={league ? { crowns: league.crowns } : null}
+        shieldEndsAt={shield?.up ? shield.until : null}
         activeGame={wallet.address ? (active.data ?? null) : null}
         spawnPaused={paused.data ?? false}
         now={now}

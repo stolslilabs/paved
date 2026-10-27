@@ -78,6 +78,16 @@ export const Resume: Story = { args: HOME_VILLAGE.resume };
 export const Paused: Story = { args: HOME_VILLAGE.paused };
 /** A new player: the starter village, level 1, the league badge Wanderer with 0 crowns (#755). */
 export const Start: Story = { args: HOME_VILLAGE.start };
+/** The village shielded (#806): the shield's chip and its HH:MM beside the badge and the crowns, 07:42 left; a tap tells until when. */
+export const Shielded: Story = { args: HOME_VILLAGE.shielded };
+/** Under an hour left: 00:42. */
+export const ShieldUnderAnHour: Story = { args: HOME_VILLAGE.shieldUnderAnHour };
+/** The shield's last minute: 00:01, never 00:00 while it is up; the chip leaves at the end. */
+export const ShieldLastMinute: Story = { args: HOME_VILLAGE.shieldLastMinute };
+/** The shielded home at 320, 375 and 1440 px: the chip beside the crowns, nothing clipped. */
+export const ShieldedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.shielded };
+export const ShieldedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.shielded };
+export const ShieldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.shielded };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };
 /** No wallet: a starter village to look at, Connect in the header, no Edit. */
