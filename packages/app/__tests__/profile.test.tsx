@@ -42,7 +42,8 @@ describe("ProfileSheet (#624)", () => {
     const onCopy = vi.fn(async () => {});
     const onDisconnect = vi.fn();
     const onEditAvatar = vi.fn();
-    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} onCopy={onCopy} onDisconnect={onDisconnect} onEditAvatar={onEditAvatar} />));
+    const onOpenLeague = vi.fn();
+    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} onCopy={onCopy} onDisconnect={onDisconnect} onEditAvatar={onEditAvatar} onOpenLeague={onOpenLeague} />));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByRole("heading", { name: "bal7hazar" })).toBeInTheDocument();
     expect(within(sheet).getByText("0x05f1…6e7f")).toBeInTheDocument();
@@ -50,6 +51,9 @@ describe("ProfileSheet (#624)", () => {
     expect(within(sheet).getByText("1,840")).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: /Edit avatar/ }));
     expect(onEditAvatar).toHaveBeenCalledOnce();
+    // The league's button reads "Battle logs" (#834).
+    await userEvent.click(within(sheet).getByRole("button", { name: "Battle logs" }));
+    expect(onOpenLeague).toHaveBeenCalledOnce();
     await userEvent.click(within(sheet).getByRole("button", { name: /Copy/ }));
     expect(onCopy).toHaveBeenCalledWith(PLAYER_ID);
     expect(await within(sheet).findByRole("button", { name: /Copied/ })).toBeInTheDocument();

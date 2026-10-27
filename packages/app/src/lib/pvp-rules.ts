@@ -125,6 +125,8 @@ export interface PvpPlayer {
   address: string;
   level: number;
   crowns: number;
+  /** The avatar they saved (AVATAR-LOOK's value, #626), where known: the battle logs' cards show it (#834). Else their initial. */
+  look?: bigint | null;
 }
 
 /** A village as an attack sees it: the defender's owned cells, placed tiles and score (#640's village). */

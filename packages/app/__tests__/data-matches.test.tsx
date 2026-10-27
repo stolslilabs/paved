@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA } from "@paved/chain/testing";
+import { DEFAULT_AVATAR, decodeAvatar } from "@paved/renderer";
 import { VillageDraft, attackDeckSize, attackStars, layoutScore, levelStatus } from "@paved/game-core";
 import { attackV2Board } from "../src/data/free-attack";
 import { matchBoardSide } from "../src/data/matches";
 import type { MockLedger } from "../src/data/mock/ledger";
 import { mockRivalV2 } from "../src/data/mock/v2";
+import { generatedLook } from "../src/mocks/avatar";
 import { mockImplementation } from "./mock-fakes";
 
 // PvP v2's matches on the mock (#786): an attack keeps the attacked village's snapshot at its start, a rival answers at the
@@ -36,6 +38,9 @@ describe("PvP v2's matches on the mock (#786)", () => {
     const [match] = await ledger.matchesV2(PLAYER);
     expect(match).toMatchObject({ id: `a${done.id}`, side: "attack", rival: { address: rival.address, name: rival.name, level: rival.level }, target: rival.score, score: done.score, stars: done.stars, crowns: done.gained - done.lost, xp: done.xp, chest: done.chest });
     expect(match!.village).toEqual(rival.tiles);
+    // The rival saved no avatar: a face seeded by its address (#834), the same at every read, as a decimal look.
+    expect(match!.rival.look).toBe(String(generatedLook(rival.address)));
+    expect(decodeAvatar(BigInt(match!.rival.look!))).not.toEqual(DEFAULT_AVATAR);
     expect(match!.moves).toEqual(done.moves);
     expect(match!.stars).toBe(attackStars(match!.score, match!.target));
 

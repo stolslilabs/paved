@@ -113,6 +113,27 @@ export function formatRelative(secondsUntil: number, { ended = false }: Relative
   return `${ended ? "ended " : ""}${small ? "less than a minute" : formatSpan(secondsUntil)} ago`;
 }
 
+/** `formatAgo`'s units, largest first: the seconds in each and its short name. A month is 30 days, a year 365. */
+const AGO_UNITS: readonly [number, string][] = [
+  [365 * 86_400, "y"],
+  [30 * 86_400, "mo"],
+  [7 * 86_400, "w"],
+  [86_400, "d"],
+  [3_600, "h"],
+  [60, "min"],
+];
+
+/**
+ * A moment past, short, in its largest unit only (#834, the battle logs' cards), from the seconds until it (negative once past):
+ * "now" under a minute, then "1min ago", "5h ago", "3d ago", "2w ago", "3mo ago", "1y ago", each cut down. A moment still to
+ * come (a clock a little behind) reads "now".
+ */
+export function formatAgo(secondsUntil: number): string {
+  const past = -secondsUntil;
+  for (const [seconds, unit] of AGO_UNITS) if (past >= seconds) return `${Math.floor(past / seconds)}${unit} ago`;
+  return "now";
+}
+
 /** A game boundary (seconds since the epoch) in UTC, never local: "Thu, Oct 15, 15:00 UTC". */
 export function formatBoundary(seconds: number): string {
   return formatDate(seconds * 1000, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" });
