@@ -139,6 +139,7 @@ export * from "./story";
 // Formatting: every number and date on screen goes through here (P-66, en-US)
 export {
   LOCALE,
+  formatAgo,
   formatBoundary,
   formatBps,
   formatCompact,

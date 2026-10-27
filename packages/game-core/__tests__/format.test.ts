@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOCALE, formatBoundary, formatBps, formatCompact, formatDate, formatFixed, formatInteger, formatNumber, formatPercent, formatRelative, formatUnits } from "../src/format";
+import { LOCALE, formatAgo, formatBoundary, formatBps, formatCompact, formatDate, formatFixed, formatInteger, formatNumber, formatPercent, formatRelative, formatUnits } from "../src/format";
 
 // Run under `LANG=fr_FR.UTF-8 TZ=Europe/Paris` too (CI does): the process locale must change nothing here.
 describe("formatter (P-66, en-US)", () => {
@@ -36,6 +36,26 @@ describe("formatter (P-66, en-US)", () => {
     // A boundary shown in UTC says so, under the Paris process zone too.
     expect(formatDate(moment, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" })).toBe("15:00 UTC");
     expect(formatDate(moment, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Paris" })).toBe("17:00");
+  });
+
+  it("writes a moment past in its largest unit only, short", () => {
+    expect(formatAgo(0)).toBe("now");
+    expect(formatAgo(-59)).toBe("now");
+    expect(formatAgo(30)).toBe("now");
+    expect(formatAgo(-60)).toBe("1min ago");
+    expect(formatAgo(-(59 * 60 + 59))).toBe("59min ago");
+    expect(formatAgo(-3_600)).toBe("1h ago");
+    expect(formatAgo(-(2 * 3_600 + 48 * 60))).toBe("2h ago");
+    expect(formatAgo(-(23 * 3_600 + 59 * 60))).toBe("23h ago");
+    expect(formatAgo(-86_400)).toBe("1d ago");
+    expect(formatAgo(-(3 * 86_400 + 5 * 3_600))).toBe("3d ago");
+    expect(formatAgo(-7 * 86_400)).toBe("1w ago");
+    expect(formatAgo(-29 * 86_400)).toBe("4w ago");
+    expect(formatAgo(-30 * 86_400)).toBe("1mo ago");
+    expect(formatAgo(-100 * 86_400)).toBe("3mo ago");
+    expect(formatAgo(-364 * 86_400)).toBe("12mo ago");
+    expect(formatAgo(-365 * 86_400)).toBe("1y ago");
+    expect(formatAgo(-3 * 365 * 86_400)).toBe("3y ago");
   });
 
   it("writes a moment relative to now, to the minute", () => {

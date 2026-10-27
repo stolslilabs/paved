@@ -127,7 +127,7 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
             {onOpenLeague && (
               <Button variant="outline" onClick={onOpenLeague}>
                 <Icon name="swords" size="xs" />
-                League and attacks
+                Battle logs
               </Button>
             )}
             {onEditAvatar && (

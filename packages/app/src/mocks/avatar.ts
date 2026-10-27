@@ -1,5 +1,5 @@
 import type { AvatarItem } from "@paved/chain";
-import { AVATAR_PARTS, AVATAR_PART_KEYS, DEFAULT_AVATAR, encodeAvatar, type Avatar } from "@paved/renderer";
+import { AVATAR_PARTS, AVATAR_PART_KEYS, DEFAULT_AVATAR, encodeAvatar, randomAvatar, seededRandom, type Avatar } from "@paved/renderer";
 import type { AvatarOffer, AvatarOffers } from "../components/containers/avatar-types";
 import { DAY, MOCK_NOW } from "./clock";
 
@@ -51,6 +51,16 @@ export const SAVED_AVATAR: Avatar = { ...DEFAULT_AVATAR, skin: 2, hairColour: 3,
 
 /** The same as the chain stores it (`encodeAvatar`): what the menus' avatar takes. */
 export const SAVED_LOOK: bigint = encodeAvatar(SAVED_AVATAR);
+
+/**
+ * A look for a player of the mocks who saved none (#834: the battle logs' rivals show faces, not initials): every part drawn
+ * from a random seeded by the address (FNV-1a), so a rival keeps one face at every load.
+ */
+export function generatedLook(address: string): bigint {
+  let hash = 0x811c9dc5;
+  for (const c of address.toLowerCase()) hash = Math.imul(hash ^ c.charCodeAt(0), 0x01000193) >>> 0;
+  return encodeAvatar(randomAvatar(seededRandom(hash)));
+}
 
 /** The catalogue as the creator reads it for the stories' player: owned first, then free, on sale; a part not in `parts` is left out. */
 export function offersOf(items: readonly AvatarItem[][], owned: readonly bigint[], parts: number = AVATAR_PARTS_IN_USE): AvatarOffers {

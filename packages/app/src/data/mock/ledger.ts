@@ -120,7 +120,7 @@ import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlo
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
 import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../free-attack";
 import type { MatchRecord, MatchRecordViews } from "../matches";
-import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../../mocks/avatar";
+import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, generatedLook } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
@@ -777,7 +777,8 @@ export class MockLedger {
     const copy = (moves: StoredAttackV2["moves"]) => moves.map((m) => (m.discard ? { ...m } : { ...m, cell: { ...m.cell } }));
     const rivalOf = (address: string) => {
       const rival = mockRivalV2(address);
-      return { address, name: rival?.name ?? null, level: rival?.level ?? 0 };
+      // A rival lives on no device and saved no avatar: a face seeded by its address (#834), not an initial.
+      return { address, name: rival?.name ?? null, level: rival?.level ?? 0, look: String(generatedLook(address)) };
     };
     const attacks: MatchRecord[] = v2.attacks
       .filter((a) => a.status !== "open")

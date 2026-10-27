@@ -235,7 +235,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
   it("the defence log's old link lands on the league, its matches (#786), whose Back is the village", async () => {
     const s = await open("/pvp/defence");
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/pvp/league"), WAIT);
-    expect(await screen.findByRole("heading", { level: 2, name: "Attacks and defences" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Battle logs" }, WAIT)).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
   }, slow(30_000));
