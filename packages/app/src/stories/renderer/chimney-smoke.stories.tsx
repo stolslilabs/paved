@@ -27,8 +27,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const tile = { layout: "tile" as const, view: "close" as const };
-/** The second look: the look alone, its knobs left to it. */
-const wisps = { look: "wisps" as const };
 
 /** On a tile, autumn: the base `sfrfrfffr` (two smoking chimneys, one 2 x 2, and a bare one), the default look. */
 export const TileAutumn: Story = { args: { ...tile, forest: false, season: "autumn" } };
@@ -47,17 +45,6 @@ export const BoardWinter: Story = { args: { season: "winter" } };
 export const BoardSpring: Story = { args: { season: "spring" } };
 /** On the board, summer: neither smoke nor white voxels. */
 export const BoardSummer: Story = { args: { season: "summer" } };
-
-/** The second look, "wisps", on a tile in autumn. */
-export const WispsTileAutumn: Story = { args: { ...tile, forest: false, season: "autumn", ...wisps } };
-/** "wisps" on a tile in winter. */
-export const WispsTileWinter: Story = { args: { ...tile, forest: false, season: "winter", ...wisps } };
-/** "wisps" on the board in autumn. */
-export const WispsBoardAutumn: Story = { args: { season: "autumn", ...wisps } };
-/** "wisps" on the board in winter. */
-export const WispsBoardWinter: Story = { args: { season: "winter", ...wisps } };
-/** "wisps" on the board in spring. */
-export const WispsBoardSpring: Story = { args: { season: "spring", ...wisps } };
 
 /** The fade: winter, then the wheel turns to summer two seconds after the board is up, and the smoke fades out over 2 s. */
 export const FadeToSummer: Story = { args: { season: "winter", fadeTo: "summer" } };

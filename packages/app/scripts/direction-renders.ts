@@ -1,7 +1,6 @@
 /**
- * DIRECTIONS-2 (#537, PR 1b): the images of Direction/D, E and F, drawn once and committed under `src/directions/renders/`.
- * Only the direction stories import them, so they reach the Storybook's build and never the app's (`src/directions` is
- * outside the app's routes; `styles/index.css` does not scan it either).
+ * DIRECTIONS-2 (#537, PR 1b): the images of the direction stories D, E and F (since removed), drawn once and committed under
+ * `src/directions/renders/`. Nothing imports them: they are the masters of the app's copies (`scripts/app-renders.ts`).
  *
  *   bun run build --filter @paved/renderer      (the page imports the renderer's dist)
  *   nice -n 10 node scripts/direction-renders.ts [--only <name>]

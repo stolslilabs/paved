@@ -60,9 +60,6 @@ export const Night: Story = {};
 /** The board at a held dusk: the first lights. */
 export const Dusk: Story = { args: { phase: "dusk", season: "autumn" } };
 
-/** The margin at 0 for comparison: each pool of light stops at its tile's border. */
-export const NoSpill: Story = { args: { margin: 0 } };
-
 /** The stagger at four moments of the evening: some windows still dark at dusk, every window on at night. */
 export const Moments: Story = { args: { layout: "moments" } };
 

@@ -17,8 +17,7 @@ import { scrolledToEnd } from "../../stories/scrolled-to-end";
  * The chests (#739, part of #732; livelier since #759; #784) on fakes: the day's three slots and their reset, a ready chest's
  * opening in the modal on arrival, frame by frame (shaking, its draw on its way, its tiles, the tile kept), and the page with
  * the modal closed, whose slots say their state. One story per state of `VILLAGE_CHESTS` (`mocks/village-v2.ts`); `Interactive` opens them one after the
- * other on a ticking clock, and `ResetLive` ticks through the countdown's last minute to the reset. The hero's two directions:
- * `Scenes/Village v2/Chests directions`.
+ * other on a ticking clock, and `ResetLive` ticks through the countdown's last minute to the reset.
  */
 const meta = {
   title: "Scenes/Village v2/Chests",
