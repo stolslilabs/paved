@@ -117,7 +117,7 @@ export function useProfileOpener(): ProfileOpener {
 
 /**
  * The player's avatar alone, in its XP ring (#624, #625); a tap opens the profile sheet. The home's top left is `PlayerBadge`'s
- * (#787), which adds the name, the league and the XP bar.
+ * (#787, #830), which adds the name and the level's arc and line.
  */
 export function ProfileSlot({ className }: { className?: string }) {
   const { value, trigger, sheet } = useProfileOpener();

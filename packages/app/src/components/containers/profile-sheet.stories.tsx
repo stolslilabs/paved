@@ -14,12 +14,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The avatar larger in its XP ring, the name, the address with Copy, the level and "0 / 100 XP" (#625), the figures, Edit avatar (#626), Disconnect. */
+/** The avatar larger in its XP ring, the name, the address with Copy, the level (#625) with the XP made, the XP left to the next and the whole XP (#830), the figures, Edit avatar (#626), Disconnect. */
 export const Connected: Story = {};
 /** The avatar the player saved (#626), its still in the ring. */
 export const SavedAvatar: Story = { args: { look: SAVED_LOOK } };
-/** The ring part way, as it will be once the contracts define XP. */
+/** The ring part way: 120 XP made, 180 to level 4, 420 in all. */
 export const PartWay: Story = { args: { progress: PROGRESS.partWay } };
+/** A source that does not know the whole XP: the XP made and left only. */
+export const NoTotal: Story = { args: { progress: PROGRESS.nearlyFull } };
+/** The level cap (20, #734): "Max level" in place of the XP left. */
+export const MaxLevel: Story = { args: { progress: PROGRESS.maxLevel } };
 /** The level and XP still read: the empty track and dashes. */
 export const ProgressLoading: Story = { args: { progress: undefined } };
 export const NoUsername: Story = { args: { state: PROFILE.noUsername } };
@@ -28,4 +32,4 @@ export const Guest: Story = { args: { state: PROFILE.guest } };
 export const Connecting: Story = { args: { state: PROFILE.connecting } };
 export const Loading: Story = { args: { state: PROFILE.loading } };
 /** WRAP360: the longest name, the largest figures. */
-export const Stress: Story = { args: { state: PROFILE.stress, progress: PROGRESS.stress } };
+export const Stress: Story = { args: { state: PROFILE.stress, progress: { ...PROGRESS.stress, total: 123_456_789 } } };
