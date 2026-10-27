@@ -63,11 +63,9 @@ export const PAGES: readonly PageDef[] = [
   { path: "story/:campaign/:level", title: "Story", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
-  // Missions' two tabs, the day's and the lifetime missions (BACK-RULE #783): one switches to the other in place (its entry
-  // replaced), and both go up to the village. The static `missions/lifetime` first: `prefetch` matches in table order, and `:day?`
-  // would take "lifetime".
-  { path: "missions/lifetime", title: "Missions", nav: "quests", panel: true },
-  { path: "missions/:day?", title: "Missions", nav: "quests", panel: true },
+  // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`
+  // land on it (`router.tsx`).
+  { path: "missions", title: "Missions", nav: "quests", panel: true },
   { path: "vault", title: "Vault", nav: "vault", panel: true },
   // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it, a theme's too.
   { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },

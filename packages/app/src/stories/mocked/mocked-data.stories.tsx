@@ -3,14 +3,14 @@ import { fn } from "storybook/test";
 import { readPacks, type Definitions } from "@paved/chain";
 import { questCobbles } from "../../data/cobbles";
 import { MockLedger } from "../../data/mock/ledger";
-import { COBBLES, PURCHASE, QUESTS, THEME_SHOP, VAULT } from "../../mocks/scenes";
+import { COBBLES, MISSIONS, PURCHASE, THEME_SHOP, VAULT } from "../../mocks/scenes";
 import { QUEST_DEFINITIONS, QUESTS_TODAY } from "../../mocks/quests";
 import { PLAYER_ID } from "../../mocks/players";
 import { BALANCE_RICH } from "../../mocks/economy";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import { CobblesScene, type CobblesSceneProps } from "../../components/scenes/cobbles-scene";
 import { PurchaseScene } from "../../components/scenes/purchase-scene";
-import { QuestsScene, type QuestsSceneProps } from "../../components/scenes/quests-scene";
+import { MissionsScene, type MissionsSceneProps } from "../../components/scenes/missions-scene";
 import { ThemeShopScene, type ThemeShopSceneProps } from "../../components/scenes/theme-shop-scene";
 import { VaultScene, type VaultSceneProps } from "../../components/scenes/vault-scene";
 
@@ -80,23 +80,25 @@ export const VaultDeposited: Story = {
   render: (_args, { loaded }) => <VaultScene {...(loaded.props as VaultSceneProps)} />,
 };
 
-const questHandlers = { onDayChange: fn(), onTab: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaim: fn(), onClaimAll: fn(), onClaimCredit: fn(), onPlayFree: fn() };
+const questHandlers = { onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimBonus: fn() };
 
-async function questArgs(l: MockLedger): Promise<QuestsSceneProps> {
+async function questArgs(l: MockLedger): Promise<MissionsSceneProps> {
   const cobbles = questCobbles(l.definitions(definitions));
   const account = await l.account(PLAYER_ID);
   const day = await l.dayProgress(PLAYER_ID, QUESTS_TODAY.day);
   return {
-    ...(QUESTS.today as QuestsSceneProps),
+    ...(MISSIONS.noRewards as MissionsSceneProps),
     ...questHandlers,
-    rewards: { cobbles, day: { claimed: day.claimed, credit: day.credit }, week: { claimed: 0n, credit: false }, balance: account.cobbles, credits: account.credits },
-  } as QuestsSceneProps;
+    rewardsUnavailable: null,
+    initialSelected: "quest:1",
+    questRewards: { cobbles, day: { claimed: day.claimed, credit: day.credit }, week: { claimed: 0n, credit: false }, balance: account.cobbles, credits: account.credits },
+  };
 }
 
 /** Today's missions with the mock's Cobbles: Daily Run done, its 5 Cobbles to claim; nothing claimed yet, 0 Cobbles. */
 export const MissionsToClaim: Story = {
   loaders: [async () => ({ props: await questArgs(ledger()) })],
-  render: (_args, { loaded }) => <QuestsScene {...(loaded.props as QuestsSceneProps)} />,
+  render: (_args, { loaded }) => <MissionsScene {...(loaded.props as MissionsSceneProps)} />,
 };
 
 /** Daily Run claimed on the mock: 5 Cobbles in the balance, its Claim gone. */
@@ -109,7 +111,7 @@ export const MissionsClaimed: Story = {
       return { props: await questArgs(l) };
     },
   ],
-  render: (_args, { loaded }) => <QuestsScene {...(loaded.props as QuestsSceneProps)} />,
+  render: (_args, { loaded }) => <MissionsScene {...(loaded.props as MissionsSceneProps)} />,
 };
 
 /** Challenge with the mark (MOCK-MARK, #622): "Mock" on the title's line. */

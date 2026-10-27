@@ -26,14 +26,13 @@ import { join } from "node:path";
  * prints its line (page, width, figures): the pass's list of the PR.
  */
 
-const PAGES = ["shop", "chests", "league", "settings", "missions", "lifetime", "vault", "defence", "themes", "theme", "tiles", "referral", "credits", "play", "cobbles"] as const;
+const PAGES = ["shop", "chests", "league", "settings", "missions", "vault", "defence", "themes", "theme", "tiles", "referral", "credits", "play", "cobbles"] as const;
 const TITLES: Record<(typeof PAGES)[number], string> = {
   shop: "Tile shop",
   chests: "Chests",
   league: "League",
   settings: "Settings",
   missions: "Missions",
-  lifetime: "Missions",
   vault: "Vault",
   defence: "League",
   themes: "Themes",

@@ -1,7 +1,6 @@
 // The quests' and achievements' data of P9 (Cobbles, cobbles v1 part 1): one entry for `index.ts`, and the compile-time
 // checks `scene-types.ts` spreads into its list (`RewardSceneTypes`), so neither file grows past one line for them.
-import type { AchievementsSceneProps } from "../components/scenes/achievements-scene";
-import type { QuestsSceneProps } from "../components/scenes/quests-scene";
+import type { MissionsSceneProps } from "../components/scenes/missions-scene";
 import type * as cobbles from "./cobbles";
 
 export {
@@ -31,6 +30,6 @@ type OrNull<T> = T | null;
 type Read<T> = Omit<NonNullable<T>, "claiming">;
 
 export type RewardSceneTypes = [
-  Expect<Equal<Data<typeof cobbles.useQuestRewards>, OrNull<Read<QuestsSceneProps["rewards"]>>>>,
-  Expect<Equal<Data<typeof cobbles.useAchievementRewards>, OrNull<Read<AchievementsSceneProps["rewards"]>>>>,
+  Expect<Equal<Data<typeof cobbles.useQuestRewards>, OrNull<Read<MissionsSceneProps["questRewards"]>>>>,
+  Expect<Equal<Data<typeof cobbles.useAchievementRewards>, OrNull<Read<MissionsSceneProps["achievementRewards"]>>>>,
 ];
