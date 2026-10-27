@@ -31,7 +31,7 @@ type Story = StoryObj<typeof meta>;
 
 /** One slot (the free one, active), the next two locked with their prices. */
 export const One: Story = {};
-/** Three slots: the village, the die's village, an older layout. */
+/** Three slots: the village, the die's village, a Wonder village. */
 export const Three: Story = { args: LAYOUT_SLOTS.three };
 /** A locked slot picked: Buy at its price. */
 export const Locked: Story = { args: LAYOUT_SLOTS.locked };

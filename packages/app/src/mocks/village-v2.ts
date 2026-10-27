@@ -233,8 +233,8 @@ const slot = (index: number, tiles: readonly BoardTile[] | null, open = true, fi
 const DIE_SLOT = DIE_VILLAGES[0]!;
 /** One slot (the free one, the village's), the next two locked: 640 Cobbles held. */
 const SLOTS_ONE = { active: 0, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, null, false), slot(2, null, false)], cobbles: 640 } satisfies LayoutSlotsProps;
-/** Three slots: the village in slot 1, the die's village in slot 2, an older layout in slot 3. */
-const SLOTS_THREE = { active: 0, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, DIE_SLOT), slot(2, LAYOUT_FULL.tiles)], cobbles: 290 } satisfies LayoutSlotsProps;
+/** Three slots: the village in slot 1, the die's village in slot 2, a Wonder village in slot 3. */
+const SLOTS_THREE = { active: 0, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, DIE_SLOT), slot(2, LAYOUT_WONDER.tiles)], cobbles: 290 } satisfies LayoutSlotsProps;
 
 /** One fixture per state of the saved layouts' strip (#804), in the home's edit mode. */
 export const LAYOUT_SLOTS = {
@@ -259,7 +259,7 @@ export const LAYOUT_SLOTS = {
   /** Slot 2 made active: the village is the die's. */
   activated: { ...SLOTS_THREE, active: 1, initialSelected: 1 },
   /** A saved layout that no longer fits (open point 4): it needs tiles first, never made active. */
-  needsTiles: { ...SLOTS_THREE, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, DIE_SLOT), slot(2, LAYOUT_FULL.tiles, true, false)], initialSelected: 2 },
+  needsTiles: { ...SLOTS_THREE, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, DIE_SLOT), slot(2, LAYOUT_WONDER.tiles, true, false)], initialSelected: 2 },
   /** A slot write refused: what happened, above the slots. */
   refused: { ...SLOTS_THREE, initialSelected: 1, error: "The price changed: check it and buy again." },
 } satisfies Record<string, LayoutSlotsProps>;
