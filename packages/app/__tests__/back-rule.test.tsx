@@ -118,7 +118,17 @@ describe("the lifetime missions are on the Missions page (#832)", { timeout: slo
     expect(screen.queryByRole("tab")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-    // Back through the history to the village's own entry: the missions are after it, never before it.
+    // The redirect replaced the entry, as a link from outside does: Back goes up to the village in place, never past it.
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("Missions opened from the village: Back goes back through the history to the village's own entry", async () => {
+    const router = open("/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+    await router.navigate("/missions");
+    await screen.findByRole("heading", { level: 1, name: "Missions" }, WAIT);
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
   });
 });

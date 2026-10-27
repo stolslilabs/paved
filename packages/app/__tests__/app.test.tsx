@@ -48,9 +48,9 @@ describe("app", () => {
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });
 
-  // 28 since BACK-RULE (#783): the defence log is a section of the League, no longer a page; 29 with a match's page (#786).
-  it("keeps the section 6.1 route map: 29 pages, each path once", () => {
-    expect(PAGES).toHaveLength(29);
+  // 28 since BACK-RULE (#783): the defence log is a section of the League, no longer a page; 29 with a match's page (#786); 28 since Missions is one page (#832).
+  it("keeps the section 6.1 route map: 28 pages, each path once", () => {
+    expect(PAGES).toHaveLength(28);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 

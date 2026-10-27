@@ -108,7 +108,7 @@ describe("the idle prefetch of the tab pages", () => {
     vi.advanceTimersByTime(200);
     expect(loads).toEqual(["home"]);
     vi.advanceTimersByTime(200 * 7);
-    expect(loads).toEqual(["home", "quests", "vault", "shop", "chests", "play", "league", "settings"]);
+    expect(loads).toEqual(["home", "missions", "vault", "shop", "chests", "play", "league", "settings"]);
     vi.advanceTimersByTime(5000);
     expect(loads).toHaveLength(8);
   });
