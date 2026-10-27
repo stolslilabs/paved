@@ -35,6 +35,9 @@ export const LastDay: Story = { args: PVP_LEAGUE.lastDay };
 export const Sovereign: Story = { args: PVP_LEAGUE.sovereign };
 /** No attack yet: Wanderer, the first view; the previous arrow stops there. */
 export const Wanderer: Story = { args: PVP_LEAGUE.wanderer };
+/** Dropped to Wanderer (200 crowns) after reaching Yeoman I this season: on Yeoman II, its bonus stays had, not locked. */
+export const Demoted: Story = { args: PVP_LEAGUE.demoted };
+export const DemotedPhone: Story = { ...Demoted, ...PHONE_375 };
 /** The season has ended: its rewards on their way. */
 export const Ended: Story = { args: PVP_LEAGUE.ended };
 /** The matches with no shield: the village can be attacked. Attacks and defences mixed, newest first. */

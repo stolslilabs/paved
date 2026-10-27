@@ -110,6 +110,20 @@ describe("League carousel (#785, #833)", () => {
     expect(within(inView()).getByText("No season reward")).toBeInTheDocument();
   });
 
+  it("a drop to Wanderer keeps the season's bonuses had up to the season's best", async () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.demoted} />));
+    expect(screen.getByTestId("league-player")).toHaveTextContent(/Your crowns.*200.*Season best.*1,240/);
+    expect(inView()).toHaveAccessibleName("Yeoman II");
+    expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: had this season");
+    await userEvent.click(screen.getByRole("button", { name: "Go to Yeoman I" }));
+    expect(bonus()).toHaveAttribute("data-bonus", "had");
+    await userEvent.click(screen.getByRole("button", { name: "Go to Squire III" }));
+    expect(bonus()).toHaveAttribute("data-bonus", "locked");
+    // The back icon returns to the player's league, Wanderer.
+    await userEvent.click(within(inView()).getByRole("button", { name: "Back to my league" }));
+    expect(inView()).toHaveAccessibleName("Wanderer");
+  });
+
   for (const reduced of ["never", "always"] as const) {
     it(`a bonus to celebrate: a tap plays its moment, then it is had and seen (reduced motion ${reduced})`, async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });

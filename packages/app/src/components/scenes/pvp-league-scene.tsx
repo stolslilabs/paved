@@ -79,8 +79,8 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   const outside = unranked || league.id === "wanderer";
   const mine = outside ? LEAGUES[0]! : league;
   const [selected, setSelected] = useState(opensOn ?? mine.index);
-  // The highest league reached this season: each league up to it has paid its first-time bonus.
-  const peak = Math.max(mine.index, best != null && !outside ? leagueOf(best).index : 0);
+  // The highest league reached this season: each league up to it has paid its first-time bonus, kept after a drop (to Wanderer too).
+  const peak = Math.max(mine.index, best != null ? leagueOf(best).index : 0);
   const [seen, setSeen] = useState<readonly number[]>([]);
   const [celebrating, setCelebrating] = useState<number | null>(null);
   const bonusOf = (l: League): LeagueBonusState => (l.index > peak ? "locked" : bonusesToSee?.includes(l.index) && !seen.includes(l.index) ? "ready" : "had");

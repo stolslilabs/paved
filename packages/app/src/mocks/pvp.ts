@@ -289,6 +289,8 @@ export const PVP_LEAGUE = {
   lower: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 2 },
   sovereign: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
   wanderer: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
+  // Dropped to Wanderer after reaching Yeoman I this season: the bonuses up to Yeoman I stay had.
+  demoted: { crowns: 200, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 5 },
   ended: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW - 2 * HOUR }, now: MOCK_NOW },
 } satisfies Record<string, Data<PvpLeagueSceneProps>>;
 
