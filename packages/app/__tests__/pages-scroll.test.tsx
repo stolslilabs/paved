@@ -37,7 +37,7 @@ const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
   ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onNavigate={no()} onBuy={no()} onGetCobbles={no()} />],
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
-  ["League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={no()} onNavigate={no()} onAttack={no()} onOpenMatch={no()} />],
+  ["League", <PvpLeagueScene {...PVP_LEAGUE.yeoman} onBack={no()} onNavigate={no()} onAttack={no()} onOpenMatch={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
   ["Missions", <QuestsScene {...QUESTS.today} onNavigate={no()} onDayChange={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
   ["Missions", <AchievementsScene {...ACHIEVEMENTS.mixed} onNavigate={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],

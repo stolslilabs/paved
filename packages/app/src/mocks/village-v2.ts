@@ -271,7 +271,7 @@ export const HOME_VILLAGE = {
   resume: { ...home, activeGame: GAME_PLAYING },
   /** `spawn_paused`: the notice beside the Resume chip. */
   paused: { ...home, activeGame: GAME_PLAYING, spawnPaused: true },
-  /** A new player: the starter village (level 1), no PvP played: the badge Unranked with 0 crowns (#755). */
+  /** A new player: the starter village (level 1), no PvP played: the badge Wanderer with 0 crowns (#755). */
   start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, now: MOCK_NOW },
   /** The village shielded after a defence (#806): the shield's chip beside the crowns, 07:42 left. */
   shielded: { ...home, shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 },

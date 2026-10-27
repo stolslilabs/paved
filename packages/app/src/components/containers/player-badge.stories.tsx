@@ -56,7 +56,7 @@ const LEVEL_UPS = Array.from({ length: 6 }, (_, k) => {
   const level = 2 + Math.floor(k / 2);
   return { progress: k % 2 === 0 ? { level, xp: 160, xpForNext: 200 } : { level: level + 1, xp: 30, xpForNext: 200 }, crowns: SILVER };
 });
-/** Unranked, then each group's floor up to Legend: the border turns to each new colour with a pulse. */
+/** Wanderer, then each group's floor up to Sovereign: the border turns to each new colour with a pulse. */
 const PROMOTIONS = [0, ...[0, 3, 6, 9, 12, 15, 18, 21].map((i) => LEAGUE_FLOORS[i]!)].map((crowns) => ({ progress: PROGRESS.partWay, crowns }));
 
 /**
@@ -78,12 +78,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Before PvP: 0 crowns, Unranked, the border a neutral grey; level 1 with no XP. */
-export const Unranked: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.connected, PROGRESS.start) };
-/** A mid league (Silver I, 1,240 crowns): the border in its crest's colour, part way through level 3. */
+/** Before PvP: 0 crowns, Wanderer, the border a neutral grey; level 1 with no XP. */
+export const Wanderer: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.connected, PROGRESS.start) };
+/** A mid league (Yeoman I, 1,240 crowns): the border in its crest's colour, part way through level 3. */
 export const MidLeague: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay) };
-/** The top league: Legend's border, level 7 nearly full. */
-export const Legend: Story = { args: { crowns: 5_320 }, parameters: profile(PROFILE.connected, PROGRESS.nearlyFull) };
+/** The top league: Sovereign's border, level 7 nearly full. */
+export const Sovereign: Story = { args: { crowns: 5_320 }, parameters: profile(PROFILE.connected, PROGRESS.nearlyFull) };
 /** The level cap (20, #734): the bar full, "Max level" in place of the XP left. */
 export const MaxLevel: Story = { args: { crowns: 3_050 }, parameters: profile(PROFILE.connected, PROGRESS.maxLevel) };
 /** The avatar the player saved (#626), in its league's border. */
@@ -92,7 +92,7 @@ export const SavedAvatar: Story = { parameters: profile(PROFILE.connected, PROGR
 export const ReadingXp: Story = { parameters: profile(PROFILE.connected, undefined) };
 /** WRAP360: a four-digit level and XP in the thousands, a five-digit crown count. */
 export const Stress: Story = { args: { crowns: 12_345 }, parameters: profile(PROFILE.connected, PROGRESS.stress) };
-/** No wallet: the silhouette, "Guest", no XP bar; Unranked. */
+/** No wallet: the silhouette, "Guest", no XP bar; Wanderer. */
 export const Guest: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.guest) };
 /** The wallet still looking for a session: the avatar's placeholder. */
 export const Loading: Story = { args: { crowns: 0 }, parameters: profile(PROFILE.loading) };
