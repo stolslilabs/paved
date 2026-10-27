@@ -36,7 +36,7 @@ export interface MissionTileProps {
 /**
  * A mission of the Missions page as an icon (#832): a square tile with the mission's icon, its Cobbles under it, and its state
  * (a check once done, a glow while its Cobbles wait, a lock while a lifetime mission has nothing counted). A tap selects it: the
- * card at the top shows it, and the tile is ringed (`aria-pressed`). No animation: the glow is still, so reduced motion has
+ * card at the top shows it, and the tile is ringed (`aria-pressed`). No animation: the glow (a lit fill) is still, so reduced motion has
  * nothing to stop.
  */
 export function MissionTile({ title, icon, state, cobbles, progress, selected = false, bonus = false, onSelect, className }: MissionTileProps) {
@@ -48,14 +48,14 @@ export function MissionTile({ title, icon, state, cobbles, progress, selected = 
       aria-label={`${title}: ${MISSION_STATE_LABEL[state]}`}
       data-state={state}
       onClick={onSelect}
-      className={cn("group flex min-w-0 cursor-pointer flex-col items-center gap-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("flex min-w-0 cursor-pointer flex-col items-center gap-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <span
         className={cn(
-          "relative grid aspect-square w-full place-items-center rounded-xl border bg-card transition-colors group-hover:bg-secondary motion-reduce:transition-none",
-          bonus && "w-4/5 border-dashed",
-          state === "claimable" ? "border-primary shadow-[0_0_14px_2px] shadow-primary/45" : done ? "border-primary/40" : "border-border",
-          selected && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
+          "relative grid aspect-square w-full place-items-center rounded-xl border bg-card",
+          bonus && "w-3/4 border-dashed",
+          state === "claimable" ? "border-primary bg-primary/15 shadow-lg" : done ? "border-primary/40" : "border-border",
+          selected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
         )}
       >
         <Icon
@@ -69,7 +69,7 @@ export function MissionTile({ title, icon, state, cobbles, progress, selected = 
           </span>
         )}
         {state === "progress" && progress !== undefined && (
-          <span aria-hidden className="absolute inset-x-2 bottom-1.5 h-1 overflow-hidden rounded-full bg-input">
+          <span aria-hidden className="absolute inset-x-2 bottom-1 h-1 overflow-hidden rounded-full bg-input">
             <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }} />
           </span>
         )}

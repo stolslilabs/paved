@@ -211,7 +211,7 @@ export function MissionsScene(props: MissionsSceneProps) {
       onSelect={() => setPicked(m.key as MissionKey)}
     />
   );
-  const grid = "grid grid-cols-[repeat(auto-fill,minmax(3.75rem,1fr))] gap-x-2 gap-y-3";
+  const grid = "grid grid-cols-5 gap-2 tablet:grid-cols-6";
   const earned = lifetime.filter((m) => m.state === "claimable" || m.state === "done").length;
 
   return (
