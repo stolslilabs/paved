@@ -47,6 +47,7 @@ export const MOCKED_GAME_READS = [
   "pvpMoves",
   "pvpNpcLevel",
   "freeVillage",
+  "layoutSlots",
   "inventory",
   "chests",
   "shop",
@@ -58,7 +59,7 @@ export const MOCKED_GAME_READS = [
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers. */
-export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
+export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
 
 /**
  * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
@@ -234,6 +235,9 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     // PvP v2 (#741): the free village, chests, shop, Story report and the attack, all the ledger's
     foundFreeVillage: writes.foundFreeVillage,
     saveLayout: writes.saveLayout,
+    saveLayoutTo: writes.saveLayoutTo,
+    activateLayout: writes.activateLayout,
+    buyLayoutSlot: writes.buyLayoutSlot,
     openChest: writes.openChest,
     claimChest: writes.claimChest,
     buyTile: writes.buyTile,

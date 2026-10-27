@@ -121,7 +121,10 @@ export type V2Refusal =
   | "opponent-drawn"
   | "opponent-shielded"
   | "no-opponent"
-  | "cannot-place";
+  | "cannot-place"
+  | "slot-locked"
+  | "slot-empty"
+  | "slot-open";
 
 /** A v2 write the rules refused: its reason, and the receipt's hash when it was sent. */
 export class V2RefusedError extends Error {

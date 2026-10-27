@@ -53,6 +53,8 @@ export const queryKeys = {
       attack: (attacker: string) => ["chain", "v2", "attack", addressKey(attacker)] as const,
       /** One attack of the attacker by its id, open or ended: its result's page (#790). */
       attackOf: (attacker: string, id: number) => ["chain", "v2", "attack-of", addressKey(attacker), id] as const,
+      /** The saved layouts' slots (#804): each slot's layout, which are bought, the active one. */
+      layoutSlots: (playerId: string) => ["chain", "v2", "layout-slots", addressKey(playerId)] as const,
     },
   },
   indexer: {

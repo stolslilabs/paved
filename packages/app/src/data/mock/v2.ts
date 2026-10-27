@@ -1,4 +1,4 @@
-import { attackDeckSize, emptyInventory, layoutScore, slotsOf, type ChestRank, type LayoutTile, type QueuedMove } from "@paved/game-core";
+import { attackDeckSize, emptyInventory, layoutScore, layoutSlotsOf, slotsOf, type ChestRank, type LayoutSlots, type LayoutTile, type QueuedMove } from "@paved/game-core";
 import type { ChestOrigin } from "../free-village-base";
 import { RIVAL_SEEDS } from "./rivals";
 
@@ -43,8 +43,13 @@ export interface StoredV2 {
   xp: number;
   /** The tiles held, by plan (19 counts). */
   inventory: number[];
-  /** The saved layout, the starter left out; null: not founded. */
+  /** The saved layout, the starter left out; null: not founded. The village: the active slot's layout (#804). */
   layout: LayoutTile[] | null;
+  /**
+   * The saved layouts' slots (#804): each one's layout (null: empty), the slots bought, the active one, whose entry `layout`
+   * mirrors. Absent: a save from before them, read as `layout` alone in the free slot (`slotsOfV2`).
+   */
+  slots?: { layouts: (LayoutTile[] | null)[]; bought: number[]; active: number };
   chests: { pending: StoredChest[]; open: { rank: ChestRank; plans: number[]; cobbles: number; origin?: ChestOrigin } | null; opened: number };
   /** The PvP chests granted, by day. */
   pvpChests: Record<string, number>;
@@ -69,6 +74,18 @@ export const freshV2 = (): StoredV2 => ({
   draws: 0,
   attacks: [],
 });
+
+/** A founded village's layout slots: the stored ones, or (a save from before #804) its layout alone, in the free slot. */
+export function slotsOfV2(v2: StoredV2 & { layout: LayoutTile[] }): LayoutSlots {
+  return v2.slots ?? layoutSlotsOf(v2.layout);
+}
+
+/** The slots stored, the village (`layout`) following the active one's layout. */
+export function storeSlotsV2(v2: StoredV2, slots: LayoutSlots): void {
+  const layouts = slots.layouts.map((l) => (l ? l.map((t) => ({ ...t })) : null));
+  v2.slots = { layouts, bought: [...slots.bought], active: slots.active };
+  v2.layout = layouts[slots.active]!.map((t) => ({ ...t }));
+}
 
 /** A rival village of PvP v2. */
 export interface MockRivalV2 {
