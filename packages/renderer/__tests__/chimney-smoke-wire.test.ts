@@ -7,7 +7,7 @@ import { Plan, getPlanKey } from "@paved/game-core";
 import { GameScene } from "../src/core/GameScene";
 import { TileRenderer } from "../src/core/TileRenderer";
 import { ChimneySmoke } from "../src/core/chimney-smoke";
-import { DEFAULT_SMOKE_SETTINGS, resolveSmokeSettings } from "../src/core/chimney-smoke-settings";
+import { DEFAULT_SMOKE_SETTINGS, puffsPerChimney, resolveSmokeSettings, smokeLookOf } from "../src/core/chimney-smoke-settings";
 import { chimneyOptionsOf, findChimneys } from "../src/core/chimneys";
 import { isOutline } from "../src/core/outlines";
 import { resolveRendererSettings, type RendererSettingsInput } from "../src/core/settings";
@@ -132,7 +132,7 @@ describe("the scene's smoke setting", () => {
     expect(resolveRendererSettings({ smoke: { enabled: true } }).smoke).toEqual({ enabled: true });
     // Kept as given: the smoke's chunk resolves it over its defaults.
     const given = resolveRendererSettings({ smoke: { enabled: true, fadeSeconds: 3, seasons: { spring: { enabled: false } } } }).smoke;
-    expect(resolveSmokeSettings(given)).toMatchObject({ enabled: true, fadeSeconds: 3, look: "puffs", seasons: { spring: { enabled: false } } });
+    expect(resolveSmokeSettings(given)).toMatchObject({ enabled: true, fadeSeconds: 3, look: "varied", seasons: { spring: { enabled: false } } });
   });
 });
 
@@ -269,7 +269,7 @@ describe("GameScene: the chimney smoke (#770 PR 2) in the boards", () => {
     await vi.waitFor(() => expect(scene.getSmoke()?.season).toBe("autumn"), CHUNK_WAIT);
     // Two tiles of a model with a smoking and a bare chimney: four chimneys, one draw of puffs and one of caps.
     expect(scene.getSmoke()).toMatchObject({ mode: "moving", presence: 1, chimneys: 4, drawCalls: 2, voxelsHidden: true });
-    expect(scene.getSmoke()!.puffs).toBe(4 * DEFAULT_SMOKE_SETTINGS.seasons.autumn.amount * 9);
+    expect(scene.getSmoke()!.puffs).toBe(4 * DEFAULT_SMOKE_SETTINGS.seasons.autumn.amount * puffsPerChimney(smokeLookOf(DEFAULT_SMOKE_SETTINGS)));
     expect(hidden()).toBe(true);
     for (const season of [WINTER, SPRING]) {
       scene.setSettings(held(season));
