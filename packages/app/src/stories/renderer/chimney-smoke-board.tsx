@@ -7,8 +7,10 @@ import {
   type RendererSettingsInput,
   type Season,
   type SmokeLook,
+  type SmokeLookInput,
   type SmokeLookName,
   type SmokeSettings,
+  type SmokeVariation,
   type TileRenderData,
 } from "@paved/renderer";
 import { getPlanKey, Plan } from "@paved/game-core";
@@ -60,6 +62,20 @@ export interface ChimneySmokeBoardProps {
   drift?: number;
   color?: string;
   shade?: string;
+  /** How fast the noise of a puff's edge rolls, and how fast a puff sways (#801: slower). */
+  roll?: number;
+  swaySpeed?: number;
+  /** Each chimney's own plume (#801): the variation's ranges, either side of the look's value (unset: the look's, none). */
+  varyDirection?: number;
+  varyDrift?: number;
+  varyShape?: number;
+  varyTone?: number;
+  varyPuffTone?: number;
+  varyOpacity?: number;
+  varyPace?: number;
+  /** A name over the readout, and the board held in its parent's box rather than the window's height (the comparison's two sides). */
+  label?: string;
+  contained?: boolean;
   /** Winter's thickness (1 the look as it is). */
   winterAmount: number;
   /** Spring's smoke on (owner: on for a start; it may lose it later). */
@@ -74,7 +90,17 @@ export interface ChimneySmokeBoardProps {
   quality: QualityTier | "auto";
 }
 
-const LOOK_KEYS = ["opacity", "puffs", "lifeSeconds", "rise", "sizeStart", "sizeEnd", "swirl", "billow", "stretch", "drift", "color", "shade"] as const satisfies ReadonlyArray<keyof SmokeLook>;
+export const LOOK_KEYS = ["opacity", "puffs", "lifeSeconds", "rise", "sizeStart", "sizeEnd", "swirl", "billow", "stretch", "drift", "color", "shade", "roll", "swaySpeed"] as const satisfies ReadonlyArray<keyof SmokeLook>;
+/** The variation's knobs, by their control's name. */
+export const VARIATION_KEYS = {
+  varyDirection: "direction",
+  varyDrift: "drift",
+  varyShape: "shape",
+  varyTone: "tone",
+  varyPuffTone: "puffTone",
+  varyOpacity: "opacity",
+  varyPace: "pace",
+} as const satisfies Record<string, keyof SmokeVariation>;
 
 const tileOf = (plan: number, pending = false): TileRenderData => ({ game_id: 1, id: 1, player_id: "0x0", plan, orientation: 1, x: 0, y: 0, worldX: 0, worldZ: 0, pending });
 const BOARD_TILES = toRenderTiles(BOARD_72.tiles, 1);
@@ -88,7 +114,14 @@ export function smokeInput(props: ChimneySmokeBoardProps): SmokeSettings {
   return resolveSmokeSettings({
     look: props.look,
     // Only the knobs that were set: the others are the look's own.
-    custom: Object.fromEntries(LOOK_KEYS.filter((k) => props[k] !== undefined).map((k) => [k, props[k]])) as Partial<SmokeLook>,
+    custom: {
+      ...(Object.fromEntries(LOOK_KEYS.filter((k) => props[k] !== undefined).map((k) => [k, props[k]])) as SmokeLookInput),
+      variation: Object.fromEntries(
+        Object.entries(VARIATION_KEYS)
+          .filter(([k]) => props[k as keyof typeof VARIATION_KEYS] !== undefined)
+          .map(([k, v]) => [v, props[k as keyof typeof VARIATION_KEYS]]),
+      ) as Partial<SmokeVariation>,
+    },
     fadeSeconds: props.fadeSeconds,
     seasons: { winter: { amount: props.winterAmount }, spring: { enabled: props.spring } },
   });
@@ -242,10 +275,11 @@ export function ChimneySmokeBoard(props: ChimneySmokeBoardProps) {
   }, [scene]);
 
   return (
-    <div className="relative h-full min-h-dvh w-full bg-board" data-ready={(ready && !!readout && readout.chimneys > 0) || undefined}>
+    <div className={`relative h-full w-full bg-board ${props.contained ? "" : "min-h-dvh"}`} data-ready={(ready && !!readout && readout.chimneys > 0) || undefined}>
       <GameCanvas tiles={tiles} skins={skins} basePath={APP_ASSETS} manifest={APP_MANIFEST} settings={settings} onReady={onReady} style={{ position: "absolute", inset: 0 }} />
       {readout && (
         <output className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-1.5rem)] rounded-md bg-background/80 px-3 py-2 font-mono text-xs text-foreground numeric" aria-live="off">
+          {props.label && <div className="font-semibold">{props.label}</div>}
           <div>
             {readout.season} · smoke {readout.mode}, {Math.round(readout.presence * 100)} % · {readout.chimneys} chimneys · {readout.puffs} puffs
           </div>
