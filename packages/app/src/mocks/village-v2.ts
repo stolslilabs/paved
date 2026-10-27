@@ -345,4 +345,4 @@ export const HOME_VILLAGE = {
   slotsNeedsTiles: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.needsTiles },
   /** A slot write refused. */
   slotsRefused: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.refused },
-} satisfies Record<string, Data<HomeVillageSceneProps>>;
+} satisfies Record<string, Data<HomeVillageSceneProps & { layoutSlots?: LayoutSlotsProps }>>;

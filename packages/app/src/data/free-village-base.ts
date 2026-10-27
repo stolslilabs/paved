@@ -240,11 +240,12 @@ export function useFreeVillageWrites(playerId: string | null) {
       switch (write.kind) {
         case "found":
           return signer.foundFreeVillage();
-        case "save": {
-          // Into the slot the editor showed active (#804), never one an activation made active meanwhile.
-          const slots = signer as FreeVillageWrites & Partial<{ saveLayoutTo(slot: number, tiles: readonly LayoutTile[]): Promise<WriteResult> }>;
-          return write.slot !== undefined && slots.saveLayoutTo ? slots.saveLayoutTo(write.slot, write.tiles) : signer.saveLayout(write.tiles);
-        }
+        case "save":
+          // Into the slot the editor showed active (#804), never one an activation made active meanwhile. A slot is given only
+          // where the slots are served, by a signer that writes them (`layoutSlotSigner`).
+          return write.slot === undefined
+            ? signer.saveLayout(write.tiles)
+            : (signer as FreeVillageWrites & { saveLayoutTo(slot: number, tiles: readonly LayoutTile[]): Promise<WriteResult> }).saveLayoutTo(write.slot, write.tiles);
         case "open":
           return signer.openChest(write.index);
         case "claim":

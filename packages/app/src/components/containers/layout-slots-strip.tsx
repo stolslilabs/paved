@@ -111,20 +111,20 @@ export function LayoutSlotsStrip({ editor, className, ...props }: LayoutSlotsPro
       {/* The picked slot's actions: one row while they fit, the last ones on a second row on a narrow phone (320 px). */}
       <div className="flex flex-wrap gap-2">
         {!slot.open ? (
-          <Button className="flex-auto" onClick={() => setAsk("buy")} disabled={working || short} loading={busy?.kind === "buy" && busy.slot === slot.slot}>
+          <Button className="grow" onClick={() => setAsk("buy")} disabled={working || short} loading={busy?.kind === "buy" && busy.slot === slot.slot}>
             <Icon name="lock-open" size="sm" /> Buy {slotName(slot.slot).toLowerCase()} · <Cobbles value={slot.price} />
           </Button>
         ) : (
           <>
             {slot.tiles && (
-              <Button variant="outline" className="flex-auto px-3" onClick={load} disabled={working || draftHere}>
+              <Button variant="outline" className="grow px-3" onClick={load} disabled={working || draftHere}>
                 <Icon name="pen" size="sm" /> Load
               </Button>
             )}
             {slot.slot !== active && (
               <Button
                 variant="outline"
-                className="flex-auto px-3"
+                className="grow px-3"
                 onClick={saveHere}
                 disabled={working || draftHere || editor.over || editor.rolling}
                 loading={busy?.kind === "save-to" && busy.slot === slot.slot}
@@ -135,7 +135,7 @@ export function LayoutSlotsStrip({ editor, className, ...props }: LayoutSlotsPro
             {slot.tiles && slot.slot !== active && (
               <Button
                 variant="secondary"
-                className="flex-auto px-3"
+                className="grow px-3"
                 onClick={() => setAsk("activate")}
                 disabled={working || !slot.fits}
                 loading={busy?.kind === "activate" && busy.slot === slot.slot}
@@ -171,10 +171,10 @@ function SlotCard({ slot, active, picked, onPick }: { slot: LayoutSlot; active: 
       onClick={onPick}
       className={cn(
         "relative flex min-h-11 flex-col items-stretch gap-1 rounded-lg border bg-background/40 p-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-        picked ? "border-primary ring-1 ring-primary" : "border-border hover:border-muted-foreground",
+        picked ? "border-primary ring-1 ring-primary" : "border-border",
       )}
     >
-      <div className="flex h-10 items-center justify-center overflow-hidden rounded-md bg-board/60">
+      <div className="flex h-10 items-center justify-center overflow-hidden rounded-md bg-board">
         {!slot.open ? (
           <Icon name="lock" size="sm" className="text-muted-foreground" />
         ) : slot.tiles ? (
@@ -221,7 +221,8 @@ function SlotPlan({ tiles }: { tiles: readonly BoardTile[] }) {
           width={0.84}
           height={0.84}
           rx={0.12}
-          className={t.x === 0 && t.y === 0 ? "fill-primary" : "fill-muted-foreground/70"}
+          fill="currentColor"
+          className={t.x === 0 && t.y === 0 ? "text-primary" : "text-muted-foreground"}
         />
       ))}
     </svg>

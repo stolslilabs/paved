@@ -10,7 +10,8 @@ import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_SLOTS
 import { BalancesProvider } from "../containers/balances-context";
 import type { LayoutSaved } from "../containers/layout-editor";
 import { layoutScore } from "../containers/layout-rules";
-import type { LayoutSlot } from "../containers/layout-slots-strip";
+import type { LayoutSlot, LayoutSlotsProps } from "../containers/layout-slots-strip";
+import VillageStage from "../containers/village-stage";
 import type { VillageLayout } from "../containers/layout-rules";
 import { ProfileProvider } from "../containers/profile-context";
 import { BoardViewport } from "../containers/board-viewport";
@@ -155,34 +156,42 @@ export const EditingFullWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.ed
 /** Every slot used at 375 px: the carousel greyed, every visible card waiting, and it still drags and swipes. */
 export const EditingFullPhone: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.editing, village: LAYOUT_FULL, inventory: INVENTORY_LONG } };
 
+/**
+ * A home state with the saved layouts' strip (#804): the page's stage reads them itself (`routes/layout-slots.ts`); the stories hand
+ * the scene's own stage the fixture's.
+ */
+function slots<A extends { layoutSlots: LayoutSlotsProps }>({ layoutSlots, ...args }: A) {
+  return { args, render: (story: HomeVillageSceneProps) => <HomeVillageScene {...story} renderStage={(stage) => <VillageStage {...stage} layoutSlots={layoutSlots} />} /> };
+}
+
 /** The saved layouts (#804) above the inventory: one slot (the village's, Active), the next two locked with their prices. */
-export const SlotsOne: Story = { args: HOME_VILLAGE.slotsOne };
-export const SlotsOnePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.slotsOne };
-export const SlotsOneWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.slotsOne };
+export const SlotsOne: Story = { ...slots(HOME_VILLAGE.slotsOne) };
+export const SlotsOnePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsOne) };
+export const SlotsOneWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsOne) };
 /** Three slots, the die's village in slot 2 picked: Load, Save here, Make active. */
-export const SlotsThree: Story = { args: HOME_VILLAGE.slotsThree };
-export const SlotsThreePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.slotsThree };
-export const SlotsThreeWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.slotsThree };
+export const SlotsThree: Story = { ...slots(HOME_VILLAGE.slotsThree) };
+export const SlotsThreePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsThree) };
+export const SlotsThreeWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsThree) };
 /** A locked slot picked: Buy at its price. */
-export const SlotsLocked: Story = { args: HOME_VILLAGE.slotsLocked };
+export const SlotsLocked: Story = { ...slots(HOME_VILLAGE.slotsLocked) };
 /** Buy asked first: the price and the Cobbles held. */
-export const SlotsBuy: Story = { args: HOME_VILLAGE.slotsBuy };
+export const SlotsBuy: Story = { ...slots(HOME_VILLAGE.slotsBuy) };
 /** The purchase on its way. */
-export const SlotsBuying: Story = { args: HOME_VILLAGE.slotsBuying };
+export const SlotsBuying: Story = { ...slots(HOME_VILLAGE.slotsBuying) };
 /** Slot 2 bought: open and empty, Save here. */
-export const SlotsBought: Story = { args: HOME_VILLAGE.slotsBought };
+export const SlotsBought: Story = { ...slots(HOME_VILLAGE.slotsBought) };
 /** Too few Cobbles for slot 3: Buy off, and why. */
-export const SlotsShort: Story = { args: HOME_VILLAGE.slotsShort };
+export const SlotsShort: Story = { ...slots(HOME_VILLAGE.slotsShort) };
 /** Load over changes kept nowhere: asked first. */
-export const SlotsLoad: Story = { args: HOME_VILLAGE.slotsLoad };
+export const SlotsLoad: Story = { ...slots(HOME_VILLAGE.slotsLoad) };
 /** Make active: asked first, attackers will face it. */
-export const SlotsActivate: Story = { args: HOME_VILLAGE.slotsActivate };
+export const SlotsActivate: Story = { ...slots(HOME_VILLAGE.slotsActivate) };
 /** Slot 2 active: the village is its layout. */
-export const SlotsActivated: Story = { args: HOME_VILLAGE.slotsActivated };
+export const SlotsActivated: Story = { ...slots(HOME_VILLAGE.slotsActivated) };
 /** A saved layout that no longer fits (#804 open point 4): it needs tiles first, never made active. */
-export const SlotsNeedsTiles: Story = { args: HOME_VILLAGE.slotsNeedsTiles };
+export const SlotsNeedsTiles: Story = { ...slots(HOME_VILLAGE.slotsNeedsTiles) };
 /** A slot write refused: what happened, above the slots. */
-export const SlotsRefused: Story = { args: HOME_VILLAGE.slotsRefused };
+export const SlotsRefused: Story = { ...slots(HOME_VILLAGE.slotsRefused) };
 
 /**
  * The slots at work, as the mock ledger answers them: buy slot 2 (the Cobbles follow), press the die, Save here, Make active (the
@@ -206,7 +215,10 @@ function SlotsLive(args: HomeVillageSceneProps) {
     <HomeVillageScene
       {...args}
       village={{ ...LAYOUT_GROWING, tiles, score: layoutScore(tiles) }}
-      layoutSlots={{
+      renderStage={(stage) => (
+        <VillageStage
+          {...stage}
+          layoutSlots={{
         active,
         slots,
         cobbles,
@@ -217,8 +229,10 @@ function SlotsLive(args: HomeVillageSceneProps) {
             put(slot, { open: true });
           }),
         onSaveTo: (slot, draft) => land("save-to", slot, () => put(slot, { tiles: draft, score: layoutScore(draft) })),
-        onActivate: (slot) => land("activate", slot, () => setActive(slot)),
-      }}
+            onActivate: (slot) => land("activate", slot, () => setActive(slot)),
+          }}
+        />
+      )}
     />
   );
 }

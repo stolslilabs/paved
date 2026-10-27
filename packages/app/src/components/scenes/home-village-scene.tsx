@@ -15,7 +15,6 @@ import { OverlayButton } from "../containers/home-overlays";
 import type { LayoutBoardView } from "../containers/layout-board";
 import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
-import type { LayoutSlotsProps } from "../containers/layout-slots-strip";
 import type { VillageStageProps } from "../containers/village-stage";
 import { PlayerBadge } from "../containers/player-badge";
 import type { Tab } from "../../routes/pages";
@@ -117,8 +116,6 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
-  /** The saved layouts (#804): their strip in edit mode. Unset: the page's stage reads them itself (or none, not served). */
-  layoutSlots?: LayoutSlotsProps;
 }
 
 /**
@@ -189,7 +186,6 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     randomSeed: props.randomSeed,
     slowRollMs: props.slowRollMs,
     initialRolling: props.initialRolling,
-    layoutSlots: props.layoutSlots,
   };
   return (
     // A game scene's frame, clipped as the boards' (the dial's ring included). In edit mode it clips vertically only: across, the
