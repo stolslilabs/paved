@@ -408,14 +408,12 @@
      navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
   html, body { overscroll-behavior: none; }
 
-  /* NO-SCROLLBARS (#609): no scrollbar is drawn from `desktop`, on any element, the document included; every scroller still
-     scrolls by wheel, trackpad, keyboard and touch. Below `desktop` the OS draws overlay bars that hide themselves: unchanged.
-     What tells the player a region scrolls is the edge fade, `scroll-hint` below. */
-  /* The breakpoint's media query, not the `desktop` variant: a panel's page (#762) hides its bars too. */
-  @media (width >= 64rem) {
-    * { scrollbar-width: none; }
-    *::-webkit-scrollbar { display: none; }
-  }
+  /* NO-SCROLLBARS (#609, #835): no scrollbar is drawn at any width, on any element, the document included; every scroller
+     still scrolls by touch, wheel, trackpad and keyboard. No bar takes room, so a page's content keeps its width when it
+     starts or stops scrolling (no `scrollbar-gutter` needed). What tells the player a region scrolls is the edge fade,
+     `scroll-hint` below. */
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
 
   /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
      `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
