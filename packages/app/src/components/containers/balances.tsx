@@ -176,7 +176,7 @@ export function Balances({ layout, direction = "row", state, onAction, onConnect
   if (layout === "rail") {
     const fromOf = (kind: BalanceKind) => (kind === "vpaved" ? vpaved.from : undefined);
     return (
-      <section aria-label="Balances" data-direction={direction} className={cn("flex min-w-0", direction === "column" ? "flex-col items-end" : "items-center gap-3", className)}>
+      <section aria-label="Balances" data-direction={direction} className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-2" : "items-center gap-3", className)}>
         {state.status === "disconnected" ? (
           <Guest connecting={state.connecting} onConnect={onConnect} wide />
         ) : state.status === "error" ? (

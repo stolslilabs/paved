@@ -172,6 +172,9 @@ describe("Home (#753): the village with its overlays", () => {
     const edit = screen.getByRole("button", { name: "Edit village" });
     expect(edit.querySelector("[data-icon=hammer]")).not.toBeNull();
     expect(edit.className).toMatch(/\bsize-14\b/);
+    // 8 px apart below `desktop`, 16 from it (#845).
+    expect(edit.parentElement).toBe(play.parentElement);
+    expect(edit.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["gap-2", "desktop:gap-4"]));
     // The defence log is the league page's: no overlay button. League is labelled plainly, the badge shows which.
     expect(screen.queryByRole("button", { name: /^Defence/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^League,/ })).toBeNull();

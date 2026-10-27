@@ -149,6 +149,16 @@ describe("the plates (#828)", () => {
     expect(plates[3]!.firstElementChild).toHaveAttribute("data-slot", "resource-plus");
   });
 
+  it("the '+' is an icon, not a character (#845)", () => {
+    const { container } = render(wrap(<Balances layout="rail" state={READY} />));
+    const pluses = [...container.querySelectorAll("[data-slot=resource-plus]")];
+    expect(pluses.length).toBeGreaterThan(0);
+    for (const plus of pluses) {
+      expect(plus.querySelector("[data-icon=plus]")).not.toBeNull();
+      expect(plus).toHaveTextContent("");
+    }
+  });
+
   it("the plates are larger from desktop (`rail`) than on a phone (`pill`)", () => {
     const { container, unmount } = render(wrap(<Balances layout="pill" state={READY} />));
     expect(container.querySelector("[data-slot=token-icon]")!.className).toContain("size-10");
@@ -166,7 +176,7 @@ describe("the plates (#828)", () => {
 
   it("column: the balances one under the other, right-aligned", () => {
     render(wrap(<Balances layout="rail" direction="column" state={READY} />));
-    expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end"));
+    expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end gap-2"));
   });
 
   it("the home stacks its rail; a page's header keeps it in a row", async () => {
