@@ -58,3 +58,27 @@ describe("the game icons (#844)", () => {
     for (const name of GAME_ICON_NAMES) expect(block.slice(0, 900), name).toContain(`\`${name}\``);
   });
 });
+
+describe("the currencies in relief (#844)", () => {
+  const token = (kind: string) => read(`src/assets/tokens/${kind}.svg`);
+
+  it("give PAVED, vPAVED and the Cobbles a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
+    for (const kind of ["paved", "vpaved", "cobbles"]) {
+      const svg = token(kind);
+      expect(svg, kind).toContain("<linearGradient");
+      expect(svg, kind).toMatch(/fill="#fff" fill-opacity="\.[56]/);
+      expect(svg, kind).toMatch(/opacity="\.45"/);
+      expect(svg, kind).toMatch(/stroke="#(?:0A141C|121212|2E2A24)"/);
+    }
+  });
+
+  it("keep USDC's mark unaltered, in its own colours, with the outline, the light and the shadow around it", () => {
+    const svg = token("usdc");
+    expect(svg).toContain('<path fill="#2775CA" d="M996 0h9');
+    expect(svg).toContain('<path fill="#FEFEFE"');
+    expect(svg).not.toContain("<linearGradient");
+    // The ring and the shadow come before the mark: nothing is painted over it.
+    expect(svg.indexOf('fill-opacity=".45"')).toBeLessThan(svg.indexOf("#2775CA"));
+    expect(svg.indexOf('fill="#0B2545"')).toBeLessThan(svg.indexOf("#2775CA"));
+  });
+});
