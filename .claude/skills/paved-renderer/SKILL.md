@@ -50,7 +50,9 @@ with `docs/`, `scripts/` or `packages/`.
   season (summer: neither smoke nor white voxels), the placed tiles draw their types' smoke-free twins (`setSmokeFree`,
   `setSmokeHidden`: a geometry swap per tile, no shader term; the outlines and the shadows follow; the drop leaves the smoke's voxels
   out). One instanced draw of puffs, one of the mouths' caps; a season's change fades over `fadeSeconds`, a tile just placed over
-  `placeSeconds`. `GameScene.getSmoke()` gives its stats.
+  `placeSeconds`. `GameScene.getSmoke()` gives its stats. Each chimney's plume (#801) is `plumeOf` of the look's `variation`,
+  seeded by its mouth's place (`plumeSeed`) and written as per-instance attributes (still one draw); every range at 0 but `pace`
+  is #770's look. `Renderer/Chimney smoke tune` shows today's smoke beside the knobs.
 - The **fog of war** (FOG-STUDY #633, wired by FOG-EVERYWHERE #648: `core/fog-of-war.ts`, reveal logic and settings in
   `core/fog-of-war-settings.ts`, `RendererSettings.fog`) is on every board the app draws: `GameScene.setFogReveal` (from
   `GameCanvas`'s `fogReveal`, set by `BoardViewport`: the tiles and their free slots, or `fogOwned`'s owned cells and their

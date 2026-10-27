@@ -196,8 +196,20 @@ export const loadBirds = (): Promise<typeof import("./core/birds")> => import(".
 // app's boards), or by `loadChimneySmoke` for a story.
 export const loadChimneys = (): Promise<typeof import("./core/chimneys")> => import("./core/chimneys");
 export type { CellBox, Chimney, ChimneyKind, ChimneyOptions, ChimneyOverride, ChimneyReject, FoundChimneys, HighPointReject, PlumeReject, RejectedCandidate } from "./core/chimneys";
-export { DEFAULT_SMOKE_SETTINGS, MAX_SMOKE_CHIMNEYS, SMOKE_LOOKS, resolveSmokeSettings, smokeLookOf, smokeMode } from "./core/chimney-smoke-settings";
-export type { SmokeLook, SmokeLookName, SmokeMode, SmokeSeason, SmokeSettings, SmokeSettingsInput } from "./core/chimney-smoke-settings";
+export {
+  DEFAULT_SMOKE_SETTINGS,
+  MAX_SMOKE_CHIMNEYS,
+  MAX_SMOKE_PUFFS,
+  NO_SMOKE_VARIATION,
+  SMOKE_LOOKS,
+  plumeOf,
+  plumeSeed,
+  puffsPerChimney,
+  resolveSmokeSettings,
+  smokeLookOf,
+  smokeMode,
+} from "./core/chimney-smoke-settings";
+export type { Plume, SmokeLook, SmokeLookInput, SmokeLookName, SmokeMode, SmokeSeason, SmokeSettings, SmokeSettingsInput, SmokeVariation } from "./core/chimney-smoke-settings";
 export type { ChimneySmoke, SmokeFree, SmokeSource, SmokeStats } from "./core/chimney-smoke";
 export const loadChimneySmoke = (): Promise<typeof import("./core/chimney-smoke")> => import("./core/chimney-smoke");
 // The weather (WEATHER-STUDY, #607 PR 2; WEATHER-WIRE, #658): every board's scene shows it (`RendererSettings.weather`,
