@@ -25,7 +25,7 @@ const Rows = ({ count = PLAYERS.length }: { count?: number }) => (
 const Frame = ({ children }: { children: ReactNode }) => <div className="w-64 overflow-hidden rounded-md border border-input">{children}</div>;
 
 /*
- * NO-SCROLLBARS (#609): no scrollbar on desktop, so a region that scrolls has to say so by itself. Two hints were proposed:
+ * NO-SCROLLBARS (#609, #835): no scrollbar at any width, so a region that scrolls has to say so by itself. Two hints were proposed:
  * - Cut: the box's height leaves the last row half visible. It needs every box sized against its rows, and a list whose
  *   rows change height loses it; it says nothing about content above once scrolled.
  * - Fade (the rule, `scroll-hint` in theme.css): the content fades out over 2rem on each side where more waits, and only
@@ -70,6 +70,33 @@ export const End: Story = {
     region.scrollTop = region.scrollHeight;
     await waitFor(() => expect(region).not.toHaveAttribute("data-scroll-end"));
     await expect(region).toHaveAttribute("data-scroll-start");
+  },
+};
+
+/**
+ * NO-SCROLLBARS at every width (#835): the region draws no bar, so its content keeps the region's whole width whether it
+ * scrolls or not (the content does not shift when a page starts or stops scrolling). Checked at any viewport of the toolbar.
+ */
+export const NoBar: Story = {
+  name: "No bar, at any width",
+  render: () => (
+    <div className="flex gap-3">
+      <ScrollRegion className="h-64 w-32 border border-input" data-testid="scrolls">
+        <Rows />
+      </ScrollRegion>
+      <ScrollRegion className="h-64 w-32 border border-input" data-testid="fits">
+        <Rows count={4} />
+      </ScrollRegion>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const scrolls = canvasElement.querySelector<HTMLElement>("[data-testid=scrolls]")!;
+    const fits = canvasElement.querySelector<HTMLElement>("[data-testid=fits]")!;
+    await expect(scrolls.scrollHeight).toBeGreaterThan(scrolls.clientHeight);
+    for (const el of [scrolls, fits, document.documentElement]) await expect(getComputedStyle(el).scrollbarWidth).toBe("none");
+    // No gutter: the box's inner width is its whole width less its two 1 px borders, scrolling or not.
+    await expect(scrolls.offsetWidth - scrolls.clientWidth).toBe(2);
+    await expect(scrolls.clientWidth).toBe(fits.clientWidth);
   },
 };
 

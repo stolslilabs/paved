@@ -253,3 +253,72 @@ describe("the app's side panel at 1440 x 900: no close button, a click outside o
     await expect.poll(() => overlay("Vault").evaluate((el) => el === document.activeElement)).toBe(true);
   });
 });
+
+/**
+ * NO-SCROLLBARS at every width (#835): no page draws a bar at 375 (a phone, the tab frame), 800 (a narrow desktop window, the
+ * tab frame, classic bars) and 1440 (the side panel). Playwright's headless Chromium hides every bar by default
+ * (`--hide-scrollbars`), which would make the pass prove nothing: this browser is launched without it, so a bar the app let
+ * through would be drawn, 15 px wide. Per page and width: the document and every element compute `scrollbar-width: none`, and
+ * no scroller (the document included) gives any of its width to a gutter, so the content keeps its width when the page starts
+ * or stops scrolling.
+ */
+describe("at 375, 800 and 1440 px, no page draws a scroll bar (#835)", () => {
+  let bars: Browser;
+  beforeAll(async () => {
+    bars = await chromium.launch({ headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] });
+  });
+  afterAll(() => bars?.close());
+
+  const WIDTHS = [
+    { width: 375, height: 812, phone: true },
+    { width: 800, height: 900, phone: false },
+    { width: 1440, height: 900, phone: false },
+  ] as const;
+
+  for (const w of WIDTHS) {
+    describe(`${w.width} px`, () => {
+      let context: BrowserContext;
+      let page: Page;
+      beforeAll(async () => {
+        context = await bars.newContext({ ...(w.phone ? devices["iPhone 13"] : {}), viewport: { width: w.width, height: w.height }, reducedMotion: "reduce" });
+        page = await context.newPage();
+      });
+      afterAll(() => context?.close());
+
+      it.each(PAGES)("%s", async (id) => {
+        const panel = w.width >= 1024;
+        // A page of fixed length on its shorter screen (`SHORT`), where it has more than the screen: the phone's below `desktop`
+        // (the tab frame, or a flow's document), the panel's from it.
+        // At 800 px the mode choice's rows sit wider and fit even 548 px: a 420 px window (a laptop's, its browser docked low).
+        const narrow = w.width === 800 && id === "play" ? 420 : undefined;
+        await page.setViewportSize({ width: w.width, height: narrow ?? (panel ? SHORT[id]?.desktop : SHORT[id]?.phone) ?? w.height });
+        await page.goto(`${base}/e2e/pages-scroll/index.html?page=${id}${panel ? "&panel=1" : ""}`, { waitUntil: "networkidle" });
+        const scope = panel ? page.getByRole("dialog", { name: TITLES[id] }) : page.locator("body");
+        await scope.getByRole("heading", { level: 1, name: TITLES[id] }).waitFor({ timeout: 20_000 });
+        await page.evaluate(() => document.fonts.ready);
+        await pause(400);
+        const found = await page.evaluate(() => {
+          const all = [document.documentElement, ...document.querySelectorAll<HTMLElement>("body, body *")];
+          const name = (n: HTMLElement) => n.dataset.slot ?? n.tagName.toLowerCase();
+          const styled = all.filter((n) => getComputedStyle(n).scrollbarWidth !== "none").map(name);
+          const scrollers = all.filter((n) => n === document.documentElement || ["auto", "scroll"].includes(getComputedStyle(n).overflowY));
+          // A gutter is the box's width less its borders and its inner width; the document's is the viewport's less its own.
+          const gutters = scrollers
+            .map((n) => {
+              const s = getComputedStyle(n);
+              const gutter = n === document.documentElement ? innerWidth - n.clientWidth : n.offsetWidth - n.clientWidth - parseFloat(s.borderLeftWidth) - parseFloat(s.borderRightWidth);
+              return { name: name(n), gutter: Math.round(gutter), scrolls: n.scrollHeight > n.clientHeight + 1 };
+            })
+            .filter((g) => g.gutter !== 0);
+          const scrolling = scrollers.filter((n) => n.scrollHeight > n.clientHeight + 1).map(name);
+          return { styled, gutters, scrolling };
+        });
+        console.log(`${w.width} px ${id}: scrolling [${found.scrolling.join(", ")}], elements with a bar style ${found.styled.length}, gutters ${JSON.stringify(found.gutters)}`);
+        // The page has something that scrolls (or the pass proves nothing), and none of it draws a bar.
+        expect(found.scrolling.length, `${w.width} ${id}: something scrolls`).toBeGreaterThan(0);
+        expect(found.styled, `${w.width} ${id}: every element hides its bar`).toEqual([]);
+        expect(found.gutters, `${w.width} ${id}: no scroller gives width to a bar`).toEqual([]);
+      });
+    });
+  }
+});

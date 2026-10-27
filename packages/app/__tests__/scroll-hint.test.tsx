@@ -8,7 +8,7 @@ import { ScrollArea } from "../src/components/ui/scroll-area";
 import { ScrollRegion } from "../src/components/ui/scroll-region";
 import { scrollEdges } from "../src/lib/scroll-hint";
 
-// NO-SCROLLBARS (#609): no scrollbar on desktop, the edge fade says a region scrolls. vitest runs with the package as its
+// NO-SCROLLBARS (#609, #835): no scrollbar at any width, the edge fade says a region scrolls. vitest runs with the package as its
 // working directory.
 const theme = readFileSync("src/styles/theme.css", "utf8");
 
@@ -119,9 +119,12 @@ describe("the dropdown menu", () => {
 });
 
 describe("theme.css", () => {
-  it("hides every scrollbar from desktop, the document and the side panel's page included", () => {
-    // The breakpoint's media query, not the `desktop` variant, which skips a side panel's page (#762).
-    expect(theme).toMatch(/@media \(width >= 64rem\) \{\s*\* \{ scrollbar-width: none; \}\s*\*::-webkit-scrollbar \{ display: none; \}/);
+  it("hides every scrollbar at every width, the document included (#835)", () => {
+    expect(theme).toMatch(/\n {2}\* \{ scrollbar-width: none; \}\n {2}\*::-webkit-scrollbar \{ display: none; \}\n/);
+    // No media query holds them back any more: below `desktop` too (#835).
+    const base = theme.match(/@layer base \{[\s\S]*?\n\}/)![0];
+    expect(base).toContain("* { scrollbar-width: none; }");
+    expect(base).not.toMatch(/@media[^{]*\{\s*\* \{ scrollbar-width/);
   });
 
   it("the hint fades the sides marked by data-scroll-start / data-scroll-end", () => {
