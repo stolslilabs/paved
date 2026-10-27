@@ -73,8 +73,9 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     expect(cards[1]).toHaveAccessibleName(`Your attack on ${s.rival.name}: ${s.attack.stars} of 3 stars`);
     // The defence shielded the village (8 hours, until the player attacks).
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
-    // The village behind each card: the snapshot's plan view.
-    expect(cards.every((c) => c.querySelector("[inert]") !== null)).toBe(true);
+    // Each card on its side's illustration (#834), no plan view behind it.
+    expect(cards.map((c) => c.querySelector("[data-slot=match-art]")?.getAttribute("src"))).toEqual([expect.stringContaining("battle-defence"), expect.stringContaining("battle-attack")]);
+    expect(cards.every((c) => c.querySelector("[inert]") === null)).toBe(true);
 
     await userEvent.click(cards[1]!);
     await waitFor(() => expect(s.router.state.location.pathname).toBe(`/pvp/match/a${s.attack.id}`), WAIT);
