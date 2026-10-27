@@ -289,18 +289,24 @@ export const HOME_VILLAGE = {
   loading: { now: MOCK_NOW },
   /** The village's read failed: Retry. */
   error: { now: MOCK_NOW, error: { message: "Village: the node did not answer" } },
-  /** The save landed, back in view (#802): the score chip counts up to the new score, green, a "+N" rising, the house popping. */
+  /** The save landed, back in view (#802): the village score's total counts up to the new score, green, a "+N" rising, the house popping. */
   saved: { ...home, village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
-  /** A save that lowered the score: the chip counts down, a "−N" dropping. */
+  /** A save that lowered the score: the total counts down, a "−N" dropping. */
   savedLower: { ...home, saved: { score: LAYOUT_GROWING.score, previous: fakeScore(DRAFT_VALID) } },
   /** A save that left the score as it was: nothing plays. */
   savedSame: { ...home, saved: { score: LAYOUT_GROWING.score, previous: LAYOUT_GROWING.score } },
-  /** The score chip tapped (#758): the points by structure, the most points first, its first line lit on the scene. */
-  points: { ...home, initialPointsOpen: true, initialLit: HOME_POINTS.lines[0]!.key },
+  /** The save landed with the village score unfolded (#831): the total counts up, the kinds' sums under it are the new layout's. */
+  scoreOpenSaved: { ...home, village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score }, initialScoreOpen: true },
+  /** The village score unfolded (#831): the total, and under it the four kinds' sums, the most points first. */
+  scoreOpen: { ...home, initialScoreOpen: true },
+  /** Unfolded on the starter village: a kind with no structure shows 0. */
+  scoreKindZero: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, now: MOCK_NOW, initialScoreOpen: true },
+  /** Unfolded on a village with a closed Wonder (#792): every kind scores. */
+  scoreWonder: { ...home, village: LAYOUT_WONDER, initialScoreOpen: true },
   /** Edit mode: the editor's bar (Reset all beside the slots), the inventory and Save, in the same scene. */
   editing: { ...home, editing: true },
-  /** The points open on a village with a closed Wonder (#792), its line lit: the wonder's tile alone, not the 8 around it. */
-  pointsWonder: { ...home, village: LAYOUT_WONDER, initialPointsOpen: true, initialLit: WONDER_LINE.key },
+  /** Edit mode's points on a village with a closed Wonder (#792), its line lit: the wonder's tile alone, not the 8 around it. */
+  editingPointsWonder: { ...home, village: LAYOUT_WONDER, editing: true, initialPointsOpen: true, initialLit: WONDER_LINE.key },
   /** Edit mode's points unfolded above the inventory (#758), a line lit; they follow the draft live. */
   editingPoints: { ...home, editing: true, initialPointsOpen: true, initialLit: HOME_POINTS.lines[1]!.key },
   /** A tile of the lit structure lifted: under the bubble, it stays lit with the rest of its structure. */

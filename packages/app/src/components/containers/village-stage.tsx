@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
-import { formatInteger } from "@paved/game-core";
+import { formatInteger, type LayoutBreakdown } from "@paved/game-core";
 import { useSidePanel } from "../../lib/side-panel";
-import { useTapOutside } from "../../lib/use-tap-outside";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { type TileArt } from "../elements/tile-chip";
 import { VillageFog, type VillageArrival } from "../elements/village-fog";
@@ -13,7 +12,7 @@ import { LayoutBoard, type LayoutBoardView } from "./layout-board";
 import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "./layout-editor";
 import { layoutPoints, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { LayoutSlotsStrip, type LayoutSlotsProps } from "./layout-slots-strip";
-import { PointsFold, PointsPanel, type PointsPanelProps } from "./points-breakdown";
+import { PointsFold } from "./points-breakdown";
 
 export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown; undefined: not read yet (a placeholder sky). */
@@ -39,11 +38,6 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
   initialHand?: { plan: number } | { lift: number } | null;
   initialPending?: Spot | null;
   initialLeaving?: boolean;
-  /**
-   * The line of the points lit in view (#758, the scene's panel under the profile): its structure's key. Edit mode keeps its
-   * own, in the editor's panel.
-   */
-  lit?: string | null;
   /** Where the stories start: the editor's points unfolded (on a phone; open from `desktop` anyway), a line lit. */
   initialPointsOpen?: boolean;
   initialLit?: string | null;
@@ -76,6 +70,8 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
  * stands it still in the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the board, the engine) arrives.
  */
 const NONE: VillageLayout = { owner: "", level: 1, tiles: [], score: 0 };
+/** The points in view: none computed, nothing lit (the structure lines are edit mode's, #831). */
+const NO_POINTS: LayoutBreakdown = { lines: [], other: 0, score: 0 };
 
 /** The Edit of the press bubble (#799): the hammer, as the home's Edit since #807. */
 const EDIT_ICON = "hammer";
@@ -115,8 +111,9 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   const [drawn, setDrawn] = useState(false);
   const onDrawn = useCallback(() => setDrawn(true), []);
   const scene = !!props.renderCanvas;
-  // The points by structure (#758): the saved layout's in view, the draft's live in edit mode, the tile under the bubble included.
-  const points = useMemo(() => layoutPoints(editing ? editor.shown : (village ?? NONE).tiles), [editing, editor.shown, village]);
+  // The points by structure (#758), edit mode's alone (the home's view has its kinds' sums, #831): the draft's live, the tile
+  // under the bubble included.
+  const points = useMemo(() => (editing ? layoutPoints(editor.shown) : NO_POINTS), [editing, editor.shown]);
   const [editLit, setEditLit] = useState<string | null>(props.initialLit ?? null);
   const [pointsOpen, setPointsOpen] = useState<boolean | null>(props.initialPointsOpen ?? null);
   const wide = useSidePanel(DESKTOP_QUERY);
@@ -127,7 +124,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     setEditLit(null);
     setPointsOpen(null);
   }
-  const litKey = editing ? editLit : (props.lit ?? null);
+  const litKey = editing ? editLit : null;
   const litLine = litKey === null ? null : (points.lines.find((l) => l.key === litKey) ?? null);
   // A change to the draft keeps the light while the lit structure is still there, else turns it off (it does not come back).
   useEffect(() => {
@@ -188,43 +185,6 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
       )}
       <LeaveEditDialog editor={editor} />
     </>
-  );
-}
-
-/** The score chip that opens the view's points (the scene's): a tap on it is its own toggle, not a tap outside. */
-const POINTS_TOGGLE = '[aria-controls="village-points"]';
-
-/**
- * The view's points panel (#758), drawn by the scene when its score chip is tapped: the saved layout's lines, computed here, in
- * the stage's chunk (the engine's). The scene mounts it in both places; it draws in one, `side` (under the chip) from `tablet`,
- * `bottom` (a bottom panel over Play) on a phone. Escape closes it, as a popover, and Close: the focus goes back to the chip.
- * A tap or a click outside closes it too (#792), the focus left where the tap put it; a drag or a pinch (a pan or a zoom of
- * the scene, around a lit structure) does not.
- */
-export function VillagePoints({ tiles, place, ...panel }: Omit<PointsPanelProps, "breakdown" | "ref"> & { tiles: VillageLayout["tiles"]; place: "side" | "bottom" }) {
-  const side = useSidePanel();
-  const shown = side === (place === "side");
-  const breakdown = useMemo(() => layoutPoints(tiles), [tiles]);
-  const ref = useRef<HTMLElement>(null);
-  const { onClose } = panel;
-  const close = useCallback(() => {
-    const toggle = document.querySelector<HTMLElement>(POINTS_TOGGLE);
-    onClose();
-    toggle?.focus();
-  }, [onClose]);
-  useTapOutside(ref, onClose, { enabled: shown, ignore: POINTS_TOGGLE });
-  useEffect(() => {
-    if (!shown) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [shown, close]);
-  if (!shown) return null;
-  if (place === "side") return <PointsPanel ref={ref} breakdown={breakdown} {...panel} onClose={close} />;
-  return (
-    <div className="absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-20">
-      <PointsPanel ref={ref} breakdown={breakdown} {...panel} onClose={close} />
-    </div>
   );
 }
 

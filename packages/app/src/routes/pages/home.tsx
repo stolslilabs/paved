@@ -21,6 +21,7 @@ import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { PrefetchOnIntent } from "../prefetch";
+import { scoreOpenStored, storeScoreOpen } from "../score-open";
 import { useAppNavigate, useTabNavigate } from "../ref";
 import { boardTilesOf, layoutTilesOf, refusalText } from "../village-shapes";
 
@@ -78,6 +79,8 @@ export default function Page() {
   const shield = usePvpShield(me).data;
   const board = useBoardSettings();
   const [saved, setSaved] = useState<LayoutSaved | null>(null);
+  // The village score's fold (#831), as this device left it: read once, as the home opens.
+  const [initialScoreOpen] = useState(scoreOpenStored);
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
 
@@ -154,7 +157,8 @@ export default function Page() {
         guest={me === null}
         readOnly={readOnly}
         editing={editing}
-        covered={location.pathname !== "/"}
+        initialScoreOpen={initialScoreOpen}
+        onScoreOpenChange={storeScoreOpen}
         onEditingChange={onEditingChange}
         founded={data?.founded ?? true}
         founding={pending === "found"}

@@ -19,7 +19,7 @@ afterEach(cleanup);
 
 const { score, previous } = HOME_VILLAGE.saved.saved;
 const gain = formatInteger(score - previous);
-const chip = (n: number) => screen.getByRole("button", { name: `Village score ${formatInteger(n)}: show the points` });
+const chip = (n: number) => screen.getByRole("button", { name: `Village score ${formatInteger(n)}` });
 const floating = (root: HTMLElement) => root.querySelectorAll("[data-slot=score-count] [data-slot=resource-change]");
 /** The count, its own chunk, in. */
 const counted = (root: HTMLElement) => waitFor(() => expect(root.querySelector("[data-slot=score-count]")).not.toBeNull());

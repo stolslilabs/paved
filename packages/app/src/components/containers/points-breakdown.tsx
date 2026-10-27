@@ -1,14 +1,13 @@
-import { memo, type Ref } from "react";
+import { memo } from "react";
 import { CategoryType, formatInteger, type LayoutBreakdown } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { formatPoints } from "../elements/score";
-import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { ClosingLine } from "./closing-feed";
 
 // The village's points by structure (#758): the lines of a game's score screen (`ClosingLine`), each a toggle that lights its
-// structure on the scene. In view, a panel from the score chip under the profile; in edit mode, a fold in the editor's panel.
+// structure on the scene: a fold in edit mode's panel. The home's view has the kinds' sums instead (#831, `village-score.tsx`).
 
 const CATEGORIES = Object.values(CategoryType);
 
@@ -69,38 +68,6 @@ function Total({ score }: { score: number }) {
       <Icon name="house-chimney" size="xs" className="text-primary" />
       <span className="numeric font-semibold">{formatInteger(score)}</span>
     </span>
-  );
-}
-
-export interface PointsPanelProps extends PointsListProps {
-  onClose: () => void;
-  ref?: Ref<HTMLElement>;
-}
-
-/**
- * The view's panel (#758), opened by the score chip under the profile: not modal, so the scene stays in sight (and in hand: pan,
- * zoom) while a line lights its structure. A bottom panel on a phone, a card under the chip from `tablet`. Close (or Escape, or
- * a tap outside, #792: the caller's) turns the light off.
- */
-export function PointsPanel({ onClose, className, ref, ...list }: PointsPanelProps) {
-  return (
-    <section
-      ref={ref}
-      id="village-points"
-      aria-label="Village points"
-      className={cn("pointer-events-auto flex max-h-[min(24rem,45dvh)] flex-col gap-2 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur", className)}
-    >
-      <header className="flex items-center gap-2">
-        <h2 className="flex-1 text-sm font-semibold">Village points</h2>
-        <Total score={list.breakdown.score} />
-        <Button size="icon" variant="ghost" onClick={onClose} aria-label="Close the points" className="-my-1">
-          <Icon name="xmark" size="sm" />
-        </Button>
-      </header>
-      <ScrollRegion className="-mx-1 min-h-0 px-1">
-        <PointsList {...list} />
-      </ScrollRegion>
-    </section>
   );
 }
 

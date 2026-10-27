@@ -55,8 +55,8 @@ export {
   withSlotSaved,
 } from "./layout-slots";
 export type { LayoutSlotRefusal, LayoutSlots } from "./layout-slots";
-export { breakdownOf, layoutBreakdown } from "./breakdown";
-export type { CellAreas, LayoutBreakdown, LayoutLine } from "./breakdown";
+export { SCORED_CATEGORIES, breakdownOf, byCategory, layoutBreakdown } from "./breakdown";
+export type { CategorySum, CellAreas, LayoutBreakdown, LayoutLine } from "./breakdown";
 export { STARTER_LAYOUTS, STARTER_TILES, starterIndex, starterLayout } from "./starters";
 export {
   ATTACK_DECK_PERCENT,

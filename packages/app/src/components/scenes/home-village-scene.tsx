@@ -17,6 +17,7 @@ import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-edit
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import type { VillageStageProps } from "../containers/village-stage";
 import { PlayerBadge } from "../containers/player-badge";
+import { VillageScore } from "../containers/village-score";
 import type { Tab } from "../../routes/pages";
 
 // The season wheel (#547) in its own chunk, as on the boards: its slot keeps its size meanwhile.
@@ -26,10 +27,6 @@ const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ default: m.AppNav })));
 // The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
 const LazyVillageStage = lazy(() => import("../containers/village-stage"));
-// The score's count after a save (#802, the balances' change): its own chunk, loaded by a save alone.
-const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
-// The village's points (#758), computed with the engine: from the stage's chunk too.
-const LazyVillagePoints = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.VillagePoints })));
 // The League control (#829) and its plate in their own chunk: a stand-in of its height holds its place meanwhile (FIRST-LOAD).
 const LazyLeagueControl = lazy(() => import("../containers/league-control").then((m) => ({ default: m.LeagueControl })));
 // The shield's plate and its popover (#806, #829): their own chunk, loaded only while the village is shielded (FIRST-LOAD).
@@ -55,7 +52,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   founding?: boolean;
   /**
    * The save on its way; the last save landed (its score and the one before, until edit mode opens again): back in view, the
-   * score chip counts to it once (#802), and a polite message says it; the save's refusal.
+   * village score's total counts to it once (#802), and a polite message says it; the save's refusal.
    */
   saving?: boolean;
   saved?: LayoutSaved | null;
@@ -68,14 +65,15 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   initialHand?: { plan: number } | { lift: number } | null;
   initialPending?: Spot | null;
   initialLeaving?: boolean;
-  /**
-   * A page over the scene (from `desktop`, a side panel, #762: the route is a child of the home's): the view's points close
-   * under it (#792), and stay closed when it goes.
-   */
-  covered?: boolean;
-  /** Where the stories start: the view's points open (#758), a line lit (its structure's key); in edit mode, the editor's points unfolded. */
+  /** Where the stories start: in edit mode, the editor's points unfolded (#758), a line lit (its structure's key). */
   initialPointsOpen?: boolean;
   initialLit?: string | null;
+  /**
+   * The village score's accordion unfolded as the home opens (#831): the device's last choice (the page keeps it, open point 2).
+   * Default: folded. Each fold or unfold tells `onScoreOpenChange`.
+   */
+  initialScoreOpen?: boolean;
+  onScoreOpenChange?: (open: boolean) => void;
   /** Chests waiting, missions to claim: the badges of the right column (and of the phone's bar, Chests). */
   chests?: number;
   missions?: number;
@@ -133,7 +131,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
  * the safe areas. In view: at the top left the profile (#787, #830: the avatar in the level's arc and line, "Lv i", the name), under it the League control (#829:
  * the League button, the crowns on a plate closed by the league's crest), the shield's mirrored plate while shielded, then the
- * village score (#755); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
+ * village score (#755), an inline accordion (#831: the total, a tap unfolds the four kinds' sums in place); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
  * (the two swords, no text, #807), large, at the bottom right with Edit (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
@@ -151,19 +149,14 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
   const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
   const editable = !!village && !guest && !readOnly && founded;
   const editing = editable && (props.editing ?? false);
-  // The view's points (#758): the panel from the score chip, and the line lit on the scene. Closing it turns the light off.
-  const [pointsOpen, setPointsOpen] = useState(!editing && (props.initialPointsOpen ?? false));
-  const [lit, setLit] = useState<string | null>(!editing ? (props.initialLit ?? null) : null);
-  const closePoints = () => {
-    setPointsOpen(false);
-    setLit(null);
+  // The village score's accordion (#831): kept here, so edit mode (which takes the view's overlays) leaves it as it was.
+  const { onScoreOpenChange } = props;
+  const [scoreOpen, setScoreOpen] = useState(props.initialScoreOpen ?? false);
+  const foldScore = (open: boolean) => {
+    setScoreOpen(open);
+    onScoreOpenChange?.(open);
   };
-  // Never open behind edit mode or a side panel (#792): closed when either comes, however it came (the URL included).
-  const covered = editing || !!props.covered;
-  if (covered && pointsOpen) closePoints();
-  const showPoints = pointsOpen && !covered && !!village;
   const edit = () => {
-    closePoints();
     props.onDismissSaved?.();
     props.onEditingChange?.(true);
   };
@@ -186,7 +179,6 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     initialLeaving: props.initialLeaving,
     initialPointsOpen: editing ? props.initialPointsOpen : undefined,
     initialLit: editing ? props.initialLit : undefined,
-    lit: showPoints ? lit : null,
     renderCanvas: props.renderCanvas,
     arrival: props.arrival,
     onSave: props.onSave,
@@ -214,8 +206,8 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
           {...props}
           editable={editable}
           onEdit={edit}
-          points={showPoints ? { selected: lit, onSelect: setLit, onClose: closePoints } : null}
-          onPoints={() => (pointsOpen ? closePoints() : setPointsOpen(true))}
+          scoreOpen={scoreOpen}
+          onScoreOpenChange={foldScore}
         />
       )}
       {error && !village && (
@@ -274,22 +266,6 @@ function HomeBar({ children }: { children: ReactNode }) {
   );
 }
 
-const CHIP_ICON = <Icon name="house-chimney" size="xs" className="text-primary" />;
-/** The score chip's figure, still. */
-const chipFigure = (score: number) => (
-  <>
-    {CHIP_ICON}
-    <span className="numeric font-semibold">{formatInteger(score)}</span>
-  </>
-);
-
-/** The view's points panel open: the line lit, and its taps. */
-interface PointsState {
-  selected: string | null;
-  onSelect: (key: string | null) => void;
-  onClose: () => void;
-}
-
 /**
  * The balances' width at the home's top right, as `--balances-w` on the top row: the plates stand out of the row's flow (#828), and
  * the profile's line beside them stops short of them whatever the amounts (a 999,999 Cobbles plate at 320 px).
@@ -337,10 +313,10 @@ function ViewOverlays({
   village,
   editable,
   onEdit,
-  points,
-  onPoints,
+  scoreOpen,
+  onScoreOpenChange,
   ...props
-}: HomeVillageSceneProps & { editable: boolean; onEdit: () => void; points: PointsState | null; onPoints: () => void }) {
+}: HomeVillageSceneProps & { editable: boolean; onEdit: () => void; scoreOpen: boolean; onScoreOpenChange: (open: boolean) => void }) {
   const { activeGame, now, guest, founded = true } = props;
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
@@ -350,14 +326,12 @@ function ViewOverlays({
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <div className="relative flex items-start justify-between gap-2">
-          {/* The profile, the League control and the shield each open a sheet or a page over the scene, tapped or keyed: the points close under it (#792). */}
           <div
             className={cn(
               "pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]",
               // The profile's line gives way to the balances beside it (`--balances-w`): its name column and the level's line narrow, never under a wide plate.
               "[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-1.5rem-var(--balances-w,0px))] tablet:[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-2.5rem-var(--balances-w,0px))]",
             )}
-            onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge],[data-slot=league-control],[data-slot=shield-plate]") && points?.onClose()}
           >
             {/* The profile (#787), then under it (#829) the League control (the crowns and the crest, no name) and the shield's plate. */}
             <PlayerBadge />
@@ -370,33 +344,8 @@ function ViewOverlays({
               </Suspense>
             )}
             {village && (
-              // Under it (#755), the village score; a tap opens its points by structure (#758).
-              <button
-                type="button"
-                onClick={onPoints}
-                aria-label={`Village score ${formatInteger(shown)}: ${points ? "hide" : "show"} the points`}
-                aria-expanded={!!points}
-                aria-controls={points ? "village-points" : undefined}
-                className={cn(
-                  "state-layer ml-1 flex min-h-7 items-center gap-1.5 rounded-md bg-background/70 px-2 py-0.5 text-xs backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  points && "ring-1 ring-primary",
-                )}
-              >
-                {props.saved ? (
-                  // Back in view after a save (#802), the score counts from the one before, the balances' way: once, as it mounts.
-                  <Suspense fallback={chipFigure(props.saved.previous)}>
-                    <LazyScoreCount value={shown} from={props.saved.previous} icon={CHIP_ICON} className="font-semibold" />
-                  </Suspense>
-                ) : (
-                  chipFigure(shown)
-                )}
-              </button>
-            )}
-            {/* The points (#758) under the chip from `tablet`; on a phone, a bottom panel over Play (the panel picks its place). */}
-            {points && village && (
-              <Suspense fallback={null}>
-                <LazyVillagePoints place="side" tiles={village.tiles} {...points} className="mt-1 w-80" />
-              </Suspense>
+              // Under it (#755), the village score (#831): the total, a tap unfolds the four kinds' sums in place.
+              <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
             )}
           </div>
           {/*
@@ -471,15 +420,6 @@ function ViewOverlays({
           <Icon name="swords" size="xl" />
         </Button>
       </div>
-      {points && village && (
-        // Anchored at the bar's top (#763): the panel, at its anchor's foot, opens above the bar, not under it.
-        <div className="absolute inset-x-0 bottom-(--app-nav-h) z-20 h-0">
-          <Suspense fallback={null}>
-            <LazyVillagePoints place="bottom" tiles={village.tiles} {...points} />
-          </Suspense>
-        </div>
-      )}
-
       {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
       <HomeBar>
         <LazyAppNav active={null} badges={{ chests: props.chests }} onNavigate={props.onNavigate} className="relative" />
