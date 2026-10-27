@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { BoardTile } from "@paved/chain";
-import { expect, fireEvent, fn, waitFor, within } from "storybook/test";
+import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAYER_STATUS } from "../../mocks/scenes";
@@ -154,14 +154,57 @@ export const SavedReducedMotion: Story = { args: HOME_VILLAGE.saved, parameters:
 /** The save at 375 px and 1440 px: the chip in view, nothing over it. */
 export const SavedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.saved, parameters: { ...PHONE_375.parameters, reducedMotion: "never" } };
 export const SavedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.saved, parameters: { reducedMotion: "never" } };
-/** The score chip tapped (#758): the points by structure, a line lit (on the plan view, its tiles ringed, the rest dimmed). */
-export const Points: Story = { args: HOME_VILLAGE.points };
-/** A Wonder's line lit (#792): the wonder's tile alone, not the 8 around it, which the line still counts. */
-export const PointsWonder: Story = { args: HOME_VILLAGE.pointsWonder };
+/**
+ * V3-SCORE-ACCORDION (#831, the owner's decisions of 2026-10-27): the village score under the profile is an inline accordion,
+ * never a panel over the scene. Folded, the total alone (the house, the figure, a chevron); unfolded, the four kinds' sums under
+ * it (roads, cities, forests, wonders, the most points first), adding up to the total. At 320, 375 and 1440 px.
+ */
+export const ScoreFolded: Story = { args: HOME_VILLAGE.view };
+export const ScoreOpen: Story = { args: HOME_VILLAGE.scoreOpen };
+/** A kind with no structure (the starter village has no Wonder): its sum shows 0. */
+export const ScoreKindZero: Story = { args: HOME_VILLAGE.scoreKindZero };
+/** A village with a closed Wonder: every kind scores. */
+export const ScoreWonder: Story = { args: HOME_VILLAGE.scoreWonder };
+/** After a save, unfolded (#802): the total counts up to the new score, the kinds under it are the new layout's. */
+export const ScoreOpenSaved: Story = { args: HOME_VILLAGE.scoreOpenSaved, parameters: { reducedMotion: "never" } };
+/** A tap on the total unfolds the kinds in place, with a short height animation; another folds them. */
+export const ScoreToggle: Story = {
+  args: HOME_VILLAGE.view,
+  parameters: { reducedMotion: "never" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const total = canvas.getByRole("button", { name: /^Village score / });
+    await expect(total).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(total);
+    await expect(total).toHaveAttribute("aria-expanded", "true");
+    await expect(await canvas.findByRole("list", { name: "Score by kind" }, { timeout: 10_000 })).toBeVisible();
+    await expect(canvas.queryByRole("region", { name: "Village points" })).toBeNull();
+    await userEvent.click(total);
+    await waitFor(() => expect(canvas.queryByRole("list", { name: "Score by kind" })).toBeNull());
+  },
+};
+/** The same under reduced motion: the kinds come and go at once, no height animation. */
+export const ScoreToggleReducedMotion: Story = { ...ScoreToggle, parameters: { reducedMotion: "always" } };
+export const ScoreFoldedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view };
+export const ScoreFoldedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view };
+export const ScoreFoldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view };
+export const ScoreOpenPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.scoreOpen };
+export const ScoreOpenPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.scoreOpen };
+export const ScoreOpenWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.scoreOpen };
+export const ScoreKindZeroPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.scoreKindZero };
+export const ScoreKindZeroPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.scoreKindZero };
+export const ScoreKindZeroWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.scoreKindZero };
+export const ScoreOpenSavedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.scoreOpenSaved, parameters: { ...PHONE_320.parameters, reducedMotion: "never" } };
+export const ScoreOpenSavedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.scoreOpenSaved, parameters: { ...PHONE_375.parameters, reducedMotion: "never" } };
+export const ScoreOpenSavedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.scoreOpenSaved, parameters: { reducedMotion: "never" } };
+/** Unfolded, shielded, at 320 px beside the widest balances: the whole left column, nothing under the right column. */
+export const ScoreOpenStressPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.leagueStress, initialScoreOpen: true }, decorators: [WIDE_BALANCES] };
 /** Edit mode: the editor's bar (Back, the score, the slots, Reset all), the inventory and Save. */
 export const Editing: Story = { args: HOME_VILLAGE.editing };
 /** Edit mode's points unfolded above the inventory (#758), a line lit. */
 export const EditingPoints: Story = { args: HOME_VILLAGE.editingPoints };
+/** A Wonder's line lit in edit mode (#792): the wonder's tile alone, not the 8 around it, which the line still counts. */
+export const EditingPointsWonder: Story = { args: HOME_VILLAGE.editingPointsWonder };
 /** A tile of the lit structure lifted (#758): under the bubble, it stays lit with the rest of its structure. */
 export const EditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted };
 /** A road in hand: its legal cells lit. */
@@ -324,35 +367,13 @@ export const ScenePlaced: Story = { args: HOME_VILLAGE.placing, render: (args) =
 /** A lifted tile moved on the scene: the bubble by it, with Cancel. */
 export const SceneMoved: Story = { args: HOME_VILLAGE.moved, render: (args) => <InScene {...args} /> };
 
-/** The points on the scene (#758): a line lit lights its structure's areas and dims the rest, in view and in edit mode. */
-export const ScenePoints: Story = { args: HOME_VILLAGE.points, render: (args) => <InScene {...args} /> };
+/** The points on the scene in edit mode (#758): a line lit lights its structure's areas and dims the rest. */
 export const SceneEditingPoints: Story = { args: HOME_VILLAGE.editingPoints, render: (args) => <InScene {...args} /> };
 export const SceneEditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted, render: (args) => <InScene {...args} /> };
-
 /** A Wonder's line lit on the scene (#792): the wonder's tile alone lit, the rest of the board dimmed as for any line. */
-export const ScenePointsWonder: Story = { args: HOME_VILLAGE.pointsWonder, render: (args) => <InScene {...args} /> };
-
-/**
- * A press on the scene outside the open points, away from the overlays (its middle, a little high: clear of the bottom panel
- * on a phone): a tap (`by` 0), or a drag of `by` px across, as a finger panning the village.
- */
-async function pressOutsidePoints(canvasElement: HTMLElement, by: number) {
-  await within(canvasElement).findByRole("region", { name: "Village points" }, { timeout: 10_000 });
-  // The panel's listeners attach after its first paint: a press as it appears would beat them, as no finger can.
-  await new Promise((done) => setTimeout(done, 500));
-  const box = canvasElement.getBoundingClientRect();
-  const x = box.left + box.width / 2;
-  const y = box.top + box.height * 0.35;
-  const target = document.elementFromPoint(x, y) ?? canvasElement;
-  const at = (dx: number) => ({ pointerId: 7, pointerType: "touch", isPrimary: true, button: 0, clientX: x + dx, clientY: y });
-  fireEvent.pointerDown(target, at(0));
-  for (let step = 1; step <= 4; step++) fireEvent.pointerMove(target, at((by * step) / 4));
-  fireEvent.pointerUp(target, at(by));
-}
-/** A tap on the scene outside the open points (#792): the panel closes, the light off. At 375 and 1440 px. */
-export const ScenePointsTapOutside: Story = { ...ScenePoints, play: ({ canvasElement }) => pressOutsidePoints(canvasElement, 0) };
-/** A drag on the scene outside the open points (#792), a pan: the panel stays open, the structure still lit. At 375 and 1440 px. */
-export const ScenePointsDragOutside: Story = { ...ScenePoints, play: ({ canvasElement }) => pressOutsidePoints(canvasElement, 80) };
+export const SceneEditingPointsWonder: Story = { args: HOME_VILLAGE.editingPointsWonder, render: (args) => <InScene {...args} /> };
+/** The village score unfolded over the scene (#831): in the overlay, nothing over the village, nothing lit on it. */
+export const SceneScoreOpen: Story = { args: HOME_VILLAGE.scoreOpen, render: (args) => <InScene {...args} /> };
 
 /** A cold arrival (#761), the village and its assets still loading: the overlays in view and usable over a thick fog. */
 export const Fogged: Story = { args: { ...HOME_VILLAGE.view, arrival: "fog" }, render: (args) => <InScene {...args} held /> };
@@ -372,14 +393,10 @@ export const ScenePlacedPhone: Story = { ...ScenePlaced, ...PHONE_375 };
 export const ScenePlacedWide: Story = { ...ScenePlaced, ...WIDE_1440 };
 export const SceneMovedPhone: Story = { ...SceneMoved, ...PHONE_375 };
 export const SceneMovedWide: Story = { ...SceneMoved, ...WIDE_1440 };
-export const ScenePointsPhone: Story = { ...ScenePoints, ...PHONE_375 };
-export const ScenePointsWide: Story = { ...ScenePoints, ...WIDE_1440 };
-export const ScenePointsWonderPhone: Story = { ...ScenePointsWonder, ...PHONE_375 };
-export const ScenePointsWonderWide: Story = { ...ScenePointsWonder, ...WIDE_1440 };
-export const ScenePointsTapOutsidePhone: Story = { ...ScenePointsTapOutside, ...PHONE_375 };
-export const ScenePointsTapOutsideWide: Story = { ...ScenePointsTapOutside, ...WIDE_1440 };
-export const ScenePointsDragOutsidePhone: Story = { ...ScenePointsDragOutside, ...PHONE_375 };
-export const ScenePointsDragOutsideWide: Story = { ...ScenePointsDragOutside, ...WIDE_1440 };
+export const SceneScoreOpenPhone: Story = { ...SceneScoreOpen, ...PHONE_375 };
+export const SceneScoreOpenWide: Story = { ...SceneScoreOpen, ...WIDE_1440 };
+export const SceneEditingPointsWonderPhone: Story = { ...SceneEditingPointsWonder, ...PHONE_375 };
+export const SceneEditingPointsWonderWide: Story = { ...SceneEditingPointsWonder, ...WIDE_1440 };
 export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_375 };
 export const SceneEditingPointsWide: Story = { ...SceneEditingPoints, ...WIDE_1440 };
 export const SceneEditingPointsLiftedPhone: Story = { ...SceneEditingPointsLifted, ...PHONE_375 };
