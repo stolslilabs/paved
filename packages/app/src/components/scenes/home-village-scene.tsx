@@ -281,6 +281,27 @@ interface PointsState {
   onClose: () => void;
 }
 
+/**
+ * The right column, over Play: under the balances (#828), as far down as the stack reaches, and never above 5.5 rem from the
+ * screen's top (5 rem in the top row's padding from `tablet`), where it stood before the stack.
+ */
+function VillageNav(props: HomeVillageSceneProps) {
+  return (
+    <nav
+      aria-label="Village"
+      className="absolute top-[max(calc(100%+0.5rem),5.5rem)] -right-1 flex flex-col items-center gap-1.5 tablet:top-[max(calc(100%+0.5rem),5rem)] tablet:gap-2.5"
+    >
+      <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
+      {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
+      <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
+      <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
+      <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
+      {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
+      <OverlayButton icon="trophy" label="League" onClick={props.onLeague} className={BAR_ONLY_BELOW_DESKTOP} />
+    </nav>
+  );
+}
+
 /** The view's overlays: the corners, the right column, Play and Edit, the chips. */
 function ViewOverlays({
   village,
@@ -335,13 +356,15 @@ function ViewOverlays({
               </Suspense>
             )}
           </div>
-          <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-            <BalancesSlot layout="pill" className="desktop:hidden" />
-            <BalancesSlot layout="rail" className="hidden desktop:flex" />
-            {/* Below `desktop` Settings is the bar's (#763). */}
+          {/* The balances one under the other at the top right (#828), the same set as each width's header (#781). */}
+          <div className="pointer-events-auto relative flex shrink-0 items-start gap-2">
+            {/* Below `desktop` Settings is the bar's (#763); from it, beside the stack's first plate. */}
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <Icon name="gear" size="md" />
             </Button>
+            <BalancesSlot layout="pill" className="desktop:hidden" />
+            <BalancesSlot layout="rail" direction="column" className="hidden desktop:flex" />
+            <VillageNav {...props} />
           </div>
         </div>
         {/* The chips under the avatar, clear of the right column. */}
@@ -375,17 +398,6 @@ function ViewOverlays({
           )}
         </div>
       </div>
-
-      {/* The right column, under the top row and over Play. */}
-      <nav aria-label="Village" className="absolute top-[calc(max(0.5rem,env(safe-area-inset-top))+5.5rem)] right-1 flex flex-col items-center gap-1.5 tablet:right-3 tablet:gap-2.5">
-        <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
-        {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
-        <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
-        <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
-        <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
-        {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
-        <OverlayButton icon="trophy" label="League" onClick={props.onLeague} className={BAR_ONLY_BELOW_DESKTOP} />
-      </nav>
 
       {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
       {props.seasonWheel && (
