@@ -108,22 +108,23 @@ export function LayoutSlotsStrip({ editor, className, ...props }: LayoutSlotsPro
           <SlotCard key={s.slot} slot={s} active={s.slot === active} picked={s.slot === slot.slot} onPick={() => setPicked(s.slot)} />
         ))}
       </div>
-      <div className="flex gap-2">
+      {/* The picked slot's actions: one row while they fit, the last ones on a second row on a narrow phone (320 px). */}
+      <div className="flex flex-wrap gap-2">
         {!slot.open ? (
-          <Button className="flex-1" onClick={() => setAsk("buy")} disabled={working || short} loading={busy?.kind === "buy" && busy.slot === slot.slot}>
+          <Button className="flex-auto" onClick={() => setAsk("buy")} disabled={working || short} loading={busy?.kind === "buy" && busy.slot === slot.slot}>
             <Icon name="lock-open" size="sm" /> Buy {slotName(slot.slot).toLowerCase()} · <Cobbles value={slot.price} />
           </Button>
         ) : (
           <>
             {slot.tiles && (
-              <Button variant="outline" className="flex-1 px-3" onClick={load} disabled={working || draftHere}>
+              <Button variant="outline" className="flex-auto px-3" onClick={load} disabled={working || draftHere}>
                 <Icon name="pen" size="sm" /> Load
               </Button>
             )}
             {slot.slot !== active && (
               <Button
                 variant="outline"
-                className="flex-1 px-3"
+                className="flex-auto px-3"
                 onClick={saveHere}
                 disabled={working || draftHere || editor.over || editor.rolling}
                 loading={busy?.kind === "save-to" && busy.slot === slot.slot}
@@ -134,7 +135,7 @@ export function LayoutSlotsStrip({ editor, className, ...props }: LayoutSlotsPro
             {slot.tiles && slot.slot !== active && (
               <Button
                 variant="secondary"
-                className="flex-1 px-3"
+                className="flex-auto px-3"
                 onClick={() => setAsk("activate")}
                 disabled={working || !slot.fits}
                 loading={busy?.kind === "activate" && busy.slot === slot.slot}
