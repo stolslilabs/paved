@@ -71,21 +71,21 @@ describe("/: the PvP standing by the avatar (#755)", () => {
   it("shows Wanderer with 0 crowns before any PvP, a tap to the league", async () => {
     const { router } = await open();
     await screen.findByRole("button", { name: "Edit village" }, WAIT);
-    fireEvent.click(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
+    fireEvent.click(await screen.findByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/pvp/league"), WAIT);
   }, slow(30_000));
 });
 
-describe("/: the shield's chip (#806)", () => {
-  it("shows the shield and its HH:MM beside the crowns while the village is shielded, from the League's read", async () => {
+describe("/: the shield's plate (#806, #829)", () => {
+  it("shows the shield and its HHhMMm under the League control while the village is shielded, from the League's read", async () => {
     const { me } = await open({ crowns: 1_240, shieldUntil: Math.floor(Date.now() / 1000) + 7 * 3600 + 41 * 60 + 30 });
     const chip = await screen.findByRole("button", { name: /^Shielded, 7 hours 4\d minutes left$/ }, WAIT);
-    expect(chip).toHaveTextContent(/^07:4\d$/);
+    expect(chip).toHaveTextContent(/^07h4\dm$/);
     // The League page's own query (`pvpKeys.shield`): the two never disagree.
     expect(queryClient.getQueryData(pvpKeys.shield(me))).toMatchObject({ up: true });
   }, slow(30_000));
 
-  it("shows no chip without a shield", async () => {
+  it("shows no plate without a shield", async () => {
     await open({ crowns: 1_240 });
     await screen.findByRole("button", { name: /^League: / }, WAIT);
     expect(screen.queryByRole("button", { name: /^Shielded/ })).toBeNull();

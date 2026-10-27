@@ -1,17 +1,18 @@
 import { formatDate } from "@paved/game-core";
 
-// The shield's time left (issue 806): `HH:MM`, the minutes rounded up, shared by the home's chip, the League page and the scout.
+// The shield's time left (issue 806): `HHhMMm` since issue 829 (it was `HH:MM`), the minutes rounded up, shared by the home's
+// plate, the League page and the scout.
 
 /** Up while its end is ahead (`PvpShield.up` and `until` in the future). */
 export const shieldUp = (endsAt: number | null | undefined, now: number): endsAt is number => endsAt != null && endsAt > now;
 
-/** The minutes left, rounded up: a shield never reads 00:00 while it is up. */
+/** The minutes left, rounded up: a shield never reads 00h00m while it is up. */
 const minutesLeft = (seconds: number): number => Math.max(0, Math.ceil(seconds / 60));
 
-/** `HH:MM` from seconds, the minutes rounded up ("07:42"; one second left is "00:01"); 0 and below read as 00:00. */
+/** `HHhMMm` from seconds, the minutes rounded up ("07h42m"; one second left is "00h01m"); 0 and below read as 00h00m. */
 export function formatHoursMinutes(seconds: number): string {
   const minutes = minutesLeft(seconds);
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}h${String(minutes % 60).padStart(2, "0")}m`;
 }
 
 /** The same time in words, for a screen reader: "7 hours 42 minutes", "1 hour", "42 minutes", "1 minute". */

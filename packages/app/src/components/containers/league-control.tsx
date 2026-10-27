@@ -1,0 +1,95 @@
+import { formatInteger } from "@paved/game-core";
+import { useReducedMotionConfig } from "motion/react";
+import * as m from "motion/react-m";
+import { useEffect, useRef, useState } from "react";
+import { leagueOf, type LeagueId } from "../../lib/pvp-rules";
+import { cn } from "../../lib/utils";
+import { crestClass } from "../elements/league-crest";
+import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
+import { Icon } from "../ui/icon";
+
+/** The promotion's ring in its league's colour (#787's, on the crest since #829); Wanderer a neutral grey. */
+const RING: Record<LeagueId, string> = {
+  peasant: "border-league-peasant",
+  yeoman: "border-league-yeoman",
+  squire: "border-league-squire",
+  knight: "border-league-knight",
+  baron: "border-league-baron",
+  earl: "border-league-earl",
+  duke: "border-league-duke",
+  sovereign: "border-league-sovereign",
+  wanderer: "border-league-wanderer",
+};
+
+export interface LeagueControlProps {
+  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wanderer). */
+  crowns: number;
+  /** Opens the League page: a tap anywhere on the control. */
+  onLeague?: () => void;
+  /** The balances' sizes (issue 828); `auto` (the home's), `sm` on a phone and `md` from `desktop`. */
+  size?: PlateSize;
+  className?: string;
+}
+
+/**
+ * The home's League control (#829, the owner's decisions of 2026-10-27), under the profile at the top left: a round League button
+ * (`trophy`) over the left end of the balances' plate (#828), the crowns at the plate's centre and the league's crest closing its
+ * right end. No league name: the crest is enough, and the League page says more. One button, its name the league and the crowns
+ * ("League: Knight II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
+ * motion.
+ */
+export function LeagueControl({ crowns, onLeague, size = "auto", className }: LeagueControlProps) {
+  const league = leagueOf(crowns);
+  const reduced = useReducedMotionConfig();
+  const [promoted, setPromoted] = useState<number | null>(null);
+  const shown = useRef(league.index);
+  useEffect(() => {
+    const from = shown.current;
+    shown.current = league.index;
+    if (league.index > from && !reduced) setPromoted(league.index);
+  }, [league.index, reduced]);
+
+  return (
+    <m.button
+      type="button"
+      data-slot="league-control"
+      data-league={league.id}
+      onClick={onLeague}
+      whileTap={{ scale: 0.95 }}
+      aria-label={`League: ${league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
+      className={cn("group flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+    >
+      <Plate
+        size={size}
+        lead="disc"
+        leadContent={
+          <PlateDisc size={size} face="button" className="state-layer rounded-full">
+            <Icon name="trophy" className={cn("relative", plateIconClass(size))} />
+          </PlateDisc>
+        }
+        end={
+          <PlateDisc size={size}>
+            <Icon name="shield-halved" className={cn("relative", crestClass(league.id), plateIconClass(size))} />
+            {promoted !== null && (
+              <m.span
+                key={promoted}
+                aria-hidden
+                data-slot="league-promotion"
+                className={cn("pointer-events-none absolute inset-0 rounded-full border-4", RING[league.id])}
+                initial={{ scale: 1, opacity: 0.9 }}
+                animate={{ scale: 1.45, opacity: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                onAnimationComplete={() => setPromoted((p) => (p === promoted ? null : p))}
+              />
+            )}
+          </PlateDisc>
+        }
+      >
+        <span aria-hidden className="flex items-center gap-1">
+          <Icon name="crown" size="xs" className="text-crown" />
+          <span className={PLATE_FIGURE}>{formatInteger(crowns)}</span>
+        </span>
+      </Plate>
+    </m.button>
+  );
+}

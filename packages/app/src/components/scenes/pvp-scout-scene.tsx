@@ -9,8 +9,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Cobbles } from "../elements/cobbles";
-import { formatRemaining } from "../elements/countdown";
-import { formatHoursMinutes } from "../elements/shield-time";
+import { formatHoursMinutes, shieldLabel } from "../elements/shield-time";
 import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LeagueCrest } from "../elements/league-crest";
@@ -125,8 +124,8 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
               <Button variant="ghost" size="sm" data-shield className="gap-1 px-2 text-warning" onClick={() => setRulesOpen(true)}>
                 <Icon name="shield-halved" size="sm" />
                 <span className="sr-only">Attacking drops your shield</span>
-                <span role="timer" aria-label={`Shield ${formatRemaining(props.shieldEndsAt! - now)}`} className="numeric font-semibold text-foreground">
-                  {formatRemaining(props.shieldEndsAt! - now)}
+                <span role="timer" aria-label={shieldLabel(props.shieldEndsAt!, now)} className="numeric font-semibold text-foreground">
+                  {formatHoursMinutes(props.shieldEndsAt! - now)}
                 </span>
               </Button>
             )}

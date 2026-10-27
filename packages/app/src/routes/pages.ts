@@ -34,6 +34,11 @@ export interface PageDef {
    * `desktop` it is a full page, as the others. Its route is a child of the home's.
    */
   panel?: true;
+  /**
+   * The panel's side from `desktop`: `left` for the League (#829, the owner's decision of 2026-10-27), whose button is on the home's
+   * left, as the profile's sheet; omitted, the right.
+   */
+  panelSide?: "left";
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -56,7 +61,7 @@ export const PAGES: readonly PageDef[] = [
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
   // A match of the League's list (#786): the attacked village from its snapshot and the attack's build. Back goes up to the League.
   { path: "pvp/match/:id", title: "Match", nav: null, parent: "/pvp/league" },
-  { path: "pvp/league", title: "League", nav: "league", panel: true },
+  { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left" },
   { path: "training", title: "Training", nav: null },
   // Story's campaigns, a sheet over Play's mode choice (BACK-RULE #783); a level is a full-screen flow.
   { path: "story", title: "Story", nav: null, parent: "/play", sheet: true, panel: true },

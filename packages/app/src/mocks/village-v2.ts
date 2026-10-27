@@ -271,14 +271,16 @@ export const HOME_VILLAGE = {
   resume: { ...home, activeGame: GAME_PLAYING },
   /** `spawn_paused`: the notice beside the Resume chip. */
   paused: { ...home, activeGame: GAME_PLAYING, spawnPaused: true },
-  /** A new player: the starter village (level 1), no PvP played: the badge Wanderer with 0 crowns (#755). */
+  /** A new player: the starter village (level 1), no PvP played: the League control unranked, Wanderer with 0 crowns (#755, #829). */
   start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, now: MOCK_NOW },
-  /** The village shielded after a defence (#806): the shield's chip beside the crowns, 07:42 left. */
+  /** The village shielded after a defence (#806): the shield's mirrored plate under the League control (#829), 07h42m left. */
   shielded: { ...home, shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 },
-  /** Under an hour left: 00:42. */
+  /** Under an hour left: 00h42m. */
   shieldUnderAnHour: { ...home, shieldEndsAt: MOCK_NOW + 42 * 60 - 20 },
-  /** The shield's last minute: 00:01, never 00:00 while it is up. */
+  /** The shield's last minute: 00h01m, never 00h00m while it is up. */
   shieldLastMinute: { ...home, shieldEndsAt: MOCK_NOW + 25 },
+  /** The widest left column (#829): a five-digit crown count, shielded for 8 hours. */
+  leagueStress: { ...home, league: { crowns: 12_345 }, shieldEndsAt: MOCK_NOW + 8 * HOUR },
   /** Not founded yet: the starter alone, Found in Edit's place. */
   unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, league: null, now: MOCK_NOW },
   /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */
