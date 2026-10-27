@@ -121,7 +121,10 @@ export type V2Refusal =
   | "opponent-drawn"
   | "opponent-shielded"
   | "no-opponent"
-  | "cannot-place";
+  | "cannot-place"
+  | "slot-locked"
+  | "slot-empty"
+  | "slot-open";
 
 /** A v2 write the rules refused: its reason, and the receipt's hash when it was sent. */
 export class V2RefusedError extends Error {
@@ -216,7 +219,7 @@ export function invalidateV2(client: QueryClient, playerId: string): void {
 /** A write of the village side on its way: what it is for. */
 export type FreeVillageWrite =
   | { kind: "found" }
-  | { kind: "save"; tiles: readonly LayoutTile[] }
+  | { kind: "save"; tiles: readonly LayoutTile[]; slot?: number }
   | { kind: "open"; index?: number }
   | { kind: "claim"; slot: number }
   | { kind: "buy"; request: BuyTileRequest }
@@ -238,7 +241,11 @@ export function useFreeVillageWrites(playerId: string | null) {
         case "found":
           return signer.foundFreeVillage();
         case "save":
-          return signer.saveLayout(write.tiles);
+          // Into the slot the editor showed active (#804), never one an activation made active meanwhile. A slot is given only
+          // where the slots are served, by a signer that writes them (`layoutSlotSigner`).
+          return write.slot === undefined
+            ? signer.saveLayout(write.tiles)
+            : (signer as FreeVillageWrites & { saveLayoutTo(slot: number, tiles: readonly LayoutTile[]): Promise<WriteResult> }).saveLayoutTo(write.slot, write.tiles);
         case "open":
           return signer.openChest(write.index);
         case "claim":
@@ -261,7 +268,7 @@ export function useFreeVillageWrites(playerId: string | null) {
     error: mutation.error,
     reset: () => mutation.reset(),
     found: () => mutation.mutateAsync({ kind: "found" }),
-    save: (tiles: readonly LayoutTile[]) => mutation.mutateAsync({ kind: "save", tiles }),
+    save: (tiles: readonly LayoutTile[], slot?: number) => mutation.mutateAsync({ kind: "save", tiles, slot }),
     openChest: (index?: number) => mutation.mutateAsync(index === undefined ? { kind: "open" } : { kind: "open", index }),
     claimChest: (slot: number) => mutation.mutateAsync({ kind: "claim", slot }),
     buy: (request: BuyTileRequest) => mutation.mutateAsync({ kind: "buy", request }),
