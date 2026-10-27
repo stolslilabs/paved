@@ -18,6 +18,7 @@ import { BoardViewport } from "../containers/board-viewport";
 import type { LayoutBoardView } from "../containers/layout-board";
 import { useLayoutCanvas } from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
+import { CentreGuide, expectIconCentred } from "../../stories/centre-guide";
 import { PHONE_320, PHONE_375, TABLET_768, VIEWPORT_OPTIONS, WIDE_1440 } from "./viewports";
 
 /**
@@ -97,6 +98,19 @@ export const ShieldLastMinute: Story = { args: HOME_VILLAGE.shieldLastMinute };
 export const ShieldedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.shielded };
 export const ShieldedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.shielded };
 export const ShieldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.shielded };
+
+/**
+ * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the swords at the centre of Play, under a centre guide (two red lines
+ * through the button's centre): the home's gold button from `desktop` (1440 px), the bar's disc below it (375 px). The play checks
+ * the drawn one's icon centre is the button's to half a pixel.
+ */
+export const PlayCentred: Story = {
+  args: HOME_VILLAGE.view,
+  decorators: [(Story) => <CentreGuide label="Play"><Story /></CentreGuide>],
+  play: ({ canvasElement }) => expectIconCentred(canvasElement, "Play"),
+};
+export const PlayCentredPhone375: Story = { ...PlayCentred, ...PHONE_375 };
+export const PlayCentredWide1440: Story = { ...PlayCentred, ...WIDE_1440 };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };
 /** No wallet: a starter village to look at, Connect in the header, no Edit. */

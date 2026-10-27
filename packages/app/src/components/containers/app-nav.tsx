@@ -139,8 +139,8 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                     onClick={() => onNavigate?.(tab.id)}
                     className="state-layer relative z-10 -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none focus-visible:ring-ring"
                   >
-                    {/* The triangle's weight sits left of its box: nudged right so it reads centred in the disc. */}
-                    <Icon name={tab.icon} size="lg" className="translate-x-0.5" />
+                    {/* No nudge (#827): the swords fill their square box, so the grid's centre is theirs. */}
+                    <Icon name={tab.icon} size="lg" />
                   </button>
                 </div>
               );
