@@ -125,7 +125,7 @@ describe("League carousel (#785, #833)", () => {
   });
 
   for (const reduced of ["never", "always"] as const) {
-    it(`a bonus to celebrate: a tap plays its moment, then it is had and seen (reduced motion ${reduced})`, async () => {
+    it(`a bonus to celebrate: a tap plays its moment and marks it seen, then it is had (reduced motion ${reduced})`, async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       try {
         const onBonusSeen = vi.fn();
@@ -133,18 +133,46 @@ describe("League carousel (#785, #833)", () => {
         expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: earned, tap to celebrate");
         await userEvent.click(bonus());
         expect(within(inView()).getByRole("status")).toHaveTextContent("+10");
-        expect(onBonusSeen).not.toHaveBeenCalled();
+        // Seen at the tap: the moment plays once, whatever comes next.
+        expect(onBonusSeen).toHaveBeenCalledExactlyOnceWith(5);
+        expect(bonus()).toHaveAttribute("data-bonus", "had");
         await act(async () => {
           vi.advanceTimersByTime(BONUS_BURST_MS + 10);
         });
         expect(within(inView()).queryByRole("status")).toBeNull();
         expect(bonus()).toHaveAttribute("data-bonus", "had");
-        expect(onBonusSeen).toHaveBeenCalledWith(5);
+        expect(onBonusSeen).toHaveBeenCalledTimes(1);
       } finally {
         vi.useRealTimers();
       }
     });
   }
+
+  it("leaving the league during the moment ends it; a return never replays it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const onBonusSeen = vi.fn();
+      render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bonusReady} onBonusSeen={onBonusSeen} />));
+      await userEvent.click(bonus());
+      expect(within(inView()).getByRole("status")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Next league" }));
+      expect(inView()).toHaveAccessibleName("Yeoman I");
+      await act(async () => {
+        vi.advanceTimersByTime(BONUS_BURST_MS + 300);
+      });
+      await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
+      expect(inView()).toHaveAccessibleName("Yeoman II");
+      expect(document.querySelector("[data-slot=bonus-burst]")).toBeNull();
+      expect(bonus()).toHaveAttribute("data-bonus", "had");
+      // Back at once, before the moment's end, the same.
+      await userEvent.click(screen.getByRole("button", { name: "Next league" }));
+      await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
+      expect(document.querySelector("[data-slot=bonus-burst]")).toBeNull();
+      expect(onBonusSeen).toHaveBeenCalledExactlyOnceWith(5);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it("stops at Wanderer and at Sovereign", async () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wanderer} />));

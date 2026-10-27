@@ -47,7 +47,7 @@ export interface PvpLeagueSceneProps {
   onBack?: () => void;
   /** A pick in the phone's bar (#763): the page is the League tab's. */
   onNavigate?: (tab: Tab) => void;
-  /** A bonus's moment played: it is seen. */
+  /** A bonus's moment started (a tap on its icon): it is seen, and never plays again. */
   onBonusSeen?: (league: number) => void;
   /**
    * The latest attacks and defences as cards (#786, in place of the defence log), with the shield; none when omitted. A section
@@ -82,7 +82,13 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   // The highest league reached this season: each league up to it has paid its first-time bonus, kept after a drop (to Wanderer too).
   const peak = Math.max(mine.index, best != null ? leagueOf(best).index : 0);
   const [seen, setSeen] = useState<readonly number[]>([]);
+  // The league whose bonus's moment is playing. A tap marks the bonus seen at once: leaving the league ends the moment, and a
+  // return never replays it (only a tap starts one).
   const [celebrating, setCelebrating] = useState<number | null>(null);
+  const select = (index: number) => {
+    if (index !== selected) setCelebrating(null);
+    setSelected(index);
+  };
   const bonusOf = (l: League): LeagueBonusState => (l.index > peak ? "locked" : bonusesToSee?.includes(l.index) && !seen.includes(l.index) ? "ready" : "had");
   const left = season ? season.endsAt - now : 0;
   const ended = season !== null && left <= 0;
@@ -92,7 +98,7 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
       <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card px-2 pt-2 pb-4">
-            <LeagueCarousel selected={selected} onSelect={setSelected} mine={mine.index}>
+            <LeagueCarousel selected={selected} onSelect={select} mine={mine.index}>
               {(l, current) => (
                 <LeagueCard
                   league={l}
@@ -100,13 +106,13 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
                   crowns={crowns}
                   bonus={bonusOf(l)}
                   celebrating={current && celebrating === l.index}
-                  onCelebrate={() => setCelebrating(l.index)}
-                  onCelebrated={() => {
-                    setCelebrating(null);
+                  onCelebrate={() => {
+                    setCelebrating(l.index);
                     setSeen((s) => [...s, l.index]);
                     onBonusSeen?.(l.index);
                   }}
-                  onBack={() => setSelected(mine.index)}
+                  onCelebrated={() => setCelebrating(null)}
+                  onBack={() => select(mine.index)}
                 />
               )}
             </LeagueCarousel>
