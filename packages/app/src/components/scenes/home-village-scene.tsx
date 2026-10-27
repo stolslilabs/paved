@@ -282,6 +282,25 @@ interface PointsState {
 }
 
 /**
+ * The balances' width at the home's top right, as `--balances-w` on the top row: the plates stand out of the row's flow (#828), and
+ * the profile's line beside them stops short of them whatever the amounts (a 999,999 Cobbles plate at 320 px).
+ */
+function useBalancesWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const cell = ref.current;
+    const row = cell?.parentElement;
+    if (!cell || !row) return;
+    const write = () => row.style.setProperty("--balances-w", `${cell.offsetWidth}px`);
+    write();
+    const observer = new ResizeObserver(write);
+    observer.observe(cell);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+}
+
+/**
  * The right column, over Play: under the balances (#828), as far down as the stack reaches, and never above 5.5 rem from the
  * screen's top (5 rem in the top row's padding from `tablet`), where it stood before the stack. From `desktop` it stops above Play
  * (the top row's 1 rem, its own top, Play's 4.5 rem, its 1 rem margin and a 0.5 rem gap): on a short window its buttons wrap into
@@ -316,6 +335,7 @@ function ViewOverlays({
   const { activeGame, now, guest, founded = true } = props;
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
+  const balancesRef = useBalancesWidth();
   return (
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
@@ -323,7 +343,11 @@ function ViewOverlays({
         <div className="relative flex items-start justify-between gap-2">
           {/* The badge's profile and league each open a sheet or a page over the scene, tapped or keyed: the points close under it (#792). */}
           <div
-            className="pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]"
+            className={cn(
+              "pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]",
+              // The profile's line gives way to the balances beside it (`--balances-w`): its name and XP bar narrow, never under a wide plate.
+              "[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-1.5rem-var(--balances-w,0px))] tablet:[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-2.5rem-var(--balances-w,0px))]",
+            )}
             onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge]") && points?.onClose()}
           >
             {/* The profile and the league as one (#787): the avatar in its league's border, the name, the XP bar, the badge and the crowns. */}
@@ -363,7 +387,7 @@ function ViewOverlays({
             flow: only the profile's line stands beside them (the league's line under it passes below the plate), so at 320 px the
             badge keeps its whole width; the left column stops short of the right column (the chips' clearance) and wraps.
           */}
-          <div className="pointer-events-auto absolute top-0 right-0 flex items-start gap-2">
+          <div ref={balancesRef} className="pointer-events-auto absolute top-0 right-0 flex items-start gap-2">
             {/* Below `desktop` Settings is the bar's (#763); from it, beside the stack's first plate. */}
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <Icon name="gear" size="md" />

@@ -6,6 +6,7 @@ import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAYER_STATUS } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
+import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
 import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_SLOTS } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import type { LayoutSaved } from "../containers/layout-editor";
@@ -77,6 +78,14 @@ export const View: Story = { args: HOME_VILLAGE.view };
  * A short desktop window (1024 x 600): the balances' stack (#828) pushes the right column down, so it stops above Play and its
  * last buttons wrap into a second column, to the left, never under Play.
  */
+/** The widest balances (the balances' stress amounts) at 320 px: the profile's line narrows beside the plate, never under it (#828). */
+const WIDE_BALANCES = (Story: () => React.JSX.Element) => (
+  <BalancesProvider value={{ state: { status: "ready", usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18, cobbles: 999_999 }, faucet: false }}>
+    <Story />
+  </BalancesProvider>
+);
+export const WideBalancesPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
+export const WideBalancesWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
 export const ShortDesktop: Story = {
   args: HOME_VILLAGE.view,
   parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, short: { name: "Laptop 1024 x 600", styles: { width: "1024px", height: "600px" }, type: "desktop" } } } },
