@@ -78,18 +78,8 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   // Below Peasant III (400 crowns) a village is a Wanderer on chain, as one that never attacked.
   const outside = unranked || league.id === "wanderer";
   const mine = outside ? LEAGUES[0]! : league;
-  const [selected, setSelected] = useState(opensOn ?? mine.index);
   // The highest league reached this season: each league up to it has paid its first-time bonus, kept after a drop (to Wanderer too).
   const peak = Math.max(mine.index, best != null ? leagueOf(best).index : 0);
-  const [seen, setSeen] = useState<readonly number[]>([]);
-  // The league whose bonus's moment is playing. A tap marks the bonus seen at once: leaving the league ends the moment, and a
-  // return never replays it (only a tap starts one).
-  const [celebrating, setCelebrating] = useState<number | null>(null);
-  const select = (index: number) => {
-    if (index !== selected) setCelebrating(null);
-    setSelected(index);
-  };
-  const bonusOf = (l: League): LeagueBonusState => (l.index > peak ? "locked" : bonusesToSee?.includes(l.index) && !seen.includes(l.index) ? "ready" : "had");
   const left = season ? season.endsAt - now : 0;
   const ended = season !== null && left <= 0;
   return (
@@ -98,24 +88,7 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
       <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card px-2 pt-2 pb-4">
-            <LeagueCarousel selected={selected} onSelect={select} mine={mine.index}>
-              {(l, current) => (
-                <LeagueCard
-                  league={l}
-                  mine={mine}
-                  crowns={crowns}
-                  bonus={bonusOf(l)}
-                  celebrating={current && celebrating === l.index}
-                  onCelebrate={() => {
-                    setCelebrating(l.index);
-                    setSeen((s) => [...s, l.index]);
-                    onBonusSeen?.(l.index);
-                  }}
-                  onCelebrated={() => setCelebrating(null)}
-                  onBack={() => select(mine.index)}
-                />
-              )}
-            </LeagueCarousel>
+            <LeagueBrowser mine={mine} crowns={crowns} peak={peak} opensOn={opensOn} bonusesToSee={bonusesToSee} onBonusSeen={onBonusSeen} />
             <p data-testid="league-player" className="flex min-h-5 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 text-center text-sm text-muted-foreground">
               {unranked ? (
                 "Attack a village to enter the leagues. Every star wins crowns."
@@ -173,5 +146,49 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
         </div>
       </main>
     </TabFrame>
+  );
+}
+
+interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "crowns" | "opensOn" | "bonusesToSee" | "onBonusSeen"> {
+  /** The player's league. */
+  mine: League;
+  /** The highest league reached this season (`LEAGUES`' index). */
+  peak: number;
+}
+
+/**
+ * The carousel and its cards, with the league in view and the bonus's moment as their own state: moving through the leagues
+ * redraws the carousel alone, never the season or the matches below.
+ */
+function LeagueBrowser({ mine, crowns, peak, opensOn, bonusesToSee, onBonusSeen }: LeagueBrowserProps) {
+  const [selected, setSelected] = useState(opensOn ?? mine.index);
+  const [seen, setSeen] = useState<readonly number[]>([]);
+  // The league whose bonus's moment is playing. A tap marks the bonus seen at once: leaving the league ends the moment, and a
+  // return never replays it (only a tap starts one).
+  const [celebrating, setCelebrating] = useState<number | null>(null);
+  const select = (index: number) => {
+    if (index !== selected) setCelebrating(null);
+    setSelected(index);
+  };
+  const bonusOf = (l: League): LeagueBonusState => (l.index > peak ? "locked" : bonusesToSee?.includes(l.index) && !seen.includes(l.index) ? "ready" : "had");
+  return (
+    <LeagueCarousel selected={selected} onSelect={select} mine={mine.index}>
+      {(l, current) => (
+        <LeagueCard
+          league={l}
+          mine={mine}
+          crowns={crowns}
+          bonus={bonusOf(l)}
+          celebrating={current && celebrating === l.index}
+          onCelebrate={() => {
+            setCelebrating(l.index);
+            setSeen((s) => [...s, l.index]);
+            onBonusSeen?.(l.index);
+          }}
+          onCelebrated={() => setCelebrating(null)}
+          onBack={() => select(mine.index)}
+        />
+      )}
+    </LeagueCarousel>
   );
 }
