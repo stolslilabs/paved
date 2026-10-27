@@ -12,8 +12,9 @@ import { SMOKE_ARGS, SMOKE_ARG_TYPES } from "./chimney-smoke-args";
  *
  * The white smoke voxels of the models are hidden while the smoke can be drawn, the mouths capped dark, in summer too (neither
  * smoke nor white voxels); under the Low tier, reduced motion or 'Ambient effects' off there is no smoke and the white voxels are
- * shown (owner, 2026-10-25). Two looks to choose from (#770, open point 2): "puffs", a light grey plume of soft round puffs, a
- * little thicker in winter; "wisps", a thinner, taller, fainter trail that sways more.
+ * shown (owner, 2026-10-25). The default look, "varied" (#801, the owner's): a light grey plume of soft round puffs, slow and
+ * faint, each chimney's leaning, shaped and tinted its own way; a little thicker in winter. #770's two looks stay for the stories:
+ * "puffs", every chimney alike, and "wisps", a thinner, taller, fainter trail that sways more.
  */
 const meta = {
   title: "Renderer/Chimney smoke",
@@ -29,7 +30,7 @@ const tile = { layout: "tile" as const, view: "close" as const };
 /** The second look: the look alone, its knobs left to it. */
 const wisps = { look: "wisps" as const };
 
-/** On a tile, autumn: the base `sfrfrfffr` (two smoking chimneys, one 2 x 2, and a bare one), look "puffs". */
+/** On a tile, autumn: the base `sfrfrfffr` (two smoking chimneys, one 2 x 2, and a bare one), the default look. */
 export const TileAutumn: Story = { args: { ...tile, forest: false, season: "autumn" } };
 /** On a tile, winter: a little thicker. */
 export const TileWinter: Story = { args: { ...tile, forest: false, season: "winter" } };
@@ -38,7 +39,7 @@ export const TileSpring: Story = { args: { ...tile, forest: false, season: "spri
 /** On a tile, summer: neither smoke nor white voxels. */
 export const TileSummer: Story = { args: { ...tile, forest: false, season: "summer" } };
 
-/** On the board (Forest skin), autumn, look "puffs". */
+/** On the board (Forest skin), autumn, the default look. */
 export const BoardAutumn: Story = { args: { season: "autumn" } };
 /** On the board, winter. */
 export const BoardWinter: Story = { args: { season: "winter" } };

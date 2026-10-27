@@ -202,6 +202,7 @@ export {
   MAX_SMOKE_PUFFS,
   NO_SMOKE_VARIATION,
   SMOKE_LOOKS,
+  SMOKE_VARIATION,
   plumeOf,
   plumeSeed,
   puffsPerChimney,
