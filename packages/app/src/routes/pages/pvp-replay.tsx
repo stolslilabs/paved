@@ -29,7 +29,7 @@ const ORIENTATIONS = Object.values(OrientationType);
  * `/pvp/replay/:attacker/:id` (#647 PR 2): attack `id` of `attacker` stepped through, move by move: its moves from
  * `Arena.moves` replayed on game-core's engine on the defender's board (the snapshot's parcels for the attacker's last attack,
  * `Arena.attack`; the territory now for an older one, which holds every cell it had), its target from the indexer's row. A
- * full-screen flow opened from the league's defence log (or a result): Back goes up to the league (BACK-RULE #783).
+ * full-screen flow opened from a match card of the league (v1, #786) or a result: Back goes up to the league (BACK-RULE #783).
  */
 export default function Page() {
   const { attacker, id } = useParams();
@@ -78,7 +78,7 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
     () => step?.run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y })) ?? [],
     [step],
   );
-  // The 3D board of every game, read only (#772): green on a replay of an attack on the viewer's own village (the defence log's),
+  // The 3D board of every game, read only (#772): green on a replay of an attack on the viewer's own village (a defence's card),
   // red on someone else's (open point 5). The defender's skins, as the attack drew them.
   const me = useDataSources().signer?.address ?? null;
   const own = me !== null && attack !== null && addressKey(attack.defender) === addressKey(me);

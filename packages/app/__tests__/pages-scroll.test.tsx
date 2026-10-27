@@ -37,7 +37,7 @@ const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
   ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onNavigate={no()} onBuy={no()} onGetCobbles={no()} />],
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
-  ["League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={no()} onNavigate={no()} onAttack={no()} onReplay={no()} />],
+  ["League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={no()} onNavigate={no()} onAttack={no()} onOpenMatch={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
   ["Missions", <QuestsScene {...QUESTS.today} onNavigate={no()} onDayChange={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
   ["Missions", <AchievementsScene {...ACHIEVEMENTS.mixed} onNavigate={no()} onTab={no()} onClaim={no()} onClaimAll={no()} />],
@@ -146,8 +146,8 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-league]").length).toBe(23);
     expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
     expect(region).toContainElement(screen.getByRole("button", { name: /Attack/ }));
-    // The defence log, a section of the page since BACK-RULE (#783), in the same region.
-    expect(region).toContainElement(screen.getByRole("heading", { level: 2, name: "Defences" }));
+    // The latest attacks and defences (#786), a section of the page, in the same region.
+    expect(region).toContainElement(screen.getByRole("heading", { level: 2, name: "Attacks and defences" }));
     unmount();
     draw(PAGES[1]![1], false, "Chests");
     // The page with the chest modal closed (#784): the day's three slots, under the sticky header.

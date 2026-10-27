@@ -17,6 +17,7 @@ import { PvpSearchScene } from "../src/components/scenes/pvp-search-scene";
 import {
   ATTACK_SCORES,
   ATTACK_STEPS,
+  MATCHES,
   MY_VILLAGE,
   PVP_ATTACK,
   PVP_LEAGUE,
@@ -24,10 +25,12 @@ import {
   PVP_RESULT,
   PVP_SCOUT,
   PVP_SEARCH,
+  RIVAL,
   RIVAL_VILLAGE,
   STAKES,
 } from "../src/mocks/pvp";
 import { playAttack } from "../src/mocks/pvp-attack";
+import { PVP_MATCH } from "../src/mocks/pvp-match";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
@@ -258,20 +261,47 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("button", { name: /Choose/ })).toBeNull();
   });
 
-  it("league's defence log (BACK-RULE #783, a section of the page): the shield's timer, the attacks and their replays", async () => {
-    const onReplay = vi.fn();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} onReplay={onReplay} />));
-    expect(screen.getByRole("heading", { level: 2, name: "Defences" })).toBeInTheDocument();
+  it("league's matches (#786, in place of the defence log): the shield, attacks and defences as cards, newest first, each opening its match", async () => {
+    const onOpenMatch = vi.fn();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.gold} onOpenMatch={onOpenMatch} />));
+    expect(screen.getByRole("heading", { level: 2, name: "Attacks and defences" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Defence log" })).toBeNull();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
     expect(screen.getByRole("timer")).toHaveAccessibleName("Shield ends in 5:12:00");
-    expect(within(screen.getByRole("list", { name: "Attacks" })).getAllByRole("listitem")).toHaveLength(5);
-    await userEvent.click(screen.getByRole("button", { name: "Replay the attack of Vael" }));
-    expect(onReplay).toHaveBeenCalledWith(41);
+    const cards = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
+    expect(cards).toHaveLength(MATCHES.length);
+    // Attacks and defences mixed, newest first, each told apart.
+    expect(cards.map((c) => c.dataset.side)).toEqual(MATCHES.map((m) => m.side));
+    expect(cards[0]).toHaveAccessibleName(`Your attack on ${RIVAL.name}: ${MATCHES[0]!.stars} of 3 stars`);
+    expect(cards[1]).toHaveAccessibleName(`Vael's attack on your village: ${MATCHES[1]!.stars} of 3 stars`);
+    // A card: the village behind (its plan view), the other player, the stars, the crowns, an attack's XP and chest.
+    expect(cards[0]!.querySelector("[inert]")).not.toBeNull();
+    expect(within(cards[0]!).getByText("Attack")).toBeInTheDocument();
+    expect(within(cards[0]!).getByRole("img", { name: `${MATCHES[0]!.stars} of 3 stars` })).toBeInTheDocument();
+    expect(within(cards[0]!).getByRole("img", { name: `+${MATCHES[0]!.crowns} crowns` })).toBeInTheDocument();
+    expect(within(cards[0]!).getByTestId("match-rewards")).toHaveTextContent(`+${MATCHES[0]!.xp} XP`);
+    expect(within(cards[1]!).getByText("Defence")).toBeInTheDocument();
+    expect(within(cards[1]!).getByRole("img", { name: `${MATCHES[1]!.crowns} crowns` })).toBeInTheDocument();
+    expect(within(cards[1]!).queryByTestId("match-rewards")).toBeNull();
+    await userEvent.click(cards[1]!);
+    expect(onOpenMatch).toHaveBeenCalledWith(MATCHES[1]!.id);
     cleanup();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.defencesEmpty} />));
-    expect(screen.getByText("No attack on your village yet.")).toBeInTheDocument();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.matchesEmpty} />));
+    expect(screen.getByText(/No match yet/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "off");
+  });
+
+  it("league's matches: the latest 20, then 20 more with Show more (open point 3); v1's cards have no village behind", async () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.matchesMany} />));
+    const list = () => within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
+    expect(list()).toHaveLength(20);
+    await userEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(list()).toHaveLength(26);
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+    cleanup();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.matchesNoSnapshot} />));
+    expect(list().every((c) => c.querySelector("[inert]") === null)).toBe(true);
+    expect(screen.queryByTestId("match-rewards")).toBeNull();
   });
 
   it("league: crowns, the way to the next league, the season's end", () => {
@@ -302,6 +332,7 @@ describe("PvP stories", () => {
     ["pvp-scout-scene.stories.tsx", PVP_SCOUT],
     ["pvp-result-scene.stories.tsx", PVP_RESULT],
     ["pvp-league-scene.stories.tsx", PVP_LEAGUE],
+    ["pvp-match-scene.stories.tsx", PVP_MATCH],
   ])("%s has a story per state", (file, fixtures) => {
     const text = readFileSync(join(scenes, file), "utf8");
     for (const key of Object.keys(fixtures)) expect(text).toMatch(new RegExp(`\\.${key}\\b`));

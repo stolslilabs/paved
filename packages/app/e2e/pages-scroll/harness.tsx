@@ -1,7 +1,7 @@
 /**
  * PAGES-SCROLL (#782): the harness of `pages-scroll.e2e.ts`, served by the Vite dev server (never built). `?page=<id>` draws one
  * page's scene with content taller than a 375 x 812 phone and than the 1440 x 900 side panel (the mocks' content, its lists
- * made long: a long defence log, more offers, more missions; the referral's widest text), as the app draws it: in the tab frame
+ * made long: a long list of attacks and defences, more offers, more missions; the referral's widest text), as the app draws it: in the tab frame
  * below `desktop`, or `&panel=1` in the home's side panel.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -29,7 +29,7 @@ import { VillageChestsScene } from "../../src/components/scenes/village-chests-s
 import { VillageShopScene } from "../../src/components/scenes/village-shop-scene";
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
-import { PVP_DEFENCE, PVP_LEAGUE } from "../../src/mocks/pvp";
+import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
 import { ACHIEVEMENTS, COBBLES, MY_TILES, PLAY, QUESTS, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../../src/mocks/scenes";
 import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../../src/mocks/village-v2";
 
@@ -51,13 +51,13 @@ const quests = QUESTS.today.quests;
 export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true }> = {
   shop: { title: "Tile shop", page: <VillageShopScene {...VILLAGE_SHOP.today} offers={long(VILLAGE_SHOP.today.offers, 9)} onBack={no} onNavigate={no} onBuy={no} onGetCobbles={no} /> },
   chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.kept} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
-  league: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} best={PVP_LEAGUE.lastDay.crowns + 400} attacks={2} onBack={no} onNavigate={no} onAttack={no} onReplay={no} /> },
+  league: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} best={PVP_LEAGUE.lastDay.crowns + 400} attacks={2} onBack={no} onNavigate={no} onAttack={no} onOpenMatch={no} /> },
   settings: { title: "Settings", page: <SettingsScene {...SETTINGS.connected} onNavigate={no} onChange={no} /> },
   missions: { title: "Missions", page: <QuestsScene {...QUESTS.today} quests={{ ...quests, quests: long(quests.quests, 9, "questId") }} onNavigate={no} onDayChange={no} onTab={no} onClaim={no} onClaimAll={no} /> },
   lifetime: { title: "Missions", page: <AchievementsScene {...ACHIEVEMENTS.mixed} onNavigate={no} onTab={no} onClaim={no} onClaimAll={no} /> },
   vault: { title: "Vault", page: <VaultScene {...VAULT.stress} onNavigate={no} /> },
-  // The League with a long defence log, its section since BACK-RULE (#783).
-  defence: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.gold} defences={{ ...PVP_DEFENCE.shielded, attacks: long(PVP_DEFENCE.shielded.attacks, 14, "id") }} onBack={no} onNavigate={no} onAttack={no} onReplay={no} /> },
+  // The League with a long list of attacks and defences (#786, in place of the defence log): 20 cards and Show more.
+  defence: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.gold} matches={{ ...PVP_MATCHES.shielded, matches: PVP_MATCHES.many.matches }} onBack={no} onNavigate={no} onAttack={no} onOpenMatch={no} /> },
   themes: { title: "Themes", page: <ThemeScene {...THEME.mixed} onBack={no} onNavigate={no} onUse={no} onOpen={no} /> },
   tiles: { title: "My tiles", page: <MyTilesScene {...MY_TILES.owned} onBack={no} onNavigate={no} /> },
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },

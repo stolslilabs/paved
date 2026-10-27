@@ -18,7 +18,7 @@ const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-/;
  * the PvP attack's (#647: the search's sky, the scout's and the attack's board) and its replay's, and the home, the village's
  * scene with its overlays (#753).
  */
-const BOARD = ["", "game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/replay/:attacker/:id"];
+const BOARD = ["", "game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/replay/:attacker/:id", "pvp/match/:id"];
 
 function header(container: HTMLElement): HTMLElement {
   const found = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');

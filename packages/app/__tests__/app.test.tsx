@@ -48,9 +48,9 @@ describe("app", () => {
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });
 
-  // 28 since BACK-RULE (#783): the defence log is a section of the League, no longer a page.
-  it("keeps the section 6.1 route map: 28 pages, each path once", () => {
-    expect(PAGES).toHaveLength(28);
+  // 28 since BACK-RULE (#783): the defence log is a section of the League, no longer a page; 29 with a match's page (#786).
+  it("keeps the section 6.1 route map: 29 pages, each path once", () => {
+    expect(PAGES).toHaveLength(29);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
@@ -59,8 +59,9 @@ describe("app", () => {
   // `story-route.test.tsx`; quests and achievements: P9, `quests-route.test.tsx`; the leaderboard and the player: P8,
   // `leaderboard-route.test.tsx`; the purchase and the Cobble packs: P7b and #621, `purchase-route.test.tsx`; the theme: P11b, `theme-route.test.tsx`; the Challenge's end: P7a, `over-route.test.tsx`; the vault and the referral: P10,
   // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`; the avatar creator: #626,
-  // `avatar-route.test.tsx`; the village: #646, `village-route.test.tsx`; the PvP flow: #647, `pvp-route.test.tsx`).
-  const WIRED = ["welcome", "", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/chests", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/league"];
+  // `avatar-route.test.tsx`; the village: #646, `village-route.test.tsx`; the PvP flow: #647, `pvp-route.test.tsx`; a match:
+  // #786, `pvp-match-route.test.tsx`).
+  const WIRED = ["welcome", "", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions/:day?", "missions/lifetime", "settings", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/chests", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

@@ -46,10 +46,15 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
     return import("./pages/village-shop");
   },
   // The PvP flow (#647 PR 2), its own chunks: the attack (its board's tile art reads the renderer's manifest, asked for with
-  // the code), the result, a replay, the defence log, the league.
+  // the code), the result, a replay, a match, the league.
   pvp: pvp,
   "pvp/result/:id": () => import("./pages/pvp-result"),
   "pvp/replay/:attacker/:id": () => import("./pages/pvp-replay"),
+  // A match (#786), its own chunk; its board's tile art reads the renderer's manifest, asked for with the code.
+  "pvp/match/:id": () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/pvp-match");
+  },
   "pvp/league": () => import("./pages/pvp-league"),
   "game/:gameId": board,
   training: board,

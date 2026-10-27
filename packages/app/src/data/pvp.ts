@@ -443,6 +443,16 @@ export function useDefenceLog(playerId: string | null): UseQueryResult<IndexedAt
   });
 }
 
+/** The attacks `playerId` made that ended, newest first (#786's matches on v1): the indexer's `pvp_attacks`. Disabled without a player. */
+export function useAttackLog(playerId: string | null): UseQueryResult<IndexedAttack[]> {
+  const { indexer } = useDataSources();
+  return useQuery({
+    queryKey: pvpKeys.attacks(playerId ?? "0x0", "attacker"),
+    queryFn: async () => (await indexer.playerAttacks(playerId!, "attacker", { limit: 50 })).data,
+    enabled: playerId !== null,
+  });
+}
+
 /** The season `season`'s first second and the next one's: its end (0: the clock has not set them). */
 export function useSeasonSpan(season: number | null): Result<{ start: number; end: number }> {
   const { views } = useDataSources();
