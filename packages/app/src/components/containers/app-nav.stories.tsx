@@ -91,12 +91,12 @@ export const HomeTablet768: Story = { ...Home, ...TABLET_768 };
  * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the swords sit at the centre of the Play disc, under a centre guide
  * (two red lines through the disc's centre). The play checks the icon's centre is the disc's to half a pixel.
  */
-export const PlayCentred: Story = {
+export const PlayCentredPhone375: Story = {
+  ...PHONE_375,
   args: { active: null },
   decorators: [(Story) => <CentreGuide label="Play"><Story /></CentreGuide>],
   play: ({ canvasElement }) => expectIconCentred(canvasElement, "Play"),
 };
 
-/** The centred swords at 375 and 320 px. */
-export const PlayCentredPhone375: Story = { ...PlayCentred, ...PHONE_375 };
-export const PlayCentredPhone320: Story = { ...PlayCentred, ...PHONE_320 };
+/** The same at 320 px. Both pinned to a phone: from `desktop` the bar draws nothing, and the home's Play is `Scenes/Home`'s. */
+export const PlayCentredPhone320: Story = { ...PlayCentredPhone375, ...PHONE_320 };
