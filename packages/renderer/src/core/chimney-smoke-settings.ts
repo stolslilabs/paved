@@ -67,7 +67,8 @@ export const NO_SMOKE_VARIATION: SmokeVariation = { direction: 0, drift: 0, shap
 export type SmokeLookInput = Partial<Omit<SmokeLook, "variation">> & { variation?: Partial<SmokeVariation> };
 
 /**
- * Each chimney's own plume, the owner's (#801, 2026-10-27: the tune story's starting values kept): a lean of ±35° off the wind and
+ * Each chimney's own plume, the owner's (#801; owner by Telegram, relayed by the Overseer, 2026-10-27 05:56 UTC: "take the smoke
+ * with the default properties of the stories", i.e. #814's starting values, final): a lean of ±35° off the wind and
  * its own drift, a shape between "puffs" and "wisps", ±12 % whiter or darker (each puff ±4 % more), its opacity and a wider pace.
  */
 export const SMOKE_VARIATION: SmokeVariation = { direction: 35, drift: 0.5, shape: 0.5, tone: 0.12, puffTone: 0.04, opacity: 0.2, pace: 0.25 };
