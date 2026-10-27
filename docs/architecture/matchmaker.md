@@ -261,8 +261,8 @@ figure), 39 at most (S1). The cost column is choice B (6.1); A, S3's fit, differ
   `u32`'s bound. A new village starts at 0.
 - **The season reset** (crowns above a threshold brought down) is #644's: built inside `Matchmaker` by the leagues'
   components, the village rolled into the new season before its crowns move (`docs/architecture/leagues.md`). Since
-  then a village is listed at most at 5,000 crowns, so every Legend village shares bucket 50 and a reset never leaves
-  a village in a stale bucket (`leagues.md`, section 5, "The pool at Legend").
+  then a village is listed at most at 5,000 crowns, so every Sovereign village shares bucket 50 and a reset never leaves
+  a village in a stale bucket (`leagues.md`, section 5, "The pool at Sovereign").
 
 | Constant | Value | Role |
 |---|---|---|

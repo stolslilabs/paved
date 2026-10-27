@@ -63,14 +63,14 @@ export function crownsFor(stakes: CrownStakes, stars: number): number {
   return stars > 0 ? stakes.win[Math.min(stars, 3) - 1]! : -stakes.loss;
 }
 
-/** A league's group: its crest's colour. Unranked is under 400 crowns; Bronze to Titan have three divisions; Legend one. */
-export type LeagueId = "unranked" | "bronze" | "silver" | "gold" | "crystal" | "master" | "champion" | "titan" | "legend";
+/** A league's group: its crest's colour. Wanderer is under 400 crowns; Peasant to Duke have three divisions; Sovereign one. */
+export type LeagueId = "wanderer" | "peasant" | "yeoman" | "squire" | "knight" | "baron" | "earl" | "duke" | "sovereign";
 
 export interface League {
-  /** The league's number on chain (`league_of`): 0 Unranked, 1 to 21 Bronze III to Titan I, 22 Legend. */
+  /** The league's number on chain (`league_of`): 0 Wanderer, 1 to 21 Peasant III to Duke I, 22 Sovereign. */
   index: number;
   id: LeagueId;
-  /** "Gold II". */
+  /** "Squire II". */
   name: string;
   /** The crowns it starts at. */
   from: number;
@@ -83,27 +83,27 @@ export interface League {
 /** The floors of leagues 1 to 22 (`LEAGUE_FLOORS`). */
 export const LEAGUE_FLOORS = [400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3500, 3800, 4100, 4400, 4700, 5000] as const;
 const GROUPS: readonly { id: LeagueId; name: string; bonus: number; reward: number }[] = [
-  { id: "bronze", name: "Bronze", bonus: 5, reward: 10 },
-  { id: "silver", name: "Silver", bonus: 10, reward: 20 },
-  { id: "gold", name: "Gold", bonus: 15, reward: 35 },
-  { id: "crystal", name: "Crystal", bonus: 20, reward: 50 },
-  { id: "master", name: "Master", bonus: 25, reward: 75 },
-  { id: "champion", name: "Champion", bonus: 30, reward: 100 },
-  { id: "titan", name: "Titan", bonus: 40, reward: 150 },
-  { id: "legend", name: "Legend", bonus: 50, reward: 250 },
+  { id: "peasant", name: "Peasant", bonus: 5, reward: 10 },
+  { id: "yeoman", name: "Yeoman", bonus: 10, reward: 20 },
+  { id: "squire", name: "Squire", bonus: 15, reward: 35 },
+  { id: "knight", name: "Knight", bonus: 20, reward: 50 },
+  { id: "baron", name: "Baron", bonus: 25, reward: 75 },
+  { id: "earl", name: "Earl", bonus: 30, reward: 100 },
+  { id: "duke", name: "Duke", bonus: 40, reward: 150 },
+  { id: "sovereign", name: "Sovereign", bonus: 50, reward: 250 },
 ];
 const DIVISIONS = ["III", "II", "I"] as const;
 
-/** The 23 leagues, Unranked first. */
+/** The 23 leagues, Wanderer first. */
 export const LEAGUES: readonly League[] = [
-  { index: 0, id: "unranked", name: "Unranked", from: 0, seasonCobbles: 0, bonus: 0 },
+  { index: 0, id: "wanderer", name: "Wanderer", from: 0, seasonCobbles: 0, bonus: 0 },
   ...LEAGUE_FLOORS.map((from, i): League => {
     const group = i === 21 ? GROUPS[7]! : GROUPS[Math.floor(i / 3)]!;
     return { index: i + 1, id: group.id, name: i === 21 ? group.name : `${group.name} ${DIVISIONS[i % 3]}`, from, seasonCobbles: group.reward, bonus: group.bonus };
   }),
 ];
 
-/** Each group's first league, Bronze to Legend: the ladder of the league screen. */
+/** Each group's first league, Peasant to Sovereign: the ladder of the league screen. */
 export const LEAGUE_LADDER: readonly League[] = GROUPS.map((g) => {
   const first = LEAGUES.find((l) => l.id === g.id)!;
   return { ...first, name: g.name };

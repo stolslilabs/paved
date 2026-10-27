@@ -13,21 +13,21 @@ import { avatarPlayer, profileLabel, profileName, useProfileOpener } from "./pro
 /** The bar's motion in its own chunk, as the ring's was (#625): its still holds the same box meanwhile (FIRST-LOAD). */
 const XpBar = lazy(() => import("../elements/xp-bar").then((m) => ({ default: m.XpBar })));
 
-/** The avatar's border in its league's colour (#787): the crest's (`league-crest.tsx`); Unranked a neutral grey. */
+/** The avatar's border in its league's colour (#787): the crest's (`league-crest.tsx`); Wanderer a neutral grey. */
 const BORDER: Record<LeagueId, string> = {
-  bronze: "border-league-bronze",
-  silver: "border-league-silver",
-  gold: "border-league-gold",
-  crystal: "border-league-crystal",
-  master: "border-league-master",
-  champion: "border-league-champion",
-  titan: "border-league-titan",
-  legend: "border-league-legend",
-  unranked: "border-league-unranked",
+  peasant: "border-league-peasant",
+  yeoman: "border-league-yeoman",
+  squire: "border-league-squire",
+  knight: "border-league-knight",
+  baron: "border-league-baron",
+  earl: "border-league-earl",
+  duke: "border-league-duke",
+  sovereign: "border-league-sovereign",
+  wanderer: "border-league-wanderer",
 };
 
 export interface PlayerBadgeProps {
-  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Unranked). */
+  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wanderer). */
   crowns: number;
   /** Opens the League page: the badge and the crowns. */
   onLeague?: () => void;
