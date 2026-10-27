@@ -34,7 +34,7 @@ export interface SmokeLook {
   roll: number;
   /** How fast a puff sways about the plume's line, a share of #770's sway (1). */
   swaySpeed: number;
-  /** How each chimney's plume differs from the others (#801); all 0 but `pace`, every chimney alike but its pace (#770). */
+  /** How each chimney's plume differs from the others (#801); all 0 but `pace` on #770's two looks, every chimney alike but its pace. */
   variation: SmokeVariation;
 }
 
@@ -66,13 +66,23 @@ export const NO_SMOKE_VARIATION: SmokeVariation = { direction: 0, drift: 0, shap
 /** A look's knobs over another: any of its values, its variation's too. */
 export type SmokeLookInput = Partial<Omit<SmokeLook, "variation">> & { variation?: Partial<SmokeVariation> };
 
-export type SmokeLookName = "puffs" | "wisps";
+/**
+ * Each chimney's own plume, the owner's (#801; owner by Telegram, relayed by the Overseer, 2026-10-27 05:56 UTC: "take the smoke
+ * with the default properties of the stories", i.e. #814's starting values, final): a lean of ±35° off the wind and
+ * its own drift, a shape between "puffs" and "wisps", ±12 % whiter or darker (each puff ±4 % more), its opacity and a wider pace.
+ */
+export const SMOKE_VARIATION: SmokeVariation = { direction: 35, drift: 0.5, shape: 0.5, tone: 0.12, puffTone: 0.04, opacity: 0.2, pace: 0.25 };
+
+export type SmokeLookName = "varied" | "puffs" | "wisps";
 
 /**
- * The study's two looks. "puffs" is the issue's default: a light grey plume of soft round puffs, about one tile high. "wisps": a
- * thinner, taller, fainter trail that sways more, closer to a wood fire's smoke seen from afar.
+ * The looks. "varied" is the default (#801, the owner's values): "puffs" slower and subtler (a life of 8 s, a slower rise, half the
+ * noise's roll and the sway, slightly smaller puffs, an opacity of 0.4), each chimney its own plume (`SMOKE_VARIATION`). #770's
+ * study's two, now the stories' only (#801 open point 3): "puffs", a light grey plume of soft round puffs, about one tile high,
+ * every chimney alike (the comparison's "today"); "wisps", a thinner, taller, fainter trail that sways more.
  */
 export const SMOKE_LOOKS: Record<SmokeLookName, SmokeLook> = {
+  varied: { color: "#e4e7eb", shade: "#9ba3ad", opacity: 0.4, puffs: 9, lifeSeconds: 8, rise: 2.4, sizeStart: 0.12, sizeEnd: 0.44, swirl: 0.12, billow: 0.35, stretch: 1, drift: 0.5, roll: 0.125, swaySpeed: 0.5, variation: SMOKE_VARIATION },
   puffs: { color: "#e4e7eb", shade: "#9ba3ad", opacity: 0.65, puffs: 9, lifeSeconds: 5, rise: 2.6, sizeStart: 0.14, sizeEnd: 0.5, swirl: 0.12, billow: 0.35, stretch: 1, drift: 0.5, roll: 0.25, swaySpeed: 1, variation: NO_SMOKE_VARIATION },
   wisps: { color: "#d3d8df", shade: "#8b939e", opacity: 0.5, puffs: 16, lifeSeconds: 6.5, rise: 3.4, sizeStart: 0.1, sizeEnd: 0.42, swirl: 0.28, billow: 0.7, stretch: 1.7, drift: 0.8, roll: 0.25, swaySpeed: 1, variation: NO_SMOKE_VARIATION },
 };
@@ -100,12 +110,12 @@ export interface SmokeSettings {
 }
 
 /**
- * The smoke's own defaults: on, the look "puffs" (#770 open point 2's default: the owner chose no other on PR 1). A scene's
+ * The smoke's own defaults: on, the look "varied" (#801: the owner's tuned smoke; #770's was "puffs"). A scene's
  * `RendererSettings.smoke` is off until its owner turns it on; the chunk resolves it over these.
  */
 export const DEFAULT_SMOKE_SETTINGS: SmokeSettings = {
   enabled: true,
-  look: "puffs",
+  look: "varied",
   custom: {},
   fadeSeconds: 2,
   placeSeconds: 1,
@@ -135,7 +145,7 @@ export function resolveSmokeSettings(input: SmokeSettingsInput = {}, base: Smoke
   }
   return {
     enabled: typeof input.enabled === "boolean" ? input.enabled : base.enabled,
-    look: input.look === "puffs" || input.look === "wisps" ? input.look : base.look,
+    look: typeof input.look === "string" && Object.hasOwn(SMOKE_LOOKS, input.look) ? input.look : base.look,
     custom: { ...base.custom, ...input.custom, variation: { ...base.custom.variation, ...input.custom?.variation } },
     fadeSeconds: Math.max(0, finite(input.fadeSeconds, base.fadeSeconds)),
     placeSeconds: Math.max(0, finite(input.placeSeconds, base.placeSeconds)),

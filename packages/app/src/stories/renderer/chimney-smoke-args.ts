@@ -1,14 +1,14 @@
 // The chimney smoke stories' controls (#770, #801), shared by "Renderer/Chimney smoke" and "Renderer/Chimney smoke tune".
-import { DEFAULT_CLOUD_SHADOWS, DEFAULT_SMOKE_SETTINGS, NO_SMOKE_VARIATION, QUALITY_TIERS, SEASONS, SMOKE_LOOKS, type SmokeLook, type SmokeVariation } from "@paved/renderer";
+import { DEFAULT_CLOUD_SHADOWS, DEFAULT_SMOKE_SETTINGS, NO_SMOKE_VARIATION, QUALITY_TIERS, SEASONS, SMOKE_LOOKS, SMOKE_VARIATION, type SmokeLook, type SmokeVariation } from "@paved/renderer";
 import type { ArgTypes } from "@storybook/react-vite";
 import { SMOKE_PLANS, type ChimneySmokeBoardProps } from "./chimney-smoke-board";
 
 const range = (min: number, max: number, step: number) => ({ control: { type: "range" as const, min, max, step } });
 const category = (name: string) => ({ table: { category: name } });
 /** A knob's two looks' values, for its description: unset, the knob takes the chosen look's. */
-const looks = (key: keyof SmokeLook) => ` (unset: the look's, puffs ${SMOKE_LOOKS.puffs[key]}, wisps ${SMOKE_LOOKS.wisps[key]})`;
+const looks = (key: keyof SmokeLook) => ` (unset: the look's, varied ${SMOKE_LOOKS.varied[key]}, puffs ${SMOKE_LOOKS.puffs[key]}, wisps ${SMOKE_LOOKS.wisps[key]})`;
 
-/** The defaults: the look "puffs" on the recorded board through the Forest skin (its smoking chimneys), autumn's day. */
+/** The defaults: the default look ("varied", #801) on the recorded board through the Forest skin (its smoking chimneys), autumn's day. */
 export const SMOKE_ARGS: ChimneySmokeBoardProps = {
   layout: "board",
   plan: "sfrfrfffr",
@@ -19,7 +19,7 @@ export const SMOKE_ARGS: ChimneySmokeBoardProps = {
   place: false,
   time: "day",
   view: "game",
-  look: "puffs",
+  look: DEFAULT_SMOKE_SETTINGS.look,
   winterAmount: DEFAULT_SMOKE_SETTINGS.seasons.winter.amount,
   spring: DEFAULT_SMOKE_SETTINGS.seasons.spring.enabled,
   fadeSeconds: DEFAULT_SMOKE_SETTINGS.fadeSeconds,
@@ -30,8 +30,8 @@ export const SMOKE_ARGS: ChimneySmokeBoardProps = {
   quality: "auto",
 };
 
-/** A variation's knob's value on both looks, for its description (none but the pace, #770's). */
-const vary = (key: keyof SmokeVariation) => ` (unset: the look's, ${NO_SMOKE_VARIATION[key]})`;
+/** A variation's knob's value on the looks, for its description: the default's, and #770's two (none but the pace). */
+const vary = (key: keyof SmokeVariation) => ` (unset: the look's, varied ${SMOKE_VARIATION[key]}, puffs and wisps ${NO_SMOKE_VARIATION[key]})`;
 
 /** Every control of the smoke's stories. */
 export const SMOKE_ARG_TYPES: Partial<ArgTypes<ChimneySmokeBoardProps>> = {
@@ -44,7 +44,7 @@ export const SMOKE_ARG_TYPES: Partial<ArgTypes<ChimneySmokeBoardProps>> = {
   place: { control: "boolean", description: "The tile layout: the tile starts in hand (pending, its white voxels), then is placed and dropped", ...category("Scene") },
   time: { control: "inline-radio", options: ["day", "night"], description: "The season's day, or its night (the smoke takes the light, not the hour)", ...category("Scene") },
   view: { control: "inline-radio", options: ["game", "phone-play", "close"], description: "The game's opening camera, a phone's play distance, or close", ...category("Scene") },
-  look: { control: "inline-radio", options: ["puffs", "wisps"], description: "The look: every knob below takes its value, unless that knob was moved", ...category("Look") },
+  look: { control: "inline-radio", options: ["varied", "puffs", "wisps"], description: "The look (varied the default, #801; puffs and wisps #770's): every knob below takes its value, unless that knob was moved", ...category("Look") },
   opacity: { ...range(0, 1, 0.01), description: "A puff's opacity at its thickest" + looks("opacity"), ...category("Look") },
   puffs: { ...range(1, 32, 1), description: "The puffs a chimney sends up at a time" + looks("puffs"), ...category("Look") },
   lifeSeconds: { ...range(1, 15, 0.5), description: "A puff's time from the mouth to its fading out, s" + looks("lifeSeconds"), ...category("Look") },
