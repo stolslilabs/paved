@@ -49,11 +49,13 @@ export const PAGES: readonly PageDef[] = [
   { path: "village/shop", title: "Tile shop", nav: "shop", panel: true },
   { path: "village/:player", title: "Village", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
-  // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, the league. The defence log is a section of
-  // the league since BACK-RULE (#783): its old link lands there (`router.tsx`).
+  // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, a match (#786), the league. The defence log's
+  // page is gone (BACK-RULE #783, then #786's cards in the league): its old link lands on the league (`router.tsx`).
   { path: "pvp", title: "Attack", nav: null },
   { path: "pvp/result/:id", title: "Result", nav: null },
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
+  // A match of the League's list (#786): the attacked village from its snapshot and the attack's build. Back goes up to the League.
+  { path: "pvp/match/:id", title: "Match", nav: null, parent: "/pvp/league" },
   { path: "pvp/league", title: "League", nav: "league", panel: true },
   { path: "training", title: "Training", nav: null },
   // Story's campaigns, a sheet over Play's mode choice (BACK-RULE #783); a level is a full-screen flow.

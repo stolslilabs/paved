@@ -9,8 +9,8 @@ import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
 import { Crowns } from "../elements/crowns";
 import { LeagueCrest } from "../elements/league-crest";
-import { DefenceLog, type DefenceLogProps } from "../containers/defence-log";
 import { LeagueCarousel } from "../containers/league-carousel";
+import { MatchList, type MatchListProps } from "../containers/match-list";
 import { TabFrame } from "../containers/tab-frame";
 import { TopBar } from "../containers/top-bar";
 import type { Tab } from "../../routes/pages";
@@ -46,12 +46,15 @@ export interface PvpLeagueSceneProps {
   onNavigate?: (tab: Tab) => void;
   /** To the search. */
   onAttack?: () => void;
-  /** The defence log, a section of the page (BACK-RULE #783: no page opens another page); none when omitted. */
-  defences?: Omit<DefenceLogProps, "now" | "onReplay" | "onRetry">;
-  /** A defence's replay (a full-screen flow): its Back comes up to this page. */
-  onReplay?: (id: number) => void;
-  /** The defence log's read again, after its failure. */
-  onRetryDefences?: () => void;
+  /**
+   * The latest attacks and defences as cards (#786, in place of the defence log), with the shield; none when omitted. A section
+   * of the page (BACK-RULE #783: no page opens another page).
+   */
+  matches?: Omit<MatchListProps, "now" | "onOpen" | "onRetry">;
+  /** A match opened (a full-screen flow, `/pvp/match/:id`): its Back comes up to this page. */
+  onOpenMatch?: (id: string) => void;
+  /** The matches' read again, after its failure. */
+  onRetryMatches?: () => void;
 }
 
 /** The attacks a village settles in a season to earn its reward (`MIN_SEASON_ATTACKS`). */
@@ -63,10 +66,11 @@ const LAST_DAY_S = 86_400;
 /**
  * The league (#647): a carousel of the 23 leagues opening on the player's (#785), the details of the league in view (its floor,
  * the crowns still missing, its season Cobbles and first-time bonus; for the player's own, the way to the next), then the
- * season's end and what it gives (#644's rewards), Attack, and the defence log in place (BACK-RULE #783).
+ * season's end and what it gives (#644's rewards), Attack, and the latest attacks and defences as cards (#786), each opening its
+ * match.
  */
 export function PvpLeagueScene(props: PvpLeagueSceneProps) {
-  const { crowns, best, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onAttack, defences, onReplay, onRetryDefences } = props;
+  const { crowns, best, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onAttack, matches, onOpenMatch, onRetryMatches } = props;
   const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
   // Below Bronze III (400 crowns) a village is Unranked on chain, as one that never attacked.
   const outside = unranked || league.id === "unranked";
@@ -124,7 +128,7 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
             Attack
           </Button>
 
-          {defences && <DefenceLog {...defences} now={now} onReplay={onReplay} onRetry={onRetryDefences} />}
+          {matches && <MatchList {...matches} now={now} onOpen={onOpenMatch} onRetry={onRetryMatches} />}
         </div>
       </main>
     </TabFrame>

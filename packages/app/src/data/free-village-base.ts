@@ -212,6 +212,8 @@ export function invalidateV2(client: QueryClient, playerId: string): void {
   void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) });
   void client.invalidateQueries({ queryKey: queryKeys.chain.playerLevel(playerId) });
   void client.invalidateQueries({ queryKey: pvpKeys.league(playerId) });
+  // An attack's start drops the player's shield; a rival's answer (the mock's, #786) puts it up.
+  void client.invalidateQueries({ queryKey: pvpKeys.shield(playerId) });
 }
 
 /** A write of the village side on its way: what it is for. */

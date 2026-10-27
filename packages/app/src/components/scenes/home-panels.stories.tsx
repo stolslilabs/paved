@@ -87,7 +87,7 @@ export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
 export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} onNavigate={fn()} />);
 /** The League, its defence log in place under Attack (BACK-RULE, #783). */
-export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={fn()} onNavigate={fn()} onAttack={fn()} onReplay={fn()} />);
+export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.gold} onBack={fn()} onNavigate={fn()} onAttack={fn()} onOpenMatch={fn()} />);
 /** Settings, from the gear. */
 export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} />);
 /** The themes, from Settings: a sheet over its panel (BACK-RULE, #783), its close up to Settings, the Cobbles they cost in its header. */

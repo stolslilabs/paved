@@ -5,7 +5,7 @@ import { StarMeter } from "../elements/star-meter";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
 
-/** A replay of an attack (the defence log's): the moves stepped through instead of a hand. */
+/** A replay of an attack (a v1 match card's, or a match's build, #786): the moves stepped through instead of a hand. */
 export interface PvpReplay {
   /** Who attacked. */
   attacker: PvpPlayer;
@@ -13,6 +13,7 @@ export interface PvpReplay {
   move: number;
   total: number;
   playing: boolean;
+  /** Plays on from the move shown; at the end, from the start (a match's build opens whole, #786). */
   onPlay?: () => void;
   onPause?: () => void;
   /** One move back (-1) or on (+1). */
@@ -20,7 +21,7 @@ export interface PvpReplay {
 }
 
 /** What the attack takes of the board scene: all of it but what the attack sets itself (the mode, the title, the clock) or has not (a Challenge's expiry and reward, a Story level's deck and coach, Surrender and Restart). */
-type AttackBoardProps = Omit<
+export type AttackBoardProps = Omit<
   BoardSceneProps,
   "mode" | "title" | "now" | "attack" | "readOnly" | "gameId" | "deckOrder" | "onPresentDeck" | "coach" | "expiresAt" | "reward" | "discardedPlans" | "storageDisabled" | "onSurrender" | "onRestart" | "promptSurrender"
 >;
@@ -44,7 +45,7 @@ export interface PvpAttackSceneProps extends AttackBoardProps {
 }
 
 /** The replay's controls: back a move, play or pause, on a move, and where it stands. */
-function ReplayBar({ replay }: { replay: PvpReplay }) {
+export function ReplayBar({ replay }: { replay: PvpReplay }) {
   return (
     <div role="group" aria-label="Replay" className="pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur">
       <Button variant="ghost" size="icon" aria-label="Previous move" disabled={replay.move <= 0} onClick={() => replay.onStep?.(-1)}>
@@ -55,7 +56,7 @@ function ReplayBar({ replay }: { replay: PvpReplay }) {
           <Icon name="pause" />
         </Button>
       ) : (
-        <Button variant="ghost" size="icon" aria-label="Play" disabled={replay.move >= replay.total} onClick={replay.onPlay}>
+        <Button variant="ghost" size="icon" aria-label={replay.move >= replay.total ? "Play from the start" : "Play"} disabled={replay.total === 0} onClick={replay.onPlay}>
           <Icon name="play" />
         </Button>
       )}

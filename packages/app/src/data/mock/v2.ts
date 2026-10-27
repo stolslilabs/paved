@@ -23,6 +23,11 @@ export interface StoredAttackV2 {
   defender: string;
   slots: number;
   target: number;
+  /**
+   * The defender's layout at the attack's start, the starter left out (#786): the match shows the village as it was, whatever
+   * the defender changed since. Absent in a save from before it (a rival's layout, which never changes, stands in).
+   */
+  village?: LayoutTile[];
   offer: number;
   cost: number;
   /** The deck in draw order: never shown past the tile in hand and the next two. */
@@ -35,6 +40,27 @@ export interface StoredAttackV2 {
   chest: ChestRank | null;
   gained: number;
   lost: number;
+  finishedAt: number;
+}
+
+/**
+ * An attack of a rival on the player's village (#786), ended at once: the mock's rivals live on no device, so the rival the
+ * player attacked last answers at the player's next search. Its snapshot is the player's layout then, its build the plain
+ * player's on the deck drawn from it.
+ */
+export interface StoredDefenceV2 {
+  id: number;
+  attacker: string;
+  slots: number;
+  /** The player's layout at the attack's start, the starter left out, and its score (the target). */
+  village: LayoutTile[];
+  target: number;
+  deck: number[];
+  moves: (QueuedMove & { plan: number })[];
+  score: number;
+  stars: number;
+  /** The player's crowns: lost to the attack's stars (negative), or won when it took none. */
+  crowns: number;
   finishedAt: number;
 }
 
@@ -60,6 +86,10 @@ export interface StoredV2 {
   match: { opponent: string; offer: number; cost: number } | null;
   draws: number;
   attacks: StoredAttackV2[];
+  /** The rivals' attacks on the player's village (#786), oldest first; absent in a save from before them. */
+  defences?: StoredDefenceV2[];
+  /** The attack id a rival last answered (#786): one answer per attack. */
+  answered?: number;
 }
 
 export const freshV2 = (): StoredV2 => ({

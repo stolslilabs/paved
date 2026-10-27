@@ -103,7 +103,7 @@ export const routes: RouteObject[] = [
       { path: "game", loader: gameRedirect },
       { path: "quests/:day?", loader: ({ request, params }) => to(params.day ? `/missions/${params.day}` : "/missions", request) },
       { path: "achievements", loader: ({ request }) => to("/missions/lifetime", request) },
-      // The defence log became a section of the league (BACK-RULE #783): its old link lands there.
+      // The defence log became a section of the league (BACK-RULE #783), then its matches (#786): its old link lands there.
       { path: "pvp/defence", loader: ({ request }) => to("/pvp/league", request) },
       { path: "economy", loader: ({ request }) => to("/vault", request) },
       // The ranks left the UI (#623), to come back as leagues: their old links land on Home.
