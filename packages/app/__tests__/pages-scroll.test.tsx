@@ -36,7 +36,7 @@ const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
   ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onNavigate={no()} onBuy={no()} onGetCobbles={no()} />],
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
-  ["League", <PvpLeagueScene {...PVP_LEAGUE.yeoman} onBack={no()} onNavigate={no()} onAttack={no()} onOpenMatch={no()} />],
+  ["League", <PvpLeagueScene {...PVP_LEAGUE.yeoman} onBack={no()} onNavigate={no()} onOpenMatch={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
   ["Missions", <MissionsScene {...MISSIONS.daily} onNavigate={no()} onClaimQuest={no()} onClaimAchievement={no()} onClaimBonus={no()} />],
   ["Vault", <VaultScene {...VAULT.position} onNavigate={no()} />],
@@ -139,11 +139,11 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
   it("the League and the Chests draw their content in the region: the leagues' carousel and season, the day's slots", () => {
     const { unmount } = draw(PAGES[2]![1], false, "League");
     const region = document.querySelector("[data-slot=page-scroll]")!;
-    // The carousel of the 23 leagues (#785), then the season and the actions, all under the sticky header.
+    // The carousel of the 23 leagues (#785), then the season, all under the sticky header; no Attack button (#833).
     expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
-    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-league]").length).toBe(23);
+    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-slot='carousel-item']").length).toBe(23);
     expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
-    expect(region).toContainElement(screen.getByRole("button", { name: /Attack/ }));
+    expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
     // The latest attacks and defences (#786), a section of the page, in the same region.
     expect(region).toContainElement(screen.getByRole("heading", { level: 2, name: "Attacks and defences" }));
     unmount();
