@@ -1,7 +1,7 @@
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "./resource-plate";
+import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "./plate";
 import { formatHoursMinutes, shieldDuration, shieldEnd, shieldLabel, shieldUp } from "./shield-time";
 
 export interface ShieldPlateProps {
@@ -35,7 +35,7 @@ export function ShieldPlate({ endsAt, now, size = "auto", className }: ShieldPla
           <Plate
             side="left"
             size={size}
-            icon={
+            end={
               <PlateDisc size={size}>
                 <Icon name="shield-halved" className={cn("relative text-info", plateIconClass(size))} />
               </PlateDisc>

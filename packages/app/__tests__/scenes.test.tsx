@@ -181,7 +181,7 @@ describe("Home (#753): the village with its overlays", () => {
     const onLeague = vi.fn();
     const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onLeague={onLeague} />));
     const name = leagueOf(1_240).name;
-    const standing = screen.getByRole("button", { name: `League: ${name}, 1,240 crowns` });
+    const standing = await screen.findByRole("button", { name: `League: ${name}, 1,240 crowns` });
     // The crowns at the plate's centre, the crest closing it in its group's colour; the name only in the accessible name.
     expect(standing).toHaveTextContent(/^1,240$/);
     expect(standing).toHaveAttribute("data-league", leagueOf(1_240).id);
@@ -193,7 +193,7 @@ describe("Home (#753): the village with its overlays", () => {
     // Before any PvP: Wanderer with 0 crowns, still the way to the league.
     // Merged over the view's fixture, as the Start story's args are: its own `league: null` wins.
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.start} onLeague={onLeague} />));
-    await userEvent.click(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
+    await userEvent.click(await screen.findByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
     expect(onLeague).toHaveBeenCalledTimes(2);
   });
 

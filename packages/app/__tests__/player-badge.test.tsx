@@ -102,8 +102,10 @@ describe("PlayerBadge (#787, the league out of it since #829)", () => {
     expect(container.querySelector("[data-slot=player-badge]")).toBeNull();
   });
 
-  it("is the home's top left; under it the League control, then the village score (#829); no XP ring there", () => {
+  it("is the home's top left; under it the League control, then the village score (#829); no XP ring there", async () => {
     const { container } = render(wrap(<ProfileProvider value={value()}><HomeVillageScene {...HOME_VILLAGE.view} /></ProfileProvider>));
+    // The League control in its own chunk (FIRST-LOAD): a stand-in of its height until it comes.
+    await screen.findByRole("button", { name: /^League: / });
     const corner = container.querySelector<HTMLElement>("[data-slot=player-badge]")!;
     expect(within(corner).getByRole("button", { name: /^Profile: bal7hazar, level 3/ })).toBeInTheDocument();
     const league = corner.nextElementSibling as HTMLElement;

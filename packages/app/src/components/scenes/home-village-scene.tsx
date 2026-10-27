@@ -16,7 +16,6 @@ import type { LayoutBoardView } from "../containers/layout-board";
 import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import type { VillageStageProps } from "../containers/village-stage";
-import { LeagueControl } from "../containers/league-control";
 import { PlayerBadge } from "../containers/player-badge";
 import type { Tab } from "../../routes/pages";
 
@@ -31,6 +30,8 @@ const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
 // The village's points (#758), computed with the engine: from the stage's chunk too.
 const LazyVillagePoints = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.VillagePoints })));
+// The League control (#829) and its plate in their own chunk: a stand-in of its height holds its place meanwhile (FIRST-LOAD).
+const LazyLeagueControl = lazy(() => import("../containers/league-control").then((m) => ({ default: m.LeagueControl })));
 // The shield's plate and its popover (#806, #829): their own chunk, loaded only while the village is shielded (FIRST-LOAD).
 const LazyShieldPlate = lazy(() => import("../elements/shield-plate").then((m) => ({ default: m.ShieldPlate })));
 
@@ -238,6 +239,9 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
   );
 }
 
+/** The League control's box while its chunk arrives (its 44 px touch height at every width): nothing under it moves when it comes. */
+const LEAGUE_STAND_IN = <span aria-hidden className="block h-11" />;
+
 /** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
 const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
 
@@ -357,7 +361,9 @@ function ViewOverlays({
           >
             {/* The profile (#787), then under it (#829) the League control (the crowns and the crest, no name) and the shield's plate. */}
             <PlayerBadge />
-            <LeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+            <Suspense fallback={LEAGUE_STAND_IN}>
+              <LazyLeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+            </Suspense>
             {props.shieldEndsAt != null && props.shieldEndsAt > now && (
               <Suspense fallback={null}>
                 <LazyShieldPlate endsAt={props.shieldEndsAt} now={now} />

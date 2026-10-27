@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { leagueOf, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { crestClass } from "../elements/league-crest";
-import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/resource-plate";
+import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
 import { Icon } from "../ui/icon";
 
 /** The promotion's ring in its league's colour (#787's, on the crest since #829); Wanderer a neutral grey. */
@@ -67,7 +67,7 @@ export function LeagueControl({ crowns, onLeague, size = "auto", className }: Le
             <Icon name="trophy" className={cn("relative", plateIconClass(size))} />
           </PlateDisc>
         }
-        icon={
+        end={
           <PlateDisc size={size}>
             <Icon name="shield-halved" className={cn("relative", crestClass(league.id), plateIconClass(size))} />
             {promoted !== null && (

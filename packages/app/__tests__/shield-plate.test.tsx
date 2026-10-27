@@ -87,7 +87,8 @@ describe("the home with the shield (#806, #829)", () => {
     const { container } = render(wrap(<ProfileProvider value={value}><HomeVillageScene {...HOME_VILLAGE.shielded} /></ProfileProvider>));
     // Its own chunk, loaded only while shielded.
     const plate = await screen.findByRole("button", { name: /^Shielded/ });
-    const league = screen.getByRole("button", { name: /^League: / });
+    // The League control's own chunk too (#829).
+    const league = await screen.findByRole("button", { name: /^League: / });
     expect(league.nextElementSibling).toBe(plate);
     expect(plate.nextElementSibling).toHaveAccessibleName(/^Village score /);
     expect(container.querySelector("[data-slot=player-badge]")!.contains(plate)).toBe(false);
