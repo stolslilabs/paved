@@ -30,11 +30,17 @@ export function useAppNavigate() {
  * A tab was picked in the navigation (a scene's `onNavigate`); below `desktop` the page swipes to another tab's (TAB-SWIPE,
  * `tab-swipe.ts`). The tab it leaves is read from the location, as `parentOf`, so a page of the bar (#763) in a plain router
  * (the stories') has it too.
+ * TAB-RETAP (#800, the owner's decision of 2026-10-26): the current tab picked again closes its page, up to the village by the
+ * Back rule (`useBack`, `useUpTo`: no push, so a Back afterwards never reopens it), with no swipe. From a page under that tab (a sheet over
+ * Settings) the first pick goes up to its parent, the tab's page, the next one to the village.
  */
 export function useTabNavigate() {
   const go = useAppNavigate();
   const from = pageAt(useLocation().pathname)?.nav ?? null;
-  return useCallback((tab: Tab) => go(TABS.find((t) => t.id === tab)?.to ?? "/", tabSwipe(from, tab)), [go, from]);
+  // A page of a tab (its own, or a sheet over it) is no flow: Back goes up to its parent.
+  const up = useBack();
+  // No `useCallback`: the bar it goes to is not memoized, and the first load is at its budget.
+  return (tab: Tab) => (tab === from ? up() : go(TABS.find((t) => t.id === tab)!.to, tabSwipe(from, tab)));
 }
 
 /** The route map's page at `pathname`, in table order (a static path before a parameter's). */
