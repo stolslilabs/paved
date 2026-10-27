@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { MOCK_KEY } from "../src/data/mock/ledger";
+import { pvpKeys } from "../src/data/pvp-keys";
 import { SETTINGS_KEY } from "../src/data/settings";
 import { leagueOf } from "../src/lib/pvp-rules";
 import { queryClient } from "../src/lib/query-client";
@@ -21,7 +22,7 @@ vi.mock("../src/routes/home-canvas", () => ({ default: () => <div data-testid="h
 const WAIT = { timeout: slow(8000) };
 
 /** The mock's sources, the wallet restored, the village founded; `crowns` (and a season attack) when PvP was played. */
-async function open(options: { crowns?: number } = {}) {
+async function open(options: { crowns?: number; shieldUntil?: number } = {}) {
   const s = mockImplementation();
   const me = s.sources.signer!.address;
   await s.ledger.writesFor(me).foundFreeVillage();
@@ -31,7 +32,7 @@ async function open(options: { crowns?: number } = {}) {
     const state = JSON.parse(s.store.getItem(MOCK_KEY)!);
     const season = (await s.ledger.pvpLeague(me)).season;
     for (const player of Object.values(state.players as Record<string, { pvp?: Record<string, unknown> }>)) {
-      player.pvp = { crowns: options.crowns, draws: 0, match: null, attacks: [], shieldUntil: 0, season, seasonAttacks: 1, peak: 0 };
+      player.pvp = { crowns: options.crowns, draws: 0, match: null, attacks: [], shieldUntil: options.shieldUntil ?? 0, season, seasonAttacks: 1, peak: 0 };
     }
     s.store.setItem(MOCK_KEY, JSON.stringify(state));
   }
@@ -72,6 +73,22 @@ describe("/: the PvP standing by the avatar (#755)", () => {
     await screen.findByRole("button", { name: "Edit village" }, WAIT);
     fireEvent.click(screen.getByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/pvp/league"), WAIT);
+  }, slow(30_000));
+});
+
+describe("/: the shield's chip (#806)", () => {
+  it("shows the shield and its HH:MM beside the crowns while the village is shielded, from the League's read", async () => {
+    const { me } = await open({ crowns: 1_240, shieldUntil: Math.floor(Date.now() / 1000) + 7 * 3600 + 41 * 60 + 30 });
+    const chip = await screen.findByRole("button", { name: /^Shielded, 7 hours 4\d minutes left$/ }, WAIT);
+    expect(chip).toHaveTextContent(/^07:4\d$/);
+    // The League page's own query (`pvpKeys.shield`): the two never disagree.
+    expect(queryClient.getQueryData(pvpKeys.shield(me))).toMatchObject({ up: true });
+  }, slow(30_000));
+
+  it("shows no chip without a shield", async () => {
+    await open({ crowns: 1_240 });
+    await screen.findByRole("button", { name: /^League: / }, WAIT);
+    expect(screen.queryByRole("button", { name: /^Shielded/ })).toBeNull();
   }, slow(30_000));
 });
 

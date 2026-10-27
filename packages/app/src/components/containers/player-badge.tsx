@@ -12,6 +12,8 @@ import { avatarPlayer, profileLabel, profileName, useProfileOpener } from "./pro
 
 /** The bar's motion in its own chunk, as the ring's was (#625): its still holds the same box meanwhile (FIRST-LOAD). */
 const XpBar = lazy(() => import("../elements/xp-bar").then((m) => ({ default: m.XpBar })));
+/** The shield's chip and its popover in their own chunk, loaded only while the village is shielded (issue 806, FIRST-LOAD). */
+const ShieldChip = lazy(() => import("../elements/shield-chip").then((m) => ({ default: m.ShieldChip })));
 
 /** The avatar's border in its league's colour (#787): the crest's (`league-crest.tsx`); Unranked a neutral grey. */
 const BORDER: Record<LeagueId, string> = {
@@ -31,6 +33,10 @@ export interface PlayerBadgeProps {
   crowns: number;
   /** Opens the League page: the badge and the crowns. */
   onLeague?: () => void;
+  /** The village's shield's end (seconds since the epoch) while it is up (#806): a chip with its `HH:MM` beside the crowns. */
+  shieldEndsAt?: number | null;
+  /** Seconds since the epoch, for the shield's time left: the page's clock. */
+  now?: number;
   className?: string;
 }
 
@@ -39,9 +45,10 @@ export interface PlayerBadgeProps {
  * and the XP bar (the level, the XP left), under the bar the league's badge and the crowns. The avatar, the name and the bar
  * open the profile sheet (#624); the badge and the crowns the League page. A promotion turns the border to its new colour with
  * a pulse; the bar's gains and level ups are `XpBar`'s. Nothing moves under reduced motion. Without the shell's profile (some
- * stories and tests), the badge and the crowns alone.
+ * stories and tests), the badge and the crowns alone. While the village is shielded, the shield's chip and its time left sit
+ * beside the crowns (#806).
  */
-export function PlayerBadge({ crowns, onLeague, className }: PlayerBadgeProps) {
+export function PlayerBadge({ crowns, onLeague, shieldEndsAt, now = 0, className }: PlayerBadgeProps) {
   const { value, trigger, sheet } = useProfileOpener();
   const league = leagueOf(crowns);
   const reduced = useReducedMotionConfig();
@@ -93,19 +100,23 @@ export function PlayerBadge({ crowns, onLeague, className }: PlayerBadgeProps) {
           </span>
         </button>
       )}
-      <button
-        type="button"
-        onClick={onLeague}
-        aria-label={`League: ${league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
-        className={cn(
-          "state-layer flex items-center gap-2 rounded-full border border-border bg-card/90 px-2.5 py-1 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          // Under the bar: past the avatar's box (44 px), the plate's padding and the gap.
-          value && "ml-[3.25rem]",
+      {/* Under the bar: past the avatar's box (44 px), the plate's padding and the gap. The shield's chip beside the crowns, or under them where the top row has no room (a phone). */}
+      <div className={cn("flex flex-wrap items-center gap-1.5", value && "ml-[3.25rem]")}>
+        <button
+          type="button"
+          onClick={onLeague}
+          aria-label={`League: ${league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
+          className="state-layer flex items-center gap-2 rounded-full border border-border bg-card/90 px-2.5 py-1 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <LeagueCrest league={league} size="sm" />
+          <Crowns value={crowns} size="sm" />
+        </button>
+        {shieldEndsAt != null && shieldEndsAt > now && (
+          <Suspense fallback={null}>
+            <ShieldChip endsAt={shieldEndsAt} now={now} />
+          </Suspense>
         )}
-      >
-        <LeagueCrest league={league} size="sm" />
-        <Crowns value={crowns} size="sm" />
-      </button>
+      </div>
       {sheet}
     </div>
   );

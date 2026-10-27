@@ -10,6 +10,7 @@ import { Icon } from "../ui/icon";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Cobbles } from "../elements/cobbles";
 import { formatRemaining } from "../elements/countdown";
+import { formatHoursMinutes } from "../elements/shield-time";
 import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LeagueCrest } from "../elements/league-crest";
@@ -176,6 +177,13 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
           </div>
 
           <InlineError title="Scout" message={props.error} detail={props.errorDetail} />
+
+          {/* The attacker's own shield, while it lasts (#806, open point 1): Attack drops it, said in one line. */}
+          {shielded && !props.onSearchAgain && (
+            <p data-shield-warning className="px-1 text-center text-xs text-muted-foreground">
+              Attacking drops your shield, <span className="numeric font-semibold text-foreground">{formatHoursMinutes(props.shieldEndsAt! - now)}</span> left
+            </p>
+          )}
 
           <div className="flex gap-2">
             <Button
