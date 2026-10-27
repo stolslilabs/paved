@@ -6,9 +6,12 @@ import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAYER_STATUS } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
-import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL } from "../../mocks/village-v2";
+import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_SLOTS } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import type { LayoutSaved } from "../containers/layout-editor";
+import { layoutScore } from "../containers/layout-rules";
+import type { LayoutSlot, LayoutSlotsProps } from "../containers/layout-slots-strip";
+import VillageStage from "../containers/village-stage";
 import type { VillageLayout } from "../containers/layout-rules";
 import { ProfileProvider } from "../containers/profile-context";
 import { BoardViewport } from "../containers/board-viewport";
@@ -162,6 +165,91 @@ export const EditingLongWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.ed
 export const EditingFullWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.editing, village: LAYOUT_FULL, inventory: INVENTORY_LONG } };
 /** Every slot used at 375 px: the carousel greyed, every visible card waiting, and it still drags and swipes. */
 export const EditingFullPhone: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.editing, village: LAYOUT_FULL, inventory: INVENTORY_LONG } };
+
+/**
+ * A home state with the saved layouts' strip (#804): the page's stage reads them itself (`routes/layout-slots.ts`); the stories hand
+ * the scene's own stage the fixture's.
+ */
+function slots<A extends { layoutSlots: LayoutSlotsProps }>({ layoutSlots, ...args }: A) {
+  return { args, render: (story: HomeVillageSceneProps) => <HomeVillageScene {...story} renderStage={(stage) => <VillageStage {...stage} layoutSlots={layoutSlots} />} /> };
+}
+
+/** The saved layouts (#804) above the inventory: one slot (the village's, Active), the next two locked with their prices. */
+export const SlotsOne: Story = { ...slots(HOME_VILLAGE.slotsOne) };
+export const SlotsOnePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsOne) };
+export const SlotsOneWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsOne) };
+/** Three slots, the die's village in slot 2 picked: Load, Save here, Make active. */
+export const SlotsThree: Story = { ...slots(HOME_VILLAGE.slotsThree) };
+export const SlotsThreePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsThree) };
+export const SlotsThreeWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsThree) };
+/** A locked slot picked: Buy at its price. */
+export const SlotsLocked: Story = { ...slots(HOME_VILLAGE.slotsLocked) };
+/** Buy asked first: the price and the Cobbles held. */
+export const SlotsBuy: Story = { ...slots(HOME_VILLAGE.slotsBuy) };
+/** The purchase on its way. */
+export const SlotsBuying: Story = { ...slots(HOME_VILLAGE.slotsBuying) };
+/** Slot 2 bought: open and empty, Save here. */
+export const SlotsBought: Story = { ...slots(HOME_VILLAGE.slotsBought) };
+/** Too few Cobbles for slot 3: Buy off, and why. */
+export const SlotsShort: Story = { ...slots(HOME_VILLAGE.slotsShort) };
+/** Load over changes kept nowhere: asked first. */
+export const SlotsLoad: Story = { ...slots(HOME_VILLAGE.slotsLoad) };
+/** Make active: asked first, attackers will face it. */
+export const SlotsActivate: Story = { ...slots(HOME_VILLAGE.slotsActivate) };
+/** Slot 2 active: the village is its layout. */
+export const SlotsActivated: Story = { ...slots(HOME_VILLAGE.slotsActivated) };
+/** A saved layout that no longer fits (#804 open point 4): it needs tiles first, never made active. */
+export const SlotsNeedsTiles: Story = { ...slots(HOME_VILLAGE.slotsNeedsTiles) };
+/** A slot write refused: what happened, above the slots. */
+export const SlotsRefused: Story = { ...slots(HOME_VILLAGE.slotsRefused) };
+
+/**
+ * The slots at work, as the mock ledger answers them: buy slot 2 (the Cobbles follow), press the die, Save here, Make active (the
+ * village changes), then slot 1 active again. Each write lands after 400 ms.
+ */
+function SlotsLive(args: HomeVillageSceneProps) {
+  const [slots, setSlots] = useState<LayoutSlot[]>(() => LAYOUT_SLOTS.one.slots.map((s) => ({ ...s })));
+  const [active, setActive] = useState(0);
+  const [cobbles, setCobbles] = useState(LAYOUT_SLOTS.one.cobbles);
+  const [busy, setBusy] = useState<{ kind: "save-to" | "activate" | "buy"; slot: number } | null>(null);
+  const tiles = slots[active]!.tiles ?? LAYOUT_GROWING.tiles;
+  const land = (kind: "save-to" | "activate" | "buy", slot: number, change: () => void) => {
+    setBusy({ kind, slot });
+    setTimeout(() => {
+      change();
+      setBusy(null);
+    }, 400);
+  };
+  const put = (slot: number, change: Partial<LayoutSlot>) => setSlots((all) => all.map((s) => (s.slot === slot ? { ...s, ...change } : s)));
+  return (
+    <HomeVillageScene
+      {...args}
+      village={{ ...LAYOUT_GROWING, tiles, score: layoutScore(tiles) }}
+      renderStage={(stage) => (
+        <VillageStage
+          {...stage}
+          layoutSlots={{
+        active,
+        slots,
+        cobbles,
+        busy,
+        onBuy: (slot, price) =>
+          land("buy", slot, () => {
+            setCobbles((c) => c - price);
+            put(slot, { open: true });
+          }),
+        onSaveTo: (slot, draft) => land("save-to", slot, () => put(slot, { tiles: draft, score: layoutScore(draft) })),
+            onActivate: (slot) => land("activate", slot, () => setActive(slot)),
+          }}
+        />
+      )}
+    />
+  );
+}
+
+/** The slots at work at 375 px (#804's GIF): a random village saved into slot 2, made active, then slot 1 active again. */
+export const SlotsLivePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.editing, render: (args) => <SlotsLive {...args} /> };
+export const SlotsLiveWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.editing, render: (args) => <SlotsLive {...args} /> };
 
 /** The village on the board's canvas as the board module draws it (`home-canvas.tsx`), on Storybook's assets. */
 function StoryVillageCanvas({ view, board, onReady }: { view: LayoutBoardView; board: ReturnType<typeof useBoardSettings>; onReady?: () => void }) {

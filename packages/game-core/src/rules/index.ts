@@ -1,6 +1,6 @@
 // The rules of PvP v2 (#732, #741), pure: the free village and its score, slots and XP, the starter layouts, the attack's deck,
-// queue and stars, chests, the daily shop and the quests' bonus, the editor's random compact layout (#803). The contracts (#733
-// to #738) match them through parity tests.
+// queue and stars, chests, the daily shop and the quests' bonus, the editor's random compact layout (#803),
+// the saved layouts' slots (#804). The contracts (#733 to #738) match them through parity tests.
 // The layout search (`grow.ts`) is an offline tool and stays out.
 
 export { BASE_DECK_CARDS, BASE_PLAN_CODES, COMMON_COPIES, UNCOMMON_COPIES, baseCopies, basePlanOf, basePlanOfCard, isPlanCode, rarityOf } from "./rarity";
@@ -40,6 +40,21 @@ export {
 export type { DraftRefusal, Inventory, LayoutLimits, LayoutRefusal, LayoutTile } from "./free-village";
 export { RANDOM_LAYOUT_MS, RANDOM_LAYOUT_STEPS, RANDOM_LAYOUT_TRIES, randomLayout } from "./random-layout";
 export type { RandomLayout, RandomLayoutBudget } from "./random-layout";
+export {
+  LAYOUT_SLOTS,
+  LAYOUT_SLOT_PRICES,
+  activateSlotRefusal,
+  buySlotRefusal,
+  isLayoutSlot,
+  layoutSlotOpen,
+  layoutSlotPrice,
+  layoutSlotsOf,
+  saveSlotRefusal,
+  withSlotActive,
+  withSlotBought,
+  withSlotSaved,
+} from "./layout-slots";
+export type { LayoutSlotRefusal, LayoutSlots } from "./layout-slots";
 export { breakdownOf, layoutBreakdown } from "./breakdown";
 export type { CellAreas, LayoutBreakdown, LayoutLine } from "./breakdown";
 export { STARTER_LAYOUTS, STARTER_TILES, starterIndex, starterLayout } from "./starters";

@@ -6,6 +6,7 @@ import { useBoardSkins } from "../data/board-skins";
 import type { FreeVillageHeld } from "../data/free-village-base";
 import { useDeviceSettings } from "../data/settings";
 import { hasWebGL } from "../lib/webgl";
+import { useStageLayoutSlots } from "./layout-slots";
 import { villageArrival, markVillageDrawn } from "./village-arrival";
 import { countsByPlan, useVillageArt } from "./village-v2";
 
@@ -24,7 +25,7 @@ export interface HomeStageProps extends VillageStageProps {
 
 /**
  * The home's village stage as the app wires it (#753), its own chunk: the stage (the editor, the board, the engine) with the
- * tile art in the owner's skins and the 3D scene under it, arriving under the fog the first time (#761); the plan view, with no
+ * tile art in the owner's skins, the saved layouts' slots (#804) and the 3D scene under it, arriving under the fog the first time (#761); the plan view, with no
  * fog, under the low graphics quality, where WebGL is missing or where the renderer cannot start.
  */
 export default function HomeStage({ playerId, held, settings, onScene, ...stage }: HomeStageProps) {
@@ -38,9 +39,12 @@ export default function HomeStage({ playerId, held, settings, onScene, ...stage 
   const view = failed || quality === "low" ? "plan" : "3d";
   // Read once, as the stage mounts: the first arrival of the page under the fog, the later ones with a fade.
   const [arrival] = useState(villageArrival);
+  // The saved layouts (#804), the player's own village alone.
+  const layoutSlots = useStageLayoutSlots(stage.editable ? playerId : null);
   return (
     <VillageStage
       {...stage}
+      layoutSlots={stage.layoutSlots ?? layoutSlots}
       inventory={inventory}
       tileArt={tileArt}
       arrival={arrival}

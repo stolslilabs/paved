@@ -126,12 +126,12 @@ export default function Page() {
   // The app's router is a data router, so leaving by any way is guarded; a plain one (Storybook's) has only the editor's Back.
   const guarded = useContext(UNSAFE_DataRouterContext) !== null;
 
-  const save = (tiles: readonly BoardTile[], score: number) => {
+  const save = (tiles: readonly BoardTile[], score: number, slot?: number) => {
     if (pending || !village) return;
     writes.reset();
     const layout = layoutTilesOf(tiles);
     const previous = village.score;
-    writes.save(layout).then(
+    writes.save(layout, slot).then(
       () => setSaved({ score, previous }),
       () => undefined,
     );
