@@ -4,15 +4,15 @@ import { Icon, type IconSize } from "../ui/icon";
 import type { LeagueId } from "../../lib/pvp-rules";
 
 const CREST: Record<LeagueId, string> = {
-  bronze: "text-league-bronze",
-  silver: "text-league-silver",
-  gold: "text-league-gold",
-  crystal: "text-league-crystal",
-  master: "text-league-master",
-  champion: "text-league-champion",
-  titan: "text-league-titan",
-  legend: "text-league-legend",
-  unranked: "text-league-unranked",
+  peasant: "text-league-peasant",
+  yeoman: "text-league-yeoman",
+  squire: "text-league-squire",
+  knight: "text-league-knight",
+  baron: "text-league-baron",
+  earl: "text-league-earl",
+  duke: "text-league-duke",
+  sovereign: "text-league-sovereign",
+  wanderer: "text-league-wanderer",
 };
 
 /** A league group's crest colour, for a crest drawn larger than `LeagueCrest`'s sizes (the league carousel's). */
@@ -34,7 +34,7 @@ export interface LeagueCrestProps extends VariantProps<typeof crestVariants> {
   className?: string;
 }
 
-/** A league (issue 644's, `pvp-rules.ts`): its crest, a shield in its group's colour, and its name beside it ("Gold II"). */
+/** A league (issue 644's, `pvp-rules.ts`): its crest, a shield in its group's colour, and its name beside it ("Squire II"). */
 export function LeagueCrest({ league, size, iconOnly, className }: LeagueCrestProps) {
   return (
     <span data-league={league.id} className={cn(crestVariants({ size }), className)}>
