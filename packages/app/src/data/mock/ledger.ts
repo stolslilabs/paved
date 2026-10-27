@@ -107,9 +107,10 @@ import {
 } from "@paved/game-core";
 import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
-import { freshV2, mockRivalV2, mockRivalsV2, type StoredAttackV2, type StoredV2 } from "./v2";
+import { freshV2, mockRivalV2, mockRivalsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
 import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../free-attack";
+import type { MatchRecord, MatchRecordViews } from "../matches";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
@@ -179,6 +180,7 @@ export interface MockedReads
     PvpViews,
     FreeVillageViews,
     AttackV2Views,
+    MatchRecordViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
     VaultViews,
     Pick<EconomyViews, "split" | "seller" | "usdcBalance"> {}
@@ -297,6 +299,8 @@ const ATTACK_DRAW = 0x41545441434bn;
 /** The kinds of PvP v2's draws (`'MATCH2'`, `'ATTACK2'`, `'CHEST'`): Poseidons that stand in for the VRF. */
 const MATCH_DRAW_V2 = 0x4d4154434832n;
 const ATTACK_DRAW_V2 = 0x41545441434b32n;
+/** The kind of a rival's answer's deck (#786): `poseidon(DEFENCE_DRAW_V2, player, defence id)`. */
+const DEFENCE_DRAW_V2 = 0x444546454e4345n;
 const CHEST_DRAW = 0x4348455354n;
 
 /** `Arena.play`'s reverts, as the engine names them, to the writer's refusals. */
@@ -729,6 +733,54 @@ export class MockLedger {
     this.sync();
     const a = (this.peek(attacker).v2 ?? freshV2()).attacks.find((x) => x.id === id);
     return a ? this.attackView(a) : null;
+  }
+
+  /**
+   * The player's matches (#786): their attacks that ended and their rivals' attacks on their village, newest first, each with
+   * the attacked village's snapshot at its start (a save from before the snapshot shows the rival's layout, which never changes).
+   */
+  async matchesV2(playerId: string): Promise<MatchRecord[]> {
+    this.sync();
+    const v2 = this.peek(playerId).v2 ?? freshV2();
+    const copy = (moves: StoredAttackV2["moves"]) => moves.map((m) => (m.discard ? { ...m } : { ...m, cell: { ...m.cell } }));
+    const rivalOf = (address: string) => {
+      const rival = mockRivalV2(address);
+      return { address, name: rival?.name ?? null, level: rival?.level ?? 0 };
+    };
+    const attacks: MatchRecord[] = v2.attacks
+      .filter((a) => a.status !== "open")
+      .map((a) => ({
+        id: `a${a.id}`,
+        side: "attack",
+        rival: rivalOf(a.defender),
+        village: (a.village ?? mockRivalV2(a.defender)?.tiles ?? []).map((t) => ({ ...t })),
+        target: a.target,
+        moves: copy(a.moves),
+        score: a.score,
+        stars: a.stars,
+        surrendered: a.status === "surrendered",
+        crowns: a.gained - a.lost,
+        xp: a.xp,
+        chest: a.chest,
+        finishedAt: a.finishedAt,
+      }));
+    const defences: MatchRecord[] = (v2.defences ?? []).map((d) => ({
+      id: `d${d.id}`,
+      side: "defence",
+      rival: rivalOf(d.attacker),
+      village: d.village.map((t) => ({ ...t })),
+      target: d.target,
+      moves: copy(d.moves),
+      score: d.score,
+      stars: d.stars,
+      surrendered: false,
+      crowns: d.crowns,
+      xp: 0,
+      chest: null,
+      finishedAt: d.finishedAt,
+    }));
+    // Oldest first, an answer after the attack it answers within the same second; then newest first.
+    return [...attacks, ...defences].sort((x, y) => x.finishedAt - y.finishedAt || (x.side === y.side ? 0 : x.side === "attack" ? -1 : 1)).reverse();
   }
 
   /** A rival village's name (the mock's opponents, PvP v1's and v2's), or null for any other player. */
@@ -1292,7 +1344,7 @@ export class MockLedger {
       const shielded = (address: string) => (this.state.rivalShields?.[addressKey(address)] ?? 0) > now;
       if (kind === "search" && v2.match && !shielded(v2.match.opponent)) throw new V2RefusedError("opponent-drawn", hash);
       if (kind === "next" && !v2.match) throw new V2RefusedError("nothing-drawn", hash);
-      const events: DecodedEvent[] = [];
+      const events: DecodedEvent[] = kind === "search" ? this.answerV2(account, p, v2) : [];
       if (kind === "next") {
         if (p.cobbles < NEXT_PRICE) throw new V2RefusedError("not-enough-cobbles", hash);
         p.cobbles -= NEXT_PRICE;
@@ -1333,6 +1385,8 @@ export class MockLedger {
         defender: rival.address,
         slots: rival.slots,
         target: rival.score,
+        // The snapshot (#786): the defender's layout as the attack found it.
+        village: rival.tiles.map((t) => ({ ...t })),
         offer: v2.match.offer,
         cost: v2.match.cost,
         deck,
@@ -1610,6 +1664,42 @@ export class MockLedger {
     return { gained, lost };
   }
 
+  /**
+   * A rival's answer (#786): the mock's rivals live on no device, so the rival the player attacked last attacks the player's
+   * village at their next search, once per attack. The snapshot is the layout saved then; the deck is drawn from it as an attack
+   * on a rival's is (`attackDeck`, ceil(1.15 x S)), played by a plain player (the most points now, else a discard). The player
+   * loses the crowns its stars win, or wins its cost when it takes none, and the village is shielded for 8 hours (`SHIELD_S`), as
+   * any attacked village is: until the player starts an attack, which drops it, or the shield ends.
+   */
+  private answerV2(account: string, p: StoredPlayer, v2: StoredV2): DecodedEvent[] {
+    const last = v2.attacks.at(-1);
+    const rival = last ? mockRivalV2(last.defender) : null;
+    if (!last || !rival || last.status === "open" || !v2.layout || (v2.answered ?? 0) >= last.id) return [];
+    v2.answered = last.id;
+    const village = v2.layout.map((t) => ({ ...t }));
+    const target = layoutScore(village);
+    const { slots } = levelStatus(v2.xp);
+    const id = (v2.defences?.length ?? 0) + 1;
+    const deck = attackDeck(village.map((t) => t.plan), slots, poseidon(DEFENCE_DRAW_V2, BigInt(account), BigInt(id)));
+    const attack = new QueuedAttack(deck);
+    const moves: StoredDefenceV2["moves"] = [];
+    while (!attack.over) {
+      const plan = attack.hand!;
+      const move = plainMove(attack, plan);
+      attack.apply(move);
+      moves.push({ ...move, plan });
+    }
+    const stars = attackStars(attack.score, target);
+    const pvp = (p.pvp ??= freshPvp());
+    const stakes = stakesOf(offerOf(rival.crowns, pvp.crowns), costOf(rival.crowns, pvp.crowns));
+    const crowns = stars > 0 ? -Math.min(stakes.win[stars - 1]!, pvp.crowns) : stakes.loss;
+    pvp.crowns += crowns;
+    const finishedAt = Math.floor(this.now());
+    pvp.shieldUntil = finishedAt + SHIELD_S;
+    (v2.defences ??= []).push({ id, attacker: rival.address, slots, village, target, deck, moves, score: attack.score, stars, crowns, finishedAt });
+    return [this.event("DefenceFinished", { attacker: rival.address, defender: account, id, score: attack.score, stars, crowns })];
+  }
+
   /** A v2 attack's end: its stars (`attackStars`), the crowns, the XP (`pvpXp`, stopped at the cap) and a chest within the day's cap. */
   private finishV2(account: string, p: StoredPlayer, v2: StoredV2, a: StoredAttackV2, score: number, surrendered: boolean): DecodedEvent[] {
     const stars = surrendered ? 0 : attackStars(score, a.target);
@@ -1693,4 +1783,20 @@ export class MockLedger {
   private event(name: string, fields: DecodedEvent["fields"]): DecodedEvent {
     return { name, fields, fromAddress: this.options.seller };
   }
+}
+
+/** The plain player's move with `plan` in hand (#786, a rival's answer): the most points now, the engine's first cell on a tie; a discard where it fits nowhere. */
+function plainMove(attack: QueuedAttack, plan: number): QueuedMove {
+  let best: QueuedMove = { discard: true };
+  let most = -Infinity;
+  for (const cell of attack.slots()) {
+    for (const orientation of attack.orientations(cell)) {
+      const points = attack.run.preview(plan, orientation, cell) ?? -Infinity;
+      if (points > most) {
+        most = points;
+        best = { discard: false, orientation, cell };
+      }
+    }
+  }
+  return best;
 }

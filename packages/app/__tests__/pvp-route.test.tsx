@@ -298,9 +298,9 @@ describe("receipt-cached attacks and the shield's read", { timeout: slow(30_000)
 });
 
 describe("the other answers", { timeout: slow(30_000) }, () => {
-  it("/pvp/league: its defence log, no attack on the village yet, no shield (BACK-RULE #783: a section, not a page)", async () => {
+  it("/pvp/league: its matches (#786), none yet, no shield (a section, not a page)", async () => {
     await open("/pvp/league");
-    expect(await screen.findByText("No attack on your village yet.", {}, WAIT)).toBeInTheDocument();
+    expect(await screen.findByText(/No match yet/, {}, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "off");
   });
 

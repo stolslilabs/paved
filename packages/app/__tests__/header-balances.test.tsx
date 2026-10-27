@@ -19,7 +19,7 @@ import { fakeSources } from "./data-fakes";
 // HEADER-BALANCES (#720), revised by ONE-HEADER (#781): the home's balances on every page, in its format and in the header's
 // row (the Cobbles' pill below `desktop`, every balance's rail from it), nothing under the header; none in the game scenes.
 /** The game scenes: the boards, the ends of a game, the PvP attack's flow, its result and a replay (#647). */
-const GAME_SCENES = ["game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id"];
+const GAME_SCENES = ["game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id"];
 
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:theme/g, "forest").replace(/:player/g, "0x1").replace(/:(\w+)/g, "1");
 
