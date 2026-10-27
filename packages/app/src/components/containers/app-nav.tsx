@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useId, useState, type CSSProperties } from "react";
 import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
@@ -16,6 +16,9 @@ export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
   { id: "league", label: "League", icon: "trophy" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];
+
+/** The current item's description (TAB-RETAP, #800): a tap on it closes its page. */
+export const RETAP_HINT = "Tap again to return to the village";
 
 /** The bar's tabs, left to right. */
 const BAR = NAV_TABS.map((t) => t.id);
@@ -82,8 +85,11 @@ function useStartTab(active: Tab | null): Tab | null {
  * The bar is `position: fixed` to the viewport's bottom, outside the page's scrolling region (`TabFrame`, #611, which ends the
  * region at the bar's measured height). It draws the page's edge hint (NO-SCROLLBARS, #609): while the page's region has more
  * below (`page-more`, set by `TabFrame`), a fade just above the bar.
+ * TAB-RETAP (#800, the owner's decision of 2026-10-26): a tap on the current item closes its page and returns to the village
+ * (`useTabNavigate`); the item says so (`aria-describedby`, `RETAP_HINT`) and keeps `aria-current="page"`.
  */
 export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
+  const hint = useId();
   const start = useStartTab(active);
   const moved = start !== active;
   const column = columnOf(active);
@@ -97,6 +103,9 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
         className,
       )}
     >
+        <span id={hint} hidden>
+          {RETAP_HINT}
+        </span>
         <span aria-hidden data-slot="page-scroll-hint" className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-linear-to-b to-background opacity-0 transition-opacity motion-reduce:transition-none page-more:opacity-100" />
         <div className="relative flex min-w-0 flex-1 justify-between gap-1">
           {/* The sliding highlight (TAB-SWIPE): one column of the five (`gap-1` between them), under the items. */}
@@ -126,6 +135,7 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                     type="button"
                     aria-label={tab.label}
                     aria-current={isActive ? "page" : undefined}
+                    aria-describedby={isActive ? hint : undefined}
                     onClick={() => onNavigate?.(tab.id)}
                     className="state-layer relative z-10 -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none focus-visible:ring-ring"
                   >
@@ -144,6 +154,7 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                 type="button"
                 aria-label={badge > 0 ? `${tab.label}, ${badge} waiting` : tab.label}
                 aria-current={isActive ? "page" : undefined}
+                aria-describedby={isActive ? hint : undefined}
                 onClick={() => onNavigate?.(tab.id)}
                 className={cn(
                   // `relative`: painted over the highlight, which comes first.
