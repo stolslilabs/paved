@@ -33,18 +33,6 @@ const Frame = ({ children }: { children: ReactNode }) => <div className="w-64 ov
  * The fade is applied everywhere: `ScrollRegion` and `ScrollArea` carry it, and the document has its own at the viewport's foot.
  */
 
-/** Proposal A, the cut: the box (16rem) shows five rows and a half; no fade. Not kept. */
-export const ProposalCut: Story = {
-  name: "Proposal: cut",
-  render: () => (
-    <div className="w-64 rounded-md border border-input">
-      <div className="h-64 overflow-y-auto">
-        <Rows />
-      </div>
-    </div>
-  ),
-};
-
 /** Proposal B, the fade (kept): the bottom fades while more waits below; scrolled, the top fades too. */
 export const ProposalFade: Story = {
   name: "Proposal: fade (the rule)",

@@ -114,10 +114,7 @@ export const TowersAtNight: Story = { args: { plan: "cccccfffc", step: "volume",
 /** The stagger at dusk (level 0.6): some windows still dark, a room's windows on or off together; move `cellX` for another draw. */
 export const Dusk: Story = { args: { step: "volume", marks: [], nightLevel: 0.6 } };
 
-/** 2c. The same with rays instead of the flood: sharper beams out of the openings. */
-export const LightVolumeRays: Story = { args: { step: "volume", marks: [], method: "rays" } };
-
-/** 2d. A slice of the volume beside the tile, for debugging: the layer's light on its 40 x 40 cells. */
+/** 2c. A slice of the volume beside the tile, for debugging: the layer's light on its 40 x 40 cells. */
 export const VolumeSlice: Story = { args: { step: "slice", marks: ["window"], layer: 6, plan: "ffcfffcff" } };
 
 /** 3. The readout: windows per model, the volume's size and the build time of each step in this browser (the 19 base models). */
