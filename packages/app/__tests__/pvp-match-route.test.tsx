@@ -71,6 +71,8 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     const cards = within(list).getAllByRole("button");
     expect(cards.map((c) => c.dataset.side)).toEqual(["defence", "attack"]);
     expect(cards[1]).toHaveAccessibleName(`Your attack on ${s.rival.name}: ${s.attack.stars} of 3 stars`);
+    // The defence shielded the village (8 hours, until the player attacks).
+    expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
     // The village behind each card: the snapshot's plan view.
     expect(cards.every((c) => c.querySelector("[inert]") !== null)).toBe(true);
 

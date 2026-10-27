@@ -51,7 +51,7 @@ describe("PvP v2's matches on the mock (#786)", () => {
     }
   });
 
-  it("a rival answers at the next search, on the player's village as it was; the player's later edit leaves the defence unchanged", async () => {
+  it("a rival answers at the next search, on the player's village as it was, and shields it; the player's later edit leaves the defence unchanged", async () => {
     const { ledger } = mockImplementation();
     await ledger.foundFreeVillage(PLAYER);
     // The first search has nothing to answer.
@@ -73,6 +73,10 @@ describe("PvP v2's matches on the mock (#786)", () => {
     // The crowns the stars took (or the cost the defence won) move the player's count.
     expect(Math.sign(defence.crowns)).toBe(defence.stars > 0 ? -1 : 1);
     expect((await ledger.pvpLeague(PLAYER)).crowns).toBe(crowns + defence.crowns);
+    // The attacked village is shielded for 8 hours, as any is, until the player starts an attack.
+    const shield = await ledger.pvpShield(PLAYER);
+    expect(shield.up).toBe(true);
+    expect(shield.until).toBe(defence.finishedAt + 8 * 3_600);
 
     // The player edits their village: the defence's snapshot stays as it was.
     const village = await ledger.freeVillage(PLAYER);
@@ -87,6 +91,10 @@ describe("PvP v2's matches on the mock (#786)", () => {
     // One answer per attack: the next search, with nothing new attacked, adds none.
     await ledger.drawOpponentV2(PLAYER, "next").catch(() => undefined);
     expect((await ledger.matchesV2(PLAYER)).filter((m) => m.side === "defence")).toHaveLength(1);
+
+    // Starting an attack drops the shield.
+    await ledger.startAttackV2(PLAYER);
+    expect((await ledger.pvpShield(PLAYER)).up).toBe(false);
   });
 
   it("each view's void: the rival's village red, the player's own green; the player's build blue, a rival's red", () => {

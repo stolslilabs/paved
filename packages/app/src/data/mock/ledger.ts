@@ -1668,7 +1668,8 @@ export class MockLedger {
    * A rival's answer (#786): the mock's rivals live on no device, so the rival the player attacked last attacks the player's
    * village at their next search, once per attack. The snapshot is the layout saved then; the deck is drawn from it as an attack
    * on a rival's is (`attackDeck`, ceil(1.15 x S)), played by a plain player (the most points now, else a discard). The player
-   * loses the crowns its stars win, or wins its cost when it takes none. No shield: the player's attack, next, would drop it.
+   * loses the crowns its stars win, or wins its cost when it takes none, and the village is shielded for 8 hours (`SHIELD_S`), as
+   * any attacked village is: until the player starts an attack, which drops it, or the shield ends.
    */
   private answerV2(account: string, p: StoredPlayer, v2: StoredV2): DecodedEvent[] {
     const last = v2.attacks.at(-1);
@@ -1694,6 +1695,7 @@ export class MockLedger {
     const crowns = stars > 0 ? -Math.min(stakes.win[stars - 1]!, pvp.crowns) : stakes.loss;
     pvp.crowns += crowns;
     const finishedAt = Math.floor(this.now());
+    pvp.shieldUntil = finishedAt + SHIELD_S;
     (v2.defences ??= []).push({ id, attacker: rival.address, slots, village, target, deck, moves, score: attack.score, stars, crowns, finishedAt });
     return [this.event("DefenceFinished", { attacker: rival.address, defender: account, id, score: attack.score, stars, crowns })];
   }
