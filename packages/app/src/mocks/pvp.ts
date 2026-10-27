@@ -282,7 +282,9 @@ export const PVP_LEAGUE = {
   matchesLoading: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.loading },
   matchesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
-  // The carousel on a league above the player's (Squire II) and one below (Peasant II): the "Back to my league" chip.
+  // The first-time bonus of Yeoman II paid on reaching it and not yet celebrated (#833, open point 1): its icon is active.
+  bonusReady: { crowns: ME.crowns, best: 1_180, bonusesToSee: [5], season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.shielded },
+  // The carousel on a league above the player's (Squire II) and one below (Peasant II): the back icon.
   higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },
   lower: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 2 },
   sovereign: { crowns: 5_320, season: SEASON, now: MOCK_NOW },

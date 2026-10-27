@@ -16,12 +16,11 @@ import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 
 /**
  * `/pvp/league` (#647 PR 2): the player's crowns, league and season from `Matchmaker.league` (#644), the season's end from
- * `season_start(season + 1)`; Attack opens the flow (`/pvp`). The latest attacks and defences are cards in the page (#786, in
+ * `season_start(season + 1)`; no Attack on the page (#833: the phone's bar has it). The latest attacks and defences are cards in the page (#786, in
  * place of the defence log; its old link, `/pvp/defence`, lands here), each opening its match (`/pvp/match/:id`, v2) or its
  * replay (`/pvp/replay/:attacker/:id`, v1), whose Back comes up here, with the village's shield from `Matchmaker.shield`.
  */
 export default function Page() {
-  const go = useAppNavigate();
   const onNavigate = useTabNavigate();
   const onBack = useBack();
   const now = useNow();
@@ -59,7 +58,6 @@ export default function Page() {
       attacks={season ? league.attacks : undefined}
       onBack={onBack}
       onNavigate={onNavigate}
-      onAttack={() => go("/pvp")}
       {...matches}
     />
   );

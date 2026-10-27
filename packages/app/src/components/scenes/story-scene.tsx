@@ -17,6 +17,7 @@ import type { TileRenders } from "../elements/tile-render";
 import { CampaignCard, type CampaignStatus } from "../containers/story-panels";
 import { TopBar } from "../containers/top-bar";
 import { Carousel, CarouselContent, CarouselItem, useCarouselSettled, type CarouselApi } from "../ui/carousel";
+import { CarouselDots } from "../ui/carousel-dots";
 import { Icon } from "../ui/icon";
 
 /**
@@ -137,11 +138,17 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
           </CarouselContent>
         </Carousel>
         {carousel && (
-          <div aria-hidden className="-mt-3 flex justify-center gap-1.5 tablet:hidden">
-            {campaigns.map((c) => (
-              <span key={c.id} className={cn("h-1.5 rounded-full transition-all", c.id === campaign?.id ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40")} />
-            ))}
-          </div>
+          <CarouselDots
+            aria-label="Go to a campaign"
+            count={campaigns.length}
+            current={campaigns.findIndex((c) => c.id === campaign?.id)}
+            onSelect={(index) => {
+              choose(campaigns[index]!.id);
+              api?.scrollTo(index, reduced);
+            }}
+            label={(index) => `Go to ${campaigns[index]!.name}`}
+            className="-mt-4 tablet:hidden"
+          />
         )}
         {campaign && <CampaignLevels campaigns={campaigns} campaign={campaign} progress={progress} onLevel={onLevel} />}
       </main>

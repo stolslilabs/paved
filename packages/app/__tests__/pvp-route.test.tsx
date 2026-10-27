@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { IndexerError, ViewError } from "@paved/chain";
@@ -91,7 +91,7 @@ afterEach(() => {
 });
 
 describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
-  it("from the league, searches a village, scouts it, opens the attack and places a tile", async () => {
+  it("from the league to the search, searches a village, scouts it, opens the attack and places a tile", async () => {
     const s = await open("/pvp/league");
     expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Wanderer" })).toBeInTheDocument();
@@ -99,7 +99,9 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks; it is checked the
     // moment it is found, as the click may still be on its way past the 1.2 s the heading stays.
     const found = screen.findByRole("heading", { name: "Village found" }, WAIT).then((heading) => expect(heading).toBeInTheDocument());
-    await userEvent.click(screen.getByRole("button", { name: /Attack/ }));
+    // No Attack button on the League (#833): the search is the bar's (`/pvp`).
+    expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
+    await act(() => s.router.navigate("/pvp"));
     await found;
     expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
     const match = await s.ledger.pvpMatch(s.me);
