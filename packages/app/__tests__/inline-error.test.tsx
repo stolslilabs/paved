@@ -8,8 +8,8 @@ import { TileStack } from "../src/components/containers/tile-stack";
 import { VaultForm } from "../src/components/containers/vault-form";
 import { PAVED_BALANCE } from "../src/mocks/economy";
 import { EXIT_FEE_BPS, PREVIEW_DEPOSIT_100, VAULT_HELD } from "../src/mocks/vault";
-import { AchievementsScene } from "../src/components/scenes/achievements-scene";
-import { ACHIEVEMENTS } from "../src/mocks/scenes";
+import { MissionsScene } from "../src/components/scenes/missions-scene";
+import { MISSIONS } from "../src/mocks/scenes";
 import { errorDetail, useErrorDetail } from "../src/routes/error-detail";
 import { version } from "../package.json";
 
@@ -164,9 +164,9 @@ describe("InlineError (P-67)", () => {
   });
 
   it("a scene's failed read shows it with Retry and Copy", () => {
-    render(wrap(<AchievementsScene {...ACHIEVEMENTS.failed} />));
+    render(wrap(<MissionsScene {...MISSIONS.failed} />));
     const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("Could not load the lifetime missions: The indexer did not answer (HTTP 503).");
+    expect(alert).toHaveTextContent("Could not load the missions: The indexer did not answer (HTTP 503).");
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy the error" })).toBeInTheDocument();
   });

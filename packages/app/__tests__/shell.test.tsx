@@ -28,7 +28,7 @@ function open(path: string, wallet = fakeWallet()) {
 }
 
 // The Back button is the board's own: the real board is kept, loaded once before the first test.
-preloadPages("board", "home", "quests", "play", "welcome");
+preloadPages("board", "home", "missions", "play", "welcome");
 
 beforeEach(() => {
   // Importing the router module creates the app's browser router, which writes `idx` into jsdom's history state: a memory

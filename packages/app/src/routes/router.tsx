@@ -101,8 +101,11 @@ export const routes: RouteObject[] = [
       },
       ...pageRoutes(PAGES.filter((page) => page.path !== "" && !page.panel)),
       { path: "game", loader: gameRedirect },
-      { path: "quests/:day?", loader: ({ request, params }) => to(params.day ? `/missions/${params.day}` : "/missions", request) },
-      { path: "achievements", loader: ({ request }) => to("/missions/lifetime", request) },
+      // Missions is one page, today only (#832): the Lifetime tab's link and a day's land on it, as the older names do.
+      { path: "missions/lifetime", loader: ({ request }) => to("/missions", request) },
+      { path: "missions/:day", loader: ({ request }) => to("/missions", request) },
+      { path: "quests/:day?", loader: ({ request }) => to("/missions", request) },
+      { path: "achievements", loader: ({ request }) => to("/missions", request) },
       // The defence log became a section of the league (BACK-RULE #783), then its matches (#786): its old link lands there.
       { path: "pvp/defence", loader: ({ request }) => to("/pvp/league", request) },
       { path: "economy", loader: ({ request }) => to("/vault", request) },

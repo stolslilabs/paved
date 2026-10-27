@@ -32,7 +32,7 @@ const noRawErrors = () => {
   expect(screen.queryByText(/RPC|entrypoint|starknet_call/i)).not.toBeInTheDocument();
 };
 
-preloadPages("quests", "vault");
+preloadPages("missions", "vault");
 
 beforeEach(() => {
   queryClient.clear();
@@ -49,6 +49,8 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
   it("/missions: the quests carry the mock's Cobbles; a claim moves the balance; no notice, no RPC text", async () => {
     const s = open("/missions");
     expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
+    // Daily Run's icon selects it (#832): its card holds the Claim.
+    await userEvent.click(await screen.findByRole("button", { name: /^Daily Run: / }, { timeout: slow(5000) }));
     const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) });
     expect(screen.queryByText("Rewards unavailable")).not.toBeInTheDocument();
     noRawErrors();
