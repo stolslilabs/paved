@@ -76,6 +76,11 @@ export interface LayoutEditorOptions {
   slowRollMs?: number;
   /** Where the stories start: the die pressed as the editor opens. */
   initialRolling?: boolean;
+  /**
+   * The layouts kept in the saved slots (#804), the starter included: a draft equal to one of them is not lost by leaving, so
+   * Back does not ask.
+   */
+  kept?: readonly (readonly BoardTile[])[];
 }
 
 /** The orientation the tile takes on `spot`: the one it has if it fits there, else the first that does. */
@@ -94,6 +99,8 @@ function startOf(tiles: readonly BoardTile[], hand: LayoutEditorOptions["initial
   const draft = at ? tiles.map((t) => (t.id === tile.id ? { ...t, x: at.x, y: at.y, orientation: fitOn(at, t.orientation) } : t)) : tiles;
   return { draft, hand: { from: "board", id: tile.id, origin: tile } };
 }
+
+const NONE_KEPT: readonly (readonly BoardTile[])[] = [];
 
 /** How long a refused tile shakes, ms. */
 const SHAKE_MS = 1_600;
@@ -132,6 +139,7 @@ export function useLayoutEditor({
   randomSeed = freshSeed,
   slowRollMs = SLOW_ROLL_MS,
   initialRolling = false,
+  kept = NONE_KEPT,
 }: LayoutEditorOptions) {
   const slots = slotsFor(village.level);
   const [start] = useState(() => startOf(initialDraft ?? village.tiles, initialHand, initialPending));
@@ -220,7 +228,9 @@ export function useLayoutEditor({
   );
   const score = useMemo(() => (editing ? layoutScore(shown) : village.score), [editing, shown, village.score]);
   const changed = !sameLayout(draft, village.tiles);
-  const dirty = editing && changed;
+  // Changes kept nowhere: not the village, nor a saved slot's layout (#804). Leaving asks first.
+  const unkept = changed && !kept.some((k) => sameLayout(draft, k));
+  const dirty = editing && unkept;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   const pending: LayoutPending | null = useMemo(
     () => (editing && held ? { id: held.id, x: held.x, y: held.y, plan: held.plan, orientation: held.orientation } : null),
@@ -242,7 +252,7 @@ export function useLayoutEditor({
   };
   const back = () => {
     if (!editing) return onBack?.();
-    if (changed) setLeaving(true);
+    if (unkept) setLeaving(true);
     else close();
   };
 
@@ -301,6 +311,13 @@ export function useLayoutEditor({
   const sendBack = () => {
     cancelRoll();
     if (held) setDraft((d) => d.filter((t) => t.id !== held.id));
+    setHand(null);
+  };
+  /** A saved slot's layout into the draft (#804): the caller asked first if the draft held changes kept nowhere. */
+  const load = (tiles: readonly BoardTile[]) => {
+    cancelRoll();
+    if (saving) return;
+    setDraft(tiles);
     setHand(null);
   };
   const reset = () => {
@@ -438,6 +455,7 @@ export function useLayoutEditor({
     tray,
     score,
     changed,
+    unkept,
     dirty,
     rotations,
     saving,
@@ -457,6 +475,7 @@ export function useLayoutEditor({
     cancel: moves.cancel,
     sendBack: moves.sendBack,
     reset,
+    load,
     save,
     canRoll: !!randomizer,
     rolling: rolling !== null,

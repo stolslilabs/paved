@@ -4,6 +4,7 @@ import type { Chest, VillageChestsSceneProps } from "../components/scenes/villag
 import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/village-shop-scene";
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
+import type { LayoutSlot, LayoutSlotsProps } from "../components/containers/layout-slots-strip";
 import { deckCount, rarityOf, type Rarity } from "../components/elements/rarity-badge";
 import { STARTER, canLift, countPlans, draftOf, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, slotsFor, stockOf, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, MOCK_NOW } from "./clock";
@@ -219,6 +220,50 @@ const LIT_TILE = LAYOUT_GROWING.tiles.find((t) => HOME_POINTS.lines[1]!.areas.so
 export const WONDER_POINTS = layoutPoints(LAYOUT_WONDER.tiles);
 const WONDER_LINE = WONDER_POINTS.lines.find((l) => l.category === CategoryType.Wonder)!;
 
+/** A slot of the saved layouts (#804): open with `tiles` (null: empty), or locked (`open` false). */
+const slot = (index: number, tiles: readonly BoardTile[] | null, open = true, fits = true): LayoutSlot => ({
+  slot: index,
+  open,
+  price: [0, 100, 250][index]!,
+  tiles,
+  score: tiles ? fakeScore(tiles) : 0,
+  fits,
+});
+/** The die's first village (#803): kept in slot 2, a project beside the village. */
+const DIE_SLOT = DIE_VILLAGES[0]!;
+/** One slot (the free one, the village's), the next two locked: 640 Cobbles held. */
+const SLOTS_ONE = { active: 0, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, null, false), slot(2, null, false)], cobbles: 640 } satisfies LayoutSlotsProps;
+/** Three slots: the village in slot 1, the die's village in slot 2, an older layout in slot 3. */
+const SLOTS_THREE = { active: 0, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, DIE_SLOT), slot(2, LAYOUT_FULL.tiles)], cobbles: 290 } satisfies LayoutSlotsProps;
+
+/** One fixture per state of the saved layouts' strip (#804), in the home's edit mode. */
+export const LAYOUT_SLOTS = {
+  one: SLOTS_ONE,
+  three: SLOTS_THREE,
+  /** A locked slot picked: its price, Buy. */
+  locked: { ...SLOTS_ONE, initialSelected: 1 },
+  /** Buy asked first: the price and the Cobbles held. */
+  buy: { ...SLOTS_ONE, initialSelected: 1, initialAsk: "buy" },
+  /** The purchase on its way. */
+  buying: { ...SLOTS_ONE, initialSelected: 1, busy: { kind: "buy", slot: 1 } },
+  /** Bought: slot 2 open and empty, the draft can be saved there. */
+  bought: { ...SLOTS_ONE, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, null), slot(2, null, false)], cobbles: 540, initialSelected: 1 },
+  /** Not enough Cobbles for slot 3. */
+  short: { ...SLOTS_ONE, cobbles: 40, initialSelected: 2 },
+  /** A saved slot picked: Load, Save here, Make active. */
+  saved: { ...SLOTS_THREE, initialSelected: 1 },
+  /** Load over changes kept nowhere: asked first. */
+  load: { ...SLOTS_THREE, initialSelected: 1, initialAsk: "load" },
+  /** Make active: asked first (attackers face it). */
+  activate: { ...SLOTS_THREE, initialSelected: 1, initialAsk: "activate" },
+  /** Slot 2 made active: the village is the die's. */
+  activated: { ...SLOTS_THREE, active: 1, initialSelected: 1 },
+  /** A saved layout that no longer fits (open point 4): it needs tiles first, never made active. */
+  needsTiles: { ...SLOTS_THREE, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, DIE_SLOT), slot(2, LAYOUT_FULL.tiles, true, false)], initialSelected: 2 },
+  /** A slot write refused: what happened, above the slots. */
+  refused: { ...SLOTS_THREE, initialSelected: 1, error: "The price changed: check it and buy again." },
+} satisfies Record<string, LayoutSlotsProps>;
+
 /** One fixture per state of the home (`Scenes/Home`): the village in view, its chips, and edit mode. */
 export const HOME_VILLAGE = {
   view: home,
@@ -276,4 +321,28 @@ export const HOME_VILLAGE = {
   dieSmall: { ...home, village: LAYOUT_START, inventory: INVENTORY_EMPTY, editing: true, randomizer: mainThreadRandomizer(), randomSeed: seedsOf(1, 2, 3), initialRolling: true },
   /** The die on a large stock (level 20, 28 slots, 36 tiles): every slot used, near a 6 x 5. */
   dieLarge: { ...home, editing: true, randomizer: mainThreadRandomizer(), randomSeed: seedsOf(7, 8, 9), initialRolling: true },
+  /** The saved layouts (#804): one slot, the next two locked with their prices. */
+  slotsOne: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.one },
+  /** Three slots, the die's village in slot 2 picked: Load, Save here, Make active. */
+  slotsThree: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.saved },
+  /** A locked slot picked: Buy at its price. */
+  slotsLocked: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.locked },
+  /** Buy asked first. */
+  slotsBuy: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.buy },
+  /** The purchase on its way. */
+  slotsBuying: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.buying },
+  /** Slot 2 bought: open and empty. */
+  slotsBought: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.bought },
+  /** Too few Cobbles for slot 3. */
+  slotsShort: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.short },
+  /** Load over changes kept nowhere: asked first. */
+  slotsLoad: { ...home, editing: true, initialDraft: DRAFT_VALID, layoutSlots: LAYOUT_SLOTS.load },
+  /** Make active: asked first. */
+  slotsActivate: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.activate },
+  /** Slot 2 active: the village is its layout. */
+  slotsActivated: { ...home, village: { ...LAYOUT_GROWING, tiles: DIE_SLOT, score: fakeScore(DIE_SLOT) }, editing: true, layoutSlots: LAYOUT_SLOTS.activated },
+  /** A saved layout that needs tiles first. */
+  slotsNeedsTiles: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.needsTiles },
+  /** A slot write refused. */
+  slotsRefused: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.refused },
 } satisfies Record<string, Data<HomeVillageSceneProps>>;

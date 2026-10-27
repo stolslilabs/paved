@@ -12,6 +12,7 @@ import { Icon } from "../ui/icon";
 import { LayoutBoard, type LayoutBoardView } from "./layout-board";
 import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "./layout-editor";
 import { layoutPoints, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
+import { LayoutSlotsStrip, type LayoutSlotsProps } from "./layout-slots-strip";
 import { PointsFold, PointsPanel, type PointsPanelProps } from "./points-breakdown";
 
 export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
@@ -61,12 +62,14 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
   onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
+  /** The saved layouts (#804): their strip above the inventory in edit mode. Unset (not served): no strip. */
+  layoutSlots?: LayoutSlotsProps;
 }
 
 /**
  * The home's village (#753): the scene's box (the 3D canvas, else the plan view) and, in edit mode, the editor's overlays (#739):
- * its bar (Back, the live score, the slots, Reset all), its panel (the hint, the inventory, Save) beside or under the box, and the
- * leave dialog. The bubble of the tile in hand stands by the tile on the 3D scene, clear of the bar and the panel; the plan view
+ * its bar (Back, the live score, the slots, Reset all), its panel (the saved layouts' strip, #804; the hint, the inventory, Save)
+ * beside or under the box, and the leave dialog. The bubble of the tile in hand stands by the tile on the 3D scene, clear of the bar and the panel; the plan view
  * stands it still in the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the board, the engine) arrives.
  */
 const NONE: VillageLayout = { owner: "", level: 1, tiles: [], score: 0 };
@@ -77,8 +80,14 @@ const EDIT_ICON = "hammer";
 /** The editor's points open from this width (`--breakpoint-desktop`), folded under it. */
 const DESKTOP_QUERY = "(min-width: 64rem)";
 
+const NO_LAYOUTS: readonly (readonly BoardTile[])[] = [];
+
 export default function VillageStage({ village, editable, ...props }: VillageStageProps) {
+  const slotList = props.layoutSlots?.slots;
+  // The layouts the slots keep: a draft equal to one is not lost by leaving (#804).
+  const kept = useMemo(() => slotList?.flatMap((s) => (s.open && s.tiles ? [s.tiles] : [])) ?? NO_LAYOUTS, [slotList]);
   const editor = useLayoutEditor({
+    kept,
     village: village ?? NONE,
     inventory: props.inventory,
     own: editable,
@@ -169,6 +178,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
             />
           )}
           <PointsFold breakdown={points} selected={editLit} onSelect={setEditLit} open={open} onOpenChange={foldPoints} />
+          {props.layoutSlots && <LayoutSlotsStrip editor={editor} {...props.layoutSlots} />}
           <LayoutEditorPanel editor={editor} tileArt={props.tileArt} bubble={scene ? "scene" : "panel"} />
         </aside>
       )}
