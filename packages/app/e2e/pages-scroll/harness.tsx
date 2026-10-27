@@ -73,12 +73,12 @@ function TickingMissions() {
 export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true }> = {
   shop: { title: "Tile shop", page: <VillageShopScene {...VILLAGE_SHOP.today} offers={long(VILLAGE_SHOP.today.offers, 9)} onBack={no} onNavigate={no} onBuy={no} onGetCobbles={no} /> },
   chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.kept} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
-  league: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} best={PVP_LEAGUE.lastDay.crowns + 400} attacks={2} onBack={no} onNavigate={no} onAttack={no} onOpenMatch={no} /> },
+  league: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} best={PVP_LEAGUE.lastDay.crowns + 400} attacks={2} onBack={no} onNavigate={no} onOpenMatch={no} /> },
   settings: { title: "Settings", page: <SettingsScene {...SETTINGS.connected} onNavigate={no} onChange={no} /> },
   missions: { title: "Missions", page: <TickingMissions /> },
   vault: { title: "Vault", page: <VaultScene {...VAULT.stress} onNavigate={no} /> },
   // The League with a long list of attacks and defences (#786, in place of the defence log): 20 cards and Show more.
-  defence: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.yeoman} matches={{ ...PVP_MATCHES.shielded, matches: PVP_MATCHES.many.matches }} onBack={no} onNavigate={no} onAttack={no} onOpenMatch={no} /> },
+  defence: { title: "League", page: <PvpLeagueScene {...PVP_LEAGUE.yeoman} matches={{ ...PVP_MATCHES.shielded, matches: PVP_MATCHES.many.matches }} onBack={no} onNavigate={no} onOpenMatch={no} /> },
   themes: { title: "Themes", page: <ThemeScene {...THEME.mixed} onBack={no} onNavigate={no} onUse={no} onOpen={no} /> },
   tiles: { title: "My tiles", page: <MyTilesScene {...MY_TILES.owned} onBack={no} onNavigate={no} /> },
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },
