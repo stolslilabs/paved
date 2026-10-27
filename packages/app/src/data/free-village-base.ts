@@ -217,7 +217,7 @@ export function invalidateV2(client: QueryClient, playerId: string): void {
 /** A write of the village side on its way: what it is for. */
 export type FreeVillageWrite =
   | { kind: "found" }
-  | { kind: "save"; tiles: readonly LayoutTile[] }
+  | { kind: "save"; tiles: readonly LayoutTile[]; slot?: number }
   | { kind: "open"; index?: number }
   | { kind: "claim"; slot: number }
   | { kind: "buy"; request: BuyTileRequest }
@@ -238,8 +238,11 @@ export function useFreeVillageWrites(playerId: string | null) {
       switch (write.kind) {
         case "found":
           return signer.foundFreeVillage();
-        case "save":
-          return signer.saveLayout(write.tiles);
+        case "save": {
+          // Into the slot the editor showed active (#804), never one an activation made active meanwhile.
+          const slots = signer as FreeVillageWrites & Partial<{ saveLayoutTo(slot: number, tiles: readonly LayoutTile[]): Promise<WriteResult> }>;
+          return write.slot !== undefined && slots.saveLayoutTo ? slots.saveLayoutTo(write.slot, write.tiles) : signer.saveLayout(write.tiles);
+        }
         case "open":
           return signer.openChest(write.index);
         case "claim":
@@ -262,7 +265,7 @@ export function useFreeVillageWrites(playerId: string | null) {
     error: mutation.error,
     reset: () => mutation.reset(),
     found: () => mutation.mutateAsync({ kind: "found" }),
-    save: (tiles: readonly LayoutTile[]) => mutation.mutateAsync({ kind: "save", tiles }),
+    save: (tiles: readonly LayoutTile[], slot?: number) => mutation.mutateAsync({ kind: "save", tiles, slot }),
     openChest: (index?: number) => mutation.mutateAsync(index === undefined ? { kind: "open" } : { kind: "open", index }),
     claimChest: (slot: number) => mutation.mutateAsync({ kind: "claim", slot }),
     buy: (request: BuyTileRequest) => mutation.mutateAsync({ kind: "buy", request }),

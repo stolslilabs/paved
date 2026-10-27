@@ -112,7 +112,8 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   onResume?: (gameId: number) => void;
   onRetry?: () => void;
   onFound?: () => void;
-  onSave?: (tiles: readonly BoardTile[], score: number) => void;
+  /** Save the draft into `slot` (the active one shown, #804; unset without the saved layouts). */
+  onSave?: (tiles: readonly BoardTile[], score: number, slot?: number) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;

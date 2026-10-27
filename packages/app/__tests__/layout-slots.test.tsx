@@ -121,6 +121,20 @@ describe("the saved layouts' strip (#804)", () => {
     expect(screen.getByRole("button", { name: /Buy slot 2/ })).toBeDisabled();
   });
 
+  it("saves into the slot shown active, and waits while a slot write is on its way (no Save racing an activation)", async () => {
+    const onSave = vi.fn();
+    const { rerender } = render(stage({ ...LAYOUT_SLOTS.saved, busy: { kind: "activate", slot: 1 } }, { initialDraft: DRAFT_VALID, onSave }));
+    const save = screen.getByRole("button", { name: /^Save$/ });
+    expect(save).toBeDisabled();
+    fireEvent.click(save);
+    expect(onSave).not.toHaveBeenCalled();
+    // The activation answered (refused here: slot 1 still active): Save goes to slot 1, by its index
+    rerender(stage({ ...LAYOUT_SLOTS.saved, busy: null }, { initialDraft: DRAFT_VALID, onSave }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0]![2]).toBe(0);
+  });
+
   it("shows no strip where the slots are not served", () => {
     render(
       <LazyMotion features={domMax}>

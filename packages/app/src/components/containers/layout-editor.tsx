@@ -41,6 +41,11 @@ export interface LayoutEditorOptions {
   own?: boolean;
   /** The save on its way: the editor waits. */
   saving?: boolean;
+  /**
+   * Another write of the layout on its way (a saved slot's, #804: made active, saved, bought): Save waits for it, so it never
+   * lands on a village that changed under it.
+   */
+  blocked?: boolean;
   /** The last save landed: the editor closes. */
   saved?: LayoutSaved | null;
   /**
@@ -123,6 +128,7 @@ export function useLayoutEditor({
   inventory = {},
   own = true,
   saving = false,
+  blocked = false,
   saved = null,
   editing: heldOpen,
   onEditingChange,
@@ -381,7 +387,7 @@ export function useLayoutEditor({
   rollRef.current = roll;
   const save = () => {
     cancelRoll();
-    if (over) return;
+    if (over || saving || blocked) return;
     setHand(null);
     // The saved draft's own score: the one shown may be a render behind (`shown`). The die's drafts read their worker's points.
     onSave?.(draft, layoutScore(draft));
@@ -459,6 +465,7 @@ export function useLayoutEditor({
     dirty,
     rotations,
     saving,
+    blocked,
     hint,
     bubble,
     view,
@@ -591,7 +598,7 @@ export function LayoutEditorPanel({ editor, tileArt, bubble = "panel", className
         {editor.hint}
       </p>
       <InventoryTray tray={editor.tray} held={hand?.from === "inventory" ? hand.plan : null} full={editor.full} busy={saving} tileArt={tileArt} onSelect={editor.choosePlan} />
-      <Button onClick={editor.save} disabled={!editor.changed || editor.over || saving} loading={saving}>
+      <Button onClick={editor.save} disabled={!editor.changed || editor.over || saving || editor.blocked} loading={saving}>
         <Icon name="check" size="sm" /> Save
       </Button>
     </div>

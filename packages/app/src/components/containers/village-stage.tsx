@@ -57,8 +57,11 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
    * the plan view: neither.
    */
   arrival?: VillageArrival;
-  /** Save the draft, with the score the engine gives it. */
-  onSave?: (tiles: readonly BoardTile[], score: number) => void;
+  /**
+   * Save the draft, with the score the engine gives it, into `slot`: the saved layouts' active slot as the editor shows it (#804),
+   * unset without them (the village's one layout).
+   */
+  onSave?: (tiles: readonly BoardTile[], score: number, slot?: number) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
@@ -99,7 +102,8 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     initialHand: props.initialHand,
     initialPending: props.initialPending,
     initialLeaving: props.initialLeaving,
-    onSave: props.onSave,
+    blocked: !!props.layoutSlots?.busy,
+    onSave: (tiles, score) => props.onSave?.(tiles, score, props.layoutSlots?.active),
     onDismissSaved: props.onDismissSaved,
     onDirtyChange: props.onDirtyChange,
     randomizer: props.randomizer,

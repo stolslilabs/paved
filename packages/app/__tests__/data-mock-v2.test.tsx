@@ -269,10 +269,22 @@ describe("PvP v2 on the mock", () => {
     await waitFor(() => expect(result.current.slots.data?.slots[0]?.tiles).toHaveLength(7));
     expect(result.current.account.data!.cobbles).toBe(200);
 
+    // A Save sent while an activation is on its way lands in the slot the editor showed active, never the one made active
+    const backup = result.current.slots.data!.slots[1]!.tiles!;
+    await act(async () => {
+      await Promise.all([result.current.slotWrites.activate(1), result.current.writes.save(STARTER_LAYOUTS[0]!.slice(0, 0), 0)]);
+    });
+    await waitFor(() => expect(result.current.slots.data?.active).toBe(1));
+    expect(result.current.slots.data!.slots[1]!.tiles).toEqual(backup);
+    expect(result.current.slots.data!.slots[0]!.tiles).toEqual([]);
+    expect(result.current.village.data!.tiles).toEqual(backup);
+    await act(() => result.current.slotWrites.activate(0));
+
     // Kept on the device
     const again = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
     expect((await again.layoutSlots(PLAYER)).slots.map((s) => s.open)).toEqual([true, true, false]);
     expect((await ledger.layoutSlots(PLAYER)).active).toBe(0);
+    expect((await ledger.freeVillage(PLAYER)).tiles).toEqual([]);
   });
 
   it("keeps its state on the device: a new ledger on the same store reads the village", async () => {
