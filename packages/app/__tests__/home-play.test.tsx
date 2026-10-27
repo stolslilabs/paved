@@ -72,7 +72,7 @@ describe("/ (#753): the village home on its data", () => {
     expect(avatar).toHaveAccessibleName(/, level 1, 100 XP to level 2$/);
     await userEvent.click(avatar);
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText("0 / 100 XP")).toBeInTheDocument();
+    expect(within(sheet).getByText("To level 2")).toBeInTheDocument();
     expect(within(sheet).queryByRole("button", { name: /My village/ })).toBeNull();
     await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
     expect(wallet.calls).toContain("disconnect");

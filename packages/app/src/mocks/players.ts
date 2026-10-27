@@ -22,7 +22,14 @@ export const TODAY = Math.floor(MOCK_NOW / DAY);
 /** The XP ring's states (#625); the app shows `start` for everyone until the contracts define XP. */
 export const PROGRESS = {
   start: { level: 1, xp: 0, xpForNext: 100 },
-  partWay: { level: 3, xp: 120, xpForNext: 300 },
+  /** On the chain's curve (#641): level 3 starts at 300 XP, so 420 XP in all. */
+  partWay: { level: 3, xp: 120, xpForNext: 300, total: 420 },
+  /** 30 % of the level (#830): part of the arc. */
+  thirty: { level: 4, xp: 120, xpForNext: 400 },
+  /** 75 % of the level (#830): the arc full, the line well started. */
+  threeQuarters: { level: 5, xp: 375, xpForNext: 500 },
+  /** The level complete (#830), the arc and the line full: the moment before it turns over. */
+  full: { level: 6, xp: 600, xpForNext: 600 },
   nearlyFull: { level: 7, xp: 470, xpForNext: 500 },
   /** WRAP360: a level and a threshold in the thousands. */
   stress: { level: 1_234, xp: 98_765, xpForNext: 123_456 },
