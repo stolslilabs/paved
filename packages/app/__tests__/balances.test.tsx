@@ -131,6 +131,56 @@ describe("Balances (#538), the resource bar (#620)", () => {
   });
 });
 
+describe("the plates (#828)", () => {
+  it("a '+' on the balances that lead to a page (PAVED, vPAVED, Cobbles), none on USDC; the icon after the figure", () => {
+    const { container } = render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 1n }} />));
+    const plates = [...container.querySelectorAll<HTMLElement>("[data-slot=resource-plate]")];
+    expect(plates.map((p) => [p.dataset.token, !!p.querySelector("[data-slot=resource-plus]")])).toEqual([
+      ["usdc", false],
+      ["paved", true],
+      ["vpaved", true],
+      ["cobbles", true],
+    ]);
+    for (const plate of plates) {
+      expect(plate.dataset.side).toBe("right");
+      // The icon is the plate's last part (over the right end), the "+" its first (over the left end).
+      expect(plate.lastElementChild!.querySelector("[data-slot=token-icon]")).not.toBeNull();
+    }
+    expect(plates[3]!.firstElementChild).toHaveAttribute("data-slot", "resource-plus");
+  });
+
+  it("the plates are larger from desktop (`rail`) than on a phone (`pill`)", () => {
+    const { container, unmount } = render(wrap(<Balances layout="pill" state={READY} />));
+    expect(container.querySelector("[data-slot=token-icon]")!.className).toContain("size-10");
+    unmount();
+    const rail = render(wrap(<Balances layout="rail" state={READY} />));
+    expect(rail.container.querySelector("[data-slot=token-icon]")!.className).toContain("size-11");
+  });
+
+  it("the mirrored plate puts the icon at the left end and the '+' at the right", () => {
+    const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} plus side="left" />));
+    const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
+    expect(plate.dataset.side).toBe("left");
+    expect(plate.className).toContain("flex-row-reverse");
+  });
+
+  it("column: the balances one under the other, right-aligned", () => {
+    render(wrap(<Balances layout="rail" direction="column" state={READY} />));
+    expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end"));
+  });
+
+  it("the home stacks its rail; a page's header keeps it in a row", async () => {
+    const { unmount } = render(wrap(<BalancesProvider value={{ state: READY }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
+    const home = await screen.findAllByRole("region", { name: "Balances" });
+    // The pill (one plate) below `desktop`, the stacked rail from it.
+    expect(home.map((r) => r.dataset.direction)).toEqual([undefined, "column"]);
+    unmount();
+    render(wrap(<BalancesProvider value={{ state: READY }}><TopBar title="Choose a mode" /></BalancesProvider>));
+    const header = await screen.findAllByRole("region", { name: "Balances" });
+    expect(header.map((r) => r.dataset.direction)).toEqual([undefined, "row"]);
+  });
+});
+
 describe("ResourcePlate: the change animations (#620)", () => {
   const plate = (amount: bigint | null, reduced: "never" | "always" = "never") =>
     wrap(
