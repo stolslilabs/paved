@@ -22,8 +22,8 @@ ruling; each value is a named constant.
 - **A season clock** (`SeasonableComponent`): the real seasons, from the equinoxes and solstices (`SEASON_STARTS`),
   from a first season the owner sets once. Season 0 is the time before the first season: no league, no reward, no
   reset.
-- **A league table** (`paved::matchmaker::leagues`, pure): 23 named leagues as crown ranges, Clash of Clans' own (pre-2025) at one
-  crown per trophy, the scale the matchmaker's curves already use. Unranked, Bronze III to I, ..., Titan I, Legend.
+- **A league table** (`paved::matchmaker::leagues`, pure): 23 named leagues as crown ranges, Clash of Clans' floors (pre-2025) at one
+  crown per trophy, the scale the matchmaker's curves already use. Wanderer, Peasant III to I, ..., Duke I, Sovereign.
 - **A league record per village** (`LeagueableComponent`), one felt: the season it was last seen in, the highest league
   reached in that season, and the attacks it settled in that season.
 - **Seasons roll lazily.** No keeper walks every village at a season's end. The first time a village is touched in a new
@@ -95,25 +95,27 @@ summer, autumn, winter), as Unix timestamps rounded to the second.
 
 ## 4. The league table
 
-Clash of Clans' leagues before the 2025 update (wiki "Leagues", the same era as the matchmaker's crown curves, S1 of
-section 6.1 of its note), one crown per trophy. A league is the highest whose floor is at or below the crowns.
+The floors of Clash of Clans' leagues before the 2025 update (wiki "Leagues", the same era as the matchmaker's crown curves, S1 of
+section 6.1 of its note), one crown per trophy. A league is the highest whose floor is at or below the crowns. The names are
+Paved's own, a feudal ladder from Wanderer to Sovereign (#805, owner 2026-10-26); on chain a league is only its number (0 to 22),
+and the contracts' comments still use the earlier names until a contracts issue next touches `leagues.cairo`.
 
 | # | League | Floor (crowns) | Bonus, first reach in a season | Season reward |
 |---:|---|---:|---:|---:|
-| 0 | Unranked | 0 | — | 0 |
-| 1 to 3 | Bronze III, II, I | 400, 500, 600 | 5 each | 10 |
-| 4 to 6 | Silver III, II, I | 800, 1,000, 1,200 | 10 each | 20 |
-| 7 to 9 | Gold III, II, I | 1,400, 1,600, 1,800 | 15 each | 35 |
-| 10 to 12 | Crystal III, II, I | 2,000, 2,200, 2,400 | 20 each | 50 |
-| 13 to 15 | Master III, II, I | 2,600, 2,800, 3,000 | 25 each | 75 |
-| 16 to 18 | Champion III, II, I | 3,200, 3,500, 3,800 | 30 each | 100 |
-| 19 to 21 | Titan III, II, I | 4,100, 4,400, 4,700 | 40 each | 150 |
-| 22 | Legend | 5,000 | 50 | 250 |
+| 0 | Wanderer | 0 | — | 0 |
+| 1 to 3 | Peasant III, II, I | 400, 500, 600 | 5 each | 10 |
+| 4 to 6 | Yeoman III, II, I | 800, 1,000, 1,200 | 10 each | 20 |
+| 7 to 9 | Squire III, II, I | 1,400, 1,600, 1,800 | 15 each | 35 |
+| 10 to 12 | Knight III, II, I | 2,000, 2,200, 2,400 | 20 each | 50 |
+| 13 to 15 | Baron III, II, I | 2,600, 2,800, 3,000 | 25 each | 75 |
+| 16 to 18 | Earl III, II, I | 3,200, 3,500, 3,800 | 30 each | 100 |
+| 19 to 21 | Duke III, II, I | 4,100, 4,400, 4,700 | 40 each | 150 |
+| 22 | Sovereign | 5,000 | 50 | 250 |
 
 - The amounts are the owner's ruling (section 9, A). Each is at most 255, so a credit fits `Setup`'s existing `CobblesClaimed.cobbles`
   (`u8`) and the indexer reads one more kind of an event it already knows.
-- **Scale.** A season's top reward (250) is between two and five skins (50 to 100 each); a full climb from Unranked to
-  Legend in one season pays 3 x (5 + 10 + 15 + 20 + 25 + 30 + 40) + 50 = 485 in bonuses. The daily Challenge quests pay up to 60 a day.
+- **Scale.** A season's top reward (250) is between two and five skins (50 to 100 each); a full climb from Wanderer to
+  Sovereign in one season pays 3 x (5 + 10 + 15 + 20 + 25 + 30 + 40) + 50 = 485 in bonuses. The daily Challenge quests pay up to 60 a day.
 - **Crowns are conserved** between players (matchmaker's note, 6.2): they enter only through the NPC villages of the cold
   start (0 to 290 crowns). Clash of Clans' ladder is held up by its trophy inflation below 1,000, which Paved does not
   copy. So the upper leagues will be rare at first; that is point 1 of the proposal (section 9, alternative B).
@@ -127,7 +129,7 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
      unchanged since its end), its reward `reward_of(league)` if `record.attacks >= MIN_SEASON_ATTACKS`, else 0; one
      `SeasonClosed` event;
   2. the crowns are reset: `min(crowns, RESET_CROWNS)` (`CrownsSet` only if they change; the bucket never moves, see
-     "The pool at Legend" below);
+     "The pool at Sovereign" below);
   3. the record becomes `{ season: current, peak: league_of(reset crowns), attacks: 0 }`.
 
   A village idle for several seasons closes only the last one it played in: the seasons in between had no attack, so no
@@ -142,8 +144,8 @@ section 6.1 of its note), one crown per trophy. A league is the highest whose fl
   league from `peak + 1` to it is reached: one `LeagueReached` each, with its bonus, and `peak` rises. A settlement in
   season 0 reaches nothing. A crown set (`set_crowns`, an operator) raises the peak without a bonus.
 - **The count**: a settlement adds one to the attacker's `attacks` (saturating at `u16`).
-- **The pool at Legend** (a fix found in review). A village is listed in the pool at `min(crowns, RESET_CROWNS)`
-  (`pool_crowns` in `Matchmaker`), so every village of 5,000 crowns or more shares Legend's bucket (50). Without it, a
+- **The pool at Sovereign** (a fix found in review). A village is listed in the pool at `min(crowns, RESET_CROWNS)`
+  (`pool_crowns` in `Matchmaker`), so every village of 5,000 crowns or more shares Sovereign's bucket (50). Without it, a
   village not yet rolled into the new season stayed in the bucket of its old crowns: with Alice at 5,000, Bob at 7,000
   and Carol at 4,900 when season 1 ends, Alice's first search of season 2 took Carol (bucket 49) and not Bob (bucket
   70), though Bob's crowns are 5,000 once rolled. The reset changes only crowns above `RESET_CROWNS`, and they all
@@ -232,14 +234,14 @@ The defaults below are built on PR #695, each as a named constant in `contracts/
 
 **1. League ranges: CoC's 23 leagues, floors in crowns** (`LEAGUE_FLOORS`)
 
-| League | Unranked | Bronze III / II / I | Silver III / II / I | Gold III / II / I | Crystal III / II / I | Master III / II / I | Champion III / II / I | Titan III / II / I | Legend |
+| League | Wanderer | Peasant III / II / I | Yeoman III / II / I | Squire III / II / I | Knight III / II / I | Baron III / II / I | Earl III / II / I | Duke III / II / I | Sovereign |
 |---|---|---|---|---|---|---|---|---|---|
 | From | 0 | 400 / 500 / 600 | 800 / 1,000 / 1,200 | 1,400 / 1,600 / 1,800 | 2,000 / 2,200 / 2,400 | 2,600 / 2,800 / 3,000 | 3,200 / 3,500 / 3,800 | 4,100 / 4,400 / 4,700 | 5,000 |
 
 A league runs from its floor up to the next league's floor minus one.
 
 - **A (default)**: CoC's floors, the same scale as the crown curves. Trade-off: crowns are conserved (no CoC inflation below 1,000), so the upper leagues stay rare at first.
-- **B**: every floor divided by 4 (Bronze from 100, Legend from 1,250). Trade-off: the leagues are reachable at once, but they no longer match the crown curves' CoC scale.
+- **B**: every floor divided by 4 (Peasant from 100, Sovereign from 1,250). Trade-off: the leagues are reachable at once, but they no longer match the crown curves' CoC scale.
 
 **2. Season length: 28 days** (`SEASON_LENGTH`), starting Monday 00:00 UTC. Four of `Setup`'s weeks, so a season holds exactly four weekly missions. CoC's season is about a month, ending on the last Monday. *Ruled otherwise: the four real seasons, from the equinoxes and solstices, `SEASON_STARTS` (section 3).*
 
@@ -247,16 +249,16 @@ A league runs from its floor up to the next league's floor minus one.
 
 **3. Reset at season end: crowns above 5,000 come back to 5,000** (`RESET_CROWNS`). This is CoC's Legend League reset; everyone under it keeps their crowns.
 
-- **B**: 2,000 (Crystal III). Trade-off: many more players climb again each season, at the price of a reset most of them feel.
+- **B**: 2,000 (Knight III). Trade-off: many more players climb again each season, at the price of a reset most of them feel.
 
 **4. Cobble amounts** (`GROUP_BONUSES`, `GROUP_REWARDS`, `MIN_SEASON_ATTACKS`). CoC pays leagues in loot and gems, which have no Paved equivalent, so these are scaled to Paved's prices: a skin costs 50 to 100 Cobbles, and the Challenge's dailies pay up to 60 a day.
 
-| Group | Bronze | Silver | Gold | Crystal | Master | Champion | Titan | Legend |
+| Group | Peasant | Yeoman | Squire | Knight | Baron | Earl | Duke | Sovereign |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Bonus per league, first reach in a season | 5 | 10 | 15 | 20 | 25 | 30 | 40 | 50 |
 | Season reward, by the league at season end | 10 | 20 | 35 | 50 | 75 | 100 | 150 | 250 |
 
-- Unranked earns nothing. A full climb in one season pays 485 in bonuses. Bonuses count only leagues above the one the season started in.
+- Wanderer earns nothing. A full climb in one season pays 485 in bonuses. Bonuses count only leagues above the one the season started in.
 - A season reward needs **5 attacks** settled in that season.
   - **B**: 15 attacks. Trade-off: rewards only regular players, but casual players lose the season reward.
 
@@ -271,14 +273,14 @@ They are left out of the Challenge's free-game credit.
 - **A (default)**: NPC attacks don't count. Trade-off: a second account can't farm them alone against NPCs, but a new player in an empty pool can't progress them until other players join.
 - **B**: NPC attacks count. Trade-off: missions work from day one, but every free account can farm 35 Cobbles a day.
 
-**6. Legend pool: one matchmaking bucket for everyone at 5,000 crowns or more** (`POOL_CROWNS_CAP = RESET_CROWNS`). This mirrors CoC, where Legend League is one pool. It is also what keeps the matchmaker correct across the reset: a village not yet moved into the new season is already in the right bucket.
+**6. Sovereign pool: one matchmaking bucket for everyone at 5,000 crowns or more** (`POOL_CROWNS_CAP = RESET_CROWNS`). This mirrors CoC, where Legend League is one pool. It is also what keeps the matchmaker correct across the reset: a village not yet moved into the new season is already in the right bucket.
 
 - **B**: #639's 100-crown buckets above 5,000, plus a roll-and-redraw at each search. Trade-off: finer matching at the top, at the cost of more gas per search and a draw that can still pick a stale village.
 
 ## 10. Audit lenses (Cobbles and crowns move)
 
 - **Crowns** move by the reset only downwards, to `RESET_CROWNS`, and only once per village and season (the record's
-  season moves first). The reset never moves a bucket (the pool at Legend, section 5), so the pool's invariants hold
+  season moves first). The reset never moves a bucket (the pool at Sovereign, section 5), so the pool's invariants hold
   (fuzzed).
 - **Cobbles** are credited only by `Matchmaker` (a reporter) for the village whose record moved, never for a caller;
   `close_season` is permissionless and pays the village itself. The sums are bounded: at most 485 in bonuses and 250 in a
@@ -373,8 +375,8 @@ test. 433 pass (peak RSS 5,677,996 kB under `prlimit --as=16106127360`). CI runs
   roll from season 0 (nothing closed), with and without `MIN_SEASON_ATTACKS`, the climb league by league, down and up
   again, unpaid, in season 0, the attacks saturating; fuzzed: a roll pays at most once per season, its reward never
   above its league's.
-- **The system**: a settlement reaching Bronze III pays 5 and not twice; the defender climbing by a failed attack; a crown
-  set reaching leagues unpaid; a season's end paying 250 and resetting 6,000 to 5,000 (staying in Legend's bucket, 50) by anyone's
+- **The system**: a settlement reaching Peasant III pays 5 and not twice; the defender climbing by a failed attack; a crown
+  set reaching leagues unpaid; a season's end paying 250 and resetting 6,000 to 5,000 (staying in Sovereign's bucket, 50) by anyone's
   `close_season`, once, and nothing for idle seasons after; below the threshold the crowns stay; a draw rolling both;
   an attack started in one season and settled in the next; an NPC with no league; the missions reported and claimed;
   the reporter missing reverting the settlement.
