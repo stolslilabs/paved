@@ -3,7 +3,7 @@ import { scrollHintRef } from "../../lib/scroll-hint";
 import { cn } from "../../lib/utils";
 
 /**
- * A plain scrolling box with the edge hint (NO-SCROLLBARS, issue 609): no scrollbar on desktop (theme.css), a soft fade on the
+ * A plain scrolling box with the edge hint (NO-SCROLLBARS, issues 609 and 835): no scrollbar at any width (theme.css), a soft fade on the
  * side where more content waits (`scroll-hint`). Every scrollable region of the app is one of these or a `ScrollArea`.
  * `orientation` picks the overflow (`both` for a plan larger than the screen both ways); the hint follows whichever axis
  * actually scrolls.
