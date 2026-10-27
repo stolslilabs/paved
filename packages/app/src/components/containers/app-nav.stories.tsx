@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { Tab } from "../../routes/pages";
+import { CentreGuide, expectIconCentred } from "../../stories/centre-guide";
 import { PHONE_320, PHONE_375, TABLET_768 } from "../scenes/viewports";
 import { AppNav } from "./app-nav";
 
@@ -85,3 +86,17 @@ export const RetapPhone375: Story = { ...Retap, ...PHONE_375 };
 export const HomePhone320: Story = { ...Home, ...PHONE_320 };
 export const HomePhone375: Story = { ...Home, ...PHONE_375 };
 export const HomeTablet768: Story = { ...Home, ...TABLET_768 };
+
+/**
+ * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the swords sit at the centre of the Play disc, under a centre guide
+ * (two red lines through the disc's centre). The play checks the icon's centre is the disc's to half a pixel.
+ */
+export const PlayCentred: Story = {
+  args: { active: null },
+  decorators: [(Story) => <CentreGuide label="Play"><Story /></CentreGuide>],
+  play: ({ canvasElement }) => expectIconCentred(canvasElement, "Play"),
+};
+
+/** The centred swords at 375 and 320 px. */
+export const PlayCentredPhone375: Story = { ...PlayCentred, ...PHONE_375 };
+export const PlayCentredPhone320: Story = { ...PlayCentred, ...PHONE_320 };
