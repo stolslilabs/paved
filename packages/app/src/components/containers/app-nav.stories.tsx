@@ -1,11 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import type { Tab } from "../../routes/pages";
 import { PHONE_320, PHONE_375, TABLET_768 } from "../scenes/viewports";
 import { AppNav } from "./app-nav";
 
-/** Every story keeps its own active tab: a click moves it, so the white states and the gold of the current item can be checked. `active` is the starting tab. */
+/**
+ * Every story keeps its own active tab: a click moves it, so the white states and the gold of the current item can be checked.
+ * `active` is the starting tab. A click on the current item returns to the village, as in the app (TAB-RETAP, #800): no item current.
+ */
 function Stateful({ active, onNavigate, ...args }: React.ComponentProps<typeof AppNav>) {
   const [current, setCurrent] = useState<Tab | null>(active);
   useEffect(() => setCurrent(active), [active]);
@@ -14,7 +17,7 @@ function Stateful({ active, onNavigate, ...args }: React.ComponentProps<typeof A
       {...args}
       active={current}
       onNavigate={(tab) => {
-        setCurrent(tab);
+        setCurrent(tab === current ? null : tab);
         onNavigate?.(tab);
       }}
     />
@@ -58,6 +61,25 @@ export const Home: Story = { args: { active: null, badges: { chests: 2 } } };
 
 /** On Missions or the Vault: the bar has no item current. */
 export const ActiveVault: Story = { args: { active: "vault" } };
+
+/**
+ * TAB-RETAP (#800, the owner's decision of 2026-10-26): the current item, League here, says "Tap again to return to the
+ * village"; tapped again, it closes its page and the bar is the home's, no item current (in the app: the village, with no swipe).
+ */
+export const Retap: Story = {
+  args: { active: "league" },
+  play: async ({ canvasElement, args }) => {
+    const league = within(canvasElement).getByRole("button", { name: "League", current: "page" });
+    await expect(league).toHaveAccessibleDescription("Tap again to return to the village");
+    await userEvent.click(league);
+    await expect(args.onNavigate).toHaveBeenCalledWith("league");
+    await expect(within(canvasElement).queryByRole("button", { current: "page" })).toBeNull();
+  },
+};
+
+/** The retap at 320 and 375 px. */
+export const RetapPhone320: Story = { ...Retap, ...PHONE_320 };
+export const RetapPhone375: Story = { ...Retap, ...PHONE_375 };
 
 /** The home's bar at 320, 375 and 768 px. */
 export const HomePhone320: Story = { ...Home, ...PHONE_320 };
