@@ -1,5 +1,5 @@
 /**
- * The page `scripts/direction-renders.ts` drives (#537, PR 1b): the images of Direction/D, E and F, drawn from Paved's own assets.
+ * The page `scripts/direction-renders.ts` drives (#537, PR 1b): the images of the direction stories D, E and F (since removed), drawn from Paved's own assets.
  *
  * - Boards: the bench's recorded boards (`game-core/bench/fixtures`, 38 and 72 tiles) or a few tiles, through the board's own
  *   `GameScene` (its look, its models, the Forest variants), on a charcoal backdrop. A keyed render turns the backdrop to

@@ -152,26 +152,6 @@ function Preview({ avatar, look, autoTurn }: { avatar: Avatar; look: AvatarStyle
 }
 export const Preview3D: Story = { render: (args) => <Preview avatar={avatarOf(args)} look={args.look} autoTurn={args.autoTurn} /> };
 
-/** The two looks side by side: true voxels (left, the proposal) and the 8 x 8 face grid with its hat layer (right). */
-function Looks() {
-  const avatars = useMemo(() => [SHEET_BASE, { ...SHEET_BASE, headwear: 6, beard: 4 }, { ...SHEET_BASE, hair: 3, headwear: 7, accessory: 2 }, randomAvatar(seededRandom(31))], []);
-  return (
-    <div className="flex flex-col gap-6 p-4">
-      <div className="grid grid-cols-2 gap-4 text-center text-sm text-muted-foreground">
-        <span>Voxels</span>
-        <span>8 x 8 grid</span>
-      </div>
-      {avatars.map((avatar) => (
-        <div key={avatarKey(avatar)} className="grid grid-cols-2 justify-items-center gap-4">
-          <AvatarStill avatar={avatar} size={128} style="voxel" />
-          <AvatarStill avatar={avatar} size={128} style="grid" />
-        </div>
-      ))}
-    </div>
-  );
-}
-export const VoxelsOrGrid: Story = { render: () => <Looks /> };
-
 /**
  * What a still costs: renders `count` random avatars at 40, 64 and 128 px (each a new render), then asks for them all again
  * (each from the cache). The figures are this browser's: on software WebGL they are not a measure.
