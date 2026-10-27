@@ -283,13 +283,15 @@ interface PointsState {
 
 /**
  * The right column, over Play: under the balances (#828), as far down as the stack reaches, and never above 5.5 rem from the
- * screen's top (5 rem in the top row's padding from `tablet`), where it stood before the stack.
+ * screen's top (5 rem in the top row's padding from `tablet`), where it stood before the stack. From `desktop` it stops above Play
+ * (the top row's 1 rem, its own top, Play's 4.5 rem, its 1 rem margin and a 0.5 rem gap): on a short window its buttons wrap into
+ * a second column, to the left, instead of running under Play.
  */
 function VillageNav(props: HomeVillageSceneProps) {
   return (
     <nav
       aria-label="Village"
-      className="absolute top-[max(calc(100%+0.5rem),5.5rem)] -right-1 flex flex-col items-center gap-1.5 tablet:top-[max(calc(100%+0.5rem),5rem)] tablet:gap-2.5"
+      className="absolute top-[max(calc(100%+0.5rem),5.5rem)] -right-1 flex flex-col items-center gap-1.5 tablet:top-[max(calc(100%+0.5rem),5rem)] tablet:gap-2.5 desktop:max-h-[calc(100dvh-max(100%+0.5rem,5rem)-7rem)] desktop:flex-wrap-reverse desktop:content-start"
     >
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
       {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
@@ -318,10 +320,10 @@ function ViewOverlays({
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
-        <div className="flex items-start justify-between gap-2">
+        <div className="relative flex items-start justify-between gap-2">
           {/* The badge's profile and league each open a sheet or a page over the scene, tapped or keyed: the points close under it (#792). */}
           <div
-            className="pointer-events-auto flex min-w-0 flex-col items-start gap-1"
+            className="pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]"
             onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge]") && points?.onClose()}
           >
             {/* The profile and the league as one (#787): the avatar in its league's border, the name, the XP bar, the badge and the crowns. */}
@@ -356,8 +358,12 @@ function ViewOverlays({
               </Suspense>
             )}
           </div>
-          {/* The balances one under the other at the top right (#828), the same set as each width's header (#781). */}
-          <div className="pointer-events-auto relative flex shrink-0 items-start gap-2">
+          {/*
+            The balances one under the other at the top right (#828), the same set as each width's header (#781). Out of the row's
+            flow: only the profile's line stands beside them (the league's line under it passes below the plate), so at 320 px the
+            badge keeps its whole width; the left column stops short of the right column (the chips' clearance) and wraps.
+          */}
+          <div className="pointer-events-auto absolute top-0 right-0 flex items-start gap-2">
             {/* Below `desktop` Settings is the bar's (#763); from it, beside the stack's first plate. */}
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <Icon name="gear" size="md" />
