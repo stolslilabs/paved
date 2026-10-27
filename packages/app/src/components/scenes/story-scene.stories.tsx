@@ -20,9 +20,8 @@ function progressOf(...parts: { index: number; levels: number; stars: 1 | 2 | 3 
 /**
  * Story mode (`/story`, #546, #592): the campaigns as cards (their own tiles behind, a lock and a blur until they open) and the
  * levels of the chosen one. A level opens once the one before it is finished; the second campaign once the Tutorial holds 2
- * stars per level on average. One story per state; the Viewport control reframes it. The layout: the carousel (the default,
- * built) swipes the cards on a phone and turns into the grid from tablet up; `LayoutGrid` is the other proposal, a wrapping
- * grid at every width.
+ * stars per level on average. One story per state; the Viewport control reframes it. The layout: the carousel swipes the
+ * cards on a phone and turns into the grid from tablet up.
  */
 const meta = {
   title: "Scenes/Story",
@@ -52,9 +51,6 @@ export const JustUnlockedReduced: Story = { args: { progress: progressOf({ index
 
 /** The Tutorial complete at 3 stars and chosen, Open Country under way: the complete card's badge. */
 export const Completed: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 3 }, { index: 1, levels: 2, stars: 2 }), campaignId: 1 } };
-
-/** The other layout proposed (#592): a wrapping grid at every width, one card a row on a phone. */
-export const LayoutGrid: Story = { args: { layout: "grid", progress: progressOf({ index: 0, levels: 4, stars: 3 }) } };
 
 /** Every level of the Tutorial and Open Country at 3 stars: Dark Forest open. */
 export const AllStars: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 3 }, { index: 1, levels: 12, stars: 3 }) } };

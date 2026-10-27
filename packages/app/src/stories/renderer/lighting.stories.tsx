@@ -1,8 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { LOOK_PRESET_NAMES, QUALITY_TIERS } from "@paved/renderer";
-// The owner's target images, kept beside this story (moved from the removed app/docs).
-import mockup01 from "./mockups/mockup-01.png";
-import mockup02 from "./mockups/mockup-02.png";
 import { LIT_STRUCTURES, LightingBoard } from "./lighting-board";
 import { lookArgTypes } from "./lighting-look";
 import { MAX_DISTANCE, MIN_DISTANCE, VIEWS } from "./outlines-tour";
@@ -108,31 +105,3 @@ export const LongestRoadLit: Story = { args: { litStructure: "longest-road", hig
 
 /** One forest lit across its tiles (FEATURE-HL): the board's largest, as `LargestCityLit`. */
 export const LargestForestLit: Story = { args: { litStructure: "largest-forest", highlights: false } };
-
-const MOCKUPS = { "mockup-01": mockup01, "mockup-02": mockup02 } as const;
-
-interface SideBySideProps extends React.ComponentProps<typeof LightingBoard> {
-  mockup: keyof typeof MOCKUPS;
-}
-
-function SideBySide({ mockup, ...board }: SideBySideProps) {
-  return (
-    <div className="grid h-dvh w-full grid-cols-1 bg-board md:grid-cols-2">
-      <div className="relative min-h-[50dvh]">
-        <LightingBoard {...board} />
-      </div>
-      <figure className="flex min-h-0 flex-col items-center justify-center gap-2 overflow-auto p-4">
-        <img src={MOCKUPS[mockup]} alt={`The target look, ${mockup}`} className="max-h-full max-w-full object-contain" />
-        <figcaption className="text-xs text-muted-foreground">{mockup}.png (the target)</figcaption>
-      </figure>
-    </div>
-  );
-}
-
-/** The board at the opening view beside a mockup, with every control: compare, then pick. */
-export const SideBySideWithMockup: StoryObj<SideBySideProps> = {
-  name: "Side by side with the mockup",
-  render: (args) => <SideBySide {...args} />,
-  argTypes: { mockup: { control: "inline-radio", options: Object.keys(MOCKUPS), description: "The mockup shown beside the board" } },
-  args: { mockup: "mockup-01" },
-};

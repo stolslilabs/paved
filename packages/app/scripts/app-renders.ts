@@ -4,7 +4,7 @@
  *   nice -n 10 node scripts/app-renders.ts
  *
  * The masters are the renders of `scripts/direction-renders.ts` (the bench's recorded boards and the voxel wordmark through the
- * board's own renderer), committed in `src/directions/renders/` for the Direction stories. The app shows them smaller than they
+ * board's own renderer), committed in `src/directions/renders/` (the Direction stories that first showed them are gone). The app shows them smaller than they
  * were drawn, so each copy is resized to twice its largest box on screen and re-encoded as a lossy WebP, transparency kept. The
  * run opens one headless Chromium (playwright-core's), draws each master on a canvas and writes `toDataURL("image/webp", q)`.
  * It reads only the masters, so a second run writes the same files. Vite emits each copy as its own file, fetched when its
