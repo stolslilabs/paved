@@ -6,7 +6,7 @@ import type { VillageLayoutSceneProps } from "../components/scenes/village-layou
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import { deckCount, rarityOf, type Rarity } from "../components/elements/rarity-badge";
 import { STARTER, canLift, countPlans, draftOf, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, slotsFor, stockOf, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
-import { DAY, MOCK_NOW } from "./clock";
+import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { randomLayout } from "@paved/game-core";
 import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, STILL, mainThreadRandomizer, seedsOf } from "./random-layout";
 import { GAME_PLAYING } from "./games";
@@ -228,6 +228,12 @@ export const HOME_VILLAGE = {
   paused: { ...home, activeGame: GAME_PLAYING, spawnPaused: true },
   /** A new player: the starter village (level 1), no PvP played: the badge Unranked with 0 crowns (#755). */
   start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, now: MOCK_NOW },
+  /** The village shielded after a defence (#806): the shield's chip beside the crowns, 07:42 left. */
+  shielded: { ...home, shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 },
+  /** Under an hour left: 00:42. */
+  shieldUnderAnHour: { ...home, shieldEndsAt: MOCK_NOW + 42 * 60 - 20 },
+  /** The shield's last minute: 00:01, never 00:00 while it is up. */
+  shieldLastMinute: { ...home, shieldEndsAt: MOCK_NOW + 25 },
   /** Not founded yet: the starter alone, Found in Edit's place. */
   unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, league: null, now: MOCK_NOW },
   /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */

@@ -82,6 +82,11 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
    * home's only way there, #755). None (no PvP played yet, or not read): Unranked with 0 crowns.
    */
   league?: { crowns: number } | null;
+  /**
+   * The village's shield's end (`Matchmaker.shield`: `until` while `up`, seconds since the epoch), the League page's read: the
+   * shield's chip and its `HH:MM` beside the crowns while it lasts (#806). Null without a shield, for a guest or while not read.
+   */
+  shieldEndsAt?: number | null;
   /** `Challenge.spawn_paused`: the notice. */
   spawnPaused?: boolean;
   now: number;
@@ -298,7 +303,7 @@ function ViewOverlays({
             onClickCapture={(e) => (e.target as Element).closest("[data-slot=player-badge]") && points?.onClose()}
           >
             {/* The profile and the league as one (#787): the avatar in its league's border, the name, the XP bar, the badge and the crowns. */}
-            <PlayerBadge crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+            <PlayerBadge crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} shieldEndsAt={props.shieldEndsAt} now={now} />
             {village && (
               // Under it (#755), the village score; a tap opens its points by structure (#758).
               <button
