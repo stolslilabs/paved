@@ -25,16 +25,20 @@ const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balan
 
 /**
  * The balances in the home's format (ONE-HEADER, #781): the Cobbles' `pill` below `desktop`, every balance's `rail` from it, the
- * same at the home's top right and in every page's header (`PageHeader`). The place says at which widths (`className`:
- * `desktop:hidden`, `hidden desktop:flex`). The space is held while the chunk arrives, so nothing moves.
+ * same plates at the home's top right (a `column`, #828) and in every page's header (`PageHeader`, a `row`). The place says at
+ * which widths (`className`: `desktop:hidden`, `hidden desktop:flex`). The space is held while the chunk arrives, so nothing moves.
  */
-export function BalancesSlot({ layout, className }: { layout: BalancesProps["layout"]; className?: string }) {
+export function BalancesSlot({ layout, direction, className }: Pick<BalancesProps, "layout" | "direction" | "className">) {
   const value = useContext(BalancesContext);
   if (!value) return null;
-  const hold = <Skeleton className={cn("h-8 rounded-full", layout === "pill" ? "w-24" : "w-80", className)} />;
+  const hold = (
+    <Skeleton
+      className={cn("rounded-lg", layout === "pill" ? "h-8 w-24" : direction === "column" ? "h-33 w-32" : "h-9 w-96", className)}
+    />
+  );
   return (
     <Suspense fallback={hold}>
-      <Balances {...value} layout={layout} className={className} />
+      <Balances {...value} layout={layout} direction={direction} className={className} />
     </Suspense>
   );
 }

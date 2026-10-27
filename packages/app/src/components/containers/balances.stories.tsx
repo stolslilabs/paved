@@ -2,8 +2,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { Balances, type BalancesProps, type BalancesState } from "./balances";
-import { BalancesProvider } from "./balances-context";
+import { BalancesProvider, BalancesSlot } from "./balances-context";
 import { TabPage } from "./tab-page";
 import { TopBar } from "./top-bar";
 
@@ -59,8 +60,24 @@ const STEPS: readonly Ready[] = [
   { ...CONNECTED, cobbles: 290, paved: 154_850_000_000_000_000_000n, vpaved: 500_000_000_000_000_000n },
 ];
 
+/**
+ * The home's top right (#828), as the home lays it out: the balances one under the other, right-aligned, in the same set as each
+ * width's header (#781): the Cobbles alone below `desktop`, every balance from it.
+ */
+function HomeCorner({ state, onAction, onConnect, faucet }: InProps) {
+  return (
+    <BalancesProvider value={{ state, onAction, onConnect, faucet }}>
+      <div className="flex min-h-dvh justify-end bg-background p-2 text-foreground tablet:p-4">
+        <BalancesSlot layout="pill" className="desktop:hidden" />
+        <BalancesSlot layout="rail" direction="column" className="hidden desktop:flex" />
+      </div>
+    </BalancesProvider>
+  );
+}
+const corner = (state: BalancesState): Story => ({ render: (args) => <HomeCorner {...args} state={state} />, parameters: { layout: "fullscreen" } });
+
 /** The balances change every 2 s: a pack bought (Cobbles up, USDC down), then Cobbles spent and PAVED earned. */
-function Live({ layout, onAction }: Pick<BalancesProps, "layout" | "onAction">) {
+function Live({ layout, direction, onAction }: Pick<BalancesProps, "layout" | "direction" | "onAction">) {
   const [step, setStep] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setStep((s) => (s + 1) % STEPS.length), 2000);
@@ -69,7 +86,7 @@ function Live({ layout, onAction }: Pick<BalancesProps, "layout" | "onAction">) 
   return (
     <div className="flex justify-end p-6">
       {/* The rail is the header's from `desktop`; drawn alone at a phone's width, its plates wrap. */}
-      <Balances layout={layout} state={STEPS[step]!} onAction={onAction} faucet className="flex-wrap justify-end" />
+      <Balances layout={layout} direction={direction} state={STEPS[step]!} onAction={onAction} faucet className={direction === "column" ? undefined : "flex-wrap justify-end"} />
     </div>
   );
 }
@@ -104,3 +121,19 @@ export const LiveChanges: Story = { render: (args) => <Live layout="pill" onActi
 export const RailLiveChanges: Story = { render: (args) => <Live layout="rail" onAction={args.onAction} />, globals: WIDE };
 /** Reduced motion: a colour flash on each change, nothing moves. */
 export const LiveChangesReducedMotion: Story = { ...RailLiveChanges, parameters: { reducedMotion: "always" } };
+
+/** The home's stack (#828) at 320 px: the Cobbles' plate alone at the top right, its "+" over the left end. */
+export const Stack320: Story = { ...corner(CONNECTED), ...PHONE_320, parameters: { ...PHONE_320.parameters, layout: "fullscreen" } };
+/** At 375 px, the same. */
+export const Stack375: Story = { ...corner(CONNECTED), ...PHONE_375, parameters: { ...PHONE_375.parameters, layout: "fullscreen" } };
+/** At 1440 px: every balance one under the other, right-aligned, each icon over its plate's right end. */
+export const Stack1440: Story = { ...corner(CONNECTED), ...WIDE_1440 };
+/** A Vault holder at 1440 px: vPAVED joins the stack. */
+export const StackHolder1440: Story = { ...corner(HOLDER), ...WIDE_1440 };
+export const StackLoading1440: Story = { ...corner({ status: "loading" }), ...WIDE_1440 };
+/** The widest amounts in the stack. */
+export const StackStress1440: Story = { ...corner({ status: "ready", usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18, vpaved: BIG_AMOUNT_18, cobbles: 999_999 }), ...WIDE_1440 };
+/** Every balance's column drawn at a phone's width (the home shows the Cobbles alone there): it fits at 320 px. */
+export const StackAllAtPhone: Story = { render: (args) => <Balances layout="rail" direction="column" state={HOLDER} onAction={args.onAction} faucet />, globals: MOBILE };
+/** The stack changing: each plate counts, pops up or dips down. */
+export const StackLiveChanges: Story = { render: (args) => <Live layout="rail" direction="column" onAction={args.onAction} />, ...WIDE_1440 };

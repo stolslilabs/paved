@@ -6,6 +6,7 @@ import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PLAYER_STATUS } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
+import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
 import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_SLOTS } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import type { LayoutSaved } from "../containers/layout-editor";
@@ -19,7 +20,7 @@ import type { LayoutBoardView } from "../containers/layout-board";
 import { useLayoutCanvas } from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { CentreGuide, expectIconCentred } from "../../stories/centre-guide";
-import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
+import { PHONE_320, PHONE_375, TABLET_768, VIEWPORT_OPTIONS, WIDE_1440 } from "./viewports";
 
 /**
  * Home (`/`, #753): the player's village full screen with Clash of Clans' overlays, and edit mode in the same scene. One story
@@ -73,6 +74,23 @@ type Story = StoryObj<typeof meta>;
 
 /** The village in view: the avatar, the balances and the gear, the right column (2 chests, 3 missions), Edit and Play. */
 export const View: Story = { args: HOME_VILLAGE.view };
+/**
+ * A short desktop window (1024 x 600): the balances' stack (#828) pushes the right column down, so it stops above Play and its
+ * last buttons wrap into a second column, to the left, never under Play.
+ */
+/** The widest balances (the balances' stress amounts) at 320 px: the profile's line narrows beside the plate, never under it (#828). */
+const WIDE_BALANCES = (Story: () => React.JSX.Element) => (
+  <BalancesProvider value={{ state: { status: "ready", usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18, cobbles: 999_999 }, faucet: false }}>
+    <Story />
+  </BalancesProvider>
+);
+export const WideBalancesPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
+export const WideBalancesWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
+export const ShortDesktop: Story = {
+  args: HOME_VILLAGE.view,
+  parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, short: { name: "Laptop 1024 x 600", styles: { width: "1024px", height: "600px" }, type: "desktop" } } } },
+  globals: { viewport: { value: "short", isRotated: false } },
+};
 /** A Challenge game running: the Resume chip under the top row. */
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */

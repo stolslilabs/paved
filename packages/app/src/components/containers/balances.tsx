@@ -34,6 +34,11 @@ export interface BalancesProps {
    * the slot hides it where the other one stands.
    */
   layout: "pill" | "rail";
+  /**
+   * `row`: side by side (a page's header, #781). `column`: one under the other, right-aligned (the home's top right, #828). The
+   * pill's one plate is the same either way.
+   */
+  direction?: "row" | "column";
   state: BalancesState;
   onAction?: (kind: BalanceKind) => void;
   onConnect?: () => void;
@@ -44,11 +49,12 @@ export interface BalancesProps {
   className?: string;
 }
 
-const PLATES: Record<BalanceKind, { label: string; action: string; decimals: number; fraction: number }> = {
-  usdc: { label: "USDC", action: "Get USDC", decimals: 6, fraction: 2 },
-  paved: { label: "PAVED", action: "Vault", decimals: 18, fraction: 2 },
-  vpaved: { label: "vPAVED", action: "Vault", decimals: 18, fraction: 2 },
-  cobbles: { label: "Cobbles", action: "Buy packs", decimals: 0, fraction: 0 },
+/** `page`: the balance leads to a page (the Vault, the packs), so its plate carries a "+" (#828); USDC's faucet is an action, not a page. */
+const PLATES: Record<BalanceKind, { label: string; action: string; decimals: number; fraction: number; page: boolean }> = {
+  usdc: { label: "USDC", action: "Get USDC", decimals: 6, fraction: 2, page: false },
+  paved: { label: "PAVED", action: "Vault", decimals: 18, fraction: 2, page: true },
+  vpaved: { label: "vPAVED", action: "Vault", decimals: 18, fraction: 2, page: true },
+  cobbles: { label: "Cobbles", action: "Buy packs", decimals: 0, fraction: 0, page: true },
 };
 const ORDER: readonly BalanceKind[] = ["usdc", "paved", "vpaved", "cobbles"];
 
@@ -98,6 +104,10 @@ function useVpavedPlate(vpaved: bigint | null | undefined): { shown: boolean; fr
   return { shown, from };
 }
 
+/** The plates' size (#828): a 32 px box under a 40 px icon on a phone (`pill`), 36 under 44 from `desktop` (`rail`). */
+type PlateSize = "sm" | "md";
+const holdOf = (size: PlateSize) => <Skeleton className={cn("rounded-lg", size === "md" ? "h-9 w-28" : "h-8 w-24")} />;
+
 interface PlateTapProps {
   /** The amount a plate that just appeared counts from (vPAVED's first deposit). */
   from?: bigint;
@@ -106,6 +116,7 @@ interface PlateTapProps {
   onAction?: (kind: BalanceKind) => void;
   faucet?: boolean;
   minting?: boolean;
+  size: PlateSize;
 }
 
 /** A plate's action, and whether it has none: USDC mints only where there is a faucet, and not twice at once. */
@@ -121,12 +132,12 @@ function nameOf(kind: BalanceKind, amount: bigint | null, action: string) {
   return action ? `${figure}: ${action}` : figure;
 }
 
-/** One balance in the bar: a plate (at least 44 px of tap with its padding) that leads to its place. */
-function PlateTap({ kind, from, state, onAction, faucet, minting }: PlateTapProps) {
+/** One balance in the bar: a plate (at least 44 px of tap with the icon's overhang) that leads to its place, the whole plate a tap. */
+function PlateTap({ kind, from, state, onAction, faucet, minting, size }: PlateTapProps) {
   const amount = amountOf(state, kind);
-  if (amount === undefined) return <Skeleton className="h-8 w-20 rounded-full" />;
+  if (amount === undefined) return holdOf(size);
   const { action, inert } = actionOf(kind, faucet, minting);
-  const { decimals, fraction } = PLATES[kind];
+  const { decimals, fraction, page } = PLATES[kind];
   return (
     <m.button
       type="button"
@@ -134,9 +145,9 @@ function PlateTap({ kind, from, state, onAction, faucet, minting }: PlateTapProp
       disabled={inert}
       aria-label={nameOf(kind, amount, action)}
       whileTap={inert ? undefined : { scale: 0.94 }}
-      className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+      className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
     >
-      <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} plus={kind === "cobbles"} tone={kind === "cobbles" ? "invite" : "default"} />
+      <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} plus={page} tone={kind === "cobbles" ? "invite" : "default"} />
     </m.button>
   );
 }
@@ -152,33 +163,33 @@ function Guest({ connecting, onConnect, wide }: { connecting?: boolean; onConnec
   );
 }
 
-const PLATE_HOLD = <Skeleton className="h-8 w-20 rounded-full" />;
-
 /**
- * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate, its icon as a coin, the figure
- * chunky, counting to each new value. The Cobbles' plate stands apart (a gold edge, a "+", a slow shine) and leads to the packs;
- * vPAVED joins when held and leads to the Vault. `pill` (a phone): the Cobbles alone (#720: no other currency on a phone; the
- * Vault shows PAVED and vPAVED in its content). `rail`: every balance in a row. Disconnected: Connect; loading: skeleton
- * plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
+ * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate (#828), its icon over the plate's
+ * right end, the figure chunky, counting to each new value; a "+" over the left end where the balance leads to a page (the Vault,
+ * the packs). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED joins when held and
+ * leads to the Vault. `pill` (a phone): the Cobbles alone (#720: no other currency on a phone; the Vault shows PAVED and vPAVED in
+ * its content). `rail`: every balance, in a row or a column (`direction`). Disconnected: Connect; loading: skeleton plates;
+ * error: a short inline error (a mark on a phone, its message in its name), never a toast.
  */
-export function Balances({ layout, state, onAction, onConnect, faucet, minting, className }: BalancesProps) {
+export function Balances({ layout, direction = "row", state, onAction, onConnect, faucet, minting, className }: BalancesProps) {
   const vpaved = useVpavedPlate(state.status === "ready" ? state.vpaved : undefined);
   if (layout === "rail") {
     const fromOf = (kind: BalanceKind) => (kind === "vpaved" ? vpaved.from : undefined);
     return (
-      <section aria-label="Balances" className={cn("flex min-w-0 items-center gap-1.5", className)}>
+      <section aria-label="Balances" data-direction={direction} className={cn("flex min-w-0", direction === "column" ? "flex-col items-end" : "items-center gap-3", className)}>
         {state.status === "disconnected" ? (
           <Guest connecting={state.connecting} onConnect={onConnect} wide />
         ) : state.status === "error" ? (
           <InlineError message={state.message} title="Balances" />
         ) : state.status === "loading" ? (
-          <>
-            {PLATE_HOLD}
-            {PLATE_HOLD}
-            {PLATE_HOLD}
-          </>
+          // The plates' rows: a skeleton in each plate's place, nothing moves when they arrive.
+          ORDER.filter((kind) => kind !== "vpaved").map((kind) => (
+            <span key={kind} className="flex min-h-11 items-center">
+              {holdOf("md")}
+            </span>
+          ))
         ) : (
-          shownKinds(vpaved.shown).map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} onAction={onAction} faucet={faucet} minting={minting} />)
+          shownKinds(vpaved.shown).map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} onAction={onAction} faucet={faucet} minting={minting} size="md" />)
         )}
       </section>
     );
@@ -192,9 +203,9 @@ export function Balances({ layout, state, onAction, onConnect, faucet, minting, 
           <Icon name="triangle-exclamation" size="sm" className="text-muted-foreground" />
         </span>
       ) : state.status === "ready" ? (
-        <PlateTap kind="cobbles" state={state} onAction={onAction} />
+        <PlateTap kind="cobbles" state={state} onAction={onAction} size="sm" />
       ) : (
-        PLATE_HOLD
+        holdOf("sm")
       )}
     </section>
   );

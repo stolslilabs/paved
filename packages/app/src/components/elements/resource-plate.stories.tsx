@@ -19,8 +19,11 @@ const UNIT: Record<TokenKind, Pick<ResourcePlateProps, "decimals" | "fraction"> 
   cobbles: { decimals: 0, fraction: 0, start: 240n, step: 100n },
 };
 
+/** The balances that lead to a page carry a "+" (#828): PAVED and vPAVED to the Vault, the Cobbles to the packs; not USDC. */
+const PLUS: Record<TokenKind, boolean> = { usdc: false, paved: true, vpaved: true, cobbles: true };
+
 /** The amount goes up, then down, then back, every 1.8 s: the pop and the "+N", then the dip and the "−N". */
-function Cycling({ kind, size }: { kind: TokenKind; size?: ResourcePlateProps["size"] }) {
+function Cycling({ kind, size, side }: { kind: TokenKind; size?: ResourcePlateProps["size"]; side?: ResourcePlateProps["side"] }) {
   const u = UNIT[kind];
   const [step, setStep] = useState(0);
   useEffect(() => {
@@ -28,17 +31,58 @@ function Cycling({ kind, size }: { kind: TokenKind; size?: ResourcePlateProps["s
     return () => clearInterval(timer);
   }, []);
   const amount = step === 1 ? u.start + u.step : step === 2 ? u.start - u.step / 2n : u.start;
-  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} size={size} plus={kind === "cobbles"} tone={kind === "cobbles" ? "invite" : "default"} />;
+  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} size={size} side={side} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
 }
 
+/** USDC: a rounded box, its icon over the right end, hiding the border; no "+" (its faucet is an action, not a page). */
 export const Usdc: Story = {};
-export const Paved: Story = { args: { kind: "paved", amount: UNIT.paved.start, decimals: 18 } };
-export const Vpaved: Story = { args: { kind: "vpaved", amount: UNIT.vpaved.start, decimals: 18 } };
+/** PAVED leads to the Vault: a "+" over the left end, a little smaller than the icon. */
+export const Paved: Story = { args: { kind: "paved", amount: UNIT.paved.start, decimals: 18, plus: true } };
+export const PavedWithoutPlus: Story = { args: { kind: "paved", amount: UNIT.paved.start, decimals: 18 } };
+export const Vpaved: Story = { args: { kind: "vpaved", amount: UNIT.vpaved.start, decimals: 18, plus: true } };
 /** The Cobbles' plate: a gold edge, a "+" and a slow shine, an invitation to the packs. */
 export const Cobbles: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, plus: true, tone: "invite" } };
+export const CobblesWithoutPlus: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite" } };
 /** No source on this network: a dash. */
 export const Unavailable: Story = { args: { amount: null } };
+/** From `desktop`: a 36 px box under a 44 px icon. */
 export const Large: Story = { args: { size: "md" } };
+export const LargeWithPlus: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, plus: true, tone: "invite", size: "md" } };
+
+/** Every plate at both sizes, with and without the "+", and mirrored (`side="left"`, the plates on the left of the screen, #829). */
+export const AllPlates: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      {(["right", "left"] as const).map((side) =>
+        (["sm", "md"] as const).map((size) => (
+          <div key={`${side}-${size}`} className={side === "left" ? "flex flex-col items-start gap-1" : "flex flex-col items-end gap-1"}>
+            {(Object.keys(UNIT) as TokenKind[]).map((kind) => (
+              <ResourcePlate key={kind} kind={kind} amount={UNIT[kind].start} decimals={UNIT[kind].decimals} fraction={UNIT[kind].fraction} size={size} side={side} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />
+            ))}
+          </div>
+        )),
+      )}
+    </div>
+  ),
+};
+/** The mirrored plate (#829): the icon over the left end, the "+" over the right. */
+export const Mirrored: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, plus: true, tone: "invite", side: "left" } };
+export const MirroredWithoutPlus: Story = { args: { side: "left" } };
+
+/** A gain, once: the count up, the green, the "+N" rising and the icon's pop. */
+function Once({ kind, by, side }: { kind: TokenKind; by: bigint; side?: ResourcePlateProps["side"] }) {
+  const u = UNIT[kind];
+  const [amount, setAmount] = useState(u.start);
+  useEffect(() => {
+    const timer = setTimeout(() => setAmount(u.start + by), 600);
+    return () => clearTimeout(timer);
+  }, [u.start, by]);
+  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} side={side} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
+}
+export const Gain: Story = { render: () => <div className="pt-6"><Once kind="cobbles" by={100n} /></div> };
+/** A loss, once: the count down, the warning's colour, the "−N" dropping and the icon's dip. */
+export const Loss: Story = { render: () => <div className="pt-6"><Once kind="paved" by={-UNIT.paved.step} /></div> };
+export const MirroredGain: Story = { render: () => <div className="pt-6"><Once kind="cobbles" by={100n} side="left" /></div> };
 
 /** A change up and down for each currency, at both sizes. */
 export const Changes: Story = {
@@ -49,6 +93,7 @@ export const Changes: Story = {
           {(Object.keys(UNIT) as TokenKind[]).map((kind) => (
             <Cycling key={kind} kind={kind} size={size} />
           ))}
+          <Cycling kind="cobbles" size={size} side="left" />
         </div>
       ))}
     </div>
