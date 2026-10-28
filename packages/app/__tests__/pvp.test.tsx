@@ -21,6 +21,7 @@ import {
   MY_VILLAGE,
   PVP_ATTACK,
   PVP_LEAGUE,
+  PVP_MATCHES,
   PVP_REPLAY,
   PVP_RESULT,
   PVP_SCOUT,
@@ -265,6 +266,12 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("button", { name: /Choose/ })).toBeNull();
   });
 
+  it("league's battle logs without the build's renders (#857): the cards keep their own colour, no image behind", () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} matches={{ ...PVP_MATCHES.shielded, renders: undefined }} />));
+    const cards = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
+    expect(cards.every((c) => c.querySelector("[data-slot=match-art]") !== null && c.querySelector("[data-slot=match-art] img") === null)).toBe(true);
+  });
+
   it("league's battle logs (#786, #834): the shield, attacks and defences as cards, newest first, each opening its match", async () => {
     const onOpenMatch = vi.fn();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} onOpenMatch={onOpenMatch} />));
@@ -279,11 +286,12 @@ describe("PvP scenes (#647)", () => {
     expect(cards.map((c) => c.dataset.side)).toEqual(MATCHES.map((m) => m.side));
     expect(cards[0]).toHaveAccessibleName(`Your attack on ${RIVAL.name}: ${MATCHES[0]!.stars} of 3 stars`);
     expect(cards[1]).toHaveAccessibleName(`Vael's attack on your village: ${MATCHES[1]!.stars} of 3 stars`);
-    // A card (#834): its side's illustration behind, no plan view; the other player, the stars, the score alone, the crowns, an
-    // attack's XP and chest, the time in its largest unit.
+    // A card (#834): its side's background behind (#857: the build's render, at each of its widths), no plan view; the other
+    // player, the stars, the score alone, the crowns, an attack's XP and chest, the time in its largest unit.
     expect(cards[0]!.querySelector("[inert]")).toBeNull();
-    expect(cards[0]!.querySelector("[data-slot=match-art]")).toHaveAttribute("src", expect.stringContaining("battle-attack"));
-    expect(cards[1]!.querySelector("[data-slot=match-art]")).toHaveAttribute("src", expect.stringContaining("battle-defence"));
+    const art = (card: HTMLElement) => card.querySelector("[data-slot=match-art] img");
+    expect(art(cards[0]!)).toHaveAttribute("srcset", expect.stringMatching(/battle-attack-720\.0\.\w+\.webp 720w, .*battle-attack-1040\.0\.\w+\.webp 1040w, .*battle-attack-2000\.0\.\w+\.webp 2000w$/));
+    expect(art(cards[1]!)).toHaveAttribute("src", expect.stringMatching(/battle-defence-2000\.0\.\w+\.webp$/));
     expect(within(cards[0]!).getByText("Attack")).toBeInTheDocument();
     expect(within(cards[0]!).getByRole("img", { name: `${MATCHES[0]!.stars} of 3 stars` })).toBeInTheDocument();
     expect(within(cards[0]!).getByRole("img", { name: `+${MATCHES[0]!.crowns} crowns` })).toBeInTheDocument();
@@ -300,8 +308,8 @@ describe("PvP scenes (#647)", () => {
     // In colour when crowns were won (or a draw), in grayscale when they were lost.
     expect(cards.map((c) => c.dataset.lost)).toEqual(MATCHES.map((m) => String(m.crowns < 0)));
     for (const c of cards) expect(c.querySelector("[data-slot=match-art]")!.classList.contains("grayscale")).toBe(c.dataset.lost === "true");
-    // Every card one height (open point 3).
-    expect(new Set(cards.map((c) => c.className.match(/\bh-\S+/)?.[0]))).toEqual(new Set(["h-36"]));
+    // Every card one height (open point 3), 112 px (#857).
+    expect(new Set(cards.map((c) => c.className.match(/\bh-\S+/)?.[0]))).toEqual(new Set(["h-28"]));
     await userEvent.click(cards[1]!);
     expect(onOpenMatch).toHaveBeenCalledWith(MATCHES[1]!.id);
     cleanup();
