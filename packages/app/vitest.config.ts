@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { slow } from "./test-slow";
+import { SLOW_FACTOR, slow } from "./test-slow";
 
 
 // P-66: the tests run under a French locale and a Paris time zone, so a number or date that follows the process's locale
@@ -23,6 +23,10 @@ export default defineConfig({
     // `PAVED_TEST_SLOW` (test-slow.ts) multiplies it, with every wait ceiling of the suite, on a loaded machine.
     testTimeout: slow(15_000),
     hookTimeout: slow(10_000),
+    // Under the slow profile only (a loaded machine, never CI): a stall still outlasts a scaled ceiling now and then, a
+    // different test each run (the board's checks of #213 lost 1 to 3 of 1944, none twice in a row). Once more, with its
+    // lazy chunks then loaded, tells such a stall from a real failure, which fails both times.
+    retry: SLOW_FACTOR > 1 ? 1 : 0,
     // The token tests read computed colours from the compiled stylesheet.
     css: true,
   },
