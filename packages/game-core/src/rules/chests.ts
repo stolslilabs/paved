@@ -1,12 +1,12 @@
 import { poseidon } from "../engine/draw";
-import { basePlanOf } from "./rarity";
+import { BASE_DECK_CARDS, baseCopies, basePlanOfCard } from "./rarity";
 
 // Chests (PvP v2, #732, #736, owner decisions of 2026-10-24). An attack's stars give a chest's rank: 1 star bronze (one tile,
 // no choice), 2 silver (a choice of 1 among 2), 3 gold (1 among 3); none for 0 stars. Story gives one only on 3 stars, the
 // first time, its rank by the level's place in its campaign (the first half bronze, then silver, the last level gold). The
 // Challenge and a defence give none. The tiles follow the base deck's odds. There is no "take Cobbles" option: a chest has
 // instead a small chance of Cobbles, higher with its rank, boosted by the player's league. At most 3 PvP chests a day;
-// Story chests are outside the cap (they come once per level).
+// Story chests are outside the cap (they come once per level). A chest's choices are always distinct plans (#868).
 
 export type ChestRank = "bronze" | "silver" | "gold";
 
@@ -69,12 +69,29 @@ export interface ChestDraw {
 const COBBLE_ROLL = 0x434f42424c45n; // 'COBBLE'
 
 /**
- * A chest opened from `random` (the VRF's on chain): tile `i` is `basePlanOf(Poseidon(random, i))`, so each follows the base
- * deck's odds (a choice of 2 or 3 raises the chance of a rare: 8.3 / 16.0 / 23.0 %); the Cobbles drop when
- * `Poseidon(random, 'COBBLE') % 10,000` is under the chance.
+ * A chest opened from `random` (the VRF's on chain), its choices distinct plans drawn without putting back (#868): for choice
+ * `i`, the cards of the plans already shown leave the base deck's 72, and the choice is the plan of the card at
+ * `Poseidon(random, i) % left` among the cards left, in the deck's order. One draw per choice, no retry. The first choice
+ * follows the base deck's odds; each next one weighs the plans not yet shown by their copies. The chance of at least one rare
+ * (6 of the 72 cards) is 8.3 / 16.6 / 24.7 % for 1, 2 and 3 choices (with putting back it was 8.3 / 16.0 / 23.0 %). The
+ * Cobbles drop when `Poseidon(random, 'COBBLE') % 10,000` is under the chance.
  */
 export function drawChest(rank: ChestRank, league: number, random: bigint): ChestDraw {
-  const plans = Array.from({ length: CHEST_CHOICES[rank] }, (_, i) => basePlanOf(poseidon(random, i)));
+  const plans: number[] = [];
+  let left = BASE_DECK_CARDS;
+  for (let i = 0; i < CHEST_CHOICES[rank]; i++) {
+    let at = Number(poseidon(random, i) % BigInt(left));
+    for (let card = 0; card < BASE_DECK_CARDS; card++) {
+      const plan = basePlanOfCard(card);
+      if (plans.includes(plan)) continue;
+      if (at === 0) {
+        plans.push(plan);
+        left -= baseCopies(plan);
+        break;
+      }
+      at -= 1;
+    }
+  }
   const roll = Number(poseidon(random, COBBLE_ROLL) % BigInt(BPS));
   return { rank, plans, cobbles: roll < cobbleChanceBps(rank, league) ? CHEST_COBBLES : 0 };
 }
