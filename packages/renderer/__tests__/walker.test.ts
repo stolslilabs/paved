@@ -3,6 +3,9 @@ import { WALK_GROUND, WalkMap } from "../src/core/walk-map";
 import { Walker, findStart, footprint, stanceAt } from "../src/core/walker";
 import { DEFAULT_WALK_SETTINGS, resolveWalkSettings, type WalkSettings } from "../src/core/walk-settings";
 
+/** The fuzz run's ceiling: about half a second here, but many times that on a loaded machine. */
+const FUZZ_TEST_MS = 60_000;
+
 /**
  * A synthetic board, `size` columns a side and 16 layers: a ground slab 3 layers deep (its top at 3) everywhere, a road (walkable)
  * on the rows `road`, and what `build` adds.
@@ -145,7 +148,7 @@ describe("the walker's moves", () => {
       expect(bodyHitsSolid(map, walker, DEFAULT_WALK_SETTINGS)).toBe(false);
       expect(map.groundAt(Math.floor(walker.x), Math.floor(walker.z))).not.toBe(WALK_GROUND.none);
     }
-  });
+  }, FUZZ_TEST_MS);
 
   it("eases its eye after a step and bobs while it walks, not under reduced motion", () => {
     const map = board(40, () => true, (set) => {
