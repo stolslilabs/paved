@@ -348,6 +348,25 @@ describe("the mock", () => {
     expect((await ledger.account(PLAYER)).cobbles).toBe(15);
   });
 
+  it("counts for the fifth daily a paid game finished across midnight, though the indexer has no end time for it", async () => {
+    const { sources, chain, ledger } = mockImplementation();
+    playDailies(chain, [1, 2, 3, 4]);
+    // Started yesterday at 23:55, finished today: `end_in_day` sets no end time (0), yet the contract counts its quests today.
+    const start = TODAY * 86_400 - 300;
+    chain.fixture.games.push({ contract: "challenge", game_id: 6_000, player_id: PLAYER, mode: 1, start_time: start, day_id: TODAY - 1, over: true, score: 90, counted_day_id: 0, end_time: 0, token_id: null, free: false });
+    chain.fixture.games.sort((a, b) => b.start_time - a.start_time);
+    const fifth = (await sources.indexer.playerQuests(PLAYER, { day: TODAY })).data.quests.find((q) => q.questId === 17)!;
+    // With the fixture's paid game of the day: two of two, done no earlier than midnight.
+    expect(fifth).toMatchObject({ completed: true, tasks: [{ total: 2, count: 2 }] });
+    expect(fifth.completedAt).toBeGreaterThanOrEqual(TODAY * 86_400);
+    // Not on the day it started (quest 19 there, four games): its count holds none of it.
+    const before = (await sources.indexer.playerQuests(PLAYER, { day: TODAY - 1 })).data.quests.find((q) => q.questId === 19);
+    expect(before?.tasks[0]?.count ?? 0).toBe(0);
+    // So the day's five dailies are done: the second milestone pays.
+    await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1);
+    expect((await ledger.account(PLAYER)).cobbles).toBe(15);
+  });
+
   it("counts the fifth daily of an older day past the indexer's first pages: its games are read however many came after", async () => {
     const { sources, chain, ledger } = mockImplementation();
     // Day mod 3 = 0: the fifth daily is quest 17, two games. Its two games, then 150 newer ones over the next days.

@@ -75,17 +75,26 @@ export async function gamesUpTo(day: number, page: (before: string | undefined) 
 }
 
 /**
+ * When a game finished, as far as the indexer knows. `GameOver.end_time` is set only for a game over on the UTC day it started
+ * (`end_in_day`, `playable.cairo`); one finished across midnight reports 0, yet its quests count on its finish. Such a game
+ * finished on the day after its start (it lives 24 h, `GAME_LIFE_S`), at an unknown time: the start of that day stands for it.
+ */
+export function finishedAt(game: IndexedGame): number {
+  return game.endTime > 0 ? game.endTime : (Math.floor(game.startTime / DAY_S) + 1) * DAY_S;
+}
+
+/**
  * A day's progress with the family's live quest, its count the player's paid Challenge games over in that UTC day (as the
- * contract reports a daily: the games that end that day; a free game reports none), done at the end of the game that reached
- * its total. Nothing is added to a day
- * with no daily live (before the quests were defined).
+ * contract reports a daily: the games that finish that day, those started the day before included; a free game reports none),
+ * done when the game that reached its total finished (`finishedAt`). Nothing is added to a day with no daily live (before the
+ * quests were defined).
  */
 export function withMockDailyProgress(definitions: Definitions, progress: PlayerQuests, games: readonly IndexedGame[]): PlayerQuests {
   if (!needsMockDailies(definitions, progress)) return progress;
   const ends = games
     // A free game reports no quest progress (`Challenge.finish`, cobbles v1 4.2): it counts for no daily.
-    .filter((g) => g.contract === "challenge" && !g.free && g.over && Math.floor(g.endTime / DAY_S) === progress.day)
-    .map((g) => g.endTime)
+    .filter((g) => g.contract === "challenge" && !g.free && g.over && Math.floor(finishedAt(g) / DAY_S) === progress.day)
+    .map(finishedAt)
     .sort((a, b) => a - b);
   const added = familyOf(definitions)
     .filter((d) => isLiveOnDay(schedule(d), progress.day))

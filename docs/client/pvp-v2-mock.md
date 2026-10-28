@@ -57,7 +57,8 @@ Choices made where the decisions leave room (each can be reversed by changing on
 - **The fifth daily** (#869): the deployed `Setup` defines four dailies a day, so the mock's indexer (`mockIndexer`,
   `mock/dailies.ts`) adds a fourth rotating family, finish 2, 3 or 4 Challenge games in a day (ids 17 to 19,
   `MOCK_DAILY_FAMILY`), to the definitions and its live quest to each day's progress, counted from the player's paid
-  Challenge games over that UTC day (a free game reports no quest progress, `Challenge.finish`; read page by page, newest first, down to the games started more than a game's life before the
+  Challenge games finished that UTC day (a free game reports no quest progress, `Challenge.finish`; a game finished across
+  midnight has no end time, `end_in_day`, and counts on the day after its start, `finishedAt`; read page by page, newest first, down to the games started more than a game's life before the
   day, so an older day keeps its count). An id the indexer already defines is left as it is; it goes once the contracts define the fifth
   daily (#738).
 - **The level** (`playerLevel`, the ring) is v2's: the mock's XP, capped at 20.
