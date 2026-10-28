@@ -106,6 +106,13 @@ without `fa-`; `variant` is `solid` or `thin` (one icon: `spider-web`); `size` i
 (`aria-hidden`); give one when the icon is the only content. Never write `<i class="fa-...">` or import another icon set.
 Add `fixedWidth` in a column so icons line up and the text does not shift when the SVG replaces its empty box.
 
+Game icons (#844, for the HUD: the home's overlay buttons, the phone's bar, the plates, Play, Edit, once the owner has
+picked a look in `Elements/GameIcon`): `<GameIcon name="swords" size="lg" />` from `elements/game-icon.tsx`, Font Awesome's
+shape in relief (outline, lit fill, highlight, shadow), each part in its own tone, bundled so it shows at the first paint
+(its shapes count in the first load's budget). Its shapes are generated:
+add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in `PARTS`, run `bun run game-icons`, and
+record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
+
 ## Motion
 
 - Import `m` components (`import * as m from "motion/react-m"`), never `motion.div`: `MotionProvider.tsx` is
