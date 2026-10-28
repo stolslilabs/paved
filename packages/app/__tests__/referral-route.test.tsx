@@ -38,8 +38,8 @@ const earned = (ms = 5000) => screen.findByRole("region", { name: "Earned" }, { 
 
 beforeEach(async () => {
   // The page's module loaded before the route asks for it: on a loaded machine its first transform outlasted the wait.
-  // The referral is a sheet over Settings (BACK-RULE #783): Settings' module and the sheet's host load with it.
-  await Promise.all([import("../src/routes/pages/referral"), import("../src/routes/pages/settings"), import("../src/routes/page-sheet-host")]);
+  // The referral is a sheet over Settings (BACK-RULE #783), the home's panel (#762): Settings' module and the hosts load with it.
+  await Promise.all([import("../src/routes/pages/referral"), import("../src/routes/pages/settings"), import("../src/routes/page-sheets"), import("../src/routes/page-sheet-host"), import("../src/routes/home-panel-host")]);
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();

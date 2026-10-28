@@ -32,7 +32,8 @@ const noRawErrors = () => {
   expect(screen.queryByText(/RPC|entrypoint|starknet_call/i)).not.toBeInTheDocument();
 };
 
-preloadPages("missions", "vault");
+// The Cobbles' sheet and the home's panel host too: the balances' Cobbles open them, cold in the packs' wait otherwise.
+preloadPages("missions", "vault", "cobbles-sheet", "home-panel");
 
 beforeEach(() => {
   queryClient.clear();
@@ -80,10 +81,11 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     open("/missions");
     const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: slow(10_000) });
     await userEvent.click(cobbles!);
-    // The packs first: the page's loading screen has the same heading, replaced as the packs arrive.
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(10_000) })).toBeInTheDocument();
+    // The packs first: the page's loading screen has the same heading, replaced as the packs arrive. They took 42 s and more
+    // than 60 s under a check's load, preloaded.
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(20_000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
     noRawErrors();
-  }, slow(30_000));
+  }, slow(45_000));
 });
