@@ -34,7 +34,10 @@ function Cycling({ kind, size, side }: { kind: TokenKind; size?: ResourcePlatePr
   return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} size={size} side={side} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
 }
 
-/** USDC: a rounded box, its icon over the right end, hiding the border; no "+" (its faucet is an action, not a page). */
+/**
+ * USDC: a rounded box, its icon over the right end, hiding the border; no "+" (its faucet is an action, not a page). The icon is
+ * bare (#213): no disc behind it, 48 px over the 32 px box, so it stands past the plate above and below.
+ */
 export const Usdc: Story = {};
 /** PAVED leads to the Vault: a "+" over the left end, a little smaller than the icon. */
 export const Paved: Story = { args: { kind: "paved", amount: UNIT.paved.start, decimals: 18, plus: true } };
@@ -45,7 +48,7 @@ export const Cobbles: Story = { args: { kind: "cobbles", amount: 240n, decimals:
 export const CobblesWithoutPlus: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite" } };
 /** No source on this network: a dash. */
 export const Unavailable: Story = { args: { amount: null } };
-/** From `desktop`: a 36 px box under a 44 px icon. */
+/** From `desktop`: a 36 px box under a 52 px icon, bare (#213). */
 export const Large: Story = { args: { size: "md" } };
 export const LargeWithPlus: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, plus: true, tone: "invite", size: "md" } };
 
