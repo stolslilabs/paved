@@ -62,24 +62,49 @@ export const AllKinds: Story = {
   ),
 };
 
-/** The owner's pick (#711): PAVED gold on dark ink, vPAVED its grayscale, side by side at 16, 24, 32 and 64 px, on dark and on light. */
-export const PavedAndVpaved: Story = {
+const COIN_SURFACES = [
+  { name: "Dark", className: "bg-background text-foreground" },
+  { name: "Light", className: "bg-foreground text-background" },
+] as const;
+
+/**
+ * PAVED's gold coin and vPAVED's silver one (#853): Font Awesome's `coin-front` with the Almendra "P", in the game icons' relief.
+ * From 16 to 64 px beside the Cobbles and USDC, on dark and on light; in the balances' plates; in a sentence.
+ */
+export const Coins: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
-      {(["bg-background text-foreground", "bg-foreground text-background"] as const).map((surface) => (
-        <div key={surface} className={`flex flex-wrap items-end gap-8 rounded-xl p-4 ${surface}`}>
-          {(["paved", "vpaved"] as const).map((kind) => (
-            <figure key={kind} className="flex flex-col items-center gap-2">
-              <div className="flex items-end gap-3">
-                {(["xs", "md", "lg", "2xl"] as const).map((size) => (
-                  <TokenIcon key={size} kind={kind} size={size} />
-                ))}
-              </div>
-              <figcaption className="text-xs">{TOKEN_ICONS[kind].name}</figcaption>
-            </figure>
+      {COIN_SURFACES.map((surface) => (
+        <section key={surface.name} aria-label={surface.name} className={`flex flex-col gap-3 rounded-xl p-3 ${surface.className}`}>
+          <h3 className="text-sm font-semibold">{surface.name}</h3>
+          {(["paved", "vpaved", "cobbles", "usdc"] as const).map((kind) => (
+            <div key={kind} className="flex flex-wrap items-end gap-x-3 gap-y-2">
+              <span className="w-16 text-xs">{TOKEN_ICONS[kind].name}</span>
+              {SIZES.map(({ size }) => (
+                <TokenIcon key={size} kind={kind} size={size} />
+              ))}
+            </div>
+          ))}
+        </section>
+      ))}
+      <section aria-label="In a plate" className="flex flex-col gap-2 text-foreground">
+        <h3 className="text-sm font-semibold">In a plate</h3>
+        <div className="flex flex-wrap items-start gap-3">
+          {PLATE_KINDS.map((p) => (
+            <ResourcePlate key={p.kind} {...p} size="sm" plus={p.kind !== "vpaved"} tone={p.kind === "cobbles" ? "invite" : "default"} />
           ))}
         </div>
-      ))}
+      </section>
+      <section aria-label="In a sentence" className="flex flex-col gap-2 text-foreground">
+        <h3 className="text-sm font-semibold">In a sentence</h3>
+        <p className="max-w-prose text-sm">
+          Deposit <Amount value={250n * 10n ** 18n} token="paved" /> in the Vault and receive <Amount value={250n * 10n ** 18n} token="vpaved" />, then
+          spend <Cobbles value={120} className="align-middle" /> on a pack bought with <Amount value={4_990_000n} token="usdc" />.
+        </p>
+        <p className="max-w-prose text-2xl">
+          <Amount value={1_234n * 10n ** 17n} token="paved" /> · <Amount value={56n * 10n ** 18n} token="vpaved" />
+        </p>
+      </section>
     </div>
   ),
 };
