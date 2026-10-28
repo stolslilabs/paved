@@ -42,6 +42,7 @@ beforeEach(() => {
   markWelcomed();
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   resetWelcomedForTests();
 });
@@ -77,12 +78,15 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
   });
 
   it("the balances' Cobbles lead to the packs' own page (#621), its packs from the mock", async () => {
+    // The clocks held: the indexer's and the missions' tick each second, and each tick restarted the sheet's first render, which
+    // React runs at a lower priority. Under a check's load that render took about a second, so the packs took 42 s, then more
+    // than 120 s. Only the intervals are fake: React, the queries and the lookups run on timeouts and the DOM's changes.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     // A page whose rule shows the Cobbles (Missions earn them, #720): the Vault shows none since the desktop's header went (#762).
     open("/missions");
     const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: slow(10_000) });
     await userEvent.click(cobbles!);
-    // The packs first: the page's loading screen has the same heading, replaced as the packs arrive. They took 42 s and more
-    // than 60 s under a check's load, preloaded.
+    // The packs first: the page's loading screen has the same heading, replaced as the packs arrive.
     expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(20_000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
