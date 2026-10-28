@@ -1,5 +1,5 @@
 import { WriteError } from "@paved/chain";
-import { FIXTURE_ADA } from "@paved/chain/testing";
+import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import type { DataSources, GameSigner } from "../src/data";
 import { MockLedger } from "../src/data/mock/ledger";
 import { mockEconomyViews, mockGameViews, mockIndexer, mockPurchases, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
@@ -21,6 +21,20 @@ export function sepoliaChain() {
   // The chain's tokens: USDC from the faucet, no PAVED yet.
   f.economy.setBalance("usdc", PLAYER, 100n * USDC);
   return f;
+}
+
+/**
+ * Ada's day on the fixture's indexer (#869): the fixture's dailies `done` (of quests 1 to 4, done every day), and `games`
+ * Challenge games over on `day` beside the fixture's own (one on its day): the fifth daily's count (`data/mock/dailies.ts`).
+ */
+export function playDailies(f: ReturnType<typeof sepoliaChain>, done: readonly number[], games = 0, day = Math.floor(FIXTURE_HEAD.timestamp / 86_400)) {
+  f.fixture.progress.set(PLAYER, { quests: new Map(done.map((id) => [id, { count: Number.MAX_SAFE_INTEGER, completed_at: day * 86_400 + 3_600 }])), achievements: new Map() });
+  // A copy: the fixture's rows are shared by every fixture of the run.
+  f.fixture.games = [...f.fixture.games];
+  for (let i = 0; i < games; i++) {
+    const end = day * 86_400 + 7_200 + i * 600;
+    f.fixture.games.push({ contract: "challenge", game_id: 5_000 + f.fixture.games.length, player_id: PLAYER, mode: 1, start_time: end - 500, day_id: day, over: true, score: 90, counted_day_id: day, end_time: end, token_id: null, free: false });
+  }
 }
 
 /** The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them. */

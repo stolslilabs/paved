@@ -1,6 +1,7 @@
 import { IndexerError, ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
+import { dailiesDone, needsMockDailies, withMockDailies, withMockDailyProgress } from "./dailies";
 import type { MockLedger, MockedReads } from "./ledger";
 
 // The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the
@@ -176,9 +177,29 @@ export function mockEconomyViews(chain: EconomyViews, ledger: MockLedger): Econo
   });
 }
 
-/** The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no route). */
+/**
+ * The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no
+ * route), and the fifth daily of #869 in the definitions and each day's progress (`dailies.ts`). The ledger counts a day's
+ * dailies done through it for the milestones' claims.
+ */
 export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerClient {
-  return overlay(chain, ["definitions", "playerReferrals", "playerAttacks", "playerAttack", "player"], {
+  const definitions = async () => {
+    const answer = await chain.definitions();
+    return { ...answer, data: ledger.definitions(withMockDailies(answer.data)) };
+  };
+  const playerQuests = async (playerId: string | bigint, params: { day?: number } = {}) => {
+    const [answer, defined] = await Promise.all([chain.playerQuests(playerId, params), chain.definitions()]);
+    if (!needsMockDailies(defined.data, answer.data)) return answer;
+    // Today's games are the latest: one page holds more than the family's largest target.
+    const games = await chain.playerGames(playerId, { contract: "challenge", limit: 50 });
+    return { ...answer, data: withMockDailyProgress(defined.data, answer.data, games.data.games) };
+  };
+  ledger.countDailiesWith(async (playerId, day) => {
+    const [defined, progress] = await Promise.all([definitions(), playerQuests(playerId, { day })]);
+    return dailiesDone(defined.data, progress.data);
+  });
+  return overlay(chain, ["definitions", "playerQuests", "playerReferrals", "playerAttacks", "playerAttack", "player"], {
+    playerQuests,
     playerAttack: async (attacker: string | bigint, id: number) => {
       const row = ledger.attacksOf(String(attacker), "attacker").find((a) => a.id === id);
       if (!row) throw new IndexerError("not-found", "attack not found", { httpStatus: 404 });
@@ -195,10 +216,7 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
       const head = await chain.head();
       return { ...head, data: ledger.attacksOf(String(playerId), side).slice(0, params.limit ?? 50) };
     },
-    definitions: async () => {
-      const answer = await chain.definitions();
-      return { ...answer, data: ledger.definitions(answer.data) };
-    },
+    definitions,
     playerReferrals: async (playerId: string | bigint) => {
       const head = await chain.head();
       return { ...head, data: ledger.referrals(String(playerId)) };

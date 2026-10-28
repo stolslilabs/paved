@@ -51,9 +51,14 @@ Choices made where the decisions leave room (each can be reversed by changing on
   until #738.
 - **The day's milestones** (#869): `dailyMilestones(player, day)` reads the day's claimed word (bit `step` per milestone),
   `claimDailyMilestone(day, step)` pays `DAILY_MILESTONES[step]`'s Cobbles once a day (refused `milestone-claimed` or
-  `no-milestone`, `DailyMilestoneRefusedError`). Like the other claims it trusts the page for the dailies done (the
-  progress is the indexer's). They are kept under the day's claims (`days[day].milestones`); a day stored before reads as
-  none claimed.
+  `no-milestone`, `DailyMilestoneRefusedError`), and only once that day has the milestone's dailies done (`not-reached`
+  otherwise): the ledger counts them from the mock's indexer (`countDailiesWith`, set by `mockIndexer`). They are kept under
+  the day's claims (`days[day].milestones`); a day stored before reads as none claimed.
+- **The fifth daily** (#869): the deployed `Setup` defines four dailies a day, so the mock's indexer (`mockIndexer`,
+  `mock/dailies.ts`) adds a fourth rotating family, finish 2, 3 or 4 Challenge games in a day (ids 17 to 19,
+  `MOCK_DAILY_FAMILY`), to the definitions and its live quest to each day's progress, counted from the player's Challenge
+  games over that UTC day. An id the indexer already defines is left as it is; it goes once the contracts define the fifth
+  daily (#738).
 - **The level** (`playerLevel`, the ring) is v2's: the mock's XP, capped at 20.
 - The "Mock" mark stays on these pages (`MOCKED_PAGES`).
 

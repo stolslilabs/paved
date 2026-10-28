@@ -12,7 +12,7 @@ import { RIVAL_SEEDS } from "../src/data/mock/rivals";
 import { mockRivalsV2 } from "../src/data/mock/v2";
 import { usePlayerProgress } from "../src/data/player-progress";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
-import { mockImplementation } from "./mock-fakes";
+import { mockImplementation, playDailies } from "./mock-fakes";
 
 // PvP v2 on the mock (#741, step 1 of #732): the whole loop through the hooks the screens (#739, #740) read, on the mock
 // ledger's overlays, from a fresh device: found a village, edit and save it; attack rivals with the deck of ceil(1.15 x S) and
@@ -207,8 +207,9 @@ describe("PvP v2 on the mock", () => {
   });
 
   it("pays the day's milestones, no bonus for the whole day (#869), and buys from the shop once per offer and day", async () => {
-    const { sources, ledger } = mockImplementation();
-    // Both milestones of the day: 10 and 15 Cobbles.
+    const { sources, ledger, chain } = mockImplementation();
+    // Both milestones of the day, the five dailies done: 10 and 15 Cobbles.
+    playDailies(chain, [1, 2, 3, 4], 1);
     await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 0);
     await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1);
     const { result } = renderData(useLoop, sources);

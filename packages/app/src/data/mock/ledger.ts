@@ -74,7 +74,6 @@ import {
   AttackRun,
   CAMPAIGNS,
   DAILY_MILESTONES,
-  DAILY_QUESTS,
   PVP_CHESTS_PER_DAY,
   QUEST_BONUS_COBBLES,
   QueuedAttack,
@@ -444,6 +443,8 @@ export class MockLedger {
   private readonly achievementRates = new Map<number, AchievementCobbles>();
   private readonly latency: number;
   private readonly lock: MockLock;
+  /** A day's dailies done, as the mock's indexer serves them (`countDailiesWith`); unset, none. */
+  private dailiesDone: ((playerId: string, day: number) => Promise<number>) | null = null;
 
   constructor(private readonly options: MockLedgerOptions) {
     this.state = this.load();
@@ -475,6 +476,14 @@ export class MockLedger {
       return { ...a, cobbles };
     });
     return { ...definitions, quests, achievements };
+  }
+
+  /**
+   * Where the milestones' claims read a day's dailies done: the mock's indexer (`mockIndexer`), with the fifth daily. Without
+   * one, no daily counts as done and every milestone is refused `not-reached`.
+   */
+  countDailiesWith(read: (playerId: string, day: number) => Promise<number>): void {
+    this.dailiesDone = read;
   }
 
   /** `/v1/players/:id/referrals`: the mock's player referred nobody yet. */
@@ -1014,16 +1023,15 @@ export class MockLedger {
   }
 
   /**
-   * A milestone of the day (#869): `DAILY_MILESTONES[step]`'s Cobbles, once for `day`. Like the other claims it trusts the page
-   * for the dailies done (the progress is the indexer's); the step and the day's claims are checked here.
+   * A milestone of the day (#869): `DAILY_MILESTONES[step]`'s Cobbles, once for `day`, refused until that day has the
+   * milestone's dailies done (read from the indexer, `countDailiesWith`).
    */
   async claimDailyMilestone(account: string, day: number, step: number): Promise<WriteResult> {
-    await sleep(this.latency);
+    const [done] = await Promise.all([this.dailiesDone ? this.dailiesDone(account, day) : 0, sleep(this.latency)]);
     return this.write(account, (p, hash) => {
       const progress = this.period(p, false, day);
       const claimed = progress.milestones ?? 0;
-      // The page offers a milestone once reached: the ledger counts the day's dailies all done.
-      const refusal = dailyMilestoneRefusal(step, DAILY_QUESTS, claimed);
+      const refusal = dailyMilestoneRefusal(step, done, claimed);
       if (refusal) throw new DailyMilestoneRefusedError(refusal, hash);
       const milestone = DAILY_MILESTONES[step]!;
       progress.milestones = claimed | (1 << step);

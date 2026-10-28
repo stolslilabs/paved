@@ -1,0 +1,91 @@
+import type { Definitions, IndexedGame, PlayerQuest, PlayerQuests, QuestDefinition } from "@paved/chain";
+import { DAY_S, isLiveOnDay, questPeriod, questWindow } from "../../lib/quest-window";
+
+// The fifth daily of the mock (#869, the owner's decisions of 2026-10-28, open point 2's default: one more family in the
+// rotation). The deployed `Setup` defines Daily Run and three rotating families, four dailies a day; until the contracts
+// define the fifth (#738), the mock's indexer overlay (`overlay.ts`, `mockIndexer`) adds a fourth family to the definitions
+// and its live quest to each day's progress, counted from the player's own Challenge games, so a day can reach five dailies
+// done. The ledger's milestone claims count the dailies done through the same overlay.
+
+/** `GAME_FINISHED` (`TaskId` of the contracts, quests.md). */
+const GAME_FINISHED = 1;
+
+/** The fourth rotating family: finish 2, 3 or 4 Challenge games in a day, one live a day (day number mod 3 = `offset`). */
+export const MOCK_DAILY_FAMILY: readonly { questId: number; total: number; offset: number }[] = [
+  { questId: 17, total: 2, offset: 0 },
+  { questId: 18, total: 3, offset: 1 },
+  { questId: 19, total: 4, offset: 2 },
+];
+
+const definitionOf = (q: (typeof MOCK_DAILY_FAMILY)[number], definedAt: number): QuestDefinition => ({
+  questId: q.questId,
+  startTime: q.offset * DAY_S,
+  endTime: 0,
+  duration: DAY_S,
+  interval: 3 * DAY_S,
+  tasks: [{ taskId: GAME_FINISHED, total: q.total }],
+  conditions: [],
+  definedAt,
+  retired: false,
+  retiredAt: null,
+  cobbles: 0,
+  cobblesKind: null,
+});
+
+/** The family's definitions the indexer does not have (an id it defines is left as it is), beside its own, once any daily is defined. */
+function familyOf(definitions: Definitions): QuestDefinition[] {
+  const dailies = definitions.quests.filter((q) => !q.retired && questPeriod({ start: q.startTime, interval: q.interval, duration: q.duration }) === "daily");
+  if (dailies.length === 0) return [];
+  const defined = new Set(definitions.quests.map((q) => q.questId));
+  const definedAt = Math.min(...dailies.map((q) => q.definedAt));
+  return MOCK_DAILY_FAMILY.filter((q) => !defined.has(q.questId)).map((q) => definitionOf(q, definedAt));
+}
+
+/** The indexer's definitions with the fourth family. */
+export function withMockDailies(definitions: Definitions): Definitions {
+  const family = familyOf(definitions);
+  return family.length === 0 ? definitions : { ...definitions, quests: [...definitions.quests, ...family] };
+}
+
+/** Whether a day's progress needs the player's games: a daily of the indexer is live that day, and the family adds one. */
+export function needsMockDailies(definitions: Definitions, progress: PlayerQuests): boolean {
+  return progress.quests.length > 0 && familyOf(definitions).some((d) => isLiveOnDay(schedule(d), progress.day));
+}
+
+const schedule = (d: QuestDefinition) => ({ start: d.startTime, interval: d.interval, duration: d.duration });
+
+/**
+ * A day's progress with the family's live quest, its count the player's Challenge games over in that UTC day (as the indexer
+ * counts a daily: the games that end that day), done at the end of the game that reached its total. Nothing is added to a day
+ * with no daily live (before the quests were defined).
+ */
+export function withMockDailyProgress(definitions: Definitions, progress: PlayerQuests, games: readonly IndexedGame[]): PlayerQuests {
+  if (!needsMockDailies(definitions, progress)) return progress;
+  const ends = games
+    .filter((g) => g.contract === "challenge" && g.over && Math.floor(g.endTime / DAY_S) === progress.day)
+    .map((g) => g.endTime)
+    .sort((a, b) => a - b);
+  const added = familyOf(definitions)
+    .filter((d) => isLiveOnDay(schedule(d), progress.day))
+    .map((d): PlayerQuest => {
+      const w = questWindow(schedule(d), progress.day * DAY_S);
+      const total = d.tasks[0]!.total;
+      const count = Math.min(ends.length, total);
+      const completed = count >= total;
+      return {
+        questId: d.questId,
+        intervalId: w.active ? w.intervalId : w.intervalId + 1,
+        tasks: [{ taskId: GAME_FINISHED, total, count }],
+        completed,
+        completedAt: completed ? ends[total - 1]! : null,
+        retired: false,
+      };
+    });
+  return { ...progress, quests: [...progress.quests, ...added] };
+}
+
+/** The dailies done in a day's progress: those whose definition is a daily's. */
+export function dailiesDone(definitions: Definitions, progress: PlayerQuests): number {
+  const daily = new Set(definitions.quests.filter((d) => questPeriod(schedule(d)) === "daily").map((d) => d.questId));
+  return progress.quests.filter((q) => q.completed && daily.has(q.questId)).length;
+}

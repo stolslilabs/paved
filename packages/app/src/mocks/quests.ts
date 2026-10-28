@@ -1,5 +1,6 @@
 import type { PlayerAchievement, PlayerAchievements, TaskProgress } from "@paved/chain";
 import type { GameMission } from "../components/containers/game-missions";
+import { MOCK_DAILY_FAMILY } from "../data/mock/dailies";
 import { isLiveOnDay, questWindow, type QuestSchedule, type ScheduledQuest, type ScheduledQuests } from "../lib/quest-window";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER_ID, TODAY } from "./players";
@@ -34,8 +35,9 @@ export const QUESTS_FROM = TODAY - 21;
  *
  *  - Daily Run (id 1) is live every day (`duration = interval = 1 day`, `start` 0). Quests 2 to 4 (v1's) are NOT defined.
  *  - Twelve rotating dailies in four sets of three: structures 5 to 7, forests 8 to 10, points 11 to 13, and games finished
- *    17 to 19 (#869, the mock's ids: the next free ones). Each lasts one day in a 3-day interval, `start` offset by 0, 1 or 2
- *    days, so the one live on a UTC day is the one whose offset is the day number mod 3. Five dailies are live a day
+ *    17 to 19 (#869, the mock's ids, the next free ones: `MOCK_DAILY_FAMILY`, which the mock's indexer adds). Each lasts one
+ *    day in a 3-day interval, `start` offset by 0, 1 or 2 days, so the one live on a UTC day is the one whose offset is the
+ *    day number mod 3. Five dailies are live a day
  *    (`DAILY_QUESTS`): Daily Run and one of each family (today, day 20,740, offset 1: quests 1, 6, 9, 12 and 18). None pays on
  *    its own since #869: the day's milestones do (`DAILY_MILESTONES`, 3 done and 5 done).
  *  - Three weeklies, ids 14 to 16, `duration = interval = 7 days`, `start` 345,600: Monday 1970-01-05 00:00 UTC, so a week runs
@@ -67,9 +69,8 @@ export const QUEST_DEFINITIONS: readonly QuestDefinition[] = [
   { questId: 14, taskId: FOREST_SCORED, total: 5, ...weekly },
   { questId: 15, taskId: STRUCTURE_SCORED, total: 30, ...weekly },
   { questId: 16, taskId: POINTS, total: 20_000, ...weekly },
-  { questId: 17, taskId: GAME_FINISHED, total: 2, ...dailyAt(0, 3) },
-  { questId: 18, taskId: GAME_FINISHED, total: 3, ...dailyAt(1, 3) },
-  { questId: 19, taskId: GAME_FINISHED, total: 4, ...dailyAt(2, 3) },
+  // The fifth daily's family, as the mock's indexer adds it (`data/mock/dailies.ts`).
+  ...MOCK_DAILY_FAMILY.map((q) => ({ questId: q.questId, taskId: GAME_FINISHED, total: q.total, ...dailyAt(q.offset, 3) })),
 ];
 
 const quest = (def: QuestDefinition, day: number, count: number, completedAt: number | null): ScheduledQuest => {
