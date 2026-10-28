@@ -7,7 +7,7 @@ const PUBLIC_WORKS: Mission = {
   kind: "daily",
   title: "Public Works",
   description: "Score roads and cities in a day: the middle target of the three that rotate.",
-  icon: "city",
+  icon: "castle",
   state: "progress",
   progress: [{ unit: "roads and cities scored", count: 4, total: 8 }],
   completedAt: null,
