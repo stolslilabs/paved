@@ -88,4 +88,5 @@ export {
 export type { ChestDraw, ChestRank } from "./chests";
 export { DAY_S, SHOP_OFFERS, SHOP_PRICES, dayOf, shopEndsAt, shopOffers } from "./shop";
 export type { ShopOffer } from "./shop";
-export { QUEST_BONUS_COBBLES } from "./quests";
+export { DAILY_MILESTONES, DAILY_QUESTS, QUEST_BONUS_COBBLES, dailyMilestoneClaimed, dailyMilestoneRefusal, dailyMilestoneStates } from "./quests";
+export type { DailyMilestone, DailyMilestoneRefusal, DailyMilestoneState } from "./quests";

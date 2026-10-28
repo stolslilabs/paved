@@ -15,7 +15,7 @@ import { MissionTile, type MissionTileState } from "../containers/mission-tile";
 import { achievementText, questText, taskUnit } from "../containers/quest-text";
 import { TabPage } from "../containers/tab-page";
 
-/** A mission of the page, by what it is: a quest of the day or the week, an achievement, or a period's bonus. */
+/** A mission of the page, by what it is: a quest of the day or the week, an achievement, or a period's bonus (only the week's since #869). */
 export type MissionKey = `quest:${number}` | `achievement:${number}` | `bonus:${QuestPeriod}`;
 
 /**
@@ -71,7 +71,7 @@ export interface MissionsSceneProps {
   onClaimQuest?: (questId: number) => void;
   /** `claim_achievement(achievement_id)`. */
   onClaimAchievement?: (achievementId: number) => void;
-  /** `claim_daily_credit(day)` or `claim_weekly_credit(week)`: the period's bonus Cobbles since #738. */
+  /** `claim_weekly_credit(week)`: the week's bonus Cobbles since #738 (the day's left with #869, so `daily` is not sent). */
   onClaimBonus?: (kind: QuestPeriod) => void;
   onConnect?: () => void;
   onRetry?: () => void;
@@ -85,10 +85,7 @@ const ROW = {
   weekly: { title: "Weekly", icon: "crown", ends: "Weekly missions reset in" },
 } as const;
 
-const BONUS = {
-  daily: { title: "Daily bonus", description: "Finish every daily mission of the day for bonus Cobbles.", unit: "daily missions done" },
-  weekly: { title: "Weekly bonus", description: "Finish every weekly mission of the week for bonus Cobbles.", unit: "weekly missions done" },
-} as const;
+const BONUS = { title: "Weekly bonus", description: "Finish every weekly mission of the week for bonus Cobbles.", unit: "weekly missions done" } as const;
 
 /** A mission's tile state from its progress and its Cobbles. */
 function tileState(kind: "quest" | "achievement", entry: { completed: boolean; tasks: { count: number }[] }, reward: ProgressReward | undefined): MissionTileState {
@@ -141,24 +138,25 @@ export function MissionsScene(props: MissionsSceneProps) {
     };
   };
 
-  // The period's bonus (#738, the mock's rule since #741): every quest of the period that pays Cobbles done, then its Cobbles.
+  // The week's bonus (#738, the mock's rule since #741): every weekly quest that pays Cobbles done, then its Cobbles. The day has
+  // none since #869: its dailies pay nothing, and its milestones pay instead.
   const bonusMission = (period: QuestPeriod, list: Mission[]): Mission | null => {
-    if (!questRewards) return null;
+    if (!questRewards || period !== "weekly") return null;
     const counted = list.filter((m) => m.reward !== undefined);
     if (counted.length === 0) return null;
     const done = counted.filter((m) => m.state === "claimable" || m.state === "done").length;
-    const key: MissionKey = `bonus:${period}`;
-    const reward = claim(key, QUEST_BONUS_COBBLES[period], period === "daily" ? questRewards.day.credit : questRewards.week.credit);
+    const key: MissionKey = "bonus:weekly";
+    const reward = claim(key, QUEST_BONUS_COBBLES.weekly, questRewards.week.credit);
     const complete = done === counted.length;
     return {
       key,
       kind: period,
       bonus: true,
-      title: BONUS[period].title,
-      description: BONUS[period].description,
+      title: BONUS.title,
+      description: BONUS.description,
       icon: "gift",
       state: complete ? (reward.claimed ? "done" : "claimable") : done > 0 ? "progress" : "none",
-      progress: [{ unit: BONUS[period].unit, count: done, total: counted.length }],
+      progress: [{ unit: BONUS.unit, count: done, total: counted.length }],
       completedAt: null,
       reward,
     };

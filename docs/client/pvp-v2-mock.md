@@ -17,10 +17,10 @@ the hooks below. Step 2's contracts (#733 to #738) match the rules through parit
 | Attack | `attack.ts` | The deck: ceil(1.15 x S) (`ATTACK_DECK_PERCENT`), the defender's placed tiles plus extras from the base deck's odds, shuffled from the random. `QueuedAttack`: an unbounded board, the tile in hand and the next two. Stars at 80 / 90 / 100 % (`ATTACK_STAR_PERCENTS`) |
 | Chests | `chests.ts` | PvP: 1 star bronze (1 tile), 2 silver (1 among 2), 3 gold (1 among 3). Story: 3 stars the first time, the first half of a campaign bronze, then silver, the last level gold. Tiles from the base deck's odds; Cobbles (10) at 2 / 5 / 10 % by rank, times the league's boost (x1 at league 0 up to x2 at league 22, linear). At most 3 PvP chests a day; Story's are outside the cap |
 | Shop | `shop.ts` | 3 distinct base plans a day from Poseidon of the day, uniform over the 19; 10 / 20 / 50 Cobbles by rarity; each offer once a day |
-| Quests | `quests.ts` | Finishing every quest of a day or a week pays 20 or 60 bonus Cobbles instead of a free game |
+| Quests | `quests.ts` | Finishing every quest of a week pays 60 bonus Cobbles instead of a free game. Five dailies a day (`DAILY_QUESTS`), none paying on its own and no bonus for the day; the day pays at two milestones (`DAILY_MILESTONES`: 3 done 10 Cobbles, 5 done 15), each claimed once a day (#869) |
 
 Every figure the owner may tune is a named constant (`ATTACK_DECK_PERCENT`, `ATTACK_STAR_PERCENTS`, `CHEST_COBBLE_BPS`,
-`CHEST_COBBLES`, `PVP_CHESTS_PER_DAY`, `SHOP_PRICES`, `QUEST_BONUS_COBBLES`, `LEVEL_CAP`, `SLOT_BASE`).
+`CHEST_COBBLES`, `PVP_CHESTS_PER_DAY`, `SHOP_PRICES`, `QUEST_BONUS_COBBLES`, `DAILY_QUESTS`, `DAILY_MILESTONES`, `LEVEL_CAP`, `SLOT_BASE`).
 
 Choices made where the decisions leave room (each can be reversed by changing one constant or function):
 
@@ -46,8 +46,14 @@ Choices made where the decisions leave room (each can be reversed by changing on
   PvP v1 and share the player's crowns.
 - **The Story report** (`reportStory`) stands in for the Story game's report until step 3: the screens send it when a level
   ends.
-- **Quest credits** pay the bonus Cobbles in the mock (`claimDailyCredit`, `claimWeeklyCredit`); the chain's still credit a
-  free game until #738.
+- **Quest credits**: the week's pays the bonus Cobbles in the mock (`claimWeeklyCredit`); the day's is refused since #869
+  (`claimDailyCredit`, `no-live-quest`), and a daily's own claim too (`no-cobbles`). The chain's still credit a free game
+  until #738.
+- **The day's milestones** (#869): `dailyMilestones(player, day)` reads the day's claimed word (bit `step` per milestone),
+  `claimDailyMilestone(day, step)` pays `DAILY_MILESTONES[step]`'s Cobbles once a day (refused `milestone-claimed` or
+  `no-milestone`, `DailyMilestoneRefusedError`). Like the other claims it trusts the page for the dailies done (the
+  progress is the indexer's). They are kept under the day's claims (`days[day].milestones`); a day stored before reads as
+  none claimed.
 - **The level** (`playerLevel`, the ring) is v2's: the mock's XP, capped at 20.
 - The "Mock" mark stays on these pages (`MOCKED_PAGES`).
 

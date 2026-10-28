@@ -17,7 +17,10 @@ import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
-import { QUEST_DEFINITIONS } from "../src/mocks/quests";
+import { DAILY_QUESTS } from "@paved/game-core";
+import { QUEST_DEFINITIONS, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, questsTodayDone } from "../src/mocks/quests";
+import { TODAY } from "../src/mocks/players";
+import { isLiveOnDay, questPeriod } from "../src/lib/quest-window";
 import { COBBLES, MISSIONS, MY_TILES, PLAY, PURCHASE, THEME_SHOP } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
@@ -35,10 +38,25 @@ describe("Cobbles amounts (gems-v1.md)", () => {
     expect(PACKS.map((p) => formatUsd(p.price / BigInt(p.cobbles), 2))).toEqual(["$0.10", "$0.09", "$0.08", "$0.07"]);
   });
 
-  it("gives quests 5, 10 or 15 by their family's target, Daily Run 5 and a weekly 15 (3.1)", () => {
+  it("gives a weekly 15 (3.1) and a daily none: the day's milestones pay (#869)", () => {
     expect(QUEST_COBBLES.map((q) => q.questId)).toEqual(QUEST_DEFINITIONS.map((d) => d.questId));
-    expect(Object.fromEntries(QUEST_COBBLES.map((q) => [q.questId, q.cobbles]))).toEqual({ 1: 5, 5: 5, 6: 10, 7: 15, 8: 5, 9: 10, 10: 15, 11: 5, 12: 10, 13: 15, 14: 15, 15: 15, 16: 15 });
+    expect(Object.fromEntries(QUEST_COBBLES.map((q) => [q.questId, q.cobbles]))).toEqual({
+      1: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 15, 15: 15, 16: 15, 17: 0, 18: 0, 19: 0,
+    });
     expect(QUEST_COBBLES.filter((q) => q.kind === "weekly").map((q) => q.questId)).toEqual([14, 15, 16]);
+  });
+
+  it("lives five dailies a day (#869): Daily Run and one of each of the four rotating families", () => {
+    for (const day of [TODAY - 1, TODAY, TODAY + 1]) {
+      const live = QUEST_DEFINITIONS.filter((d) => questPeriod(d) === "daily" && isLiveOnDay(d, day));
+      expect(live).toHaveLength(DAILY_QUESTS);
+      expect(new Set(live.map((d) => d.taskId)).size).toBe(4);
+    }
+    const dailies = (q: typeof QUESTS_TODAY) => q.quests.filter((x) => questPeriod(x) === "daily");
+    expect(dailies(QUESTS_TODAY).map((q) => q.questId)).toEqual([1, 6, 9, 12, 18]);
+    expect(dailies(QUESTS_TODAY_ALL_DONE).every((q) => q.completed)).toBe(true);
+    expect(dailies(QUESTS_ALL_DONE).every((q) => q.completed)).toBe(true);
+    for (const done of [0, 1, 2, 3, 4, 5]) expect(dailies(questsTodayDone(done)).filter((q) => q.completed)).toHaveLength(done);
   });
 
   it("gives an achievement its points, On the Podium none: 580 for the fifteen (3.1)", () => {
@@ -309,17 +327,21 @@ describe("Missions: Cobbles only (#832)", () => {
   const card = () => within(screen.getByRole("region", { name: "Selected mission" }));
   const select = (name: RegExp) => userEvent.click(screen.getByRole("button", { name }));
 
-  it("shows each mission's Cobbles under its icon, and claims a quest from its card", async () => {
+  it("shows each mission's Cobbles under its icon, none for a daily (#869), and claims a quest from its card", async () => {
     const onClaimQuest = vi.fn();
-    render(wrap(<MissionsScene {...MISSIONS.daily} onClaimQuest={onClaimQuest} />));
-    expect(within(screen.getByRole("button", { name: /^Strong Day/ })).getByRole("img", { name: "+10 Cobbles" })).toBeInTheDocument();
+    render(wrap(<MissionsScene {...MISSIONS.weekBonus} onClaimQuest={onClaimQuest} />));
+    expect(within(screen.getByRole("button", { name: /^Strong Day/ })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("button", { name: /^Weekly Forester/ })).getByRole("img", { name: "+15 Cobbles" })).toBeInTheDocument();
     // A mission not done: its card has no Claim, a short line instead.
     await select(/^Strong Day/);
     expect(card().queryByRole("button")).not.toBeInTheDocument();
     expect(card().getByText(/Play today to finish it/)).toBeInTheDocument();
+    // A daily done: nothing to claim on its own.
     await select(/^Daily Run/);
-    await userEvent.click(card().getByRole("button", { name: "Claim 5 Cobbles: Daily Run" }));
-    expect(onClaimQuest).toHaveBeenCalledWith(1);
+    expect(card().queryByRole("button")).not.toBeInTheDocument();
+    await select(/^Weekly Forester/);
+    await userEvent.click(card().getByRole("button", { name: "Claim 15 Cobbles: Weekly Forester" }));
+    expect(onClaimQuest).toHaveBeenCalledWith(14);
   });
 
   it("claims an achievement and a period's bonus from the card; On the Podium gives none", async () => {
@@ -338,16 +360,16 @@ describe("Missions: Cobbles only (#832)", () => {
 
   it("shows a claim on its way, the others waiting", async () => {
     render(wrap(<MissionsScene {...MISSIONS.claiming} />));
-    expect(card().getByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).toHaveAttribute("aria-busy", "true");
-    await select(/^Settler II:/);
-    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" })).toBeDisabled();
+    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" })).toHaveAttribute("aria-busy", "true");
+    await select(/^Grand Builder:/);
+    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Grand Builder" })).toBeDisabled();
   });
 
-  it("has nothing left to claim when all are claimed, the bonuses too", () => {
+  it("has nothing left to claim when all are claimed, the week's bonus too; the day has none (#869)", () => {
     render(wrap(<MissionsScene {...MISSIONS.allDone} />));
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
     expect(screen.queryAllByRole("button", { name: /Cobbles to claim$/ })).toHaveLength(0);
-    expect(screen.getByRole("button", { name: "Daily bonus: Done" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Daily bonus/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Weekly bonus: Done" })).toBeInTheDocument();
   });
 

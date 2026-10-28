@@ -21,7 +21,9 @@ import { dataSourceOf, MOCKED_PAGES } from "../src/data/data-source";
 import { MOCK_KEY, MOCK_SPLIT, MOCK_STARTING_PAVED, MOCK_VAULT, MockLedger, mockLock } from "../src/data/mock/ledger";
 import { usePlayerProgress } from "../src/data/player-progress";
 import { FREE_SPAWN_MOCKED, GAME_FELTS_BEFORE_EXPIRY, initialSeedOf, mockGameViews, mockSigner } from "../src/data/mock/overlay";
-import { poseidon } from "@paved/game-core";
+import { DAILY_MILESTONES, poseidon } from "@paved/game-core";
+import { DailyMilestoneRefusedError, type DailyMilestoneViews, type DailyMilestoneWrites } from "../src/data/daily-milestones";
+import { weekOfDay } from "../src/lib/quest-window";
 import { GAME_PLAYING } from "../src/mocks/games";
 import { useBuyPack, usePacks } from "../src/data/purchase";
 import { referralKey, useReferralEarnings } from "../src/data/referral";
@@ -147,20 +149,6 @@ const IMPLEMENTATIONS = [
 ] as const;
 
 describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", (_name, make) => {
-  it("a mission's claim adds its Cobbles and marks it claimed; a second claim is refused", async () => {
-    const sources = make();
-    const { result } = renderData(() => ({ rewards: useQuestRewards(PLAYER, TODAY), claims: useClaims(PLAYER) }), sources);
-    const rewards = await dataOf({ get current() { return result.current.rewards; } });
-    expect(rewards!.cobbles.find((q) => q.questId === 1)).toEqual({ questId: 1, cobbles: 5, kind: "daily" });
-    expect(rewards!.balance).toBe(0);
-    await act(() => result.current.claims.claim("quest:1", [{ kind: "quest", questId: 1, period: TODAY }]));
-    await waitFor(() => expect(result.current.rewards.data?.balance).toBe(5));
-    expect(result.current.rewards.data!.day.claimed & (1n << 1n)).toBe(1n << 1n);
-    const again = await result.current.claims.claim("quest:1", [{ kind: "quest", questId: 1, period: TODAY }]).catch((e: unknown) => e);
-    expect(again).toBeInstanceOf(ClaimRefusedError);
-    expect((again as ClaimRefusedError).reason).toBe("claimed");
-  });
-
   it("an achievement's claim adds its Cobbles", async () => {
     const sources = make();
     const { result } = renderData(() => ({ rewards: useAchievementRewards(PLAYER), claims: useClaims(PLAYER) }), sources);
@@ -286,6 +274,79 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
 });
 
 describe("the mock", () => {
+  it("a weekly's claim adds its Cobbles and marks it claimed; a second claim is refused", async () => {
+    const { sources, chain } = mockImplementation();
+    // The fixture's quests are dailies: quest 1 as a weekly, Monday to Sunday UTC.
+    chain.fixture.quests = [{ ...chain.fixture.quests[0], start_time: 345_600, duration: 7 * 86_400, interval: 7 * 86_400 }];
+    const week = weekOfDay(TODAY)!;
+    const { result } = renderData(() => ({ rewards: useQuestRewards(PLAYER, TODAY), claims: useClaims(PLAYER) }), sources);
+    const rewards = await dataOf({ get current() { return result.current.rewards; } });
+    expect(rewards!.cobbles.find((q) => q.questId === 1)).toEqual({ questId: 1, cobbles: 15, kind: "weekly" });
+    expect(rewards!.balance).toBe(0);
+    await act(() => result.current.claims.claim("quest:1", [{ kind: "quest", questId: 1, period: week }]));
+    await waitFor(() => expect(result.current.rewards.data?.balance).toBe(15));
+    expect(result.current.rewards.data!.week.claimed & (1n << 1n)).toBe(1n << 1n);
+    const again = await result.current.claims.claim("quest:1", [{ kind: "quest", questId: 1, period: week }]).catch((e: unknown) => e);
+    expect(again).toBeInstanceOf(ClaimRefusedError);
+    expect((again as ClaimRefusedError).reason).toBe("claimed");
+  });
+
+  it("a daily pays nothing on its own, and the day has no bonus (#869): both claims are refused, nothing moves", async () => {
+    const { sources, ledger } = mockImplementation();
+    await sources.indexer.definitions();
+    const writes = ledger.writesFor(PLAYER);
+    const quest = await writes.claimQuest(1, TODAY).catch((e: unknown) => e);
+    expect(quest).toBeInstanceOf(ClaimRefusedError);
+    expect((quest as ClaimRefusedError).reason).toBe("no-cobbles");
+    const bonus = await writes.claimDailyCredit(TODAY).catch((e: unknown) => e);
+    expect(bonus).toBeInstanceOf(ClaimRefusedError);
+    expect((bonus as ClaimRefusedError).reason).toBe("no-live-quest");
+    expect((await ledger.account(PLAYER)).cobbles).toBe(0);
+    expect(await ledger.dayProgress(PLAYER, TODAY)).toMatchObject({ claimed: 0n, credit: false });
+  });
+
+  it("the day's milestones (#869): 10 Cobbles at the first, 15 at the second, each once a day, through the signer and the views", async () => {
+    const { sources } = mockImplementation();
+    const views = sources.views as typeof sources.views & DailyMilestoneViews;
+    const signer = sources.signer as GameSigner & DailyMilestoneWrites;
+    expect(await views.dailyMilestones(PLAYER, TODAY)).toEqual({ day: TODAY, claimed: 0 });
+    const first = await signer.claimDailyMilestone(TODAY, 0);
+    expect(first.transactionHash.startsWith("0x6d6f636b")).toBe(true);
+    expect(first.events).toEqual([{ name: "DailyMilestoneClaimed", fields: { playerId: PLAYER, day: TODAY, step: 0, cobbles: 10, balance: 10 }, fromAddress: "0x3" }]);
+    expect(await views.dailyMilestones(PLAYER, TODAY)).toEqual({ day: TODAY, claimed: 0b01 });
+    const again = await signer.claimDailyMilestone(TODAY, 0).catch((e: unknown) => e);
+    expect(again).toBeInstanceOf(DailyMilestoneRefusedError);
+    expect((again as DailyMilestoneRefusedError).reason).toBe("milestone-claimed");
+    await signer.claimDailyMilestone(TODAY, 1);
+    expect(await views.dailyMilestones(PLAYER, TODAY)).toEqual({ day: TODAY, claimed: 0b11 });
+    // 25 a day in all.
+    expect((await views.account(PLAYER)).cobbles).toBe(DAILY_MILESTONES.reduce((sum, m) => sum + m.cobbles, 0));
+    for (const step of [-1, 2, 1.5]) {
+      const refused = await signer.claimDailyMilestone(TODAY, step).catch((e: unknown) => e);
+      expect((refused as DailyMilestoneRefusedError).reason).toBe("no-milestone");
+    }
+    expect((await views.account(PLAYER)).cobbles).toBe(25);
+  });
+
+  it("the day's reset: the next day's milestones are claimable again, the day before keeps its claims, and they survive a reload", async () => {
+    const { ledger, store } = mockImplementation();
+    const writes = ledger.writesFor(PLAYER);
+    await writes.claimDailyMilestone(TODAY, 0);
+    await writes.claimDailyMilestone(TODAY, 1);
+    expect(await ledger.dailyMilestones(PLAYER, TODAY + 1)).toEqual({ day: TODAY + 1, claimed: 0 });
+    await writes.claimDailyMilestone(TODAY + 1, 0);
+    const reloaded = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
+    expect(await reloaded.dailyMilestones(PLAYER, TODAY)).toEqual({ day: TODAY, claimed: 0b11 });
+    expect(await reloaded.dailyMilestones(PLAYER, TODAY + 1)).toEqual({ day: TODAY + 1, claimed: 0b01 });
+    expect((await reloaded.account(PLAYER)).cobbles).toBe(35);
+    // A day saved before the milestones (no `milestones` field) reads as none claimed.
+    const state = JSON.parse(store.data.get(MOCK_KEY)!);
+    const player = Object.values(state.players as Record<string, { days: Record<string, object> }>)[0]!;
+    player.days[TODAY + 2] = { claimed: "0", credit: false };
+    store.data.set(MOCK_KEY, JSON.stringify(state));
+    expect(await new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 }).dailyMilestones(PLAYER, TODAY + 2)).toEqual({ day: TODAY + 2, claimed: 0 });
+  });
+
   it("keeps its state on the device: a new ledger on the same store reads the claims, the packs and the Vault", async () => {
     const first = mockImplementation();
     const writes = first.ledger.writesFor(PLAYER, { paved: async () => 0n, usdc: async () => 100n * USDC });
@@ -433,13 +494,18 @@ describe("the mock", () => {
     expect(await ledger.account(PLAYER)).toMatchObject({ cobbles: 0, achievementsClaimed: 0n });
   });
 
-  it("gives the definitions their Cobbles: the fresh table, else a daily's default; an indexer's own Cobbles stay", async () => {
+  it("gives the definitions their Cobbles: none for a daily (#869), even its own; a weekly's own stay, else the table's", async () => {
     const { sources, chain } = mockImplementation();
     const definitions = (await sources.indexer.definitions()).data;
-    expect(definitions.quests.map((q) => [q.questId, q.cobbles, q.cobblesKind])).toEqual([[1, 5, "daily"], [2, 10, "daily"], [3, 10, "daily"], [4, 10, "daily"]]);
+    expect(definitions.quests.map((q) => [q.questId, q.cobbles, q.cobblesKind])).toEqual([[1, 0, "daily"], [2, 0, "daily"], [3, 0, "daily"], [4, 0, "daily"]]);
     expect(definitions.achievements.find((a) => a.achievementId === 4)?.cobbles).toBe(40);
     chain.fixture.quests = [{ ...chain.fixture.quests[0], cobbles: 7, cobbles_kind: "daily" }];
-    expect((await sources.indexer.definitions()).data.quests[0]).toMatchObject({ cobbles: 7, cobblesKind: "daily" });
+    expect((await sources.indexer.definitions()).data.quests[0]).toMatchObject({ cobbles: 0, cobblesKind: "daily" });
+    const weekly = { start_time: 345_600, duration: 7 * 86_400, interval: 7 * 86_400 };
+    chain.fixture.quests = [{ ...chain.fixture.quests[0], ...weekly, cobbles: 7, cobbles_kind: "weekly" }];
+    expect((await sources.indexer.definitions()).data.quests[0]).toMatchObject({ cobbles: 7, cobblesKind: "weekly" });
+    chain.fixture.quests = [{ ...chain.fixture.quests[0], ...weekly, quest_id: 14, cobbles: 0, cobbles_kind: null }];
+    expect((await sources.indexer.definitions()).data.quests[0]).toMatchObject({ questId: 14, cobbles: 15, cobblesKind: "weekly" });
   });
 
   it("answers the referrals the indexer has no route for, without a request", async () => {

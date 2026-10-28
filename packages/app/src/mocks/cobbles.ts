@@ -16,23 +16,14 @@ export const PACKS: readonly Pack[] = [
 ];
 
 /**
- * The Cobbles of the 13 fresh quests (3.1): a family's easy, middle and hard target give 5, 10 and 15; Daily Run 5; a
- * weekly 15. Ids 2 to 4 are not defined.
+ * The Cobbles of the 16 fresh quests (3.1): a weekly 15; a daily none since #869 (the owner's decisions of 2026-10-28: the
+ * day's milestones pay instead, `DAILY_MILESTONES`), where 3.1 gave a family's easy, middle and hard target 5, 10 and 15 and
+ * Daily Run 5. Ids 2 to 4 are not defined; 17 to 19 are #869's fourth rotating family.
  */
 export const QUEST_COBBLES: readonly QuestCobbles[] = [
-  { questId: 1, cobbles: 5, kind: "daily" },
-  { questId: 5, cobbles: 5, kind: "daily" },
-  { questId: 6, cobbles: 10, kind: "daily" },
-  { questId: 7, cobbles: 15, kind: "daily" },
-  { questId: 8, cobbles: 5, kind: "daily" },
-  { questId: 9, cobbles: 10, kind: "daily" },
-  { questId: 10, cobbles: 15, kind: "daily" },
-  { questId: 11, cobbles: 5, kind: "daily" },
-  { questId: 12, cobbles: 10, kind: "daily" },
-  { questId: 13, cobbles: 15, kind: "daily" },
-  { questId: 14, cobbles: 15, kind: "weekly" },
-  { questId: 15, cobbles: 15, kind: "weekly" },
-  { questId: 16, cobbles: 15, kind: "weekly" },
+  ...[1, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((questId) => ({ questId, cobbles: 0, kind: "daily" as const })),
+  ...[14, 15, 16].map((questId) => ({ questId, cobbles: 15, kind: "weekly" as const })),
+  ...[17, 18, 19].map((questId) => ({ questId, cobbles: 0, kind: "daily" as const })),
 ];
 
 /** The Cobbles of the achievements (3.1): their display points; On the Podium (9) has none in v1, so it is not listed. */

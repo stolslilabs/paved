@@ -54,13 +54,14 @@ export const MOCKED_GAME_READS = [
   "attackV2",
   "attackV2Of",
   "matchesV2",
+  "dailyMilestones",
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers; `pavedBalance` and `usdcBalance` are the chain's, adjusted by the mock's moves. */
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers. */
-export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
+export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
 
 /**
  * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
@@ -217,6 +218,8 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     claimAchievement: writes.claimAchievement,
     claimDailyCredit: writes.claimDailyCredit,
     claimWeeklyCredit: writes.claimWeeklyCredit,
+    // The day's milestones (#869): the ledger's until the contracts have them (#738)
+    claimDailyMilestone: writes.claimDailyMilestone,
     // The writer's signature (`buySkin(request, views)`): the price is the ledger's, read inside its own send.
     buySkin: (request: Parameters<GameSigner["buySkin"]>[0]) => writes.buySkin(request),
     setSkins: writes.setSkins,
