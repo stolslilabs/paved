@@ -24,14 +24,16 @@ const TILE = /^([a-z]{9})\.(\d+)\.([0-9a-f]{10})\.png$/;
 /**
  * The build-time renders of the tiles (`scripts/render-tiles.ts`), at `<base>renderer-assets/renders/<plan>.<theme>.<hash>.webp`,
  * `renders/<plan>-top.<theme>.<hash>.webp` (seen from above), `renders/cover.<theme>.<hash>.webp` and the Story campaigns'
- * backgrounds, `renders/story-<campaign>-<width>.<theme>.<hash>.webp` (#721).
+ * backgrounds, `renders/story-<campaign>-<width>.<theme>.<hash>.webp` (#721), and the battle logs' backgrounds,
+ * `renders/battle-<side>-<width>.<theme>.<hash>.webp` (#857).
  */
 const RENDERS = resolve(dirname(fileURLToPath(import.meta.url)), "../public/renderer-assets/renders");
 /**
- * A render's name: a plan key (`<plan>-top` for its top-down render, #606), `cover` or a Story background (`story-<campaign>-<width>`),
+ * A render's name: a plan key (`<plan>-top` for its top-down render, #606), `cover`, a Story background (`story-<campaign>-<width>`)
+ * or a battle log's (`battle-<side>-<width>`),
  * the theme id on chain (0 the base models), then the hash.
  */
-const RENDER = /^([a-z]{9}(?:-top)?|cover|story-\d+-\d+)\.(\d+)\.([0-9a-f]{10})\.webp$/;
+const RENDER = /^([a-z]{9}(?:-top)?|cover|story-\d+-\d+|battle-(?:attack|defence)-\d+)\.(\d+)\.([0-9a-f]{10})\.webp$/;
 /** A compressed model's name: its plan key, then the first 10 hex digits of the file's SHA-256. */
 const HASHED = /^([a-z]{9})\.([0-9a-f]{10})\.glb$/;
 /** A theme's compressed variant: the plan key, the set and the variant number, then the hash (`forest/rfrfffffr_HF_3.<hash>.glb`). */
