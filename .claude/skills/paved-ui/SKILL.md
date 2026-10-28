@@ -117,6 +117,11 @@ League crests (#854): `<CrestArt league="knight" division={2} />` from `elements
 the game icons' relief, the division as studs at its foot (III one, I three). Its Font Awesome shapes are generated like the
 game icons': `CREST_SHAPE_NAMES` in `scripts/league-crests.ts`, `bun run league-crests`, and a line in the notices.
 
+Chests (#874, the study in `Elements/ChestArt`, three directions for the owner to pick): `<ChestIcon direction="wood" rank="gold" />`
+(`elements/chest-icon.tsx`), the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), and
+`<ChestArt direction="wood" rank="gold" state="opening" />` (`elements/chest-art.tsx`), the detailed art whose lid swings open
+with Motion. Their drawings are parts in `elements/chest-designs.ts`. Nothing in the app draws them until the owner picks.
+
 ## Motion
 
 - Import `m` components (`import * as m from "motion/react-m"`), never `motion.div`: `MotionProvider.tsx` is
