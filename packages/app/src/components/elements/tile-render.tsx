@@ -127,7 +127,7 @@ export function StoryBackground({ campaign, theme, renders, fallback, className 
 
 /** A battle log's background widths (`scripts/render-tiles.ts`, `BATTLE_WIDTHS`), 3:1: the phone's card at DPR 3, the wide page's at DPR 1 and 2. */
 export const BATTLE_BACKGROUND_WIDTHS = [720, 1040, 2000] as const;
-/** The battle backgrounds' theme: both are drawn in the default one (#857). */
+/** The battle backgrounds' theme: both are drawn in the default one (issue 857). */
 const BATTLE_BACKGROUND_THEME = 0;
 /** The card's width on the page (the League page, `max-w-5xl` less its gutters): the whole width less 2rem, 992 px at most. */
 const BATTLE_BACKGROUND_SIZES = "(min-width: 64rem) 992px, calc(100vw - 2rem)";
@@ -140,7 +140,7 @@ export interface BattleBackgroundProps {
 }
 
 /**
- * A battle log card's background (#857), from the build as the Story's (`battle-<side>-<width>`): renders of the game's own
+ * A battle log card's background (issue 857), from the build as the Story's (`battle-<side>-<width>`): renders of the game's own
  * boards, the browser picking the width the card needs. Nothing when the manifest lists none (the card's own colour shows).
  */
 export function BattleBackground({ side, renders, className }: BattleBackgroundProps) {
