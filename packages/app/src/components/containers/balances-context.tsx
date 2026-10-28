@@ -1,7 +1,7 @@
-import { createContext, lazy, Suspense, useContext } from "react";
+import { createContext, lazy, Suspense, useContext, useMemo, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Skeleton } from "../ui/skeleton";
-import type { BalancesProps, ShownBalance } from "./balances";
+import type { BalanceKind, BalancesProps, ShownBalance } from "./balances";
 
 /**
  * What the shell hands the pages' headers and the home: the balances, the page's set (`kinds`, #855: `routes/header-balances.ts`)
@@ -11,10 +11,27 @@ import type { BalancesProps, ShownBalance } from "./balances";
 const BalancesContext = createContext<Omit<BalancesProps, "layout"> | null>(null);
 export const BalancesProvider = BalancesContext.Provider;
 
+/**
+ * A page's own balances where it is drawn over another page (the packs' sheet over the page that asked for them, #855): its set
+ * (`kinds`) and the plates that lead to it (`here`) replace the page's under it. Nothing to change without the shell's balances.
+ */
+export function BalancesOf({ kinds, here, children }: Pick<BalancesProps, "kinds" | "here"> & { children: ReactNode }) {
+  const value = useContext(BalancesContext);
+  const own = useMemo(() => (value ? { ...value, kinds, here } : null), [value, kinds, here]);
+  return <BalancesProvider value={own}>{children}</BalancesProvider>;
+}
+
 const COBBLES: readonly ShownBalance[] = ["cobbles"];
 
 /** The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width. */
 export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpaved-held"];
+
+/**
+ * The Cobble packs' set (#855): the Cobbles and USDC, which buys them; the Cobbles' plate leads nowhere there, the packs being in
+ * view (`PACKS_HERE`). Here beside the slot, as the home's, so the packs' page reads it without the route table.
+ */
+export const PACKS_BALANCES: readonly ShownBalance[] = ["cobbles", "usdc"];
+export const PACKS_HERE: readonly BalanceKind[] = ["cobbles"];
 
 /** The balances in their own chunk (BALANCES, #538): the pages load it beside their code, the first bundle does not carry it. */
 const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balances })));

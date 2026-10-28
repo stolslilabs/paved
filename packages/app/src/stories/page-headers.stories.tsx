@@ -29,8 +29,7 @@ import { ThemeScene } from "../components/scenes/theme-scene";
 import { ThemeShopScene } from "../components/scenes/theme-shop-scene";
 import { VaultScene } from "../components/scenes/vault-scene";
 import { WelcomeScene } from "../components/scenes/welcome-scene";
-import { hereOf } from "../routes/balances-host";
-import { HEADER_BALANCES } from "../routes/header-balances";
+import { HEADER_BALANCES, hereOf } from "../routes/header-balances";
 import { PAGE_HEADER_STORIES } from "./page-headers";
 
 /** The balances a connected player holds. */

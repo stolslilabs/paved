@@ -16,7 +16,7 @@ import { StoryScene } from "../scenes/story-scene";
 import { ThemeScene } from "../scenes/theme-scene";
 import { ThemeShopScene } from "../scenes/theme-shop-scene";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
-import { BalancesProvider } from "./balances-context";
+import { BalancesOf, BalancesProvider, PACKS_BALANCES, PACKS_HERE } from "./balances-context";
 import PagePanel from "./page-panel";
 import PageSheet from "./page-sheet";
 
@@ -87,7 +87,12 @@ export const MyTilesWide: Story = sheet("My tiles", tiles, true);
 export const CreditsWide: Story = sheet("Credits", credits, true);
 export const ReferralWide: Story = sheet("Referral", referral, true);
 const story = <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} onCampaign={fn()} onLevel={fn()} />;
-const packs = <CobblesScene {...COBBLES.packs} onBack={fn()} onSelectPack={fn()} onBuyPack={fn()} />;
+// In the sheet the packs show their own balances, the Cobbles and USDC, not the page's under them (#855: the packs' page).
+const packs = (
+  <BalancesOf kinds={PACKS_BALANCES} here={PACKS_HERE}>
+    <CobblesScene {...COBBLES.packs} onBack={fn()} onSelectPack={fn()} onBuyPack={fn()} />
+  </BalancesOf>
+);
 const overPlay = { page: PLAY_PAGE, title: "Play" };
 /** Story's campaigns over Play's modes: the close goes back to Play; a level opens full screen. */
 export const StoryPhone: Story = sheet("Story", story, false, overPlay);

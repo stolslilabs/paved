@@ -1,5 +1,5 @@
-import type { ShownBalance } from "../components/containers/balances";
-import { HOME_BALANCES } from "../components/containers/balances-context";
+import type { BalanceKind, ShownBalance } from "../components/containers/balances";
+import { HOME_BALANCES, PACKS_BALANCES } from "../components/containers/balances-context";
 import type { PageDef } from "./pages";
 
 export { HOME_BALANCES };
@@ -24,7 +24,7 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "": HOME_BALANCES,
   play: NONE,
   "play/challenge": ["usdc"],
-  cobbles: ["cobbles", "usdc"],
+  cobbles: PACKS_BALANCES,
   avatar: COBBLES,
   "village/:player": COBBLES,
   "village/chests": COBBLES,
@@ -49,6 +49,16 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "pvp/match/:id": NONE,
   "pvp/league": NONE,
 };
+
+/**
+ * Where PAVED, vPAVED and the Cobbles lead: the Vault, and the Cobble packs (#621). USDC mints from the faucet where there is one.
+ * The packs open as the village's page from the village, and in place, in a sheet over any other page (BACK-RULE #783).
+ */
+export const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } as const;
+const LEADING = Object.keys(DESTINATION) as (keyof typeof DESTINATION)[];
+
+/** The balances whose page is the one at `pathname` (the Vault's, the packs'): in view already, their plates lead nowhere (#855). */
+export const hereOf = (pathname: string): readonly BalanceKind[] => LEADING.filter((kind) => DESTINATION[kind] === pathname);
 
 /** A page's balances; "not found" (no page) shows none. */
 export const balancesOf = (page: PageDef | null): HeaderBalances => (page === null ? NONE : HEADER_BALANCES[page.path]);

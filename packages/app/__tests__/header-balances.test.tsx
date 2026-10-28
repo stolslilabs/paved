@@ -4,14 +4,14 @@ import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
-import { BalancesProvider } from "../src/components/containers/balances-context";
+import { BalancesProvider, PACKS_BALANCES, PACKS_HERE } from "../src/components/containers/balances-context";
 import { TopBar } from "../src/components/containers/top-bar";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { VillageScene } from "../src/components/scenes/village-scene";
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { VILLAGE } from "../src/mocks/village";
 import { HOME_VILLAGE, VILLAGE_SHOP } from "../src/mocks/village-v2";
-import { HEADER_BALANCES, HOME_BALANCES } from "../src/routes/header-balances";
+import { HEADER_BALANCES, HOME_BALANCES, hereOf } from "../src/routes/header-balances";
 import { PAGES } from "../src/routes/pages";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -75,6 +75,11 @@ describe("the balances by page (#855)", () => {
   it("each page's balances are its row of the table", () => {
     for (const [path, kinds] of Object.entries(HEADER_BALANCES)) expect([path, kinds]).toEqual([path, TABLE[path]]);
     expect(HOME_BALANCES).toEqual(TABLE[""]);
+  });
+
+  it("the packs' page carries its own set and its inert plates, the rule's, also in the sheet over another page", () => {
+    expect(PACKS_BALANCES).toEqual(TABLE.cobbles);
+    expect(PACKS_HERE).toEqual(hereOf("/cobbles"));
   });
 
   it("USDC only on the Cobbles' packs and the Challenge's purchase; the Vault's PAVED and vPAVED, never the Cobbles", () => {

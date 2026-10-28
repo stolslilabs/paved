@@ -9,18 +9,10 @@ import { useBalances } from "../data/balances";
 import { useDataSources } from "../data/sources";
 import { useAccount } from "../wallet/wallet";
 import { useCobblesSheet } from "./cobbles-sheet";
+import { DESTINATION, hereOf } from "./header-balances";
 import { errorDetail } from "./error-detail";
 import { useAppNavigate } from "./ref";
 
-/**
- * Where PAVED, vPAVED and the Cobbles lead: the Vault, and the Cobble packs (#621). USDC mints from the faucet where there is one.
- * The packs open as the village's page from the village, and in place, in a sheet over any other page (BACK-RULE #783).
- */
-const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } as const;
-const LEADING = Object.keys(DESTINATION) as (keyof typeof DESTINATION)[];
-
-/** The balances whose page is the one at `pathname` (the Vault's, the packs'): in view already, their plates lead nowhere (#855). */
-export const hereOf = (pathname: string): readonly BalanceKind[] => LEADING.filter((kind) => DESTINATION[kind] === pathname);
 
 /** Devnet and Sepolia deploy the Faucet (`FAUCET_NETWORKS` of `@paved/chain`, kept out of the first bundle); mainnet has none. */
 const FAUCET_NETWORKS = ["devnet", "sepolia"];
