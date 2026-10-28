@@ -81,7 +81,7 @@ describe("the chests (#874, the study)", () => {
         inside: !!svg.querySelector('[data-part="inside"]'),
         sparks: svg.querySelectorAll('[data-part="sparks"] rect').length,
         shine: !!svg.querySelector('[data-part="shine"]'),
-        grey: svg.classList.contains("grayscale"),
+        grey: svg.style.filter === "grayscale(1)",
       };
       unmount();
       return out;

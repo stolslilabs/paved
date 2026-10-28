@@ -57,6 +57,9 @@ function rays(cx: number, cy: number): string {
   }).join("");
 }
 
+/** The opened chest, grey and dimmed: inline, so the stylesheet gains nothing. */
+const SPENT = { filter: "grayscale(1)", opacity: 0.6 } as const;
+
 /** The sizes, as the em of the square SVG: the slots' chest (`md`), the modal's (`lg`, `xl`). */
 const SIZE_REM = { sm: 5, md: 8, lg: 12, xl: 16 } as const;
 export type ChestArtSize = keyof typeof SIZE_REM;
@@ -106,8 +109,8 @@ export function ChestArt({ direction, rank, state = "rest", size = "md", label, 
       data-direction={direction}
       data-rank={rank}
       data-state={state}
-      className={cn("inline-block shrink-0", state === "spent" && "opacity-60 grayscale", className)}
-      style={{ fontSize: `${SIZE_REM[size]}rem` }}
+      className={cn("inline-block shrink-0", className)}
+      style={{ fontSize: `${SIZE_REM[size]}rem`, ...(state === "spent" && SPENT) }}
     >
       <defs>
         <ReliefDefs id={id} parts={parts} rim={ART_RELIEF.rim} />

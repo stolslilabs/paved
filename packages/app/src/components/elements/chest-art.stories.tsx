@@ -75,7 +75,7 @@ export const Directions: Story = {
     <div className="flex flex-col gap-3 bg-background">
       {CHEST_DIRECTIONS.map((d) => (
         <DirectionCard key={d.id} direction={d.id}>
-          <div className="flex flex-wrap gap-x-4 gap-y-3">
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
             {CHEST_RANKS.map((rank) => (
               <figure key={rank} className="m-0 flex flex-col items-center gap-1.5">
                 <ChestArt direction={d.id} rank={rank} size="md" label={`${CHEST_NAME[rank]}, direction ${d.letter}`} />
@@ -132,7 +132,7 @@ export const TapToOpen: Story = {
         </Button>
         {CHEST_DIRECTIONS.map((d) => (
           <DirectionCard key={d.id} direction={d.id}>
-            <div className="flex flex-wrap gap-x-3 gap-y-3">
+            <div className="flex flex-wrap gap-x-3 gap-y-2">
               {CHEST_RANKS.map((rank) =>
                 all > 0 ? (
                   <div key={`${rank}${all}`} className="flex flex-col items-center gap-1">

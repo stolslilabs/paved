@@ -20,8 +20,10 @@ export const CHEST_DIRECTIONS: readonly { id: ChestDirection; letter: string; na
 export const CHEST_RANKS: readonly ChestRank[] = ["bronze", "silver", "gold"];
 
 /**
- * A part's tone. The metals are the ranks' medal colours (theme.css); the woods, the leather, the velvet and the enamel are the
- * chests' own (theme.css 3g); the gems are the game icons' tones; `ink` is the inside of a keyhole, `light` a stud.
+ * A part's tone. The metals are the ranks' medal colours (theme.css); the gems are the game icons' tones; `ink` is the inside of a
+ * keyhole, `light` a stud. The woods, the leather, the velvet and the enamel are mixed from the game icons' tones toward the ink, so
+ * the stylesheet (and its budget) carries nothing for the chests: the bronze chest's oak darker than its bronze bands, so they part;
+ * the darker wood of the silver and gold chests; the bronze coffer's leather, the silver's enamel, the gold's velvet.
  */
 export type ChestTone =
   | "bronze"
@@ -42,11 +44,11 @@ export const TONE_BASE: Readonly<Record<ChestTone, string>> = {
   bronze: "var(--medal-3)",
   silver: "var(--medal-2)",
   gold: "var(--medal-1)",
-  oak: "var(--chest-oak)",
-  walnut: "var(--chest-walnut)",
-  leather: "var(--chest-leather)",
-  velvet: "var(--chest-velvet)",
-  enamel: "var(--chest-enamel)",
+  oak: "color-mix(in oklab, var(--game-wood) 78%, var(--background))",
+  walnut: "color-mix(in oklab, var(--game-wood) 52%, var(--background))",
+  leather: "color-mix(in oklab, var(--game-wood) 38%, var(--background))",
+  velvet: "color-mix(in oklab, var(--game-red) 62%, var(--background))",
+  enamel: "color-mix(in oklab, var(--game-blue) 68%, var(--background))",
   ruby: "var(--game-red)",
   sapphire: "var(--game-blue)",
   emerald: "var(--game-green)",

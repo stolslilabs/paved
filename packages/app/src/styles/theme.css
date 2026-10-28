@@ -334,17 +334,6 @@
   --game-rose: var(--color-ember-300);
 }
 
-/* 3g. The chests' materials (issue 874, `elements/chest-designs.ts`), beside the medals' metals and the game icons' tones: the bronze
-   chest's oak (darker than the bronze bands, so they part), the darker wood of the silver and gold chests, the bronze coffer's
-   leather, the silver's enamel and the gold's velvet. */
-:root {
-  --chest-oak: var(--color-amber-600);
-  --chest-walnut: var(--color-amber-800);
-  --chest-leather: var(--color-amber-900);
-  --chest-enamel: var(--color-river-600);
-  --chest-velvet: var(--color-ember-600);
-}
-
 
 @theme inline {
   --color-slab-edge: var(--slab-edge);
