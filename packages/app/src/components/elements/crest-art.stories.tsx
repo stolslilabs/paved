@@ -26,6 +26,7 @@ const DIVISIONS: readonly { division: CrestDivision; name: string }[] = [
   { division: 1, name: "I" },
 ];
 /** #854's sizes: 24, 40 and 96 px. */
+const PX: Record<CrestArtSize, number> = { sm: 16, md: 24, lg: 40, xl: 64, "2xl": 96, inherit: 0 };
 const SIZES: readonly { size: CrestArtSize; px: number }[] = [
   { size: "md", px: 24 },
   { size: "lg", px: 40 },
@@ -44,7 +45,9 @@ const Caption = ({ children }: { children: React.ReactNode }) => <span className
 function Cell({ id, name, size, division }: { id: LeagueId; name: string; size: CrestArtSize; division?: CrestDivision }) {
   return (
     <figure className="m-0 flex flex-col items-center gap-1.5 p-1">
-      <CrestArt league={id} size={size} division={division} label={`${name} league`} className="m-[0.2em]" />
+      <span className="leading-none" style={{ padding: `${PX[size] / 5}px` }}>
+        <CrestArt league={id} size={size} division={division} label={`${name} league`} />
+      </span>
       <figcaption className="text-xs text-foreground">{name}</figcaption>
     </figure>
   );

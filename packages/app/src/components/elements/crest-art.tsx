@@ -1,4 +1,3 @@
-import { cva, type VariantProps } from "class-variance-authority";
 import { useId } from "react";
 import type { LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
@@ -168,24 +167,16 @@ function transformOf(place: Place, width: number): string {
   return `translate(${x} ${y}) rotate(${r}) scale(${flip ? -s : s} ${s}) translate(${-width / 2} -256)`;
 }
 
-const crestArtVariants = cva("inline-block shrink-0 align-[-0.125em]", {
-  variants: {
-    size: {
-      sm: "text-[1rem]",
-      md: "text-[1.5rem]",
-      lg: "text-[2.5rem]",
-      xl: "text-[4rem]",
-      "2xl": "text-[6rem]",
-      /** The parent's font size. */
-      inherit: "",
-    },
-  },
-  defaultVariants: { size: "md" },
-});
+/**
+ * The sizes, as the em of the SVG (1em square): 16 to 96 px, issue 854's 24, 40 and 96 among them; `inherit` takes the parent's font size.
+ * An inline font size, not a class: the stylesheet's budget gains nothing from the crests.
+ */
+const SIZE_REM = { sm: 1, md: 1.5, lg: 2.5, xl: 4, "2xl": 6, inherit: null } as const;
+export type CrestArtSize = keyof typeof SIZE_REM;
 
-export type CrestArtSize = NonNullable<VariantProps<typeof crestArtVariants>["size"]>;
-
-export interface CrestArtProps extends VariantProps<typeof crestArtVariants> {
+export interface CrestArtProps {
+  /** 24 px (`md`) by default. */
+  size?: CrestArtSize;
   league: LeagueId;
   /** The division (Peasant to Duke): 3 for III, 2 for II, 1 for I. None draws the crest alone. */
   division?: CrestDivision;
@@ -200,7 +191,8 @@ export interface CrestArtProps extends VariantProps<typeof crestArtVariants> {
  * studs at its foot. One SVG of its own paths, 1em square, crisp from 24 to 96 px. The study of issue 854's first pull request (Storybook);
  * its second draws `LeagueCrest` with it.
  */
-export function CrestArt({ league, division, size, label, className }: CrestArtProps) {
+export function CrestArt({ league, division, size = "md", label, className }: CrestArtProps) {
+  const rem = SIZE_REM[size];
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const base = (tone: CrestTone) => (tone === "league" ? `var(--league-${league})` : tone === "light" ? "var(--foreground)" : `var(--game-${tone})`);
   const parts = crestParts(league, division);
@@ -215,7 +207,8 @@ export function CrestArt({ league, division, size, label, className }: CrestArtP
       data-slot="crest-art"
       data-league={league}
       data-division={division}
-      className={cn(crestArtVariants({ size }), className)}
+      className={cn("inline-block shrink-0 align-[-0.125em]", className)}
+      style={rem === null ? undefined : { fontSize: `${rem}rem` }}
     >
       <defs>
         {[...new Set(parts.map((p) => p.tone))].map((t) => (
