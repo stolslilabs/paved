@@ -70,8 +70,8 @@ describe("the game icons (#844)", () => {
   });
 });
 
-describe("the currencies in relief (#844)", () => {
-  const token = (kind: string) => read(`src/assets/tokens/${kind}.svg`);
+describe("the currencies in relief (#844, the study for the owner's pick)", () => {
+  const token = (kind: string) => read(`src/assets/tokens/relief/${kind}.svg`);
 
   it("give PAVED, vPAVED and the Cobbles a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
     for (const kind of ["paved", "vpaved", "cobbles"]) {

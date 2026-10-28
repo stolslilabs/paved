@@ -173,11 +173,6 @@ describe("Home (#753): the village with its overlays", () => {
     // 8 px apart below `desktop`, 16 from it (#845).
     expect(edit.parentElement).toBe(play.parentElement);
     expect(edit.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["gap-2", "desktop:gap-4"]));
-    // The game icons (#844): the HUD's icons in relief, drawn at the first paint, not Font Awesome's flat ones.
-    for (const name of ["Play", "Edit village", "Missions", "Vault", "Settings"]) {
-      for (const button of screen.getAllByRole("button", { name: new RegExp(`^${name}`) })) expect(button.querySelector("[data-slot=game-icon]"), name).not.toBeNull();
-    }
-    expect(screen.getByRole("button", { name: /^League: / }).querySelectorAll("[data-slot=game-icon]")).toHaveLength(2);
     // The defence log is the league page's: no overlay button. League is labelled plainly, the badge shows which.
     expect(screen.queryByRole("button", { name: /^Defence/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^League,/ })).toBeNull();
@@ -992,13 +987,6 @@ describe("Element feedback (EL)", () => {
     const play = screen.getByRole("button", { name: "Play" });
     expect(play.querySelector("[data-icon='swords']")).not.toBeNull();
     expect(play.querySelector("[data-icon='hammer']")).toBeNull();
-  });
-
-  it("draws the bar's icons as game icons, in relief and their own colours (#844)", () => {
-    render(wrap(<AppNav active="home" />));
-    for (const tab of ["Shop", "Chests", "Play", "League", "Settings"]) {
-      expect(screen.getByRole("button", { name: new RegExp(`^${tab}`) }).querySelector("[data-slot=game-icon]"), tab).not.toBeNull();
-    }
   });
 
   it("keeps a tab page's navigation out of its scrolling region, fixed to the viewport's bottom below desktop (#611)", () => {

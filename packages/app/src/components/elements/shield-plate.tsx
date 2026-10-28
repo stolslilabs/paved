@@ -1,5 +1,5 @@
 import { cn } from "../../lib/utils";
-import { GameIcon } from "./game-icon";
+import { Icon } from "../ui/icon";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "./plate";
 import { formatHoursMinutes, shieldDuration, shieldEnd, shieldLabel, shieldUp } from "./shield-time";
@@ -37,7 +37,7 @@ export function ShieldPlate({ endsAt, now, size = "auto", className }: ShieldPla
             size={size}
             end={
               <PlateDisc size={size}>
-                <GameIcon name="shield-halved" size="inherit" className={cn("relative", plateIconClass(size))} />
+                <Icon name="shield-halved" className={cn("relative text-info", plateIconClass(size))} />
               </PlateDisc>
             }
           >

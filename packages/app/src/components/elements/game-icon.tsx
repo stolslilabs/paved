@@ -124,6 +124,7 @@ export const outline = (p: { d: string; tone: GameTone }) => (
  * the app: it draws at the first paint (no script, no request), crisp at any size. Its box is `Icon`'s fixed width (1.25em by 1em),
  * so it takes a flat icon's place; the outline and the shadow overflow the box a little, as a drop shadow would. Elsewhere `Icon`
  * stays flat (text-sized icons in lists, settings, forms). The other looks of the owner's pick are `game-icon-looks.tsx` (Storybook).
+ * Issue 844's first pull request is the study (Storybook); the owner's pick is wired in the HUD by its second.
  */
 export function GameIcon({ name, tone, ...frame }: GameIconProps) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");

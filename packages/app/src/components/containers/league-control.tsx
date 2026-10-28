@@ -4,7 +4,6 @@ import * as m from "motion/react-m";
 import { useEffect, useRef, useState } from "react";
 import { leagueOf, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
-import { GameIcon } from "../elements/game-icon";
 import { crestClass } from "../elements/league-crest";
 import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
 import { Icon } from "../ui/icon";
@@ -65,12 +64,12 @@ export function LeagueControl({ crowns, onLeague, size = "auto", className }: Le
         lead="disc"
         leadContent={
           <PlateDisc size={size} face="button" className="state-layer rounded-full">
-            <GameIcon name="trophy" size="inherit" className={cn("relative", plateIconClass(size))} />
+            <Icon name="trophy" className={cn("relative", plateIconClass(size))} />
           </PlateDisc>
         }
         end={
           <PlateDisc size={size}>
-            <GameIcon name="shield-halved" tone="current" size="inherit" className={cn("relative", crestClass(league.id), plateIconClass(size))} />
+            <Icon name="shield-halved" className={cn("relative", crestClass(league.id), plateIconClass(size))} />
             {promoted !== null && (
               <m.span
                 key={promoted}

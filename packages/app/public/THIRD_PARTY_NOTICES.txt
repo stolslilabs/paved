@@ -331,11 +331,9 @@ as images; the sources and terms of each follow.
   name USDC, as Circle's brand guidelines ask. The file is the four paths of
   client/src/components/icons/exotics/quote.tsx in cartridge-gg/nums, commit
   4f8f405c2aca354307355ebf33190c43db2abd06, rounded by svgo; nums' licence
-  (MIT) follows. The mark is unaltered; the dark ring, its light and the
-  shadow drawn around it (#844) are Paved's (Apache 2.0).
+  (MIT) follows.
 - cobbles.svg: Font Awesome Pro 6.6.0, solid `cubes-stacked`, under the
-  owner's Font Awesome Commercial License (above), filled and outlined,
-  redrawn in relief (#844): each stone toned, lit and shadowed.
+  owner's Font Awesome Commercial License (above), filled and outlined.
 - paved.svg, vpaved.svg: written for Paved (Apache 2.0). Their "P"
   is the letter of Almendra Bold (above, SIL Open Font License 1.1), turned
   into outlines: an image made with the font, not the Font Software.
@@ -346,8 +344,14 @@ icons in relief, drawn by the app as SVG. Their shapes are Font Awesome Pro
 redrawn: cut into parts, each part toned, outlined, lit and shadowed by
 src/components/elements/game-icon.tsx. The source icons: `gear`, `gift`,
 `hammer`, `house`, `piggy-bank`, `plus`, `scroll`, `shield-halved`, `store`,
-`swords`, `trophy`. The gift's ribbon, and the relief style itself, are
-written for Paved (Apache 2.0).
+`swords`, `trophy`. The gift's ribbon, the "+"'s button and the relief style
+itself are written for Paved (Apache 2.0).
+
+The currencies in relief (src/assets/tokens/relief, #844, a study for the
+owner's pick): the files above, with an outline, a lit gradient, a light and a
+shadow added; their sources and terms are those of the files above. USDC's
+mark is unaltered: the dark ring, its light and the shadow drawn around it
+are Paved's (Apache 2.0).
 
 ================================================================================
 nums (cartridge-gg/nums, commit 4f8f405c2aca354307355ebf33190c43db2abd06)

@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
-import { GameIcon, type GameIconName } from "../elements/game-icon";
+import { Icon } from "../ui/icon";
 
 /**
  * The phone's bar, left to right (the route map's `BAR_TABS`, #763: Shop, Chests, Play, League, Settings), with icons. Its own
@@ -9,7 +9,7 @@ import { GameIcon, type GameIconName } from "../elements/game-icon";
  * action, in the bar's centre: icon only (the two swords, #807), a gold disc (#668). From `desktop` there is no bar, nor header (DESK-PANELS, #762): the
  * navigation is the home's overlay.
  */
-export const NAV_TABS: readonly { id: Tab; label: string; icon: GameIconName }[] = [
+export const NAV_TABS: readonly { id: Tab; label: string; icon: string }[] = [
   { id: "shop", label: "Shop", icon: "store" },
   { id: "chests", label: "Chests", icon: "gift" },
   { id: "play", label: "Play", icon: "swords" },
@@ -140,7 +140,7 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                     className="state-layer relative z-10 -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none focus-visible:ring-ring"
                   >
                     {/* No nudge (#827): the swords fill their square box, so the grid's centre is theirs. */}
-                    <GameIcon name={tab.icon} size="lg" />
+                    <Icon name={tab.icon} size="lg" />
                   </button>
                 </div>
               );
@@ -169,7 +169,7 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
               >
                 {/* The badge sits inside the icon's box (its side padding), so the item's content never leaves it, two digits included. */}
                 <span className={cn("relative", badge > 0 && "px-2.5")}>
-                  <GameIcon name={tab.icon} size="md" />
+                  <Icon name={tab.icon} size="md" fixedWidth />
                   {badge > 0 && (
                     <span aria-hidden data-slot="app-nav-badge" className="numeric absolute -top-2 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground ring-2 ring-background">
                       {badge}
