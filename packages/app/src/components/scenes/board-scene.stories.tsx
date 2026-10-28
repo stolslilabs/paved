@@ -350,7 +350,7 @@ export const StoryEndOnBoard: Story = {
 /** Raises a completion toast over the board a second in, as the app's tracking does when a game completes a mission (#595). */
 function BoardWithToast(args: BoardSceneProps) {
   useEffect(() => {
-    const t = setTimeout(() => toastCompletion("quest", "quest:6:story", { title: "Public Works", icon: "city", cobbles: 10 }), 1_000);
+    const t = setTimeout(() => toastCompletion("quest", "quest:6:story", { title: "Public Works", icon: "castle", cobbles: 10 }), 1_000);
     return () => clearTimeout(t);
   }, []);
   return (

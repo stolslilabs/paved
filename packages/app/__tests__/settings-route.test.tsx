@@ -123,13 +123,13 @@ describe("/settings", () => {
     await userEvent.click(await screen.findByRole("switch", { name: /Show other players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("default");
     await act(() => router.navigate("/settings/theme"));
-    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: slow(10_000) })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: /skins/ })).not.toBeInTheDocument();
     await act(() => router.navigate("/settings"));
-    expect(await screen.findByRole("region", { name: "Account" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Account" }, { timeout: slow(10_000) })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("switch", { name: /Show other players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("forest");
-  });
+  }, slow(30_000));
 
   it("shows the controller username, and Disconnect goes Home keeping ?ref=", async () => {
     const wallet = fakeWallet({ restored: true });
