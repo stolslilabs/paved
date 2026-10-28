@@ -1,7 +1,7 @@
 import { CENTER, levelStatus, pvpXp } from "@paved/game-core";
 import { sideSettings } from "../data/board-side";
 import { BOARD_FOG, squareGridSettings } from "../data/settings";
-import { APP_ASSETS } from "./assets";
+import { APP_ASSETS, appRenders } from "./assets";
 import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE, crownsFor, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
@@ -277,13 +277,13 @@ const MANY: MatchCardData[] = Array.from({ length: 26 }, (_, i) => {
   return { ...m, id: `${m.id}-${i}`, at: MOCK_NOW - (i + 1) * 3 * HOUR };
 });
 
-/** The League page's matches (a section of the page, BACK-RULE #783), on the page's clock. */
+/** The League page's matches (a section of the page, BACK-RULE #783), on the page's clock, the cards' backgrounds the app's renders (#857). */
 export const PVP_MATCHES = {
-  shielded: { matches: MATCHES, shieldEndsAt: MATCHES[1]!.at + 8 * HOUR },
-  open: { matches: MATCHES, shieldEndsAt: null },
-  many: { matches: MANY, shieldEndsAt: null },
+  shielded: { matches: MATCHES, shieldEndsAt: MATCHES[1]!.at + 8 * HOUR, renders: appRenders },
+  open: { matches: MATCHES, shieldEndsAt: null, renders: appRenders },
+  many: { matches: MANY, shieldEndsAt: null, renders: appRenders },
   /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards known. */
-  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, ...m }) => ({ ...m, village: null })), shieldEndsAt: null },
+  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, ...m }) => ({ ...m, village: null })), shieldEndsAt: null, renders: appRenders },
   empty: { matches: [] },
   loading: { matches: null },
   error: { matches: null, error: "The matches could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
