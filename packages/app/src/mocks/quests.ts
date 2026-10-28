@@ -184,7 +184,7 @@ export const ACHIEVEMENTS_ALL = achievements(
  * reached by the same game over, each with its Cobbles.
  */
 export const GAME_MISSIONS: readonly GameMission[] = [
-  { key: "quest:6:6913", kind: "quest", title: "Public Works", icon: "city", cobbles: 10 },
+  { key: "quest:6:6913", kind: "quest", title: "Public Works", icon: "castle", cobbles: 10 },
   { key: "quest:9:6913", kind: "quest", title: "Deep Woods", icon: "tree", cobbles: 10 },
   { key: "achievement:6", kind: "achievement", title: "Forester", icon: "tree", points: 20, cobbles: 20 },
 ];
