@@ -357,11 +357,10 @@ placed, toned, outlined, lit and shadowed: `bow-arrow`, `crown`,
 round shield, plume, coronets, gem, sheaf's tie and the divisions' plates and
 studs are written for Paved (Apache 2.0).
 
-The currencies in relief (src/assets/tokens/relief, #844, a study for the
-owner's pick): the files above, with an outline, a lit gradient, a light and a
-shadow added; their sources and terms are those of the files above. USDC's
-mark is unaltered: the dark ring, its light and the shadow drawn around it
-are Paved's (Apache 2.0).
+The currencies in relief (#844): usdc.svg, paved.svg and vpaved.svg above
+carry the HUD icons' relief, an outline, a lit gradient, a light and a shadow
+added to the sources above, under their terms. USDC's mark is unaltered: the
+dark ring, its light and the shadow drawn around it are Paved's (Apache 2.0).
 
 ================================================================================
 nums (cartridge-gg/nums, commit 4f8f405c2aca354307355ebf33190c43db2abd06)

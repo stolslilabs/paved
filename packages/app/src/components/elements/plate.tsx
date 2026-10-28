@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { type ReactNode } from "react";
 import { cn } from "../../lib/utils";
-import { Icon, type IconSize } from "../ui/icon";
+import { GameIcon, type GameIconSize } from "./game-icon";
 
 const boxVariants = cva("relative flex items-center rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", {
   variants: {
@@ -19,11 +19,11 @@ export type PlateSize = NonNullable<VariantProps<typeof boxVariants>["size"]>;
 /**
  * Each size's parts (issue 828). The icon stands over the box's end, its centre on the border, so half of it overlaps the box; the
  * "+" does the same at the other end, a little smaller. The box keeps the overlap plus a gap clear inside, so the figure never runs
- * under either. The gap is a quarter of the "+" (`TOKEN_GAP`'s rule, issue 668). The "+" is Font Awesome's `plus` (issue 845), 16 px in
- * the 28 px square, 20 in the 32.
+ * under either. The gap is a quarter of the "+" (`TOKEN_GAP`'s rule, issue 668). The "+" is the game icon `plus` (issues 845, 844), light
+ * on its green relief button (drawn by the icon, 1.75em across: the square), 16 px in the 28 px square, 20 in the 32.
  */
 type Ends = Record<"right" | "left", string>;
-const PARTS: Record<PlateSize, { coin: string; over: Ends; leadOver: Ends; plus: string; plusIcon: IconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
+const PARTS: Record<PlateSize, { coin: string; over: Ends; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
   sm: {
     coin: "size-10",
     over: { right: "-ml-5", left: "-mr-5" },
@@ -94,12 +94,12 @@ export function Plate({ side = "right", end, lead, leadContent, after, size, ton
           aria-hidden
           data-slot="resource-plus"
           className={cn(
-            "relative z-10 grid shrink-0 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm",
+            "relative z-10 grid shrink-0 place-items-center",
             parts.plus,
             parts.plusOver[side],
           )}
         >
-          <Icon name="plus" size={parts.plusIcon} />
+          <GameIcon name="plus" size={parts.plusIcon} />
         </span>
       )}
       {lead === "disc" && (
