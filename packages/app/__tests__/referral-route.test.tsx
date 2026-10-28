@@ -12,6 +12,7 @@ import { createTestRouter } from "../src/routes/router";
 import { withRef } from "../src/routes/ref";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // `/referral` (P10) on the fixture indexer (`/v1/players/:id/referrals`, IX-COBBLES2) and `FakeEconomy`'s split. The player
@@ -36,10 +37,11 @@ function open(s: ReturnType<typeof setup>, path = "/referral", wallet = fakeWall
 
 const earned = () => screen.findByRole("region", { name: "Earned" }, { timeout: slow(5000) });
 
-beforeEach(async () => {
-  // The page's module loaded before the route asks for it: on a loaded machine its first transform outlasted the wait.
-  // The referral is a sheet over Settings (BACK-RULE #783): Settings' module and the sheet's host load with it.
-  await Promise.all([import("../src/routes/pages/referral"), import("../src/routes/pages/settings"), import("../src/routes/page-sheet-host")]);
+// The page's module loaded before the route asks for it: on a loaded machine its first transform outlasted the wait.
+// The referral is a sheet over Settings (BACK-RULE #783): Settings' module and the shell's sheets load with it.
+preloadPages("referral", "settings");
+
+beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();

@@ -59,12 +59,28 @@ const PAGES = {
 };
 
 /**
- * The lazy route modules a file reaches, loaded once before its first test: the router imports a page on its first visit, which
- * a file's first test paid inside its own timeout (0.3 to 1.5 s per page, several times that under load).
+ * The shell's own lazy chunks, which any page can reach: the sheets a page is drawn under (BACK-RULE #783), the Cobbles sheet,
+ * the home's panels, the balances, and the profile sheet with its avatar, ring and XP path (#624, #625).
+ */
+const SHELL = [
+  () => import("../src/routes/page-sheets"),
+  () => import("../src/routes/page-sheet-host"),
+  () => import("../src/routes/cobbles-sheet-host"),
+  () => import("../src/routes/home-panel-host"),
+  () => import("../src/components/containers/balances"),
+  () => import("../src/components/containers/profile-sheet"),
+  () => import("../src/components/elements/saved-avatar"),
+  () => import("../src/components/elements/xp-ring"),
+  () => import("../src/components/elements/xp-path"),
+];
+
+/**
+ * The lazy route modules a file reaches, with the shell's chunks, loaded once before its first test: the router imports a page
+ * on its first visit, which a file's first test paid inside its own timeout (0.3 to 1.5 s per page, several times that under load).
  */
 export function preloadPages(...names: (keyof typeof PAGES)[]) {
   beforeAll(async () => {
-    await Promise.all(names.map((name) => PAGES[name]()));
+    await Promise.all([...names.map((name) => PAGES[name]()), ...SHELL.map((load) => load())]);
   }, slow(60_000));
 }
 
