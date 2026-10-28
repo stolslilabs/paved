@@ -44,8 +44,8 @@ export function RootLayout() {
   usePrefetchTabs();
   const [{ musicVolume, musicBefore, sfxVolume }] = useDeviceSettings();
   const onBoard = page !== null && BOARD_PATHS.has(page.path);
-  // The page's balances (BALANCES-BY-PAGE, #855): only those it uses. A page with none reads none, unless the home stays mounted
-  // under it (a panel's page from `desktop`, #762), whose own balances still show.
+  // The page's balances (BALANCES-BY-PAGE, issue 855): only those it uses. A page with none reads none, unless the home stays mounted
+  // under it (a panel's page from `desktop`, issue 762), whose own balances still show.
   const kinds = balancesOf(page);
   const noBalance = kinds.length === 0 && !page?.panel;
   const pages = (

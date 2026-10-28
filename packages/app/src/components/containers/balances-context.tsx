@@ -13,6 +13,9 @@ export const BalancesProvider = BalancesContext.Provider;
 
 const COBBLES: readonly ShownBalance[] = ["cobbles"];
 
+/** The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width. */
+export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpaved-held"];
+
 /** The balances in their own chunk (BALANCES, #538): the pages load it beside their code, the first bundle does not carry it. */
 const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balances })));
 

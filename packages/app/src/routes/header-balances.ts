@@ -1,11 +1,12 @@
 import type { ShownBalance } from "../components/containers/balances";
+import { HOME_BALANCES } from "../components/containers/balances-context";
 import type { PageDef } from "./pages";
+
+export { HOME_BALANCES };
 
 /** The balances a page shows, in their order on screen; empty, none (the shell then reads none for it). */
 export type HeaderBalances = readonly ShownBalance[];
 
-/** The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width. */
-export const HOME_BALANCES: HeaderBalances = ["cobbles", "paved", "vpaved-held"];
 const NONE: HeaderBalances = [];
 const COBBLES: HeaderBalances = ["cobbles"];
 
