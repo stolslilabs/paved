@@ -334,6 +334,16 @@
   --game-rose: var(--color-ember-300);
 }
 
+/* 3g. The league crests' materials (#854's second study, `elements/crest-directions.tsx`): the ladder's wood, iron, bronze,
+   silver and gold, each a base the crest mixes as a game icon's (3f). */
+:root {
+  --crest-wood: color-mix(in oklab, var(--color-amber-700) 80%, var(--color-charcoal-800));
+  --crest-iron: var(--color-charcoal-500);
+  --crest-bronze: color-mix(in oklab, var(--color-amber-500) 70%, var(--color-ember-600));
+  --crest-silver: color-mix(in oklab, var(--color-charcoal-100) 85%, var(--color-river-300));
+  --crest-gold: var(--color-gold-400);
+}
+
 
 @theme inline {
   --color-slab-edge: var(--slab-edge);
