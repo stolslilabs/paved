@@ -1,7 +1,7 @@
 import { slow } from "../test-slow";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { useCompletionStore } from "../src/data";
@@ -35,8 +35,12 @@ const noRawErrors = () => {
   expect(screen.queryByText(/RPC|entrypoint|starknet_call/i)).not.toBeInTheDocument();
 };
 
-// The packs' own page too: the balances' Cobbles open it, and its first load is the slowest wait of the file.
+// The packs' own page too, and the sheet it opens in (`cobbles-sheet.tsx` loads it lazily): the balances' Cobbles open them,
+// and their first load was the slowest wait of the file.
 preloadPages("missions", "vault", "cobbles");
+beforeAll(async () => {
+  await import("../src/routes/cobbles-sheet-host");
+}, slow(60_000));
 
 beforeEach(() => {
   queryClient.clear();
