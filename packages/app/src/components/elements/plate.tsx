@@ -53,11 +53,8 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; le
   auto: {
     coin: "size-10 desktop:size-11",
     over: { right: "-ml-5 desktop:-ml-5.5", left: "-mr-5 desktop:-mr-5.5" },
-    bareEnd: {
-      box: "size-12 desktop:size-13",
-      over: { right: "-ml-6 desktop:-ml-6.5", left: "-mr-6 desktop:-mr-6.5" },
-      pad: { right: "pr-8 desktop:pr-8.5", left: "pl-8 desktop:pl-8.5" },
-    },
+    // No balance uses `auto`: its bare icon is the phone's, so no class is built for nothing (the bundle's CSS budget).
+    bareEnd: { box: "size-12", over: { right: "-ml-6", left: "-mr-6" }, pad: { right: "pr-8", left: "pl-8" } },
     leadOver: { right: "-mr-5 desktop:-mr-5.5", left: "-ml-5 desktop:-ml-5.5" },
     plus: "size-7",
     plusIcon: "sm",
