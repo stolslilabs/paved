@@ -223,9 +223,9 @@ describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
     const { renders, themes } = rendererManifest();
     expect(Object.keys(renders).sort()).toEqual(["0", ...Object.keys(themes)].sort());
     // The Tutorial (a puzzle) and Open Country in Default, Dark Forest in Forest, each at the phone's and the grid's width.
-    // The battle logs' attack in Default and defence in Forest, at the phone's width and the wide page's (#857).
-    const battle = (side: string) => [720, 1040, 2000].map((width) => `battle-${side}-${width}`);
-    const story: Record<string, string[]> = { "0": ["story-1-1040", "story-1-720", "story-2-1040", "story-2-720", ...battle("attack")], "1": ["story-3-1040", "story-3-720", ...battle("defence")] };
+    // The battle logs' attack and defence, both in Default, at the phone's width and the wide page's (#857).
+    const battle = ["attack", "defence"].flatMap((side) => [720, 1040, 2000].map((width) => `battle-${side}-${width}`));
+    const story: Record<string, string[]> = { "0": ["story-1-1040", "story-1-720", "story-2-1040", "story-2-720", ...battle], "1": ["story-3-1040", "story-3-720"] };
     const listed: string[] = [];
     for (const [theme, plans] of Object.entries(renders)) {
       expect(Object.keys(plans).sort()).toEqual([...KEYS, ...KEYS.map((key) => `${key}-top`), "cover", ...(story[theme] ?? [])].sort());

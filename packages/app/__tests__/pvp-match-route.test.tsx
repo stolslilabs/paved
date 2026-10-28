@@ -74,7 +74,7 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     // The manifest: the battle logs' backgrounds (#857), the build's renders as the Story's.
     resetTileRenders();
     resetManifestBodies();
-    const renders = { "0": { "battle-attack-720": "renders/battle-attack-720.0.a.webp", "battle-attack-1040": "renders/battle-attack-1040.0.b.webp" }, "1": { "battle-defence-1040": "renders/battle-defence-1040.1.c.webp" } };
+    const renders = { "0": { "battle-attack-720": "renders/battle-attack-720.0.a.webp", "battle-attack-1040": "renders/battle-attack-1040.0.b.webp", "battle-defence-1040": "renders/battle-defence-1040.0.c.webp" } };
     vi.stubGlobal("fetch", (url: string) => Promise.resolve(String(url).endsWith("manifest.json") ? new Response(JSON.stringify({ models: {}, renders, themes: {} })) : new Response("", { status: 404 })));
     const s = await open("/pvp/league");
     const list = await screen.findByRole("list", { name: "Matches" }, WAIT);
@@ -87,7 +87,7 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     await waitFor(
       () =>
         expect(cards.map((c) => c.querySelector("[data-slot=match-art] img")?.getAttribute("srcset"))).toEqual([
-          expect.stringMatching(/^\S*battle-defence-1040\.1\.c\.webp 1040w$/),
+          expect.stringMatching(/^\S*battle-defence-1040\.0\.c\.webp 1040w$/),
           expect.stringMatching(/^\S*battle-attack-720\.0\.a\.webp 720w, \S*battle-attack-1040\.0\.b\.webp 1040w$/),
         ]),
       WAIT,

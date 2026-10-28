@@ -102,11 +102,11 @@ const storyName = (campaign: number, width: number) => `story-${campaign}-${widt
 export const BATTLE_WIDTHS = [720, 1040, 2000] as const;
 /**
  * The battle logs' backgrounds (#857), made as the Story's campaigns' (Open Country's framing: a whole board seen low, no
- * outlines, the depth of field, a little wider), each in its own theme and under its own held light (the day and night
- * cycle's, `dayNight`) so the two read apart:
- * - an attack: a village of the base deck in the Default theme under an autumn noon (warm);
- * - a defence: a walled village, its board leaning to the cities (`city`), in the Forest theme (it stands in for the stone
- *   theme the issue asked for, which the game does not have), seen from the other side under a winter noon (cool).
+ * outlines, the depth of field, a little wider), both in the Default theme (the owner's answer on #857, open point 2): the
+ * two read apart by what they draw, how they are framed and their held light (the day and night cycle's, `dayNight`):
+ * - an attack: an open village of the base deck, seen low and wide, under an autumn noon (warm);
+ * - a defence: a walled town, its board leaning hard to the cities (`city`), seen from the other side, higher and closer,
+ *   under a winter noon (cool).
  */
 const BATTLE = [
   {
@@ -116,8 +116,8 @@ const BATTLE = [
   },
   {
     side: "defence",
-    theme: 1,
-    spec: { board: { columns: 11, rows: 13, seed: 5, city: 2 }, zoom: 2.6, polar: 66, azimuth: 204, outlines: false, dayNight: 2.3125, depthOfField: { focus: 0.5, sharp: 0.3, far: 4, near: 6 } },
+    theme: 0,
+    spec: { board: { columns: 11, rows: 13, seed: 5, city: 3 }, zoom: 3.2, polar: 54, azimuth: 204, outlines: false, dayNight: 2.3125, depthOfField: { focus: 0.5, sharp: 0.3, far: 4, near: 6 } },
   },
 ] as const;
 const battleName = (side: string, width: number) => `battle-${side}-${width}`;
