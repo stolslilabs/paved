@@ -137,7 +137,8 @@ What the files set:
 - **Previews, on demand (2026-10-21).** Both files set `git.deploymentEnabled` to `{ "main": true, "**": false }`: a push deploys
   `main` only, and no branch or pull request gets a preview by itself (every push to a branch deployed both projects, about 145
   previews a day from 2026-10-17, and the CI job below already builds them). The label `preview` on a pull request deploys its head commit to both projects, and so does every later push
-  while the label stays (`.github/workflows/preview.yaml`, which runs `scripts/vercel/preview.sh` with the repository secret
+  while the label stays (`.github/workflows/preview.yaml`, triggered on `opened`, `reopened`, `labeled` and `synchronize`, so a pull
+  request always gets a run: without the label the job is skipped; it runs `scripts/vercel/preview.sh` with the repository secret
   `VERCEL_TOKEN`, a token of the Vercel team); the job comments the URLs on the pull request. The script also runs by hand
   (`VERCEL_TOKEN=<token> sh scripts/vercel/preview.sh <branch> <sha>`). It deploys through Vercel's git source, so the ignore step
   below still runs: a project whose inputs did not change ends CANCELED. Previews stay behind Vercel Authentication. A preview of the
