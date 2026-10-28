@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import aStone from "../../assets/tokens/cobbles-study/a-stone.svg?no-inline";
 import aStoneRaw from "../../assets/tokens/cobbles-study/a-stone.svg?raw";
 import bPile from "../../assets/tokens/cobbles-study/b-pile.svg?no-inline";
@@ -65,7 +65,10 @@ const DIRECTIONS: readonly Direction[] = [
     src: aStone,
     raw: aStoneRaw,
     legible: "One shape: reads as a stone at 16 px; the specks fade, the lit top and dark side stay.",
-    silhouette: { ok: true, note: "Wider than tall, a lit top over a dark side: no rim, no letter." },
+    silhouette: {
+      ok: true,
+      note: "Wider than tall, a lit top over a dark side: no rim, no letter.",
+    },
     plate: "Fills the disc as one mass, the clearest of the five.",
   },
   {
@@ -85,7 +88,10 @@ const DIRECTIONS: readonly Direction[] = [
     src: cCoin,
     raw: cCoinRaw,
     legible: "Reads as a coin; the four cobbles become a grid of dots under 24 px.",
-    silhouette: { ok: false, note: "Round with a rim, as PAVED's coin: only the colour and the face tell them apart." },
+    silhouette: {
+      ok: false,
+      note: "Round with a rim, as PAVED's coin: only the colour and the face tell them apart.",
+    },
     plate: "Sits on the disc like the other coins (USDC, PAVED).",
   },
   {
@@ -115,14 +121,76 @@ const SIZES = [16, 24, 32, 48, 64] as const;
 /** The study's limit for the file (issue 849). */
 const MAX_BYTES = 2048;
 
-/** The home's skies (theme.css, 3b): a day sky stands for the light surfaces, a night one beside the app's dark surface. */
-const SURFACES = [
-  { name: "Dark: the app's surface", className: "bg-background" },
-  { name: "Dark: a card", className: "bg-card" },
-  { name: "Light: spring day sky", style: { background: "linear-gradient(to bottom, var(--sky-spring-day-top), var(--sky-spring-day-bottom))" } },
-  { name: "Light: summer day sky", style: { background: "linear-gradient(to bottom, var(--sky-summer-day-top), var(--sky-summer-day-bottom))" } },
-  { name: "Night: winter night sky", style: { background: "linear-gradient(to bottom, var(--sky-winter-night-top), var(--sky-winter-night-bottom))" } },
+/**
+ * The light theme, drafted for this study only (issue 849 asks for both themes; the app is dark only and `theme.css` has no light
+ * block yet): the app's semantic tokens re-pointed to the light end of its own palette on a wrapper, so the real parts (the plate,
+ * its disc and "+", the cards, the badge, the button) redraw light. The utilities read the tokens through `@theme inline`.
+ */
+const LIGHT = {
+  colorScheme: "light",
+  "--background": "var(--color-charcoal-50)",
+  "--foreground": "var(--color-charcoal-950)",
+  "--card": "var(--color-charcoal-100)",
+  "--card-foreground": "var(--color-charcoal-950)",
+  "--primary-foreground": "var(--color-charcoal-950)",
+  "--secondary": "var(--color-charcoal-200)",
+  "--secondary-foreground": "var(--color-charcoal-950)",
+  "--muted": "var(--color-charcoal-200)",
+  "--muted-foreground": "var(--color-charcoal-600)",
+  "--accent": "var(--color-charcoal-200)",
+  "--accent-foreground": "var(--color-charcoal-950)",
+  "--success": "var(--color-meadow-700)",
+  "--warning": "var(--color-amber-700)",
+  "--border": "var(--color-charcoal-300)",
+  "--input": "var(--color-charcoal-400)",
+  "--resource-plate": "var(--color-charcoal-50)",
+  "--resource-edge": "var(--color-charcoal-300)",
+  "--resource-shade": "color-mix(in srgb, var(--color-charcoal-950) 12%, transparent)",
+} as CSSProperties;
+
+const THEMES = [
+  { name: "Dark (the app)", theme: "dark", style: undefined },
+  { name: "Light (drafted for the study)", theme: "light", style: LIGHT },
 ] as const;
+type Theme = (typeof THEMES)[number];
+
+/** A block in one theme: its tokens, and the `data-theme` that names it. */
+function Themed({ theme, className, children }: { theme: Theme; className?: string; children: ReactNode }) {
+  return (
+    <div data-theme={theme.theme} style={theme.style} className={cn("bg-background text-foreground", className)}>
+      {children}
+    </div>
+  );
+}
+
+/** Each theme's surface and card, then the home's skies (theme.css, 3b): a day and a night one, the backdrops the HUD stands on. */
+const SURFACES: readonly {
+  name: string;
+  theme: Theme;
+  className: string;
+  style?: CSSProperties;
+}[] = [
+  ...THEMES.flatMap((theme) => [
+    { name: `${theme.name}: surface`, theme, className: "bg-background" },
+    { name: `${theme.name}: card`, theme, className: "bg-card" },
+  ]),
+  {
+    name: "Spring day sky",
+    theme: THEMES[1],
+    className: "",
+    style: {
+      background: "linear-gradient(to bottom, var(--sky-spring-day-top), var(--sky-spring-day-bottom))",
+    },
+  },
+  {
+    name: "Winter night sky",
+    theme: THEMES[0],
+    className: "",
+    style: {
+      background: "linear-gradient(to bottom, var(--sky-winter-night-top), var(--sky-winter-night-bottom))",
+    },
+  },
+];
 
 const Img = ({ src, className }: { src: string; className?: string }) => (
   <img src={src} alt="" aria-hidden draggable={false} className={cn("inline-block shrink-0 select-none", className)} />
@@ -163,20 +231,41 @@ function Criteria({ d }: { d: Direction }) {
 
 /**
  * Each direction at its real sizes (16, 24, 32, 48, 64 px), beside PAVED's coin (today's and #844's relief) at 24 and 48 px, on
- * the app's dark surfaces and the home's day skies, with the issue's four criteria. Today's icon last, for comparison.
+ * both themes' surface and card and on a day and a night sky, with the issue's four criteria. Today's icon last, for comparison.
  */
 export const Directions: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
       {ALL.map((d) => (
-        <section key={d.key} aria-label={d.name} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 text-foreground">
+        <section
+          key={d.key}
+          aria-label={d.name}
+          className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 text-foreground"
+        >
           <h3 className="text-sm font-semibold">{d.name}</h3>
           <p className="text-xs text-muted-foreground">{d.idea}</p>
           <div className="flex flex-col gap-1">
             {SURFACES.map((s) => (
-              <div key={s.name} className={cn("flex flex-wrap items-end gap-3 rounded-lg p-2", "className" in s && s.className)} style={"style" in s ? s.style : undefined}>
+              <div
+                key={s.name}
+                data-theme={s.theme.theme}
+                className={cn("flex flex-wrap items-end gap-3 rounded-lg p-2", s.className)}
+                style={{ ...s.theme.style, ...s.style }}
+              >
                 {SIZES.map((px) => (
-                  <Img key={px} src={d.src} className={{ 16: "size-4", 24: "size-6", 32: "size-8", 48: "size-12", 64: "size-16" }[px]} />
+                  <Img
+                    key={px}
+                    src={d.src}
+                    className={
+                      {
+                        16: "size-4",
+                        24: "size-6",
+                        32: "size-8",
+                        48: "size-12",
+                        64: "size-16",
+                      }[px]
+                    }
+                  />
                 ))}
                 <span className="mx-1 self-stretch border-l border-border" />
                 <TokenIcon kind="paved" size="md" />
@@ -244,9 +333,24 @@ function ShopPrice({ src }: { src: string }) {
   );
 }
 
+/** An amount in a sentence, beside a PAVED amount, with its icon's measured size: `em` is 1.25em, never under 16 px. */
+function Sentence({ src, className }: { src: string; className: "text-xs" | "text-sm" }) {
+  return (
+    <p className={cn("text-foreground", className)}>
+      Win <Count src={src} value="15" /> for this quest, then spend <Count src={src} value="1,240" /> or pay with{" "}
+      <span className={cn("inline-flex items-center whitespace-nowrap", TOKEN_GAP)}>
+        <TokenIcon kind="paved" size="em" />
+        <span className="numeric font-semibold">12.50</span>
+      </span>
+      . <span className="text-muted-foreground">({className === "text-xs" ? "12 px text: icon 16 px" : "14 px text: icon 17.5 px"})</span>
+    </p>
+  );
+}
+
 /**
- * Each direction in the real places, beside PAVED: an amount in a sentence (16 px, the `em` icon), the balances' plate at both
- * sizes next to PAVED's, a shop price and a pack card; on the app's dark surface and on a day sky. Today's icon last.
+ * Each direction in the real places, beside PAVED, in both themes: an amount in a sentence (at 12 px text the `em` icon is at its
+ * 16 px floor, at 14 px it is 17.5 px), the balances' plate at both sizes next to PAVED's, a shop price and a pack card. Today's
+ * icon last.
  */
 export const InPlace: Story = {
   render: () => (
@@ -254,30 +358,31 @@ export const InPlace: Story = {
       {ALL.map((d) => (
         <section key={d.key} aria-label={d.name} className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold text-foreground">{d.name}</h3>
-          {[SURFACES[0], SURFACES[2]].map((s) => (
-            <div
-              key={s.name}
-              className={cn("flex flex-wrap items-center gap-4 rounded-xl p-3", "className" in s && s.className)}
-              style={"style" in s ? s.style : undefined}
-            >
-              <p className="max-w-56 rounded-md bg-background/70 p-1.5 text-sm text-foreground">
-                Win <Count src={d.src} value="15" /> for this quest, then spend <Count src={d.src} value="1,240" /> or pay with{" "}
-                <span className={cn("inline-flex items-center whitespace-nowrap", TOKEN_GAP)}>
-                  <TokenIcon kind="paved" size="em" />
-                  <span className="numeric font-semibold">12.50</span>
-                </span>
-                .
-              </p>
+          {THEMES.map((theme) => (
+            <Themed key={theme.theme} theme={theme} className="flex flex-wrap items-center gap-4 rounded-xl border border-border p-3">
+              <span className="w-full text-xs text-muted-foreground">{theme.name}</span>
+              <div className="flex max-w-60 flex-col gap-2">
+                <Sentence src={d.src} className="text-xs" />
+                <Sentence src={d.src} className="text-sm" />
+              </div>
               <div className="flex flex-col items-end gap-3">
                 <CobblesPlate src={d.src} size="sm" />
                 <CobblesPlate src={d.src} size="md" />
-                <Plate size="sm" lead="plus" end={<PlateDisc size="sm"><TokenIcon kind="paved" className={cn("relative", plateCoinClass("sm"))} /></PlateDisc>}>
+                <Plate
+                  size="sm"
+                  lead="plus"
+                  end={
+                    <PlateDisc size="sm">
+                      <TokenIcon kind="paved" className={cn("relative", plateCoinClass("sm"))} />
+                    </PlateDisc>
+                  }
+                >
                   <span className={PLATE_FIGURE}>142.35</span>
                 </Plate>
               </div>
               <ShopPrice src={d.src} />
               <PackCard src={d.src} />
-            </div>
+            </Themed>
           ))}
         </section>
       ))}
@@ -285,21 +390,26 @@ export const InPlace: Story = {
   ),
 };
 
-/** The five side by side at 16 px in a sentence and at 48 px over a plate, and PAVED's coin: the pick at a glance. */
+/** The five side by side in both themes: at 16 px in a sentence (12 px text), on the plate, at 48 px, and PAVED's coin. */
 export const Lineup: Story = {
   render: () => (
-    <div className="flex flex-col gap-3 rounded-xl bg-background p-3 text-foreground">
-      {ALL.map((d) => (
-        <div key={d.key} className="flex flex-wrap items-center gap-4">
-          <span className="w-40 text-xs font-semibold">{d.name}</span>
-          <span className="text-sm">
-            Get <Count src={d.src} value="500" /> for $90
-          </span>
-          <CobblesPlate src={d.src} size="sm" />
-          <Img src={d.src} className="size-12" />
-          <TokenIcon kind="paved" size="xl" />
-          <span className="numeric text-xs text-muted-foreground">{d.raw.length.toLocaleString("en")} B</span>
-        </div>
+    <div className="flex flex-col gap-3">
+      {THEMES.map((theme) => (
+        <Themed key={theme.theme} theme={theme} className="flex flex-col gap-3 rounded-xl border border-border p-3">
+          <span className="text-xs text-muted-foreground">{theme.name}</span>
+          {ALL.map((d) => (
+            <div key={d.key} className="flex flex-wrap items-center gap-4">
+              <span className="w-40 text-xs font-semibold">{d.name}</span>
+              <span className="text-xs">
+                Get <Count src={d.src} value="500" /> for $90
+              </span>
+              <CobblesPlate src={d.src} size="sm" />
+              <Img src={d.src} className="size-12" />
+              <TokenIcon kind="paved" size="xl" />
+              <span className="numeric text-xs text-muted-foreground">{d.raw.length.toLocaleString("en")} B</span>
+            </div>
+          ))}
+        </Themed>
       ))}
     </div>
   ),
