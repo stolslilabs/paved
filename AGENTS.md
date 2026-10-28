@@ -19,6 +19,7 @@ files, through `slow()` of `packages/app/test-slow.ts`): unset is 1 (CI, a quiet
 `bun run check` sets it to `1` by itself when the 1-minute load average passes the core count (never in CI), keeps a value you
 set (`PAVED_TEST_SLOW=0` forces it off), and prints which. By hand: `PAVED_TEST_SLOW=1 NODE_OPTIONS=--max-old-space-size=1536 bun run test --filter @paved/app`.
 A ceiling costs a passing test nothing (it returns as soon as its state is there), so a test given one states a measure, not a guess.
+Under the profile, a failed test also runs once more (`retry` in `packages/app/vitest.config.ts`); without it (CI) nothing is retried.
 
 The Training Playwright e2e and its CI job `e2e` left with app-web (removed in P-70; see git history).
 

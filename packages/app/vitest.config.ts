@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { slow } from "./test-slow";
+import { SLOW_FACTOR, slow } from "./test-slow";
 
 
 // P-66: the tests run under a French locale and a Paris time zone, so a number or date that follows the process's locale
@@ -23,6 +23,10 @@ export default defineConfig({
     // `PAVED_TEST_SLOW` (test-slow.ts) multiplies it, with every wait ceiling of the suite, on a loaded machine.
     testTimeout: slow(15_000),
     hookTimeout: slow(10_000),
+    // Under the slow profile only, a failed test runs once more: on a machine loaded far past its cores, a page's first view
+    // outlasted even scaled waits in a different file each run (the first test of a route file, 30 to 60 s). CI (no profile)
+    // never retries, so a test that fails for its own reason still fails there.
+    retry: SLOW_FACTOR > 1 ? 1 : 0,
     // The token tests read computed colours from the compiled stylesheet.
     css: true,
   },
