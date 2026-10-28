@@ -40,6 +40,17 @@ export function playDailies(f: ReturnType<typeof sepoliaChain>, done: readonly n
   f.fixture.games.sort((a, b) => (key(a) < key(b) ? 1 : -1));
 }
 
+/**
+ * A paid Challenge game of Ada started at `start` and surrendered at `surrenderedAt` (#869): on the fixture's indexer as the
+ * contract leaves a game over on a later UTC day than its start (no end time, counted in no day), and its surrender's time in
+ * the ledger, as the mock's signer records it.
+ */
+export async function surrenderGame(f: ReturnType<typeof sepoliaChain>, ledger: MockLedger, gameId: number, start: number, surrenderedAt: number) {
+  f.fixture.games = [...f.fixture.games, { contract: "challenge", game_id: gameId, player_id: PLAYER, mode: 1, start_time: start, day_id: Math.floor(start / 86_400), over: true, score: 40, counted_day_id: 0, end_time: 0, token_id: null, free: false }];
+  f.fixture.games.sort((a, b) => b.start_time - a.start_time);
+  await ledger.recordSurrender(PLAYER, gameId, surrenderedAt);
+}
+
 /** The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them. */
 export function mockImplementation(store = memoryStore()) {
   const f = sepoliaChain();

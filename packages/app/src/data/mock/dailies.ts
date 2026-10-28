@@ -74,16 +74,27 @@ export async function gamesUpTo(day: number, page: (before: string | undefined) 
   }
 }
 
+/** The mock's surrender times (`MockLedger.surrenders`): game id to seconds. */
+export type SurrenderTimes = Readonly<Record<string, number>>;
+
 /**
- * When a game finished, as far as the indexer knows. `GameOver.end_time` is set only for a game over on the UTC day it started
- * (`end_in_day`, `playable.cairo`); one finished on a later day reports 0, yet its quests count on its finish. The mock's
- * estimate: the day after its start (a game lives 24 h, `GAME_LIFE_S`), at that day's start. A known limit of the mock (#869,
- * the Overseer's ruling): a game surrendered more than a day after its start (`surrender` checks no expiry) counts on that day
- * instead of its finish day, and `gamesUpTo` reads no game started earlier. The indexer must expose a finish time for such
- * games for the fifth daily to be exact (#738).
+ * When a game finished. `GameOver.end_time` is set only for a game over on the UTC day it started (`end_in_day`,
+ * `playable.cairo`); one finished on a later day reports 0, yet its quests count on its finish. A game the player surrendered
+ * through the mock has its surrender's time (`surrenders`; `surrender` checks no expiry, so it can come days later). Else the
+ * game was finished by its last move, which its 24 h allow (`GAME_LIFE_S`) only up to the day after its start: that day's
+ * start stands for it. On real data the indexer must expose the surrender's time for this to hold (#738).
  */
-export function finishedAt(game: IndexedGame): number {
-  return game.endTime > 0 ? game.endTime : (Math.floor(game.startTime / DAY_S) + 1) * DAY_S;
+export function finishedAt(game: IndexedGame, surrenders: SurrenderTimes = {}): number {
+  if (game.endTime > 0) return game.endTime;
+  return surrenders[game.gameId] ?? (Math.floor(game.startTime / DAY_S) + 1) * DAY_S;
+}
+
+/** The games surrendered on `day` (`surrenders`) that `games` lacks: started more than a game's life before it, past `gamesUpTo`'s pages. */
+export function surrenderedOnDay(day: number, games: readonly IndexedGame[], surrenders: SurrenderTimes): number[] {
+  const read = new Set(games.map((g) => g.gameId));
+  return Object.entries(surrenders)
+    .filter(([id, time]) => Math.floor(time / DAY_S) === day && !read.has(Number(id)))
+    .map(([id]) => Number(id));
 }
 
 /**
@@ -92,12 +103,12 @@ export function finishedAt(game: IndexedGame): number {
  * done when the game that reached its total finished (`finishedAt`). Nothing is added to a day with no daily live (before the
  * quests were defined).
  */
-export function withMockDailyProgress(definitions: Definitions, progress: PlayerQuests, games: readonly IndexedGame[]): PlayerQuests {
+export function withMockDailyProgress(definitions: Definitions, progress: PlayerQuests, games: readonly IndexedGame[], surrenders: SurrenderTimes = {}): PlayerQuests {
   if (!needsMockDailies(definitions, progress)) return progress;
   const ends = games
     // A free game reports no quest progress (`Challenge.finish`, cobbles v1 4.2): it counts for no daily.
-    .filter((g) => g.contract === "challenge" && !g.free && g.over && Math.floor(finishedAt(g) / DAY_S) === progress.day)
-    .map(finishedAt)
+    .filter((g) => g.contract === "challenge" && !g.free && g.over && Math.floor(finishedAt(g, surrenders) / DAY_S) === progress.day)
+    .map((g) => finishedAt(g, surrenders))
     .sort((a, b) => a - b);
   const added = familyOf(definitions)
     .filter((d) => isLiveOnDay(schedule(d), progress.day))

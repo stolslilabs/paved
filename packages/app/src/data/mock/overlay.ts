@@ -1,7 +1,7 @@
 import { IndexerError, ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
-import { dailiesDone, gamesUpTo, needsMockDailies, withMockDailies, withMockDailyProgress } from "./dailies";
+import { dailiesDone, gamesUpTo, needsMockDailies, surrenderedOnDay, withMockDailies, withMockDailyProgress } from "./dailies";
 import type { MockLedger, MockedReads } from "./ledger";
 
 // The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the
@@ -192,7 +192,17 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
     if (!needsMockDailies(defined.data, answer.data)) return answer;
     const day = answer.data.day;
     const games = await gamesUpTo(day, async (before) => (await chain.playerGames(playerId, { contract: "challenge", limit: 100, ...(before ? { before } : {}) })).data);
-    return { ...answer, data: withMockDailyProgress(defined.data, answer.data, games) };
+    // The games surrendered that day long after their start (#869): past the pages read, each read by its id.
+    const surrenders = ledger.surrenders(String(playerId));
+    const older = await Promise.all(
+      surrenderedOnDay(day, games, surrenders).map((id) =>
+        chain.game("challenge", id).then(
+          (a) => a.data,
+          () => null,
+        ),
+      ),
+    );
+    return { ...answer, data: withMockDailyProgress(defined.data, answer.data, [...games, ...older.filter((g) => g !== null)], surrenders) };
   };
   ledger.countDailiesWith(async (playerId, day) => {
     const [defined, progress] = await Promise.all([definitions(), playerQuests(playerId, { day })]);
@@ -230,7 +240,14 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
  */
 export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger): T {
   const writes = ledger.writesFor(writer.address);
-  return overlay(writer, MOCKED_WRITES, {
+  return overlay(writer, [...MOCKED_WRITES, "surrender"], {
+    // The chain's surrender, its time recorded once taken (#869): the indexer has none for a game over on a later day than its
+    // start, and the fifth daily counts the game on it.
+    surrender: async (key: GameKey) => {
+      const result = await writer.surrender(key);
+      if (key.mode === "challenge") await ledger.recordSurrender(writer.address, key.gameId);
+      return result;
+    },
     claim: writes.claim,
     claimQuest: writes.claimQuest,
     claimAchievement: writes.claimAchievement,

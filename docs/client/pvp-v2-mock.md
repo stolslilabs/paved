@@ -58,8 +58,10 @@ Choices made where the decisions leave room (each can be reversed by changing on
   `mock/dailies.ts`) adds a fourth rotating family, finish 2, 3 or 4 Challenge games in a day (ids 17 to 19,
   `MOCK_DAILY_FAMILY`), to the definitions and its live quest to each day's progress, counted from the player's paid
   Challenge games finished that UTC day (a free game reports no quest progress, `Challenge.finish`; a game finished on a later
-  day than its start has no end time, `end_in_day`, and counts on the day after its start, `finishedAt`: a known limit, as a game
-  surrendered more than a day after its start counts on that day, not its finish day, until the indexer exposes a finish time, #738; read page by page, newest first, down to the games started more than a game's life before the
+  day than its start has no end time, `end_in_day`: one surrendered counts on its surrender's time, which the mock's signer
+  records (`surrenders` of the ledger; `surrender` checks no expiry, so it can come days later, and such a game is read by its id
+  past the pages), one finished by its last move on the day after its start, `finishedAt`; on real data the indexer must expose
+  the surrender's time, #738; read page by page, newest first, down to the games started more than a game's life before the
   day, so an older day keeps its count). An id the indexer already defines is left as it is; it goes once the contracts define the fifth
   daily (#738).
 - **The level** (`playerLevel`, the ring) is v2's: the mock's XP, capped at 20.

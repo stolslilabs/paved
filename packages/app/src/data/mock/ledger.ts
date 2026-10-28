@@ -257,6 +257,12 @@ interface StoredPlayer {
   /** What the mock moved of the player's PAVED and USDC, added to the chain's balance. */
   paved: string;
   usdc: string;
+  /**
+   * The Challenge games the player surrendered through the mock's signer (#869): game id to the surrender's time, in seconds.
+   * The indexer has no finish time for a game over on a later UTC day than its start, and a surrender can come days later: the
+   * fifth daily counts it on this time. Absent: none (a state stored before it).
+   */
+  surrenders?: Record<string, number>;
   /** `avatar(player_id)`, a decimal string; absent: none set (a state stored before the avatar reads it so). */
   avatar?: string;
   /** `owned(player_id, part)` by part, decimal strings; absent: nothing bought. */
@@ -484,6 +490,23 @@ export class MockLedger {
    */
   countDailiesWith(read: (playerId: string, day: number) => Promise<number>): void {
     this.dailiesDone = read;
+  }
+
+  /** The Challenge games `playerId` surrendered through the mock (#869), game id to the surrender's time in seconds. */
+  surrenders(playerId: string): Readonly<Record<string, number>> {
+    this.sync();
+    return { ...this.peek(playerId).surrenders };
+  }
+
+  /**
+   * A Challenge game's surrender, recorded at `time` (seconds, now by default) by the mock's signer once the chain took it
+   * (`mockSigner`'s `surrender`): the finish the fifth daily counts it on (#869).
+   */
+  async recordSurrender(account: string, gameId: number, time = Math.floor(Date.now() / 1000)): Promise<void> {
+    await this.write(account, (p) => {
+      p.surrenders = { ...p.surrenders, [gameId]: time };
+      return [];
+    });
   }
 
   /** `/v1/players/:id/referrals`: the mock's player referred nobody yet. */

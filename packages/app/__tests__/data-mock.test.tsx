@@ -34,7 +34,7 @@ import type { Purchases, VaultWrites } from "../src/data/sources";
 import { PACKS, SKIN_PRICES } from "../src/mocks/cobbles";
 import { PAGES } from "../src/routes/pages";
 import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
-import { mockImplementation, playDailies } from "./mock-fakes";
+import { mockImplementation, playDailies, surrenderGame } from "./mock-fakes";
 import { FakeSkinWriter } from "./skin-fakes";
 import { FakeAvatarWriter } from "./avatar-fakes";
 import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
@@ -365,6 +365,49 @@ describe("the mock", () => {
     // So the day's five dailies are done: the second milestone pays.
     await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1);
     expect((await ledger.account(PLAYER)).cobbles).toBe(15);
+  });
+
+  it("counts for the fifth daily a paid game surrendered two days after its start on its surrender's day, not the day after its start", async () => {
+    const { sources, chain, ledger } = mockImplementation();
+    playDailies(chain, [1, 2, 3, 4]);
+    // Started two days ago at 10:00, surrendered today at 09:00 (`surrender` checks no expiry): the indexer has no end time for it,
+    // and it started before the pages the day reads.
+    // 100 free games started after it (they count for nothing): the pages read stop before reaching it, so it is read by its id.
+    for (let i = 0; i < 100; i++) {
+      const start = (TODAY - 2) * 86_400 + 12 * 3_600 + i * 60;
+      chain.fixture.games.push({ contract: "challenge", game_id: 7_000 + i, player_id: PLAYER, mode: 1, start_time: start, day_id: TODAY - 2, over: true, score: 10, counted_day_id: TODAY - 2, end_time: start + 30, token_id: null, free: true });
+    }
+    const surrendered = TODAY * 86_400 + 9 * 3_600;
+    await surrenderGame(chain, ledger, 6_100, (TODAY - 2) * 86_400 + 10 * 3_600, surrendered);
+    const requests = chain.fixture.requests.length;
+    const quest = async (day: number, id: number) => (await sources.indexer.playerQuests(PLAYER, { day })).data.quests.find((q) => q.questId === id)!;
+    // Today (quest 17, two games): the fixture's paid game of the day and the surrender, done at the later of the two.
+    const fifth = await quest(TODAY, 17);
+    expect(fifth).toMatchObject({ completed: true, tasks: [{ total: 2, count: 2 }] });
+    expect(fifth.completedAt).toBe(Math.max(surrendered, 1_791_871_203));
+    expect(chain.fixture.requests.slice(requests).some((r) => r === "/v1/games/challenge/6100")).toBe(true);
+    // Not the day after its start (quest 19), nor its start's (quest 18).
+    expect((await quest(TODAY - 1, 19)).tasks[0]!.count).toBe(0);
+    expect((await quest(TODAY - 2, 18)).tasks[0]!.count).toBe(0);
+    // So today's five dailies are done: the second milestone pays; yesterday's stays out of reach.
+    await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1);
+    expect((await ledger.account(PLAYER)).cobbles).toBe(15);
+    const refused = await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY - 1, 1).catch((e: unknown) => e);
+    expect((refused as DailyMilestoneRefusedError).reason).toBe("not-reached");
+  });
+
+  it("records a Challenge game's surrender through the mock's signer, once the chain took it", async () => {
+    const { ledger } = mockImplementation();
+    const surrender = vi.fn(async () => ({ transactionHash: "0x5", events: [] }));
+    const signer = mockSigner({ address: PLAYER, surrender } as unknown as GameSigner, ledger);
+    const before = Math.floor(Date.now() / 1000);
+    expect(await signer.surrender({ mode: "challenge", gameId: 6_200 })).toEqual({ transactionHash: "0x5", events: [] });
+    expect(surrender).toHaveBeenCalledWith({ mode: "challenge", gameId: 6_200 });
+    expect(ledger.surrenders(PLAYER)[6_200]).toBeGreaterThanOrEqual(before);
+    // A refused surrender records nothing.
+    surrender.mockRejectedValueOnce(new Error("refused"));
+    await expect(signer.surrender({ mode: "challenge", gameId: 6_201 })).rejects.toThrow("refused");
+    expect(ledger.surrenders(PLAYER)[6_201]).toBeUndefined();
   });
 
   it("counts the fifth daily of an older day past the indexer's first pages: its games are read however many came after", async () => {
