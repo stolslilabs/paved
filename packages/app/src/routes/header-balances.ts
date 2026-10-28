@@ -1,11 +1,18 @@
 import type { BalanceKind, ShownBalance } from "../components/containers/balances";
-import { HOME_BALANCES, PACKS_BALANCES } from "../components/containers/balances-context";
 import type { PageDef } from "./pages";
-
-export { HOME_BALANCES };
 
 /** The balances a page shows, in their order on screen; empty, none (the shell then reads none for it). */
 export type HeaderBalances = readonly ShownBalance[];
+
+/** The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width. */
+export const HOME_BALANCES: HeaderBalances = ["cobbles", "paved", "vpaved-held"];
+
+/**
+ * The Cobble packs' set (#855): the Cobbles and USDC, which buys them; the Cobbles' plate leads nowhere there, the packs being in
+ * view (`PACKS_HERE`), also in the sheet over another page (`routes/pages/cobbles.tsx`).
+ */
+export const PACKS_BALANCES: HeaderBalances = ["cobbles", "usdc"];
+export const PACKS_HERE: readonly BalanceKind[] = ["cobbles"];
 
 const NONE: HeaderBalances = [];
 const COBBLES: HeaderBalances = ["cobbles"];

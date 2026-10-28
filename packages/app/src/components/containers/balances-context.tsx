@@ -1,7 +1,7 @@
 import { createContext, lazy, Suspense, useContext, useMemo, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Skeleton } from "../ui/skeleton";
-import type { BalanceKind, BalancesProps, ShownBalance } from "./balances";
+import type { BalancesProps, ShownBalance } from "./balances";
 
 /**
  * What the shell hands the pages' headers and the home: the balances, the page's set (`kinds`, #855: `routes/header-balances.ts`)
@@ -23,15 +23,12 @@ export function BalancesOf({ kinds, here, children }: Pick<BalancesProps, "kinds
 
 const COBBLES: readonly ShownBalance[] = ["cobbles"];
 
-/** The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width. */
-export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpaved-held"];
-
 /**
- * The Cobble packs' set (#855): the Cobbles and USDC, which buys them; the Cobbles' plate leads nowhere there, the packs being in
- * view (`PACKS_HERE`). Here beside the slot, as the home's, so the packs' page reads it without the route table.
+ * The home's and the packs' sets (#855), the rule's (`routes/header-balances.ts`, which imports no module so the header sweep's
+ * Node reads it), passed on here beside the slot: a lazy page that imports the route table itself splits this module out of the
+ * entry.
  */
-export const PACKS_BALANCES: readonly ShownBalance[] = ["cobbles", "usdc"];
-export const PACKS_HERE: readonly BalanceKind[] = ["cobbles"];
+export { HOME_BALANCES, PACKS_BALANCES, PACKS_HERE } from "../../routes/header-balances";
 
 /** The balances in their own chunk (BALANCES, #538): the pages load it beside their code, the first bundle does not carry it. */
 const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balances })));
