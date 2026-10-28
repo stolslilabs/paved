@@ -334,6 +334,22 @@ describe("the mock", () => {
     expect((await sources.indexer.playerQuests(PLAYER, { day: TODAY - 1 })).data.quests).toEqual([]);
   });
 
+  it("counts the fifth daily of an older day past the indexer's first pages: its games are read however many came after", async () => {
+    const { sources, chain, ledger } = mockImplementation();
+    // Day mod 3 = 0: the fifth daily is quest 17, two games. Its two games, then 150 newer ones over the next days.
+    const day = TODAY - 3;
+    playDailies(chain, [1, 2, 3, 4], 2, day);
+    for (const later of [day + 1, day + 2, TODAY]) playDailies(chain, [1, 2, 3, 4], 50, later);
+    const requests = chain.fixture.requests.length;
+    const fifth = (await sources.indexer.playerQuests(PLAYER, { day })).data.quests.find((q) => q.questId === 17)!;
+    expect(fifth).toMatchObject({ completed: true, tasks: [{ total: 2, count: 2 }] });
+    // Pages of 100 down to the day: the second holds its games.
+    expect(chain.fixture.requests.slice(requests).filter((r) => r.includes("/games")).length).toBe(2);
+    // So the day's second milestone, its five dailies done, is still earned.
+    await ledger.writesFor(PLAYER).claimDailyMilestone(day, 1);
+    expect(await ledger.dailyMilestones(PLAYER, day)).toEqual({ day, claimed: 0b10 });
+  });
+
   it("the day's milestones (#869): 10 Cobbles at 3 dailies done, 15 at 5, each once a day, through the signer and the views", async () => {
     const { sources, chain } = mockImplementation();
     const views = sources.views as typeof sources.views & DailyMilestoneViews;

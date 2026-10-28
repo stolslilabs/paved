@@ -1,7 +1,7 @@
 import { IndexerError, ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
-import { dailiesDone, needsMockDailies, withMockDailies, withMockDailyProgress } from "./dailies";
+import { dailiesDone, gamesUpTo, needsMockDailies, withMockDailies, withMockDailyProgress } from "./dailies";
 import type { MockLedger, MockedReads } from "./ledger";
 
 // The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the
@@ -190,9 +190,9 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
   const playerQuests = async (playerId: string | bigint, params: { day?: number } = {}) => {
     const [answer, defined] = await Promise.all([chain.playerQuests(playerId, params), chain.definitions()]);
     if (!needsMockDailies(defined.data, answer.data)) return answer;
-    // Today's games are the latest: one page holds more than the family's largest target.
-    const games = await chain.playerGames(playerId, { contract: "challenge", limit: 50 });
-    return { ...answer, data: withMockDailyProgress(defined.data, answer.data, games.data.games) };
+    const day = answer.data.day;
+    const games = await gamesUpTo(day, async (before) => (await chain.playerGames(playerId, { contract: "challenge", limit: 100, ...(before ? { before } : {}) })).data);
+    return { ...answer, data: withMockDailyProgress(defined.data, answer.data, games) };
   };
   ledger.countDailiesWith(async (playerId, day) => {
     const [defined, progress] = await Promise.all([definitions(), playerQuests(playerId, { day })]);

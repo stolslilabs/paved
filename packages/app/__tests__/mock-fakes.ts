@@ -35,6 +35,9 @@ export function playDailies(f: ReturnType<typeof sepoliaChain>, done: readonly n
     const end = day * 86_400 + 7_200 + i * 600;
     f.fixture.games.push({ contract: "challenge", game_id: 5_000 + f.fixture.games.length, player_id: PLAYER, mode: 1, start_time: end - 500, day_id: day, over: true, score: 90, counted_day_id: day, end_time: end, token_id: null, free: false });
   }
+  // Newest first, as the indexer pages them (start time, then contract, then id, descending).
+  const key = (g: Record<string, unknown>) => `${g.start_time}:${g.contract}:${String(g.game_id).padStart(10, "0")}`;
+  f.fixture.games.sort((a, b) => (key(a) < key(b) ? 1 : -1));
 }
 
 /** The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them. */

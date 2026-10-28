@@ -1,4 +1,4 @@
-import type { Definitions, IndexedGame, PlayerQuest, PlayerQuests, QuestDefinition } from "@paved/chain";
+import type { Definitions, IndexedGame, PlayerGames, PlayerQuest, PlayerQuests, QuestDefinition } from "@paved/chain";
 import { DAY_S, isLiveOnDay, questPeriod, questWindow } from "../../lib/quest-window";
 
 // The fifth daily of the mock (#869, the owner's decisions of 2026-10-28, open point 2's default: one more family in the
@@ -53,6 +53,26 @@ export function needsMockDailies(definitions: Definitions, progress: PlayerQuest
 }
 
 const schedule = (d: QuestDefinition) => ({ start: d.startTime, interval: d.interval, duration: d.duration });
+
+/** How long a Challenge game can run: it expires 24 h after it starts (`views.cairo`, `expires_at`). */
+const GAME_LIFE_S = DAY_S;
+
+/**
+ * The player's Challenge games that can have ended on `day`, from the indexer's pages (newest first by start time, `page`
+ * reads the one after the cursor `before`): every page down to the first game started more than a game's life before the day,
+ * so a day's games are all read however many newer games came after them.
+ */
+export async function gamesUpTo(day: number, page: (before: string | undefined) => Promise<PlayerGames>): Promise<IndexedGame[]> {
+  const games: IndexedGame[] = [];
+  let before: string | undefined;
+  for (;;) {
+    const answer = await page(before);
+    games.push(...answer.games);
+    const oldest = answer.games.at(-1);
+    if (answer.next === null || !oldest || oldest.startTime < day * DAY_S - GAME_LIFE_S) return games;
+    before = answer.next;
+  }
+}
 
 /**
  * A day's progress with the family's live quest, its count the player's Challenge games over in that UTC day (as the indexer
