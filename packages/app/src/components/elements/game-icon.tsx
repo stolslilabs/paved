@@ -32,10 +32,10 @@ const PARTS: Record<GameIconName, { tones: readonly GameTone[]; under?: string; 
 };
 
 /** The outline's width in the icons' units (512 to the em): about 1.4 px outside the shape at 20 px, 3.4 at 48. */
-const OUTLINE = 72;
+export const OUTLINE = 72;
 /** The shadow's drop, and the depth of the light along the upper edges. */
-const DROP = 28;
-const RIM = 22;
+export const DROP = 28;
+export const RIM = 22;
 
 /** Literal classes, so Tailwind sees them: the em, as `Icon` (12 to 48 px). The box (`iconFrame`) is Font Awesome's fixed width. */
 const gameIconVariants = cva("inline-block shrink-0 align-[-0.125em]", {
@@ -67,7 +67,11 @@ export interface GameIconProps extends VariantProps<typeof gameIconVariants> {
 
 /** A tone's step, mixed from its base (theme.css, 3f): the lit top toward the light, the foot and the outline toward the ink. */
 export function paint(tone: GameTone, step: "hi" | "mid" | "lo" | "edge"): string {
-  const base = tone === "current" ? "currentColor" : tone === "light" ? "var(--foreground)" : `var(--game-${tone})`;
+  return mix(tone === "current" ? "currentColor" : tone === "light" ? "var(--foreground)" : `var(--game-${tone})`, step);
+}
+
+/** `paint`'s steps from any base colour (a league crest's `var(--league-*)`). */
+export function mix(base: string, step: "hi" | "mid" | "lo" | "edge"): string {
   if (step === "mid") return base;
   const [share, toward] = ({ hi: [55, "foreground"], lo: [72, "background"], edge: [20, "background"] } as const)[step];
   return `color-mix(in oklab, ${base} ${share}%, var(--${toward}))`;

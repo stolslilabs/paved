@@ -347,6 +347,16 @@ src/components/elements/game-icon.tsx. The source icons: `gear`, `gift`,
 `swords`, `trophy`. The gift's ribbon, the "+"'s button and the relief style
 itself are written for Paved (Apache 2.0).
 
+League crests (src/components/elements/league-crest-shapes.ts, #854). One
+crest per league group, drawn by the app as SVG in the game icons' relief
+(src/components/elements/crest-art.tsx). Their motifs compose Font Awesome Pro
+6.6.0 solid icons, under the owner's Font Awesome Commercial License (above),
+placed, toned, outlined, lit and shadowed: `bow-arrow`, `crown`,
+`flag-swallowtail`, `helmet-battle`, `sack`, `shield`, `staff`, `sword`,
+`wheat`, and `swords` (the game icons' shape, above). The discs, rims, burst,
+round shield, plume, coronets, gem, sheaf's tie and the divisions' plates and
+studs are written for Paved (Apache 2.0).
+
 The currencies in relief (#844): usdc.svg, paved.svg and vpaved.svg above
 carry the HUD icons' relief, an outline, a lit gradient, a light and a shadow
 added to the sources above, under their terms. USDC's mark is unaltered: the
