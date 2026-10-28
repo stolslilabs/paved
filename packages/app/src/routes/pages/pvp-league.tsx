@@ -8,6 +8,8 @@ import type { PvpPlayer } from "../../lib/pvp-rules";
 import { addressKey, queryKeys } from "../../data/keys";
 import { layoutBoard, useMatchesV2 } from "../../data/matches";
 import { pvpKeys, useAttackLog, useDefenceLog, usePvpStatus, useSeasonSpan } from "../../data/pvp";
+import { RENDERER_ASSETS } from "../../data/renderer-manifest";
+import { useTileRenders } from "../../data/tile-renders";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
@@ -80,6 +82,8 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
   const attacks = useAttackLog(v1 ? me : null);
   const status = usePvpStatus(me);
   const shield = status.data?.shield;
+  // The cards' backgrounds (#857): the build's renders, as the Story campaigns'.
+  const renders = useTileRenders(RENDERER_ASSETS);
   const shown = useMemo<{ cards: MatchCardData[]; paths: Map<string, string> } | null>(() => {
     if (v2.data) {
       const cards = v2.data.map(
@@ -129,6 +133,7 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
       shieldUnknown: status.data == null,
       error: error?.message ?? null,
       errorDetail: error ? errorDetail(error) : undefined,
+      renders,
     },
     onOpenMatch: (id) => {
       const path = shown?.paths.get(id);

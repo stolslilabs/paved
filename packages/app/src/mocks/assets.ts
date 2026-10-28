@@ -54,7 +54,7 @@ export const APP_MANIFEST: AssetManifest & {
   }
   const renders: Record<string, Record<string, string>> = {};
   for (const file of [...RENDER_FILES].sort()) {
-    const match = /\/([a-z]{9}(?:-top)?|cover|story-\d+-\d+)\.(\d+)\.[0-9a-f]{10}\.webp$/.exec(file);
+    const match = /\/([a-z]{9}(?:-top)?|cover|story-\d+-\d+|battle-(?:attack|defence)-\d+)\.(\d+)\.[0-9a-f]{10}\.webp$/.exec(file);
     if (match) (renders[match[2]!] ??= {})[match[1]!] = `renders/${fileName(file)}`;
   }
   return { models, tiles, themes: { "1": forest }, renders };

@@ -219,11 +219,13 @@ describe("the dev middleware's manifest", () => {
 describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
   const RENDERS = join(APP, "public/renderer-assets/renders");
 
-  it("lists a WebP render per plan, its top-down one (#606) and a cover, for the base models and each theme, and each Story campaign's background (#721) in its theme, each with its hash in its name", () => {
+  it("lists a WebP render per plan, its top-down one (#606) and a cover, for the base models and each theme, each Story campaign's background (#721) in its theme and the battle logs' (#857), each with its hash in its name", () => {
     const { renders, themes } = rendererManifest();
     expect(Object.keys(renders).sort()).toEqual(["0", ...Object.keys(themes)].sort());
     // The Tutorial (a puzzle) and Open Country in Default, Dark Forest in Forest, each at the phone's and the grid's width.
-    const story: Record<string, string[]> = { "0": ["story-1-1040", "story-1-720", "story-2-1040", "story-2-720"], "1": ["story-3-1040", "story-3-720"] };
+    // The battle logs' attack and defence, both in Default, at the phone's width and the wide page's (#857).
+    const battle = ["attack", "defence"].flatMap((side) => [720, 1040, 2000].map((width) => `battle-${side}-${width}`));
+    const story: Record<string, string[]> = { "0": ["story-1-1040", "story-1-720", "story-2-1040", "story-2-720", ...battle], "1": ["story-3-1040", "story-3-720"] };
     const listed: string[] = [];
     for (const [theme, plans] of Object.entries(renders)) {
       expect(Object.keys(plans).sort()).toEqual([...KEYS, ...KEYS.map((key) => `${key}-top`), "cover", ...(story[theme] ?? [])].sort());
@@ -239,7 +241,7 @@ describe("the tiles' build-time renders (scripts/render-tiles.ts)", () => {
   });
 
   it("are current: every render there, named by its hash, drawn from the manifest's models", () => {
-    expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("84 renders: current");
+    expect(execFileSync(process.execPath, [join(APP, "scripts/render-tiles.ts"), "--check"], { encoding: "utf8" })).toContain("90 renders: current");
   }, slow(60_000));
 
   it("fail the check on a missing render, a wrong hash, a model that changed or another version", () => {

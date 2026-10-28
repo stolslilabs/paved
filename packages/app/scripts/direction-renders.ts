@@ -39,10 +39,6 @@ export const RENDERS: Record<string, BoardSpec | WordmarkSpec> = {
   "mode-challenge": { kind: "board", board: "72", theme: 1, width: 640, height: 400, zoom: 3.2, polar: 50, azimuth: 35, offset: [-2, 1], keyed: true },
   "mode-training": { kind: "board", board: "tiles", tiles: strip(["rfrfffffr", "rfffrfffr", "ffcfffcff", "sfrfrfrfr", "wffffffff", "rfrfrfcff"], 3), theme: 0, width: 640, height: 400, zoom: 3.6, polar: 50, azimuth: 35, keyed: true },
   "mode-tutorial": { kind: "board", board: "tiles", tiles: strip(["rfffrfffr", "cccccfrfc"], 2), theme: 1, width: 640, height: 400, zoom: 4.6, polar: 50, azimuth: 35, keyed: true },
-  // The battle logs' cards (#834): an attack's, close and low on the 72-tile game's walled town; a defence's, the same realm
-  // from the other side, higher, its walls and roads. Keyed: `app-renders.ts` sets each on its own sky.
-  "battle-attack": { kind: "board", board: "72", theme: 1, width: 1600, height: 450, zoom: 3.4, polar: 64, azimuth: 35, offset: [-2, 0], keyed: true },
-  "battle-defence": { kind: "board", board: "72", theme: 1, width: 1600, height: 450, zoom: 3, polar: 56, azimuth: 215, offset: [1, -1], keyed: true },
   // The tile themes, as Settings offers them: the base models and Forest.
   "theme-0": { kind: "board", board: "tiles", tiles: strip(["cccccfrfc", "rfrfffffr", "wffffffff", "ccccccccc"], 2), theme: 0, width: 480, height: 360, zoom: 4.2, polar: 45, azimuth: 35, keyed: true },
   "theme-1": { kind: "board", board: "tiles", tiles: strip(["cccccfrfc", "rfrfffffr", "wffffffff", "ccccccccc"], 2), theme: 1, width: 480, height: 360, zoom: 4.2, polar: 45, azimuth: 35, keyed: true },
