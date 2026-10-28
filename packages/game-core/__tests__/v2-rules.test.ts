@@ -32,6 +32,7 @@ import {
   drawChest,
   freeInventory,
   inventoryOf,
+  isPlanCode,
   layoutBreakdown,
   layoutGame,
   layoutRefusal,
@@ -404,8 +405,28 @@ describe("chests", () => {
     }
     // Within about 4 standard deviations (0.009 at 2,000 draws)
     expect(Math.abs(cobbles / draws - 0.2)).toBeLessThan(0.04);
-    // 1 - (66 / 72)^3 = 23.0 %
-    expect(Math.abs(rares / draws - 0.23)).toBeLessThan(0.04);
+    // Without putting back by plan (#868): 24.7 % (23.0 % with putting back)
+    expect(Math.abs(rares / draws - 0.247)).toBeLessThan(0.04);
+  }, 60_000);
+
+  it("offer distinct plans in a silver or gold chest, the first choice as a bronze chest's, the same for the same random (#868)", () => {
+    const draws = 1_000;
+    let rares = 0;
+    for (let i = 0; i < draws; i++) {
+      const random = BigInt(i) * 0x9e3779b97f4a7c15n;
+      const gold = drawChest("gold", 0, random);
+      const silver = drawChest("silver", 0, random);
+      expect(new Set(gold.plans).size).toBe(3);
+      expect(gold.plans.every(isPlanCode)).toBe(true);
+      expect(silver.plans).toEqual(gold.plans.slice(0, 2));
+      if (silver.plans.some((p) => rarityOf(p) === "rare")) rares += 1;
+      if (i < 50) {
+        expect(drawChest("bronze", 0, random).plans).toEqual([basePlanOf(poseidon(random, 0))]);
+        expect(drawChest("gold", 0, random)).toEqual(gold);
+      }
+    }
+    // 972,105 / 5,868,128 = 16.6 % (16.0 % with putting back); about 4 standard deviations (0.012) at 1,000 draws
+    expect(Math.abs(rares / draws - 0.166)).toBeLessThan(0.05);
   }, 60_000);
 });
 
