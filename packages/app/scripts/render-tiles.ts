@@ -102,10 +102,11 @@ const storyName = (campaign: number, width: number) => `story-${campaign}-${widt
 export const BATTLE_WIDTHS = [720, 1040, 2000] as const;
 /**
  * The battle logs' backgrounds (#857), made as the Story's campaigns' (Open Country's framing: a whole board seen low, no
- * outlines, the depth of field, a little wider), in the default theme, each under its own held light (the day and night
+ * outlines, the depth of field, a little wider), each in its own theme and under its own held light (the day and night
  * cycle's, `dayNight`) so the two read apart:
- * - an attack: a village of the base deck under an autumn noon (warm);
- * - a defence: a walled village, its board leaning to the cities (`city`), seen from the other side under a winter noon (cool).
+ * - an attack: a village of the base deck in the Default theme under an autumn noon (warm);
+ * - a defence: a walled village, its board leaning to the cities (`city`), in the Forest theme (it stands in for the stone
+ *   theme the issue asked for, which the game does not have), seen from the other side under a winter noon (cool).
  */
 const BATTLE = [
   {
@@ -115,7 +116,7 @@ const BATTLE = [
   },
   {
     side: "defence",
-    theme: 0,
+    theme: 1,
     spec: { board: { columns: 11, rows: 13, seed: 5, city: 2 }, zoom: 2.6, polar: 66, azimuth: 204, outlines: false, dayNight: 2.3125, depthOfField: { focus: 0.5, sharp: 0.3, far: 4, near: 6 } },
   },
 ] as const;

@@ -291,7 +291,7 @@ describe("PvP scenes (#647)", () => {
     expect(cards[0]!.querySelector("[inert]")).toBeNull();
     const art = (card: HTMLElement) => card.querySelector("[data-slot=match-art] img");
     expect(art(cards[0]!)).toHaveAttribute("srcset", expect.stringMatching(/battle-attack-720\.0\.\w+\.webp 720w, .*battle-attack-1040\.0\.\w+\.webp 1040w, .*battle-attack-2000\.0\.\w+\.webp 2000w$/));
-    expect(art(cards[1]!)).toHaveAttribute("src", expect.stringMatching(/battle-defence-2000\.0\.\w+\.webp$/));
+    expect(art(cards[1]!)).toHaveAttribute("src", expect.stringMatching(/battle-defence-2000\.1\.\w+\.webp$/));
     expect(within(cards[0]!).getByText("Attack")).toBeInTheDocument();
     expect(within(cards[0]!).getByRole("img", { name: `${MATCHES[0]!.stars} of 3 stars` })).toBeInTheDocument();
     expect(within(cards[0]!).getByRole("img", { name: `+${MATCHES[0]!.crowns} crowns` })).toBeInTheDocument();
