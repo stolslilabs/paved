@@ -1,3 +1,4 @@
+import { formatInteger } from "@paved/game-core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { CSSProperties, ReactNode } from "react";
 import aStone from "../../assets/tokens/cobbles-study/a-stone.svg?no-inline";
@@ -213,7 +214,7 @@ function Criteria({ d }: { d: Direction }) {
     ["Legible at 16 px", d.legible, true],
     ["Unlike PAVED's coin", d.silhouette.note, d.silhouette.ok],
     ["Clear over the plate's end", d.plate, true],
-    ["Under 2 kB", <span className="numeric">{bytes.toLocaleString("en")} B</span>, bytes < MAX_BYTES],
+    ["Under 2 kB", <span className="numeric">{formatInteger(bytes)} B</span>, bytes < MAX_BYTES],
   ];
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
@@ -406,7 +407,7 @@ export const Lineup: Story = {
               <CobblesPlate src={d.src} size="sm" />
               <Img src={d.src} className="size-12" />
               <TokenIcon kind="paved" size="xl" />
-              <span className="numeric text-xs text-muted-foreground">{d.raw.length.toLocaleString("en")} B</span>
+              <span className="numeric text-xs text-muted-foreground">{formatInteger(d.raw.length)} B</span>
             </div>
           ))}
         </Themed>
