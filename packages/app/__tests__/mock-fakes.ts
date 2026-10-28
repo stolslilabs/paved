@@ -27,13 +27,13 @@ export function sepoliaChain() {
  * Ada's day on the fixture's indexer (#869): the fixture's dailies `done` (of quests 1 to 4, done every day), and `games`
  * Challenge games over on `day` beside the fixture's own (one on its day): the fifth daily's count (`data/mock/dailies.ts`).
  */
-export function playDailies(f: ReturnType<typeof sepoliaChain>, done: readonly number[], games = 0, day = Math.floor(FIXTURE_HEAD.timestamp / 86_400)) {
+export function playDailies(f: ReturnType<typeof sepoliaChain>, done: readonly number[], games = 0, day = Math.floor(FIXTURE_HEAD.timestamp / 86_400), free = false) {
   f.fixture.progress.set(PLAYER, { quests: new Map(done.map((id) => [id, { count: Number.MAX_SAFE_INTEGER, completed_at: day * 86_400 + 3_600 }])), achievements: new Map() });
   // A copy: the fixture's rows are shared by every fixture of the run.
   f.fixture.games = [...f.fixture.games];
   for (let i = 0; i < games; i++) {
     const end = day * 86_400 + 7_200 + i * 600;
-    f.fixture.games.push({ contract: "challenge", game_id: 5_000 + f.fixture.games.length, player_id: PLAYER, mode: 1, start_time: end - 500, day_id: day, over: true, score: 90, counted_day_id: day, end_time: end, token_id: null, free: false });
+    f.fixture.games.push({ contract: "challenge", game_id: 5_000 + f.fixture.games.length, player_id: PLAYER, mode: 1, start_time: end - 500, day_id: day, over: true, score: 90, counted_day_id: day, end_time: end, token_id: null, free });
   }
   // Newest first, as the indexer pages them (start time, then contract, then id, descending).
   const key = (g: Record<string, unknown>) => `${g.start_time}:${g.contract}:${String(g.game_id).padStart(10, "0")}`;

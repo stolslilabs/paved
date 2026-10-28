@@ -334,6 +334,20 @@ describe("the mock", () => {
     expect((await sources.indexer.playerQuests(PLAYER, { day: TODAY - 1 })).data.quests).toEqual([]);
   });
 
+  it("counts no free game for the fifth daily (a free game reports no quest progress): its milestone stays out of reach", async () => {
+    const { sources, chain, ledger } = mockImplementation();
+    // The four fixture dailies done, and two free games over today beside the fixture's one paid game.
+    playDailies(chain, [1, 2, 3, 4], 2, TODAY, true);
+    const fifth = (await sources.indexer.playerQuests(PLAYER, { day: TODAY })).data.quests.find((q) => q.questId === 17)!;
+    expect(fifth).toMatchObject({ completed: false, tasks: [{ total: 2, count: 1 }] });
+    const refused = await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1).catch((e: unknown) => e);
+    expect((refused as DailyMilestoneRefusedError).reason).toBe("not-reached");
+    // A paid game completes it.
+    playDailies(chain, [1, 2, 3, 4], 1);
+    await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1);
+    expect((await ledger.account(PLAYER)).cobbles).toBe(15);
+  });
+
   it("counts the fifth daily of an older day past the indexer's first pages: its games are read however many came after", async () => {
     const { sources, chain, ledger } = mockImplementation();
     // Day mod 3 = 0: the fifth daily is quest 17, two games. Its two games, then 150 newer ones over the next days.
