@@ -1,8 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import cobblesRelief from "../../assets/tokens/relief/cobbles.svg?no-inline";
-import pavedRelief from "../../assets/tokens/relief/paved.svg?no-inline";
-import usdcRelief from "../../assets/tokens/relief/usdc.svg?no-inline";
-import vpavedRelief from "../../assets/tokens/relief/vpaved.svg?no-inline";
 import { Icon } from "../ui/icon";
 import { GAME_ICON_SHAPES } from "./game-icon-shapes";
 import { GameIcon, type GameIconName, type GameIconSize, type GameTone } from "./game-icon";
@@ -128,12 +124,9 @@ export const Tones: Story = {
   ),
 };
 
-/** The currencies in relief (`src/assets/tokens/relief`, a study): the same files with an outline, a lit gradient, a light and a shadow. */
-const RELIEF: Record<TokenKind, string> = { usdc: usdcRelief, paved: pavedRelief, vpaved: vpavedRelief, cobbles: cobblesRelief };
-
 /**
- * The currencies for the owner's pick (issue 844): today's icons, then in relief, on each of the home's skies at 24 and 48 px.
- * USDC's mark stays unaltered (Circle's guidelines): the outline, the light and the shadow are around it.
+ * The currencies in the HUD's relief (issue 844), the app's own files (`src/assets/tokens/`), on each of the home's skies at 24 and
+ * 48 px. USDC's mark stays unaltered (Circle's guidelines): the outline, the light and the shadow are around it.
  */
 export const Currencies: Story = {
   render: () => (
@@ -141,20 +134,9 @@ export const Currencies: Story = {
       {SKIES.filter((_, i) => i % 2 === 0 || i === 5).map((sky) => (
         <section key={sky.name} aria-label={sky.name} className="flex flex-col gap-2 rounded-xl p-3" style={{ background: sky.background }}>
           <h3 className="self-start rounded-md bg-background/70 px-1.5 text-sm font-semibold text-foreground">{sky.name}</h3>
-          {(["Today", "Relief"] as const).map((row) => (
-            <div key={row} className="flex flex-wrap items-center gap-3">
-              <span className="w-12 text-xs font-semibold text-foreground">{row}</span>
-              {(Object.keys(TOKEN_ICONS) as TokenKind[]).flatMap((kind) =>
-                (["md", "xl"] as const).map((size) =>
-                  row === "Today" ? (
-                    <TokenIcon key={kind + size} kind={kind} size={size} />
-                  ) : (
-                    <img key={kind + size} src={RELIEF[kind]} alt="" draggable={false} className={size === "md" ? "size-6" : "size-12"} />
-                  ),
-                ),
-              )}
-            </div>
-          ))}
+          <div className="flex flex-wrap items-center gap-3">
+            {(Object.keys(TOKEN_ICONS) as TokenKind[]).flatMap((kind) => (["md", "xl"] as const).map((size) => <TokenIcon key={kind + size} kind={kind} size={size} />))}
+          </div>
         </section>
       ))}
     </div>

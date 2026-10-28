@@ -70,11 +70,12 @@ describe("the game icons (#844)", () => {
   });
 });
 
-describe("the currencies in relief (#844, the study for the owner's pick)", () => {
-  const token = (kind: string) => read(`src/assets/tokens/relief/${kind}.svg`);
+describe("the currencies in relief (#844, the owner's pick: Relief)", () => {
+  const token = (kind: string) => read(`src/assets/tokens/${kind}.svg`);
 
-  it("give PAVED, vPAVED and the Cobbles a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
-    for (const kind of ["paved", "vpaved", "cobbles"]) {
+  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`).
+  it("give PAVED and vPAVED a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
+    for (const kind of ["paved", "vpaved"]) {
       const svg = token(kind);
       expect(svg, kind).toContain("<linearGradient");
       expect(svg, kind).toMatch(/fill="#fff" fill-opacity="\.[56]/);
