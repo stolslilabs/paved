@@ -112,8 +112,9 @@ describe("Home (#753): the village with its overlays", () => {
     const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
-    // The stage (the board, the editor) is its own chunk: it arrives after the overlays.
-    expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ })).toBeInTheDocument();
+    // The stage (the board, the editor) is its own chunk: it arrives after the overlays. The file's first test imports it cold:
+    // 1.5 s on a quiet machine, past the 5 s default on CI once the HUD drew its relief icons (#844).
+    expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ }, { timeout: slow(10_000) })).toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
     expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", "League"]);
     // The overlays outside the bar (the bar's own are tested below).
