@@ -15,7 +15,7 @@ import {
 } from "./crest-art";
 
 /**
- * The second crest study (#854, after the owner's "à refaire" of the first): every league draws one object, the same base shape from
+ * The second crest study (issue 854, after the owner's "à refaire" of the first): every league draws one object, the same base shape from
  * Wanderer to Sovereign, in a material that climbs with the groups (wood, iron, bronze, silver, gold) and with more ornaments at each
  * step. Three directions carry that ladder, one object each, for the owner to pick one.
  */
@@ -45,7 +45,7 @@ export interface Rank {
   gems?: boolean;
 }
 
-/** The ladder (#854's second study): each step adds a material or an ornament the eye can read. */
+/** The ladder (issue 854's second study): each step adds a material or an ornament the eye can read. */
 export const RANKS: Record<LeagueId, Rank> = {
   // Bare wood.
   wanderer: { body: "wood" },
@@ -195,7 +195,7 @@ function medal(rank: Rank): Part[] {
 
 const DRAW: Record<CrestDirection, (rank: Rank) => Part[]> = { shield, helm, medal };
 
-/** Each direction's base shape, the one every group draws (#854's one structure). */
+/** Each direction's base shape, the one every group draws (issue 854's one structure). */
 export const BASE_SHAPES: Record<CrestDirection, string> = { shield: SHIELD, helm: HELM, medal: MEDAL };
 
 /** A direction's crest of a group, its division's plate (in the group's material) at its foot, in drawing order. */
@@ -209,9 +209,9 @@ export interface CrestDirectionArtProps extends CrestArtProps {
 }
 
 /**
- * A league group's crest in one of the second study's directions (#854): the direction's one object in the group's material and
+ * A league group's crest in one of the second study's directions (issue 854): the direction's one object in the group's material and
  * ornaments, the division's studs at its foot, in the game icons' relief (`CrestSvg`, as `CrestArt`). Storybook only, until the
- * owner picks a direction; `LeagueCrest` draws it in #854's second pull request.
+ * owner picks a direction; `LeagueCrest` draws it in issue 854's second pull request.
  */
 export function CrestDirectionArt({ direction, league, division, ...frame }: CrestDirectionArtProps) {
   return <CrestSvg {...frame} slot="crest-direction" league={league} division={division} data={{ "data-direction": direction }} parts={directionParts(direction, league, division)} />;

@@ -129,9 +129,9 @@ const GAINS: Record<LeagueId, string> = {
 /** The ladder in words, the same in the three proposals: what each group adds. */
 export const Materials: Story = {
   render: () => (
-    <ol className="m-0 flex max-w-prose list-none flex-col gap-1.5 p-0">
+    <div className="flex max-w-prose flex-col gap-1.5">
       {GROUPS.map((g) => (
-        <li key={g.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
+        <div key={g.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
           <span className="flex leading-none">
             {DIRECTIONS.map((d) => (
               <span key={d.id} className="p-1">
@@ -141,9 +141,9 @@ export const Materials: Story = {
           </span>
           <strong>{g.name}</strong>
           <span>{GAINS[g.id]}</span>
-        </li>
+        </div>
       ))}
-    </ol>
+    </div>
   ),
 };
 

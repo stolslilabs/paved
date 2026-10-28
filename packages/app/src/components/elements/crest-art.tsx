@@ -5,19 +5,30 @@ import { DROP, mix, OUTLINE, RIM, type GameTone } from "./game-icon";
 import { GAME_ICON_SHAPES } from "./game-icon-shapes";
 import { CREST_SHAPES, type CrestShapeName } from "./league-crest-shapes";
 
-/** The crest directions' materials (#854's second study, theme.css 3g): the ladder's wood to gold. */
+/** The crest directions' materials (issue 854's second study): the ladder's wood to gold. */
 export type CrestMaterial = "wood" | "iron" | "bronze" | "silver" | "gold";
 
-/** A part's tone: a game icon's, a material's (`--crest-*`), or `league`, the crest's own group colour (`--league-*`, theme.css 3d). */
+/** A part's tone: a game icon's, a material's (`MATERIAL_BASES`), or `league`, the crest's own group colour (`--league-*`, theme.css 3d). */
 export type CrestTone = Exclude<GameTone, "current"> | CrestMaterial | "league";
 
-const MATERIALS: ReadonlySet<CrestTone> = new Set<CrestMaterial>(["wood", "iron", "bronze", "silver", "gold"]);
+/**
+ * The materials' bases, mixed from the game icons' tones (theme.css 3f) rather than given tokens of their own: a `color-mix` in
+ * theme.css costs the stylesheet its fallback too, and the CSS budget has no room for a study. Wood is the icons' wood darkened,
+ * bronze the same wood a little shaded, iron their stone, silver their steel with a touch of blue, gold their gold.
+ */
+export const MATERIAL_BASES: Record<CrestMaterial, string> = {
+  wood: "color-mix(in oklab, var(--game-wood) 50%, var(--background))",
+  iron: "var(--game-stone)",
+  bronze: "color-mix(in oklab, var(--game-wood) 85%, var(--background))",
+  silver: "color-mix(in oklab, var(--game-steel) 85%, var(--game-blue))",
+  gold: "var(--game-gold)",
+};
 
 /** A tone's base colour, for a crest of `league`. */
 export function crestBase(tone: CrestTone, league: LeagueId): string {
   if (tone === "league") return `var(--league-${league})`;
   if (tone === "light") return "var(--foreground)";
-  return MATERIALS.has(tone) ? `var(--crest-${tone})` : `var(--game-${tone})`;
+  return tone in MATERIAL_BASES ? MATERIAL_BASES[tone as CrestMaterial] : `var(--game-${tone})`;
 }
 
 /** Where a Font Awesome shape sits: its centre, its scale (1 is 512 units high), a turn in degrees, a mirror. */

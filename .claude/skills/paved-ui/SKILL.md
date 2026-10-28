@@ -117,7 +117,7 @@ League crests (#854): `<CrestArt league="knight" division={2} />` from `elements
 the game icons' relief, the division as studs at its foot (III one, I three). Its Font Awesome shapes are generated like the
 game icons': `CREST_SHAPE_NAMES` in `scripts/league-crests.ts`, `bun run league-crests`, and a line in the notices.
 The second study's directions (Shield, Helm, Medal) are `<CrestDirectionArt direction="shield" league="knight" />` from
-`elements/crest-directions.tsx`: one base shape per direction, its material (`--crest-*`, theme.css 3g) and ornaments climbing
+`elements/crest-directions.tsx`: one base shape per direction, its material (`MATERIAL_BASES`, mixed from the game icons' tones, no CSS of its own) and ornaments climbing
 by `RANKS`; both draw through `CrestSvg`.
 
 ## Motion

@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MATERIAL_BASES } from "../src/components/elements/crest-art";
 import { BASE_SHAPES, CrestDirectionArt, DIRECTIONS, directionParts, materialOf, RANKS } from "../src/components/elements/crest-directions";
 import type { LeagueId } from "../src/lib/pvp-rules";
 
@@ -61,13 +60,15 @@ describe("the league crests' directions (#854, the second study)", () => {
     expect(svg).toHaveAttribute("data-division", "3");
     const ids = [...container.querySelectorAll("linearGradient, mask")].map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(svg.innerHTML).toContain("var(--crest-gold)");
+    expect(svg.innerHTML).toContain("var(--game-gold)");
     expect(svg.innerHTML).toContain("var(--league-baron)");
     expect(svg.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|oklch\(/i);
   });
 
-  it("take their materials from the theme", () => {
-    const theme = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
-    for (const m of LADDER) expect(theme, m).toMatch(new RegExp(`--crest-${m}:`));
+  it("mix their materials from the game icons' tones, adding nothing to the stylesheet", () => {
+    for (const [m, base] of Object.entries(MATERIAL_BASES)) {
+      const tokens = base.match(/--[a-z-]+/g)!;
+      expect(tokens.every((t) => t === "--background" || t.startsWith("--game-")), m).toBe(true);
+    }
   });
 });
