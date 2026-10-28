@@ -56,6 +56,8 @@ const PAGES = {
   "village-shop": () => import("../src/routes/pages/village-shop"),
   "village-chests": () => import("../src/routes/pages/village-chests"),
   "pvp-league": () => import("../src/routes/pages/pvp-league"),
+  // A sheet's page (BACK-RULE #783) and its host, each its own chunk, loaded with the first sheet opened.
+  sheets: () => Promise.all([import("../src/routes/page-sheets"), import("../src/routes/page-sheet-host")]),
 };
 
 /**
