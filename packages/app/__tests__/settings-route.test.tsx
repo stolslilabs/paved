@@ -123,7 +123,8 @@ describe("/settings", () => {
     await userEvent.click(await screen.findByRole("switch", { name: /Show other players' skins/ }));
     expect(localStorage.getItem(THEME_KEY)).toBe("default");
     await act(() => router.navigate("/settings/theme"));
-    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: slow(5000) })).toBeInTheDocument();
+    // The themes' code loads cold here: past 30 s in a loaded check (2026-10-28).
+    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: slow(10_000) })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: /skins/ })).not.toBeInTheDocument();
     await act(() => router.navigate("/settings"));
     expect(await screen.findByRole("region", { name: "Account" }, { timeout: slow(5000) })).toBeInTheDocument();

@@ -59,8 +59,9 @@ describe("/settings/theme: the themes", () => {
 
   it("counts the tiles owned per theme, and none is in use over a mix", async () => {
     open(setup(), "/settings/theme");
-    expect(await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(5000) })).toBeInTheDocument();
-    await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
+    // The file's first test loads the page's code cold: 15.7 s at a load of 23 (2026-10-28), past 30 s in a loaded check.
+    expect(await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(10_000) })).toBeInTheDocument();
+    await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"), { timeout: slow(10_000) });
     expect(within(await card("Forest")).getByRole("button", { name: "Use Forest" })).toBeEnabled();
     expect(within(await card("Default")).getByRole("button", { name: "Use Default" })).toBeEnabled();
   });
