@@ -19,8 +19,8 @@ const meta = {
   component: MatchList,
   parameters: { layout: "padded" },
   args: { ...PVP_MATCHES.shielded, now: MOCK_NOW, onOpen: fn(), onRetry: fn() },
-  // The League page's card width (992 px: `max-w-5xl` less its gutters) where a story asks for it (`page`), else a column.
-  decorators: [(Story, { parameters }) => <div className={parameters.page ? "mx-auto max-w-[62rem]" : "mx-auto max-w-xl"}>{Story()}</div>],
+  // The League page's card width (`max-w-5xl` less its gutters, 992 px) where a story asks for it (`page`), else a column.
+  decorators: [(Story, { parameters }) => <div className={parameters.page ? "mx-auto max-w-5xl px-4" : "mx-auto max-w-xl"}>{Story()}</div>],
 } satisfies Meta<typeof MatchList>;
 export default meta;
 type Story = StoryObj<typeof meta>;
