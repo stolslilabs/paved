@@ -12,7 +12,7 @@ import dPavingRaw from "../../assets/tokens/cobbles-study/d-paving.svg?raw";
 import eVoxel from "../../assets/tokens/cobbles-study/e-voxel.svg?no-inline";
 import eVoxelRaw from "../../assets/tokens/cobbles-study/e-voxel.svg?raw";
 import todayRaw from "../../assets/tokens/cobbles.svg?raw";
-import pavedRelief from "../../assets/tokens/relief/paved.svg?no-inline";
+import pavedRelief from "../../assets/tokens/paved.svg?no-inline";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";

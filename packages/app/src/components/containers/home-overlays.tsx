@@ -1,10 +1,10 @@
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
-import { Icon } from "../ui/icon";
+import { GameIcon, type GameIconName } from "../elements/game-icon";
 
 export interface OverlayButtonProps {
-  /** The Font Awesome name, without `fa-`. */
-  icon: string;
+  /** The game icon (#844): the HUD draws its icons in relief, in their own colours. */
+  icon: GameIconName;
   label: string;
   /** Shown under the icon in the name's place (the player's league on League): the accessible name keeps both. */
   detail?: string;
@@ -29,8 +29,8 @@ export function OverlayButton({ icon, label, detail, badge = 0, onClick, classNa
       aria-label={badge > 0 ? `${name}, ${badge} waiting` : name}
       className={cn("group flex w-16 flex-col items-center gap-0.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
-      <span className="state-layer relative grid size-12 place-items-center rounded-full border border-border bg-card/90 text-primary shadow-lg backdrop-blur tablet:size-14">
-        <Icon name={icon} size="md" fixedWidth />
+      <span className="state-layer relative grid size-12 place-items-center rounded-full border border-border bg-card/90 shadow-lg backdrop-blur tablet:size-14">
+        <GameIcon name={icon} size="lg" />
         {badge > 0 && (
           <span aria-hidden className="numeric absolute -top-1 -right-1 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
             {badge}
