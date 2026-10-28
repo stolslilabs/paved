@@ -113,6 +113,10 @@ shape in relief (outline, lit fill, highlight, shadow), each part in its own ton
 add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in `PARTS`, run `bun run game-icons`, and
 record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
 
+League crests (#854): `<CrestArt league="knight" division={2} />` from `elements/crest-art.tsx`, one drawing per group in
+the game icons' relief, the division as studs at its foot (III one, I three). Its Font Awesome shapes are generated like the
+game icons': `CREST_SHAPE_NAMES` in `scripts/league-crests.ts`, `bun run league-crests`, and a line in the notices.
+
 ## Motion
 
 - Import `m` components (`import * as m from "motion/react-m"`), never `motion.div`: `MotionProvider.tsx` is
