@@ -202,7 +202,7 @@ export const ACHIEVEMENTS_ALL = achievements(
  * (#869: the day's milestones pay), and Forester (10 forests) reached by the same game over, with its Cobbles.
  */
 export const GAME_MISSIONS: readonly GameMission[] = [
-  { key: "quest:6:6913", kind: "quest", title: "Public Works", icon: "city" },
+  { key: "quest:6:6913", kind: "quest", title: "Public Works", icon: "castle" },
   { key: "quest:9:6913", kind: "quest", title: "Deep Woods", icon: "tree" },
   { key: "achievement:6", kind: "achievement", title: "Forester", icon: "tree", points: 20, cobbles: 20 },
 ];

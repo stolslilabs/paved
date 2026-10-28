@@ -6,7 +6,7 @@ import { MissionTile } from "./mission-tile";
 const meta = {
   title: "Containers/MissionTile",
   component: MissionTile,
-  args: { title: "Public Works", icon: "city", state: "progress", cobbles: 10, progress: 0.5, onSelect: fn() },
+  args: { title: "Public Works", icon: "castle", state: "progress", cobbles: 10, progress: 0.5, onSelect: fn() },
   decorators: [(Story) => <div className="w-20 p-2"><Story /></div>],
 } satisfies Meta<typeof MissionTile>;
 export default meta;

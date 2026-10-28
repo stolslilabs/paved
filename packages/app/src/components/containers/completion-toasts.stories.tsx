@@ -28,7 +28,7 @@ const meta = {
   title: "Containers/CompletionToasts",
   component: ToastDemo,
   parameters: { layout: "fullscreen" },
-  args: { kind: "quest", entry: { title: "Public Works", icon: "city", cobbles: 10 } },
+  args: { kind: "quest", entry: { title: "Public Works", icon: "castle", cobbles: 10 } },
 } satisfies Meta<typeof ToastDemo>;
 export default meta;
 type Story = StoryObj<typeof meta>;

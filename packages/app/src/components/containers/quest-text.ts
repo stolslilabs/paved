@@ -9,9 +9,9 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   1: { title: "Daily Run", description: "Finish today's Challenge.", icon: "flag-checkered" },
   // The rotating dailies (quests.md "As built: v2a", and #869's fourth set, 17 to 19 below), four sets of three: one of each
   // family is live a day, beside Daily Run.
-  5: { title: "Small Works", description: "Score roads and cities in a day: the small target of the three that rotate.", icon: "city" },
-  6: { title: "Public Works", description: "Score roads and cities in a day: the middle target of the three that rotate.", icon: "city" },
-  7: { title: "Great Works", description: "Score roads and cities in a day: the large target of the three that rotate.", icon: "city" },
+  5: { title: "Small Works", description: "Score roads and cities in a day: the small target of the three that rotate.", icon: "castle" },
+  6: { title: "Public Works", description: "Score roads and cities in a day: the middle target of the three that rotate.", icon: "castle" },
+  7: { title: "Great Works", description: "Score roads and cities in a day: the large target of the three that rotate.", icon: "castle" },
   8: { title: "Woodland Walk", description: "Score forests in a day: the small target of the three that rotate.", icon: "tree" },
   9: { title: "Deep Woods", description: "Score forests in a day: the middle target of the three that rotate.", icon: "tree" },
   10: { title: "Old Growth", description: "Score forests in a day: the large target of the three that rotate.", icon: "tree" },
@@ -20,7 +20,7 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   13: { title: "Grand Day", description: "Collect points in a day: the large target of the three that rotate.", icon: "star" },
   // The weeklies: the games finished from Monday to Sunday UTC.
   14: { title: "Weekly Forester", description: "Score forests over the week, Monday to Sunday UTC.", icon: "tree" },
-  15: { title: "Weekly Builder", description: "Score roads and cities over the week, Monday to Sunday UTC.", icon: "city" },
+  15: { title: "Weekly Builder", description: "Score roads and cities over the week, Monday to Sunday UTC.", icon: "castle" },
   16: { title: "Weekly Points", description: "Collect points over the week's finished Challenge games, Monday to Sunday UTC.", icon: "trophy" },
   // The fourth rotating family (#869, the fifth daily of the day).
   17: { title: "Second Round", description: "Finish Challenge games in a day: the small target of the three that rotate.", icon: "flag-checkered" },

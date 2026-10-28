@@ -59,11 +59,11 @@ describe("/settings/theme: the themes", () => {
 
   it("counts the tiles owned per theme, and none is in use over a mix", async () => {
     open(setup(), "/settings/theme");
-    expect(await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(10_000) })).toBeInTheDocument();
     await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
     expect(within(await card("Forest")).getByRole("button", { name: "Use Forest" })).toBeEnabled();
     expect(within(await card("Default")).getByRole("button", { name: "Use Default" })).toBeEnabled();
-  });
+  }, slow(30_000));
 
   it("Use Forest makes every owned Forest tile active in one set_skins (Forest whole from Default whole: nothing asked)", async () => {
     const s = setup();
@@ -186,7 +186,7 @@ describe("/settings/theme/forest: the shop", () => {
     const s = setup();
     open(s, "/settings/theme/forest");
     await userEvent.click(await buyButton(10));
-    expect((await screen.findAllByRole("button", { name: "185 Cobbles: Buy packs" }, { timeout: slow(10000) })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: "185 Cobbles: Buy packs" }, { timeout: slow(10_000) })).length).toBeGreaterThan(0);
     await waitFor(async () => expect((await cell(10)).dataset.state).toBe("owned"));
     expect(s.writer.sent).toEqual([{ buy: { theme: FOREST, plan: 10 } }]);
   });

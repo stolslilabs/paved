@@ -6,7 +6,7 @@ import { Icon, type IconSize } from "../ui/icon";
 const CATEGORIES: Partial<Record<CategoryType, { label: string; plural: string; icon: string; color: string }>> = {
   [CategoryType.Forest]: { label: "Forest", plural: "Forests", icon: "tree", color: "text-success" },
   [CategoryType.Road]: { label: "Road", plural: "Roads", icon: "road", color: "text-primary" },
-  [CategoryType.City]: { label: "City", plural: "Cities", icon: "city", color: "text-foreground" },
+  [CategoryType.City]: { label: "City", plural: "Cities", icon: "castle", color: "text-foreground" },
   [CategoryType.Wonder]: { label: "Wonder", plural: "Wonders", icon: "landmark-dome", color: "text-info" },
 };
 
