@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Icon } from "../ui/icon";
 import { GAME_ICON_SHAPES } from "./game-icon-shapes";
-import { GAME_LOOKS, GAME_TONES, GameIcon, type GameIconName, type GameIconSize, type GameLook } from "./game-icon";
+import { GameIcon, type GameIconName, type GameIconSize, type GameTone } from "./game-icon";
+import { GAME_LOOKS, GameIconLook, type GameLook } from "./game-icon-looks";
 
 const meta = {
   title: "Elements/GameIcon",
@@ -13,14 +14,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const NAMES = Object.keys(GAME_ICON_SHAPES) as GameIconName[];
+/** 64 px has no size of its own (the HUD stops at 48): it is the parent's font size. */
 const SIZES: readonly { size: GameIconSize; px: number }[] = [
   { size: "sm", px: 16 },
   { size: "md", px: 20 },
   { size: "lg", px: 24 },
   { size: "xl", px: 32 },
   { size: "2xl", px: 48 },
-  { size: "3xl", px: 64 },
+  { size: "inherit", px: 64 },
 ];
+const TONES: readonly GameTone[] = ["gold", "steel", "red", "blue", "green", "wood", "stone", "rose", "light", "current"];
 
 /** The home's skies (theme.css, 3b): each season's day and night, the backdrop the HUD's icons stand on. */
 const SKIES = ["spring", "summer", "autumn", "winter"].flatMap((season) =>
@@ -29,6 +32,9 @@ const SKIES = ["spring", "summer", "autumn", "winter"].flatMap((season) =>
     background: `linear-gradient(to bottom, var(--sky-${season}-${time}-top), var(--sky-${season}-${time}-bottom))`,
   })),
 );
+
+/** The "+" draws its button past its box (1.75em across, as the plates' square): room for it in a row. */
+const room = (name: GameIconName) => (name === "plus" ? { margin: "0.375em 0.25em" } : undefined);
 
 const LOOK_NAMES: Record<GameLook | "flat", string> = {
   flat: "Flat (today's Icon)",
@@ -44,7 +50,11 @@ function Row({ look }: { look: GameLook | "flat" }) {
       <span className="text-xs font-semibold text-foreground">{LOOK_NAMES[look]}</span>
       <div className="flex flex-wrap gap-3">
         {NAMES.map((name) =>
-          look === "flat" ? <Icon key={name} name={name} size="xl" fixedWidth className="text-primary" /> : <GameIcon key={name} name={name} look={look} size="xl" />,
+          look === "flat" ? <Icon key={name} name={name} size="xl" fixedWidth className="text-primary" /> : (
+            <span key={name} style={room(name)} className="inline-flex">
+              <GameIconLook name={name} look={look} size="xl" />
+            </span>
+          ),
         )}
       </div>
     </div>
@@ -83,7 +93,9 @@ export const Sizes: Story = {
             <div key={name} className="flex flex-wrap items-end gap-3">
               <span className="w-24 text-xs text-muted-foreground">{name}</span>
               {SIZES.map(({ size, px }) => (
-                <GameIcon key={px} name={name} look={look} size={size} />
+                <span key={px} style={{ fontSize: px, ...room(name) }} className="leading-none">
+                  <GameIconLook name={name} look={look} size={size} />
+                </span>
               ))}
             </div>
           ))}
@@ -99,7 +111,7 @@ export const Tones: Story = {
     <div className="flex flex-col gap-3 rounded-xl bg-background p-3 text-foreground">
       {(["shield-halved", "trophy"] as const).map((name) => (
         <div key={name} className="flex flex-wrap gap-3">
-          {GAME_TONES.map((tone) => (
+          {TONES.map((tone) => (
             <span key={tone} className="flex w-12 flex-col items-center gap-1 text-info">
               <GameIcon name={name} tone={tone} size="xl" />
               <span className="text-xs text-muted-foreground">{tone}</span>

@@ -20,7 +20,7 @@ export type PlateSize = NonNullable<VariantProps<typeof boxVariants>["size"]>;
  * Each size's parts (issue 828). The icon stands over the box's end, its centre on the border, so half of it overlaps the box; the
  * "+" does the same at the other end, a little smaller. The box keeps the overlap plus a gap clear inside, so the figure never runs
  * under either. The gap is a quarter of the "+" (`TOKEN_GAP`'s rule, issue 668). The "+" is the game icon `plus` (issues 845, 844), light
- * on a green relief button, 16 px in the 28 px square, 20 in the 32.
+ * on its green relief button (drawn by the icon, 1.75em across: the square), 16 px in the 28 px square, 20 in the 32.
  */
 type Ends = Record<"right" | "left", string>;
 const PARTS: Record<PlateSize, { coin: string; over: Ends; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
@@ -94,7 +94,7 @@ export function Plate({ side = "right", end, lead, leadContent, after, size, ton
           aria-hidden
           data-slot="resource-plus"
           className={cn(
-            "relative z-10 grid shrink-0 place-items-center rounded-md border-2 border-game-green-edge bg-linear-to-b from-game-green to-game-green-lo shadow-[inset_0_2px_0_var(--game-shine),0_2px_0_var(--game-shadow)]",
+            "relative z-10 grid shrink-0 place-items-center",
             parts.plus,
             parts.plusOver[side],
           )}

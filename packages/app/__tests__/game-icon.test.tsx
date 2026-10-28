@@ -2,8 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildShapes, GAME_ICON_NAMES, SHAPES_PATH, splitPath } from "../scripts/game-icons";
+import { buildShapes, GAME_ICON_NAMES, roundPath, SHAPES_PATH, splitPath } from "../scripts/game-icons";
 import { GameIcon } from "../src/components/elements/game-icon";
+import { GameIconLook } from "../src/components/elements/game-icon-looks";
 import { GAME_ICON_SHAPES } from "../src/components/elements/game-icon-shapes";
 
 const read = (path: string) => readFileSync(resolve(import.meta.dirname, "..", path), "utf8");
@@ -19,6 +20,13 @@ describe("the game icons (#844)", () => {
     for (const shape of Object.values(GAME_ICON_SHAPES)) for (const part of shape.parts) expect(part).toMatch(/^M/);
   });
 
+  it("round each point to the grid where it lands, so the error never adds up, in the shorter of the absolute and relative forms", () => {
+    // 0.4 then 0.4: the second point is at 0.8, so 1, not 0 + 0.
+    expect(roundPath("M0 0l.4 0 .4 0 0 10z")).toBe("M0 0H1V10z");
+    expect(roundPath("M100 100L100.2 300.4C120 300 130 310 140.3 320")).toBe("M100 100V300c20 0 30 10 40 20");
+    expect(roundPath("M10 10a5.4 5.4 0 1 0 0-10.6z")).toBe("M10 10a5 5 0 1 0 0-11z");
+  });
+
   it("draw at the first paint, with no Font Awesome script: one SVG of their own paths", () => {
     expect(window.FontAwesome).toBeUndefined();
     const { container } = render(<GameIcon name="swords" />);
@@ -27,7 +35,7 @@ describe("the game icons (#844)", () => {
     expect(svg).toHaveAttribute("aria-hidden", "true");
     expect(svg.querySelectorAll("path").length).toBeGreaterThan(GAME_ICON_SHAPES.swords.parts.length);
     // Steel blades and gold hilts: each tone its own gradient, its own outline.
-    const fills = [...svg.querySelectorAll("linearGradient")].map((g) => g.id.split("-").pop());
+    const fills = [...svg.querySelectorAll("linearGradient")].map((g) => g.id.replace(/^.*?(gold|steel)$/, "$1"));
     expect(fills.sort()).toEqual(["gold", "steel"]);
   });
 
@@ -46,10 +54,13 @@ describe("the game icons (#844)", () => {
   it("paints every part in one tone when asked (a crest in its league's colour), and each look its own way", () => {
     const { container } = render(<GameIcon name="swords" tone="current" />);
     expect(container.querySelectorAll("linearGradient")).toHaveLength(1);
-    const toon = render(<GameIcon name="gift" look="toon" />).container;
-    expect(toon.querySelector("linearGradient")).toBeNull();
-    const relief = render(<GameIcon name="gift" look="relief" />).container;
+    const relief = render(<GameIcon name="gift" />).container;
     expect(relief.querySelectorAll("mask").length).toBeGreaterThan(0);
+    // The other looks of the owner's pick, Storybook's only.
+    const toon = render(<GameIconLook name="gift" look="toon" />).container;
+    expect(toon.querySelector("linearGradient")).not.toBeNull();
+    expect(toon.querySelector("mask")).toBeNull();
+    expect(toon.querySelector("svg")).toHaveAttribute("data-look", "toon");
   });
 
   it("are each recorded in the notices as derived from Font Awesome Pro", () => {
