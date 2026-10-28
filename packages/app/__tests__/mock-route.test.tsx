@@ -78,7 +78,6 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
   it("the balances' Cobbles lead to the packs' own page (#621), its packs from the mock", async () => {
     // A page whose rule shows the Cobbles (Missions earn them, #720): the Vault shows none since the desktop's header went (#762).
     open("/missions");
-    // Two pages' code loaded cold (Missions, then the packs' sheet): 12 to 20 s at a load of 23 (2026-10-28), past 30 s in a loaded check.
     const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: slow(10_000) });
     await userEvent.click(cobbles!);
     // The packs first: the page's loading screen has the same heading, replaced as the packs arrive.
@@ -86,5 +85,5 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
     noRawErrors();
-  });
+  }, slow(30_000));
 });

@@ -970,7 +970,7 @@ describe("Element feedback (EL)", () => {
   });
 
   it("keeps a stat row's hint under its label, the icon and the value on the first row", () => {
-    const { container } = render(<StatRow icon="city" label="Cities closed" hint="450 pts" value={4} />);
+    const { container } = render(<StatRow icon="castle" label="Cities closed" hint="450 pts" value={4} />);
     const row = container.firstElementChild!;
     expect(row.className).toContain("grid");
     expect(screen.getByText("450 pts").className).toContain("col-start-2");

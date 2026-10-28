@@ -20,7 +20,7 @@ export interface WelcomeSceneProps {
 
 const POINTS: { icon: string; title: string; text: string }[] = [
   { icon: "table-cells-large", title: "Lay tiles", text: "One tile at a time, on a board that grows." },
-  { icon: "city", title: "Close structures", text: "Cities, roads, forests: closing one scores it." },
+  { icon: "castle", title: "Close structures", text: "Cities, roads, forests: closing one scores it." },
   { icon: "trophy", title: "Beat the day", text: "A daily Challenge, with a reward above the threshold." },
 ];
 

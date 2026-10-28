@@ -8,7 +8,7 @@ const meta = {
   title: "Elements/StatRow",
   component: StatRow,
   parameters: { layout: "padded" },
-  args: { label: "Cities closed", value: 4, icon: "city" },
+  args: { label: "Cities closed", value: 4, icon: "castle" },
   decorators: [(Story) => <div className="max-w-sm rounded-xl bg-card px-4"><Story /></div>],
 } satisfies Meta<typeof StatRow>;
 export default meta;
