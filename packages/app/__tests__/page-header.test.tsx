@@ -4,6 +4,7 @@ import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import type { ShownBalance } from "../src/components/containers/balances";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { TabPage } from "../src/components/containers/tab-page";
 import { PageHeader, TopBar } from "../src/components/containers/top-bar";
@@ -16,12 +17,12 @@ import { slow } from "../test-slow";
 const idOf = (exportName: string) => exportName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
 // ONE-HEADER (#781, the owner's decisions of 2026-10-26): one header on every page but the game scenes. Back and the title at the
-// top left, no subtitle; the home's balances at the top right, in the header's row; nothing under it.
+// top left, no subtitle; the page's balances (#855) at the top right, in the header's row; nothing under it.
 const READY = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } as const;
-const withBalances = (page: ReactNode) =>
+const withBalances = (page: ReactNode, kinds?: readonly ShownBalance[]) =>
   render(
     <LazyMotion features={domMax}>
-      <BalancesProvider value={{ state: READY }}>{page}</BalancesProvider>
+      <BalancesProvider value={{ state: { ...READY, vpaved: 0n }, kinds }}>{page}</BalancesProvider>
     </LazyMotion>,
   );
 
@@ -29,7 +30,7 @@ describe("the page header (#781)", () => {
   it.each([
     ["a tab page", () => <TabPage tab="vault" title="Vault" onNavigate={() => {}}>Body</TabPage>],
     ["a flow's top bar", () => <TopBar title="Vault" onBack={() => {}} />],
-  ])("%s draws the one header: Back, then the title, then the home's balances, one row", async (_, page) => {
+  ])("%s draws the one header: Back, then the title, then the page's balances, one row", async (_, page) => {
     const { container } = withBalances(page());
     const headers = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');
     expect(headers).toHaveLength(1);
@@ -83,19 +84,25 @@ describe("the page header (#781)", () => {
   });
 });
 
-// Every page's real scene, as `Pages/Headers` draws it (not a stand-in bar): the one header, its title, and the home's balances
-// where the page's rule has them. Welcome included: a first visit is a page like any other (#781).
+// Every page's real scene, as `Pages/Headers` draws it (not a stand-in bar): the one header, its title, and exactly the page's
+// balances (#855), none where it has none. Welcome included: a first visit is a page like any other (#781).
 describe("every page's scene draws the one header (#781)", () => {
   const stories = Object.entries(PAGE_STORIES).filter(([name]) => name !== "default") as [string, { render?: (...a: never[]) => unknown }][];
   it.each(Object.entries(PAGE_HEADER_STORIES).map(([id, routes]) => [id, routes[0]] as const))("%s", async (id, route) => {
     const story = stories.find(([name]) => idOf(name) === id)?.[1];
     expect(story?.render, id).toBeDefined();
     const page = story!.render!({} as never, {} as never) as ReactNode;
-    const { container } = HEADER_BALANCES[route] === "none" ? render(<LazyMotion features={domMax}>{page}</LazyMotion>) : withBalances(page);
+    const kinds = HEADER_BALANCES[route];
+    const none = kinds.length === 0;
+    const { container } = none ? render(<LazyMotion features={domMax}>{page}</LazyMotion>) : withBalances(page, kinds);
     const header = container.querySelector<HTMLElement>('[data-slot="page-header"]')!;
     expect(header).not.toBeNull();
     expect(within(header).getByRole("heading", { level: 1 }).textContent).not.toBe("");
-    if (HEADER_BALANCES[route] === "none") expect(within(header).queryAllByRole("region", { name: "Balances" })).toHaveLength(0);
-    else expect(await within(header).findAllByRole("region", { name: "Balances" }, { timeout: slow(5000) })).toHaveLength(2);
+    if (none) return expect(within(header).queryAllByRole("region", { name: "Balances" })).toHaveLength(0);
+    const regions = await within(header).findAllByRole("region", { name: "Balances" }, { timeout: slow(5000) });
+    expect(regions).toHaveLength(2);
+    // vPAVED is not held here: a "while held" plate is absent.
+    const shown = kinds.filter((kind) => kind !== "vpaved-held").map((kind) => (kind === "usdc" ? "USDC" : kind === "paved" ? "PAVED" : kind === "vpaved" ? "vPAVED" : "Cobbles"));
+    for (const region of regions) expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label")!.replace(/^[\d.,]+ ([A-Za-z]+).*$/, "$1"))).toEqual(shown);
   });
 });

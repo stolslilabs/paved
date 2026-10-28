@@ -26,7 +26,7 @@ const POINTS: { icon: string; title: string; text: string }[] = [
 
 /**
  * The first visit (`/welcome`, section 6.1): what the game is, connect, or play Training without a wallet. Its header is every
- * page's (`PageHeader`, ONE-HEADER #781): Back at the top left to the village, the title, the home's balances at the top right.
+ * page's (`PageHeader`, ONE-HEADER #781): Back at the top left to the village, the title; no balances (#855: the welcome uses none).
  * No document fade under it (`document` off): the hero fits a phone's height.
  */
 export function WelcomeScene({ connecting, error, errorDetail, onConnect, onTraining, onBack }: WelcomeSceneProps) {

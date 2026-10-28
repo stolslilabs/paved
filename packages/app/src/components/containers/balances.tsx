@@ -27,19 +27,25 @@ type Ready = Extract<BalancesState, { status: "ready" }>;
 /** Where each balance leads: USDC to where it is got, PAVED and vPAVED to the Vault, Cobbles to the packs (#621). */
 export type BalanceKind = "usdc" | "paved" | "vpaved" | "cobbles";
 
+/**
+ * A balance a page shows (#855, `routes/header-balances.ts`): a kind, always shown, or `vpaved-held`, vPAVED only while the player
+ * holds some (#620: the home's).
+ */
+export type ShownBalance = BalanceKind | "vpaved-held";
+
 export interface BalancesProps {
   /**
-   * `pill`: the Cobbles' plate alone (the home's and every page's header below `desktop`, #781). `rail`: every balance in a
-   * row, each a tap to its place (the same from `desktop`). Each layout shows at every width:
-   * the slot hides it where the other one stands.
+   * The plates' size, the same balances either way (#855): `pill`, the phone's (below `desktop`, an error a mark); `rail`, the
+   * larger plates from `desktop`. Each layout shows at every width: the slot hides it where the other one stands.
    */
   layout: "pill" | "rail";
-  /**
-   * `row`: side by side (a page's header, #781). `column`: one under the other, right-aligned (the home's top right, #828). The
-   * pill's one plate is the same either way.
-   */
+  /** The balances shown, in this order (#855: the page's, `routes/header-balances.ts`); omitted, every one (vPAVED while held). */
+  kinds?: readonly ShownBalance[];
+  /** `row`: side by side (a page's header, #781). `column`: one under the other, right-aligned (the home's top right, #828). */
   direction?: "row" | "column";
   state: BalancesState;
+  /** The balances whose page is the one open (#855: PAVED and vPAVED on the Vault, the Cobbles on the packs): no "+", no action. */
+  here?: readonly BalanceKind[];
   onAction?: (kind: BalanceKind) => void;
   onConnect?: () => void;
   /** The network has a test-USDC faucet (devnet, Sepolia): USDC's action mints; without it USDC has no action here. */
@@ -56,7 +62,8 @@ const PLATES: Record<BalanceKind, { label: string; action: string; decimals: num
   vpaved: { label: "vPAVED", action: "Vault", decimals: 18, fraction: 2, page: true },
   cobbles: { label: "Cobbles", action: "Buy packs", decimals: 0, fraction: 0, page: true },
 };
-const ORDER: readonly BalanceKind[] = ["usdc", "paved", "vpaved", "cobbles"];
+const EVERY: readonly ShownBalance[] = ["usdc", "paved", "vpaved-held", "cobbles"];
+const kindOf = (shown: ShownBalance): BalanceKind => (shown === "vpaved-held" ? "vpaved" : shown);
 
 /** A balance in base units (the Cobbles' count as is); null and undefined pass through. */
 function amountOf(state: Ready, kind: BalanceKind): bigint | null | undefined {
@@ -64,8 +71,11 @@ function amountOf(state: Ready, kind: BalanceKind): bigint | null | undefined {
   return typeof value === "number" ? BigInt(value) : value;
 }
 
-/** The balances a player sees: vPAVED only while it shows (`useVpavedPlate`). */
-const shownKinds = (vpaved: boolean) => ORDER.filter((kind) => kind !== "vpaved" || vpaved);
+/** "USDC, PAVED and Cobbles": the balances' names in a sentence. */
+function namesOf(kinds: readonly ShownBalance[]) {
+  const labels = kinds.map((shown) => PLATES[kindOf(shown)].label);
+  return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
+}
 
 /** How long a vPAVED plate stays once its balance falls to zero: its count down and its "−N" play out first. */
 const VPAVED_LEAVE_MS = 2400;
@@ -113,14 +123,17 @@ interface PlateTapProps {
   from?: bigint;
   kind: BalanceKind;
   state: Ready;
+  /** The plate's page is the one open: it leads nowhere. */
+  here?: boolean;
   onAction?: (kind: BalanceKind) => void;
   faucet?: boolean;
   minting?: boolean;
   size: PlateSize;
 }
 
-/** A plate's action, and whether it has none: USDC mints only where there is a faucet, and not twice at once. */
-function actionOf(kind: BalanceKind, faucet?: boolean, minting?: boolean) {
+/** A plate's action, and whether it has none: none on its own page; USDC mints only where there is a faucet, and not twice at once. */
+function actionOf(kind: BalanceKind, here?: boolean, faucet?: boolean, minting?: boolean) {
+  if (here) return { action: "", inert: true };
   if (kind !== "usdc") return { action: PLATES[kind].action, inert: false };
   return { action: minting ? "Minting…" : faucet ? "Get test USDC" : "", inert: !faucet || Boolean(minting) };
 }
@@ -133,10 +146,10 @@ function nameOf(kind: BalanceKind, amount: bigint | null, action: string) {
 }
 
 /** One balance in the bar: a plate (at least 44 px of tap with the icon's overhang) that leads to its place, the whole plate a tap. */
-function PlateTap({ kind, from, state, onAction, faucet, minting, size }: PlateTapProps) {
+function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: PlateTapProps) {
   const amount = amountOf(state, kind);
   if (amount === undefined) return holdOf(size);
-  const { action, inert } = actionOf(kind, faucet, minting);
+  const { action, inert } = actionOf(kind, here, faucet, minting);
   const { decimals, fraction, page } = PLATES[kind];
   return (
     <m.button
@@ -147,15 +160,15 @@ function PlateTap({ kind, from, state, onAction, faucet, minting, size }: PlateT
       whileTap={inert ? undefined : { scale: 0.94 }}
       className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
     >
-      <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} plus={page} tone={kind === "cobbles" ? "invite" : "default"} />
+      <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} plus={page && !here} tone={kind === "cobbles" ? "invite" : "default"} />
     </m.button>
   );
 }
 
-function Guest({ connecting, onConnect, wide }: { connecting?: boolean; onConnect?: () => void; wide?: boolean }) {
+function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConnect?: () => void; names?: string }) {
   return (
     <div className="flex items-center gap-2">
-      {wide && <span className="hidden text-xs text-muted-foreground wide:inline">Connect to see your USDC, PAVED and Cobbles.</span>}
+      {names && <span className="hidden text-xs text-muted-foreground wide:inline">Connect to see your {names}.</span>}
       <Button size="sm" onClick={onConnect} loading={connecting}>
         Connect
       </Button>
@@ -166,46 +179,48 @@ function Guest({ connecting, onConnect, wide }: { connecting?: boolean; onConnec
 /**
  * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate (#828), its icon over the plate's
  * right end, the figure chunky, counting to each new value; a "+" over the left end where the balance leads to a page (the Vault,
- * the packs). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED joins when held and
- * leads to the Vault. `pill` (a phone): the Cobbles alone (#720: no other currency on a phone; the Vault shows PAVED and vPAVED in
- * its content). `rail`: every balance, in a row or a column (`direction`). Disconnected: Connect; loading: skeleton plates;
- * error: a short inline error (a mark on a phone, its message in its name), never a toast.
+ * the packs), none on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
+ * joins when held where the page shows it so (`vpaved-held`). Only the page's balances (`kinds`, #855), the same on a phone
+ * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
+ * skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
  */
-export function Balances({ layout, direction = "row", state, onAction, onConnect, faucet, minting, className }: BalancesProps) {
-  const vpaved = useVpavedPlate(state.status === "ready" ? state.vpaved : undefined);
-  if (layout === "rail") {
-    const fromOf = (kind: BalanceKind) => (kind === "vpaved" ? vpaved.from : undefined);
-    return (
-      <section aria-label="Balances" data-direction={direction} className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-2" : "items-center gap-3", className)}>
-        {state.status === "disconnected" ? (
-          <Guest connecting={state.connecting} onConnect={onConnect} wide />
-        ) : state.status === "error" ? (
+export function Balances({ layout, kinds = EVERY, direction = "row", state, here, onAction, onConnect, faucet, minting, className }: BalancesProps) {
+  const held = kinds.includes("vpaved-held");
+  const vpaved = useVpavedPlate(held && state.status === "ready" ? state.vpaved : undefined);
+  if (kinds.length === 0) return null;
+  const size: PlateSize = layout === "rail" ? "md" : "sm";
+  // The mount's count up serves the plate that joins with a first deposit; an always-shown plate counts as any other.
+  const fromOf = (kind: BalanceKind) => (kind === "vpaved" && held ? vpaved.from : undefined);
+  return (
+    <section
+      aria-label="Balances"
+      data-direction={direction}
+      className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-2" : cn("items-center", size === "md" ? "gap-3" : "gap-2"), className)}
+    >
+      {state.status === "disconnected" ? (
+        <Guest connecting={state.connecting} onConnect={onConnect} names={size === "md" ? namesOf(kinds) : undefined} />
+      ) : state.status === "error" ? (
+        size === "md" ? (
           <InlineError message={state.message} title="Balances" />
-        ) : state.status === "loading" ? (
-          // The plates' rows: a skeleton in each plate's place, nothing moves when they arrive.
-          ORDER.filter((kind) => kind !== "vpaved").map((kind) => (
-            <span key={kind} className="flex min-h-11 items-center">
-              {holdOf("md")}
+        ) : (
+          <span role="img" aria-label={`Balances unavailable: ${state.message}`} title={state.message} className="grid size-11 place-items-center">
+            <Icon name="triangle-exclamation" size="sm" className="text-muted-foreground" />
+          </span>
+        )
+      ) : state.status === "loading" ? (
+        // The plates' rows: a skeleton in each plate's place, nothing moves when they arrive.
+        kinds
+          .filter((shown) => shown !== "vpaved-held")
+          .map((shown) => (
+            <span key={shown} className="flex min-h-11 items-center">
+              {holdOf(size)}
             </span>
           ))
-        ) : (
-          shownKinds(vpaved.shown).map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} onAction={onAction} faucet={faucet} minting={minting} size="md" />)
-        )}
-      </section>
-    );
-  }
-  return (
-    <section aria-label="Balances" className={cn("flex items-center", className)}>
-      {state.status === "disconnected" ? (
-        <Guest connecting={state.connecting} onConnect={onConnect} />
-      ) : state.status === "error" ? (
-        <span role="img" aria-label={`Balances unavailable: ${state.message}`} title={state.message} className="grid size-11 place-items-center">
-          <Icon name="triangle-exclamation" size="sm" className="text-muted-foreground" />
-        </span>
-      ) : state.status === "ready" ? (
-        <PlateTap kind="cobbles" state={state} onAction={onAction} size="sm" />
       ) : (
-        holdOf("sm")
+        kinds
+          .filter((shown) => shown !== "vpaved-held" || vpaved.shown)
+          .map(kindOf)
+          .map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} here={here?.includes(kind)} onAction={onAction} faucet={faucet} minting={minting} size={size} />)
       )}
     </section>
   );

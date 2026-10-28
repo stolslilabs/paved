@@ -12,7 +12,7 @@ export interface PageHeaderProps {
   title: string;
   /** Shows the Back button; none when omitted. */
   onBack?: () => void;
-  /** The player's balances, on by default; off where a page shows none (an error, the end of an attack). */
+  /** The page's balances (the shell's, #855), on by default; off where a page shows none (an error, the end of an attack). */
   balances?: boolean;
   /** The page scrolls as one document (a flow's), so its header draws the fade of the document's top (`documentScrollStartHint`). */
   document?: boolean;
@@ -25,11 +25,11 @@ export interface PageHeaderProps {
  * scrolling region on the navigation's backdrop, a fade under it while the region has more above (`page-less`).
  * - At the top left, Back (`chevron-left`) and the title in the Vault's format: the display font, one line, cut with an ellipsis,
  *   its whole text in the tooltip (the heading's accessible name keeps it whole). No subtitle.
- * - At the top right, the home's balances in the home's format (`home-village-scene.tsx`): the Cobbles' `pill` below `desktop`, the
- *   `rail` from it, the same on every page, in the header's row; nothing under the header, so the content starts right under it.
+ * - At the top right, the page's balances (#855: only those it uses, `routes/header-balances.ts`), the phone's plates (`pill`)
+ *   below `desktop`, the larger ones (`rail`) from it, in the header's row; nothing under the header, so the content starts right under it.
  * - At 320 px the title gives way first (`min-w-0`), never Back nor the balances (`shrink-0`).
  * - In the home's side panel from `desktop` (DESK-PANELS, #762) the page is laid out as on a phone (`data-page-panel`, theme.css): the
- *   `pill`; a page of the overlay itself has no Back (a click outside the panel or Escape leads to the village; no close button,
+ *   phone's plates; a page of the overlay itself has no Back (a click outside the panel or Escape leads to the village; no close button,
  *   #782).
  * One module with `TopBar`: the route's error page (`RouteError`) carries it in the entry, and the tab pages share it from there;
  * in a module of its own the bundler split it and the balances' slot into two chunks of the first load (`bundle-budget.json`).

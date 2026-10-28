@@ -15,9 +15,9 @@ const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const READY: BalancesState = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 };
 
 describe("Balances (#538), the resource bar (#620)", () => {
-  it("pill: the Cobbles' plate alone (#720), leading to the packs", async () => {
+  it("pill: the page's balances alone (#855), the Cobbles' plate leading to the packs", async () => {
     const onAction = vi.fn();
-    render(wrap(<Balances layout="pill" state={READY} onAction={onAction} />));
+    render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} onAction={onAction} />));
     const region = screen.getByRole("region", { name: "Balances" });
     expect(within(region).getAllByRole("button")).toHaveLength(1);
     expect(screen.queryByText("48.50")).toBeNull();
@@ -181,15 +181,30 @@ describe("the plates (#828)", () => {
     expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end gap-2"));
   });
 
-  it("the home stacks its rail; a page's header keeps it in a row", async () => {
+  it("no balances, nothing drawn", () => {
+    render(wrap(<Balances layout="rail" kinds={[]} state={READY} />));
+    expect(screen.queryByRole("region", { name: "Balances" })).toBeNull();
+  });
+
+  it("a guest's Connect names the page's balances from desktop", () => {
+    render(wrap(<Balances layout="rail" kinds={["cobbles", "usdc"]} state={{ status: "disconnected" }} />));
+    expect(screen.getByText("Connect to see your Cobbles and USDC.")).toBeInTheDocument();
+  });
+
+  it("loading: a skeleton per balance shown, none for vPAVED while unknown", () => {
+    const { container } = render(wrap(<Balances layout="pill" kinds={["cobbles", "paved", "vpaved-held"]} state={{ status: "loading" }} />));
+    expect(container.querySelectorAll("[data-slot=skeleton]")).toHaveLength(2);
+  });
+
+  it("the home stacks its balances at every width; a page's header keeps them in a row", async () => {
     const { unmount } = render(wrap(<BalancesProvider value={{ state: READY }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
     const home = await screen.findAllByRole("region", { name: "Balances" });
-    // The pill (one plate) below `desktop`, the stacked rail from it.
-    expect(home.map((r) => r.dataset.direction)).toEqual([undefined, "column"]);
+    // The phone's plates below `desktop`, the larger ones from it, both stacked (#855: the home's set at every width).
+    expect(home.map((r) => r.dataset.direction)).toEqual(["column", "column"]);
     unmount();
     render(wrap(<BalancesProvider value={{ state: READY }}><TopBar title="Choose a mode" /></BalancesProvider>));
     const header = await screen.findAllByRole("region", { name: "Balances" });
-    expect(header.map((r) => r.dataset.direction)).toEqual([undefined, "row"]);
+    expect(header.map((r) => r.dataset.direction)).toEqual(["row", "row"]);
   });
 });
 

@@ -25,7 +25,7 @@ const COLUMN = "mx-auto w-full max-w-md px-4 tablet:max-w-2xl";
  * A page of the tabs (section 6.2), in the frame of the tab pages (`TabFrame`): the bottom bar below `desktop` (direction D,
  * #537); the content in one column that widens with the viewport up to `desktop`. Its header is every page's (`PageHeader`,
  * ONE-HEADER #781): Back at the top left (up to the village), the
- * title, the home's balances at the top right; sticky at the top of the page's scrolling region. The content starts right under it.
+ * title, the page's balances at the top right (#855); sticky at the top of the page's scrolling region. The content starts right under it.
  * DESK-PANELS (#762): from `desktop` the page is in the home's side panel, laid out as on a phone.
  */
 export function TabPage({ tab, title, onBack, onNavigate, children, className }: TabPageProps) {

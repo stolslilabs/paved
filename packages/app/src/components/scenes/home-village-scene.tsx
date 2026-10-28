@@ -12,6 +12,7 @@ import type { VillageArrival } from "../elements/village-fog";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { BalancesSlot } from "../containers/balances-context";
+import { HOME_BALANCES } from "../../routes/header-balances";
 import { OverlayButton } from "../containers/home-overlays";
 import type { LayoutBoardView } from "../containers/layout-board";
 import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
@@ -350,7 +351,8 @@ function ViewOverlays({
             )}
           </div>
           {/*
-            The balances one under the other at the top right (#828), the same set as each width's header (#781). Out of the row's
+            The home's own balances (#855: the Cobbles, PAVED, vPAVED while held; no USDC), one under the other at the top right
+            (#828), at every width, the phone's plates below `desktop` and the larger ones from it; the same under a panel's page. Out of the row's
             flow: only the profile's line stands beside them (the League control under it passes below the plate), so at 320 px the
             badge keeps its whole width; the left column stops short of the right column (the chips' clearance) and wraps.
           */}
@@ -359,8 +361,8 @@ function ViewOverlays({
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <GameIcon name="gear" size="md" />
             </Button>
-            <BalancesSlot layout="pill" className="desktop:hidden" />
-            <BalancesSlot layout="rail" direction="column" className="hidden desktop:flex" />
+            <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" className="desktop:hidden" />
+            <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />
             <VillageNav {...props} />
           </div>
         </div>
