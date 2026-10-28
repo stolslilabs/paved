@@ -76,8 +76,11 @@ export async function gamesUpTo(day: number, page: (before: string | undefined) 
 
 /**
  * When a game finished, as far as the indexer knows. `GameOver.end_time` is set only for a game over on the UTC day it started
- * (`end_in_day`, `playable.cairo`); one finished across midnight reports 0, yet its quests count on its finish. Such a game
- * finished on the day after its start (it lives 24 h, `GAME_LIFE_S`), at an unknown time: the start of that day stands for it.
+ * (`end_in_day`, `playable.cairo`); one finished on a later day reports 0, yet its quests count on its finish. The mock's
+ * estimate: the day after its start (a game lives 24 h, `GAME_LIFE_S`), at that day's start. A known limit of the mock (#869,
+ * the Overseer's ruling): a game surrendered more than a day after its start (`surrender` checks no expiry) counts on that day
+ * instead of its finish day, and `gamesUpTo` reads no game started earlier. The indexer must expose a finish time for such
+ * games for the fifth daily to be exact (#738).
  */
 export function finishedAt(game: IndexedGame): number {
   return game.endTime > 0 ? game.endTime : (Math.floor(game.startTime / DAY_S) + 1) * DAY_S;
