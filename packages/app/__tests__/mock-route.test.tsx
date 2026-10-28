@@ -80,7 +80,8 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
   it("the balances' Cobbles lead to the packs' own page (#621), its packs from the mock", async () => {
     // The clocks held: the indexer's and the missions' tick each second, and each tick restarted the sheet's first render, which
     // React runs at a lower priority. Under a check's load that render took about a second, so the packs took 42 s, then more
-    // than 120 s. Only the intervals are fake: React, the queries and the lookups run on timeouts and the DOM's changes.
+    // than 120 s. Only the intervals are fake: React, the queries and the lookups run on timeouts and the DOM's changes. The
+    // file's last test: a module's interval begun while they are fake stays fake (`theme-route`'s next tests failed so).
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     // A page whose rule shows the Cobbles (Missions earn them, #720): the Vault shows none since the desktop's header went (#762).
     open("/missions");
