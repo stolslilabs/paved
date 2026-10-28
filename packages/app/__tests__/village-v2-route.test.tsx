@@ -40,7 +40,8 @@ function editPlayer(store: ReturnType<typeof mockImplementation>["store"], chang
   store.setItem(MOCK_KEY, JSON.stringify(state));
 }
 
-preloadPages("home", "missions", "vault", "settings", "play");
+// The overlay pages too: the Back test opens Chests, Shop and League, each cold in its own wait otherwise.
+preloadPages("home", "missions", "vault", "settings", "play", "village-chests", "village-shop", "pvp-league");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/village-shop")]);
 }, slow(60_000));
