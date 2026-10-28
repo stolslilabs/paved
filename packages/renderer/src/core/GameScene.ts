@@ -3,7 +3,7 @@ import { AssetLoader } from "./AssetLoader";
 import { TileRenderer, type LitTile } from "./TileRenderer";
 import type { ClosedStructure, ClosedStructuresOptions } from "./closed-structures";
 import { NO_SKINS, type TileSkins } from "./skins";
-import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
+import { CameraController, CLOSEST_DISTANCE, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
 import { frameFloorFor, frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
 import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
@@ -51,6 +51,9 @@ import { fogMode, type FogCell } from "./fog-of-war-settings";
 import type * as WeatherChunk from "./weather";
 // The chimney smoke too (CHIMNEY-SMOKE-2, #770): loaded the first time a board scene can draw it (`syncSmoke`).
 import type * as SmokeChunk from "./chimney-smoke";
+// The first-person walk (V4-WALK-1, #876) too: loaded on the first walk (`startWalk`).
+import type * as WalkChunk from "./walk";
+import { resolveWalkSettings, type WalkControl, type WalkSettingsInput, type WalkState } from "./walk-settings";
 import { weatherCloudFactor, weatherMode, type WeatherMode } from "./weather-settings";
 import { DAY_PHASE_AT } from "./daynight-settings";
 
@@ -255,6 +258,9 @@ export class GameScene {
   private overlayKey = "off";
   /** The look's own lights, as the square grid's backdrop measures the light of the moment against them (`syncGridLight`). */
   private lookLights: SurfaceLight[] = [];
+  /** The first-person walk under way (`startWalk`), from its descent to the end of its lift back; its chunk's load. */
+  private walkSession: WalkChunk.WalkSession | null = null;
+  private walkLoad: Promise<typeof WalkChunk> | null = null;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -1031,6 +1037,8 @@ export class GameScene {
     );
 
     this.boundInputHandler = (event: SurfaceInputEvent) => {
+      // While walking the board takes no tap or hover: a click locks the mouse for the look (the host's).
+      if (this.walkSession) return;
       this.pointerTap?.handle(event);
 
       if (event.type === "pointermove") {
@@ -1437,6 +1445,8 @@ export class GameScene {
   }
 
   private cameraDistance(): number {
+    // While walking every tile is close: the outlines are drawn as at the closest zoom.
+    if (this.walkSession) return CLOSEST_DISTANCE;
     return this.camera && this.controls ? this.camera.position.distanceTo(this.controls.controls.target) : 0;
   }
 
@@ -1504,7 +1514,7 @@ export class GameScene {
   /** Back to where the camera opens now (`openingFrame`, through `CameraController.reset`). */
   private resetCamera(): void {
     const controls = this.webCamera();
-    if (!controls) return;
+    if (!controls || this.walkSession) return;
     this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
     this.fitEnabled = this.settings.cameraFit.enabled;
     // Turned on in a scene that opened with the frame off: its chunk is not in yet; it frames once loaded.
@@ -1526,7 +1536,8 @@ export class GameScene {
   /** Puts the camera on the board's frame (`getCameraFit`), in play mode with the frame on (or `force`d by `recenter`). */
   private fitCamera(force = false): void {
     const controls = this.webCamera();
-    if (!controls || !this.surface) return;
+    // While walking the camera is the walker's: the frame waits for the way back.
+    if (!controls || !this.surface || this.walkSession) return;
     const { width, height } = this.surface.getSize();
     this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
     this.fitEnabled = this.settings.cameraFit.enabled;
@@ -1600,6 +1611,82 @@ export class GameScene {
     return { minX, maxX, minZ, maxZ };
   }
 
+  /**
+   * Starts a first-person walk (V4-WALK-1, #876): loads its chunk, builds the walk's ground from the tiles drawn on their models
+   * (the roads and the cities' ground, every solid voxel), and drops the walker on the road nearest the point the screen's centre
+   * looks at, the camera easing down from its view (a cut under reduced motion). The orbit controls stand still until the walk
+   * has eased back (`stopWalk`). Resolves with what drives it, or null when the board has no ground to walk on, the scene is not
+   * ready, or a walk is already under way.
+   */
+  async startWalk(input: WalkSettingsInput = {}): Promise<WalkControl | null> {
+    if (this.walkSession || !this.camera || !this.controls || !this.surface) return null;
+    this.walkLoad ??= import("./walk");
+    const chunk = await this.walkLoad;
+    if (this.disposed || this.walkSession || !this.camera) return null;
+    const began = performance.now();
+    const board = this.tiles.getGroup();
+    const map = chunk.boardWalkMap(board, this.tiles.smokeSources());
+    if (!map) return null;
+    const buildMs = performance.now() - began;
+    const session = chunk.WalkSession.start(
+      { camera: this.camera, board, map, settings: resolveWalkSettings(input), near: this.screenCentreOnBoard(), reducedMotion: prefersReducedMotion(), now: performance.now() },
+      buildMs,
+    );
+    if (!session) return null;
+    this.walkSession = session;
+    this.controls.controls.enabled = false;
+    this.requestRender();
+    return session;
+  }
+
+  /** Eases back from the walk to the view it came from (a cut under reduced motion); resolves once the orbit controls are back. */
+  stopWalk(): Promise<void> {
+    const session = this.walkSession;
+    if (!session) return Promise.resolve();
+    session.setReducedMotion(prefersReducedMotion());
+    const left = session.leave(performance.now());
+    this.requestRender();
+    return left;
+  }
+
+  /** Changes the walk's settings under way (the stories' controls); nothing without a walk. */
+  setWalkSettings(input: WalkSettingsInput): void {
+    this.walkSession?.setSettings(resolveWalkSettings(input));
+    this.camera?.updateProjectionMatrix();
+    this.requestRender();
+  }
+
+  /** The walk's state, or null with none under way. */
+  getWalk(): WalkState | null {
+    return this.walkSession?.state() ?? null;
+  }
+
+  /** The walk has eased back: the orbit controls take the camera again, where it was. */
+  private endWalk(): void {
+    this.walkSession = null;
+    if (this.controls) {
+      this.controls.controls.enabled = true;
+      this.controls.controls.update();
+    }
+    this.outlineTilePx = Number.NaN;
+    this.notifyCamera();
+    this.requestRender();
+  }
+
+  /** Where the screen's centre looks at the ground, in the board's frame (the tiles' group); the board's centre if it looks at none. */
+  private screenCentreOnBoard(): { x: number; z: number } {
+    const board = this.tiles.getGroup();
+    board.updateMatrixWorld(true);
+    this.camera.updateMatrixWorld();
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+    const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const hit = ray.ray.intersectPlane(ground, new THREE.Vector3());
+    if (!hit) return { x: 0, z: 0 };
+    const local = board.worldToLocal(hit);
+    return { x: local.x, z: local.z };
+  }
+
   /** Request a re-render (demand mode — only renders when state changes) */
   requestRender(): void {
     this.needsRender = true;
@@ -1652,13 +1739,16 @@ export class GameScene {
       const tickStart = observer ? performance.now() : 0;
       let rendered = false;
 
-      // controls.update() returns true while damping is active
-      const controlsChanged = this.controls.update();
-      if (controlsChanged) {
+      const now = performance.now();
+      if (this.walkSession) {
+        // The walker holds the camera: a frame while it moves, eases or turns, none while it stands still.
+        if (this.walkSession.update(now)) this.needsRender = true;
+        if (this.walkSession.done) this.endWalk();
+      } else if (this.controls.update()) {
+        // controls.update() returns true while damping is active
         this.needsRender = true;
       }
       // The placement effects that move (a plate's change of state, the confirm's fade) draw while they do.
-      const now = performance.now();
       const moved = this.tiles.update(now);
       if (moved.animating) this.needsRender = true;
       // The square grid's roll-in and dim; its pulse on the pending tile's clock, so the two breathe together.
@@ -1759,6 +1849,7 @@ export class GameScene {
     this.smoke?.dispose();
     this.smoke = null;
     this.smokeLoad = null;
+    this.walkSession = null;
     this.scene.clear();
     this.latestTiles = [];
     this.cameraListeners.clear();
