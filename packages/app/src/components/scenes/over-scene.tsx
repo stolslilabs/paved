@@ -382,9 +382,9 @@ function Highlights({ stats }: { stats: GameStats }) {
   const of = (category: CategoryType) => stats.categories.find((c) => c.category === category);
   const wonders = of(CategoryType.Wonder);
   const cells: { key: string; icon: string; color: string; label: string; value: string; hint: string }[] = [
-    structureCell("city", "Largest city", CategoryType.City, of(CategoryType.City)?.largest ?? null),
-    structureCell("road", "Longest road", CategoryType.Road, of(CategoryType.Road)?.largest ?? null),
-    structureCell("forest", "Largest forest", CategoryType.Forest, of(CategoryType.Forest)?.largest ?? null),
+    structureCell("Largest city", CategoryType.City, of(CategoryType.City)?.largest ?? null),
+    structureCell("Longest road", CategoryType.Road, of(CategoryType.Road)?.largest ?? null),
+    structureCell("Largest forest", CategoryType.Forest, of(CategoryType.Forest)?.largest ?? null),
     {
       key: "wonders",
       icon: info(CategoryType.Wonder).icon,
@@ -414,9 +414,10 @@ function Highlights({ stats }: { stats: GameStats }) {
   );
 }
 
-function structureCell(key: string, label: string, category: CategoryType, largest: ClosedStructure | null) {
+/** Keyed by the category's name (`highlight-city`), not a literal: a string in the icon table above would read as an icon. */
+function structureCell(label: string, category: CategoryType, largest: ClosedStructure | null) {
   return {
-    key,
+    key: info(category).label.toLowerCase(),
     icon: info(category).icon,
     color: info(category).color,
     label,
