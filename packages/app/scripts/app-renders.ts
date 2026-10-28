@@ -25,11 +25,6 @@ interface Copy {
   width: number;
   height: number;
   quality: number;
-  /**
-   * A sky painted under a keyed master, top colour then bottom (the battle logs' cards, #834): the board's holes and edges
-   * take it, and the copy has no transparency left.
-   */
-  sky?: [string, string];
 }
 
 /** Each copy at twice its largest box: the hero at a phone's width and a wide screen's, the thumbnails as the scenes set them. */
@@ -40,9 +35,6 @@ export const COPIES: readonly Copy[] = [
   { name: "mode-challenge", width: 320, height: 200, quality: 0.8 },
   { name: "mode-training", width: 320, height: 200, quality: 0.8 },
   { name: "mode-tutorial", width: 320, height: 200, quality: 0.8 },
-  // The battle logs' backgrounds (#834), cropped to each card: an attack's under an ember dusk, a defence's under a night blue.
-  { name: "battle-attack", width: 800, height: 225, quality: 0.45, sky: ["#6b2a12", "#1c0f0a"] },
-  { name: "battle-defence", width: 800, height: 225, quality: 0.45, sky: ["#1d3d5c", "#0c141d"] },
 ];
 
 async function run(): Promise<void> {
@@ -55,7 +47,7 @@ async function run(): Promise<void> {
     for (const copy of COPIES) {
       if (only && copy.name !== only) continue;
       const master = readFileSync(join(MASTERS, `${copy.name}.webp`)).toString("base64");
-      const url = await page.evaluate(async ({ master, width, height, quality, sky }) => {
+      const url = await page.evaluate(async ({ master, width, height, quality }) => {
         const blob = await (await fetch(`data:image/webp;base64,${master}`)).blob();
         const bitmap = await createImageBitmap(blob);
         const canvas = document.createElement("canvas");
@@ -64,13 +56,6 @@ async function run(): Promise<void> {
         const context = canvas.getContext("2d")!;
         context.imageSmoothingEnabled = true;
         context.imageSmoothingQuality = "high";
-        if (sky) {
-          const gradient = context.createLinearGradient(0, 0, 0, height);
-          gradient.addColorStop(0, sky[0]);
-          gradient.addColorStop(1, sky[1]);
-          context.fillStyle = gradient;
-          context.fillRect(0, 0, width, height);
-        }
         context.drawImage(bitmap, 0, 0, width, height);
         return canvas.toDataURL("image/webp", quality);
       }, { master, ...copy });

@@ -36,16 +36,17 @@ function random(seed: number): () => number {
 const outward = (low: number, high: number): number[] =>
   Array.from({ length: high - low + 1 }, (_, i) => low + i).sort((a, b) => Math.abs(a) - Math.abs(b) || b - a);
 
-/** A plan's share of forest spots (its key's `f`s of nine), the weight `forest` raises. */
+/** A plan's share of forest spots (its key's `f`s of nine), the weight `forest` raises; of city spots (`c`s), the weight `city` raises. */
 const forestShare = (plan: PlanType) => [...plan].filter((c) => c === "F").length / 9;
+const cityShare = (plan: PlanType) => [...plan].filter((c) => c === "C").length / 9;
 
 /**
  * A full board of `columns` x `rows` cells around the starter (the starter's column and row in the middle, the extra one to
  * the east and the south when a side is even), every cell filled with a fitting tile. `forest` (0: every fitting tile alike)
- * favours the plans with more forest, as a power of their forest share: a forest theme's board shows its woods. Throws if
- * no board fits (never seen: the search backs up a few cells at most).
+ * favours the plans with more forest, as a power of their forest share: a forest theme's board shows its woods; `city` the plans
+ * with more city, likewise (a walled village, the battle logs' defence, #857). Throws if no board fits (never seen: the search backs up a few cells at most).
  */
-export function fillBoard(columns: number, rows: number, seed: number, forest = 0): BoardTile[] {
+export function fillBoard(columns: number, rows: number, seed: number, forest = 0, city = 0): BoardTile[] {
   const xs = outward(-Math.floor((columns - 1) / 2), Math.ceil((columns - 1) / 2));
   // The engine's y grows to the north: the rows run from the starter's to the south's (more of them) and the north's.
   const ys = outward(-Math.ceil((rows - 1) / 2), Math.floor((rows - 1) / 2));
@@ -58,7 +59,7 @@ export function fillBoard(columns: number, rows: number, seed: number, forest = 
     if (++steps > 200_000) throw new Error(`render-tiles: no ${columns} x ${rows} board found for seed ${seed}`);
     const [x, y] = cells[index]!;
     // A weighted shuffle (each choice's key a random number raised to one over its weight): the heavier come first more often.
-    const choices = PLANS.flatMap((plan) => ORIENTATIONS.map((orientation) => ({ plan, orientation, order: -(next() ** (1 / (0.05 + forestShare(plan)) ** forest)) })))
+    const choices = PLANS.flatMap((plan) => ORIENTATIONS.map((orientation) => ({ plan, orientation, order: -(next() ** (1 / ((0.05 + forestShare(plan)) ** forest * (0.05 + cityShare(plan)) ** city))) })))
       .filter(({ plan, orientation }) => (wonders < WONDERS || !plan.startsWith("W")) && game.canPlace({ x, y, orientation }, plan))
       .sort((a, b) => a.order - b.order);
     for (const { plan, orientation } of choices) {

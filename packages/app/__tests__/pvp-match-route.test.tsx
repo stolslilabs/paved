@@ -1,13 +1,15 @@
 import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatInteger } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { attackV2Board } from "../src/data/free-attack";
 import type { MockLedger } from "../src/data/mock/ledger";
 import { mockRivalV2 } from "../src/data/mock/v2";
+import { resetManifestBodies } from "../src/data/renderer-manifest";
+import { resetTileRenders } from "../src/data/tile-renders";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -62,10 +64,18 @@ afterEach(() => {
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();
+  vi.unstubAllGlobals();
+  resetTileRenders();
+  resetManifestBodies();
 });
 
 describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, () => {
   it("lists the attack and the defence as cards, newest first; a card opens its match, whose Back lands on the League", async () => {
+    // The manifest: the battle logs' backgrounds (#857), the build's renders as the Story's.
+    resetTileRenders();
+    resetManifestBodies();
+    const renders = { "0": { "battle-attack-720": "renders/battle-attack-720.0.a.webp", "battle-attack-1040": "renders/battle-attack-1040.0.b.webp", "battle-defence-1040": "renders/battle-defence-1040.0.c.webp" } };
+    vi.stubGlobal("fetch", (url: string) => Promise.resolve(String(url).endsWith("manifest.json") ? new Response(JSON.stringify({ models: {}, renders, themes: {} })) : new Response("", { status: 404 })));
     const s = await open("/pvp/league");
     const list = await screen.findByRole("list", { name: "Matches" }, WAIT);
     const cards = within(list).getAllByRole("button");
@@ -73,8 +83,15 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     expect(cards[1]).toHaveAccessibleName(`Your attack on ${s.rival.name}: ${s.attack.stars} of 3 stars`);
     // The defence shielded the village (8 hours, until the player attacks).
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
-    // Each card on its side's illustration (#834), no plan view behind it.
-    expect(cards.map((c) => c.querySelector("[data-slot=match-art]")?.getAttribute("src"))).toEqual([expect.stringContaining("battle-defence"), expect.stringContaining("battle-attack")]);
+    // Each card on its side's background (#834), the build's render at each width it has (#857), no plan view behind it.
+    await waitFor(
+      () =>
+        expect(cards.map((c) => c.querySelector("[data-slot=match-art] img")?.getAttribute("srcset"))).toEqual([
+          expect.stringMatching(/^\S*battle-defence-1040\.0\.c\.webp 1040w$/),
+          expect.stringMatching(/^\S*battle-attack-720\.0\.a\.webp 720w, \S*battle-attack-1040\.0\.b\.webp 1040w$/),
+        ]),
+      WAIT,
+    );
     expect(cards.every((c) => c.querySelector("[inert]") === null)).toBe(true);
 
     await userEvent.click(cards[1]!);

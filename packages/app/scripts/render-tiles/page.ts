@@ -23,8 +23,8 @@ export interface RenderSpec {
   zoom: number;
   /** Straight above the tiles, north up (the deck sheet's top-down renders, #606); at `POLAR` and `AZIMUTH` otherwise. */
   top?: boolean;
-  /** A whole board instead of `tiles`: `columns` x `rows` fitting tiles around the starter (`fillBoard`), from `seed`, `forest` its bias to the woods. */
-  board?: { columns: number; rows: number; seed: number; forest?: number };
+  /** A whole board instead of `tiles`: `columns` x `rows` fitting tiles around the starter (`fillBoard`), from `seed`, `forest` its bias to the woods, `city` to the cities. */
+  board?: { columns: number; rows: number; seed: number; forest?: number; city?: number };
   /** The camera's angles in degrees, off the vertical and around (unset: `POLAR` and `AZIMUTH`). */
   polar?: number;
   azimuth?: number;
@@ -41,6 +41,11 @@ export interface RenderSpec {
    * `far` CSS px at the top edge and `near` at the bottom one, as a lens focused on the middle rows of a board seen low.
    */
   depthOfField?: { focus: number; sharp: number; far: number; near: number };
+  /**
+   * The light of one moment of the day and night cycle, held (the battle logs' backgrounds, #857: an attack's warm, a
+   * defence's cool): the seasons since a summer's dawn, as `DayNightSettings.freezeAt`. Unset: the look's fixed lights.
+   */
+  dayNight?: number;
 }
 
 /** Drawn at twice the output, then averaged down: the faces' edges come out smooth whatever the GPU's MSAA. */
@@ -74,9 +79,20 @@ function firstVariants(full: AssetManifest): AssetManifest {
   return { ...full, themes };
 }
 
-/** The board's look at its best tier, outlines forced on or off whatever the GPU, one pixel per CSS px (the supersample is the stage's size). */
-const settingsOf = (outlines: boolean) => ({ maxPixelRatio: 1, quality: "high", multisampling: true, outlines: { force: outlines ? "on" : "off" } }) as const;
-let outlined = true;
+/**
+ * The board's look at its best tier, outlines forced on or off whatever the GPU, one pixel per CSS px (the supersample is the
+ * stage's size), and the cycle held at `dayNight` when set (moving, so a held night keeps its window lights).
+ */
+const settingsOf = (outlines: boolean, dayNight?: number) =>
+  ({
+    maxPixelRatio: 1,
+    quality: "high",
+    multisampling: true,
+    outlines: { force: outlines ? "on" : "off" },
+    ...(dayNight != null && { dayNight: { enabled: true, freezeAt: dayNight, seed: 1, reducedMotion: false } }),
+  }) as const;
+/** The settings last set (`settingsOf`'s arguments): a render that asks for others sets them again. */
+let applied = JSON.stringify([true, undefined]);
 
 async function setup(): Promise<{ renderer: string | null; software: boolean; manifest: AssetManifest }> {
   manifest = (await (await fetch(`${BASE}/manifest.json`)).json()) as AssetManifest;
@@ -94,7 +110,7 @@ async function setup(): Promise<{ renderer: string | null; software: boolean; ma
 }
 
 /** The tiles a render draws: its own, or its whole board's. */
-const tilesOf = (spec: RenderSpec): BoardTile[] => (spec.board ? fillBoard(spec.board.columns, spec.board.rows, spec.board.seed, spec.board.forest) : spec.tiles);
+const tilesOf = (spec: RenderSpec): BoardTile[] => (spec.board ? fillBoard(spec.board.columns, spec.board.rows, spec.board.seed, spec.board.forest, spec.board.city) : spec.tiles);
 
 /** The model ids the render waits for: a variant's path (a skinned plan the manifest lists) or the plan's base model. */
 function modelIds(spec: RenderSpec, tiles: readonly BoardTile[]): string[] {
@@ -148,9 +164,10 @@ async function render(spec: RenderSpec): Promise<{ webp: string; models: string[
   stage.style.width = `${(spec.width + 2 * margin) * SUPERSAMPLE}px`;
   stage.style.height = `${(spec.height + 2 * margin) * SUPERSAMPLE}px`;
   const outlines = spec.outlines ?? true;
-  if (outlines !== outlined) {
-    scene.setSettings(settingsOf(outlines));
-    outlined = outlines;
+  const wanted = JSON.stringify([outlines, spec.dayNight]);
+  if (wanted !== applied) {
+    scene.setSettings(settingsOf(outlines, spec.dayNight));
+    applied = wanted;
   }
   const drawn = tilesOf(spec);
   const skins = spec.theme ? Object.fromEntries(drawn.map(({ key }) => [key, spec.theme])) : {};
@@ -180,6 +197,12 @@ async function render(spec: RenderSpec): Promise<{ webp: string; models: string[
     if (waited > 60_000) throw new Error(`render-tiles: ${models.filter((id) => !scene!.assets.has(id)).join(", ")} did not load`);
     await new Promise((done) => setTimeout(done, 50));
   }
+  // The cycle's chunk loads on its first use: its light draws once it is in.
+  for (let waited = 0; spec.dayNight != null && !scene.getDayNight(); waited += 50) {
+    if (waited > 60_000) throw new Error("render-tiles: the day and night cycle did not load");
+    scene.requestRender();
+    await new Promise((done) => setTimeout(done, 50));
+  }
   // The tiles' centre, then the camera on its fixed sphere around it.
   scene.focusBoard();
   const target = scene.controls.controls.target;
@@ -205,7 +228,7 @@ async function render(spec: RenderSpec): Promise<{ webp: string; models: string[
   scene.requestShadowUpdate();
   // The resize, the models' upload and the shadow map settle over a few frames; a plate eases in over a few hundred ms
   // (`placement.ts`), so its frames run before the capture.
-  for (let i = 0; i < (up ? 40 : 6); i++) await frame();
+  for (let i = 0; i < (up || spec.dayNight != null ? 40 : 6); i++) await frame();
   scene.render();
   // Read in the same task as the draw: the drawing buffer is not kept after it is shown.
   const source = spec.depthOfField ? depthOfField(scene.renderer.domElement, spec, margin) : scene.renderer.domElement;
