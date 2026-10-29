@@ -12,7 +12,7 @@ import { RIVAL_SEEDS } from "../src/data/mock/rivals";
 import { mockRivalsV2 } from "../src/data/mock/v2";
 import { usePlayerProgress } from "../src/data/player-progress";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
-import { mockImplementation } from "./mock-fakes";
+import { mockImplementation, playDailies } from "./mock-fakes";
 
 // PvP v2 on the mock (#741, step 1 of #732): the whole loop through the hooks the screens (#739, #740) read, on the mock
 // ledger's overlays, from a fresh device: found a village, edit and save it; attack rivals with the deck of ceil(1.15 x S) and
@@ -206,16 +206,20 @@ describe("PvP v2 on the mock", () => {
     await waitFor(() => expect(result.current.account.data?.cobbles).toBe(bronze.cobbles + open.cobbles));
   });
 
-  it("pays bonus Cobbles for every quest of a day, and buys from the shop once per offer and day", async () => {
-    const { sources } = mockImplementation();
+  it("pays the day's milestones, no bonus for the whole day (#869), and buys from the shop once per offer and day", async () => {
+    const { sources, ledger, chain } = mockImplementation();
+    // Both milestones of the day, the five dailies done: 10 and 15 Cobbles.
+    playDailies(chain, [1, 2, 3, 4], 1);
+    await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 0);
+    await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1);
     const { result } = renderData(useLoop, sources);
     await waitFor(() => expect(result.current.quests.data).toBeTruthy());
-    await act(() => result.current.claims.claim("bonus:daily", [{ kind: "credit", credit: "daily", period: TODAY }]));
-    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(20));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(25));
+    expect(await result.current.claims.claim("bonus:daily", [{ kind: "credit", credit: "daily", period: TODAY }]).catch((e: unknown) => (e as { reason?: string }).reason)).toBe("no-live-quest");
     expect(result.current.account.data!.credits).toBe(0);
     // A pack's 50 Cobbles: enough for any offer
     await act(() => result.current.pack.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
-    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(70));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(75));
 
     const shop = await dataOf({ get current() { return result.current.shop; } });
     const offer = [...shop!.offers].sort((a, b) => a.price - b.price)[0]!;
@@ -224,7 +228,7 @@ describe("PvP v2 on the mock", () => {
     expect(refusal(await result.current.writes.buy({ day: shop!.day - 1, slot: offer.slot, confirmedPrice: offer.price }).catch((e: unknown) => e))).toBe("shop-closed");
     await act(() => result.current.writes.buy({ day: shop!.day, slot: offer.slot, confirmedPrice: offer.price }));
     await waitFor(() => expect(result.current.shop.data?.offers[offer.slot]?.bought).toBe(true));
-    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(70 - offer.price));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(75 - offer.price));
     await waitFor(() => expect(result.current.village.data?.inventory[offer.plan - 1]).toBe(1));
     expect(refusal(await result.current.writes.buy({ day: shop!.day, slot: offer.slot, confirmedPrice: offer.price }).catch((e: unknown) => e))).toBe("bought");
   });
