@@ -39,7 +39,8 @@ vi.mock("@paved/renderer/react", () => ({
 
 // The pages these tests open, imported before the first test: a cold page import ran inside the first `findBy` that reached it
 // (the defaults 2.9 to 5.1 s, the theme page 2.9 to 5.4 s, under load), against that lookup's 5 s.
-preloadPages("settings", "theme", "referral", "home", "board");
+// The hosts too: Settings is the home's panel (#762), the theme page a sheet over it (BACK-RULE #783), each a chunk of its own.
+preloadPages("settings", "theme", "referral", "home", "board", "home-panel", "page-sheets");
 
 const lastBoard = () => drawn.board.at(-1);
 const key = (plan: number) => getPlanKey(Plan.from(plan).value);

@@ -67,9 +67,10 @@ describe("/ (#753): the village home on its data", () => {
     const { wallet } = open("/");
     await screen.findByRole("button", { name: resume }, { timeout: slow(5000) });
     // One avatar: the home has no navigation rail.
-    const avatar = await screen.findByRole("button", { name: /^Profile: / }, { timeout: slow(5000) });
-    // The XP bar's seam (#625, #787): level 1 and 0 XP for everyone until the contracts define XP, and the XP left.
-    await waitFor(() => expect(avatar).toHaveAccessibleName(/, level 1, 100 XP to level 2$/), { timeout: slow(5000) });
+    expect(screen.getAllByRole("button", { name: /^Profile: / })).toHaveLength(1);
+    // The XP bar's seam (#625, #787): level 1 and 0 XP for everyone until the contracts define XP, and the XP left. The level
+    // joins the name once the progress is read, after the home under load: waited for.
+    const avatar = await screen.findByRole("button", { name: /^Profile: .*, level 1, 100 XP to level 2$/ }, { timeout: slow(5000) });
     await userEvent.click(avatar);
     // The sheet is its own chunk (#624): its content is drawn once loaded.
     const sheet = await screen.findByRole("dialog", {}, { timeout: slow(5000) });
