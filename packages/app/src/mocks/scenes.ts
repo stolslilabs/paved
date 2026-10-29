@@ -392,7 +392,9 @@ export const MISSIONS = {
   milestoneThree: { ...rewarded, quests: questsTodayDone(3) },
   /** The first milestone's claim on its way. */
   milestoneClaiming: { ...rewarded, quests: questsTodayDone(3), claimingMilestone: 0 },
-  /** Claimed: three done, the first reward node claimed (its check), the second ahead. */
+  /** The first milestone's claim landed: its gift opening, its 10 Cobbles shown above it. */
+  milestoneOpening: { ...rewarded, quests: questsTodayDone(3), milestones: { claimed: 0b01 }, revealingMilestone: 0 },
+  /** Claimed: three done, the first reward node claimed (its gift open, a check), the second ahead. */
   milestoneThreeClaimed: { ...rewarded, quests: questsTodayDone(3), milestones: { claimed: 0b01 } },
   /** The five dailies done, the first milestone claimed: the second's 15 Cobbles to claim. */
   milestoneFive: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b01 } },
