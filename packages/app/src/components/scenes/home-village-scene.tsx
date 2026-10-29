@@ -33,9 +33,6 @@ const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 const LazyLeagueControl = lazy(() => import("../containers/league-control").then((m) => ({ default: m.LeagueControl })));
 // The shield's plate and its popover (#806, #829): their own chunk, loaded only while the village is shielded (FIRST-LOAD).
 const LazyShieldPlate = lazy(() => import("../elements/shield-plate").then((m) => ({ default: m.ShieldPlate })));
-// The left column's scroller (#856), from the stage's chunk, which has it already (its plan and inventory scroll): no chunk of
-// its own, nothing more on the first load (FIRST-LOAD). Meanwhile the same column stands without scrolling.
-const LazyScrollRegion = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.ScrollRegion })));
 
 export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
@@ -273,9 +270,22 @@ function HomeBar({ children }: { children: ReactNode }) {
   );
 }
 
-/** The left column's box (#856): its band, the gap, the padding that keeps the controls' shadows inside its scroll box. */
-const LEFT_COLUMN =
-  "absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto";
+/**
+ * The left column's edge hint (NO-SCROLLBARS, #609; HOME-OVERLAYS, #856): `ScrollRegion`'s, attached once the stage's chunk, which
+ * carries it already (its plan and inventory scroll), is in: nothing more on the first load (FIRST-LOAD), and the column is the
+ * same box from the first paint (it scrolls meanwhile, without the fade).
+ */
+function leftColumnHint(el: HTMLDivElement) {
+  let off: (() => void) | undefined;
+  let gone = false;
+  void import("../containers/village-stage").then((m) => {
+    if (!gone) off = m.scrollHintRef(el);
+  });
+  return () => {
+    gone = true;
+    off?.();
+  };
+}
 
 /** The gap of both columns' buttons and of the bands' edges (#856), 12 px. */
 const GAP_PX = 12;
@@ -371,7 +381,7 @@ function ViewOverlays({
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
   const measures = useOverlayMeasures(!!props.seasonWheel);
-  // The left column's controls (#829, #856), in its scroller or, while that comes, in the same box without scrolling.
+  // The left column's controls (#829, #856).
   const leftColumn = (
     <>
       {/* The League control (the crowns and the crest, no name) and the shield's plate (#829). */}
@@ -455,9 +465,13 @@ function ViewOverlays({
         band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it (its edge
         fading where more waits), never over the dial; its padding keeps the controls' shadows inside the scroll box.
       */}
-      <Suspense fallback={<div className={LEFT_COLUMN}>{leftColumn}</div>}>
-        <LazyScrollRegion className={LEFT_COLUMN}>{leftColumn}</LazyScrollRegion>
-      </Suspense>
+      <div
+        ref={leftColumnHint}
+        data-slot="scroll-region"
+        className="scroll-hint absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
+      >
+        {leftColumn}
+      </div>
 
       {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
       {props.seasonWheel && (

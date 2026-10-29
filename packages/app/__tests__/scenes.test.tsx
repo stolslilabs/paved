@@ -174,13 +174,10 @@ describe("Home (#753): the village with its overlays", () => {
     // Edit (Settings and Play) on the right, under the profile and above the season dial on the left.
     expect(right.className.split(" ")).toEqual(expect.arrayContaining(["top-(--right-top)", "bottom-(--right-bottom)"]));
     expect(left.className.split(" ")).toEqual(expect.arrayContaining(["top-(--left-top)", "bottom-(--left-bottom)"]));
-    // Taller than its band (shielded, the score unfolded, a short screen), the left column scrolls within it (a ScrollRegion, its
-    // edge hint, in the stage's chunk), never over the dial.
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /^League: / }).parentElement!.className.split(" ")).toEqual(
-        expect.arrayContaining(["scroll-hint", "overflow-y-auto", "overscroll-contain", "top-(--left-top)"]),
-      ),
-    );
+    // Taller than its band (shielded, the score unfolded, a short screen), the left column scrolls within it, never over the dial:
+    // `ScrollRegion`'s box, its edge hint attached once the stage's chunk is in (the hint marks the axis that scrolls, none here).
+    expect(left).toHaveAttribute("data-slot", "scroll-region");
+    expect(left.className.split(" ")).toEqual(expect.arrayContaining(["scroll-hint", "overflow-y-auto", "overscroll-contain"]));
     // The left column holds the League control, the shield's plate and the village score, in that order.
     expect(within(left).getByRole("button", { name: /^League: / })).toBeInTheDocument();
     expect(left.querySelector("[data-slot=village-score]")).not.toBeNull();
