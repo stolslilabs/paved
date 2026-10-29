@@ -117,7 +117,7 @@ import {
 } from "@paved/game-core";
 import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
-import { freshV2, mockRivalV2, mockRivalsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
+import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
 import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../free-attack";
@@ -385,7 +385,9 @@ function parse(raw: string | null): StoredState | null {
   if (!raw) return null;
   try {
     const state = JSON.parse(raw) as StoredState;
-    return state && state.version === 1 && typeof state.players === "object" && state.vault ? state : null;
+    if (!(state && state.version === 1 && typeof state.players === "object" && state.vault)) return null;
+    for (const player of Object.values(state.players)) if (player.v2) renameChestsV2(player.v2);
+    return state;
   } catch {
     return null;
   }

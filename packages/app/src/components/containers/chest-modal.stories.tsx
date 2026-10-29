@@ -5,7 +5,7 @@ import { PLAN } from "../../mocks/village";
 import { CHESTS } from "../../mocks/village-v2";
 import { ChestModal } from "./chest-modal";
 
-const GOLD = { chestId: 41, draw: { rank: "gold", plans: [PLAN.road, PLAN.wonder, PLAN.cityEdge], cobbles: null } } as const;
+const EPIC = { chestId: 41, draw: { rank: "epic", plans: [PLAN.road, PLAN.wonder, PLAN.cityEdge], cobbles: null } } as const;
 
 /**
  * A ready chest's opening (#784), frame by frame for the owner to judge: the chest shaking at the centre ("Tap to open"), its
@@ -40,16 +40,16 @@ type Story = StoryObj<typeof meta>;
 export const Shaking: Story = {};
 /** 2. Tapped: its draw on its way, it shakes faster. */
 export const Opening: Story = { args: { opening: true } };
-/** 3. The lid's burst, held at its peak: the flash and the rays in the gold's colour. */
-export const Burst: Story = { args: { opened: GOLD, held: true } };
+/** 3. The lid's burst, held at its peak: the flash and the rays in the epic's colour. */
+export const Burst: Story = { args: { opened: EPIC, held: true } };
 /** 4. The tiles out of the chest, side by side: keep one of 3. */
-export const Gold: Story = { args: { opened: GOLD } };
+export const Epic: Story = { args: { opened: EPIC } };
 /** A tile chosen: Keep. */
-export const GoldChosen: Story = { args: { opened: GOLD, initialChoice: 1 } };
-export const Silver: Story = { args: { chest: CHESTS[1]!, opened: { chestId: 40, draw: { rank: "silver", plans: [PLAN.roadCross, PLAN.stopRoads], cobbles: null } } } };
-export const Bronze: Story = { args: { chest: CHESTS[2]!, more: 0, opened: { chestId: 39, draw: { rank: "bronze", plans: [PLAN.forestCity], cobbles: null } } } };
+export const EpicChosen: Story = { args: { opened: EPIC, initialChoice: 1 } };
+export const Rare: Story = { args: { chest: CHESTS[1]!, opened: { chestId: 40, draw: { rank: "rare", plans: [PLAN.roadCross, PLAN.stopRoads], cobbles: null } } } };
+export const Basic: Story = { args: { chest: CHESTS[2]!, more: 0, opened: { chestId: 39, draw: { rank: "basic", plans: [PLAN.forestCity], cobbles: null } } } };
 /** The Cobbles the chest held, after its tiles. */
-export const CobblesWon: Story = { args: { opened: { ...GOLD, draw: { ...GOLD.draw, cobbles: 50 } } } };
+export const CobblesWon: Story = { args: { opened: { ...EPIC, draw: { ...EPIC.draw, cobbles: 50 } } } };
 /** 5. The tile kept: Next chest while others wait, or Later. */
 export const TakenNext: Story = { args: { taken: { plan: PLAN.wonder, cobbles: 50 } } };
 /** The last one kept: Done, Edit layout. */
@@ -58,4 +58,4 @@ export const TakenLast: Story = { args: { chest: null, more: 0, taken: { plan: P
 export const StoryChest: Story = { args: { chest: CHESTS[2]!, more: 0 } };
 export const Refused: Story = { args: { refusal: "This chest was opened already. Nothing was taken." } };
 /** Under reduced motion: no shake, the tiles fade in. */
-export const Reduced: Story = { args: { opened: GOLD }, parameters: { reducedMotion: "always" } };
+export const Reduced: Story = { args: { opened: EPIC }, parameters: { reducedMotion: "always" } };

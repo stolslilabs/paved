@@ -236,7 +236,7 @@ const defence = (i: number, seed: keyof typeof ATTACK_SCORES.mine, at: number): 
 const attackMade = (id: number, seed: keyof typeof ATTACK_SCORES.rival, at: number, extra: Partial<MatchCardData> = {}): MatchCardData => {
   const score = ATTACK_SCORES.rival[seed];
   const stars = starsFor(score, RIVAL_VILLAGE.score);
-  const chest = ([null, "bronze", "silver", "gold"] as const)[stars]!;
+  const chest = ([null, "basic", "rare", "epic"] as const)[stars]!;
   return { id: `a${id}`, side: "attack", village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra, rival: faced(extra.rival ?? RIVAL) };
 };
 
@@ -256,7 +256,7 @@ export const MATCHES: MatchCardData[] = [
 
 /** One card per state (#834): its illustration in colour or grayscale, its corners. */
 export const MATCH_CARDS = {
-  /** Two stars on the rival: crowns won, XP and a silver chest. */
+  /** Two stars on the rival: crowns won, XP and a rare chest. */
   attackWon: MATCHES[0]!,
   /** No star: crowns lost, the illustration grey, no chest. */
   attackLost: MATCHES[4]!,
@@ -265,7 +265,7 @@ export const MATCH_CARDS = {
   /** The attacker took stars: crowns lost. */
   defenceLost: MATCHES[1]!,
   surrender: MATCHES[8]!,
-  /** Three stars: a gold chest. */
+  /** Three stars: an epic chest. */
   chest: MATCHES[2]!,
   /** A star, but no chest (the day's chests taken). */
   noChest: MATCHES[5]!,
@@ -338,7 +338,7 @@ function endXp(gained: number, xp = 1_480) {
 }
 
 function end(stars: number, percent: number, crowns: number, extra: Partial<Data<PvpEndSceneProps>> = {}): Data<PvpEndSceneProps> {
-  const rank = (["bronze", "silver", "gold"] as const)[stars - 1];
+  const rank = (["basic", "rare", "epic"] as const)[stars - 1];
   return {
     defender: RIVAL,
     stars,
@@ -361,16 +361,16 @@ const CAPPED_AT = MOCK_NOW + 4 * HOUR + 40 * 60;
 export const PVP_END = {
   /** Under 80 %: no star, crowns lost, no chest. */
   zeroStars: end(0, 72, -STAKES.loss),
-  /** 80 %: a bronze chest. */
+  /** 80 %: a basic chest. */
   oneStar: end(1, 84, STAKES.win[0]),
-  /** 95 %: a silver chest, still in Yeoman II. */
+  /** 95 %: a rare chest, still in Yeoman II. */
   twoStars: end(2, 95, STAKES.win[1]),
-  /** Past the village's score: a gold chest, and the crowns carry the attacker into Yeoman I. */
+  /** Past the village's score: an epic chest, and the crowns carry the attacker into Yeoman I. */
   threeStars: end(3, 104, STAKES.win[2]),
   /** A defeat that drops the attacker out of Yeoman II. */
   dropped: { ...end(0, 64, -STAKES.loss), crownsAfter: 990 },
   /** Stars won, but the day's 3 PvP chest slots are full: the chest grey and disabled, with the wait. */
-  chestCapped: end(2, 92, STAKES.win[1], { chest: { state: "capped", rank: "silver", resetsAt: CAPPED_AT } }),
+  chestCapped: end(2, 92, STAKES.win[1], { chest: { state: "capped", rank: "rare", resetsAt: CAPPED_AT } }),
   /** A level reached with the attack's XP. */
   levelUp: end(3, 101, STAKES.win[2], { xp: endXp(pvpXp(3), levelStatus(1_480).floor + 10) }),
   /** The attack given up: 0 stars and what it cost. */

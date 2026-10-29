@@ -255,17 +255,17 @@ describe("/village/chests", () => {
     const s = await open("/village/chests", async (s, me) => {
       const w = s.ledger.writesFor(me);
       await w.foundFreeVillage();
-      // Story: 3 stars the first time on a campaign's last level is a gold chest (it takes no slot).
+      // Story: 3 stars the first time on a campaign's last level is an epic chest (it takes no slot).
       await w.reportStory({ campaign: 2, level: 12, stars: 3 });
-      // A silver chest won in PvP today, before it: the day's first slot.
+      // A rare chest won in PvP today, before it: the day's first slot.
       editPlayer(s.store, (p) => {
         const v2 = p.v2 as unknown as { pvpChests: Record<string, number>; chests: { pending: unknown[] } };
         v2.pvpChests = { [today]: 1 };
-        v2.chests.pending.unshift({ rank: "silver", league: 0, origin: { source: "pvp", day: today, slot: 0 } });
+        v2.chests.pending.unshift({ rank: "rare", league: 0, origin: { source: "pvp", day: today, slot: 0 } });
       });
     });
-    const silver = await screen.findByRole("dialog", { name: "Silver chest" }, WAIT);
-    await userEvent.click(within(silver).getByRole("button", { name: /^Open the silver chest: one of 2 tiles/ }));
+    const rare = await screen.findByRole("dialog", { name: "Rare chest" }, WAIT);
+    await userEvent.click(within(rare).getByRole("button", { name: /^Open the rare chest: one of 2 tiles/ }));
     const tiles = within(await screen.findByRole("list", { name: "Chest tiles" }, WAIT)).getAllByRole("button");
     expect(tiles).toHaveLength(2);
     const before = (await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0);
@@ -273,17 +273,17 @@ describe("/village/chests", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Keep / }));
     const kept = await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT);
     expect((await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0)).toBe(before + 1);
-    // The Story gold one is next, in the same modal.
+    // The Story epic one is next, in the same modal.
     await userEvent.click(within(kept).getByRole("button", { name: /Next chest/ }));
-    expect(await screen.findByRole("dialog", { name: "Gold chest" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Epic chest" }, WAIT)).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    // The page: the slot opened is grey, no Waiting list, the gold one a tap away.
+    // The page: the slot opened is grey, no Waiting list, the epic one a tap away.
     const slots = within(screen.getByRole("list", { name: "Today's PvP slots" })).getAllByRole("listitem");
     expect(slots.map((li) => li.getAttribute("aria-label"))).toEqual(["Slot 1: opened", "Slot 2: free", "Slot 3: free"]);
     expect(screen.queryByRole("heading", { name: /Waiting/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Open your chests/ }));
-    expect(await screen.findByRole("dialog", { name: "Gold chest" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Epic chest" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));
 
   it("shows today's PvP chests before an older Story one, and opens the chest of the slot tapped (#784)", async () => {
@@ -291,49 +291,49 @@ describe("/village/chests", () => {
     const s = await open("/village/chests", async (s, me) => {
       const w = s.ledger.writesFor(me);
       await w.foundFreeVillage();
-      // A Story bronze chest won first, then two PvP chests today: a gold one (slot 1), a silver one (slot 2).
+      // A Story basic chest won first, then two PvP chests today: an epic one (slot 1), a rare one (slot 2).
       await w.reportStory({ campaign: 2, level: 1, stars: 3 });
       editPlayer(s.store, (p) => {
         const v2 = p.v2 as unknown as { pvpChests: Record<string, number>; chests: { pending: unknown[] } };
         v2.pvpChests = { [today]: 2 };
-        v2.chests.pending.push({ rank: "gold", league: 0, origin: { source: "pvp", day: today, slot: 0 } });
-        v2.chests.pending.push({ rank: "silver", league: 0, origin: { source: "pvp", day: today, slot: 1 } });
+        v2.chests.pending.push({ rank: "epic", league: 0, origin: { source: "pvp", day: today, slot: 0 } });
+        v2.chests.pending.push({ rank: "rare", league: 0, origin: { source: "pvp", day: today, slot: 1 } });
       });
     });
-    // On arrival: the PvP gold one, not the Story bronze one won before it.
-    const first = await screen.findByRole("dialog", { name: "Gold chest" }, WAIT);
+    // On arrival: the PvP epic one, not the Story basic one won before it.
+    const first = await screen.findByRole("dialog", { name: "Epic chest" }, WAIT);
     expect(within(first).getByText("PvP")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    // Slot 2's silver chest, tapped: it is the one shown, and the one drawn.
-    await userEvent.click(screen.getByRole("button", { name: "Open the silver chest of slot 2" }));
-    const silver = await screen.findByRole("dialog", { name: "Silver chest" }, WAIT);
-    await userEvent.click(within(silver).getByRole("button", { name: /^Open the silver chest: one of 2 tiles/ }));
+    // Slot 2's rare chest, tapped: it is the one shown, and the one drawn.
+    await userEvent.click(screen.getByRole("button", { name: "Open the rare chest of slot 2" }));
+    const rare = await screen.findByRole("dialog", { name: "Rare chest" }, WAIT);
+    await userEvent.click(within(rare).getByRole("button", { name: /^Open the rare chest: one of 2 tiles/ }));
     expect(within(await screen.findByRole("list", { name: "Chest tiles" }, WAIT)).getAllByRole("button")).toHaveLength(2);
-    await waitFor(async () => expect((await s.ledger.chests(s.me)).open?.rank).toBe("silver"), WAIT);
-    expect((await s.ledger.chests(s.me)).pending).toEqual(["bronze", "gold"]);
-    // Closed before the choice: slot 1's gold chest does not open (the silver one waits for its tile, as the page says).
+    await waitFor(async () => expect((await s.ledger.chests(s.me)).open?.rank).toBe("rare"), WAIT);
+    expect((await s.ledger.chests(s.me)).pending).toEqual(["basic", "epic"]);
+    // Closed before the choice: slot 1's epic chest does not open (the rare one waits for its tile, as the page says).
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    expect(screen.queryByRole("button", { name: "Open the gold chest of slot 1" })).toBeNull();
-    expect(screen.getByText("Your silver chest is open: keep one of its tiles before the next chest.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open the epic chest of slot 1" })).toBeNull();
+    expect(screen.getByText("Your rare chest is open: keep one of its tiles before the next chest.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Back to the open chest/ }));
-    expect(await screen.findByRole("dialog", { name: "Silver chest" }, WAIT)).toBeInTheDocument();
-    // Kept, then Later: slot 2 is grey while slot 1 still waits, and slot 1's tap shows its gold chest, not the tile kept.
+    expect(await screen.findByRole("dialog", { name: "Rare chest" }, WAIT)).toBeInTheDocument();
+    // Kept, then Later: slot 2 is grey while slot 1 still waits, and slot 1's tap shows its epic chest, not the tile kept.
     await userEvent.click(within(screen.getByRole("list", { name: "Chest tiles" })).getAllByRole("button")[0]!);
     await userEvent.click(screen.getByRole("button", { name: /^Keep / }));
     await userEvent.click(within(await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT)).getByRole("button", { name: "Later" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
     const slots = within(screen.getByRole("list", { name: "Today's PvP slots" })).getAllByRole("listitem");
-    expect(slots.map((li) => li.getAttribute("aria-label"))).toEqual(["Slot 1: won, gold chest", "Slot 2: opened", "Slot 3: free"]);
-    await userEvent.click(screen.getByRole("button", { name: "Open the gold chest of slot 1" }));
-    const gold = await screen.findByRole("dialog", { name: "Gold chest" }, WAIT);
-    expect(within(gold).getByText("Tap to open")).toBeInTheDocument();
-    // Closed again, Open your chests: the queue's first, the PvP gold one, before the Story bronze.
+    expect(slots.map((li) => li.getAttribute("aria-label"))).toEqual(["Slot 1: won, epic chest", "Slot 2: opened", "Slot 3: free"]);
+    await userEvent.click(screen.getByRole("button", { name: "Open the epic chest of slot 1" }));
+    const epic = await screen.findByRole("dialog", { name: "Epic chest" }, WAIT);
+    expect(within(epic).getByText("Tap to open")).toBeInTheDocument();
+    // Closed again, Open your chests: the queue's first, the PvP epic one, before the Story basic.
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Open your chests/ }));
-    expect(await screen.findByRole("dialog", { name: "Gold chest" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Epic chest" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));
 });
 
