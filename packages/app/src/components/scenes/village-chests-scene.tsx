@@ -136,7 +136,7 @@ export function VillageChestsScene({
           <SkinsStatusView
             status={status}
             guestTitle="Connect to open your chests"
-            guestText="Chests come with your stars: in PvP 1 star gives a bronze chest, 2 a silver one, 3 a gold one."
+            guestText="Chests come with your stars: in PvP 1 star gives a basic chest, 2 a rare one, 3 an epic one."
             errorTitle="The chests could not be read"
             skeleton={
               <div className="flex flex-col gap-3">
@@ -205,7 +205,7 @@ export function VillageChestsScene({
                   No chest waiting
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Win stars to fill a slot: in PvP, 1 star gives a bronze chest, 2 a silver one, 3 a gold one; in Story, 3 stars on a level the first time.
+                  Win stars to fill a slot: in PvP, 1 star gives a basic chest, 2 a rare one, 3 an epic one; in Story, 3 stars on a level the first time.
                 </p>
                 {onPlay && (
                   <Button onClick={onPlay}>
