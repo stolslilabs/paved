@@ -9,7 +9,7 @@ import { MOCK_STARTING_PAVED } from "../src/data/mock/ledger";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
-import { mockImplementation } from "./mock-fakes";
+import { mockImplementation, playDailies } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
@@ -19,13 +19,15 @@ import { fakeWallet } from "./wallet-fakes";
 
 const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
 
-function open(path: string) {
+function open(path: string, dailies?: readonly number[]) {
   const s = mockImplementation();
   // Ada did Daily Run today and finished her first game (Settler I): the indexer's progress, which the mock's claims trust.
   s.chain.fixture.progress.set(FIXTURE_ADA, {
     quests: new Map([[1, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
     achievements: new Map([[2, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
   });
+  // Or those dailies done today (#869).
+  if (dailies) playDailies(s.chain, dailies);
   render(<App router={createTestRouter(path)} sources={s.sources} connector={fakeWallet({ address: FIXTURE_ADA }).load} />);
   return s;
 }
@@ -68,6 +70,19 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     await waitFor(() => expect(screen.queryByRole("button", { name: "Claim 10 Cobbles: Settler I" })).not.toBeInTheDocument());
     expect((await s.ledger.account(FIXTURE_ADA)).achievementsClaimed).toBe(1n << 2n);
     expect((await s.ledger.dayProgress(FIXTURE_ADA, TODAY)).claimed).toBe(0n);
+    noRawErrors();
+  });
+
+  it("/missions: the day's bar (#869): at 3 dailies done its first milestone pays 10 Cobbles once, from the bar", async () => {
+    const s = open("/missions", [1, 2, 3]);
+    const bar = await screen.findByRole("progressbar", { name: "Dailies done today" }, { timeout: slow(5000) });
+    await waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "3"), { timeout: slow(5000) });
+    expect(screen.getByRole("img", { name: "15 Cobbles at 5 dailies done" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }, { timeout: slow(5000) }));
+    expect(await screen.findByRole("img", { name: "10 Cobbles claimed: 3 dailies done" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect((await screen.findAllByRole("button", { name: "10 Cobbles: Buy packs" }, { timeout: slow(5000) })).length).toBeGreaterThan(0);
+    expect(await s.ledger.dailyMilestones(FIXTURE_ADA, TODAY)).toEqual({ day: TODAY, claimed: 0b01 });
+    expect(screen.queryByRole("button", { name: /^Claim .*dailies done$/ })).not.toBeInTheDocument();
     noRawErrors();
   });
 

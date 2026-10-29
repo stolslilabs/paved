@@ -202,6 +202,7 @@ function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: 
       onClick={() => onAction?.(kind)}
       disabled={inert}
       aria-label={nameOf(kind, amount, action)}
+      data-plate={kind}
       whileTap={inert ? undefined : { scale: 0.94 }}
       className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
     >

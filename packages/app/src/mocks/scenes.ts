@@ -21,7 +21,7 @@ import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
 import { CURVE_PLAYING, GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, QUESTS_WEEK_DONE, GAME_MISSIONS } from "./quests";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, QUESTS_WEEK_DONE, GAME_MISSIONS, questsTodayDone } from "./quests";
 import { DEFAULT_AVATAR as DEFAULT_AVATAR_LOOK } from "@paved/renderer";
 import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
@@ -360,7 +360,7 @@ export const MY_TILES = {
 const missionsBase = { connected: true, now: MOCK_NOW, quests: QUESTS_TODAY, achievements: ACHIEVEMENTS_MIXED };
 const questRewards = { cobbles: QUEST_COBBLES, day: NOTHING_CLAIMED, week: NOTHING_CLAIMED, balance: ACCOUNT.gems, credits: 0 };
 const achievementRewards = { cobbles: ACHIEVEMENT_COBBLES, claimed: ACCOUNT.achievementsClaimed, balance: ACCOUNT.gems };
-const rewarded = { ...missionsBase, questRewards, achievementRewards };
+const rewarded = { ...missionsBase, questRewards, achievementRewards, milestones: { claimed: 0 } };
 /** A period with every quest's Cobbles and its bonus claimed. */
 const allClaimed = { claimed: bits(...QUEST_COBBLES.map((q) => q.questId)), credit: true };
 
@@ -381,8 +381,23 @@ export const MISSIONS = {
     quests: QUESTS_TODAY_ALL_DONE,
     achievements: ACHIEVEMENTS_ALL,
     questRewards: { ...questRewards, balance: ACCOUNT.gems + 200, day: allClaimed, week: allClaimed },
+    milestones: { claimed: 0b11 },
     achievementRewards: { ...achievementRewards, balance: 580, claimed: bits(...ACHIEVEMENT_COBBLES.map((a) => a.achievementId)) },
   },
+  /** The day's bar (#869): no daily done yet, both milestones ahead (3: +10, 5: +15). */
+  milestonesNone: { ...rewarded, quests: questsTodayDone(0) },
+  /** Two dailies done: two steps lit, the first milestone one daily away. */
+  milestonesTwo: { ...rewarded, quests: questsTodayDone(2) },
+  /** Three dailies done: the first milestone's 10 Cobbles to claim from the bar. */
+  milestoneThree: { ...rewarded, quests: questsTodayDone(3) },
+  /** The first milestone's claim on its way. */
+  milestoneClaiming: { ...rewarded, quests: questsTodayDone(3), claimingMilestone: 0 },
+  /** Three done, the first milestone claimed: its check, the second ahead. */
+  milestoneThreeClaimed: { ...rewarded, quests: questsTodayDone(3), milestones: { claimed: 0b01 } },
+  /** The five dailies done, the first milestone claimed: the second's 15 Cobbles to claim. */
+  milestoneFive: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b01 } },
+  /** The five done, both milestones claimed: 25 Cobbles today. */
+  milestonesAllClaimed: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b11 } },
   /** A new player: nothing counted, the lifetime missions locked. */
   newPlayer: { ...rewarded, quests: QUESTS_TODAY_FRESH, achievements: ACHIEVEMENTS_NEW },
   /** Four minutes before 00:00 UTC: the Daily countdown is amber. */
