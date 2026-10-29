@@ -417,7 +417,7 @@ function ViewOverlays({
       <div className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {village && !guest && !props.readOnly && !founded ? (
           <Button size="lg" variant="outline" className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
-            <GameIcon name="house" size="sm" /> Found
+            <GameIcon name="house-tree" size="sm" /> Found
           </Button>
         ) : (
           editable && (

@@ -15,7 +15,7 @@ import { Icon } from "../ui/icon";
 import { ScrollArea } from "../ui/scroll-area";
 import { ScrollRegion } from "../ui/scroll-region";
 import { Separator } from "../ui/separator";
-import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
+import { CLOSING_CATEGORIES, CategoryIcon, categoryInfo } from "../elements/category";
 import { Score, formatPoints } from "../elements/score";
 import { StatRow } from "../elements/stat-row";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
@@ -281,7 +281,7 @@ function Scores({ game, closings, previousBest, reward, settling, onSettle, sett
                   tone={stats.discardPenalty > 0 ? "danger" : "default"}
                 />
                 {stats.categories.map((c) => (
-                  <StatRow key={c.category} icon={info(c.category).icon} label={`${info(c.category).plural} closed`} hint={`${formatPoints(c.points)} pts`} value={c.closed} />
+                  <StatRow key={c.category} icon={<CategoryIcon category={CATEGORY_CODES.indexOf(c.category)} size="sm" />} label={`${info(c.category).plural} closed`} hint={`${formatPoints(c.points)} pts`} value={c.closed} />
                 ))}
                 <StatRow icon="flag" label="Left open" hint={openHint(stats.open.largest)} value={stats.open.count} tone="muted" />
               </>
@@ -291,7 +291,7 @@ function Scores({ game, closings, previousBest, reward, settling, onSettle, sett
                 {byCategory.map((c) => (
                   <StatRow
                     key={c.category}
-                    icon={categoryInfo(c.category).icon}
+                    icon={<CategoryIcon category={c.category} size="sm" />}
                     label={`${categoryInfo(c.category).plural} closed`}
                     hint={`${formatPoints(c.points)} pts`}
                     value={c.count}
@@ -381,14 +381,13 @@ function openHint(largest: OpenStructure | null): string | undefined {
 function Highlights({ stats }: { stats: GameStats }) {
   const of = (category: CategoryType) => stats.categories.find((c) => c.category === category);
   const wonders = of(CategoryType.Wonder);
-  const cells: { key: string; icon: string; color: string; label: string; value: string; hint: string }[] = [
+  const cells: { key: string; category: CategoryType; label: string; value: string; hint: string }[] = [
     structureCell("Largest city", CategoryType.City, of(CategoryType.City)?.largest ?? null),
     structureCell("Longest road", CategoryType.Road, of(CategoryType.Road)?.largest ?? null),
     structureCell("Largest forest", CategoryType.Forest, of(CategoryType.Forest)?.largest ?? null),
     {
       key: "wonders",
-      icon: info(CategoryType.Wonder).icon,
-      color: info(CategoryType.Wonder).color,
+      category: CategoryType.Wonder,
       label: "Wonders",
       value: `${wonders?.closed ?? 0}`,
       hint: wonders && wonders.closed > 0 ? `${formatPoints(wonders.points)} pts` : "None closed",
@@ -400,7 +399,7 @@ function Highlights({ stats }: { stats: GameStats }) {
         {cells.map((c) => (
           <div key={c.key} data-testid={`highlight-${c.key}`} className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-secondary/40 px-3 py-2">
             <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Icon name={c.icon} size="xs" fixedWidth className={c.color} />
+              <CategoryIcon category={CATEGORY_CODES.indexOf(c.category)} size="xs" />
               <span className="wrap-anywhere">{c.label}</span>
             </dt>
             <dd className="numeric text-base font-semibold">{c.value}</dd>
@@ -418,8 +417,7 @@ function Highlights({ stats }: { stats: GameStats }) {
 function structureCell(label: string, category: CategoryType, largest: ClosedStructure | null) {
   return {
     key: info(category).label.toLowerCase(),
-    icon: info(category).icon,
-    color: info(category).color,
+    category,
     label,
     value: largest ? tilesOf(largest.tiles) : "—",
     hint: largest ? `${formatPoints(largest.points)} pts` : "None closed",
@@ -429,14 +427,14 @@ function structureCell(label: string, category: CategoryType, largest: ClosedStr
 /** The closing worth the most points, with the move that closed it. */
 function BestClosing({ best }: { best: ClosedStructure | null }) {
   if (!best) return null;
-  const { label, icon, color } = info(best.category);
+  const { label } = info(best.category);
   return (
     <div data-testid="highlight-best" className="flex items-center gap-3 rounded-lg border border-primary/30 bg-secondary/40 px-3 py-2">
       <Icon name="medal" className="text-primary" fixedWidth />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="text-xs text-muted-foreground">Best closing</span>
         <span className="flex items-center gap-1.5 text-sm wrap-anywhere">
-          <Icon name={icon} size="xs" className={color} />
+          <CategoryIcon category={CATEGORY_CODES.indexOf(best.category)} size="xs" />
           {best.category === CategoryType.Wonder ? label : `${label} of ${tilesOf(best.tiles)}`}, tile {best.tileId}
         </span>
       </span>

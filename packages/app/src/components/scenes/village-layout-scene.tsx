@@ -9,6 +9,7 @@ import { type TileArt } from "../elements/tile-chip";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { GameIcon } from "../elements/game-icon";
 import { Skeleton } from "../ui/skeleton";
 import { LayoutBoard } from "../containers/layout-board";
 import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "../containers/layout-editor";
@@ -287,7 +288,7 @@ function LayoutView({
 function FoundNotice({ founding, onFound }: { founding: boolean; onFound?: () => void }) {
   return (
     <Notice
-      icon="house"
+      icon={<GameIcon name="house-tree" size="sm" />}
       title="Found your village"
       action={
         <Button size="sm" loading={founding} onClick={onFound}>
