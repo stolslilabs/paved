@@ -9,7 +9,7 @@ import { BASE_PLAN_CODES, rarityOf, type Rarity } from "./rarity";
 export const SHOP_OFFERS = 3;
 
 /** The price of a tile by its rarity, in Cobbles (#737 open point 1: 10 / 20 / 50). */
-export const SHOP_PRICES: Readonly<Record<Rarity, number>> = { common: 10, uncommon: 20, rare: 50 };
+export const SHOP_PRICES: Readonly<Record<Rarity, number>> = { common: 10, uncommon: 20, mythic: 50 };
 
 /** A day is 86,400 s from the Unix epoch (UTC on the device, the chain day on chain). */
 export const DAY_S = 86_400;
@@ -32,7 +32,7 @@ export interface ShopOffer {
 
 /**
  * The day's 3 offers: 3 distinct plans drawn uniformly among the 19 (a partial Fisher-Yates, the `k`-th pick
- * `Poseidon('SHOP', day, k) % (19 - k)`), so a rare shows about one day in six.
+ * `Poseidon('SHOP', day, k) % (19 - k)`), so a mythic shows about one day in six.
  */
 export function shopOffers(day: number): ShopOffer[] {
   const pool = [...BASE_PLAN_CODES];
