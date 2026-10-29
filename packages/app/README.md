@@ -29,7 +29,8 @@ index, both printed in the log), `PAVED_E2E_ARTIFACTS` (the seeds and a failed t
 
 The wrap sweep (`scripts/wrap-sweep.ts`, WRAP360) reads `storybook-static/`, so build Storybook first; it needs the
 browser once (`bunx playwright-core install chromium-headless-shell`, from `packages/app`). Options: `--filter <story id
-part>`, `--widths 360,320`, `--workers 4`, `--json <file>`. It prints a table (story, width, kind, element) and exits 1
+part>`, `--widths 360,320`, `--workers 4`, `--shard i/n` (the i-th of n parts of the story list, each story in exactly
+one part), `--json <file>`. It prints a table (story, width, kind, element) and exits 1
 on a finding that is not in its commented allowlist. The CI `client` job runs it after `build-storybook`.
 
 Cap the Node heap as `AGENTS.md` says: `NODE_OPTIONS=--max-old-space-size=832 bun run test --filter @paved/app`.
