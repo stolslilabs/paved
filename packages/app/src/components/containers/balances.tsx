@@ -25,7 +25,10 @@ export type BalancesState =
     };
 type Ready = Extract<BalancesState, { status: "ready" }>;
 
-/** Where each balance leads: USDC to where it is got, PAVED and vPAVED to the Vault, Cobbles to the packs (#621). */
+/**
+ * Where each balance leads: USDC to where it is got, PAVED to the Challenge's purchase where it is won (#871), vPAVED to the Vault
+ * where PAVED becomes vPAVED, Cobbles to the packs (#621).
+ */
 export type BalanceKind = "usdc" | "paved" | "vpaved" | "cobbles";
 
 /**
@@ -51,7 +54,7 @@ export interface BalancesProps {
   direction?: "row" | "column";
   state: BalancesState;
   /**
-   * The balances whose page is the one open (#855: PAVED and vPAVED on the Vault, the Cobbles on the packs): no "+", no action.
+   * The balances whose page is the one open (#855, #871: vPAVED on the Vault, the Cobbles on the packs): no "+", no action.
    * Omitted, the page's (`page`).
    */
   here?: readonly BalanceKind[];
@@ -69,10 +72,10 @@ export interface BalancesProps {
   className?: string;
 }
 
-/** `page`: the balance leads to a page (the Vault, the packs), so its plate carries a "+" (#828); USDC's faucet is an action, not a page. */
+/** `page`: the balance leads to a page (the Challenge, the Vault, the packs), so its plate carries a "+" (#828); USDC's faucet is an action, not a page. */
 const PLATES: Record<BalanceKind, { label: string; action: string; decimals: number; fraction: number; page: boolean }> = {
   usdc: { label: "USDC", action: "Get USDC", decimals: 6, fraction: 2, page: false },
-  paved: { label: "PAVED", action: "Vault", decimals: 18, fraction: 2, page: true },
+  paved: { label: "PAVED", action: "Play a Challenge", decimals: 18, fraction: 2, page: true },
   vpaved: { label: "vPAVED", action: "Vault", decimals: 18, fraction: 2, page: true },
   cobbles: { label: "Cobbles", action: "Buy packs", decimals: 0, fraction: 0, page: true },
 };
@@ -173,6 +176,8 @@ interface PlateTapProps {
   faucet?: boolean;
   minting?: boolean;
   size: PlateSize;
+  /** The plate shares a phone's row with another (the Vault's PAVED and vPAVED): its "+" from `mobile` only, so both fit 320 px (#871). */
+  crowdedRow?: boolean;
 }
 
 /** A plate's action, and whether it has none: none on its own page; USDC mints only where there is a faucet, and not twice at once. */
@@ -190,7 +195,7 @@ function nameOf(kind: BalanceKind, amount: bigint | null, action: string) {
 }
 
 /** One balance in the bar: a plate (at least 44 px of tap with the icon's overhang) that leads to its place, the whole plate a tap. */
-function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: PlateTapProps) {
+function PlateTap({ kind, from, state, here, onAction, faucet, minting, size, crowdedRow }: PlateTapProps) {
   const amount = amountOf(state, kind);
   if (amount === undefined) return holdOf(size);
   const { action, inert } = actionOf(kind, here, faucet, minting);
@@ -206,7 +211,7 @@ function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: 
       whileTap={inert ? undefined : { scale: 0.94 }}
       className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
     >
-      <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} plus={page && !here} tone={kind === "cobbles" ? "invite" : "default"} />
+      <ResourcePlate kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} plus={page && !here} plusFrom={crowdedRow ? "mobile" : undefined} tone={kind === "cobbles" ? "invite" : "default"} />
     </m.button>
   );
 }
@@ -224,8 +229,8 @@ function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConne
 
 /**
  * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate (#828), its icon over the plate's
- * right end, the figure chunky, counting to each new value; a "+" over the left end where the balance leads to a page (the Vault,
- * the packs), none on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
+ * right end, the figure chunky, counting to each new value; a "+" over the left end where the balance leads to a page (the
+ * Challenge, the Vault, the packs), none on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
  * joins when held where the page shows it so (`vpaved-held`). Only the page's balances (`kinds`, #855), the same on a phone
  * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
  * skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
@@ -241,6 +246,9 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
   const size: PlateSize = layout === "rail" ? "md" : "sm";
   // The mount's count up serves the plate that joins with a first deposit; an always-shown plate counts as any other.
   const fromOf = (kind: BalanceKind) => (kind === "vpaved" && held ? vpaved.from : undefined);
+  const shown = kinds.filter((kind) => kind !== "vpaved-held" || vpaved.shown).map(kindOf);
+  // A phone's header row of two plates or more: their "+" from `mobile` (#871), the 320 px screen keeps both whole.
+  const crowdedRow = size === "sm" && direction === "row" && shown.length > 1;
   return (
     <section
       ref={crowded}
@@ -268,10 +276,9 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
             </span>
           ))
       ) : (
-        kinds
-          .filter((shown) => shown !== "vpaved-held" || vpaved.shown)
-          .map(kindOf)
-          .map((kind) => <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} here={here?.includes(kind)} onAction={onAction} faucet={faucet} minting={minting} size={size} />)
+        shown.map((kind) => (
+          <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} here={here?.includes(kind)} onAction={onAction} faucet={faucet} minting={minting} size={size} crowdedRow={crowdedRow} />
+        ))
       )}
     </section>
   );
