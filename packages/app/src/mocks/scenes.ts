@@ -384,19 +384,19 @@ export const MISSIONS = {
     milestones: { claimed: 0b11 },
     achievementRewards: { ...achievementRewards, balance: 580, claimed: bits(...ACHIEVEMENT_COBBLES.map((a) => a.achievementId)) },
   },
-  /** The day's bar (#869): no daily done yet, both milestones ahead (3: +10, 5: +15). */
+  /** The day's graph (#869): no daily done yet, both reward nodes ahead (3: +10, 5: +15). */
   milestonesNone: { ...rewarded, quests: questsTodayDone(0) },
-  /** Two dailies done: two steps lit, the first milestone one daily away. */
+  /** No reward yet: two dailies done, two edges lit, the first reward node one daily away. */
   milestonesTwo: { ...rewarded, quests: questsTodayDone(2) },
-  /** Three dailies done: the first milestone's 10 Cobbles to claim from the bar. */
+  /** A reward: three dailies done, the first reward node's 10 Cobbles to claim from the graph. */
   milestoneThree: { ...rewarded, quests: questsTodayDone(3) },
   /** The first milestone's claim on its way. */
   milestoneClaiming: { ...rewarded, quests: questsTodayDone(3), claimingMilestone: 0 },
-  /** Three done, the first milestone claimed: its check, the second ahead. */
+  /** Claimed: three done, the first reward node claimed (its check), the second ahead. */
   milestoneThreeClaimed: { ...rewarded, quests: questsTodayDone(3), milestones: { claimed: 0b01 } },
   /** The five dailies done, the first milestone claimed: the second's 15 Cobbles to claim. */
   milestoneFive: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b01 } },
-  /** The five done, both milestones claimed: 25 Cobbles today. */
+  /** All done: the five done, both reward nodes claimed, 25 Cobbles today. */
   milestonesAllClaimed: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b11 } },
   /** A new player: nothing counted, the lifetime missions locked. */
   newPlayer: { ...rewarded, quests: QUESTS_TODAY_FRESH, achievements: ACHIEVEMENTS_NEW },
