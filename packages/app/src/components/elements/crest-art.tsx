@@ -50,9 +50,9 @@ const shapeOf = (name: CrestShapeName | "swords") => (name === "swords" ? GAME_I
 
 // The drawn parts, on the crests' 512 grid. A circle: two half arcs; reversed (`hole`), it cuts a ring out of the one before.
 export const circle = (x: number, y: number, r: number, hole = false) => `M${x - r} ${y}a${r} ${r} 0 1 ${hole ? 1 : 0} ${2 * r} 0a${r} ${r} 0 1 ${hole ? 1 : 0}-${2 * r} 0z`;
-/** A cut gem, a diamond of half-width `r` (the Sovereign's). */
+/** A cut gem, a diamond of half-width `r` (the Grand Master's). */
 export const diamond = (x: number, y: number, r: number) => `M${x} ${y - r}l${r} ${r}-${r} ${r}-${r}-${r}z`;
-/** A star of `n` points (`out` to the tips, `inner` to the notches), pointing up: the Sovereign's burst. */
+/** A star of `n` points (`out` to the tips, `inner` to the notches), pointing up: the Grand Master's burst. */
 export function star(n: number, out: number, inner: number, x = 256, y = 240): string {
   const pts = Array.from({ length: 2 * n }, (_, i) => {
     const a = (Math.PI * i) / n - Math.PI / 2;
@@ -61,7 +61,7 @@ export function star(n: number, out: number, inner: number, x = 256, y = 240): s
   });
   return `M${pts.join("L")}z`;
 }
-/** A small coronet, `w` wide with its foot at (x, y): a band, three points, a pearl on each (the Baron's, the Earl's). */
+/** A small coronet, `w` wide with its foot at (x, y): a band, three points, a pearl on each (Platinum's, Diamond's). */
 export function coronet(x: number, y: number, w: number): string {
   const h = w / 4;
   const l = x - w / 2;
@@ -78,21 +78,21 @@ export function coronet(x: number, y: number, w: number): string {
 const DISC = circle(256, 240, 184);
 const RIM_DISC = circle(256, 240, 240);
 const commoner = (): Part[] => [{ d: DISC, tones: ["league"] }];
-/** Squire and Knight: a steel rim. */
+/** Silver and Gold: a steel rim. */
 const armed = (): Part[] => [{ d: RIM_DISC, tones: ["steel"] }, ...commoner()];
-/** Baron, Earl, Duke: a gold rim. */
+/** Platinum, Diamond, Master: a gold rim. */
 const noble = (): Part[] => [{ d: RIM_DISC, tones: ["gold"] }, ...commoner()];
 
 /**
- * The nine crests (issue 854), Wanderer to Sovereign, each its own drawing in the game icons' relief: the ground, then the motif
+ * The nine crests (issue 854), Wood to Grand Master, each its own drawing in the game icons' relief: the ground, then the motif
  * (issue 854's proposal). Font Awesome Pro shapes composed and toned, or drawn for Paved where none fits (the round shield, the plume,
  * the coronets, the gems, the burst).
  */
 export const CRESTS: Record<LeagueId, readonly Part[]> = {
   // A walking staff and a bundle on it.
-  wanderer: [...commoner(), { shape: "staff", at: { x: 214, y: 236, s: 0.72, r: -20 }, tones: ["wood"] }, { shape: "sack", at: { x: 316, y: 296, s: 0.4 }, tones: ["gold", "red"] }],
+  wood: [...commoner(), { shape: "staff", at: { x: 214, y: 236, s: 0.72, r: -20 }, tones: ["wood"] }, { shape: "sack", at: { x: 316, y: 296, s: 0.4 }, tones: ["gold", "red"] }],
   // A sheaf of wheat: three ears, tied.
-  peasant: [
+  iron: [
     ...commoner(),
     { shape: "wheat", at: { x: 196, y: 236, s: 0.62, r: -70 }, tones: ["gold"] },
     { shape: "wheat", at: { x: 316, y: 236, s: 0.62, r: -20 }, tones: ["gold"] },
@@ -100,32 +100,32 @@ export const CRESTS: Record<LeagueId, readonly Part[]> = {
     { d: "M206 268h100v44H206z", tones: ["wood"] },
   ],
   // A longbow and its arrow.
-  yeoman: [...commoner(), { shape: "bow-arrow", at: { x: 250, y: 246, s: 0.7 }, tones: ["wood", "steel"] }],
+  bronze: [...commoner(), { shape: "bow-arrow", at: { x: 250, y: 246, s: 0.7 }, tones: ["wood", "steel"] }],
   // A round shield before a short sword.
-  squire: [
+  silver: [
     ...armed(),
     { shape: "sword", at: { x: 290, y: 200, s: 0.62 }, tones: ["steel", "gold"] },
     { d: circle(212, 290, 96), tones: ["wood"] },
     { d: circle(212, 290, 34), tones: ["steel"] },
   ],
   // A helm with a plume.
-  knight: [
+  gold: [
     ...armed(),
     { d: "M262 92c0-60 64-92 128-74-44 14-56 50-50 92z", tones: ["red"] },
     { shape: "helmet-battle", at: { x: 256, y: 262, s: 0.6 }, tones: ["steel"] },
   ],
   // A shield under a small coronet.
-  baron: [...noble(), { shape: "shield", at: { x: 256, y: 284, s: 0.5 }, tones: ["blue"] }, { d: coronet(256, 158, 170), tones: ["gold"] }],
+  platinum: [...noble(), { shape: "shield", at: { x: 256, y: 284, s: 0.5 }, tones: ["blue"] }, { d: coronet(256, 158, 170), tones: ["gold"] }],
   // A banner under a coronet.
-  earl: [...noble(), { shape: "flag-swallowtail", at: { x: 270, y: 284, s: 0.52 }, tones: ["red"] }, { d: coronet(256, 158, 170), tones: ["gold"] }],
+  diamond: [...noble(), { shape: "flag-swallowtail", at: { x: 270, y: 284, s: 0.52 }, tones: ["red"] }, { d: coronet(256, 158, 170), tones: ["gold"] }],
   // Crossed swords under a ducal crown.
-  duke: [
+  master: [
     ...noble(),
     { shape: "swords", at: { x: 256, y: 290, s: 0.56 }, tones: ["gold", "steel", "steel", "gold"] },
     { shape: "crown", at: { x: 256, y: 136, s: 0.34 }, tones: ["gold"] },
   ],
   // A royal crown with gems, on a burst.
-  sovereign: [
+  grandmaster: [
     { d: star(12, 304, 252), tones: ["gold"] },
     ...noble(),
     { shape: "crown", at: { x: 256, y: 236, s: 0.62 }, tones: ["gold"] },
@@ -133,20 +133,20 @@ export const CRESTS: Record<LeagueId, readonly Part[]> = {
   ],
 };
 
-/** The divisions (issue 854): III, II, I as one to three studs on a plate at the crest's foot. Wanderer and Sovereign have none. */
+/** The divisions (issue 854): III, II, I as one to three studs on a plate at the crest's foot. Wood and Grand Master have none. */
 export type CrestDivision = 1 | 2 | 3;
 /** A division's studs: III one, II two, I three, so the climb adds a stud. */
 export const STUDS: Record<CrestDivision, number> = { 3: 1, 2: 2, 1: 3 };
 const PLATE_TONE: Record<LeagueId, CrestTone> = {
-  wanderer: "wood",
-  peasant: "wood",
-  yeoman: "wood",
-  squire: "steel",
-  knight: "steel",
-  baron: "gold",
-  earl: "gold",
-  duke: "gold",
-  sovereign: "gold",
+  wood: "wood",
+  iron: "wood",
+  bronze: "wood",
+  silver: "steel",
+  gold: "steel",
+  platinum: "gold",
+  diamond: "gold",
+  master: "gold",
+  grandmaster: "gold",
 };
 /** The division's plate and its studs: the plate as wide as its studs need. */
 export function divisionParts(league: LeagueId, division: CrestDivision, tone: CrestTone = PLATE_TONE[league]): Part[] {
@@ -173,8 +173,8 @@ export interface CrestPath {
   flat?: boolean;
 }
 
-/** Whether a group has divisions: Peasant to Duke. */
-export const hasDivisions = (league: LeagueId) => league !== "wanderer" && league !== "sovereign";
+/** Whether a group has divisions: Iron to Master. */
+export const hasDivisions = (league: LeagueId) => league !== "wood" && league !== "grandmaster";
 
 /** The crest's parts in drawing order. */
 export function crestParts(league: LeagueId, division?: CrestDivision): CrestPath[] {
@@ -216,7 +216,7 @@ export interface CrestArtProps {
   /** 24 px (`md`) by default. */
   size?: CrestArtSize;
   league: LeagueId;
-  /** The division (Peasant to Duke): 3 for III, 2 for II, 1 for I. None draws the crest alone. */
+  /** The division (Iron to Master): 3 for III, 2 for II, 1 for I. None draws the crest alone. */
   division?: CrestDivision;
   /** The accessible name. Without it the crest is decorative and hidden from assistive technology. */
   label?: string;
@@ -224,7 +224,7 @@ export interface CrestArtProps {
 }
 
 /**
- * A league group's crest (issue 854): its own drawing, Wanderer's staff to the Sovereign's crown, in the game icons' relief (issue 844's codes:
+ * A league group's crest (issue 854): its own drawing, Wood's staff to the Grand Master's crown, in the game icons' relief (issue 844's codes:
  * each part in its tone, a thick dark outline, a lit gradient, a light along the upper edges, a shadow under it), and the division's
  * studs at its foot. One SVG of its own paths, 1em square, crisp from 24 to 96 px. The study of issue 854's first pull request (Storybook);
  * its second draws `LeagueCrest` with it.

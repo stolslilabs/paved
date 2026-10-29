@@ -117,30 +117,30 @@ export const offerOf = (attacker: number, defender: number): number => 1 + atOrB
 /** The 0-star cost at the crown gap, 39 to 0 (`cost_of`). */
 export const costOf = (attacker: number, defender: number): number => 39 - atOrBelow(COST_STEPS, gapOf(attacker, defender));
 
-/** The leagues (`paved::matchmaker::leagues`): 0 Wanderer, 1 to 21 Peasant III to Duke I (seven groups of three), 22 Sovereign. */
+/** The leagues (`paved::matchmaker::leagues`): 0 Wood, 1 to 21 Iron III to Master I (seven groups of three), 22 Grand Master. */
 export const LEAGUE_COUNT = 23;
 /** The floor of leagues 1 to 22, in crowns (`LEAGUE_FLOORS`). */
 export const LEAGUE_FLOORS = [400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3500, 3800, 4100, 4400, 4700, 5000] as const;
-/** The groups of three leagues, then Sovereign's (one league). */
-export const LEAGUE_GROUPS = ["Peasant", "Yeoman", "Squire", "Knight", "Baron", "Earl", "Duke", "Sovereign"] as const;
-/** The bonus of reaching a league of each group the first time in a season, then Sovereign's (`GROUP_BONUSES`). */
+/** The groups of three leagues, then Grand Master's (one league). */
+export const LEAGUE_GROUPS = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Grand Master"] as const;
+/** The bonus of reaching a league of each group the first time in a season, then Grand Master's (`GROUP_BONUSES`). */
 export const LEAGUE_BONUSES = [5, 10, 15, 20, 25, 30, 40, 50] as const;
-/** The season reward of a group, then Sovereign's (`GROUP_REWARDS`); Wanderer earns nothing. */
+/** The season reward of a group, then Grand Master's (`GROUP_REWARDS`); Wood earns nothing. */
 export const SEASON_REWARDS = [10, 20, 35, 50, 75, 100, 150, 250] as const;
 /** The attacks a village settles in a season to earn that season's reward (`MIN_SEASON_ATTACKS`). */
 export const MIN_SEASON_ATTACKS = 5;
 
 /** The league of `crowns` (`league_of`). */
 export const leagueOfCrowns = (crowns: number): number => LEAGUE_FLOORS.filter((f) => f <= crowns).length;
-/** The first crown count of `league` (0 for Wanderer). */
+/** The first crown count of `league` (0 for Wood). */
 export const floorOf = (league: number): number => (league <= 0 ? 0 : LEAGUE_FLOORS[league - 1]!);
-/** The group of a league (0 Peasant to 6 Duke, 7 Sovereign); -1 for Wanderer. */
+/** The group of a league (0 Iron to 6 Master, 7 Grand Master); -1 for Wood. */
 export const groupOf = (league: number): number => (league <= 0 ? -1 : league === LEAGUE_COUNT - 1 ? 7 : Math.floor((league - 1) / 3));
-/** "Squire II", "Sovereign", "Wanderer". */
+/** "Silver II", "Grand Master", "Wood". */
 export function leagueName(league: number): string {
   const group = groupOf(league);
-  if (group < 0) return "Wanderer";
-  if (group === 7) return "Sovereign";
+  if (group < 0) return "Wood";
+  if (group === 7) return "Grand Master";
   return `${LEAGUE_GROUPS[group]} ${["III", "II", "I"][(league - 1) % 3]}`;
 }
 /** The Cobbles of ending a season in `league` (`reward_of`). */

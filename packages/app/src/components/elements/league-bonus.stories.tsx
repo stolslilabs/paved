@@ -7,7 +7,7 @@ const meta = {
   title: "Elements/LeagueBonus",
   component: LeagueBonus,
   parameters: { layout: "padded" },
-  args: { value: 10, league: "Yeoman II", onCelebrate: fn() },
+  args: { value: 10, league: "Bronze II", onCelebrate: fn() },
 } satisfies Meta<typeof LeagueBonus>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -15,7 +15,7 @@ type Story = StoryObj<typeof meta>;
 /** Had this season: crossed out. */
 export const Had: Story = { args: { state: "had" } };
 /** The league not reached: grey. */
-export const Locked: Story = { args: { state: "locked", league: "Squire II", value: 15 } };
+export const Locked: Story = { args: { state: "locked", league: "Silver II", value: 15 } };
 /** Paid and still to be celebrated: active, with a glow; a tap plays the moment. */
 export const Ready: Story = { args: { state: "ready" } };
 /** Ready under reduced motion: the glow, no ring pulsing. */

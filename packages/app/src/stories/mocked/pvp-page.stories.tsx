@@ -226,7 +226,7 @@ export const Result: Story = { parameters: { route: "/pvp/result/1" }, render: (
 /** The attack replayed move by move. */
 export const Replay: Story = { parameters: { route: `/pvp/replay/${ME}/1` }, render: () => <PvpPages {...REPLAY} /> };
 /**
- * The league: Yeoman II, the way to Yeoman I, the season's end and its reward after five attacks, and under Attack the latest
+ * The league: Bronze II, the way to Bronze I, the season's end and its reward after five attacks, and under Attack the latest
  * attacks and defences (#786): none yet on this device.
  */
 export const League: Story = { parameters: { route: "/pvp/league" }, render: () => <PvpPages {...LEAGUE} /> };
