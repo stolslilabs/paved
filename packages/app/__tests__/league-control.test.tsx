@@ -32,13 +32,13 @@ describe("LeagueControl (#829)", () => {
     expect(plate.lastElementChild!.querySelector("[data-icon=shield-halved]")).not.toBeNull();
   });
 
-  it("the crest in its group's colour: Wanderer grey, a group's, Sovereign; one crown named singular", () => {
+  it("the crest in its group's colour: Wood grey, a group's, Grand Master; one crown named singular", () => {
     const { container, rerender } = render(control(0));
-    expect(crest(container)).toHaveClass("text-league-wanderer");
+    expect(crest(container)).toHaveClass("text-league-wood");
     rerender(control(1_240));
     expect(crest(container)).toHaveClass(`text-league-${leagueOf(1_240).id}`);
     rerender(control(5_320));
-    expect(crest(container)).toHaveClass("text-league-sovereign");
+    expect(crest(container)).toHaveClass("text-league-grandmaster");
     rerender(control(1));
     expect(screen.getByRole("button", { name: `League: ${leagueOf(1).name}, 1 crown` })).toBeInTheDocument();
   });

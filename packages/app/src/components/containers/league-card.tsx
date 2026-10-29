@@ -13,7 +13,7 @@ export interface LeagueCardProps {
   mine: League;
   /** The player's crowns, for the way to the next league and the crowns to go. */
   crowns: number;
-  /** Its first-time bonus this season; none for Wanderer. */
+  /** Its first-time bonus this season; none for Wood. */
   bonus?: LeagueBonusState;
   /** The bonus's moment is playing over the card. */
   celebrating?: boolean;
@@ -32,7 +32,7 @@ export function crownRange(league: League): { text: string; name: string } {
 }
 
 /**
- * A league's card (#833), one height for every league, Wanderer included, so moving through them never moves the page: the back
+ * A league's card (#833), one height for every league, Wood included, so moving through them never moves the page: the back
  * icon at the top left (away from the player's league), the first-time bonus's icon at the top right, the crest and the name, the
  * range of crowns and the season's Cobbles, then one line: for the player's own league a thin bar to the next, for another what
  * it takes ("428 crowns to go") or "Reached".

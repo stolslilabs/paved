@@ -15,7 +15,7 @@ describe("the league crests (#854, the study)", () => {
   });
 
   it("draw one crest per group, each its own drawing, not one shape recoloured", () => {
-    expect(IDS.sort()).toEqual(["baron", "duke", "earl", "knight", "peasant", "sovereign", "squire", "wanderer", "yeoman"]);
+    expect(IDS.sort()).toEqual(["bronze", "diamond", "gold", "grandmaster", "iron", "master", "platinum", "silver", "wood"]);
     // The motif: every part but the ground (the league-toned disc and its rim). No two groups share it.
     const motifs = IDS.map((id) => crestParts(id).filter((p) => p.tone !== "league").map((p) => `${p.t ?? ""}${p.d}`).join("|"));
     expect(new Set(motifs).size).toBe(IDS.length);
@@ -29,32 +29,32 @@ describe("the league crests (#854, the study)", () => {
     }
   });
 
-  it("mark the divisions with one to three studs, III to I, and none on Wanderer or Sovereign", () => {
+  it("mark the divisions with one to three studs, III to I, and none on Wood or Grand Master", () => {
     expect([STUDS[3], STUDS[2], STUDS[1]]).toEqual([1, 2, 3]);
     const studs = (id: LeagueId, division?: 1 | 2 | 3) => crestParts(id, division).length - crestParts(id).length;
-    expect(studs("squire", 3)).toBe(2);
-    expect(crestParts("squire", 1).at(-1)!.d.match(/M/g)).toHaveLength(3);
-    expect(crestParts("squire", 3).at(-1)!.d.match(/M/g)).toHaveLength(1);
-    expect(studs("wanderer", 1)).toBe(0);
-    expect(studs("sovereign", 1)).toBe(0);
+    expect(studs("silver", 3)).toBe(2);
+    expect(crestParts("silver", 1).at(-1)!.d.match(/M/g)).toHaveLength(3);
+    expect(crestParts("silver", 3).at(-1)!.d.match(/M/g)).toHaveLength(1);
+    expect(studs("wood", 1)).toBe(0);
+    expect(studs("grandmaster", 1)).toBe(0);
   });
 
   it("draw at the first paint as one SVG, named when given a label, its ids apart from another crest's", () => {
     expect(window.FontAwesome).toBeUndefined();
     const { container } = render(
       <>
-        <CrestArt league="duke" division={2} label="Duke II league" />
-        <CrestArt league="duke" />
+        <CrestArt league="master" division={2} label="Master II league" />
+        <CrestArt league="master" />
       </>,
     );
-    const svg = screen.getByRole("img", { name: "Duke II league" });
-    expect(svg).toHaveAttribute("data-league", "duke");
+    const svg = screen.getByRole("img", { name: "Master II league" });
+    expect(svg).toHaveAttribute("data-league", "master");
     expect(svg).toHaveAttribute("data-division", "2");
     expect(container.querySelectorAll("svg")[1]).toHaveAttribute("aria-hidden", "true");
     const ids = [...container.querySelectorAll("linearGradient, mask")].map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
     // The ground in the group's own colour token, never a literal.
-    expect(svg.innerHTML).toContain("var(--league-duke)");
+    expect(svg.innerHTML).toContain("var(--league-master)");
     expect(svg.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|oklch\(/i);
   });
 

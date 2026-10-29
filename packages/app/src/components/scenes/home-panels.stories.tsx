@@ -90,7 +90,7 @@ export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} onNav
  * The League, its defence log in place under Attack (BACK-RULE, #783). Its panel slides in from the left (#829, the owner's
  * decision of 2026-10-27), as the profile's sheet: its button is on the home's left, under the profile.
  */
-export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.yeoman} onBack={fn()} onNavigate={fn()} onOpenMatch={fn()} />, { side: "left" });
+export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onNavigate={fn()} onOpenMatch={fn()} />, { side: "left" });
 /** Settings, from the gear. */
 export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} />);
 /** The themes, from Settings: a sheet over its panel (BACK-RULE, #783), its close up to Settings, the Cobbles they cost in its header. */
