@@ -40,7 +40,9 @@ function editPlayer(store: ReturnType<typeof mockImplementation>["store"], chang
   store.setItem(MOCK_KEY, JSON.stringify(state));
 }
 
-preloadPages("home", "missions", "vault", "settings", "play", "pvp-league", "sheets", "panel-host");
+// The overlay pages and the home's panel host (Missions, Vault and Settings are its panels, #762) too: the Back tests open
+// them, each cold in its own wait otherwise.
+preloadPages("home", "home-panel", "missions", "vault", "settings", "play", "village-chests", "village-shop", "pvp-league", "page-sheets");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/village-shop")]);
 }, slow(60_000));
@@ -205,32 +207,32 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     }
   }, slow(60_000));
 
-  it("each overlay page's own Back lands on the village", async () => {
+  // One test per page, each with its own ceiling: the seven trips in one test outlasted a single ceiling on a loaded machine.
+  it.each([
+    [/^Chests/, "/village/chests"],
+    ["Shop", "/village/shop"],
+    ["League", "/pvp/league"],
+    [/^Play/, "/play"],
+    [/^Missions/, "/missions"],
+    ["Vault", "/vault"],
+    ["Settings", "/settings"],
+  ] as const)("the own Back of the overlay page %s (%s) lands on the village", async (name, path) => {
     const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
-    for (const [name, path] of [
-      [/^Chests/, "/village/chests"],
-      ["Shop", "/village/shop"],
-      ["League", "/pvp/league"],
-      [/^Play/, "/play"],
-      [/^Missions/, "/missions"],
-      ["Vault", "/vault"],
-      ["Settings", "/settings"],
-    ] as const) {
-      await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
-      await waitFor(() => {
-        if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
-          // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
-          const column = screen.queryByRole("navigation", { name: "Village" });
-          const bar = screen.queryByRole("navigation", { name: "Main" });
-          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
-        }
-        expect(s.router.state.location.pathname).toBe(path);
-      }, WAIT);
-      // The page's own way back: its header's Back (#760); there is no header navigation any more (#762).
-      await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
-      await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
-    }
-  }, slow(90_000));
+    await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+    await waitFor(() => {
+      if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
+        // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
+        const column = screen.queryByRole("navigation", { name: "Village" });
+        const bar = screen.queryByRole("navigation", { name: "Main" });
+        fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+      }
+      expect(s.router.state.location.pathname).toBe(path);
+    }, WAIT);
+    // The page's own way back: its header's Back (#760); there is no header navigation any more (#762). Settings draws in 1.9 s
+    // on a quiet machine, four times the other pages, and outlasted 48 s under a check's load: its Back has a wait of its own.
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }, { timeout: slow(20_000) }));
+    await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
+  }, slow(45_000));
 
   it("the defence log's old link lands on the league, its matches (#786), whose Back is the village", async () => {
     const s = await open("/pvp/defence");
