@@ -395,9 +395,13 @@ function ViewOverlays({
         </div>
       </div>
       <VillageNav {...props} />
-      {/* The left column under the profile (#829), centred between it and the dial (#856), clear of the right column. */}
+      {/*
+        The left column under the profile (#829), centred between it and the dial (#856), clear of the right column. Taller than its
+        band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it, never over
+        the dial; its padding keeps the controls' shadows inside the scroll box.
+      */}
       <div
-        className="absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-2 flex flex-col items-start justify-center-safe gap-3 tablet:right-24 tablet:left-4 [&>*]:pointer-events-auto"
+        className="absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
       >
         {/* The League control (the crowns and the crest, no name) and the shield's plate (#829). */}
         <Suspense fallback={LEAGUE_STAND_IN}>

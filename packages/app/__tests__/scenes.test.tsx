@@ -174,6 +174,8 @@ describe("Home (#753): the village with its overlays", () => {
     // Edit (Settings and Play) on the right, under the profile and above the season dial on the left.
     expect(right.className.split(" ")).toEqual(expect.arrayContaining(["top-(--right-top)", "bottom-(--right-bottom)"]));
     expect(left.className.split(" ")).toEqual(expect.arrayContaining(["top-(--left-top)", "bottom-(--left-bottom)"]));
+    // Taller than its band (shielded, the score unfolded, a short screen), the left column scrolls within it, never over the dial.
+    expect(left.className.split(" ")).toEqual(expect.arrayContaining(["overflow-y-auto", "overscroll-contain"]));
     // The left column holds the League control, the shield's plate and the village score, in that order.
     expect(within(left).getByRole("button", { name: /^League: / })).toBeInTheDocument();
     expect(left.querySelector("[data-slot=village-score]")).not.toBeNull();

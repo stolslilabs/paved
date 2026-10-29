@@ -103,18 +103,31 @@ const LONG_NAME = (Story: () => React.JSX.Element) => (
  * controls between the profile and the dial; from `desktop` the balances in a row, no League in the right column, and Settings
  * above Play, Edit's size. At 320, 375, 768 and 1440 px, shielded or not, and with the longest name.
  */
-export const OverlaysPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view };
-export const OverlaysPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view };
-export const OverlaysTablet768: Story = { ...TABLET_768, args: HOME_VILLAGE.view };
-export const OverlaysWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view };
-export const OverlaysShieldedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.shielded };
-export const OverlaysShieldedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.shielded };
-export const OverlaysShieldedTablet768: Story = { ...TABLET_768, args: HOME_VILLAGE.shielded };
-export const OverlaysShieldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.shielded };
-export const OverlaysLongNamePhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
-export const OverlaysLongNamePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
-export const OverlaysLongNameTablet768: Story = { ...TABLET_768, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
-export const OverlaysLongNameWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
+/** The season dial in its corner (the plan view has none of its own): the left column stands clear of it. */
+const DIAL = { seasonWheel: { state: "auto", onNext: fn(), read: null } } satisfies Partial<HomeVillageSceneProps>;
+/** A short laptop (1024 x 600). */
+const SHORT_1024 = {
+  parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, short: { name: "Laptop 1024 x 600", styles: { width: "1024px", height: "600px" }, type: "desktop" } } } },
+  globals: { viewport: { value: "short", isRotated: false } },
+};
+export const OverlaysPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.view, ...DIAL } };
+export const OverlaysPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL } };
+export const OverlaysTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.view, ...DIAL } };
+export const OverlaysWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.view, ...DIAL } };
+export const OverlaysShieldedPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
+export const OverlaysShieldedPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
+export const OverlaysShieldedTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
+export const OverlaysShieldedWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
+export const OverlaysLongNamePhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
+export const OverlaysLongNamePhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
+export const OverlaysLongNameTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
+export const OverlaysLongNameWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
+/**
+ * The tallest left column: shielded, the village score unfolded, beside the dial, on the smallest phone and a short laptop. Taller
+ * than its band, it starts under the profile and scrolls within the band, never under the dial.
+ */
+export const OverlaysShieldedScoreOpenPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.shielded, ...DIAL, initialScoreOpen: true } };
+export const OverlaysShieldedScoreOpenShort1024: Story = { ...SHORT_1024, args: { ...HOME_VILLAGE.shielded, ...DIAL, initialScoreOpen: true } };
 /** A Challenge game running: the Resume chip under the top row. */
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */
