@@ -1,0 +1,65 @@
+name: "Client setup"
+description: "Node and Bun pinned by the engines, the cached node_modules (installed on a miss), and optionally the app's headless Chromium"
+inputs:
+  browser:
+    description: "Also install the chromium-headless-shell the app's playwright-core names (the Storybook sweeps)"
+    required: false
+    default: "false"
+runs:
+  using: "composite"
+  steps:
+    # tsc, vite and vitest run on Node (their bin shebang): pin the engines' Node.
+    # actions/setup-node v7.0.0
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      with:
+        node-version: 24
+    # oven-sh/setup-bun v2.2.0
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      with:
+        bun-version: 1.4.2
+    # ImageOS is set by the runner in the process environment, which the `env` context does
+    # not expose, so a step reads it and passes it on.
+    - name: Runner image
+      id: image
+      run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+      shell: bash
+    # actions/cache v4.2.4
+    - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+      id: modules
+      with:
+        path: |
+          node_modules
+          packages/*/node_modules
+          !node_modules/.cache
+          !packages/*/node_modules/.cache
+          !packages/*/node_modules/.vite
+        # Exact key only: a hit skips the install, a miss installs and saves. The key
+        # covers every manifest, so a package.json change without bun.lock cannot hit. The
+        # image OS (ubuntu24, ...) is in the key so a runner image migration cannot restore
+        # native binaries built on the old one. ImageVersion is left out on purpose: it
+        # changes about weekly and would reset the cache each time for no real gain. The e2e
+        # and vercel jobs of test.yaml use the same key: one job's save serves the others.
+        key: node-modules-${{ runner.os }}-${{ steps.image.outputs.os }}-${{ runner.arch }}-node-24-bun-1.4.2-${{ hashFiles('bun.lock', 'package.json', 'packages/*/package.json') }}
+    - name: Install
+      if: steps.modules.outputs.cache-hit != 'true'
+      run: bun install --frozen-lockfile
+      shell: bash
+    # The browser is the one the app's playwright-core 1.63.0 names (chromium-headless-shell revision 1243), cached under
+    # that version.
+    - name: Playwright version
+      if: inputs.browser == 'true'
+      id: playwright
+      working-directory: packages/app
+      run: echo "version=$(bun -e 'console.log(require("playwright-core/package.json").version)')" >> "$GITHUB_OUTPUT"
+      shell: bash
+    # actions/cache v4.2.4
+    - if: inputs.browser == 'true'
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+    - name: Install the browser
+      if: inputs.browser == 'true'
+      working-directory: packages/app
+      run: bunx playwright-core install --with-deps chromium-headless-shell
+      shell: bash
