@@ -5,7 +5,7 @@ import { MissionsScene } from "./missions-scene";
 
 /**
  * Missions (`/missions`, #832): one page, today only. The selected mission's card at the top, then the Limited icons (a Daily and
- * a Weekly row, each with its reset's countdown; the Daily row's milestones graph, an edge per daily done and a full node per reward, #869; the week's bonus as
+ * a Weekly row, each with its reset's countdown; the Daily row's milestones graph, an edge per daily done and a gift node per reward, #869; the week's bonus as
  * a small last tile), then the Lifetime icons. A tap on an icon
  * updates the card. Cobbles are the only reward. One story per state; the viewport is the toolbar's (VP).
  */
@@ -41,13 +41,16 @@ export const MilestonesNone: Story = { args: MISSIONS.milestonesNone };
 /** No reward: two dailies done, two edges lit, the first reward node one daily away. */
 export const MilestonesTwo: Story = { args: MISSIONS.milestonesTwo };
 
-/** A reward: three dailies done, the first reward node's 10 Cobbles to claim with a tap on it. */
+/** A reward: three dailies done, the first gift lit and shaking, its 10 Cobbles to claim with a tap on it. */
 export const MilestoneThree: Story = { args: MISSIONS.milestoneThree };
 
 /** The first milestone's claim on its way. */
 export const MilestoneClaiming: Story = { args: MISSIONS.milestoneClaiming };
 
-/** Claimed: three done, the first reward node's check; the second ahead. */
+/** The first milestone's claim landed: its gift opening, its 10 Cobbles shown above it (held). */
+export const MilestoneOpening: Story = { args: MISSIONS.milestoneOpening };
+
+/** Claimed: three done, the first gift open with its check; the second ahead. */
 export const MilestoneThreeClaimed: Story = { args: MISSIONS.milestoneThreeClaimed };
 
 /** The five dailies done, the first milestone claimed: the second's 15 Cobbles to claim. */
