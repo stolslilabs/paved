@@ -92,13 +92,13 @@ describe("the v2 village's rules (#739)", () => {
     expect(trayOf({ [PLAN.road]: 1 }, saved, saved)).toEqual({ [PLAN.road]: 1 });
   });
 
-  it("rates the plans by their count in the base deck: 6 rare cards of 72, the 8 % of a single draw", () => {
+  it("rates the plans by their count in the base deck: 6 mythic cards of 72, the 8 % of a single draw", () => {
     const plans = Array.from({ length: 19 }, (_, i) => i + 1);
     expect(plans.reduce((n, p) => n + deckCount(p), 0)).toBe(72);
-    expect(plans.filter((p) => rarityOf(p) === "rare").reduce((n, p) => n + deckCount(p), 0)).toBe(6);
+    expect(plans.filter((p) => rarityOf(p) === "mythic").reduce((n, p) => n + deckCount(p), 0)).toBe(6);
     expect(rarityOf(PLAN.road)).toBe("common");
     expect(rarityOf(PLAN.wonder)).toBe("uncommon");
-    expect(rarityOf(PLAN.city)).toBe("rare");
+    expect(rarityOf(PLAN.city)).toBe("mythic");
     expect(CHEST_CHOICES).toEqual({ basic: 1, rare: 2, epic: 3 });
   });
 
@@ -443,9 +443,9 @@ describe("the daily shop (#739)", () => {
     const { unmount } = render(wrap(<VillageShopScene {...VILLAGE_SHOP.today} onBuy={onBuy} />));
     const offers = within(screen.getByRole("list", { name: "Today's offers" })).getAllByRole("listitem");
     expect(offers).toHaveLength(3);
-    expect(screen.getByText("Rare")).toBeInTheDocument();
+    expect(screen.getByText("Mythic")).toBeInTheDocument();
     expect(screen.getByRole("timer", { name: /New tiles in/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: `Buy Tile 17 for ${SHOP_PRICE.rare} Cobbles` }));
+    await userEvent.click(screen.getByRole("button", { name: `Buy Tile 17 for ${SHOP_PRICE.mythic} Cobbles` }));
     expect(onBuy).toHaveBeenCalledWith(2);
     unmount();
     render(wrap(<VillageShopScene {...VILLAGE_SHOP.oneBought} />));

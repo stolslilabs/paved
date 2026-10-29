@@ -10,7 +10,7 @@ the hooks below. Step 2's contracts (#733 to #738) match the rules through parit
 
 | Rule | Where | What |
 |---|---|---|
-| Rarity | `rarity.ts` | By copies in the base deck of 72: common (5 or more, 5 plans), uncommon (3 or 4, 10 plans), rare (1 or 2: `ccccccccc`, `ffcfffffc`, `sfrfrfrfr`, `wfffffffr`) |
+| Rarity | `rarity.ts` | By copies in the base deck of 72: common (5 or more, 5 plans), uncommon (3 or 4, 10 plans), mythic (1 or 2: `ccccccccc`, `ffcfffffc`, `sfrfrfrfr`, `wfffffffr`) |
 | XP and slots | `xp.ts` | The curve stays (`100 x n` from level n to n + 1); level cap 20 (19,000 XP), the XP stops there; slots = 8 + level, the starter included. PvP 0 / 5 / 10 / 20 XP by stars; Story 5 per star earned the first time; none from the Challenge or a defence |
 | Free village | `free-village.ts` | `layoutRefusal`: at most S tiles, every plan held, no tile on the starter's cell, no cell twice, connected, every facing edge matching. `layoutScore`. `VillageDraft`, the editor's model: each change is checked as a whole layout, so the draft never splits and never passes the slots |
 | Starter layouts | `starters.ts`, `starter-layouts.ts` | 64 layouts of 8 common or uncommon tiles, each scoring more than 0 (209 to 1,948), generated offline (`scripts/v2-layouts.ts`, the engine's search in `grow.ts`); `starterLayout(address)` picks one, the same on every device |

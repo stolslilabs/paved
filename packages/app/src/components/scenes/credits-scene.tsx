@@ -58,7 +58,7 @@ export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_
             mark comes from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo. The coin around it: Font Awesome Pro's coin-front, the
             steel and the relief drawn for Paved.
           </li>
-          <li className="wrap-anywhere">Cobbles: one cobblestone, drawn for Paved.</li>
+          <li className="wrap-anywhere">Cobbles: one stone cube, drawn for Paved.</li>
           <li className="wrap-anywhere">
             PAVED (gold) and vPAVED (silver): Font Awesome Pro's coin-front under the Font Awesome Commercial License, its P the letter of
             Almendra Bold (SIL Open Font License 1.1) as outlines, the relief drawn for Paved.
