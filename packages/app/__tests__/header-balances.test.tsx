@@ -1,6 +1,6 @@
 import { routeOf } from "./route-helpers";
 import { slow } from "../test-slow";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
@@ -65,7 +65,14 @@ describe("the header's balances by page (#720, #781)", () => {
     const bar = (await screen.findByRole("heading", { level: 1, name: "Stand-in" }, { timeout: slow(5000) })).closest("header")!;
     expect(bar).toHaveClass("page-header");
     const none = HEADER_BALANCES[path] === "none";
-    const regions = none ? screen.queryAllByRole("region", { name: "Balances" }) : await screen.findAllByRole("region", { name: "Balances" });
+    // Both the pill and the rail: a loaded run can read the header between their mounts.
+    const regions = none
+      ? screen.queryAllByRole("region", { name: "Balances" })
+      : await waitFor(() => {
+          const found = screen.getAllByRole("region", { name: "Balances" });
+          expect(found).toHaveLength(2);
+          return found;
+        }, { timeout: slow(5000) });
     expect(regions.map((r) => r.className.match(/(hidden desktop:flex|desktop:hidden)/)?.[1])).toEqual(none ? [] : ["desktop:hidden", "hidden desktop:flex"]);
     for (const region of regions) expect(bar).toContainElement(region);
     // `PageBalances` and its strip are gone (#781): nothing between the bar and the page's content.
