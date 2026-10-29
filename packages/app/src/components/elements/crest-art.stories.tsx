@@ -4,22 +4,22 @@ import { CrestArt, STUDS, type CrestArtSize, type CrestDivision } from "./crest-
 import { LeagueCrest } from "./league-crest";
 
 /**
- * The league crests' study (#854, its first pull request): one crest per group, Wanderer to Sovereign, each its own drawing in the
+ * The league crests' study (#854, its first pull request): one crest per group, Wood to Grand Master, each its own drawing in the
  * game icons' relief, and the divisions' studs, for the owner's look. `LeagueCrest` draws them in the second pull request.
  */
 const meta = {
   title: "Elements/CrestArt",
   component: CrestArt,
   parameters: { layout: "padded" },
-  args: { league: "knight", division: 2, size: "2xl" },
+  args: { league: "gold", division: 2, size: "2xl" },
 } satisfies Meta<typeof CrestArt>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The nine groups, Wanderer to Sovereign, with their names (the first league of each, without its division). */
+/** The nine groups, Wood to Grand Master, with their names (the first league of each, without its division). */
 const GROUPS = LEAGUES.filter((l, i) => LEAGUES.findIndex((m) => m.id === l.id) === i).map((l) => ({ id: l.id, name: l.name.replace(/ I+$/, "") }));
-/** The groups with three divisions: Peasant to Duke. */
-const DIVIDED = GROUPS.filter((g) => g.id !== "wanderer" && g.id !== "sovereign");
+/** The groups with three divisions: Iron to Master. */
+const DIVIDED = GROUPS.filter((g) => g.id !== "wood" && g.id !== "grandmaster");
 const DIVISIONS: readonly { division: CrestDivision; name: string }[] = [
   { division: 3, name: "III" },
   { division: 2, name: "II" },
@@ -55,7 +55,7 @@ function Cell({ id, name, size, division }: { id: LeagueId; name: string; size: 
 
 export const Default: Story = {};
 
-/** The nine crests side by side, the ladder from Wanderer to Sovereign, at 24, 40 and 96 px, on each ground. */
+/** The nine crests side by side, the ladder from Wood to Grand Master, at 24, 40 and 96 px, on each ground. */
 export const Ladder: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
@@ -79,7 +79,7 @@ export const Ladder: Story = {
 };
 
 /**
- * The divisions (#854's proposal 3): Peasant to Duke in III, II and I, one to three studs on a plate at the crest's foot, so a
+ * The divisions (#854's proposal 3): Iron to Master in III, II and I, one to three studs on a plate at the crest's foot, so a
  * division change shows without the name. III has one stud, I three: the climb adds a stud.
  */
 export const Divisions: Story = {
@@ -100,7 +100,7 @@ export const Divisions: Story = {
         </div>
       ))}
       <p className="m-0 max-w-prose text-xs text-muted-foreground">
-        Studs: III {STUDS[3]}, II {STUDS[2]}, I {STUDS[1]}. Wanderer and Sovereign have no division.
+        Studs: III {STUDS[3]}, II {STUDS[2]}, I {STUDS[1]}. Wood and Grand Master have no division.
       </p>
     </div>
   ),
@@ -129,13 +129,13 @@ export const BesideToday: Story = {
   ),
 };
 
-// One story per group, at 96 px, in its top division (none for Wanderer and Sovereign).
-export const Wanderer: Story = { args: { league: "wanderer", division: undefined } };
-export const Peasant: Story = { args: { league: "peasant", division: 1 } };
-export const Yeoman: Story = { args: { league: "yeoman", division: 1 } };
-export const Squire: Story = { args: { league: "squire", division: 1 } };
-export const Knight: Story = { args: { league: "knight", division: 1 } };
-export const Baron: Story = { args: { league: "baron", division: 1 } };
-export const Earl: Story = { args: { league: "earl", division: 1 } };
-export const Duke: Story = { args: { league: "duke", division: 1 } };
-export const Sovereign: Story = { args: { league: "sovereign", division: undefined } };
+// One story per group, at 96 px, in its top division (none for Wood and Grand Master).
+export const Wood: Story = { args: { league: "wood", division: undefined } };
+export const Iron: Story = { args: { league: "iron", division: 1 } };
+export const Bronze: Story = { args: { league: "bronze", division: 1 } };
+export const Silver: Story = { args: { league: "silver", division: 1 } };
+export const Gold: Story = { args: { league: "gold", division: 1 } };
+export const Platinum: Story = { args: { league: "platinum", division: 1 } };
+export const Diamond: Story = { args: { league: "diamond", division: 1 } };
+export const Master: Story = { args: { league: "master", division: 1 } };
+export const GrandMaster: Story = { args: { league: "grandmaster", division: undefined } };
