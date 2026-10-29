@@ -68,6 +68,9 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; le
   },
 };
 
+/** The phone's bare end below `mobile`, for a "+" drawn only from it (`leadFrom`): `pad.bare` of `sm`. */
+const PLUS_FROM_MOBILE_PAD: Ends = { right: "max-mobile:pl-2.5", left: "max-mobile:pr-2.5" };
+
 export interface PlateProps extends VariantProps<typeof boxVariants> {
   /** The icon's end (issue 828): `right` on the right of the screen, `left` mirrored for its left (issue 829). */
   side?: "right" | "left";
@@ -83,6 +86,11 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
    * the icon's size (the League button, issue 829), drawn by `leadContent`.
    */
   lead?: "plus" | "disc";
+  /**
+   * `mobile`: the "+" only from `mobile` (360 px) up, the phone's plate (`sm`) bare below it (#871: two plates of a phone's header,
+   * the Vault's PAVED leading to the Challenge beside vPAVED, fit a 320 px screen).
+   */
+  leadFrom?: "mobile";
   leadContent?: ReactNode;
   /** Past the plate, out of its flow (the change's float). */
   after?: ReactNode;
@@ -98,9 +106,11 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
  * border, and over the other end, if any, the "+" or a round disc. The box keeps the overlaps plus a gap clear inside, so its
  * content never runs under either end. The balances' plate (`ResourcePlate`), the League's and the shield's (issue 829).
  */
-export function Plate({ side = "right", end, endFit = "disc", lead, leadContent, after, size, tone, children, className, ...data }: PlateProps) {
+export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, leadContent, after, size, tone, children, className, ...data }: PlateProps) {
   const parts = PARTS[size ?? "sm"];
   const bare = endFit === "bare";
+  // Below `mobile`, the phone's "+" is not drawn and the box keeps a bare end's padding.
+  const fromMobile = leadFrom === "mobile" && lead === "plus" && (size ?? "sm") === "sm";
   return (
     <span {...data} data-side={side} className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", className)}>
       {lead === "plus" && (
@@ -111,6 +121,7 @@ export function Plate({ side = "right", end, endFit = "disc", lead, leadContent,
             "relative z-10 grid shrink-0 place-items-center",
             parts.plus,
             parts.plusOver[side],
+            fromMobile && "max-mobile:hidden",
           )}
         >
           <GameIcon name="plus" size={parts.plusIcon} />
@@ -121,7 +132,7 @@ export function Plate({ side = "right", end, endFit = "disc", lead, leadContent,
           {leadContent}
         </span>
       )}
-      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side])}>
+      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fromMobile && PLUS_FROM_MOBILE_PAD[side])}>
         {/* The shine in its own clipped layer: the floating change goes past the plate's edge. */}
         {tone === "invite" && (
           <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
