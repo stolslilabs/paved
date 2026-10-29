@@ -14,6 +14,8 @@ export interface ResourcePlateProps extends PlateVariants {
   fraction: number;
   /** A "+" at the end opposite the icon, as a game's currency bar invites a purchase (a balance that leads to a page). */
   plus?: boolean;
+  /** `mobile`: the "+" only from `mobile` (360 px) up (`Plate`'s `leadFrom`, issue 871). */
+  plusFrom?: "mobile";
   /**
    * The icon's end (issue 828): `right` for the plates on the right of the screen (the balances), the "+" at the left; `left`, the
    * same plate mirrored for the left of the screen (issue 829), the "+" at the right.
@@ -33,7 +35,7 @@ export interface ResourcePlateProps extends PlateVariants {
  * the change's colour; up, a "+N" rises and fades and the icon pops; down, a "−N" drops and fades and the icon dips. Under reduced
  * motion only the colour flashes: nothing moves. The accessible name is the container's.
  */
-export function ResourcePlate({ kind, amount, decimals, fraction, plus, side = "right", from, size, tone, children, className }: ResourcePlateProps) {
+export function ResourcePlate({ kind, amount, decimals, fraction, plus, plusFrom, side = "right", from, size, tone, children, className }: ResourcePlateProps) {
   const { text, start, target, format, change, flash, moving } = useAmountChange({ amount, decimals, fraction, from });
   return (
     <Plate
@@ -43,6 +45,7 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, side = "
       size={size}
       tone={tone}
       lead={plus ? "plus" : undefined}
+      leadFrom={plusFrom}
       className={className}
       endFit="bare"
       end={

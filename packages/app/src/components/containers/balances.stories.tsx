@@ -37,7 +37,7 @@ function InPage({ state, onAction, onConnect, faucet }: InProps) {
   );
 }
 const page = (state: BalancesState): Story => ({ render: (args) => <InPage {...args} state={state} /> });
-/** The balances whose page is open, as the shell says (`here`): the Vault's on the Vault, the Cobbles on the packs. */
+/** The balances whose page is open, as the shell says (`here`): vPAVED on the Vault (PAVED leads to the Challenge, #871), the Cobbles on the packs. */
 const VAULT_HERE = hereOf("/vault");
 
 /** In a full-screen flow (#620): the same header, the flow's balances (#855): the Cobbles' packs', the Cobbles and USDC. */
@@ -129,7 +129,10 @@ export const Packs1440: Story = { ...pageOf("cobbles"), ...WIDE_1440 };
 export const Purchase320: Story = { ...pageOf("play/challenge"), ...PHONE_320 };
 export const Purchase375: Story = { ...pageOf("play/challenge"), ...PHONE_375 };
 export const Purchase1440: Story = { ...pageOf("play/challenge"), ...WIDE_1440 };
-/** The Vault: PAVED and vPAVED, never the Cobbles; on their own page the plates carry no "+" (they lead nowhere). */
+/**
+ * The Vault: PAVED and vPAVED, never the Cobbles; PAVED's "+" leads to the Challenge (#871), vPAVED on its own page carries none.
+ * Two plates in a phone's row: PAVED's "+" from 360 px (375, 1440), not at 320, where both plates keep their whole figure.
+ */
 export const Vault320: Story = { ...pageOf("vault", HOLDER), ...PHONE_320 };
 export const Vault375: Story = { ...pageOf("vault", HOLDER), ...PHONE_375 };
 export const Vault1440: Story = { ...pageOf("vault", HOLDER), ...WIDE_1440 };
