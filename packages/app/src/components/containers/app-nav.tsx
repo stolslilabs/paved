@@ -11,7 +11,7 @@ import { GameIcon, type GameIconName } from "../elements/game-icon";
  */
 export const NAV_TABS: readonly { id: Tab; label: string; icon: GameIconName }[] = [
   { id: "shop", label: "Shop", icon: "store" },
-  { id: "chests", label: "Chests", icon: "gift" },
+  { id: "chests", label: "Chests", icon: "treasure-chest" },
   { id: "play", label: "Play", icon: "swords" },
   { id: "league", label: "League", icon: "trophy" },
   { id: "settings", label: "Settings", icon: "gear" },
