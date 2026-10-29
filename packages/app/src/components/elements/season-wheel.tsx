@@ -6,11 +6,12 @@ import { WorldIcon, type WorldIconName as Glyph } from "./world-icon";
 
 /**
  * Each season's game icon (issue 870), in its tone: summer's sun gold, autumn's leaf orange, winter's snowflake ice, spring's
- * seedling green; and the now badge's, by the time of day. Named glyphs, not icons, so the Font Awesome subset does not take
+ * seedling green; and the now badge's, by the time of day: a sun behind a cloud by day (not summer's sun, so the two are told
+ * apart at a glance), the moon by night. Named glyphs, not icons, so the Font Awesome subset does not take
  * these names: a game icon draws its own paths.
  */
 export const SEASON_GLYPH = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const satisfies Record<string, Glyph>;
-const NOW_GLYPH = { day: "sun", night: "moon" } as const satisfies Record<string, Glyph>;
+const NOW_GLYPH = { day: "cloud-sun", night: "moon" } as const satisfies Record<string, Glyph>;
 
 // The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`): a soft gold rim (issue 634), a band of paving stones, the disc of the four
 // seasons' skies, a hub at the centre. The dial is 108 px across on a phone, 96 px on the narrowest (under 390 px, so the
@@ -98,7 +99,7 @@ function target(state: WheelState, point?: WheelPoint | null): number {
 /**
  * The season dial (issue 547, crafted in issue 607): a gold rim and a band of paving stones around a disc of the four seasons, each
  * quarter its season's sky, day then night, with its season's game icon. The disc turns under a pointer at the top,
- * whose badge is a sun by day and a moon by night; nothing is written under it (issue 634), the button's name says it. In auto the disc
+ * whose badge is a sun behind a cloud by day and a moon by night; nothing is written under it (issue 634), the button's name says it. In auto the disc
  * follows the cycle and the hub carries the auto marker; in a fixed state it rests on that season's day and the hub is a
  * pin. It always turns the same way, never back.
  */
@@ -184,7 +185,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
         <span className="absolute inset-0 flex items-center justify-center" style={{ color: "var(--dial-mark)" }} data-centre={state === "auto" ? "auto" : "fixed"}>
           {state === "auto" ? <Icon name="arrows-rotate" size="xs" className="text-[1.125rem]" /> : <span className="size-2.5 rounded-full bg-current tablet:size-3" />}
         </span>
-        {/* "Now": a badge on the rim, over the pointer: the sun by day, the moon by night. */}
+        {/* "Now": a badge on the rim, over the pointer: the sun behind a cloud by day, the moon by night. */}
         <span
           data-now={time}
           className="absolute top-0 left-1/2 flex size-7.5 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full border border-card tablet:size-9"

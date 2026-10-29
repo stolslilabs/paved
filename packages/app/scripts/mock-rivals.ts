@@ -22,7 +22,7 @@ const NAMES = [
 
 const RIVAL = 0x524956414cn; // 'RIVAL'
 const COUNT = 30;
-/** The crowns of the last rival: about Yeoman I (league 7, 1,400). */
+/** The crowns of the last rival: about Bronze I (league 7, 1,400). */
 const TOP_CROWNS = 1_400;
 
 function deal(i: number, count: number): number[] {
