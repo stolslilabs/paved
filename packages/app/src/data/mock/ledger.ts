@@ -73,12 +73,14 @@ import {
 import {
   AttackRun,
   CAMPAIGNS,
+  DAILY_MILESTONES,
   PVP_CHESTS_PER_DAY,
   QUEST_BONUS_COBBLES,
   QueuedAttack,
   addXp,
   attackDeck,
   attackStars,
+  dailyMilestoneRefusal,
   dayOf,
   drawChest,
   inventoryOf,
@@ -120,6 +122,7 @@ import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlo
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
 import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../free-attack";
 import type { MatchRecord, MatchRecordViews } from "../matches";
+import { DailyMilestoneRefusedError, type DailyMilestoneViews, type DailyMilestoneWrites, type DailyMilestonesView } from "../daily-milestones";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, generatedLook } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
@@ -175,8 +178,11 @@ const STARTER = { id: 1, plan: 9, orientation: 3, x: 0, y: 0 } as const;
 /** The kind of the mock's reward draw: its random is `poseidon(REWARD, player, index)`, a stand-in for the VRF's. */
 const REWARD_DRAW = 0x524557415244n;
 
-/** The Cobbles of a quest the fresh table does not name (an id of an older deployment): a daily's middle target, a weekly's. */
-const DEFAULT_QUEST_COBBLES = { daily: 10, weekly: 15 } as const;
+/**
+ * The Cobbles of a quest the fresh table does not name (an id of an older deployment): a weekly's. A daily pays none since #869
+ * (the day's milestones pay instead), whatever its definition says.
+ */
+const DEFAULT_QUEST_COBBLES = { daily: 0, weekly: 15 } as const;
 
 /** Every read the deployed classes lack (#549): implemented by the chain (`RpcGameViews`, `RpcEconomyViews`) and by `MockLedger`. */
 export interface MockedReads
@@ -191,6 +197,7 @@ export interface MockedReads
     LayoutSlotViews,
     AttackV2Views,
     MatchRecordViews,
+    DailyMilestoneViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
     VaultViews,
     Pick<EconomyViews, "split" | "seller" | "usdcBalance"> {}
@@ -202,7 +209,7 @@ export type PackReceipt = WriteResult & { bought: PackBought };
  * Every write the deployed classes lack, for the connected account: the writer's (`PavedWriter`) claims and skin writes, the
  * pack buyer's `buy` and the Vault's writes (`EconomyWriter`), with the same requests, receipts and typed refusals.
  */
-export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes {
+export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites {
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
@@ -228,13 +235,21 @@ const PLACE_REFUSALS: Record<string, VillageRefusal> = {
   "Tile: cannot place": "cannot-place",
 };
 
+/** A day's or a week's claims, as stored: the quests' word, the credit, and a day's milestones (#869). */
+interface StoredPeriod {
+  claimed: string;
+  credit: boolean;
+  milestones?: number;
+}
+
 /** One player's state, as stored: words and amounts as strings (JSON has no bigint). */
 interface StoredPlayer {
   cobbles: number;
   credits: number;
   achievementsClaimed: string;
-  days: Record<string, { claimed: string; credit: boolean }>;
-  weeks: Record<string, { claimed: string; credit: boolean }>;
+  /** `milestones`: bit `step` per milestone of the day claimed (#869); absent in a state saved before it, read as none. */
+  days: Record<string, StoredPeriod>;
+  weeks: Record<string, StoredPeriod>;
   /** `skins(player_id, theme)` by theme. */
   owned: Record<string, number>;
   active: number[];
@@ -242,6 +257,12 @@ interface StoredPlayer {
   /** What the mock moved of the player's PAVED and USDC, added to the chain's balance. */
   paved: string;
   usdc: string;
+  /**
+   * The Challenge games the player surrendered through the mock's signer (#869): game id to the surrender's time, in seconds.
+   * The indexer has no finish time for a game over on a later UTC day than its start, and a surrender can come days later: the
+   * fifth daily counts it on this time. Absent: none (a state stored before it).
+   */
+  surrenders?: Record<string, number>;
   /** `avatar(player_id)`, a decimal string; absent: none set (a state stored before the avatar reads it so). */
   avatar?: string;
   /** `owned(player_id, part)` by part, decimal strings; absent: nothing bought. */
@@ -428,6 +449,8 @@ export class MockLedger {
   private readonly achievementRates = new Map<number, AchievementCobbles>();
   private readonly latency: number;
   private readonly lock: MockLock;
+  /** A day's dailies done, as the mock's indexer serves them (`countDailiesWith`); unset, none. */
+  private dailiesDone: ((playerId: string, day: number) => Promise<number>) | null = null;
 
   constructor(private readonly options: MockLedgerOptions) {
     this.state = this.load();
@@ -439,14 +462,15 @@ export class MockLedger {
 
   /**
    * The indexer's definitions with the mock's Cobbles: a definition the indexer gives none (an indexer that predates
-   * cobbles v1) takes the fresh deployment's table (`mocks/cobbles.ts`), else a daily's or a weekly's default for a quest
-   * and its points for an achievement. Learned here: they are what the claims pay.
+   * cobbles v1) takes the fresh deployment's table (`mocks/cobbles.ts`), else a weekly's default for a quest and its points
+   * for an achievement; a daily has none (#869). Learned here: they are what the claims pay.
    */
   definitions(definitions: Definitions): Definitions {
     const quests = definitions.quests.map((q) => {
       const kind = questPeriod({ start: q.startTime, interval: q.interval, duration: q.duration });
-      const cobbles = q.cobbles > 0 ? q.cobbles : (QUEST_COBBLES.find((r) => r.questId === q.questId && r.kind === kind)?.cobbles ?? DEFAULT_QUEST_COBBLES[kind]);
-      const cobblesKind = q.cobbles > 0 ? q.cobblesKind : kind;
+      // A daily pays nothing on its own since #869, even where its definition gives it Cobbles: the day's milestones pay.
+      const cobbles = kind === "daily" ? 0 : q.cobbles > 0 ? q.cobbles : (QUEST_COBBLES.find((r) => r.questId === q.questId && r.kind === kind)?.cobbles ?? DEFAULT_QUEST_COBBLES[kind]);
+      const cobblesKind = q.cobbles > 0 && kind !== "daily" ? q.cobblesKind : kind;
       const task = q.tasks[0];
       this.questRates.set(q.questId, { questId: q.questId, cobbles, kind: cobblesKind, task: task?.taskId ?? 0, total: task?.total ?? 0, start: q.startTime, interval: q.interval });
       return { ...q, cobbles, cobblesKind };
@@ -458,6 +482,31 @@ export class MockLedger {
       return { ...a, cobbles };
     });
     return { ...definitions, quests, achievements };
+  }
+
+  /**
+   * Where the milestones' claims read a day's dailies done: the mock's indexer (`mockIndexer`), with the fifth daily. Without
+   * one, no daily counts as done and every milestone is refused `not-reached`.
+   */
+  countDailiesWith(read: (playerId: string, day: number) => Promise<number>): void {
+    this.dailiesDone = read;
+  }
+
+  /** The Challenge games `playerId` surrendered through the mock (#869), game id to the surrender's time in seconds. */
+  surrenders(playerId: string): Readonly<Record<string, number>> {
+    this.sync();
+    return { ...this.peek(playerId).surrenders };
+  }
+
+  /**
+   * A Challenge game's surrender, recorded at `time` (seconds, now by default) by the mock's signer once the chain took it
+   * (`mockSigner`'s `surrender`): the finish the fifth daily counts it on (#869).
+   */
+  async recordSurrender(account: string, gameId: number, time = Math.floor(Date.now() / 1000)): Promise<void> {
+    await this.write(account, (p) => {
+      p.surrenders = { ...p.surrenders, [gameId]: time };
+      return [];
+    });
   }
 
   /** `/v1/players/:id/referrals`: the mock's player referred nobody yet. */
@@ -491,6 +540,12 @@ export class MockLedger {
   async weekProgress(playerId: string, week: number): Promise<PeriodProgress> {
     this.sync();
     return this.progress(this.peek(playerId).weeks[week]);
+  }
+
+  /** The milestones of `day` claimed (#869): none for a day not played, so each UTC day starts afresh. */
+  async dailyMilestones(playerId: string, day: number): Promise<DailyMilestonesView> {
+    this.sync();
+    return { day, claimed: this.peek(playerId).days[day]?.milestones ?? 0 };
   }
 
   async questCobbles(questId: number): Promise<QuestCobbles> {
@@ -916,6 +971,7 @@ export class MockLedger {
       claimAchievement: (achievementId) => this.claim(account, [{ kind: "achievement", achievementId }]),
       claimDailyCredit: (day) => this.claim(account, [{ kind: "credit", credit: "daily", period: day }]),
       claimWeeklyCredit: (week) => this.claim(account, [{ kind: "credit", credit: "weekly", period: week }]),
+      claimDailyMilestone: (day, step) => this.claimDailyMilestone(account, day, step),
       claim: (claims) => this.claim(account, claims),
       buySkin: (request) => this.buySkin(account, request),
       setSkins: (changes) => this.setSkins(account, changes),
@@ -973,17 +1029,37 @@ export class MockLedger {
           events.push(this.event("CobblesClaimed", { playerId: account, kind: 2, id: c.achievementId, period: 0, cobbles: a.cobbles, balance: p.cobbles }));
         } else {
           const weekly = c.credit === "weekly";
+          // No bonus for the whole day since #869: its milestones pay instead (`claimDailyMilestone`).
+          if (!weekly) throw new ClaimRefusedError("no-live-quest", hash);
           if (![...this.questRates.values()].some((q) => q.cobbles > 0 && (q.kind === "weekly") === weekly)) throw new ClaimRefusedError("no-live-quest", hash);
           const progress = this.period(p, weekly, c.period);
           if (progress.credit) throw new ClaimRefusedError("credit-claimed", hash);
           progress.credit = true;
-          // PvP v2 (#741, #738): finishing every quest pays bonus Cobbles instead of a free game
-          const bonus = QUEST_BONUS_COBBLES[weekly ? "weekly" : "daily"];
+          // PvP v2 (#741, #738): finishing every weekly quest pays bonus Cobbles instead of a free game
+          const bonus = QUEST_BONUS_COBBLES.weekly;
           p.cobbles += bonus;
-          events.push(this.event("CreditClaimed", { playerId: account, kind: weekly ? 2 : 1, period: c.period, credits: p.credits, cobbles: bonus, balance: p.cobbles }));
+          events.push(this.event("CreditClaimed", { playerId: account, kind: 2, period: c.period, credits: p.credits, cobbles: bonus, balance: p.cobbles }));
         }
       }
       return events;
+    });
+  }
+
+  /**
+   * A milestone of the day (#869): `DAILY_MILESTONES[step]`'s Cobbles, once for `day`, refused until that day has the
+   * milestone's dailies done (read from the indexer, `countDailiesWith`).
+   */
+  async claimDailyMilestone(account: string, day: number, step: number): Promise<WriteResult> {
+    const [done] = await Promise.all([this.dailiesDone ? this.dailiesDone(account, day) : 0, sleep(this.latency)]);
+    return this.write(account, (p, hash) => {
+      const progress = this.period(p, false, day);
+      const claimed = progress.milestones ?? 0;
+      const refusal = dailyMilestoneRefusal(step, done, claimed);
+      if (refusal) throw new DailyMilestoneRefusedError(refusal, hash);
+      const milestone = DAILY_MILESTONES[step]!;
+      progress.milestones = claimed | (1 << step);
+      p.cobbles += milestone.cobbles;
+      return [this.event("DailyMilestoneClaimed", { playerId: account, day, step, cobbles: milestone.cobbles, balance: p.cobbles })];
     });
   }
 
@@ -1804,11 +1880,11 @@ export class MockLedger {
     return villageGame([...startTerritory(), ...v.parcels], this.tilesOf(v), MOCK_MAX_CELLS);
   }
 
-  private progress(stored: { claimed: string; credit: boolean } | undefined): PeriodProgress {
+  private progress(stored: StoredPeriod | undefined): PeriodProgress {
     return { games: 0, structures: 0, forests: 0, points: 0, claimed: BigInt(stored?.claimed ?? "0"), credit: stored?.credit ?? false };
   }
 
-  private period(p: StoredPlayer, weekly: boolean, period: number): { claimed: string; credit: boolean } {
+  private period(p: StoredPlayer, weekly: boolean, period: number): StoredPeriod {
     const map = weekly ? p.weeks : p.days;
     map[period] ??= { claimed: "0", credit: false };
     return map[period]!;
