@@ -668,3 +668,14 @@ html[data-tab-swipe="prev"]::view-transition-new(tab-page) { animation-name: tab
 @keyframes tab-swipe-to-end { to { translate: 100% 0; } }
 @keyframes tab-swipe-from-start { from { translate: -100% 0; } }
 @keyframes tab-swipe-from-end { from { translate: 100% 0; } }
+
+/*
+ * BALANCES-BY-PAGE (#855): the home's phone stack, crowded beside the League control (`data-crowded`, home-village-scene.tsx),
+ * keeps the Cobbles alone; the other plates leave the flow, hidden, but keep their width. A plain rule: as utilities, the
+ * selector repeated in each of three class names cost the stylesheet 0.7 kB.
+ */
+[data-crowded] [data-kind]:not([data-kind="cobbles"]) {
+  visibility: hidden;
+  position: absolute;
+  right: 0;
+}
