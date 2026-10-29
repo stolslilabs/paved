@@ -57,7 +57,7 @@ export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_
             USDC: the USDC mark, a trademark of Circle Internet Financial, shown unaltered to name USDC as Circle's brand guidelines ask; the
             file comes from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo.
           </li>
-          <li className="wrap-anywhere">Cobbles: one cobblestone, drawn for Paved.</li>
+          <li className="wrap-anywhere">Cobbles: one stone cube, drawn for Paved.</li>
           <li className="wrap-anywhere">
             PAVED (gold) and vPAVED (silver): Font Awesome Pro's coin-front under the Font Awesome Commercial License, its P the letter of
             Almendra Bold (SIL Open Font License 1.1) as outlines, the relief drawn for Paved.
