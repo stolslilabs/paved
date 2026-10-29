@@ -4,7 +4,8 @@ import { readPacks, type Definitions } from "@paved/chain";
 import { questCobbles } from "../../data/cobbles";
 import { MockLedger } from "../../data/mock/ledger";
 import { COBBLES, MISSIONS, PURCHASE, THEME_SHOP, VAULT } from "../../mocks/scenes";
-import { QUEST_DEFINITIONS, QUESTS_TODAY } from "../../mocks/quests";
+import { QUEST_DEFINITIONS, QUESTS_WEEKLY_DONE } from "../../mocks/quests";
+import { weekOfDay } from "../../lib/quest-window";
 import { PLAYER_ID } from "../../mocks/players";
 import { BALANCE_RICH } from "../../mocks/economy";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
@@ -82,32 +83,37 @@ export const VaultDeposited: Story = {
 
 const questHandlers = { onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimBonus: fn() };
 
+/** Today's week on the mock: a daily pays nothing on its own since #869, so the stories claim a weekly. */
+const WEEK = weekOfDay(QUESTS_WEEKLY_DONE.day)!;
+
 async function questArgs(l: MockLedger): Promise<MissionsSceneProps> {
   const cobbles = questCobbles(l.definitions(definitions));
   const account = await l.account(PLAYER_ID);
-  const day = await l.dayProgress(PLAYER_ID, QUESTS_TODAY.day);
+  const day = await l.dayProgress(PLAYER_ID, QUESTS_WEEKLY_DONE.day);
+  const week = await l.weekProgress(PLAYER_ID, WEEK);
   return {
     ...(MISSIONS.noRewards as MissionsSceneProps),
     ...questHandlers,
+    quests: QUESTS_WEEKLY_DONE,
     rewardsUnavailable: null,
-    initialSelected: "quest:1",
-    questRewards: { cobbles, day: { claimed: day.claimed, credit: day.credit }, week: { claimed: 0n, credit: false }, balance: account.cobbles, credits: account.credits },
+    initialSelected: "quest:14",
+    questRewards: { cobbles, day: { claimed: day.claimed, credit: day.credit }, week: { claimed: week.claimed, credit: week.credit }, balance: account.cobbles, credits: account.credits },
   };
 }
 
-/** Today's missions with the mock's Cobbles: Daily Run done, its 5 Cobbles to claim; nothing claimed yet, 0 Cobbles. */
+/** Today's missions with the mock's Cobbles: Weekly Forester done, its 15 Cobbles to claim; the dailies show none (#869); 0 Cobbles. */
 export const MissionsToClaim: Story = {
   loaders: [async () => ({ props: await questArgs(ledger()) })],
   render: (_args, { loaded }) => <MissionsScene {...(loaded.props as MissionsSceneProps)} />,
 };
 
-/** Daily Run claimed on the mock: 5 Cobbles in the balance, its Claim gone. */
+/** Weekly Forester claimed on the mock: 15 Cobbles in the balance, its Claim gone. */
 export const MissionsClaimed: Story = {
   loaders: [
     async () => {
       const l = ledger();
       l.definitions(definitions);
-      await l.writesFor(PLAYER_ID).claimQuest(1, QUESTS_TODAY.day);
+      await l.writesFor(PLAYER_ID).claimQuest(14, WEEK);
       return { props: await questArgs(l) };
     },
   ],
