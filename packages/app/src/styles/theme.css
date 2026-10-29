@@ -426,8 +426,9 @@
   /* POINTER-CURSOR (#880): everything that can be clicked shows the pointer, as Tailwind 4's upgrade guide suggests (its
      preflight leaves a button with the arrow). A disabled control keeps the default cursor. A class still wins (utilities come
      after the base layer): `disabled:cursor-not-allowed`, the hand-written `cursor-pointer` kept on some parts. The board's
-     canvas keeps its own cursors. Nothing changes on touch, which draws no cursor. */
-  :where(button, [role="button"], [role="tab"], [role="option"], [role="radio"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):not(:disabled, [aria-disabled="true"], [data-disabled]),
+     canvas keeps its own cursors. A slider's root takes it, so its whole track (clicked to set a value), range and thumb show
+     it. Nothing changes on touch, which draws no cursor. */
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="radio"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="slider"], [data-slot="slider"]):not(:disabled, [aria-disabled="true"], [data-disabled]),
   :where(a[href], summary, label[for], select:not(:disabled)) {
     cursor: pointer;
   }

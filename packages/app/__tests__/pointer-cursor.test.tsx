@@ -11,6 +11,7 @@ import { LeagueControl } from "../src/components/containers/league-control";
 import { MatchCard } from "../src/components/containers/match-list";
 import { VillageScore } from "../src/components/containers/village-score";
 import { CarouselDots } from "../src/components/ui/carousel-dots";
+import { Slider } from "../src/components/ui/slider";
 import { MOCK_NOW } from "../src/mocks/clock";
 import { MATCH_CARDS } from "../src/mocks/pvp";
 import { HOME_VILLAGE, TOMORROW } from "../src/mocks/village-v2";
@@ -85,6 +86,23 @@ describe("the pointer cursor (#880)", () => {
     for (const part of parts) expect([part.getAttribute("aria-label"), cursor(part)]).toEqual([part.getAttribute("aria-label"), "pointer"]);
     // Inherited: the icon or the text inside a control shows the pointer too.
     expect(cursor(screen.getByRole("button", { name: /^Missions/ }).querySelector("*")!)).toBe("pointer");
+  });
+
+  it("a slider: its root, track, range and thumb (a click on the track sets the value); a disabled one keeps the default", () => {
+    render(
+      <>
+        <Slider aria-label="Music volume" defaultValue={[40]} />
+        <Slider aria-label="Off volume" defaultValue={[40]} disabled />
+      </>,
+    );
+    styled();
+    const [on, off] = [...document.querySelectorAll("[data-slot=slider]")];
+    for (const slot of ["slider", "slider-track", "slider-range", "slider-thumb"]) {
+      const part = slot === "slider" ? on! : on!.querySelector(`[data-slot=${slot}]`)!;
+      expect([slot, cursor(part)]).toEqual([slot, "pointer"]);
+    }
+    expect(cursor(screen.getByRole("slider", { name: "Music volume" }))).toBe("pointer");
+    for (const part of [off!, off!.querySelector("[data-slot=slider-track]")!, screen.getByRole("slider", { name: "Off volume" })]) expect(cursor(part)).not.toBe("pointer");
   });
 
   it("a link, a tab and a menu item too; a disabled control keeps the default cursor", () => {
