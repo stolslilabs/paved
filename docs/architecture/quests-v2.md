@@ -239,7 +239,20 @@ choosing it:
 
 - v2a: the (A) definitions (the rotation, weekly quests, higher tiers) as `Setup` owner calls, with the client's texts
   (CLIENT) and a test of offset and weekly windows in the indexer (META). No class change, no reward.
-- Ruled by the PM on 2026-10-14: **four dailies a day**, Daily Run plus the three rotating ones; v1's quests 2 to 4 are not defined by the fresh deployment and their ids stay unused (`quests.md`, "Four dailies a day").
+- Ruled by the PM on 2026-10-14: **four dailies a day**, Daily Run plus the three rotating ones; v1's quests 2 to 4 are not defined by the fresh deployment and their ids stay unused (`quests.md`, "Four dailies a day"). Revised by the owner below (2026-10-28, #869).
+- Ruled by the owner on 2026-10-28 (#869, the fourth review #858): **five dailies a day, two milestones (3: 10, 5: 15)**.
+  - Five dailies: Daily Run plus four rotating ones (#869 open point 2's default: one more family in the rotation). In the mock
+    (`packages/app/src/data/mock/dailies.ts`, added by the mock's indexer overlay) the fourth family is `GAME_FINISHED`
+    2 / 3 / 4, ids 17 to 19, offsets 0 / 1 / 2 days in the same 3-day interval; the contracts' definitions and ids are #738's.
+  - **A daily pays nothing on its own**, and **the day has no "all done" bonus** (`QUEST_BONUS_COBBLES` keeps only the
+    week's 60). The day pays at two milestones instead: **3 dailies done give 10 Cobbles, 5 give 15**, 25 a day in all, each
+    claimed once a UTC day with a tap once reached (#869 open point 3's default).
+  - The rules are game-core's (`packages/game-core/src/rules/quests.ts`: `DAILY_QUESTS`, `DAILY_MILESTONES`,
+    `dailyMilestoneRefusal`, `dailyMilestoneStates`); the mock ledger serves the read (`dailyMilestones`) and the claim
+    (`claimDailyMilestone(day, step)`, refused until the day's dailies done reach the milestone) until the contracts have
+    them (#738).
+  - Unchanged: the weekly quests (their Cobbles and the week's bonus of 60, #869 open point 1's default) and the lifetime
+    quests' Cobbles.
 - Reserving task ids 11 to 18 in `constants.cairo` with the next contract PR.
 - The (D) tally changes as one Challenge upgrade, measured against the +1.5M guard, if the PM wants those rows.
 

@@ -41,7 +41,9 @@ function open(s: ReturnType<typeof setup>, path: string) {
 
 const forestActive = (s: ReturnType<typeof setup>) => s.skins.active.flatMap((t, i) => (t === FOREST ? [i + 1] : []));
 
-preloadPages("theme", "theme-shop", "my-tiles", "welcome");
+// Settings too: the theme's pages are sheets drawn over it (BACK-RULE #783), so the first test loaded it cold. And the hosts:
+// Settings is the home's panel (#762), each sheet in its own chunk.
+preloadPages("settings", "theme", "theme-shop", "my-tiles", "welcome", "home-panel", "page-sheets");
 
 beforeEach(() => {
   queryClient.clear();
@@ -50,6 +52,7 @@ beforeEach(() => {
   markWelcomed();
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   resetWelcomedForTests();
 });
