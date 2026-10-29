@@ -136,6 +136,18 @@ describe("the balances by page (#855)", () => {
   });
 });
 
+// A page under its sheet (BACK-RULE #783) keeps its own balances (#855): Settings shows none under Themes, whose sheet shows the
+// Cobbles. The shell's balances are the open sheet's; the page under it is drawn with its own route.
+it("Settings under the Themes sheet shows none, the sheet its own", async () => {
+  render(<App router={createTestRouter("/settings/theme")} sources={fakeSources().sources} />);
+  const sheet = (await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(20_000) })).closest("header")!;
+  // Under the modal sheet, the page is hidden from assistive technology.
+  const settings = (await screen.findByRole("heading", { level: 1, name: "Settings", hidden: true }, { timeout: slow(20_000) })).closest("header")!;
+  await waitFor(() => expect(within(sheet).getAllByRole("region", { name: "Balances" })).toHaveLength(2), { timeout: slow(5000) });
+  expect(within(settings).queryAllByRole("region", { name: "Balances", hidden: true })).toEqual([]);
+  expect(settings.querySelector("[data-slot=page-header-end]")!.children).toHaveLength(0);
+}, slow(30_000));
+
 // A test per row (#855): the page's header renders exactly its row's balances, a connected player's (vPAVED held), at 375 px (the
 // phone's plates, `desktop:hidden`) and at 1440 px (the larger ones, `hidden desktop:flex`).
 describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () => {

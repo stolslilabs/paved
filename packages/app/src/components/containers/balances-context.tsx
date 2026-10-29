@@ -2,6 +2,7 @@ import { createContext, lazy, Suspense, useContext } from "react";
 import { cn } from "../../lib/utils";
 import { Skeleton } from "../ui/skeleton";
 import type { BalancesProps, ShownBalance } from "./balances";
+import { BALANCE_PAGES } from "../../routes/balance-pages";
 
 /**
  * What the shell hands the pages' headers and the home: the balances, the page's route (`page`, #855: its set is the rule's,
@@ -26,9 +27,10 @@ const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balan
 export function BalancesSlot({ kinds, ...slot }: Pick<BalancesProps, "layout" | "kinds" | "direction" | "beside" | "className">) {
   const { layout, direction, className } = slot;
   const value = useContext(BalancesContext);
-  // Neither a set nor a page (a story's, a test's provider): the Cobbles, the set of most pages. A page that shows none, none.
+  // Neither a set nor a page (a story's, a test's provider): the Cobbles, the set of most pages. A page that shows none (`null`, or
+  // a page under its sheet that shows none, `BalancesOf`), none.
   const shown = kinds ?? value?.kinds ?? (value?.page === undefined ? COBBLES : undefined);
-  if (!value || shown?.length === 0 || (!shown && value.page === null)) return null;
+  if (!value || shown?.length === 0 || (!shown && !BALANCE_PAGES.has(value.page!))) return null;
   const plate = layout === "pill" ? "h-8 w-24" : "h-9 w-28";
   const hold = (
     <span className={cn("flex", direction === "column" ? "flex-col items-end gap-2" : "items-center gap-2", className)}>
