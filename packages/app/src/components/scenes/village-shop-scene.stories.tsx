@@ -20,7 +20,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Today's three: a common, an uncommon and a rare plan, 20, 40 and 80 Cobbles. */
+/** Today's three: a common, an uncommon and a mythic plan, 20, 40 and 80 Cobbles. */
 export const Today: Story = { args: VILLAGE_SHOP.today };
 /** A purchase on its way: the others wait. */
 export const Buying: Story = { args: VILLAGE_SHOP.buying };

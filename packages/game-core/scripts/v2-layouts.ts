@@ -17,7 +17,7 @@ export const STARTER_WIDTH = 24;
 const DEAL = 0x5354415254455253n; // 'STARTERS'
 
 /** The cards a starter may be dealt: the base deck's common and uncommon ones, by plan code. */
-const POOL = Array.from({ length: BASE_DECK_CARDS }, (_, card) => basePlanOfCard(card)).filter((plan) => rarityOf(plan) !== "rare");
+const POOL = Array.from({ length: BASE_DECK_CARDS }, (_, card) => basePlanOfCard(card)).filter((plan) => rarityOf(plan) !== "mythic");
 
 /** The plans of candidate `k`. */
 export function starterDeal(k: number): number[] {

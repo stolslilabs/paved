@@ -6,7 +6,7 @@ import { PlanType } from "../types/plan";
 
 const PLANS = Object.values(PlanType);
 
-export type Rarity = "common" | "uncommon" | "rare";
+export type Rarity = "common" | "uncommon" | "mythic";
 
 /** The cards of the base deck (`Base.total_count`). */
 export const BASE_DECK_CARDS = DECKS.simple.total;
@@ -16,7 +16,7 @@ export const BASE_PLAN_CODES: readonly number[] = PLANS.slice(1).map((_, i) => i
 
 /** A plan with at least this many copies in the base deck is common (5 plans). */
 export const COMMON_COPIES = 5;
-/** A plan with at least this many copies (and fewer than `COMMON_COPIES`) is uncommon (10 plans); below it, rare (4 plans). */
+/** A plan with at least this many copies (and fewer than `COMMON_COPIES`) is uncommon (10 plans); below it, mythic (4 plans). */
 export const UNCOMMON_COPIES = 3;
 
 const COPIES: readonly number[] = (() => {
@@ -37,7 +37,7 @@ export const isPlanCode = (plan: number): boolean => baseCopies(plan) > 0;
 export function rarityOf(plan: number): Rarity {
   const copies = baseCopies(plan);
   if (copies === 0) throw new Error(`Not a plan code: ${plan}`);
-  return copies >= COMMON_COPIES ? "common" : copies >= UNCOMMON_COPIES ? "uncommon" : "rare";
+  return copies >= COMMON_COPIES ? "common" : copies >= UNCOMMON_COPIES ? "uncommon" : "mythic";
 }
 
 /** The plan code of a base deck card (0 to 71, taken modulo 72), as `BaseDeck::plan`. */
