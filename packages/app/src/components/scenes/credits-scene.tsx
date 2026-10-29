@@ -55,7 +55,8 @@ export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_
         <ul className="flex flex-col gap-1">
           <li className="wrap-anywhere">
             USDC: the USDC mark, a trademark of Circle Internet Financial, shown unaltered to name USDC as Circle's brand guidelines ask; the
-            file comes from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo.
+            mark comes from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo. The coin around it: Font Awesome Pro's coin-front, the
+            steel and the relief drawn for Paved.
           </li>
           <li className="wrap-anywhere">Cobbles: one stone cube, drawn for Paved.</li>
           <li className="wrap-anywhere">
