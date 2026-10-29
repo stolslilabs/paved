@@ -10,7 +10,7 @@ export interface XpPathProps {
   progress: PlayerProgress | undefined;
   /** The name column's width in the path's units (px at the 44 px box): the line runs over it, to "Lv i". */
   column: number;
-  /** The avatar's box in px, the path drawn at its scale (#856: the season dial's size on the home). Default: 44. */
+  /** The avatar's box in px, the path drawn at its scale (issue 856: the season dial's size on the home). Default: 44. */
   box?: number;
 }
 

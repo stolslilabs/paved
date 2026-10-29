@@ -21,7 +21,7 @@ const SavedAvatar = lazy(() => import("./saved-avatar"));
 
 /**
  * The still's side in CSS px at each size: the disc's (the box less its band), `lg` at the largest it is drawn (the home's profile
- * at the season dial's size, 144 px from `tablet`, #856; the profile sheet's 88 px disc shares that still).
+ * at the season dial's size, 144 px from `tablet`, issue 856; the profile sheet's 88 px disc shares that still).
  */
 const DISC_PX = { md: 40, lg: 128 } as const;
 

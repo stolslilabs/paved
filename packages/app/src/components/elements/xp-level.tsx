@@ -82,7 +82,7 @@ export function LevelPlate({ children }: { children: ReactNode }) {
 export function XpPathFrame({ column, box = PATH_BOX, fill, children, over, className }: { column: number; box?: number; fill: ReactNode; children?: ReactNode; over?: ReactNode; className?: string }) {
   const { d } = levelPath(column);
   const width = PATH_BOX + column;
-  // Drawn at the avatar's size (#856: the season dial's on the home), the line's stroke with it.
+  // Drawn at the avatar's size (issue 856: the season dial's on the home), the line's stroke with it.
   const k = box / PATH_BOX;
   return (
     <span data-slot="xp-path" aria-hidden className={cn("pointer-events-none absolute left-0", className)} style={{ top: PLATE_ROOM, width: width * k, height: box }}>
