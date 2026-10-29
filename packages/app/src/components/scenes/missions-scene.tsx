@@ -14,6 +14,7 @@ import { MissionCard, type Mission, type ProgressReward } from "../containers/mi
 import { MissionTile, type MissionTileState } from "../containers/mission-tile";
 import { achievementText, questText, taskUnit } from "../containers/quest-text";
 import { TabPage } from "../containers/tab-page";
+import { DailyMilestonesBar } from "../containers/daily-milestones-bar";
 
 /** A mission of the page, by what it is: a quest of the day or the week, an achievement, or a period's bonus (only the week's since #869). */
 export type MissionKey = `quest:${number}` | `achievement:${number}` | `bonus:${QuestPeriod}`;
@@ -61,6 +62,13 @@ export interface MissionsSceneProps {
   questRewards?: QuestRewardsData | null;
   /** The achievements' Cobbles; omitted before Cobbles. */
   achievementRewards?: AchievementRewardsData | null;
+  /**
+   * Today's milestones claimed (#869: bit `step` per `DAILY_MILESTONES[step]`); null or omitted: not served here (the chain
+   * before #738), the bar shows without a claim.
+   */
+  milestones?: { claimed: number } | null;
+  /** The milestone (its step) whose claim is on its way. */
+  claimingMilestone?: number | null;
   /** The claim on its way, if any. */
   claiming?: MissionKey | null;
   /** False: the player is known but cannot sign (no wallet yet, P6): the rewards show, each claim says "Connect to claim". */
@@ -69,6 +77,8 @@ export interface MissionsSceneProps {
   initialSelected?: MissionKey;
   /** `claim_quest(quest_id, period)` of today (or its week). */
   onClaimQuest?: (questId: number) => void;
+  /** `claimDailyMilestone(day, step)` of today (#869). */
+  onClaimMilestone?: (step: number) => void;
   /** `claim_achievement(achievement_id)`. */
   onClaimAchievement?: (achievementId: number) => void;
   /** `claim_weekly_credit(week)`: the week's bonus Cobbles since #738 (the day's left with #869, so `daily` is not sent). */
@@ -101,13 +111,15 @@ const fraction = (progress: Mission["progress"]): number =>
 /**
  * Missions (`/missions`, #832, the owner's decisions of 2026-10-27): one page, today only. At the top a card with the selected
  * mission (`MissionCard`); under it the missions as icons (`MissionTile`): the Limited ones, a Daily and a Weekly row each with its
- * reset's countdown and its period's bonus as a small last tile, then the Lifetime ones. On arrival the first mission not done is
+ * reset's countdown, then the Lifetime ones. The Daily row has the day's progress bar above its icons (`DailyMilestonesBar`,
+ * #869): a step per daily done and the two milestones' Cobbles, claimed from the bar; the Weekly row ends on the week's bonus
+ * as a small last tile. On arrival the first mission not done is
  * selected (Daily, then Weekly, then Lifetime; with everything done, the first one); a tap on an icon selects it, the card
  * updates in place and the page does not scroll. Cobbles are the only reward: no free game, no day picker. Claims go from the
  * card. The completion toasts are the app's (`routes/completion-host.tsx`).
  */
 export function MissionsScene(props: MissionsSceneProps) {
-  const { quests, achievements, connected, error, now, questRewards, achievementRewards, claiming = null, canClaim = true } = props;
+  const { quests, achievements, connected, error, now, questRewards, achievementRewards, claiming = null, claimingMilestone = null, canClaim = true } = props;
   const [picked, setPicked] = useState<MissionKey | null>(props.initialSelected ?? null);
 
   const entries = quests?.quests ?? [];
@@ -118,7 +130,7 @@ export function MissionsScene(props: MissionsSceneProps) {
     cobbles,
     claimed,
     claiming: claiming === key,
-    disabled: !canClaim || (claiming !== null && claiming !== key),
+    disabled: !canClaim || claimingMilestone !== null || (claiming !== null && claiming !== key),
   });
 
   const questMission = (q: ScheduledQuest): Mission => {
@@ -265,6 +277,16 @@ export function MissionsScene(props: MissionsSceneProps) {
                       </h3>
                       {Number.isFinite(ends) && <Countdown expiresAt={ends} now={now} label={ROW[period].ends} />}
                     </header>
+                    {period === "daily" && (
+                      <DailyMilestonesBar
+                        done={missions.filter((m) => m.state === "claimable" || m.state === "done").length}
+                        claimed={props.milestones?.claimed ?? null}
+                        claiming={claimingMilestone}
+                        canClaim={canClaim && claiming === null}
+                        onClaim={props.onClaimMilestone}
+                        rewards={questRewards != null}
+                      />
+                    )}
                     <div className={grid}>
                       {missions.map(tile)}
                       {bonus && tile(bonus)}
