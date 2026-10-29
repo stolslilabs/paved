@@ -84,7 +84,10 @@ describe("the balances by page (#855)", () => {
     expect([...BALANCE_PAGES].sort()).toEqual(Object.keys(TABLE).filter((path) => TABLE[path]!.length > 0).sort());
     expect(HOST_DESTINATION).toEqual(DESTINATION);
     expect(hereOf("/cobbles")).toEqual(["cobbles"]);
-    expect(hereOf("/vault")).toEqual(["paved", "vpaved"]);
+    // #871: PAVED leads to the Challenge's purchase (which shows USDC alone), vPAVED to the Vault.
+    expect(DESTINATION).toEqual({ paved: "/play/challenge", vpaved: "/vault", cobbles: "/cobbles" });
+    expect(hereOf("/vault")).toEqual(["vpaved"]);
+    expect(hereOf("/play/challenge")).toEqual(["paved"]);
   });
 
   it("USDC only on the Cobbles' packs and the Challenge's purchase; the Vault's PAVED and vPAVED, never the Cobbles", () => {
@@ -152,7 +155,7 @@ it("Settings under the Themes sheet shows none, the sheet its own", async () => 
 // phone's plates, `desktop:hidden`) and at 1440 px (the larger ones, `hidden desktop:flex`).
 describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () => {
   const HOLDER = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 1_250_400_000_000_000_000n, cobbles: 240 } as const;
-  const PLATE: Record<string, RegExp> = { usdc: /USDC: Get test USDC/, paved: /^142\.35 PAVED/, vpaved: /vPAVED: Vault/, cobbles: /Cobbles: Buy packs/ };
+  const PLATE: Record<string, RegExp> = { usdc: /USDC: Get test USDC/, paved: /^142\.35 PAVED: Play a Challenge$/, vpaved: /vPAVED: Vault/, cobbles: /Cobbles: Buy packs/ };
   const rows = Object.entries(TABLE).filter(([path]) => path !== "");
   it.each(rows)("%s", async (path, kinds) => {
     render(
@@ -185,7 +188,7 @@ describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () 
     // Stacked below `desktop`, in a row from it (#856).
     expect(regions.map((r) => r.dataset.direction)).toEqual(["column", "row"]);
     for (const region of regions) {
-      expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["240 Cobbles: Buy packs", "142.35 PAVED: Vault", "1.25 vPAVED: Vault"]);
+      expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["240 Cobbles: Buy packs", "142.35 PAVED: Play a Challenge", "1.25 vPAVED: Vault"]);
     }
     unmount();
     // A player who holds none: no vPAVED plate.
@@ -208,7 +211,7 @@ describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () 
       </LazyMotion>,
     );
     for (const region of await screen.findAllByRole("region", { name: "Balances" })) {
-      expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["142.35 PAVED: Vault", "0.00 vPAVED: Vault"]);
+      expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["142.35 PAVED: Play a Challenge", "0.00 vPAVED: Vault"]);
     }
   });
 });

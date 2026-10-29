@@ -50,7 +50,7 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(onAction).toHaveBeenCalledWith("cobbles");
     await userEvent.click(screen.getByRole("button", { name: "48.50 USDC: Get test USDC" }));
     expect(onAction).toHaveBeenCalledWith("usdc");
-    await userEvent.click(screen.getByRole("button", { name: "142.35 PAVED: Vault" }));
+    await userEvent.click(screen.getByRole("button", { name: "142.35 PAVED: Play a Challenge" }));
     expect(onAction).toHaveBeenCalledWith("paved");
     expect(screen.getAllByRole("button")).toHaveLength(3);
   });
@@ -99,9 +99,24 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(screen.getByRole("button", { name: "48.50 USDC: Minting…" })).toBeDisabled();
   });
 
+  // #871: the Vault's two plates, PAVED leading to the Challenge: on a phone its "+" only from `mobile` (360 px), so both fit 320 px.
+  it("pill: a row of two plates draws its \"+\" from 360 px only; a lone plate, and the rail, at every width", () => {
+    const plusOf = (container: HTMLElement) => container.querySelector("[data-slot=resource-plus]")!;
+    const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
+    expect(vault.container.querySelectorAll("[data-slot=resource-plus]")).toHaveLength(1);
+    expect(plusOf(vault.container)).toHaveClass("hidden", "mobile:grid");
+    expect(plusOf(vault.container).nextElementSibling).toHaveClass("pl-5", "max-mobile:pl-2.5");
+    vault.unmount();
+    const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
+    expect(plusOf(lone.container)).not.toHaveClass("hidden");
+    lone.unmount();
+    const rail = render(wrap(<Balances layout="rail" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
+    expect(plusOf(rail.container)).not.toHaveClass("hidden");
+  });
+
   it("a balance with no source is a dash", () => {
     render(wrap(<Balances layout="rail" state={{ ...READY, paved: null }} />));
-    expect(screen.getByRole("button", { name: "PAVED unavailable: Vault" })).toHaveTextContent("–");
+    expect(screen.getByRole("button", { name: "PAVED unavailable: Play a Challenge" })).toHaveTextContent("–");
   });
 
   it("an error is inline, not a toast", () => {
@@ -240,7 +255,7 @@ describe("the plates (#828)", () => {
     try {
       render(wrap(<BalancesProvider value={{ state: { ...READY, vpaved: 1n } }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
       const stack = document.querySelector<HTMLElement>("[data-slot=home-phone-balances]")!;
-      await within(stack).findByRole("button", { name: /^\S+ PAVED: Vault$/ }, { timeout: slow(5000) });
+      await within(stack).findByRole("button", { name: /^\S+ PAVED: Play a Challenge$/ }, { timeout: slow(5000) });
       await waitFor(() => expect(document.querySelector("[data-slot=league-control]")).not.toBeNull(), { timeout: slow(5000) });
       await waitFor(() => expect(stack.querySelector("section")!.hasAttribute("data-crowded")).toBe(crowded));
       // Crowded, the other plates leave the flow, hidden from sight and from assistive technology; the Cobbles' plate stays.
