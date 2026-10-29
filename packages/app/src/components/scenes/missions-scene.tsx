@@ -111,8 +111,8 @@ const fraction = (progress: Mission["progress"]): number =>
 /**
  * Missions (`/missions`, #832, the owner's decisions of 2026-10-27): one page, today only. At the top a card with the selected
  * mission (`MissionCard`); under it the missions as icons (`MissionTile`): the Limited ones, a Daily and a Weekly row each with its
- * reset's countdown, then the Lifetime ones. The Daily row has the day's progress bar above its icons (`DailyMilestonesBar`,
- * #869): a step per daily done and the two milestones' Cobbles, claimed from the bar; the Weekly row ends on the week's bonus
+ * reset's countdown, then the Lifetime ones. The Daily row has the day's milestones graph above its icons (`DailyMilestonesBar`,
+ * #869): an edge per daily done and a full node per milestone's Cobbles, claimed from its node; the Weekly row ends on the week's bonus
  * as a small last tile. On arrival the first mission not done is
  * selected (Daily, then Weekly, then Lifetime; with everything done, the first one); a tap on an icon selects it, the card
  * updates in place and the page does not scroll. Cobbles are the only reward: no free game, no day picker. Claims go from the
