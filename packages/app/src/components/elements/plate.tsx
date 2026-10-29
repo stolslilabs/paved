@@ -84,7 +84,7 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
    */
   lead?: "plus" | "disc";
   /**
-   * `mobile`: the "+" only from `mobile` (360 px) up, the phone's right-side plate (`sm`) bare below it (#871: two plates of a phone's header,
+   * `mobile`: the "+" only from `mobile` (360 px) up, the phone's right-side plate (`sm`) bare below it (issue 871: two plates of a phone's header,
    * the Vault's PAVED leading to the Challenge beside vPAVED, fit a 320 px screen).
    */
   leadFrom?: "mobile";

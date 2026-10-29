@@ -14,7 +14,7 @@ export interface ResourcePlateProps extends PlateVariants {
   fraction: number;
   /** A "+" at the end opposite the icon, as a game's currency bar invites a purchase (a balance that leads to a page). */
   plus?: boolean;
-  /** `mobile`: the "+" only from `mobile` (360 px) up (`Plate`'s `leadFrom`, #871). */
+  /** `mobile`: the "+" only from `mobile` (360 px) up (`Plate`'s `leadFrom`, issue 871). */
   plusFrom?: "mobile";
   /**
    * The icon's end (issue 828): `right` for the plates on the right of the screen (the balances), the "+" at the left; `left`, the
