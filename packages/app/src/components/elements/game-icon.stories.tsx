@@ -6,6 +6,7 @@ import { GAME_LOOKS, GameIconLook, type GameLook } from "./game-icon-looks";
 import { TOKEN_ICONS, TokenIcon, type TokenKind } from "./token-icon";
 import { WorldIcon, type WorldIconName } from "./world-icon";
 import { WORLD_ICON_SHAPES } from "./world-icon-shapes";
+import { BothThemes } from "../../stories/both-themes";
 
 const meta = {
   title: "Elements/GameIcon",
@@ -113,25 +114,39 @@ const WORLD = Object.keys(WORLD_ICON_SHAPES) as WorldIconName[];
 const VILLAGE = "house-tree" as const;
 const MORE = [VILLAGE, ...WORLD];
 
+/** Issue 870's ten icons, one row each, at 16, 20, 24, 32 and 48 px. */
+function MoreRows() {
+  return MORE.map((name) => (
+    <div key={name} className="flex flex-wrap items-end gap-3">
+      <span className="w-24 rounded-md bg-background/70 px-1.5 text-xs text-foreground">{name}</span>
+      {SIZES.filter((s) => s.px <= 48).map(({ size, px }) =>
+        name === VILLAGE ? <GameIcon key={px} name={name} size={size} /> : <WorldIcon key={px} name={name} size={size} />,
+      )}
+    </div>
+  ));
+}
+
 /**
- * Issue 870's ten icons at 16, 20, 24, 32 and 48 px, on the app's surface and on a day and a night sky (the app has one theme,
- * dark; the skies are the light and dark grounds they stand on in the HUD). The village's is a HUD icon (`GameIcon`), the
- * others the world's (`WorldIcon`, their shapes a file of their own).
+ * Issue 870's ten icons at 16 to 48 px in both themes: the app's dark theme, and the light scope (`stories/both-themes.tsx`; the app
+ * ships no light theme yet, so the scope sets the tokens a light block would; the icons keep their own light and ink). The
+ * village's is a HUD icon (`GameIcon`), the others the world's (`WorldIcon`, their shapes a file of their own).
  */
 export const VillageCategoriesSeasons: Story = {
   render: () => (
+    <BothThemes>
+      <MoreRows />
+    </BothThemes>
+  ),
+};
+
+/** The same icons on a day and a night sky, the grounds they stand on in the HUD. */
+export const VillageCategoriesSeasonsOnSkies: Story = {
+  render: () => (
     <div className="flex flex-col gap-3">
-      {[{ name: "App surface", background: "var(--background)" }, SKIES[2]!, SKIES[3]!].map((ground) => (
+      {[SKIES[2]!, SKIES[3]!].map((ground) => (
         <section key={ground.name} aria-label={ground.name} className="flex flex-col gap-2 rounded-xl p-3" style={{ background: ground.background }}>
           <h3 className="self-start rounded-md bg-background/70 px-1.5 text-sm font-semibold text-foreground">{ground.name}</h3>
-          {MORE.map((name) => (
-            <div key={name} className="flex flex-wrap items-end gap-3">
-              <span className="w-24 rounded-md bg-background/70 px-1.5 text-xs text-foreground">{name}</span>
-              {SIZES.filter((s) => s.px <= 48).map(({ size, px }) =>
-                name === VILLAGE ? <GameIcon key={px} name={name} size={size} /> : <WorldIcon key={px} name={name} size={size} />,
-              )}
-            </div>
-          ))}
+          <MoreRows />
         </section>
       ))}
     </div>

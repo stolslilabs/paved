@@ -90,13 +90,13 @@ export interface GameIconProps extends VariantProps<typeof gameIconVariants> {
 
 /** A tone's step, mixed from its base (theme.css, 3f): the lit top toward the light, the foot and the outline toward the ink. */
 export function paint(tone: GameTone, step: "hi" | "mid" | "lo" | "edge"): string {
-  return mix(tone === "current" ? "currentColor" : tone === "light" ? "var(--foreground)" : `var(--game-${tone})`, step);
+  return mix(tone === "current" ? "currentColor" : tone === "light" ? "var(--game-light)" : `var(--game-${tone})`, step);
 }
 
 /** `paint`'s steps from any base colour (a league crest's `var(--league-*)`). */
 export function mix(base: string, step: "hi" | "mid" | "lo" | "edge"): string {
   if (step === "mid") return base;
-  const [share, toward] = ({ hi: [55, "foreground"], lo: [72, "background"], edge: [20, "background"] } as const)[step];
+  const [share, toward] = ({ hi: [55, "game-light"], lo: [72, "game-ink"], edge: [20, "game-ink"] } as const)[step];
   return `color-mix(in oklab, ${base} ${share}%, var(--${toward}))`;
 }
 
@@ -140,7 +140,7 @@ export const iconFrame = ({ name, ...frame }: Omit<GameIconProps, "tone">) => fr
 /** The shadow under the icon: the whole shape, outline included, dropped; one layer at low opacity, so overlaps do not darken. */
 export function IconShadow({ parts }: { parts: { d: string }[] }) {
   return (
-    <g transform={`translate(0 ${DROP})`} opacity={0.45} style={{ fill: "var(--background)", stroke: "var(--background)" }} strokeWidth={OUTLINE} strokeLinejoin="round">
+    <g transform={`translate(0 ${DROP})`} opacity={0.45} style={{ fill: "var(--game-ink)", stroke: "var(--game-ink)" }} strokeWidth={OUTLINE} strokeLinejoin="round">
       {parts.map((p, i) => (
         <path key={i} d={p.d} />
       ))}
@@ -192,7 +192,7 @@ export function Relief({ parts, ...frame }: FrameProps & { parts: { d: string; t
         <g key={i}>
           {outline(p)}
           <path d={p.d} fill={`url(#${id}${p.tone})`} />
-          <path d={p.d} mask={`url(#${id}r${i})`} opacity={0.55} style={{ fill: "var(--foreground)" }} />
+          <path d={p.d} mask={`url(#${id}r${i})`} opacity={0.55} style={{ fill: "var(--game-light)" }} />
         </g>
       ))}
     </svg>

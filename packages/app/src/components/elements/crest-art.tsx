@@ -194,7 +194,7 @@ export interface CrestArtProps {
 export function CrestArt({ league, division, size = "md", label, className }: CrestArtProps) {
   const rem = SIZE_REM[size];
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const base = (tone: CrestTone) => (tone === "league" ? `var(--league-${league})` : tone === "light" ? "var(--foreground)" : `var(--game-${tone})`);
+  const base = (tone: CrestTone) => (tone === "league" ? `var(--league-${league})` : tone === "light" ? "var(--game-light)" : `var(--game-${tone})`);
   const parts = crestParts(league, division);
   return (
     <svg
@@ -227,7 +227,7 @@ export function CrestArt({ league, division, size = "md", label, className }: Cr
         ))}
       </defs>
       {/* The shadow: the whole crest, outline included, dropped; one layer at low opacity, so overlaps do not darken. */}
-      <g transform={`translate(0 ${DROP})`} opacity={0.45} style={{ fill: "var(--background)", stroke: "var(--background)" }} strokeLinejoin="round">
+      <g transform={`translate(0 ${DROP})`} opacity={0.45} style={{ fill: "var(--game-ink)", stroke: "var(--game-ink)" }} strokeLinejoin="round">
         {parts.map((p, i) => (
           <path key={i} d={p.d} transform={p.t} strokeWidth={OUTLINE / p.k} />
         ))}
@@ -237,7 +237,7 @@ export function CrestArt({ league, division, size = "md", label, className }: Cr
           <path d={p.d} transform={p.t} style={{ fill: mix(base(p.tone), "edge"), stroke: mix(base(p.tone), "edge") }} strokeWidth={OUTLINE / p.k} strokeLinejoin="round" />
           <path d={p.d} transform={p.t} fill={`url(#${id}${p.tone})`} />
           <g mask={`url(#${id}r${i})`} opacity={0.55}>
-            <path d={p.d} transform={p.t} style={{ fill: "var(--foreground)" }} />
+            <path d={p.d} transform={p.t} style={{ fill: "var(--game-light)" }} />
           </g>
         </g>
       ))}

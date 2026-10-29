@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { WHEEL_SEASONS, WHEEL_STATES, initialWheelRound, nextWheelRound, type WheelRound } from "../../data/season-wheel";
 import { SeasonWheel } from "./season-wheel";
+import { bothThemes } from "../../stories/both-themes";
 
 const meta = {
   title: "Elements/SeasonWheel",
@@ -76,4 +77,15 @@ export const FourTapRound: Story = {
       </div>
     );
   },
+};
+
+/** The wheel's game icons in both themes (issue 870), by day and by night: the app's dark theme and the light scope. */
+export const BothThemesDayAndNight: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-4">
+      <SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} />
+      <SeasonWheel state="auto" point={{ season: "winter", position: 0.8 }} />
+    </div>
+  ),
+  decorators: [bothThemes],
 };

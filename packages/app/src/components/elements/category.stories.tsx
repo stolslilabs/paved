@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { CLOSING_CATEGORIES, CategoryIcon, categoryInfo } from "./category";
+import { bothThemes } from "../../stories/both-themes";
 
 const meta = { title: "Elements/Category", component: CategoryIcon, parameters: { layout: "padded" }, args: { category: 3 } } satisfies Meta<typeof CategoryIcon>;
 export default meta;
@@ -36,3 +37,6 @@ export const Sizes: Story = {
     </div>
   ),
 };
+
+/** The four categories in both themes (issue 870): the app's dark theme and the light scope. */
+export const AllBothThemes: Story = { ...All, decorators: [bothThemes] };

@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { DRAFT_VALID, LAYOUT_GROWING, LAYOUT_START, LAYOUT_WONDER, fakeScore } from "../../mocks/village-v2";
 import { VillageScore, type VillageScoreProps } from "./village-score";
+import { bothThemes } from "../../stories/both-themes";
 
 /** The home's left column, over the village's sky: where the score sits, under the League control (#829). */
 function Corner({ children }: { children: React.ReactNode }) {
@@ -70,3 +71,6 @@ export const Toggle: Story = {
 };
 /** Reduced motion: the kinds come and go at once, the chevron turns without a transition. */
 export const ToggleReducedMotion: Story = { ...Toggle, parameters: { reducedMotion: "always" } };
+
+/** The village's house-tree and the kinds' game icons in both themes (issue 870): the app's dark theme and the light scope. */
+export const OpenBothThemes: Story = { args: { open: true }, decorators: [bothThemes] };

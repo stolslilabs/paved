@@ -84,6 +84,13 @@ describe("the world's icons (#870)", () => {
     expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["ice"]);
   });
 
+  it("keep their own light and ink, not the theme's foreground and background, so a light theme keeps their relief", () => {
+    const html = [render(<WorldIcon name="moon" />).container, render(<GameIcon name="plus" />).container].map((c) => c.innerHTML).join("");
+    expect(html).toContain("var(--game-light)");
+    expect(html).toContain("var(--game-ink)");
+    expect(html).not.toMatch(/var\(--(?:foreground|background)\)/);
+  });
+
   it("keep the village's house-tree among the HUD's, in wood with its tree green", () => {
     const { container } = render(<GameIcon name="house-tree" />);
     expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["green", "wood"]);

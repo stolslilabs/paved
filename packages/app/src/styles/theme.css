@@ -317,9 +317,13 @@
 }
 
 /* 3f. The game icons (issue 844, `elements/game-icon.tsx`), in the spirit of Supercell's: one base per tone, from which the icon
-   mixes its lit top (toward `--foreground`), its shaded foot and its thick outline of the same hue, darker (toward `--background`,
-   the ink). The light tone is `--foreground`; the shadow is the ink at low opacity, the light on the upper parts the foreground. */
+   mixes its lit top (toward `--game-light`), its shaded foot and its thick outline of the same hue, darker (toward `--game-ink`).
+   The light tone is `--game-light`; the shadow is the ink at low opacity, the light on the upper parts `--game-light`. The light
+   and the ink are the relief's own, not the theme's foreground and background (#870): the dark theme's values, so an icon keeps
+   its light on top and its dark outline whatever the theme's surface. */
 :root {
+  --game-light: var(--color-charcoal-50);
+  --game-ink: var(--color-charcoal-950);
   --game-gold: var(--color-gold-300);
   --game-steel: var(--color-charcoal-200);
   --game-red: var(--color-ember-400);
