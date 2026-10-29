@@ -226,7 +226,7 @@
   --input: var(--color-charcoal-600); /* 3.17:1 on --background (WCAG 1.4.11) */
   --input-surface: var(--color-charcoal-500); /* --input on --card / --popover: 4.27:1 */
   --ring: var(--accent-scale-400);
-  /* The podium's medals: gold, silver, bronze. The v2 village's chests take them by rank (#739). */
+  /* The podium's medals: gold, silver, bronze. The v2 village's chests take them by rank (#739): Epic, Rare, Basic. */
   --medal-1: var(--color-gold-300);
   --medal-2: var(--color-charcoal-200);
   --medal-3: var(--color-amber-400);

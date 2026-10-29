@@ -367,18 +367,18 @@ describe("the attack", () => {
 });
 
 describe("chests", () => {
-  it("rank PvP by stars: none, bronze, silver, gold, with 1, 2 or 3 choices", () => {
-    expect([0, 1, 2, 3].map(pvpChestRank)).toEqual([null, "bronze", "silver", "gold"]);
-    expect(CHEST_CHOICES).toEqual({ bronze: 1, silver: 2, gold: 3 });
+  it("rank PvP by stars: none, basic, rare, epic, with 1, 2 or 3 choices", () => {
+    expect([0, 1, 2, 3].map(pvpChestRank)).toEqual([null, "basic", "rare", "epic"]);
+    expect(CHEST_CHOICES).toEqual({ basic: 1, rare: 2, epic: 3 });
   });
 
-  it("rank Story by the level's place: the first half bronze, then silver, the last gold; only on 3 stars, the first time", () => {
+  it("rank Story by the level's place: the first half basic, then rare, the last epic; only on 3 stars, the first time", () => {
     expect(Array.from({ length: 12 }, (_, i) => storyRankAt(i + 1, 12))).toEqual([
-      ...new Array(6).fill("bronze"),
-      ...new Array(5).fill("silver"),
-      "gold",
+      ...new Array(6).fill("basic"),
+      ...new Array(5).fill("rare"),
+      "epic",
     ]);
-    expect(storyChestRank(12, 12, 2, 3)).toBe("gold");
+    expect(storyChestRank(12, 12, 2, 3)).toBe("epic");
     expect(storyChestRank(12, 12, 3, 3)).toBeNull();
     expect(storyChestRank(1, 12, 0, 2)).toBeNull();
   });
@@ -392,18 +392,18 @@ describe("chests", () => {
     expect(leagueBoostBps(0)).toBe(10_000);
     expect(leagueBoostBps(22)).toBe(20_000);
     expect(leagueBoostBps(11)).toBe(15_000);
-    expect(cobbleChanceBps("bronze", 0)).toBe(200);
-    expect(cobbleChanceBps("silver", 0)).toBe(500);
-    expect(cobbleChanceBps("gold", 22)).toBe(2_000);
-    const gold = drawChest("gold", 0, 9n);
-    expect(gold.plans).toHaveLength(3);
-    expect(drawChest("gold", 0, 9n)).toEqual(gold);
-    expect(drawChest("bronze", 0, 9n).plans).toHaveLength(1);
+    expect(cobbleChanceBps("basic", 0)).toBe(200);
+    expect(cobbleChanceBps("rare", 0)).toBe(500);
+    expect(cobbleChanceBps("epic", 22)).toBe(2_000);
+    const epic = drawChest("epic", 0, 9n);
+    expect(epic.plans).toHaveLength(3);
+    expect(drawChest("epic", 0, 9n)).toEqual(epic);
+    expect(drawChest("basic", 0, 9n).plans).toHaveLength(1);
     const draws = 2_000;
     let cobbles = 0;
     let rares = 0;
     for (let i = 0; i < draws; i++) {
-      const chest = drawChest("gold", 22, BigInt(i));
+      const chest = drawChest("epic", 22, BigInt(i));
       if (chest.cobbles > 0) cobbles += 1;
       if (chest.plans.some((p) => rarityOf(p) === "rare")) rares += 1;
     }
@@ -413,20 +413,20 @@ describe("chests", () => {
     expect(Math.abs(rares / draws - 0.247)).toBeLessThan(0.04);
   }, 60_000);
 
-  it("offer distinct plans in a silver or gold chest, the first choice as a bronze chest's, the same for the same random (#868)", () => {
+  it("offer distinct plans in a rare or epic chest, the first choice as a basic chest's, the same for the same random (#868)", () => {
     const draws = 1_000;
     let rares = 0;
     for (let i = 0; i < draws; i++) {
       const random = BigInt(i) * 0x9e3779b97f4a7c15n;
-      const gold = drawChest("gold", 0, random);
-      const silver = drawChest("silver", 0, random);
-      expect(new Set(gold.plans).size).toBe(3);
-      expect(gold.plans.every(isPlanCode)).toBe(true);
-      expect(silver.plans).toEqual(gold.plans.slice(0, 2));
-      if (silver.plans.some((p) => rarityOf(p) === "rare")) rares += 1;
+      const epic = drawChest("epic", 0, random);
+      const rare = drawChest("rare", 0, random);
+      expect(new Set(epic.plans).size).toBe(3);
+      expect(epic.plans.every(isPlanCode)).toBe(true);
+      expect(rare.plans).toEqual(epic.plans.slice(0, 2));
+      if (rare.plans.some((p) => rarityOf(p) === "rare")) rares += 1;
       if (i < 50) {
-        expect(drawChest("bronze", 0, random).plans).toEqual([basePlanOf(poseidon(random, 0))]);
-        expect(drawChest("gold", 0, random)).toEqual(gold);
+        expect(drawChest("basic", 0, random).plans).toEqual([basePlanOf(poseidon(random, 0))]);
+        expect(drawChest("epic", 0, random)).toEqual(epic);
       }
     }
     // 972,105 / 5,868,128 = 16.6 % (16.0 % with putting back); about 4 standard deviations (0.012) at 1,000 draws

@@ -105,6 +105,17 @@ export const freshV2 = (): StoredV2 => ({
   attacks: [],
 });
 
+/** The chests' names before V4-CHEST-NAMES (owner, 2026-10-29), as a save from before it holds them. */
+const OLD_CHEST_RANK: Readonly<Record<string, ChestRank>> = { bronze: "basic", silver: "rare", gold: "epic" };
+const renamedRank = <T extends ChestRank | null>(rank: T): T => (rank ? (OLD_CHEST_RANK[rank] as T | undefined) ?? rank : rank);
+
+/** A save's chests under their names (Basic, Rare, Epic): those of a save from before the rename (Bronze, Silver, Gold) are renamed in place. */
+export function renameChestsV2(v2: StoredV2): void {
+  for (const chest of v2.chests.pending) chest.rank = renamedRank(chest.rank);
+  if (v2.chests.open) v2.chests.open.rank = renamedRank(v2.chests.open.rank);
+  for (const attack of v2.attacks) attack.chest = renamedRank(attack.chest);
+}
+
 /** A founded village's layout slots: the stored ones, or (a save from before #804) its layout alone, in the free slot. */
 export function slotsOfV2(v2: StoredV2 & { layout: LayoutTile[] }): LayoutSlots {
   return v2.slots ?? layoutSlotsOf(v2.layout);

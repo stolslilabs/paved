@@ -149,7 +149,7 @@ describe("PvP v2 on the mock", () => {
     expect(refusal(await result.current.fight.play({ discard: true }).catch((e: unknown) => e))).toBe("no-attack");
   });
 
-  it("gives chests by stars, at most 3 PvP chests a day; Story's are outside the cap; a gold chest shows 3 tiles", async () => {
+  it("gives chests by stars, at most 3 PvP chests a day; Story's are outside the cap; an epic chest shows 3 tiles", async () => {
     const { sources, store } = mockImplementation();
     const { result } = renderData(useLoop, sources);
     await waitFor(() => expect(result.current.village.data?.founded).toBe(false));
@@ -161,15 +161,15 @@ describe("PvP v2 on the mock", () => {
       rig(store, [17, 17], 321);
       for (const move of FIRST_STONE) await act(() => result.current.fight.play(move));
       await waitFor(() => expect(result.current.attack.data?.attack).toMatchObject({ id: n, status: "finished", stars: 3, xp: 20 }));
-      expect(result.current.attack.data!.attack!.chest).toBe(n <= 3 ? "gold" : null);
+      expect(result.current.attack.data!.attack!.chest).toBe(n <= 3 ? "epic" : null);
     }
-    await waitFor(() => expect(result.current.chests.data).toMatchObject({ pending: ["gold", "gold", "gold"], pvpToday: 3 }));
+    await waitFor(() => expect(result.current.chests.data).toMatchObject({ pending: ["epic", "epic", "epic"], pvpToday: 3 }));
 
-    // Story: 3 stars the first time on the Open Country's first level (bronze) and its last (gold), outside the cap
+    // Story: 3 stars the first time on the Open Country's first level (basic) and its last (epic), outside the cap
     await act(() => result.current.writes.reportStory({ campaign: 2, level: 1, stars: 3 }));
     await act(() => result.current.writes.reportStory({ campaign: 2, level: 1, stars: 3 }));
     await act(() => result.current.writes.reportStory({ campaign: 2, level: 12, stars: 3 }));
-    await waitFor(() => expect(result.current.chests.data?.pending).toEqual(["gold", "gold", "gold", "bronze", "gold"]));
+    await waitFor(() => expect(result.current.chests.data?.pending).toEqual(["epic", "epic", "epic", "basic", "epic"]));
     // Where each was won (#784): today's PvP slots, then Story, which takes none.
     const today = Math.floor(Date.now() / 86_400_000);
     const pvp = (slot: number) => ({ source: "pvp", day: today, slot });
@@ -180,30 +180,30 @@ describe("PvP v2 on the mock", () => {
     await waitFor(() => expect(result.current.progress.data).toEqual({ level: 2, xp: 10, xpForNext: 200, total: 110 }));
     await waitFor(() => expect(result.current.village.data).toMatchObject({ level: 2, slots: 10 }));
 
-    // The chest picked (#784): the Story bronze one, fourth in the list, before the older ones; one past the list is refused.
+    // The chest picked (#784): the Story basic one, fourth in the list, before the older ones; one past the list is refused.
     expect(refusal(await result.current.writes.claimChest(0).catch((e: unknown) => e))).toBe("no-open-chest");
     expect(refusal(await result.current.writes.openChest(5).catch((e: unknown) => e))).toBe("no-chest");
     await act(() => result.current.writes.openChest(3));
     await waitFor(() => expect(result.current.chests.data?.open?.plans).toHaveLength(1));
-    expect(result.current.chests.data!.open!.rank).toBe("bronze");
+    expect(result.current.chests.data!.open!.rank).toBe("basic");
     expect(result.current.chests.data!.openOrigin).toEqual({ source: "story" });
-    expect(result.current.chests.data!.pending).toEqual(["gold", "gold", "gold", "gold"]);
-    const bronze = result.current.chests.data!.open!;
+    expect(result.current.chests.data!.pending).toEqual(["epic", "epic", "epic", "epic"]);
+    const basic = result.current.chests.data!.open!;
     await act(() => result.current.writes.claimChest(0));
     await waitFor(() => expect(result.current.chests.data?.open).toBeNull());
 
-    // A gold chest, the oldest when none is picked: 3 tiles, one taken into the inventory
+    // An epic chest, the oldest when none is picked: 3 tiles, one taken into the inventory
     await act(() => result.current.writes.openChest());
     await waitFor(() => expect(result.current.chests.data?.open?.plans).toHaveLength(3));
     const open = result.current.chests.data!.open!;
-    expect(open.rank).toBe("gold");
+    expect(open.rank).toBe("epic");
     expect(result.current.chests.data!.openOrigin).toEqual({ source: "pvp", day: today, slot: 0 });
     expect(refusal(await result.current.writes.openChest().catch((e: unknown) => e))).toBe("chest-open");
     await act(() => result.current.writes.claimChest(2));
     await waitFor(() => expect(result.current.chests.data?.open).toBeNull());
     expect(result.current.chests.data!.pending).toHaveLength(3);
-    await waitFor(() => expect(result.current.village.data?.free[open.plans[2]! - 1]).toBe(open.plans[2] === bronze.plans[0] ? 2 : 1));
-    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(bronze.cobbles + open.cobbles));
+    await waitFor(() => expect(result.current.village.data?.free[open.plans[2]! - 1]).toBe(open.plans[2] === basic.plans[0] ? 2 : 1));
+    await waitFor(() => expect(result.current.account.data?.cobbles).toBe(basic.cobbles + open.cobbles));
   });
 
   it("pays the day's milestones, no bonus for the whole day (#869), and buys from the shop once per offer and day", async () => {
@@ -297,6 +297,21 @@ describe("PvP v2 on the mock", () => {
     await act(() => result.current.found());
     const again = new MockLedger({ store: () => first.store, seller: "0x3", latencyMs: 0 });
     expect((await again.freeVillage(PLAYER)).tiles).toEqual(starterLayout(BigInt(PLAYER)));
+  });
+
+  it("reads a save from before V4-CHEST-NAMES: its Bronze, Silver and Gold chests are Basic, Rare and Epic", async () => {
+    const first = mockImplementation();
+    const { result } = renderData(() => useFreeVillageWrites(PLAYER), first.sources);
+    await act(() => result.current.found());
+    const state = JSON.parse(first.store.data.get(MOCK_KEY)!);
+    const v2 = Object.values(state.players as Record<string, { v2: { chests: { pending: object[]; open: object | null }; attacks: object[] } }>)[0]!.v2;
+    v2.chests.pending = [{ rank: "gold", league: 0 }, { rank: "bronze", league: 0 }];
+    v2.chests.open = { rank: "silver", plans: [1, 2], cobbles: 0 };
+    first.store.data.set(MOCK_KEY, JSON.stringify(state));
+    const again = new MockLedger({ store: () => first.store, seller: "0x3", latencyMs: 0 });
+    const chests = await again.chests(PLAYER);
+    expect(chests.pending).toEqual(["epic", "basic"]);
+    expect(chests.open?.rank).toBe("rare");
   });
 
   it("is not served by a views double without the v2 reads: the hooks answer null, and write nothing", async () => {
