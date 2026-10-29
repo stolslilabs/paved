@@ -21,8 +21,11 @@ const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
 
 function open(path: string) {
   const s = mockImplementation();
-  // Ada did Daily Run today: the indexer's progress, which the mock's claims trust.
-  s.chain.fixture.progress.set(FIXTURE_ADA, { quests: new Map([[1, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]), achievements: new Map() });
+  // Ada did Daily Run today and finished her first game (Settler I): the indexer's progress, which the mock's claims trust.
+  s.chain.fixture.progress.set(FIXTURE_ADA, {
+    quests: new Map([[1, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
+    achievements: new Map([[2, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
+  });
   render(<App router={createTestRouter(path)} sources={s.sources} connector={fakeWallet({ address: FIXTURE_ADA }).load} />);
   return s;
 }
@@ -48,18 +51,23 @@ afterEach(() => {
 });
 
 describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () => {
-  it("/missions: the quests carry the mock's Cobbles; a claim moves the balance; no notice, no RPC text", async () => {
+  it("/missions: the missions carry the mock's Cobbles, none for a daily (#869); a claim moves the balance; no notice, no RPC text", async () => {
     const s = open("/missions");
     expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
-    // Daily Run's icon selects it (#832): its card holds the Claim.
+    // Daily Run is done but pays nothing on its own: its card has no Claim.
     await userEvent.click(await screen.findByRole("button", { name: /^Daily Run: / }, { timeout: slow(5000) }));
-    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) });
+    expect(screen.getByRole("button", { name: "Daily Run: Done" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: /^Claim .*: Daily Run$/ })).not.toBeInTheDocument();
+    // Settler I's icon selects it (#832): its card holds the Claim.
+    await userEvent.click(await screen.findByRole("button", { name: /^Settler I: / }, { timeout: slow(5000) }));
+    const claim = await screen.findByRole("button", { name: "Claim 10 Cobbles: Settler I" }, { timeout: slow(5000) });
     expect(screen.queryByText("Rewards unavailable")).not.toBeInTheDocument();
     noRawErrors();
     await userEvent.click(claim);
-    expect((await screen.findAllByRole("button", { name: "5 Cobbles: Buy packs" }, { timeout: slow(5000) })).length).toBeGreaterThan(0);
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).not.toBeInTheDocument());
-    expect((await s.ledger.dayProgress(FIXTURE_ADA, TODAY)).claimed).toBe(1n << 1n);
+    expect((await screen.findAllByRole("button", { name: "10 Cobbles: Buy packs" }, { timeout: slow(5000) })).length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Claim 10 Cobbles: Settler I" })).not.toBeInTheDocument());
+    expect((await s.ledger.account(FIXTURE_ADA)).achievementsClaimed).toBe(1n << 2n);
+    expect((await s.ledger.dayProgress(FIXTURE_ADA, TODAY)).claimed).toBe(0n);
     noRawErrors();
   });
 

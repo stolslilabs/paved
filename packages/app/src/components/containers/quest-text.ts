@@ -7,7 +7,8 @@
 
 export const QUEST_TEXT: Record<number, { title: string; description: string; icon: string }> = {
   1: { title: "Daily Run", description: "Finish today's Challenge.", icon: "flag-checkered" },
-  // The rotating dailies (quests.md "As built: v2a"), three sets of three: one of each family is live a day, beside Daily Run.
+  // The rotating dailies (quests.md "As built: v2a", and #869's fourth set, 17 to 19 below), four sets of three: one of each
+  // family is live a day, beside Daily Run.
   5: { title: "Small Works", description: "Score roads and cities in a day: the small target of the three that rotate.", icon: "castle" },
   6: { title: "Public Works", description: "Score roads and cities in a day: the middle target of the three that rotate.", icon: "castle" },
   7: { title: "Great Works", description: "Score roads and cities in a day: the large target of the three that rotate.", icon: "castle" },
@@ -21,6 +22,10 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   14: { title: "Weekly Forester", description: "Score forests over the week, Monday to Sunday UTC.", icon: "tree" },
   15: { title: "Weekly Builder", description: "Score roads and cities over the week, Monday to Sunday UTC.", icon: "castle" },
   16: { title: "Weekly Points", description: "Collect points over the week's finished Challenge games, Monday to Sunday UTC.", icon: "trophy" },
+  // The fourth rotating family (#869, the fifth daily of the day).
+  17: { title: "Second Round", description: "Finish Challenge games in a day: the small target of the three that rotate.", icon: "flag-checkered" },
+  18: { title: "Busy Day", description: "Finish Challenge games in a day: the middle target of the three that rotate.", icon: "flag-checkered" },
+  19: { title: "Long Haul", description: "Finish Challenge games in a day: the large target of the three that rotate.", icon: "flag-checkered" },
 };
 
 export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: string; icon: string }> = {
