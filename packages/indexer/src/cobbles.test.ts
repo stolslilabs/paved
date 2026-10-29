@@ -192,7 +192,7 @@ describe("the leagues' bonuses and season rewards (kinds 4 and 5, docs/architect
     const { queries, head, indexer } = await open((node) =>
       node.mine(
         [ev.cobblesClaimed(A, 4, 1, 1, 5, 5), ev.cobblesClaimed(A, 4, 2, 1, 5, 10)],
-        // season 1 closed in Peasant II, then Peasant II reached again in season 2
+        // season 1 closed in Iron II, then Iron II reached again in season 2
         [ev.cobblesClaimed(A, 5, 2, 1, 10, 20), ev.cobblesClaimed(A, 4, 2, 2, 5, 25)],
       ),
     );

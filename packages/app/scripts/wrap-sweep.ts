@@ -78,7 +78,7 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die|slots)/, kind: "overflow", element: 'div "×', why: "carousel track" },
   // The League page's carousel of the 23 leagues (#785), one per view: its window clips its track, by design.
   { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "overflow", element: 'div "Wanderer0 – 399', why: "carousel track" },
+  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "overflow", element: 'div "Wood0 – 399', why: "carousel track" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with

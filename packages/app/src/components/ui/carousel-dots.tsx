@@ -8,7 +8,7 @@ export interface CarouselDotsProps extends Omit<ComponentProps<"div">, "onSelect
   current: number;
   /** A tap on a dot: the slide to go to. Left out, the dots only show the position (hidden from screen readers). */
   onSelect?: (index: number) => void;
-  /** A dot's accessible name, when they are buttons: "Go to Knight II". */
+  /** A dot's accessible name, when they are buttons: "Go to Gold II". */
   label?: (index: number) => string;
   /** At most this many dots, a window around the current one (issue 833, open point 2); all of them by default. */
   window?: number;

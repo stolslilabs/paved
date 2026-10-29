@@ -82,7 +82,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   activeGame?: GameView | null;
   /**
    * The player's PvP standing (`Matchmaker.league`): the crowns and their league's crest in the League control under the profile
-   * (#829), a tap to the League page (the home's only way there, #755). None (no PvP played yet, or not read): Wanderer with 0 crowns.
+   * (#829), a tap to the League page (the home's only way there, #755). None (no PvP played yet, or not read): Wood with 0 crowns.
    */
   league?: { crowns: number } | null;
   /**

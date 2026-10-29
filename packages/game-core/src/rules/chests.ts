@@ -24,7 +24,7 @@ export const CHEST_COBBLES = 10;
 /** The PvP chests a player can get in a day (UTC on the device, the chain day on chain). */
 export const PVP_CHESTS_PER_DAY = 3;
 
-/** The highest league's number (`league_of`: 0 Wanderer to 22 Sovereign). */
+/** The highest league's number (`league_of`: 0 Wood to 22 Grand Master). */
 export const TOP_LEAGUE = 22;
 
 const BPS = 10_000;
