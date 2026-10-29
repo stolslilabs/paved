@@ -66,7 +66,7 @@ function pageRoute(page: PageDef): RouteObject {
 function pageWithSheets(page: PageDef, sheets: readonly PageDef[]): RouteObject {
   const Page = pageComponent(page.path);
   return {
-    element: <PageWithSheets page={<Page />} />,
+    element: <PageWithSheets page={<Page />} path={page.path} />,
     errorElement: <RouteError />,
     children: [{ path: page.path, handle: { page }, loader: LOADERS[page.path] }, ...sheets.map(pageRoute)],
   };
