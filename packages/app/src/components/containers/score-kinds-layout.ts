@@ -7,5 +7,7 @@ export const KIND_ROW = "flex h-8 items-center gap-2 whitespace-nowrap desktop:h
 export const KIND_ICON = "desktop:text-[1.25rem]";
 /** The icon column's box where no icon stands (the "Other" row, the sizer). */
 export const KIND_ICON_BOX = "w-[1.25em] shrink-0 text-[1rem] desktop:text-[1.25rem]";
+/** A kind's points, at the row's end: the figures line up in a column (tabular). */
+export const KIND_POINTS = "numeric ml-auto font-semibold";
 /** The list's padding under the total, the button's sides. */
 export const KINDS_PAD = "px-3 pb-2";

@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { DRAFT_VALID, LAYOUT_GROWING, LAYOUT_START, LAYOUT_WONDER, fakeScore } from "../../mocks/village-v2";
 import { VillageScore, type VillageScoreProps } from "./village-score";
 import { bothThemes } from "../../stories/both-themes";
+import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 
 /** The home's left column, over the village's sky: where the score sits, under the League control (#829). */
 function Corner({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ function Toggled(args: VillageScoreProps) {
  * The home's village score (#831, the owner's decisions of 2026-10-27): an inline accordion in the overlay, never a panel.
  * Folded, the total alone; a tap unfolds the four kinds' sums under it (roads, cities, forests, wonders, the most points first,
  * a kind with no structure at 0), with a short height animation (none under reduced motion). After a save the total counts up.
+ * Each row is the kind's icon and its points alone, over a lighter background (V4-VILLAGE-POINTS-3); the names are for screen readers.
  */
 const meta = {
   title: "Containers/VillageScore",
@@ -44,8 +46,26 @@ type Story = StoryObj<typeof meta>;
 
 /** Folded: the house, the total, a chevron; as wide as unfolded (`SameWidth`). */
 export const Folded: Story = {};
-/** Unfolded: the four kinds' sums under the total, adding up to it. */
-export const Open: Story = { args: { open: true } };
+/** Unfolded: the four kinds' sums under the total, adding up to it; each row its icon and its points, no name in sight. */
+export const Open: Story = {
+  args: { open: true },
+  play: async ({ canvasElement }) => {
+    const list = await within(canvasElement).findByRole("list", { name: "Score by kind" });
+    // The names are read out (`sr-only`), never drawn: the row's visible text is its figure.
+    for (const li of within(list).getAllByRole("listitem")) {
+      await expect(li.querySelector(".sr-only")!.textContent).toMatch(/^(Roads|Cities|Forests|Wonders|Other)$/);
+      await expect(li.querySelector("[data-slot=kind-points]")!.textContent).toMatch(/^[\d,]+$/);
+    }
+  },
+};
+/** Folded on an iPhone (375 px), the width the owner checks first. */
+export const FoldedPhone: Story = { ...PHONE_375 };
+/** Unfolded on an iPhone (375 px): the icons and the points, narrower than with the names. */
+export const OpenPhone: Story = { ...Open, ...PHONE_375 };
+/** Folded at the widest breakpoint (1440 px): the `desktop` sizes. */
+export const FoldedWide: Story = { ...WIDE_1440 };
+/** Unfolded at the widest breakpoint (1440 px). */
+export const OpenWide: Story = { ...Open, ...WIDE_1440 };
 /** A kind with no structure (the starter village has no Wonder): its sum shows 0, last. */
 export const KindZero: Story = { args: { score: LAYOUT_START.score, tiles: LAYOUT_START.tiles, open: true } };
 /** Around a closed Wonder: every kind scores. */
@@ -80,7 +100,8 @@ const widthOf = (el: Element) => Math.round(el.getBoundingClientRect().width);
 
 /**
  * The same width folded and unfolded (V4-VILLAGE-POINTS-SIZE, the owner's fix of the jump): folded, the box is already as wide as
- * the kinds' rows, so nothing moves as it folds or unfolds. Pick the mobile viewport (360) or a 320 px one to see it at its narrowest.
+ * the kinds' rows, so nothing moves as it folds or unfolds. Pick the mobile viewport (360) or a 320 px one to see it at its narrowest;
+ * `SameWidthPhone` and `SameWidthWide` pin 375 and 1440 px.
  */
 export const SameWidth: Story = {
   args: { score: LAYOUT_WONDER.score, tiles: LAYOUT_WONDER.tiles },
@@ -98,3 +119,7 @@ export const SameWidth: Story = {
     await expect(widthOf(box)).toBe(folded);
   },
 };
+/** `SameWidth` on an iPhone (375 px). */
+export const SameWidthPhone: Story = { ...SameWidth, ...PHONE_375 };
+/** `SameWidth` at the widest breakpoint (1440 px). */
+export const SameWidthWide: Story = { ...SameWidth, ...WIDE_1440 };
