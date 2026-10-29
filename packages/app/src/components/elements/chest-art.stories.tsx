@@ -210,7 +210,7 @@ export const InBadgesAndText: Story = {
       <Caption>ChestBadge</Caption>
       <div className="flex flex-wrap items-end gap-2">
         {(["sm", "md", "lg", "xl"] as const).map((size) => (
-          <span key={size} className="inline-flex items-end gap-2">
+          <span key={size} className="inline-flex flex-wrap items-end gap-2">
             {CHEST_RANKS.map((rank) => (
               <ChestBadge key={rank} rank={rank} size={size} glow={size === "xl"} />
             ))}
