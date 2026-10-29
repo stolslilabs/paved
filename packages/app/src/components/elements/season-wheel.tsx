@@ -5,14 +5,14 @@ import { WorldIcon, type WorldIconName as Glyph } from "./world-icon";
 
 /**
  * Each season's game icon (issue 870), in its tone: summer's sun gold, autumn's leaf orange, winter's snowflake ice, spring's
- * seedling green; and the centre disc's halves (#909): a sun behind a cloud by day (not summer's sun, so the two are told
+ * seedling green; and the centre disc's halves (issue 909): a sun behind a cloud by day (not summer's sun, so the two are told
  * apart at a glance), the moon by night. Named glyphs, not icons, so the Font Awesome subset does not take
  * these names: a game icon draws its own paths.
  */
 export const SEASON_GLYPH = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const satisfies Record<string, Glyph>;
 export const TIME_GLYPH = { day: "cloud-sun", night: "moon" } as const satisfies Record<string, Glyph>;
 
-// The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`), in three layers (#909): outside, a soft gold rim (issue 634)
+// The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`), in three layers (issue 909): outside, a soft gold rim (issue 634)
 // and a band of paving stones; the disc of the four seasons' skies; at the centre, a smaller disc of a day and a night. A red
 // needle at the top marks "now" across both discs. The dial is 108 px across on a phone, 96 px on the narrowest (under 390 px,
 // so the stack and its coming tiles fit beside it at the board's bottom, issue 682) and 144 px from tablet up (half again the
@@ -23,7 +23,7 @@ const DISC = 40;
 /** The band of paving stones, between these radii, cut into `STONES` stones. */
 const BAND = [41.5, 48] as const;
 const STONES = 24;
-/** The day and night disc at the centre: 40 % of the dial's radius (#909's open point 1). */
+/** The day and night disc at the centre: 40 % of the dial's radius (issue 909's open point 1). */
 export const TIME_DISC = 20;
 /** Where the season icons sit, from the centre, in the middle of their quarter, between the two discs. */
 export const ICON_RADIUS = 30;
@@ -34,12 +34,12 @@ export const DIAL_SIZE = "size-24 min-[24.375rem]:size-27 tablet:size-36";
 /** The dial's smallest width in px, on the narrowest phones; the icons' size there (`ICON_SIZE`, `TIME_ICON_SIZE`). */
 export const DIAL_PX = 96;
 export const ICON_PX = 16;
-export const TIME_ICON_PX = 11;
+export const TIME_ICON_PX = 12;
 /** The season icons: 16 px on the narrowest phones, 18 px on other phones, 24 px from tablet up: a third of the dial's radius,
  * so they fit between the two discs. */
 const ICON_SIZE = "text-[1rem] min-[24.375rem]:text-[1.125rem] tablet:text-[1.5rem]";
-/** The centre disc's icons: 11 px on a phone, 12 px on a larger one, 16 px from tablet up. */
-const TIME_ICON_SIZE = "text-[0.6875rem] min-[24.375rem]:text-[0.75rem] tablet:text-[1rem]";
+/** The centre disc's icons: 12 px on a phone (the text floor), 16 px from tablet up. */
+const TIME_ICON_SIZE = "text-[0.75rem] tablet:text-[1rem]";
 
 /** A point at `r` from the centre, `deg` clockwise from the top. */
 function at(r: number, deg: number): [number, number] {
@@ -66,7 +66,7 @@ function part(id: string, r: number, from: number, to: number) {
   return { id, d: wedge(0, r, from, to), x1: f(x1), y1: f(y1) };
 }
 
-/** The seasons' disc: a quarter per season, its day's sky, clockwise (#909: no night slices). */
+/** The seasons' disc: a quarter per season, its day's sky, clockwise (issue 909: no night slices). */
 const QUARTERS = WHEEL_SEASONS.map((season, i) => ({ season, ...part(season, DISC, i * 90, (i + 1) * 90) }));
 
 /** The centre disc: its day (`DAY_SHARE` of a turn, from its dawn at the top) then its night, clockwise. */
@@ -114,7 +114,7 @@ export interface SeasonWheelProps {
   state: WheelState;
   /** Where the cycle is (`GameScene.getDayNight`), used in auto; none: the dial rests on the first season's day. */
   point?: WheelPoint | null;
-  /** Click: the next state (#909: the season after now, then each following one, now's own last, auto on the fifth tap; `nextWheelRound`). */
+  /** Click: the next state (issue 909: the season after now, then each following one, now's own last, auto on the fifth tap; `nextWheelRound`). */
   onNext?: () => void;
   /** The discs' turn takes this long between two readings, in ms (the board reads once a second). Default 1000. */
   turnMs?: number;
@@ -131,7 +131,7 @@ function cyclePoint(state: WheelState, point?: WheelPoint | null): number {
 export const TIME_TURNS_PER_YEAR = WHEEL_SEASONS.length;
 
 /**
- * The season dial (issue 547, crafted in issue 607, in three layers since #909): a gold rim and a band of paving stones around the
+ * The season dial (issue 547, crafted in issue 607, in three layers since issue 909): a gold rim and a band of paving stones around the
  * disc of the four seasons, each quarter its season's day sky with its season's game icon, and at the centre a smaller disc,
  * its day (a sky, the sun behind a cloud) and its night (a deep sky, the moon, twinkling stars). Both discs turn
  * counterclockwise under a red needle at the top, the seasons' once a year (four days and nights), the centre's once a day and
