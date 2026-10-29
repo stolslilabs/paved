@@ -124,6 +124,17 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   unit tests of the touched packages and their dependents (heap caps of the table above), the Vercel builds of the projects whose
   inputs changed (Sepolia env), and `bun run budget` (limit, measured size, margin). Its last line is the summary. A CORE change of
   `contracts/abis` or `contracts/deployments` runs the indexer's, chain's and game-core's tests: most failed CI jobs came from there.
+- `PAVED_CHECK_QUICK=1 check-run -- bun run check` is the quick check (`check.mts --quick`; check-run takes `bun run check` with no
+  argument, so the variable turns it on; without the wrapper, `bun run check:quick`). About 3 minutes on a quiet machine, it runs the format, lint, typecheck and
+  guard tests as above, the whole unit tests of the touched packages other than the app, and of the app only the tests that import
+  a changed file directly (a barrel such as `src/data/index.ts` is seen through) plus the changed tests; the app's whole suite when
+  its test setup (`vitest.config.ts`, `vitest.setup.ts`, `test-slow.ts`, `package.json`, `tsconfig.json`) or a root file every
+  package reads changed. It skips the dependents' tests, the Vercel builds, the budget and the Storybook build; the full check and
+  the CI keep all of them. The quick check is enough between steps and before finishing a change that stays within source files
+  with their own tests (a component, a hook, a rule and its tests). The full check is due before the pull request and whenever
+  the change reaches what the quick check skips: a shared module many files import (the app's `App.tsx`, the router, the data
+  layer's sources), a workspace package the app depends on (game-core, chain, renderer, ui), the client's or the Storybook's
+  build (stories, `vite.config.ts`, `.storybook/`, `public/`, a new dependency), or the bundle's size.
 - One `check` at a time per worktree (the pre-push run included): its builds write shared folders (`packages/app/storybook-static`, `dist`), so a second run clobbers the
   first. A lock in the worktree's git dir makes the second run exit 1 at once, naming the pid of the first. To wait, poll that pid
   (`while kill -0 <pid> 2>/dev/null; do sleep 5; done`); never `pgrep -f check-run`, whose pattern matches its own shell.
