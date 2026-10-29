@@ -48,6 +48,10 @@ export const Default: Story = {};
 /** Starts on Chests, with 3 chests waiting (its badge). */
 export const ActiveChests: Story = { args: { active: "chests", badges: { chests: 3 } } };
 
+/** Chests active on a phone: its treasure chest (issue 873), a game icon, with its label and its badge. */
+export const ActiveChestsPhone375: Story = { ...ActiveChests, ...PHONE_375 };
+export const ActiveChestsPhone320: Story = { ...ActiveChests, ...PHONE_320 };
+
 /** Play active: it never is in the app (the mode choice is a full-screen page, without the bar), shown for the states. */
 export const ActivePlay: Story = { args: { active: "play" } };
 

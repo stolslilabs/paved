@@ -29,7 +29,7 @@ import { ThemeScene } from "../components/scenes/theme-scene";
 import { ThemeShopScene } from "../components/scenes/theme-shop-scene";
 import { VaultScene } from "../components/scenes/vault-scene";
 import { WelcomeScene } from "../components/scenes/welcome-scene";
-import { HEADER_BALANCES } from "../routes/header-balances";
+import { HEADER_BALANCES, hereOf } from "../routes/header-balances";
 import { PAGE_HEADER_STORIES } from "./page-headers";
 
 /** The balances a connected player holds. */
@@ -41,24 +41,24 @@ const BALANCES = {
 } as const;
 
 /**
- * The shell's avatar and balances (`ProfileHost`, `BalancesHost`), a connected player's: the home's balances on every page, none
- * where the page's rule says none (#781, `header-balances.ts`: the story's first route): the header each page draws in the app.
+ * The shell's avatar and balances (`ProfileHost`, `BalancesHost`), a connected player's: the page's balances (#855,
+ * `header-balances.ts`: the story's first route's), none where it shows none: the header each page draws in the app.
  */
 const withShell: Decorator = (Story, { id }) => {
   const route = PAGE_HEADER_STORIES[id.replace("pages-headers--", "") as keyof typeof PAGE_HEADER_STORIES]?.[0];
   const story = <Story />;
   return (
     <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
-      {route !== undefined && HEADER_BALANCES[route] === "none" ? story : <BalancesProvider value={BALANCES}>{story}</BalancesProvider>}
+      {route === undefined || HEADER_BALANCES[route].length === 0 ? story : <BalancesProvider value={{ ...BALANCES, kinds: HEADER_BALANCES[route], here: hereOf(`/${route}`) }}>{story}</BalancesProvider>}
     </ProfileProvider>
   );
 };
 
 /**
  * HEADER-HEIGHT (#676), ONE-HEADER (#781): every page outside the game scenes, one story each (`page-headers.ts` lists the
- * routes each covers), in the shell's providers (the avatar, the home's balances). Each page has one header at its top
+ * routes each covers), in the shell's providers (the avatar, the page's balances). Each page has one header at its top
  * (`PageHeader`), `--header-h` tall, one value per breakpoint (theme.css), one row at every width: Back and the title at the top
- * left, the home's balances at the top right, nothing under it. The content starts at the same height on every page but the hero
+ * left, the page's balances at the top right (#855), nothing under it. The content starts at the same height on every page but the hero
  * (Welcome); the home is a game scene since #753. `scripts/header-sweep.ts` measures both at 375 and 1440 px.
  */
 const meta = { title: "Pages/Headers", decorators: [withShell], parameters: { layout: "fullscreen" } } satisfies Meta;
