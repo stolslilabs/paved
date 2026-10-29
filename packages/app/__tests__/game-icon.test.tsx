@@ -2,22 +2,26 @@ import { render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildShapes, GAME_ICON_NAMES, roundPath, SHAPES_PATH, splitPath } from "../scripts/game-icons";
+import { buildShapes, GAME_ICON_NAMES, roundPath, SHAPE_SETS, splitPath, WORLD_ICON_NAMES } from "../scripts/game-icons";
 import { GameIcon } from "../src/components/elements/game-icon";
 import { GameIconLook } from "../src/components/elements/game-icon-looks";
 import { GAME_ICON_SHAPES } from "../src/components/elements/game-icon-shapes";
+import { WorldIcon } from "../src/components/elements/world-icon";
+import { WORLD_ICON_SHAPES } from "../src/components/elements/world-icon-shapes";
 
 const read = (path: string) => readFileSync(resolve(import.meta.dirname, "..", path), "utf8");
 
 describe("the game icons (#844)", () => {
   it("are what the owner's Font Awesome file gives (a stale shapes file fails here and in the build)", () => {
-    expect(readFileSync(SHAPES_PATH, "utf8") === buildShapes(), "Run `bun run game-icons` in packages/app and commit the file.").toBe(true);
+    for (const set of SHAPE_SETS) {
+      expect(readFileSync(set.path, "utf8") === buildShapes(undefined, set), `${set.path}: run \`bun run game-icons\` in packages/app and commit the file.`).toBe(true);
+    }
   });
 
   it("start every part from an absolute M, a relative m after a z rewritten from the closed subpath's first point", () => {
     expect(splitPath("M10 10h5v5zm20 0h5v5z")).toEqual(["M10 10h5v5z", "M30 10h5v5z"]);
     expect(splitPath("M0 0h1zm2 2 3 3z")).toEqual(["M0 0h1z", "M2 2l3 3z"]);
-    for (const shape of Object.values(GAME_ICON_SHAPES)) for (const part of shape.parts) expect(part).toMatch(/^M/);
+    for (const shape of [...Object.values(GAME_ICON_SHAPES), ...Object.values(WORLD_ICON_SHAPES)]) for (const part of shape.parts) expect(part).toMatch(/^M/);
   });
 
   it("round each point to the grid where it lands, so the error never adds up, in the shorter of the absolute and relative forms", () => {
@@ -66,7 +70,31 @@ describe("the game icons (#844)", () => {
   it("are each recorded in the notices as derived from Font Awesome Pro", () => {
     const notices = read("public/THIRD_PARTY_NOTICES.txt");
     const block = notices.slice(notices.indexOf("Game icons (src/components/elements/game-icon-shapes.ts"));
-    for (const name of GAME_ICON_NAMES) expect(block.slice(0, 900), name).toContain(`\`${name}\``);
+    for (const name of [...GAME_ICON_NAMES, ...WORLD_ICON_NAMES]) expect(block.slice(0, 900), name).toContain(`\`${name}\``);
+  });
+});
+
+describe("the world's icons (#870)", () => {
+  it("are drawn in the game icons' relief and box, from their own shapes file, each in its tones", () => {
+    const { container } = render(<WorldIcon name="snowflake" label="Winter" />);
+    const svg = screen.getByRole("img", { name: "Winter" });
+    expect(svg).toHaveAttribute("data-slot", "game-icon");
+    expect(svg).toHaveAttribute("viewBox", `${(WORLD_ICON_SHAPES.snowflake.width - 640) / 2} 0 640 512`);
+    expect(container.querySelectorAll("mask").length).toBeGreaterThan(0);
+    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["ice"]);
+  });
+
+  it("keep their own light and ink, not the theme's foreground and background, so a light theme keeps their relief", () => {
+    const html = [render(<WorldIcon name="moon" />).container, render(<GameIcon name="plus" />).container].map((c) => c.innerHTML).join("");
+    expect(html).toContain("var(--game-light)");
+    expect(html).toContain("var(--game-ink)");
+    expect(html).not.toMatch(/var\(--(?:foreground|background)\)/);
+  });
+
+  it("keep the village's house-tree among the HUD's, in wood with its tree green", () => {
+    const { container } = render(<GameIcon name="house-tree" />);
+    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["green", "wood"]);
+    expect(Object.keys(WORLD_ICON_SHAPES)).not.toContain("house-tree");
   });
 });
 
