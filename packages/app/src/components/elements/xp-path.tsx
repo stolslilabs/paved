@@ -43,8 +43,10 @@ export function XpPath({ progress, column }: XpPathProps) {
             <m.span
               key={gain.id}
               data-slot="xp-gain"
-              className="numeric absolute -translate-x-1/2 -translate-y-full text-xs font-bold whitespace-nowrap text-primary [text-shadow:0_1px_2px_var(--background)]"
-              style={{ left: end.x, top: end.y }}
+              className="numeric absolute text-xs font-bold whitespace-nowrap text-primary [text-shadow:0_1px_2px_var(--background)]"
+              // Centred on the fill's end, but never left of the path's box: on the arc's left side (a quarter of the level) a
+              // centred label would stick out of the screen's edge at 360 px.
+              style={{ left: end.x, top: end.y, translate: `calc(-1 * min(50%, ${end.x}px)) -100%` }}
               initial={{ y: 0, opacity: 0 }}
               animate={{ y: -14, opacity: [0, 1, 1, 0] }}
               transition={{ duration: 1.2, ease: "easeOut", times: [0, 0.15, 0.7, 1] }}
