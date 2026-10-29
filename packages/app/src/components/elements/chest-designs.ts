@@ -6,24 +6,24 @@ import { CREST_SHAPES } from "./league-crest-shapes";
  * The chests' study (#874, its first pull request): three directions for the owner to pick, each in the three ranks and in two
  * versions, the simple icon (`ChestIcon`) and the detailed art that opens (`ChestArt`). This file holds their drawings as parts on
  * one grid (576 wide, Font Awesome's `treasure-chest` box, its height 512), each part toned and on the lid or the body, so the
- * lid can swing apart. The ornaments grow with the rank (#874's proposal 2): bronze plain bands and a simple lock; silver studs,
- * corner guards and a keyhole plate; gold gems, engraved plating and a glow at rest (drawn by `ChestArt`).
+ * lid can swing apart. The ornaments grow with the rank (#874's proposal 2): basic plain bands and a simple lock; rare studs,
+ * corner guards and a keyhole plate; epic gems, engraved plating and a glow at rest (drawn by `ChestArt`).
  */
 export type ChestDirection = "wood" | "coffer" | "voxel";
 
 export const CHEST_DIRECTIONS: readonly { id: ChestDirection; letter: string; name: string; note: string }[] = [
-  { id: "wood", letter: "A", name: "Wooden chests, metal bands", note: "Bronze iron bands on oak, silver studs and corners on darker wood, gold plating with engraved corners and a jewelled lock." },
-  { id: "coffer", letter: "B", name: "Treasure coffers", note: "Rounded lids: bronze riveted, silver filigree, gold with gems set in the lid and a crown on the lock." },
-  { id: "voxel", letter: "C", name: "Voxel chests", note: "The board's voxel look: bronze plain, silver trimmed, gold with gems, opened with voxels of light." },
+  { id: "wood", letter: "A", name: "Wooden chests, metal bands", note: "Basic: bronze iron bands on oak; rare: silver studs and corners on darker wood; epic: gold plating with engraved corners and a jewelled lock." },
+  { id: "coffer", letter: "B", name: "Treasure coffers", note: "Rounded lids: basic riveted in bronze, rare with silver filigree, epic in gold with gems set in the lid and a crown on the lock." },
+  { id: "voxel", letter: "C", name: "Voxel chests", note: "The board's voxel look: basic plain bronze, rare trimmed silver, epic gold with gems, opened with voxels of light." },
 ];
 
-export const CHEST_RANKS: readonly ChestRank[] = ["bronze", "silver", "gold"];
+export const CHEST_RANKS: readonly ChestRank[] = ["basic", "rare", "epic"];
 
 /**
  * A part's tone. The metals are the ranks' medal colours (theme.css); the gems are the game icons' tones; `ink` is the inside of a
  * keyhole, `light` a stud. The woods, the leather, the velvet and the enamel are mixed from the game icons' tones toward the ink, so
- * the stylesheet (and its budget) carries nothing for the chests: the bronze chest's oak darker than its bronze bands, so they part;
- * the darker wood of the silver and gold chests; the bronze coffer's leather, the silver's enamel, the gold's velvet.
+ * the stylesheet (and its budget) carries nothing for the chests: the basic chest's oak darker than its bronze bands, so they part;
+ * the darker wood of the rare and epic chests; the basic coffer's leather, the rare's enamel, the epic's velvet.
  */
 export type ChestTone =
   | "bronze"
@@ -57,7 +57,7 @@ export const TONE_BASE: Readonly<Record<ChestTone, string>> = {
 };
 
 /** Each rank's light (the opening's rays, the glow at rest): its medal colour. */
-export const RANK_LIGHT: Readonly<Record<ChestRank, string>> = { bronze: "var(--medal-3)", silver: "var(--medal-2)", gold: "var(--medal-1)" };
+export const RANK_LIGHT: Readonly<Record<ChestRank, string>> = { basic: "var(--medal-3)", rare: "var(--medal-2)", epic: "var(--medal-1)" };
 
 export interface ChestPart {
   d: string;
@@ -88,7 +88,7 @@ function rrect(x: number, y: number, w: number, h: number, r: number): string {
 const circle = (x: number, y: number, r: number) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;
 const diamond = (x: number, y: number, r: number) => `M${x} ${y - r}l${r} ${r}-${r} ${r}-${r}-${r}z`;
 const poly = (...pts: readonly (readonly [number, number])[]) => `M${pts.map(([x, y]) => `${x} ${y}`).join("L")}z`;
-/** A four-pointed sparkle, the gold icon's glint. */
+/** A four-pointed sparkle, the epic icon's glint. */
 const sparkle = (x: number, y: number, r: number) => `M${x} ${y - r}Q${x} ${y} ${x + r} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r} ${y}Q${x} ${y} ${x} ${y - r}z`;
 /** A keyhole: a round head over a flared slot. */
 const keyhole = (x: number, y: number, r: number) => `${circle(x, y, r)}M${x - r * 0.45} ${y}L${x - r * 0.8} ${y + 2.6 * r}h${1.6 * r}L${x + r * 0.45} ${y}z`;
@@ -98,7 +98,7 @@ const MIRROR = "matrix(-1 0 0 1 576 0)";
 /** Font Awesome's `treasure-chest`, by part: the lid's left, middle and right panels, the body's, the keyhole. */
 const [FA_LID_L, FA_BODY_L, FA_BODY_M, FA_BODY_R, FA_LID_R, FA_LID_M, FA_KEYHOLE] = CHEST_SHAPES["treasure-chest"].parts;
 
-const METAL: Readonly<Record<ChestRank, ChestTone>> = { bronze: "bronze", silver: "silver", gold: "gold" };
+const METAL: Readonly<Record<ChestRank, ChestTone>> = { basic: "bronze", rare: "silver", epic: "gold" };
 const at = (rank: ChestRank, from: ChestRank) => CHEST_RANKS.indexOf(rank) >= CHEST_RANKS.indexOf(from);
 
 /** The simple icon on Font Awesome's shape: its end panels in the rank's metal, its middle in `middle`, the lock in `lock`. */
@@ -113,7 +113,7 @@ function faIcon(metal: ChestTone, middle: ChestTone, lock: string): ChestPart[] 
     { d: FA_KEYHOLE!, tone: "ink", layer: "lid", only: "icon", flat: true },
   ];
 }
-/** The icon's studs, one on each end panel (silver and gold): the lid's, the body's. */
+/** The icon's studs, one on each end panel (rare and epic): the lid's, the body's. */
 const iconStuds = (tone: ChestTone): ChestPart[] => [
   { d: circle(64, 150, 26) + circle(512, 150, 26), tone, layer: "lid", only: "icon" },
   { d: circle(64, 384, 26) + circle(512, 384, 26), tone, layer: "body", only: "icon" },
@@ -122,10 +122,10 @@ const iconStuds = (tone: ChestTone): ChestPart[] => [
 /** A. Wooden chests, metal bands. */
 function wood(rank: ChestRank): ChestPart[] {
   const metal = METAL[rank];
-  const timber: ChestTone = rank === "bronze" ? "oak" : "walnut";
-  const silver = at(rank, "silver");
-  const gold = rank === "gold";
-  const bw = gold ? 80 : 64;
+  const timber: ChestTone = rank === "basic" ? "oak" : "walnut";
+  const rare = at(rank, "rare");
+  const epic = rank === "epic";
+  const bw = epic ? 80 : 64;
   const bands = (y: number, h: number) => rect(136 - bw / 2, y, bw, h) + rect(440 - bw / 2, y, bw, h);
   const parts: ChestPart[] = [
     ...faIcon(metal, timber, rrect(224, 192, 128, 160, 32)),
@@ -139,14 +139,14 @@ function wood(rank: ChestRank): ChestPart[] {
     { d: bands(308, 172), tone: metal, layer: "body", only: "art" },
     { d: rect(0, 272, 576, 36), tone: metal, layer: "body", only: "art" },
     { d: rrect(256, 212, 64, 80, 16), tone: metal, layer: "lid", only: "art" },
-    silver
+    rare
       ? { d: "M226 296h124v60c0 44-32 66-62 80-30-14-62-36-62-80z", tone: metal, layer: "body", only: "art" }
       : { d: rrect(240, 296, 96, 100, 18), tone: metal, layer: "body", only: "art" },
-    { d: keyhole(288, silver ? 334 : 326, 13), tone: "ink", layer: "body", only: "art", flat: true },
+    { d: keyhole(288, rare ? 334 : 326, 13), tone: "ink", layer: "body", only: "art", flat: true },
   ];
-  if (silver) {
+  if (rare) {
     parts.push(
-      ...iconStuds(gold ? "gold" : "light"),
+      ...iconStuds(epic ? "gold" : "light"),
       // Corner guards: the lid's top corners, the body's foot.
       { d: "M0 214V160C0 89 57 32 128 32h48z", tone: metal, layer: "lid", only: "art" },
       { d: "M0 214V160C0 89 57 32 128 32h48z", tone: metal, layer: "lid", only: "art", t: MIRROR, k: 1 },
@@ -155,14 +155,14 @@ function wood(rank: ChestRank): ChestPart[] {
       // Studs down the bands and at the rims' ends.
       {
         d: [80, 140, 196].map((y) => circle(136, y, 12) + circle(440, y, 12)).join("") + circle(40, 252, 12) + circle(536, 252, 12),
-        tone: gold ? "gold" : "light",
+        tone: epic ? "gold" : "light",
         layer: "lid",
         only: "art",
       },
-      { d: [350, 404, 456].map((y) => circle(136, y, 12) + circle(440, y, 12)).join("") + circle(40, 290, 12) + circle(536, 290, 12), tone: gold ? "gold" : "light", layer: "body", only: "art" },
+      { d: [350, 404, 456].map((y) => circle(136, y, 12) + circle(440, y, 12)).join("") + circle(40, 290, 12) + circle(536, 290, 12), tone: epic ? "gold" : "light", layer: "body", only: "art" },
     );
   }
-  if (gold) {
+  if (epic) {
     parts.push(
       { d: diamond(288, 112, 52), tone: "ruby", layer: "lid", only: "icon" },
       { d: sparkle(556, 44, 72), tone: "gold", layer: "lid", only: "icon" },
@@ -190,9 +190,9 @@ const filigree = (x: number, y: number, w: number) => {
 /** B. Treasure coffers: a rounded lid framed in metal, a body on a plinth. */
 function coffer(rank: ChestRank): ChestPart[] {
   const metal = METAL[rank];
-  const cloth: ChestTone = rank === "bronze" ? "leather" : rank === "silver" ? "enamel" : "velvet";
-  const silver = at(rank, "silver");
-  const gold = rank === "gold";
+  const cloth: ChestTone = rank === "basic" ? "leather" : rank === "rare" ? "enamel" : "velvet";
+  const rare = at(rank, "rare");
+  const epic = rank === "epic";
   const parts: ChestPart[] = [
     ...faIcon(metal, cloth, circle(288, 272, 64)),
     { d: "M16 272V200C16 104 140 40 288 40S560 104 560 200v72z", tone: cloth, layer: "lid", only: "art" },
@@ -205,18 +205,18 @@ function coffer(rank: ChestRank): ChestPart[] {
     { d: rrect(262, 214, 52, 80, 14), tone: metal, layer: "lid", only: "art" },
     { d: circle(288, 362, 50), tone: metal, layer: "body", only: "art" },
     { d: keyhole(288, 352, 12), tone: "ink", layer: "body", only: "art", flat: true },
-    // Rivets, from bronze up: along the lid's foot, the posts and the plinth.
+    // Rivets, from basic up: along the lid's foot, the posts and the plinth.
     { d: [44, 108, 172, 404, 468, 532].map((x) => circle(x, 258, 9)).join(""), tone: metal, layer: "lid", only: "art" },
     { d: [326, 384].map((y) => circle(52, y, 9) + circle(524, y, 9)).join("") + [40, 112, 184, 392, 464, 536].map((x) => circle(x, 456, 9)).join(""), tone: metal, layer: "body", only: "art" },
   ];
-  if (silver) {
+  if (rare) {
     parts.push(
-      ...iconStuds(gold ? "gold" : "light"),
+      ...iconStuds(epic ? "gold" : "light"),
       { d: filigree(160, 170, 120) + filigree(416, 170, 120), tone: metal, layer: "lid", only: "art", line: 8 },
       { d: filigree(160, 372, 110) + filigree(416, 372, 110), tone: metal, layer: "body", only: "art", line: 8 },
     );
   }
-  if (gold) {
+  if (epic) {
     const crown = CREST_SHAPES.crown;
     parts.push(
       { d: crown.parts.join(""), tone: "gold", layer: "lid", only: "icon", t: "translate(288 116) scale(0.3) translate(-288 -256)", k: 0.3 },
@@ -239,9 +239,9 @@ const topFace = (c: number, y: number, n = 1) => poly([c * V, y], [c * V + V, y 
 /** C. Voxel chests: the board's voxel look, a lid three voxels high on a body of four. */
 function voxel(rank: ChestRank): ChestPart[] {
   const metal = METAL[rank];
-  const timber: ChestTone = rank === "bronze" ? "oak" : "walnut";
-  const silver = at(rank, "silver");
-  const gold = rank === "gold";
+  const timber: ChestTone = rank === "basic" ? "oak" : "walnut";
+  const rare = at(rank, "rare");
+  const epic = rank === "epic";
   const seams = (y0: number, y1: number) =>
     Array.from({ length: 10 }, (_, i) => `M${(i + 1) * V} ${y0}V${y1}`).join("") +
     Array.from({ length: (y1 - y0) / V - 1 }, (_, i) => `M0 ${y0 + (i + 1) * V}H528`).join("");
@@ -262,7 +262,7 @@ function voxel(rank: ChestRank): ChestPart[] {
     { d: rect(216, 288, 2 * V, 2 * V), tone: metal, layer: "body" },
     { d: rect(258, 306, 12, 12) + rect(261, 318, 6, 24), tone: "ink", layer: "body", flat: true },
   ];
-  if (silver) {
+  if (rare) {
     // Trimmed: the corners in the metal, studs on the bands.
     parts.push(
       { d: rect(0, 144, V, V) + rect(480, 144, V, V), tone: metal, layer: "lid" },
@@ -272,8 +272,8 @@ function voxel(rank: ChestRank): ChestPart[] {
       { d: [312, 360, 408, 456].map((y) => rect(V + 16, y - 8, 16, 16) + rect(9 * V + 16, y - 8, 16, 16)).join(""), tone: "light", layer: "body", only: "art" },
     );
   }
-  if (gold) {
-    // Gold: the lid's foot and the plinth trimmed, gems set in the bands and the hasp, a glint.
+  if (epic) {
+    // Epic: the lid's foot and the plinth trimmed, gems set in the bands and the hasp, a glint.
     parts.push(
       { d: rect(0, 240, 528, V), tone: "gold", layer: "lid" },
       { d: rect(0, 432, 528, V), tone: "gold", layer: "body" },

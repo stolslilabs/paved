@@ -7,7 +7,7 @@ import { chestParts, HINGE, RANK_LIGHT, type ChestDirection } from "./chest-desi
 import { ReliefDefs, ReliefParts, ReliefShadow, type ReliefScale } from "./chest-icon";
 
 /**
- * A chest's state (issue 874's proposal 4): `rest` idles (a slow shine; gold glows), `ready` shakes as issue 784's, `opening` swings the lid
+ * A chest's state (issue 874's proposal 4): `rest` idles (a slow shine; epic glows), `ready` shakes as issue 784's, `opening` swings the lid
  * and bursts the light, `open` holds the opened chest in its light, `spent` is an opened chest, empty and grey (the slots' opened
  * chest, issue 874's open point 2).
  */
@@ -71,7 +71,7 @@ export interface ChestArtProps {
   rank: ChestRank;
   state?: ChestArtState;
   size?: ChestArtSize;
-  /** The accessible name: the chest's ("Gold chest") by default; `null` makes the art decorative. */
+  /** The accessible name: the chest's ("Epic chest") by default; `null` makes the art decorative. */
   label?: string | null;
   className?: string;
 }
@@ -79,7 +79,7 @@ export interface ChestArtProps {
 /**
  * A chest's detailed version (issue 874's proposal 4), for the chest slots and the opening's modal: an SVG in layers (the body, the lid
  * on its hinge, the bands, the lock, the gems) in the game icons' relief, animated with Motion. At rest a slow shine crosses it, and a
- * gold chest glows; ready, it shakes as issue 784's; opening, the lid swings open and light bursts from inside, rays and a glow in the
+ * epic chest glows; ready, it shakes as issue 784's; opening, the lid swings open and light bursts from inside, rays and a glow in the
  * rank's colour and a few sparks (voxels of light for the voxel chests). Under reduced motion the frames are still and the light only
  * fades in. Pure SVG and Motion, no image: the study of issue 874's first pull request (Storybook); the second draws the slots and the
  * modal with the direction the owner picks, in its own lazy chunk.
@@ -137,8 +137,8 @@ export function ChestArt({ direction, rank, state = "rest", size = "md", label, 
         </mask>
       </defs>
 
-      {/* A gold chest's glow at rest (and every chest's, ready): a soft halo that breathes. */}
-      {!opened && (rank === "gold" || state === "ready") && (
+      {/* An epic chest's glow at rest (and every chest's, ready): a soft halo that breathes. */}
+      {!opened && (rank === "epic" || state === "ready") && (
         <m.ellipse
           data-part="glow"
           cx={288}

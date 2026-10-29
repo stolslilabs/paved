@@ -8,7 +8,7 @@ import { ChestIcon, type ChestIconSize } from "./chest-icon";
 
 /**
  * The chests' study (#874, its first pull request): three directions, A wooden chests with metal bands, B treasure coffers,
- * C voxel chests, each in Bronze, Silver and Gold and in two versions, the simple icon (`ChestIcon`) and the detailed art that
+ * C voxel chests, each in Basic, Rare and Epic and in two versions, the simple icon (`ChestIcon`) and the detailed art that
  * opens (`ChestArt`), on the Chests page's background, for the owner to pick (or mix). Nothing in the app draws them yet: the
  * second pull request wires the chosen direction into the slots, the modal, `ChestBadge` and the battle logs.
  */
@@ -16,7 +16,7 @@ const meta = {
   title: "Elements/ChestArt",
   component: ChestArt,
   parameters: { layout: "padded" },
-  args: { direction: "wood", rank: "gold", state: "rest", size: "lg" },
+  args: { direction: "wood", rank: "epic", state: "rest", size: "lg" },
   argTypes: {
     direction: { control: "inline-radio", options: CHEST_DIRECTIONS.map((d) => d.id) },
     rank: { control: "inline-radio", options: CHEST_RANKS },
@@ -26,7 +26,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const RANK_LABEL: Record<ChestRank, string> = { bronze: "Bronze", silver: "Silver", gold: "Gold" };
+const RANK_LABEL: Record<ChestRank, string> = { basic: "Basic", rare: "Rare", epic: "Epic" };
 const STATES: readonly { state: ChestArtState; name: string }[] = [
   { state: "rest", name: "At rest" },
   { state: "ready", name: "Ready" },
@@ -61,7 +61,7 @@ function DirectionCard({ direction, children }: { direction: ChestDirection; chi
 
 export const Default: Story = {};
 
-// One story per state of the detailed art, a gold wooden chest.
+// One story per state of the detailed art, an epic wooden chest.
 export const Rest: Story = { args: { state: "rest" } };
 export const Ready: Story = { args: { state: "ready" } };
 export const Opening: Story = { args: { state: "opening" } };
