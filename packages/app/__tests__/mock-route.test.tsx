@@ -21,8 +21,11 @@ const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
 
 function open(path: string) {
   const s = mockImplementation();
-  // Ada did Daily Run today: the indexer's progress, which the mock's claims trust.
-  s.chain.fixture.progress.set(FIXTURE_ADA, { quests: new Map([[1, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]), achievements: new Map() });
+  // Ada did Daily Run today and finished her first game (Settler I): the indexer's progress, which the mock's claims trust.
+  s.chain.fixture.progress.set(FIXTURE_ADA, {
+    quests: new Map([[1, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
+    achievements: new Map([[2, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
+  });
   render(<App router={createTestRouter(path)} sources={s.sources} connector={fakeWallet({ address: FIXTURE_ADA }).load} />);
   return s;
 }
@@ -32,7 +35,8 @@ const noRawErrors = () => {
   expect(screen.queryByText(/RPC|entrypoint|starknet_call/i)).not.toBeInTheDocument();
 };
 
-preloadPages("missions", "vault");
+// The Cobbles' sheet and the home's panel host too: the balances' Cobbles open them, cold in the packs' wait otherwise.
+preloadPages("missions", "vault", "cobbles", "cobbles-sheet", "home-panel");
 
 beforeEach(() => {
   queryClient.clear();
@@ -41,23 +45,29 @@ beforeEach(() => {
   markWelcomed();
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   resetWelcomedForTests();
 });
 
 describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () => {
-  it("/missions: the quests carry the mock's Cobbles; a claim moves the balance; no notice, no RPC text", async () => {
+  it("/missions: the missions carry the mock's Cobbles, none for a daily (#869); a claim moves the balance; no notice, no RPC text", async () => {
     const s = open("/missions");
     expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
-    // Daily Run's icon selects it (#832): its card holds the Claim.
+    // Daily Run is done but pays nothing on its own: its card has no Claim.
     await userEvent.click(await screen.findByRole("button", { name: /^Daily Run: / }, { timeout: slow(5000) }));
-    const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) });
+    expect(screen.getByRole("button", { name: "Daily Run: Done" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: /^Claim .*: Daily Run$/ })).not.toBeInTheDocument();
+    // Settler I's icon selects it (#832): its card holds the Claim.
+    await userEvent.click(await screen.findByRole("button", { name: /^Settler I: / }, { timeout: slow(5000) }));
+    const claim = await screen.findByRole("button", { name: "Claim 10 Cobbles: Settler I" }, { timeout: slow(5000) });
     expect(screen.queryByText("Rewards unavailable")).not.toBeInTheDocument();
     noRawErrors();
     await userEvent.click(claim);
-    expect((await screen.findAllByRole("button", { name: "5 Cobbles: Buy packs" }, { timeout: slow(5000) })).length).toBeGreaterThan(0);
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).not.toBeInTheDocument());
-    expect((await s.ledger.dayProgress(FIXTURE_ADA, TODAY)).claimed).toBe(1n << 1n);
+    expect((await screen.findAllByRole("button", { name: "10 Cobbles: Buy packs" }, { timeout: slow(5000) })).length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Claim 10 Cobbles: Settler I" })).not.toBeInTheDocument());
+    expect((await s.ledger.account(FIXTURE_ADA)).achievementsClaimed).toBe(1n << 2n);
+    expect((await s.ledger.dayProgress(FIXTURE_ADA, TODAY)).claimed).toBe(0n);
     noRawErrors();
   });
 
@@ -76,14 +86,19 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
   });
 
   it("the balances' Cobbles lead to the packs' own page (#621), its packs from the mock", async () => {
+    // The clocks held: the indexer's and the missions' tick each second, and each tick restarted the sheet's first render, which
+    // React runs at a lower priority. Under a check's load that render took about a second, so the packs took 42 s, then more
+    // than 120 s. Only the intervals are fake: React, the queries and the lookups run on timeouts and the DOM's changes. The
+    // file's last test: a module's interval begun while they are fake stays fake (`theme-route`'s next tests failed so).
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     // A page whose rule shows the Cobbles (Missions earn them, #720): the Vault shows none since the desktop's header went (#762).
     open("/missions");
     const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: slow(10_000) });
     await userEvent.click(cobbles!);
     // The packs first: the page's loading screen has the same heading, replaced as the packs arrive.
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(10_000) })).toBeInTheDocument();
+    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(20_000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
     noRawErrors();
-  }, slow(30_000));
+  }, slow(45_000));
 });

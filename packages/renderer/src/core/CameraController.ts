@@ -19,6 +19,8 @@ export interface CameraViewport {
 
 export interface CameraInputAdapter {
   target: THREE.Vector3;
+  /** False: the controls take no input (OrbitControls' `enabled`; the first-person walk holds the camera). */
+  enabled?: boolean;
   enableRotate: boolean;
   enablePan: boolean;
   enableDamping: boolean;

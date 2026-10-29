@@ -58,7 +58,10 @@ export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_
             file comes from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo.
           </li>
           <li className="wrap-anywhere">Cobbles: one cobblestone, drawn for Paved.</li>
-          <li className="wrap-anywhere">PAVED and vPAVED: drawn for Paved, their P the letter of Almendra Bold (SIL Open Font License 1.1) as outlines.</li>
+          <li className="wrap-anywhere">
+            PAVED (gold) and vPAVED (silver): Font Awesome Pro's coin-front under the Font Awesome Commercial License, its P the letter of
+            Almendra Bold (SIL Open Font License 1.1) as outlines, the relief drawn for Paved.
+          </li>
         </ul>
       </Section>
       <Section title="Music">

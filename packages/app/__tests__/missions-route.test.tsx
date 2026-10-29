@@ -125,16 +125,15 @@ describe("/missions (P9, #832)", () => {
     expect(screen.getByRole("button", { name: "Daily Run: Done" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("the daily and the weekly bonus: Cobbles once every quest of the period is done, claimed from the card", async () => {
+  it("the weekly bonus: Cobbles once every quest of the week is done, claimed from the card; the day has none (#869)", async () => {
     const s = setup({ counts: { 1: 1, 2: 6, 3: 1, 4: 3_000, 14: 3 }, weekly: true });
     open("/missions", s);
-    await userEvent.click(await claimOn("Daily bonus", 20));
-    await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "credit", credit: "daily", period: TODAY }]]));
     await userEvent.click(await claimOn("Weekly bonus", 60));
-    await waitFor(() => expect(s.claimer.sent[1]).toEqual([{ kind: "credit", credit: "weekly", period: WEEK }]));
+    await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "credit", credit: "weekly", period: WEEK }]]));
+    expect(screen.queryByRole("button", { name: /^Daily bonus/ })).not.toBeInTheDocument();
     // A weekly quest is claimed for its week number.
     await userEvent.click(await claimOn("Weekly Forester", 15));
-    await waitFor(() => expect(s.claimer.sent[2]).toEqual([{ kind: "quest", questId: 14, period: WEEK }]));
+    await waitFor(() => expect(s.claimer.sent[1]).toEqual([{ kind: "quest", questId: 14, period: WEEK }]));
   });
 
   it("an achievement is claimed from its card too", async () => {
