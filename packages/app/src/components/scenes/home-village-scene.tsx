@@ -12,6 +12,7 @@ import type { VillageArrival } from "../elements/village-fog";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { BalancesSlot } from "../containers/balances-context";
+import type { ShownBalance } from "../containers/balances";
 import { OverlayButton } from "../containers/home-overlays";
 import type { LayoutBoardView } from "../containers/layout-board";
 import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
@@ -287,6 +288,20 @@ function useBalancesWidth() {
 }
 
 /**
+ * The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width, also under a
+ * panel's page, so it names it itself: the rule's row for the home (`routes/header-balances.ts`, checked equal by
+ * header-balances.test), kept out of this chunk with the rest of the rule, which the first screen does not need.
+ */
+export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpaved-held"];
+
+/**
+ * BALANCES-BY-PAGE (#855, the issue's second open point): below `desktop` the home's stack is the Cobbles, PAVED and vPAVED one under
+ * the other, unless its widest plate does not fit beside the League control under the profile: then the Cobbles stand alone
+ * (`beside`, `Balances`).
+ */
+const BESIDE_LEAGUE = ["[data-slot=home-top-row]", "[data-slot=league-control]"] as const;
+
+/**
  * The right column, over Play: under the balances (#828), as far down as the stack reaches, and never above 5.5 rem from the
  * screen's top (5 rem in the top row's padding from `tablet`), where it stood before the stack. From `desktop` it stops above Play
  * (the top row's 1 rem, its own top, Play's 4.5 rem, its 1 rem margin and a 0.5 rem gap): on a short window its buttons wrap into
@@ -300,7 +315,7 @@ function VillageNav(props: HomeVillageSceneProps) {
     >
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
       {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
-      <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
+      <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
       {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
@@ -326,7 +341,7 @@ function ViewOverlays({
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
-        <div className="relative flex items-start justify-between gap-2">
+        <div data-slot="home-top-row" className="relative flex items-start justify-between gap-2">
           <div
             className={cn(
               "pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]",
@@ -350,7 +365,8 @@ function ViewOverlays({
             )}
           </div>
           {/*
-            The balances one under the other at the top right (#828), the same set as each width's header (#781). Out of the row's
+            The home's own balances (#855: the Cobbles, PAVED, vPAVED while held; no USDC), one under the other at the top right
+            (#828), at every width, the phone's plates below `desktop` and the larger ones from it; the same under a panel's page. Out of the row's
             flow: only the profile's line stands beside them (the League control under it passes below the plate), so at 320 px the
             badge keeps its whole width; the left column stops short of the right column (the chips' clearance) and wraps.
           */}
@@ -359,8 +375,10 @@ function ViewOverlays({
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <GameIcon name="gear" size="md" />
             </Button>
-            <BalancesSlot layout="pill" className="desktop:hidden" />
-            <BalancesSlot layout="rail" direction="column" className="hidden desktop:flex" />
+            <div data-slot="home-phone-balances" className="relative desktop:hidden">
+              <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" beside={BESIDE_LEAGUE} />
+            </div>
+            <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />
             <VillageNav {...props} />
           </div>
         </div>
