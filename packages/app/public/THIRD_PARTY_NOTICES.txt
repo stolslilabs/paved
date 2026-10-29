@@ -372,11 +372,11 @@ Chests (src/components/elements/chest-art-shapes.ts, #874). The chests' simple
 icons, drawn by the app as SVG in the game icons' relief
 (src/components/elements/chest-icon.tsx), tone the parts of a Font Awesome Pro
 6.6.0 solid icon, `treasure-chest`, under the owner's Font Awesome Commercial
-License (above), and add to it; the epic coffer's icon and lock carry `crown`
-(the league crests' shape, above). The detailed chests and their opening
-(src/components/elements/chest-designs.ts, chest-art.tsx), the voxel chests,
-the locks, bands, studs, corner guards, filigree, gems, glints, light and
-sparks are written for Paved (Apache 2.0).
+License (above), and add to it. The detailed chests and their opening
+(src/components/elements/chest-designs.ts, chest-art.tsx), the wood, the
+locks, bands, studs, corner guards, engravings, gems, glints, the lid on its
+hinges and its lining, the light and the sparks are written for Paved
+(Apache 2.0).
 
 The currencies in relief (#844): usdc.svg, paved.svg and vpaved.svg above
 carry the HUD icons' relief, an outline, a lit gradient, a light and a shadow
