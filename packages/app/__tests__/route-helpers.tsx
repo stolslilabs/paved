@@ -56,31 +56,21 @@ const PAGES = {
   "village-shop": () => import("../src/routes/pages/village-shop"),
   "village-chests": () => import("../src/routes/pages/village-chests"),
   "pvp-league": () => import("../src/routes/pages/pvp-league"),
+  // A sheet's page (BACK-RULE #783) and its host, each its own chunk, loaded with the first sheet opened.
+  sheets: () => Promise.all([import("../src/routes/page-sheets"), import("../src/routes/page-sheet-host")]),
+  // The Cobbles' sheet's host (#621), its own chunk over any page.
+  "cobbles-sheet": () => import("../src/routes/cobbles-sheet-host"),
+  // The home's side panel, where the overlay's pages open (#762).
+  "panel-host": () => import("../src/routes/home-panel-host"),
 };
 
 /**
- * The shell's own lazy chunks, which any page can reach: the sheets a page is drawn under (BACK-RULE #783), the Cobbles sheet,
- * the home's panels, the balances, and the profile sheet with its avatar, ring and XP path (#624, #625).
- */
-const SHELL = [
-  () => import("../src/routes/page-sheets"),
-  () => import("../src/routes/page-sheet-host"),
-  () => import("../src/routes/cobbles-sheet-host"),
-  () => import("../src/routes/home-panel-host"),
-  () => import("../src/components/containers/balances"),
-  () => import("../src/components/containers/profile-sheet"),
-  () => import("../src/components/elements/saved-avatar"),
-  () => import("../src/components/elements/xp-ring"),
-  () => import("../src/components/elements/xp-path"),
-];
-
-/**
- * The lazy route modules a file reaches, with the shell's chunks, loaded once before its first test: the router imports a page
- * on its first visit, which a file's first test paid inside its own timeout (0.3 to 1.5 s per page, several times that under load).
+ * The lazy route modules a file reaches, loaded once before its first test: the router imports a page on its first visit, which
+ * a file's first test paid inside its own timeout (0.3 to 1.5 s per page, several times that under load).
  */
 export function preloadPages(...names: (keyof typeof PAGES)[]) {
   beforeAll(async () => {
-    await Promise.all([...names.map((name) => PAGES[name]()), ...SHELL.map((load) => load())]);
+    await Promise.all(names.map((name) => PAGES[name]()));
   }, slow(60_000));
 }
 

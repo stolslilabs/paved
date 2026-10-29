@@ -5,8 +5,8 @@ import { GameIcon, type GameIconSize } from "./game-icon";
 
 const boxVariants = cva("relative flex items-center rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", {
   variants: {
-    // Issue 828: a 32 px box under a 40 px icon on a phone, 36 under 44 from `desktop` (the balances' `rail`); `auto`, the one and
-    // then the other (the home's left column, issue 829).
+    // Issue 828: a 32 px box under a 40 px disc on a phone, 36 under 44 from `desktop` (the balances' `rail`; their bare icon, issue
+    // 213, 48 and 52); `auto`, the one and then the other (the home's left column, issue 829).
     size: { sm: "h-8 text-sm", md: "h-9 text-lg", auto: "h-8 text-sm desktop:h-9 desktop:text-lg" },
     /** `invite`: the Cobbles' plate (issue 620), a gold edge, a "+" and a slow shine: it leads to the packs. */
     tone: { default: "border-resource-edge", invite: "border-primary/60" },
@@ -23,10 +23,14 @@ export type PlateSize = NonNullable<VariantProps<typeof boxVariants>["size"]>;
  * on its green relief button (drawn by the icon, 1.75em across: the square), 16 px in the 28 px square, 20 in the 32.
  */
 type Ends = Record<"right" | "left", string>;
-const PARTS: Record<PlateSize, { coin: string; over: Ends; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
+type EndParts = { box: string; over: Ends; pad: Ends };
+const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
   sm: {
     coin: "size-10",
     over: { right: "-ml-5", left: "-mr-5" },
+    // A bare icon (issue 213, no disc): 48 px over the 32 px box, its half (24) over the end and a gap (8) inside. It gives back
+    // the 8 px it passes a disc's 40, 4 above and 4 below (`-my-1`, the end's), so the row keeps a disc's height.
+    bareEnd: { box: "size-12", over: { right: "-ml-6", left: "-mr-6" }, pad: { right: "pr-8", left: "pl-8" } },
     leadOver: { right: "-mr-5", left: "-ml-5" },
     plus: "size-7",
     plusIcon: "sm",
@@ -37,6 +41,8 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; leadOver: Ends; plus:
   md: {
     coin: "size-11",
     over: { right: "-ml-5.5", left: "-mr-5.5" },
+    // 52 px over the 36 px box.
+    bareEnd: { box: "size-13", over: { right: "-ml-6.5", left: "-mr-6.5" }, pad: { right: "pr-8.5", left: "pl-8.5" } },
     leadOver: { right: "-mr-5.5", left: "-ml-5.5" },
     plus: "size-8",
     plusIcon: "md",
@@ -47,6 +53,8 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; leadOver: Ends; plus:
   auto: {
     coin: "size-10 desktop:size-11",
     over: { right: "-ml-5 desktop:-ml-5.5", left: "-mr-5 desktop:-mr-5.5" },
+    // No balance uses `auto`: its bare icon is the phone's, so no class is built for nothing (the bundle's CSS budget).
+    bareEnd: { box: "size-12", over: { right: "-ml-6", left: "-mr-6" }, pad: { right: "pr-8", left: "pl-8" } },
     leadOver: { right: "-mr-5 desktop:-mr-5.5", left: "-ml-5 desktop:-ml-5.5" },
     plus: "size-7",
     plusIcon: "sm",
@@ -65,6 +73,11 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
   side?: "right" | "left";
   /** Over the icon's end: larger than the box, hiding its border (`PlateDisc` draws an icon on the plate's own disc). */
   end: ReactNode;
+  /**
+   * `disc` (the default): the end is a `PlateDisc`, 40 px over the 32 px box (44 over 36). `bare`: an icon alone, no disc behind
+   * it (issue 213, the balances' coins and stone), drawn larger, 48 px over the 32 px box (52 over 36), so it covers the end.
+   */
+  endFit?: "disc" | "bare";
   /**
    * Over the other end: `plus`, the "+" of a balance with a page to go to, a little smaller than the icon; `disc`, a round face of
    * the icon's size (the League button, issue 829), drawn by `leadContent`.
@@ -85,8 +98,9 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
  * border, and over the other end, if any, the "+" or a round disc. The box keeps the overlaps plus a gap clear inside, so its
  * content never runs under either end. The balances' plate (`ResourcePlate`), the League's and the shield's (issue 829).
  */
-export function Plate({ side = "right", end, lead, leadContent, after, size, tone, children, className, ...data }: PlateProps) {
+export function Plate({ side = "right", end, endFit = "disc", lead, leadContent, after, size, tone, children, className, ...data }: PlateProps) {
   const parts = PARTS[size ?? "sm"];
+  const bare = endFit === "bare";
   return (
     <span {...data} data-side={side} className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", className)}>
       {lead === "plus" && (
@@ -107,7 +121,7 @@ export function Plate({ side = "right", end, lead, leadContent, after, size, ton
           {leadContent}
         </span>
       )}
-      <span className={cn(boxVariants({ size, tone }), parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side])}>
+      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side])}>
         {/* The shine in its own clipped layer: the floating change goes past the plate's edge. */}
         {tone === "invite" && (
           <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
@@ -116,7 +130,7 @@ export function Plate({ side = "right", end, lead, leadContent, after, size, ton
         )}
         {children}
       </span>
-      <span className={cn("relative z-10 inline-flex shrink-0 drop-shadow-sm", parts.over[side])}>{end}</span>
+      <span className={cn("relative z-10 inline-flex shrink-0 drop-shadow-sm", bare ? [parts.bareEnd.over[side], "-my-1"] : parts.over[side])}>{end}</span>
       {after}
     </span>
   );
@@ -160,8 +174,11 @@ export const plateIconClass = (size: PlateSize | null | undefined): string =>
 /** A plate's figure in chunky mono, its digits of one width (`numeric`). */
 export const PLATE_FIGURE = "relative numeric font-bold tracking-tight";
 
-/** The icon's box at each size, for an image over a plate's end (a token's coin). */
+/** The icon's box at each size, for an image over a plate's end on a `PlateDisc`. */
 export const plateCoinClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].coin;
+
+/** A bare icon's box at each size (`endFit="bare"`, issue 213): a token's coin or stone with no disc, taller than the plate. */
+export const plateBareIconClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].bareEnd.box;
 
 /** The plate's own variants (`size`, `tone`), for a plate built on it. */
 export type PlateVariants = VariantProps<typeof boxVariants>;

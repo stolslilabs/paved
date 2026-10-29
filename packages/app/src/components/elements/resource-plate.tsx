@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { ChangeFloat, ChangePop, changeTone, useAmountChange } from "./amount-change";
 import { NumberTicker } from "./number-ticker";
-import { Plate, PLATE_FIGURE, plateCoinClass, PlateDisc, type PlateVariants } from "./plate";
+import { Plate, plateBareIconClass, PLATE_FIGURE, type PlateVariants } from "./plate";
 import { TokenIcon, type TokenKind } from "./token-icon";
 
 export interface ResourcePlateProps extends PlateVariants {
@@ -28,8 +28,8 @@ export interface ResourcePlateProps extends PlateVariants {
 
 /**
  * A balance as a game's resource bar shows it (issues 620, 828): a `Plate` with the figure in chunky mono, the token's icon
- * standing over one end, and for a balance with a page to go to a "+" over the other end, a little smaller. On each change of the
- * amount, never on the first one nor from a missing value, the figure counts to the new value (`NumberTicker`) and briefly takes
+ * standing over one end, bare (issue 213: no disc behind it) and taller than the plate, and for a balance with a page to go to
+ * a "+" over the other end, a little smaller. On each change of the amount, never on the first one nor from a missing value, the figure counts to the new value (`NumberTicker`) and briefly takes
  * the change's colour; up, a "+N" rises and fades and the icon pops; down, a "−N" drops and fades and the icon dips. Under reduced
  * motion only the colour flashes: nothing moves. The accessible name is the container's.
  */
@@ -44,11 +44,10 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, side = "
       tone={tone}
       lead={plus ? "plus" : undefined}
       className={className}
+      endFit="bare"
       end={
         <ChangePop change={change} moving={moving}>
-          <PlateDisc size={size} tone={tone}>
-            <TokenIcon kind={kind} className={cn("relative", plateCoinClass(size))} />
-          </PlateDisc>
+          <TokenIcon kind={kind} className={plateBareIconClass(size)} />
         </ChangePop>
       }
       after={<ChangeFloat change={change} moving={moving} className={side === "left" ? "right-auto left-2" : "right-6"} />}

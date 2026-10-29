@@ -35,9 +35,7 @@ const noRawErrors = () => {
   expect(screen.queryByText(/RPC|entrypoint|starknet_call/i)).not.toBeInTheDocument();
 };
 
-// The packs' own page too (its sheet is among the shell's chunks): the balances' Cobbles open them, and their first load was
-// the slowest wait of the file.
-preloadPages("missions", "vault", "cobbles");
+preloadPages("missions", "vault", "cobbles", "cobbles-sheet");
 
 beforeEach(() => {
   queryClient.clear();

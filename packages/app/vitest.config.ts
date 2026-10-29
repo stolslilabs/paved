@@ -23,9 +23,9 @@ export default defineConfig({
     // `PAVED_TEST_SLOW` (test-slow.ts) multiplies it, with every wait ceiling of the suite, on a loaded machine.
     testTimeout: slow(15_000),
     hookTimeout: slow(10_000),
-    // Under the slow profile only, a failed test runs once more: on a machine loaded far past its cores, a page's first view
-    // outlasted even scaled waits in a different file each run (the first test of a route file, 30 to 60 s). CI (no profile)
-    // never retries, so a test that fails for its own reason still fails there.
+    // Under the slow profile only (a loaded machine, never CI): a stall still outlasts a scaled ceiling now and then, a
+    // different test each run (the board's checks of #213 lost 1 to 3 of 1944, none twice in a row). Once more, with its
+    // lazy chunks then loaded, tells such a stall from a real failure, which fails both times.
     retry: SLOW_FACTOR > 1 ? 1 : 0,
     // The token tests read computed colours from the compiled stylesheet.
     css: true,
