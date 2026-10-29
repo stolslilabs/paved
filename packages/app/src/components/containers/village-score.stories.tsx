@@ -42,7 +42,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Folded: the house, the total, a chevron. */
+/** Folded: the house, the total, a chevron; as wide as unfolded (`SameWidth`). */
 export const Folded: Story = {};
 /** Unfolded: the four kinds' sums under the total, adding up to it. */
 export const Open: Story = { args: { open: true } };
@@ -74,3 +74,27 @@ export const ToggleReducedMotion: Story = { ...Toggle, parameters: { reducedMoti
 
 /** The village's house-tree and the kinds' game icons in both themes (issue 870): the app's dark theme and the light scope. */
 export const OpenBothThemes: Story = { args: { open: true }, decorators: [bothThemes] };
+
+/** The box's width, rounded to the device pixel: the sizer and the rows lay out alike, so folded and unfolded agree to it. */
+const widthOf = (el: Element) => Math.round(el.getBoundingClientRect().width);
+
+/**
+ * The same width folded and unfolded (V4-VILLAGE-POINTS-SIZE, the owner's fix of the jump): folded, the box is already as wide as
+ * the kinds' rows, so nothing moves as it folds or unfolds. Pick the mobile viewport (360) or a 320 px one to see it at its narrowest.
+ */
+export const SameWidth: Story = {
+  args: { score: LAYOUT_WONDER.score, tiles: LAYOUT_WONDER.tiles },
+  parameters: { reducedMotion: "never" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const box = canvasElement.querySelector("[data-slot=village-score]")!;
+    const folded = widthOf(box);
+    const total = canvas.getByRole("button", { name: /^Village score / });
+    await userEvent.click(total);
+    await canvas.findByRole("list", { name: "Score by kind" });
+    await expect(widthOf(box)).toBe(folded);
+    await userEvent.click(total);
+    await waitFor(() => expect(canvas.queryByRole("list", { name: "Score by kind" })).toBeNull());
+    await expect(widthOf(box)).toBe(folded);
+  },
+};

@@ -35,7 +35,7 @@ export interface PvpLeagueSceneProps {
   /** The player has never attacked: no league until the first attack. */
   unranked?: boolean;
   /**
-   * The league on chain (`Matchmaker.league(v).league`, 0 Wanderer to 22 Sovereign), when known. It is the league of the whole
+   * The league on chain (`Matchmaker.league(v).league`, 0 Wood to 22 Grand Master), when known. It is the league of the whole
    * count, an open attack's hold included, while `crowns` is shown less the hold: so it is not recomputed from `crowns`.
    * Left out, the league of `crowns`.
    */
@@ -75,10 +75,10 @@ const LAST_DAY_S = 86_400;
 export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   const { crowns, best, bonusesToSee, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onBonusSeen, matches, onOpenMatch, onRetryMatches } = props;
   const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
-  // Below Peasant III (400 crowns) a village is a Wanderer on chain, as one that never attacked.
-  const outside = unranked || league.id === "wanderer";
+  // Below Iron III (400 crowns) a village is in Wood on chain, as one that never attacked.
+  const outside = unranked || league.id === "wood";
   const mine = outside ? LEAGUES[0]! : league;
-  // The highest league reached this season: each league up to it has paid its first-time bonus, kept after a drop (to Wanderer too).
+  // The highest league reached this season: each league up to it has paid its first-time bonus, kept after a drop (to Wood too).
   const peak = Math.max(mine.index, best != null ? leagueOf(best).index : 0);
   const left = season ? season.endsAt - now : 0;
   const ended = season !== null && left <= 0;
