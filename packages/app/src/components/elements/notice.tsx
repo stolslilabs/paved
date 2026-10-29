@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
@@ -21,7 +21,8 @@ const ICON: Record<NonNullable<VariantProps<typeof noticeVariants>["tone"]>, str
 export interface NoticeProps extends VariantProps<typeof noticeVariants> {
   title?: string;
   children: ReactNode;
-  icon?: string;
+  /** A Font Awesome name, or an element of its own (a game icon, issue 870); default the tone's. */
+  icon?: string | ReactElement;
   action?: ReactNode;
   className?: string;
 }
@@ -33,7 +34,11 @@ export interface NoticeProps extends VariantProps<typeof noticeVariants> {
 export function Notice({ tone = "info", title, children, icon, action, className }: NoticeProps) {
   return (
     <div role="status" className={cn(noticeVariants({ tone }), className)}>
-      <Icon name={icon ?? ICON[tone ?? "info"]} className="mt-0.5" size="sm" />
+      {icon == null || typeof icon === "string" ? (
+        <Icon name={icon ?? ICON[tone ?? "info"]} className="mt-0.5" size="sm" />
+      ) : (
+        <span className="mt-0.5 inline-flex">{icon}</span>
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 wrap-anywhere">
         {title && <span className="font-semibold">{title}</span>}
         <span className="opacity-90">{children}</span>

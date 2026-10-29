@@ -4,6 +4,7 @@ import * as m from "motion/react-m";
 import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
+import { GameIcon } from "../elements/game-icon";
 import type { LayoutSaved } from "./layout-editor";
 import type { VillageLayout } from "./layout-rules";
 
@@ -15,7 +16,8 @@ const LazyScoreKinds = lazy(() => import("./score-kinds").then((m) => ({ default
 /** The kinds' box while their chunk arrives: four rows of `ScoreKinds` (1.5 rem) and its foot, so the unfolding runs to the list's height. */
 const KINDS_STAND_IN = <div aria-hidden className="h-25" />;
 
-const ICON = <Icon name="house-chimney" size="xs" className="text-primary" />;
+/** The village's game icon (#870). */
+const ICON = <GameIcon name="house-tree" size="xs" />;
 /** The total's figure, still. */
 const figure = (score: number) => (
   <>

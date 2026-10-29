@@ -107,7 +107,7 @@ function environment(seed: Seed) {
   return { sources, load, client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) };
 }
 
-const SEED: Seed = { founded: true, level: 6, cobbles: 85, chests: ["gold", "silver", "bronze"] };
+const SEED: Seed = { founded: true, level: 6, cobbles: 85, chests: ["epic", "rare", "basic"] };
 
 /** The pages on their routes, in the stories' router (the preview's, at `parameters.route`). */
 function VillagePages({ seed = SEED }: { seed?: Seed }) {
@@ -135,7 +135,7 @@ function VillagePages({ seed = SEED }: { seed?: Seed }) {
 export const Board: Story = { parameters: { route: "/" }, render: () => <VillagePages /> };
 /** A new player: the starter alone, and Found. */
 export const Fresh: Story = { parameters: { route: "/" }, render: () => <VillagePages seed={{ founded: false, level: 1, cobbles: 0, chests: [] }} /> };
-/** The chests waiting, oldest first: a gold (1 of 3) and a silver (1 of 2) won today, a Story bronze (one tile): the modal opens on arrival. */
+/** The chests waiting, oldest first: an epic (1 of 3) and a rare (1 of 2) won today, a Story basic (one tile): the modal opens on arrival. */
 export const Chests: Story = { parameters: { route: "/village/chests", sfx: 0.8 }, render: () => <VillagePages /> };
 /** The day's shop: 3 base plans, each bought once a day. */
 export const Shop: Story = { parameters: { route: "/village/shop" }, render: () => <VillagePages seed={{ ...SEED, cobbles: 120 }} /> };
