@@ -9,21 +9,21 @@ import { crestClass } from "../elements/league-crest";
 import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
 import { Icon } from "../ui/icon";
 
-/** The promotion's ring in its league's colour (#787's, on the crest since #829); Wanderer a neutral grey. */
+/** The promotion's ring in its league's colour (#787's, on the crest since #829); Wood a neutral grey. */
 const RING: Record<LeagueId, string> = {
-  peasant: "border-league-peasant",
-  yeoman: "border-league-yeoman",
-  squire: "border-league-squire",
-  knight: "border-league-knight",
-  baron: "border-league-baron",
-  earl: "border-league-earl",
-  duke: "border-league-duke",
-  sovereign: "border-league-sovereign",
-  wanderer: "border-league-wanderer",
+  iron: "border-league-iron",
+  bronze: "border-league-bronze",
+  silver: "border-league-silver",
+  gold: "border-league-gold",
+  platinum: "border-league-platinum",
+  diamond: "border-league-diamond",
+  master: "border-league-master",
+  grandmaster: "border-league-grandmaster",
+  wood: "border-league-wood",
 };
 
 export interface LeagueControlProps {
-  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wanderer). */
+  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wood). */
   crowns: number;
   /** Opens the League page: a tap anywhere on the control. */
   onLeague?: () => void;
@@ -36,7 +36,7 @@ export interface LeagueControlProps {
  * The home's League control (#829, the owner's decisions of 2026-10-27), under the profile at the top left: a round League button
  * (`trophy`) over the left end of the balances' plate (#828), the crowns at the plate's centre and the league's crest closing its
  * right end. No league name: the crest is enough, and the League page says more. One button, its name the league and the crowns
- * ("League: Knight II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
+ * ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
  * motion.
  */
 export function LeagueControl({ crowns, onLeague, size = "auto", className }: LeagueControlProps) {
