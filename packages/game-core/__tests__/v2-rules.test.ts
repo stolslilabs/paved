@@ -68,13 +68,13 @@ const plansOf = (tiles: readonly LayoutTile[]) => tiles.map((t) => t.plan);
 const limits = (tiles: readonly LayoutTile[], slots = 9) => ({ slots, inventory: inventoryOf(plansOf(tiles)) });
 
 describe("rarity", () => {
-  it("tiers the 19 plans by their copies in the base deck: 5 common, 10 uncommon, 4 rare", () => {
+  it("tiers the 19 plans by their copies in the base deck: 5 common, 10 uncommon, 4 mythic", () => {
     const codes = Array.from({ length: 19 }, (_, i) => i + 1);
     expect(codes.reduce((n, p) => n + baseCopies(p), 0)).toBe(72);
     const tiers = codes.map(rarityOf);
     expect(tiers.filter((t) => t === "common")).toHaveLength(5);
     expect(tiers.filter((t) => t === "uncommon")).toHaveLength(10);
-    expect(codes.filter((p) => rarityOf(p) === "rare")).toEqual([1, 6, 17, 19]);
+    expect(codes.filter((p) => rarityOf(p) === "mythic")).toEqual([1, 6, 17, 19]);
     expect(codes.filter((p) => rarityOf(p) === "common")).toEqual([7, 8, 10, 11, 13]);
     expect(() => rarityOf(0)).toThrow();
     expect(() => rarityOf(20)).toThrow();
@@ -281,7 +281,7 @@ describe("the starter layouts", () => {
     expect(STARTER_LAYOUTS).toHaveLength(64);
     for (const layout of STARTER_LAYOUTS) {
       expect(layout).toHaveLength(8);
-      expect(layout.every((t) => rarityOf(t.plan) !== "rare")).toBe(true);
+      expect(layout.every((t) => rarityOf(t.plan) !== "mythic")).toBe(true);
       expect(layoutRefusal(layout, limits(layout, slotsOf(1)))).toBeNull();
       expect(layoutScore(layout)).toBeGreaterThan(0);
     }
@@ -401,21 +401,21 @@ describe("chests", () => {
     expect(drawChest("basic", 0, 9n).plans).toHaveLength(1);
     const draws = 2_000;
     let cobbles = 0;
-    let rares = 0;
+    let mythics = 0;
     for (let i = 0; i < draws; i++) {
       const chest = drawChest("epic", 22, BigInt(i));
       if (chest.cobbles > 0) cobbles += 1;
-      if (chest.plans.some((p) => rarityOf(p) === "rare")) rares += 1;
+      if (chest.plans.some((p) => rarityOf(p) === "mythic")) mythics += 1;
     }
     // Within about 4 standard deviations (0.009 at 2,000 draws)
     expect(Math.abs(cobbles / draws - 0.2)).toBeLessThan(0.04);
     // Without putting back by plan (#868): 24.7 % (23.0 % with putting back)
-    expect(Math.abs(rares / draws - 0.247)).toBeLessThan(0.04);
+    expect(Math.abs(mythics / draws - 0.247)).toBeLessThan(0.04);
   }, 60_000);
 
   it("offer distinct plans in a rare or epic chest, the first choice as a basic chest's, the same for the same random (#868)", () => {
     const draws = 1_000;
-    let rares = 0;
+    let mythics = 0;
     for (let i = 0; i < draws; i++) {
       const random = BigInt(i) * 0x9e3779b97f4a7c15n;
       const epic = drawChest("epic", 0, random);
@@ -423,14 +423,14 @@ describe("chests", () => {
       expect(new Set(epic.plans).size).toBe(3);
       expect(epic.plans.every(isPlanCode)).toBe(true);
       expect(rare.plans).toEqual(epic.plans.slice(0, 2));
-      if (rare.plans.some((p) => rarityOf(p) === "rare")) rares += 1;
+      if (rare.plans.some((p) => rarityOf(p) === "mythic")) mythics += 1;
       if (i < 50) {
         expect(drawChest("basic", 0, random).plans).toEqual([basePlanOf(poseidon(random, 0))]);
         expect(drawChest("epic", 0, random)).toEqual(epic);
       }
     }
     // 972,105 / 5,868,128 = 16.6 % (16.0 % with putting back); about 4 standard deviations (0.012) at 1,000 draws
-    expect(Math.abs(rares / draws - 0.166)).toBeLessThan(0.05);
+    expect(Math.abs(mythics / draws - 0.166)).toBeLessThan(0.05);
   }, 60_000);
 });
 
@@ -442,21 +442,21 @@ describe("the daily shop", () => {
     expect(new Set(offers.map((o) => o.plan)).size).toBe(3);
     expect(shopOffers(day)).toEqual(offers);
     for (const o of offers) expect(o.price).toBe(SHOP_PRICES[rarityOf(o.plan)]);
-    expect(SHOP_PRICES).toEqual({ common: 10, uncommon: 20, rare: 50 });
+    expect(SHOP_PRICES).toEqual({ common: 10, uncommon: 20, mythic: 50 });
     expect(shopEndsAt(day)).toBe((day + 1) * 86_400);
   });
 
-  it("changes with the day, a rare about one day in six", () => {
+  it("changes with the day, a mythic about one day in six", () => {
     let changed = 0;
-    let rare = 0;
+    let mythic = 0;
     const days = 600;
     for (let day = 0; day < days; day++) {
       if (shopOffers(day).map((o) => o.plan).join() !== shopOffers(day + 1).map((o) => o.plan).join()) changed += 1;
-      if (shopOffers(day).some((o) => o.rarity === "rare")) rare += 1;
+      if (shopOffers(day).some((o) => o.rarity === "mythic")) mythic += 1;
     }
     expect(changed).toBeGreaterThan(days * 0.99);
-    // 1 - C(15, 3) / C(19, 3) = 52.4 % of days show a rare; each rare shows 3 / 19 of days, about one in six
-    expect(Math.abs(rare / days - 0.524)).toBeLessThan(0.08);
+    // 1 - C(15, 3) / C(19, 3) = 52.4 % of days show a mythic; each mythic shows 3 / 19 of days, about one in six
+    expect(Math.abs(mythic / days - 0.524)).toBeLessThan(0.08);
   }, 60_000);
 });
 

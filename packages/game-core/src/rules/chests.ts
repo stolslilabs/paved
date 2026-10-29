@@ -73,7 +73,7 @@ const COBBLE_ROLL = 0x434f42424c45n; // 'COBBLE'
  * A chest opened from `random` (the VRF's on chain), its choices distinct plans drawn without putting back (#868): for choice
  * `i`, the cards of the plans already shown leave the base deck's 72, and the choice is the plan of the card at
  * `Poseidon(random, i) % left` among the cards left, in the deck's order. One draw per choice, no retry. The first choice
- * follows the base deck's odds; each next one weighs the plans not yet shown by their copies. The chance of at least one rare
+ * follows the base deck's odds; each next one weighs the plans not yet shown by their copies. The chance of at least one mythic
  * (6 of the 72 cards) is 8.3 / 16.6 / 24.7 % for 1, 2 and 3 choices (with putting back it was 8.3 / 16.0 / 23.0 %). The
  * Cobbles drop when `Poseidon(random, 'COBBLE') % 10,000` is under the chance.
  */
