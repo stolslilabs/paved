@@ -8,7 +8,7 @@ import { CarouselDots } from "../ui/carousel-dots";
 import { Icon } from "../ui/icon";
 
 export interface LeagueCarouselProps {
-  /** The league in view, `LEAGUES`' index (0 Wanderer to 22 Sovereign). */
+  /** The league in view, `LEAGUES`' index (0 Wood to 22 Grand Master). */
   selected: number;
   onSelect: (index: number) => void;
   /** The player's league (`aria-current`). */
@@ -19,7 +19,7 @@ export interface LeagueCarouselProps {
 }
 
 /**
- * The leagues one per view (#785), Wanderer to Sovereign: the arrows, a swipe, the arrow keys and the dots under it (#833, one
+ * The leagues one per view (#785), Wood to Grand Master: the arrows, a swipe, the arrow keys and the dots under it (#833, one
  * per league, the current one widened, a tap jumps there) move through them, and stop at both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
  * league in view is in the accessibility tree.
  */

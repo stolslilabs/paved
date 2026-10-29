@@ -16,7 +16,7 @@ import {
 
 /**
  * The second crest study (issue 854, after the owner's "à refaire" of the first): every league draws one object, the same base shape from
- * Wanderer to Sovereign, in a material that climbs with the groups (wood, iron, bronze, silver, gold) and with more ornaments at each
+ * Wood to Grand Master, in a material that climbs with the groups (wood, iron, bronze, silver, gold) and with more ornaments at each
  * step. Three directions carry that ladder, one object each, for the owner to pick one.
  */
 export type CrestDirection = "shield" | "helm" | "medal";
@@ -30,8 +30,8 @@ export const DIRECTIONS: readonly { id: CrestDirection; name: string; object: st
 
 /**
  * A group's step on the ladder, the same in every direction: the object's own material (`body`) and its frame's (a rim, the helm's
- * bands, the medal's edge; none on Wanderer's bare wood), the league's colour as an enamel inlay, rivets, a boss (metal, or a cut gem
- * from Earl), a coronet or a crown on top, a laurel around it, and the Sovereign's burst and side gems.
+ * bands, the medal's edge; none on Wood's bare wood), the league's colour as an enamel inlay, rivets, a boss (metal, or a cut gem
+ * from Diamond), a coronet or a crown on top, a laurel around it, and the Grand Master's burst and side gems.
  */
 export interface Rank {
   body: CrestMaterial;
@@ -48,23 +48,23 @@ export interface Rank {
 /** The ladder (issue 854's second study): each step adds a material or an ornament the eye can read. */
 export const RANKS: Record<LeagueId, Rank> = {
   // Bare wood.
-  wanderer: { body: "wood" },
+  wood: { body: "wood" },
   // Wood in an iron frame.
-  peasant: { body: "wood", frame: "iron" },
+  iron: { body: "wood", frame: "iron" },
   // Iron, riveted, with a boss.
-  yeoman: { body: "iron", frame: "iron", rivets: true, boss: "metal" },
+  bronze: { body: "iron", frame: "iron", rivets: true, boss: "metal" },
   // Bronze, and the league's colour inlaid.
-  squire: { body: "bronze", frame: "bronze", enamel: true, boss: "metal" },
+  silver: { body: "bronze", frame: "bronze", enamel: true, boss: "metal" },
   // Silver, riveted.
-  knight: { body: "silver", frame: "silver", enamel: true, rivets: true, boss: "metal" },
+  gold: { body: "silver", frame: "silver", enamel: true, rivets: true, boss: "metal" },
   // Gold, under a coronet.
-  baron: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "metal", top: "coronet" },
+  platinum: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "metal", top: "coronet" },
   // A ruby for the boss, a laurel around.
-  earl: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "gem", top: "coronet", laurel: true },
+  diamond: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "gem", top: "coronet", laurel: true },
   // A crown for the coronet.
-  duke: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "gem", top: "crown", laurel: true },
+  master: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "gem", top: "crown", laurel: true },
   // A burst behind, sapphires at the sides.
-  sovereign: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "gem", top: "crown", laurel: true, burst: true, gems: true },
+  grandmaster: { body: "gold", frame: "gold", enamel: true, rivets: true, boss: "gem", top: "crown", laurel: true, burst: true, gems: true },
 };
 
 /** A group's material, the one its name gives the eye: its frame's (the division's plate takes it too). */
@@ -111,7 +111,7 @@ interface Frame {
   gems: readonly [number, number][];
 }
 
-/** The ornaments behind the object: the Sovereign's burst, then the laurel. */
+/** The ornaments behind the object: the Grand Master's burst, then the laurel. */
 function behind(rank: Rank, f: Frame): Part[] {
   return [
     ...(rank.burst ? [{ d: star(14, 290, 244, f.cx, f.cy), tones: ["gold"] } as Part] : []),
@@ -132,7 +132,7 @@ function over(rank: Rank, f: Frame): Part[] {
   ];
 }
 
-// Shield: a heater shield, its rim the frame, its field the body or the league's enamel; Wanderer's and Peasant's of planks.
+// Shield: a heater shield, its rim the frame, its field the body or the league's enamel; Wood's and Iron's of planks.
 const SHIELD = "M96 88q160-44 320 0v124c0 112-72 176-160 208c-88-32-160-96-160-208z";
 const SHIELD_FIELD = "M148 132q108-30 216 0v84c0 80-50 128-108 154c-58-26-108-74-108-154z";
 const SHIELD_RIVETS = [circle(124, 112, 14), circle(388, 112, 14), circle(124, 200, 14), circle(388, 200, 14), circle(178, 334, 14), circle(334, 334, 14)].join("");

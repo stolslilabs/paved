@@ -84,6 +84,6 @@ export const Village: Story = { render: () => <VillageLayoutScene {...VILLAGE_LA
 export const VillageChests: Story = { render: () => <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={fn()} /> };
 export const VillageShop: Story = { render: () => <VillageShopScene {...VILLAGE_SHOP.today} onBack={fn()} /> };
 export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.twoStars} /> };
-export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.yeoman} onBack={fn()} /> };
+export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} /> };
 export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
 export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} onBack={fn()} /> };
