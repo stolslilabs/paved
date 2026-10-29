@@ -2,8 +2,15 @@ import { useRef } from "react";
 import { cn } from "../../lib/utils";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, isNight, type WheelPoint, type WheelState } from "../../data/season-wheel";
 import { Icon } from "../ui/icon";
+import { WorldIcon, type WorldIconName as Glyph } from "./world-icon";
 
-export const SEASON_ICON = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const;
+/**
+ * Each season's game icon (issue 870), in its tone: summer's sun gold, autumn's leaf orange, winter's snowflake ice, spring's
+ * seedling green; and the now badge's, by the time of day. Named glyphs, not icons, so the Font Awesome subset does not take
+ * these names: a game icon draws its own paths.
+ */
+export const SEASON_GLYPH = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const satisfies Record<string, Glyph>;
+const NOW_GLYPH = { day: "sun", night: "moon" } as const satisfies Record<string, Glyph>;
 
 // The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`): a soft gold rim (issue 634), a band of paving stones, the disc of the four
 // seasons' skies, a hub at the centre. The dial is 108 px across on a phone, 96 px on the narrowest (under 390 px, so the
@@ -90,7 +97,7 @@ function target(state: WheelState, point?: WheelPoint | null): number {
 
 /**
  * The season dial (issue 547, crafted in issue 607): a gold rim and a band of paving stones around a disc of the four seasons, each
- * quarter its season's sky, day then night, with its icon tinted by that sky. The disc turns under a pointer at the top,
+ * quarter its season's sky, day then night, with its season's game icon. The disc turns under a pointer at the top,
  * whose badge is a sun by day and a moon by night; nothing is written under it (issue 634), the button's name says it. In auto the disc
  * follows the cycle and the hub carries the auto marker; in a fixed state it rests on that season's day and the hub is a
  * pin. It always turns the same way, never back.
@@ -156,10 +163,11 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
               data-season={s}
               data-current={s === current || undefined}
               className="absolute flex size-0 items-center justify-center transition-transform ease-linear motion-reduce:transition-none"
-              style={{ left: `${ICON_AT[s].x}%`, top: `${ICON_AT[s].y}%`, transform: `rotate(${-turned}deg)`, color: `var(--season-${s}-tint)`, ...turn }}
+              style={{ left: `${ICON_AT[s].x}%`, top: `${ICON_AT[s].y}%`, transform: `rotate(${-turned}deg)`, ...turn }}
             >
-              <span className={cn("flex", s !== current && "opacity-80")} style={{ filter: "drop-shadow(0 1px 1px var(--dial-shade))" }}>
-                <Icon name={SEASON_ICON[s]} size="xs" className={ICON_SIZE} />
+              {/* A game icon carries its own outline and shadow. */}
+              <span className={cn("flex", s !== current && "opacity-80")}>
+                <WorldIcon name={SEASON_GLYPH[s]} size="inherit" className={ICON_SIZE} />
               </span>
             </span>
           ))}
@@ -182,7 +190,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: 
           className="absolute top-0 left-1/2 flex size-7.5 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full border border-card tablet:size-9"
           style={{ background: night ? "var(--dial-night)" : "var(--primary)", color: night ? "var(--dial-night-foreground)" : "var(--primary-foreground)" }}
         >
-          <Icon name={night ? "moon" : "sun"} size="xs" className="text-[1.125rem]" />
+          <WorldIcon name={NOW_GLYPH[time]} size="inherit" className="text-[1.125rem]" />
         </span>
       </span>
     </button>

@@ -35,8 +35,18 @@ export type Variant = (typeof VARIANTS)[number];
  * from the subset would draw an empty box there.
  */
 export const SCAN_WHOLE = ["src/components/ui/icon.stories.tsx"];
-/** Not icon names: `icon` here is a Button size. */
-export const SCAN_SKIP = ["src/lib/font-awesome.ts", "src/components/ui/button.tsx"];
+/**
+ * Not icon names: `icon` here is a Button size; the game icons' names (their shapes and their tones) are drawn from their own
+ * paths (#844), never from the subset.
+ */
+export const SCAN_SKIP = [
+  "src/lib/font-awesome.ts",
+  "src/components/ui/button.tsx",
+  "src/components/elements/game-icon.tsx",
+  "src/components/elements/game-icon-shapes.ts",
+  "src/components/elements/world-icon.tsx",
+  "src/components/elements/world-icon-shapes.ts",
+];
 
 const END = "};!function(c){try{";
 
@@ -105,8 +115,11 @@ export function iconLines(src: string): string[] {
   return out;
 }
 
-/** Props and keys that take a word which is also an icon's name ("ghost" button, the "home" tab): not an icon. */
-const NOT_ICON_PROPS = /\b(?:variant|size|id|tone|type|active|mode|state)\s*[=:]\s*\{?\s*"[^"]*"/g;
+/**
+ * Props and keys that take a word which is also an icon's name ("ghost" button, the "home" tab): not an icon. A `GameIcon`'s
+ * or a `WorldIcon`'s name is not one either: it draws its own paths (#844, #870).
+ */
+const NOT_ICON_PROPS = /\b(?:variant|size|id|tone|type|active|mode|state)\s*[=:]\s*\{?\s*"[^"]*"|<(?:Game|World)Icon\b[^>]*?\bname="[^"]*"/g;
 
 /**
  * The first string of each array row that starts its line (`["ticket", "Challenge games", ...],` in a table a later

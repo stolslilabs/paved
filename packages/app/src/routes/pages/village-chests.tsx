@@ -19,8 +19,8 @@ const NO_CHESTS: readonly Chest[] = [];
 
 /**
  * `/village/chests` (#739, PvP v2 step 1): the chests won and not opened yet, by rank, from `useChests` (the mock ledger in step
- * 1, #741). Open draws the chest picked (#784: the PvP ones first, then Story, or the slot tapped): its tiles (bronze one,
- * silver 2, gold 3) and the Cobbles it may hold; the tile kept (`claimChest`) goes to the inventory. The day's PvP chests left, until the next UTC day: the slots' countdown
+ * 1, #741). Open draws the chest picked (#784: the PvP ones first, then Story, or the slot tapped): its tiles (basic one,
+ * rare 2, epic 3) and the Cobbles it may hold; the tile kept (`claimChest`) goes to the inventory. The day's PvP chests left, until the next UTC day: the slots' countdown
  * ticks with the clock, and a new day reached on the page says "Ready" for `READY_S` (#759). A chest waiting opens in the scene's
  * modal on arrival (#784), and each slot says whether its chest waits or was opened (`chestSlots`). Seeing the page marks the day seen,
  * which takes the free slots off the home's badge. A source that does not serve them (the chain before step 3) says so.

@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { CLOSINGS_38, LAST_SCORED } from "../../mocks/board";
 import { ClosingFeed, ClosingLine } from "./closing-feed";
 import { BIG_NUMBER } from "../../mocks/stress";
+import { bothThemes } from "../../stories/both-themes";
 
 const meta = { title: "Containers/ClosingFeed", component: ClosingFeed, parameters: { layout: "padded" }, args: { closings: LAST_SCORED } } satisfies Meta<typeof ClosingFeed>;
 export default meta;
@@ -42,3 +43,6 @@ export const Line: Story = {
 };
 /** WRAP360: the largest structure and points a closing can show. */
 export const Stress: Story = { args: { closings: [{ category: LAST_SCORED[0].category, size: 999, points: BIG_NUMBER }, { ...LAST_SCORED[1], size: 999, points: BIG_NUMBER }] } };
+
+/** The closings' game icons in both themes (issue 870): the app's dark theme and the light scope. */
+export const TwoClosingsBothThemes: Story = { decorators: [bothThemes] };
