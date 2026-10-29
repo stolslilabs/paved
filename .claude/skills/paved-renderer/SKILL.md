@@ -69,6 +69,12 @@ with `docs/`, `scripts/` or `packages/`.
 - The **closed structures** (CLOSE-SHINE, #722, `core/closed-structures.ts`, `GameScene.setClosedStructures`) draw through the
   same tick: `TileRenderer.update` reports `animating` while a structure pulses or a sweep crosses one, and for one frame after;
   between sweeps, nothing. Their term reads FEATURE-HL's labels (`LABEL_GLSL`) and never dims the board (doc 5.11).
+- The **first-person walk** (V4-WALK-1, #876; stories only until its PR 2 wires the home) holds the camera from
+  `GameScene.startWalk` to the end of `stopWalk`'s lift: the tick calls the walk's `update` instead of `controls.update()` (the
+  orbit controls are disabled), and draws only while the walker moves, turns or eases. Its ground (`core/walk-map.ts`), the walker
+  (`core/walker.ts`, never a solid voxel in its cylinder) and the camera's eases (`core/walk.ts`) are a chunk of its own; its
+  settings and the keys' mapping (`core/walk-settings.ts`) are eager. While walking, no tap or hover reaches the board, the frame
+  (`fitCamera`) waits, and the outlines are drawn as at `CLOSEST_DISTANCE`.
 - Moving or adding a shadow caster also calls `requestShadowUpdate()`: the shadow map is redrawn only with the next frame
   after that. Tiles are the only casters.
 - `renderFrame()` recomputes the outline stroke only when the tile's on-screen size, the opening tile size S, the pixel
