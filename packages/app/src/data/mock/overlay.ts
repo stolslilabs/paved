@@ -1,6 +1,7 @@
 import { IndexerError, ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
+import { dailiesDone, gamesUpTo, needsMockDailies, surrenderedOnDay, withMockDailies, withMockDailyProgress } from "./dailies";
 import type { MockLedger, MockedReads } from "./ledger";
 
 // The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the
@@ -54,13 +55,14 @@ export const MOCKED_GAME_READS = [
   "attackV2",
   "attackV2Of",
   "matchesV2",
+  "dailyMilestones",
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers; `pavedBalance` and `usdcBalance` are the chain's, adjusted by the mock's moves. */
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers. */
-export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
+export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
 
 /**
  * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
@@ -175,9 +177,39 @@ export function mockEconomyViews(chain: EconomyViews, ledger: MockLedger): Econo
   });
 }
 
-/** The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no route). */
+/**
+ * The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no
+ * route), and the fifth daily of #869 in the definitions and each day's progress (`dailies.ts`). The ledger counts a day's
+ * dailies done through it for the milestones' claims.
+ */
 export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerClient {
-  return overlay(chain, ["definitions", "playerReferrals", "playerAttacks", "playerAttack", "player"], {
+  const definitions = async () => {
+    const answer = await chain.definitions();
+    return { ...answer, data: ledger.definitions(withMockDailies(answer.data)) };
+  };
+  const playerQuests = async (playerId: string | bigint, params: { day?: number } = {}) => {
+    const [answer, defined] = await Promise.all([chain.playerQuests(playerId, params), chain.definitions()]);
+    if (!needsMockDailies(defined.data, answer.data)) return answer;
+    const day = answer.data.day;
+    const games = await gamesUpTo(day, async (before) => (await chain.playerGames(playerId, { contract: "challenge", limit: 100, ...(before ? { before } : {}) })).data);
+    // The games surrendered that day long after their start (#869): past the pages read, each read by its id.
+    const surrenders = ledger.surrenders(String(playerId));
+    const older = await Promise.all(
+      surrenderedOnDay(day, games, surrenders).map((id) =>
+        chain.game("challenge", id).then(
+          (a) => a.data,
+          () => null,
+        ),
+      ),
+    );
+    return { ...answer, data: withMockDailyProgress(defined.data, answer.data, [...games, ...older.filter((g) => g !== null)], surrenders) };
+  };
+  ledger.countDailiesWith(async (playerId, day) => {
+    const [defined, progress] = await Promise.all([definitions(), playerQuests(playerId, { day })]);
+    return dailiesDone(defined.data, progress.data);
+  });
+  return overlay(chain, ["definitions", "playerQuests", "playerReferrals", "playerAttacks", "playerAttack", "player"], {
+    playerQuests,
     playerAttack: async (attacker: string | bigint, id: number) => {
       const row = ledger.attacksOf(String(attacker), "attacker").find((a) => a.id === id);
       if (!row) throw new IndexerError("not-found", "attack not found", { httpStatus: 404 });
@@ -194,10 +226,7 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
       const head = await chain.head();
       return { ...head, data: ledger.attacksOf(String(playerId), side).slice(0, params.limit ?? 50) };
     },
-    definitions: async () => {
-      const answer = await chain.definitions();
-      return { ...answer, data: ledger.definitions(answer.data) };
-    },
+    definitions,
     playerReferrals: async (playerId: string | bigint) => {
       const head = await chain.head();
       return { ...head, data: ledger.referrals(String(playerId)) };
@@ -211,12 +240,21 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
  */
 export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger): T {
   const writes = ledger.writesFor(writer.address);
-  return overlay(writer, MOCKED_WRITES, {
+  return overlay(writer, [...MOCKED_WRITES, "surrender"], {
+    // The chain's surrender, its time recorded once taken (#869): the indexer has none for a game over on a later day than its
+    // start, and the fifth daily counts the game on it.
+    surrender: async (key: GameKey) => {
+      const result = await writer.surrender(key);
+      if (key.mode === "challenge") await ledger.recordSurrender(writer.address, key.gameId);
+      return result;
+    },
     claim: writes.claim,
     claimQuest: writes.claimQuest,
     claimAchievement: writes.claimAchievement,
     claimDailyCredit: writes.claimDailyCredit,
     claimWeeklyCredit: writes.claimWeeklyCredit,
+    // The day's milestones (#869): the ledger's until the contracts have them (#738)
+    claimDailyMilestone: writes.claimDailyMilestone,
     // The writer's signature (`buySkin(request, views)`): the price is the ledger's, read inside its own send.
     buySkin: (request: Parameters<GameSigner["buySkin"]>[0]) => writes.buySkin(request),
     setSkins: writes.setSkins,
