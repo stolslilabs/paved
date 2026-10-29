@@ -103,7 +103,7 @@ export function VaultScene(props: VaultSceneProps) {
   const nothing = none && balance === 0n;
   return (
     <TabPage tab="vault" title="Vault" onBack={props.onBack} onNavigate={props.onNavigate}>
-      {/* The page's first line (ONE-HEADER, #781: no subtitle, nothing but the home's balances in the header): what the Vault does, and the wallet's PAVED. */}
+      {/* The page's first line (ONE-HEADER, #781: no subtitle, nothing but the Vault's PAVED and vPAVED in the header, #855): what the Vault does, and the wallet's PAVED. */}
       <div className="flex items-end justify-between gap-3">
         <p className="text-sm text-muted-foreground">{INTRO}</p>
         <span className="flex shrink-0 flex-col items-end text-xs text-muted-foreground">
