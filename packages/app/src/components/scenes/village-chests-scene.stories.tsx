@@ -29,18 +29,18 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Arrival with 3 chests ready (#784): the modal opens, the gold chest shakes at its centre, "Tap to open". */
+/** Arrival with 3 chests ready (#784): the modal opens, the epic chest shakes at its centre, "Tap to open". */
 export const Waiting: Story = { args: VILLAGE_CHESTS.waiting };
 /** The tap: its draw on its way (the VRF), the chest shakes on. */
 export const Opening: Story = { args: VILLAGE_CHESTS.opening };
-/** The lid burst with light in the gold's colour: keep one of 3 tiles, each with its rarity and how many are held. */
-export const Gold: Story = { args: VILLAGE_CHESTS.gold };
-/** A tile chosen in the gold chest: Keep. */
-export const GoldChosen: Story = { args: VILLAGE_CHESTS.goldChosen };
-/** A silver chest: one of 2. */
-export const Silver: Story = { args: VILLAGE_CHESTS.silver };
-/** A bronze chest: one tile, no choice. */
-export const Bronze: Story = { args: VILLAGE_CHESTS.bronze };
+/** The lid burst with light in the epic's colour: keep one of 3 tiles, each with its rarity and how many are held. */
+export const Epic: Story = { args: VILLAGE_CHESTS.epic };
+/** A tile chosen in the epic chest: Keep. */
+export const EpicChosen: Story = { args: VILLAGE_CHESTS.epicChosen };
+/** A rare chest: one of 2. */
+export const Rare: Story = { args: VILLAGE_CHESTS.rare };
+/** A basic chest: one tile, no choice. */
+export const Basic: Story = { args: VILLAGE_CHESTS.basic };
 /** A chest that held Cobbles besides its tiles. */
 export const CobblesWon: Story = { args: VILLAGE_CHESTS.cobbles };
 /** The choice on its way. */
@@ -53,9 +53,9 @@ export const TakenLast: Story = { args: VILLAGE_CHESTS.takenLast };
 export const StoryChest: Story = { args: VILLAGE_CHESTS.story };
 /** The chain refused: what happened, in the modal, until dismissed. */
 export const Refused: Story = { args: VILLAGE_CHESTS.refused };
-/** The page, the modal closed: slot 1 opened (a grey, disabled chest), slot 2 won (silver, a tap opens it), slot 3 free. */
+/** The page, the modal closed: slot 1 opened (a grey, disabled chest), slot 2 won (rare, a tap opens it), slot 3 free. */
 export const Slots: Story = { args: VILLAGE_CHESTS.slots };
-/** The silver chest drawn, the modal closed before its choice: the slots wait, "keep one of its tiles before the next chest". */
+/** The rare chest drawn, the modal closed before its choice: the slots wait, "keep one of its tiles before the next chest". */
 export const OpenPending: Story = { args: VILLAGE_CHESTS.openPending };
 /** The modal closed with 3 chests ready: the won slots in their ranks' colours, "Open your chests". */
 export const Closed: Story = { args: VILLAGE_CHESTS.closed };
@@ -91,7 +91,7 @@ function useTicking(start: number, resetsAt: number) {
   return { now, ready: reset && now < resetsAt + READY_S, resetsAt: reset ? resetsAt + DAY : resetsAt, reset };
 }
 
-/** The fakes played: arrive, open each chest in the modal (the draw takes a moment), keep a tile; the gold one holds Cobbles. */
+/** The fakes played: arrive, open each chest in the modal (the draw takes a moment), keep a tile; the epic one holds Cobbles. */
 function Playground(props: VillageChestsSceneProps) {
   const clock = useTicking(props.now ?? TOMORROW - 3600, props.resetsAt ?? TOMORROW);
   const [chests, setChests] = useState(CHESTS);
@@ -105,7 +105,7 @@ function Playground(props: VillageChestsSceneProps) {
     setOpening(id);
     setTimeout(() => {
       setOpening(null);
-      setOpened({ chestId: id, draw: { rank: chest.rank, plans: DRAWS.slice(0, CHEST_CHOICES[chest.rank]), cobbles: chest.rank === "gold" ? 50 : null } });
+      setOpened({ chestId: id, draw: { rank: chest.rank, plans: DRAWS.slice(0, CHEST_CHOICES[chest.rank]), cobbles: chest.rank === "epic" ? 50 : null } });
     }, 700);
   };
   const take = (id: number, index: number) => {

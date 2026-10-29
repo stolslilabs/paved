@@ -105,7 +105,7 @@ export interface ChestIconProps {
   rank: ChestRank;
   /** 24 px (`md`) by default. */
   size?: ChestIconSize;
-  /** The accessible name: the chest's ("Gold chest") by default; `null` makes the icon decorative, hidden from assistive technology. */
+  /** The accessible name: the chest's ("Epic chest") by default; `null` makes the icon decorative, hidden from assistive technology. */
   label?: string | null;
   className?: string;
 }
@@ -114,7 +114,7 @@ export interface ChestIconProps {
  * A chest's simple version (issue 874's proposal 3), to show as an icon (the battle logs, the attack's end, `ChestBadge`, the
  * explanations): Font Awesome's `treasure-chest` (the voxel direction its own blocks) in the rank's tones, its ornaments simplified,
  * in the game icons' relief. One SVG of its own paths, `GameIcon`'s box (1.25em by 1em), crisp from 16 to 48 px. The ranks differ by
- * their ornaments as well as their colours: bronze plain, silver studded, gold jewelled with a glint.
+ * their ornaments as well as their colours: basic plain, rare studded, epic jewelled with a glint.
  */
 export function ChestIcon({ direction, rank, size = "md", label, className }: ChestIconProps) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");

@@ -29,15 +29,15 @@ describe("the chests (#874, the study)", () => {
     }
   });
 
-  it("grow their ornaments with the rank: each rank has more parts than the one below, gold has gems", () => {
+  it("grow their ornaments with the rank: each rank has more parts than the one below, epic has gems", () => {
     for (const d of DIRECTIONS) {
       for (const version of ["icon", "art"] as const) {
-        const [bronze, silver, gold] = CHEST_RANKS.map((r) => chestParts(d, r, version).length);
-        expect(silver, `${d} ${version}`).toBeGreaterThan(bronze!);
-        expect(gold, `${d} ${version}`).toBeGreaterThan(silver!);
+        const [basic, rare, epic] = CHEST_RANKS.map((r) => chestParts(d, r, version).length);
+        expect(rare, `${d} ${version}`).toBeGreaterThan(basic!);
+        expect(epic, `${d} ${version}`).toBeGreaterThan(rare!);
       }
-      expect(chestParts(d, "gold", "art").some((p) => ["ruby", "sapphire", "emerald"].includes(p.tone)), d).toBe(true);
-      expect(chestParts(d, "bronze", "art").some((p) => ["ruby", "sapphire", "emerald"].includes(p.tone)), d).toBe(false);
+      expect(chestParts(d, "epic", "art").some((p) => ["ruby", "sapphire", "emerald"].includes(p.tone)), d).toBe(true);
+      expect(chestParts(d, "basic", "art").some((p) => ["ruby", "sapphire", "emerald"].includes(p.tone)), d).toBe(false);
     }
   });
 
@@ -58,11 +58,11 @@ describe("the chests (#874, the study)", () => {
     expect(window.FontAwesome).toBeUndefined();
     const { container } = render(
       <>
-        <ChestIcon direction="coffer" rank="gold" />
-        <ChestIcon direction="coffer" rank="gold" label={null} />
+        <ChestIcon direction="coffer" rank="epic" />
+        <ChestIcon direction="coffer" rank="epic" label={null} />
       </>,
     );
-    const svg = screen.getByRole("img", { name: "Gold chest" });
+    const svg = screen.getByRole("img", { name: "Epic chest" });
     expect(svg).toHaveAttribute("data-direction", "coffer");
     expect(container.querySelectorAll("svg")[1]).toHaveAttribute("aria-hidden", "true");
     const ids = [...container.querySelectorAll("linearGradient, mask")].map((g) => g.id);
@@ -73,7 +73,7 @@ describe("the chests (#874, the study)", () => {
 
   it("open the detailed art: the light and the inside show only once open, the opened chest is grey and dark", async () => {
     const at = async (state: ChestArtState, reduced = false) => {
-      const { container, unmount } = render(wrap(<ChestArt direction="voxel" rank="silver" state={state} />, reduced));
+      const { container, unmount } = render(wrap(<ChestArt direction="voxel" rank="rare" state={state} />, reduced));
       await act(async () => {});
       const svg = container.querySelector("svg")!;
       const out = {
@@ -95,7 +95,7 @@ describe("the chests (#874, the study)", () => {
     expect((await at("rest", true)).shine).toBe(false);
     // Reduced motion: the opening's light fades in, it does not show at once.
     {
-      const { container, unmount } = render(wrap(<ChestArt direction="wood" rank="gold" state="opening" />, true));
+      const { container, unmount } = render(wrap(<ChestArt direction="wood" rank="epic" state="opening" />, true));
       const svg = container.querySelector("svg")!;
       const lights = [...svg.querySelectorAll<SVGElement>('[data-part="burst"] > *, [data-part="sparks"]')];
       expect(lights.length).toBe(3);
