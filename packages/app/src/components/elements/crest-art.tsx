@@ -5,8 +5,31 @@ import { DROP, mix, OUTLINE, RIM, type GameTone } from "./game-icon";
 import { GAME_ICON_SHAPES } from "./game-icon-shapes";
 import { CREST_SHAPES, type CrestShapeName } from "./league-crest-shapes";
 
-/** A part's tone: a game icon's, or `league`, the crest's own group colour (`--league-*`, theme.css 3d). */
-export type CrestTone = Exclude<GameTone, "current"> | "league";
+/** The crest directions' materials (issue 854's second study): the ladder's wood to gold. */
+export type CrestMaterial = "wood" | "iron" | "bronze" | "silver" | "gold";
+
+/** A part's tone: a game icon's, a material's (`MATERIAL_BASES`), or `league`, the crest's own group colour (`--league-*`, theme.css 3d). */
+export type CrestTone = Exclude<GameTone, "current"> | CrestMaterial | "league";
+
+/**
+ * The materials' bases, mixed from the game icons' tones (theme.css 3f) rather than given tokens of their own: a `color-mix` in
+ * theme.css costs the stylesheet its fallback too, and the CSS budget has no room for a study. Wood is the icons' wood darkened,
+ * bronze the same wood a little shaded, iron their stone, silver their steel with a touch of blue, gold their gold.
+ */
+export const MATERIAL_BASES: Record<CrestMaterial, string> = {
+  wood: "color-mix(in oklab, var(--game-wood) 50%, var(--game-ink))",
+  iron: "var(--game-stone)",
+  bronze: "color-mix(in oklab, var(--game-wood) 85%, var(--game-ink))",
+  silver: "color-mix(in oklab, var(--game-steel) 85%, var(--game-blue))",
+  gold: "var(--game-gold)",
+};
+
+/** A tone's base colour, for a crest of `league`. */
+export function crestBase(tone: CrestTone, league: LeagueId): string {
+  if (tone === "league") return `var(--league-${league})`;
+  if (tone === "light") return "var(--game-light)";
+  return tone in MATERIAL_BASES ? MATERIAL_BASES[tone as CrestMaterial] : `var(--game-${tone})`;
+}
 
 /** Where a Font Awesome shape sits: its centre, its scale (1 is 512 units high), a turn in degrees, a mirror. */
 interface Place {
@@ -17,17 +40,20 @@ interface Place {
   flip?: boolean;
 }
 
-/** A crest's part: a Font Awesome shape (its subpaths in `tones`, a missing tone repeating the last), or a path drawn for Paved. */
-type Part = ({ shape: CrestShapeName | "swords"; at: Place } | { d: string }) & { tones: readonly CrestTone[] };
+/**
+ * A crest's part: a Font Awesome shape (its subpaths in `tones`, a missing tone repeating the last), or a path drawn for Paved. `w` scales
+ * its outline (an inlay inside another part takes a thinner one); a `flat` part is a groove, the outline's ink of its tone, with no relief.
+ */
+export type Part = ({ shape: CrestShapeName | "swords"; at: Place } | { d: string }) & { tones: readonly CrestTone[]; w?: number; flat?: boolean };
 
 const shapeOf = (name: CrestShapeName | "swords") => (name === "swords" ? GAME_ICON_SHAPES.swords : CREST_SHAPES[name]);
 
 // The drawn parts, on the crests' 512 grid. A circle: two half arcs; reversed (`hole`), it cuts a ring out of the one before.
-const circle = (x: number, y: number, r: number, hole = false) => `M${x - r} ${y}a${r} ${r} 0 1 ${hole ? 1 : 0} ${2 * r} 0a${r} ${r} 0 1 ${hole ? 1 : 0}-${2 * r} 0z`;
+export const circle = (x: number, y: number, r: number, hole = false) => `M${x - r} ${y}a${r} ${r} 0 1 ${hole ? 1 : 0} ${2 * r} 0a${r} ${r} 0 1 ${hole ? 1 : 0}-${2 * r} 0z`;
 /** A cut gem, a diamond of half-width `r` (the Sovereign's). */
-const diamond = (x: number, y: number, r: number) => `M${x} ${y - r}l${r} ${r}-${r} ${r}-${r}-${r}z`;
+export const diamond = (x: number, y: number, r: number) => `M${x} ${y - r}l${r} ${r}-${r} ${r}-${r}-${r}z`;
 /** A star of `n` points (`out` to the tips, `inner` to the notches), pointing up: the Sovereign's burst. */
-function star(n: number, out: number, inner: number, x = 256, y = 240): string {
+export function star(n: number, out: number, inner: number, x = 256, y = 240): string {
   const pts = Array.from({ length: 2 * n }, (_, i) => {
     const a = (Math.PI * i) / n - Math.PI / 2;
     const r = i % 2 ? inner : out;
@@ -36,7 +62,7 @@ function star(n: number, out: number, inner: number, x = 256, y = 240): string {
   return `M${pts.join("L")}z`;
 }
 /** A small coronet, `w` wide with its foot at (x, y): a band, three points, a pearl on each (the Baron's, the Earl's). */
-function coronet(x: number, y: number, w: number): string {
+export function coronet(x: number, y: number, w: number): string {
   const h = w / 4;
   const l = x - w / 2;
   const q = w / 4;
@@ -123,31 +149,43 @@ const PLATE_TONE: Record<LeagueId, CrestTone> = {
   sovereign: "gold",
 };
 /** The division's plate and its studs: the plate as wide as its studs need. */
-export function divisionParts(league: LeagueId, division: CrestDivision): Part[] {
+export function divisionParts(league: LeagueId, division: CrestDivision, tone: CrestTone = PLATE_TONE[league]): Part[] {
   const n = STUDS[division];
   const gap = 92;
   const w = n * gap + 48;
   const plate = `M${256 - w / 2 + 46} 404h${w - 92}a46 46 0 0 1 0 92h-${w - 92}a46 46 0 0 1 0-92z`;
   const studs = Array.from({ length: n }, (_, i) => circle(256 + (i - (n - 1) / 2) * gap, 450, 30)).join("");
   return [
-    { d: plate, tones: [PLATE_TONE[league]] },
-    { d: studs, tones: [PLATE_TONE[league] === "gold" ? "red" : "light"] },
+    { d: plate, tones: [tone] },
+    { d: studs, tones: [tone === "gold" ? "red" : "light"] },
   ];
 }
 
-/** A part ready to draw: its path (one per tone run), its tone, its transform onto the crest's grid and that transform's scale. */
+/**
+ * A part ready to draw: its path (one per tone run), its tone, its transform onto the crest's grid and that transform's scale (`k`,
+ * its outline's factor folded in), and whether it is a flat groove.
+ */
 export interface CrestPath {
   d: string;
   tone: CrestTone;
   t?: string;
   k: number;
+  flat?: boolean;
 }
+
+/** Whether a group has divisions: Peasant to Duke. */
+export const hasDivisions = (league: LeagueId) => league !== "wanderer" && league !== "sovereign";
 
 /** The crest's parts in drawing order. */
 export function crestParts(league: LeagueId, division?: CrestDivision): CrestPath[] {
-  const parts = division && league !== "wanderer" && league !== "sovereign" ? [...CRESTS[league], ...divisionParts(league, division)] : CRESTS[league];
-  return parts.flatMap((part) => {
-    if ("d" in part) return [{ d: part.d, tone: part.tones[0]!, k: 1 }];
+  return resolveParts(division && hasDivisions(league) ? [...CRESTS[league], ...divisionParts(league, division)] : CRESTS[league]);
+}
+
+/** Parts to paths: a drawn part as is, a shape's subpaths joined by tone run and placed on the crest's grid. */
+export function resolveParts(parts: readonly Part[]): CrestPath[] {
+  return parts.flatMap((part): CrestPath[] => {
+    const w = part.w ?? 1;
+    if ("d" in part) return [{ d: part.d, tone: part.tones[0]!, k: 1 / w, ...(part.flat && { flat: true }) }];
     const shape = shapeOf(part.shape);
     const t = transformOf(part.at, shape.width);
     const out: CrestPath[] = [];
@@ -155,7 +193,7 @@ export function crestParts(league: LeagueId, division?: CrestDivision): CrestPat
       const tone = part.tones[Math.min(i, part.tones.length - 1)]!;
       const last = out[out.length - 1];
       if (last && last.tone === tone) last.d += d;
-      else out.push({ d, tone, t, k: part.at.s });
+      else out.push({ d, tone, t, k: part.at.s / w });
     });
     return out;
   });
@@ -191,11 +229,25 @@ export interface CrestArtProps {
  * studs at its foot. One SVG of its own paths, 1em square, crisp from 24 to 96 px. The study of issue 854's first pull request (Storybook);
  * its second draws `LeagueCrest` with it.
  */
-export function CrestArt({ league, division, size = "md", label, className }: CrestArtProps) {
+export function CrestArt({ league, division, ...frame }: CrestArtProps) {
+  return <CrestSvg {...frame} slot="crest-art" league={league} division={division} parts={crestParts(league, division)} />;
+}
+
+export interface CrestSvgProps extends Omit<CrestArtProps, "league" | "division"> {
+  league: LeagueId;
+  division?: CrestDivision;
+  parts: readonly CrestPath[];
+  /** Its `data-slot`; other data attributes (a direction's name) go in `data`. */
+  slot: string;
+  data?: Record<`data-${string}`, string>;
+}
+
+/** A crest's SVG, any drawing's: its parts in the game icons' relief, 1em square on the crests' 512 grid. */
+export function CrestSvg({ league, division, parts, size = "md", label, className, slot, data }: CrestSvgProps) {
   const rem = SIZE_REM[size];
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const base = (tone: CrestTone) => (tone === "league" ? `var(--league-${league})` : tone === "light" ? "var(--game-light)" : `var(--game-${tone})`);
-  const parts = crestParts(league, division);
+  const base = (tone: CrestTone) => crestBase(tone, league);
+  const raised = parts.flatMap((p, i) => (p.flat ? [] : [{ p, i }]));
   return (
     <svg
       {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
@@ -204,21 +256,22 @@ export function CrestArt({ league, division, size = "md", label, className }: Cr
       height="1em"
       overflow="visible"
       focusable="false"
-      data-slot="crest-art"
+      data-slot={slot}
       data-league={league}
       data-division={division}
+      {...data}
       className={cn("inline-block shrink-0 align-[-0.125em]", className)}
       style={rem === null ? undefined : { fontSize: `${rem}rem` }}
     >
       <defs>
-        {[...new Set(parts.map((p) => p.tone))].map((t) => (
+        {[...new Set(raised.map(({ p }) => p.tone))].map((t) => (
           <linearGradient key={t} id={`${id}${t}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" style={{ stopColor: mix(base(t), "hi") }} />
             <stop offset="0.45" style={{ stopColor: mix(base(t), "mid") }} />
             <stop offset="1" style={{ stopColor: mix(base(t), "lo") }} />
           </linearGradient>
         ))}
-        {parts.map((p, i) => (
+        {raised.map(({ p, i }) => (
           // The light along the upper edges: the part, less itself moved down (on the crest's grid, whatever the shape's turn).
           <mask key={i} id={`${id}r${i}`} maskUnits="userSpaceOnUse" x="-256" y="-256" width="1024" height="1024">
             <path d={p.d} transform={p.t} fill="white" />
@@ -228,19 +281,23 @@ export function CrestArt({ league, division, size = "md", label, className }: Cr
       </defs>
       {/* The shadow: the whole crest, outline included, dropped; one layer at low opacity, so overlaps do not darken. */}
       <g transform={`translate(0 ${DROP})`} opacity={0.45} style={{ fill: "var(--game-ink)", stroke: "var(--game-ink)" }} strokeLinejoin="round">
-        {parts.map((p, i) => (
+        {raised.map(({ p, i }) => (
           <path key={i} d={p.d} transform={p.t} strokeWidth={OUTLINE / p.k} />
         ))}
       </g>
-      {parts.map((p, i) => (
-        <g key={i}>
-          <path d={p.d} transform={p.t} style={{ fill: mix(base(p.tone), "edge"), stroke: mix(base(p.tone), "edge") }} strokeWidth={OUTLINE / p.k} strokeLinejoin="round" />
-          <path d={p.d} transform={p.t} fill={`url(#${id}${p.tone})`} />
-          <g mask={`url(#${id}r${i})`} opacity={0.55}>
-            <path d={p.d} transform={p.t} style={{ fill: "var(--game-light)" }} />
+      {parts.map((p, i) =>
+        p.flat ? (
+          <path key={i} d={p.d} transform={p.t} style={{ fill: mix(base(p.tone), "edge") }} />
+        ) : (
+          <g key={i}>
+            <path d={p.d} transform={p.t} style={{ fill: mix(base(p.tone), "edge"), stroke: mix(base(p.tone), "edge") }} strokeWidth={OUTLINE / p.k} strokeLinejoin="round" />
+            <path d={p.d} transform={p.t} fill={`url(#${id}${p.tone})`} />
+            <g mask={`url(#${id}r${i})`} opacity={0.55}>
+              <path d={p.d} transform={p.t} style={{ fill: "var(--game-light)" }} />
+            </g>
           </g>
-        </g>
-      ))}
+        ),
+      )}
     </svg>
   );
 }
