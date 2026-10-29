@@ -9,7 +9,7 @@ function Corner({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-32 flex-col items-start gap-3 bg-gradient-to-b from-background/40 to-board p-2 tablet:p-4">{children}</div>;
 }
 
-/** Wanderer, then each group's floor up to Sovereign, on a loop: the crest turns to each new colour with a ring's pulse. */
+/** Wood, then each group's floor up to Grand Master, on a loop: the crest turns to each new colour with a ring's pulse. */
 const PROMOTIONS = [0, ...[0, 3, 6, 9, 12, 15, 18, 21].map((i) => LEAGUE_FLOORS[i]!)];
 function Promoting() {
   const [i, setI] = useState(0);
@@ -42,12 +42,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Before PvP: 0 crowns, Wanderer's grey crest. */
+/** Before PvP: 0 crowns, Wood's grey crest. */
 export const Unranked: Story = { args: { crowns: 0 } };
 /** A mid league (1,240 crowns): the crest in its group's colour. */
 export const MidLeague: Story = {};
-/** The top league: Sovereign's crest. */
-export const Sovereign: Story = { args: { crowns: 5_320 } };
+/** The top league: Grand Master's crest. */
+export const GrandMaster: Story = { args: { crowns: 5_320 } };
 /** WRAP360: a five-digit crown count. */
 export const Stress: Story = { args: { crowns: 12_345 } };
 /** Both fixed sizes, one under the other: the phone's (a 32 px box, 40 px ends) and `desktop`'s (36, 44). */

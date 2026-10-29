@@ -7,7 +7,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
-/** The 23 leagues of #644 (Wanderer, Peasant III to Duke I, Sovereign), at each size. */
+/** The 23 leagues of #644 (Wood, Iron III to Master I, Grand Master), at each size. */
 export const All: Story = {
   render: () => (
     <div className="flex flex-col gap-3">

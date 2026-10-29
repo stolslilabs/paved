@@ -17,7 +17,7 @@ import { readIcon, ROOT, roundPath, SOURCE, splitPath } from "./game-icons.ts";
 
 export const CREST_SHAPES_PATH = join(ROOT, "src/components/elements/league-crest-shapes.ts");
 
-/** The crests' Font Awesome shapes (solid), by name: #854's motifs, Wanderer to Sovereign. */
+/** The crests' Font Awesome shapes (solid), by name: #854's motifs, Wood to Grand Master. */
 export const CREST_SHAPE_NAMES = ["bow-arrow", "crown", "flag-swallowtail", "helmet-battle", "sack", "shield", "staff", "sword", "wheat"] as const;
 
 export function buildCrestShapes(source: string = readFileSync(SOURCE, "utf8")): string {

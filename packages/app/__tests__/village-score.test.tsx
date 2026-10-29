@@ -106,6 +106,43 @@ describe("the home's village score (#831)", () => {
   });
 });
 
+// V4-VILLAGE-POINTS-SIZE: folded and unfolded, the box keeps one width (jsdom has no layout: the measure is the `SameWidth`
+// story's, in a browser; here, what makes it hold). An invisible row of no height, laid out as the kinds' rows, stays in the box
+// in both states: the kinds' longest name and a figure as wide as the total, which every sum is under.
+describe("the village score's width (V4-VILLAGE-POINTS-SIZE)", () => {
+  const sizer = () => document.querySelector<HTMLElement>("[data-slot=village-score] > [data-slot=village-score-sizer]");
+
+  it("keeps the sizer, folded and unfolded: the kinds' row, every name, the total's figure, hidden and of no height", async () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
+    const folded = sizer()!;
+    expect(folded).toHaveAttribute("aria-hidden", "true");
+    expect(folded).toHaveClass("invisible", "h-0");
+    const row = folded.firstElementChild!;
+    // Its words are drawn from `data-text`: none is the DOM's text, so the total and the kinds read once.
+    expect(row.textContent).toBe("");
+    const drawn = [...row.querySelectorAll("[data-text]")].map((el) => el.getAttribute("data-text"));
+    for (const name of ["Roads", "Cities", "Forests", "Wonders", "Other"]) expect(drawn).toContain(name);
+    expect(row.querySelector(".numeric")!.getAttribute("data-text")).toBe(formatInteger(HOME_VILLAGE.view.village.score));
+    expect(screen.getAllByText(formatInteger(HOME_VILLAGE.view.village.score))).toHaveLength(1);
+    await userEvent.click(total());
+    const list = await kinds();
+    expect(sizer()).toBe(folded);
+    // The sizer's row and the kinds' rows lay out alike: the same row classes, the same sides as the list.
+    for (const li of within(list).getAllByRole("listitem")) expect(li.className).toBe(row.className);
+    expect(list).toHaveClass("px-3");
+    expect(folded).toHaveClass("px-3");
+  });
+
+  it("every sum is at most the total, so the sizer's figure is the widest a row shows", async () => {
+    for (const state of [HOME_VILLAGE.scoreOpen, HOME_VILLAGE.scoreWonder, HOME_VILLAGE.scoreKindZero]) {
+      const { unmount } = render(wrap(<HomeVillageScene {...state} />));
+      const figure = sizer()!.querySelector(".numeric")!.getAttribute("data-text")!;
+      for (const r of rows(await kinds())) expect(formatInteger(r.points).length).toBeLessThanOrEqual(figure.length);
+      unmount();
+    }
+  });
+});
+
 describe("the village score's fold kept on the device (#831, open point 2)", () => {
   afterEach(() => {
     resetScoreOpenForTests();

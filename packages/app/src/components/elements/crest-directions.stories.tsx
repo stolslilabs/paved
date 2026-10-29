@@ -13,15 +13,15 @@ const meta = {
   title: "Elements/CrestDirections",
   component: CrestDirectionArt,
   parameters: { layout: "padded" },
-  args: { direction: "shield", league: "knight", division: 2, size: "2xl" },
+  args: { direction: "shield", league: "gold", division: 2, size: "2xl" },
 } satisfies Meta<typeof CrestDirectionArt>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The nine groups, Wanderer to Sovereign, with their names (the first league of each, without its division). */
+/** The nine groups, Wood to Grand Master, with their names (the first league of each, without its division). */
 const GROUPS = LEAGUES.filter((l, i) => LEAGUES.findIndex((m) => m.id === l.id) === i).map((l) => ({ id: l.id, name: l.name.replace(/ I+$/, "") }));
-/** The groups with three divisions: Peasant to Duke. */
-const DIVIDED = GROUPS.filter((g) => g.id !== "wanderer" && g.id !== "sovereign");
+/** The groups with three divisions: Iron to Master. */
+const DIVIDED = GROUPS.filter((g) => g.id !== "wood" && g.id !== "grandmaster");
 const DIVISIONS: readonly { division: CrestDivision; name: string }[] = [
   { division: 3, name: "III" },
   { division: 2, name: "II" },
@@ -54,7 +54,7 @@ function Cell({ direction, id, name, size, division }: { direction: CrestDirecti
   );
 }
 
-/** A direction's nine crests, Wanderer to Sovereign, at 24, 40 and 96 px, on each of the home's skies. */
+/** A direction's nine crests, Wood to Grand Master, at 24, 40 and 96 px, on each of the home's skies. */
 function Ladder({ direction }: { direction: CrestDirection }) {
   const { name, object } = DIRECTIONS.find((d) => d.id === direction)!;
   return (
@@ -83,11 +83,11 @@ function Ladder({ direction }: { direction: CrestDirection }) {
 
 export const Default: Story = {};
 
-/** Proposal "Shield": a heater shield, plank wood to gold, its field in the league's enamel from Squire. */
+/** Proposal "Shield": a heater shield, plank wood to gold, its field in the league's enamel from Silver. */
 export const Shield: Story = { render: () => <Ladder direction="shield" /> };
-/** Proposal "Helm": a great helm, leather to gold, its plume in the league's colour from Squire. */
+/** Proposal "Helm": a great helm, leather to gold, its plume in the league's colour from Silver. */
 export const Helm: Story = { render: () => <Ladder direction="helm" /> };
-/** Proposal "Medal": a round medal, a wooden token to gold, its face in the league's enamel from Squire. */
+/** Proposal "Medal": a round medal, a wooden token to gold, its face in the league's enamel from Silver. */
 export const Medal: Story = { render: () => <Ladder direction="medal" /> };
 
 /** The three proposals side by side, group by group, at 40 px on the summer day sky. */
@@ -115,15 +115,15 @@ export const Compare: Story = {
 
 /** What each step adds over the one below, the same in the three proposals. */
 const GAINS: Record<LeagueId, string> = {
-  wanderer: "bare wood",
-  peasant: "wood in an iron frame",
-  yeoman: "iron, rivets, a boss",
-  squire: "bronze, the league's colour",
-  knight: "silver, rivets",
-  baron: "gold, a coronet",
-  earl: "a ruby, a laurel",
-  duke: "a crown",
-  sovereign: "a burst, sapphires",
+  wood: "bare wood",
+  iron: "wood in an iron frame",
+  bronze: "iron, rivets, a boss",
+  silver: "bronze, the league's colour",
+  gold: "silver, rivets",
+  platinum: "gold, a coronet",
+  diamond: "a ruby, a laurel",
+  master: "a crown",
+  grandmaster: "a burst, sapphires",
 };
 
 /** The ladder in words, the same in the three proposals: what each group adds. */
@@ -147,7 +147,7 @@ export const Materials: Story = {
   ),
 };
 
-/** The divisions (#863's studs, kept): Peasant to Duke in III, II and I on a plate of the group's material, per proposal, at 40 px. */
+/** The divisions (#863's studs, kept): Iron to Master in III, II and I on a plate of the group's material, per proposal, at 40 px. */
 export const Divisions: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
