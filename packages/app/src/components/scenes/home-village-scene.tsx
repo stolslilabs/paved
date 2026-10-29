@@ -33,6 +33,9 @@ const LazyVillageStage = lazy(() => import("../containers/village-stage"));
 const LazyLeagueControl = lazy(() => import("../containers/league-control").then((m) => ({ default: m.LeagueControl })));
 // The shield's plate and its popover (#806, #829): their own chunk, loaded only while the village is shielded (FIRST-LOAD).
 const LazyShieldPlate = lazy(() => import("../elements/shield-plate").then((m) => ({ default: m.ShieldPlate })));
+// The left column's scroller (#856), from the stage's chunk, which has it already (its plan and inventory scroll): no chunk of
+// its own, nothing more on the first load (FIRST-LOAD). Meanwhile the same column stands without scrolling.
+const LazyScrollRegion = lazy(() => import("../containers/village-stage").then((m) => ({ default: m.ScrollRegion })));
 
 export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
@@ -270,6 +273,10 @@ function HomeBar({ children }: { children: ReactNode }) {
   );
 }
 
+/** The left column's box (#856): its band, the gap, the padding that keeps the controls' shadows inside its scroll box. */
+const LEFT_COLUMN =
+  "absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto";
+
 /** The gap of both columns' buttons and of the bands' edges (#856), 12 px. */
 const GAP_PX = 12;
 
@@ -364,6 +371,54 @@ function ViewOverlays({
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
   const measures = useOverlayMeasures(!!props.seasonWheel);
+  // The left column's controls (#829, #856), in its scroller or, while that comes, in the same box without scrolling.
+  const leftColumn = (
+    <>
+      {/* The League control (the crowns and the crest, no name) and the shield's plate (#829). */}
+      <Suspense fallback={LEAGUE_STAND_IN}>
+        <LazyLeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+      </Suspense>
+      {props.shieldEndsAt != null && props.shieldEndsAt > now && (
+        <Suspense fallback={null}>
+          <LazyShieldPlate endsAt={props.shieldEndsAt} now={now} />
+        </Suspense>
+      )}
+      {village && (
+        // Under it (#755), the village score (#831): the total, a tap unfolds the four kinds' sums in place.
+        <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
+      )}
+      {/* The chips, in the same column (#856), clear of the right column. */}
+      <>
+        {activeGame && (
+          <button
+            type="button"
+            onClick={() => props.onResume?.(activeGame.id)}
+            aria-label={`Resume Challenge #${activeGame.id}`}
+            className="state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
+              <Icon name="play" size="xs" />
+            </span>
+            <span className="font-semibold">Resume #{activeGame.id}</span>
+            <span className="numeric hidden text-muted-foreground min-[24.5rem]:inline">{formatPoints(activeGame.score)} pts</span>
+            <Countdown expiresAt={activeGame.expiresAt} now={now} hideLabel />
+          </button>
+        )}
+        {props.spawnPaused && (
+          <span role="status" className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-warning/50 bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
+            <Icon name="circle-pause" size="xs" className="text-warning" />
+            New Challenge games are paused
+          </span>
+        )}
+        {guest && (
+          // Connect is the header's (the balances' place): the chip says why, once.
+          <span role="status" className="pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
+            Playing as a guest: connect to build your village
+          </span>
+        )}
+      </>
+    </>
+  );
   return (
     // The overlays' box (the scene's): the top row's measures and the bar's height are set on it, for the columns and the bottom.
     <div ref={measures.box} data-slot="home-overlays" className="pointer-events-none absolute inset-0">
@@ -397,56 +452,12 @@ function ViewOverlays({
       <VillageNav {...props} />
       {/*
         The left column under the profile (#829), centred between it and the dial (#856), clear of the right column. Taller than its
-        band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it, never over
-        the dial; its padding keeps the controls' shadows inside the scroll box.
+        band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it (its edge
+        fading where more waits), never over the dial; its padding keeps the controls' shadows inside the scroll box.
       */}
-      <div
-        className="absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
-      >
-        {/* The League control (the crowns and the crest, no name) and the shield's plate (#829). */}
-        <Suspense fallback={LEAGUE_STAND_IN}>
-          <LazyLeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
-        </Suspense>
-        {props.shieldEndsAt != null && props.shieldEndsAt > now && (
-          <Suspense fallback={null}>
-            <LazyShieldPlate endsAt={props.shieldEndsAt} now={now} />
-          </Suspense>
-        )}
-        {village && (
-          // Under it (#755), the village score (#831): the total, a tap unfolds the four kinds' sums in place.
-          <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
-        )}
-        {/* The chips, in the same column (#856), clear of the right column. */}
-        <>
-          {activeGame && (
-            <button
-              type="button"
-              onClick={() => props.onResume?.(activeGame.id)}
-              aria-label={`Resume Challenge #${activeGame.id}`}
-              className="state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
-                <Icon name="play" size="xs" />
-              </span>
-              <span className="font-semibold">Resume #{activeGame.id}</span>
-              <span className="numeric hidden text-muted-foreground min-[24.5rem]:inline">{formatPoints(activeGame.score)} pts</span>
-              <Countdown expiresAt={activeGame.expiresAt} now={now} hideLabel />
-            </button>
-          )}
-          {props.spawnPaused && (
-            <span role="status" className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-warning/50 bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
-              <Icon name="circle-pause" size="xs" className="text-warning" />
-              New Challenge games are paused
-            </span>
-          )}
-          {guest && (
-            // Connect is the header's (the balances' place): the chip says why, once.
-            <span role="status" className="pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
-              Playing as a guest: connect to build your village
-            </span>
-          )}
-        </>
-      </div>
+      <Suspense fallback={<div className={LEFT_COLUMN}>{leftColumn}</div>}>
+        <LazyScrollRegion className={LEFT_COLUMN}>{leftColumn}</LazyScrollRegion>
+      </Suspense>
 
       {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
       {props.seasonWheel && (

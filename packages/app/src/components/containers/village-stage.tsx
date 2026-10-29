@@ -14,6 +14,9 @@ import { layoutPoints, type Inventory, type Spot, type VillageLayout } from "./l
 import { LayoutSlotsStrip, type LayoutSlotsProps } from "./layout-slots-strip";
 import { PointsFold } from "./points-breakdown";
 
+/** The home's left column scrolls in a `ScrollRegion` taken from this chunk, which carries it already (HOME-OVERLAYS, #856). */
+export { ScrollRegion } from "../ui/scroll-region";
+
 export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown; undefined: not read yet (a placeholder sky). */
   village?: VillageLayout;
