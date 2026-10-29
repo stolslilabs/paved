@@ -36,7 +36,7 @@ export function GameIconLook({ look, name, tone, ...frame }: GameIconProps & { l
         <g key={i}>
           {outline(p)}
           <path d={p.d} style={{ fill: look === "toon" ? paint(p.tone, "mid") : `url(#${id}${p.tone})` }} />
-          {look === "gloss" && <path d={p.d} clipPath={`url(#${id}top)`} opacity={0.15} style={{ fill: "var(--foreground)" }} />}
+          {look === "gloss" && <path d={p.d} clipPath={`url(#${id}top)`} opacity={0.15} style={{ fill: "var(--game-light)" }} />}
         </g>
       ))}
     </svg>
