@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Icon } from "../ui/icon";
 import { GAME_ICON_SHAPES } from "./game-icon-shapes";
 import { GameIcon, type GameIconName, type GameIconSize, type GameTone } from "./game-icon";
-import { GAME_LOOKS, GameIconLook, type GameLook } from "./game-icon-looks";
 import { TOKEN_ICONS, TokenIcon, type TokenKind } from "./token-icon";
 import { WorldIcon, type WorldIconName } from "./world-icon";
 import { WORLD_ICON_SHAPES } from "./world-icon-shapes";
@@ -40,70 +39,21 @@ const SKIES = ["spring", "summer", "autumn", "winter"].flatMap((season) =>
 /** The "+" draws its button past its box (1.75em across, as the plates' square): room for it in a row. */
 const room = (name: GameIconName) => (name === "plus" ? { margin: "0.375em 0.25em" } : undefined);
 
-const LOOK_NAMES: Record<GameLook | "flat", string> = {
-  flat: "Flat (today's Icon)",
-  relief: "Relief: soft gradient, light on the edges",
-  gloss: "Gloss: two-step fill, light on the top half",
-  toon: "Toon: flat tones",
-};
-
-/** One row of the set in a look; `flat` draws today's Font Awesome icon in the text's gold. */
-function Row({ look }: { look: GameLook | "flat" }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-semibold text-foreground">{LOOK_NAMES[look]}</span>
-      <div className="flex flex-wrap gap-3">
-        {NAMES.map((name) =>
-          look === "flat" ? <Icon key={name} name={name} size="xl" fixedWidth className="text-primary" /> : (
-            <span key={name} style={room(name)} className="inline-flex">
-              <GameIconLook name={name} look={look} size="xl" />
-            </span>
-          ),
-        )}
-      </div>
-    </div>
-  );
-}
-
 export const Default: Story = {};
 
-/**
- * The owner's pick (#844): the three looks, and today's flat icons above them, on each of the home's skies. `relief` is the
- * default the HUD uses until the owner picks.
- */
-export const Looks: Story = {
-  render: () => (
-    <div className="flex flex-col gap-3">
-      {SKIES.map((sky) => (
-        <section key={sky.name} aria-label={sky.name} className="flex flex-col gap-3 rounded-xl p-3" style={{ background: sky.background }}>
-          <h3 className="rounded-md bg-background/70 px-1.5 text-sm font-semibold text-foreground self-start">{sky.name}</h3>
-          {(["flat", ...GAME_LOOKS] as const).map((look) => (
-            <Row key={look} look={look} />
-          ))}
-        </section>
-      ))}
-    </div>
-  ),
-};
-
-/** Every icon of the set at 16, 20, 24, 32, 48 and 64 px, in each look, on the app's surface. */
+/** Every icon of the set at 16, 20, 24, 32, 48 and 64 px, on the app's surface. */
 export const Sizes: Story = {
   render: () => (
-    <div className="flex flex-col gap-4 rounded-xl bg-background p-3 text-foreground">
-      {GAME_LOOKS.map((look) => (
-        <section key={look} aria-label={look} className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">{LOOK_NAMES[look]}</h3>
-          {NAMES.map((name) => (
-            <div key={name} className="flex flex-wrap items-end gap-3">
-              <span className="w-24 text-xs text-muted-foreground">{name}</span>
-              {SIZES.map(({ size, px }) => (
-                <span key={px} style={{ fontSize: px, ...room(name) }} className="leading-none">
-                  <GameIconLook name={name} look={look} size={size} />
-                </span>
-              ))}
-            </div>
+    <div className="flex flex-col gap-2 rounded-xl bg-background p-3 text-foreground">
+      {NAMES.map((name) => (
+        <div key={name} className="flex flex-wrap items-end gap-3">
+          <span className="w-24 text-xs text-muted-foreground">{name}</span>
+          {SIZES.map(({ size, px }) => (
+            <span key={px} style={{ fontSize: px, ...room(name) }} className="leading-none">
+              <GameIcon name={name} size={size} />
+            </span>
           ))}
-        </section>
+        </div>
       ))}
     </div>
   ),

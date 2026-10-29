@@ -5,5 +5,3 @@
 @source not "../directions";
 /* The avatar's stories (#626 PR 1) are Storybook-only too: their utilities stay out of the app's stylesheet. */
 @source not "../stories/avatar";
-/* The Cobbles cube study (#878) is Storybook-only: its utilities stay out of the app's stylesheet. */
-@source not "../components/elements/cobbles-cube.stories.tsx";
