@@ -304,16 +304,17 @@ jobs:
         shell: bash
 
   # The Training battle test (P-79, packages/app/e2e): complete games played by a bot in headless Chromium on the plan
-  # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. It needs
-  # the client job: it plays a client that built and passed its tests, and a client that does not fails there first.
-  # Every path of the e2e filter is in the client filter, so the client job runs whenever this one would.
+  # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. It runs
+  # beside the client job, not after it (PVD-228): it installs, builds and fetches its browser on its own, so waiting
+  # for the client job only added that job's time to the critical path. A client that does not build fails in both jobs;
+  # the `ci` job requires both. Every path of the e2e filter is in the client filter, so the client job runs whenever
+  # this one would.
   e2e:
-    needs: [changes, client]
+    needs: changes
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     name: Training e2e (headless)
-    # About 1 min of tests locally for the default 2 games; the setup and the build come on top (the client job's time
-    # comes before it).
+    # About 1 min of tests locally for the default 2 games; the setup and the build come on top.
     timeout-minutes: 15
     permissions:
       contents: read
