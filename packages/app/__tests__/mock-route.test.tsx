@@ -33,7 +33,7 @@ const noRawErrors = () => {
 };
 
 // The Cobbles' sheet and the home's panel host too: the balances' Cobbles open them, cold in the packs' wait otherwise.
-preloadPages("missions", "vault", "cobbles-sheet", "home-panel");
+preloadPages("missions", "vault", "cobbles", "cobbles-sheet", "home-panel");
 
 beforeEach(() => {
   queryClient.clear();

@@ -34,7 +34,8 @@ function open(s: ReturnType<typeof setup>, path = "/referral", wallet = fakeWall
   return { router, wallet };
 }
 
-const earned = (ms = 5000) => screen.findByRole("region", { name: "Earned" }, { timeout: slow(ms) });
+// The earnings come after the sheet's page and its query: a loaded run took more than 5 s (scaled) for both.
+const earned = () => screen.findByRole("region", { name: "Earned" }, { timeout: slow(10_000) });
 
 beforeEach(async () => {
   // The page's module loaded before the route asks for it: on a loaded machine its first transform outlasted the wait.
@@ -55,8 +56,7 @@ describe("/referral (P10)", { timeout: slow(20_000) }, () => {
   it("shows the player's link with ?ref= and their address, and what it earned: games and packs", async () => {
     const s = setup();
     open(s);
-    // The file's first render of the whole app, cold: in a full run on a loaded machine it outlasted 5 s (30 s at factor 6).
-    const region = await earned(10_000);
+    const region = await earned();
     expect(screen.getByLabelText("Your referral link")).toHaveTextContent(`${window.location.origin}/?ref=${SHORT}`);
     await waitFor(() => expect(region).toHaveTextContent("1.65USDC"));
     expect(region).toHaveTextContent("4 purchases");

@@ -42,7 +42,7 @@ function editPlayer(store: ReturnType<typeof mockImplementation>["store"], chang
 
 // The overlay pages and the home's panel host (Missions, Vault and Settings are its panels, #762) too: the Back tests open
 // them, each cold in its own wait otherwise.
-preloadPages("home", "home-panel", "missions", "vault", "settings", "play", "village-chests", "village-shop", "pvp-league");
+preloadPages("home", "home-panel", "missions", "vault", "settings", "play", "village-chests", "village-shop", "pvp-league", "page-sheets");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/village-shop")]);
 }, slow(60_000));
