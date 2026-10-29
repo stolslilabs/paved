@@ -197,7 +197,7 @@ describe("Home (#753): the village with its overlays", () => {
     await userEvent.click(standing);
     expect(onLeague).toHaveBeenCalledTimes(1);
     unmount();
-    // Before any PvP: Wanderer with 0 crowns, still the way to the league.
+    // Before any PvP: Wood with 0 crowns, still the way to the league.
     // Merged over the view's fixture, as the Start story's args are: its own `league: null` wins.
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.start} onLeague={onLeague} />));
     await userEvent.click(await screen.findByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
@@ -982,9 +982,9 @@ describe("Element feedback (EL)", () => {
     expect(screen.getByRole("timer", { name: "Closes in 9:00:00" })).toBeInTheDocument();
   });
 
-  it("draws the Chests tab with the gift, and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
+  it("draws the Chests tab with the treasure chest (issue 873), and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
     render(wrap(<AppNav active="home" />));
-    expect(screen.getByRole("button", { name: "Chests" }).querySelector("[data-icon='gift']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Chests" }).querySelector("svg[data-slot='game-icon'][data-icon='treasure-chest']")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
   });
 

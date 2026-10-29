@@ -83,7 +83,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   activeGame?: GameView | null;
   /**
    * The player's PvP standing (`Matchmaker.league`): the crowns and their league's crest in the League control under the profile
-   * (#829), a tap to the League page (the home's only way there, #755). None (no PvP played yet, or not read): Wanderer with 0 crowns.
+   * (#829), a tap to the League page (the home's only way there, #755). None (no PvP played yet, or not read): Wood with 0 crowns.
    */
   league?: { crowns: number } | null;
   /**
@@ -315,7 +315,7 @@ function VillageNav(props: HomeVillageSceneProps) {
     >
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
       {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
-      <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
+      <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
       {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}

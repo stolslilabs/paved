@@ -36,7 +36,7 @@ const EDIT = "edit";
 /**
  * `/` (#753, PvP v2 step 1): the player's own village full screen, the home of the game. The village, its inventory and the
  * level from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting, today's missions to claim, the crowns and
- * league (`Matchmaker.league`, Wanderer before any PvP: the badge is the home's way to the league, #755), the active
+ * league (`Matchmaker.league`, Wood before any PvP: the badge is the home's way to the league, #755), the active
  * Challenge game and the spawn pause. The overlays paint first; the stage (`home-stage.tsx`: the editor, the engine, the tile art)
  * and then the 3D scene (`home-canvas.tsx`) load lazily under them, the plan view where WebGL is
  * missing or the renderer cannot start. Edit mode is in the URL (`?edit`, an entry of its own), so Back leaves it first; leaving

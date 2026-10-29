@@ -68,11 +68,11 @@ describe("PvP rules (#647)", () => {
   });
 
   it("puts every crown count in one league, the last open-ended", () => {
-    expect(leagueOf(0).id).toBe("wanderer");
-    expect(leagueOf(400).name).toBe("Peasant III");
-    expect(leagueOf(1_199).name).toBe("Yeoman II");
-    expect(leagueOf(1_200).name).toBe("Yeoman I");
-    expect(leagueOf(99_999).id).toBe("sovereign");
+    expect(leagueOf(0).id).toBe("wood");
+    expect(leagueOf(400).name).toBe("Iron III");
+    expect(leagueOf(1_199).name).toBe("Bronze II");
+    expect(leagueOf(1_200).name).toBe("Bronze I");
+    expect(leagueOf(99_999).id).toBe("grandmaster");
     expect(nextLeague(LEAGUES.at(-1)!)).toBeNull();
   });
 });
@@ -267,14 +267,14 @@ describe("PvP scenes (#647)", () => {
   });
 
   it("league's battle logs without the build's renders (#857): the cards keep their own colour, no image behind", () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} matches={{ ...PVP_MATCHES.shielded, renders: undefined }} />));
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} matches={{ ...PVP_MATCHES.shielded, renders: undefined }} />));
     const cards = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
     expect(cards.every((c) => c.querySelector("[data-slot=match-art]") !== null && c.querySelector("[data-slot=match-art] img") === null)).toBe(true);
   });
 
   it("league's battle logs (#786, #834): the shield, attacks and defences as cards, newest first, each opening its match", async () => {
     const onOpenMatch = vi.fn();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} onOpenMatch={onOpenMatch} />));
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} onOpenMatch={onOpenMatch} />));
     expect(screen.getByRole("heading", { level: 2, name: "Battle logs" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Defence log" })).toBeNull();
     expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
@@ -333,19 +333,19 @@ describe("PvP scenes (#647)", () => {
   });
 
   it("league: crowns, the way to the next league, the season's end", () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.yeoman} />));
-    expect(screen.getByRole("progressbar", { name: "28 crowns to Yeoman I" })).toBeInTheDocument();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
+    expect(screen.getByRole("progressbar", { name: "28 crowns to Bronze I" })).toBeInTheDocument();
     expect(screen.getByText(/Ends in 4 d 3 h/)).toBeInTheDocument();
-    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Yeoman II");
+    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Bronze II");
     cleanup();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wanderer} />));
-    expect(screen.getByRole("heading", { name: "Wanderer" })).toBeInTheDocument();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wood} />));
+    expect(screen.getByRole("heading", { name: "Wood" })).toBeInTheDocument();
     cleanup();
-    // An open attack holds 20 crowns: the chain says Peasant III (the whole count, 400) while showing 380.
-    render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.yeoman.season} now={PVP_LEAGUE.yeoman.now} />));
-    expect(screen.queryByRole("heading", { name: "Wanderer" })).toBeNull();
-    expect(screen.getAllByText("Peasant III").length).toBeGreaterThan(0);
-    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Peasant III");
+    // An open attack holds 20 crowns: the chain says Iron III (the whole count, 400) while showing 380.
+    render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.bronze.season} now={PVP_LEAGUE.bronze.now} />));
+    expect(screen.queryByRole("heading", { name: "Wood" })).toBeNull();
+    expect(screen.getAllByText("Iron III").length).toBeGreaterThan(0);
+    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Iron III");
     // Held crowns under the floor start the bar empty, never below it.
     expect((screen.getByRole("progressbar").firstElementChild as HTMLElement).style.transform).toBe("translateX(-100%)");
   });

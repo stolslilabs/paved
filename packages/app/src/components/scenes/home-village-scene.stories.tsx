@@ -95,7 +95,7 @@ export const ShortDesktop: Story = {
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */
 export const Paused: Story = { args: HOME_VILLAGE.paused };
-/** A new player: the starter village, level 1, the League control unranked (Wanderer's crest, 0 crowns, #755, #829). */
+/** A new player: the starter village, level 1, the League control unranked (Wood's crest, 0 crowns, #755, #829). */
 export const Start: Story = { args: HOME_VILLAGE.start };
 /** The village shielded (#806, #829): the shield's mirrored plate under the League control, 07h42m left; a tap tells until when. */
 export const Shielded: Story = { args: HOME_VILLAGE.shielded };

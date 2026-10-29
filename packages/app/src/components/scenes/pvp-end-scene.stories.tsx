@@ -32,11 +32,11 @@ export const TwoStars: Story = {
     await expect(canvas.getByRole("button", { name: /Open chest/ })).toBeEnabled();
   },
 };
-/** Past the village's score: "Triumph", an epic chest, and the crowns carry the attacker into Yeoman I. */
+/** Past the village's score: "Triumph", an epic chest, and the crowns carry the attacker into Bronze I. */
 export const ThreeStars: Story = { args: PVP_END.threeStars };
 /** A promotion said in words (three stars over the league's floor). */
 export const Promoted: Story = { args: PVP_END.threeStars };
-/** A defeat that drops the attacker out of Yeoman II. */
+/** A defeat that drops the attacker out of Bronze II. */
 export const Dropped: Story = { args: PVP_END.dropped };
 /** Stars won, but the day's three PvP slots are full: the chest grey and disabled, with the wait; no Open chest. */
 export const ChestCapped: Story = {
