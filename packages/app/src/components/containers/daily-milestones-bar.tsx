@@ -137,7 +137,7 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
             key={step}
             aria-hidden
             data-reveal={at}
-            className={cn("absolute bottom-full mb-1 w-max rounded-full border border-primary/60 bg-card px-2 py-0.5 shadow-lg", at === DAILY_QUESTS ? "right-0" : "-translate-x-1/2")}
+            className={cn("absolute bottom-full mb-2 rounded-full border border-primary/60 bg-card px-2 py-0.5 shadow-lg", at === DAILY_QUESTS ? "right-0" : "-translate-x-1/2")}
             style={at === DAILY_QUESTS ? undefined : { left: left(at) }}
             initial={revealing === step ? false : { y: 12, scale: 0.4, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -202,8 +202,9 @@ function GiftNode({ cobbles, at, state, claiming, opening, held, disabled, onCla
         aria-busy={claiming || undefined}
         aria-label={`Claim ${cobbles} Cobbles: ${reach}`}
         onClick={onClaim}
-        // 44 px to tap: the disc's 32 px and a ring of 6 around it.
-        className="relative flex h-fit cursor-pointer rounded-full outline-none before:absolute before:-inset-1.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+        // 44 px to tap: the disc's 32 px and a ring of 6 around it, over the node's box.
+        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+        style={{ margin: "-0.375rem" }}
       >
         {disc}
       </button>
@@ -217,7 +218,7 @@ function GiftNode({ cobbles, at, state, claiming, opening, held, disabled, onCla
       data-state={state}
       data-opening={opening || undefined}
       aria-label={claimed ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
-      className="flex h-fit"
+      className="flex"
     >
       {disc}
     </span>

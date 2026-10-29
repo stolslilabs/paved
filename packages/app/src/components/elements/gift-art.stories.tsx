@@ -3,12 +3,12 @@ import { GiftArt } from "./gift-art";
 
 /**
  * The gift of the day's milestones (#869, the owner's decision of 2026-10-29): what a reward node shows instead of its figure. One
- * story per state, drawn large here (the graph draws it at 18 px); `Opening` plays the opening, `OpeningHeld` holds its last frame.
+ * story per state, drawn at 60 px here (the graph draws it at 18 px); `Opening` plays the opening, `OpeningHeld` holds its last frame.
  */
 const meta = {
   title: "Elements/GiftArt",
   component: GiftArt,
-  args: { state: "ready", className: "text-[4rem]" },
+  args: { state: "ready", className: "text-6xl" },
   decorators: [(Story) => <div className="grid place-items-center p-10"><Story /></div>],
 } satisfies Meta<typeof GiftArt>;
 export default meta;

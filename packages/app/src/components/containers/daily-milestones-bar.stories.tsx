@@ -15,7 +15,7 @@ const meta = {
   title: "Containers/DailyMilestonesBar",
   component: DailyMilestonesBar,
   args: { done: 0, claimed: 0, onClaim: fn() },
-  decorators: [(Story) => <div className="mx-auto max-w-md p-4 pt-10"><Story /></div>],
+  decorators: [(Story) => <div className="mx-auto max-w-md p-4" style={{ paddingTop: "2.5rem" }}><Story /></div>],
 } satisfies Meta<typeof DailyMilestonesBar>;
 export default meta;
 type Story = StoryObj<typeof meta>;
