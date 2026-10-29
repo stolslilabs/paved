@@ -13,6 +13,7 @@
     "clean": "turbo clean",
     "check": "node scripts/check/check.mts",
     "check:pr": "node scripts/check/check.mts",
+    "check:quick": "node scripts/check/check.mts --quick",
     "budget": "node scripts/check/budget.mts"
   },
   "devDependencies": {
