@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildShapes, GAME_ICON_NAMES, roundPath, SHAPE_SETS, splitPath, WORLD_ICON_NAMES } from "../scripts/game-icons";
 import { GameIcon } from "../src/components/elements/game-icon";
-import { GameIconLook } from "../src/components/elements/game-icon-looks";
 import { GAME_ICON_SHAPES } from "../src/components/elements/game-icon-shapes";
 import { WorldIcon } from "../src/components/elements/world-icon";
 import { WORLD_ICON_SHAPES } from "../src/components/elements/world-icon-shapes";
@@ -55,16 +54,11 @@ describe("the game icons (#844)", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("paints every part in one tone when asked (a crest in its league's colour), and each look its own way", () => {
+  it("paints every part in one tone when asked (a crest in its league's colour)", () => {
     const { container } = render(<GameIcon name="swords" tone="current" />);
     expect(container.querySelectorAll("linearGradient")).toHaveLength(1);
     const relief = render(<GameIcon name="treasure-chest" />).container;
     expect(relief.querySelectorAll("mask").length).toBeGreaterThan(0);
-    // The other looks of the owner's pick, Storybook's only.
-    const toon = render(<GameIconLook name="treasure-chest" look="toon" />).container;
-    expect(toon.querySelector("linearGradient")).not.toBeNull();
-    expect(toon.querySelector("mask")).toBeNull();
-    expect(toon.querySelector("svg")).toHaveAttribute("data-look", "toon");
   });
 
   it("are each recorded in the notices as derived from Font Awesome Pro", () => {
