@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import { cn } from "../../lib/utils";
 import { LEAGUES, type League } from "../../lib/pvp-rules";
@@ -15,15 +15,17 @@ export interface LeagueCarouselProps {
   mine: number;
   /** A league's card (`LeagueCard`), the same height for every league (#833). */
   children: (league: League, current: boolean) => ReactNode;
+  /** The carousel's whole block (the arrows, the card, the dots): the League control brings it into view (#859). */
+  ref?: Ref<HTMLDivElement>;
   className?: string;
 }
 
 /**
- * The leagues one per view (#785), Wood to Grand Master: the arrows, a swipe, the arrow keys and the dots under it (#833, one
+ * The leagues one per view (#785), Wood to Grand Master, each card standing alone (#859): the arrows on each side of it, a swipe, the arrow keys and the dots under it (#833, one
  * per league, the current one widened, a tap jumps there) move through them, and stop at both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
  * league in view is in the accessibility tree.
  */
-export function LeagueCarousel({ selected, onSelect, mine, children, className }: LeagueCarouselProps) {
+export function LeagueCarousel({ ref, selected, onSelect, mine, children, className }: LeagueCarouselProps) {
   const [api, setApi] = useState<CarouselApi>();
   const reduced = useReducedMotionConfig();
   const last = LEAGUES.length - 1;
@@ -39,7 +41,7 @@ export function LeagueCarousel({ selected, onSelect, mine, children, className }
     };
   }, [api, onSelect]);
 
-  // An arrow, a key, a dot or the card's back icon: Embla glides there, or cuts under reduced motion.
+  // An arrow, a key, a dot or the header's League control (#859): Embla glides there, or cuts under reduced motion.
   useEffect(() => {
     if (api && api.selectedScrollSnap() !== selected) api.scrollTo(selected, Boolean(reduced));
   }, [api, selected, reduced]);
@@ -53,7 +55,7 @@ export function LeagueCarousel({ selected, onSelect, mine, children, className }
   };
 
   return (
-    <div className={cn("flex w-full min-w-0 flex-col items-center gap-2", className)}>
+    <div ref={ref} className={cn("flex w-full min-w-0 flex-col items-center gap-2", className)}>
       <div className="flex w-full items-center gap-2">
         <Button variant="ghost" size="icon" className="rounded-full" aria-label="Previous league" disabled={selected === 0} onClick={() => step(-1)}>
           <Icon name="chevron-left" size="md" />

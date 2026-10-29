@@ -12,7 +12,6 @@ import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
-import { formatHoursMinutes, shieldDuration, shieldEnd, shieldLabel } from "../elements/shield-time";
 import { StarRow } from "../elements/star-row";
 import { BattleBackground, type TileRenders } from "../elements/tile-render";
 
@@ -42,10 +41,6 @@ export interface MatchCardData {
 export interface MatchListProps {
   /** The latest matches, attacks and defences mixed, newest first; null while they load. */
   matches: readonly MatchCardData[] | null;
-  /** The village's shield, while it lasts (seconds since the epoch): 8 hours after an attack, dropped by attacking. */
-  shieldEndsAt?: number | null;
-  /** The shield is not known: its read is on its way or failed (`error` says why). Never shown as "No shield". */
-  shieldUnknown?: boolean;
   now: number;
   error?: string | null;
   errorDetail?: ErrorDetail;
@@ -57,44 +52,6 @@ export interface MatchListProps {
 
 /** The matches shown at first, and the more each "Show more" adds (#786, open point 3). */
 export const MATCHES_PAGE = 20;
-
-/** The shield's card: its end and its time left in `HH:MM` while it lasts (#806, the home chip's), else the village is open to attacks. */
-function ShieldCard({ endsAt, now, unknown }: { endsAt: number | null | undefined; now: number; unknown?: boolean }) {
-  const on = !unknown && endsAt != null && endsAt > now;
-  if (unknown) {
-    return (
-      <section aria-label="Shield" data-shield="unknown" className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        <Icon name="shield-halved" size="xl" className="text-muted-foreground" />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="font-semibold">Shield not known</span>
-          <span className="text-xs text-muted-foreground">Your shield could not be read yet.</span>
-        </div>
-      </section>
-    );
-  }
-  return (
-    <section aria-label="Shield" data-shield={on ? "on" : "off"} className={cn("flex items-center gap-3 rounded-xl border px-4 py-3", on ? "border-info/40 bg-info/10" : "border-border bg-card")}>
-      <Icon name="shield-halved" size="xl" className={on ? "text-info" : "text-muted-foreground"} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="font-semibold">{on ? "Your village is shielded" : "No shield"}</span>
-        <span className="text-xs text-muted-foreground">
-          {on ? (
-            <>
-              No one can attack it until <span className="numeric">{shieldEnd(endsAt!)}</span>. Attacking drops it.
-            </>
-          ) : (
-            "Your village can be attacked. An attack shields it for 8 hours."
-          )}
-        </span>
-      </div>
-      {on && (
-        <time role="timer" aria-label={shieldLabel(endsAt!, now)} dateTime={shieldDuration(endsAt!, now)} className="numeric text-sm font-semibold whitespace-nowrap">
-          {formatHoursMinutes(endsAt! - now)}
-        </time>
-      )}
-    </section>
-  );
-}
 
 /** A card's accessible name: what it is, against whom, how it went. */
 function cardName(m: MatchCardData): string {
@@ -182,17 +139,17 @@ export function MatchCard({ match: m, now, onOpen, renders }: { match: MatchCard
 }
 
 /**
- * The League page's battle logs (#786, in place of #647's defence log, revised by #783, titled by #834): the shield's timer, then the latest
- * attacks and defences mixed, newest first, as cards one under the other, 20 at first and 20 more with each "Show more".
+ * The League page's battle logs (#786, in place of #647's defence log, revised by #783, titled by #834): the latest attacks and
+ * defences mixed, newest first, as cards one under the other, 20 at first and 20 more with each "Show more". No shield's card
+ * (#859): the home's overlay shows the shield (#829).
  */
-export function MatchList({ matches, shieldEndsAt, shieldUnknown, now, error, errorDetail, onOpen, onRetry, renders }: MatchListProps) {
+export function MatchList({ matches, now, error, errorDetail, onOpen, onRetry, renders }: MatchListProps) {
   const [shown, setShown] = useState(MATCHES_PAGE);
   return (
     <section aria-labelledby="matches" className="flex flex-col gap-3">
       <h2 id="matches" className="font-semibold">
         Battle logs
       </h2>
-      <ShieldCard endsAt={shieldEndsAt} now={now} unknown={shieldUnknown} />
       <InlineError
         title="Matches"
         message={error}

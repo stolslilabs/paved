@@ -279,11 +279,10 @@ const MANY: MatchCardData[] = Array.from({ length: 26 }, (_, i) => {
 
 /** The League page's matches (a section of the page, BACK-RULE #783), on the page's clock, the cards' backgrounds the app's renders (#857). */
 export const PVP_MATCHES = {
-  shielded: { matches: MATCHES, shieldEndsAt: MATCHES[1]!.at + 8 * HOUR, renders: appRenders },
-  open: { matches: MATCHES, shieldEndsAt: null, renders: appRenders },
-  many: { matches: MANY, shieldEndsAt: null, renders: appRenders },
+  latest: { matches: MATCHES, renders: appRenders },
+  many: { matches: MANY, renders: appRenders },
   /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards known. */
-  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, ...m }) => ({ ...m, village: null })), shieldEndsAt: null, renders: appRenders },
+  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, ...m }) => ({ ...m, village: null })), renders: appRenders },
   empty: { matches: [] },
   loading: { matches: null },
   error: { matches: null, error: "The matches could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
@@ -294,9 +293,12 @@ export const PVP_MATCHES = {
 const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 
 export const PVP_LEAGUE = {
-  bronze: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.shielded },
+  bronze: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
+  // The season's reward (#859): the attacks still needed below `MIN_SEASON_ATTACKS` (5), none past it.
+  attacksBelow: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 2, matches: PVP_MATCHES.latest },
+  attacksOneLeft: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 4 },
+  attacksAbove: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 7, matches: PVP_MATCHES.latest },
   // The matches' states (#786), a section of the page (BACK-RULE #783).
-  matchesOpen: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.open },
   matchesMany: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
   matchesNoSnapshot: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.noSnapshot },
   matchesEmpty: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.empty },
@@ -304,8 +306,8 @@ export const PVP_LEAGUE = {
   matchesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
   // The first-time bonus of Bronze II paid on reaching it and not yet celebrated (#833, open point 1): its icon is active.
-  bonusReady: { crowns: ME.crowns, best: 1_180, bonusesToSee: [5], season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.shielded },
-  // The carousel on a league above the player's (Silver II) and one below (Iron II): the back icon.
+  bonusReady: { crowns: ME.crowns, best: 1_180, bonusesToSee: [5], season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
+  // The carousel on a league above the player's (Silver II) and one below (Iron II): the header's League control brings it back.
   higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },
   lower: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 2 },
   grandmaster: { crowns: 5_320, season: SEASON, now: MOCK_NOW },

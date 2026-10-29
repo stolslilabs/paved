@@ -81,8 +81,8 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     const cards = within(list).getAllByRole("button");
     expect(cards.map((c) => c.dataset.side)).toEqual(["defence", "attack"]);
     expect(cards[1]).toHaveAccessibleName(`Your attack on ${s.rival.name}: ${s.attack.stars} of 3 stars`);
-    // The defence shielded the village (8 hours, until the player attacks).
-    expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
+    // No shield's card (#859): the home's overlay shows the shield.
+    expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
     // Each card on its side's background (#834), the build's render at each width it has (#857), no plan view behind it.
     await waitFor(
       () =>
