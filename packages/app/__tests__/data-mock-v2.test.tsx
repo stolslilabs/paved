@@ -223,7 +223,7 @@ describe("PvP v2 on the mock", () => {
 
     const shop = await dataOf({ get current() { return result.current.shop; } });
     const offer = [...shop!.offers].sort((a, b) => a.price - b.price)[0]!;
-    expect(offer.price).toBe({ common: 10, uncommon: 20, rare: 50 }[rarityOf(offer.plan)]);
+    expect(offer.price).toBe({ common: 10, uncommon: 20, mythic: 50 }[rarityOf(offer.plan)]);
     expect(refusal(await result.current.writes.buy({ day: shop!.day, slot: offer.slot, confirmedPrice: offer.price + 1 }).catch((e: unknown) => e))).toBe("price-changed");
     expect(refusal(await result.current.writes.buy({ day: shop!.day - 1, slot: offer.slot, confirmedPrice: offer.price }).catch((e: unknown) => e))).toBe("shop-closed");
     await act(() => result.current.writes.buy({ day: shop!.day, slot: offer.slot, confirmedPrice: offer.price }));

@@ -31,7 +31,7 @@ The wrap sweep (`scripts/wrap-sweep.ts`, WRAP360) reads `storybook-static/`, so 
 browser once (`bunx playwright-core install chromium-headless-shell`, from `packages/app`). Options: `--filter <story id
 part>`, `--widths 360,320`, `--workers 4`, `--shard i/n` (the i-th of n parts of the story list, each story in exactly
 one part), `--json <file>`. It prints a table (story, width, kind, element) and exits 1
-on a finding that is not in its commented allowlist. The CI `client` job runs it after `build-storybook`.
+on a finding that is not in its commented allowlist. The CI runs it in four `wrap-sweep` shards (`--shard i/4`), each after its own `build-storybook`.
 
 Cap the Node heap as `AGENTS.md` says: `NODE_OPTIONS=--max-old-space-size=832 bun run test --filter @paved/app`.
 
@@ -48,7 +48,7 @@ drift from it: Colors (scales with hex and OKLCH; semantic tokens with their com
 (reduced motion off and on), Spacing and radius, Breakpoints. Icons (F4) are in `src/components/ui/icon.stories.tsx`. Tiles, board and scenes
 come with F6 and the pages. The a11y panel shows the checks in the browser; running them in CI is Q2's. Hosting is F5.
 
-The CI `client` job runs `build-storybook`, so a broken story fails the pull request. Cap the heap as above:
+The CI's Storybook jobs (`client-storybook`, `wrap-sweep`) run `build-storybook`, so a broken story fails the pull request. Cap the heap as above:
 `NODE_OPTIONS=--max-old-space-size=1536 bun run --filter @paved/app build-storybook`.
 
 ## Icons (F4)
