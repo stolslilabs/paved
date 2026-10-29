@@ -161,12 +161,19 @@ describe("the plates (#828)", () => {
     }
   });
 
-  it("the plates are larger from desktop (`rail`) than on a phone (`pill`)", () => {
+  it("the plates are larger from desktop (`rail`) than on a phone (`pill`), the icon taller than the box (#213)", () => {
     const { container, unmount } = render(wrap(<Balances layout="pill" state={READY} />));
-    expect(container.querySelector("[data-slot=token-icon]")!.className).toContain("size-10");
+    expect(container.querySelector("[data-slot=token-icon]")!.className).toContain("size-12");
+    expect(container.querySelector("[data-slot=resource-plate] .h-8")).not.toBeNull();
     unmount();
     const rail = render(wrap(<Balances layout="rail" state={READY} />));
-    expect(rail.container.querySelector("[data-slot=token-icon]")!.className).toContain("size-11");
+    expect(rail.container.querySelector("[data-slot=token-icon]")!.className).toContain("size-13");
+    expect(rail.container.querySelector("[data-slot=resource-plate] .h-9")).not.toBeNull();
+  });
+
+  it("the icon stands bare: no disc behind it (#213)", () => {
+    const { container } = render(wrap(<Balances layout="rail" state={READY} />));
+    for (const plate of container.querySelectorAll("[data-slot=resource-plate]")) expect(plate.querySelector(".rounded-full")).toBeNull();
   });
 
   it("the mirrored plate puts the icon at the left end and the '+' at the right", () => {

@@ -32,7 +32,7 @@ const noRawErrors = () => {
   expect(screen.queryByText(/RPC|entrypoint|starknet_call/i)).not.toBeInTheDocument();
 };
 
-preloadPages("missions", "vault");
+preloadPages("missions", "vault", "cobbles", "cobbles-sheet");
 
 beforeEach(() => {
   queryClient.clear();

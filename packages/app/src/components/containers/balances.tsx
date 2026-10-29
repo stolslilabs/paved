@@ -114,7 +114,7 @@ function useVpavedPlate(vpaved: bigint | null | undefined): { shown: boolean; fr
   return { shown, from };
 }
 
-/** The plates' size (#828): a 32 px box under a 40 px icon on a phone (`pill`), 36 under 44 from `desktop` (`rail`). */
+/** The plates' size (#828): a 32 px box under a 48 px bare icon on a phone (`pill`), 36 under 52 from `desktop` (`rail`, #213). */
 type PlateSize = "sm" | "md";
 const holdOf = (size: PlateSize) => <Skeleton className={cn("rounded-lg", size === "md" ? "h-9 w-28" : "h-8 w-24")} />;
 
