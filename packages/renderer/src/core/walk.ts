@@ -152,6 +152,8 @@ export class WalkSession implements WalkControl {
     this.settings = settings;
     this.walker.setSettings(settings);
     this.camera.near = settings.near;
+    // A still walker draws no frame of its own: its eye (height, field of view) takes the new settings now.
+    if (this.phase === "walking") this.apply(this.eyePose());
   }
 
   setReducedMotion(reduced: boolean): void {

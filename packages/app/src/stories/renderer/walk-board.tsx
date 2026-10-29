@@ -52,11 +52,25 @@ export function WalkBoard({ village, input, autoWalk, eyeVoxels, speed, fov, bob
   const [state, setState] = useState<WalkState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Counts the walks asked: an Exit while one loads, or a new board, makes the pending one stale.
+  const attempt = useRef(0);
+
+  // A new board (another village remounts it) has no walk: back to its orbit view.
+  useEffect(() => {
+    attempt.current++;
+    setControl(null);
+    setState(null);
+    setMessage(null);
+    setPhase("orbit");
+  }, [scene]);
+
   const walk = useCallback(async () => {
     if (!scene || phase !== "orbit") return;
+    const mine = ++attempt.current;
     setPhase("loading");
     setMessage(null);
     const started = await scene.startWalk(settings);
+    if (mine !== attempt.current) return;
     if (!started) {
       setPhase("orbit");
       setMessage("No street to walk here yet");
@@ -67,9 +81,18 @@ export function WalkBoard({ village, input, autoWalk, eyeVoxels, speed, fov, bob
   }, [scene, phase, settings]);
 
   const exit = useCallback(async () => {
-    if (!scene || !control) return;
+    if (!scene) return;
+    // Still loading: the walk is cancelled, not entered.
+    if (!control) {
+      attempt.current++;
+      void scene.stopWalk();
+      setPhase("orbit");
+      return;
+    }
+    const mine = attempt.current;
     setPhase("leaving");
     await scene.stopWalk();
+    if (mine !== attempt.current) return;
     setControl(null);
     setState(null);
     setPhase("orbit");

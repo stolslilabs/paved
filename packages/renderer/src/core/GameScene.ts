@@ -261,6 +261,8 @@ export class GameScene {
   /** The first-person walk under way (`startWalk`), from its descent to the end of its lift back; its chunk's load. */
   private walkSession: WalkChunk.WalkSession | null = null;
   private walkLoad: Promise<typeof WalkChunk> | null = null;
+  /** Counts the walks asked and cancelled: a `stopWalk` while one loads cancels it (its `startWalk` resolves null). */
+  private walkTicket = 0;
 
   constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
@@ -1616,13 +1618,14 @@ export class GameScene {
    * (the roads and the cities' ground, every solid voxel), and drops the walker on the road nearest the point the screen's centre
    * looks at, the camera easing down from its view (a cut under reduced motion). The orbit controls stand still until the walk
    * has eased back (`stopWalk`). Resolves with what drives it, or null when the board has no ground to walk on, the scene is not
-   * ready, or a walk is already under way.
+   * ready, a walk is already under way, or `stopWalk` was called while it loaded.
    */
   async startWalk(input: WalkSettingsInput = {}): Promise<WalkControl | null> {
     if (this.walkSession || !this.camera || !this.controls || !this.surface) return null;
+    const ticket = ++this.walkTicket;
     this.walkLoad ??= import("./walk");
     const chunk = await this.walkLoad;
-    if (this.disposed || this.walkSession || !this.camera) return null;
+    if (this.disposed || this.walkSession || !this.camera || ticket !== this.walkTicket) return null;
     const began = performance.now();
     const board = this.tiles.getGroup();
     const map = chunk.boardWalkMap(board, this.tiles.smokeSources());
@@ -1639,9 +1642,13 @@ export class GameScene {
     return session;
   }
 
-  /** Eases back from the walk to the view it came from (a cut under reduced motion); resolves once the orbit controls are back. */
+  /**
+   * Eases back from the walk to the view it came from (a cut under reduced motion); resolves once the orbit controls are back.
+   * While a walk still loads, cancels it.
+   */
   stopWalk(): Promise<void> {
     const session = this.walkSession;
+    this.walkTicket++;
     if (!session) return Promise.resolve();
     session.setReducedMotion(prefersReducedMotion());
     const left = session.leave(performance.now());

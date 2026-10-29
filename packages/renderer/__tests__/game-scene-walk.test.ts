@@ -68,6 +68,41 @@ describe("GameScene's walk (V4-WALK-1)", () => {
     HEAVY_TEST_MS,
   );
 
+  it(
+    "cancels a walk still loading when asked to stop",
+    async () => {
+      const { scene, controls } = await sceneWithRoad();
+      const started = scene.startWalk();
+      await scene.stopWalk();
+      expect(await started).toBeNull();
+      expect(scene.getWalk()).toBeNull();
+      expect(controls.enabled).toBe(true);
+      // A new walk after the cancelled one starts.
+      expect(await scene.startWalk()).not.toBeNull();
+    },
+    HEAVY_TEST_MS,
+  );
+
+  it(
+    "gives a still walker's eye a new field of view at once",
+    async () => {
+      const { scene, camera } = await sceneWithRoad();
+      await scene.startWalk({ easeMs: 0 });
+      const session = (scene as any).walkSession;
+      const now = performance.now();
+      session.update(now);
+      session.update(now + 16);
+      expect(scene.getWalk()?.phase).toBe("walking");
+      expect(camera.fov).toBe(70);
+      scene.setWalkSettings({ fov: 90 });
+      expect(camera.fov).toBe(90);
+      // Still: no frame of the walk's own moves it back.
+      expect(session.update(now + 32)).toBe(false);
+      expect(camera.fov).toBe(90);
+    },
+    HEAVY_TEST_MS,
+  );
+
   it("starts no walk on a board with no tile drawn", async () => {
     const scene = new GameScene();
     Object.assign(scene as object, {
