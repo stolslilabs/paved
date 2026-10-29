@@ -34,14 +34,13 @@ export interface ReliefLook {
 
 /**
  * Each icon's parts (the subpaths of `game-icon-shapes.ts`, in order) and their tones: the default colour per icon (issue 844's open
- * point 2: the swords steel and gold, the trophy gold, the shield blue, the gift red, the store wood). Consecutive parts of one
+ * point 2: the swords steel and gold, the trophy gold, the shield blue, the store wood). Consecutive parts of one
  * tone are drawn as one path, so a hole (the gear's, the shield's half) stays a hole. Parts drawn for Paved go `under` the icon
- * (the "+"'s button) or `over` it (the gift's ribbon, which the outline would fill). The village's (issue 870): its tree green,
- * its house wood.
+ * (the "+"'s button) or `over` it. The village's (issue 870): its tree green,
+ * its house wood. The Chests' treasure chest (issue 873), in the gift's place: wood, its side bands and its lock gold.
  */
 const PARTS: Record<GameIconName, ReliefLook> = {
   gear: { tones: ["stone"] },
-  gift: { tones: ["gold", "gold", "gold", "red"], over: "M228 288h56v224h-56z" },
   hammer: { tones: ["steel", "wood"] },
   house: { tones: ["wood"] },
   "house-tree": { tones: ["green", "wood"] },
@@ -51,6 +50,7 @@ const PARTS: Record<GameIconName, ReliefLook> = {
   "shield-halved": { tones: ["blue"] },
   store: { tones: ["red", "wood"] },
   swords: { tones: ["gold", "steel", "steel", "gold"] },
+  "treasure-chest": { tones: ["gold", "gold", "wood", "gold", "gold", "wood", "gold"] },
   trophy: { tones: ["gold"] },
 };
 
