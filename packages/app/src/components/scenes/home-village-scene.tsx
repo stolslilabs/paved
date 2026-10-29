@@ -289,8 +289,8 @@ function useBalancesWidth() {
 /**
  * BALANCES-BY-PAGE (#855, the issue's second open point): below `desktop` the home's stack is the Cobbles, PAVED and vPAVED one under
  * the other, unless it would crowd the overlay: when its widest plate (a large PAVED balance) does not fit beside the League control
- * under the profile, the Cobbles stand alone (`data-crowded`). The other plates leave the flow, hidden, but keep their width, so the
- * measure does not change with the answer. Their amounts stay on the Vault, a tap away.
+ * under the profile, the Cobbles stand alone (`data-crowded`, its rule in theme.css). The other plates leave the flow, hidden, but
+ * keep their width, so the measure does not change with the answer. Their amounts stay on the Vault, a tap away.
  */
 function useCrowdedStack() {
   const ref = useRef<HTMLDivElement>(null);
@@ -388,11 +388,7 @@ function ViewOverlays({
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <GameIcon name="gear" size="md" />
             </Button>
-            <div
-              ref={stackRef}
-              data-slot="home-phone-balances"
-              className="relative desktop:hidden [&[data-crowded]_[data-kind]:not([data-kind=cobbles])]:invisible [&[data-crowded]_[data-kind]:not([data-kind=cobbles])]:absolute [&[data-crowded]_[data-kind]:not([data-kind=cobbles])]:right-0"
-            >
+            <div ref={stackRef} data-slot="home-phone-balances" className="relative desktop:hidden">
               <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" />
             </div>
             <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />

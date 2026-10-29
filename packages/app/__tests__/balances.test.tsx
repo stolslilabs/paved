@@ -1,4 +1,6 @@
 import { slow } from "../test-slow";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
@@ -12,6 +14,8 @@ import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
+/** The crowded stack's rule (theme.css): jsdom applies no stylesheet, so the rule is read where it is written. */
+const CROWDED_RULE = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8").match(/\[data-crowded\] \[data-kind\]:not\(\[data-kind="cobbles"\]\) \{[^}]*\}/)?.[0] ?? "";
 const READY: BalancesState = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 };
 
 describe("Balances (#538), the resource bar (#620)", () => {
@@ -240,7 +244,7 @@ describe("the plates (#828)", () => {
       await waitFor(() => expect(document.querySelector("[data-slot=league-control]")).not.toBeNull(), { timeout: slow(5000) });
       await waitFor(() => expect(stack.hasAttribute("data-crowded")).toBe(crowded));
       // Crowded, the other plates leave the flow, hidden from sight and from assistive technology; the Cobbles' plate stays.
-      expect(stack.className).toContain("[&[data-crowded]_[data-kind]:not([data-kind=cobbles])]:invisible");
+      expect(CROWDED_RULE).toMatch(/visibility: hidden;\s+position: absolute;/);
       expect(within(stack).getByRole("button", { name: /Cobbles: Buy packs/ })).toBeInTheDocument();
     } finally {
       width.mockRestore();
