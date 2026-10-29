@@ -173,8 +173,9 @@ export function Relief({ parts, ...frame }: FrameProps & { parts: { d: string; t
     <svg {...frameOf(frame)}>
       <defs>
         {[...new Set(parts.map((p) => p.tone))].map((t) => (
-          <linearGradient key={t} id={`${id}${t}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" style={{ stopColor: paint(t, "hi") }} />
+          // Top to foot: x1, y1 and the first stop's offset are SVG's defaults (0), so they are not written (the home's first load).
+          <linearGradient key={t} id={`${id}${t}`} x2="0" y2="1">
+            <stop style={{ stopColor: paint(t, "hi") }} />
             <stop offset="0.45" style={{ stopColor: paint(t, "mid") }} />
             <stop offset="1" style={{ stopColor: paint(t, "lo") }} />
           </linearGradient>
