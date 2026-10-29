@@ -20,7 +20,7 @@ import { useNow } from "../now";
 import { useBack } from "../ref";
 import { useInPageRegion } from "../../components/containers/page-region";
 import { cn } from "../../lib/utils";
-import { BalancesOf, PACKS_BALANCES, PACKS_HERE } from "../../components/containers/balances-context";
+import { BalancesOf } from "../../components/containers/balances-of";
 
 /**
  * `/cobbles` (#621): the Cobble packs, a page of their own (they left the Challenge's purchase, whose old `?tab=cobbles`
@@ -34,7 +34,7 @@ import { BalancesOf, PACKS_BALANCES, PACKS_HERE } from "../../components/contain
  */
 export default function Page() {
   return (
-    <BalancesOf kinds={PACKS_BALANCES} here={PACKS_HERE}>
+    <BalancesOf page="cobbles">
       <Packs />
     </BalancesOf>
   );

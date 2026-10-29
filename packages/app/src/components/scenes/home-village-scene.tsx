@@ -11,7 +11,8 @@ import { type TileArt } from "../elements/tile-chip";
 import type { VillageArrival } from "../elements/village-fog";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { BalancesSlot, HOME_BALANCES } from "../containers/balances-context";
+import { BalancesSlot } from "../containers/balances-context";
+import type { ShownBalance } from "../containers/balances";
 import { OverlayButton } from "../containers/home-overlays";
 import type { LayoutBoardView } from "../containers/layout-board";
 import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
@@ -285,6 +286,13 @@ function useBalancesWidth() {
   }, []);
   return ref;
 }
+
+/**
+ * The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width, also under a
+ * panel's page, so it names it itself: the rule's row for the home (`routes/header-balances.ts`, checked equal by
+ * header-balances.test), kept out of this chunk with the rest of the rule, which the first screen does not need.
+ */
+export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpaved-held"];
 
 /**
  * BALANCES-BY-PAGE (#855, the issue's second open point): below `desktop` the home's stack is the Cobbles, PAVED and vPAVED one under

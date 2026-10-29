@@ -1,18 +1,8 @@
 import type { BalanceKind, ShownBalance } from "../components/containers/balances";
 import type { PageDef } from "./pages";
 
-/** The balances a page shows, in their order on screen; empty, none (the shell then reads none for it). */
+/** The balances a page shows, in their order on screen; empty, none (the shell then reads none for it, `balance-pages.ts`). */
 export type HeaderBalances = readonly ShownBalance[];
-
-/** The home's own set (#855): the Cobbles, PAVED, and vPAVED while held; no USDC. The home draws it at every width. */
-export const HOME_BALANCES: HeaderBalances = ["cobbles", "paved", "vpaved-held"];
-
-/**
- * The Cobble packs' set (#855): the Cobbles and USDC, which buys them; the Cobbles' plate leads nowhere there, the packs being in
- * view (`PACKS_HERE`), also in the sheet over another page (`routes/pages/cobbles.tsx`).
- */
-export const PACKS_BALANCES: HeaderBalances = ["cobbles", "usdc"];
-export const PACKS_HERE: readonly BalanceKind[] = ["cobbles"];
 
 const NONE: HeaderBalances = [];
 const COBBLES: HeaderBalances = ["cobbles"];
@@ -24,14 +14,15 @@ const COBBLES: HeaderBalances = ["cobbles"];
  * PAVED and vPAVED (deposited PAVED becomes vPAVED, so it shows even at zero), not the Cobbles. The pages that spend or earn Cobbles
  * (the tile shop, the chests, the missions, the themes, the avatar, a visit) show the Cobbles. None on the League (its header holds
  * the League control, #859), the mode choice, the Story's list, Settings and its pages, the welcome, and the game scenes: the
- * boards, the ends of a game, the PvP attack's flow, its result and a replay (#647). The one place that says it, by route.
+ * boards, the ends of a game, the PvP attack's flow, its result and a replay (#647). The one place that says it, by route; the
+ * balances' own chunk reads it (`Balances`, by the page's route), so the first bundle does not carry it.
  */
 export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   welcome: NONE,
-  "": HOME_BALANCES,
+  "": ["cobbles", "paved", "vpaved-held"],
   play: NONE,
   "play/challenge": ["usdc"],
-  cobbles: PACKS_BALANCES,
+  cobbles: ["cobbles", "usdc"],
   avatar: COBBLES,
   "village/:player": COBBLES,
   "village/chests": COBBLES,
@@ -67,5 +58,3 @@ const LEADING = Object.keys(DESTINATION) as (keyof typeof DESTINATION)[];
 /** The balances whose page is the one at `pathname` (the Vault's, the packs'): in view already, their plates lead nowhere (#855). */
 export const hereOf = (pathname: string): readonly BalanceKind[] => LEADING.filter((kind) => DESTINATION[kind] === pathname);
 
-/** A page's balances; "not found" (no page) shows none. */
-export const balancesOf = (page: PageDef | null): HeaderBalances => (page === null ? NONE : HEADER_BALANCES[page.path]);

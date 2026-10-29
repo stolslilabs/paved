@@ -7,6 +7,7 @@ import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { InlineError } from "../elements/inline-error";
 import { ResourcePlate } from "../elements/resource-plate";
+import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 
 /** The wallet's balances as a page reads them. USDC, PAVED and vPAVED are tokens (base units); Cobbles are a ledger (a count). */
 export type BalancesState =
@@ -39,12 +40,20 @@ export interface BalancesProps {
    * larger plates from `desktop`. Each layout shows at every width: the slot hides it where the other one stands.
    */
   layout: "pill" | "rail";
-  /** The balances shown, in this order (#855: the page's, `routes/header-balances.ts`); omitted, every one (vPAVED while held). */
+  /**
+   * The balances shown, in this order; omitted, the page's (`page`, #855: the rule's, `routes/header-balances.ts`, which this chunk
+   * carries), or every one (vPAVED while held) without a page.
+   */
   kinds?: readonly ShownBalance[];
+  /** The open page's route (the shell's, #855): its balances and the plates that lead to it (`here`) are the rule's; `null`, none. */
+  page?: string | null;
   /** `row`: side by side (a page's header, #781). `column`: one under the other, right-aligned (the home's top right, #828). */
   direction?: "row" | "column";
   state: BalancesState;
-  /** The balances whose page is the one open (#855: PAVED and vPAVED on the Vault, the Cobbles on the packs): no "+", no action. */
+  /**
+   * The balances whose page is the one open (#855: PAVED and vPAVED on the Vault, the Cobbles on the packs): no "+", no action.
+   * Omitted, the page's (`page`).
+   */
   here?: readonly BalanceKind[];
   onAction?: (kind: BalanceKind) => void;
   onConnect?: () => void;
@@ -220,7 +229,10 @@ function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConne
  * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
  * skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
  */
-export function Balances({ layout, kinds = EVERY, direction = "row", state, here, onAction, onConnect, faucet, minting, beside, className }: BalancesProps) {
+export function Balances({ layout, page, direction = "row", state, onAction, onConnect, faucet, minting, beside, className, ...props }: BalancesProps) {
+  // No page (a story's, a test's), every balance; a page that shows none (`null`, or a route the rule does not name), none.
+  const kinds = props.kinds ?? (page === undefined ? EVERY : (HEADER_BALANCES[page as keyof typeof HEADER_BALANCES] ?? []));
+  const here = props.here ?? (page == null ? undefined : hereOf(`/${page}`));
   const held = kinds.includes("vpaved-held");
   const crowded = useCrowded(beside);
   const vpaved = useVpavedPlate(held && state.status === "ready" ? state.vpaved : undefined);

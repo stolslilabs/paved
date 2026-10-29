@@ -16,7 +16,8 @@ import { StoryScene } from "../scenes/story-scene";
 import { ThemeScene } from "../scenes/theme-scene";
 import { ThemeShopScene } from "../scenes/theme-shop-scene";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
-import { BalancesOf, BalancesProvider, PACKS_BALANCES, PACKS_HERE } from "./balances-context";
+import { BalancesProvider } from "./balances-context";
+import { BalancesOf } from "./balances-of";
 import PagePanel from "./page-panel";
 import PageSheet from "./page-sheet";
 
@@ -89,7 +90,7 @@ export const ReferralWide: Story = sheet("Referral", referral, true);
 const story = <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} onCampaign={fn()} onLevel={fn()} />;
 // In the sheet the packs show their own balances, the Cobbles and USDC, not the page's under them (#855: the packs' page).
 const packs = (
-  <BalancesOf kinds={PACKS_BALANCES} here={PACKS_HERE}>
+  <BalancesOf page="cobbles">
     <CobblesScene {...COBBLES.packs} onBack={fn()} onSelectPack={fn()} onBuyPack={fn()} />
   </BalancesOf>
 );

@@ -4,14 +4,16 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
-import { BalancesProvider, PACKS_BALANCES, PACKS_HERE } from "../src/components/containers/balances-context";
+import { BalancesProvider } from "../src/components/containers/balances-context";
 import { TopBar } from "../src/components/containers/top-bar";
-import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import { HOME_BALANCES, HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { VillageScene } from "../src/components/scenes/village-scene";
 import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { VILLAGE } from "../src/mocks/village";
 import { HOME_VILLAGE, VILLAGE_SHOP } from "../src/mocks/village-v2";
-import { HEADER_BALANCES, HOME_BALANCES, hereOf } from "../src/routes/header-balances";
+import { BALANCE_PAGES } from "../src/routes/balance-pages";
+import { DESTINATION as HOST_DESTINATION } from "../src/routes/balances-host";
+import { DESTINATION, HEADER_BALANCES, hereOf } from "../src/routes/header-balances";
 import { PAGES } from "../src/routes/pages";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -77,9 +79,12 @@ describe("the balances by page (#855)", () => {
     expect(HOME_BALANCES).toEqual(TABLE[""]);
   });
 
-  it("the packs' page carries its own set and its inert plates, the rule's, also in the sheet over another page", () => {
-    expect(PACKS_BALANCES).toEqual(TABLE.cobbles);
-    expect(PACKS_HERE).toEqual(hereOf("/cobbles"));
+  // The rule lives in the balances' chunk; the first screen keeps only what it needs, which must say the same.
+  it("the shell's pages with balances are the rule's, and the plates lead where the shell sends them", () => {
+    expect([...BALANCE_PAGES].sort()).toEqual(Object.keys(TABLE).filter((path) => TABLE[path]!.length > 0).sort());
+    expect(HOST_DESTINATION).toEqual(DESTINATION);
+    expect(hereOf("/cobbles")).toEqual(["cobbles"]);
+    expect(hereOf("/vault")).toEqual(["paved", "vpaved"]);
   });
 
   it("USDC only on the Cobbles' packs and the Challenge's purchase; the Vault's PAVED and vPAVED, never the Cobbles", () => {
