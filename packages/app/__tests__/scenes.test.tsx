@@ -982,9 +982,9 @@ describe("Element feedback (EL)", () => {
     expect(screen.getByRole("timer", { name: "Closes in 9:00:00" })).toBeInTheDocument();
   });
 
-  it("draws the Chests tab with the gift, and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
+  it("draws the Chests tab with the treasure chest (issue 873), and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
     render(wrap(<AppNav active="home" />));
-    expect(screen.getByRole("button", { name: "Chests" }).querySelector("[data-icon='gift']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Chests" }).querySelector("svg[data-slot='game-icon'][data-icon='treasure-chest']")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
   });
 

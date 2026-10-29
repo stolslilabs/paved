@@ -196,7 +196,7 @@ async function main() {
         await page.setViewportSize({ width, height: 800 });
         await render(page, origin, id);
         const route = (PAGE_HEADER_STORIES as Record<string, readonly string[]>)[name]?.[0];
-        const withBalances = route !== undefined && HEADER_BALANCES[route] !== "none";
+        const withBalances = route !== undefined && (HEADER_BALANCES[route]?.length ?? 0) > 0;
         // The balances are their own chunk: wait for them where the page has them (the space is held meanwhile).
         if (withBalances) await page.waitForSelector('[data-slot="page-header"] section[aria-label="Balances"]', { timeout: 10_000 }).catch(() => undefined);
         const { token, headers, others, content, title, balances } = await page.evaluate(measure);

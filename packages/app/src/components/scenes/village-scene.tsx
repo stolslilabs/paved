@@ -317,7 +317,7 @@ function VillageView({
                 <span className="numeric font-semibold">{pending}</span> {pending === 1 ? "reward waits" : "rewards wait"}: open one to draw its three tiles.
               </p>
               <Button className="shrink-0" loading={busy} onClick={onOpenReward}>
-                <Icon name="gift" size="sm" /> Open
+                <Icon name="treasure-chest" size="sm" /> Open
               </Button>
             </div>
           )}
