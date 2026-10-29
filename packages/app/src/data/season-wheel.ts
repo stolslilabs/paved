@@ -33,15 +33,14 @@ export interface WheelRound {
 }
 
 /**
- * A tap (#634): from auto, the next season not yet started (the one after `now`, the auto cycle's season; summer's day,
- * where the dial rests, when the cycle has not drawn yet); then each following season up to the one before `now`. The
- * four seasons passed (`now`'s and the three after it), the fourth tap goes back to auto. The dial only ever turns forward.
+ * A tap (#634, every season since #909): from auto, the season after `now` (the auto cycle's season; summer's day, where the
+ * dial rests, when the cycle has not drawn yet); then each following season, ending with `now`'s own. The four seasons
+ * fixed once each, the fifth tap goes back to auto. The dial only ever turns forward.
  */
 export function nextWheelRound(round: WheelRound, now?: Season | null): WheelRound {
   if (round.state === "auto") {
     const from = now ?? "summer";
-    const first = followingSeason(from);
-    return { state: first as WheelState, last: followingSeason(followingSeason(first)) };
+    return { state: followingSeason(from) as WheelState, last: from };
   }
   if (round.state === round.last) return { state: "auto", last: null };
   return { state: followingSeason(round.state) as WheelState, last: round.last };
