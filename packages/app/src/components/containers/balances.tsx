@@ -1,6 +1,6 @@
 import { formatUnits } from "@paved/game-core";
 import * as m from "motion/react-m";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -52,6 +52,11 @@ export interface BalancesProps {
   faucet?: boolean;
   /** The faucet mint is on its way. */
   minting?: boolean;
+  /**
+   * The row a `column` stands in and the control in it the column must not cover (#855: the home's top row and its League
+   * control): when the widest plate does not fit right of it, the Cobbles stand alone (`data-crowded`, its rule in theme.css).
+   */
+  beside?: readonly [row: string, control: string];
   className?: string;
 }
 
@@ -112,6 +117,36 @@ function useVpavedPlate(vpaved: bigint | null | undefined): { shown: boolean; fr
     return () => clearTimeout(timer);
   }, [from]);
   return { shown, from };
+}
+
+/**
+ * BALANCES-BY-PAGE (#855, the issue's second open point): a column that would crowd a control (`beside`), its widest plate (a
+ * large PAVED balance) wider than the room right of it in their row, keeps the Cobbles alone (`data-crowded`). The control may
+ * arrive later (its own chunk): it is looked up at each measure, and the row's children are watched for it. The other plates
+ * leave the flow, hidden, but keep their width, so the measure does not change with the answer. Their amounts stay on the Vault,
+ * a tap away.
+ */
+function useCrowded(beside?: readonly [row: string, control: string]) {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const column = ref.current;
+    if (!beside || !column) return;
+    const [rowOf, controlOf] = beside;
+    const row = column.closest(rowOf);
+    if (!row) return;
+    const sizes = new ResizeObserver(() => {
+      const plates = [...column.querySelectorAll<HTMLElement>("[data-kind]")];
+      const control = row.querySelector(controlOf);
+      // A plate's width follows its amount: each is watched once it has arrived (the column grows as they do). An 8 px gap.
+      for (const plate of plates) sizes.observe(plate);
+      const free = control ? row.getBoundingClientRect().right - control.getBoundingClientRect().right - 8 : Infinity;
+      column.toggleAttribute("data-crowded", plates.length > 1 && Math.max(...plates.map((plate) => plate.offsetWidth)) > free);
+    });
+    // The row, the column as its plates arrive, and the row's children as the control does.
+    for (const box of [row, column, ...row.children]) sizes.observe(box);
+    return () => sizes.disconnect();
+  }, [beside]);
+  return ref;
 }
 
 /** The plates' size (#828): a 32 px box under a 48 px bare icon on a phone (`pill`), 36 under 52 from `desktop` (`rail`, #213). */
@@ -185,8 +220,9 @@ function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConne
  * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
  * skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
  */
-export function Balances({ layout, kinds = EVERY, direction = "row", state, here, onAction, onConnect, faucet, minting, className }: BalancesProps) {
+export function Balances({ layout, kinds = EVERY, direction = "row", state, here, onAction, onConnect, faucet, minting, beside, className }: BalancesProps) {
   const held = kinds.includes("vpaved-held");
+  const crowded = useCrowded(beside);
   const vpaved = useVpavedPlate(held && state.status === "ready" ? state.vpaved : undefined);
   if (kinds.length === 0) return null;
   const size: PlateSize = layout === "rail" ? "md" : "sm";
@@ -194,6 +230,7 @@ export function Balances({ layout, kinds = EVERY, direction = "row", state, here
   const fromOf = (kind: BalanceKind) => (kind === "vpaved" && held ? vpaved.from : undefined);
   return (
     <section
+      ref={crowded}
       aria-label="Balances"
       data-direction={direction}
       className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-2" : cn("items-center", size === "md" ? "gap-3" : "gap-2"), className)}

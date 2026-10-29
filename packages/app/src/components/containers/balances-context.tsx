@@ -39,7 +39,8 @@ const Balances = lazy(() => import("./balances").then((m) => ({ default: m.Balan
  * which widths (`className`: `desktop:hidden`, `hidden desktop:flex`); the home names its own set (`kinds`), under a panel's page
  * as alone. The space is held while the chunk arrives, so nothing moves.
  */
-export function BalancesSlot({ layout, kinds, direction, className }: Pick<BalancesProps, "layout" | "kinds" | "direction" | "className">) {
+export function BalancesSlot({ kinds, ...slot }: Pick<BalancesProps, "layout" | "kinds" | "direction" | "beside" | "className">) {
+  const { layout, direction, className } = slot;
   const value = useContext(BalancesContext);
   // Omitted (a story's, a test's provider): the Cobbles, the set of most pages.
   const shown = kinds ?? value?.kinds ?? COBBLES;
@@ -56,7 +57,7 @@ export function BalancesSlot({ layout, kinds, direction, className }: Pick<Balan
   );
   return (
     <Suspense fallback={hold}>
-      <Balances {...value} kinds={shown} layout={layout} direction={direction} className={className} />
+      <Balances {...value} {...slot} kinds={shown} />
     </Suspense>
   );
 }

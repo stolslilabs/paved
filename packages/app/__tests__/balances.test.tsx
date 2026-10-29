@@ -242,7 +242,7 @@ describe("the plates (#828)", () => {
       const stack = document.querySelector<HTMLElement>("[data-slot=home-phone-balances]")!;
       await within(stack).findByRole("button", { name: /^\S+ PAVED: Vault$/ }, { timeout: slow(5000) });
       await waitFor(() => expect(document.querySelector("[data-slot=league-control]")).not.toBeNull(), { timeout: slow(5000) });
-      await waitFor(() => expect(stack.hasAttribute("data-crowded")).toBe(crowded));
+      await waitFor(() => expect(stack.querySelector("section")!.hasAttribute("data-crowded")).toBe(crowded));
       // Crowded, the other plates leave the flow, hidden from sight and from assistive technology; the Cobbles' plate stays.
       expect(CROWDED_RULE).toMatch(/visibility: hidden;\s+position: absolute;/);
       expect(within(stack).getByRole("button", { name: /Cobbles: Buy packs/ })).toBeInTheDocument();
