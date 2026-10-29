@@ -38,8 +38,8 @@ export const GAME_ICON_NAMES = [
   "trophy",
 ] as const;
 
-/** The world's icons (#870): the four structure categories, then the season wheel's seasons and its sun and moon. */
-export const WORLD_ICON_NAMES = ["tree", "road", "castle", "landmark-dome", "sun", "leaf", "snowflake", "seedling", "moon"] as const;
+/** The world's icons (#870): the four structure categories, then the season wheel's seasons and its day and night marks. */
+export const WORLD_ICON_NAMES = ["tree", "road", "castle", "landmark-dome", "sun", "leaf", "snowflake", "seedling", "cloud-sun", "moon"] as const;
 
 export const WORLD_SHAPES_PATH = join(ROOT, "src/components/elements/world-icon-shapes.ts");
 

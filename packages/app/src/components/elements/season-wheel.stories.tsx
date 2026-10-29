@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { WHEEL_SEASONS, WHEEL_STATES, initialWheelRound, nextWheelRound, type WheelRound } from "../../data/season-wheel";
-import { SeasonWheel } from "./season-wheel";
+import { SEASON_GLYPH, SeasonWheel } from "./season-wheel";
+import { WorldIcon } from "./world-icon";
 import { bothThemes } from "../../stories/both-themes";
 
 const meta = {
@@ -15,7 +16,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Auto, a summer day: the disc follows the cycle under the pointer, the sun on the rim, the auto marker in the hub. */
+/**
+ * Auto, a summer day: the disc follows the cycle under the pointer, the day mark (a sun behind a cloud) on the rim, the auto
+ * marker in the hub: summer's own sun, on the disc beside it, is told apart at a glance (#870's review).
+ */
 export const Auto: Story = {};
 /** Auto, a summer night: the pointer in summer's night quarter, the moon on the rim. */
 export const AutoAtNight: Story = { args: { point: { season: "summer", position: 0.8 } } };
@@ -51,7 +55,7 @@ function Turning_() {
   return <SeasonWheel state="auto" point={{ season: WHEEL_SEASONS[Math.floor(seasons) % 4]!, position: seasons % 1 }} turnMs={100} />;
 }
 
-/** The turning disc, sped up: one season in 3 s, the badge turning to the moon at each dusk and back at each dawn. */
+/** The turning disc, sped up: one season in 3 s, the badge turning to the moon at each dusk and back to the day mark at each dawn. */
 export const Turning: Story = { render: () => <Turning_ /> };
 
 function Clicks_({ now }: { now: (typeof WHEEL_SEASONS)[number] }) {
@@ -85,6 +89,22 @@ export const BothThemesDayAndNight: Story = {
     <div className="flex flex-wrap gap-4">
       <SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} />
       <SeasonWheel state="auto" point={{ season: "winter", position: 0.8 }} />
+    </div>
+  ),
+  decorators: [bothThemes],
+};
+
+/**
+ * The wheel's marks side by side (#870's review): the four seasons' icons, then the now badge's by day and by night. The day's
+ * is a small sun behind a light cloud, not summer's lone gold sun, so summer and day are told apart at a glance.
+ */
+export const Marks: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-3 text-[1.5rem]">
+      {WHEEL_SEASONS.map((s) => <WorldIcon key={s} name={SEASON_GLYPH[s]} size="inherit" label={s} />)}
+      <span className="h-8 w-px bg-border" />
+      <WorldIcon name="cloud-sun" size="inherit" label="day" />
+      <WorldIcon name="moon" size="inherit" label="night" />
     </div>
   ),
   decorators: [bothThemes],
