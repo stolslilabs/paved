@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+// The USDC mark as published (nums), the source of USDC's coin (#861): Storybook only, to show it beside the coin.
+import usdcMark from "../../../vendor/usdc/mark.svg?no-inline";
 import { Amount } from "./amount";
 import { Cobbles } from "./cobbles";
 import { ResourcePlate } from "./resource-plate";
@@ -104,6 +106,60 @@ export const Coins: Story = {
         <p className="max-w-prose text-2xl">
           <Amount value={1_234n * 10n ** 17n} token="paved" /> · <Amount value={56n * 10n ** 18n} token="vpaved" />
         </p>
+      </section>
+    </div>
+  ),
+};
+
+const FAMILY = ["usdc", "paved", "vpaved", "cobbles"] as const;
+
+/**
+ * USDC's coin (#861): the USDC mark, unaltered, on a steel coin in the game icons' relief (a rim, the outline, the light on the rim,
+ * the shadow), so it sits with PAVED, vPAVED and the Cobbles. The four side by side at each size, on dark and on light; the mark as
+ * published beside the coin; the four plates.
+ */
+export const UsdcCoin: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      {COIN_SURFACES.map((surface) => (
+        <section key={surface.name} aria-label={surface.name} className={`flex flex-col gap-3 rounded-xl p-3 ${surface.className}`}>
+          <h3 className="text-sm font-semibold">{surface.name}: the four currencies</h3>
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+            {SIZES.map(({ size, px }) => (
+              <figure key={size} className="flex flex-col items-center gap-1">
+                <div className="flex items-end gap-1">
+                  {FAMILY.map((kind) => (
+                    <TokenIcon key={kind} kind={kind} size={size} label={TOKEN_ICONS[kind].name} />
+                  ))}
+                </div>
+                <figcaption className="text-xs">{px} px</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      ))}
+      <section aria-label="The mark, unaltered" className="flex flex-col gap-2 text-foreground">
+        <h3 className="text-sm font-semibold">The mark, unaltered</h3>
+        <div className="flex flex-wrap items-end gap-4">
+          <figure className="flex flex-col items-center gap-1">
+            <img src={usdcMark} alt="The USDC mark as published" className="size-16" />
+            <figcaption className="text-xs">As published</figcaption>
+          </figure>
+          <figure className="flex flex-col items-center gap-1">
+            <TokenIcon kind="usdc" size="2xl" label="USDC's coin" />
+            <figcaption className="text-xs">On the coin</figcaption>
+          </figure>
+        </div>
+      </section>
+      <section aria-label="In the plates" className="flex flex-col gap-2 text-foreground">
+        <h3 className="text-sm font-semibold">In the plates</h3>
+        {(["sm", "md"] as const).map((size) => (
+          <div key={size} className="flex flex-wrap items-start gap-3">
+            {PLATE_KINDS.map((p) => (
+              <ResourcePlate key={p.kind} {...p} size={size} plus={p.kind !== "vpaved"} tone={p.kind === "cobbles" ? "invite" : "default"} />
+            ))}
+          </div>
+        ))}
       </section>
     </div>
   ),

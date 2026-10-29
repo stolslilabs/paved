@@ -73,25 +73,25 @@ describe("the game icons (#844)", () => {
 describe("the currencies in relief (#844, the owner's pick: Relief)", () => {
   const token = (kind: string) => read(`src/assets/tokens/${kind}.svg`);
 
-  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`); the coins' shape and colours are #853's (`coins.test.ts`).
-  it("give PAVED and vPAVED a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
-    for (const kind of ["paved", "vpaved"]) {
+  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`); the coins' shape and colours are #853's and #861's (`coins.test.ts`).
+  it("give PAVED, vPAVED and USDC's coin a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
+    for (const kind of ["paved", "vpaved", "usdc"]) {
       const svg = token(kind);
       expect(svg, kind).toContain("<linearGradient");
       expect(svg, kind).toMatch(/fill="#fff" fill-opacity="\.[56]/);
       expect(svg, kind).toMatch(/opacity="\.45"/);
-      // The outline: the coin's tone mixed toward the ink (#853, the gold's and the steel's edge).
-      expect(svg, kind).toMatch(/stroke="#(?:373126|343538)" stroke-width="72"/);
+      // The outline: the coin's tone mixed toward the ink (#853, the gold's and the steel's edge; #861, USDC's steel).
+      expect(svg, kind).toMatch(/stroke="#(?:373126|343538|323336)" stroke-width="72"/);
     }
   });
 
-  it("keep USDC's mark unaltered, in its own colours, with the outline, the light and the shadow around it", () => {
+  it("keep USDC's mark unaltered, in its own colours, the coin's rim, light and shadow around it", () => {
     const svg = token("usdc");
-    expect(svg).toContain('<path fill="#2775CA" d="M996 0h9');
-    expect(svg).toContain('<path fill="#FEFEFE"');
-    expect(svg).not.toContain("<linearGradient");
-    // The ring and the shadow come before the mark: nothing is painted over it.
-    expect(svg.indexOf('fill-opacity=".45"')).toBeLessThan(svg.indexOf("#2775CA"));
-    expect(svg.indexOf('fill="#0B2545"')).toBeLessThan(svg.indexOf("#2775CA"));
+    expect(svg).toContain('<path fill="#2775CA" d="');
+    expect(svg).toContain('<path fill="#FEFEFE" d="');
+    // The rim, its light and the shadow come before the mark, and the mark ends the file: nothing is painted over it.
+    expect(svg.indexOf('opacity=".45"')).toBeLessThan(svg.indexOf("#2775CA"));
+    expect(svg.indexOf('fill-opacity=".55"')).toBeLessThan(svg.indexOf("#2775CA"));
+    expect(svg).toMatch(/<path fill="#FEFEFE" d="[^"]+"\/><\/svg>$/);
   });
 });
