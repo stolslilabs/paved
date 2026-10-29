@@ -93,6 +93,15 @@ describe("the chests (#874, the study)", () => {
     expect(await at("spent")).toMatchObject({ burst: false, inside: true, grey: true });
     // Reduced motion: no idle shine.
     expect((await at("rest", true)).shine).toBe(false);
+    // Reduced motion: the opening's light fades in, it does not show at once.
+    {
+      const { container, unmount } = render(wrap(<ChestArt direction="wood" rank="gold" state="opening" />, true));
+      const svg = container.querySelector("svg")!;
+      const lights = [...svg.querySelectorAll<SVGElement>('[data-part="burst"] > *, [data-part="sparks"]')];
+      expect(lights.length).toBe(3);
+      for (const el of lights) expect(Number(el.style.opacity)).toBeLessThan(0.5);
+      unmount();
+    }
     expect(screen.queryByRole("img")).toBeNull();
   });
 

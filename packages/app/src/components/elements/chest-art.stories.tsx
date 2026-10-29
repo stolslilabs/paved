@@ -94,10 +94,16 @@ export const Directions: Story = {
   ),
 };
 
-/** One chest that opens on a tap and closes again, to replay the opening. */
-function Openable({ direction, rank }: { direction: ChestDirection; rank: ChestRank }) {
+/** One chest that opens on a tap and closes again, to replay the opening; each new `opens` (the "Open all" button's count) opens it too. */
+function Openable({ direction, rank, opens }: { direction: ChestDirection; rank: ChestRank; opens: number }) {
   const [open, setOpen] = useState(false);
   const [run, setRun] = useState(0);
+  const [seen, setSeen] = useState(opens);
+  if (opens !== seen) {
+    setSeen(opens);
+    setOpen(true);
+    setRun(run + 1);
+  }
   const name = CHEST_NAME[rank].toLowerCase();
   return (
     <div className="flex flex-col items-center gap-1">
@@ -120,7 +126,7 @@ function Openable({ direction, rank }: { direction: ChestDirection; rank: ChestR
 
 /**
  * The opening (#874's proposal 4): tap a chest to open it, the lid swings and the light bursts in the rank's colour; tap again to
- * close it and replay. "Open all" opens the nine at once.
+ * close it and replay. "Open all" opens the nine at once (again on each press); each can still be closed and replayed.
  */
 export const TapToOpen: Story = {
   render: function Render() {
@@ -133,16 +139,9 @@ export const TapToOpen: Story = {
         {CHEST_DIRECTIONS.map((d) => (
           <DirectionCard key={d.id} direction={d.id}>
             <div className="flex flex-wrap gap-x-3 gap-y-2">
-              {CHEST_RANKS.map((rank) =>
-                all > 0 ? (
-                  <div key={`${rank}${all}`} className="flex flex-col items-center gap-1">
-                    <ChestArt direction={d.id} rank={rank} state="opening" size="md" />
-                    <span className="text-xs text-foreground">{RANK_LABEL[rank]}</span>
-                  </div>
-                ) : (
-                  <Openable key={rank} direction={d.id} rank={rank} />
-                ),
-              )}
+              {CHEST_RANKS.map((rank) => (
+                <Openable key={rank} direction={d.id} rank={rank} opens={all} />
+              ))}
             </div>
           </DirectionCard>
         ))}
