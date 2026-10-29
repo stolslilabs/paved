@@ -74,7 +74,8 @@ async function attacked(s: ReturnType<typeof mockImplementation>, me: string) {
   }
 }
 
-preloadPages("home");
+// The search's view too (`pvp.tsx` loads it lazily): it draws the found heading, held 1.2 s, as soon as it can.
+preloadPages("home", "pvp-v2");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pages/pvp-result"), import("../src/routes/pages/pvp-league"), import("../src/routes/pages/pvp-replay")]);
 }, slow(60_000));
@@ -96,9 +97,9 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Wanderer" })).toBeInTheDocument();
     // The search draws as the page opens: the village found (held `FOUND_MS`, 1.2 s), then its scout. The wait starts before
-    // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks; it is checked the
-    // moment it is found, as the click may still be on its way past the 1.2 s the heading stays.
-    const found = screen.findByRole("heading", { name: "Village found" }, WAIT).then((heading) => expect(heading).toBeInTheDocument());
+    // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks. Being found is
+    // the check: by the time a check after it ran, under load, React had flushed the 1.2 s the heading stays and removed it.
+    const found = screen.findByRole("heading", { name: "Village found" }, WAIT);
     // No Attack button on the League (#833): the search is the bar's (`/pvp`).
     expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
     await act(() => s.router.navigate("/pvp"));

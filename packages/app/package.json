@@ -8,11 +8,12 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/fa-subset.ts --check && node scripts/game-icons.ts --check && node scripts/league-crests.ts --check && node scripts/chest-art.ts --check && tsc -b && vite build && node scripts/bundle-budget.ts",
+    "build": "node scripts/fa-subset.ts --check && node scripts/game-icons.ts --check && node scripts/league-crests.ts --check && node scripts/coins.ts --check && node scripts/chest-art.ts --check && tsc -b && vite build && node scripts/bundle-budget.ts",
     "fa-subset": "node scripts/fa-subset.ts",
     "fa-subset-check": "node scripts/fa-subset.ts --check",
     "game-icons": "node scripts/game-icons.ts",
     "league-crests": "node scripts/league-crests.ts",
+    "coins": "node scripts/coins.ts",
     "chest-art": "node scripts/chest-art.ts",
     "bundle-budget": "node scripts/bundle-budget.ts",
     "test": "vitest run",
