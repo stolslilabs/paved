@@ -201,7 +201,8 @@ function LeagueBrowser({ ref, mine, peak, opensOn, bonusesToSee, onBonusSeen }: 
   }));
   const bonusOf = (l: League): LeagueBonusState => (l.index > peak ? "locked" : bonusesToSee?.includes(l.index) && !seen.includes(l.index) ? "ready" : "had");
   return (
-    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={mine.index}>
+    // Brought into view under the sticky header (`--header-h`, the notch's inset), with the bar's own gap (`TopBar`'s `mb-4`).
+    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={mine.index} className="scroll-mt-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]">
       {(l, current) => (
         <LeagueCard
           league={l}

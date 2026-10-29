@@ -111,6 +111,8 @@ describe("League carousel (#785, #833, #859)", () => {
         expect(current()).toHaveAccessibleName("Go to Bronze II");
         // The carousel comes into view, gliding, or at once under reduced motion; no navigation.
         expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", behavior: reduced === "always" ? "instant" : "smooth" });
+        // It stops under the sticky header, never beneath it (jsdom lays nothing out: the margin is the class; the stories measure it).
+        expect(scrollIntoView.mock.contexts[0]).toHaveClass("scroll-mt-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]");
         // On the player's league already, a tap keeps it there.
         await userEvent.click(control());
         expect(inView()).toHaveAccessibleName("Bronze II");

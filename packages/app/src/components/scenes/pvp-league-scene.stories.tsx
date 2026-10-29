@@ -86,10 +86,12 @@ export const AttacksAboveWide: Story = { ...AttacksAbove, ...WIDE_1440, decorato
 
 /** A tap on the header's League control, the carousel on Silver II: it glides back to the player's league, Bronze II (#859). */
 const showMine: Story["play"] = async ({ canvasElement }) => {
-  const canvas = within(canvasElement);
+  // The panel (1440 px) is in a portal, out of the canvas.
+  const canvas = within(canvasElement.ownerDocument.body);
   const inView = () => within(canvas.getByRole("region", { name: "Leagues" })).getByRole("group");
-  await expect(inView()).toHaveAccessibleName("Silver II");
-  await userEvent.click(canvas.getByRole("button", { name: /^Your league: Bronze II, [\d,]+ crowns\. Show it$/ }));
+  await waitFor(() => expect(inView()).toHaveAccessibleName("Silver II"));
+  // The panel slides in (no pointer events until it lands): the tap waits for it.
+  await waitFor(() => userEvent.click(canvas.getByRole("button", { name: /^Your league: Bronze II, [\d,]+ crowns\. Show it$/ })));
   await waitFor(() => expect(inView()).toHaveAccessibleName("Bronze II"));
 };
 export const ShowMinePhone: Story = { ...HigherPhone, play: showMine };
@@ -97,6 +99,25 @@ export const ShowMineSmall: Story = { ...HigherSmall, play: showMine };
 export const ShowMineWide: Story = { ...HigherWide, play: showMine };
 /** The same under reduced motion: the carousel cuts back. */
 export const ShowMineReduced: Story = { ...ShowMinePhone, parameters: { ...ShowMinePhone.parameters, reducedMotion: "always" } };
+
+/**
+ * The page scrolled to the end of 26 matches, the carousel on Silver II: the tap brings the carousel back into view under the
+ * sticky header, never beneath it (the card's crest and bonus icon in sight), then on Bronze II.
+ */
+const showMineScrolled: Story["play"] = async (context) => {
+  await scrolledToEnd(context);
+  const page = within(context.canvasElement.ownerDocument.body);
+  const carousel = page.getByRole("region", { name: "Leagues" });
+  await expect(within(carousel).getByRole("group")).toHaveAccessibleName("Silver II");
+  await userEvent.click(page.getByRole("button", { name: /^Your league: Bronze II, [\d,]+ crowns\. Show it$/ }));
+  await waitFor(() => expect(within(carousel).getByRole("group")).toHaveAccessibleName("Bronze II"));
+  const header = carousel.closest("[data-slot=page-scroll]")!.querySelector("[data-slot=page-header]")!;
+  await waitFor(() => expect(carousel.getBoundingClientRect().top).toBeGreaterThanOrEqual(header.getBoundingClientRect().bottom), { timeout: 3_000 });
+};
+const scrolledArgs = { ...PVP_LEAGUE.matchesMany, opensOn: 8 };
+export const ShowMineScrolledPhone: Story = { ...MatchesManyPhone, args: scrolledArgs, play: showMineScrolled };
+export const ShowMineScrolledReduced: Story = { ...ShowMineScrolledPhone, parameters: { ...ShowMineScrolledPhone.parameters, reducedMotion: "always" } };
+export const ShowMineScrolledWide: Story = { ...MatchesMany, ...WIDE_1440, args: scrolledArgs, decorators: [inPanel("League")], play: showMineScrolled };
 
 /** Reduced motion: the arrows cut from league to league. */
 export const ReducedMotion: Story = { ...BronzePhone, parameters: { ...BronzePhone.parameters, reducedMotion: "always" } };
