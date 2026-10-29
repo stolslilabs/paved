@@ -287,6 +287,33 @@ function useBalancesWidth() {
 }
 
 /**
+ * BALANCES-BY-PAGE (#855, the issue's second open point): below `desktop` the home's stack is the Cobbles, PAVED and vPAVED one under
+ * the other, unless it would crowd the overlay: when its widest plate (a large PAVED balance) does not fit beside the League control
+ * under the profile, the Cobbles stand alone (`data-crowded`). The other plates leave the flow, hidden, but keep their width, so the
+ * measure does not change with the answer. Their amounts stay on the Vault, a tap away.
+ */
+function useCrowdedStack() {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const stack = ref.current;
+    const row = stack?.closest<HTMLElement>("[data-slot=home-top-row]");
+    if (!stack || !row) return;
+    const sizes = new ResizeObserver(() => {
+      const plates = [...stack.querySelectorAll<HTMLElement>("[data-kind]")];
+      const league = row.querySelector("[data-slot=league-control]");
+      // A plate's width follows its amount: each is watched once it has arrived (the stack grows as they do). An 8 px gap.
+      for (const plate of plates) sizes.observe(plate);
+      const free = league ? row.getBoundingClientRect().right - league.getBoundingClientRect().right - 8 : Infinity;
+      stack.toggleAttribute("data-crowded", plates.length > 1 && Math.max(...plates.map((plate) => plate.offsetWidth)) > free);
+    });
+    // The row, the stack as its plates arrive, and the left column as the League control does (their own chunks).
+    for (const box of [row, stack, row.firstElementChild!]) sizes.observe(box);
+    return () => sizes.disconnect();
+  }, []);
+  return ref;
+}
+
+/**
  * The right column, over Play: under the balances (#828), as far down as the stack reaches, and never above 5.5 rem from the
  * screen's top (5 rem in the top row's padding from `tablet`), where it stood before the stack. From `desktop` it stops above Play
  * (the top row's 1 rem, its own top, Play's 4.5 rem, its 1 rem margin and a 0.5 rem gap): on a short window its buttons wrap into
@@ -322,11 +349,12 @@ function ViewOverlays({
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
   const balancesRef = useBalancesWidth();
+  const stackRef = useCrowdedStack();
   return (
     <>
       {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
-        <div className="relative flex items-start justify-between gap-2">
+        <div data-slot="home-top-row" className="relative flex items-start justify-between gap-2">
           <div
             className={cn(
               "pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]",
@@ -360,7 +388,13 @@ function ViewOverlays({
             <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
               <GameIcon name="gear" size="md" />
             </Button>
-            <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" className="desktop:hidden" />
+            <div
+              ref={stackRef}
+              data-slot="home-phone-balances"
+              className="relative desktop:hidden [&[data-crowded]_[data-kind]:not([data-kind=cobbles])]:invisible [&[data-crowded]_[data-kind]:not([data-kind=cobbles])]:absolute [&[data-crowded]_[data-kind]:not([data-kind=cobbles])]:right-0"
+            >
+              <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" />
+            </div>
             <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />
             <VillageNav {...props} />
           </div>

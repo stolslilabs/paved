@@ -154,6 +154,7 @@ function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: 
   return (
     <m.button
       type="button"
+      data-kind={kind}
       onClick={() => onAction?.(kind)}
       disabled={inert}
       aria-label={nameOf(kind, amount, action)}
