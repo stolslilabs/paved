@@ -41,7 +41,7 @@ function open(s: ReturnType<typeof setup>, path: string) {
 
 const forestActive = (s: ReturnType<typeof setup>) => s.skins.active.flatMap((t, i) => (t === FOREST ? [i + 1] : []));
 
-preloadPages("theme", "theme-shop", "my-tiles", "welcome");
+preloadPages("theme", "theme-shop", "my-tiles", "welcome", "settings", "sheets");
 
 beforeEach(() => {
   queryClient.clear();

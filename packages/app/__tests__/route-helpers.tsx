@@ -56,6 +56,12 @@ const PAGES = {
   "village-shop": () => import("../src/routes/pages/village-shop"),
   "village-chests": () => import("../src/routes/pages/village-chests"),
   "pvp-league": () => import("../src/routes/pages/pvp-league"),
+  // A sheet's page (BACK-RULE #783) and its host, each its own chunk, loaded with the first sheet opened.
+  sheets: () => Promise.all([import("../src/routes/page-sheets"), import("../src/routes/page-sheet-host")]),
+  // The Cobbles' sheet's host (#621), its own chunk over any page.
+  "cobbles-sheet": () => import("../src/routes/cobbles-sheet-host"),
+  // The home's side panel, where the overlay's pages open (#762).
+  "panel-host": () => import("../src/routes/home-panel-host"),
 };
 
 /**
