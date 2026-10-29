@@ -212,7 +212,7 @@ function transformOf(place: Place, width: number): string {
  * The sizes, as the em of the SVG (1em square): 16 to 96 px, issue 854's 24, 40 and 96 among them; `inherit` takes the parent's font size.
  * An inline font size, not a class: the stylesheet's budget gains nothing from the crests.
  */
-const SIZE_REM = { sm: 1, md: 1.5, lg: 2.5, xl: 4, "2xl": 6, inherit: null } as const;
+export const SIZE_REM = { sm: 1, md: 1.5, lg: 2.5, xl: 4, "2xl": 6, inherit: null } as const;
 export type CrestArtSize = keyof typeof SIZE_REM;
 
 export interface CrestArtProps {
@@ -240,15 +240,13 @@ export interface CrestSvgProps extends Omit<CrestArtProps, "league" | "division"
   league: LeagueId;
   division?: CrestDivision;
   parts: readonly CrestPath[];
-  /** Its `data-slot`; other data attributes (a rank's name) go in `data`. */
+  /** Its `data-slot`; other data attributes go in `data`. */
   slot: string;
   data?: Record<`data-${string}`, string>;
-  /** Each part in its flat base, without the lit gradient (the third study's finish): the outline, the light along its upper edge, the shadow. */
-  flat?: boolean;
 }
 
 /** A crest's SVG, any drawing's: its parts in the game icons' relief, 1em square on the crests' 512 grid. */
-export function CrestSvg({ league, division, parts, size = "md", label, className, slot, data, flat }: CrestSvgProps) {
+export function CrestSvg({ league, division, parts, size = "md", label, className, slot, data }: CrestSvgProps) {
   const rem = SIZE_REM[size];
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const base = (tone: CrestTone) => crestBase(tone, league);
@@ -269,7 +267,7 @@ export function CrestSvg({ league, division, parts, size = "md", label, classNam
       style={rem === null ? undefined : { fontSize: `${rem}rem` }}
     >
       <defs>
-        {[...new Set(flat ? [] : raised.map(({ p }) => p.tone))].map((t) => (
+        {[...new Set(raised.map(({ p }) => p.tone))].map((t) => (
           <linearGradient key={t} id={`${id}${t}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" style={{ stopColor: mix(base(t), "hi") }} />
             <stop offset="0.45" style={{ stopColor: mix(base(t), "mid") }} />
@@ -296,7 +294,7 @@ export function CrestSvg({ league, division, parts, size = "md", label, classNam
         ) : (
           <g key={i}>
             <path d={p.d} transform={p.t} style={{ fill: mix(base(p.tone), "edge"), stroke: mix(base(p.tone), "edge") }} strokeWidth={OUTLINE / p.k} strokeLinejoin="round" />
-            <path d={p.d} transform={p.t} {...(flat ? { style: { fill: base(p.tone) } } : { fill: `url(#${id}${p.tone})` })} />
+            <path d={p.d} transform={p.t} fill={`url(#${id}${p.tone})`} />
             <g mask={`url(#${id}r${i})`} opacity={0.55}>
               <path d={p.d} transform={p.t} style={{ fill: "var(--game-light)" }} />
             </g>
