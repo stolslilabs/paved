@@ -1,13 +1,10 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
-import { Icon } from "../ui/icon";
+import { CHEST_NAME, type ChestRank } from "./chest-designs";
+import { ChestIcon } from "./chest-icon";
 
-/** A chest's rank (issue 732): basic one tile with no choice, rare one of 2, epic one of 3. */
-export type ChestRank = "basic" | "rare" | "epic";
-
-/** The tiles a chest of each rank shows: the player keeps one. */
-export const CHEST_CHOICES: Readonly<Record<ChestRank, number>> = { basic: 1, rare: 2, epic: 3 };
-export const CHEST_NAME: Readonly<Record<ChestRank, string>> = { basic: "Basic chest", rare: "Rare chest", epic: "Epic chest" };
+/** A chest's rank (issue 732), its tiles and its name: in `chest-designs.ts`, beside its drawings. */
+export { CHEST_CHOICES, CHEST_NAME, type ChestRank } from "./chest-designs";
 
 export const chestVariants = cva("inline-grid shrink-0 place-items-center rounded-xl border-2 bg-secondary", {
   variants: {
@@ -32,13 +29,20 @@ export interface ChestBadgeProps extends VariantProps<typeof chestVariants> {
   className?: string;
 }
 
-/** A chest of its rank (issue 739): the chest in the rank's medal colour, its name as its accessible name (the colour is never alone). */
-const ICON_SIZE = { sm: "md", md: "lg", lg: "xl", xl: "2xl" } as const;
+/** The simple chest's height in each badge (rem): 24 to 48 px, inside the frame's 40 to 112. */
+const ICON_REM = { sm: 1.5, md: 2, lg: 3, xl: 3.75 } as const;
 
+/**
+ * A chest of its rank (issue 739) in its frame: the simple chest of issue 874 (`ChestIcon`, wood and metal bands, its ornaments growing with
+ * the rank) on the rank's medal border, its name as its accessible name (neither the colour nor the ornaments are alone). Dimmed once
+ * opened.
+ */
 export function ChestBadge({ rank, size = "md", glow = false, open = false, className }: ChestBadgeProps) {
   return (
     <span role="img" aria-label={CHEST_NAME[rank]} data-rank={rank} className={cn(chestVariants({ rank, size, glow }), className)}>
-      <Icon name="treasure-chest" variant="solid" size={ICON_SIZE[size ?? "md"]} className={open ? "opacity-60" : undefined} />
+      <span className={open ? "opacity-60" : undefined} style={{ fontSize: `${ICON_REM[size ?? "md"]}rem`, lineHeight: 1 }}>
+        <ChestIcon rank={rank} size="inherit" label={null} />
+      </span>
     </span>
   );
 }
