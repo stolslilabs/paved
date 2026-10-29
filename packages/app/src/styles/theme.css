@@ -423,6 +423,16 @@
      navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
   html, body { overscroll-behavior: none; }
 
+  /* POINTER-CURSOR (#880): everything that can be clicked shows the pointer, as Tailwind 4's upgrade guide suggests (its
+     preflight leaves a button with the arrow). A disabled control keeps the default cursor. A class still wins (utilities come
+     after the base layer): `disabled:cursor-not-allowed`, the hand-written `cursor-pointer` kept on some parts. The board's
+     canvas keeps its own cursors. A slider's root takes it, so its whole track (clicked to set a value), range and thumb show
+     it. Nothing changes on touch, which draws no cursor. */
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="radio"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="slider"], [data-slot="slider"]):not(:disabled, [aria-disabled="true"], [data-disabled]),
+  :where(a[href], summary, label[for], select:not(:disabled)) {
+    cursor: pointer;
+  }
+
   /* NO-SCROLLBARS (#609, #835): no scrollbar is drawn at any width, on any element, the document included; every scroller
      still scrolls by touch, wheel, trackpad and keyboard. No bar takes room, so a page's content keeps its width when it
      starts or stops scrolling (no `scrollbar-gutter` needed). What tells the player a region scrolls is the edge fade,

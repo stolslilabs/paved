@@ -268,7 +268,7 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
     );
   }
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => {
+    <div className={cn("pointer-events-auto fixed inset-0 z-50 bg-background/80 backdrop-blur-sm", !settled && "cursor-pointer")} onClick={() => {
         if (settled) return;
         setSkipped(true);
         setSettled(true);
