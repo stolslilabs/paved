@@ -101,14 +101,15 @@ describe("the world's icons (#870)", () => {
 describe("the currencies in relief (#844, the owner's pick: Relief)", () => {
   const token = (kind: string) => read(`src/assets/tokens/${kind}.svg`);
 
-  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`).
+  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`); the coins' shape and colours are #853's (`coins.test.ts`).
   it("give PAVED and vPAVED a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
     for (const kind of ["paved", "vpaved"]) {
       const svg = token(kind);
       expect(svg, kind).toContain("<linearGradient");
       expect(svg, kind).toMatch(/fill="#fff" fill-opacity="\.[56]/);
       expect(svg, kind).toMatch(/opacity="\.45"/);
-      expect(svg, kind).toMatch(/stroke="#(?:0A141C|121212|2E2A24)"/);
+      // The outline: the coin's tone mixed toward the ink (#853, the gold's and the steel's edge).
+      expect(svg, kind).toMatch(/stroke="#(?:373126|343538)" stroke-width="72"/);
     }
   });
 
