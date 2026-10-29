@@ -8,6 +8,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { ChestIcon } from "../elements/chest-icon";
 import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { PlayerAvatar } from "../elements/player-avatar";
@@ -59,9 +60,6 @@ function cardName(m: MatchCardData): string {
   const what = m.side === "attack" ? `Your attack on ${who}` : `${who}'s attack on your village`;
   return `${what}: ${m.stars} of 3 stars`;
 }
-
-/** A chest's own colour, its rank's medal (the name says the rank too). */
-const CHEST_TONE: Record<ChestRank, string> = { epic: "text-medal-1", rare: "text-medal-2", basic: "text-medal-3" };
 
 /** Lost crowns turn the card's background grey (#834); a win or a draw (0) keeps its colour (open point 2). */
 const matchLost = (m: Pick<MatchCardData, "crowns">): boolean => m.crowns < 0;
@@ -125,7 +123,7 @@ export function MatchCard({ match: m, now, onOpen, renders }: { match: MatchCard
               {m.chest ? (
                 <>
                   <span className="text-muted-foreground">{CHEST_NAME[m.chest]}</span>
-                  <Icon name="treasure-chest" variant="solid" size="lg" label={CHEST_NAME[m.chest]} className={CHEST_TONE[m.chest]} />
+                  <ChestIcon rank={m.chest} size="md" label={null} />
                 </>
               ) : (
                 <span className="text-muted-foreground">No chest</span>
