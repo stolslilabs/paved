@@ -307,7 +307,7 @@ function ViewActions({ chests, onEdit, onOpenChests, onOpenShop }: { chests: num
     <>
       <Button onClick={onEdit}>Edit</Button>
       <Button variant="outline" onClick={onOpenChests} aria-label={chests > 0 ? `Chests, ${chests} waiting` : "Chests"} className="relative">
-        <Icon name="gift" size="sm" /> Chests
+        <Icon name="treasure-chest" size="sm" /> Chests
         {chests > 0 && (
           <span aria-hidden className="numeric absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
             {chests}

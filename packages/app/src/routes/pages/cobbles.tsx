@@ -20,6 +20,7 @@ import { useNow } from "../now";
 import { useBack } from "../ref";
 import { useInPageRegion } from "../../components/containers/page-region";
 import { cn } from "../../lib/utils";
+import { BalancesOf } from "../../components/containers/balances-of";
 
 /**
  * `/cobbles` (#621): the Cobble packs, a page of their own (they left the Challenge's purchase, whose old `?tab=cobbles`
@@ -28,8 +29,18 @@ import { cn } from "../../lib/utils";
  * read again. The referrer is the link's `?ref=`, dropped (and said) when the pack's split would not pay it. A guest's Pay
  * connects. An unknown outcome is held as a game's is (`usePurchaseHold`): recorded per player, checked, and released only by
  * the player's confirm that their balance and Cobbles show no purchase; then only a deliberate Buy again sends.
+ * Its header shows its own balances (#855), the Cobbles and USDC, also in the sheet over the page that asked for the packs
+ * (`useCobblesSheet`), whose own set is another; the Cobbles' plate leads nowhere, the packs being in view.
  */
 export default function Page() {
+  return (
+    <BalancesOf page="cobbles">
+      <Packs />
+    </BalancesOf>
+  );
+}
+
+function Packs() {
   const onBack = useBack();
   const [params] = useSearchParams();
   const wallet = useAccount();

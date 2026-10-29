@@ -256,19 +256,13 @@ describe("the welcome", () => {
   });
 
   // The header's balances (#781) carry a guest's Connect: on the welcome it is the card's, so it completes the visit too.
-  it.each([
-    ["the pill", 0],
-    ["the rail", 1],
-  ])("the header's Connect (%s) connects, marks the visit and goes Home", async (_, i) => {
-    const router = open("/");
+  // The welcome uses no balance (#855): its header has none, so the card's Connect is the one.
+  it("the header shows no balances and no Connect of its own", async () => {
+    open("/");
     const heading = await screen.findByRole("heading", { level: 1, name: "Welcome" });
     const header = heading.closest<HTMLElement>('[data-slot="page-header"]')!;
-    const buttons = await within(header).findAllByRole("button", { name: /Connect/ }, { timeout: slow(5000) });
-    expect(buttons).toHaveLength(2);
-    await userEvent.click(buttons[i]!);
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(localStorage.getItem("welcomed")).toBe("1");
-    expect(router.state.location.pathname).toBe("/");
+    expect(within(header).queryByRole("region", { name: "Balances" })).toBeNull();
+    expect(within(header).queryByRole("button", { name: /Connect/ })).toBeNull();
   });
 
   it("a refused connect stays on the welcome with its reason, the visit not marked", async () => {

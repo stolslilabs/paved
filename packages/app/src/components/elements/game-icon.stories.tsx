@@ -153,6 +153,47 @@ export const VillageCategoriesSeasonsOnSkies: Story = {
   ),
 };
 
+/**
+ * Issue 873: the Chests' treasure chest, in the gift's place, and the flat gift the other rewards keep (the missions' bonus, the
+ * game over's rewards).
+ */
+function ChestRow() {
+  const sizes = SIZES.filter((s) => s.px <= 48);
+  return (
+    <>
+      <div className="flex flex-wrap items-end gap-3">
+        <span className="w-24 rounded-md bg-background/70 px-1.5 text-xs text-foreground">treasure-chest</span>
+        {sizes.map(({ size, px }) => (
+          <GameIcon key={px} name="treasure-chest" size={size} />
+        ))}
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <span className="w-24 rounded-md bg-background/70 px-1.5 text-xs text-foreground">gift (flat)</span>
+        {sizes.map(({ size, px }) => (
+          <Icon key={px} name="gift" size={size === "inherit" ? "2xl" : size} fixedWidth className="text-primary" />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** The treasure chest at 16 to 48 px on the app's surface and on a day and a night sky, the grounds of the bar and the overlay. */
+export const TreasureChest: Story = {
+  render: () => (
+    <div className="flex flex-col gap-3">
+      <section aria-label="Surface" className="flex flex-col gap-2 rounded-xl bg-background p-3">
+        <ChestRow />
+      </section>
+      {[SKIES[2]!, SKIES[3]!].map((ground) => (
+        <section key={ground.name} aria-label={ground.name} className="flex flex-col gap-2 rounded-xl p-3" style={{ background: ground.background }}>
+          <h3 className="self-start rounded-md bg-background/70 px-1.5 text-sm font-semibold text-foreground">{ground.name}</h3>
+          <ChestRow />
+        </section>
+      ))}
+    </div>
+  ),
+};
+
 /** One icon in every tone of the palette (`current` takes the text's colour: a league's crest). */
 export const Tones: Story = {
   render: () => (

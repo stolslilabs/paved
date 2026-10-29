@@ -58,10 +58,10 @@ describe("the game icons (#844)", () => {
   it("paints every part in one tone when asked (a crest in its league's colour), and each look its own way", () => {
     const { container } = render(<GameIcon name="swords" tone="current" />);
     expect(container.querySelectorAll("linearGradient")).toHaveLength(1);
-    const relief = render(<GameIcon name="gift" />).container;
+    const relief = render(<GameIcon name="treasure-chest" />).container;
     expect(relief.querySelectorAll("mask").length).toBeGreaterThan(0);
     // The other looks of the owner's pick, Storybook's only.
-    const toon = render(<GameIconLook name="gift" look="toon" />).container;
+    const toon = render(<GameIconLook name="treasure-chest" look="toon" />).container;
     expect(toon.querySelector("linearGradient")).not.toBeNull();
     expect(toon.querySelector("mask")).toBeNull();
     expect(toon.querySelector("svg")).toHaveAttribute("data-look", "toon");
@@ -95,6 +95,14 @@ describe("the world's icons (#870)", () => {
     const { container } = render(<GameIcon name="house-tree" />);
     expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["green", "wood"]);
     expect(Object.keys(WORLD_ICON_SHAPES)).not.toContain("house-tree");
+  });
+
+  it("draw the Chests' treasure chest in wood, its side bands and its lock gold (issue 873)", () => {
+    const { container } = render(<GameIcon name="treasure-chest" label="Chests" />);
+    expect(screen.getByRole("img", { name: "Chests" })).toHaveAttribute("viewBox", `${(GAME_ICON_SHAPES["treasure-chest"].width - 640) / 2} 0 640 512`);
+    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0]).sort()).toEqual(["gold", "wood"]);
+    // The left band, the body, the right band, the lid, the lock: consecutive parts of one tone are one path.
+    expect(container.querySelectorAll("mask")).toHaveLength(5);
   });
 });
 

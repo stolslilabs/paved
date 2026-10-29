@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
@@ -112,8 +112,19 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     await userEvent.click(cobbles!);
     // The packs first: the page's loading screen has the same heading, replaced as the packs arrive.
     expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(20_000) })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
+    const title = screen.getByRole("heading", { level: 1, name: "Cobbles" });
+    expect(title).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Stake" })).not.toBeInTheDocument();
+    // In the sheet over Missions, the packs' own balances (#855), not Missions' Cobbles alone: the Cobbles and USDC, at both widths,
+    // the Cobbles' plate leading nowhere (its packs are in view).
+    const header = title.closest<HTMLElement>('[data-slot="page-header"]')!;
+    const regions = await within(header).findAllByRole("region", { name: "Balances" }, { timeout: slow(5000) });
+    expect(regions).toHaveLength(2);
+    for (const region of regions) {
+      const plates = await within(region).findAllByRole("button", { name: /Cobbles|USDC/ }, { timeout: slow(5000) });
+      expect(plates.map((b) => b.getAttribute("aria-label")!.replace(/^[\d.,]+ /, "").replace(/:.*$/, ""))).toEqual(["Cobbles", "USDC"]);
+      expect(plates[0]).toBeDisabled();
+    }
     noRawErrors();
   }, slow(45_000));
 });
