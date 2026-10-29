@@ -1,44 +1,60 @@
+import type { BalanceKind, ShownBalance } from "../components/containers/balances";
 import type { PageDef } from "./pages";
 
-/** Which balances a page's header shows: the home's (`home`, the same on every page) or none (`none`, the game scenes). */
-export type HeaderBalances = "home" | "none";
+/** The balances a page shows, in their order on screen; empty, none (the shell then reads none for it, `balance-pages.ts`). */
+export type HeaderBalances = readonly ShownBalance[];
+
+const NONE: HeaderBalances = [];
+const COBBLES: HeaderBalances = ["cobbles"];
 
 /**
- * HEADER-BALANCES (#720), revised by ONE-HEADER (#781, the owner's decisions of 2026-10-26): every page shows the home's balances
- * in the home's format, the Cobbles' pill below `desktop` and every balance's rail from it, in its header's row (`PageHeader`). The
- * game scenes show none: the boards, the ends of a game, the PvP attack's flow (`pvp`: the search, the scout, the attack), its
- * result and a replay (#647). The one place that says it, by route.
+ * BALANCES-BY-PAGE (#855, the owner's decisions of 2026-10-28, revising #781's "the home's balances on every page"): a page shows
+ * only the balances it uses, the currencies its actions spend or earn, and none otherwise; the same set on a phone and from
+ * `desktop`. USDC only where USDC is spent: the Cobbles' packs (priced in dollars) and the Challenge's purchase. The Vault shows
+ * PAVED and vPAVED (deposited PAVED becomes vPAVED, so it shows even at zero), not the Cobbles. The pages that spend or earn Cobbles
+ * (the tile shop, the chests, the missions, the themes, the avatar, a visit) show the Cobbles. None on the League (its header holds
+ * the League control, #859), the mode choice, the Story's list, Settings and its pages, the welcome, and the game scenes: the
+ * boards, the ends of a game, the PvP attack's flow, its result and a replay (#647). The one place that says it, by route; the
+ * balances' own chunk reads it (`Balances`, by the page's route), so the first bundle does not carry it.
  */
 export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
-  welcome: "home",
-  "": "home",
-  play: "home",
-  "play/challenge": "home",
-  cobbles: "home",
-  avatar: "home",
-  "village/:player": "home",
-  "village/chests": "home",
-  "village/shop": "home",
-  "game/:gameId": "none",
-  training: "none",
-  story: "home",
-  "story/:campaign/:level": "none",
-  "game/:gameId/over": "none",
-  "training/over": "none",
-  missions: "home",
-  vault: "home",
-  referral: "home",
-  "settings/theme": "home",
-  "settings/theme/:theme": "home",
-  "settings/tiles": "home",
-  "settings/credits": "home",
-  settings: "home",
-  pvp: "none",
-  "pvp/result/:id": "none",
-  "pvp/replay/:attacker/:id": "none",
-  "pvp/match/:id": "none",
-  "pvp/league": "home",
+  welcome: NONE,
+  "": ["cobbles", "paved", "vpaved-held"],
+  play: NONE,
+  "play/challenge": ["usdc"],
+  cobbles: ["cobbles", "usdc"],
+  avatar: COBBLES,
+  "village/:player": COBBLES,
+  "village/chests": COBBLES,
+  "village/shop": COBBLES,
+  "game/:gameId": NONE,
+  training: NONE,
+  story: NONE,
+  "story/:campaign/:level": NONE,
+  "game/:gameId/over": NONE,
+  "training/over": NONE,
+  missions: COBBLES,
+  vault: ["paved", "vpaved"],
+  referral: NONE,
+  "settings/theme": COBBLES,
+  "settings/theme/:theme": COBBLES,
+  "settings/tiles": NONE,
+  "settings/credits": NONE,
+  settings: NONE,
+  pvp: NONE,
+  "pvp/result/:id": NONE,
+  "pvp/replay/:attacker/:id": NONE,
+  "pvp/match/:id": NONE,
+  "pvp/league": NONE,
 };
 
-/** Whether a page shows no balance at all, so the shell reads none for it; "not found" (no page) shows the home's. */
-export const showsNoBalance = (page: PageDef | null): boolean => page !== null && HEADER_BALANCES[page.path] === "none";
+/**
+ * Where PAVED, vPAVED and the Cobbles lead: the Vault, and the Cobble packs (#621). USDC mints from the faucet where there is one.
+ * The packs open as the village's page from the village, and in place, in a sheet over any other page (BACK-RULE #783).
+ */
+export const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } as const;
+const LEADING = Object.keys(DESTINATION) as (keyof typeof DESTINATION)[];
+
+/** The balances whose page is the one at `pathname` (the Vault's, the packs'): in view already, their plates lead nowhere (#855). */
+export const hereOf = (pathname: string): readonly BalanceKind[] => LEADING.filter((kind) => DESTINATION[kind] === pathname);
+

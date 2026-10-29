@@ -168,7 +168,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
                 <Cobbles value={reward.offer.cobbles} sign="+" />
               </div>
               <Button size="lg" onClick={() => setChoosing(true)} disabled={props.pending} loading={choosing && !villageScene}>
-                <Icon name="gift" size="sm" />
+                <Icon name="treasure-chest" size="sm" />
                 Choose
               </Button>
             </>
@@ -177,7 +177,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted-foreground">Your reward is waiting: open it to draw its three tiles.</p>
               <Button size="lg" onClick={props.onOpenReward} disabled={props.pending} loading={props.opening}>
-                <Icon name="gift" size="sm" />
+                <Icon name="treasure-chest" size="sm" />
                 Open the reward
               </Button>
             </div>

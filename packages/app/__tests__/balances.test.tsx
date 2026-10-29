@@ -1,4 +1,6 @@
 import { slow } from "../test-slow";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
@@ -12,12 +14,14 @@ import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
+/** The crowded stack's rule (theme.css): jsdom applies no stylesheet, so the rule is read where it is written. */
+const CROWDED_RULE = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8").match(/\[data-crowded\] \[data-kind\]:not\(\[data-kind="cobbles"\]\) \{[^}]*\}/)?.[0] ?? "";
 const READY: BalancesState = { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 };
 
 describe("Balances (#538), the resource bar (#620)", () => {
-  it("pill: the Cobbles' plate alone (#720), leading to the packs", async () => {
+  it("pill: the page's balances alone (#855), the Cobbles' plate leading to the packs", async () => {
     const onAction = vi.fn();
-    render(wrap(<Balances layout="pill" state={READY} onAction={onAction} />));
+    render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} onAction={onAction} />));
     const region = screen.getByRole("region", { name: "Balances" });
     expect(within(region).getAllByRole("button")).toHaveLength(1);
     expect(screen.queryByText("48.50")).toBeNull();
@@ -188,15 +192,76 @@ describe("the plates (#828)", () => {
     expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end gap-2"));
   });
 
-  it("the home stacks its rail; a page's header keeps it in a row", async () => {
+  it("no balances, nothing drawn", () => {
+    render(wrap(<Balances layout="rail" kinds={[]} state={READY} />));
+    expect(screen.queryByRole("region", { name: "Balances" })).toBeNull();
+  });
+
+  it("a guest's Connect names the page's balances from desktop", () => {
+    render(wrap(<Balances layout="rail" kinds={["cobbles", "usdc"]} state={{ status: "disconnected" }} />));
+    expect(screen.getByText("Connect to see your Cobbles and USDC.")).toBeInTheDocument();
+  });
+
+  it("loading: a skeleton per balance shown, none for vPAVED while unknown", () => {
+    const { container } = render(wrap(<Balances layout="pill" kinds={["cobbles", "paved", "vpaved-held"]} state={{ status: "loading" }} />));
+    expect(container.querySelectorAll("[data-slot=skeleton]")).toHaveLength(2);
+  });
+
+  // #855's second open point: the phone stack gives way to the Cobbles alone where its widest plate would cover the League control.
+  // jsdom lays nothing out: the plates' widths and the row's and the League control's edges are stubbed as measured at 320 px.
+  it.each([
+    ["a large PAVED balance crowds the League control: the Cobbles alone", 213, true],
+    ["an ordinary one fits beside it: the whole stack", 120, false],
+  ])("the home's phone stack: %s", async (_, paved, crowded) => {
+    const width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+      return this.dataset.kind === "paved" ? paved : this.dataset.kind ? 110 : 0;
+    });
+    // As the browser's: a first notice for each box as it starts being watched (the setup's stand-in never calls back).
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        private seen = new Set<Element>();
+        constructor(private notify: ResizeObserverCallback) {}
+        observe(box: Element) {
+          if (this.seen.has(box)) return;
+          this.seen.add(box);
+          queueMicrotask(() => this.notify([], this as unknown as ResizeObserver));
+        }
+        unobserve() {}
+        disconnect() {
+          this.seen.clear();
+        }
+      },
+    );
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const right = this.dataset.slot === "home-top-row" ? 312 : this.dataset.slot === "league-control" ? 167 : 0;
+      return { right, left: 0, top: 0, bottom: 0, width: right, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+    try {
+      render(wrap(<BalancesProvider value={{ state: { ...READY, vpaved: 1n } }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
+      const stack = document.querySelector<HTMLElement>("[data-slot=home-phone-balances]")!;
+      await within(stack).findByRole("button", { name: /^\S+ PAVED: Vault$/ }, { timeout: slow(5000) });
+      await waitFor(() => expect(document.querySelector("[data-slot=league-control]")).not.toBeNull(), { timeout: slow(5000) });
+      await waitFor(() => expect(stack.querySelector("section")!.hasAttribute("data-crowded")).toBe(crowded));
+      // Crowded, the other plates leave the flow, hidden from sight and from assistive technology; the Cobbles' plate stays.
+      expect(CROWDED_RULE).toMatch(/visibility: hidden;\s+position: absolute;/);
+      expect(within(stack).getByRole("button", { name: /Cobbles: Buy packs/ })).toBeInTheDocument();
+    } finally {
+      width.mockRestore();
+      rect.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("the home stacks its balances at every width; a page's header keeps them in a row", async () => {
     const { unmount } = render(wrap(<BalancesProvider value={{ state: READY }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
     const home = await screen.findAllByRole("region", { name: "Balances" });
-    // The pill (one plate) below `desktop`, the stacked rail from it.
-    expect(home.map((r) => r.dataset.direction)).toEqual([undefined, "column"]);
+    // The phone's plates below `desktop`, the larger ones from it, both stacked (#855: the home's set at every width).
+    expect(home.map((r) => r.dataset.direction)).toEqual(["column", "column"]);
     unmount();
     render(wrap(<BalancesProvider value={{ state: READY }}><TopBar title="Choose a mode" /></BalancesProvider>));
     const header = await screen.findAllByRole("region", { name: "Balances" });
-    expect(header.map((r) => r.dataset.direction)).toEqual([undefined, "row"]);
+    expect(header.map((r) => r.dataset.direction)).toEqual(["row", "row"]);
   });
 });
 

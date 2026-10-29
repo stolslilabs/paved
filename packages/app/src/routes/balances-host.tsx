@@ -14,19 +14,21 @@ import { useAppNavigate } from "./ref";
 
 /**
  * Where PAVED, vPAVED and the Cobbles lead: the Vault, and the Cobble packs (#621). USDC mints from the faucet where there is one.
- * The packs open as the village's page from the village, and in place, in a sheet over any other page (BACK-RULE #783).
+ * The packs open as the village's page from the village, and in place, in a sheet over any other page (BACK-RULE #783). The
+ * rule's `DESTINATION` says the same for the plates on those pages (header-balances.test checks both agree).
  */
-const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } as const;
+export const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } as const;
 
 /** Devnet and Sepolia deploy the Faucet (`FAUCET_NETWORKS` of `@paved/chain`, kept out of the first bundle); mainnet has none. */
 const FAUCET_NETWORKS = ["devnet", "sepolia"];
 const FAUCET = FAUCET_NETWORKS.includes(import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : ""));
 
 /**
- * Reads the balances once for the whole shell and hands them to the home and the pages' headers (`BalancesSlot`), on every page
- * but the game scenes (`header-balances.ts`).
+ * Reads the balances once for the whole shell and hands them to the home and the pages' headers (`BalancesSlot`), with the page's
+ * route (`page`, #855: its set is the rule's, `header-balances.ts`, read in the balances' chunk; `null`, none), where the page
+ * shows some or the home is mounted under it. A plate on its own page leads nowhere, and is not pressed (`here`).
  */
-export function BalancesHost({ children }: { children: ReactNode }) {
+export function BalancesHost({ page, children }: { page: string | null; children: ReactNode }) {
   const state = useBalances();
   const wallet = useAccount();
   const { signer } = useDataSources();
@@ -38,8 +40,6 @@ export function BalancesHost({ children }: { children: ReactNode }) {
   const address = signer?.address ?? wallet.address;
   const onAction = useCallback(
     (kind: BalanceKind) => {
-      // On the packs' own page they are in view already.
-      if (kind === "cobbles" && pathname === "/cobbles") return;
       if (kind === "cobbles" && pathname !== "/") return cobbles.open();
       if (kind !== "usdc") return go(DESTINATION[kind]);
       if (!signer || !address) return;
@@ -53,7 +53,10 @@ export function BalancesHost({ children }: { children: ReactNode }) {
     [go, pathname, cobbles.open, signer, address, queryClient],
   );
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);
-  const value = useMemo(() => ({ state, onAction, onConnect, faucet: FAUCET && Boolean(signer), minting }), [state, onAction, onConnect, signer, minting]);
+  const value = useMemo(
+    () => ({ state, page, onAction, onConnect, faucet: FAUCET && Boolean(signer), minting }),
+    [state, page, onAction, onConnect, signer, minting],
+  );
   return (
     <BalancesProvider value={value}>
       {children}
