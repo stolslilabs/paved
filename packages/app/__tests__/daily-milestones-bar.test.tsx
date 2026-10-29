@@ -5,8 +5,9 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DailyMilestonesBar } from "../src/components/containers/daily-milestones-bar";
 
-// The day's progress bar of the Missions page (#869): five steps, the milestones' markers at 3 (+10) and 5 (+15), their claims
-// and the Cobbles' burst (none under reduced motion).
+// The day's milestones graph of the Missions page (#869, reworked 2026-10-29): five edges, one per daily, between six nodes; the
+// full nodes at 3 (+10) and 5 (+15) carry the rewards, the four others are plain; their claims and the Cobbles' burst (none under
+// reduced motion).
 
 const wrap = (ui: ReactNode, reduced = false) => (
   <LazyMotion features={domMax}>
@@ -17,7 +18,24 @@ const bar = () => screen.getByRole("progressbar", { name: "Dailies done today" }
 const lit = () => bar().querySelectorAll("[data-done]").length;
 const burst = () => document.querySelector('[data-burst="cobbles"]');
 
+const plain = () => document.querySelectorAll("[data-node]");
+const full = () => document.querySelectorAll("[data-milestone]");
+
 describe("DailyMilestonesBar (#869)", () => {
+  it("draws a graph: an edge per daily, a full node per reward, a plain node elsewhere", () => {
+    const { rerender } = render(wrap(<DailyMilestonesBar done={2} claimed={0} />));
+    expect(bar().querySelectorAll("[data-step]")).toHaveLength(5);
+    expect([...full()].map((n) => n.getAttribute("data-milestone"))).toEqual(["3", "5"]);
+    expect([...plain()].map((n) => n.getAttribute("data-node"))).toEqual(["0", "1", "2", "4"]);
+    // The start and the two dailies done are reached.
+    expect([...plain()].filter((n) => n.hasAttribute("data-reached")).map((n) => n.getAttribute("data-node"))).toEqual(["0", "1", "2"]);
+    // The Cobbles not read: the plain nodes alone.
+    rerender(wrap(<DailyMilestonesBar done={2} claimed={0} rewards={false} />));
+    expect(full()).toHaveLength(0);
+    expect(plain()).toHaveLength(6);
+    expect(screen.queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
+  });
+
   it("lights a step per daily done, and shows both milestones' Cobbles ahead", () => {
     const { rerender } = render(wrap(<DailyMilestonesBar done={0} claimed={0} />));
     expect(bar()).toHaveAttribute("aria-valuenow", "0");
