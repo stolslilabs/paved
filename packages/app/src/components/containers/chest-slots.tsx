@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
-import { CHEST_NAME, ChestBadge, type ChestRank } from "../elements/chest-badge";
+import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { LazyChestArt } from "../elements/lazy-chest-art";
 import { HeroCountdown } from "../elements/hero-countdown";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -46,7 +47,8 @@ export interface ChestSlotsProps {
 
 /**
  * The day's three PvP chest slots (#759), the Chests page's hero. A slot says its state (#784): a free one is its outline alone, a
- * won one shows its chest in its rank's colour (a tap opens it), an opened one a grey, disabled chest. The reset's countdown
+ * won one shows its detailed chest (#874) glowing in its rank's colour (a tap opens it), an opened one the chest open, empty and
+ * grey, disabled (#874's open point 2). The reset's countdown
  * ticks under them, at the centre once the three are won, and pulses in its last minute. At the reset a short "Ready" lights
  * the slots again. Under reduced motion every frame is still.
  */
@@ -170,24 +172,25 @@ interface SlotProps {
 
 const STATE_TEXT: Readonly<Record<ChestSlotState, string>> = { free: "Free", won: "Tap to open", opened: "Opened" };
 
-/** One slot on its pedestal: its outline while free, its chest once won, the chest grey once opened. */
+/** One slot on its pedestal: its outline while free, its chest once won, the chest open and grey once opened. */
 function Slot({ index, state, rank, ready, small, reduced, onOpen }: SlotProps) {
   const chest = rank ? CHEST_NAME[rank].toLowerCase() : "chest";
   const name =
     state === "won" ? `Slot ${index + 1}: won${rank ? `, ${chest}` : ""}` : state === "opened" ? `Slot ${index + 1}: opened` : `Slot ${index + 1}: free${ready ? ", ready" : ""}`;
+  // The art's box (6rem, 4rem once the three are won): a free slot's outline and a chest of no rank take it too.
   const box = small ? "size-16" : "size-24";
   const art =
     state === "won" ? (
       rank ? (
-        <ChestBadge rank={rank} size={small ? "md" : "lg"} glow className={cn(box, "[&_svg]:text-[2.5rem]")} />
+        <LazyChestArt rank={rank} state="ready" shake={false} size={small ? "xs" : "sm"} label={null} />
       ) : (
         <span aria-hidden className={cn("grid place-items-center rounded-2xl border-2 border-primary/60 bg-secondary text-primary", box)}>
           <Icon name="treasure-chest" variant="solid" size={small ? "xl" : "2xl"} />
         </span>
       )
     ) : state === "opened" ? (
-      <span aria-hidden data-spent="" className={cn("grid place-items-center rounded-2xl border-2 border-border bg-secondary/50 text-muted-foreground opacity-40", box)}>
-        <Icon name="treasure-chest" variant="solid" size={small ? "xl" : "2xl"} />
+      <span aria-hidden data-spent="" className="grid place-items-center">
+        <LazyChestArt rank={rank ?? "basic"} state="spent" size={small ? "xs" : "sm"} label={null} />
       </span>
     ) : (
       <span
