@@ -116,6 +116,9 @@ record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `
 League crests (#854): `<CrestArt league="knight" division={2} />` from `elements/crest-art.tsx`, one drawing per group in
 the game icons' relief, the division as studs at its foot (III one, I three). Its Font Awesome shapes are generated like the
 game icons': `CREST_SHAPE_NAMES` in `scripts/league-crests.ts`, `bun run league-crests`, and a line in the notices.
+The second study's directions (Shield, Helm, Medal) are `<CrestDirectionArt direction="shield" league="knight" />` from
+`elements/crest-directions.tsx`: one base shape per direction, its material (`MATERIAL_BASES`, mixed from the game icons' tones, no CSS of its own) and ornaments climbing
+by `RANKS`; both draw through `CrestSvg`.
 
 Chests (#874, the study in `Elements/ChestArt`, three directions for the owner to pick): `<ChestIcon direction="wood" rank="gold" />`
 (`elements/chest-icon.tsx`), the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), and
