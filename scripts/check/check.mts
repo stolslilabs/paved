@@ -1,7 +1,7 @@
 /**
  * One local command that mirrors the CI's fast jobs (GUARDS, P-71): `bun run check` (alias `bun run check:pr`).
  *
- *   node scripts/check/check.mts [--all] [--pre-push [--head <sha>]]
+ *   node scripts/check/check.mts [--all] [--quick] [--pre-push [--head <sha>]]
  *
  * From the files changed since the merge base with origin/main (scripts/check/touched.mts), in order:
  *
@@ -16,6 +16,11 @@
  * 6. the client's Vercel build (packages/app/vercel.json, Sepolia env), then the bundle budget with its margins, then
  *    the Storybook's Vercel build (the root vercel.json), each only when that project's inputs changed.
  *
+ * `--quick` (`bun run check:quick`, or `PAVED_CHECK_QUICK=1 bun run check`, about 3 minutes on a quiet machine) runs 1 to 4 as above, and in 5 the whole suites
+ * of the touched packages other than the app, and of the app only the tests selected by quickAppTests: the changed tests
+ * and those that import a changed file directly (not the whole import graph; the whole suite when its test setup
+ * changed). It skips 6: the Vercel builds, the budget and the Storybook build. All it skips stays in the full check and
+ * in the CI.
  * `--pre-push` (the hook in .githooks/pre-push) runs 1, 3 and 4 for the touched packages only, on the pushed commit.
  * `--all` checks everything, as if every file had changed. Every step runs even after a failure, so one run says all
  * that is wrong; the last line is one summary: pass or fail, each step and its time. Exit 0 passes, 2 is a failed check. No secret, no network beyond the
@@ -33,7 +38,7 @@ import { spawnSync } from "node:child_process";
 import { readdirSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { isAbsolute, join } from "node:path";
-import { GUARD_TESTS, TEST_HEAP_MB, changedFiles, plan, topological, workspace, type Plan } from "./touched.mts";
+import { APP_DIR, GUARD_TESTS, TEST_HEAP_MB, appSources, changedFiles, plan, quickAppTests, topological, workspace, type Plan } from "./touched.mts";
 import { PROJECTS, ROOT, vercelBuild } from "./vercel-build.mts";
 
 type Outcome = "ok" | "FAIL" | "skip";
@@ -47,6 +52,8 @@ interface Step {
 const args = process.argv.slice(2);
 const prePush = args.includes("--pre-push");
 const everything = args.includes("--all");
+// `PAVED_CHECK_QUICK` (any value but empty or 0) is `--quick` for a wrapper that takes `bun run check` with no argument (check-run).
+const quick = (args.includes("--quick") || !["", "0"].includes(process.env.PAVED_CHECK_QUICK ?? "")) && !prePush;
 const headAt = args.indexOf("--head");
 const head = headAt >= 0 ? args[headAt + 1] : undefined;
 
@@ -160,12 +167,14 @@ const secs = (ms: number) => (ms < 60_000 ? `${(ms / 1000).toFixed(1)}s` : `${Ma
 // 0. What changed.
 const pkgs = workspace();
 let p: Plan = plan([]);
+let whole = everything;
 step("changes", () => {
   const files = everything ? null : changedFiles(undefined, head);
   if (files === null) {
     console.log(everything ? "--all: checking everything" : "no merge base with origin/main: checking everything");
     p = { ...plan(["bun.lock", "contracts/", "scripts/check/"]), files: [] };
     p.vercel = ["client", "storybook"];
+    whole = true;
     return { outcome: "ok", note: "everything" };
   }
   p = plan(files);
@@ -224,9 +233,29 @@ step("guard tests", () => {
   return n === 0 ? skip("none touched") : { outcome: all(outcomes), note: `${n} set(s)` };
 });
 
+/**
+ * The unit tests of `--quick`: the whole suites of the touched packages but the app (seconds each), and of the app the
+ * tests quickAppTests selects. The packages reached only through a dependency are left to the full check.
+ */
+function quickUnitTests(): { outcome: Outcome; note?: string } {
+  const others = p.touched.filter((name) => name !== "@paved/app");
+  const outcomes = others.map((name) => sh("bun", ["run", "test"], { cwd: pkgs.find((x) => x.name === name)!.dir, env: testEnv(name) }));
+  let app = "";
+  if (p.touched.includes("@paved/app")) {
+    const sel = whole ? { all: true, tests: [] } : quickAppTests(p.files, appSources());
+    const tests = sel.tests.map((t) => t.slice(APP_DIR.length + 1));
+    console.log(`app tests: ${sel.all ? "the whole suite" : `${tests.length} selected${tests.length ? `: ${tests.join(", ")}` : ""}`}`);
+    if (sel.all || tests.length > 0) outcomes.push(sh("bun", ["run", "test", ...tests], { cwd: APP_DIR, env: testEnv("@paved/app") }));
+    app = sel.all ? "app all" : `app ${tests.length} file(s)`;
+  }
+  if (outcomes.length === 0) return skip(p.touched.length ? "no app test selected" : "no package");
+  return { outcome: all(outcomes), note: [others.length ? `${others.length} pkg` : "", app].filter(Boolean).join(", ") };
+}
+
 if (!prePush) {
   // 5. Unit tests.
   step("unit tests", () => {
+    if (quick) return quickUnitTests();
     if (p.reach.length === 0) return skip("no package");
     const outcomes = p.reach.map((name) => sh("bun", ["run", "test"], { cwd: pkgs.find((x) => x.name === name)!.dir, env: testEnv(name) }));
     return { outcome: all(outcomes), note: `${p.reach.length} pkg` };
@@ -235,16 +264,19 @@ if (!prePush) {
   // 6. The Vercel builds, one at a time, and the budget of the client's build.
   let clientBuilt = false;
   step("vercel client", () => {
+    if (quick) return skip("--quick");
     if (!p.vercel.includes("client")) return skip("inputs unchanged");
     const outcome: Outcome = vercelBuild(PROJECTS.client) === 0 ? "ok" : "FAIL";
     clientBuilt = outcome === "ok";
     return outcome;
   });
   step("budget", () => {
+    if (quick) return skip("--quick");
     if (!clientBuilt) return skip(p.vercel.includes("client") ? "no client build" : "inputs unchanged");
     return sh("node", ["scripts/check/budget.mts"]);
   });
   step("vercel storybook", () => {
+    if (quick) return skip("--quick");
     if (!p.vercel.includes("storybook")) return skip("inputs unchanged");
     // The client's install already ran: the same command, from the same lockfile.
     return vercelBuild(PROJECTS.storybook, !clientBuilt) === 0 ? "ok" : "FAIL";
@@ -253,6 +285,6 @@ if (!prePush) {
 
 const failed = steps.filter((s) => s.outcome === "FAIL");
 const line = steps.map((s) => `${s.name} ${s.outcome === "skip" ? `skip (${s.note})` : `${s.outcome} ${secs(s.ms)}`}`).join(" | ");
-console.log(`\ncheck${prePush ? " (pre-push)" : ""}: ${failed.length ? "FAIL" : "PASS"} in ${secs(Date.now() - started)} | ${line}`);
+console.log(`\ncheck${prePush ? " (pre-push)" : quick ? " (quick)" : ""}: ${failed.length ? "FAIL" : "PASS"} in ${secs(Date.now() - started)} | ${line}`);
 // 2 is a failed check; any other non-zero exit is a crash of the runner, which the pre-push hook lets through.
 process.exit(failed.length ? 2 : 0);
