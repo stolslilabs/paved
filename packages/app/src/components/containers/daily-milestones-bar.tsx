@@ -19,24 +19,28 @@ export interface DailyMilestonesBarProps {
   /** False: no claim now (no wallet to sign, or another claim on its way). */
   canClaim?: boolean;
   onClaim?: (step: number) => void;
-  /** False: the Cobbles are not read here (the ledger unreadable, or before Cobbles): the steps alone, no marker. */
+  /** False: the Cobbles are not read here (the ledger unreadable, or before Cobbles): the plain nodes alone, no reward. */
   rewards?: boolean;
   className?: string;
 }
 
 const plural = (n: number) => (n === 1 ? "daily" : "dailies");
 
+/** The node `at` (dailies done) on the line: the full nodes' half width in from each end, the nodes evenly between. */
+const left = (at: number) => `calc(1.75rem + (100% - 3.5rem) * ${at / DAILY_QUESTS})`;
+
 /**
- * The day's progress bar (#869, the owner's decisions of 2026-10-28): one step per daily done, `DAILY_QUESTS` in all, and a
- * reward marker under each milestone's step (3: +10 Cobbles, 5: +15, `DAILY_MILESTONES`). A milestone reached is claimed with a
- * tap on its marker, then shows a check; its Cobbles burst into the balance's plate (`CobblesBurst`, nothing moves under reduced
- * motion). The steps are still: only the claim moves.
+ * The day's milestones as a graph (#869, the owner's rework of 2026-10-29): `DAILY_QUESTS + 1` nodes on a line, one edge per daily
+ * between two, lit once that daily is done. A node that carries a reward (3 done: +10 Cobbles, 5 done: +15, `DAILY_MILESTONES`) is
+ * the full node, its Cobbles on it; the others are plain and small, filled once reached. A milestone reached is claimed with a tap
+ * on its node, then shows a check; its Cobbles burst into the balance's plate (`CobblesBurst`, nothing moves under reduced motion).
+ * The graph is still: only the claim moves. The edges are the progress bar (`role="progressbar"`), the nodes a list beside it.
  */
 export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = true, onClaim, rewards = true, className }: DailyMilestonesBarProps) {
   const states = dailyMilestoneStates(done, claimed ?? 0);
   const count = Math.min(Math.max(done, 0), DAILY_QUESTS);
-  const markers = useRef<(HTMLElement | null)[]>([]);
-  // A claim seen landing here (its bit set while this bar is shown) bursts once; a day read already claimed does not.
+  const nodes = useRef<(HTMLElement | null)[]>([]);
+  // A claim seen landing here (its bit set while this graph is shown) bursts once; a day read already claimed does not.
   const [seen, setSeen] = useState(claimed);
   const [burst, setBurst] = useState<number | null>(null);
   if (claimed !== seen) {
@@ -45,10 +49,10 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
     if (seen !== null && landed >= 0) setBurst(landed);
   }
   const ended = useCallback(() => setBurst(null), []);
-  const from = useCallback(() => (burst === null ? null : (markers.current[burst] ?? null)), [burst]);
+  const from = useCallback(() => (burst === null ? null : (nodes.current[burst] ?? null)), [burst]);
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
+    <div data-graph="daily-milestones" className={cn("relative", rewards ? "h-19" : "h-6", className)}>
       <div
         role="progressbar"
         aria-label="Dailies done today"
@@ -56,42 +60,51 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
         aria-valuemax={DAILY_QUESTS}
         aria-valuenow={count}
         aria-valuetext={`${count} of ${DAILY_QUESTS} ${plural(DAILY_QUESTS)} done`}
-        className="grid gap-1"
+        className={cn("absolute inset-x-7 grid -translate-y-1/2", rewards ? "top-7" : "top-3")}
         style={{ gridTemplateColumns: `repeat(${DAILY_QUESTS}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: DAILY_QUESTS }, (_, i) => (
-          <span key={i} data-step={i + 1} data-done={i < count || undefined} className={cn("h-2 rounded-full", i < count ? "bg-primary" : "bg-input")} />
+          <span key={i} data-step={i + 1} data-done={i < count || undefined} className={cn("h-1", i < count ? "bg-primary" : "bg-input")} />
         ))}
       </div>
-      {rewards && (
-        <ol className="grid gap-1" style={{ gridTemplateColumns: `repeat(${DAILY_QUESTS}, minmax(0, 1fr))` }}>
-          {DAILY_MILESTONES.map((milestone, step) => (
+      <ol aria-label="Daily milestones">
+        {Array.from({ length: DAILY_QUESTS + 1 }, (_, at) => {
+          const step = rewards ? DAILY_MILESTONES.findIndex((milestone) => milestone.done === at) : -1;
+          const milestone = DAILY_MILESTONES[step];
+          return (
             <li
-              key={milestone.done}
+              key={at}
               ref={(el) => {
-                markers.current[step] = el;
+                if (step >= 0) nodes.current[step] = el;
               }}
-              className="flex justify-end"
-              style={{ gridColumn: milestone.done }}
+              aria-hidden={milestone ? undefined : true}
+              className={cn("absolute top-0 flex -translate-x-1/2 justify-center", milestone ? "w-14" : rewards ? "h-14 w-3" : "h-6 w-3")}
+              style={{ left: left(at) }}
             >
-              <Marker
-                cobbles={milestone.cobbles}
-                at={milestone.done}
-                state={states[step]!}
-                claiming={claiming === step}
-                disabled={claimed === null || !canClaim || (claiming !== null && claiming !== step)}
-                onClaim={() => onClaim?.(step)}
-              />
+              {milestone ? (
+                <RewardNode
+                  cobbles={milestone.cobbles}
+                  at={at}
+                  state={states[step]!}
+                  claiming={claiming === step}
+                  disabled={claimed === null || !canClaim || (claiming !== null && claiming !== step)}
+                  onClaim={() => onClaim?.(step)}
+                />
+              ) : (
+                <span data-node={at} data-reached={at <= count || undefined} className="flex items-center">
+                  <span className={cn("size-3 rounded-full border-2", at <= count ? "border-primary bg-primary" : "border-input bg-background")} />
+                </span>
+              )}
             </li>
-          ))}
-        </ol>
-      )}
+          );
+        })}
+      </ol>
       {burst !== null && <CobblesBurst key={burst} from={from} onDone={ended} />}
     </div>
   );
 }
 
-interface MarkerProps {
+interface RewardNodeProps {
   cobbles: number;
   /** The dailies done that reach it. */
   at: number;
@@ -101,9 +114,27 @@ interface MarkerProps {
   onClaim: () => void;
 }
 
-/** A milestone's reward under its step: its Cobbles, then a tap to claim once reached, then a check. */
-function Marker({ cobbles, at, state, claiming, disabled, onClaim }: MarkerProps) {
+/** A reward's full node: its Cobbles on it, a caption under it (how far, then Claim once reached, then a check once claimed). */
+function RewardNode({ cobbles, at, state, claiming, disabled, onClaim }: RewardNodeProps) {
   const reach = `${at} ${plural(at)} done`;
+  const disc = (
+    <span
+      aria-hidden
+      className={cn(
+        "relative grid size-14 shrink-0 place-items-center rounded-full border-2 bg-card",
+        state === "claimable" ? "border-primary bg-linear-to-b from-primary/20 to-primary/10 shadow-lg shadow-glow" : state === "claimed" ? "border-primary" : "border-input",
+      )}
+    >
+      <span className="group-disabled:opacity-60">
+        {claiming ? <SpinnerIcon className="size-4 animate-spin" /> : <Cobbles value={cobbles} sign="+" size="sm" tone={state === "locked" ? "muted" : "default"} />}
+      </span>
+      {state === "claimed" && (
+        <span className="absolute -top-0.5 -right-0.5 grid size-5 place-items-center rounded-full bg-success text-background">
+          <Icon name="check" size="xs" />
+        </span>
+      )}
+    </span>
+  );
   if (state === "claimable") {
     return (
       <button
@@ -114,15 +145,10 @@ function Marker({ cobbles, at, state, claiming, disabled, onClaim }: MarkerProps
         aria-busy={claiming || undefined}
         aria-label={`Claim ${cobbles} Cobbles: ${reach}`}
         onClick={onClaim}
-        className="flex min-h-11 cursor-pointer flex-col items-end justify-center rounded-lg border border-primary bg-primary/15 px-2 shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
+        className="group flex cursor-pointer flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
       >
-        <span className="inline-flex items-center gap-1">
-          {claiming && <SpinnerIcon aria-hidden className="size-3 animate-spin" />}
-          <Cobbles value={cobbles} sign="+" size="sm" />
-        </span>
-        <span aria-hidden className="text-xs leading-tight font-semibold text-primary">
-          Claim
-        </span>
+        {disc}
+        <span className="text-xs leading-4 font-semibold text-primary group-disabled:opacity-60">Claim</span>
       </button>
     );
   }
@@ -133,18 +159,11 @@ function Marker({ cobbles, at, state, claiming, disabled, onClaim }: MarkerProps
       data-milestone={at}
       data-state={state}
       aria-label={claimed ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
-      className="flex min-h-11 flex-col items-end justify-center px-2"
+      className="flex flex-col items-center gap-1"
     >
-      <span aria-hidden className="inline-flex items-center gap-1">
-        {claimed && (
-          <span className="grid size-4 place-items-center rounded-full bg-success text-background">
-            <Icon name="check" size="xs" />
-          </span>
-        )}
-        <Cobbles value={cobbles} sign="+" size="sm" tone={claimed ? "default" : "muted"} />
-      </span>
-      <span aria-hidden className="numeric text-xs leading-tight text-muted-foreground">
-        {at}/{DAILY_QUESTS}
+      {disc}
+      <span aria-hidden className={cn("text-xs leading-4", claimed ? "font-semibold text-success" : "numeric text-muted-foreground")}>
+        {claimed ? "Claimed" : `${at}/${DAILY_QUESTS}`}
       </span>
     </span>
   );
