@@ -21,7 +21,7 @@ const ICON: Record<NonNullable<VariantProps<typeof noticeVariants>["tone"]>, str
 export interface NoticeProps extends VariantProps<typeof noticeVariants> {
   title?: string;
   children: ReactNode;
-  /** A Font Awesome name, or an element of its own (a game icon, #870); default the tone's. */
+  /** A Font Awesome name, or an element of its own (a game icon, issue 870); default the tone's. */
   icon?: string | ReactElement;
   action?: ReactNode;
   className?: string;

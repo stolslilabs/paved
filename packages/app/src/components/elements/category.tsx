@@ -5,7 +5,7 @@ import { WorldIcon, type WorldIconName } from "./world-icon";
 
 /**
  * What a closing's category reads as, by the contracts' index (`CategoryType`, as `ScoredStructure.category` gives it). Its
- * icon is a game icon of the world (issue 870), in its own tones (`world-icon.tsx`): the City's is the castle (#862).
+ * icon is a game icon of the world (issue 870), in its own tones (`world-icon.tsx`): the City's is the castle (issue 862).
  */
 type Category = { label: string; plural: string; glyph: WorldIconName | null };
 const CATEGORIES: Partial<Record<CategoryType, Category>> = {

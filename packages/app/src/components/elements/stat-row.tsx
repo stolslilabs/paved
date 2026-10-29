@@ -5,7 +5,7 @@ import { Icon } from "../ui/icon";
 export interface StatRowProps {
   label: string;
   value: ReactNode;
-  /** A Font Awesome name (gold), or an element of its own (a category's game icon, #870). */
+  /** A Font Awesome name (gold), or an element of its own (a category's game icon, issue 870). */
   icon?: string | ReactNode;
   /** A second line under the label (a unit, a rule): it wraps, it is never cut. */
   hint?: ReactNode;
