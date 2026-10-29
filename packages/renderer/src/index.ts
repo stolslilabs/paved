@@ -286,3 +286,17 @@ export {
 export type { Avatar, AvatarPart } from "./core/avatar/avatar-format";
 export type { AvatarObject, AvatarPreview, AvatarPreviewOptions, AvatarStillOptions, AvatarStillStats, AvatarStills, AvatarStyle } from "./core/avatar/avatar-render";
 export const loadAvatarRender = (): Promise<typeof import("./core/avatar/avatar-render")> => import("./core/avatar/avatar-render");
+// The first-person walk (V4-WALK-1, #876): its settings and inputs are small and eager (a host binds its keys and sticks with
+// them); the walk itself (its ground, the walker, the camera's descent) is a chunk of its own, which `GameScene.startWalk` loads on
+// the first walk.
+export {
+  DEFAULT_WALK_SETTINGS,
+  WALK_KEYS,
+  clampVector,
+  isWalkKey,
+  moveOfKeys,
+  nearPlaneReach,
+  resolveWalkSettings,
+  stickLookRate,
+} from "./core/walk-settings";
+export type { WalkControl, WalkPhase, WalkSettings, WalkSettingsInput, WalkState, WalkVector } from "./core/walk-settings";
