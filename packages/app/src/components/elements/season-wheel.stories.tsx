@@ -30,7 +30,7 @@ export const Autumn: Story = { args: { state: "autumn", point: null } };
 export const Winter: Story = { args: { state: "winter", point: null } };
 export const Spring: Story = { args: { state: "spring", point: null } };
 
-/** Every state side by side, by day and by night: the icons apart, each tinted by its season's day sky. */
+/** Every state side by side, by day and by night: the icons apart, each a game icon in its season's tone (#870). */
 export const AllStates: Story = {
   render: () => (
     <div className="flex flex-wrap gap-4">

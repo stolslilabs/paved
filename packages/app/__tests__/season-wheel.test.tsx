@@ -6,7 +6,11 @@ import { DEFAULT_DAYNIGHT_SETTINGS, DAY_PHASE_AT, SEASONS } from "@paved/rendere
 // The cycle's own chunk, from its source: the renderer's barrel does not export its keyframes.
 import { DAY_SHARE as RENDERER_DAY_SHARE, KEYFRAMES } from "../../renderer/src/core/daynight";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheelRound, useSeasonWheel, type WheelRound, wheelDayNight } from "../src/data/season-wheel";
-import { DIAL_PX, ICON_AT, ICON_PX, SeasonWheel } from "../src/components/elements/season-wheel";
+import { DIAL_PX, ICON_AT, ICON_PX, SEASON_GLYPH, SeasonWheel } from "../src/components/elements/season-wheel";
+import { OUTLINE } from "../src/components/elements/game-icon";
+
+/** A game icon's tones: each has its own gradient, its id ending with the tone's name. */
+const paletteTones = (svg: Element) => [...svg.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0]);
 
 // The season wheel (#547), a crafted dial since #607: its states, what each asks of the renderer, its colours, and the element.
 
@@ -93,15 +97,15 @@ describe("the season dial's colours and room (#607)", () => {
     }
   });
 
-  it("tints each icon lightly with its season's day sky, over the foreground", () => {
+  it("draws each season's icon and the now badge as game icons, in their own tones (#870)", () => {
+    const { container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0.8 }} />);
     for (const season of SEASONS) {
-      const tint = token(`season-${season}-tint`) ?? "";
-      const match = tint.match(new RegExp(`^color-mix\\(in oklab, var\\(--foreground\\) (\\d+)%, var\\(--sky-${season}-day-bottom\\)\\)$`));
-      expect(match, season).not.toBeNull();
-      // A tint, not a recolour: the foreground keeps most of it.
-      expect(Number(match![1])).toBeGreaterThan(50);
-      expect(Number(match![1])).toBeLessThan(90);
+      const icon = container.querySelector(`[data-season=${season}] [data-slot=game-icon]`);
+      expect(icon, season).toHaveAttribute("data-icon", SEASON_GLYPH[season]);
     }
+    expect(container.querySelector("[data-now] [data-slot=game-icon]")).toHaveAttribute("data-icon", "moon");
+    expect(paletteTones(container.querySelector("[data-season=winter] svg")!)).toEqual(["ice"]);
+    expect(paletteTones(container.querySelector("[data-season=autumn] svg")!)).toEqual(["orange"]);
   });
 
   it("tones its gold down into the stones, the rim and pointer more than the hub's mark (#634)", () => {
@@ -115,8 +119,9 @@ describe("the season dial's colours and room (#607)", () => {
     for (let i = 0; i < 4; i++) {
       const a = px(WHEEL_SEASONS[i]!);
       const b = px(WHEEL_SEASONS[(i + 1) % 4]!);
-      // Two square icons, upright: apart when the larger of the two axes' distances exceeds an icon by 4 px.
-      expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) - ICON_PX).toBeGreaterThanOrEqual(4);
+      // Two square icons, upright: apart when the larger of the two axes' distances exceeds an icon, its game outline
+      // included (half the stroke outside each side), by 4 px.
+      expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) - ICON_PX * (1 + OUTLINE / 512)).toBeGreaterThanOrEqual(4);
     }
     expect(DIAL_PX).toBeGreaterThanOrEqual(96);
   });

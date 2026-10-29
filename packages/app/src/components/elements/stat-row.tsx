@@ -5,7 +5,8 @@ import { Icon } from "../ui/icon";
 export interface StatRowProps {
   label: string;
   value: ReactNode;
-  icon?: string;
+  /** A Font Awesome name (gold), or an element of its own (a category's game icon, #870). */
+  icon?: string | ReactNode;
   /** A second line under the label (a unit, a rule): it wraps, it is never cut. */
   hint?: ReactNode;
   tone?: "default" | "gold" | "success" | "danger" | "muted";
@@ -30,7 +31,7 @@ export function StatRow({ label, value, icon, hint, tone = "default", className 
     <div className={cn("grid grid-cols-[auto_minmax(2.5rem,1fr)_auto] items-start gap-x-3 py-2", !icon && "grid-cols-[minmax(2.5rem,1fr)_auto]", className)}>
       {icon && (
         <span className="inline-flex h-5 items-center">
-          <Icon name={icon} className="text-primary" size="sm" />
+          {typeof icon === "string" ? <Icon name={icon} className="text-primary" size="sm" /> : icon}
         </span>
       )}
       <span className="text-sm leading-5 wrap-anywhere text-foreground">{label}</span>

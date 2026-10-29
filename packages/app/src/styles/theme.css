@@ -238,7 +238,7 @@
 /* 3b. The season dial (#607): each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle
    paints them (`KEYFRAMES` in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in
    step). Hex, not palette steps: the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The
-   icons' tint is the day's bottom, lightly, over the foreground. The ring is paving stones set in a gold rim. */
+   icons are game icons in their own tones (#870, 3f). The ring is paving stones set in a gold rim. */
 :root {
   --sky-summer-day-top: #1f65a1;
   --sky-summer-day-bottom: #6bb7ff;
@@ -256,10 +256,6 @@
   --sky-spring-day-bottom: #95dc94;
   --sky-spring-night-top: #0a141c;
   --sky-spring-night-bottom: #012604;
-  --season-summer-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-summer-day-bottom));
-  --season-autumn-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-autumn-day-bottom));
-  --season-winter-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-winter-day-bottom));
-  --season-spring-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-spring-day-bottom));
   /* The dial's gold, toned into its stones (#634): it reads as one piece with the sky quarters. */
   --dial-rim: color-mix(in oklab, var(--primary) 45%, var(--color-charcoal-600));
   --dial-mark: color-mix(in oklab, var(--primary) 65%, var(--color-charcoal-600));
@@ -332,6 +328,11 @@
   --game-wood: var(--color-amber-500);
   --game-stone: var(--color-charcoal-400);
   --game-rose: var(--color-ember-300);
+  /* Issue 870's: autumn's leaf, winter's snowflake, spring's seedling, the night's moon. */
+  --game-orange: var(--color-amber-400);
+  --game-ice: var(--color-river-200);
+  --game-sprout: var(--color-meadow-300);
+  --game-silver: var(--color-charcoal-100);
 }
 
 
