@@ -5,8 +5,8 @@ import { DROP, mix, OUTLINE, RIM, type GameTone } from "./game-icon";
 import { GAME_ICON_SHAPES } from "./game-icon-shapes";
 import { CREST_SHAPES, type CrestShapeName } from "./league-crest-shapes";
 
-/** The crest directions' materials (issue 854's second study): the ladder's wood to gold. */
-export type CrestMaterial = "wood" | "iron" | "bronze" | "silver" | "gold";
+/** The crests' materials (issue 854's studies): the ladder's wood to gold, then the third study's platinum and obsidian (Master's). */
+export type CrestMaterial = "wood" | "iron" | "bronze" | "silver" | "gold" | "platinum" | "obsidian";
 
 /** A part's tone: a game icon's, a material's (`MATERIAL_BASES`), or `league`, the crest's own group colour (`--league-*`, theme.css 3d). */
 export type CrestTone = Exclude<GameTone, "current"> | CrestMaterial | "league";
@@ -14,14 +14,17 @@ export type CrestTone = Exclude<GameTone, "current"> | CrestMaterial | "league";
 /**
  * The materials' bases, mixed from the game icons' tones (theme.css 3f) rather than given tokens of their own: a `color-mix` in
  * theme.css costs the stylesheet its fallback too, and the CSS budget has no room for a study. Wood is the icons' wood darkened,
- * bronze the same wood a little shaded, iron their stone, silver their steel with a touch of blue, gold their gold.
+ * bronze their orange shaded toward their red, iron their stone, silver their steel with a touch of blue, gold their gold, platinum
+ * their silver with a touch of ice, obsidian their stone near their ink.
  */
 export const MATERIAL_BASES: Record<CrestMaterial, string> = {
   wood: "color-mix(in oklab, var(--game-wood) 50%, var(--game-ink))",
   iron: "var(--game-stone)",
-  bronze: "color-mix(in oklab, var(--game-wood) 85%, var(--game-ink))",
+  bronze: "color-mix(in oklab, var(--game-orange) 70%, var(--game-red))",
   silver: "color-mix(in oklab, var(--game-steel) 85%, var(--game-blue))",
   gold: "var(--game-gold)",
+  platinum: "color-mix(in oklab, var(--game-silver) 70%, var(--game-ice))",
+  obsidian: "color-mix(in oklab, var(--game-stone) 40%, var(--game-ink))",
 };
 
 /** A tone's base colour, for a crest of `league`. */
@@ -237,13 +240,15 @@ export interface CrestSvgProps extends Omit<CrestArtProps, "league" | "division"
   league: LeagueId;
   division?: CrestDivision;
   parts: readonly CrestPath[];
-  /** Its `data-slot`; other data attributes (a direction's name) go in `data`. */
+  /** Its `data-slot`; other data attributes (a rank's name) go in `data`. */
   slot: string;
   data?: Record<`data-${string}`, string>;
+  /** Each part in its flat base, without the lit gradient (the third study's finish): the outline, the light along its upper edge, the shadow. */
+  flat?: boolean;
 }
 
 /** A crest's SVG, any drawing's: its parts in the game icons' relief, 1em square on the crests' 512 grid. */
-export function CrestSvg({ league, division, parts, size = "md", label, className, slot, data }: CrestSvgProps) {
+export function CrestSvg({ league, division, parts, size = "md", label, className, slot, data, flat }: CrestSvgProps) {
   const rem = SIZE_REM[size];
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const base = (tone: CrestTone) => crestBase(tone, league);
@@ -264,7 +269,7 @@ export function CrestSvg({ league, division, parts, size = "md", label, classNam
       style={rem === null ? undefined : { fontSize: `${rem}rem` }}
     >
       <defs>
-        {[...new Set(raised.map(({ p }) => p.tone))].map((t) => (
+        {[...new Set(flat ? [] : raised.map(({ p }) => p.tone))].map((t) => (
           <linearGradient key={t} id={`${id}${t}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" style={{ stopColor: mix(base(t), "hi") }} />
             <stop offset="0.45" style={{ stopColor: mix(base(t), "mid") }} />
@@ -291,7 +296,7 @@ export function CrestSvg({ league, division, parts, size = "md", label, classNam
         ) : (
           <g key={i}>
             <path d={p.d} transform={p.t} style={{ fill: mix(base(p.tone), "edge"), stroke: mix(base(p.tone), "edge") }} strokeWidth={OUTLINE / p.k} strokeLinejoin="round" />
-            <path d={p.d} transform={p.t} fill={`url(#${id}${p.tone})`} />
+            <path d={p.d} transform={p.t} {...(flat ? { style: { fill: base(p.tone) } } : { fill: `url(#${id}${p.tone})` })} />
             <g mask={`url(#${id}r${i})`} opacity={0.55}>
               <path d={p.d} transform={p.t} style={{ fill: "var(--game-light)" }} />
             </g>
