@@ -20,6 +20,8 @@ export interface LeagueCarouselProps {
   className?: string;
 }
 
+const SCROLL_MARGIN = { scrollMarginTop: "calc(var(--header-h) + env(safe-area-inset-top) + 1rem)" };
+
 /**
  * The leagues one per view (#785), Wood to Grand Master, each card standing alone (#859): the arrows on each side of it, a swipe, the arrow keys and the dots under it (#833, one
  * per league, the current one widened, a tap jumps there) move through them, and stop at both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
@@ -55,7 +57,9 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
   };
 
   return (
-    <div ref={ref} className={cn("flex w-full min-w-0 flex-col items-center gap-2", className)}>
+    // Brought into view under the sticky header (`--header-h`, the notch's inset), with the bar's own gap (`TopBar`'s `mb-4`). Inline,
+    // not a class: an arbitrary value costs the stylesheet's budget.
+    <div ref={ref} style={SCROLL_MARGIN} className={cn("flex w-full min-w-0 flex-col items-center gap-2", className)}>
       <div className="flex w-full items-center gap-2">
         <Button variant="ghost" size="icon" className="rounded-full" aria-label="Previous league" disabled={selected === 0} onClick={() => step(-1)}>
           <Icon name="chevron-left" size="md" />
