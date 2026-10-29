@@ -118,8 +118,12 @@ describe("the village score's width (V4-VILLAGE-POINTS-SIZE)", () => {
     expect(folded).toHaveAttribute("aria-hidden", "true");
     expect(folded).toHaveClass("invisible", "h-0");
     const row = folded.firstElementChild!;
-    for (const name of ["Roads", "Cities", "Forests", "Wonders", "Other"]) expect(row.textContent).toContain(name);
-    expect(row.querySelector(".numeric")!.textContent).toBe(formatInteger(HOME_VILLAGE.view.village.score));
+    // Its words are drawn from `data-text`: none is the DOM's text, so the total and the kinds read once.
+    expect(row.textContent).toBe("");
+    const drawn = [...row.querySelectorAll("[data-text]")].map((el) => el.getAttribute("data-text"));
+    for (const name of ["Roads", "Cities", "Forests", "Wonders", "Other"]) expect(drawn).toContain(name);
+    expect(row.querySelector(".numeric")!.getAttribute("data-text")).toBe(formatInteger(HOME_VILLAGE.view.village.score));
+    expect(screen.getAllByText(formatInteger(HOME_VILLAGE.view.village.score))).toHaveLength(1);
     await userEvent.click(total());
     const list = await kinds();
     expect(sizer()).toBe(folded);
@@ -132,7 +136,7 @@ describe("the village score's width (V4-VILLAGE-POINTS-SIZE)", () => {
   it("every sum is at most the total, so the sizer's figure is the widest a row shows", async () => {
     for (const state of [HOME_VILLAGE.scoreOpen, HOME_VILLAGE.scoreWonder, HOME_VILLAGE.scoreKindZero]) {
       const { unmount } = render(wrap(<HomeVillageScene {...state} />));
-      const figure = sizer()!.querySelector(".numeric")!.textContent!;
+      const figure = sizer()!.querySelector(".numeric")!.getAttribute("data-text")!;
       for (const r of rows(await kinds())) expect(formatInteger(r.points).length).toBeLessThanOrEqual(figure.length);
       unmount();
     }

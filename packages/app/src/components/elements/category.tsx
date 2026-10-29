@@ -10,7 +10,7 @@ import { CATEGORY_NAMES, type CategoryName } from "./category-names";
  */
 type Glyph = WorldIconName;
 type Category = CategoryName & { glyph: Glyph | null };
-// The world icons' own names, drawn from their paths (#870): not Font Awesome's subset, so this table's line names no icon.
+// The world icons' own names, drawn from their paths (issue 870): not Font Awesome's subset, so this table's line names no icon.
 const GLYPHS: Partial<Record<CategoryType, Glyph>> = {
   [CategoryType.Forest]: "tree",
   [CategoryType.Road]: "road",

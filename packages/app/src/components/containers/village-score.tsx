@@ -28,8 +28,12 @@ const KIND_NAMES = [...Object.values(CATEGORY_NAMES).map((name) => name!.plural)
  * The folded box's width, the unfolded one's (V4-VILLAGE-POINTS-SIZE, the owner's fix of the jump): an invisible kind's row of no
  * height, laid out as `ScoreKinds`' (the icon's column, the longest name, a sum as wide as the total, which every sum is under:
  * the kinds add up to it, and the figures are tabular). The box takes the wider of it and the total's line, folded or not, so
- * nothing moves when it folds or unfolds; the kinds' chunk stays a tap away.
+ * nothing moves when it folds or unfolds; the kinds' chunk stays a tap away. Its words are drawn by CSS from `data-text`, not
+ * written in the DOM: a search of the page's text (Testing Library's, the browser's find) meets the total and the kinds once.
  */
+/** The text of `data-text`, laid out as the element's own. */
+const DRAWN = "before:content-[attr(data-text)]";
+
 function Sizer({ score }: { score: number }) {
   return (
     <div aria-hidden data-slot="village-score-sizer" className={cn("invisible h-0", KINDS_PAD, "pb-0")}>
@@ -37,12 +41,10 @@ function Sizer({ score }: { score: number }) {
         <span className={KIND_ICON_BOX} />
         <span className="grid flex-1">
           {KIND_NAMES.map((name) => (
-            <span key={name} className="[grid-area:1/1]">
-              {name}
-            </span>
+            <span key={name} data-text={name} className={cn("[grid-area:1/1]", DRAWN)} />
           ))}
         </span>
-        <span className="numeric font-semibold">{formatInteger(score)}</span>
+        <span data-text={formatInteger(score)} className={cn("numeric font-semibold", DRAWN)} />
       </div>
     </div>
   );
