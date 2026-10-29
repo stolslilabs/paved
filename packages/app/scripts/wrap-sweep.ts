@@ -4,7 +4,7 @@
  * served on the loopback by this script.
  *
  *   bun run --filter @paved/app build-storybook
- *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--workers 4] [--json <file>]
+ *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--workers 4] [--shard i/n] [--json <file>]
  *
  * Node 24 runs it as is (type stripping): the syntax stays erasable. The browser is the one `playwright-core`
  * names: `bunx playwright-core install chromium-headless-shell` once.
@@ -22,6 +22,9 @@
  *   line: "0x05f1…" over "6e7f". A run too long for any line (a full address in a sentence) may wrap.
  * - `error`: the story failed to render.
  *
+ * `--shard i/n` sweeps the i-th of n parts of the story list (after `--filter`), each story in exactly one part for a
+ * given n (`wrap-sweep-shard.ts`). Without it, every story.
+ *
  * Exit code 1 when a finding is not in ALLOWED.
  */
 import { createServer, type Server } from "node:http";
@@ -30,6 +33,7 @@ import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
 import { sweepStory } from "./wrap-sweep-retry.ts";
+import { parseShard, shardStories } from "./wrap-sweep-shard.ts";
 
 type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
 
@@ -125,6 +129,7 @@ function args() {
     widths: (get("widths") ?? "360,320").split(",").map(Number),
     filter: get("filter"),
     workers: Number(get("workers") ?? 4),
+    shard: get("shard") === undefined ? undefined : parseShard(get("shard") ?? ""),
     json: get("json"),
   };
 }
@@ -362,9 +367,11 @@ function allowed(f: Finding) {
 async function main() {
   const opts = args();
   const index = JSON.parse(await readFile(join(opts.dir, "index.json"), "utf8")) as { entries: Record<string, { id: string; type: string }> };
-  const stories = Object.values(index.entries)
+  const listed = Object.values(index.entries)
     .filter((e) => e.type === "story" && (!opts.filter || e.id.includes(opts.filter)))
     .map((e) => e.id);
+  const stories = opts.shard ? shardStories(listed, opts.shard) : listed;
+  if (opts.shard) console.log(`Shard ${opts.shard.index}/${opts.shard.count}: ${stories.length} of ${listed.length} stories.`);
   const { server, origin } = await serve(opts.dir);
   const started = performance.now();
   const findings: Finding[] = [];
@@ -433,7 +440,8 @@ async function main() {
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
   opened.sort((a, b) => b.ms - a.ms);
   const slowest = opened.slice(0, 3).map((o) => `${o.story} ${(o.ms / 1000).toFixed(1)} s`);
-  console.log(`\n${stories.length} stories x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
+  const part = opts.shard ? ` (shard ${opts.shard.index}/${opts.shard.count})` : "";
+  console.log(`\n${stories.length} stories${part} x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
   console.log(`Slowest to open: ${slowest.join(", ")}.`);
   if (opts.json) {
     const timings = opened.map((o) => ({ story: o.story, ms: Math.round(o.ms) }));
