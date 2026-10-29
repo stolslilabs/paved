@@ -1,13 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { DailyMilestonesBar } from "../src/components/containers/daily-milestones-bar";
+import { DailyMilestonesBar, GIFT_REVEAL_S } from "../src/components/containers/daily-milestones-bar";
 
 // The day's milestones graph of the Missions page (#869, reworked 2026-10-29): five edges, one per daily, between six nodes; the
-// full nodes at 3 (+10) and 5 (+15) carry the rewards, the four others are plain; their claims and the Cobbles' burst (none under
-// reduced motion).
+// gift nodes at 3 (+10) and 5 (+15) carry the rewards, the four others are plain; their claims, the gifts' opening and the Cobbles'
+// burst (none under reduced motion).
 
 const wrap = (ui: ReactNode, reduced = false) => (
   <LazyMotion features={domMax}>
@@ -20,9 +20,59 @@ const burst = () => document.querySelector('[data-burst="cobbles"]');
 
 const plain = () => document.querySelectorAll("[data-node]");
 const full = () => document.querySelectorAll("[data-milestone]");
+/** Each reward node's gift, by its state. */
+const gifts = () => [...document.querySelectorAll('[data-milestone] [data-slot="gift-art"]')].map((g) => g.getAttribute("data-state"));
+const reveal = () => document.querySelector("[data-reveal]");
 
 describe("DailyMilestonesBar (#869)", () => {
-  it("draws a graph: an edge per daily, a full node per reward, a plain node elsewhere", () => {
+  it("draws each reward as a gift, no figure on it: greyed ahead, shaking once reached, fast while claimed, still without a claim", () => {
+    const { rerender, unmount } = render(wrap(<DailyMilestonesBar done={2} claimed={0} />));
+    expect(gifts()).toEqual(["locked", "locked"]);
+    // The figure is in the node's name, not on it.
+    expect(screen.queryByText("+10")).not.toBeInTheDocument();
+    rerender(wrap(<DailyMilestonesBar done={3} claimed={0} />));
+    expect(gifts()).toEqual(["ready", "locked"]);
+    rerender(wrap(<DailyMilestonesBar done={3} claimed={0} claiming={0} />));
+    expect(gifts()).toEqual(["shaking", "locked"]);
+    rerender(wrap(<DailyMilestonesBar done={5} claimed={0} canClaim={false} />));
+    expect(gifts()).toEqual(["lit", "lit"]);
+    // A day read already claimed (not a claim seen landing): its gift open at once.
+    unmount();
+    render(wrap(<DailyMilestonesBar done={5} claimed={0b01} />));
+    expect(gifts()).toEqual(["open", "ready"]);
+    expect(reveal()).toBeNull();
+  });
+
+  it("opens the gift when its claim lands, its Cobbles shown, then leaves it open; open at once under reduced motion", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { rerender, unmount } = render(wrap(<DailyMilestonesBar done={5} claimed={0b01} />));
+      // A day read already claimed: its gift open, no reveal.
+      expect(gifts()).toEqual(["open", "ready"]);
+      rerender(wrap(<DailyMilestonesBar done={5} claimed={0b11} />));
+      expect(gifts()).toEqual(["open", "opening"]);
+      expect(screen.getByRole("img", { name: "15 Cobbles claimed: 5 dailies done" })).toHaveAttribute("data-opening");
+      expect(document.querySelector('[data-reveal="5"]')).toHaveTextContent("+15");
+      act(() => vi.advanceTimersByTime(GIFT_REVEAL_S * 1000));
+      expect(gifts()).toEqual(["open", "open"]);
+      expect(reveal()).toBeNull();
+      unmount();
+      const reduced = render(wrap(<DailyMilestonesBar done={5} claimed={0} />, true));
+      reduced.rerender(wrap(<DailyMilestonesBar done={5} claimed={0b01} />, true));
+      expect(gifts()).toEqual(["open", "ready"]);
+      expect(reveal()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("holds a gift open at its reveal for the stories", () => {
+    render(wrap(<DailyMilestonesBar done={3} claimed={0b01} revealing={0} />));
+    expect(gifts()).toEqual(["opening", "locked"]);
+    expect(document.querySelector('[data-reveal="3"]')).toHaveTextContent("+10");
+  });
+
+  it("draws a graph: an edge per daily, a gift node per reward, a plain node elsewhere", () => {
     const { rerender } = render(wrap(<DailyMilestonesBar done={2} claimed={0} />));
     expect(bar().querySelectorAll("[data-step]")).toHaveLength(5);
     expect([...full()].map((n) => n.getAttribute("data-milestone"))).toEqual(["3", "5"]);
@@ -50,7 +100,7 @@ describe("DailyMilestonesBar (#869)", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("a milestone reached is claimed with a tap, once; then it shows its check", async () => {
+  it("a milestone reached is claimed with a tap, once; then it shows its gift open", async () => {
     const onClaim = vi.fn();
     const { rerender } = render(wrap(<DailyMilestonesBar done={3} claimed={0} onClaim={onClaim} />));
     await userEvent.click(screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }));

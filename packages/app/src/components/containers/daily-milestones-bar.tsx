@@ -1,10 +1,14 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useReducedMotionConfig } from "motion/react";
+import * as m from "motion/react-m";
 import { DAILY_MILESTONES, DAILY_QUESTS, dailyMilestoneStates, type DailyMilestoneState } from "@paved/game-core";
+import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
-import { SpinnerIcon } from "../ui/icons";
 import { Cobbles } from "../elements/cobbles";
 import { CobblesBurst } from "../elements/cobbles-burst";
+import { GIFT_LIGHT_S, GiftArt, type GiftArtState } from "../elements/gift-art";
+import { useSfx } from "./audio-provider";
 
 export interface DailyMilestonesBarProps {
   /** Today's dailies done, 0 to `DAILY_QUESTS`. */
@@ -21,38 +25,62 @@ export interface DailyMilestonesBarProps {
   onClaim?: (step: number) => void;
   /** False: the Cobbles are not read here (the ledger unreadable, or before Cobbles): the plain nodes alone, no reward. */
   rewards?: boolean;
+  /** For the stories: the gift of this milestone (its step, claimed) held open at its reveal, its Cobbles shown. */
+  revealing?: number | null;
   className?: string;
 }
 
+/** How long a gift's reveal stays (s): the lid's flight, the light, then its Cobbles held a moment before the gift settles open. */
+export const GIFT_REVEAL_S = 1.8;
+
 const plural = (n: number) => (n === 1 ? "daily" : "dailies");
 
-/** The node `at` (dailies done) on the line: the full nodes' half width in from each end, the nodes evenly between. */
-const left = (at: number) => `calc(1.75rem + (100% - 3.5rem) * ${at / DAILY_QUESTS})`;
+/** The node `at` (dailies done) on the line: the gift nodes' half width in from each end, the nodes evenly between. */
+const left = (at: number) => `calc(1rem + (100% - 2rem) * ${at / DAILY_QUESTS})`;
 
 /**
  * The day's milestones as a graph (#869, the owner's rework of 2026-10-29): `DAILY_QUESTS + 1` nodes on a line, one edge per daily
- * between two, lit once that daily is done. A node that carries a reward (3 done: +10 Cobbles, 5 done: +15, `DAILY_MILESTONES`) is
- * the full node, its Cobbles on it; the others are plain and small, filled once reached. A milestone reached is claimed with a tap
- * on its node, then shows a check; its Cobbles burst into the balance's plate (`CobblesBurst`, nothing moves under reduced motion).
- * The graph is still: only the claim moves. The edges are the progress bar (`role="progressbar"`), the nodes a list beside it.
+ * between two, lit once that daily is done. A node that carries a reward (3 done: +10 Cobbles, 5 done: +15, `DAILY_MILESTONES`) is a
+ * small gift (`GiftArt`), no figure on it; the others are plain and smaller, filled once reached. A gift reached shakes now and then,
+ * as a ready chest does; a tap claims it, and it shakes fast while the claim is on its way. Once the claim lands the gift opens, as a
+ * chest does (the box jumps, its lid pops off, light bursts out), its Cobbles rise out of it and burst into the balance's plate
+ * (`CobblesBurst`), with the chest's `burst` sound and a buzz; then the gift stays open, a check on it. Under reduced motion nothing
+ * shakes or flies: the gift shows open at once, the sound kept. The edges are the progress bar (`role="progressbar"`), the nodes a
+ * list beside it.
  */
-export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = true, onClaim, rewards = true, className }: DailyMilestonesBarProps) {
+export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = true, onClaim, rewards = true, revealing = null, className }: DailyMilestonesBarProps) {
+  const reduced = useReducedMotionConfig() ?? false;
+  const play = useSfx();
   const states = dailyMilestoneStates(done, claimed ?? 0);
   const count = Math.min(Math.max(done, 0), DAILY_QUESTS);
   const nodes = useRef<(HTMLElement | null)[]>([]);
-  // A claim seen landing here (its bit set while this graph is shown) bursts once; a day read already claimed does not.
+  // A claim seen landing here (its bit set while this graph is shown) opens its gift and bursts once; a day read already claimed does not.
   const [seen, setSeen] = useState(claimed);
   const [burst, setBurst] = useState<number | null>(null);
+  const [opening, setOpening] = useState<number | null>(null);
   if (claimed !== seen) {
     setSeen(claimed);
     const landed = DAILY_MILESTONES.findIndex((_, step) => states[step] === "claimed" && ((seen ?? 0) & (1 << step)) === 0);
-    if (seen !== null && landed >= 0) setBurst(landed);
+    if (seen !== null && landed >= 0) {
+      setBurst(landed);
+      if (!reduced) setOpening(landed);
+    }
   }
+  useEffect(() => {
+    if (burst === null) return;
+    play("burst");
+    haptic("firm");
+  }, [burst, play]);
+  useEffect(() => {
+    if (opening === null) return;
+    const timer = setTimeout(() => setOpening(null), GIFT_REVEAL_S * 1000);
+    return () => clearTimeout(timer);
+  }, [opening]);
   const ended = useCallback(() => setBurst(null), []);
   const from = useCallback(() => (burst === null ? null : (nodes.current[burst] ?? null)), [burst]);
 
   return (
-    <div data-graph="daily-milestones" className={cn("relative", className)} style={{ height: rewards ? "4.75rem" : "1.5rem" }}>
+    <div data-graph="daily-milestones" className={cn("relative", className)} style={{ height: rewards ? "2rem" : "1.5rem" }}>
       <div
         role="progressbar"
         aria-label="Dailies done today"
@@ -61,7 +89,7 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
         aria-valuenow={count}
         aria-valuetext={`${count} of ${DAILY_QUESTS} ${plural(DAILY_QUESTS)} done`}
         className="absolute grid -translate-y-1/2"
-        style={{ left: "1.75rem", right: "1.75rem", top: rewards ? "1.75rem" : "0.75rem", gridTemplateColumns: `repeat(${DAILY_QUESTS}, minmax(0, 1fr))` }}
+        style={{ left: "1rem", right: "1rem", top: rewards ? "1rem" : "0.75rem", gridTemplateColumns: `repeat(${DAILY_QUESTS}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: DAILY_QUESTS }, (_, i) => (
           <span key={i} data-step={i + 1} data-done={i < count || undefined} className={cn("h-1", i < count ? "bg-primary" : "bg-input")} />
@@ -78,15 +106,17 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
                 if (step >= 0) nodes.current[step] = el;
               }}
               aria-hidden={milestone ? undefined : true}
-              className={cn("absolute top-0 flex -translate-x-1/2 justify-center", milestone ? "w-14" : rewards ? "h-14 w-3" : "h-6 w-3")}
+              className={cn("absolute top-0 flex -translate-x-1/2 justify-center", milestone ? "w-8" : "w-3", rewards ? "h-8" : "h-6")}
               style={{ left: left(at) }}
             >
               {milestone ? (
-                <RewardNode
+                <GiftNode
                   cobbles={milestone.cobbles}
                   at={at}
                   state={states[step]!}
                   claiming={claiming === step}
+                  opening={states[step] === "claimed" && (opening === step || revealing === step)}
+                  held={revealing === step}
                   disabled={claimed === null || !canClaim || (claiming !== null && claiming !== step)}
                   onClaim={() => onClaim?.(step)}
                 />
@@ -99,40 +129,64 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
           );
         })}
       </ol>
+      {DAILY_MILESTONES.map(({ done: at, cobbles }, step) =>
+        states[step] === "claimed" && rewards && (opening === step || revealing === step) ? (
+          // The Cobbles out of the opening gift: they rise above it with the light, then the gift settles open. The last node's keep to
+          // the graph's right edge, so they stay inside it.
+          <m.span
+            key={step}
+            aria-hidden
+            data-reveal={at}
+            className={cn("absolute bottom-full mb-1 w-max rounded-full border border-primary/60 bg-card px-2 py-0.5 shadow-lg", at === DAILY_QUESTS ? "right-0" : "-translate-x-1/2")}
+            style={at === DAILY_QUESTS ? undefined : { left: left(at) }}
+            initial={revealing === step ? false : { y: 12, scale: 0.4, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            transition={{ delay: GIFT_LIGHT_S, type: "spring", stiffness: 420, damping: 18 }}
+          >
+            <Cobbles value={cobbles} sign="+" size="sm" />
+          </m.span>
+        ) : null,
+      )}
       {burst !== null && <CobblesBurst key={burst} from={from} onDone={ended} />}
     </div>
   );
 }
 
-interface RewardNodeProps {
+interface GiftNodeProps {
   cobbles: number;
   /** The dailies done that reach it. */
   at: number;
   state: DailyMilestoneState;
   claiming: boolean;
+  /** Its claim just landed: the gift opens, its Cobbles shown above it. */
+  opening: boolean;
+  /** The opening's last frame at once (the stories). */
+  held: boolean;
   disabled: boolean;
   onClaim: () => void;
 }
 
-/** A reward's full node: its Cobbles on it, a caption under it (how far, then Claim once reached, then a check once claimed). */
-function RewardNode({ cobbles, at, state, claiming, disabled, onClaim }: RewardNodeProps) {
+/**
+ * A reward's node: a small disc with its gift, no figure on it (the reward is in its name, and shows once opened). Reached, it is lit
+ * and shakes, a button; claimed, it shows the gift open and a check.
+ */
+function GiftNode({ cobbles, at, state, claiming, opening, held, disabled, onClaim }: GiftNodeProps) {
   const reach = `${at} ${plural(at)} done`;
-  // A claim not open now (another on its way, no wallet, or this one sent) dims the node's content, never its disc: the edges stay hidden.
-  const dim = state === "claimable" && (disabled || claiming);
+  // A claim not open now (another on its way, no wallet) dims the gift, never its disc: the edges stay hidden.
+  const dim = state === "claimable" && disabled && !claiming;
+  const gift: GiftArtState = state === "locked" ? "locked" : state === "claimed" ? (opening ? "opening" : "open") : claiming ? "shaking" : disabled ? "lit" : "ready";
   const disc = (
     <span
       aria-hidden
       className={cn(
-        "relative grid size-14 shrink-0 place-items-center rounded-full border-2 bg-card",
+        "relative grid size-8 shrink-0 place-items-center rounded-full border-2 bg-card",
         state === "claimable" ? "border-primary shadow-lg" : state === "claimed" ? "border-primary" : "border-input",
       )}
     >
       {state === "claimable" && <span className="absolute inset-0 rounded-full bg-primary/15" />}
-      <span className={cn("relative", dim && "opacity-60")}>
-        {claiming ? <SpinnerIcon className="size-4 animate-spin" /> : <Cobbles value={cobbles} sign="+" size="sm" tone={state === "locked" ? "muted" : "default"} />}
-      </span>
-      {state === "claimed" && (
-        <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-success text-background">
+      <GiftArt state={gift} held={held} className={cn("text-[1.125rem]", dim && "opacity-60")} />
+      {state === "claimed" && !opening && (
+        <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-success text-background">
           <Icon name="check" size="xs" />
         </span>
       )}
@@ -148,10 +202,10 @@ function RewardNode({ cobbles, at, state, claiming, disabled, onClaim }: RewardN
         aria-busy={claiming || undefined}
         aria-label={`Claim ${cobbles} Cobbles: ${reach}`}
         onClick={onClaim}
-        className="flex cursor-pointer flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+        // 44 px to tap: the disc's 32 px and a ring of 6 around it.
+        className="relative flex h-fit cursor-pointer rounded-full outline-none before:absolute before:-inset-1.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
       >
         {disc}
-        <span className={cn("text-xs leading-4 font-semibold text-primary", dim && "opacity-60")}>Claim</span>
       </button>
     );
   }
@@ -161,13 +215,11 @@ function RewardNode({ cobbles, at, state, claiming, disabled, onClaim }: RewardN
       role="img"
       data-milestone={at}
       data-state={state}
+      data-opening={opening || undefined}
       aria-label={claimed ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
-      className="flex flex-col items-center gap-1"
+      className="flex h-fit"
     >
       {disc}
-      <span aria-hidden className={cn("text-xs leading-4", claimed ? "font-semibold text-success" : "numeric text-muted-foreground")}>
-        {claimed ? "Claimed" : `${at}/${DAILY_QUESTS}`}
-      </span>
     </span>
   );
 }

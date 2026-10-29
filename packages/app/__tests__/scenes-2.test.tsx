@@ -364,6 +364,11 @@ describe("Missions (#832)", () => {
     expect(daily().getByRole("img", { name: "10 Cobbles claimed: 3 dailies done" })).toBeInTheDocument();
     expect(daily().getByRole("button", { name: "Claim 15 Cobbles: 5 dailies done" })).toBeEnabled();
     five.unmount();
+    // The claim landed: the gift held open at its reveal, its Cobbles above it.
+    const opening = render(wrap(<MissionsScene {...MISSIONS.milestoneOpening} />));
+    expect(daily().getByRole("img", { name: "10 Cobbles claimed: 3 dailies done" })).toHaveAttribute("data-opening");
+    expect(document.querySelector('[data-reveal="3"]')).not.toBeNull();
+    opening.unmount();
     render(wrap(<MissionsScene {...MISSIONS.milestonesAllClaimed} />));
     expect(daily().getAllByRole("img", { name: /Cobbles claimed/ })).toHaveLength(2);
     expect(daily().getByRole("progressbar")).toHaveAttribute("aria-valuenow", "5");
