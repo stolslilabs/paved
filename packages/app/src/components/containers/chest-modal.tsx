@@ -3,10 +3,10 @@ import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
-import { CHEST_CHOICES, CHEST_NAME, ChestBadge, type ChestRank } from "../elements/chest-badge";
-import { ChestBurst } from "../elements/chest-burst";
+import { CHEST_CHOICES, CHEST_NAME, type ChestRank } from "../elements/chest-badge";
 import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
+import { LazyChestArt } from "../elements/lazy-chest-art";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
 import { Button } from "../ui/button";
@@ -58,7 +58,7 @@ export interface ChestModalProps {
   owned?: Readonly<Record<number, number>>;
   tileArt?: TileArt;
   initialChoice?: number | null;
-  /** For the stories: the burst's light held at its peak. */
+  /** For the stories: the chest held open in its light. */
   held?: boolean;
   onOpen?: (chestId: number) => void;
   onTake?: (chestId: number, index: number) => void;
@@ -69,10 +69,10 @@ export interface ChestModalProps {
 }
 
 /**
- * A ready chest's opening (#784), in a modal over the dimmed page. The chest sits at the centre and shakes (a few short shakes,
- * a pause, again) under "Tap to open"; a tap opens it: its lid bursts with a flash and rays in its rank's colour, its tiles fly
- * out and settle side by side (the choice of `ChestReveal`), and the Cobbles show when it held some. The tile kept is said with
- * "Next chest" while others wait, or Done. One sound per beat (`shake`, `burst`, `flip` per tile, `keep`), at the sound effects'
+ * A ready chest's opening (#784), in a modal over the dimmed page. The chest (the detailed art of #874) sits at the centre and
+ * shakes (a few short shakes, a pause, again) under "Tap to open"; a tap opens it: its lid swings up and back on its hinges and light
+ * bursts from inside, rays and a glow in its rank's colour, its tiles fly out and settle side by side (the choice of `ChestReveal`),
+ * and the Cobbles show when it held some. The tile kept is said with "Next chest" while others wait, or Done. One sound per beat (`shake`, `burst`, `flip` per tile, `keep`), at the sound effects'
  * volume; a buzz on the shake and the burst where the device has one. Under reduced motion nothing shakes or flies: a short
  * fade instead, the sounds kept.
  */
@@ -173,9 +173,9 @@ function Closed({ chest, more, opening, onOpen }: { chest: Chest; more: number; 
                 ? { duration: SHAKE_S / 2, repeat: Infinity, ease: "easeInOut" }
                 : { duration: SHAKE_S, repeat: Infinity, repeatDelay: SHAKE_PAUSE_S, ease: "easeInOut" }
           }
-          className="relative scale-125"
+          className="relative grid place-items-center"
         >
-          <ChestBadge rank={chest.rank} size="xl" glow />
+          <LazyChestArt rank={chest.rank} state="ready" shake={false} size="lg" label={null} />
         </m.span>
       </button>
       <p role="status" className={cn("font-display text-xl", opening ? "text-muted-foreground" : "text-primary")}>
@@ -194,7 +194,7 @@ function Closed({ chest, more, opening, onOpen }: { chest: Chest; more: number; 
   );
 }
 
-/** The lid's burst, then the tiles out of the chest and the choice. */
+/** The lid's swing and the light, then the tiles out of the chest and the choice. */
 function Reveal({
   opened,
   busy,
@@ -219,11 +219,9 @@ function Reveal({
     <div className="flex flex-col items-center gap-3">
       <DialogTitle className="font-display text-2xl">{CHEST_NAME[draw.rank]}</DialogTitle>
       <DialogDescription>{single ? "One tile, yours as it is." : `Keep one of its ${CHEST_CHOICES[draw.rank]} tiles.`}</DialogDescription>
-      <div className="relative grid h-36 w-full place-items-center">
-        <ChestBurst rank={draw.rank} held={held} />
-        <m.span initial={held ? false : { scale: 1.25 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 12 }} className="relative">
-          <ChestBadge rank={draw.rank} size="xl" glow open />
-        </m.span>
+      {/* The chest opens: its lid swings up and back on its hinges, the light bursts in the rank's colour. */}
+      <div data-burst={draw.rank} className="relative grid h-36 w-full place-items-center">
+        <LazyChestArt rank={draw.rank} state={held ? "open" : "opening"} size="md" label={null} />
       </div>
       <ChestReveal
         variant="modal"
