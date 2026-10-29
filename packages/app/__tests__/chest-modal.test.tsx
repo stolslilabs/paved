@@ -149,7 +149,8 @@ describe("the slots' three states (#784)", () => {
     expect(within(opened!).queryByRole("button")).toBeNull();
     expect(opened!.querySelector("[data-spent]")).not.toBeNull();
     expect(within(won!).getByRole("button", { name: "Open the rare chest of slot 2" })).toBeInTheDocument();
-    expect(within(won!).getByRole("img", { name: "Rare chest" })).toHaveAttribute("data-rank", "rare");
+    // Its detailed chest (#874), in its rank, named by the button.
+    expect(won!.querySelector('[data-rank="rare"]')).not.toBeNull();
     expect(free!.querySelector("[data-icon], i, svg")).toBeNull();
     expect(screen.queryByRole("heading", { name: /Waiting/ })).toBeNull();
   });

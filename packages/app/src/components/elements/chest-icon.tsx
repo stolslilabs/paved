@@ -1,17 +1,11 @@
 import { useId } from "react";
 import { cn } from "../../lib/utils";
-import { CHEST_NAME, type ChestRank } from "./chest-badge";
-import { chestParts, TONE_BASE, type ChestDirection, type ChestPart } from "./chest-designs";
+import { CHEST_NAME, chestParts, TONE_BASE, type ChestPart, type ChestRank } from "./chest-designs";
 import { DROP, mix, OUTLINE, RIM } from "./game-icon";
 
-/** A part's colour: its tone's base, its voxel face lit or shaded. */
-function baseOf(part: Pick<ChestPart, "tone" | "face">): string {
-  const base = TONE_BASE[part.tone];
-  if (part.face === "top") return `color-mix(in oklab, ${base} 72%, var(--foreground))`;
-  if (part.face === "side") return `color-mix(in oklab, ${base} 62%, var(--background))`;
-  return base;
-}
-const keyOf = (part: Pick<ChestPart, "tone" | "face">) => `${part.tone}${part.face ?? ""}`;
+/** A part's colour: its tone's base. */
+const baseOf = (part: Pick<ChestPart, "tone">): string => TONE_BASE[part.tone];
+const keyOf = (part: Pick<ChestPart, "tone">) => part.tone;
 
 /** The relief's measures, in the grid's units: the icon takes the game icons' (issue 844); the art, drawn larger, thinner ones. */
 export interface ReliefScale {
@@ -21,7 +15,7 @@ export interface ReliefScale {
 }
 export const ICON_RELIEF: ReliefScale = { outline: OUTLINE, rim: RIM, drop: DROP };
 
-/** The lit gradient of each tone (and face) the parts use, and each part's mask for the light along its upper edges. */
+/** The lit gradient of each tone the parts use, and each part's mask for the light along its upper edges. */
 export function ReliefDefs({ id, parts, rim }: { id: string; parts: readonly ChestPart[]; rim: number }) {
   const tones = [...new Map(parts.filter((p) => !p.line && !p.flat).map((p) => [keyOf(p), p])).values()];
   return (
@@ -101,7 +95,6 @@ const SIZE_REM = { xs: 0.75, sm: 1, md: 1.5, lg: 2, xl: 3, inherit: null } as co
 export type ChestIconSize = keyof typeof SIZE_REM;
 
 export interface ChestIconProps {
-  direction: ChestDirection;
   rank: ChestRank;
   /** 24 px (`md`) by default. */
   size?: ChestIconSize;
@@ -112,13 +105,13 @@ export interface ChestIconProps {
 
 /**
  * A chest's simple version (issue 874's proposal 3), to show as an icon (the battle logs, the attack's end, `ChestBadge`, the
- * explanations): Font Awesome's `treasure-chest` (the voxel direction its own blocks) in the rank's tones, its ornaments simplified,
+ * explanations): Font Awesome's `treasure-chest` in the rank's tones, its ornaments simplified,
  * in the game icons' relief. One SVG of its own paths, `GameIcon`'s box (1.25em by 1em), crisp from 16 to 48 px. The ranks differ by
  * their ornaments as well as their colours: basic plain, rare studded, epic jewelled with a glint.
  */
-export function ChestIcon({ direction, rank, size = "md", label, className }: ChestIconProps) {
+export function ChestIcon({ rank, size = "md", label, className }: ChestIconProps) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const parts = chestParts(direction, rank, "icon");
+  const parts = chestParts(rank, "icon");
   const name = label === undefined ? CHEST_NAME[rank] : label;
   const rem = SIZE_REM[size];
   return (
@@ -130,7 +123,6 @@ export function ChestIcon({ direction, rank, size = "md", label, className }: Ch
       overflow="visible"
       focusable="false"
       data-slot="chest-icon"
-      data-direction={direction}
       data-rank={rank}
       className={cn("inline-block shrink-0 align-[-0.125em]", className)}
       style={rem === null ? undefined : { fontSize: `${rem}rem` }}
