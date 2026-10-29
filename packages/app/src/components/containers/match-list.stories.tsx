@@ -44,7 +44,7 @@ export const NoRenders: Story = { args: { renders: undefined } };
 /** One card, alone. */
 const card = (match: MatchCardData): Story => ({ render: () => <MatchCard match={match} now={MOCK_NOW} onOpen={fn()} renders={appRenders} /> });
 
-/** Two stars: crowns won, the attack's background in colour, XP and a silver chest. */
+/** Two stars: crowns won, the attack's background in colour, XP and a rare chest. */
 export const AttackWon: Story = card(MATCH_CARDS.attackWon);
 /** No star: crowns lost, the background in grayscale, no chest. */
 export const AttackLost: Story = card(MATCH_CARDS.attackLost);
@@ -53,7 +53,7 @@ export const DefenceWon: Story = card(MATCH_CARDS.defenceWon);
 /** The attacker took stars: crowns lost, in grayscale. */
 export const DefenceLost: Story = card(MATCH_CARDS.defenceLost);
 export const Surrender: Story = card(MATCH_CARDS.surrender);
-/** Three stars: a gold chest at the bottom right. */
+/** Three stars: an epic chest at the bottom right. */
 export const Chest: Story = card(MATCH_CARDS.chest);
 /** A star, no chest. */
 export const NoChest: Story = card(MATCH_CARDS.noChest);

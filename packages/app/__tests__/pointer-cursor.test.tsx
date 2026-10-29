@@ -68,7 +68,7 @@ describe("the pointer cursor (#880)", () => {
           <VillageScore score={HOME_VILLAGE.view.village.score} tiles={HOME_VILLAGE.view.village.tiles} open={false} onOpenChange={() => {}} />
           <MatchCard match={MATCH_CARDS.attackWon} now={MOCK_NOW} onOpen={() => {}} />
           <CarouselDots count={3} current={0} onSelect={() => {}} />
-          <ChestSlots won={1} ranks={["gold"]} resetsAt={TOMORROW} now={MOCK_NOW} onOpenSlot={() => {}} />
+          <ChestSlots won={1} ranks={["epic"]} resetsAt={TOMORROW} now={MOCK_NOW} onOpenSlot={() => {}} />
         </>,
       ),
     );

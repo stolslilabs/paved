@@ -120,9 +120,9 @@ The second study's directions (Shield, Helm, Medal) are `<CrestDirectionArt dire
 `elements/crest-directions.tsx`: one base shape per direction, its material (`MATERIAL_BASES`, mixed from the game icons' tones, no CSS of its own) and ornaments climbing
 by `RANKS`; both draw through `CrestSvg`.
 
-Chests (#874, the study in `Elements/ChestArt`, three directions for the owner to pick): `<ChestIcon direction="wood" rank="gold" />`
+Chests (#874, the study in `Elements/ChestArt`, three directions for the owner to pick): `<ChestIcon direction="wood" rank="epic" />`
 (`elements/chest-icon.tsx`), the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), and
-`<ChestArt direction="wood" rank="gold" state="opening" />` (`elements/chest-art.tsx`), the detailed art whose lid swings open
+`<ChestArt direction="wood" rank="epic" state="opening" />` (`elements/chest-art.tsx`), the detailed art whose lid swings open
 with Motion. Their drawings are parts in `elements/chest-designs.ts`. Nothing in the app draws them until the owner picks.
 
 Coins (#853, #861): PAVED's gold coin, vPAVED's silver one and USDC's steel one, `src/assets/tokens/paved.svg`, `vpaved.svg`

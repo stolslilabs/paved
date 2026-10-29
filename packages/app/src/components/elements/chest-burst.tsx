@@ -4,7 +4,7 @@ import { cn } from "../../lib/utils";
 import type { ChestRank } from "./chest-badge";
 
 /** Each rank's medal colour (the tokens of `theme.css`), for the light. */
-const MEDAL: Readonly<Record<ChestRank, string>> = { gold: "var(--medal-1)", silver: "var(--medal-2)", bronze: "var(--medal-3)" };
+const MEDAL: Readonly<Record<ChestRank, string>> = { epic: "var(--medal-1)", rare: "var(--medal-2)", basic: "var(--medal-3)" };
 
 /**
  * The rays behind the chest, a wheel of thin wedges faded at its edge, and the flash: inline styles, as each is drawn once, so

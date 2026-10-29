@@ -15,7 +15,7 @@ the hooks below. Step 2's contracts (#733 to #738) match the rules through parit
 | Free village | `free-village.ts` | `layoutRefusal`: at most S tiles, every plan held, no tile on the starter's cell, no cell twice, connected, every facing edge matching. `layoutScore`. `VillageDraft`, the editor's model: each change is checked as a whole layout, so the draft never splits and never passes the slots |
 | Starter layouts | `starters.ts`, `starter-layouts.ts` | 64 layouts of 8 common or uncommon tiles, each scoring more than 0 (209 to 1,948), generated offline (`scripts/v2-layouts.ts`, the engine's search in `grow.ts`); `starterLayout(address)` picks one, the same on every device |
 | Attack | `attack.ts` | The deck: ceil(1.15 x S) (`ATTACK_DECK_PERCENT`), the defender's placed tiles plus extras from the base deck's odds, shuffled from the random. `QueuedAttack`: an unbounded board, the tile in hand and the next two. Stars at 80 / 90 / 100 % (`ATTACK_STAR_PERCENTS`) |
-| Chests | `chests.ts` | PvP: 1 star bronze (1 tile), 2 silver (1 among 2), 3 gold (1 among 3). Story: 3 stars the first time, the first half of a campaign bronze, then silver, the last level gold. Tiles from the base deck's odds; Cobbles (10) at 2 / 5 / 10 % by rank, times the league's boost (x1 at league 0 up to x2 at league 22, linear). At most 3 PvP chests a day; Story's are outside the cap |
+| Chests | `chests.ts` | PvP: 1 star basic (1 tile), 2 rare (1 among 2), 3 epic (1 among 3). Story: 3 stars the first time, the first half of a campaign basic, then rare, the last level epic. Tiles from the base deck's odds; Cobbles (10) at 2 / 5 / 10 % by rank, times the league's boost (x1 at league 0 up to x2 at league 22, linear). At most 3 PvP chests a day; Story's are outside the cap |
 | Shop | `shop.ts` | 3 distinct base plans a day from Poseidon of the day, uniform over the 19; 10 / 20 / 50 Cobbles by rarity; each offer once a day |
 | Quests | `quests.ts` | Finishing every quest of a week pays 60 bonus Cobbles instead of a free game. Five dailies a day (`DAILY_QUESTS`), none paying on its own and no bonus for the day; the day pays at two milestones (`DAILY_MILESTONES`: 3 done 10 Cobbles, 5 done 15), each claimed once a day (#869) |
 
@@ -31,7 +31,7 @@ Choices made where the decisions leave room (each can be reversed by changing on
 - **The deck counts the tiles the attacker draws**; the starter is on the board from the start and is not in it. A full
   village of S slots holds S - 1 tiles besides the starter, so its attacker draws those plus ceil(1.15 x S) - (S - 1) extras.
 - **Story XP is per star earned for the first time**: a first run at 1 star gives 5, a later 3-star run 10 more.
-- **A chest's Cobbles are credited when it opens**; a bronze chest is claimed like the others (its one tile), so every rank
+- **A chest's Cobbles are credited when it opens**; a basic chest is claimed like the others (its one tile), so every rank
   has the same two steps.
 - **The league's boost is read when the chest is granted**, as #736 proposes.
 
