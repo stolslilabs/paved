@@ -119,7 +119,8 @@ export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, le
             "relative z-10 grid shrink-0 place-items-center",
             parts.plus,
             parts.plusOver[side],
-            fromMobile && "max-mobile:hidden",
+            // Shown again from `mobile` with a display class the bundle already has (its CSS budget).
+            fromMobile && "hidden mobile:grid",
           )}
         >
           <GameIcon name="plus" size={parts.plusIcon} />

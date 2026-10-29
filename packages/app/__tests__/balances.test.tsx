@@ -104,14 +104,14 @@ describe("Balances (#538), the resource bar (#620)", () => {
     const plusOf = (container: HTMLElement) => container.querySelector("[data-slot=resource-plus]")!;
     const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
     expect(vault.container.querySelectorAll("[data-slot=resource-plus]")).toHaveLength(1);
-    expect(plusOf(vault.container)).toHaveClass("max-mobile:hidden");
+    expect(plusOf(vault.container)).toHaveClass("hidden", "mobile:grid");
     expect(plusOf(vault.container).nextElementSibling).toHaveClass("pl-5", "max-mobile:pl-2.5");
     vault.unmount();
     const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
-    expect(plusOf(lone.container)).not.toHaveClass("max-mobile:hidden");
+    expect(plusOf(lone.container)).not.toHaveClass("hidden");
     lone.unmount();
     const rail = render(wrap(<Balances layout="rail" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(plusOf(rail.container)).not.toHaveClass("max-mobile:hidden");
+    expect(plusOf(rail.container)).not.toHaveClass("hidden");
   });
 
   it("a balance with no source is a dash", () => {
