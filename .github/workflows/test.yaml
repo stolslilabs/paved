@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
 
+# A newer push to a PR cancels the run of its previous head. A push to main gets a group of its own
+# (its run id), so it is never cancelled nor queued behind another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   WORKING_DIRECTORY: ./contracts
 
