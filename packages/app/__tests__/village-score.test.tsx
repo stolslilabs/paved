@@ -23,11 +23,11 @@ afterEach(cleanup);
 const total = () => screen.getByRole("button", { name: /^Village score / });
 /** The kinds' list, its own chunk, in. */
 const kinds = () => screen.findByRole("list", { name: "Score by kind" }, { timeout: slow(5000) });
-/** The rows as read: each kind's name and its sum. */
+/** The rows as read: each kind's name (for screen readers alone, V4-VILLAGE-POINTS-3) and its sum. */
 const rows = (list: HTMLElement) =>
   within(list)
     .getAllByRole("listitem")
-    .map((li) => ({ kind: li.querySelector(".flex-1")!.textContent, points: Number(li.querySelector(".numeric")!.textContent!.replace(/,/g, "")) }));
+    .map((li) => ({ kind: li.querySelector(".sr-only")!.textContent, points: Number(li.querySelector(".numeric")!.textContent!.replace(/,/g, "")) }));
 
 describe("the home's village score (#831)", () => {
   it("is folded by default: the total alone; a tap unfolds the four kinds, another folds them", async () => {
@@ -112,16 +112,16 @@ describe("the home's village score (#831)", () => {
 describe("the village score's width (V4-VILLAGE-POINTS-SIZE)", () => {
   const sizer = () => document.querySelector<HTMLElement>("[data-slot=village-score] > [data-slot=village-score-sizer]");
 
-  it("keeps the sizer, folded and unfolded: the kinds' row, every name, the total's figure, hidden and of no height", async () => {
+  it("keeps the sizer, folded and unfolded: the kinds' row, the total's figure, hidden and of no height", async () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
     const folded = sizer()!;
     expect(folded).toHaveAttribute("aria-hidden", "true");
     expect(folded).toHaveClass("invisible", "h-0");
     const row = folded.firstElementChild!;
-    // Its words are drawn from `data-text`: none is the DOM's text, so the total and the kinds read once.
+    // Its figure is drawn from `data-text`, not the DOM's text, so the total reads once; no name since V4-VILLAGE-POINTS-3.
     expect(row.textContent).toBe("");
     const drawn = [...row.querySelectorAll("[data-text]")].map((el) => el.getAttribute("data-text"));
-    for (const name of ["Roads", "Cities", "Forests", "Wonders", "Other"]) expect(drawn).toContain(name);
+    expect(drawn).toEqual([formatInteger(HOME_VILLAGE.view.village.score)]);
     expect(row.querySelector(".numeric")!.getAttribute("data-text")).toBe(formatInteger(HOME_VILLAGE.view.village.score));
     expect(screen.getAllByText(formatInteger(HOME_VILLAGE.view.village.score))).toHaveLength(1);
     await userEvent.click(total());
@@ -138,6 +138,34 @@ describe("the village score's width (V4-VILLAGE-POINTS-SIZE)", () => {
       const { unmount } = render(wrap(<HomeVillageScene {...state} />));
       const figure = sizer()!.querySelector(".numeric")!.getAttribute("data-text")!;
       for (const r of rows(await kinds())) expect(formatInteger(r.points).length).toBeLessThanOrEqual(figure.length);
+      unmount();
+    }
+  });
+});
+
+// V4-VILLAGE-POINTS-3 (the owner, 2026-10-29): a lighter background, and rows of the kind's icon and its points alone.
+describe("the village score's lighter rows (V4-VILLAGE-POINTS-3)", () => {
+  it("lets more of the scene through: the background at 55%, was 70%", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
+    const box = document.querySelector("[data-slot=village-score]")!;
+    expect(box).toHaveClass("bg-background/55");
+    expect(box).not.toHaveClass("bg-background/70");
+  });
+
+  it("shows each kind's icon and points, its name for screen readers alone", async () => {
+    for (const state of [HOME_VILLAGE.scoreOpen, HOME_VILLAGE.scoreWonder, HOME_VILLAGE.scoreKindZero]) {
+      const { unmount } = render(wrap(<HomeVillageScene {...state} />));
+      const list = await kinds();
+      for (const li of within(list).getAllByRole("listitem")) {
+        const seen = [...li.children].filter((child) => !child.classList.contains("sr-only"));
+        // The icon, then the points: no other text drawn.
+        expect(seen).toHaveLength(2);
+        expect(seen[0].textContent).toBe("");
+        expect(seen[1]).toHaveAttribute("data-slot", "kind-points");
+        expect(li.querySelector(".sr-only")!.textContent).toMatch(/^(Roads|Cities|Forests|Wonders)$/);
+      }
+      // A row reads as its name and its sum.
+      expect(within(list).getByText("Roads").closest("li")).toHaveTextContent(/^Roads[\d,]+$/);
       unmount();
     }
   });
