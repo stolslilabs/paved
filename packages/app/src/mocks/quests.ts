@@ -1,5 +1,6 @@
 import type { PlayerAchievement, PlayerAchievements, TaskProgress } from "@paved/chain";
 import type { GameMission } from "../components/containers/game-missions";
+import { MOCK_DAILY_FAMILY } from "../data/mock/dailies";
 import { isLiveOnDay, questWindow, type QuestSchedule, type ScheduledQuest, type ScheduledQuests } from "../lib/quest-window";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER_ID, TODAY } from "./players";
@@ -7,8 +8,8 @@ import { PLAYER_ID, TODAY } from "./players";
 /**
  * The quests and achievements as the indexer serves them (`/v1/players/:id/quests?day=`, `/v1/players/:id/achievements`,
  * `packages/indexer/src/api.ts`), in the shapes `@paved/chain`'s indexer client reads them into. The quests are the fresh
- * deployment's definitions (below, quests.md "As built: v2a" and "Four dailies a day"); the sixteen achievements are the accepted
- * list and v2a's higher tiers, their targets as defined there.
+ * deployment's definitions (below, quests.md "As built: v2a" and "Four dailies a day", with #869's fifth daily); the sixteen
+ * achievements are the accepted list and v2a's higher tiers, their targets as defined there.
  */
 
 /** Task ids (`TaskId` of the contracts, quests.md). */
@@ -29,13 +30,16 @@ export const QUESTS_FROM = TODAY - 21;
 
 /*
  * The definitions of the fresh deployment (quests.md "As built: v2a" and "Four dailies a day", the PM's ruling of 2026-10-14;
- * `FRESH_QUESTS` of scripts/deploy.sh), schedules as defined, from the epoch:
+ * `FRESH_QUESTS` of scripts/deploy.sh), schedules as defined, from the epoch, with the fifth daily of #869 (the owner's
+ * decisions of 2026-10-28, open point 2's default: one more family in the rotation; the contracts' definitions follow, #738):
  *
  *  - Daily Run (id 1) is live every day (`duration = interval = 1 day`, `start` 0). Quests 2 to 4 (v1's) are NOT defined.
- *  - Nine rotating dailies, ids 5 to 13, in three sets of three (structures 5 to 7, forests 8 to 10, points 11 to 13): each
- *    lasts one day in a 3-day interval, `start` offset by 0, 1 or 2 days, so the one live on a UTC day is the one whose offset
- *    is the day number mod 3. Four dailies are live a day: Daily Run and one of each family (today, day 20,740, offset 1:
- *    quests 1, 6, 9 and 12).
+ *  - Twelve rotating dailies in four sets of three: structures 5 to 7, forests 8 to 10, points 11 to 13, and games finished
+ *    17 to 19 (#869, the mock's ids, the next free ones: `MOCK_DAILY_FAMILY`, which the mock's indexer adds). Each lasts one
+ *    day in a 3-day interval, `start` offset by 0, 1 or 2 days, so the one live on a UTC day is the one whose offset is the
+ *    day number mod 3. Five dailies are live a day
+ *    (`DAILY_QUESTS`): Daily Run and one of each family (today, day 20,740, offset 1: quests 1, 6, 9, 12 and 18). None pays on
+ *    its own since #869: the day's milestones do (`DAILY_MILESTONES`, 3 done and 5 done).
  *  - Three weeklies, ids 14 to 16, `duration = interval = 7 days`, `start` 345,600: Monday 1970-01-05 00:00 UTC, so a week runs
  *    Monday to Sunday UTC (the epoch is a Thursday; a start of 0 would have put the boundary on Thursdays).
  *
@@ -65,6 +69,8 @@ export const QUEST_DEFINITIONS: readonly QuestDefinition[] = [
   { questId: 14, taskId: FOREST_SCORED, total: 5, ...weekly },
   { questId: 15, taskId: STRUCTURE_SCORED, total: 30, ...weekly },
   { questId: 16, taskId: POINTS, total: 20_000, ...weekly },
+  // The fifth daily's family, as the mock's indexer adds it (`data/mock/dailies.ts`).
+  ...MOCK_DAILY_FAMILY.map((q) => ({ questId: q.questId, taskId: GAME_FINISHED, total: q.total, ...dailyAt(q.offset, 3) })),
 ];
 
 const quest = (def: QuestDefinition, day: number, count: number, completedAt: number | null): ScheduledQuest => {
@@ -91,12 +97,12 @@ const day = (d: number, counts: Record<number, number>, completedAt: Record<numb
 const DONE_TODAY = { 1: MOCK_NOW - 3 * HOUR };
 
 /**
- * Today (Wednesday 2026-10-14, day 20,740: the rotation is 6, 9 and 12, beside Daily Run; the week began on Monday). Counts are
- * per task, as the indexer's are: 1 game, 4 structures, 1 forest and 2,710 points scored today, so Daily Run is done, Public
- * Works is 4 of 8, Deep Woods 1 of 3 and Strong Day 2,710 of 5,000. The week: Weekly Forester 3 of 5, Builder 22 of 30, Points
- * 12,400 of 20,000.
+ * Today (Wednesday 2026-10-14, day 20,740: the rotation is 6, 9, 12 and 18, beside Daily Run; the week began on Monday). Counts
+ * are per task, as the indexer's are: 1 game, 4 structures, 1 forest and 2,710 points scored today, so Daily Run is done, Public
+ * Works is 4 of 8, Deep Woods 1 of 3, Strong Day 2,710 of 5,000 and Busy Day 1 of 3: one daily of five done. The week: Weekly
+ * Forester 3 of 5, Builder 22 of 30, Points 12,400 of 20,000.
  */
-const TODAY_COUNTS = { 1: 1, 6: 4, 9: 1, 12: 2_710, 14: 3, 15: 22, 16: 12_400 };
+const TODAY_COUNTS = { 1: 1, 6: 4, 9: 1, 12: 2_710, 18: 1, 14: 3, 15: 22, 16: 12_400 };
 export const QUESTS_TODAY = day(TODAY, TODAY_COUNTS, DONE_TODAY);
 
 /** Public Works one structure from done, 7 of 8: scoring it completes the quest (the toast's story). */
@@ -113,25 +119,37 @@ export const QUESTS_WEEK_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5, 15: 30, 16:
 /** The same day for a player who has not played yet (#832, a new player): every count at 0. */
 export const QUESTS_TODAY_FRESH = day(TODAY, {});
 
-/** The same day with every daily and weekly done (#832, everything done): the four dailies and the three weeklies at their totals. */
+/** The same day with every daily and weekly done (#832, everything done): the five dailies and the three weeklies at their totals. */
 export const QUESTS_TODAY_ALL_DONE = day(
   TODAY,
-  { 1: 1, 6: 8, 9: 3, 12: 5_000, 14: 5, 15: 30, 16: 20_000 },
-  { ...DONE_TODAY, 6: MOCK_NOW - 2 * HOUR, 9: MOCK_NOW - 90 * 60, 12: MOCK_NOW - HOUR, 14: MOCK_NOW - 5 * HOUR, 15: MOCK_NOW - 4 * HOUR, 16: MOCK_NOW - HOUR },
+  { 1: 3, 6: 8, 9: 3, 12: 5_000, 18: 3, 14: 5, 15: 30, 16: 20_000 },
+  { ...DONE_TODAY, 6: MOCK_NOW - 2 * HOUR, 9: MOCK_NOW - 90 * 60, 12: MOCK_NOW - HOUR, 18: MOCK_NOW - 30 * 60, 14: MOCK_NOW - 5 * HOUR, 15: MOCK_NOW - 4 * HOUR, 16: MOCK_NOW - HOUR },
 );
 
 /**
- * Yesterday, closed (day 20,739, offset 0: the rotation is 5, 8 and 11): the four dailies done. The weeklies are at or below
+ * Yesterday, closed (day 20,739, offset 0: the rotation is 5, 8, 11 and 17): the five dailies done. The weeklies are at or below
  * today's counts (a week's progress only grows inside its interval), so this day and `QUESTS_TODAY` never contradict each other.
  */
 const YESTERDAY = TODAY - 1;
 export const QUESTS_ALL_DONE = day(
   YESTERDAY,
-  { 1: 1, 5: 6, 8: 2, 11: 7_300, 14: 2, 15: 18, 16: 9_000 },
-  Object.fromEntries([1, 5, 8, 11].map((id, i) => [id, YESTERDAY * DAY + (8 + i * 2) * HOUR])),
+  { 1: 2, 5: 6, 8: 2, 11: 7_300, 17: 2, 14: 2, 15: 18, 16: 9_000 },
+  Object.fromEntries([1, 5, 8, 11, 17].map((id, i) => [id, YESTERDAY * DAY + (8 + i * 2) * HOUR])),
 );
 
-/** A past day the player did not play (day 20,736, offset 0: 1, 5, 8 and 11, and last week's three): every count at 0. */
+/**
+ * Today with `done` of the five dailies done, the others at today's counts (#869, the day's milestones: 0, 2, 3 and 5 done are
+ * the bar's stories). The dailies are done in the order Daily Run, Public Works, Deep Woods, Strong Day, Busy Day.
+ */
+export const questsTodayDone = (done: number): ScheduledQuests => {
+  const order = [1, 6, 9, 12, 18].slice(0, done);
+  const totals = Object.fromEntries(order.map((id) => [id, QUEST_DEFINITIONS.find((d) => d.questId === id)!.total]));
+  // The ones not done at today's counts; with nothing done, no game finished yet.
+  const games = done === 0 ? { 1: 0, 18: 0 } : {};
+  return day(TODAY, { ...TODAY_COUNTS, ...games, ...totals }, Object.fromEntries(order.map((id, i) => [id, MOCK_NOW - (5 - i) * HOUR])));
+};
+
+/** A past day the player did not play (day 20,736, offset 0: 1, 5, 8, 11 and 17, and last week's three): every count at 0. */
 export const QUESTS_IDLE = day(TODAY - 4, {});
 
 /** A day before the quests were defined: none live. */
@@ -180,11 +198,11 @@ export const ACHIEVEMENTS_ALL = achievements(
 );
 
 /**
- * What one game completed (#595), as the over page lists it: Public Works and Deep Woods of the day, and Forester (10 forests)
- * reached by the same game over, each with its Cobbles.
+ * What one game completed (#595), as the over page lists it: Public Works and Deep Woods of the day, with no Cobbles of their own
+ * (#869: the day's milestones pay), and Forester (10 forests) reached by the same game over, with its Cobbles.
  */
 export const GAME_MISSIONS: readonly GameMission[] = [
-  { key: "quest:6:6913", kind: "quest", title: "Public Works", icon: "castle", cobbles: 10 },
-  { key: "quest:9:6913", kind: "quest", title: "Deep Woods", icon: "tree", cobbles: 10 },
+  { key: "quest:6:6913", kind: "quest", title: "Public Works", icon: "castle" },
+  { key: "quest:9:6913", kind: "quest", title: "Deep Woods", icon: "tree" },
   { key: "achievement:6", kind: "achievement", title: "Forester", icon: "tree", points: 20, cobbles: 20 },
 ];
