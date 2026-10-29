@@ -226,7 +226,7 @@
   --input: var(--color-charcoal-600); /* 3.17:1 on --background (WCAG 1.4.11) */
   --input-surface: var(--color-charcoal-500); /* --input on --card / --popover: 4.27:1 */
   --ring: var(--accent-scale-400);
-  /* The podium's medals: gold, silver, bronze. The v2 village's chests take them by rank (#739). */
+  /* The podium's medals: gold, silver, bronze. The v2 village's chests take them by rank (#739): Epic, Rare, Basic. */
   --medal-1: var(--color-gold-300);
   --medal-2: var(--color-charcoal-200);
   --medal-3: var(--color-amber-400);
@@ -238,7 +238,7 @@
 /* 3b. The season dial (#607): each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle
    paints them (`KEYFRAMES` in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in
    step). Hex, not palette steps: the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The
-   icons' tint is the day's bottom, lightly, over the foreground. The ring is paving stones set in a gold rim. */
+   icons are game icons in their own tones (#870, 3f). The ring is paving stones set in a gold rim. */
 :root {
   --sky-summer-day-top: #1f65a1;
   --sky-summer-day-bottom: #6bb7ff;
@@ -256,10 +256,6 @@
   --sky-spring-day-bottom: #95dc94;
   --sky-spring-night-top: #0a141c;
   --sky-spring-night-bottom: #012604;
-  --season-summer-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-summer-day-bottom));
-  --season-autumn-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-autumn-day-bottom));
-  --season-winter-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-winter-day-bottom));
-  --season-spring-tint: color-mix(in oklab, var(--foreground) 65%, var(--sky-spring-day-bottom));
   /* The dial's gold, toned into its stones (#634): it reads as one piece with the sky quarters. */
   --dial-rim: color-mix(in oklab, var(--primary) 45%, var(--color-charcoal-600));
   --dial-mark: color-mix(in oklab, var(--primary) 65%, var(--color-charcoal-600));
@@ -321,9 +317,13 @@
 }
 
 /* 3f. The game icons (issue 844, `elements/game-icon.tsx`), in the spirit of Supercell's: one base per tone, from which the icon
-   mixes its lit top (toward `--foreground`), its shaded foot and its thick outline of the same hue, darker (toward `--background`,
-   the ink). The light tone is `--foreground`; the shadow is the ink at low opacity, the light on the upper parts the foreground. */
+   mixes its lit top (toward `--game-light`), its shaded foot and its thick outline of the same hue, darker (toward `--game-ink`).
+   The light tone is `--game-light`; the shadow is the ink at low opacity, the light on the upper parts `--game-light`. The light
+   and the ink are the relief's own, not the theme's foreground and background (#870): the dark theme's values, so an icon keeps
+   its light on top and its dark outline whatever the theme's surface. */
 :root {
+  --game-light: var(--color-charcoal-50);
+  --game-ink: var(--color-charcoal-950);
   --game-gold: var(--color-gold-300);
   --game-steel: var(--color-charcoal-200);
   --game-red: var(--color-ember-400);
@@ -332,6 +332,11 @@
   --game-wood: var(--color-amber-500);
   --game-stone: var(--color-charcoal-400);
   --game-rose: var(--color-ember-300);
+  /* Issue 870's: autumn's leaf, winter's snowflake, spring's seedling, the night's moon. */
+  --game-orange: var(--color-amber-400);
+  --game-ice: var(--color-river-200);
+  --game-sprout: var(--color-meadow-300);
+  --game-silver: var(--color-charcoal-100);
 }
 
 

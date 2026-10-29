@@ -2,22 +2,26 @@ import { render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildShapes, GAME_ICON_NAMES, roundPath, SHAPES_PATH, splitPath } from "../scripts/game-icons";
+import { buildShapes, GAME_ICON_NAMES, roundPath, SHAPE_SETS, splitPath, WORLD_ICON_NAMES } from "../scripts/game-icons";
 import { GameIcon } from "../src/components/elements/game-icon";
 import { GameIconLook } from "../src/components/elements/game-icon-looks";
 import { GAME_ICON_SHAPES } from "../src/components/elements/game-icon-shapes";
+import { WorldIcon } from "../src/components/elements/world-icon";
+import { WORLD_ICON_SHAPES } from "../src/components/elements/world-icon-shapes";
 
 const read = (path: string) => readFileSync(resolve(import.meta.dirname, "..", path), "utf8");
 
 describe("the game icons (#844)", () => {
   it("are what the owner's Font Awesome file gives (a stale shapes file fails here and in the build)", () => {
-    expect(readFileSync(SHAPES_PATH, "utf8") === buildShapes(), "Run `bun run game-icons` in packages/app and commit the file.").toBe(true);
+    for (const set of SHAPE_SETS) {
+      expect(readFileSync(set.path, "utf8") === buildShapes(undefined, set), `${set.path}: run \`bun run game-icons\` in packages/app and commit the file.`).toBe(true);
+    }
   });
 
   it("start every part from an absolute M, a relative m after a z rewritten from the closed subpath's first point", () => {
     expect(splitPath("M10 10h5v5zm20 0h5v5z")).toEqual(["M10 10h5v5z", "M30 10h5v5z"]);
     expect(splitPath("M0 0h1zm2 2 3 3z")).toEqual(["M0 0h1z", "M2 2l3 3z"]);
-    for (const shape of Object.values(GAME_ICON_SHAPES)) for (const part of shape.parts) expect(part).toMatch(/^M/);
+    for (const shape of [...Object.values(GAME_ICON_SHAPES), ...Object.values(WORLD_ICON_SHAPES)]) for (const part of shape.parts) expect(part).toMatch(/^M/);
   });
 
   it("round each point to the grid where it lands, so the error never adds up, in the shorter of the absolute and relative forms", () => {
@@ -66,32 +70,56 @@ describe("the game icons (#844)", () => {
   it("are each recorded in the notices as derived from Font Awesome Pro", () => {
     const notices = read("public/THIRD_PARTY_NOTICES.txt");
     const block = notices.slice(notices.indexOf("Game icons (src/components/elements/game-icon-shapes.ts"));
-    for (const name of GAME_ICON_NAMES) expect(block.slice(0, 900), name).toContain(`\`${name}\``);
+    for (const name of [...GAME_ICON_NAMES, ...WORLD_ICON_NAMES]) expect(block.slice(0, 900), name).toContain(`\`${name}\``);
+  });
+});
+
+describe("the world's icons (#870)", () => {
+  it("are drawn in the game icons' relief and box, from their own shapes file, each in its tones", () => {
+    const { container } = render(<WorldIcon name="snowflake" label="Winter" />);
+    const svg = screen.getByRole("img", { name: "Winter" });
+    expect(svg).toHaveAttribute("data-slot", "game-icon");
+    expect(svg).toHaveAttribute("viewBox", `${(WORLD_ICON_SHAPES.snowflake.width - 640) / 2} 0 640 512`);
+    expect(container.querySelectorAll("mask").length).toBeGreaterThan(0);
+    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["ice"]);
+  });
+
+  it("keep their own light and ink, not the theme's foreground and background, so a light theme keeps their relief", () => {
+    const html = [render(<WorldIcon name="moon" />).container, render(<GameIcon name="plus" />).container].map((c) => c.innerHTML).join("");
+    expect(html).toContain("var(--game-light)");
+    expect(html).toContain("var(--game-ink)");
+    expect(html).not.toMatch(/var\(--(?:foreground|background)\)/);
+  });
+
+  it("keep the village's house-tree among the HUD's, in wood with its tree green", () => {
+    const { container } = render(<GameIcon name="house-tree" />);
+    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["green", "wood"]);
+    expect(Object.keys(WORLD_ICON_SHAPES)).not.toContain("house-tree");
   });
 });
 
 describe("the currencies in relief (#844, the owner's pick: Relief)", () => {
   const token = (kind: string) => read(`src/assets/tokens/${kind}.svg`);
 
-  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`); the coins' shape and colours are #853's (`coins.test.ts`).
-  it("give PAVED and vPAVED a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
-    for (const kind of ["paved", "vpaved"]) {
+  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`); the coins' shape and colours are #853's and #861's (`coins.test.ts`).
+  it("give PAVED, vPAVED and USDC's coin a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
+    for (const kind of ["paved", "vpaved", "usdc"]) {
       const svg = token(kind);
       expect(svg, kind).toContain("<linearGradient");
       expect(svg, kind).toMatch(/fill="#fff" fill-opacity="\.[56]/);
       expect(svg, kind).toMatch(/opacity="\.45"/);
-      // The outline: the coin's tone mixed toward the ink (#853, the gold's and the steel's edge).
-      expect(svg, kind).toMatch(/stroke="#(?:373126|343538)" stroke-width="72"/);
+      // The outline: the coin's tone mixed toward the ink (#853, the gold's and the steel's edge; #861, USDC's steel).
+      expect(svg, kind).toMatch(/stroke="#(?:373126|343538|323336)" stroke-width="72"/);
     }
   });
 
-  it("keep USDC's mark unaltered, in its own colours, with the outline, the light and the shadow around it", () => {
+  it("keep USDC's mark unaltered, in its own colours, the coin's rim, light and shadow around it", () => {
     const svg = token("usdc");
-    expect(svg).toContain('<path fill="#2775CA" d="M996 0h9');
-    expect(svg).toContain('<path fill="#FEFEFE"');
-    expect(svg).not.toContain("<linearGradient");
-    // The ring and the shadow come before the mark: nothing is painted over it.
-    expect(svg.indexOf('fill-opacity=".45"')).toBeLessThan(svg.indexOf("#2775CA"));
-    expect(svg.indexOf('fill="#0B2545"')).toBeLessThan(svg.indexOf("#2775CA"));
+    expect(svg).toContain('<path fill="#2775CA" d="');
+    expect(svg).toContain('<path fill="#FEFEFE" d="');
+    // The rim, its light and the shadow come before the mark, and the mark ends the file: nothing is painted over it.
+    expect(svg.indexOf('opacity=".45"')).toBeLessThan(svg.indexOf("#2775CA"));
+    expect(svg.indexOf('fill-opacity=".55"')).toBeLessThan(svg.indexOf("#2775CA"));
+    expect(svg).toMatch(/<path fill="#FEFEFE" d="[^"]+"\/><\/svg>$/);
   });
 });

@@ -99,7 +99,7 @@ describe("the v2 village's rules (#739)", () => {
     expect(rarityOf(PLAN.road)).toBe("common");
     expect(rarityOf(PLAN.wonder)).toBe("uncommon");
     expect(rarityOf(PLAN.city)).toBe("rare");
-    expect(CHEST_CHOICES).toEqual({ bronze: 1, silver: 2, gold: 3 });
+    expect(CHEST_CHOICES).toEqual({ basic: 1, rare: 2, epic: 3 });
   });
 
   it("builds its fakes by the rules, the scores by the engine", () => {
@@ -317,15 +317,15 @@ describe("the chests (#739, #784)", () => {
   it("opens a ready chest in the modal on arrival: Tap to open", async () => {
     const onOpen = vi.fn();
     render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.waiting} onOpen={onOpen} />));
-    const modal = screen.getByRole("dialog", { name: "Gold chest" });
+    const modal = screen.getByRole("dialog", { name: "Epic chest" });
     expect(within(modal).getByText("Tap to open")).toBeInTheDocument();
-    await userEvent.click(within(modal).getByRole("button", { name: /Open the gold chest: one of 3 tiles/ }));
+    await userEvent.click(within(modal).getByRole("button", { name: /Open the epic chest: one of 3 tiles/ }));
     expect(onOpen).toHaveBeenCalledWith(41);
   });
 
-  it("keeps one of a gold chest's 3 tiles, chosen first", async () => {
+  it("keeps one of an epic chest's 3 tiles, chosen first", async () => {
     const onTake = vi.fn();
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.gold} onTake={onTake} />));
+    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.epic} onTake={onTake} />));
     const tiles = within(screen.getByRole("list", { name: "Chest tiles" })).getAllByRole("button");
     expect(tiles).toHaveLength(3);
     expect(screen.getByRole("button", { name: "Choose a tile" })).toBeDisabled();
@@ -334,9 +334,9 @@ describe("the chests (#739, #784)", () => {
     expect(onTake).toHaveBeenCalledWith(41, 1);
   });
 
-  it("gives a bronze chest's one tile as it is, and says the Cobbles a chest held", async () => {
+  it("gives a basic chest's one tile as it is, and says the Cobbles a chest held", async () => {
     const onTake = vi.fn();
-    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.bronze} onTake={onTake} />));
+    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.basic} onTake={onTake} />));
     await userEvent.click(screen.getByRole("button", { name: /^Keep Tile 7$/ }));
     expect(onTake).toHaveBeenCalledWith(39, 0);
     unmount();
@@ -371,7 +371,7 @@ describe("the chests' slots (#759, #784)", () => {
     expect(screen.getByRole("timer", { name: "Slots reset in 9:00:00" })).toBeInTheDocument();
     unmount();
     const { rerender } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.closed} />));
-    expect(slots()).toEqual(["Slot 1: won, gold chest", "Slot 2: won, silver chest", "Slot 3: free"]);
+    expect(slots()).toEqual(["Slot 1: won, epic chest", "Slot 2: won, rare chest", "Slot 3: free"]);
     expect(screen.queryByRole("region", { name: /Waiting/ })).toBeNull();
     expect(screen.getByLabelText("1 of 3 left today")).toBeInTheDocument();
     // The clock ticks: the countdown follows `now`.
@@ -382,7 +382,7 @@ describe("the chests' slots (#759, #784)", () => {
   it("says a won slot with no rank as won, and the rules in one line", () => {
     render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.noRanks} />));
     expect(slots()).toEqual(["Slot 1: won", "Slot 2: won", "Slot 3: free"]);
-    expect(screen.getByText(/Bronze: one tile · Silver: one of 2 · Gold: one of 3 · A chest may hold Cobbles\./)).toBeInTheDocument();
+    expect(screen.getByText(/Basic: one tile · Rare: one of 2 · Epic: one of 3 · A chest may hold Cobbles\./)).toBeInTheDocument();
   });
 
   it("puts the countdown at the centre once the three are won, and pulses it in the last minute", () => {
@@ -404,7 +404,7 @@ describe("the chests' slots (#759, #784)", () => {
         {wrap(<VillageChestsScene {...VILLAGE_CHESTS.lastMinute} chests={VILLAGE_CHESTS.waiting.chests} initialModalOpen />)}
       </MotionConfig>,
     );
-    expect(screen.getByRole("dialog", { name: "Gold chest" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Epic chest" })).toBeInTheDocument();
     expect(document.querySelector("[data-pulse]")).toBeNull();
     expect(document.querySelector("[data-shake]")).toBeNull();
   });

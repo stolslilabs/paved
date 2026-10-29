@@ -300,7 +300,7 @@ describe("PvP scenes (#647)", () => {
     expect(within(cards[0]!).getByText("40min ago")).toBeInTheDocument();
     expect(within(cards[1]!).getByText("2h ago")).toBeInTheDocument();
     expect(within(cards[0]!).getByTestId("match-xp")).toHaveTextContent(`+${MATCHES[0]!.xp} XP`);
-    expect(within(cards[0]!).getByTestId("match-rewards")).toHaveTextContent("Silver chest");
+    expect(within(cards[0]!).getByTestId("match-rewards")).toHaveTextContent("Rare chest");
     expect(within(cards[1]!).getByText("Defence")).toBeInTheDocument();
     expect(within(cards[1]!).getByRole("img", { name: `${MATCHES[1]!.crowns} crowns` })).toBeInTheDocument();
     expect(within(cards[1]!).queryByTestId("match-xp")).toBeNull();

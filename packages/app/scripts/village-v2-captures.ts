@@ -31,7 +31,7 @@ const chests = (state: string) => ({ name: `chests-${state}`, story: `scenes-vil
 const shop = (state: string) => ({ name: `shop-${state}`, story: `scenes-village-v2-shop--${state}` });
 const CAPTURES = [
   ...["start", "growing", "editing", "holding", "placing", "lifted", "changed", "reset", "full", "leaving", "saved", "visit"].map(layout),
-  ...["waiting", "opening", "gold", "gold-chosen", "silver", "bronze", "cobbles-won", "taken", "taken-last", "story-chest", "slots", "open-pending", "closed", "kept", "free", "no-ranks", "capped", "last-minute", "ready", "empty"].map(chests),
+  ...["waiting", "opening", "epic", "epic-chosen", "rare", "basic", "cobbles-won", "taken", "taken-last", "story-chest", "slots", "open-pending", "closed", "kept", "free", "no-ranks", "capped", "last-minute", "ready", "empty"].map(chests),
   ...["today", "one-bought", "all-bought", "short"].map(shop),
   // The pages as the app wires them, on the mock ledger (#739): `Pages/Village`.
   ...["board", "fresh", "chests", "shop", "visit"].map((state) => ({ name: `page-${state}`, story: `pages-village--${state}` })),

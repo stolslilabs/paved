@@ -42,7 +42,7 @@ export const TILES_OUT_S = 0.45;
 export const TILE_GAP_S = 0.14;
 
 /**
- * A chest opened (#739): its rank, its tiles side by side (bronze one, kept as it is; silver one of 2; gold one of 3), each with
+ * A chest opened (#739): its rank, its tiles side by side (basic one, kept as it is; rare one of 2; epic one of 3), each with
  * its rarity and how many the player holds, and the Cobbles when the chest held some. The tile kept goes to the inventory, not
  * onto the board: the layout is the editor's.
  */

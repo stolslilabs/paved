@@ -104,7 +104,7 @@ function cardName(m: MatchCardData): string {
 }
 
 /** A chest's own colour, its rank's medal (the name says the rank too). */
-const CHEST_TONE: Record<ChestRank, string> = { gold: "text-medal-1", silver: "text-medal-2", bronze: "text-medal-3" };
+const CHEST_TONE: Record<ChestRank, string> = { epic: "text-medal-1", rare: "text-medal-2", basic: "text-medal-3" };
 
 /** Lost crowns turn the card's background grey (#834); a win or a draw (0) keeps its colour (open point 2). */
 const matchLost = (m: Pick<MatchCardData, "crowns">): boolean => m.crowns < 0;
