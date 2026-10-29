@@ -8,6 +8,8 @@ import {
   OrientationType,
   PlanType,
   CHEST_CHOICES,
+  DAILY_MILESTONES,
+  DAILY_QUESTS,
   LEVEL_CAP,
   PVP_CHESTS_PER_DAY,
   QUEST_BONUS_COBBLES,
@@ -25,6 +27,8 @@ import {
   attackExtras,
   attackStarPoints,
   attackStars,
+  dailyMilestoneRefusal,
+  dailyMilestoneStates,
   baseCopies,
   basePlanOf,
   buildOrder,
@@ -457,7 +461,37 @@ describe("the daily shop", () => {
 });
 
 describe("quests", () => {
-  it("pay bonus Cobbles for every quest of a day or a week", () => {
-    expect(QUEST_BONUS_COBBLES).toEqual({ daily: 20, weekly: 60 });
+  it("pay bonus Cobbles for every quest of a week, none for the day (#869)", () => {
+    expect(QUEST_BONUS_COBBLES).toEqual({ weekly: 60 });
+    expect("daily" in QUEST_BONUS_COBBLES).toBe(false);
+  });
+
+  it("five dailies a day, two milestones: 3 done give 10 Cobbles, 5 give 15, 25 a day", () => {
+    expect(DAILY_QUESTS).toBe(5);
+    expect(DAILY_MILESTONES).toEqual([
+      { done: 3, cobbles: 10 },
+      { done: 5, cobbles: 15 },
+    ]);
+    expect(DAILY_MILESTONES.reduce((sum, m) => sum + m.cobbles, 0)).toBe(25);
+    // The last milestone is every daily of the day.
+    expect(DAILY_MILESTONES.at(-1)!.done).toBe(DAILY_QUESTS);
+  });
+
+  it("a milestone is claimable once reached, once a day", () => {
+    expect(dailyMilestoneStates(0, 0)).toEqual(["locked", "locked"]);
+    expect(dailyMilestoneStates(2, 0)).toEqual(["locked", "locked"]);
+    expect(dailyMilestoneStates(3, 0)).toEqual(["claimable", "locked"]);
+    expect(dailyMilestoneStates(3, 0b01)).toEqual(["claimed", "locked"]);
+    expect(dailyMilestoneStates(5, 0b01)).toEqual(["claimed", "claimable"]);
+    expect(dailyMilestoneStates(5, 0)).toEqual(["claimable", "claimable"]);
+    expect(dailyMilestoneStates(5, 0b11)).toEqual(["claimed", "claimed"]);
+
+    expect(dailyMilestoneRefusal(0, 2, 0)).toBe("not-reached");
+    expect(dailyMilestoneRefusal(0, 3, 0)).toBeNull();
+    expect(dailyMilestoneRefusal(0, 3, 0b01)).toBe("milestone-claimed");
+    expect(dailyMilestoneRefusal(1, 4, 0b01)).toBe("not-reached");
+    expect(dailyMilestoneRefusal(1, 5, 0b01)).toBeNull();
+    expect(dailyMilestoneRefusal(1, 5, 0b10)).toBe("milestone-claimed");
+    for (const step of [-1, 2, 0.5]) expect(dailyMilestoneRefusal(step, 5, 0)).toBe("no-milestone");
   });
 });
