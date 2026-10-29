@@ -5,7 +5,6 @@ import type { AchievementRewardsData, MissionKey, QuestRewardsData } from "../co
 import { questPeriod, weekOfDay } from "../lib/quest-window";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources, type DataSources } from "./sources";
-import type { DailyMilestoneViews, DailyMilestoneWrites, DailyMilestonesView } from "./daily-milestones";
 
 // The Cobbles of `Setup` (P9; cobbles v1, part 1): the balance, the credits and the claims, read from the chain's views
 // (`CobbleViews`), each quest's and achievement's Cobbles from the indexer's definitions, and the claims sent through the
@@ -221,60 +220,4 @@ function one(claimer: ClaimSigner, c: CobbleClaim): Promise<WriteResult> {
   if (c.kind === "quest") return claimer.claimQuest(c.questId, c.period);
   if (c.kind === "achievement") return claimer.claimAchievement(c.achievementId);
   return c.credit === "daily" ? claimer.claimDailyCredit(c.period) : claimer.claimWeeklyCredit(c.period);
-}
-
-/** The sources' milestones read (#869), or null: the chain before #738, or a views double without it. */
-export function dailyMilestoneViews(views: GameViews): DailyMilestoneViews | null {
-  const v = views as GameViews & Partial<DailyMilestoneViews>;
-  return typeof v.dailyMilestones === "function" ? (v as DailyMilestoneViews) : null;
-}
-
-/** The signer's milestone claim, or null: no signer, or one without it. */
-export function dailyMilestoneSigner(sources: Pick<DataSources, "signer">): DailyMilestoneWrites | null {
-  const s = sources.signer as (Partial<DailyMilestoneWrites> & { address: string }) | null | undefined;
-  return s && typeof s.claimDailyMilestone === "function" ? (s as DailyMilestoneWrites) : null;
-}
-
-/** The milestones of `day` claimed (#869): null where they are not served (the chain before #738), disabled without a player or a day. */
-export function useDailyMilestones(playerId: string | null, day: number | null): { data: DailyMilestonesView | null | undefined; isPending: boolean; error: Error | null } {
-  const { views } = useDataSources();
-  const read = dailyMilestoneViews(views);
-  const query = useQuery({
-    queryKey: cobbleKeys.milestones(playerId ?? "0x0", day ?? 0),
-    queryFn: () => read!.dailyMilestones(playerId!, day!),
-    enabled: read !== null && playerId !== null && day !== null,
-  });
-  if (read === null || playerId === null || day === null) return { data: null, isPending: false, error: null };
-  return { data: query.data, isPending: query.isPending && !query.error, error: query.error };
-}
-
-/** A milestone's receipt into the cache: each `DailyMilestoneClaimed` sets the balance and the day's claimed bit. */
-export function applyMilestoneEvents(client: QueryClient, playerId: string, events: readonly DecodedEvent[]): void {
-  for (const { name, fields } of events) {
-    if (name !== "DailyMilestoneClaimed") continue;
-    const day = Number(fields.day);
-    client.setQueryData<CobbleAccount | null>(cobbleKeys.account(playerId), (a) => (a ? { ...a, cobbles: Number(fields.balance) } : a));
-    client.setQueryData<DailyMilestonesView>(cobbleKeys.milestones(playerId, day), (m) => (m ? { ...m, claimed: m.claimed | (1 << Number(fields.step)) } : m));
-  }
-}
-
-/**
- * The milestone claims of the connected account (#869): `claim(day, step)` sends `claimDailyMilestone`, puts the receipt's
- * events into the cache, then invalidates the ledger's reads. `claiming` is the step on its way; `claimer` null: read only.
- */
-export function useMilestoneClaims(playerId: string | null) {
-  const claimer = dailyMilestoneSigner(useDataSources());
-  const client = useQueryClient();
-  const mutation = useMutation<WriteResult, Error, { day: number; step: number }>({
-    mutationFn: ({ day, step }) => (claimer ? claimer.claimDailyMilestone(day, step) : Promise.reject(new Error("Connect to claim"))),
-    onSuccess: ({ events }) => {
-      if (playerId) applyMilestoneEvents(client, playerId, events);
-    },
-    onSettled: () => client.invalidateQueries({ queryKey: cobbleKeys.all }),
-  });
-  return {
-    claimer,
-    claiming: mutation.isPending ? mutation.variables.step : null,
-    claim: (day: number, step: number) => mutation.mutateAsync({ day, step }),
-  };
 }
