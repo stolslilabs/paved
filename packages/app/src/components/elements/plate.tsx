@@ -68,9 +68,6 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; le
   },
 };
 
-/** The phone's bare end below `mobile`, for a "+" drawn only from it (`leadFrom`): `pad.bare` of `sm`. */
-const PLUS_FROM_MOBILE_PAD: Ends = { right: "max-mobile:pl-2.5", left: "max-mobile:pr-2.5" };
-
 export interface PlateProps extends VariantProps<typeof boxVariants> {
   /** The icon's end (issue 828): `right` on the right of the screen, `left` mirrored for its left (issue 829). */
   side?: "right" | "left";
@@ -87,7 +84,7 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
    */
   lead?: "plus" | "disc";
   /**
-   * `mobile`: the "+" only from `mobile` (360 px) up, the phone's plate (`sm`) bare below it (#871: two plates of a phone's header,
+   * `mobile`: the "+" only from `mobile` (360 px) up, the phone's right-side plate (`sm`) bare below it (#871: two plates of a phone's header,
    * the Vault's PAVED leading to the Challenge beside vPAVED, fit a 320 px screen).
    */
   leadFrom?: "mobile";
@@ -109,8 +106,9 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
 export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, leadContent, after, size, tone, children, className, ...data }: PlateProps) {
   const parts = PARTS[size ?? "sm"];
   const bare = endFit === "bare";
-  // Below `mobile`, the phone's "+" is not drawn and the box keeps a bare end's padding.
-  const fromMobile = leadFrom === "mobile" && lead === "plus" && (size ?? "sm") === "sm";
+  // Below `mobile`, the phone's "+" is not drawn and the box keeps a bare end's padding (`pad.bare` of `sm`). The balances' side
+  // only (`right`): the mirrored plates have no balance, so no class is built for nothing (the bundle's CSS budget).
+  const fromMobile = leadFrom === "mobile" && lead === "plus" && (size ?? "sm") === "sm" && side === "right";
   return (
     <span {...data} data-side={side} className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", className)}>
       {lead === "plus" && (
@@ -132,7 +130,7 @@ export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, le
           {leadContent}
         </span>
       )}
-      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fromMobile && PLUS_FROM_MOBILE_PAD[side])}>
+      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fromMobile && "max-mobile:pl-2.5")}>
         {/* The shine in its own clipped layer: the floating change goes past the plate's edge. */}
         {tone === "invite" && (
           <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
