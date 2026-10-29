@@ -2,10 +2,14 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import type { CobbleAccount, DecodedEvent, GameViews, WriteResult } from "@paved/chain";
 import { cobbleKeys } from "./cobbles";
 import type { DailyMilestoneViews, DailyMilestoneWrites, DailyMilestonesView } from "./daily-milestones";
+import { addressKey } from "./keys";
 import { useDataSources, type DataSources } from "./sources";
 
 // The day's milestones on the Missions page (#869): the read and the claim, served by the mock ledger until the contracts have
 // them (#738). Their own module, the Missions page's alone: the header's balances load `cobbles.ts` with the first page.
+
+/** The day's milestones claimed, under the ledger's reads (`cobbleKeys.all`), so a claim's receipt invalidates them too. */
+export const milestoneKey = (playerId: string, day: number) => [...cobbleKeys.all, "milestones", addressKey(playerId), day] as const;
 
 /** The sources' milestones read (#869), or null: the chain before #738, or a views double without it. */
 export function dailyMilestoneViews(views: GameViews): DailyMilestoneViews | null {
@@ -24,7 +28,7 @@ export function useDailyMilestones(playerId: string | null, day: number | null):
   const { views } = useDataSources();
   const read = dailyMilestoneViews(views);
   const query = useQuery({
-    queryKey: cobbleKeys.milestones(playerId ?? "0x0", day ?? 0),
+    queryKey: milestoneKey(playerId ?? "0x0", day ?? 0),
     queryFn: () => read!.dailyMilestones(playerId!, day!),
     enabled: read !== null && playerId !== null && day !== null,
   });
@@ -38,7 +42,7 @@ export function applyMilestoneEvents(client: QueryClient, playerId: string, even
     if (name !== "DailyMilestoneClaimed") continue;
     const day = Number(fields.day);
     client.setQueryData<CobbleAccount | null>(cobbleKeys.account(playerId), (a) => (a ? { ...a, cobbles: Number(fields.balance) } : a));
-    client.setQueryData<DailyMilestonesView>(cobbleKeys.milestones(playerId, day), (m) => (m ? { ...m, claimed: m.claimed | (1 << Number(fields.step)) } : m));
+    client.setQueryData<DailyMilestonesView>(milestoneKey(playerId, day), (m) => (m ? { ...m, claimed: m.claimed | (1 << Number(fields.step)) } : m));
   }
 }
 

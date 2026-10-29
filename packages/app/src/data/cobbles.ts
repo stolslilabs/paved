@@ -22,8 +22,6 @@ export const cobbleKeys = {
   day: (playerId: string, day: number) => ["chain", "cobbles", "day", addressKey(playerId), day] as const,
   /** `Setup.week_progress(player_id, week)`. */
   week: (playerId: string, week: number) => ["chain", "cobbles", "week", addressKey(playerId), week] as const,
-  /** The day's milestones claimed (#869): the mock ledger's until the contracts have them (#738). */
-  milestones: (playerId: string, day: number) => ["chain", "cobbles", "milestones", addressKey(playerId), day] as const,
   /** Every read of the ledger: what a claim's receipt invalidates. */
   all: ["chain", "cobbles"] as const,
 };
