@@ -162,7 +162,7 @@ export const outline = (p: { d: string; tone: GameTone }) => (
  * lit gradient (top light, foot shaded), a light along its upper edges and a shadow under it. One SVG of its own paths, bundled with
  * the app: it draws at the first paint (no script, no request), crisp at any size. Its box is `Icon`'s fixed width (1.25em by 1em),
  * so it takes a flat icon's place; the outline and the shadow overflow the box a little, as a drop shadow would. Elsewhere `Icon`
- * stays flat (text-sized icons in lists, settings, forms). The other looks of the owner's pick are `game-icon-looks.tsx` (Storybook).
+ * stays flat (text-sized icons in lists, settings, forms).
  * The owner picked this look, Relief, for the HUD (issue 844): the overlay buttons, the phone's bar, Play, Edit, Found, Settings, the
  * League control, the shield's plate and the plates' "+".
  */
