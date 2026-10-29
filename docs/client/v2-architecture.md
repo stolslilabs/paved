@@ -673,7 +673,7 @@ a 20 px box). Every text-showing component has a `Stress` story (`src/mocks/stre
 address, a German compound, large figures). `bun run --filter @paved/app wrap-sweep`, after `build-storybook`, opens every
 story at 360 and 320 px in headless Chromium and fails on text that leaves its box, text cut without its full value,
 an address or monospace run broken over two lines, or a page that scrolls sideways; its allowlist names each deliberate
-exception. The CI `client` job runs it.
+exception. The CI runs it in four `wrap-sweep` shards (`--shard i/4`).
 
 Numbers and dates in en-US (NUM-LOCALE, P-66). Every number, token amount, percentage and date on screen is written in
 en-US ("1,234.50", "73.68%", "Thu, Oct 15, 17:00"), not in the browser's locale, as long as the app is not multilingual.
@@ -686,7 +686,7 @@ sources (not app-web's own files) in `bun run test`, and is itself tested on a f
 `game-core`, `ui` and `app` run under `fr_FR` and `Europe/Paris` (their `vitest.config.ts`; `process-locale.test.ts` proves
 the setting took). `scripts/locale-check.ts` opens six stories (amounts, a score, Cobbles, a deadline, the day picker) in a
 Playwright context with `locale: "de-DE"` and fails on a German separator or month; the `wrap-sweep` script runs it after the
-sweep, so the CI `client` job covers both. A date shows weekday, month
+sweep; the CI runs it once, in the `client-storybook` job, beside the wrap shards. A date shows weekday, month
 then day, on a 24 h clock (the former en-GB order is gone).
 Game-boundary times (UTC-BOUND, PM ruling 2026-10-16, replacing "local time plus a UTC tooltip"): a game boundary (the 24 h
 expiry, "Settles in") is shown in UTC with the "UTC" label, never local, and leads with the relative time, so the player
@@ -706,7 +706,7 @@ are not draggable. The document has `overscroll-behavior: none` on `html` and `b
 bounce on any page. A tab page is one viewport tall and scrolls in its own region (`TabFrame`, `overscroll-behavior:
 contain`), so its navigation stays fixed to the bottom; a full-screen flow scrolls as one document. The cost: a player with low vision cannot pinch the
 page. The mitigations are text of 12 px or more, the 360 and 320 px wrap sweep, and a layout in `rem`, so the browser's
-text-size setting still applies where the layout allows. `scripts/mobile-feel.ts` (the CI `client` job) drives a mobile
+text-size setting still applies where the layout allows. `scripts/mobile-feel.ts` (the CI `client-storybook` job) drives a mobile
 device context.
 
 One error component (ERR-UI, P-67). Every error the app shows, a failed read, a refused write, a refused input, an error
