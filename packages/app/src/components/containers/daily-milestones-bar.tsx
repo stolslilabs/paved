@@ -52,7 +52,7 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
   const from = useCallback(() => (burst === null ? null : (nodes.current[burst] ?? null)), [burst]);
 
   return (
-    <div data-graph="daily-milestones" className={cn("relative", rewards ? "h-19" : "h-6", className)}>
+    <div data-graph="daily-milestones" className={cn("relative", className)} style={{ height: rewards ? "4.75rem" : "1.5rem" }}>
       <div
         role="progressbar"
         aria-label="Dailies done today"
@@ -60,8 +60,8 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
         aria-valuemax={DAILY_QUESTS}
         aria-valuenow={count}
         aria-valuetext={`${count} of ${DAILY_QUESTS} ${plural(DAILY_QUESTS)} done`}
-        className={cn("absolute inset-x-7 grid -translate-y-1/2", rewards ? "top-7" : "top-3")}
-        style={{ gridTemplateColumns: `repeat(${DAILY_QUESTS}, minmax(0, 1fr))` }}
+        className="absolute grid -translate-y-1/2"
+        style={{ left: "1.75rem", right: "1.75rem", top: rewards ? "1.75rem" : "0.75rem", gridTemplateColumns: `repeat(${DAILY_QUESTS}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: DAILY_QUESTS }, (_, i) => (
           <span key={i} data-step={i + 1} data-done={i < count || undefined} className={cn("h-1", i < count ? "bg-primary" : "bg-input")} />
@@ -117,19 +117,22 @@ interface RewardNodeProps {
 /** A reward's full node: its Cobbles on it, a caption under it (how far, then Claim once reached, then a check once claimed). */
 function RewardNode({ cobbles, at, state, claiming, disabled, onClaim }: RewardNodeProps) {
   const reach = `${at} ${plural(at)} done`;
+  // A claim not open now (another on its way, no wallet, or this one sent) dims the node's content, never its disc: the edges stay hidden.
+  const dim = state === "claimable" && (disabled || claiming);
   const disc = (
     <span
       aria-hidden
       className={cn(
         "relative grid size-14 shrink-0 place-items-center rounded-full border-2 bg-card",
-        state === "claimable" ? "border-primary bg-linear-to-b from-primary/20 to-primary/10 shadow-lg shadow-glow" : state === "claimed" ? "border-primary" : "border-input",
+        state === "claimable" ? "border-primary shadow-lg" : state === "claimed" ? "border-primary" : "border-input",
       )}
     >
-      <span className="group-disabled:opacity-60">
+      {state === "claimable" && <span className="absolute inset-0 rounded-full bg-primary/15" />}
+      <span className={cn("relative", dim && "opacity-60")}>
         {claiming ? <SpinnerIcon className="size-4 animate-spin" /> : <Cobbles value={cobbles} sign="+" size="sm" tone={state === "locked" ? "muted" : "default"} />}
       </span>
       {state === "claimed" && (
-        <span className="absolute -top-0.5 -right-0.5 grid size-5 place-items-center rounded-full bg-success text-background">
+        <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-success text-background">
           <Icon name="check" size="xs" />
         </span>
       )}
@@ -145,10 +148,10 @@ function RewardNode({ cobbles, at, state, claiming, disabled, onClaim }: RewardN
         aria-busy={claiming || undefined}
         aria-label={`Claim ${cobbles} Cobbles: ${reach}`}
         onClick={onClaim}
-        className="group flex cursor-pointer flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+        className="flex cursor-pointer flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
       >
         {disc}
-        <span className="text-xs leading-4 font-semibold text-primary group-disabled:opacity-60">Claim</span>
+        <span className={cn("text-xs leading-4 font-semibold text-primary", dim && "opacity-60")}>Claim</span>
       </button>
     );
   }
