@@ -9,7 +9,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { ROOT } from "./vercel-build.mts";
 
 export interface Pkg {
@@ -75,6 +75,9 @@ const OUTSIDE: Array<{ prefix: string; packages: string[] }> = [
 /** Root files every package reads: a change of one touches them all. */
 const EVERYTHING = ["bun.lock", "package.json", "turbo.json", "tsconfig.base.json"];
 
+/** Whether a change of these files touches every package (the root files every package reads). */
+export const touchesAll = (files: string[]) => files.some((f) => EVERYTHING.includes(f) || /^tsconfig[^/]*\.json$/.test(f));
+
 /** `names` with every package after the workspace packages it depends on (ties by name). */
 export function topological(names: string[], pkgs: Pkg[]): string[] {
   const out: string[] = [];
@@ -128,7 +131,7 @@ export function vercelInputs(project: "client" | "storybook", root = ROOT): stri
 
 export function plan(files: string[], pkgs: Pkg[] = workspace(), inputs = { client: vercelInputs("client"), storybook: vercelInputs("storybook") }): Plan {
   const touched = new Set<string>();
-  const all = files.some((f) => EVERYTHING.includes(f) || /^tsconfig[^/]*\.json$/.test(f));
+  const all = touchesAll(files);
   for (const f of files) {
     for (const p of pkgs) if (all || under(f, p.dir)) touched.add(p.name);
     for (const o of OUTSIDE) if (f.startsWith(o.prefix)) for (const n of o.packages) if (pkgs.some((p) => p.name === n)) touched.add(n);
@@ -171,4 +174,66 @@ export function changedFiles(base = process.env.PAVED_CHECK_BASE || "origin/main
   } catch {
     return null;
   }
+}
+
+/** The app's tests run by `check --quick`: from its vitest config's `include`. */
+export const APP_DIR = "packages/app";
+const isAppTest = (file: string) => /^packages\/app\/__tests__\/.*\.test\.tsx?$/.test(file);
+/** The app's test setup, from its directory: a change of one runs the app's whole suite in `--quick`. */
+const APP_TEST_SETUP = ["vitest.config.ts", "vitest.setup.ts", "test-slow.ts", "package.json", "tsconfig.json"];
+
+/** The TypeScript sources of the app (src/, __tests__/, its root files), as { repo path: text }. */
+export function appSources(root = ROOT): Map<string, string> {
+  const out = new Map<string, string>();
+  const walk = (rel: string) => {
+    for (const d of readdirSync(join(root, rel), { withFileTypes: true })) {
+      const path = `${rel}/${d.name}`;
+      if (d.isDirectory()) {
+        if (rel !== APP_DIR || ["src", "__tests__"].includes(d.name)) walk(path);
+      } else if (/\.(?:ts|tsx|mts|js|jsx)$/.test(d.name)) out.set(path, readFileSync(join(root, path), "utf8"));
+    }
+  };
+  walk(APP_DIR);
+  return out;
+}
+
+/** The relative module specifiers a source names: `from "..."`, `import "..."`, `import("...")`, `vi.mock("...")`. */
+const relativeSpecifiers = (text: string) =>
+  [...text.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*|\bvi\.(?:mock|doMock|importActual)\s*\(\s*)["'](\.{1,2}\/[^"']*)["']/g)].map((m) => m[1]!.replace(/\?.*$/, ""));
+
+/** A file that only re-exports (`export ... from "..."`, comments aside), as src/data/index.ts. */
+const isBarrel = (text: string) =>
+  /\bexport\b/.test(text) &&
+  text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/export\s+(?:type\s+)?(?:\*(?:\s+as\s+\w+)?|\{[^}]*\})\s*from\s*["'][^"']*["']\s*;?/g, "")
+    .trim() === "";
+
+/**
+ * The app's tests that `check --quick` runs: `all` when the whole suite is due (a root file every package reads, or the
+ * app's test setup, changed), else the changed tests and the tests that import a changed file directly, by a relative
+ * import. A barrel (a file that only re-exports) is seen through: importing it imports what it re-exports. What a test
+ * reaches further down the import graph, through a workspace package, or reads from disk (node:fs) is not followed: the
+ * full check and the CI run the whole suite.
+ */
+export function quickAppTests(files: string[], sources: Map<string, string>): { all: boolean; tests: string[] } {
+  if (touchesAll(files) || files.some((f) => APP_TEST_SETUP.some((s) => f === `${APP_DIR}/${s}`))) return { all: true, tests: [] };
+  const changed = new Set(files.filter((f) => under(f, APP_DIR)));
+  const exists = (f: string) => sources.has(f) || changed.has(f);
+  const resolve = (from: string, spec: string) => {
+    const base = posix.normalize(posix.join(posix.dirname(from), spec));
+    const tries = [base, ...[".ts", ".tsx", ".mts", ".js", ".jsx"].map((e) => base + e), ...["ts", "tsx"].map((e) => `${base}/index.${e}`)];
+    return tries.find(exists);
+  };
+  /** What `file` imports, through barrels. */
+  const imports = (file: string, seen = new Set<string>()): string[] =>
+    relativeSpecifiers(sources.get(file) ?? "").flatMap((spec) => {
+      const to = resolve(file, spec);
+      if (!to || seen.has(to)) return [];
+      seen.add(to);
+      return !changed.has(to) && isBarrel(sources.get(to) ?? "") ? [to, ...imports(to, seen)] : [to];
+    });
+  const tests = [...sources.keys()].filter((t) => isAppTest(t) && (changed.has(t) || imports(t).some((f) => changed.has(f))));
+  return { all: false, tests: tests.sort() };
 }

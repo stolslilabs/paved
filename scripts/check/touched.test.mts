@@ -1,7 +1,7 @@
 /** The touched set of scripts/check/touched.mts (GUARDS, P-71): `node --test scripts/check/touched.test.mts`. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GUARD_TESTS, TEST_HEAP_MB, isInput, plan, topological, vercelInputs, workspace, type Pkg } from "./touched.mts";
+import { GUARD_TESTS, TEST_HEAP_MB, appSources, isInput, plan, quickAppTests, topological, vercelInputs, workspace, type Pkg } from "./touched.mts";
 
 const PKGS: Pkg[] = [
   { name: "@paved/game-core", dir: "packages/game-core", deps: [] },
@@ -107,4 +107,61 @@ test("topological puts each package after its dependencies", () => {
     "@paved/app",
     "@paved/indexer",
   ]);
+});
+
+// `check --quick`: the app's tests that import a changed file directly.
+const APP = new Map(
+  Object.entries({
+    "packages/app/src/lib/format.ts": "export const f = 1;",
+    "packages/app/src/lib/money.ts": 'import { f } from "./format";\nexport const m = f;',
+    "packages/app/src/data/balances.ts": "export const b = 1;",
+    "packages/app/src/data/keys.ts": "export const k = 1;",
+    "packages/app/src/data/index.ts": '// The data layer.\nexport { b } from "./balances";\nexport type { K } from "./keys";\nexport * from "./keys";\n',
+    "packages/app/src/App.tsx": 'import { m } from "./lib/money";\nimport "./index.css";\nexport const App = () => m;',
+    "packages/app/__tests__/data-fakes.ts": 'import { b } from "../src/data";\nexport const fake = b;',
+    "packages/app/__tests__/format.test.ts": 'import { f } from "../src/lib/format.ts";\nimport "../src/index.css";',
+    "packages/app/__tests__/money.test.ts": 'import { m } from "../src/lib/money";',
+    "packages/app/__tests__/data.test.tsx": 'import { b } from "../src/data";\nimport { fake } from "./data-fakes";',
+    "packages/app/__tests__/app.test.tsx": 'const { App } = await import("../src/App");\nvi.mock("../src/data/keys", () => ({}));',
+  }),
+);
+const quickAt = (files: string[]) => quickAppTests(files, APP);
+
+test("--quick: a changed source selects the tests that import it directly, not those further up the graph", () => {
+  assert.deepEqual(quickAt(["packages/app/src/lib/format.ts"]), { all: false, tests: ["packages/app/__tests__/format.test.ts"] });
+  assert.deepEqual(quickAt(["packages/app/src/lib/money.ts"]), { all: false, tests: ["packages/app/__tests__/money.test.ts"] });
+});
+
+test("--quick: a barrel is seen through, and a changed barrel selects its own importers", () => {
+  assert.deepEqual(quickAt(["packages/app/src/data/balances.ts"]).tests, ["packages/app/__tests__/data.test.tsx"]);
+  assert.deepEqual(quickAt(["packages/app/src/data/index.ts"]).tests, ["packages/app/__tests__/data.test.tsx"]);
+  // keys.ts is re-exported by the barrel and mocked by app.test.tsx.
+  assert.deepEqual(quickAt(["packages/app/src/data/keys.ts"]).tests, ["packages/app/__tests__/app.test.tsx", "packages/app/__tests__/data.test.tsx"]);
+});
+
+test("--quick: a dynamic import, a side-effect import of a stylesheet and a test helper are followed", () => {
+  assert.deepEqual(quickAt(["packages/app/src/App.tsx"]).tests, ["packages/app/__tests__/app.test.tsx"]);
+  // App.tsx imports it too, but app.test.tsx imports App.tsx, not the stylesheet.
+  assert.deepEqual(quickAt(["packages/app/src/index.css"]).tests, ["packages/app/__tests__/format.test.ts"]);
+  assert.deepEqual(quickAt(["packages/app/__tests__/data-fakes.ts"]).tests, ["packages/app/__tests__/data.test.tsx"]);
+});
+
+test("--quick: a changed test runs, a deleted source still selects its importers, a change outside the app selects none", () => {
+  assert.deepEqual(quickAt(["packages/app/__tests__/money.test.ts"]).tests, ["packages/app/__tests__/money.test.ts"]);
+  const gone = new Map(APP);
+  gone.delete("packages/app/src/lib/format.ts");
+  assert.deepEqual(quickAppTests(["packages/app/src/lib/format.ts"], gone).tests, ["packages/app/__tests__/format.test.ts"]);
+  assert.deepEqual(quickAt(["packages/renderer/src/core/TileRenderer.ts", "docs/client/f-release.md", "packages/app/README.md"]), { all: false, tests: [] });
+});
+
+test("--quick: the app's test setup or a root file every package reads runs the whole suite", () => {
+  for (const f of ["packages/app/vitest.config.ts", "packages/app/vitest.setup.ts", "packages/app/test-slow.ts", "packages/app/package.json", "bun.lock", "tsconfig.base.json"])
+    assert.equal(quickAt([f]).all, true, f);
+});
+
+test("--quick: the real app's sources are read, and every test of its vitest include is among them", () => {
+  const sources = appSources();
+  assert.ok(sources.has("packages/app/src/data/index.ts"));
+  const tests = quickAppTests(["packages/app/src/data/index.ts"], sources).tests;
+  assert.ok(tests.length > 0 && tests.every((t) => /^packages\/app\/__tests__\/.*\.test\.tsx?$/.test(t)), tests.join(", "));
 });
