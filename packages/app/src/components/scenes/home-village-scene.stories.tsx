@@ -4,7 +4,7 @@ import type { BoardTile } from "@paved/chain";
 import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
-import { PLAYER_STATUS } from "../../mocks/scenes";
+import { PLAYER_STATUS, PROFILE } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
 import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_SLOTS } from "../../mocks/village-v2";
@@ -72,12 +72,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The village in view: the avatar, the balances and the gear, the right column (2 chests, 3 missions), Edit and Play. */
+/** The village in view: the avatar, the balances, the right column (2 chests, 3 missions), Edit, and Settings over Play. */
 export const View: Story = { args: HOME_VILLAGE.view };
-/**
- * A short desktop window (1024 x 600): the balances' stack (#828) pushes the right column down, so it stops above Play and its
- * last buttons wrap into a second column, to the left, never under Play.
- */
 /** The widest balances (the balances' stress amounts) at 320 px: the profile's line narrows beside the plate, never under it (#828). */
 const WIDE_BALANCES = (Story: () => React.JSX.Element) => (
   <BalancesProvider value={{ state: { status: "ready", usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18, cobbles: 999_999 }, faucet: false }}>
@@ -86,11 +82,39 @@ const WIDE_BALANCES = (Story: () => React.JSX.Element) => (
 );
 export const WideBalancesPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
 export const WideBalancesWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
+/**
+ * A short desktop window (1024 x 600): the right column centred between the balances' row and Settings over Play (#856); were it
+ * taller than its band, its last buttons would wrap into a second column, to the left, never under Settings.
+ */
 export const ShortDesktop: Story = {
   args: HOME_VILLAGE.view,
   parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, short: { name: "Laptop 1024 x 600", styles: { width: "1024px", height: "600px" }, type: "desktop" } } } },
   globals: { viewport: { value: "short", isRotated: false } },
 };
+/** The longest username (WRAP360) in the profile: the name under the level's line truncates beside the balances, never under them. */
+const LONG_NAME = (Story: () => React.JSX.Element) => (
+  <ProfileProvider value={{ state: PROFILE.stress, progress: PROGRESS.partWay, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
+    <Story />
+  </ProfileProvider>
+);
+/**
+ * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): one 12 px gap in both columns; the profile at the season dial's size
+ * (96, 108 and 144 px); the right column centred between the balances and Edit (Settings and Play from `desktop`), the left one's
+ * controls between the profile and the dial; from `desktop` the balances in a row, no League in the right column, and Settings
+ * above Play, Edit's size. At 320, 375, 768 and 1440 px, shielded or not, and with the longest name.
+ */
+export const OverlaysPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view };
+export const OverlaysPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view };
+export const OverlaysTablet768: Story = { ...TABLET_768, args: HOME_VILLAGE.view };
+export const OverlaysWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view };
+export const OverlaysShieldedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.shielded };
+export const OverlaysShieldedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.shielded };
+export const OverlaysShieldedTablet768: Story = { ...TABLET_768, args: HOME_VILLAGE.shielded };
+export const OverlaysShieldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.shielded };
+export const OverlaysLongNamePhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
+export const OverlaysLongNamePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
+export const OverlaysLongNameTablet768: Story = { ...TABLET_768, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
+export const OverlaysLongNameWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view, decorators: [LONG_NAME] };
 /** A Challenge game running: the Resume chip under the top row. */
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */

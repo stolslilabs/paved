@@ -74,16 +74,19 @@ export function LevelPlate({ children }: { children: ReactNode }) {
 }
 
 /**
- * The path's drawing (issue 830), shared by `XpPath` and its still, over the avatar's box at the row's top left: a dark halo so the
+ * The path's drawing (issue 830), shared by `XpPath` and its still, over the avatar's box at the row's top left, in the units of a
+ * 44 px box scaled to `box` px (`column` in those units): a dark halo so the
  * track reads on the sky, the track drawn in full, then the fill (`fill`) and what plays over it (`children`, SVG). `over` is
  * HTML laid over the same box (the "+N XP").
  */
-export function XpPathFrame({ column, fill, children, over, className }: { column: number; fill: ReactNode; children?: ReactNode; over?: ReactNode; className?: string }) {
+export function XpPathFrame({ column, box = PATH_BOX, fill, children, over, className }: { column: number; box?: number; fill: ReactNode; children?: ReactNode; over?: ReactNode; className?: string }) {
   const { d } = levelPath(column);
   const width = PATH_BOX + column;
+  // Drawn at the avatar's size (#856: the season dial's on the home), the line's stroke with it.
+  const k = box / PATH_BOX;
   return (
-    <span data-slot="xp-path" aria-hidden className={cn("pointer-events-none absolute left-0", className)} style={{ top: PLATE_ROOM, width, height: PATH_BOX }}>
-      <svg viewBox={`0 0 ${width} ${PATH_BOX}`} width={width} height={PATH_BOX} className="absolute inset-0 overflow-visible">
+    <span data-slot="xp-path" aria-hidden className={cn("pointer-events-none absolute left-0", className)} style={{ top: PLATE_ROOM, width: width * k, height: box }}>
+      <svg viewBox={`0 0 ${width} ${PATH_BOX}`} width={width * k} height={box} className="absolute inset-0 overflow-visible">
         <path d={d} fill="none" strokeWidth={STROKE + 2} strokeLinecap="round" className="stroke-background/70" />
         <path d={d} fill="none" strokeWidth={STROKE} strokeLinecap="round" className="stroke-primary/25" />
         {fill}
@@ -98,11 +101,11 @@ export function XpPathFrame({ column, fill, children, over, className }: { colum
 export const FILL_PATH = { fill: "none", strokeWidth: STROKE, strokeLinecap: "round", className: "stroke-primary" } as const;
 
 /** The path still, while `XpPath`'s chunk (the motion's) loads: the same drawing and plate, so nothing moves when it comes. */
-export function XpPathStill({ progress, column }: { progress: PlayerProgress | undefined; column: number }) {
+export function XpPathStill({ progress, column, box }: { progress: PlayerProgress | undefined; column: number; box?: number }) {
   const share = progress ? pathShare(progress) : 0;
   return (
     <>
-      <XpPathFrame column={column} fill={share > 0 && <path data-slot="xp-fill" d={levelPath(column).d} pathLength={1} strokeDasharray={`${share} 1`} {...FILL_PATH} />} />
+      <XpPathFrame column={column} box={box} fill={share > 0 && <path data-slot="xp-fill" d={levelPath(column).d} pathLength={1} strokeDasharray={`${share} 1`} {...FILL_PATH} />} />
       <LevelPlate>{progress ? `Lv ${formatInteger(progress.level)}` : "Lv"}</LevelPlate>
     </>
   );

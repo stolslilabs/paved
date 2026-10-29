@@ -182,7 +182,8 @@ describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () 
     );
     // The provider's set is a panel page's (none, Settings): the home keeps its own under it.
     const regions = await screen.findAllByRole("region", { name: "Balances" });
-    expect(regions.map((r) => r.dataset.direction)).toEqual(["column", "column"]);
+    // Stacked below `desktop`, in a row from it (#856).
+    expect(regions.map((r) => r.dataset.direction)).toEqual(["column", "row"]);
     for (const region of regions) {
       expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["240 Cobbles: Buy packs", "142.35 PAVED: Vault", "1.25 vPAVED: Vault"]);
     }
