@@ -108,6 +108,21 @@ describe("the season dial's colours and room (#607)", () => {
     expect(paletteTones(container.querySelector("[data-season=autumn] svg")!)).toEqual(["orange"]);
   });
 
+  it("marks the day with a sun behind a cloud, not summer's sun, and the night with the silver moon (#870's review)", () => {
+    const badge = (c: HTMLElement) => c.querySelector("[data-now] [data-slot=game-icon]")!;
+    const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} />);
+    expect(badge(container)).toHaveAttribute("data-icon", "cloud-sun");
+    // Told apart from every season's icon at a glance: another glyph, and summer's sun keeps its own.
+    expect(Object.values(SEASON_GLYPH)).not.toContain("cloud-sun");
+    expect(SEASON_GLYPH.summer).toBe("sun");
+    expect(paletteTones(badge(container).querySelector("svg") ?? badge(container))).toEqual(["gold", "light"]);
+    rerender(<SeasonWheel state="summer" />);
+    expect(badge(container)).toHaveAttribute("data-icon", "cloud-sun");
+    rerender(<SeasonWheel state="auto" point={{ season: "summer", position: 0.8 }} />);
+    expect(badge(container)).toHaveAttribute("data-icon", "moon");
+    expect(paletteTones(badge(container).querySelector("svg") ?? badge(container))).toEqual(["silver"]);
+  });
+
   it("tones its gold down into the stones, the rim and pointer more than the hub's mark (#634)", () => {
     const share = (name: string) => Number(token(name)?.match(/^color-mix\(in oklab, var\(--primary\) (\d+)%, var\(--color-charcoal-600\)\)$/)?.[1]);
     expect(share("dial-rim")).toBeLessThan(share("dial-mark"));
@@ -146,7 +161,7 @@ describe("<SeasonWheel>", () => {
     expect(container.querySelector("[data-centre=auto]")).toBeNull();
   });
 
-  it("shows the sun by day and the moon by night, a fixed season by day, names both, and writes nothing (#634)", () => {
+  it("shows the day mark by day and the moon by night, a fixed season by day, names both, and writes nothing (#634)", () => {
     const now = (c: HTMLElement) => c.querySelector("[data-now]")?.getAttribute("data-now");
     const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "spring", position: 0.3 }} />);
     expect(now(container)).toBe("day");
