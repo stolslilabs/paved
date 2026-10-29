@@ -355,8 +355,8 @@ src/components/elements/game-icon.tsx. The source icons: `gear`, `gift`,
 `hammer`, `house`, `piggy-bank`, `plus`, `scroll`, `shield-halved`, `store`,
 `swords`, `trophy`; and (#870) the village's `house-tree`, the categories'
 `tree`, `road`, `castle`, `landmark-dome`, and the season wheel's `sun`,
-`leaf`, `snowflake`, `seedling`, `moon`. The gift's ribbon, the "+"'s button
-and the relief style itself are written for Paved (Apache 2.0).
+`leaf`, `snowflake`, `seedling`, `cloud-sun`, `moon`. The gift's ribbon, the
+"+"'s button and the relief style itself are written for Paved (Apache 2.0).
 
 League crests (src/components/elements/league-crest-shapes.ts, #854). One
 crest per league group, drawn by the app as SVG in the game icons' relief

@@ -109,12 +109,12 @@ export const Sizes: Story = {
   ),
 };
 
-/** Issue 870's icons: the village, the four structure categories, the season wheel's seasons and its sun and moon. */
+/** Issue 870's icons: the village, the four structure categories, the season wheel's seasons and its day and night marks. */
 const WORLD = Object.keys(WORLD_ICON_SHAPES) as WorldIconName[];
 const VILLAGE = "house-tree" as const;
 const MORE = [VILLAGE, ...WORLD];
 
-/** Issue 870's ten icons, one row each, at 16, 20, 24, 32 and 48 px. */
+/** Issue 870's eleven icons, one row each, at 16, 20, 24, 32 and 48 px. */
 function MoreRows() {
   return MORE.map((name) => (
     <div key={name} className="flex flex-wrap items-end gap-3">
@@ -127,7 +127,7 @@ function MoreRows() {
 }
 
 /**
- * Issue 870's ten icons at 16 to 48 px in both themes: the app's dark theme, and the light scope (`stories/both-themes.tsx`; the app
+ * Issue 870's eleven icons at 16 to 48 px in both themes: the app's dark theme, and the light scope (`stories/both-themes.tsx`; the app
  * ships no light theme yet, so the scope sets the tokens a light block would; the icons keep their own light and ink). The
  * village's is a HUD icon (`GameIcon`), the others the world's (`WorldIcon`, their shapes a file of their own).
  */
