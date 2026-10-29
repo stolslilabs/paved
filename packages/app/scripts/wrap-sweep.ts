@@ -129,7 +129,8 @@ function args() {
     widths: (get("widths") ?? "360,320").split(",").map(Number),
     filter: get("filter"),
     workers: Number(get("workers") ?? 4),
-    shard: get("shard") === undefined ? undefined : parseShard(get("shard") ?? ""),
+    // A `--shard` with no value is an error, not the whole list.
+    shard: argv.includes("--shard") ? parseShard(get("shard") ?? "") : undefined,
     json: get("json"),
   };
 }
