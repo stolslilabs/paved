@@ -16,7 +16,7 @@
  * 6. the client's Vercel build (packages/app/vercel.json, Sepolia env), then the bundle budget with its margins, then
  *    the Storybook's Vercel build (the root vercel.json), each only when that project's inputs changed.
  *
- * `--quick` (`bun run check:quick`, about 3 minutes on a quiet machine) runs 1 to 4 as above, and in 5 the whole suites
+ * `--quick` (`bun run check:quick`, or `PAVED_CHECK_QUICK=1 bun run check`, about 3 minutes on a quiet machine) runs 1 to 4 as above, and in 5 the whole suites
  * of the touched packages other than the app, and of the app only the tests selected by quickAppTests: the changed tests
  * and those that import a changed file directly (not the whole import graph; the whole suite when its test setup
  * changed). It skips 6: the Vercel builds, the budget and the Storybook build. All it skips stays in the full check and
@@ -52,7 +52,8 @@ interface Step {
 const args = process.argv.slice(2);
 const prePush = args.includes("--pre-push");
 const everything = args.includes("--all");
-const quick = args.includes("--quick") && !prePush;
+// `PAVED_CHECK_QUICK` (any value but empty or 0) is `--quick` for a wrapper that takes `bun run check` with no argument (check-run).
+const quick = (args.includes("--quick") || !["", "0"].includes(process.env.PAVED_CHECK_QUICK ?? "")) && !prePush;
 const headAt = args.indexOf("--head");
 const head = headAt >= 0 ? args[headAt + 1] : undefined;
 
