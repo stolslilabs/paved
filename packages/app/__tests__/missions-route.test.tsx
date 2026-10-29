@@ -113,6 +113,10 @@ describe("/missions (P9, #832)", () => {
     expect(screen.queryByRole("region", { name: "Free games" })).not.toBeInTheDocument();
     expect(screen.queryByText(/free game/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Previous day" })).not.toBeInTheDocument();
+    // The day's bar (#869): the chain serves no milestone before #738, so its steps and Cobbles show with no claim.
+    expect(limited.getByRole("progressbar", { name: "Dailies done today" })).toHaveAttribute("aria-valuenow", "1");
+    expect(limited.getByRole("img", { name: "10 Cobbles at 3 dailies done" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /dailies done$/ })).not.toBeInTheDocument();
   });
 
   it("a tap on an icon selects it; a claim from its card goes through the signer for today, and the balance follows", async () => {
