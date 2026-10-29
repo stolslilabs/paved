@@ -7,6 +7,7 @@ import { TileChip, type TileArt } from "../elements/tile-chip";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { GameIcon } from "../elements/game-icon";
 import { Skeleton } from "../ui/skeleton";
 import { pickCellAt } from "../containers/cell-picker";
 import { RewardSheet, type RewardOffer } from "../containers/reward-sheet";
@@ -117,7 +118,7 @@ export function VillageScene({ village, status, mode = "own", onBack, onConnect,
           />
         ) : (
           village === null && (
-            <Notice title="Villages are coming" icon="house">
+            <Notice title="Villages are coming" icon={<GameIcon name="house-tree" size="sm" />}>
               Villages are not on this network yet: your rewards wait for them.
             </Notice>
           )

@@ -21,9 +21,9 @@ type Story = StoryObj<typeof meta>;
 
 /** Under 80 %: "Defeat", crowns lost, no chest. */
 export const ZeroStars: Story = { args: PVP_END.zeroStars };
-/** 80 %: a bronze chest. */
+/** 80 %: a basic chest. */
 export const OneStar: Story = { args: PVP_END.oneStar };
-/** 95 %: a silver chest; Open chest leads to the Chests page. */
+/** 95 %: a rare chest; Open chest leads to the Chests page. */
 export const TwoStars: Story = {
   args: PVP_END.twoStars,
   play: async ({ canvasElement }) => {
@@ -32,7 +32,7 @@ export const TwoStars: Story = {
     await expect(canvas.getByRole("button", { name: /Open chest/ })).toBeEnabled();
   },
 };
-/** Past the village's score: "Triumph", a gold chest, and the crowns carry the attacker into Bronze I. */
+/** Past the village's score: "Triumph", an epic chest, and the crowns carry the attacker into Bronze I. */
 export const ThreeStars: Story = { args: PVP_END.threeStars };
 /** A promotion said in words (three stars over the league's floor). */
 export const Promoted: Story = { args: PVP_END.threeStars };

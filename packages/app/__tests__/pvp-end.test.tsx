@@ -43,7 +43,7 @@ describe("PvpEndScene (#790)", () => {
     const on = show(PVP_END.threeStars);
     const chest = screen.getByRole("region", { name: "Chest" });
     expect(chest).toHaveAttribute("data-state", "won");
-    expect(chest).toHaveTextContent("Gold chest won");
+    expect(chest).toHaveTextContent("Epic chest won");
     await userEvent.click(screen.getByRole("button", { name: /Open chest/ }));
     expect(on.onOpenChest).toHaveBeenCalledOnce();
   });
@@ -103,8 +103,8 @@ describe("PvpEndScene (#790)", () => {
 describe("the end's reading of the record (#790)", () => {
   it("a chest granted is won; stars with none granted are the capped day, until the UTC day after the attack's end; no star or a surrender, none", () => {
     const finishedAt = 20_000 * DAY_S + 19 * 3_600;
-    expect(endChest({ chest: "silver", stars: 2, status: "finished", finishedAt })).toEqual({ state: "won", rank: "silver" });
-    expect(endChest({ chest: null, stars: 3, status: "finished", finishedAt })).toEqual({ state: "capped", rank: "gold", resetsAt: 20_001 * DAY_S });
+    expect(endChest({ chest: "rare", stars: 2, status: "finished", finishedAt })).toEqual({ state: "won", rank: "rare" });
+    expect(endChest({ chest: null, stars: 3, status: "finished", finishedAt })).toEqual({ state: "capped", rank: "epic", resetsAt: 20_001 * DAY_S });
     expect(endChest({ chest: null, stars: 0, status: "finished", finishedAt })).toEqual({ state: "none" });
     expect(endChest({ chest: null, stars: 0, status: "surrendered", finishedAt })).toEqual({ state: "none" });
   });

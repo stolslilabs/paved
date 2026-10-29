@@ -17,9 +17,9 @@ export type CrestTone = Exclude<GameTone, "current"> | CrestMaterial | "league";
  * bronze the same wood a little shaded, iron their stone, silver their steel with a touch of blue, gold their gold.
  */
 export const MATERIAL_BASES: Record<CrestMaterial, string> = {
-  wood: "color-mix(in oklab, var(--game-wood) 50%, var(--background))",
+  wood: "color-mix(in oklab, var(--game-wood) 50%, var(--game-ink))",
   iron: "var(--game-stone)",
-  bronze: "color-mix(in oklab, var(--game-wood) 85%, var(--background))",
+  bronze: "color-mix(in oklab, var(--game-wood) 85%, var(--game-ink))",
   silver: "color-mix(in oklab, var(--game-steel) 85%, var(--game-blue))",
   gold: "var(--game-gold)",
 };
@@ -27,7 +27,7 @@ export const MATERIAL_BASES: Record<CrestMaterial, string> = {
 /** A tone's base colour, for a crest of `league`. */
 export function crestBase(tone: CrestTone, league: LeagueId): string {
   if (tone === "league") return `var(--league-${league})`;
-  if (tone === "light") return "var(--foreground)";
+  if (tone === "light") return "var(--game-light)";
   return tone in MATERIAL_BASES ? MATERIAL_BASES[tone as CrestMaterial] : `var(--game-${tone})`;
 }
 
@@ -280,7 +280,7 @@ export function CrestSvg({ league, division, parts, size = "md", label, classNam
         ))}
       </defs>
       {/* The shadow: the whole crest, outline included, dropped; one layer at low opacity, so overlaps do not darken. */}
-      <g transform={`translate(0 ${DROP})`} opacity={0.45} style={{ fill: "var(--background)", stroke: "var(--background)" }} strokeLinejoin="round">
+      <g transform={`translate(0 ${DROP})`} opacity={0.45} style={{ fill: "var(--game-ink)", stroke: "var(--game-ink)" }} strokeLinejoin="round">
         {raised.map(({ p, i }) => (
           <path key={i} d={p.d} transform={p.t} strokeWidth={OUTLINE / p.k} />
         ))}
@@ -293,7 +293,7 @@ export function CrestSvg({ league, division, parts, size = "md", label, classNam
             <path d={p.d} transform={p.t} style={{ fill: mix(base(p.tone), "edge"), stroke: mix(base(p.tone), "edge") }} strokeWidth={OUTLINE / p.k} strokeLinejoin="round" />
             <path d={p.d} transform={p.t} fill={`url(#${id}${p.tone})`} />
             <g mask={`url(#${id}r${i})`} opacity={0.55}>
-              <path d={p.d} transform={p.t} style={{ fill: "var(--foreground)" }} />
+              <path d={p.d} transform={p.t} style={{ fill: "var(--game-light)" }} />
             </g>
           </g>
         ),

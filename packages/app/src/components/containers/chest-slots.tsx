@@ -149,7 +149,7 @@ export function ChestSlots({ won, opened = NONE, ranks, resetsAt, now, ready = f
       )}
 
       <p className="text-xs text-muted-foreground">
-        Bronze: one tile · Silver: one of 2 · Gold: one of 3 · A chest may hold Cobbles.
+        Basic: one tile · Rare: one of 2 · Epic: one of 3 · A chest may hold Cobbles.
       </p>
     </section>
   );

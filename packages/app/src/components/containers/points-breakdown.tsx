@@ -3,6 +3,7 @@ import { CategoryType, formatInteger, type LayoutBreakdown } from "@paved/game-c
 import { cn } from "../../lib/utils";
 import { formatPoints } from "../elements/score";
 import { Icon } from "../ui/icon";
+import { GameIcon } from "../elements/game-icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { ClosingLine } from "./closing-feed";
 
@@ -61,11 +62,11 @@ export function PointsList({ breakdown, selected, onSelect, className }: PointsL
   );
 }
 
-/** The heading's total: the village's score, the lines' sum. */
+/** The heading's total: the village's score, the lines' sum, by the village's game icon (#870). */
 function Total({ score }: { score: number }) {
   return (
     <span className="flex items-center gap-1.5">
-      <Icon name="house-chimney" size="xs" className="text-primary" />
+      <GameIcon name="house-tree" size="xs" />
       <span className="numeric font-semibold">{formatInteger(score)}</span>
     </span>
   );

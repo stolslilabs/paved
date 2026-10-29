@@ -1,22 +1,23 @@
 import { poseidon } from "../engine/draw";
 import { BASE_DECK_CARDS, baseCopies, basePlanOfCard } from "./rarity";
 
-// Chests (PvP v2, #732, #736, owner decisions of 2026-10-24). An attack's stars give a chest's rank: 1 star bronze (one tile,
-// no choice), 2 silver (a choice of 1 among 2), 3 gold (1 among 3); none for 0 stars. Story gives one only on 3 stars, the
-// first time, its rank by the level's place in its campaign (the first half bronze, then silver, the last level gold). The
+// Chests (PvP v2, #732, #736, owner decisions of 2026-10-24). An attack's stars give a chest's rank: 1 star basic (one tile,
+// no choice), 2 rare (a choice of 1 among 2), 3 epic (1 among 3); none for 0 stars. Story gives one only on 3 stars, the
+// first time, its rank by the level's place in its campaign (the first half basic, then rare, the last level epic). The
 // Challenge and a defence give none. The tiles follow the base deck's odds. There is no "take Cobbles" option: a chest has
 // instead a small chance of Cobbles, higher with its rank, boosted by the player's league. At most 3 PvP chests a day;
 // Story chests are outside the cap (they come once per level). A chest's choices are always distinct plans (#868).
+// The ranks are named Basic, Rare and Epic, not Bronze, Silver and Gold, so they are not taken for the leagues (owner, 2026-10-29).
 
-export type ChestRank = "bronze" | "silver" | "gold";
+export type ChestRank = "basic" | "rare" | "epic";
 
-export const CHEST_RANKS: readonly ChestRank[] = ["bronze", "silver", "gold"];
+export const CHEST_RANKS: readonly ChestRank[] = ["basic", "rare", "epic"];
 
 /** The tiles a chest shows, of which the player takes one. */
-export const CHEST_CHOICES: Readonly<Record<ChestRank, number>> = { bronze: 1, silver: 2, gold: 3 };
+export const CHEST_CHOICES: Readonly<Record<ChestRank, number>> = { basic: 1, rare: 2, epic: 3 };
 
 /** The chance of Cobbles in a chest, in basis points, before the league's boost (#736 open point 1: 2 / 5 / 10 %). */
-export const CHEST_COBBLE_BPS: Readonly<Record<ChestRank, number>> = { bronze: 200, silver: 500, gold: 1_000 };
+export const CHEST_COBBLE_BPS: Readonly<Record<ChestRank, number>> = { basic: 200, rare: 500, epic: 1_000 };
 
 /** The Cobbles a chest holds when they drop. */
 export const CHEST_COBBLES = 10;
@@ -42,13 +43,13 @@ export function cobbleChanceBps(rank: ChestRank, league: number): number {
 
 /** The chest of an attack with `stars`, or null for none. */
 export function pvpChestRank(stars: number): ChestRank | null {
-  return stars >= 3 ? "gold" : stars === 2 ? "silver" : stars === 1 ? "bronze" : null;
+  return stars >= 3 ? "epic" : stars === 2 ? "rare" : stars === 1 ? "basic" : null;
 }
 
-/** The rank of a Story level's chest by its place `level` (from 1) in a campaign of `levels`: the first half bronze, then silver, the last gold. */
+/** The rank of a Story level's chest by its place `level` (from 1) in a campaign of `levels`: the first half basic, then rare, the last epic. */
 export function storyRankAt(level: number, levels: number): ChestRank {
-  if (level >= levels) return "gold";
-  return level <= Math.floor(levels / 2) ? "bronze" : "silver";
+  if (level >= levels) return "epic";
+  return level <= Math.floor(levels / 2) ? "basic" : "rare";
 }
 
 /** The chest of a Story run with `stars` on a level whose best was `best`: only on 3 stars, the first time. */
