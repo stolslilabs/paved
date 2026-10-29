@@ -45,7 +45,7 @@ const left = (at: number) => `calc(1rem + (100% - 2rem) * ${at / DAILY_QUESTS})`
  * as a ready chest does; a tap claims it, and it shakes fast while the claim is on its way. Once the claim lands the gift opens, as a
  * chest does (the box jumps, its lid pops off, light bursts out), its Cobbles rise out of it and burst into the balance's plate
  * (`CobblesBurst`), with the chest's `burst` sound and a buzz; then the gift stays open, a check on it. Under reduced motion nothing
- * shakes or flies: the gift shows open at once, the sound kept. The edges are the progress bar (`role="progressbar"`), the nodes a
+ * shakes or flies: the gift shows open at once and its Cobbles show above it, still, for the same time, the sound kept. The edges are the progress bar (`role="progressbar"`), the nodes a
  * list beside it.
  */
 export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = true, onClaim, rewards = true, revealing = null, className }: DailyMilestonesBarProps) {
@@ -63,7 +63,7 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
     const landed = DAILY_MILESTONES.findIndex((_, step) => states[step] === "claimed" && ((seen ?? 0) & (1 << step)) === 0);
     if (seen !== null && landed >= 0) {
       setBurst(landed);
-      if (!reduced) setOpening(landed);
+      setOpening(landed);
     }
   }
   useEffect(() => {
@@ -139,7 +139,8 @@ export function DailyMilestonesBar({ done, claimed, claiming = null, canClaim = 
             data-reveal={at}
             className={cn("absolute bottom-full mb-2 rounded-full border border-primary/60 bg-card px-2 py-0.5 shadow-lg", at === DAILY_QUESTS ? "right-0" : "-translate-x-1/2")}
             style={at === DAILY_QUESTS ? undefined : { left: left(at) }}
-            initial={revealing === step ? false : { y: 12, scale: 0.4, opacity: 0 }}
+            // Under reduced motion the amount shows in place at once: nothing rises or grows.
+            initial={revealing === step || reduced ? false : { y: 12, scale: 0.4, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             transition={{ delay: GIFT_LIGHT_S, type: "spring", stiffness: 420, damping: 18 }}
           >

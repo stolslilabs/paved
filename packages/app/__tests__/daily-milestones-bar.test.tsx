@@ -43,7 +43,7 @@ describe("DailyMilestonesBar (#869)", () => {
     expect(reveal()).toBeNull();
   });
 
-  it("opens the gift when its claim lands, its Cobbles shown, then leaves it open; open at once under reduced motion", () => {
+  it("opens the gift when its claim lands, its Cobbles shown, then leaves it open; under reduced motion the gift open and its Cobbles shown at once, still", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       const { rerender, unmount } = render(wrap(<DailyMilestonesBar done={5} claimed={0b01} />));
@@ -59,6 +59,12 @@ describe("DailyMilestonesBar (#869)", () => {
       unmount();
       const reduced = render(wrap(<DailyMilestonesBar done={5} claimed={0} />, true));
       reduced.rerender(wrap(<DailyMilestonesBar done={5} claimed={0b01} />, true));
+      // Under reduced motion the amount still shows, in place (its final frame, no rise), the gift open; then it goes as above.
+      expect(gifts()).toEqual(["opening", "ready"]);
+      expect(document.querySelector('[data-reveal="3"]')).toHaveTextContent("+10");
+      expect((document.querySelector('[data-reveal="3"]') as HTMLElement).style.opacity).not.toBe("0");
+      expect(document.querySelector('[data-part="lid"]')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(GIFT_REVEAL_S * 1000));
       expect(gifts()).toEqual(["open", "ready"]);
       expect(reveal()).toBeNull();
     } finally {
