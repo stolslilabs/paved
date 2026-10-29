@@ -7,7 +7,7 @@ export type { WorldIconName } from "./world-icon-shapes";
  * Each world icon's tones (issue 870), from the game icons' palette: the categories (Forest green, Road stone with its line
  * gold, City's castle stone, Wonder's dome gold on stone columns: open point 1's gold), the seasons (summer's sun gold,
  * autumn's leaf orange, winter's snowflake ice, spring's seedling a light green) and the now badge's marks: by day a
- * small gold sun behind a light cloud (#870's review: not summer's lone sun), by night the moon silver.
+ * small gold sun behind a light cloud (issue 870's review: not summer's lone sun), by night the moon silver.
  */
 const LOOKS: Record<WorldIconName, ReliefLook> = {
   tree: { tones: ["green"] },
