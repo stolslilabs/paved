@@ -13,11 +13,12 @@ import { errorDetail } from "./error-detail";
 import { useAppNavigate } from "./ref";
 
 /**
- * Where PAVED, vPAVED and the Cobbles lead: the Vault, and the Cobble packs (#621). USDC mints from the faucet where there is one.
+ * Where PAVED, vPAVED and the Cobbles lead (#871): the Challenge's purchase, the Vault, and the Cobble packs (#621). USDC mints from
+ * the faucet where there is one.
  * The packs open as the village's page from the village, and in place, in a sheet over any other page (BACK-RULE #783). The
  * rule's `DESTINATION` says the same for the plates on those pages (header-balances.test checks both agree).
  */
-export const DESTINATION = { paved: "/vault", vpaved: "/vault", cobbles: "/cobbles" } as const;
+export const DESTINATION = { paved: "/play/challenge", vpaved: "/vault", cobbles: "/cobbles" } as const;
 
 /** Devnet and Sepolia deploy the Faucet (`FAUCET_NETWORKS` of `@paved/chain`, kept out of the first bundle); mainnet has none. */
 const FAUCET_NETWORKS = ["devnet", "sepolia"];
