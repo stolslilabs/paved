@@ -5,8 +5,8 @@ import { DROP, mix, OUTLINE, RIM, type GameTone } from "./game-icon";
 import { GAME_ICON_SHAPES } from "./game-icon-shapes";
 import { CREST_SHAPES, type CrestShapeName } from "./league-crest-shapes";
 
-/** The crest directions' materials (issue 854's second study): the ladder's wood to gold. */
-export type CrestMaterial = "wood" | "iron" | "bronze" | "silver" | "gold";
+/** The crests' materials (issue 854's studies): the ladder's wood to gold, then the third study's platinum and obsidian (Master's). */
+export type CrestMaterial = "wood" | "iron" | "bronze" | "silver" | "gold" | "platinum" | "obsidian";
 
 /** A part's tone: a game icon's, a material's (`MATERIAL_BASES`), or `league`, the crest's own group colour (`--league-*`, theme.css 3d). */
 export type CrestTone = Exclude<GameTone, "current"> | CrestMaterial | "league";
@@ -14,14 +14,17 @@ export type CrestTone = Exclude<GameTone, "current"> | CrestMaterial | "league";
 /**
  * The materials' bases, mixed from the game icons' tones (theme.css 3f) rather than given tokens of their own: a `color-mix` in
  * theme.css costs the stylesheet its fallback too, and the CSS budget has no room for a study. Wood is the icons' wood darkened,
- * bronze the same wood a little shaded, iron their stone, silver their steel with a touch of blue, gold their gold.
+ * bronze their orange shaded toward their red, iron their stone, silver their steel with a touch of blue, gold their gold, platinum
+ * their silver with a touch of ice, obsidian their stone near their ink.
  */
 export const MATERIAL_BASES: Record<CrestMaterial, string> = {
   wood: "color-mix(in oklab, var(--game-wood) 50%, var(--game-ink))",
   iron: "var(--game-stone)",
-  bronze: "color-mix(in oklab, var(--game-wood) 85%, var(--game-ink))",
+  bronze: "color-mix(in oklab, var(--game-orange) 70%, var(--game-red))",
   silver: "color-mix(in oklab, var(--game-steel) 85%, var(--game-blue))",
   gold: "var(--game-gold)",
+  platinum: "color-mix(in oklab, var(--game-silver) 70%, var(--game-ice))",
+  obsidian: "color-mix(in oklab, var(--game-stone) 40%, var(--game-ink))",
 };
 
 /** A tone's base colour, for a crest of `league`. */
@@ -209,7 +212,7 @@ function transformOf(place: Place, width: number): string {
  * The sizes, as the em of the SVG (1em square): 16 to 96 px, issue 854's 24, 40 and 96 among them; `inherit` takes the parent's font size.
  * An inline font size, not a class: the stylesheet's budget gains nothing from the crests.
  */
-const SIZE_REM = { sm: 1, md: 1.5, lg: 2.5, xl: 4, "2xl": 6, inherit: null } as const;
+export const SIZE_REM = { sm: 1, md: 1.5, lg: 2.5, xl: 4, "2xl": 6, inherit: null } as const;
 export type CrestArtSize = keyof typeof SIZE_REM;
 
 export interface CrestArtProps {
@@ -237,7 +240,7 @@ export interface CrestSvgProps extends Omit<CrestArtProps, "league" | "division"
   league: LeagueId;
   division?: CrestDivision;
   parts: readonly CrestPath[];
-  /** Its `data-slot`; other data attributes (a direction's name) go in `data`. */
+  /** Its `data-slot`; other data attributes go in `data`. */
   slot: string;
   data?: Record<`data-${string}`, string>;
 }
