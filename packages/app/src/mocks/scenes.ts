@@ -365,17 +365,17 @@ const rewarded = { ...missionsBase, questRewards, achievementRewards };
 const allClaimed = { claimed: bits(...QUEST_COBBLES.map((q) => q.questId)), credit: true };
 
 export const MISSIONS = {
-  /** Today with Cobbles: the first mission not done (Public Works) selected; Daily Run's 5 Cobbles glow in its tile. */
+  /** Today with Cobbles: the first mission not done (Public Works) selected; the dailies show none (#869), Settler II's 20 glow in its tile. */
   daily: rewarded,
   /** A lifetime mission selected (Settler III, 21 of 50). */
   lifetime: { ...rewarded, initialSelected: "achievement:4" },
-  /** Daily Run selected: done, its 5 Cobbles to claim from the card. */
-  claim: { ...rewarded, initialSelected: "quest:1" },
-  /** Daily Run's claim on its way. */
-  claiming: { ...rewarded, initialSelected: "quest:1", claiming: "quest:1" },
+  /** Settler II selected: done, its 20 Cobbles to claim from the card. */
+  claim: { ...rewarded, initialSelected: "achievement:3" },
+  /** Settler II's claim on its way. */
+  claiming: { ...rewarded, initialSelected: "achievement:3", claiming: "achievement:3" },
   /** The three weeklies done: their Cobbles and the week's bonus to claim, the bonus selected. */
   weekBonus: { ...rewarded, quests: QUESTS_WEEK_DONE, questRewards: { ...questRewards, day: { ...NOTHING_CLAIMED, claimed: bits(1) } }, initialSelected: "bonus:weekly" },
-  /** Everything done and claimed, the two bonuses too: the first mission is selected. */
+  /** Everything done and claimed, the week's bonus too (the day has none since #869): the first mission is selected. */
   allDone: {
     ...rewarded,
     quests: QUESTS_TODAY_ALL_DONE,
@@ -392,7 +392,7 @@ export const MISSIONS = {
   /** Before Cobbles (or the ledger unreadable): the missions without rewards. */
   noRewards: { ...missionsBase, rewardsUnavailable: "Not available on this network yet." },
   /** P9: the player is known but cannot sign yet (P6): the rewards show, the claim asks to connect. */
-  readOnly: { ...rewarded, initialSelected: "quest:1", canClaim: false },
+  readOnly: { ...rewarded, initialSelected: "achievement:3", canClaim: false },
   /** No wallet: Connect. */
   guest: { ...missionsBase, quests: null, achievements: null, connected: false },
   /** The missions on their way. */
