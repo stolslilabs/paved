@@ -315,7 +315,7 @@ function VillageNav(props: HomeVillageSceneProps) {
     >
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
       {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
-      <OverlayButton icon="gift" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
+      <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
       {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
