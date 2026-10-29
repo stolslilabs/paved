@@ -189,12 +189,12 @@ export const VILLAGE_CHESTS = {
   guest: { status: { kind: "guest" } },
 } satisfies Record<string, Data<VillageChestsSceneProps>>;
 
-/** The shop's prices by rarity (a proposal, #737 decides): round values, the rare four times the common. */
-export const SHOP_PRICE: Readonly<Record<Rarity, number>> = { common: 20, uncommon: 40, rare: 80 };
+/** The shop's prices by rarity (a proposal, #737 decides): round values, the mythic four times the common. */
+export const SHOP_PRICE: Readonly<Record<Rarity, number>> = { common: 20, uncommon: 40, mythic: 80 };
 
 const offer = (plan: number, bought = false): ShopOffer => ({ plan, rarity: rarityOf(plan), price: SHOP_PRICE[rarityOf(plan)], bought });
 
-/** Today's offers: one common, one uncommon, one rare. */
+/** Today's offers: one common, one uncommon, one mythic. */
 export const SHOP_TODAY: readonly ShopOffer[] = [offer(P.road), offer(P.wonder), offer(P.stopRoads)];
 
 /** One fixture per state of the shop (`Scenes/Village v2/Shop`). */
