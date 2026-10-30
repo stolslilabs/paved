@@ -13,6 +13,7 @@ import { formatHoursMinutes, shieldLabel } from "../elements/shield-time";
 import { Crowns } from "../elements/crowns";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LeagueCrest } from "../elements/league-crest";
+import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { StarRow } from "../elements/star-row";
 import type { TileArt } from "../elements/tile-chip";
@@ -134,9 +135,10 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
             </Button>
             <Cobbles value={next.balance} className="pr-2" />
           </div>
-          {/* The defender (their league's crest, name and level) and the target; their crowns are the league's, not the attack's. */}
+          {/* The defender (their league's crest, avatar, name and level) and the target; their crowns are the league's, not the attack's. */}
           <div className="flex items-center gap-3 border-t border-border px-1 pt-1.5">
             <LeagueCrest league={leagueOf(defender.crowns)} size="lg" iconOnly />
+            <PlayerAvatar player={defender} look={defender.look} />
             <div className="flex min-w-0 flex-1 flex-col">
               <PlayerName name={defender.name} address={defender.address} className="font-semibold" />
               <span className="text-xs text-muted-foreground">
