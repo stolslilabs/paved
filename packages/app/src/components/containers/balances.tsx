@@ -1,12 +1,12 @@
 import { formatUnits } from "@paved/game-core";
 import * as m from "motion/react-m";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { InlineError } from "../elements/inline-error";
-import { PLATE_COMPACT, PLATE_NARROW_QUERY, plateWidthClass } from "../elements/plate";
+import { PLATE_COMPACT, plateWidthClass } from "../elements/plate";
 import { ResourcePlate } from "../elements/resource-plate";
 import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 
@@ -216,22 +216,11 @@ function nameOf(kind: BalanceKind, amount: bigint | null, action: string) {
 /** Whether a plate's figure is compact (#860, from `compactFrom` tokens or Cobbles): its full amount is then the tooltip too. */
 const compactOf = (kind: BalanceKind, amount: bigint | null, compactFrom: number) => amount !== null && amount >= BigInt(compactFrom) * 10n ** BigInt(PLATES[kind].decimals);
 
-/** Whether the screen is below `mobile` (`PLATE_NARROW_QUERY`), where a phone's plate is 112 px; never without `matchMedia`. */
-function subscribeNarrow(on: () => void) {
-  if (typeof matchMedia !== "function") return () => {};
-  const list = matchMedia(PLATE_NARROW_QUERY);
-  list.addEventListener("change", on);
-  return () => list.removeEventListener("change", on);
-}
-const narrowNow = () => typeof matchMedia === "function" && matchMedia(PLATE_NARROW_QUERY).matches;
-const useNarrow = () => useSyncExternalStore(subscribeNarrow, narrowNow, () => false);
-
 /** One balance in the bar: a plate (at least 44 px of tap with the icon's overhang) that leads to its place, the whole plate a tap. */
 function PlateTap({ kind, from, state, here, onAction, faucet, minting, size, crowdedRow }: PlateTapProps) {
   const amount = amountOf(state, kind);
-  // The figure compact from 10,000, so "9,999.99" whole; from 1,000 on a phone below `mobile`, its 112 px plate (#860).
-  const narrow = useNarrow();
-  const compactFrom = size === "sm" && narrow ? PLATE_COMPACT.narrow : PLATE_COMPACT[size];
+  // The figure compact from 10,000, so "9,999.99" whole at every width (#860, the plates' one width at each size).
+  const compactFrom = PLATE_COMPACT[size];
   if (amount === undefined) return holdOf(size);
   const { action, inert } = actionOf(kind, here, faucet, minting);
   const { decimals, fraction, page } = PLATES[kind];
@@ -314,7 +303,7 @@ function BalancesError({ size, message, retrying, onRetry }: { size: PlateSize; 
 /**
  * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate (#828), its icon over the plate's
  * right end, the figure chunky, counting to each new value, every plate of one width at its size whatever its figure and wherever it
- * stands (#860, compact from 10,000, from 1,000 on a phone below `mobile`, the full amount in its name and tooltip); from `desktop`, a "+" over the left end where the balance leads to a page (the
+ * stands (#860, compact from 10,000, the full amount in its name and tooltip); from `desktop`, a "+" over the left end where the balance leads to a page (the
  * Challenge, the Vault, the packs; none on a phone, #925), none on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
  * joins when held where the page shows it so (`vpaved-held`). Only the page's balances (`kinds`, #855), the same on a phone
  * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:

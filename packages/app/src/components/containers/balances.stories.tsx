@@ -176,7 +176,7 @@ export const StackAllAtPhone: Story = { render: (args) => <Balances layout="rail
 /** The stack changing: each plate counts, pops up or dips down. */
 export const StackLiveChanges: Story = { render: (args) => <Live layout="rail" direction="column" onAction={args.onAction} />, ...WIDE_1440 };
 
-/** PLATE-WIDTH (#860): no balance, small ones, and the widest below the compact form ("9,999.99", "9,999"; compact below 360 px, from 1,000). */
+/** PLATE-WIDTH (#860): no balance, small ones, and the widest below the compact form ("9,999.99", "9,999"). */
 const ZERO: Ready = { status: "ready", usdc: 0n, paved: 0n, vpaved: 0n, cobbles: 0 };
 const SMALL: Ready = { status: "ready", usdc: 1_500_000n, paved: 7_250_000_000_000_000_000n, vpaved: 500_000_000_000_000_000n, cobbles: 12 };
 const WIDEST: Ready = { status: "ready", usdc: 9_999_999_999n, paved: 9_999_999_999_999_999_999_999n, vpaved: 9_999_999_999_999_999_999_999n, cobbles: 9_999 };
@@ -205,7 +205,7 @@ function Widths({ onAction }: Pick<BalancesProps, "onAction">) {
   );
 }
 const widths: Story = { render: (args) => <Widths onAction={args.onAction} /> };
-/** PLATE-WIDTH (#860) at 320 px: every phone plate 112 px, in a column or a row, compact from 1,000; 128 px from 360 px (375), "9,999.99" whole. No "+" on a phone (#925). */
+/** PLATE-WIDTH (#860) at 320 px: every phone plate 112 px at every width, in a column or a row, "9,999.99" whole. No "+" on a phone (#925). */
 export const Widths320: Story = { ...widths, ...PHONE_320 };
 export const Widths375: Story = { ...widths, ...PHONE_375 };
 export const Widths1440: Story = { ...widths, ...WIDE_1440 };
