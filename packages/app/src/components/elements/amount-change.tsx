@@ -1,4 +1,4 @@
-import { formatFixed, formatUnits } from "@paved/game-core";
+import { formatCompact, formatFixed, formatUnits } from "@paved/game-core";
 import { AnimatePresence, useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -29,6 +29,11 @@ export interface AmountChangeOptions {
   fraction: number;
   /** The amount shown before the owner mounted: the first render animates from it. */
   from?: bigint;
+  /**
+   * From this figure (tokens, or Cobbles) the figure, the counter's too, is compact ("12.3K"), and so is the change: a fixed plate's
+   * (issue 860, `amountFigure`'s 10,000). Omitted, never.
+   */
+  compactFrom?: number;
 }
 
 /**
@@ -36,7 +41,7 @@ export interface AmountChangeOptions {
  * one, unless `from` says what was shown before. `start` and `target` are the counter's; `format` writes the settled value
  * exactly (a number past 2^53 loses digits); `flash` holds the change's colour for a moment; `moving` is false under reduced motion.
  */
-export function useAmountChange({ amount, decimals, fraction, from }: AmountChangeOptions) {
+export function useAmountChange({ amount, decimals, fraction, from, compactFrom = Infinity }: AmountChangeOptions) {
   const reduced = useReducedMotionConfig();
   const [seen, setSeen] = useState(from ?? amount);
   const [change, setChange] = useState<AmountChange | null>(null);
@@ -50,7 +55,9 @@ export function useAmountChange({ amount, decimals, fraction, from }: AmountChan
     if (amount !== null && seen !== null) {
       const diff = amount - seen;
       const up = diff > 0n;
-      setChange({ id: (change?.id ?? 0) + 1, up, text: `${up ? "+" : "−"}${formatUnits(up ? diff : -diff, decimals, fraction)}` });
+      const by = up ? diff : -diff;
+      const byText = figureOf(by, decimals, fraction) >= compactFrom ? formatCompact(figureOf(by, decimals, fraction)) : formatUnits(by, decimals, fraction);
+      setChange({ id: (change?.id ?? 0) + 1, up, text: `${up ? "+" : "−"}${byText}` });
       setFlash(true);
     }
   }
@@ -60,9 +67,9 @@ export function useAmountChange({ amount, decimals, fraction, from }: AmountChan
     return () => clearTimeout(timer);
   }, [flash, change?.id]);
 
-  const text = amount === null ? null : formatUnits(amount, decimals, fraction);
   const target = amount === null ? 0 : figureOf(amount, decimals, fraction);
-  const format = useCallback((n: number) => (n === target && text !== null ? text : formatFixed(n, fraction)), [target, text, fraction]);
+  const text = amount === null ? null : target >= compactFrom ? formatCompact(target) : formatUnits(amount, decimals, fraction);
+  const format = useCallback((n: number) => (n === target && text !== null ? text : n >= compactFrom ? formatCompact(n) : formatFixed(n, fraction)), [target, text, fraction, compactFrom]);
   return { text, start, target, format, change, flash, moving: change !== null && !reduced };
 }
 
