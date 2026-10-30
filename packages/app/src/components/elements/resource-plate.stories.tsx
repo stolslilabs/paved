@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
+import { PLATE_COMPACT } from "./plate";
 import { ResourcePlate, type ResourcePlateProps } from "./resource-plate";
 import type { TokenKind } from "./token-icon";
 
@@ -107,7 +108,7 @@ export const ChangesReducedMotion: Story = { ...Changes, parameters: { reducedMo
 
 /**
  * PLATE-WIDTH (#860): a currency's plate has one width at each size (`fixed`), with or without its "+", whatever its figure; the
- * figure at the side away from the icon, compact from 10,000 (`compactFrom`). 0, "9,999.99" and 1,234,567 for each currency.
+ * figure at the side away from the icon, compact from 1,000 on a phone and 10,000 from `desktop` (`PLATE_COMPACT`). 0, "9,999.99" and 1,234,567 for each currency.
  */
 export const Fixed: Story = {
   render: () => (
@@ -119,7 +120,7 @@ export const Fixed: Story = {
             [0n, 999_999n, 123_456_700n].map((hundredths) => {
               const { decimals, fraction } = UNIT[kind];
               const amount = decimals === 0 ? hundredths / 100n : hundredths * 10n ** BigInt(decimals - 2);
-              return <ResourcePlate key={`${kind}-${hundredths}`} fixed compactFrom={10_000} kind={kind} amount={amount} decimals={decimals} fraction={fraction} size={size} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
+              return <ResourcePlate key={`${kind}-${hundredths}`} fixed compactFrom={PLATE_COMPACT[size]} kind={kind} amount={amount} decimals={decimals} fraction={fraction} size={size} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
             }),
           )}
         </div>

@@ -6,8 +6,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { InlineError } from "../elements/inline-error";
-import { useMediaQuery } from "../../lib/side-panel";
-import { PLATE_COMPACT, PLATE_NARROW_COMPACT, plateWidthClass } from "../elements/plate";
+import { PLATE_COMPACT, plateWidthClass } from "../elements/plate";
 import { ResourcePlate } from "../elements/resource-plate";
 import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 
@@ -83,9 +82,6 @@ const PLATES: Record<BalanceKind, { label: string; action: string; decimals: num
 };
 const EVERY: readonly ShownBalance[] = ["usdc", "paved", "vpaved-held", "cobbles"];
 const kindOf = (shown: ShownBalance): BalanceKind => (shown === "vpaved-held" ? "vpaved" : shown);
-
-/** Below `mobile` (`--breakpoint-mobile`, 360 px), as `max-mobile:` says it. */
-const BELOW_MOBILE = "(width < 22.5rem)";
 
 /** A balance in base units (the Cobbles' count as is); null and undefined pass through. */
 function amountOf(state: Ready, kind: BalanceKind): bigint | null | undefined {
@@ -178,7 +174,7 @@ function useCrowded(beside?: readonly [row: string, control: string]) {
 /** The plates' size (#828): a 32 px box under a 48 px bare icon on a phone (`pill`), 36 under 52 from `desktop` (`rail`, #213). */
 type PlateSize = "sm" | "md";
 /** A plate's place while its amount is read: the plates' one width (#860), so nothing moves when it arrives. */
-const holdOf = (size: PlateSize, shared?: boolean) => <Skeleton className={cn("rounded-lg", plateWidthClass(size, shared), size === "md" ? "h-9" : "h-8")} />;
+const holdOf = (size: PlateSize) => <Skeleton className={cn("rounded-lg", plateWidthClass(size), size === "md" ? "h-9" : "h-8")} />;
 
 interface PlateTapProps {
   /** The amount a plate that just appeared counts from (vPAVED's first deposit). */
@@ -220,10 +216,9 @@ const compactOf = (kind: BalanceKind, amount: bigint | null, compactFrom: number
 /** One balance in the bar: a plate (at least 44 px of tap with the icon's overhang) that leads to its place, the whole plate a tap. */
 function PlateTap({ kind, from, state, here, onAction, faucet, minting, size, crowdedRow }: PlateTapProps) {
   const amount = amountOf(state, kind);
-  // A phone's plate is narrower in a row of two and below `mobile` (`Plate`'s `NARROW`, #860), its figure compact from 1,000.
-  const short = useMediaQuery(BELOW_MOBILE);
-  const compactFrom = size === "sm" && (crowdedRow || short) ? PLATE_NARROW_COMPACT : PLATE_COMPACT;
-  if (amount === undefined) return holdOf(size, crowdedRow);
+  // The figure compact from 1,000 on a phone, 10,000 from `desktop` (#860, the plates' one width at each size).
+  const compactFrom = PLATE_COMPACT[size];
+  if (amount === undefined) return holdOf(size);
   const { action, inert } = actionOf(kind, here, faucet, minting);
   const { decimals, fraction, page } = PLATES[kind];
   return (
@@ -256,8 +251,8 @@ function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConne
 
 /**
  * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate (#828), its icon over the plate's
- * right end, the figure chunky, counting to each new value, every plate of one width at its size whatever its figure (#860, compact
- * from 10,000, the full amount in its name and tooltip); a "+" over the left end where the balance leads to a page (the
+ * right end, the figure chunky, counting to each new value, every plate of one width at its size whatever its figure and wherever it
+ * stands (#860, compact from 1,000 on a phone and 10,000 from `desktop`, the full amount in its name and tooltip); a "+" over the left end where the balance leads to a page (the
  * Challenge, the Vault, the packs), none on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
  * joins when held where the page shows it so (`vpaved-held`). Only the page's balances (`kinds`, #855), the same on a phone
  * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
@@ -300,7 +295,7 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
           .filter((shown) => shown !== "vpaved-held")
           .map((shown) => (
             <span key={shown} className="flex min-h-11 items-center">
-              {holdOf(size, crowdedRow)}
+              {holdOf(size)}
             </span>
           ))
       ) : (

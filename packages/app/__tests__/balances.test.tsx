@@ -335,67 +335,57 @@ describe("one width for every currency's plate (#860)", () => {
   const KINDS = ["usdc", "paved", "vpaved", "cobbles"] as const;
   const platesOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>("[data-slot=resource-plate]")];
   const widthOf = (plate: HTMLElement) => [...plate.classList].filter((c) => /(^|:)w-/.test(c)).join(" ");
+  const boxOf = (plate: HTMLElement) => plate.querySelector<HTMLElement>(".h-8, .h-9")!;
+  const tickerOf = (name: string) => screen.getByRole("button", { name }).querySelector("[data-slot=number-ticker]");
 
   it.each([
-    ["pill", "w-40 max-mobile:w-29"],
+    ["pill", "w-34 max-mobile:w-29"],
     ["rail", "w-47"],
-  ] as const)("%s: 0 and 1,234,567 of each currency, with or without a \"+\", have one width (%s)", (layout, width) => {
-    for (const state of [ZERO, HUGE]) {
-      const { container, unmount } = render(wrap(<Balances layout={layout} kinds={KINDS} direction="column" state={state} faucet />));
-      const plates = platesOf(container);
-      expect(plates).toHaveLength(4);
-      for (const plate of plates) {
-        expect(widthOf(plate)).toBe(width);
-        // The box takes what the ends leave, so the figure never sizes the plate.
-        expect(plate.querySelector(".h-8, .h-9")).toHaveClass("flex-1", "min-w-0");
+  ] as const)("%s: 0 and 1,234,567 of each currency, in a column and in a row, with or without a \"+\", have one width (%s)", (layout, width) => {
+    for (const direction of ["column", "row"] as const)
+      for (const state of [ZERO, HUGE]) {
+        const { container, unmount } = render(wrap(<Balances layout={layout} kinds={KINDS} direction={direction} state={state} faucet />));
+        const plates = platesOf(container);
+        expect(plates).toHaveLength(4);
+        for (const plate of plates) {
+          expect(widthOf(plate)).toBe(width);
+          // The box takes what the ends leave, so the figure never sizes the plate.
+          expect(boxOf(plate)).toHaveClass("flex-1", "min-w-0");
+        }
+        unmount();
       }
-      unmount();
+  });
+
+  it("a lone plate and a header's two share the phone's width and figure", () => {
+    const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
+    const [one] = platesOf(lone.container);
+    const loneWidth = widthOf(one!);
+    const loneBox = boxOf(one!).className;
+    lone.unmount();
+    const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
+    for (const plate of platesOf(vault.container)) {
+      expect(widthOf(plate)).toBe(loneWidth);
+      expect(boxOf(plate)).toHaveClass("text-xs");
     }
+    expect(loneBox).toContain("text-xs");
   });
 
-  it("past 10,000 the figure is compact, its full amount in the plate's name and tooltip", () => {
-    render(wrap(<Balances layout="pill" kinds={["usdc", "cobbles"]} direction="column" state={HUGE} faucet />));
-    const usdc = screen.getByRole("button", { name: "1,234,567.00 USDC: Get test USDC" });
-    expect(usdc).toHaveAttribute("title", "1,234,567.00 USDC");
-    expect(usdc.querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^1\.2M$/);
-    const cobbles = screen.getByRole("button", { name: "1,234,567 Cobbles: Buy packs" });
-    expect(cobbles.querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^1\.2M$/);
+  it("on a phone the figure is compact from 1,000, its full amount in the plate's name and tooltip", () => {
+    render(wrap(<Balances layout="pill" kinds={["paved", "cobbles"]} direction="column" state={{ ...READY, paved: 1_234_560_000_000_000_000_000n }} />));
+    const name = "1,234.56 PAVED: Play a Challenge";
+    expect(screen.getByRole("button", { name })).toHaveAttribute("title", "1,234.56 PAVED");
+    expect(tickerOf(name)).toHaveTextContent(/^1\.2K$/);
+    expect(tickerOf("240 Cobbles: Buy packs")).toHaveTextContent(/^240$/);
+    expect(screen.getByRole("button", { name: "240 Cobbles: Buy packs" })).not.toHaveAttribute("title");
   });
 
-  it("below 10,000 the figure is whole, and the plate has no tooltip", () => {
-    const widest: BalancesState = { status: "ready", usdc: 9_999_999_999n, paved: 0n, cobbles: 9_999 };
-    render(wrap(<Balances layout="pill" kinds={["usdc", "cobbles"]} direction="column" state={widest} faucet />));
-    const usdc = screen.getByRole("button", { name: "9,999.99 USDC: Get test USDC" });
-    expect(usdc).not.toHaveAttribute("title");
-    expect(usdc.querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^9,999\.99$/);
-    expect(screen.getByRole("button", { name: "9,999 Cobbles: Buy packs" }).querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^9,999$/);
-  });
-
-  it("a phone's row of two plates is narrower, one width for both, the figure smaller and compact from 1,000", () => {
-    const vault: BalancesState = { status: "ready", usdc: 0n, paved: 1_234_560_000_000_000_000_000n, vpaved: 1n, cobbles: 0 };
-    const { container } = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={vault} />));
-    for (const plate of platesOf(container)) {
-      expect(widthOf(plate)).toBe("w-34 max-mobile:w-29");
-      expect(plate.querySelector(".h-8")).toHaveClass("text-xs");
-      expect(plate.querySelector(".h-8")).not.toHaveClass("text-sm");
-    }
-    const paved = screen.getByRole("button", { name: "1,234.56 PAVED: Play a Challenge" });
-    expect(paved).toHaveAttribute("title", "1,234.56 PAVED");
-    expect(paved.querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^1\.2K$/);
-  });
-
-  it("below 360 px every phone plate is narrow: the figure smaller and compact from 1,000", () => {
-    const media = vi.spyOn(window, "matchMedia").mockImplementation((query) => ({ matches: query === "(width < 22.5rem)", media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false }));
-    try {
-      const { container } = render(wrap(<Balances layout="pill" kinds={["cobbles", "paved"]} direction="column" state={{ ...READY, paved: 1_234_560_000_000_000_000_000n }} />));
-      for (const plate of platesOf(container)) expect(plate.querySelector(".h-8")).toHaveClass("max-mobile:text-xs");
-      const paved = screen.getByRole("button", { name: "1,234.56 PAVED: Play a Challenge" });
-      expect(paved).toHaveAttribute("title", "1,234.56 PAVED");
-      expect(paved.querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^1\.2K$/);
-      expect(screen.getByRole("button", { name: "240 Cobbles: Buy packs" }).querySelector("[data-slot=number-ticker]")).toHaveTextContent(/^240$/);
-    } finally {
-      media.mockRestore();
-    }
+  it("from desktop the figure is whole below 10,000 and compact from it", () => {
+    const widest: BalancesState = { status: "ready", usdc: 9_999_999_999n, paved: 0n, cobbles: 1_234_567 };
+    render(wrap(<Balances layout="rail" kinds={["usdc", "cobbles"]} state={widest} faucet />));
+    expect(tickerOf("9,999.99 USDC: Get test USDC")).toHaveTextContent(/^9,999\.99$/);
+    expect(screen.getByRole("button", { name: "9,999.99 USDC: Get test USDC" })).not.toHaveAttribute("title");
+    expect(tickerOf("1,234,567 Cobbles: Buy packs")).toHaveTextContent(/^1\.2M$/);
+    expect(screen.getByRole("button", { name: "1,234,567 Cobbles: Buy packs" })).toHaveAttribute("title", "1,234,567 Cobbles");
   });
 
   it("a change keeps the width: the plate is the same before and after, the change itself compact", () => {
@@ -407,10 +397,13 @@ describe("one width for every currency's plate (#860)", () => {
   });
 
   it("loading: each skeleton takes its plate's width, nothing moves when the figures arrive", () => {
-    const { container } = render(wrap(<Balances layout="rail" kinds={["usdc", "cobbles"]} state={{ status: "loading" }} />));
-    const holds = container.querySelectorAll("[data-slot=skeleton]");
-    expect(holds).toHaveLength(2);
-    for (const hold of holds) expect(hold).toHaveClass("w-47");
+    for (const [layout, width] of [["pill", "w-34"], ["rail", "w-47"]] as const) {
+      const { container, unmount } = render(wrap(<Balances layout={layout} kinds={["usdc", "cobbles"]} state={{ status: "loading" }} />));
+      const holds = container.querySelectorAll("[data-slot=skeleton]");
+      expect(holds).toHaveLength(2);
+      for (const hold of holds) expect(hold).toHaveClass(width);
+      unmount();
+    }
   });
 
   it("a plate without `fixed` fits its content (the League's and the shield's plates, not currencies)", () => {

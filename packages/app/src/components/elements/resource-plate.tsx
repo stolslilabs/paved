@@ -26,7 +26,7 @@ export interface ResourcePlateProps extends PlateVariants {
   /** One width at each size, whatever the figure (issue 860, `Plate`'s `fixed`); with `compactFrom`, the figure never overflows it. */
   fixed?: boolean;
   /**
-   * From this figure on (tokens, or Cobbles: 10,000 on a fixed plate) the figure is compact ("12.3K"), the counter's too; the full
+   * From this figure on (tokens, or Cobbles: `PLATE_COMPACT` on a fixed plate) the figure is compact ("12.3K"), the counter's too; the full
    * amount is the container's (its accessible name and tooltip). Omitted, never.
    */
   compactFrom?: number;
