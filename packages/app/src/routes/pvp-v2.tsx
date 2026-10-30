@@ -13,6 +13,7 @@ import { useCobbleAccount } from "../data/cobbles";
 import { layoutBoard } from "../data/matches";
 import { useAttackV2Writes, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
 import { V2RefusedError, useFreeVillage, useFreeVillageWrites } from "../data/free-village";
+import { savedLook, useAvatar } from "../data/avatar";
 import { usePvpStatus } from "../data/pvp";
 import { errorDetail } from "./error-detail";
 import { fromBoard, useAttackLegality, useScoutBoard } from "./attack-board";
@@ -82,6 +83,7 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
   // Set once the last tile ended the attack: the page leaves, and no new search starts meanwhile.
   const ended = useRef(false);
   const open = state.attack?.status === "open" ? state.attack : null;
+  const opponentLook = savedLook(useAvatar(state.match?.opponent ?? null).data);
   const phase = open ? "attack" : state.match ? "scout" : "search";
 
   // The search starts as the page opens on no match: the player came here to attack. Once per visit; Retry after a refusal.
@@ -104,7 +106,7 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
     writes.reset();
     searched.current = false;
   };
-  if (found && state.match) return <PvpSearchScene state="found" player={self} opponent={playerOf(state.match)} />;
+  if (found && state.match) return <PvpSearchScene state="found" player={self} opponent={playerOf(state.match, opponentLook)} />;
   if (phase === "search") {
     if (writes.error) {
       const reason = writes.error instanceof V2RefusedError ? writes.error.reason : null;
@@ -119,12 +121,14 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
   return <Attack attack={open!} match={state.match} writes={writes} ended={ended} onBack={onBack} />;
 }
 
-const playerOf = (match: MatchV2): PvpPlayer => ({ name: match.name, address: match.opponent, level: match.level, crowns: match.crowns });
+/** The rival drawn as the PvP screens show them, with the look they saved (#926) once read. */
+const playerOf = (match: MatchV2, look: bigint | null = null): PvpPlayer => ({ name: match.name, address: match.opponent, level: match.level, crowns: match.crowns, look });
 
 /** The scout of the rival drawn: its village and score, the stars' points, the deck the attack will have, Next and Attack. */
 function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writes: Writes; onBack: () => void }) {
   const now = useNow();
   const rival = useFreeVillage(match.opponent);
+  const look = savedLook(useAvatar(match.opponent).data);
   const account = useCobbleAccount(me);
   const status = usePvpStatus(me);
   const tiles = useMemo(() => (rival.data ? layoutBoard(rival.data.tiles) : []), [rival.data]);
@@ -139,14 +143,14 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
   };
   if (!rival.data) {
     const message = rival.data === null ? "This village cannot be read on this network." : rival.error?.message;
-    return <PvpSearchScene state={message ? "error" : "searching"} player={playerOf(match)} error={message} onCancel={onBack} />;
+    return <PvpSearchScene state={message ? "error" : "searching"} player={playerOf(match, look)} error={message} onCancel={onBack} />;
   }
   const village: PvpVillage = { cells: tiles.map(({ x, y }) => ({ x, y })), tiles, score: match.target };
   const shield = status.data?.shield;
   const shielded = writes.error instanceof V2RefusedError && writes.error.reason === "opponent-shielded";
   return (
     <PvpScoutScene
-      defender={playerOf(match)}
+      defender={playerOf(match, look)}
       village={village}
       {...board}
       stakes={stakesOf(match.offer, match.cost)}

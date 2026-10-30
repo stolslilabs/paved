@@ -613,7 +613,9 @@ export class MockLedger {
     return BigInt(this.peek(playerId).avatarOwned?.[part] ?? "0");
   }
 
+  /** `Avatar.avatar(player_id)`: a rival of the mock saved none, so it wears the face its battle logs show (#834, #926). */
   async avatar(playerId: string): Promise<bigint> {
+    if (mockRival(playerId) || mockRivalV2(playerId)) return generatedLook(playerId);
     this.sync();
     return BigInt(this.peek(playerId).avatar ?? "0");
   }
