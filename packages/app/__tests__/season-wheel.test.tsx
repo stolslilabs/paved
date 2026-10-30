@@ -7,9 +7,18 @@ import { DEFAULT_DAYNIGHT_SETTINGS, DAY_PHASE_AT, SEASONS } from "@paved/rendere
 import { DAY_SHARE as RENDERER_DAY_SHARE, KEYFRAMES } from "../../renderer/src/core/daynight";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheelRound, useSeasonWheel, type WheelRound, wheelDayNight } from "../src/data/season-wheel";
 import {
+  CENTRE_TURNS,
+  DECOR,
+  DRIFT,
+  DRIFT_KEYFRAMES,
+  DRIFT_MS,
   DIAL_PX,
+  DISC,
+  DUSK_BLEND,
   ICON_AT,
   ICON_PX,
+  PEBBLE_BAND,
+  SEASON_BLEND,
   SEASON_GLYPH,
   SeasonWheel,
   TIME_DISC,
@@ -17,6 +26,8 @@ import {
   TIME_ICON_AT,
   TIME_ICON_PX,
   TIME_TURNS_PER_YEAR,
+  seasonsSky,
+  timeSky,
 } from "../src/components/elements/season-wheel";
 import { OUTLINE } from "../src/components/elements/game-icon";
 
@@ -119,23 +130,109 @@ describe("the season dial's colours and room (#607)", () => {
     }
   });
 
-  it("paints each season's quarter with its day sky, the centre's day and night their own skies (#909)", () => {
+  it("paints the seasons' disc with their day skies, blended over 20° across each start, with no seam line (#930)", () => {
+    expect(SEASON_BLEND).toBe(20);
+    for (const part of ["top", "bottom"] as const) {
+      // Each quarter holds its own sky but for 10° at each end, from summer at the top, clockwise; the gradient starts 10° on.
+      expect(seasonsSky(part)).toBe(
+        `conic-gradient(from 10deg, var(--sky-summer-day-${part}) 0deg 70deg, var(--sky-autumn-day-${part}) 90deg 160deg, ` +
+          `var(--sky-winter-day-${part}) 180deg 250deg, var(--sky-spring-day-${part}) 270deg 340deg, var(--sky-summer-day-${part}))`,
+      );
+    }
     const { container } = render(<SeasonWheel state="auto" />);
-    const stops = (id: string) => [...container.querySelectorAll(`#${id} stop`)].map((s) => s.getAttribute("stop-color"));
-    for (const season of SEASONS) expect(stops(`dial-${season}`)).toEqual([`var(--sky-${season}-day-top)`, `var(--sky-${season}-day-bottom)`]);
-    expect(stops("dial-time-day")).toEqual(["var(--dial-day-top)", "var(--dial-day-bottom)"]);
-    expect(stops("dial-time-night")).toEqual(["var(--dial-night-top)", "var(--dial-night-bottom)"]);
-    for (const name of ["dial-day-top", "dial-day-bottom", "dial-night-top", "dial-night-bottom", "dial-star"]) expect(token(name), name).toBeTruthy();
+    const sky = container.querySelector<HTMLElement>("[data-dial-disc] [data-sky=seasons]")!;
+    // The top at the rim, the bottom (the horizon) at the centre, faded out towards the rim.
+    expect(sky.style.background).toContain("--sky-summer-day-top");
+    expect((sky.firstElementChild as HTMLElement).style.background).toContain("--sky-summer-day-bottom");
+    expect((sky.firstElementChild as HTMLElement).style.maskImage).toBe("radial-gradient(closest-side, black, transparent)");
+    expect(sky.style.inset).toBe(`${50 - DISC}%`);
+    expect(container.querySelectorAll("line")).toHaveLength(2);
+  });
+
+  it("blends the centre's day and night over 30° at dusk and at dawn, through the dusk tones (#930)", () => {
+    expect(DUSK_BLEND).toBe(30);
+    // Dawn at the top, dusk at `DAY_SHARE` of a turn (225°).
+    const mid = "color-mix(in oklab, var(--dial-day-top), var(--dial-night-top))";
+    expect(timeSky("bottom")).toBe(
+      "conic-gradient(var(--sky-autumn-day-bottom), var(--dial-day-bottom) 15deg 210deg, var(--sky-autumn-day-bottom) 225deg, var(--dial-night-bottom) 240deg 345deg, var(--sky-autumn-day-bottom))",
+    );
+    expect(timeSky("top")).toContain(`var(--dial-day-top) 15deg 210deg, ${mid} 225deg, var(--dial-night-top) 240deg 345deg`);
+    const { container } = render(<SeasonWheel state="auto" />);
+    expect(container.querySelector<HTMLElement>("[data-time-disc] [data-sky=time]")!.style.inset).toBe(`${50 - TIME_DISC}%`);
+    // The dusk tones from the dial's own tokens: none of their own (the stylesheet's budget).
+    for (const name of ["dial-day-top", "dial-day-bottom", "dial-night-top", "dial-night-bottom", "sky-autumn-day-bottom", "dial-star"]) expect(token(name), name).toBeTruthy();
     // The needle in the theme's red (#909's open point 2).
     expect(token("dial-needle")).toBe("var(--destructive)");
   });
 
-  it("twinkles the stars, still under reduced motion", () => {
-    expect(theme).toMatch(/@utility dial-twinkle \{\s*animation: dial-twinkle [^;]+;\s*@media \(prefers-reduced-motion: reduce\) \{\s*animation: none;/);
+  it("sets a ring of 16 small stones between the two discs, in the band's tones, in place of the black line (#930)", () => {
     const { container } = render(<SeasonWheel state="auto" />);
-    const stars = [...container.querySelectorAll("[data-star]")];
-    expect(stars.length).toBeGreaterThan(2);
-    for (const star of stars) expect(star).toHaveClass("dial-twinkle");
+    const pebbles = [...container.querySelectorAll("[data-dial-disc] [data-pebble]")];
+    expect(pebbles).toHaveLength(16);
+    for (const p of pebbles) expect(["var(--dial-stone)", "var(--dial-stone-alt)"]).toContain(p.getAttribute("fill"));
+    expect(PEBBLE_BAND).toEqual([TIME_DISC, 19.5]);
+    // Only the rim's ring and the seasons' disc's edge are left fixed.
+    expect([...container.querySelectorAll("svg > circle[stroke='var(--dial-ring)']")].map((c) => Number(c.getAttribute("r")))).toEqual([49.25, DISC + 0.5]);
+  });
+
+  it("twinkles the stars, drifts the clouds and glides the birds, all still under reduced motion (#930)", () => {
+    expect(theme).toMatch(/@utility dial-twinkle \{\s*animation: dial-twinkle [^;]+;\s*@media \(prefers-reduced-motion: reduce\) \{\s*animation: none;/);
+    // The drift the geometry test allows for is the keyframes'.
+    expect(DRIFT_KEYFRAMES).toEqual([{ translate: "0 0" }, { translate: "4.4% -1.5%" }]);
+    expect(DRIFT.x).toBeCloseTo(1.5, 1);
+    expect(DRIFT_MS.cloud).toBeGreaterThan(DRIFT_MS.bird);
+    const animate = vi.fn(() => ({ cancel: vi.fn() }));
+    Element.prototype.animate = animate as unknown as Element["animate"];
+    try {
+      const { container, unmount } = render(<SeasonWheel state="auto" />);
+      const of = (kind: string) => [...container.querySelectorAll(`[data-time-disc] [data-decor=${kind}]`)];
+      expect(of("star").length).toBeGreaterThan(2);
+      for (const star of of("star")) expect(star).toHaveClass("dial-twinkle");
+      expect(of("cloud").length).toBeGreaterThanOrEqual(2);
+      expect(of("bird").length).toBeGreaterThanOrEqual(2);
+      // The clouds drift as one and the birds as one, each group in the centre disc's box: two animations of an HTML box's
+      // translate, which the compositor runs. The stars twinkle in a layer of their own.
+      for (const kind of ["cloud", "bird"]) {
+        const group = of(kind).map((p) => p.parentElement);
+        expect(new Set(group).size, kind).toBe(1);
+        expect(group[0]).toHaveAttribute("data-drift", kind);
+        expect((group[0]!.parentElement as HTMLElement).style.inset).toBe(`${50 - TIME_DISC}%`);
+      }
+      expect((of("star")[0]!.parentElement!.parentElement as HTMLElement).style.willChange).toBe("transform");
+      expect(animate).toHaveBeenCalledTimes(2);
+      const calls = animate.mock.calls as unknown as [Keyframe[], KeyframeAnimationOptions][];
+      for (const [frames, options] of calls) {
+        expect(frames).toBe(DRIFT_KEYFRAMES);
+        expect(options).toMatchObject({ iterations: Infinity, direction: "alternate" });
+      }
+      expect(calls.map(([, o]) => o.duration)).toEqual([DRIFT_MS.cloud, DRIFT_MS.bird]);
+      unmount();
+      // Under reduced motion, nothing drifts.
+      animate.mockClear();
+      const listeners = new Set<() => void>();
+      const query = {
+        matches: true,
+        addEventListener: (_: string, l: () => void) => listeners.add(l),
+        removeEventListener: (_: string, l: () => void) => listeners.delete(l),
+      };
+      const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue(query as unknown as MediaQueryList);
+      const reduced = render(<SeasonWheel state="auto" />);
+      expect(animate).not.toHaveBeenCalled();
+      // The setting turned off while the wheel is up: the drift starts; turned on again: every drift stops.
+      query.matches = false;
+      listeners.forEach((l) => l());
+      expect(animate).toHaveBeenCalledTimes(2);
+      const started = animate.mock.results.map((r) => r.value as { cancel: ReturnType<typeof vi.fn> });
+      query.matches = true;
+      listeners.forEach((l) => l());
+      for (const run of started) expect(run.cancel).toHaveBeenCalledOnce();
+      expect(animate).toHaveBeenCalledTimes(2);
+      reduced.unmount();
+      expect(listeners.size).toBe(0);
+      matchMedia.mockRestore();
+    } finally {
+      delete (Element.prototype as Partial<Element>).animate;
+    }
   });
 
   it("draws each season's icon and the centre's day and night as game icons, in their own tones (#870)", () => {
@@ -160,32 +257,78 @@ describe("the season dial's colours and room (#607)", () => {
     expect(share).toBeLessThan(80);
   });
 
-  it("keeps the icons at least 4 px apart on a phone, on a dial of 96 px or more", () => {
-    const px = (s: (typeof WHEEL_SEASONS)[number]) => ({ x: (ICON_AT[s].x / 100) * DIAL_PX, y: (ICON_AT[s].y / 100) * DIAL_PX });
-    for (let i = 0; i < 4; i++) {
-      const a = px(WHEEL_SEASONS[i]!);
-      const b = px(WHEEL_SEASONS[(i + 1) % 4]!);
-      // Two square icons, upright: apart when the larger of the two axes' distances exceeds an icon, its game outline
-      // included (half the stroke outside each side), by 4 px.
-      expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) - ICON_PX * (1 + OUTLINE / 512)).toBeGreaterThanOrEqual(4);
+  // An icon's half in dial units (100 across) on a dial of `dial` px; with its game outline (half the stroke outside each side).
+  const half = (px: number, dial: number, outline = true) => ((px * (outline ? 1 + OUTLINE / 512 : 1)) / 2 / dial) * 100;
+  const fromCentre = (p: { x: number; y: number }) => Math.hypot(p.x - 50, p.y - 50);
+
+  it("keeps the season icons at least 4 px apart, at each of the dial's sizes", () => {
+    for (const dial of DIAL_PX) {
+      const px = (s: (typeof WHEEL_SEASONS)[number]) => ({ x: (ICON_AT[s].x / 100) * dial, y: (ICON_AT[s].y / 100) * dial });
+      for (let i = 0; i < 4; i++) {
+        const a = px(WHEEL_SEASONS[i]!);
+        const b = px(WHEEL_SEASONS[(i + 1) % 4]!);
+        // Two square icons, upright: apart when the larger of the two axes' distances exceeds an icon by 4 px.
+        expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) - ICON_PX[dial] * (1 + OUTLINE / 512), `${dial}`).toBeGreaterThanOrEqual(4);
+      }
     }
-    expect(DIAL_PX).toBeGreaterThanOrEqual(96);
+    expect(DIAL_PX).toEqual([96, 108, 144]);
+    expect(ICON_PX).toEqual({ 96: 14, 108: 16, 144: 20 });
   });
 
-  it("keeps the season icons between the two discs, and the centre's two icons inside it, apart", () => {
-    const fromCentre = (p: { x: number; y: number }) => Math.hypot(p.x - 50, p.y - 50);
-    // An icon's half, its outline included, in dial units (100 across).
-    const half = (px: number) => ((px * (1 + OUTLINE / 512)) / 2 / DIAL_PX) * 100;
-    for (const s of WHEEL_SEASONS) {
-      const r = fromCentre(ICON_AT[s]);
-      expect(r - half(ICON_PX), s).toBeGreaterThan(TIME_DISC);
-      expect(r + half(ICON_PX), s).toBeLessThan(40);
+  it("keeps 15% of the ring clear on each side of the season icons, and of the centre disc about its icons, at each size (#930)", () => {
+    // The seasons' ring is 23 units wide (#930's open point 3): the centre disc at 17.
+    expect(TIME_DISC).toBe(17);
+    const ring = DISC - TIME_DISC;
+    for (const dial of DIAL_PX) {
+      for (const s of WHEEL_SEASONS) {
+        const r = fromCentre(ICON_AT[s]);
+        // The glyph's own box (as #930 counts it) 15% of the ring clear of either disc, its outline clear of the small stones.
+        expect(r - half(ICON_PX[dial], dial, false) - TIME_DISC, `${dial} ${s} inside`).toBeGreaterThanOrEqual(0.15 * ring);
+        expect(DISC - r - half(ICON_PX[dial], dial, false), `${dial} ${s} outside`).toBeGreaterThanOrEqual(0.15 * ring);
+        expect(r - half(ICON_PX[dial], dial) - PEBBLE_BAND[1], `${dial} ${s} stones`).toBeGreaterThan(0);
+      }
+      for (const turn of CENTRE_TURNS) {
+        const icons = TIME_ICON_AT[turn];
+        // The same way on the centre disc: 15% of its radius clear of its rim.
+        for (const t of ["day", "night"] as const) expect(TIME_DISC - fromCentre(icons[t]) - half(TIME_ICON_PX[dial], dial, false), `${dial} ${turn} ${t}`).toBeGreaterThanOrEqual(0.15 * TIME_DISC);
+        // And the two, outlines included, at least 2 px apart (4 px on the 20-unit disc of #909).
+        const gap = Math.hypot(icons.day.x - icons.night.x, icons.day.y - icons.night.y);
+        expect(((gap - 2 * half(TIME_ICON_PX[dial], dial)) / 100) * dial, `${dial} ${turn}`).toBeGreaterThanOrEqual(2);
+      }
     }
-    for (const t of ["day", "night"] as const) expect(fromCentre(TIME_ICON_AT[t]) + half(TIME_ICON_PX), t).toBeLessThan(TIME_DISC);
-    const gap = Math.hypot(TIME_ICON_AT.day.x - TIME_ICON_AT.night.x, TIME_ICON_AT.day.y - TIME_ICON_AT.night.y);
-    expect(((gap - 2 * half(TIME_ICON_PX)) / 100) * DIAL_PX).toBeGreaterThanOrEqual(4);
-    // 40 % of the dial's radius (#909's open point 1).
-    expect(TIME_DISC).toBe(20);
+  });
+
+  it("keeps the stars, the clouds and the birds on the centre disc, in their halves, off its icons, as far as they drift (#930)", () => {
+    /** Clockwise from the top, in degrees. */
+    const bearing = (x: number, y: number) => ((Math.atan2(x - 50, 50 - y) * 180) / Math.PI + 360) % 360;
+    for (const d of DECOR) {
+      const rad = (d.rot * Math.PI) / 180;
+      // A point of the decoration's own frame (about its anchor, turned by `rot`) on the dial, and back.
+      const out = (u: number, v: number) => [d.x + u * Math.cos(rad) - v * Math.sin(rad), d.y + u * Math.sin(rad) + v * Math.cos(rad)] as const;
+      const back = (x: number, y: number) => [(x - d.x) * Math.cos(rad) + (y - d.y) * Math.sin(rad), -(x - d.x) * Math.sin(rad) + (y - d.y) * Math.cos(rad)] as const;
+      const { x0, x1, y0, y1 } = d.box;
+      // The clouds and the birds drift on the disc by `DRIFT` and back: swept in tenths.
+      const steps = d.kind === "star" ? [0] : Array.from({ length: 11 }, (_, i) => i / 10);
+      for (const t of steps) {
+        for (const [u, v] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]] as const) {
+          const [ox, oy] = out(u, v);
+          const [x, y] = [ox + t * DRIFT.x, oy + t * DRIFT.y];
+          expect(Math.hypot(x - 50, y - 50), `${d.kind} at ${d.d}`).toBeLessThan(TIME_DISC - 0.2);
+          // By day before dusk (225°), by night after it.
+          const deg = bearing(x, y);
+          expect(d.kind === "star" ? deg > 225 : deg < 225, `${d.kind} at ${d.d}: ${deg}°`).toBe(true);
+        }
+        // The icons turn upright on the turning disc: each is taken as a round of its half, outline included, at the largest
+        // share of the dial (96 px). The "against" layout is the mirror of this one, so the same test holds for it.
+        for (const icon of ["day", "night"] as const) {
+          // The decoration drifted by t is the icon moved back by t.
+          const [u, v] = back(TIME_ICON_AT.with[icon].x - t * DRIFT.x, TIME_ICON_AT.with[icon].y - t * DRIFT.y);
+          const gap = Math.hypot(Math.max(x0 - u, 0, u - x1), Math.max(y0 - v, 0, v - y1));
+          for (const dial of DIAL_PX) expect(gap, `${d.kind} at ${d.d} drifted ${t}, the ${icon} icon at ${dial}`).toBeGreaterThan(half(TIME_ICON_PX[dial], dial));
+        }
+      }
+    }
+    expect(TIME_ICON_AT.against.day).toEqual({ x: 100 - TIME_ICON_AT.with.day.x, y: TIME_ICON_AT.with.day.y });
   });
 });
 
@@ -202,8 +345,7 @@ describe("<SeasonWheel>", () => {
   it("shows no auto or fixed mark, only the three layers and the red needle (#909)", () => {
     const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "autumn", position: 0.3 }} />);
     expect(screen.getByRole("button", { name: /automatic, now autumn day/ })).toBeTruthy();
-    expect(container.querySelectorAll("[data-quarter]")).toHaveLength(4);
-    expect([...container.querySelectorAll("[data-half]")].map((e) => e.getAttribute("data-half"))).toEqual(["day", "night"]);
+    expect([...container.querySelectorAll("[data-sky]")].map((e) => e.getAttribute("data-sky"))).toEqual(["seasons", "time"]);
     expect(container.querySelectorAll("[data-needle]")).toHaveLength(1);
     expect(container.querySelector("[data-centre], [data-now], [data-sector]")).toBeNull();
     // A fixed state draws the same dial: only its name, its state and its angles differ.
@@ -255,6 +397,38 @@ describe("<SeasonWheel>", () => {
         expect(underNeedle(angle(container, "time-disc")), `${season} ${point.position}`).toBe(isNight(point) ? "night" : "day");
       }
     }
+  });
+
+  it("turned against the seasons (#930, to try), mirrors the centre disc so its day is under the needle exactly while the cycle is in day", () => {
+    const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0 }} centreTurn="against" />);
+    // Turning clockwise, the point under the needle is the drawing's angle -deg; mirrored, that is the "with" drawing's deg.
+    const underNeedleAgainst = (deg: number) => ((((deg % 360) + 360) % 360) / 360 < DAY_SHARE ? "day" : "night");
+    let last = { seasons: angle(container, "dial-disc"), time: angle(container, "time-disc") };
+    for (const season of SEASONS) {
+      for (let i = 0; i < 40; i++) {
+        const point = { season, position: i / 40 };
+        rerender(<SeasonWheel state="auto" point={point} centreTurn="against" />);
+        const now = { seasons: angle(container, "dial-disc"), time: angle(container, "time-disc") };
+        expect(underNeedleAgainst(now.time), `${season} ${point.position}`).toBe(isNight(point) ? "night" : "day");
+        // The seasons' disc still counterclockwise, the centre's clockwise, four times as fast, each only forward.
+        expect(now.seasons).toBeLessThanOrEqual(last.seasons);
+        expect(now.time).toBeGreaterThanOrEqual(last.time);
+        expect(now.time).toBeCloseTo(-4 * now.seasons);
+        last = now;
+      }
+    }
+    expect(screen.getByRole("button")).toHaveAttribute("data-centre-turn", "against");
+    expect(container.querySelector<HTMLElement>("[data-time-disc] > span")!.style.transform).toBe("scaleX(-1)");
+    expect(angle(container, "time-icons")).toBe(angle(container, "time-disc"));
+    // A fixed season: the middle of its day under the needle, as turning with the seasons.
+    rerender(<SeasonWheel state="autumn" centreTurn="against" />);
+    expect(angle(container, "time-disc") % 360).toBe(360 * (DAY_SHARE / 2));
+  });
+
+  it("turns the centre disc with the seasons' disc by default, today's way, unmirrored", () => {
+    const { container } = render(<SeasonWheel state="autumn" />);
+    expect(screen.getByRole("button")).toHaveAttribute("data-centre-turn", "with");
+    expect(container.querySelector<HTMLElement>("[data-time-disc] > span")!.style.transform).toBe("");
   });
 
   it("rests a fixed season under the needle in the middle of its day, and only ever turns one way", () => {
