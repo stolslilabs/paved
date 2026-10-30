@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { fn } from "storybook/test";
-import { WHEEL_SEASONS, WHEEL_STATES, initialWheelRound, nextWheelRound, type WheelRound } from "../../data/season-wheel";
-import { SEASON_GLYPH, SeasonWheel, TIME_GLYPH } from "./season-wheel";
+import { DAY_SHARE, WHEEL_SEASONS, WHEEL_STATES, initialWheelRound, nextWheelRound, type WheelRound } from "../../data/season-wheel";
+import { CENTRE_TURNS, SEASON_GLYPH, SeasonWheel, TIME_GLYPH, type CentreTurn } from "./season-wheel";
 import { WorldIcon } from "./world-icon";
 import { bothThemes } from "../../stories/both-themes";
 import { PHONE_320, VIEWPORT_OPTIONS } from "../scenes/viewports";
@@ -105,6 +105,92 @@ export const At108: Story = {
   globals: { viewport: { value: "phone414", isRotated: false } },
 };
 export const At144: Story = { args: { point: { season: "winter", position: 0.8 } }, globals: { viewport: { value: "tablet", isRotated: false } } };
+
+/**
+ * The seasons' blends (#930): each start under the needle, the two skies blending over 20° (10° on each side), no seam line.
+ * Summer into autumn, autumn into winter, winter into spring, spring into summer.
+ */
+export const SeasonBlends: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-4">
+      {WHEEL_SEASONS.map((s) => <SeasonWheel key={s} state="auto" point={{ season: s, position: 0.999 }} />)}
+    </div>
+  ),
+};
+
+/**
+ * The centre disc's blends (#930): its dusk, then its dawn under the needle, the day's sky and the night's blending over 30°
+ * through a warm horizon under a violet sky.
+ */
+export const DuskAndDawn: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-4">
+      <SeasonWheel state="auto" point={{ season: "summer", position: DAY_SHARE }} />
+      <SeasonWheel state="auto" point={{ season: "autumn", position: 0 }} />
+    </div>
+  ),
+};
+
+/** The day (#930): clouds and birds about the sun behind a cloud, as the night has its stars; neither covers an icon. */
+export const Day: Story = { args: { point: { season: "spring", position: 0.3 } } };
+/** The night: the moon and its twinkling stars. */
+export const Night: Story = { args: { point: { season: "spring", position: 0.8 } } };
+function RealSpeed_({ centreTurn }: { centreTurn: CentreTurn }) {
+  const [at, setAt] = useState(0.55);
+  // The game's speed: the board reads the cycle once a second, a season (a day and a night) in 120 s.
+  useEffect(() => {
+    const id = setInterval(() => setAt((p) => p + 1 / 120), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <SeasonWheel state="auto" point={{ season: WHEEL_SEASONS[Math.floor(at) % 4]!, position: at % 1 }} centreTurn={centreTurn} />;
+}
+
+function Directions_({ render }: { render: (turn: CentreTurn) => ReactNode }) {
+  return (
+    <div className="flex flex-wrap gap-6">
+      {CENTRE_TURNS.map((turn) => (
+        <figure key={turn} className="flex flex-col items-center gap-2">
+          {render(turn)}
+          <figcaption className="text-xs text-muted-foreground">{turn === "with" ? "Centre with the seasons (today)" : "Centre against the seasons"}</figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The centre disc's two directions (#930, the owner to pick), side by side at the dial's real speed (the board's reading once a
+ * second, a day and a night in 120 s), from a summer day just before dusk. Against the seasons, the centre disc turns clockwise,
+ * its halves mirrored, so night still gives way to day under the needle. The app keeps today's direction until the owner picks.
+ */
+export const BothDirections: Story = { render: () => <Directions_ render={(turn) => <RealSpeed_ centreTurn={turn} />} /> };
+
+function FastTurn_({ centreTurn }: { centreTurn: CentreTurn }) {
+  const [seasons, setSeasons] = useState(0.1);
+  useEffect(() => {
+    const id = setInterval(() => setSeasons((p) => p + 0.0333), 100);
+    return () => clearInterval(id);
+  }, []);
+  return <SeasonWheel state="auto" point={{ season: WHEEL_SEASONS[Math.floor(seasons) % 4]!, position: seasons % 1 }} turnMs={100} centreTurn={centreTurn} />;
+}
+
+/** Both directions sped up, as `Turning` (one season in 3 s), to see a whole day and night of each in a few seconds. */
+export const BothDirectionsSpedUp: Story = { render: () => <Directions_ render={(turn) => <FastTurn_ centreTurn={turn} />} /> };
+
+/** Both directions at rest, by day and by night, at 144 px (a tablet). */
+export const BothDirectionsAt144: Story = {
+  render: () => (
+    <Directions_
+      render={(turn) => (
+        <div className="flex gap-3">
+          <SeasonWheel state="auto" point={{ season: "summer", position: 0.3 }} centreTurn={turn} />
+          <SeasonWheel state="auto" point={{ season: "winter", position: 0.8 }} centreTurn={turn} />
+        </div>
+      )}
+    />
+  ),
+  globals: { viewport: { value: "tablet", isRotated: false } },
+};
 
 /** The wheel's game icons in both themes (issue 870), by day and by night: the app's dark theme and the light scope. */
 export const BothThemesDayAndNight: Story = {
