@@ -30,6 +30,8 @@ describe("Home's Camera mode (#875)", () => {
     const camera = await screen.findByRole("button", { name: "Camera" }, { timeout: slow(5000) });
     const edit = screen.getByRole("button", { name: "Edit village" });
     expect(camera).toHaveClass("size-14");
+    // Taps reach it: the nearest pointer-events rule above it is its own control's `auto`, not the overlays' box's `none`.
+    expect(camera.closest(".pointer-events-auto, .pointer-events-none")).toHaveClass("pointer-events-auto");
     // In Edit's row, at its left: Edit stays where it was as the button comes.
     expect(camera.closest("div.absolute")).toBe(edit.parentElement);
     expect(edit.compareDocumentPosition(camera) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
@@ -50,7 +52,8 @@ describe("Home's Camera mode (#875)", () => {
     expect(scene.last().camera).toBe(true);
     const exit = screen.getByRole("button", { name: "Exit camera" });
     expect(exit).toHaveFocus();
-    expect(screen.getByText("One finger turns and tilts, two pinch and pan")).toBeInTheDocument();
+    expect(exit.closest(".pointer-events-auto, .pointer-events-none")).toHaveClass("pointer-events-auto");
+    expect(screen.getByText("One finger turns and tilts, two pinch, pan and twist")).toBeInTheDocument();
     const box = document.querySelector("[data-slot=home-overlays]")!;
     expect(box).toHaveAttribute("data-camera", "true");
     // Faded (theme.css: then hidden, out of reach): the right column, the left one, the dial, the phone's bar.
@@ -74,7 +77,7 @@ describe("Home's Camera mode (#875)", () => {
     expect(scene.last().camera).toBe(false);
     expect(box).not.toHaveAttribute("data-camera");
     expect(screen.getByRole("button", { name: "Camera" })).toHaveFocus();
-    expect(screen.queryByText("One finger turns and tilts, two pinch and pan")).toBeNull();
+    expect(screen.queryByText("One finger turns and tilts, two pinch, pan and twist")).toBeNull();
   });
 
   it("leaves with Escape", async () => {

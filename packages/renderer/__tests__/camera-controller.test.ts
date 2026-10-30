@@ -341,6 +341,83 @@ describe("CameraController Camera mode (#875)", () => {
     expect(controller.getAngles().azimuth).toBeCloseTo(0, 9);
   });
 
+  it("pans on the ground in the Camera mode, and keeps its target there: a drag up at 85 degrees never sinks the camera", () => {
+    const controller = new CameraController(canvas);
+    expect(controller.controls.screenSpacePanning).toBe(true);
+    controller.setMode("free");
+    expect(controller.controls.screenSpacePanning).toBe(false);
+    place(controller, deg(85), 0.5, 240, new THREE.Vector3(2, 0, 1));
+    const height = controller.camera.position.y;
+    // A target off the ground (a screen-space pan, a zoom to the cursor): back on it, with the camera, the view kept.
+    controller.controls.target.y = -33;
+    controller.camera.position.y -= 33;
+    expect(controller.update(0)).toBe(true);
+    expect(controller.controls.target.y).toBe(0);
+    expect(controller.camera.position.y).toBeCloseTo(height, 9);
+    expect(controller.getAngles().polar).toBeCloseTo(deg(85), 9);
+    controller.setMode("play", { animate: false });
+    expect(controller.controls.screenSpacePanning).toBe(true);
+    expect(controller.controls.target.y).toBe(0);
+  });
+
+  describe("the two-finger twist", () => {
+    /** A surface that dispatches pointer events, as the canvas does. */
+    function surface() {
+      const target = Object.assign(new EventTarget(), { clientWidth: 375, clientHeight: 812 });
+      const send = (type: string, pointerId: number, x: number, y: number, pointerType = "touch") =>
+        target.dispatchEvent(Object.assign(new Event(type), { pointerId, pointerType, clientX: x, clientY: y }));
+      return { target: target as unknown as HTMLCanvasElement, send };
+    }
+    /** Two fingers 100 px either side of (200, 400), turned `turn` radians on the screen (clockwise positive, y down). */
+    const fingers = (turn: number) => [0, Math.PI].map((a) => ({ x: 200 + 100 * Math.cos(a + turn), y: 400 + 100 * Math.sin(a + turn) }));
+
+    it("turns the village with two fingers turning about their midpoint, in the Camera mode", () => {
+      const { target, send } = surface();
+      const controller = new CameraController(target);
+      controller.setMode("free");
+      place(controller, deg(45), 0, 120);
+      const [a, b] = fingers(0);
+      send("pointerdown", 1, a!.x, a!.y);
+      send("pointerdown", 2, b!.x, b!.y);
+      for (let i = 1; i <= 9; i++) {
+        const [c, d] = fingers((i * Math.PI) / 18);
+        send("pointermove", 1, c!.x, c!.y);
+        send("pointermove", 2, d!.x, d!.y);
+      }
+      // A quarter turn clockwise on the screen: the camera a quarter turn round, the tilt, the distance and the target kept.
+      expect(controller.getAngles().azimuth).toBeCloseTo(Math.PI / 2, 6);
+      expect(controller.getAngles().polar).toBeCloseTo(deg(45), 9);
+      expect(controller.camera.position.distanceTo(controller.controls.target)).toBeCloseTo(120, 9);
+      expect(controller.userMoved).toBe(true);
+      // One finger lifted: no more twist.
+      send("pointerup", 2, 0, 0);
+      send("pointermove", 1, 0, 0);
+      expect(controller.getAngles().azimuth).toBeCloseTo(Math.PI / 2, 6);
+      controller.dispose();
+    });
+
+    it("does nothing in play mode, nor with a mouse", () => {
+      const { target, send } = surface();
+      const controller = new CameraController(target);
+      controller.frame({ x: 0, z: 0 }, 100);
+      const twist = (type = "touch") => {
+        const [a, b] = fingers(0);
+        const [c, d] = fingers(Math.PI / 2);
+        send("pointerdown", 1, a!.x, a!.y, type);
+        send("pointerdown", 2, b!.x, b!.y, type);
+        send("pointermove", 1, c!.x, c!.y, type);
+        send("pointermove", 2, d!.x, d!.y, type);
+        send("pointerup", 1, 0, 0, type);
+        send("pointerup", 2, 0, 0, type);
+      };
+      twist();
+      expect(controller.getAngles().azimuth).toBeCloseTo(0, 9);
+      controller.setMode("free");
+      twist("mouse");
+      expect(controller.getAngles().azimuth).toBeCloseTo(0, 9);
+    });
+  });
+
   it("clamps the target to the board in the Camera mode too", () => {
     const controller = new CameraController(canvas);
     controller.setMode("free");

@@ -24,11 +24,12 @@ export function CameraControl({ on, onChange }: CameraControlProps) {
     return () => window.removeEventListener("keydown", leave);
   }, [on, onChange]);
   return (
-    <div className="flex flex-col items-end gap-2">
+    // Taps reach it: the overlays' box lets them through to the village (`pointer-events-none`), its controls take them back.
+    <div className="pointer-events-auto flex flex-col items-end gap-2">
       {on && (
         <p key="hint" className="max-w-64 rounded-2xl bg-card/90 px-3 py-1.5 text-right text-xs text-muted-foreground shadow-lg backdrop-blur">
           <span className="pointer-coarse:hidden">Right drag turns and tilts, left drag pans, the wheel zooms</span>
-          <span className="hidden pointer-coarse:inline">One finger turns and tilts, two pinch and pan</span>
+          <span className="hidden pointer-coarse:inline">One finger turns and tilts, two pinch, pan and twist</span>
         </p>
       )}
       {/* One button in both states, so the focus stays on it. */}

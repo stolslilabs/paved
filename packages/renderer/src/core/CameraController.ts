@@ -21,6 +21,8 @@ export interface CameraInputAdapter {
   target: THREE.Vector3;
   enableRotate: boolean;
   enablePan: boolean;
+  /** OrbitControls' pan in the screen's plane (true, its default) or on the ground (false: the Camera mode's). */
+  screenSpacePanning?: boolean;
   enableDamping: boolean;
   zoomToCursor: boolean;
   zoomSpeed: number;
@@ -163,6 +165,10 @@ export class CameraController {
   private frameSource: (() => { target: { x: number; z: number }; distance: number } | null) | null = null;
   /** The return from the Camera mode under way (`setMode("play")` after `"free"`): its start, ms, and the angles it left from. */
   private returning: { start: number | null; polar: number; azimuth: number } | null = null;
+  /** The touches on the surface (pointer id to its place), for the Camera mode's two-finger twist; and the last twist's angle. */
+  private touches = new Map<number, { x: number; y: number }>();
+  private twistAngle: number | null = null;
+  private unbindTwist: (() => void) | null = null;
   /** A drag, pinch or wheel under way (`start` to `end` of the controls). */
   private interacting = false;
   private moved = false;
@@ -209,6 +215,52 @@ export class CameraController {
     this.controls.addEventListener("end", () => {
       this.interacting = false;
     });
+    this.bindTwist(viewport.inputTarget);
+  }
+
+  /**
+   * The Camera mode's twist (#875): two fingers turning about their midpoint turn the village with them, beside OrbitControls'
+   * pinch and pan, which have no twist. Read from the surface's own touch pointers; nothing in the other modes.
+   */
+  private bindTwist(target: unknown): void {
+    const surface = target as EventTarget | null;
+    if (!surface || typeof surface.addEventListener !== "function") return;
+    const down = (e: Event) => {
+      const p = e as PointerEvent;
+      if (p.pointerType !== "touch") return;
+      this.touches.set(p.pointerId, { x: p.clientX, y: p.clientY });
+      this.twistAngle = this.touchAngle();
+    };
+    const move = (e: Event) => {
+      const p = e as PointerEvent;
+      if (!this.touches.has(p.pointerId)) return;
+      this.touches.set(p.pointerId, { x: p.clientX, y: p.clientY });
+      const angle = this.touchAngle();
+      if (angle !== null && this.twistAngle !== null && this.mode === "free" && !this.returning) {
+        // The fingers' turn on the screen (y down: clockwise is positive), the shorter way; the village turns with them.
+        const delta = Math.atan2(Math.sin(angle - this.twistAngle), Math.cos(angle - this.twistAngle));
+        const { polar, azimuth } = this.getAngles();
+        this.placeAt(polar, azimuth + delta);
+        this.moved = true;
+      }
+      this.twistAngle = angle;
+    };
+    const up = (e: Event) => {
+      this.touches.delete((e as PointerEvent).pointerId);
+      this.twistAngle = this.touchAngle();
+    };
+    const events: [string, (e: Event) => void][] = [["pointerdown", down], ["pointermove", move], ["pointerup", up], ["pointercancel", up]];
+    for (const [name, fn] of events) surface.addEventListener(name, fn);
+    this.unbindTwist = () => {
+      for (const [name, fn] of events) surface.removeEventListener(name, fn);
+    };
+  }
+
+  /** The angle on the screen from the first touch to the second, while exactly two are down; else null. */
+  private touchAngle(): number | null {
+    if (this.touches.size !== 2) return null;
+    const [a, b] = [...this.touches.values()] as [{ x: number; y: number }, { x: number; y: number }];
+    return Math.atan2(b.y - a.y, b.x - a.x);
   }
 
   /** Whether the player moved the camera since it was last framed (`frame` with `byPlayer` unset clears it). */
@@ -252,6 +304,7 @@ export class CameraController {
       this.stepReturn(now);
       changed = true;
     }
+    if (this.mode === "free" && this.keepOnGround()) changed = true;
     if (this.mode === "free" && this.keepClear()) changed = true;
     if (this.mode === "showcase" || !this.boardBounds) {
       return changed;
@@ -278,6 +331,18 @@ export class CameraController {
   getAngles(): { polar: number; azimuth: number } {
     const s = SPHERICAL.setFromVector3(OFFSET.subVectors(this.camera.position, this.controls.target));
     return { polar: s.phi, azimuth: s.theta };
+  }
+
+  /**
+   * The Camera mode's target stays on the ground (its pan is on the ground already, `screenSpacePanning` off): a target lifted
+   * or sunk (a zoom to the cursor) comes back to it with the camera, the view kept. True when it moved.
+   */
+  private keepOnGround(): boolean {
+    const y = this.controls.target.y;
+    if (y === 0) return false;
+    this.controls.target.y = 0;
+    this.camera.position.y -= y;
+    return true;
   }
 
   /**
@@ -376,6 +441,7 @@ export class CameraController {
         ONE: THREE.TOUCH.PAN,
         TWO: THREE.TOUCH.DOLLY_PAN,
       };
+      this.controls.screenSpacePanning = true;
       if (from === "free") {
         const { polar, azimuth } = this.getAngles();
         // Open while it eases (the controls would clamp the camera to the locks at once); the next update starts the clock.
@@ -397,6 +463,8 @@ export class CameraController {
     // Leaving play mid-return: the camera stays where the return had it, and the new mode's bounds hold from there.
     this.returning = null;
     this.controls.enableRotate = true;
+    // The Camera mode pans on the ground: at a low tilt a drag up goes forward, never under the board.
+    this.controls.screenSpacePanning = mode !== "free";
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.mouseButtons = {
@@ -404,7 +472,7 @@ export class CameraController {
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT: THREE.MOUSE.ROTATE,
     };
-    // One finger turns and tilts; two fingers pinch to zoom and their midpoint pans.
+    // One finger turns and tilts; two fingers pinch to zoom and their midpoint pans (and, in the Camera mode, twist: `bindTwist`).
     this.controls.touches = {
       ONE: THREE.TOUCH.ROTATE,
       TWO: THREE.TOUCH.DOLLY_PAN,
@@ -460,6 +528,8 @@ export class CameraController {
   }
 
   dispose(): void {
+    this.unbindTwist?.();
+    this.unbindTwist = null;
     this.controls.dispose();
   }
 }

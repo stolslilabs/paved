@@ -478,9 +478,10 @@ function InCamera({ tilt, turn = 0, ...args }: HomeVillageSceneProps & { tilt?: 
 
 /**
  * CAMERA-MODE (#875, the owner's decisions of 2026-10-28): the Camera button beside Edit frees the village's camera, the tilt
- * from 15 to 85 degrees and the turn all the way round, each drag gliding out (the right drag or one finger turns and tilts). The
- * overlays fade to the profile, the balances and Exit camera, in Edit's corner over a hint of the controls (open point 2). Entered, the camera is
- * where the play view had it (27 degrees); then at the bounds, halfway and turned round. At 375 and 1440 px.
+ * from 15 to 85 degrees and the turn all the way round, each drag gliding out (the right drag or one finger turns and tilts, two
+ * fingers twist). The overlays fade to the profile, the balances and Exit camera, in Edit's corner over a hint of the controls (open
+ * point 2). Entered, the camera is where the play view had it (27 degrees); then at the bounds, halfway and turned round. At 375
+ * and 1440 px.
  */
 export const CameraPhone: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} />, ...PHONE_375 };
 export const CameraWide: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} />, ...WIDE_1440 };

@@ -134,7 +134,8 @@ with `docs/`, `scripts/` or `packages/`.
   down cancels the tap (TILT-54, `docs/client/v2-architecture.md` 5.10).
 - The home's Camera mode (#875) is `CameraMode` `"free"` (`GameCanvas`'s `cameraMode`, `BoardViewport`'s, the home's village only;
   the game boards stay `"play"`): the tilt from 15 to 85 degrees (`FREE_MIN_POLAR_ANGLE`, `FREE_MAX_POLAR_ANGLE`), the turn free, the
-  right button or one finger turning. Back to `"play"`, the tilt and the turn ease to the play view over `FREE_RETURN_MS` (600) in
+  right button or one finger turning, two fingers twisting (`bindTwist`), the pan on the ground (`screenSpacePanning` off, the
+  target kept at y 0). Back to `"play"`, the tilt and the turn ease to the play view over `FREE_RETURN_MS` (600) in
   `CameraController.update`, the target and the distance kept; a cut under reduced motion. At low angles the closest zoom grows
   (`closestDistanceAt`: the tallest tops stay beyond the near plane on the frustum's lower edge, about 40 at 85 degrees).
 - Change a default only with a capture and a figure (R-OUT, PR #411; stories "Renderer/Outlines" and "Renderer/Outlines
