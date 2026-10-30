@@ -2,14 +2,16 @@ import { formatInteger } from "@paved/game-core";
 import { useEffect } from "react";
 import { useMotionValue, useTransform } from "motion/react";
 import * as m from "motion/react-m";
-import { FILL_PATH, isMaxLevel, LevelPlate, levelPath, pathPoint, pathShare, XpPathFrame } from "./xp-level";
+import { FILL_PATH, isMaxLevel, LevelPlate, levelPath, PATH_BOX, pathPoint, pathShare, XpPathFrame } from "./xp-level";
 import { useXpMotion, type PlayerProgress } from "./xp-ring";
 
 export interface XpPathProps {
   /** Undefined while it is read: the empty track, "Lv" alone. */
   progress: PlayerProgress | undefined;
-  /** The name column's width in px: the line runs over it, to "Lv i". */
+  /** The name column's width in the path's units (px at the 44 px box): the line runs over it, to "Lv i". */
   column: number;
+  /** The avatar's box in px, the path drawn at its scale (issue 856: the season dial's size on the home). Default: 44. */
+  box?: number;
 }
 
 /**
@@ -20,7 +22,7 @@ export interface XpPathProps {
  * at once with a brief flash. Two siblings for the badge's row: the drawing over the avatar's box, and the plate in the flow.
  * Decorative: the control that holds it says the level and the XP left.
  */
-export function XpPath({ progress, column }: XpPathProps) {
+export function XpPath({ progress, column, box = PATH_BOX }: XpPathProps) {
   const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress);
   const capped = progress ? isMaxLevel(progress) : false;
   // The cap's path is full whatever the share (its span is 0): a motion value too, so a level up into the cap redraws it.
@@ -32,10 +34,12 @@ export function XpPath({ progress, column }: XpPathProps) {
   const lit = burst ?? flash;
   const { d } = levelPath(column);
   const end = progress ? pathPoint(pathShare(progress), column) : null;
+  const k = box / PATH_BOX;
   return (
     <>
       <XpPathFrame
         column={column}
+        box={box}
         fill={<m.path data-slot="xp-fill" d={d} {...FILL_PATH} style={{ pathLength: drawn, opacity: fillOpacity }} />}
         over={
           gain &&
@@ -46,7 +50,7 @@ export function XpPath({ progress, column }: XpPathProps) {
               className="numeric absolute text-xs font-bold whitespace-nowrap text-primary [text-shadow:0_1px_2px_var(--background)]"
               // Centred on the fill's end, but never left of the path's box: on the arc's left side (a quarter of the level) a
               // centred label would stick out of the screen's edge at 360 px.
-              style={{ left: end.x, top: end.y, translate: `calc(-1 * min(50%, ${end.x}px)) -100%` }}
+              style={{ left: end.x * k, top: end.y * k, translate: `calc(-1 * min(50%, ${end.x * k}px)) -100%` }}
               initial={{ y: 0, opacity: 0 }}
               animate={{ y: -14, opacity: [0, 1, 1, 0] }}
               transition={{ duration: 1.2, ease: "easeOut", times: [0, 0.15, 0.7, 1] }}

@@ -230,9 +230,12 @@ describe("the app's side panel at 1440 x 900: no close button, a click outside o
 
   const overlay = (name: string) => page.getByRole("navigation", { name: "Village" }).getByRole("button", { name: new RegExp(`^${name}`) });
 
+  // The League control under the profile (#829), the home's way to the League since #856 (no League in the right column).
+  const leagueControl = () => page.getByRole("button", { name: /^League: / });
+
   it("a click on the village closes it, and the focus goes back to the button that opened it", async () => {
     await page.goto(`${base}/`, { waitUntil: "networkidle" });
-    await overlay("League").click({ timeout: 30_000 });
+    await leagueControl().click({ timeout: 30_000 });
     const dialog = page.getByRole("dialog", { name: "League" });
     await dialog.waitFor();
     expect(await dialog.getByRole("button", { name: "Close" }).count()).toBe(0);
@@ -241,7 +244,7 @@ describe("the app's side panel at 1440 x 900: no close button, a click outside o
     await page.mouse.click(1200, 700);
     await dialog.waitFor({ state: "detached", timeout: 5000 });
     expect(new URL(page.url()).pathname).toBe("/");
-    await expect.poll(() => overlay("League").evaluate((el) => el === document.activeElement)).toBe(true);
+    await expect.poll(() => leagueControl().evaluate((el) => el === document.activeElement)).toBe(true);
   });
 
   it("Escape closes it", async () => {

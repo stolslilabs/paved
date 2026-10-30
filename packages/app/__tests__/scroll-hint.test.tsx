@@ -63,7 +63,15 @@ describe("the scrollable regions", () => {
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(resolve(dir, e.name)) : /\.tsx?$/.test(e.name) ? [resolve(dir, e.name)] : []));
     // The tab page's region is the page's document (#611): the page's hint, not the mask (`TabFrame`); so is the side panel's body
     // from `desktop` (#762), where the page is drawn (`PagePanel`), and the body of a sheet over a page (BACK-RULE #783, `PageSheet`).
-    const allowed = new Set(["components/ui/scroll-region.tsx", "components/containers/tab-frame.tsx", "components/containers/page-panel.tsx", "components/containers/page-sheet.tsx"]);
+    // The home's left column (#856) is `ScrollRegion`'s box with its hint attached once the stage's chunk is in (kept off the first
+    // load): checked by scenes.test.
+    const allowed = new Set([
+      "components/ui/scroll-region.tsx",
+      "components/containers/tab-frame.tsx",
+      "components/containers/page-panel.tsx",
+      "components/containers/page-sheet.tsx",
+      "components/scenes/home-village-scene.tsx",
+    ]);
     const offenders = files(root)
       .map((f) => relative(root, f))
       // Storybook's own tools (renderer benches, lighting) are not the app's screens.

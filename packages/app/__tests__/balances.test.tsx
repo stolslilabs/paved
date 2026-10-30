@@ -204,7 +204,7 @@ describe("the plates (#828)", () => {
 
   it("column: the balances one under the other, right-aligned", () => {
     render(wrap(<Balances layout="rail" direction="column" state={READY} />));
-    expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end gap-2"));
+    expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end gap-3"));
   });
 
   it("no balances, nothing drawn", () => {
@@ -223,7 +223,7 @@ describe("the plates (#828)", () => {
   });
 
   // #855's second open point: the phone stack gives way to the Cobbles alone where its widest plate would cover the League control.
-  // jsdom lays nothing out: the plates' widths and the row's and the League control's edges are stubbed as measured at 320 px.
+  // jsdom lays nothing out: the plates' widths and the stack's and the League control's edges are stubbed as measured at 320 px.
   it.each([
     ["a large PAVED balance crowds the League control: the Cobbles alone", 213, true],
     ["an ordinary one fits beside it: the whole stack", 120, false],
@@ -249,7 +249,7 @@ describe("the plates (#828)", () => {
       },
     );
     const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-      const right = this.dataset.slot === "home-top-row" ? 312 : this.dataset.slot === "league-control" ? 167 : 0;
+      const right = this.dataset.direction === "column" ? 312 : this.dataset.slot === "league-control" ? 167 : 0;
       return { right, left: 0, top: 0, bottom: 0, width: right, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
     });
     try {
@@ -268,11 +268,11 @@ describe("the plates (#828)", () => {
     }
   });
 
-  it("the home stacks its balances at every width; a page's header keeps them in a row", async () => {
+  it("the home stacks its balances below desktop and puts them in a row from it (#856); a page's header keeps them in a row", async () => {
     const { unmount } = render(wrap(<BalancesProvider value={{ state: READY }}><HomeVillageScene {...HOME_VILLAGE.view} /></BalancesProvider>));
     const home = await screen.findAllByRole("region", { name: "Balances" });
-    // The phone's plates below `desktop`, the larger ones from it, both stacked (#855: the home's set at every width).
-    expect(home.map((r) => r.dataset.direction)).toEqual(["column", "column"]);
+    // The phone's plates below `desktop`, stacked (#855: the home's set at every width); the larger ones from it in a row (#856).
+    expect(home.map((r) => r.dataset.direction)).toEqual(["column", "row"]);
     unmount();
     render(wrap(<BalancesProvider value={{ state: READY }}><TopBar title="Choose a mode" /></BalancesProvider>));
     const header = await screen.findAllByRole("region", { name: "Balances" });

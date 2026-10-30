@@ -133,8 +133,10 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
  * the safe areas. In view: at the top left the profile (#787, #830: the avatar in the level's arc and line, "Lv i", the name), under it the League control (#829:
  * the League button, the crowns on a plate closed by the league's crest), the shield's mirrored plate while shielded, then the
- * village score (#755), an inline accordion (#831: the total, a tap unfolds the four kinds' sums in place); the balances and the gear at the top right; the right column (Missions, Chests, Shop, Vault, League) with their counts; Play
- * (the two swords, no text, #807), large, at the bottom right with Edit (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
+ * village score (#755), an inline accordion (#831: the total, a tap unfolds the four kinds' sums in place), those centred between the
+ * profile and the season dial (#856); the balances at the top right; the right column (Missions, Chests, Shop, Vault) with their
+ * counts, centred vertically (#856); Play (the two swords, no text, #807), large, at the bottom right with Settings above it and Edit
+ * (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
  * too, through a bubble by the tile with Edit and the hold's ring (LONGPRESS-EDIT, #799, the stage's `onEdit`).
@@ -143,7 +145,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * large Play go (the bar's Settings and centre disc); Edit and the season dial sit above the bar (its measured `--app-nav-h`).
  * Edit mode has no bar: the editor's panel takes the bottom.
  * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the navigation is this overlay, with no bar and no
- * header: the column of five (Missions, Chests, Shop, Vault, League; League beside the badge on purpose), the gear and Play. Each
+ * header: the column of four (Missions, Chests, Shop, Vault; no League since #856, the League control is the way), Settings and Play. Each
  * opens its page in a side panel on the right, over the village, which stays in view (`routes/home-layout.tsx`); the profile
  * opens on the left.
  */
@@ -269,22 +271,65 @@ function HomeBar({ children }: { children: ReactNode }) {
 }
 
 /**
- * The balances' width at the home's top right, as `--balances-w` on the top row: the plates stand out of the row's flow (#828), and
- * the profile's line beside them stops short of them whatever the amounts (a 999,999 Cobbles plate at 320 px).
+ * The left column's edge hint (NO-SCROLLBARS, #609; HOME-OVERLAYS, #856): `ScrollRegion`'s, attached once the stage's chunk, which
+ * carries it already (its plan and inventory scroll), is in: nothing more on the first load (FIRST-LOAD), and the column is the
+ * same box from the first paint (it scrolls meanwhile, without the fade).
  */
-function useBalancesWidth() {
-  const ref = useRef<HTMLDivElement>(null);
+function leftColumnHint(el: HTMLDivElement) {
+  let off: (() => void) | undefined;
+  let gone = false;
+  void import("../containers/village-stage").then((m) => {
+    if (!gone) off = m.scrollHintRef(el);
+  });
+  return () => {
+    gone = true;
+    off?.();
+  };
+}
+
+/** The gap of both columns' buttons and of the bands' edges (#856), 12 px. */
+const GAP_PX = 12;
+
+/**
+ * The overlays' measures, on their box. The width of the balances' first plate and a gap (`--balances-w`), so the profile's line
+ * beside it stops short of it whatever the amounts (a 999,999 Cobbles plate at 320 px, #828). HOME-OVERLAYS (#856, the owner's decisions of
+ * 2026-10-28): the bands the two columns are centred in, a gap off their neighbours as they are drawn: the right one from under the
+ * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
+ * above the season dial (without it, the bottom row's foot, above the bar).
+ */
+function useOverlayMeasures(dial: boolean) {
+  const refs = {
+    box: useRef<HTMLDivElement>(null),
+    balances: useRef<HTMLDivElement>(null),
+    profile: useRef<HTMLDivElement>(null),
+    actions: useRef<HTMLDivElement>(null),
+    dial: useRef<HTMLDivElement>(null),
+  };
   useLayoutEffect(() => {
-    const cell = ref.current;
-    const row = cell?.parentElement;
-    if (!cell || !row) return;
-    const write = () => row.style.setProperty("--balances-w", `${cell.offsetWidth}px`);
-    write();
-    const observer = new ResizeObserver(write);
-    observer.observe(cell);
+    const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial].map((ref) => ref.current);
+    const [box, right] = els as HTMLElement[];
+    // Its first notice comes before the first paint: the bands are in place when the overlays show.
+    const observer = new ResizeObserver(() => {
+      // The profile's line and name stand beside the stack's first plate only (the others pass under the line, beside the
+      // avatar); from `desktop` the stack is not drawn (0), the row leaves the profile its room. Watched once it is in.
+      const plate = right.querySelector<HTMLElement>("[data-kind]");
+      if (plate) observer.observe(plate);
+      const [frame, balances, profile, foot, wheel] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
+      const edges = {
+        "--balances-w": (plate ?? right).offsetWidth,
+        "--right-top": balances!.bottom - frame!.top,
+        "--right-bottom": frame!.bottom - foot!.top,
+        "--left-top": profile!.bottom - frame!.top,
+        "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom),
+      };
+      for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
+    });
+    // The box and what the bands stand off (not the columns, which the bands size).
+    for (const el of els) if (el) observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-  return ref;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the refs are stable; the dial comes and goes with the scene's wheel
+  }, [dial]);
+  return refs;
 }
 
 /**
@@ -296,35 +341,34 @@ export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpav
 
 /**
  * BALANCES-BY-PAGE (#855, the issue's second open point): below `desktop` the home's stack is the Cobbles, PAVED and vPAVED one under
- * the other, unless its widest plate does not fit beside the League control under the profile: then the Cobbles stand alone
+ * the other, unless its widest plate does not fit beside the League control in the left column: then the Cobbles stand alone
  * (`beside`, `Balances`).
  */
-const BESIDE_LEAGUE = ["[data-slot=home-top-row]", "[data-slot=league-control]"] as const;
+const BESIDE_LEAGUE = ["[data-slot=home-overlays]", "[data-slot=league-control]"] as const;
 
 /**
- * The right column, over Play: under the balances (#828), as far down as the stack reaches, and never above 5.5 rem from the
- * screen's top (5 rem in the top row's padding from `tablet`), where it stood before the stack. From `desktop` it stops above Play
- * (the top row's 1 rem, its own top, Play's 4.5 rem, its 1 rem margin and a 0.5 rem gap): on a short window its buttons wrap into
- * a second column, to the left, instead of running under Play.
+ * The right column, over Play, centred vertically in its band (#856). Below `desktop` it keeps Missions and Vault (Chests and Shop
+ * are the bar's, #763); from it Missions, Chests, Shop and Vault, with no League (#856: the League control on the left is the way
+ * in). On a short window its buttons wrap into a second column, to the left, instead of running under Play.
  */
 function VillageNav(props: HomeVillageSceneProps) {
   return (
     <nav
       aria-label="Village"
-      className="absolute top-[max(calc(100%+0.5rem),5.5rem)] -right-1 flex flex-col items-center gap-1.5 tablet:top-[max(calc(100%+0.5rem),5rem)] tablet:gap-2.5 desktop:max-h-[calc(100dvh-max(100%+0.5rem,5rem)-7rem)] desktop:flex-wrap-reverse desktop:content-start"
+      className={cn(
+        // Centred in its band (`justify-center-safe`: taller than the band, it starts at the band's top, never over the balances).
+        "pointer-events-none absolute top-(--right-top) right-1 bottom-(--right-bottom) flex flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 tablet:right-3 [&>*]:pointer-events-auto",
+      )}
     >
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
-      {/* Below `desktop` Chests, Shop and League are the bar's (#763): the column keeps Missions and Vault. */}
       <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
-      {/* League stays beside the badge, on purpose (#755): labelled "League", the badge shows which. */}
-      <OverlayButton icon="trophy" label="League" onClick={props.onLeague} className={BAR_ONLY_BELOW_DESKTOP} />
     </nav>
   );
 }
 
-/** The view's overlays: the corners, the right column, Play and Edit, the chips. */
+/** The view's overlays: the corners, the two columns, Play, Settings and Edit, the chips. */
 function ViewOverlays({
   village,
   editable,
@@ -336,93 +380,108 @@ function ViewOverlays({
   const { activeGame, now, guest, founded = true } = props;
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
-  const balancesRef = useBalancesWidth();
-  return (
+  const measures = useOverlayMeasures(!!props.seasonWheel);
+  // The left column's controls (#829, #856).
+  const leftColumn = (
     <>
-      {/* Top: the avatar and its name at the left, the balances and the gear at the right; the chips below. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
-        <div data-slot="home-top-row" className="relative flex items-start justify-between gap-2">
+      {/* The League control (the crowns and the crest, no name) and the shield's plate (#829). */}
+      <Suspense fallback={LEAGUE_STAND_IN}>
+        <LazyLeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+      </Suspense>
+      {props.shieldEndsAt != null && props.shieldEndsAt > now && (
+        <Suspense fallback={null}>
+          <LazyShieldPlate endsAt={props.shieldEndsAt} now={now} />
+        </Suspense>
+      )}
+      {village && (
+        // Under it (#755), the village score (#831): the total, a tap unfolds the four kinds' sums in place.
+        <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
+      )}
+      {/* The chips, in the same column (#856), clear of the right column. */}
+      <>
+        {activeGame && (
+          <button
+            type="button"
+            onClick={() => props.onResume?.(activeGame.id)}
+            aria-label={`Resume Challenge #${activeGame.id}`}
+            className="state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
+              <Icon name="play" size="xs" />
+            </span>
+            <span className="font-semibold">Resume #{activeGame.id}</span>
+            <span className="numeric hidden text-muted-foreground min-[24.5rem]:inline">{formatPoints(activeGame.score)} pts</span>
+            <Countdown expiresAt={activeGame.expiresAt} now={now} hideLabel />
+          </button>
+        )}
+        {props.spawnPaused && (
+          <span role="status" className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-warning/50 bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
+            <Icon name="circle-pause" size="xs" className="text-warning" />
+            New Challenge games are paused
+          </span>
+        )}
+        {guest && (
+          // Connect is the header's (the balances' place): the chip says why, once.
+          <span role="status" className="pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
+            Playing as a guest: connect to build your village
+          </span>
+        )}
+      </>
+    </>
+  );
+  return (
+    // The overlays' box (the scene's): the top row's measures and the bar's height are set on it, for the columns and the bottom.
+    <div ref={measures.box} data-slot="home-overlays" className="pointer-events-none absolute inset-0">
+      {/* Top: the profile at the left, the balances at the right. */}
+      <div className="absolute inset-x-0 top-0 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+        <div className="relative flex items-start justify-between gap-2">
           <div
+            ref={measures.profile}
             className={cn(
-              "pointer-events-auto flex max-w-[calc(100%-4.75rem)] min-w-0 flex-col items-start gap-1 tablet:max-w-[calc(100%-6rem)]",
+              "pointer-events-auto min-w-0",
               // The profile's line gives way to the balances beside it (`--balances-w`): its name column and the level's line narrow, never under a wide plate.
-              "[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-1.5rem-var(--balances-w,0px))] tablet:[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-2.5rem-var(--balances-w,0px))]",
+              "[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-1rem-var(--balances-w,0px))] tablet:[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-2rem-var(--balances-w,0px))]",
             )}
           >
-            {/* The profile (#787), then under it (#829) the League control (the crowns and the crest, no name) and the shield's plate. */}
+            {/* The profile (#787), the season dial's size (#856). */}
             <PlayerBadge />
-            <Suspense fallback={LEAGUE_STAND_IN}>
-              <LazyLeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
-            </Suspense>
-            {props.shieldEndsAt != null && props.shieldEndsAt > now && (
-              <Suspense fallback={null}>
-                <LazyShieldPlate endsAt={props.shieldEndsAt} now={now} />
-              </Suspense>
-            )}
-            {village && (
-              // Under it (#755), the village score (#831): the total, a tap unfolds the four kinds' sums in place.
-              <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
-            )}
           </div>
           {/*
-            The home's own balances (#855: the Cobbles, PAVED, vPAVED while held; no USDC), one under the other at the top right
-            (#828), at every width, the phone's plates below `desktop` and the larger ones from it; the same under a panel's page. Out of the row's
-            flow: only the profile's line stands beside them (the League control under it passes below the plate), so at 320 px the
-            badge keeps its whole width; the left column stops short of the right column (the chips' clearance) and wraps.
+            The home's own balances (#855: the Cobbles, PAVED, vPAVED while held; no USDC) at the top right, the same under a
+            panel's page: below `desktop` the phone's plates one under the other (#828), from it the larger ones in a row (#856).
+            Out of the row's flow: only the profile's line stands beside them, so at 320 px the badge keeps its whole width.
           */}
-          <div ref={balancesRef} className="pointer-events-auto absolute top-0 right-0 flex items-start gap-2">
-            {/* Below `desktop` Settings is the bar's (#763); from it, beside the stack's first plate. */}
-            <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="hidden rounded-full bg-card/90 backdrop-blur desktop:inline-flex">
-              <GameIcon name="gear" size="md" />
-            </Button>
+          <div ref={measures.balances} className="pointer-events-auto absolute top-0 right-0 flex items-start">
             <div data-slot="home-phone-balances" className="relative desktop:hidden">
               <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" beside={BESIDE_LEAGUE} />
             </div>
-            <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />
-            <VillageNav {...props} />
+            <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="row" className="hidden desktop:flex" />
           </div>
         </div>
-        {/* The chips under the avatar, clear of the right column. */}
-        <div className="flex flex-col items-start gap-2 pr-[4.75rem] tablet:pr-24">
-          {activeGame && (
-            <button
-              type="button"
-              onClick={() => props.onResume?.(activeGame.id)}
-              aria-label={`Resume Challenge #${activeGame.id}`}
-              className="state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
-                <Icon name="play" size="xs" />
-              </span>
-              <span className="font-semibold">Resume #{activeGame.id}</span>
-              <span className="numeric hidden text-muted-foreground min-[24.5rem]:inline">{formatPoints(activeGame.score)} pts</span>
-              <Countdown expiresAt={activeGame.expiresAt} now={now} hideLabel />
-            </button>
-          )}
-          {props.spawnPaused && (
-            <span role="status" className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-warning/50 bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
-              <Icon name="circle-pause" size="xs" className="text-warning" />
-              New Challenge games are paused
-            </span>
-          )}
-          {guest && (
-            // Connect is the header's (the balances' place): the chip says why, once.
-            <span role="status" className="pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
-              Playing as a guest: connect to build your village
-            </span>
-          )}
-        </div>
+      </div>
+      <VillageNav {...props} />
+      {/*
+        The left column under the profile (#829), centred between it and the dial (#856), clear of the right column. Taller than its
+        band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it (its edge
+        fading where more waits), never over the dial; its padding keeps the controls' shadows inside the scroll box.
+      */}
+      <div
+        ref={leftColumnHint}
+        data-slot="scroll-region"
+        className="scroll-hint absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
+      >
+        {leftColumn}
       </div>
 
       {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
       {props.seasonWheel && (
-        <div data-dial-place className={cn("absolute left-2 tablet:left-4", ABOVE_BAR)}>
+        <div ref={measures.dial} data-dial-place className={cn("absolute left-2 tablet:left-4", ABOVE_BAR)}>
           <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
             <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
           </Suspense>
         </div>
       )}
-      <div className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div ref={measures.actions} className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {village && !guest && !props.readOnly && !founded ? (
           <Button size="lg" variant="outline" className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
             <GameIcon name="house-tree" size="sm" /> Found
@@ -434,15 +493,23 @@ function ViewOverlays({
             </Button>
           )
         )}
-        {/* Play, the main action (#755, #807): the two swords, no text, gold and large, from `desktop`; below it the bar's centre disc (#763). */}
-        <Button size="icon" onClick={props.onPlay} aria-label="Play" className="hidden size-16 rounded-2xl shadow-lg tablet:size-18 desktop:inline-flex">
-          <GameIcon name="swords" size="xl" />
-        </Button>
+        {/*
+          From `desktop` (below it both are the bar's, #763): Settings above Play, right-aligned, Edit's size (#856); Play, the main
+          action (#755, #807), the two swords, no text, gold and large.
+        */}
+        <div className="hidden flex-col items-end gap-3 desktop:flex">
+          <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
+            <GameIcon name="gear" size="lg" />
+          </Button>
+          <Button size="icon" onClick={props.onPlay} aria-label="Play" className="size-16 rounded-2xl shadow-lg tablet:size-18">
+            <GameIcon name="swords" size="xl" />
+          </Button>
+        </div>
       </div>
       {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
       <HomeBar>
         <LazyAppNav active={null} badges={{ chests: props.chests }} onNavigate={props.onNavigate} className="relative" />
       </HomeBar>
-    </>
+    </div>
   );
 }

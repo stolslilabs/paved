@@ -132,9 +132,10 @@ function useVpavedPlate(vpaved: bigint | null | undefined): { shown: boolean; fr
 }
 
 /**
- * BALANCES-BY-PAGE (#855, the issue's second open point): a column that would crowd a control (`beside`), its widest plate (a
- * large PAVED balance) wider than the room right of it in their row, keeps the Cobbles alone (`data-crowded`). The control may
- * arrive later (its own chunk): it is looked up at each measure, and the row's children are watched for it. The other plates
+ * BALANCES-BY-PAGE (#855, the issue's second open point): a column that would crowd a control (`beside`: a box that holds both,
+ * then the control), its widest plate (a large PAVED balance) wider than the room between the control and the column's right
+ * edge, keeps the Cobbles alone (`data-crowded`). The control may arrive later (its own chunk): it is looked up at each measure,
+ * watched for, then watched. The other plates
  * leave the flow, hidden, but keep their width, so the measure does not change with the answer. Their amounts stay on the Vault,
  * a tap away.
  */
@@ -146,17 +147,25 @@ function useCrowded(beside?: readonly [row: string, control: string]) {
     const [rowOf, controlOf] = beside;
     const row = column.closest(rowOf);
     if (!row) return;
-    const sizes = new ResizeObserver(() => {
+    const measure = () => {
       const plates = [...column.querySelectorAll<HTMLElement>("[data-kind]")];
       const control = row.querySelector(controlOf);
-      // A plate's width follows its amount: each is watched once it has arrived (the column grows as they do). An 8 px gap.
-      for (const plate of plates) sizes.observe(plate);
-      const free = control ? row.getBoundingClientRect().right - control.getBoundingClientRect().right - 8 : Infinity;
+      // A plate's width follows its amount: each is watched once it has arrived (the column grows as they do), the control too.
+      for (const box of [...plates, control]) if (box) sizes.observe(box);
+      // The room between the control and the column's own right edge, where the plates end (#856: the control left the top row).
+      const free = control ? column.getBoundingClientRect().right - control.getBoundingClientRect().right - 8 : Infinity;
       column.toggleAttribute("data-crowded", plates.length > 1 && Math.max(...plates.map((plate) => plate.offsetWidth)) > free);
-    });
-    // The row, the column as its plates arrive, and the row's children as the control does.
-    for (const box of [row, column, ...row.children]) sizes.observe(box);
-    return () => sizes.disconnect();
+    };
+    const sizes = new ResizeObserver(measure);
+    // The control's arrival (#856: its column's box is sized by its band, not by the control).
+    const arrival = new MutationObserver(() => row.querySelector(controlOf) && (arrival.disconnect(), measure()));
+    arrival.observe(row, { childList: true, subtree: true });
+    // The row, and the column as its plates arrive.
+    for (const box of [row, column]) sizes.observe(box);
+    return () => {
+      sizes.disconnect();
+      arrival.disconnect();
+    };
   }, [beside]);
   return ref;
 }
@@ -254,7 +263,7 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
       ref={crowded}
       aria-label="Balances"
       data-direction={direction}
-      className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-2" : cn("items-center", size === "md" ? "gap-3" : "gap-2"), className)}
+      className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-3" : cn("items-center", size === "md" ? "gap-3" : "gap-2"), className)}
     >
       {state.status === "disconnected" ? (
         <Guest connecting={state.connecting} onConnect={onConnect} names={size === "md" ? namesOf(kinds) : undefined} />

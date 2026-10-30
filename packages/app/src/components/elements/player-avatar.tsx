@@ -19,8 +19,11 @@ const DISC = "grid size-full place-items-center rounded-full";
 /** The saved avatar's still, its own chunk (the renderer's format and the still renderer stay out of the menus' first load). */
 const SavedAvatar = lazy(() => import("./saved-avatar"));
 
-/** The disc's side in CSS px at each size (the box less its band): the still's size. */
-const DISC_PX = { md: 40, lg: 88 } as const;
+/**
+ * The still's side in CSS px at each size: the disc's (the box less its band), `lg` at the largest it is drawn (the home's profile
+ * at the season dial's size, 144 px from `tablet`, issue 856; the profile sheet's 88 px disc shares that still).
+ */
+const DISC_PX = { md: 40, lg: 128 } as const;
 
 /** Who the avatar shows: the name the screens give the player (`PlayerName`) and the address their initial falls back to. */
 export interface AvatarPlayer {

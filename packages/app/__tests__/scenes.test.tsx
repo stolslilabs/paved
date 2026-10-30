@@ -116,7 +116,7 @@ describe("Home (#753): the village with its overlays", () => {
     // 1.5 s on a quiet machine, past the 5 s default on CI once the HUD drew its relief icons (#844).
     expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ }, { timeout: slow(10_000) })).toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault", "League"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault"]);
     // The overlays outside the bar (the bar's own are tested below).
     const overlay = (name: string | RegExp) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
     for (const [name, handler] of [
@@ -124,7 +124,7 @@ describe("Home (#753): the village with its overlays", () => {
       ["Chests, 2 waiting", on.onChests],
       ["Shop", on.onShop],
       ["Vault", on.onVault],
-      ["League", on.onLeague],
+      [/^League: /, on.onLeague],
       ["Settings", on.onSettings],
       [/^Play/, on.onPlay],
     ] as const) {
@@ -156,10 +156,45 @@ describe("Home (#753): the village with its overlays", () => {
     const below = within(column).getAllByRole("button").filter((b) => !b.className.split(" ").includes("hidden"));
     expect(below.map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault"]);
     const outside = (name: string) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
-    for (const name of ["Settings", "Play"]) expect(outside(name).className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:inline-flex"]));
+    // Settings above Play from `desktop` (#856): their stack is hidden below it.
+    expect(outside("Settings").parentElement).toBe(outside("Play").parentElement);
+    expect(outside("Play").parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:flex"]));
     // Edit's row and the dial clear the bar's measured height below `desktop`.
     expect(screen.getByRole("button", { name: "Edit village" }).parentElement!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
     expect(document.querySelector("[data-dial-place]")!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
+  });
+
+  it("HOME-OVERLAYS (#856): one 12 px gap for both columns, each centred in its band; no League in the right column; Settings above Play, Edit's size", async () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.shielded} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+    await screen.findByRole("button", { name: /^League: / });
+    const right = screen.getByRole("navigation", { name: "Village" });
+    const left = screen.getByRole("button", { name: /^League: / }).parentElement!;
+    for (const column of [right, left]) expect(column.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "gap-3", "justify-center-safe"]));
+    // Each column's band, measured off its neighbours (the browser's layout, the stories' captures): under the balances and above
+    // Edit (Settings and Play) on the right, under the profile and above the season dial on the left.
+    expect(right.className.split(" ")).toEqual(expect.arrayContaining(["top-(--right-top)", "bottom-(--right-bottom)"]));
+    expect(left.className.split(" ")).toEqual(expect.arrayContaining(["top-(--left-top)", "bottom-(--left-bottom)"]));
+    // Taller than its band (shielded, the score unfolded, a short screen), the left column scrolls within it, never over the dial:
+    // `ScrollRegion`'s box, its edge hint attached once the stage's chunk is in (the hint marks the axis that scrolls, none here).
+    expect(left).toHaveAttribute("data-slot", "scroll-region");
+    expect(left.className.split(" ")).toEqual(expect.arrayContaining(["scroll-hint", "overflow-y-auto", "overscroll-contain"]));
+    // The left column holds the League control, the shield's plate and the village score, in that order.
+    expect(within(left).getByRole("button", { name: /^League: / })).toBeInTheDocument();
+    expect(left.querySelector("[data-slot=village-score]")).not.toBeNull();
+    // From `desktop` no League in the right column (#856): only Missions, Chests, Shop and Vault, at any width.
+    expect(within(right).queryByRole("button", { name: /^League/ })).toBeNull();
+    // Settings above Play, right-aligned, the size of Edit (56 px, round); none at the top right any more.
+    const settings = screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav[aria-label=Main]"))!;
+    const play = screen.getAllByRole("button", { name: "Play" }).find((b) => !b.closest("nav[aria-label=Main]"))!;
+    expect(settings.nextElementSibling).toBe(play);
+    expect(settings.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "items-end", "gap-3"]));
+    const edit = screen.getByRole("button", { name: "Edit village" });
+    for (const size of ["size-14", "rounded-full"]) {
+      expect(edit.className.split(" ")).toContain(size);
+      expect(settings.className.split(" ")).toContain(size);
+    }
+    // In the bottom row, with Edit, not at the top right.
+    expect(edit.parentElement!.contains(settings)).toBe(true);
   });
 
   it("draws Play as the two swords with no text and Edit as a hammer, both large and named (#755, #807)", () => {
@@ -171,8 +206,8 @@ describe("Home (#753): the village with its overlays", () => {
     const edit = screen.getByRole("button", { name: "Edit village" });
     expect(edit.querySelector("[data-icon=hammer]")).not.toBeNull();
     expect(edit.className).toMatch(/\bsize-14\b/);
-    // 8 px apart below `desktop`, 16 from it (#845).
-    expect(edit.parentElement).toBe(play.parentElement);
+    // 8 px apart below `desktop`, 16 from it (#845); Play under Settings in its own stack (#856).
+    expect(edit.parentElement).toBe(play.parentElement!.parentElement);
     expect(edit.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["gap-2", "desktop:gap-4"]));
     // The game icons (#844): the HUD's icons in relief, drawn at the first paint, not Font Awesome's flat ones.
     for (const name of ["Play", "Edit village", "Missions", "Vault", "Settings"]) {

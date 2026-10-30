@@ -59,12 +59,13 @@ afterEach(() => {
 });
 
 describe("/: the PvP standing by the avatar (#755)", () => {
-  it("shows the crowns and their league; the column's League is plain and there is no Defence", async () => {
+  it("shows the crowns and their league; the column has no League and no Defence", async () => {
     await open({ crowns: 1_240 });
     const name = leagueOf(1_240).name;
     expect(await screen.findByRole("button", { name: `League: ${name}, 1,240 crowns` }, WAIT)).toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
-    expect(within(column).getByRole("button", { name: "League" })).toBeInTheDocument();
+    // The League control is the way in (#856): no League in the column.
+    expect(within(column).queryByRole("button", { name: /^League/ })).toBeNull();
     expect(within(column).queryByRole("button", { name: /^Defence/ })).toBeNull();
   }, slow(30_000));
 

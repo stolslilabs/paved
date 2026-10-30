@@ -154,10 +154,14 @@ describe("PlayerBadge (#787, the league out of it since #829, the level's path s
     await screen.findByRole("button", { name: /^League: / });
     const corner = container.querySelector<HTMLElement>("[data-slot=player-badge]")!;
     expect(within(corner).getByRole("button", { name: /^Profile: bal7hazar, level 3/ })).toBeInTheDocument();
-    const league = corner.nextElementSibling as HTMLElement;
+    // The avatar at the season dial's size (#856).
+    expect(corner.querySelector("[data-slot=player-avatar]")!.className).toContain("tablet:size-36");
+    // The column under the profile (#856, centred between it and the dial): the League control, then the village score.
+    const column = screen.getByRole("button", { name: /^League: / }).parentElement!;
+    const [league, score] = [...column.children] as HTMLElement[];
     expect(league).toHaveAccessibleName(/^League: /);
-    expect(league.nextElementSibling).toHaveAttribute("data-slot", "village-score");
-    expect(within(league.nextElementSibling as HTMLElement).getByRole("button")).toHaveAccessibleName(/^Village score /);
+    expect(score).toHaveAttribute("data-slot", "village-score");
+    expect(within(score!).getByRole("button")).toHaveAccessibleName(/^Village score /);
     expect(container.querySelector("[data-slot=xp-ring]")).toBeNull();
   });
 });
