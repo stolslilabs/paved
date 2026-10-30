@@ -55,12 +55,14 @@ const LEVEL_UPS = Array.from({ length: 6 }, (_, k) => {
 });
 
 /**
- * The profile at the home's top left (#787, reshaped by #830): the avatar with the level's path round it, an arc from its right
- * clockwise to its top that runs on as a line to the right, "Lv i" in a plate at the line's end, and the name under the line in
- * the display font; it opens the profile sheet, which has the XP made and left. The share of the level is laid on the whole path:
- * the arc fills first, then the line. The league, its crowns and the shield left it for the League control and the shield's plate
- * under it (#829, `Containers/LeagueControl`, `Elements/ShieldPlate`). One story per state; the widths (320, 375, 1440 px) are the
- * home's `LeftColumn*` stories, or Storybook's Viewport toolbar here.
+ * The profile at the home's top left (#787, reshaped by #830 and #928): the avatar with the level's path round it, an opaque bar
+ * from its right clockwise to its top that runs on as a line to the right and ends square in the level tag, "Lv i", of one width
+ * for every level from 1 to 99; the whole at most 1.5 times the avatar's width. The name, after the User icon, on a band that
+ * starts behind the avatar and fades out to the badge's end, shrunk to fit then cut with an ellipsis. It opens the profile sheet,
+ * which has the XP made and left. The share of the level is laid on the whole path: the arc fills first, then the line. The
+ * league, its crowns and the shield left it for the League control and the shield's plate under it (#829,
+ * `Containers/LeagueControl`, `Elements/ShieldPlate`). One story per state; the widths (320, 375, 1440 px) are the home's
+ * `LeftColumn*` stories, or Storybook's Viewport toolbar here.
  */
 const meta = {
   title: "Containers/PlayerBadge",
@@ -74,8 +76,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** 0 %: a new player, level 1 with no XP; the track alone. */
+/** 0 %: a new player, level 1 with no XP; the track alone, "Lv 1" in the tag. */
 export const Start: Story = { parameters: profile(PROFILE.connected, PROGRESS.start) };
+/** Level 9: the tag's width, as at every level from 1 to 99 (#928). */
+export const Level9: Story = { parameters: profile(PROFILE.connected, { level: 9, xp: 120, xpForNext: 400 }) };
+/** Level 10: two figures, the same tag. */
+export const Level10: Story = { parameters: profile(PROFILE.connected, { level: 10, xp: 60, xpForNext: 450 }) };
+/** Level 99: the widest the tag holds, the same width. */
+export const Level99: Story = { parameters: profile(PROFILE.connected, { level: 99, xp: 900, xpForNext: 1_000 }) };
+/** A name of 20 characters: shrunk to 12 px, then cut with an ellipsis before the badge's end (its whole text in the title). */
+export const LongName: Story = { parameters: profile({ status: "connected", data: { ...PROFILE.connected.data, player: { ...PROFILE.connected.data.player, name: "Cobblestone_Builder7" } } }, PROGRESS.partWay) };
 /** 30 %: part of the arc. */
 export const ThirtyPercent: Story = { parameters: profile(PROFILE.connected, PROGRESS.thirty) };
 /** 40 %, level 3: the arc nearly full. */
@@ -92,7 +102,7 @@ export const MaxLevel: Story = { parameters: profile(PROFILE.connected, PROGRESS
 export const SavedAvatar: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay, SAVED_LOOK) };
 /** The XP still read: the empty track, "Lv" alone. */
 export const ReadingXp: Story = { parameters: profile(PROFILE.connected, undefined) };
-/** WRAP360: a four-digit level and a long name, cut with an ellipsis (its whole text in the title). */
+/** WRAP360: a four-digit level (past the tag's 99: "99+", never at the cap of 20) and a long name, cut with an ellipsis (its whole text in the title). */
 export const Stress: Story = { parameters: profile(PROFILE.stress, PROGRESS.stress) };
 /** No wallet: the silhouette, "Guest", no path. */
 export const Guest: Story = { parameters: profile(PROFILE.guest) };
@@ -100,7 +110,7 @@ export const Guest: Story = { parameters: profile(PROFILE.guest) };
 export const Loading: Story = { parameters: profile(PROFILE.loading) };
 /** XP gained: the path fills to its new share, a "+N XP" rises at the progress's end, on the arc then on the line. */
 export const Gain: Story = { render: () => <Playing steps={GAINS} />, parameters: { reducedMotion: "never" } };
-/** Level up: the path completes, flashes and starts again, the level turns over to the next number. */
+/** Level up: the path completes, flashes with the tag and starts again, the level turns over to the next number. */
 export const LevelUp: Story = { render: () => <Playing steps={LEVEL_UPS} everyMs={2_400} />, parameters: { reducedMotion: "never" } };
 /** Reduced motion: the values change at once with a brief flash, nothing moves. */
 export const LevelUpReducedMotion: Story = { render: () => <Playing steps={LEVEL_UPS} everyMs={2_400} />, parameters: { reducedMotion: "always" } };

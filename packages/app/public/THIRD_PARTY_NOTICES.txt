@@ -350,7 +350,7 @@ src/components/elements/game-icon.tsx. The source icons: `gear`,
 `swords`, `trophy`; and (#870) the village's `house-tree`, the categories'
 `tree`, `road`, `castle`, `landmark-dome`, and the season wheel's `sun`,
 `leaf`, `snowflake`, `seedling`, `cloud-sun`, `moon`; and (#873) the Chests'
-`treasure-chest`; and (#875) the Camera mode's `video`. The "+"'s button and the relief style itself are
+`treasure-chest`; and (#875) the Camera mode's `video`; and (#928) the profile badge's `user`. The "+"'s button and the relief style itself are
 written for Paved (Apache 2.0).
 
 Chests (src/components/elements/chest-art-shapes.ts, #874). The chests' simple
