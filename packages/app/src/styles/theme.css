@@ -258,15 +258,20 @@
   --sky-spring-night-bottom: #012604;
   /* The dial's gold, toned into its stones (#634): it reads as one piece with the sky quarters. */
   --dial-rim: color-mix(in oklab, var(--primary) 45%, var(--color-charcoal-600));
-  --dial-mark: color-mix(in oklab, var(--primary) 65%, var(--color-charcoal-600));
   --dial-band: var(--color-charcoal-900);
-  /* The face's three rings (the rim, the disc's edge, the hub's): black, the owner's pick over the gold. */
+  /* The face's three rings (the rim, the seasons' disc's edge, the day and night disc's): black, the owner's pick over the gold. */
   --dial-ring: var(--color-charcoal-950);
   --dial-stone: var(--color-charcoal-600);
   --dial-stone-alt: var(--color-charcoal-700);
   --dial-stone-edge: var(--color-charcoal-500);
-  --dial-night: var(--color-river-900);
-  --dial-night-foreground: var(--color-river-200);
+  /* The day and night disc at the centre (#909): a summer day's sky, a deep night with pale stars. */
+  --dial-day-top: var(--sky-summer-day-top);
+  --dial-day-bottom: var(--sky-summer-day-bottom);
+  --dial-night-top: var(--sky-summer-night-top);
+  --dial-night-bottom: var(--color-river-900);
+  --dial-star: var(--color-gold-200);
+  /* The "now" needle across both discs (#909): the theme's red, as a compass's. */
+  --dial-needle: var(--destructive);
   --dial-shade: rgb(0 0 0 / 0.55);
 }
 
@@ -536,6 +541,18 @@
   @media (prefers-reduced-motion: reduce) {
     animation: none;
     opacity: 0;
+  }
+}
+
+/* The season dial's stars (#909): a slow twinkle on the night half of its centre disc; still under reduced motion. */
+@keyframes dial-twinkle {
+  from { opacity: 1; }
+  to { opacity: 0.3; }
+}
+@utility dial-twinkle {
+  animation: dial-twinkle 1.8s ease-in-out infinite alternate;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 }
 
