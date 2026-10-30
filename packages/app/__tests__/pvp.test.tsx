@@ -75,6 +75,15 @@ describe("PvP rules (#647)", () => {
     expect(leagueOf(99_999).id).toBe("grandmaster");
     expect(nextLeague(LEAGUES.at(-1)!)).toBeNull();
   });
+
+  it("names leagues 13 to 15 Emerald, Platinum's old place (#917)", () => {
+    expect(LEAGUES.slice(13, 16).map((l) => [l.id, l.name, l.from])).toEqual([
+      ["emerald", "Emerald III", 2_600],
+      ["emerald", "Emerald II", 2_800],
+      ["emerald", "Emerald I", 3_000],
+    ]);
+    expect(LEAGUES.some((l) => /platinum/i.test(`${l.id} ${l.name}`))).toBe(false);
+  });
 });
 
 describe("PvP fakes, played on the engine", () => {

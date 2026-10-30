@@ -6,7 +6,7 @@ import { LeagueCrest } from "./league-crest";
 
 /**
  * The league crests' third study (#854, after the owner turned down #881's Shield, Helm and Medal): a shield and swords for the nine
- * leagues. Wood and Iron a bare shield, Bronze one sword, Silver two crossed, Gold three; from Platinum the four pieces stay while the
+ * leagues. Wood and Iron a bare shield, Bronze one sword, Silver two crossed, Gold three; from Emerald the four pieces stay while the
  * material and the shapes climb (crenellated, then crowned top; gem pommels; knobbed guards). `LeagueCrest` draws it in the second
  * pull request, after the owner's yes.
  */
@@ -80,7 +80,7 @@ const GAINS: Record<LeagueId, string> = {
   bronze: "bronze, one sword upright before it",
   silver: "silver, two swords crossed behind it",
   gold: "gold, the three swords",
-  platinum: "platinum, a crenellated top",
+  emerald: "platinum, a crenellated top",
   diamond: "ice and blue, diamond pommels",
   master: "obsidian in gold, ruby pommels, knobbed guards",
   grandmaster: "red in gold, a crowned top, sapphire pommels",
@@ -141,7 +141,7 @@ export const Iron: Story = { args: { league: "iron" } };
 export const Bronze: Story = { args: { league: "bronze" } };
 export const Silver: Story = { args: { league: "silver" } };
 export const Gold: Story = { args: { league: "gold" } };
-export const Platinum: Story = { args: { league: "platinum" } };
+export const Emerald: Story = { args: { league: "emerald" } };
 export const Diamond: Story = { args: { league: "diamond" } };
 export const Master: Story = { args: { league: "master" } };
 export const GrandMaster: Story = { args: { league: "grandmaster" } };

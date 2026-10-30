@@ -46,6 +46,8 @@ type Story = StoryObj<typeof meta>;
 export const Unranked: Story = { args: { crowns: 0 } };
 /** A mid league (1,240 crowns): the crest in its group's colour. */
 export const MidLeague: Story = {};
+/** Emerald II (2,800 crowns), Platinum's old place (#917): its crest in green. */
+export const Emerald: Story = { args: { crowns: 2_800 } };
 /** The top league: Grand Master's crest. */
 export const GrandMaster: Story = { args: { crowns: 5_320 } };
 /** WRAP360: a five-digit crown count. */

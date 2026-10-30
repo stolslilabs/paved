@@ -8,7 +8,7 @@ const CREST: Record<LeagueId, string> = {
   bronze: "text-league-bronze",
   silver: "text-league-silver",
   gold: "text-league-gold",
-  platinum: "text-league-platinum",
+  emerald: "text-league-emerald",
   diamond: "text-league-diamond",
   master: "text-league-master",
   grandmaster: "text-league-grandmaster",

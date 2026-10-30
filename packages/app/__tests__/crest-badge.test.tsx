@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { BADGES, BadgeCrest } from "../src/components/elements/crest-badge";
 import type { LeagueId } from "../src/lib/pvp-rules";
 
-const IDS: readonly LeagueId[] = ["wood", "iron", "bronze", "silver", "gold", "platinum", "diamond", "master", "grandmaster"];
+const IDS: readonly LeagueId[] = ["wood", "iron", "bronze", "silver", "gold", "emerald", "diamond", "master", "grandmaster"];
 /** A badge's outer silhouette: its body's rim, the layer just under the bevelled field. */
 const silhouette = (id: LeagueId) => BADGES[id].layers[BADGES[id].layers.findIndex((l) => l.bevel) - 1]!.d;
 
