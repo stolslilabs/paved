@@ -4,7 +4,7 @@ import { MATERIAL_BASES, type CrestArtSize } from "../src/components/elements/cr
 import { SHIELD_RANKS, SHIELD_TOPS, ShieldCrest, shieldModel, type ShieldModel } from "../src/components/elements/crest-shield";
 import type { LeagueId } from "../src/lib/pvp-rules";
 
-const IDS: readonly LeagueId[] = ["wood", "iron", "bronze", "silver", "gold", "platinum", "diamond", "master", "grandmaster"];
+const IDS: readonly LeagueId[] = ["wood", "iron", "bronze", "silver", "gold", "emerald", "diamond", "master", "grandmaster"];
 const TOPS = ["plain", "crenellated", "crowned"];
 /** The client's sizes: 24, 40 and 96 px. */
 const SIZES: readonly CrestArtSize[] = ["md", "lg", "2xl"];
@@ -24,7 +24,7 @@ describe("the league crests' shield and swords (#854, the third study)", () => {
     expect(new Set(crests).size).toBe(IDS.length);
     const tops = IDS.map((id) => TOPS.indexOf(SHIELD_RANKS[id].top));
     expect(tops.every((t, i) => i === 0 || t >= tops[i - 1]!)).toBe(true);
-    expect([SHIELD_RANKS.gold.top, SHIELD_RANKS.platinum.top, SHIELD_RANKS.grandmaster.top]).toEqual(TOPS);
+    expect([SHIELD_RANKS.gold.top, SHIELD_RANKS.emerald.top, SHIELD_RANKS.grandmaster.top]).toEqual(TOPS);
     expect(IDS.slice(6).every((id) => SHIELD_RANKS[id].gem)).toBe(true);
   });
 

@@ -186,8 +186,8 @@ export const BADGES: Record<LeagueId, BadgeModel> = {
       { d: star(5, 40, 17, 256, 70), p: "gold", e: 6 },
     ],
   },
-  // A platinum hexagon in a fuller laurel, teal enamel, a ruby, a banner across its foot.
-  platinum: {
+  // Emerald: a platinum hexagon in a fuller laurel, teal enamel, a ruby, a banner across its foot.
+  emerald: {
     field: ngon(6, 144),
     ornaments: ["laurel", "banner"],
     layers: [

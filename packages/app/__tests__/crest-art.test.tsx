@@ -15,7 +15,7 @@ describe("the league crests (#854, the study)", () => {
   });
 
   it("draw one crest per group, each its own drawing, not one shape recoloured", () => {
-    expect(IDS.sort()).toEqual(["bronze", "diamond", "gold", "grandmaster", "iron", "master", "platinum", "silver", "wood"]);
+    expect(IDS.sort()).toEqual(["bronze", "diamond", "emerald", "gold", "grandmaster", "iron", "master", "silver", "wood"]);
     // The motif: every part but the ground (the league-toned disc and its rim). No two groups share it.
     const motifs = IDS.map((id) => crestParts(id).filter((p) => p.tone !== "league").map((p) => `${p.t ?? ""}${p.d}`).join("|"));
     expect(new Set(motifs).size).toBe(IDS.length);

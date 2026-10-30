@@ -15,7 +15,7 @@ const RING: Record<LeagueId, string> = {
   bronze: "border-league-bronze",
   silver: "border-league-silver",
   gold: "border-league-gold",
-  platinum: "border-league-platinum",
+  emerald: "border-league-emerald",
   diamond: "border-league-diamond",
   master: "border-league-master",
   grandmaster: "border-league-grandmaster",
