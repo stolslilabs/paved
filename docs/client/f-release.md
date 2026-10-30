@@ -74,7 +74,7 @@ Env (nothing here is secret; the bundle is public). It is set in `packages/app/v
 |---|---|
 | `VITE_NETWORK` | `sepolia` |
 | `VITE_INDEXER_URL` | `https://api.paved.bal7hazar.com` (no `/v1`, no trailing slash) |
-| `VITE_RPC_URL` | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the file's `rpc_url` is the placeholder `$STARKNET_RPC_URL`; without this the build is "not connected") |
+| `VITE_RPC_URL` | `https://starknet-sepolia-rpc.publicnode.com` (Cartridge's Sepolia RPC answers 410 since 2026-10-30, #918; the file's `rpc_url` is the placeholder `$STARKNET_RPC_URL`; without this the build is "not connected") |
 
 Leave every `VITE_*_ADDRESS` and `VITE_SUPPORTS_TOKEN_MINT` unset: the file supplies the addresses, and the faucet is offered on
 Sepolia by default. A production deploy of `main` at F's commit carries F's `contracts/deployments/sepolia.json`; a rollback is a
@@ -123,7 +123,7 @@ What the files set:
   the project's settings of the same names (Vercel: <https://vercel.com/docs/project-configuration>, "vercel.json" overrides the
   Project Settings). The client's file sets `"framework": null`, so the dashboard's preset and build override cannot shadow it.
 - **Client build variables, public, in `build.env`:** `VITE_NETWORK=sepolia` (nothing in the build checks it: without it a production build has no network and its pages say "Not connected"),
-  `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` and `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` (the
+  `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` and `VITE_RPC_URL=https://starknet-sepolia-rpc.publicnode.com` (the
   deployment file's `rpc_url` is a placeholder). The Challenge and Setup addresses and the deployed block come from the committed
   `contracts/deployments/sepolia.json`: `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS` and `VITE_DEPLOYED_BLOCK` stay unset (each only
   overrides the file). `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (the devnet burner) are never set, in a file or in the

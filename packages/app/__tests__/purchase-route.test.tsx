@@ -451,11 +451,12 @@ describe("/play/challenge: the game's stake", () => {
     const s = setup();
     s.state.balanceFail = "node down";
     open("/play/challenge", s);
-    expect(await screen.findByText("Your USDC balance cannot be read", undefined, { timeout: slow(5000) })).toBeInTheDocument();
+    const why = await screen.findByText("Your USDC balance cannot be read", undefined, { timeout: slow(5000) });
     expect(screen.queryByText("Not enough USDC")).toBeNull();
     expect(await pay()).toBeDisabled();
     s.state.balanceFail = null;
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    // The page's Retry (the header's balances, failed as well, have their own, #918).
+    await userEvent.click(within(why.closest<HTMLElement>("[role=alert]")!).getByRole("button", { name: "Retry" }));
     await enabledPay();
     expect(screen.queryByText("Your USDC balance cannot be read")).toBeNull();
   });
@@ -591,9 +592,10 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
     const s = setup();
     s.views.cobblesFail = new Error("node down");
     open("/cobbles", s);
-    expect(await screen.findByText("The packs cannot be read", undefined, { timeout: slow(5000) })).toBeInTheDocument();
+    const why = await screen.findByText("The packs cannot be read", undefined, { timeout: slow(5000) });
     s.views.cobblesFail = null;
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    // The page's Retry (the header's balances, failed as well, have their own, #918).
+    await userEvent.click(within(why.closest<HTMLElement>("[role=alert]")!).getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
   });
 

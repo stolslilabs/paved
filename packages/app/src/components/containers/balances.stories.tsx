@@ -13,7 +13,7 @@ import { TopBar } from "./top-bar";
 const meta = {
   title: "Containers/Balances",
   component: Balances,
-  args: { layout: "pill", kinds: ["cobbles"], onAction: fn(), onConnect: fn(), faucet: true, state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } },
+  args: { layout: "pill", kinds: ["cobbles"], onAction: fn(), onConnect: fn(), onRetry: fn(), faucet: true, state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } },
 } satisfies Meta<typeof Balances>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -21,15 +21,15 @@ type Story = StoryObj<typeof meta>;
 const MOBILE = { viewport: { value: "mobile", isRotated: false } } as const;
 const WIDE = { viewport: { value: "wide", isRotated: false } } as const;
 
-type InProps = Pick<BalancesProps, "state" | "onAction" | "onConnect" | "faucet">;
+type InProps = Pick<BalancesProps, "state" | "onAction" | "onConnect" | "onRetry" | "faucet">;
 
 /**
  * In a tab page, as the shell lays it out (BALANCES-BY-PAGE, #855): the Vault's balances, PAVED and vPAVED, at the header's top
  * right, the phone's plates below `desktop`, the larger ones from it.
  */
-function InPage({ state, onAction, onConnect, faucet }: InProps) {
+function InPage({ state, onAction, onConnect, onRetry, faucet }: InProps) {
   return (
-    <BalancesProvider value={{ state, kinds: HEADER_BALANCES.vault, here: VAULT_HERE, onAction, onConnect, faucet }}>
+    <BalancesProvider value={{ state, kinds: HEADER_BALANCES.vault, here: VAULT_HERE, onAction, onConnect, onRetry, faucet }}>
       <TabPage tab="vault" title="Vault">
         <div data-slot="card" className="h-40 rounded-xl border border-border bg-card" />
       </TabPage>
@@ -41,9 +41,9 @@ const page = (state: BalancesState): Story => ({ render: (args) => <InPage {...a
 const VAULT_HERE = hereOf("/vault");
 
 /** In a full-screen flow (#620): the same header, the flow's balances (#855): the Cobbles' packs', the Cobbles and USDC. */
-function InFlow({ state, onAction, onConnect, faucet, route }: InProps & { route: keyof typeof HEADER_BALANCES }) {
+function InFlow({ state, onAction, onConnect, onRetry, faucet, route }: InProps & { route: keyof typeof HEADER_BALANCES }) {
   return (
-    <BalancesProvider value={{ state, kinds: HEADER_BALANCES[route], here: hereOf(`/${route}`), onAction, onConnect, faucet }}>
+    <BalancesProvider value={{ state, kinds: HEADER_BALANCES[route], here: hereOf(`/${route}`), onAction, onConnect, onRetry, faucet }}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <TopBar title={TITLES[route] ?? route} onBack={fn()} />
         <div className="mx-auto h-40 w-full max-w-md rounded-xl border border-border bg-card" data-slot="card" />
@@ -74,9 +74,9 @@ const STEPS: readonly Ready[] = [
  * The home's top right (#828), as the home lays it out: its own balances (#855: the Cobbles, PAVED, vPAVED while held; no USDC)
  * one under the other, right-aligned, at every width: the phone's plates below `desktop`, the larger ones from it.
  */
-function HomeCorner({ state, onAction, onConnect, faucet }: InProps) {
+function HomeCorner({ state, onAction, onConnect, onRetry, faucet }: InProps) {
   return (
-    <BalancesProvider value={{ state, onAction, onConnect, faucet }}>
+    <BalancesProvider value={{ state, onAction, onConnect, onRetry, faucet }}>
       <div className="flex min-h-dvh justify-end bg-background p-2 text-foreground tablet:p-4">
         <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" className="desktop:hidden" />
         <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />
@@ -174,3 +174,26 @@ export const StackStress1440: Story = { ...corner({ status: "ready", usdc: BIG_A
 export const StackAllAtPhone: Story = { render: (args) => <Balances layout="rail" kinds={["usdc", "paved", "vpaved", "cobbles"]} direction="column" state={HOLDER} onAction={args.onAction} faucet />, globals: MOBILE };
 /** The stack changing: each plate counts, pops up or dips down. */
 export const StackLiveChanges: Story = { render: (args) => <Live layout="rail" direction="column" onAction={args.onAction} />, ...WIDE_1440 };
+
+/**
+ * WALLET-BALANCES (#918): a new account, its key made by the first Connect, nothing on chain yet. Its balances read zero, like any
+ * other account's: the home's corner (the Cobbles and PAVED; no vPAVED, none held), the packs' header (the Cobbles and USDC).
+ */
+const NEW_ACCOUNT: Ready = { status: "ready", usdc: 0n, paved: 0n, vpaved: 0n, cobbles: 0 };
+export const NewAccountHome320: Story = { ...corner(NEW_ACCOUNT), ...PHONE_320, parameters: { ...PHONE_320.parameters, layout: "fullscreen" } };
+export const NewAccountHome1440: Story = { ...corner(NEW_ACCOUNT), ...WIDE_1440 };
+export const NewAccountPacks320: Story = { ...pageOf("cobbles", NEW_ACCOUNT), ...PHONE_320 };
+export const NewAccountVault: Story = { ...page(NEW_ACCOUNT), globals: MOBILE };
+
+/**
+ * The node cannot be reached (#918: Cartridge's Sepolia RPC answered 410 to every request, which the browser reads as "Failed
+ * to fetch"): the browser's text in, "Can't reach the network." shown. On a phone the mark, which retries when pressed; from `desktop`, the
+ * message and Retry. `Retrying`: the read is on its way again.
+ */
+const OFFLINE: BalancesState = { status: "error", message: "Failed to fetch" };
+export const NetworkErrorHome320: Story = { ...corner(OFFLINE), ...PHONE_320, parameters: { ...PHONE_320.parameters, layout: "fullscreen" } };
+export const NetworkErrorPacks320: Story = { ...pageOf("cobbles", OFFLINE), ...PHONE_320 };
+export const NetworkErrorVault: Story = { ...page(OFFLINE), globals: MOBILE };
+export const NetworkErrorRail: Story = { ...page(OFFLINE), globals: WIDE };
+export const NetworkErrorHome1440: Story = { ...corner(OFFLINE), ...WIDE_1440 };
+export const NetworkErrorRetrying1440: Story = { ...corner({ ...OFFLINE, retrying: true }), ...WIDE_1440 };
