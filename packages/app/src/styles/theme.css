@@ -270,6 +270,11 @@
   --dial-night-top: var(--sky-summer-night-top);
   --dial-night-bottom: var(--color-river-900);
   --dial-star: var(--color-gold-200);
+  /* Its blends (#930): dusk and dawn through a warm horizon under a violet sky; the day's clouds and birds. */
+  --dial-dusk-top: #4b3a6e;
+  --dial-dusk-bottom: #f08a5d;
+  --dial-cloud: var(--color-charcoal-50);
+  --dial-bird: var(--color-charcoal-800);
   /* The "now" needle across both discs (#909): the theme's red, as a compass's. */
   --dial-needle: var(--destructive);
   --dial-shade: rgb(0 0 0 / 0.55);
@@ -572,6 +577,16 @@
 }
 @utility dial-twinkle {
   animation: dial-twinkle 1.8s ease-in-out infinite alternate;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+/* Its day (#930): the clouds drift slowly, the birds glide (a shorter duration), by `DRIFT` of `season-wheel.tsx`; still under reduced motion. */
+@keyframes dial-drift {
+  to { translate: 1.5px -0.5px; }
+}
+@utility dial-drift {
+  animation: dial-drift 7s ease-in-out infinite alternate;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
