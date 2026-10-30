@@ -2,7 +2,7 @@ import { Account, RpcProvider } from "starknet";
 import { createLocalKeyConnector, deployedBy, deployedBySelf, starknetAccount, type DeployLocalAccount, type KeyStorage, type LocalKey, type PavedClient, type WriteAccount } from "@paved/chain";
 import { chainClient, mockLedger } from "../data/chain-client";
 import { DATA_SOURCE } from "../data/data-source";
-import { mockSigner } from "../data/mock/overlay";
+import { mockConnector } from "../data/mock/overlay";
 import type { WalletConnector } from "./wallet";
 
 // The app's connector, loaded with its own chunk by `WalletProvider` (#918, phase A; docs/architecture/accounts.md): a Stark
@@ -36,8 +36,9 @@ export const BUILD_DEPLOYER: Deployer | null = DEVNET_BUILD
 /** The connector of this build's deployment (`chainClient`, `BUILD_DEPLOYER`). Rejects when the deployment is not configured. */
 export async function appConnector(): Promise<WalletConnector> {
   const connector = connectorFor(chainClient(), BUILD_DEPLOYER, window.localStorage);
-  // The data source `mock` (#549): the claims and the skin writes go to the device's ledger, the rest to the chain.
-  return DATA_SOURCE === "mock" ? { ...connector, signer: (account) => mockSigner(connector.signer(account), mockLedger()) } : connector;
+  // The data source `mock` (#549): the claims and the skin writes go to the device's ledger, the rest to the chain; each account
+  // connected has its village founded with it (#927).
+  return DATA_SOURCE === "mock" ? mockConnector(connector, mockLedger()) : connector;
 }
 
 /** What the connector builds on the node; tests give fakes. */

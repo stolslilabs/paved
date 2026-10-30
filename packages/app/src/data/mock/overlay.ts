@@ -1,5 +1,6 @@
 import { IndexerError, ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
 import { poseidon } from "@paved/game-core";
+import type { WalletConnector } from "../../wallet/wallet";
 import type { GameSigner, Purchases, VaultWrites } from "../sources";
 import { dailiesDone, gamesUpTo, needsMockDailies, surrenderedOnDay, withMockDailies, withMockDailyProgress } from "./dailies";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -287,6 +288,25 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     surrenderAttackV2: writes.surrenderAttackV2,
     spawnFree: () => Promise.reject(new WriteError(FREE_SPAWN_MOCKED)),
   });
+}
+
+/**
+ * The wallet's connector on the mock (#927): each account it connects (a connect, a restore, a Reset's new key) has its free
+ * village founded by the ledger before the connection resolves (`foundAtConnection`, once per account), so the home's first read
+ * is the starter village with its 8 tiles and Edit opens (#753); the signer is `mockSigner`'s. Found stays for the `chain` source.
+ */
+export function mockConnector(connector: WalletConnector, ledger: MockLedger): WalletConnector {
+  const founded = async <T extends { address: string } | null>(account: T): Promise<T> => {
+    if (account) await ledger.foundAtConnection(account.address);
+    return account;
+  };
+  return {
+    ...connector,
+    probe: async () => founded(await connector.probe()),
+    connect: async () => founded(await connector.connect()),
+    reset: async () => founded(await connector.reset()),
+    signer: (account) => mockSigner(connector.signer(account), ledger),
+  };
 }
 
 /** The chain's PAVED and USDC of an account, read at a mocked write's send. */
