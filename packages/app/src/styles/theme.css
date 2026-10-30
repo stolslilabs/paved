@@ -530,6 +530,27 @@
   }
 }
 
+/*
+ * CAMERA-MODE (#875): the home's overlays the Camera mode hides (`data-fade`) fade out of its box (`data-camera`), then hide, out
+ * of reach (no tap, no focus, nothing read); back at once as it leaves. A cut under reduced motion. Edit, Settings and Play leave
+ * the row (`data-collapse`), so Exit camera takes the corner: over the utilities (`desktop:flex`), out of any layer.
+ */
+[data-camera] [data-collapse] {
+  display: none;
+}
+@layer base {
+  [data-fade] {
+    transition: opacity 300ms, visibility 300ms;
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+  [data-camera] [data-fade] {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
 /* The Cobbles' plate (#620): a soft light crosses it now and then, an invitation to tap; none under reduced motion. */
 @keyframes plate-shine {
   0%, 75% { transform: translateX(-120%); }

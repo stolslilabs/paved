@@ -1318,11 +1318,25 @@ export class GameScene {
     this.requestRender();
   }
 
-  /** Set camera mode profile (play/showcase) */
+  /**
+   * The camera's mode and its render profile: `play`, `free` (the home's Camera mode, #875: leaving it eases the camera back to
+   * the play view, at once under reduced motion) or `showcase`.
+   */
   setCameraMode(mode: CameraMode): void {
     if (!this.controls) return;
-    this.controls.setMode(mode);
+    const { reducedMotion } = this.settings.placement.motion;
+    this.controls.setMode(mode, { animate: !(reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion) });
     this.setRenderProfile(getRenderProfileForCameraMode(mode));
+    this.requestRender();
+  }
+
+  /**
+   * Turn the camera to `polar` from straight down and `azimuth`, around its target and at its distance, within its mode's bounds
+   * (`CameraController.setAngles`): the Camera mode's stories (#875).
+   */
+  setCameraAngles(polar: number, azimuth: number): void {
+    this.webCamera()?.setAngles(polar, azimuth);
+    this.notifyCamera();
     this.requestRender();
   }
 
@@ -1494,7 +1508,7 @@ export class GameScene {
    */
   private openingFrame(): { target: { x: number; z: number }; distance: number } | null {
     const controls = this.webCamera();
-    if (!controls || !this.surface || controls.getMode() !== "play") return null;
+    if (!controls || !this.surface || controls.getMode() === "showcase") return null;
     const { width, height } = this.surface.getSize();
     if (!(width > 0) || !(height > 0)) return null;
     if (this.settings.cameraFit.enabled) return this.getCameraFit();
@@ -1523,7 +1537,10 @@ export class GameScene {
     return this.controls instanceof CameraController ? this.controls : null;
   }
 
-  /** Puts the camera on the board's frame (`getCameraFit`), in play mode with the frame on (or `force`d by `recenter`). */
+  /**
+   * Puts the camera on the board's frame (`getCameraFit`), in play mode or the Camera mode (#875: entered before the first frame,
+   * or not moved yet) with the frame on (or `force`d by `recenter`).
+   */
   private fitCamera(force = false): void {
     const controls = this.webCamera();
     if (!controls || !this.surface) return;
@@ -1531,7 +1548,7 @@ export class GameScene {
     this.fitSettingsKey = JSON.stringify(this.settings.cameraFit);
     this.fitEnabled = this.settings.cameraFit.enabled;
     if (!(width > 0) || !(height > 0)) return;
-    if (!force && (!this.settings.cameraFit.enabled || controls.getMode() !== "play")) return;
+    if (!force && (!this.settings.cameraFit.enabled || controls.getMode() === "showcase")) return;
     if (!this.fitModule) {
       void this.loadCameraFit(force);
       return;

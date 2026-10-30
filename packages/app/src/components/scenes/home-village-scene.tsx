@@ -27,12 +27,17 @@ const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 // The app's bar (#763) in its own chunk, shared with the tab pages: the home's first load stays as it was; a stand-in of its size
 // holds its place meanwhile.
 const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ default: m.AppNav })));
-// The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk.
-const LazyVillageStage = lazy(() => import("../containers/village-stage"));
+// The village's stage (#753): the overlays paint first, the editor, the board and the engine come in their own chunk. One import for
+// its three uses (the stage, the left column's hint, the Camera button), so the first load names the chunk's files once.
+const loadStage = () => import("../containers/village-stage");
+const LazyVillageStage = lazy(loadStage);
 // The League control (#829) and its plate in their own chunk: a stand-in of its height holds its place meanwhile (FIRST-LOAD).
 const LazyLeagueControl = lazy(() => import("../containers/league-control").then((m) => ({ default: m.LeagueControl })));
 // The shield's plate and its popover (#806, #829): their own chunk, loaded only while the village is shielded (FIRST-LOAD).
 const LazyShieldPlate = lazy(() => import("../elements/shield-plate").then((m) => ({ default: m.ShieldPlate })));
+// The Camera mode's button and its hint (#875), with the camera's icon: the stage's chunk carries them (FIRST-LOAD), and the button
+// shows with the 3D village it draws, at Edit's left (nothing moves as it comes).
+const LazyCameraControl = lazy(() => loadStage().then((m) => ({ default: m.CameraControl })));
 
 export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
@@ -76,6 +81,8 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
    */
   initialScoreOpen?: boolean;
   onScoreOpenChange?: (open: boolean) => void;
+  /** Where the stories start: in the Camera mode (#875), once the 3D village is drawn. */
+  initialCamera?: boolean;
   /** Chests waiting, missions to claim: the badges of the right column (and of the phone's bar, Chests). */
   chests?: number;
   missions?: number;
@@ -148,6 +155,9 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * header: the column of four (Missions, Chests, Shop, Vault; no League since #856, the League control is the way), Settings and Play. Each
  * opens its page in a side panel on the right, over the village, which stays in view (`routes/home-layout.tsx`); the profile
  * opens on the left.
+ * CAMERA-MODE (#875, the owner's decisions of 2026-10-28): on the 3D village in view, a Camera button at Edit's left frees the
+ * camera (the tilt from 15 to 85 degrees, the turn all the way round, gliding); the overlays fade to the profile, the balances and
+ * Exit camera, which eases the camera back to the play view.
  */
 export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProps) {
   const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
@@ -160,7 +170,13 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     setScoreOpen(open);
     onScoreOpenChange?.(open);
   };
+  // The Camera mode (#875, open point 1: the home's village in view only): the 3D village's camera free, the overlays faded to the
+  // profile, the balances and Exit camera (open point 2). Only while the stage draws the 3D village (`onCanvasChange`).
+  const [cameraAsked, setCamera] = useState(props.initialCamera ?? false);
+  const [canvas, setCanvas] = useState(false);
+  const camera = cameraAsked && canvas;
   const edit = () => {
+    setCamera(false);
     props.onDismissSaved?.();
     props.onEditingChange?.(true);
   };
@@ -184,6 +200,8 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     initialPointsOpen: editing ? props.initialPointsOpen : undefined,
     initialLit: editing ? props.initialLit : undefined,
     renderCanvas: props.renderCanvas,
+    camera,
+    onCanvasChange: setCanvas,
     arrival: props.arrival,
     onSave: props.onSave,
     onDirtyChange: props.onDirtyChange,
@@ -210,6 +228,8 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
           {...props}
           editable={editable}
           onEdit={edit}
+          camera={camera}
+          onCameraChange={canvas ? setCamera : undefined}
           scoreOpen={scoreOpen}
           onScoreOpenChange={foldScore}
         />
@@ -264,7 +284,7 @@ function HomeBar({ children }: { children: ReactNode }) {
   // The bar's box: its items' height, its padding and its top border; empty, so nothing for assistive technology.
   const standIn = <div className="box-content h-11 border-t bg-background/95 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] mobile:h-13" />;
   return (
-    <div ref={ref} className="fixed inset-x-0 bottom-0 z-20 desktop:hidden">
+    <div ref={ref} data-fade className="fixed inset-x-0 bottom-0 z-20 desktop:hidden">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
@@ -278,7 +298,7 @@ function HomeBar({ children }: { children: ReactNode }) {
 function leftColumnHint(el: HTMLDivElement) {
   let off: (() => void) | undefined;
   let gone = false;
-  void import("../containers/village-stage").then((m) => {
+  void loadStage().then((m) => {
     if (!gone) off = m.scrollHintRef(el);
   });
   return () => {
@@ -375,8 +395,18 @@ function ViewOverlays({
   onEdit,
   scoreOpen,
   onScoreOpenChange,
+  camera,
+  onCameraChange,
   ...props
-}: HomeVillageSceneProps & { editable: boolean; onEdit: () => void; scoreOpen: boolean; onScoreOpenChange: (open: boolean) => void }) {
+}: HomeVillageSceneProps & {
+  editable: boolean;
+  onEdit: () => void;
+  scoreOpen: boolean;
+  onScoreOpenChange: (open: boolean) => void;
+  /** The Camera mode on (#875); its button, while the stage draws the 3D village. */
+  camera: boolean;
+  onCameraChange?: (camera: boolean) => void;
+}) {
   const { activeGame, now, guest, founded = true } = props;
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
@@ -431,7 +461,9 @@ function ViewOverlays({
   );
   return (
     // The overlays' box (the scene's): the top row's measures and the bar's height are set on it, for the columns and the bottom.
-    <div ref={measures.box} data-slot="home-overlays" className="pointer-events-none absolute inset-0">
+    // In the Camera mode (`data-camera`, #875's open point 2) all but the profile, the balances and Exit camera fade out (`data-fade`,
+    // theme.css), out of reach once faded.
+    <div ref={measures.box} data-slot="home-overlays" data-camera={camera || undefined} className="pointer-events-none absolute inset-0">
       {/* Top: the profile at the left, the balances at the right. */}
       <div className="absolute inset-x-0 top-0 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <div className="relative flex items-start justify-between gap-2">
@@ -459,36 +491,48 @@ function ViewOverlays({
           </div>
         </div>
       </div>
-      <VillageNav {...props} />
-      {/*
-        The left column under the profile (#829), centred between it and the dial (#856), clear of the right column. Taller than its
-        band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it (its edge
-        fading where more waits), never over the dial; its padding keeps the controls' shadows inside the scroll box.
-      */}
-      <div
-        ref={leftColumnHint}
-        data-slot="scroll-region"
-        className="scroll-hint absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
-      >
-        {leftColumn}
-      </div>
-
-      {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
-      {props.seasonWheel && (
-        <div ref={measures.dial} data-dial-place className={cn("absolute left-2 tablet:left-4", ABOVE_BAR)}>
-          <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
-            <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
-          </Suspense>
+      {/* The columns and the dial, which the Camera mode fades as one: the box's frame, so they stand as in it. */}
+      <div data-fade className="absolute inset-0">
+        <VillageNav {...props} />
+        {/*
+          The left column under the profile (#829), centred between it and the dial (#856), clear of the right column. Taller than its
+          band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it (its edge
+          fading where more waits), never over the dial; its padding keeps the controls' shadows inside the scroll box.
+        */}
+        <div
+          ref={leftColumnHint}
+          data-slot="scroll-region"
+          className="scroll-hint absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
+        >
+          {leftColumn}
         </div>
-      )}
+
+        {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
+        {props.seasonWheel && (
+          <div ref={measures.dial} data-dial-place className={cn("absolute left-2 tablet:left-4", ABOVE_BAR)}>
+            <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
+              <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
+            </Suspense>
+          </div>
+        )}
+      </div>
       <div ref={measures.actions} className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+        {/*
+          The Camera mode's button (#875), Edit's size at its left; in the mode, Exit camera and the controls' hint, in the corner: Edit,
+          Found, Settings and Play leave the row (`data-collapse`).
+        */}
+        {onCameraChange && (
+          <Suspense fallback={null}>
+            <LazyCameraControl on={camera} onChange={onCameraChange} />
+          </Suspense>
+        )}
         {village && !guest && !props.readOnly && !founded ? (
-          <Button size="lg" variant="outline" className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
+          <Button size="lg" variant="outline" data-collapse className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
             <GameIcon name="house-tree" size="sm" /> Found
           </Button>
         ) : (
           editable && (
-            <Button size="icon" variant="outline" onClick={onEdit} aria-label="Edit village" className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
+            <Button size="icon" variant="outline" onClick={onEdit} aria-label="Edit village" data-collapse className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
               <GameIcon name="hammer" size="lg" />
             </Button>
           )
@@ -497,7 +541,7 @@ function ViewOverlays({
           From `desktop` (below it both are the bar's, #763): Settings above Play, right-aligned, Edit's size (#856); Play, the main
           action (#755, #807), the two swords, no text, gold and large.
         */}
-        <div className="hidden flex-col items-end gap-3 desktop:flex">
+        <div data-collapse className="hidden flex-col items-end gap-3 desktop:flex">
           <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
             <GameIcon name="gear" size="lg" />
           </Button>

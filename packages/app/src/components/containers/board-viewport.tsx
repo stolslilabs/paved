@@ -2,7 +2,7 @@ import { Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObj
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
 import { boardReveal } from "@paved/renderer";
-import type { ClosedStructure, FogCell, GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
+import type { CameraMode, ClosedStructure, FogCell, GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
 import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
 import type { Hold } from "../../lib/use-hold";
@@ -123,6 +123,11 @@ export interface BoardViewportProps {
    * the tile whose ring fills as the press goes on (`usePressAction`). Unset, or a tile bubble up: a press is a tap or a pan.
    */
   press?: BoardPress | null;
+  /**
+   * The camera's mode (`GameScene.setCameraMode`): `play` (the default, every game board's: the tilt and the turn locked) or
+   * `free`, the home's Camera mode (#875: the tilt between 15 and 85 degrees, the turn free; back to `play`, it eases home).
+   */
+  cameraMode?: CameraMode;
   /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
   onScene?: (scene: GameScene | null) => void;
   /** The renderer could not start (no WebGL, a model that does not load). */
@@ -366,7 +371,7 @@ export function toClosedStructures(closed: NonNullable<BoardViewportProps["close
   }));
 }
 
-export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, press, otherPlates = true, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, press, otherPlates = true, cameraMode, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
   const covered = useContext(BoardCovered);
@@ -432,6 +437,7 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
         basePath={basePath}
         skins={skins}
         settings={settings}
+        cameraMode={cameraMode}
         covered={covered}
         fogReveal={fogReveal}
         availableSlots={gridSlots}

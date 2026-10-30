@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
@@ -148,8 +149,10 @@ describe("ProfileSlot (#624)", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 
-  it("Home (#753): the avatar and its name at the top left, no player card", () => {
+  it("Home (#753): the avatar and its name at the top left, no player card", async () => {
     render(withProfile(value(PROFILE.connected), <HomeVillageScene {...HOME_VILLAGE.view} />));
+    // The stage's chunk in (the village's plan), so its import does not outlast the file's environment.
+    await screen.findByRole("img", { name: /^Village layout/ }, { timeout: slow(5000) });
     expect(screen.getByRole("button", { name: "Profile: bal7hazar" })).toHaveTextContent("bal7hazar");
     expect(screen.queryByText(/games · best/)).toBeNull();
     expect(screen.queryByText("Playing as a guest")).toBeNull();

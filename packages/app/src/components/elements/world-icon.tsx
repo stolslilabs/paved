@@ -20,6 +20,8 @@ const LOOKS: Record<WorldIconName, ReliefLook> = {
   seedling: { tones: ["sprout"] },
   "cloud-sun": { tones: ["gold", "gold", "light"] },
   moon: { tones: ["silver"] },
+  // The home's Camera mode (issue 875): a camera's steel body, its lens stone.
+  video: { tones: ["steel", "stone"] },
 };
 
 export interface WorldIconProps extends Omit<GameIconProps, "name"> {
