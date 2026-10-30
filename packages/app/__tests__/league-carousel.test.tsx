@@ -57,18 +57,14 @@ describe("League carousel (#785, #833, #859)", () => {
     expect(screen.queryAllByRole("list").map((l) => l.getAttribute("aria-label"))).toEqual(["Matches"]);
   });
 
-  it("every league's card has the same content rows: the standard (its plate the title), the range, the season reward", () => {
+  it("every league's card has the same content rows: the crest, the title, the range, the season reward", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
     const cards = carousel().querySelectorAll<HTMLElement>("[data-slot='league-card']");
     expect(cards).toHaveLength(LEAGUES.length);
-    // One height for all, Wood included: every standard has one box, at one size (#917).
-    const standards = [...cards].map((c) => c.querySelector<HTMLElement>(":scope > [data-slot=league-standard]")!);
-    expect(new Set(standards.map((f) => f.style.fontSize))).toEqual(new Set(["0.75rem"]));
-    expect(standards.map((f) => f.dataset.tier)).toEqual(LEAGUES.map((l) => l.id));
-    // The plate names the card: its heading.
-    expect(cards[13]!.querySelector("h2")).toHaveAccessibleName("Emerald III");
-    // The bonus's corner (none for Wood), then the three rows.
-    for (const card of cards) expect(card.children).toHaveLength(card.closest("[data-league]")!.getAttribute("data-league") === "0" ? 3 : 4);
+    // One fixed height for all, Wood included.
+    expect(new Set([...cards].map((c) => [...c.classList].filter((k) => /^h-/.test(k)).join()))).toEqual(new Set(["h-40"]));
+    // The bonus's corner (none for Wood), then the four rows.
+    for (const card of cards) expect(card.children).toHaveLength(card.closest("[data-league]")!.getAttribute("data-league") === "0" ? 4 : 5);
     expect(crownRange(LEAGUES[0]!).text).toBe("0 – 399");
     expect(crownRange(LEAGUES[22]!).text).toBe("5,000+");
   });
@@ -210,9 +206,7 @@ describe("League carousel (#785, #833, #859)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wood} />));
     expect(inView()).toHaveAccessibleName("Wood");
     expect(screen.getByRole("heading", { name: "Wood" })).toBeInTheDocument();
-    // Outside the leagues (no crown, no attack): the header reads Unranked (#917), the carousel opens on Wood.
-    expect(control()).toHaveAccessibleName("Your league: Unranked, 0 crowns. Show it");
-    expect(control()).toHaveAttribute("data-tier", "unranked");
+    expect(control()).toHaveAccessibleName("Your league: Wood, 0 crowns. Show it");
     expect(screen.getByRole("button", { name: "Previous league" })).toBeDisabled();
     carousel().focus();
     await userEvent.keyboard("{ArrowLeft}");

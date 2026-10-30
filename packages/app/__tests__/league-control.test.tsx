@@ -3,11 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LeagueControl } from "../src/components/containers/league-control";
-import { lastAttack } from "../src/data/pvp-standing";
-import { DataProvider, type DataSources } from "../src/data/sources";
-import { mockImplementation } from "./mock-fakes";
 import { LEAGUES, leagueOf } from "../src/lib/pvp-rules";
 
 const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
@@ -16,7 +12,7 @@ const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
   </LazyMotion>
 );
 const control = (crowns: number, onLeague = vi.fn(), reduced: "never" | "always" = "never") => wrap(<LeagueControl crowns={crowns} onLeague={onLeague} />, reduced);
-const crest = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-slot=league-crest-icon]")!;
+const crest = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-icon=shield-halved]")!;
 
 describe("LeagueControl (#829)", () => {
   it("one button named by the league and the crowns; the crowns shown, no league name", () => {
@@ -33,88 +29,20 @@ describe("LeagueControl (#829)", () => {
     const plate = container.querySelector<HTMLElement>("[data-side=right]")!;
     expect(plate.firstElementChild).toHaveAttribute("data-slot", "plate-lead");
     expect(plate.firstElementChild!.querySelector("[data-icon=trophy]")).not.toBeNull();
-    expect(plate.lastElementChild!.querySelector("[data-slot=league-crest-icon]")).not.toBeNull();
+    expect(plate.lastElementChild!.querySelector("[data-icon=shield-halved]")).not.toBeNull();
   });
 
-  it("the crest is its tier's icon form (#917), the division as pips; one crown named singular", () => {
+  it("the crest in its group's colour: Wood grey, a group's, Grand Master; one crown named singular", () => {
     const { container, rerender } = render(control(0));
-    expect(crest(container)).toHaveAttribute("data-tier", "wood");
-    expect(crest(container)).not.toHaveAttribute("data-pips");
+    expect(crest(container)).toHaveClass("text-league-wood");
     rerender(control(1_240));
-    expect(crest(container)).toHaveAttribute("data-tier", leagueOf(1_240).id);
+    expect(crest(container)).toHaveClass(`text-league-${leagueOf(1_240).id}`);
     rerender(control(2_800));
-    // Emerald II: two pips.
-    expect(crest(container)).toHaveAttribute("data-tier", "emerald");
-    expect(crest(container)).toHaveAttribute("data-pips", "2");
+    expect(crest(container)).toHaveClass("text-league-emerald");
     rerender(control(5_320));
-    expect(crest(container)).toHaveAttribute("data-tier", "grandmaster");
-    expect(crest(container)).not.toHaveAttribute("data-pips");
+    expect(crest(container)).toHaveClass("text-league-grandmaster");
     rerender(control(1));
     expect(screen.getByRole("button", { name: `League: ${leagueOf(1).name}, 1 crown` })).toBeInTheDocument();
-  });
-
-  it("the home's read: Unranked with no crowns and no attack, Wood after an attack, Wood when not read", () => {
-    const { rerender } = render(wrap(<LeagueControl crowns={0} attacks={0} />));
-    expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked");
-    rerender(wrap(<LeagueControl crowns={0} attacks={2} />));
-    expect(screen.getByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
-    rerender(wrap(<LeagueControl />));
-    expect(screen.getByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
-  });
-
-  it("the home's read on the mock ledger: Unranked before any attack, Wood once a first v2 attack is open (#917)", async () => {
-    const s = mockImplementation();
-    const me = s.sources.signer!.address;
-    const writes = s.ledger.writesFor(me);
-    await writes.foundFreeVillage();
-    const control = (sources: DataSources) =>
-      wrap(
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <DataProvider sources={sources}>
-            <LeagueControl crowns={0} attacks={0} />
-          </DataProvider>
-        </QueryClientProvider>,
-      );
-    const { unmount } = render(control(s.sources));
-    await waitFor(() => expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked"));
-    unmount();
-    // The first attack open: no crowns and none settled, yet in the leagues (as the League page says).
-    await writes.drawOpponentV2("search");
-    await writes.startAttackV2();
-    expect(await s.ledger.pvpLeague(me)).toMatchObject({ crowns: 0, attacks: 0 });
-    render(control(s.sources));
-    expect(await screen.findByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
-  });
-
-  it("an attack in PvP v1's store counts too", async () => {
-    const sources = { views: { pvpAttack: async () => ({ id: 3 }) }, signer: { address: "0x0abc" } } as unknown as DataSources;
-    render(
-      wrap(
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <DataProvider sources={sources}>
-            <LeagueControl crowns={0} attacks={0} />
-          </DataProvider>
-        </QueryClientProvider>,
-      ),
-    );
-    expect(await screen.findByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
-  });
-
-  it("lastAttack: v1's id, else v2's, 0 for none; null where neither is served, undefined while read", () => {
-    expect(lastAttack({ id: 0 }, { attack: null })).toEqual({ id: 0 });
-    expect(lastAttack({ id: 0 }, { attack: { id: 1 } as never })).toEqual({ id: 1 });
-    expect(lastAttack({ id: 2 }, null)).toEqual({ id: 2 });
-    expect(lastAttack(null, { attack: { id: 1 } as never })).toEqual({ id: 1 });
-    expect(lastAttack(null, null)).toBeNull();
-    expect(lastAttack(undefined, null)).toBeUndefined();
-    expect(lastAttack({ id: 0 }, undefined)).toBeUndefined();
-  });
-
-  it("Unranked (no crowns, no attack): Unranked's crest, named so", () => {
-    const { container } = render(wrap(<LeagueControl crowns={0} unranked />));
-    expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked");
-    expect(crest(container)).toHaveAttribute("data-tier", "unranked");
-    expect(crest(container)).not.toHaveAttribute("data-pips");
   });
 
   it("the League page's (#859): the chain's league over the count's, no trophy, its own name", () => {
@@ -124,8 +52,7 @@ describe("LeagueControl (#829)", () => {
     // The crowns and the crest alone: no trophy, the page needs no way to itself.
     expect(button.querySelector("[data-icon=trophy]")).toBeNull();
     expect(button.querySelector("[data-slot=plate-lead]")).toBeNull();
-    expect(crest(button)).toHaveAttribute("data-tier", "iron");
-    expect(crest(button)).toHaveAttribute("data-pips", "1");
+    expect(crest(button)).toHaveClass("text-league-iron");
   });
 
   it("a tap anywhere opens the League page", async () => {

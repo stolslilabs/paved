@@ -179,7 +179,7 @@ export default function Page() {
             : 0
         }
         missions={missions}
-        league={league}
+        league={league ? { crowns: league.crowns } : null}
         shieldEndsAt={shield?.up ? shield.until : null}
         activeGame={wallet.address ? (active.data ?? null) : null}
         spawnPaused={paused.data ?? false}
