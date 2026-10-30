@@ -4,7 +4,7 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { LeagueControl } from "../src/components/containers/league-control";
-import { leagueOf } from "../src/lib/pvp-rules";
+import { LEAGUES, leagueOf } from "../src/lib/pvp-rules";
 
 const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
   <LazyMotion features={domMax}>
@@ -41,6 +41,16 @@ describe("LeagueControl (#829)", () => {
     expect(crest(container)).toHaveClass("text-league-grandmaster");
     rerender(control(1));
     expect(screen.getByRole("button", { name: `League: ${leagueOf(1).name}, 1 crown` })).toBeInTheDocument();
+  });
+
+  it("the League page's (#859): the chain's league over the count's, no trophy, its own name", () => {
+    render(wrap(<LeagueControl crowns={380} league={LEAGUES[1]!} variant="page" label="Your league: Iron III, 380 crowns. Show it" />));
+    const button = screen.getByRole("button", { name: "Your league: Iron III, 380 crowns. Show it" });
+    expect(button).toHaveAttribute("data-league", "iron");
+    // The crowns and the crest alone: no trophy, the page needs no way to itself.
+    expect(button.querySelector("[data-icon=trophy]")).toBeNull();
+    expect(button.querySelector("[data-slot=plate-lead]")).toBeNull();
+    expect(crest(button)).toHaveClass("text-league-iron");
   });
 
   it("a tap anywhere opens the League page", async () => {

@@ -2,7 +2,7 @@ import { formatInteger } from "@paved/game-core";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { useEffect, useRef, useState } from "react";
-import { leagueOf, type LeagueId } from "../../lib/pvp-rules";
+import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { GameIcon } from "../elements/game-icon";
 import { crestClass } from "../elements/league-crest";
@@ -25,10 +25,19 @@ const RING: Record<LeagueId, string> = {
 export interface LeagueControlProps {
   /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wood). */
   crowns: number;
+  /** The league on chain, when it is not that of `crowns` (the League page's, #859); left out, the league of `crowns`. */
+  league?: League;
   /** Opens the League page: a tap anywhere on the control. */
   onLeague?: () => void;
   /** The balances' sizes (issue 828); `auto` (the home's), `sm` on a phone and `md` from `desktop`. */
   size?: PlateSize;
+  /**
+   * `home` (the default): the round League button (`trophy`) over the plate's left end, a tap opening the League page. `page`: the
+   * League page's header (#859), the crowns and the crest alone (the page needs no way to itself), so it fits a 320 px header.
+   */
+  variant?: "home" | "page";
+  /** The button's accessible name, where its tap does something else (the League page's "Show it", #859); the league and the crowns by default. */
+  label?: string;
   className?: string;
 }
 
@@ -39,8 +48,8 @@ export interface LeagueControlProps {
  * ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
  * motion.
  */
-export function LeagueControl({ crowns, onLeague, size = "auto", className }: LeagueControlProps) {
-  const league = leagueOf(crowns);
+export function LeagueControl({ crowns, league: shownLeague, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
+  const league = shownLeague ?? leagueOf(crowns);
   const reduced = useReducedMotionConfig();
   const [promoted, setPromoted] = useState<number | null>(null);
   const shown = useRef(league.index);
@@ -57,16 +66,18 @@ export function LeagueControl({ crowns, onLeague, size = "auto", className }: Le
       data-league={league.id}
       onClick={onLeague}
       whileTap={{ scale: 0.95 }}
-      aria-label={`League: ${league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
+      aria-label={label ?? `League: ${league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
       className={cn("group flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <Plate
         size={size}
-        lead="disc"
+        lead={variant === "home" ? "disc" : undefined}
         leadContent={
-          <PlateDisc size={size} face="button" className="state-layer rounded-full">
-            <GameIcon name="trophy" size="inherit" className={cn("relative", plateIconClass(size))} />
-          </PlateDisc>
+          variant === "home" && (
+            <PlateDisc size={size} face="button" className="state-layer rounded-full">
+              <GameIcon name="trophy" size="inherit" className={cn("relative", plateIconClass(size))} />
+            </PlateDisc>
+          )
         }
         end={
           <PlateDisc size={size}>

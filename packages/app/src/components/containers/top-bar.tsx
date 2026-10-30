@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { documentScrollStartHint } from "../../lib/document-scroll-hint";
 import { Button } from "../ui/button";
@@ -14,6 +14,8 @@ export interface PageHeaderProps {
   onBack?: () => void;
   /** The page's balances (the shell's, #855), on by default; off where a page shows none (an error, the end of an attack). */
   balances?: boolean;
+  /** What the header holds at its top right in place of the balances (the League page's League control, #859). */
+  end?: ReactNode;
   /** The page scrolls as one document (a flow's), so its header draws the fade of the document's top (`documentScrollStartHint`). */
   document?: boolean;
   className?: string;
@@ -27,6 +29,7 @@ export interface PageHeaderProps {
  *   its whole text in the tooltip (the heading's accessible name keeps it whole). No subtitle.
  * - At the top right, the page's balances (#855: only those it uses, `routes/header-balances.ts`), the phone's plates (`pill`)
  *   below `desktop`, the larger ones (`rail`) from it, in the header's row; nothing under the header, so the content starts right under it.
+ *   A page can hold something else there instead (`end`: the League page's League control, #859).
  * - At 320 px the title gives way first (`min-w-0`), never Back nor the balances (`shrink-0`).
  * - In the home's side panel from `desktop` (DESK-PANELS, #762) the page is laid out as on a phone (`data-page-panel`, theme.css): the
  *   phone's plates; a page of the overlay itself has no Back (a click outside the panel or Escape leads to the village; no close button,
@@ -34,7 +37,7 @@ export interface PageHeaderProps {
  * One module with `TopBar`: the route's error page (`RouteError`) carries it in the entry, and the tab pages share it from there;
  * in a module of its own the bundler split it and the balances' slot into two chunks of the first load (`bundle-budget.json`).
  */
-export function PageHeader({ title, onBack, balances = true, document = false, className }: PageHeaderProps) {
+export function PageHeader({ title, onBack, balances = true, end, document = false, className }: PageHeaderProps) {
   const panel = usePagePanel();
   // A sheet's Back closes it (BACK-RULE #783), whatever the page's own.
   const back = panel?.back ?? onBack;
@@ -55,12 +58,13 @@ export function PageHeader({ title, onBack, balances = true, document = false, c
           <MockMarkSlot className="ml-2 align-[0.375rem]" />
         </span>
         <div data-slot="page-header-end" className="flex shrink-0 items-center gap-2">
-          {balances && (
+          {end ??
+            (balances && (
             <>
               <BalancesSlot layout="pill" className="desktop:hidden" />
               <BalancesSlot layout="rail" className="hidden desktop:flex" />
             </>
-          )}
+            ))}
         </div>
       </div>
       <span aria-hidden data-slot="page-top-hint" className="pointer-events-none absolute inset-x-0 top-full h-6 bg-linear-to-t to-background opacity-0 transition-opacity motion-reduce:transition-none page-less:opacity-100" />

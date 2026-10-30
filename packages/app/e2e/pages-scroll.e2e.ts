@@ -57,8 +57,9 @@ const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play", "cobbles"]);
  */
 const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: number }>> = {
   // The league's carousel (#785) and its season: one card each, shorter than a phone since the ladder left, and shorter again
-  // since #833 (one card size, no Attack button): it fits a 560 px window, so a shorter one.
-  league: { phone: 500, desktop: 460 },
+  // since #833 (one card size, no Attack button), and again since #859 (the card alone, no crowns' line): it fits a 500 px
+  // window, so a shorter one.
+  league: { phone: 420, desktop: 340 },
   referral: { phone: 667, desktop: 667 },
   // The Chests page with its modal closed (#784): the day's slots and the tile kept, no list since the modal took the chests.
   chests: { phone: 548, desktop: 560 },

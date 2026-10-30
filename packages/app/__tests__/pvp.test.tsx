@@ -267,19 +267,18 @@ describe("PvP scenes (#647)", () => {
   });
 
   it("league's battle logs without the build's renders (#857): the cards keep their own colour, no image behind", () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} matches={{ ...PVP_MATCHES.shielded, renders: undefined }} />));
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} matches={{ ...PVP_MATCHES.latest, renders: undefined }} />));
     const cards = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
     expect(cards.every((c) => c.querySelector("[data-slot=match-art]") !== null && c.querySelector("[data-slot=match-art] img") === null)).toBe(true);
   });
 
-  it("league's battle logs (#786, #834): the shield, attacks and defences as cards, newest first, each opening its match", async () => {
+  it("league's battle logs (#786, #834): attacks and defences as cards, newest first, each opening its match; no shield (#859)", async () => {
     const onOpenMatch = vi.fn();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} onOpenMatch={onOpenMatch} />));
     expect(screen.getByRole("heading", { level: 2, name: "Battle logs" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Defence log" })).toBeNull();
-    expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "on");
-    expect(screen.getByRole("timer")).toHaveAccessibleName("Shielded, 5 hours 12 minutes left");
-    expect(screen.getByRole("timer")).toHaveTextContent("05h12m");
+    expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
+    expect(screen.queryByText(/shield/i)).toBeNull();
     const cards = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
     expect(cards).toHaveLength(MATCHES.length);
     // Attacks and defences mixed, newest first, each told apart.
@@ -315,7 +314,7 @@ describe("PvP scenes (#647)", () => {
     cleanup();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.matchesEmpty} />));
     expect(screen.getByText(/No match yet/)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "off");
+    expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
   });
 
   it("league's matches: the latest 20, then 20 more with Show more (open point 3); v1's cards have no rewards", async () => {
@@ -332,10 +331,13 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByTestId("match-xp")).toBeNull();
   });
 
-  it("league: crowns, the way to the next league, the season's end", () => {
+  it("league: the crowns in the header, the season's end and its reward in one line (#859)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
-    expect(screen.getByRole("progressbar", { name: "28 crowns to Bronze I" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Your league: Bronze II, 1,172 crowns. Show it" })).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.getByText(/Ends in 4 d 3 h/)).toBeInTheDocument();
+    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II:\s*\+20\s*Cobbles at the season's end$/);
+    expect(screen.queryByText(/claim/i)).toBeNull();
     expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Bronze II");
     cleanup();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wood} />));
@@ -346,8 +348,33 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("heading", { name: "Wood" })).toBeNull();
     expect(screen.getAllByText("Iron III").length).toBeGreaterThan(0);
     expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Iron III");
-    // Held crowns under the floor start the bar empty, never below it.
-    expect((screen.getByRole("progressbar").firstElementChild as HTMLElement).style.transform).toBe("translateX(-100%)");
+    // The header's control and the season's reward follow the chain's league, not the count shown.
+    expect(screen.getByRole("button", { name: "Your league: Iron III, 380 crowns. Show it" })).toHaveAttribute("data-league", "iron");
+    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Iron III:\s*\+10\s*Cobbles at the season's end$/);
+  });
+
+  it("league's season reward (#859): the attacks still needed below 5, none past it; Wood's way to a reward; the end", () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.attacksBelow} />));
+    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II:\s*\+20\s*Cobbles at the season's end$/);
+    expect(screen.getByTestId("season-attacks")).toHaveTextContent("Attack 3 more times this season to earn it");
+    cleanup();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.attacksOneLeft} />));
+    expect(screen.getByTestId("season-attacks")).toHaveTextContent("Attack 1 more time this season to earn it");
+    cleanup();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.attacksAbove} />));
+    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II:\s*\+20\s*Cobbles at the season's end$/);
+    expect(screen.queryByTestId("season-attacks")).toBeNull();
+    cleanup();
+    for (const wood of [PVP_LEAGUE.wood, PVP_LEAGUE.demoted]) {
+      render(wrap(<PvpLeagueScene {...wood} attacks={1} />));
+      expect(screen.getByTestId("season-reward")).toHaveTextContent("Reach Iron III to earn Cobbles at the season's end");
+      expect(screen.queryByTestId("season-attacks")).toBeNull();
+      cleanup();
+    }
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.ended} attacks={2} />));
+    expect(screen.getByText("Its rewards are on their way.")).toBeInTheDocument();
+    expect(screen.queryByTestId("season-reward")).toBeNull();
+    expect(screen.queryByTestId("season-attacks")).toBeNull();
   });
 });
 

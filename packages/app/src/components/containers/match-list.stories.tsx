@@ -7,7 +7,7 @@ import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { MatchCard, MatchList, type MatchCardData } from "./match-list";
 
 /**
- * The League page's battle logs (#786, in place of the defence log; #834): the shield, then the matches as cards one under the
+ * The League page's battle logs (#786, in place of the defence log; #834; no shield since #859): the matches as cards one under the
  * other, newest first, 112 px each (#857). Each card has its side's background behind (#857: renders of the game's own boards,
  * made as the Story campaigns' are; an attack's village in an autumn light, a defence's walled one in a winter light), in
  * colour when crowns were won and in grayscale when they were lost. The other player's
@@ -18,16 +18,15 @@ const meta = {
   title: "Containers/MatchList",
   component: MatchList,
   parameters: { layout: "padded" },
-  args: { ...PVP_MATCHES.shielded, now: MOCK_NOW, onOpen: fn(), onRetry: fn() },
+  args: { ...PVP_MATCHES.latest, now: MOCK_NOW, onOpen: fn(), onRetry: fn() },
   // The League page's card width (`max-w-5xl` less its gutters, 992 px) where a story asks for it (`page`), else a column.
   decorators: [(Story, { parameters }) => <div className={parameters.page ? "mx-auto max-w-5xl px-4" : "mx-auto max-w-xl"}>{Story()}</div>],
 } satisfies Meta<typeof MatchList>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Attacks and defences mixed, the shield up after the latest defence. */
-export const Shielded: Story = {};
-export const Open: Story = { args: PVP_MATCHES.open };
+/** Attacks and defences mixed, newest first; no shield's card (#859). */
+export const Latest: Story = {};
 /** 26 matches: the first 20, then "Show more". */
 export const Many: Story = { args: PVP_MATCHES.many };
 /** v1: no snapshot kept (the match page has no village), and no rewards known: no XP, no chest. */
@@ -35,8 +34,8 @@ export const NoSnapshot: Story = { args: PVP_MATCHES.noSnapshot };
 export const Empty: Story = { args: PVP_MATCHES.empty };
 export const Loading: Story = { args: PVP_MATCHES.loading };
 export const Failed: Story = { args: PVP_MATCHES.error };
-export const ShieldedPhone: Story = { ...PHONE_375 };
-export const ShieldedWide: Story = { ...WIDE_1440 };
+export const LatestPhone: Story = { ...PHONE_375 };
+export const LatestWide: Story = { ...WIDE_1440 };
 
 /** No build renders (no manifest, an older build): the cards keep their own colour behind, nothing else changes. */
 export const NoRenders: Story = { args: { renders: undefined } };

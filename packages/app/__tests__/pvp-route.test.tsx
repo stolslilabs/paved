@@ -290,21 +290,16 @@ describe("receipt-cached attacks and the shield's read", { timeout: slow(30_000)
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
-  it("/pvp/league: a failed shield read is told, never shown as no shield", async () => {
-    await open("/pvp/league", async (s) => {
-      const views = s.sources.views;
-      s.sources.views = new Proxy(views, { get: (t, k) => (k === "pvpShield" ? () => Promise.reject(new Error("Shield RPC unavailable")) : Reflect.get(t, k, t)) });
-    });
-    expect(await screen.findByText(/Shield RPC unavailable/, {}, WAIT)).toBeInTheDocument();
-    expect(screen.queryByText("No shield")).toBeNull();
-  });
 });
 
 describe("the other answers", { timeout: slow(30_000) }, () => {
-  it("/pvp/league: its matches (#786), none yet, no shield (a section, not a page)", async () => {
+  it("/pvp/league: its matches (#786), none yet (a section, not a page); the League control in the header, no balance, no shield (#859)", async () => {
     await open("/pvp/league");
     expect(await screen.findByText(/No match yet/, {}, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Shield" })).toHaveAttribute("data-shield", "off");
+    const header = screen.getByRole("heading", { level: 1, name: "League" }).closest("header")!;
+    expect(within(header).getByRole("button", { name: /^Your league: \w[\w ]*, [\d,]+ crowns?\. Show it$/ })).toBeInTheDocument();
+    expect(within(header).queryAllByRole("region", { name: "Balances" })).toEqual([]);
+    expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
   });
 
   it("/pvp for a guest asks to connect; a network without the PvP says so", async () => {
