@@ -78,10 +78,8 @@ const shots = process.env.PAVED_E2E_SHOTS ?? "";
 
 beforeAll(async () => {
   if (!base) {
-    // The mock, and a devnet burner so the app's pages read a connected player: the mock writes to the device's ledger only.
+    // The mock: its writes go to the device's ledger only. The connector needs no env (the device's local key, #918).
     process.env.VITE_DATA_SOURCE ??= "mock";
-    process.env.VITE_PLAYER_ADDRESS ??= "0x0123456789abcdef";
-    process.env.VITE_PLAYER_PRIVATE_KEY ??= "0x1";
     vite = await createServer({ root: fileURLToPath(new URL("..", import.meta.url)), logLevel: "error", server: { port: 0, host: "127.0.0.1" } });
     await vite.listen();
     const addr = vite.httpServer?.address();
