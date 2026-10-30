@@ -6,7 +6,8 @@
  * and writes the network's classes do not have yet (the Vault, the Cobbles ledger and its claims, the packs, the skins, the avatar, the village, the PvP,
  * Challenge's pause views, Economy's split and seller, the indexer's Cobbles and referrals) come from the device's mock
  * ledger (`data/mock/ledger.ts`); everything else (the games, their moves, the purchase of a game, the settlement, the
- * tokens' balances) stays on the chain.
+ * tokens' balances) stays on the chain. On `mock`, an account's village is founded with it at its first connection
+ * (`mockConnector`, #927); Found stays for `chain`.
  */
 export type DataSourceName = "chain" | "mock";
 
