@@ -1738,8 +1738,10 @@ describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(young));
     s.state.balanceFail = "node down";
     open("/play/challenge", s);
-    // Two Retry: the balance's own, and the check's beside the notice.
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2), { timeout: slow(3000) });
+    // Three Retry once all is read: the header's balances, the USDC balance's own, and the check's beside the notice. (Two was
+    // a passing moment before the header's balances failed too: a loaded machine went from one to three without it.)
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(3), { timeout: slow(3000) });
+    expect(screen.getByText(/Your USDC balance cannot be read/)).toBeInTheDocument();
     expect(screen.getByText(/A purchase is waiting in your wallet/)).toBeInTheDocument();
     expect(screen.getByText(/Dismiss is offered once your wallet's 5 minutes have passed/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
