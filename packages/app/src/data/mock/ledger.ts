@@ -1349,11 +1349,21 @@ export class MockLedger {
     await sleep(this.latency);
     return this.writeV2(account, (_p, v2, hash) => {
       if (v2.layout) throw new V2RefusedError("founded", hash);
-      const layout = starterLayout(BigInt(account));
-      const added = inventoryOf(layout.map((t) => t.plan));
-      v2.inventory = v2.inventory.map((n, i) => n + added[i]!);
-      v2.layout = layout;
-      return [this.event("FreeVillageFounded", { playerId: account, tiles: layout.length, score: layoutScore(layout) })];
+      return this.foundV2(account, v2);
+    });
+  }
+
+  /**
+   * The account's first connection (#927, #753): its free village founded with it, as `foundFreeVillage` founds it, so the home
+   * shows the starter and its 8 tiles and Edit opens. An account whose village is founded already is left as it was, nothing
+   * stored. No latency: the connection's own step, not a write the player sends. Resolves true when it founded the village.
+   */
+  async foundAtConnection(account: string): Promise<boolean> {
+    return this.lock(() => {
+      this.sync();
+      if (this.peek(account).v2?.layout) return false;
+      this.commit(account, (p) => this.foundV2(account, (p.v2 ??= freshV2())));
+      return true;
     });
   }
 
@@ -1765,6 +1775,15 @@ export class MockLedger {
     const rewards = (p.rewards ??= freshRewards());
     rewards.pending += 1;
     return [this.event("AttackFinished", { attacker: account, defender: a.defender, id: a.id, gameId: a.id, score, stars, surrendered, gained, lost })];
+  }
+
+  /** The free village founded on `v2` (not founded yet): the address's starter layout, its tiles into the inventory. */
+  private foundV2(account: string, v2: StoredV2): DecodedEvent[] {
+    const layout = starterLayout(BigInt(account));
+    const added = inventoryOf(layout.map((t) => t.plan));
+    v2.inventory = v2.inventory.map((n, i) => n + added[i]!);
+    v2.layout = layout;
+    return [this.event("FreeVillageFounded", { playerId: account, tiles: layout.length, score: layoutScore(layout) })];
   }
 
   /** A v2 write: `change` works on the player's copy and their v2 state (created on the first write). */
