@@ -99,19 +99,21 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(screen.getByRole("button", { name: "48.50 USDC: Minting…" })).toBeDisabled();
   });
 
-  // #871: the Vault's two plates, PAVED leading to the Challenge: on a phone its "+" only from `mobile` (360 px), so both fit 320 px.
-  it("pill: a row of two plates draws its \"+\" from 360 px only; a lone plate, and the rail, at every width", () => {
-    const plusOf = (container: HTMLElement) => container.querySelector("[data-slot=resource-plus]")!;
+  // #925 (the owner's ruling, 2026-10-30): no "+" on a phone's plate, so #860's one width needs no room for one. From `desktop`
+  // the rail keeps its "+" until #925 removes it everywhere.
+  it("pill: no \"+\" on a phone's plate, in a row of two or alone; the rail's at every width", () => {
+    const plusesOf = (container: HTMLElement) => container.querySelectorAll("[data-slot=resource-plus]");
     const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(vault.container.querySelectorAll("[data-slot=resource-plus]")).toHaveLength(1);
-    expect(plusOf(vault.container)).toHaveClass("hidden", "mobile:grid");
-    expect(plusOf(vault.container).nextElementSibling).toHaveClass("pl-5", "max-mobile:pl-2.5");
+    expect(plusesOf(vault.container)).toHaveLength(0);
     vault.unmount();
     const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
-    expect(plusOf(lone.container)).not.toHaveClass("hidden");
+    expect(plusesOf(lone.container)).toHaveLength(0);
+    // The figure 4 px clear of the icon's half and of the open end (#860's 112 px).
+    expect(lone.container.querySelector(".h-8")).toHaveClass("pr-7", "pl-1");
     lone.unmount();
     const rail = render(wrap(<Balances layout="rail" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(plusOf(rail.container)).not.toHaveClass("hidden");
+    expect(plusesOf(rail.container)).toHaveLength(1);
+    expect(plusesOf(rail.container)[0]).not.toHaveClass("hidden");
   });
 
   it("a balance with no source is a dash", () => {
@@ -346,5 +348,88 @@ describe("ResourcePlate: the change animations (#620)", () => {
     rerender(plate(340n, "always"));
     expect(change(container)).toBeNull();
     expect(container.querySelector(".text-success")).not.toBeNull();
+  });
+});
+
+describe("one width for every currency's plate (#860)", () => {
+  const ZERO: BalancesState = { status: "ready", usdc: 0n, paved: 0n, vpaved: 0n, cobbles: 0 };
+  const HUGE: BalancesState = { status: "ready", usdc: 1_234_567_000_000n, paved: 1_234_567n * 10n ** 18n, vpaved: 1_234_567n * 10n ** 18n, cobbles: 1_234_567 };
+  const KINDS = ["usdc", "paved", "vpaved", "cobbles"] as const;
+  const platesOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>("[data-slot=resource-plate]")];
+  const widthOf = (plate: HTMLElement) => [...plate.classList].filter((c) => /(^|:)w-/.test(c)).join(" ");
+  const boxOf = (plate: HTMLElement) => plate.querySelector<HTMLElement>(".h-8, .h-9")!;
+  const tickerOf = (name: string) => screen.getByRole("button", { name }).querySelector("[data-slot=number-ticker]");
+
+  it.each([
+    ["pill", "w-28"],
+    ["rail", "w-48"],
+  ] as const)("%s: 0 and 1,234,567 of each currency, in a column and in a row, with or without a \"+\", have one width (%s)", (layout, width) => {
+    for (const direction of ["column", "row"] as const)
+      for (const state of [ZERO, HUGE]) {
+        const { container, unmount } = render(wrap(<Balances layout={layout} kinds={KINDS} direction={direction} state={state} faucet />));
+        const plates = platesOf(container);
+        expect(plates).toHaveLength(4);
+        for (const plate of plates) {
+          expect(widthOf(plate)).toBe(width);
+          // The box takes what the ends leave, so the figure never sizes the plate.
+          expect(boxOf(plate)).toHaveClass("flex-1", "min-w-0");
+        }
+        unmount();
+      }
+  });
+
+  it("a lone plate and a header's two share the phone's width and figure", () => {
+    const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
+    const [one] = platesOf(lone.container);
+    const loneWidth = widthOf(one!);
+    const loneBox = boxOf(one!).className;
+    lone.unmount();
+    const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
+    for (const plate of platesOf(vault.container)) {
+      expect(widthOf(plate)).toBe(loneWidth);
+      expect(boxOf(plate)).toHaveClass("text-xs");
+    }
+    expect(loneBox).toContain("text-xs");
+  });
+
+  it("on a phone, at every width, the figure is whole below 10,000 (\"9,999.99\") and compact from it", () => {
+    const widest: BalancesState = { status: "ready", usdc: 9_999_999_999n, paved: 0n, cobbles: 12_345 };
+    render(wrap(<Balances layout="pill" kinds={["usdc", "cobbles"]} direction="column" state={widest} faucet />));
+    expect(tickerOf("9,999.99 USDC: Get test USDC")).toHaveTextContent(/^9,999\.99$/);
+    expect(screen.getByRole("button", { name: "9,999.99 USDC: Get test USDC" })).not.toHaveAttribute("title");
+    expect(tickerOf("12,345 Cobbles: Buy packs")).toHaveTextContent(/^12\.3K$/);
+    expect(screen.getByRole("button", { name: "12,345 Cobbles: Buy packs" })).toHaveAttribute("title", "12,345 Cobbles");
+  });
+
+  it("from desktop the figure is whole below 10,000 and compact from it", () => {
+    const widest: BalancesState = { status: "ready", usdc: 9_999_999_999n, paved: 0n, cobbles: 1_234_567 };
+    render(wrap(<Balances layout="rail" kinds={["usdc", "cobbles"]} state={widest} faucet />));
+    expect(tickerOf("9,999.99 USDC: Get test USDC")).toHaveTextContent(/^9,999\.99$/);
+    expect(screen.getByRole("button", { name: "9,999.99 USDC: Get test USDC" })).not.toHaveAttribute("title");
+    expect(tickerOf("1,234,567 Cobbles: Buy packs")).toHaveTextContent(/^1\.2M$/);
+    expect(screen.getByRole("button", { name: "1,234,567 Cobbles: Buy packs" })).toHaveAttribute("title", "1,234,567 Cobbles");
+  });
+
+  it("a change keeps the width: the plate is the same before and after, the change itself compact", () => {
+    const { container, rerender } = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={ZERO} />));
+    const before = platesOf(container)[0]!.className;
+    rerender(wrap(<Balances layout="pill" kinds={["cobbles"]} state={HUGE} />));
+    expect(platesOf(container)[0]!.className).toBe(before);
+    expect(container.querySelector("[data-slot=resource-change]")).toHaveTextContent("+1.2M");
+  });
+
+  it("loading: each skeleton takes its plate's width, nothing moves when the figures arrive", () => {
+    for (const [layout, width] of [["pill", "w-28"], ["rail", "w-48"]] as const) {
+      const { container, unmount } = render(wrap(<Balances layout={layout} kinds={["usdc", "cobbles"]} state={{ status: "loading" }} />));
+      const holds = container.querySelectorAll("[data-slot=skeleton]");
+      expect(holds).toHaveLength(2);
+      for (const hold of holds) expect(hold).toHaveClass(width);
+      unmount();
+    }
+  });
+
+  it("a plate without `fixed` fits its content (the League's and the shield's plates, not currencies)", () => {
+    const { container } = render(wrap(<ResourcePlate kind="usdc" amount={1n} decimals={6} fraction={2} />));
+    expect(widthOf(platesOf(container)[0]!)).toBe("");
   });
 });
