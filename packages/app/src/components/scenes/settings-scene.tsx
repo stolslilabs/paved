@@ -1,7 +1,7 @@
 import type { Tab } from "../../routes/pages";
-import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { ShortAddress } from "../elements/short-address";
 import { ShowSkinsSwitch } from "../elements/setting-switch";
@@ -20,6 +20,8 @@ export interface Account {
   address: string;
   /** The player's username, when there is one. */
   name: string | null;
+  /** The look they saved (#626; a new player's drawn one on the mock, #926); null or omitted: the initial. */
+  look?: bigint | null;
 }
 
 export interface SettingsSceneProps {
@@ -63,9 +65,7 @@ export function SettingsScene(props: SettingsSceneProps) {
           <SettingsGroup title="Account">
             {account ? (
               <div className="flex items-center gap-3 py-2.5">
-                <Avatar className="size-9">
-                  <AvatarFallback className="bg-secondary font-semibold text-primary">{(account.name ?? account.address.slice(2, 3)).slice(0, 1).toUpperCase()}</AvatarFallback>
-                </Avatar>
+                <PlayerAvatar player={account} look={account.look} className="size-9 p-0" />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <PlayerName name={account.name} address={account.address} className="text-sm font-semibold" />
                   {/* The status and the address are two pieces that never break inside: in a narrow column the address goes

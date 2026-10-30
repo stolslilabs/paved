@@ -1,4 +1,5 @@
 import { SettingsScene, type Account, type Preferences } from "../../components/scenes/settings-scene";
+import { savedLook, useAvatar } from "../../data/avatar";
 import { autoQuality, deviceSettings, useDeviceSettings, withVolume } from "../../data/settings";
 import { useShowSkins } from "../../data/skins";
 import { version } from "../../../package.json";
@@ -10,7 +11,7 @@ import { useAppNavigate, useBack, useTabNavigate } from "../ref";
  * `/settings` (P11a, sections 6.1 and 6.4). The device settings (`useDeviceSettings`: graphics quality, sound, music, tile
  * preview, placement highlight) and the viewer's switch for the other players' skins (`useShowSkins`) are kept on this device;
  * the board reads the same stores, so a change applies to an open board. The account is the wallet's (`useWallet`): the
- * username, or the short address, with Disconnect (then Home, `?ref=` kept) or Connect for a guest, and Reset (a new key and account on this device, for testing: #918). The two volume sliders (music, sound effects) keep the volume and the level before a mute (`withVolume`). The data layer's types are the chain-free ones (no value import of
+ * username, or the short address, and the saved look, with Disconnect (then Home, `?ref=` kept) or Connect for a guest, and Reset (a new key and account on this device, for testing: #918). The two volume sliders (music, sound effects) keep the volume and the level before a mute (`withVolume`). The data layer's types are the chain-free ones (no value import of
  * `@paved/chain` in this chunk).
  */
 export default function Page() {
@@ -22,7 +23,8 @@ export default function Page() {
   const [settings, set] = useDeviceSettings();
   const [showSkins, setShowSkins] = useShowSkins();
 
-  const account: Account | null = wallet.address ? { address: wallet.address, name: wallet.username } : null;
+  const look = savedLook(useAvatar(wallet.address).data);
+  const account: Account | null = wallet.address ? { address: wallet.address, name: wallet.username, look } : null;
   const preferences: Preferences = { ...settings, showSkins };
 
   return (
