@@ -24,6 +24,8 @@ export interface CameraInputAdapter {
   /** OrbitControls' pan in the screen's plane (true, its default) or on the ground (false: the Camera mode's). */
   screenSpacePanning?: boolean;
   enableDamping: boolean;
+  /** The damping's share of a pending move spent each step (OrbitControls' default 0.05). */
+  dampingFactor?: number;
   zoomToCursor: boolean;
   zoomSpeed: number;
   panSpeed: number;
@@ -168,6 +170,8 @@ export class CameraController {
   /** The touches on the surface (pointer id to its place), for the Camera mode's two-finger twist; and the last twist's angle. */
   private touches = new Map<number, { x: number; y: number }>();
   private twistAngle: number | null = null;
+  /** The twist's turn not applied yet: `update` spends it with the damping, so it glides as a drag does. */
+  private twistPending = 0;
   private unbindTwist: (() => void) | null = null;
   /** A drag, pinch or wheel under way (`start` to `end` of the controls). */
   private interacting = false;
@@ -237,10 +241,9 @@ export class CameraController {
       this.touches.set(p.pointerId, { x: p.clientX, y: p.clientY });
       const angle = this.touchAngle();
       if (angle !== null && this.twistAngle !== null && this.mode === "free" && !this.returning) {
-        // The fingers' turn on the screen (y down: clockwise is positive), the shorter way; the village turns with them.
-        const delta = Math.atan2(Math.sin(angle - this.twistAngle), Math.cos(angle - this.twistAngle));
-        const { polar, azimuth } = this.getAngles();
-        this.placeAt(polar, azimuth + delta);
+        // The fingers' turn on the screen (y down: clockwise is positive), the shorter way; the village turns with them, through
+        // the damping (`stepTwist`).
+        this.twistPending += Math.atan2(Math.sin(angle - this.twistAngle), Math.cos(angle - this.twistAngle));
         this.moved = true;
       }
       this.twistAngle = angle;
@@ -304,6 +307,7 @@ export class CameraController {
       this.stepReturn(now);
       changed = true;
     }
+    if (this.mode === "free" && this.stepTwist()) changed = true;
     if (this.mode === "free" && this.keepOnGround()) changed = true;
     if (this.mode === "free" && this.keepClear()) changed = true;
     if (this.mode === "showcase" || !this.boardBounds) {
@@ -331,6 +335,21 @@ export class CameraController {
   getAngles(): { polar: number; azimuth: number } {
     const s = SPHERICAL.setFromVector3(OFFSET.subVectors(this.camera.position, this.controls.target));
     return { polar: s.phi, azimuth: s.theta };
+  }
+
+  /**
+   * The twist's step (#875: every change glides): the damping's share of the turn pending, as OrbitControls spends a drag's, so the
+   * village follows the fingers a little behind and glides on after they lift; all of it at once without damping. True when it moved.
+   */
+  private stepTwist(): boolean {
+    if (this.twistPending === 0) return false;
+    // The last few millionths at once, so the glide ends on the fingers' whole turn.
+    const tail = Math.abs(this.twistPending) < 1e-5 || !this.controls.enableDamping;
+    const step = tail ? this.twistPending : this.twistPending * (this.controls.dampingFactor ?? 0.05);
+    this.twistPending -= step;
+    const { polar, azimuth } = this.getAngles();
+    this.placeAt(polar, azimuth + step);
+    return true;
   }
 
   /**
@@ -442,6 +461,7 @@ export class CameraController {
         TWO: THREE.TOUCH.DOLLY_PAN,
       };
       this.controls.screenSpacePanning = true;
+      this.twistPending = 0;
       if (from === "free") {
         const { polar, azimuth } = this.getAngles();
         // Open while it eases (the controls would clamp the camera to the locks at once); the next update starts the clock.
@@ -462,6 +482,7 @@ export class CameraController {
 
     // Leaving play mid-return: the camera stays where the return had it, and the new mode's bounds hold from there.
     this.returning = null;
+    this.twistPending = 0;
     this.controls.enableRotate = true;
     // The Camera mode pans on the ground: at a low tilt a drag up goes forward, never under the board.
     this.controls.screenSpacePanning = mode !== "free";

@@ -371,7 +371,7 @@ describe("CameraController Camera mode (#875)", () => {
     /** Two fingers 100 px either side of (200, 400), turned `turn` radians on the screen (clockwise positive, y down). */
     const fingers = (turn: number) => [0, Math.PI].map((a) => ({ x: 200 + 100 * Math.cos(a + turn), y: 400 + 100 * Math.sin(a + turn) }));
 
-    it("turns the village with two fingers turning about their midpoint, in the Camera mode", () => {
+    it("turns the village with two fingers turning about their midpoint, in the Camera mode, gliding with the damping", () => {
       const { target, send } = surface();
       const controller = new CameraController(target);
       controller.setMode("free");
@@ -384,15 +384,26 @@ describe("CameraController Camera mode (#875)", () => {
         send("pointermove", 1, c!.x, c!.y);
         send("pointermove", 2, d!.x, d!.y);
       }
-      // A quarter turn clockwise on the screen: the camera a quarter turn round, the tilt, the distance and the target kept.
-      expect(controller.getAngles().azimuth).toBeCloseTo(Math.PI / 2, 6);
-      expect(controller.getAngles().polar).toBeCloseTo(deg(45), 9);
-      expect(controller.camera.position.distanceTo(controller.controls.target)).toBeCloseTo(120, 9);
       expect(controller.userMoved).toBe(true);
-      // One finger lifted: no more twist.
+      // Nothing jumps: the turn goes through the damping, step by step.
+      expect(controller.getAngles().azimuth).toBeCloseTo(0, 9);
+      // The fingers lift; the village glides on, slower and slower, to a quarter turn clockwise on the screen.
       send("pointerup", 2, 0, 0);
       send("pointermove", 1, 0, 0);
-      expect(controller.getAngles().azimuth).toBeCloseTo(Math.PI / 2, 6);
+      const turns: number[] = [];
+      for (let t = 0; t < 400; t++) {
+        controller.update(t * 16);
+        turns.push(controller.getAngles().azimuth);
+      }
+      const steps = turns.map((a, i) => a - (turns[i - 1] ?? 0));
+      expect(steps[0]!).toBeGreaterThan(0);
+      for (let i = 1; i < 60; i++) expect(steps[i]!).toBeLessThan(steps[i - 1]!);
+      expect(turns[59]!).toBeLessThan(Math.PI / 2 - 0.01);
+      expect(turns[turns.length - 1]!).toBeCloseTo(Math.PI / 2, 6);
+      // The tilt, the distance and the target kept; done gliding, nothing moves.
+      expect(controller.getAngles().polar).toBeCloseTo(deg(45), 9);
+      expect(controller.camera.position.distanceTo(controller.controls.target)).toBeCloseTo(120, 9);
+      expect(controller.update(10_000)).toBe(false);
       controller.dispose();
     });
 
@@ -411,9 +422,11 @@ describe("CameraController Camera mode (#875)", () => {
         send("pointerup", 2, 0, 0, type);
       };
       twist();
+      for (let t = 0; t < 100; t++) controller.update(t * 16);
       expect(controller.getAngles().azimuth).toBeCloseTo(0, 9);
       controller.setMode("free");
       twist("mouse");
+      for (let t = 0; t < 100; t++) controller.update(t * 16);
       expect(controller.getAngles().azimuth).toBeCloseTo(0, 9);
     });
   });
