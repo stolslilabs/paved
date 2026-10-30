@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LeagueControl } from "../src/components/containers/league-control";
+import { DataProvider, type DataSources } from "../src/data/sources";
 import { LEAGUES, leagueOf } from "../src/lib/pvp-rules";
 
 const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
@@ -56,6 +58,26 @@ describe("LeagueControl (#829)", () => {
     expect(screen.getByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
     rerender(wrap(<LeagueControl />));
     expect(screen.getByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
+  });
+
+  it("the home's read in the app: with no crowns and no attack settled, Unranked only if the player never attacked", async () => {
+    const withAttack = (id: number) => {
+      const sources = { views: { pvpAttack: async () => ({ id }) }, signer: { address: "0x0abc" } } as unknown as DataSources;
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return wrap(
+        <QueryClientProvider client={client}>
+          <DataProvider sources={sources}>
+            <LeagueControl crowns={0} attacks={0} />
+          </DataProvider>
+        </QueryClientProvider>,
+      );
+    };
+    // A first attack open (or one made before the season): Wood, as the League page says.
+    const { unmount } = render(withAttack(1));
+    expect(await screen.findByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
+    unmount();
+    render(withAttack(0));
+    await waitFor(() => expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked"));
   });
 
   it("Unranked (no crowns, no attack): Unranked's crest, named so", () => {

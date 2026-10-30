@@ -4,9 +4,10 @@ import { TabFrame } from "../../components/containers/tab-frame";
 import type { MatchCardData } from "../../components/containers/match-list";
 import { PvpLeagueScene, type PvpLeagueSceneProps } from "../../components/scenes/pvp-league-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
-import type { PvpPlayer } from "../../lib/pvp-rules";
+import { LEAGUES, type PvpPlayer } from "../../lib/pvp-rules";
 import { addressKey, queryKeys } from "../../data/keys";
 import { layoutBoard, useMatchesV2 } from "../../data/matches";
+import { isUnranked } from "../../data/pvp-standing";
 import { pvpKeys, useAttackLog, useDefenceLog, usePvpStatus, useSeasonSpan } from "../../data/pvp";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useTileRenders } from "../../data/tile-renders";
@@ -56,7 +57,7 @@ export default function Page() {
       league={league.league}
       season={season}
       now={now}
-      unranked={league.crowns === 0 && league.attacks === 0 && status.data?.attack.id === 0}
+      unranked={status.data ? isUnranked(league, status.data.attack) : false}
       attacks={season ? league.attacks : undefined}
       onBack={onBack}
       onNavigate={onNavigate}
@@ -89,6 +90,8 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
           id: m.id,
           side: m.side,
           rival: playerOf(m.rival.address, m.rival.name, m.rival.level, m.rival.look),
+          // The rival's league where the sources know it (#917): its crest on the card.
+          ...(m.rival.league !== undefined && { league: LEAGUES[m.rival.league] }),
           village: layoutBoard(m.village),
           stars: m.stars,
           crowns: m.crowns,

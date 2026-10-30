@@ -1,7 +1,9 @@
 import { formatInteger } from "@paved/game-core";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { DataContext, type DataSources } from "../../data/sources";
+import { isUnranked, usePvpLastAttack } from "../../data/pvp-standing";
 import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { GameIcon } from "../elements/game-icon";
@@ -28,9 +30,13 @@ export interface LeagueControlProps {
   crowns?: number;
   /** The league on chain, when it is not that of `crowns` (the League page's, #859); left out, the league of `crowns`. */
   league?: League;
-  /** The player has not entered the leagues: Unranked's crest (issue 917), its name in the label. Left out, no crowns and no attack. */
+  /**
+   * The player has not entered the leagues (`isUnranked`): Unranked's crest (issue 917), its name in the label. Left out, decided from
+   * `attacks`: with no crowns and no attack settled, the control reads whether the player ever attacked (`Arena.attack`, where the
+   * app's sources are; without them, as never).
+   */
   unranked?: boolean;
-  /** The attacks settled this season (`Matchmaker.league`, the home's read): with no crowns and none, Unranked. */
+  /** The attacks settled this season (`Matchmaker.league`, the home's read). */
   attacks?: number;
   /** Opens the League page: a tap anywhere on the control. */
   onLeague?: () => void;
@@ -53,7 +59,22 @@ export interface LeagueControlProps {
  * ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
  * motion.
  */
-export function LeagueControl({ crowns = 0, league: shownLeague, attacks, unranked = crowns === 0 && attacks === 0, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
+export function LeagueControl(props: LeagueControlProps) {
+  const sources = useContext(DataContext);
+  const crowns = props.crowns ?? 0;
+  const maybe = props.unranked === undefined && crowns === 0 && props.attacks === 0;
+  if (maybe && sources?.signer) return <ReadUnranked {...props} sources={sources} playerId={sources.signer.address} />;
+  return <ControlView {...props} unranked={props.unranked ?? maybe} />;
+}
+
+/** No crowns and no attack settled: Unranked unless the player ever attacked (an attack open, or one before the season). */
+function ReadUnranked({ sources, playerId, ...props }: LeagueControlProps & { sources: DataSources; playerId: string }) {
+  const attack = usePvpLastAttack(sources, playerId);
+  // While read, Unranked: a player with no crowns and no attack settled has most likely never attacked.
+  return <ControlView {...props} unranked={attack === undefined || (attack !== null && isUnranked({ crowns: 0, attacks: 0 }, attack))} />;
+}
+
+function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
   const league = shownLeague ?? leagueOf(crowns);
   const tier = unranked ? "unranked" : tierOf(league);
   const reduced = useReducedMotionConfig();
